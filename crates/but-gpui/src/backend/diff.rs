@@ -499,7 +499,10 @@ fn load_file(
     // Annotated as this load would, its scopes no wider or narrower.
     let up_to_date = |old: &FileDiff| old.annotated && old.scope_lines == scope_lines;
     let reuse = |old: &FileDiff, file| FileDiff {
-        file,
+        file: FileChange {
+            converted: old.file.converted,
+            ..file
+        },
         body: old.body.clone(),
         fingerprint: old.fingerprint,
         annotated: up_to_date(old),
@@ -531,6 +534,13 @@ fn load_file(
         .change
         .unified_patch_with_filter(repo, context_lines, &mut filter)?;
     let fingerprint = fingerprint(&file, &patch);
+    let converted = matches!(
+        patch,
+        Some(but_core::UnifiedPatch::Patch {
+            is_result_of_binary_to_text_conversion: true,
+            ..
+        })
+    );
     if let Some(old) = (previous.filter(|old| old.fingerprint == fingerprint && up_to_date(old)))
         .filter(|old| !old.file.conflicted)
     {
@@ -610,7 +620,7 @@ fn load_file(
         .then(|| svg_drawing(repo, &file))
         .flatten();
     Ok(FileDiff {
-        file,
+        file: FileChange { converted, ..file },
         body,
         fingerprint,
         annotated,

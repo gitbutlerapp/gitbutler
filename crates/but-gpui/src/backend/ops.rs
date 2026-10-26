@@ -144,6 +144,7 @@ pub(super) fn changes_source(worktree: Option<&str>) -> ChangesSource {
 /// [`selected_specs`] to take out of a commit or the worktree, refusing some of a file that
 /// can only be taken whole, as the rest would go along.
 fn taken_specs(selected: &[Selected]) -> Result<Vec<DiffSpec>> {
+    refuse_converted(selected)?;
     if let Some(part) =
         (selected.iter()).find(|part| part.file.whole_only() && part.hunks.is_some())
     {
@@ -155,6 +156,20 @@ fn taken_specs(selected: &[Selected]) -> Result<Vec<DiffSpec>> {
         bail!("Only all of {} can be taken out, as {why}", part.file.path);
     }
     Ok(selected_specs(selected))
+}
+
+/// Refuse taking part of a file whose diff a `textconv` filter made, as for an encrypted or
+/// binary file: its hunks are lines of that readable copy, and applying one would splice them
+/// into the file.
+fn refuse_converted(selected: &[Selected]) -> Result<()> {
+    match (selected.iter()).find(|part| part.file.converted && part.hunks.is_some()) {
+        Some(part) => bail!(
+            "Only all of {} can be taken, as its diff is a copy a textconv filter made for \
+             reading, not its own lines",
+            part.file.path
+        ),
+        None => Ok(()),
+    }
 }
 
 /// Whole files, or just some of their hunks.
@@ -347,6 +362,7 @@ pub fn commit(
     let unborn = ctx.repo.get()?.head()?.is_unborn();
     refuse_unfinished(&checkout(&ctx, worktree)?, worktree.is_none())?;
     refuse_conflicted(&ctx, worktree, selected)?;
+    refuse_converted(selected)?;
     // The hooks run in the main checkout, not where a linked worktree's changes are.
     let run_hooks = run_hooks && worktree.is_none();
     // No changes make an empty commit.
@@ -675,6 +691,7 @@ pub fn amend(
     let mut ctx = open(path)?;
     refuse_unfinished(&checkout(&ctx, worktree)?, worktree.is_none())?;
     refuse_conflicted(&ctx, worktree, selected)?;
+    refuse_converted(selected)?;
     let run_hooks = run_hooks && worktree.is_none();
     let changes = selected_specs(selected);
     if run_hooks {
@@ -1628,6 +1645,50 @@ pub(super) mod tests {
                 lines.concat(),
                 "the worktree keeps the last edit, now uncommitted"
             );
+        })
+    }
+
+    #[test]
+    fn a_hunk_of_a_textconv_diff_is_refused_rather_than_spliced_in() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let mut lines: Vec<String> = twenty_lines();
+            let dir = repo_with(&lines.concat());
+            let path = dir.path();
+            // As git-crypt shows an encrypted file: `cat` stands in for the decryption.
+            git(path, &["config", "diff.plain.textconv", "cat"]);
+            std::fs::write(path.join(".gitattributes"), "file diff=plain\n").unwrap();
+            git(path, &["add", ".gitattributes"]);
+            git(path, &["commit", "-qm", "attributes"]);
+            lines[0] = "first edit\n".into();
+            lines[19] = "last edit\n".into();
+            std::fs::write(path.join("file"), lines.concat()).unwrap();
+
+            let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
+            let first_hunk = diff[0].part(Some(vec![diff[0].hunks()[0].key]));
+            let branch = Destination::Branch("refs/heads/main".into());
+            let err = commit(
+                path,
+                &branch,
+                std::slice::from_ref(&first_hunk),
+                None,
+                "part",
+                false,
+            )
+            .expect_err("a hunk of the converted copy isn't one of the file");
+            assert!(err.to_string().contains("textconv"), "{err}");
+            discard(path, None, &[first_hunk], false).expect_err("nor is one to discard");
+            assert_eq!(
+                std::fs::read_to_string(path.join("file")).unwrap(),
+                lines.concat(),
+                "the file is as it was"
+            );
+            git(path, &["commit", "-qam", "both edits"]);
+            let commit = head(path);
+            let diff = load_diff(path, DiffSource::Commit(commit), None, None, None, None).unwrap();
+            let first_hunk = diff[0].part(Some(vec![diff[0].hunks()[0].key]));
+            let err = uncommit_files(path, commit, &[first_hunk])
+                .expect_err("nor is one of a commit's to take out");
+            assert!(err.to_string().contains("textconv"), "{err}");
         })
     }
 

@@ -855,6 +855,7 @@ fn file_change(change: but_core::TreeChange) -> FileChange {
         size: None,
         conflicted: false,
         lines: None,
+        converted: false,
         change,
     }
 }

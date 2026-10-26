@@ -676,30 +676,34 @@ pub struct FileChange {
     /// The lines it adds and removes, counted for uncommitted files while there are few
     /// enough to read them all.
     pub lines: Option<(u32, u32)>,
+    /// Its diff, as read, is a copy a `textconv` filter made for reading, as of an encrypted or
+    /// binary file: its hunks aren't the file's own lines, so it's taken whole or not at all.
+    pub converted: bool,
     /// What the backend needs to diff or move this change again.
     pub(crate) change: but_core::TreeChange,
 }
 
 impl FileChange {
     /// Whether it can only be taken whole, as GitButler can't take some of its hunks: it's
-    /// added or deleted, or a side of it isn't a plain file, as a link isn't.
+    /// added or deleted, a side of it isn't a plain file, as a link isn't, or it's `converted`.
     pub fn whole_only(&self) -> bool {
         use gix::object::tree::EntryKind as K;
         let plain =
             |state: &but_core::ChangeState| matches!(state.kind, K::Blob | K::BlobExecutable);
-        match &self.change.status {
-            but_core::TreeStatus::Modification {
-                previous_state,
-                state,
-                ..
+        self.converted
+            || match &self.change.status {
+                but_core::TreeStatus::Modification {
+                    previous_state,
+                    state,
+                    ..
+                }
+                | but_core::TreeStatus::Rename {
+                    previous_state,
+                    state,
+                    ..
+                } => !plain(previous_state) || !plain(state),
+                _ => true,
             }
-            | but_core::TreeStatus::Rename {
-                previous_state,
-                state,
-                ..
-            } => !plain(previous_state) || !plain(state),
-            _ => true,
-        }
     }
 
     /// What changed about the file other than its lines: its executable bit, or whether
