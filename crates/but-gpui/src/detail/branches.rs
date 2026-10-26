@@ -1323,7 +1323,7 @@ impl Detail {
                             let (_, commits) = branches.commits.get(&ref_name)?;
                             let commit = commits.get(*commit_ix)?;
                             let id = commit.id;
-                            let label: SharedString = commit.title.clone().into();
+                            let label = crate::ui::commit_title(&commit.title);
                             let project = branches.project.clone();
                             // A picked one takes the others picked along.
                             let ids = branches.cherry_picks(id);

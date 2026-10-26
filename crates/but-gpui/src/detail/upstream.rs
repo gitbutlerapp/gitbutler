@@ -46,10 +46,11 @@ fn opening(summary: Option<&Overview>, commits: &[TargetCommit]) -> Option<Picke
 
 /// What a target commit is called: the pull request it landed, by its title, as Lite names
 /// it, or else the commit's own title.
-fn label(commit: &TargetCommit) -> &str {
-    (commit.review.as_ref())
-        .filter(|review| !review.title.is_empty())
-        .map_or(&commit.title, |review| &review.title)
+fn label(commit: &TargetCommit) -> SharedString {
+    match (commit.review.as_ref()).filter(|review| !review.title.is_empty()) {
+        Some(review) => review.title.clone().into(),
+        None => crate::ui::commit_title(&commit.title),
+    }
 }
 
 /// How many target commits a page holds.
@@ -632,7 +633,7 @@ impl Detail {
             .collect::<Vec<_>>()
             .join("\n");
         let shown = shown.trim().to_owned();
-        let title = label(commit).to_owned();
+        let title = label(commit).to_string();
         let open = self.message_open;
         let toggle = (!shown.is_empty()).then(|| {
             let label = match open {
@@ -1768,7 +1769,7 @@ impl Detail {
                                         .min_w_0()
                                         .truncate()
                                         .when(!incoming && !on, |el| el.text_color(theme.text_2))
-                                        .child(SharedString::from(label(commit).to_owned()))
+                                        .child(label(commit))
                                         .when_some(tip, |el, tip| el.tooltip(Tooltip::text(tip))),
                                 )
                                 // Who wrote it, as on the Branches page.
