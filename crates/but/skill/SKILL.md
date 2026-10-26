@@ -23,6 +23,9 @@ but status
 # File IDs, per-commit files, amend details:
 but status -fv
 
+# What one applied branch or commit changed, for review:
+but diff <branch-or-commit>
+
 # Details for one known branch or commit:
 but show <id>
 ```
