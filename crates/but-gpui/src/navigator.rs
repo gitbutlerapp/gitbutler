@@ -284,8 +284,12 @@ pub struct Navigator {
     pub(crate) list: ListState,
     /// The selection changed: scroll to it once the rows are up to date.
     reveal_selection: bool,
-    /// Branches showing all their commits instead of the first few.
-    unfolded_branches: HashSet<(ProjectId, String)>,
+    /// Branches showing all their commits, or the first few, against how Settings say open
+    /// branches list them: the first few, unless they say all.
+    flipped_folds: HashSet<(ProjectId, String)>,
+    /// Whether open branches list all their commits, as the fold flips were made against.
+    /// When Settings change it, the flips go as `flipped` does.
+    all_branch_commits: bool,
     /// Branches, here or on other machines, folded or opened against how Settings say
     /// branches start: folded, unless they say open. A branch with the selected commit shows
     /// its commits either way.
@@ -380,11 +384,15 @@ impl Navigator {
                 }
             }),
             cx.observe(&store, |this, store, cx| {
-                let start_open = store.read(cx).prefs.branches_start_open;
-                if this.branches_start_open != start_open {
-                    this.branches_start_open = start_open;
+                let prefs = &store.read(cx).prefs;
+                if this.branches_start_open != prefs.branches_start_open {
+                    this.branches_start_open = prefs.branches_start_open;
                     this.flipped.clear();
                     this.click_opened = None;
+                }
+                if this.all_branch_commits != prefs.all_branch_commits {
+                    this.all_branch_commits = prefs.all_branch_commits;
+                    this.flipped_folds.clear();
                 }
                 cx.notify()
             }),
@@ -393,7 +401,7 @@ impl Navigator {
                 StoreEvent::Loaded(_) | StoreEvent::MeshRead(_) => this.hold_still = true,
                 // A renamed branch stays open or folded as it was.
                 StoreEvent::Renamed(project, from, to) => {
-                    for set in [&mut this.unfolded_branches, &mut this.folded_stacks] {
+                    for set in [&mut this.flipped_folds, &mut this.folded_stacks] {
                         if set.remove(&(project.clone(), from.clone())) {
                             set.insert((project.clone(), to.clone()));
                         }
@@ -418,7 +426,9 @@ impl Navigator {
             // Dragging the uncommitted changes carries the checked ones.
             cx.subscribe(&detail, |_, _, _: &ChecksChanged, cx| cx.notify()),
         ];
-        let branches_start_open = store.read(cx).prefs.branches_start_open;
+        let prefs = &store.read(cx).prefs;
+        let (branches_start_open, all_branch_commits) =
+            (prefs.branches_start_open, prefs.all_branch_commits);
         Self {
             app,
             store,
@@ -429,7 +439,8 @@ impl Navigator {
             guides: Vec::new(),
             list: ListState::new(0, ListAlignment::Top, fixed(56.)),
             reveal_selection: false,
-            unfolded_branches: HashSet::new(),
+            flipped_folds: HashSet::new(),
+            all_branch_commits,
             flipped: HashSet::new(),
             click_opened: None,
             click_just_opened: false,
@@ -599,7 +610,8 @@ impl Navigator {
             .position(|row| matches!(row, Row::Item(item) if Some(item) == selection));
         match at.and_then(|at| self.rows.get(at + 1)) {
             Some(Row::More(project, ref_name, _)) => {
-                (self.unfolded_branches).insert((project.clone(), ref_name.clone()))
+                self.set_unfolded((project.clone(), ref_name.clone()), true);
+                true
             }
             Some(Row::MoreProjects(_)) => !std::mem::replace(&mut self.projects_unfolded, true),
             _ => false,
@@ -674,6 +686,20 @@ impl Navigator {
             self.flipped.insert(branch);
         }
         cx.notify();
+    }
+
+    /// Whether the branch at `key` lists all its commits: as Settings say, unless folded or
+    /// unfolded since.
+    fn unfolded(&self, key: &(ProjectId, String)) -> bool {
+        self.all_branch_commits != self.flipped_folds.contains(key)
+    }
+
+    /// List all the commits of the branch at `key`, or only the first few, by hand.
+    fn set_unfolded(&mut self, key: (ProjectId, String), unfolded: bool) {
+        match unfolded == self.all_branch_commits {
+            true => self.flipped_folds.remove(&key),
+            false => self.flipped_folds.insert(key),
+        };
     }
 
     /// Open a branch's commits for a plain click on its row, and fold the ones the last
@@ -1100,7 +1126,7 @@ impl Navigator {
                 under_commits("more", Icon::Kebab)
                     .child(format!("{hidden} more"))
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        this.unfolded_branches.insert(key.clone());
+                        this.set_unfolded(key.clone(), true);
                         cx.notify();
                     }))
                     .into_any_element()
@@ -1110,7 +1136,7 @@ impl Navigator {
                 under_commits("fewer", Icon::ChevronUp)
                     .child("Show fewer")
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        this.unfolded_branches.remove(&key);
+                        this.set_unfolded(key.clone(), false);
                         this.hold_still = true;
                         cx.notify();
                     }))

@@ -585,6 +585,17 @@ impl SettingsView {
                 ),
             ),
             Row::new(
+                "Show all of a branch's commits",
+                "An open branch in the navigator lists every commit it has. Off, it lists the \
+                 first eight, then how many more, which a click lists too.",
+                self.pref_switch(
+                    "all-branch-commits",
+                    prefs.all_branch_commits,
+                    |p| p.all_branch_commits ^= true,
+                    cx,
+                ),
+            ),
+            Row::new(
                 "Open branches on click",
                 "Clicking a branch in the navigator lists its commits too, and folds the ones the \
                  last click listed. Off, a click only selects it.",
