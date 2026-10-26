@@ -388,6 +388,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         let lane = (info.worktrees.iter()).find(|lane| lane.name == worktree.name.as_ref());
         let segments = lane.iter().flat_map(|lane| &lane.segments);
         worktree.branches = worktree_branches(&ctx, &cached, segments, &stacks);
+        worktree.rests_on = lane.and_then(|lane| lane.lane().rests_on).map(CommitId);
     }
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "loaded workspace");
     let target_branch = (meta.and_then(|meta| meta.target_ref)).map(|name| name.to_string());

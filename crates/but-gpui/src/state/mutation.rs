@@ -902,6 +902,9 @@ impl Store {
             return;
         }
         let pulled = project.clone();
+        // The oplog can't take back what a linked worktree's branch was rebased to.
+        let undoable =
+            (self.worktree_of(&Selection::Branch(project.clone(), ref_name.clone()))).is_none();
         self.run(
             project,
             Label::new("Pull", format!("Pull {name}")),
@@ -916,17 +919,18 @@ impl Store {
                     if !found.is_empty() && accepted.as_ref() != Some(&found) {
                         return Ok(Some(found));
                     }
-                    backend::pull_remote(path, &ref_name, false).map(|()| None)
+                    backend::pull_remote(path, &ref_name, false, None).map(|()| None)
                 }
             },
             move |store, found: Option<Vec<(String, usize)>>, cx| {
                 let Some(found) = found else {
-                    return store.snack_undoable(format!("Pulled into {name}"), cx);
+                    return store.snack_after(undoable, format!("Pulled into {name}"), cx);
                 };
                 let detail = format!(
                     "Rebasing onto the remote's commits leaves conflicted commits in {}. \
-                     You can resolve them afterwards, or undo the pull.",
-                    commit_counts(&found)
+                     You can resolve them afterwards{}.",
+                    commit_counts(&found),
+                    if undoable { ", or undo the pull" } else { "" },
                 );
                 store.error_with_retry(
                     store.card_title(&pulled, "Pulling leaves conflicts".into()),

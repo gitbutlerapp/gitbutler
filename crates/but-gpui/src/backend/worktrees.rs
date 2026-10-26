@@ -50,6 +50,7 @@ pub(super) fn linked(
                 path: listed.path,
                 branch: listed.ref_name.map(|name| name.shorten().to_string()),
                 branches: Vec::new(),
+                rests_on: None,
                 uncommitted,
                 git_operation,
                 tree,

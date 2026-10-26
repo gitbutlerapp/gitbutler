@@ -953,6 +953,7 @@ pub(super) mod tests {
                 path: "/agent".into(),
                 branch: None,
                 branches: linked,
+                rests_on: None,
                 uncommitted: Vec::new(),
                 git_operation: None,
                 tree: None,

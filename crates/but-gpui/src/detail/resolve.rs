@@ -590,9 +590,12 @@ impl Detail {
         let keep: Vec<(String, usize, Keep)> = (keep.into_iter())
             .map(|(path, c, keep)| (path, c.index, keep))
             .collect();
-        let after = (self.store.read(cx).workspace(&project))
+        let store = self.store.read(cx);
+        let after = (store.workspace(&project))
             .map(|ws| stack_after(ws, commit))
             .unwrap_or_default();
+        // The oplog can't bring back a linked worktree's commits.
+        let undoable = !store.in_worktree(&project, commit);
         let shown = project.clone();
         self.store.update(cx, |store, cx| {
             store.run(
@@ -645,7 +648,7 @@ impl Detail {
                             )
                         }
                     };
-                    store.snack_undoable(message, cx)
+                    store.snack_after(undoable, message, cx)
                 },
                 cx,
             )
@@ -756,6 +759,9 @@ impl Detail {
         let workspace = store.workspace(&project)?;
         let no_undo = match conflicted {
             Conflicted::Files(Some(_)) => Some("A linked worktree can't undo it."),
+            Conflicted::Commit(commit) if store.in_worktree(&project, commit) => {
+                Some("A linked worktree can't undo it.")
+            }
             Conflicted::Files(None) if workspace.editing.is_some() => {
                 Some("Finish then commits the result.")
             }
@@ -880,21 +886,21 @@ fn kept_text(c: &Conflict, pick: Pick) -> String {
     }
 }
 
-/// The commits of `commit`'s stack, oldest first: the order conflicts resolve in, as each
-/// commit is rebuilt on the one below it.
+/// The commits of `commit`'s lane, a stack's or a linked worktree's, oldest first: the order
+/// conflicts resolve in, as each commit is rebuilt on the one below it.
 fn oldest_first(workspace: &Workspace, commit: CommitId) -> Vec<CommitId> {
     let Some((branch, _)) = workspace.find_commit(commit) else {
         return Vec::new();
     };
-    let Some((stack, _)) = workspace.stack_of(&branch.ref_name) else {
+    let Some((lane, _)) = workspace.lane_of(&branch.ref_name) else {
         return vec![commit];
     };
-    (stack.branches.iter().rev())
+    (lane.iter().rev())
         .flat_map(|branch| branch.commits.iter().rev().map(|c| c.id))
         .collect()
 }
 
-/// The commits of `commit`'s stack after it, oldest first and then wrapping around to older
+/// The commits of `commit`'s lane after it, oldest first and then wrapping around to older
 /// ones, with their titles and whether they're conflicted.
 fn stack_after(workspace: &Workspace, commit: CommitId) -> Vec<(CommitId, String, bool)> {
     let order = oldest_first(workspace, commit);
@@ -960,7 +966,7 @@ pub(super) fn banner_action(
 }
 
 impl AppView {
-    /// Register [`ResolveConflicts`] while the selected branch or commit's stack has a
+    /// Register [`ResolveConflicts`] while the selected branch or commit's lane has a
     /// conflicted commit.
     pub fn resolve_actions(
         &self,
@@ -978,10 +984,10 @@ impl AppView {
     }
 
     /// The selected commit when it's conflicted, else the oldest conflicted commit of the
-    /// selected branch or commit's stack.
+    /// selected branch or commit's lane.
     fn conflict_to_resolve(&self, cx: &App) -> Option<(ProjectId, CommitId)> {
         let store = self.store.read(cx);
-        let selection = (store.selection.as_ref()).filter(|s| store.worktree_of(s).is_none())?;
+        let selection = store.selection.as_ref()?;
         let workspace = store.workspace(selection.project())?;
         let conflicted =
             |id: CommitId| workspace.find_commit(id).is_some_and(|(_, c)| c.conflicted);
@@ -991,8 +997,8 @@ impl AppView {
             }
             Selection::Commit(_, id) => *id,
             Selection::Branch(_, ref_name) => {
-                let (stack, _) = workspace.stack_of(ref_name)?;
-                stack.branches.first()?.commits.first()?.id
+                let (lane, _) = workspace.lane_of(ref_name)?;
+                lane.first()?.commits.first()?.id
             }
             _ => return None,
         };

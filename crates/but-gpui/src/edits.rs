@@ -135,16 +135,22 @@ fn target_force_detail(target: &backend::Target) -> String {
 }
 
 /// Whether `ref_name` can land, and if so whether with the branches below it: the bottom
-/// branch of a stack lands alone, the top one of a taller stack lands the whole stack. What
-/// lands needs commits, and none conflicted, which the engine won't land.
+/// branch of a stack, or of a linked worktree's lane, lands alone, the top one of a taller
+/// one lands it whole. What lands needs commits, and none conflicted, which the engine won't
+/// land.
 fn land_scope(workspace: &Workspace, ref_name: &str) -> Option<bool> {
-    let (stack, at) = workspace.stack_of(ref_name)?;
-    let whole = match (at, at + 1 == stack.branches.len()) {
+    // A linked worktree started on a stack would land that stack's commits too, and one
+    // started on the workspace commit every applied branch's, which the engine doesn't check.
+    if workspace.started_on(ref_name).is_some() {
+        return None;
+    }
+    let (lane, at) = workspace.lane_of(ref_name)?;
+    let whole = match (at, at + 1 == lane.len()) {
         (_, true) => false,
         (0, false) => true,
         _ => return None,
     };
-    let landing: Vec<_> = (stack.branches.get(at..)?.iter())
+    let landing: Vec<_> = (lane.get(at..)?.iter())
         .flat_map(|branch| &branch.commits)
         .collect();
     // Not when all of it is in the target already, as a branch merged there is.
@@ -218,20 +224,14 @@ impl AppView {
     /// something, which is also what the palette offers.
     pub fn edit_actions(&self, el: Div, cx: &mut Context<Self>) -> Div {
         // A linked worktree's branches and commits are edited here as yours are, apart from
-        // what reaches past the worktree, like pushing, landing or moving them out of it.
+        // moving them out of it, as unapplying or unstacking would.
         let linked = self.in_worktree_lane(cx);
         let store = self.store.read(cx);
         let el = el
             .on_action(cx.listener(Self::delete_selection))
             .on_action(cx.listener(Self::rename_selection))
             .on_action(cx.listener(Self::new_branch_on_top))
-            .on_action(cx.listener(Self::uncommit_selection))
-            .when(linked, |el| {
-                let store = self.store.clone();
-                el.on_action(move |_: &Push, _, cx| {
-                    store.update(cx, |store, cx| store.changes_elsewhere("Push it", cx));
-                })
-            });
+            .on_action(cx.listener(Self::uncommit_selection));
         let picked = store.picked.len() > 1;
         match &store.selection {
             Some(Selection::Commit(project, id)) => {
@@ -262,7 +262,7 @@ impl AppView {
                     }))
                 })
                 .when(picked, |el| el.on_action(cx.listener(Self::squash_picked)))
-                .when(edits.new_branch_here && !linked, |el| {
+                .when(edits.new_branch_here, |el| {
                     el.on_action(cx.listener(Self::new_branch_here))
                 })
                 .when(edits.rewrap, |el| {
@@ -279,7 +279,6 @@ impl AppView {
                 let Some(workspace) = store.workspace(project) else {
                     return el;
                 };
-                // A worktree's lane never can, as pulling reaches past the worktree.
                 let el = el.when(workspace.can_pull(ref_name), |el| {
                     el.on_action(cx.listener(|this, _: &PullRemote, window, cx| {
                         this.pull_remote(false, window, cx)
@@ -345,12 +344,25 @@ impl AppView {
             });
         }
         let name = short_ref(&ref_name).to_owned();
+        let undoable = !self.in_worktree_lane(cx);
+        let undo = match undoable {
+            true => "You can undo this with ⌘Z.",
+            false => "This can't be undone.",
+        };
+        // What can't be undone drops only the commits it asked about, not one an agent made
+        // since.
+        let shown: Option<Vec<CommitId>> = (!undoable).then(|| {
+            (self.store.read(cx).workspace(&project).into_iter())
+                .flat_map(|ws| ws.pushed_with(&ref_name))
+                .flat_map(|branch| branch.commits.iter().map(|c| c.id))
+                .collect()
+        });
         self.confirm_then(
             Some(Selection::Branch(project.clone(), ref_name.clone())),
             format!("Replace {name} with the remote's version?"),
-            &crate::ui::keys_text(
-                "This drops its commits the remote doesn't have. You can undo this with ⌘Z.",
-            ),
+            &crate::ui::keys_text(&format!(
+                "This drops its commits the remote doesn't have. {undo}"
+            )),
             "Replace",
             window,
             cx,
@@ -358,9 +370,9 @@ impl AppView {
                 project,
                 "Replace with the remote's version",
                 Overlay::default(),
-                move |path, _| backend::pull_remote(path, &ref_name, true),
+                move |path, _| backend::pull_remote(path, &ref_name, true, shown.as_deref()),
                 move |store, (), cx| {
-                    store.snack_undoable(format!("{name} now matches the remote"), cx)
+                    store.snack_after(undoable, format!("{name} now matches the remote"), cx)
                 },
             ),
         );
@@ -457,7 +469,7 @@ impl AppView {
                 };
                 // A branch it takes along whose commits only its remote has can't be pulled
                 // first when others are stacked on it.
-                let stuck = (ws.pushed_with(&ref_name).iter())
+                let stuck = (ws.pushed_with(&ref_name).into_iter())
                     .find(|b| !b.incoming.is_empty() && !ws.can_pull(&b.ref_name));
                 match stuck {
                     None => {
@@ -1117,16 +1129,28 @@ impl AppView {
         let Some(whole_stack) = land_scope(workspace, &ref_name) else {
             return;
         };
+        let lane = workspace.lane_of(&ref_name);
+        // The branch and those below it, where its ref is even when it has no commits of its
+        // own.
+        let landing: Vec<&Branch> = (lane.into_iter())
+            .flat_map(|(lane, at)| lane.get(at..).unwrap_or_default())
+            .collect();
+        let linked =
+            (store.worktree_of(&Selection::Branch(project.clone(), ref_name.clone()))).is_some();
         // What lands leaves at once: the whole stack, each branch of it listed so a selection
-        // on any, or on its caption, moves off; or the bottom branch and its commits.
-        let overlay = match whole_stack {
-            true => Overlay {
-                branches: (workspace.stack_of(&ref_name).into_iter())
-                    .flat_map(|(stack, _)| stack.branches.iter().map(|b| b.ref_name.clone()))
+        // on any, or on its caption, moves off; or the bottom branch and its commits. A linked
+        // worktree keeps the branch it has checked out, so there only the commits leave.
+        let overlay = match (whole_stack, linked) {
+            (_, true) => Overlay::commits(
+                (landing.iter()).flat_map(|branch| branch.commits.iter().map(|c| c.key.clone())),
+            ),
+            (true, false) => Overlay {
+                branches: (lane.into_iter())
+                    .flat_map(|(lane, _)| lane.iter().map(|b| b.ref_name.clone()))
                     .collect(),
                 ..Overlay::default()
             },
-            false => Overlay {
+            (false, false) => Overlay {
                 commits: (workspace.find_branch(&ref_name).into_iter())
                     .flat_map(|branch| branch.commits.iter().map(|c| c.key.clone()))
                     .collect(),
@@ -1134,11 +1158,6 @@ impl AppView {
                 ..Overlay::default()
             },
         };
-        // The branch and those below it, where its ref is even when it has no commits of its
-        // own.
-        let landing: Vec<&Branch> = (workspace.stack_of(&ref_name).into_iter())
-            .flat_map(|(stack, at)| stack.branches.get(at..).unwrap_or_default())
-            .collect();
         // What the question shows, to land only that: the newest commit among them.
         let Some(tip) = landing.iter().flat_map(|branch| &branch.commits).next() else {
             return;

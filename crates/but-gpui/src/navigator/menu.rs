@@ -324,10 +324,7 @@ impl Navigator {
                     };
                     items.push(action(label, &Push));
                 }
-                // What reaches past a linked worktree, like its remote or a pull request, is
-                // done in it.
-                let linked = store.worktree_of(target).is_some();
-                if workspace.can_pull(ref_name) && !linked {
+                if workspace.can_pull(ref_name) {
                     items.extend([
                         MenuItem::action(
                             format!(
@@ -348,7 +345,7 @@ impl Navigator {
                         }),
                     ]);
                 }
-                if crate::pr::on_forge(store, target) && !ref_name.is_empty() && !linked {
+                if crate::pr::on_forge(store, target) && !ref_name.is_empty() {
                     use crate::backend::ReviewState as S;
                     let project = target.project();
                     match (branch.review.as_ref()).map(|r| (r, store.review_state(project, r))) {
@@ -372,11 +369,12 @@ impl Navigator {
                     }
                 }
                 if ref_name.is_empty() {
-                    if !branch.commits.is_empty() && !linked {
+                    if !branch.commits.is_empty() {
                         items.push(action("Name branch…", &RenameSelection).separated());
                     }
                     return items;
                 }
+                let linked = store.worktree_of(target).is_some();
                 let edits = BranchEdits::of(workspace, ref_name);
                 items.push(action("New branch on top", &NewBranchOnTop).separated());
                 if edits.new_below {
@@ -486,10 +484,8 @@ impl Navigator {
                     return Vec::new();
                 };
                 let edits = CommitEdits::of(branch, commit);
-                // A linked worktree's commits stay in it, and their conflicts resolve there.
-                let linked = store.worktree_of(target).is_some();
                 let mut items = Vec::new();
-                if commit.conflicted && !linked {
+                if commit.conflicted {
                     items.push(action(
                         "Resolve conflicts…",
                         &crate::detail::ResolveConflicts,
@@ -512,7 +508,7 @@ impl Navigator {
                     action("Add empty commit above", &AddEmptyCommitAbove),
                     action("Add empty commit below", &AddEmptyCommitBelow),
                 ]);
-                if edits.new_branch_here && !linked {
+                if edits.new_branch_here {
                     items.push(action("New branch ending here", &NewBranchHere));
                 }
                 if store.workspace(project).is_some_and(|ws| ws.managed) {

@@ -3122,4 +3122,214 @@ pub(super) mod tests {
             "same commit, but the oplog can't put the branch it has checked out back"
         );
     }
+
+    /// A workspace with linked worktrees on, and `agent`'s worktree made after turning them
+    /// on, so it's listed rather than archived as the first look archives those already there.
+    fn workspace_with_agent(path: &Path) -> (tempfile::TempDir, PathBuf) {
+        target_origin_main(path);
+        git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+        crate::backend::settings::set_worktrees_enabled(true).unwrap();
+        crate::backend::load_workspace(path, Default::default()).unwrap();
+        agent_worktree(path)
+    }
+
+    #[test]
+    fn a_linked_worktrees_conflicted_commits_arent_pushed() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("base\n");
+            let path = dir.path();
+            let (_outside, linked) = workspace_with_agent(path);
+            std::fs::write(linked.join("file"), "one\n").unwrap();
+            git(&linked, &["commit", "-q", "-am", "one"]);
+            let one = head(&linked);
+            std::fs::write(linked.join("file"), "two\n").unwrap();
+            git(&linked, &["commit", "-q", "-am", "two"]);
+            // Below the commit it was made on, it conflicts.
+            move_commits(path, &[head(&linked)], &Destination::BelowCommit(one)).unwrap();
+
+            let err = crate::backend::push(path, "refs/heads/agent", true, None, false)
+                .expect_err("a conflicted commit stays here");
+            assert!(
+                err.to_string()
+                    .contains("Resolve the conflicted commits first"),
+                "refused before reaching the remote: {err:#}"
+            );
+        })
+    }
+
+    #[test]
+    fn a_pull_into_a_linked_worktrees_branch_is_caught_before_it_conflicts() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("base\n");
+            let path = dir.path();
+            let (_outside, linked) = workspace_with_agent(path);
+            let commit = |content: &str, message: &str| {
+                std::fs::write(linked.join("file"), content).unwrap();
+                git(&linked, &["commit", "-q", "-am", message]);
+            };
+            commit("one\n", "One");
+            commit("two\n", "Two");
+            git(
+                &linked,
+                &["update-ref", "refs/remotes/origin/agent", "HEAD"],
+            );
+            git(path, &["config", "branch.agent.remote", "origin"]);
+            git(path, &["config", "branch.agent.merge", "refs/heads/agent"]);
+            // Made in the worktree in their place, on the same line.
+            git(&linked, &["reset", "-q", "--hard", "main"]);
+            commit("three\n", "Three");
+
+            let found = crate::backend::pull_conflicts(path, "refs/heads/agent").unwrap();
+            assert_eq!(
+                found,
+                [("refs/heads/agent".to_owned(), 1)],
+                "the worktree's commit would land conflicted on the remote's"
+            );
+        })
+    }
+
+    #[test]
+    fn replacing_a_linked_worktrees_branch_keeps_a_commit_made_since_it_was_asked() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("base\n");
+            let path = dir.path();
+            let (_outside, linked) = workspace_with_agent(path);
+            let theirs = git(
+                path,
+                &["commit-tree", "main^{tree}", "-p", "main", "-m", "theirs"],
+            );
+            git(
+                path,
+                &["update-ref", "refs/remotes/origin/agent", theirs.trim()],
+            );
+            git(path, &["config", "branch.agent.remote", "origin"]);
+            git(path, &["config", "branch.agent.merge", "refs/heads/agent"]);
+            git(&linked, &["commit", "-q", "--allow-empty", "-m", "mine"]);
+            let shown = [head(&linked)];
+            // An agent's, after the question went up.
+            git(&linked, &["commit", "-q", "--allow-empty", "-m", "since"]);
+            let since = head(&linked);
+
+            let replace = |shown: &[CommitId]| {
+                crate::backend::pull_remote(path, "refs/heads/agent", true, Some(shown))
+            };
+            assert!(replace(&shown).is_err(), "it would drop a commit not shown");
+            assert_eq!(head(&linked), since, "so the branch stays as it is");
+            replace(&[shown[0], since]).unwrap();
+            assert_eq!(
+                git(&linked, &["log", "-1", "--format=%s"]).trim(),
+                "theirs",
+                "with every commit it drops shown, it's the remote's"
+            );
+        })
+    }
+
+    #[test]
+    fn a_linked_worktree_made_on_a_conflicted_stack_neither_pushes_nor_lands() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("base\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+            std::fs::write(path.join("file"), "one\n").unwrap();
+            git(path, &["commit", "-q", "-am", "one"]);
+            let one = head(path);
+            std::fs::write(path.join("file"), "two\n").unwrap();
+            git(path, &["commit", "-q", "-am", "two"]);
+            name_branch(path, head(path), "stacked").unwrap();
+            // Below the commit it was made on, it conflicts.
+            move_commits(path, &[head(path)], &Destination::BelowCommit(one)).unwrap();
+            crate::backend::settings::set_worktrees_enabled(true).unwrap();
+            crate::backend::load_workspace(path, Default::default()).unwrap();
+            let outside = tempfile::tempdir().unwrap();
+            let linked = outside.path().join("agent");
+            let linked_dir = linked.to_str().unwrap();
+            git(
+                path,
+                &[
+                    "worktree", "add", "-q", "-b", "agent", linked_dir, "stacked",
+                ],
+            );
+            git(&linked, &["commit", "-q", "--allow-empty", "-m", "agent's"]);
+
+            let shown = crate::backend::load_workspace(path, Default::default()).unwrap();
+            let refused = "Resolve the conflicted commits first";
+            assert_eq!(
+                shown.push_refused("refs/heads/agent"),
+                Some(refused),
+                "pushing it pushes stacked, conflicted commit and all, so it isn't offered"
+            );
+            let err = crate::backend::push(path, "refs/heads/agent", true, None, false)
+                .expect_err("nor does the push go ahead");
+            assert!(
+                err.to_string().starts_with(refused),
+                "refused before reaching the remote: {err:#}"
+            );
+            assert_eq!(
+                crate::edits::BranchEdits::of(&shown, "refs/heads/agent").land,
+                None,
+                "landing it would publish stacked too, so stacked lands first"
+            );
+        })
+    }
+
+    #[test]
+    fn a_linked_worktree_made_on_the_workspace_commit_neither_pushes_nor_lands() {
+        // Nor one made on it in turn.
+        but_testsupport::isolated_app_data_dir(|| {
+            use crate::backend::branches::apply;
+            let dir = repo_with("base\n");
+            let path = dir.path();
+            target_origin_main(path);
+            let feature = git(
+                path,
+                &["commit-tree", "main^{tree}", "-p", "main", "-m", "f"],
+            );
+            git(path, &["branch", "feature", feature.trim()]);
+            git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+            apply(path, "refs/heads/feature", None).unwrap();
+            crate::backend::settings::set_worktrees_enabled(true).unwrap();
+            crate::backend::load_workspace(path, Default::default()).unwrap();
+            // As an agent makes one from the main checkout, on its `HEAD`.
+            let (_outside, linked) = agent_worktree(path);
+            git(&linked, &["commit", "-q", "--allow-empty", "-m", "agent's"]);
+            let on_agent = linked.with_file_name("on-agent");
+            let on_agent_dir = on_agent.to_str().unwrap();
+            git(
+                path,
+                &[
+                    "worktree",
+                    "add",
+                    "-q",
+                    "-b",
+                    "on-agent",
+                    on_agent_dir,
+                    "agent",
+                ],
+            );
+            git(
+                &on_agent,
+                &["commit", "-q", "--allow-empty", "-m", "on agent's"],
+            );
+
+            let shown = crate::backend::load_workspace(path, Default::default()).unwrap();
+            for branch in ["refs/heads/agent", "refs/heads/on-agent"] {
+                assert!(
+                    (shown.push_refused(branch)).is_some_and(|why| why.contains("workspace")),
+                    "pushing {branch} would publish every applied branch, so it isn't offered"
+                );
+                let err = crate::backend::push(path, branch, true, None, false)
+                    .expect_err("nor does the push go ahead");
+                assert!(
+                    err.to_string().contains("GitButler's workspace commit"),
+                    "{branch} is refused before reaching the remote: {err:#}"
+                );
+                assert_eq!(
+                    crate::edits::BranchEdits::of(&shown, branch).land,
+                    None,
+                    "nor would landing {branch}"
+                );
+            }
+        })
+    }
 }

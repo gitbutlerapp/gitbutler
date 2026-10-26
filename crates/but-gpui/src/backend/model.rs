@@ -122,6 +122,9 @@ pub struct Worktree {
     /// The branches of its lane, from the one checked out down to where it started, without
     /// the commits the target already has: what was committed in it.
     pub branches: Vec<Branch>,
+    /// The commit in the workspace its lane was started on, rather than the target's: a
+    /// stack's, or GitButler's workspace commit itself.
+    pub rests_on: Option<CommitId>,
     pub uncommitted: Vec<FileChange>,
     /// The Git command it's stopped partway through, like `git rebase`.
     pub git_operation: Option<&'static str>,
@@ -282,16 +285,33 @@ impl Workspace {
         })
     }
 
-    /// `ref_name`'s branch and the ones below it in its stack, which pushing it pushes too.
-    pub(crate) fn pushed_with(&self, ref_name: &str) -> &[Branch] {
-        (self.stack_of(ref_name))
-            .and_then(|(stack, at)| stack.branches.get(at..))
-            .unwrap_or_default()
+    /// `ref_name`'s branch and the ones below it in its lane, which pushing it pushes too,
+    /// with those of the stack a linked worktree's lane was started on.
+    pub(crate) fn pushed_with(&self, ref_name: &str) -> Vec<&Branch> {
+        let Some((lane, at)) = self.lane_of(ref_name) else {
+            return Vec::new();
+        };
+        let mut pushed: Vec<&Branch> = lane.get(at..).unwrap_or_default().iter().collect();
+        let base = self
+            .started_on(ref_name)
+            .and_then(|id| self.find_commit(id));
+        if let Some((base, _)) = base {
+            pushed.extend(self.pushed_with(&base.ref_name));
+        }
+        pushed
+    }
+
+    /// The commit in the workspace the linked worktree lane holding `ref_name` was started
+    /// on: a stack's, or GitButler's workspace commit, which no branch lists.
+    pub fn started_on(&self, ref_name: &str) -> Option<CommitId> {
+        (self.worktrees.iter())
+            .find(|wt| wt.branches.iter().any(|b| b.ref_name == ref_name))?
+            .rests_on
     }
 
     /// Whether pushing `ref_name` has commits to send. An unnamed branch has no ref to push.
     pub fn can_push(&self, ref_name: &str) -> bool {
-        !ref_name.is_empty() && self.pushed_with(ref_name).iter().any(Branch::can_push)
+        !ref_name.is_empty() && self.pushed_with(ref_name).into_iter().any(Branch::can_push)
     }
 
     /// The commits only the remote has that pushing `ref_name` drops: a forced push replaces
@@ -322,6 +342,13 @@ impl Workspace {
             Some("Pick the project's target branch first")
         } else if (pushed.iter()).any(|b| b.commits.iter().any(|c| c.conflicted)) {
             Some("Resolve the conflicted commits first")
+        } else if (pushed.iter()).any(|branch| {
+            (self.started_on(&branch.ref_name)).is_some_and(|id| self.find_commit(id).is_none())
+        }) {
+            Some(
+                "It was started on GitButler's workspace commit, so pushing it would publish \
+                 every applied branch",
+            )
         } else {
             None
         }
@@ -348,8 +375,8 @@ impl Workspace {
     /// branches stacked on it. Pulling into a branch with others above moves its reference
     /// to the top of the stack, so the app doesn't offer it.
     pub fn can_pull(&self, ref_name: &str) -> bool {
-        self.stack_of(ref_name).is_some_and(|(stack, at)| {
-            at == 0 && (stack.branches.first()).is_some_and(|b| !b.incoming.is_empty())
+        self.lane_of(ref_name).is_some_and(|(lane, at)| {
+            at == 0 && lane.first().is_some_and(|b| !b.incoming.is_empty())
         })
     }
 
@@ -1456,6 +1483,70 @@ mod tests {
         assert!(
             ws.forced_target("refs/heads/main").is_some(),
             "though it always asks first, as others' work builds on it"
+        );
+    }
+
+    #[test]
+    fn a_linked_worktrees_branch_pushes_pulls_and_lands_as_a_stacks_does() {
+        let id = gix::ObjectId::from_bytes_or_panic(&[1; 20]);
+        let agent = Branch {
+            name: "agent".into(),
+            ref_name: "refs/heads/agent".into(),
+            commits: vec![Commit {
+                state: CommitState::Local,
+                ..Commit::bare(id)
+            }],
+            incoming: vec![RemoteCommit {
+                id: CommitId(id),
+                key: String::new(),
+                authored: String::new(),
+                title: String::new(),
+                body: String::new(),
+                author: String::new(),
+                email: String::new(),
+                agent: None,
+                time: 0,
+                merge: false,
+                review: None,
+            }],
+            remote: None,
+            push: PushState::NeedsForce,
+            review: None,
+        };
+        let ws = super::Workspace {
+            worktrees: vec![super::Worktree {
+                name: "agent".into(),
+                path: "agent".into(),
+                branch: Some("refs/heads/agent".into()),
+                branches: vec![agent],
+                rests_on: None,
+                uncommitted: Vec::new(),
+                git_operation: None,
+                tree: None,
+                updated_at: None,
+            }],
+            target: Some(super::Target {
+                name: "origin/main".into(),
+                branch: "main".into(),
+                local: false,
+                untracked: None,
+                behind: 0,
+                commits_behind: 0,
+                needs_update: false,
+                incoming: Vec::new(),
+            }),
+            ..super::Workspace::default()
+        };
+        let agent = "refs/heads/agent";
+        assert!(
+            ws.can_push(agent) && ws.push_refused(agent).is_none(),
+            "its commits can be pushed"
+        );
+        assert!(ws.can_pull(agent), "and its remote's pulled into it");
+        assert_eq!(
+            crate::edits::BranchEdits::of(&ws, agent).land,
+            Some(false),
+            "and it lands on its own"
         );
     }
 

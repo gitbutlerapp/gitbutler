@@ -83,8 +83,8 @@ impl Detail {
         self.read_merge_status(cx);
     }
 
-    /// The selected branch, in the main checkout, and its pull request, while the tab shows
-    /// it open: what the merge box is for, as the pull request actions are.
+    /// The selected branch and its pull request, while the tab shows it open: what the merge
+    /// box is for, as the pull request actions are.
     fn merge_box_review<'a>(&'a self, cx: &'a App) -> Option<(&'a ProjectId, &'a str, &'a Review)> {
         let store = self.store.read(cx);
         let selection = store.selection.as_ref()?;
@@ -94,7 +94,6 @@ impl Detail {
         let review = self.selected_review(cx)?;
         let applies = self.review_tab
             && crate::pr::on_forge(store, selection)
-            && store.worktree_of(selection).is_none()
             && store.review_state(project, review) == ReviewState::Open;
         applies.then_some((project, ref_name.as_str(), review))
     }

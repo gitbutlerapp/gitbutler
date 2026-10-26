@@ -11,7 +11,7 @@ use bstr::ByteSlice;
 use but_core::DryRun;
 use but_core::sync::RepoExclusive;
 
-use super::ops::{full_name, holds};
+use super::ops::full_name;
 use super::reviews::{cached_reviews, from_cache};
 use super::{
     Agent, CommitId, RemoteCommit, Review, ReviewState, open, present_first_parent, runtime,
@@ -698,17 +698,21 @@ pub fn push(
     }
     // A branch made with `git checkout -b` on the workspace holds its commit, which merges
     // every applied branch: pushing it would publish them all at once. One the remote has as
-    // it is already publishes nothing new.
+    // it is already publishes nothing new. A linked worktree made from the workspace, or on
+    // one that was, holds it below the commits of the lanes the push takes.
     let holds_workspace = {
         use but_workspace::ref_info::LocalCommitRelation as R;
         use gix::prelude::ObjectIdExt as _;
         let repo = ctx.repo.get()?;
+        let managed = |id: gix::ObjectId| {
+            but_workspace::WorkspaceCommit::from_id(id.attach(&repo))
+                .is_ok_and(|commit| commit.is_managed())
+        };
+        let chain = full_name(ref_name).map(|name| info.lane_chain(name.as_ref()));
         (pushed_with(&info, ref_name).flat_map(|segment| &segment.commits))
             .filter(|c| !matches!(c.relation, R::LocalAndRemote(remote) if remote == c.id))
-            .any(|c| {
-                but_workspace::WorkspaceCommit::from_id(c.id.attach(&repo))
-                    .is_ok_and(|commit| commit.is_managed())
-            })
+            .any(|c| managed(c.id))
+            || (chain.iter().flatten()).any(|(lane, _)| lane.rests_on.is_some_and(managed))
     };
     if holds_workspace {
         anyhow::bail!(
@@ -787,14 +791,17 @@ fn remote_tips(
         .collect())
 }
 
-/// `ref_name`'s branch and the ones below it in its stack, which pushing it pushes too.
+/// `ref_name`'s branch and the ones below it in its lane, and in the stack a linked
+/// worktree's lane was started on: what the push sends.
 fn pushed_with<'a>(
     info: &'a but_workspace::RefInfo,
-    ref_name: &'a str,
+    ref_name: &str,
 ) -> impl Iterator<Item = &'a but_workspace::ref_info::Segment> {
-    (info.stacks.iter()).flat_map(move |stack| {
-        (stack.segments.iter()).skip_while(move |segment| !holds(segment, ref_name))
-    })
+    let name = full_name(ref_name).ok();
+    (name
+        .map(|name| but_workspace::legacy::push::branch_and_ancestor_segments(info, name.as_ref())))
+    .unwrap_or_default()
+    .into_values()
 }
 
 /// When `err` is force push protection stopping a push, what the remote itself said, if
@@ -814,9 +821,16 @@ pub fn push_refusal(err: &anyhow::Error) -> Option<String> {
 
 /// Bring in the commits only `branch`'s remote has: the local commits rebased on top of
 /// them, leaving out the remote's older versions of commits rewritten here; or with `theirs`
-/// the remote's version of the branch instead of the local one.
-pub fn pull_remote(path: &Path, branch: &str, theirs: bool) -> Result<()> {
-    integrate_remote(&mut open(path)?, branch, theirs, DryRun::No)?;
+/// the remote's version of the branch instead of the local one. With `shown`, the local
+/// commits the user was asked about dropping, that refuses to drop any other, as one an agent
+/// made since.
+pub fn pull_remote(
+    path: &Path,
+    branch: &str,
+    theirs: bool,
+    shown: Option<&[CommitId]>,
+) -> Result<()> {
+    integrate_remote(&mut open(path)?, branch, theirs, shown, DryRun::No)?;
     Ok(())
 }
 
@@ -825,7 +839,7 @@ pub fn pull_remote(path: &Path, branch: &str, theirs: bool) -> Result<()> {
 pub fn pull_conflicts(path: &Path, branch: &str) -> Result<Vec<(String, usize)>> {
     let mut ctx = open(path)?;
     let info = but_api::legacy::workspace::head_info(&ctx)?;
-    let (preview, incoming) = integrate_remote(&mut ctx, branch, false, DryRun::Yes)?;
+    let (preview, incoming) = integrate_remote(&mut ctx, branch, false, None, DryRun::Yes)?;
     let conflicted = &preview.workspace.conflicted_commits;
     let mut found = newly_conflicted(&info, conflicted);
     // The remote's own commits can land conflicted too, rebased onto the branch's, and they
@@ -847,6 +861,7 @@ fn integrate_remote(
     ctx: &mut but_ctx::Context,
     branch: &str,
     theirs: bool,
+    shown: Option<&[CommitId]>,
     dry_run: DryRun,
 ) -> Result<(but_api::branch::IntegrateBranchResult, Vec<String>)> {
     use but_api::branch::json::BranchIntegrationStrategy as Strategy;
@@ -858,6 +873,14 @@ fn integrate_remote(
     };
     let mut plan =
         but_api::branch::get_initial_branch_integration(ctx, name.as_ref(), Some(strategy))?;
+    if let Some(shown) = shown.filter(|_| theirs)
+        && (plan.divergence.local_only.iter()).any(|c| !shown.contains(&CommitId(c.id)))
+    {
+        anyhow::bail!(
+            "{} has commits you weren't shown, so it wasn't replaced",
+            short_ref(branch)
+        );
+    }
     // Rebasing would bring back the remote's versions of commits rewritten here, beside
     // their new ones, so they're left out, as Lite's "Combine both" does. A version is the
     // same change ID on both sides, one made without counting as the one the engine gives it
@@ -990,8 +1013,8 @@ fn newly_conflicted(
         let id = commit.inner.change_id();
         !commit.inner.has_conflicts && conflicted.iter().any(|(_, change)| *change == *id)
     };
-    (info.stacks.iter())
-        .flat_map(|stack| &stack.segments)
+    (info.lanes())
+        .flat_map(|lane| lane.segments)
         .filter_map(|segment| {
             let count = segment.commits.iter().filter(newly).count();
             let name = segment.ref_name().map(ToString::to_string);
