@@ -3,6 +3,7 @@
 	import GeneralSettings from "$components/projectSettings/GeneralSettings.svelte";
 	import GitForm from "$components/projectSettings/GitForm.svelte";
 	import PreferencesForm from "$components/projectSettings/PreferencesForm.svelte";
+	import WorktreesForm from "$components/projectSettings/WorktreesForm.svelte";
 	import SettingsModalLayout from "$components/settings/SettingsModalLayout.svelte";
 	import { projectSettingsPages } from "$lib/settings/projectSettingsPages";
 	import type { ProjectSettingsModalState, ProjectSettingsPageId } from "$lib/state/uiState.svelte";
@@ -34,6 +35,8 @@
 				<GeneralSettings projectId={data.projectId} />
 			{:else if currentPage.id === "git"}
 				<GitForm projectId={data.projectId} />
+			{:else if currentPage.id === "worktrees"}
+				<WorktreesForm projectId={data.projectId} />
 			{:else if currentPage.id === "ai"}
 				<CloudForm projectId={data.projectId} />
 			{:else if currentPage.id === "experimental"}

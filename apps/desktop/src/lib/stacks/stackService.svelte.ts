@@ -83,6 +83,11 @@ export class StackService {
 		);
 	}
 
+	/** Linked worktrees, active and archived. */
+	worktreesList(projectId: string) {
+		return this.backendApi.endpoints.worktreesList.useQuery({ projectId });
+	}
+
 	get setWorktreeArchived() {
 		return this.backendApi.endpoints.worktreeSetArchived.mutate;
 	}

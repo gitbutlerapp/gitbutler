@@ -17,7 +17,7 @@ export type GeneralSettingsPageId =
 	| "telemetry"
 	| "experimental"
 	| "organizations";
-export type ProjectSettingsPageId = "project" | "git" | "ai" | "experimental";
+export type ProjectSettingsPageId = "project" | "git" | "worktrees" | "ai" | "experimental";
 export type RejectionReason =
 	| "workspaceMergeConflict"
 	| "workspaceMergeConflictOfUnrelatedFile"

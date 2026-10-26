@@ -61,6 +61,7 @@ import type {
 	UncommitChangesFromCommitsResult,
 	UncommitChangesSource,
 	NewWorktree,
+	WorktreeListing,
 	BranchRenameResult,
 	PushResult,
 } from "@gitbutler/but-sdk";
@@ -236,16 +237,21 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				return transformWorkspaceDetails(response);
 			},
 		}),
+		worktreesList: build.query<WorktreeListing, { projectId: string }>({
+			extraOptions: { command: "worktrees_list" },
+			query: (args) => args,
+			providesTags: [providesList(ReduxTag.Worktrees)],
+		}),
 		worktreeSetArchived: build.mutation<
 			void,
 			{ projectId: string; name: string; archived: boolean }
 		>({
 			extraOptions: {
 				command: "worktree_set_archived",
-				actionName: "Archive Worktree",
+				actionName: "Set Worktree Archived",
 			},
 			query: (args) => args,
-			invalidatesTags: [invalidatesList(ReduxTag.Stacks)],
+			invalidatesTags: [invalidatesList(ReduxTag.Stacks), invalidatesList(ReduxTag.Worktrees)],
 		}),
 		/** A linked worktree on the new branch `newRef`, starting at the workspace's base. */
 		worktreeNew: build.mutation<NewWorktree, { projectId: string; newRef: string }>({
@@ -254,7 +260,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				actionName: "Create Worktree",
 			},
 			query: (args) => args,
-			invalidatesTags: [invalidatesList(ReduxTag.Stacks)],
+			invalidatesTags: [invalidatesList(ReduxTag.Stacks), invalidatesList(ReduxTag.Worktrees)],
 		}),
 		worktreeRemove: build.mutation<void, { projectId: string; name: string; force: boolean }>({
 			extraOptions: {
@@ -262,7 +268,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				actionName: "Remove Worktree",
 			},
 			query: (args) => args,
-			invalidatesTags: [invalidatesList(ReduxTag.Stacks)],
+			invalidatesTags: [invalidatesList(ReduxTag.Stacks), invalidatesList(ReduxTag.Worktrees)],
 		}),
 		workspaceIntegrateUpstream: build.mutation<
 			WorkspaceIntegrateUpstreamOutcome,
