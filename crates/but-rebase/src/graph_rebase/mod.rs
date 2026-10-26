@@ -373,6 +373,31 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         self.checkout_target_inner(selector.id)
     }
 
+    /// Like [`Self::checkout_target`], for the editor's own `HEAD`.
+    ///
+    /// When the rewrite removed the branch `HEAD` was on and no branch below names
+    /// the commit it lands on, `HEAD` attaches to the target branch if that branch
+    /// points there, instead of detaching.
+    fn head_checkout_target(
+        &self,
+        selector: Selector,
+    ) -> Result<Option<(gix::ObjectId, Option<gix::refs::FullName>)>> {
+        let target = self.checkout_target(selector)?;
+        if let Some((id, None)) = target
+            && self.repo.head_name()?.is_some()
+            && let Some(target_ref) = &self.workspace.graph.project_meta.target_ref
+            && self
+                .reference_target(target_ref.as_local_full_name_ref())
+                .is_ok_and(|target_id| target_id == id)
+        {
+            return Ok(Some((
+                id,
+                Some(target_ref.as_local_full_name_ref().to_owned()),
+            )));
+        }
+        Ok(target)
+    }
+
     fn checkout_target_inner(
         &self,
         idx: StepGraphIndex,
@@ -404,10 +429,11 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         self.checkouts
             .iter()
             .map(|checkout| {
-                let (Checkout::Head { selector, .. } | Checkout::Worktree { selector, .. }) =
-                    checkout;
-                let tip = self
-                    .checkout_target(*selector)?
+                let tip = match checkout {
+                    Checkout::Head { selector, .. } => self.head_checkout_target(*selector)?,
+                    Checkout::Worktree { selector, .. } => self.checkout_target(*selector)?,
+                };
+                let tip = tip
                     .map(|(commit, ref_name)| {
                         let conflicted = but_core::Commit::from_id(commit.attach(&self.repo))?;
                         let padding = conflicted
@@ -553,7 +579,9 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             .checkouts
             .iter()
             .filter_map(|checkout| match checkout {
-                Checkout::Head { selector, .. } => self.checkout_target(*selector).ok().flatten(),
+                Checkout::Head { selector, .. } => {
+                    self.head_checkout_target(*selector).ok().flatten()
+                }
                 Checkout::Worktree { .. } => None,
             })
             .next()

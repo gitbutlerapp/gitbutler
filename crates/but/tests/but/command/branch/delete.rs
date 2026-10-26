@@ -275,3 +275,62 @@ fn deleting_the_last_lane_keeps_the_workspace_when_checkout_would_overwrite_chan
         "the uncommitted file is preserved"
     );
 }
+
+#[test]
+fn deleting_merged_checked_out_branch_is_undoable() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("y.txt", "y\n");
+    env.but("commit -b y -m 'add y'").assert().success();
+    // The branch landed upstream.
+    env.invoke_git("update-ref refs/remotes/origin/main refs/heads/y");
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [y] [HEAD] (merged upstream)
+┊●   xms add y
+├╯
+┊
+┊● 8dd4840 (upstream: origin/main) 1 new commit
+├╯ b1540e5 (common base, main) 2000-01-02 M
+
+Hint: origin/main moved ahead; run `but pull` to update the workspace
+Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
+
+"#]]);
+
+    env.but("branch delete y").assert().success();
+
+    // HEAD moves to the local target branch instead of detaching.
+    snapbox::assert_data_eq!(
+        env.invoke_git("rev-parse --symbolic-full-name HEAD"),
+        str!["refs/heads/main"]
+    );
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊● 8dd4840 (upstream: origin/main) 1 new commit
+├╯ b1540e5 (common base, main, HEAD) 2000-01-02 M
+
+Hint: origin/main moved ahead; run `but pull` to update the workspace
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+
+    env.but("undo").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [y] [HEAD] (merged upstream)
+┊●   xms add y
+├╯
+┊
+┊● 8dd4840 (upstream: origin/main) 1 new commit
+├╯ b1540e5 (common base, main) 2000-01-02 M
+
+Hint: origin/main moved ahead; run `but pull` to update the workspace
+Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
+
+"#]]);
+}
