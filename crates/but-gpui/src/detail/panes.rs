@@ -17,6 +17,7 @@ use super::{Detail, machine};
 use crate::app::{AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious, StartCommit};
 use crate::backend::upstream::{self, ACTIVITY_DAYS};
 use crate::backend::{self, CommitId, CommitState, PushState, short_ref};
+use crate::navigator::{SelectFirst, SelectLast};
 use crate::overlays::MenuItem;
 use crate::state::{ProjectId, Section, Selection};
 use crate::theme::Theme;
@@ -1359,9 +1360,13 @@ pub(super) fn list_filtered_out(
 }
 
 /// The item `delta` steps on from the one at `at` in `items`, or the first when none is;
-/// none past either end.
+/// none past either end, but that end for a step longer than the list, as gg and G take.
 pub(super) fn step_from<T>(items: &[T], at: Option<usize>, delta: isize) -> Option<&T> {
-    items.get(at.map_or(Some(0), |at| at.checked_add_signed(delta))?)
+    match delta.unsigned_abs() > items.len() {
+        true if delta < 0 => items.first(),
+        true => items.last(),
+        false => items.get(at.map_or(Some(0), |at| at.checked_add_signed(delta))?),
+    }
 }
 
 /// For `on_mouse_down_out` of a card on a list page that takes the focus with `focus`, as the
@@ -1379,8 +1384,9 @@ pub(super) fn back_to_list(
 }
 
 impl Detail {
-    /// A list page's column, whose list takes the focus: ↑ and ↓ `step` through it, → and ←
-    /// `fold` what's selected, on a page whose rows fold, and Return does `confirm` to it.
+    /// A list page's column, whose list takes the focus: ↑ and ↓ `step` through it, gg and G
+    /// to either end, → and ← `fold` what's selected, on a page whose rows fold, and Return
+    /// does `confirm` to it. Where rows don't fold, → and ← do nothing, not fold the diff.
     pub(super) fn list_column(
         &self,
         step: fn(&mut Self, isize, &mut Context<Self>),
@@ -1394,10 +1400,22 @@ impl Detail {
             .key_context("List")
             .on_action(cx.listener(move |this, _: &SelectNext, _, cx| step(this, 1, cx)))
             .on_action(cx.listener(move |this, _: &SelectPrevious, _, cx| step(this, -1, cx)))
-            .when_some(fold, |el, fold| {
-                el.on_action(cx.listener(move |this, _: &Expand, _, cx| fold(this, true, cx)))
-                    .on_action(cx.listener(move |this, _: &Collapse, _, cx| fold(this, false, cx)))
-            })
+            .on_action(
+                cx.listener(move |this, _: &SelectFirst, _, cx| step(this, isize::MIN / 2, cx)),
+            )
+            .on_action(
+                cx.listener(move |this, _: &SelectLast, _, cx| step(this, isize::MAX / 2, cx)),
+            )
+            .on_action(cx.listener(move |this, _: &Expand, _, cx| {
+                if let Some(fold) = fold {
+                    fold(this, true, cx)
+                }
+            }))
+            .on_action(cx.listener(move |this, _: &Collapse, _, cx| {
+                if let Some(fold) = fold {
+                    fold(this, false, cx)
+                }
+            }))
             .when_some(confirm, |el, confirm| {
                 el.on_action(
                     cx.listener(move |this, _: &Confirm, window, cx| confirm(this, window, cx)),

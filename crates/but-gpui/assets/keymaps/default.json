@@ -203,13 +203,18 @@
       "[ c": "diff::PreviousHunk"
     }
   },
-  // Moving between files and hunks follows Lite. Discarding a hunk follows Zed's agent
-  // review, whose cmd-alt-z rejects one.
+  // Moving between files and hunks follows Lite, and to the first and last file the navigator.
+  // Discarding a hunk follows Zed's agent review, whose cmd-alt-z rejects one. The file list
+  // takes these too.
   {
     "context": "Diff && !TextInput",
     "bindings": {
       "j": "diff::NextFile",
       "k": "diff::PreviousFile",
+      "g g": "diff::FirstFile",
+      "home": "diff::FirstFile",
+      "shift-g": "diff::LastFile",
+      "end": "diff::LastFile",
       // Vim's next and previous change, first so the arrows are shown.
       "] c": "diff::NextHunk",
       "[ c": "diff::PreviousHunk",
@@ -217,7 +222,11 @@
       "up": "diff::PreviousHunk",
       "secondary-alt-z": "diff::DiscardHunk",
       "secondary-backspace": "diff::DiscardFile",
-      "z": "diff::ToggleFold",
+      // As the navigator folds, the arrows last so menus show them.
+      "h": "diff::FoldFile",
+      "left": "diff::FoldFile",
+      "l": "diff::UnfoldFile",
+      "right": "diff::UnfoldFile",
       "pagedown": "diff::PageDown",
       "space": "diff::PageDown",
       "pageup": "diff::PageUp",
@@ -253,8 +262,8 @@
       "s": "diff::ToggleSplit"
     }
   },
-  // The History and Branches lists step and fold as the navigator does, the arrows last so
-  // menus show them.
+  // The History and Branches lists step, jump and fold as the navigator does, the arrows last
+  // so menus show them.
   {
     "context": "List && !TextInput",
     "bindings": {
@@ -262,6 +271,10 @@
       "j": "navigator::SelectNext",
       "up": "navigator::SelectPrevious",
       "k": "navigator::SelectPrevious",
+      "g g": "navigator::SelectFirst",
+      "home": "navigator::SelectFirst",
+      "shift-g": "navigator::SelectLast",
+      "end": "navigator::SelectLast",
       "l": "navigator::Expand",
       "right": "navigator::Expand",
       "h": "navigator::Collapse",

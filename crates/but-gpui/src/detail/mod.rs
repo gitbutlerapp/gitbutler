@@ -61,11 +61,14 @@ actions!(
         PickNextFile,
         PickPreviousFile,
         PickAllFiles,
+        FirstFile,
+        LastFile,
         NextHunk,
         PreviousHunk,
         DiscardHunk,
         DiscardFile,
-        ToggleFold,
+        FoldFile,
+        UnfoldFile,
         PageDown,
         PageUp,
         HalfPageDown,
@@ -1534,11 +1537,12 @@ impl Detail {
 
     /// Step `delta` files through the ones shown, letting picks go.
     fn move_file(&mut self, delta: isize, cx: &mut Context<Self>) {
-        // From a checkout's overview, the first step opens the file the list starts with.
+        // From a checkout's overview, the first step opens the file the list starts with, and
+        // G the one it ends with.
         if self.showing_now(cx)
-            && let Some(&first) = self.listed_files(cx).first()
+            && let Some(&file) = panes::step_from(&self.listed_files(cx), None, delta)
         {
-            return self.scroll_to_file(first, cx);
+            return self.scroll_to_file(file, cx);
         }
         if let Some(file) = self.file_step(delta, cx) {
             self.file_picks.clear();
@@ -1866,6 +1870,16 @@ impl Detail {
             hunk: None,
         });
         self.rebuild_rows(cx);
+    }
+
+    /// ← folds the cursor's file and → unfolds it, as the navigator folds. Not in a diff that
+    /// isn't drawn.
+    fn fold_cursor_file(&mut self, fold: bool, cx: &mut Context<Self>) {
+        let file = self.cursor.file;
+        let folded = self.diff_path(file).map(|path| self.folded.contains(&path));
+        if folded == Some(!fold) && !self.diff_hidden(cx) {
+            self.toggle_fold(file, cx);
+        }
     }
 
     /// Throw away one hunk of the uncommitted file at `file_ix`, or the whole file when `hunk`
@@ -2291,6 +2305,8 @@ impl Render for Detail {
             .track_focus(&self.focus)
             .on_action(cx.listener(|this, _: &NextFile, _, cx| this.move_file(1, cx)))
             .on_action(cx.listener(|this, _: &PreviousFile, _, cx| this.move_file(-1, cx)))
+            .on_action(cx.listener(|this, _: &FirstFile, _, cx| this.move_file(isize::MIN / 2, cx)))
+            .on_action(cx.listener(|this, _: &LastFile, _, cx| this.move_file(isize::MAX / 2, cx)))
             .on_action(cx.listener(|this, _: &PickNextFile, _, cx| this.pick_step(1, cx)))
             .on_action(cx.listener(|this, _: &PickPreviousFile, _, cx| this.pick_step(-1, cx)))
             .on_action(cx.listener(|this, _: &PickAllFiles, _, cx| this.pick_all_files(cx)))
@@ -2322,9 +2338,8 @@ impl Render for Detail {
                     this.discard(this.cursor.file, None, window, cx)
                 }
             }))
-            .on_action(
-                cx.listener(|this, _: &ToggleFold, _, cx| this.toggle_fold(this.cursor.file, cx)),
-            )
+            .on_action(cx.listener(|this, _: &FoldFile, _, cx| this.fold_cursor_file(true, cx)))
+            .on_action(cx.listener(|this, _: &UnfoldFile, _, cx| this.fold_cursor_file(false, cx)))
             .on_action(cx.listener(|this, _: &PageDown, window, cx| this.page(PAGE, window, cx)))
             .on_action(cx.listener(|this, _: &PageUp, window, cx| this.page(-PAGE, window, cx)))
             .on_action(cx.listener(|this, _: &HalfPageDown, window, cx| this.page(0.5, window, cx)))
