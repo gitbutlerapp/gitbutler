@@ -67,8 +67,13 @@ fn median_took(landed: &[&Landing]) -> Option<i64> {
 }
 
 /// How many pull requests of `kept` each release of `releases` carried: those landed since
-/// the release before it, on `landings`' order, newest first.
-fn carried(releases: &[CommitId], landings: &[Landing], kept: &HashSet<CommitId>) -> Vec<usize> {
+/// the release before it, on `landings`' order, newest first; and whether that release is
+/// among `landings`, or the count stops where they do, short of it.
+fn carried(
+    releases: &[CommitId],
+    landings: &[Landing],
+    kept: &HashSet<CommitId>,
+) -> Vec<(usize, bool)> {
     let at: HashMap<CommitId, usize> = (landings.iter().enumerate())
         .map(|(ix, l)| (l.id, ix))
         .collect();
@@ -79,13 +84,12 @@ fn carried(releases: &[CommitId], landings: &[Landing], kept: &HashSet<CommitId>
     (starts.iter().enumerate())
         .map(|(ix, &start)| {
             // Tags on one commit carried the same, back to the release before them all.
-            let end = (starts.iter().skip(ix + 1))
-                .find(|&&next| next != start)
-                .copied()
-                .unwrap_or(landings.len());
-            (landings.iter().take(end).skip(start))
+            let end = (starts.iter().skip(ix + 1)).find(|&&next| next != start);
+            let count = (landings.iter().take(end.map_or(landings.len(), |end| *end)))
+                .skip(start)
                 .filter(|l| l.pull && kept.contains(&l.id))
-                .count()
+                .count();
+            (count, end.is_some())
         })
         .collect()
 }
@@ -247,8 +251,12 @@ impl Detail {
                         .truncate()
                         .child(release.name.clone()),
                 )
+                // At least, when the release before it landed before the days read.
                 .child(overview_column(
-                    plural(*n, "pull request"),
+                    match n {
+                        (n, true) => plural(*n, "pull request"),
+                        (n, false) => format!("{n}+ pull requests"),
+                    },
                     OVERVIEW_COUNT_WIDTH,
                     theme,
                 ))
@@ -446,18 +454,19 @@ mod tests {
         let kept: HashSet<CommitId> = landings.iter().map(|l| l.id).collect();
         assert_eq!(
             carried(&[id(1), id(3)], &landings, &kept),
-            [2, 1],
-            "pull requests since the release before, the direct commit left out"
+            [(2, true), (1, false)],
+            "pull requests since the release before, the direct commit left out, and the \
+             oldest's only back to where the landings read stop"
         );
         assert_eq!(
             carried(&[id(1), id(1), id(3)], &landings, &kept),
-            [2, 2, 1],
+            [(2, true), (2, true), (1, false)],
             "two tags on one commit carried the same"
         );
         let crates: HashSet<CommitId> = [id(2)].into();
         assert_eq!(
             carried(&[id(1), id(3)], &landings, &crates),
-            [1, 0],
+            [(1, true), (0, false)],
             "only those the filters keep"
         );
     }
