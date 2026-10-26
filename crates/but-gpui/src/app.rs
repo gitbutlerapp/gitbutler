@@ -1196,7 +1196,7 @@ impl Render for AppView {
             .children(self.render_palette(cx))
             // Above what dims the window, so their buttons take clicks rather than close it.
             .child(self.render_toasts(cx))
-            .children(self.render_menu(cx))
+            .children(self.render_menu(window, cx))
             .children(self.render_icon_picker(window, cx))
             // Last, so the window can be closed while a modal or menu is open.
             .when(crate::ui::draws_window_controls(window), |el| {

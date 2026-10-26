@@ -461,7 +461,11 @@ impl AppView {
         Some(backdrop.items_center().into_any_element())
     }
 
-    pub(crate) fn render_menu(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub(crate) fn render_menu(
+        &self,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
         let menu = self.menu.as_ref()?;
         let theme = Theme::get(cx);
         let items = menu.items.iter().enumerate().flat_map(|(ix, item)| {
@@ -514,7 +518,12 @@ impl AppView {
                 .into_any_element();
             line.into_iter().chain(heading).chain([row])
         });
-        let card = (popover(theme).id("context-menu").min_w(dp(180.)).py(dp(4.))).children(items);
+        // A menu taller than the window, as one of many projects is, scrolls inside the margins
+        // `floating` keeps it in.
+        let card = (popover(theme).id("context-menu").min_w(dp(180.)))
+            .max_h(window.viewport_size().height - fixed(16.))
+            .overflow_y_scroll()
+            .child(v_flex().py(dp(4.)).children(items));
         Some(floating(menu.position, card, cx, |this, _, cx| {
             this.menu = None;
             cx.notify();
