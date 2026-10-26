@@ -31,10 +31,9 @@ impl std::fmt::Display for UserCancelled {
 impl std::error::Error for UserCancelled {}
 
 // Embedded skill files
-const SKILL_MD: &[u8] = include_bytes!("../../../skill/SKILL.md");
-const CONCEPTS_MD: &[u8] = include_bytes!("../../../skill/references/concepts.md");
-const EXAMPLES_MD: &[u8] = include_bytes!("../../../skill/references/examples.md");
-const REFERENCE_MD: &[u8] = include_bytes!("../../../skill/references/reference.md");
+const SKILL_MD: &str = include_str!("../../../skill/SKILL.md");
+const CONCEPTS_MD: &str = include_str!("../../../skill/references/concepts.md");
+const EXAMPLES_MD: &str = include_str!("../../../skill/references/examples.md");
 /// Body of a stub SKILL.md: the full skill's frontmatter followed by this.
 const STUB_MD: &str = include_str!("../../../skill/stub.md");
 
@@ -42,14 +41,12 @@ const STUB_MD: &str = include_str!("../../../skill/stub.md");
 struct SkillFile {
     /// Relative path components from install directory.
     path_components: &'static [&'static str],
-    /// Embedded content
-    content: &'static [u8],
     /// Name of the document as `but skill <name>` prints it.
     name: &'static str,
-    /// Renders the text `but skill <name>` prints when it is not the embedded
-    /// content: the command reference comes from the clap tree so it always
-    /// matches the binary, while the installed file stays hand-written.
-    served: Option<fn() -> String>,
+    /// The document as it is installed and as `but skill <name>` prints it.
+    /// The command reference is rendered from the clap tree so it always
+    /// matches the binary.
+    content: fn() -> String,
 }
 
 impl SkillFile {
@@ -68,18 +65,9 @@ impl SkillFile {
         self.path_components == ["SKILL.md"]
     }
 
-    /// The embedded content as text; the sources are Markdown and must be UTF-8.
-    fn text(&self) -> Result<&'static str> {
-        std::str::from_utf8(self.content)
-            .with_context(|| format!("{} is not valid UTF-8", self.display_path()))
-    }
-
-    /// The text `but skill <name>` prints.
-    fn served_text(&self) -> Result<String> {
-        match self.served {
-            Some(render) => Ok(render()),
-            None => self.text().map(str::to_owned),
-        }
+    /// The document's text.
+    fn text(&self) -> String {
+        (self.content)()
     }
 }
 
@@ -87,27 +75,23 @@ impl SkillFile {
 const SKILL_FILES: &[SkillFile] = &[
     SkillFile {
         path_components: &["SKILL.md"],
-        content: SKILL_MD,
         name: "core",
-        served: None,
+        content: || SKILL_MD.to_owned(),
     },
     SkillFile {
         path_components: &["references", "reference.md"],
-        content: REFERENCE_MD,
         name: "reference",
-        served: Some(reference::render),
+        content: reference::render,
     },
     SkillFile {
         path_components: &["references", "concepts.md"],
-        content: CONCEPTS_MD,
         name: "concepts",
-        served: None,
+        content: || CONCEPTS_MD.to_owned(),
     },
     SkillFile {
         path_components: &["references", "examples.md"],
-        content: EXAMPLES_MD,
         name: "examples",
-        served: None,
+        content: || EXAMPLES_MD.to_owned(),
     },
 ];
 
@@ -483,21 +467,19 @@ fn print_doc(out: &mut OutputChannel, name: &str, full: bool) -> Result<()> {
         .iter()
         .find(|file| file.name == name)
         .expect("every doc subcommand names an embedded skill file");
-    let content = file.served_text()?;
+    let content = file.text();
     // The frontmatter is trigger text for the harness, not guidance. Only
     // SKILL.md carries one; a `---` rule inside a reference must stay.
     let body = match frontmatter_close(&content) {
         Some(close) if file.is_main_skill_file() => &content[close.end..],
         _ => content.as_str(),
     };
-    // Validate every reference before printing anything, so a bad embed
-    // fails loudly instead of producing a partial or altered document.
     let references: Vec<(&SkillFile, String)> = if full {
         SKILL_FILES
             .iter()
             .filter(|file| !file.is_main_skill_file())
-            .map(|file| Ok((file, file.served_text()?)))
-            .collect::<Result<_>>()?
+            .map(|file| (file, file.text()))
+            .collect()
     } else {
         Vec::new()
     };
@@ -1142,18 +1124,6 @@ fn prompt_for_install_path(
     Ok(selected_format.get_install_path(&base_dir))
 }
 
-/// Prepare SKILL.md content with version injection and validate all files
-fn prepare_skill_content(version: &str) -> Result<String> {
-    // Validate all embedded files are valid UTF-8
-    let skill_content = std::str::from_utf8(SKILL_MD).context("SKILL.md is not valid UTF-8")?;
-    std::str::from_utf8(CONCEPTS_MD).context("concepts.md is not valid UTF-8")?;
-    std::str::from_utf8(EXAMPLES_MD).context("examples.md is not valid UTF-8")?;
-    std::str::from_utf8(REFERENCE_MD).context("reference.md is not valid UTF-8")?;
-
-    // Inject version into SKILL.md
-    Ok(inject_version(skill_content, version))
-}
-
 /// Write the bundled skill files into `install_path`, creating the directory
 /// structure as needed and injecting the CLI version into SKILL.md. An existing
 /// stub stays a stub on every rewrite, so refreshes never upgrade a layout by
@@ -1162,15 +1132,8 @@ pub(crate) fn write_skill_files(
     install_path: &std::path::Path,
     layout: SkillLayout,
 ) -> Result<&'static str> {
-    if SKILL_FILES.iter().any(|f| f.content.is_empty()) {
-        anyhow::bail!(
-            "Skill files were not properly embedded at build time. Please report this as a bug."
-        );
-    }
-
-    // Prepare all content before writing (validate UTF-8 and inject version)
     let version = option_env!("VERSION").unwrap_or("dev");
-    let full_skill_md = prepare_skill_content(version)?;
+    let full_skill_md = inject_version(SKILL_MD, version);
     let layout = match installed_layout(&install_path.join("SKILL.md")) {
         SkillLayout::Stub => SkillLayout::Stub,
         SkillLayout::Full => layout,
@@ -1213,11 +1176,11 @@ pub(crate) fn write_skill_files(
         let file_path = file.get_install_path(install_path);
         let content = if file.is_main_skill_file() {
             // Use the version-injected content for SKILL.md
-            skill_md_content.as_bytes()
+            skill_md_content.clone()
         } else {
-            file.content
+            file.text()
         };
-        write_skill_file(&file_path, content)?;
+        write_skill_file(&file_path, content.as_bytes())?;
     }
     Ok(version)
 }
@@ -1245,12 +1208,6 @@ fn install_skill(
     let driving_agent = (!out.can_prompt())
         .then(crate::utils::detect_agent::detect)
         .flatten();
-    // Validate that embedded files are not empty (catches build issues)
-    if SKILL_FILES.iter().any(|f| f.content.is_empty()) {
-        anyhow::bail!(
-            "Skill files were not properly embedded at build time. Please report this as a bug."
-        );
-    }
 
     // Validate SKILL_FORMATS configuration (catches development errors)
     debug_assert!(
@@ -1536,21 +1493,6 @@ mod tests {
     }
 
     #[test]
-    fn prepare_skill_content_validates_utf8() {
-        // This tests that the function checks UTF-8 validity
-        // The actual embedded files should be valid, so this should succeed
-        let result = prepare_skill_content("1.0.0");
-        assert!(result.is_ok());
-        assert!(!result.unwrap().is_empty());
-    }
-
-    #[test]
-    fn prepare_skill_content_injects_version() {
-        let result = prepare_skill_content("9.9.9").unwrap();
-        assert!(result.contains("version: 9.9.9"));
-    }
-
-    #[test]
     fn skill_formats_are_valid() {
         // Validate that all SKILL_FORMATS have non-empty fields
         assert!(!SKILL_FORMATS.is_empty(), "Must have at least one format");
@@ -1648,20 +1590,8 @@ mod tests {
         // This catches build issues where files aren't properly embedded
         for file in SKILL_FILES {
             assert!(
-                !file.content.is_empty(),
+                !file.text().is_empty(),
                 "{} should be embedded",
-                file.display_path()
-            );
-        }
-    }
-
-    #[test]
-    fn embedded_files_are_valid_utf8() {
-        // Ensure all embedded files are valid UTF-8
-        for file in SKILL_FILES {
-            assert!(
-                std::str::from_utf8(file.content).is_ok(),
-                "{} should be valid UTF-8",
                 file.display_path()
             );
         }
@@ -1849,12 +1779,12 @@ mod tests {
             skill_md.contains(&format!("version: {version}")),
             "SKILL.md carries the CLI's bundled version"
         );
-        assert!(
-            install_path
-                .join("references")
-                .join("reference.md")
-                .exists(),
-            "reference files are written alongside SKILL.md"
+        let installed_reference =
+            std::fs::read_to_string(install_path.join("references").join("reference.md")).unwrap();
+        assert_eq!(
+            installed_reference,
+            reference::render(),
+            "the installed command reference is the one `but skill reference` prints"
         );
     }
 
