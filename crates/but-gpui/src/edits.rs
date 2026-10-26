@@ -251,7 +251,7 @@ impl AppView {
                     }))
                 })
                 .when(picked, |el| el.on_action(cx.listener(Self::squash_picked)))
-                .when(edits.new_branch_here && !linked, |el| {
+                .when(edits.new_branch_here, |el| {
                     el.on_action(cx.listener(Self::new_branch_here))
                 })
                 .when(edits.rewrap, |el| {

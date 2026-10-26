@@ -1431,12 +1431,13 @@ mod failure_tests {
 mod lane_tests {
     use std::path::Path;
 
-    use crate::backend::Checkout;
     use crate::backend::model::build::{describe, describe_chain};
     use crate::backend::ops::tests::{git, repo_with, target_origin_main};
     use crate::backend::ops::{
-        Destination, create_branch, create_dependent_branch, insert_empty_commit, rename_branch,
+        Destination, create_branch, create_branch_at_commit, create_dependent_branch,
+        insert_empty_commit, rename_branch,
     };
+    use crate::backend::{Checkout, CommitId};
 
     /// A stack `bottom < middle < top` with a commit each beside an empty `beside`, which keeps
     /// `top` out of the main checkout, and linked worktrees `wt` on `middle` with a commit of
@@ -1493,7 +1494,15 @@ mod lane_tests {
     fn a_worktree_lane_loads_its_own_branches() {
         linked_workspace(|path| {
             let loaded = crate::backend::load_workspace(path, Default::default()).unwrap();
-            let wt_top = (loaded.worktrees.iter()).find(|wt| &*wt.name == "wt-top");
+            let worktree = |name| (loaded.worktrees.iter()).find(|wt| &*wt.name == name);
+            git(
+                &worktree("wt").unwrap().path,
+                &["commit", "-q", "--allow-empty", "-m", "more"],
+            );
+            let wt_work = git(path, &["rev-parse", "wt~"]);
+            let wt_work = CommitId(gix::ObjectId::from_hex(wt_work.trim().as_bytes()).unwrap());
+            create_branch_at_commit(path, wt_work, false).unwrap();
+            let wt_top = worktree("wt-top");
             let out = std::process::Command::new("git")
                 .current_dir(&wt_top.unwrap().path)
                 .args(["reset", "-q", "--soft", "HEAD"])
@@ -1548,8 +1557,8 @@ Main: [Unnamed branch, middle, bottom]
 Main: [beside]
 agent1: [agent1 (checked out)]
 agent2: [agent2 (checked out)] rests on agent1~2
-wt: [wt (checked out)] rests on middle
-wt-stacked: [wt-stacked (checked out)] rests on wt
+wt: [wt (checked out), t-branch-1] rests on middle
+wt-stacked: [wt-stacked (checked out)] rests on t-branch-1
 wt-top: [top (checked out)] rests on Unnamed branch
 agent2: [agent2 (checked out)]
 agent1: [agent1 (checked out)] from agent1~2

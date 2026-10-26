@@ -501,7 +501,7 @@ impl Navigator {
                     action("Add empty commit above", &AddEmptyCommitAbove),
                     action("Add empty commit below", &AddEmptyCommitBelow),
                 ]);
-                if edits.new_branch_here && !linked {
+                if edits.new_branch_here {
                     items.push(action("New branch ending here", &NewBranchHere));
                 }
                 if store.workspace(project).is_some_and(|ws| ws.managed) {
