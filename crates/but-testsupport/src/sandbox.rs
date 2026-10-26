@@ -421,8 +421,9 @@ impl Sandbox {
             .expect("git should execute");
         assert!(
             output.status.success(),
-            "git {args} failed with {status:?}",
-            status = output.status
+            "git {args} failed with {status:?}: {stderr}",
+            status = output.status,
+            stderr = String::from_utf8(output.stderr).unwrap(),
         );
         String::from_utf8_lossy(&output.stdout).trim().to_string()
     }
