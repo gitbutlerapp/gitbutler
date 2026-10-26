@@ -1383,8 +1383,8 @@ pub(super) fn back_to_list(
 
 impl Detail {
     /// A list page's column, whose list takes the focus: ↑ and ↓ `step` through it, gg and G
-    /// to either end, → and ← `fold` what's selected, on a page whose rows fold, and Return
-    /// does `confirm` to it. Where rows don't fold, → and ← do nothing, not fold the diff.
+    /// to either end, ⇧→ and ⇧← `fold` what's selected, on a page whose rows fold, and Return
+    /// does `confirm` to it. Where rows don't fold, ⇧→ and ⇧← do nothing, not fold the diff.
     pub(super) fn list_column(
         &self,
         step: fn(&mut Self, isize, &mut Context<Self>),
@@ -1427,7 +1427,7 @@ impl Detail {
     /// few and the one `picked`, then how many more, which a click lists too, scrolling within
     /// the card, until Show fewer. `counted` says what they count and `empty` stands in for
     /// none. A click on someone, ↑ and ↓ while the card has the focus, or Clear (with `None`)
-    /// hands `pick` who to filter the list to; → and ← list everyone and fold them again.
+    /// hands `pick` who to filter the list to; ⇧→ and ⇧← list everyone and fold them again.
     pub(super) fn people_card(
         &self,
         people: Vec<(String, String, String, usize)>,
