@@ -161,7 +161,7 @@ impl<'a> ModeRef<'a> {
                 SquashSource::Uncommitted(..)
                 | SquashSource::Branch(..)
                 | SquashSource::Commit(..)
-                | SquashSource::CommittedFile(..)
+                | SquashSource::CommittedChange(..)
                 | SquashSource::UncommittedHunk(..) => MarksRef::Empty,
             },
             ModeRef::Commit(commit_mode) => match &*commit_mode.source {

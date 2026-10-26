@@ -122,9 +122,11 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
                     .register();
                 builder
                     .squash()
-                    .condition(KeyBindCondition::SelectionIsUncommitted.and(
-                        &KeyBindCondition::Not(&KeyBindCondition::DetailsReturnModeIsPickChanges),
-                    ))
+                    .condition(
+                        KeyBindCondition::SelectionHasHunks.and(&KeyBindCondition::Not(
+                            &KeyBindCondition::DetailsReturnModeIsPickChanges,
+                        )),
+                    )
                     .register();
                 builder.details_discard().register();
 
@@ -1649,7 +1651,7 @@ fn normalize_char_for_display(ch: char, shifted: bool) -> char {
 #[derive(Debug, Copy, Clone)]
 pub enum KeyBindCondition {
     SelectionIsUncommitted,
-    /// The selection shows hunks that can be marked and discarded.
+    /// The selection shows hunks that can be marked, discarded and squashed.
     SelectionHasHunks,
     DetailsReturnModeIsPickChanges,
     And {

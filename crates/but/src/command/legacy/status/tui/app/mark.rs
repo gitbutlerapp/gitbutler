@@ -42,6 +42,9 @@ pub enum Marks {
 /// Marking every hunk of a file in the detail view also marks the file, but only to show that all
 /// of its hunks are marked. Like the CLI given the hunks' IDs, it still selects just those hunks,
 /// see [`committed_changes_to_act_on`].
+///
+/// An operation started on a single committed file or hunk, without marks, uses it as its source
+/// too.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CommittedMark {
     File(CommittedFileId),
@@ -218,17 +221,17 @@ impl<'a> MarksRef<'a> {
         }
     }
 
+    pub fn from_committed_ref(mark: &'a CommittedMark) -> MarksRef<'a> {
+        MarksRef::Committed {
+            head: mark,
+            tail: &[],
+        }
+    }
+
     pub fn from_committed_files(commits: &'a NonEmpty<CommittedFileId>) -> Self {
         Self::CommittedFiles {
             head: &commits.head,
             tail: &commits.tail,
-        }
-    }
-
-    pub fn from_committed_file_ref(commit: &'a CommittedFileId) -> Self {
-        Self::CommittedFiles {
-            head: commit,
-            tail: &[],
         }
     }
 

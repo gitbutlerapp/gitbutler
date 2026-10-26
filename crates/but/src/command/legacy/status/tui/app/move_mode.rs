@@ -33,7 +33,10 @@ use crate::{
     },
 };
 
-use super::{MoveCursorDiration, SquashMarks, SquashSource, mark::MarksRef};
+use super::{
+    MoveCursorDiration, SquashMarks, SquashSource,
+    mark::{CommittedMark, MarksRef},
+};
 
 #[derive(Debug, Clone)]
 pub struct MoveMode {
@@ -255,12 +258,17 @@ impl App {
                         source: MoveSource::Marks(MoveMarks::Commits(commits.clone())),
                         insert_side: InsertSide::Above,
                     },
-                    SquashMarks::CommittedFiles(committed_files) => MoveMode {
-                        source: MoveSource::Marks(MoveMarks::CommittedFiles(
-                            committed_files.clone(),
-                        )),
-                        insert_side: InsertSide::Above,
-                    },
+                    SquashMarks::Committed(marks) => {
+                        // Moving committed hunks isn't supported yet.
+                        let Some(files) = MarksRef::from_committed(marks).whole_committed_files()
+                        else {
+                            return;
+                        };
+                        MoveMode {
+                            source: MoveSource::Marks(MoveMarks::CommittedFiles(files)),
+                            insert_side: InsertSide::Above,
+                        }
+                    }
                     SquashMarks::Hunks(..) | SquashMarks::Branches(..) => return,
                 },
                 SquashSource::Commit(commit) => MoveMode {
@@ -272,11 +280,14 @@ impl App {
                     insert_side: InsertSide::Above,
                 },
 
-                SquashSource::CommittedFile(committed_file) => MoveMode {
+                SquashSource::CommittedChange(CommittedMark::File(committed_file)) => MoveMode {
                     source: MoveSource::CommittedFile(committed_file.clone()),
                     insert_side: InsertSide::Above,
                 },
-                SquashSource::UncommittedHunk(..) | SquashSource::Uncommitted(..) => return,
+                // Moving committed hunks isn't supported yet.
+                SquashSource::CommittedChange(CommittedMark::Hunk(..))
+                | SquashSource::UncommittedHunk(..)
+                | SquashSource::Uncommitted(..) => return,
             },
             _ => return,
         };
