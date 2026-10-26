@@ -169,25 +169,33 @@ pub(super) type Checkouts = HashSet<Option<Arc<str>>>;
 
 impl Overlay {
     /// The checkouts it makes commits in: the one whose files it takes, the one its new commit
-    /// goes in, and those of the commits it changes. An agent's commits in another, made
-    /// meanwhile, aren't its own.
+    /// goes in, those of the commits it changes, and the linked worktrees resting on them,
+    /// which their rewrite moves. An agent's commits in another, made meanwhile, aren't its
+    /// own.
     pub(super) fn checkouts(&self, ws: &Workspace) -> Checkouts {
-        let worktree_with = |has: &dyn Fn(&Branch) -> bool| {
-            (ws.lanes.iter())
-                .find(|lane| lane.branches.iter().any(has))
-                .and_then(|lane| lane.checkout.linked().cloned())
-        };
-        let of_commit = |key: &str| worktree_with(&|b| b.commits.iter().any(|c| c.key == key));
+        let moved_by =
+            |commit: Option<&Commit>| commit.map_or_else(HashSet::new, |c| ws.moved_by(c.id));
+        let keyed = |key: &str| ws.commits().find(|commit| commit.key == key);
         let landing = (self.new_commit.iter()).map(|(at, _)| match at {
-            NewAt::Top(ref_name) => worktree_with(&|b| b.ref_name == *ref_name),
-            NewAt::Above(key) | NewAt::Below(key) => of_commit(key),
+            NewAt::Top(ref_name) => {
+                let Some((lane, at)) = ws.lane_of(ref_name) else {
+                    return HashSet::new();
+                };
+                let tip = (lane.branches.iter().skip(at)).find_map(|b| b.commits.first());
+                let mut moved = moved_by(tip);
+                moved.insert(lane.checkout.clone());
+                moved
+            }
+            NewAt::Above(key) | NewAt::Below(key) => moved_by(keyed(key)),
         });
         let changed = (self.commits.iter())
             .chain(self.commit_files.keys())
             .chain(self.commit_hunks.keys())
             .chain(self.reworded.iter().map(|(key, _)| key))
-            .map(|key| of_commit(key));
+            .map(|key| moved_by(keyed(key)));
         (landing.chain(changed))
+            .flatten()
+            .map(|checkout| checkout.linked().cloned())
             .chain([self.files_in.clone()])
             .collect()
     }
@@ -2104,6 +2112,57 @@ fn branch_name(ref_name: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::backend::model::build::{branch, workspace, worktree};
+
+    #[test]
+    fn an_operation_counts_the_worktrees_its_rewrite_moves_as_its_own() {
+        let ws = workspace(
+            vec![vec![
+                branch("top", &[1]),
+                branch("middle", &[2, 3]),
+                branch("bottom", &[4]),
+            ]],
+            vec![
+                worktree("wt", Some(3), vec![branch("wt", &[5])]),
+                worktree("wt-stacked", Some(5), vec![branch("wt-stacked", &[6])]),
+            ],
+        );
+        let named = |checkouts: Checkouts| {
+            let mut names: Vec<_> = (checkouts.into_iter())
+                .map(|checkout| checkout.map_or("Main".to_owned(), |name| name.to_string()))
+                .collect();
+            names.sort();
+            names.join(", ")
+        };
+        let top_of = |ref_name: &str| Overlay {
+            new_commit: Some((NewAt::Top(ref_name.to_owned()), SharedString::default())),
+            ..Overlay::default()
+        };
+        let amending_in = |worktree: &str, key: &str| Overlay {
+            files_in: Some(worktree.into()),
+            ..Overlay::commits([key.to_owned()])
+        };
+        let checkouts = [
+            ("rewriting top", Overlay::commits(["key1".to_owned()])),
+            ("rewriting middle~1", Overlay::commits(["key3".to_owned()])),
+            ("rewriting wt", Overlay::commits(["key5".to_owned()])),
+            ("amending wt in it", amending_in("wt", "key5")),
+            ("committing on middle", top_of("refs/heads/middle")),
+            ("committing on bottom", top_of("refs/heads/bottom")),
+        ]
+        .map(|(what, overlay)| format!("{what}: {}\n", named(overlay.checkouts(&ws))))
+        .concat();
+        assert_eq!(
+            checkouts,
+            "rewriting top: Main\n\
+             rewriting middle~1: Main, wt, wt-stacked\n\
+             rewriting wt: Main, wt, wt-stacked\n\
+             amending wt in it: wt, wt-stacked\n\
+             committing on middle: Main\n\
+             committing on bottom: Main, wt, wt-stacked\n",
+            "wt rests on middle~1, below middle's tip and above bottom, and wt-stacked on wt"
+        );
+    }
 
     #[test]
     fn an_update_says_what_conflicted_and_what_landed() {
@@ -2139,7 +2198,6 @@ mod tests {
 
     #[test]
     fn an_update_card_says_what_a_linked_worktree_keeps_from_it() {
-        use crate::backend::model::build::{branch, workspace, worktree};
         let found = |names: &[&str]| UpdateConflicts {
             branches: (names.iter())
                 .map(|name| (format!("refs/heads/{name}"), 1))
