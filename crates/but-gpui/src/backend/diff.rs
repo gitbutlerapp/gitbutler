@@ -246,7 +246,13 @@ fn add_conflicts(
         let ix = row(diffs, &manual.path, scope_lines, change);
         if let Some(diff) = ix.and_then(|ix| diffs.get_mut(ix)) {
             diff.file.conflicted = true;
-            diff.body = DiffBody::Unresolvable(manual.reason);
+            // The reason is a sentence of its own; the command names the commit, as the
+            // branch it's on may hold several.
+            diff.body = DiffBody::Unresolvable(format!(
+                "{}. Resolve it in a terminal, with `but resolve {}`.",
+                manual.reason.trim_end_matches('.'),
+                commit.short()
+            ));
         }
     }
     diffs.sort_by_key(|diff| !diff.file.conflicted);

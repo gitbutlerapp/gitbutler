@@ -918,7 +918,7 @@ pub enum DiffBody {
     /// Mode changes and the like, with no lines to show.
     Empty,
     /// A conflict the app can't split into lines to pick between, like a file one side
-    /// deleted, and why.
+    /// deleted: why, and the command that resolves it.
     Unresolvable(String),
 }
 
