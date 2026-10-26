@@ -187,10 +187,8 @@ impl Detail {
                 named("This commit", "this commit"),
             ];
         }
-        let target = (workspace.and_then(|ws| ws.target.as_ref())).map(|target| {
-            let name = target.name.rsplit('/').next().unwrap_or(&target.name);
-            (name.to_owned(), name.to_owned())
-        });
+        let target = (workspace.and_then(|ws| ws.target.as_ref()))
+            .map(|target| (target.branch.clone(), target.branch.clone()));
         match conflicted {
             Conflicted::Commit(id) => {
                 let oldest = workspace.is_some_and(|ws| oldest_first(ws, id).first() == Some(&id));
