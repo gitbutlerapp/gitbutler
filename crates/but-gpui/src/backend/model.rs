@@ -1293,6 +1293,7 @@ mod tests {
             lanes: vec![super::Lane {
                 branches: vec![main],
                 checkout: super::Checkout::Main,
+                rests_on: None,
             }],
             target_branch: Some("refs/heads/main".into()),
             target: Some(super::Target {

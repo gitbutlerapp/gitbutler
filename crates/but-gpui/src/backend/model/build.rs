@@ -1,4 +1,4 @@
-use super::{Branch, Checkout, Commit, Lane, PushState, Workspace, Worktree};
+use super::{Branch, Checkout, Commit, CommitId, Lane, PushState, Workspace, Worktree};
 
 pub(crate) fn branch(name: &str, commits: &[u8]) -> Branch {
     let id = |n: u8| gix::ObjectId::from_bytes_or_panic(&[n; 20]);
@@ -28,10 +28,12 @@ pub(crate) fn workspace(stacks: Vec<Vec<Branch>>, linked: Vec<Branch>) -> Worksp
             .map(|branches| Lane {
                 branches,
                 checkout: Checkout::Main,
+                rests_on: None,
             })
             .chain([Lane {
                 branches: linked,
                 checkout: Checkout::Linked("agent".into()),
+                rests_on: None,
             }])
             .collect(),
         worktrees: vec![Worktree {
@@ -54,14 +56,27 @@ pub(crate) fn describe(workspace: &Workspace) -> String {
             .collect::<Vec<_>>()
             .join(", ")
     };
-    let stacks = (workspace.lanes_in(&Checkout::Main))
-        .map(|lane| format!("Main: [{}]", names(&lane.branches)));
+    let commit = |id: CommitId| {
+        (workspace.all_branches())
+            .find_map(|branch| {
+                let below = branch.commits.iter().position(|commit| commit.id == id)?;
+                Some(match below {
+                    0 => branch.name.clone(),
+                    _ => format!("{}~{below}", branch.name),
+                })
+            })
+            .unwrap_or_else(|| id.short())
+    };
+    let line = |checkout: &str, lane: Option<&Lane>| {
+        let branches = lane.map_or(&[][..], |lane| &lane.branches);
+        let rests_on = (lane.and_then(|lane| lane.rests_on))
+            .map_or(String::new(), |id| format!(" rests on {}", commit(id)));
+        format!("{checkout}: [{}]{rests_on}\n", names(branches))
+    };
+    let stacks = (workspace.lanes_in(&Checkout::Main)).map(|lane| line("Main", Some(lane)));
     let mut worktrees: Vec<_> = workspace.worktrees.iter().collect();
     worktrees.sort_by_key(|worktree| &worktree.name);
-    let worktrees = (worktrees.into_iter()).map(|worktree| {
-        let lane = workspace.worktree_lane(&worktree.name);
-        let branches = lane.map_or(&[][..], |lane| &lane.branches);
-        format!("{}: [{}]", worktree.name, names(branches))
-    });
-    stacks.chain(worktrees).map(|line| line + "\n").collect()
+    let worktrees = (worktrees.into_iter())
+        .map(|worktree| line(&worktree.name, workspace.worktree_lane(&worktree.name)));
+    stacks.chain(worktrees).collect()
 }

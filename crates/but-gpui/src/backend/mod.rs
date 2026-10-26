@@ -376,6 +376,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
                 .map(|segment| branch_from(&ctx, &cached, segment))
                 .collect(),
             checkout: Checkout::Main,
+            rests_on: stack.lane().rests_on.map(CommitId),
         })
         .collect();
     let meta = ctx.project_meta().ok();
@@ -392,6 +393,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
             Some(Lane {
                 branches: worktree_branches(&ctx, &cached, lane.segments.iter(), &lanes),
                 checkout: Checkout::Linked(worktree.name.clone()),
+                rests_on: lane.rests_on.map(CommitId),
             })
         })
         .collect();
@@ -1507,15 +1509,15 @@ mod lane_tests {
                 "the lanes are in the order the worktrees list"
             );
             // `top`, checked out in wt-top, names an empty segment in that lane, which leaves
-            // its commit in the stack unnamed.
+            // its commit in the stack unnamed, and wt-top resting on it.
             snapbox::assert_data_eq!(
                 describe(&workspace),
                 snapbox::str![[r#"
 Main: [Unnamed branch, middle, bottom]
 Main: [beside]
-wt: [wt]
-wt-stacked: [wt-stacked]
-wt-top: [top]
+wt: [wt] rests on middle
+wt-stacked: [wt-stacked] rests on wt
+wt-top: [top] rests on Unnamed branch
 
 "#]]
             );
