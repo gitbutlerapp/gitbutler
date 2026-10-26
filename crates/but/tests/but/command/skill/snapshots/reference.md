@@ -69,6 +69,29 @@ Integrate a branch's remote counterpart into the local branch
 - `--dry-run` Preview the resulting branch state without persisting changes
 - `-v, --verbose` Show additional dry-run details like the current divergence
 
+### but worktree list
+List worktrees, most recently updated first
+- `--archived` List all archived worktrees
+- `--active` List all active worktrees
+
+### but worktree new [NAME]
+Create a worktree on a new branch at the workspace base or above a commit, or on an existing branch that isn't in the workspace
+- `[NAME]` The branch to check out, created if it doesn't exist, or a generated one
+- `-A, --above <COMMIT>` Start the new branch at COMMIT instead of the workspace base. Accepts a commit SHA or CLI ID, not a branch. Conflicted commits are refused.
+
+### but worktree archive <WORKTREE>
+Hide a worktree from the workspace
+- `<WORKTREE>` The worktree, by CLI ID (see but wt list) or name
+
+### but worktree unarchive <WORKTREE>
+Show an archived worktree in the workspace again
+- `<WORKTREE>` The worktree, by CLI ID (see but wt list) or name
+
+### but worktree remove <WORKTREE>
+Remove a worktree from disk, like git worktree remove
+- `<WORKTREE>` The worktree, by CLI ID (see but wt list) or name
+- `-f, --force` Remove the worktree even if it has uncommitted changes
+
 ### but discard [CHANGES]...
 Discard branches, commits, or changes
 - `[CHANGES]...` One or more branches, commits, or changes to discard. If omitted, all uncommitted changes of the checkout but runs in are discarded.

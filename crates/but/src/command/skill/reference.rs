@@ -19,7 +19,6 @@ const SKIPPED: &[&str] = &[
     "but skill",
     "but agent",
     "but help",
-    "but worktree",
     "but teardown",
     "but update suppress",
     "but update install",

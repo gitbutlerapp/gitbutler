@@ -74,8 +74,7 @@ but split <commit-id>:<file-id> -m "message"              # Extract a file immed
 
 IDs are positional and space-separated. `but help cli-ids` documents every ID kind in detail.
 
-**Worktrees** (experimental, only with the `worktreeManipulation` feature flag on): each
-active worktree is drawn in `but status` as a lane of its own, nested above the commit the
+**Worktrees**: each active worktree is drawn in `but status` as a lane of its own, nested above the commit the
 worktree rests on — another worktree's commit included, lanes nest recursively — or standing on
 its own below the stacks when it rests outside the workspace. The lane opens with the worktree's
 uncommitted area, `<id>:@ [uncommitted] {<worktree-name>}`, followed by ordinary branch rows
@@ -110,7 +109,7 @@ inside a linked worktree, a bare `but commit` and `but diff`, and `but amend`/`b
 with `-t` but no sources, take that worktree's changes, while `but commit --empty` and `but pick`
 without a target go on its branch, and a bare `but discard` discards that worktree's changes.
 `but absorb` and `but branch new` without `--above`/`--below` refuse there instead of acting on
-the main worktree, and every such default is refused in a worktree GitButler doesn't manage (the flag is off, it is archived, or its `HEAD`
+the main worktree, and every such default is refused in a worktree GitButler doesn't manage (it is archived, or its `HEAD`
 is unusable).
 
 ## Parallel vs Stacked Branches

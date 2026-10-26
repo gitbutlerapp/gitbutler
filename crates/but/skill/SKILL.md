@@ -1,7 +1,7 @@
 ---
 name: but
 version: 0.0.0
-description: "Commit, push, branch, and manage version control with GitButler. Use for commits, selective dirty-file or hunk commits, branches, diffs, PRs, history edits, squashes, amends, undo, merge, apply, and unapply. For selected dirty files or hunks, inspect with `but diff`; use compact `but status` for commit order, branch/stack placement, or conflict overview; use `but status -fv` when file/hunk IDs or per-commit file details matter. Replaces git write commands."
+description: "Commit, push, branch, and manage version control with GitButler. Use for commits, selective dirty-file or hunk commits, branches, diffs, PRs, history edits, squashes, amends, undo, merge, apply, unapply, and linked worktrees. For selected dirty files or hunks, inspect with `but diff`; use compact `but status` for commit order, branch/stack placement, or conflict overview; use `but status -fv` when file/hunk IDs or per-commit file details matter. Replaces git write commands."
 author: GitButler Team
 ---
 
@@ -53,7 +53,7 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 
 ## Non-Negotiable Rules
 
-1. Use `but` for all write operations. Never run `git add`, `git commit`, `git push`, `git checkout`, `git merge`, `git rebase`, `git stash`, or `git cherry-pick`. The only exception is selecting a side of a conflicted submodule in resolution mode (see Resolve conflicted commits). If the user says a `git` write command, translate it to `but` and run that. Running from a linked worktree shows the same workspace and IDs as the main worktree, and `@` still means the main worktree's changes; a bare `but commit` or `but diff` takes that worktree's changes, a bare path names a file there, and `<worktree>:@` names them from anywhere.
+1. Use `but` for all write operations. Never run `git add`, `git commit`, `git push`, `git checkout`, `git merge`, `git rebase`, `git stash`, or `git cherry-pick`. The only exception is selecting a side of a conflicted submodule in resolution mode (see Resolve conflicted commits). If the user says a `git` write command, translate it to `but` and run that.
 2. Mutation commands print their result without appending workspace status. Add `--status-after` only when the next step needs resulting workspace IDs or details; otherwise trust the mutation result and do not run a verification status/diff.
 3. Branches marked `(merged upstream)` have landed; start new work on another branch. That marker alone does not mean `but pull` removes them: run `but pull --check` first. `but pull` removes only branches listed `[integrated]` ("has been integrated upstream and removed locally", or "has been merged into <target> and removed" when the target has no upstream) and rebases the rest, which stay applied. To clear a landed branch that stays applied, use `but unapply <branch>` (acts on its whole stack; `but apply <branch>` restores it) rather than `but discard`. `push` and mutations (`commit`, `amend`, `squash`, `uncommit`, `reword`, `move`) refuse landed branches and commits, `absorb` skips them with a notice, and `commit` skips them when picking a default target.
 4. In non-interactive CLI workflows, do not narrate progress between routine commands. Execute the needed `but` commands and give a concise final summary.
@@ -160,6 +160,16 @@ To make one existing branch depend on another: `but move <child-branch-name> --a
 
 **DO NOT** stack via `uncommit` + `branch delete` + `branch new --above` (git branch names persist after delete and it loses work), and do not use `but undo` to unstack.
 
+### Work in a linked worktree
+
+Use a worktree when the task needs a separate checkout, for example to build or test one branch while other work stays in the main checkout.
+
+1. `but worktree new <branch-name>` creates the branch, checks it out in a new directory, and prints that directory. Add `-A <commit>` to start the branch at that commit instead of the workspace base.
+2. Run `but` from that directory, or with `but -C <path>`. There, a bare `but commit -m "<msg>"` or `but diff` takes that worktree's changes, a bare path names a file there, and the commit goes on the worktree's branch.
+3. `but status` from any checkout shows the worktree as a lane of its own, with the same IDs everywhere. `@` always means the main worktree's uncommitted changes; `<worktree>:@` names a linked worktree's changes from anywhere.
+4. Push and open PRs as for any branch (`but pr new <branch-name>`). `but pull` also rebases worktree branches.
+5. When done, `but worktree remove <name>` deletes the directory and keeps the branch. It refuses while the worktree has uncommitted changes; `-f` discards them.
+
 ### Create or manage pull requests
 
 `but pr new <branch-name>` pushes the selected branch and its ancestors, then creates the PR in one step — no prior `but push`. Provide `-F -` with a heredoc or `-F <file>` (first line is the title), `-t`, or `-m` with real newlines (zsh/bash: `-m $'Title\n\nBody'`) so no editor opens. Do not write the message to a file inside the repository: the next `but commit` would commit it. If forge auth is missing, run `but config forge auth`.
@@ -216,6 +226,8 @@ A wrong resolution is reverted with `but undo`.
 | `git rebase --onto` | `but move <branch> --above <new-base>` |
 | `git checkout -- <file>` / `git restore` | `but discard <id>` |
 | `git cherry-pick` | `but pick` |
+| `git worktree add -b <branch>` | `but worktree new <branch>` |
+| `git worktree remove` | `but worktree remove <name>` |
 | `gh pr create` | `but pr new <branch-name> -m "Title..."` |
 
 ## Notes
