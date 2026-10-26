@@ -166,6 +166,16 @@ impl Workspace {
         std::iter::once(own).chain(self.beneath(lane))
     }
 
+    /// Whether another lane rests on a commit of the branch `ref_name`.
+    pub fn rested_on(&self, ref_name: &str) -> bool {
+        let Some(branch) = self.find_branch(ref_name).filter(|_| !ref_name.is_empty()) else {
+            return false;
+        };
+        (self.lanes.iter())
+            .filter_map(|lane| lane.rests_on)
+            .any(|id| branch.commits.iter().any(|commit| commit.id == id))
+    }
+
     /// The checkouts rewriting commit `id` moves: the one whose lane holds it, and those of the
     /// linked worktrees resting on it or on a commit above it, through any lanes between.
     pub fn moved_by(&self, id: CommitId) -> HashSet<Checkout> {

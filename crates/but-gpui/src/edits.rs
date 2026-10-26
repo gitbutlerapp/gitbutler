@@ -268,7 +268,6 @@ impl AppView {
                 let Some(workspace) = store.workspace(project) else {
                     return el;
                 };
-                // A worktree's lane never can, as pulling reaches past the worktree.
                 let el = el.when(workspace.can_pull(ref_name), |el| {
                     el.on_action(cx.listener(|this, _: &PullRemote, window, cx| {
                         this.pull_remote(false, window, cx)
@@ -442,7 +441,8 @@ impl AppView {
                     n => (format!("the {n} commits"), "them"),
                 };
                 // A branch it takes along whose commits only its remote has can't be pulled
-                // first when others are stacked on it, nor here when a linked worktree has it.
+                // first when others are stacked on it or a linked worktree rests on it, nor
+                // here when a linked worktree has it.
                 let stuck = (ws.pushed_with(&ref_name))
                     .find(|b| !b.incoming.is_empty() && !ws.can_pull(&b.ref_name));
                 let linked = (stuck.and_then(|b| ws.lane_of(&b.ref_name)))
@@ -454,6 +454,11 @@ impl AppView {
                     Some(stuck) if linked => format!(
                         "It drops {what} only the remote has. To keep {name}'s, pull it in its \
                          worktree first.",
+                        name = stuck.name
+                    ),
+                    Some(stuck) if ws.rested_on(&stuck.ref_name) => format!(
+                        "It drops {what} only the remote has. {name}'s can't be pulled first \
+                         while a worktree rests on it.",
                         name = stuck.name
                     ),
                     Some(stuck) => format!(

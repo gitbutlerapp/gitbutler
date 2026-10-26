@@ -61,20 +61,24 @@ impl Workspace {
         (self.pushed_with(ref_name)).any(|branch| branch.push == PushState::NeedsForce)
     }
 
-    /// Whether `ref_name` can pull the commits only its remote has: it has some, and no
-    /// branches stacked on it. Pulling into a branch with others above moves its reference
-    /// to the top of the stack, so the app doesn't offer it.
+    /// Whether `ref_name` can pull the commits only its remote has: it has some, it's the top
+    /// of a stack, and no linked worktree rests on it. Pulling into a branch with others above
+    /// moves its reference to the top of the stack, pulling under a worktree moves what it
+    /// rests on, and pulling a worktree's own branch reaches past the worktree, so the app
+    /// doesn't offer them.
     pub fn can_pull(&self, ref_name: &str) -> bool {
         self.stack_of(ref_name).is_some_and(|(stack, at)| {
-            at == 0 && (stack.branches.first()).is_some_and(|b| !b.incoming.is_empty())
+            at == 0
+                && (stack.branches.first()).is_some_and(|b| !b.incoming.is_empty())
+                && !self.rested_on(ref_name)
         })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::super::build::{branch, workspace, worktree};
-    use super::super::{Branch, CommitState, PushState, Target, Workspace};
+    use super::super::build::{branch, id, workspace, worktree};
+    use super::super::{Branch, CommitState, PushState, RemoteCommit, Target, Workspace};
 
     #[test]
     fn a_worktree_branch_pushes_as_the_branches_beneath_it_need() {
@@ -140,6 +144,59 @@ wt with wt pushed, middle rewritten, bottom pushed: force push
 wt with wt pushed, middle pushed, bottom new: push
 wt with wt new, middle conflicted, bottom pushed: Resolve the conflicted commits first
 middle with wt new, middle pushed, bottom pushed: nothing to push
+
+"#]]
+        );
+    }
+
+    #[test]
+    fn a_branch_pulls_only_from_the_top_of_a_stack_no_worktree_rests_on() {
+        let behind = |mut branch: Branch| {
+            branch.incoming = vec![RemoteCommit {
+                id: id(99),
+                key: String::new(),
+                authored: String::new(),
+                title: String::new(),
+                body: String::new(),
+                author: String::new(),
+                email: String::new(),
+                agent: None,
+                time: 0,
+                merge: false,
+                review: None,
+            }];
+            branch
+        };
+        let ws = workspace(
+            vec![
+                vec![
+                    behind(branch("top", &[1])),
+                    behind(branch("middle", &[2, 3])),
+                ],
+                vec![behind(branch("under-tip", &[6]))],
+            ],
+            vec![
+                worktree("wt", Some(3), vec![behind(branch("wt", &[5]))]),
+                worktree("on-tip", Some(6), vec![branch("on-tip", &[8])]),
+            ],
+        );
+        let pulls: String = ["top", "middle", "under-tip", "wt"]
+            .map(|name| {
+                let ref_name = format!("refs/heads/{name}");
+                let (rested_on, can_pull) = (ws.rested_on(&ref_name), ws.can_pull(&ref_name));
+                format!("{name}: rested_on {rested_on}, can_pull {can_pull}\n")
+            })
+            .concat();
+        // Only `top` pulls: `middle` has `top` stacked on it and `wt` resting on its lower
+        // commit, `under-tip` has `on-tip` resting on its tip, and `wt` is a linked
+        // worktree's own branch.
+        snapbox::assert_data_eq!(
+            pulls,
+            snapbox::str![[r#"
+top: rested_on false, can_pull true
+middle: rested_on true, can_pull false
+under-tip: rested_on true, can_pull false
+wt: rested_on false, can_pull false
 
 "#]]
         );

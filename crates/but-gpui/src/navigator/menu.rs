@@ -324,9 +324,8 @@ impl Navigator {
                     };
                     items.push(action(label, &Push));
                 }
-                // What reaches past a linked worktree, like pulling, is done in it.
                 let linked = store.in_linked(target);
-                if workspace.can_pull(ref_name) && !linked {
+                if workspace.can_pull(ref_name) {
                     items.extend([
                         MenuItem::action(
                             format!(
