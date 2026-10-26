@@ -65,7 +65,7 @@ fn names(branches: &[Branch]) -> String {
         .join(", ")
 }
 
-fn commit_name(workspace: &Workspace, id: CommitId) -> String {
+pub(crate) fn commit_name(workspace: &Workspace, id: CommitId) -> String {
     (workspace.all_branches())
         .find_map(|branch| {
             let below = branch.commits.iter().position(|commit| commit.id == id)?;

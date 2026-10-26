@@ -152,7 +152,8 @@ impl Workspace {
             .flat_map(|(lane, at)| self.chain_from(lane, at))
     }
 
-    fn chain_from<'a>(&'a self, lane: &'a Lane, at: usize) -> impl Iterator<Item = Link<'a>> {
+    /// `lane` from its branch `at` down, then the lanes beneath.
+    pub fn chain_from<'a>(&'a self, lane: &'a Lane, at: usize) -> impl Iterator<Item = Link<'a>> {
         let own = Link {
             lane,
             at,

@@ -948,17 +948,12 @@ impl Detail {
             return not_found("Branch not found", theme, cx);
         };
         let files = self.render_diff_file_list(theme, cx);
-        // Resolving the oldest conflict first, even in a branch below, rebases the rest onto
-        // its result. Commits list newest first, and a stack's branches top first.
+        // Resolving the oldest conflict first, even in a branch below or one the lane rests on,
+        // rebases the rest onto its result.
         let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
-        let oldest = (ws.stack_of(ref_name))
-            .filter(|_| conflicted > 0)
-            .and_then(|(stack, at)| {
-                stack.branches.get(at..)?.iter().rev().find_map(|holder| {
-                    let commit = holder.commits.iter().rev().find(|c| c.conflicted)?;
-                    Some((holder, commit))
-                })
-            });
+        let oldest = (conflicted > 0)
+            .then(|| super::resolve::oldest_conflict(ws, ref_name))
+            .flatten();
         let resolve_oldest = oldest.map(|(holder, commit)| {
             let app = self.app.clone();
             let (project, id) = (project.clone(), commit.id);
