@@ -977,7 +977,14 @@ impl Navigator {
                 .when(*is_error, |el| {
                     el.child(small_icon(Icon::Warning).text_color(theme.danger))
                 })
-                .child(div().flex_1().min_w_0().child(text.clone()))
+                // A long reason, as a failing filter's command twice over, stays on the
+                // project's page, and its menu copies it.
+                .child(
+                    (div().flex_1().min_w_0())
+                        .line_clamp(4)
+                        .text_ellipsis()
+                        .child(text.clone()),
+                )
                 .into_any_element(),
             // As made at once, set in as a commit row is, a stand-in title quiet as one's;
             // dimmed, with an ellipsis, only once it's taking a while.
