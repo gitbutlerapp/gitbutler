@@ -432,7 +432,8 @@ impl Detail {
         if !self.file_picks.is_empty() {
             return self.owned_cut(self.picked_changes(), cx);
         }
-        if !self.shown_files().contains(&self.cursor.file) {
+        // Not the cursor's file under a checkout's overview, where no row says which it is.
+        if !self.shown_files().contains(&self.cursor.file) || self.showing_now(cx) {
             return None;
         }
         let file = self.diff.as_ref()?.files.get(self.cursor.file)?;
@@ -992,6 +993,9 @@ impl Detail {
             return None;
         }
         let path = self.diff_path(self.cursor.file)?;
+        if self.showing_now(cx) && !self.file_picks.contains(&path) {
+            return None;
+        }
         // A picked file's menu is all the picks', as on its row.
         let payload = match self.file_picks.contains(&path) {
             true => self.owned_cut(self.picked_changes(), cx),

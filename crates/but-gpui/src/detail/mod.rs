@@ -2186,21 +2186,22 @@ impl Render for Detail {
             .on_action(cx.listener(|this, _: &PickAllFiles, _, cx| this.pick_all_files(cx)))
             .on_action(cx.listener(|this, _: &NextHunk, _, cx| this.move_hunk(true, cx)))
             .on_action(cx.listener(|this, _: &PreviousHunk, _, cx| this.move_hunk(false, cx)))
-            // Picked lines go first, as ⌘X takes them first.
+            // Picked lines go first, as ⌘X takes them first. The cursor's file only while it's
+            // shown, not under a checkout's overview, where no row says which it is.
             .on_action(cx.listener(|this, _: &DiscardHunk, window, cx| {
                 if this.line_picks.is_some() {
                     this.discard_picked_lines(window, cx)
-                } else if let Some(hunk) = this.cursor.hunk {
+                } else if let Some(hunk) = this.cursor.hunk.filter(|_| !this.showing_now(cx)) {
                     this.discard(this.cursor.file, Some(hunk), window, cx)
                 }
             }))
             .on_action(cx.listener(|this, _: &DiscardFile, window, cx| {
                 if this.line_picks.is_some() {
                     this.discard_picked_lines(window, cx)
-                } else if this.file_picks.is_empty() {
-                    this.discard(this.cursor.file, None, window, cx)
-                } else {
+                } else if !this.file_picks.is_empty() {
                     this.discard_picked(window, cx)
+                } else if !this.showing_now(cx) {
+                    this.discard(this.cursor.file, None, window, cx)
                 }
             }))
             .on_action(

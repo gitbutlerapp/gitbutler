@@ -174,6 +174,8 @@ impl Detail {
         let back = self.selected_checkout(cx).is_some() && !self.composing && !self.showing_now(cx);
         if back {
             self.now_open = true;
+            // Lines picked in the diff go with it, rather than stay for keys to act on unseen.
+            self.line_picks = None;
             cx.notify();
         }
         back
