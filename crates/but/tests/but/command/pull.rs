@@ -1539,6 +1539,26 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn single_branch_pull_points_conflicts_at_resolve_apply() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings(
+        "single-branch-conflict-in-bottom-commit",
+    );
+
+    // `but resolve <commit>` refuses while a branch is checked out, so the
+    // instructions use the commands that resolve without changing HEAD.
+    env.but("pull").assert().success().stdout_eq(str![[r#"
+...
+To resolve conflicts:
+  1. Run `but resolve conflicts` to show the conflicts of the oldest conflicted commit
+  2. Resolve each conflict with `but resolve apply`, as that output describes
+
+To undo this operation:
+  Run `but undo`
+
+"#]]);
+}
+
+#[test]
 fn pull_reports_conflict_in_lower_branch_of_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "pull-conflict-in-lower-branch-of-stack",

@@ -592,6 +592,11 @@ async fn handle_pull(
                 } else {
                     Default::default()
                 };
+                let single_branch_mode = has_conflicts
+                    && crate::utils::in_single_branch_mode(ctx).unwrap_or_else(|err| {
+                        tracing::warn!(?err, "could not tell whether a branch is checked out");
+                        false
+                    });
 
                 // Populate conflicts info
                 for branch_name in &conflicted_rebases {
@@ -695,7 +700,20 @@ async fn handle_pull(
                     if has_conflicts {
                         writeln!(out)?;
                         writeln!(out, "{}", t.important.paint("To resolve conflicts:"))?;
-                        if let Some(next_commit) = conflicted_rebases
+                        if single_branch_mode {
+                            // `but resolve <commit>` refuses while a branch is checked
+                            // out; these resolve without changing HEAD.
+                            writeln!(
+                                out,
+                                "  1. Run {} to show the conflicts of the oldest conflicted commit",
+                                t.command_suggestion.paint("`but resolve conflicts`")
+                            )?;
+                            writeln!(
+                                out,
+                                "  2. Resolve each conflict with {}, as that output describes",
+                                t.command_suggestion.paint("`but resolve apply`")
+                            )?;
+                        } else if let Some(next_commit) = conflicted_rebases
                             .iter()
                             .find_map(|branch| conflicted_commits.get(branch)?.first())
                         {
@@ -715,12 +733,14 @@ async fn handle_pull(
                                 t.command_suggestion.paint("`but resolve <commit>`")
                             )?;
                         }
-                        writeln!(out, "  2. Edit files to resolve the conflicts")?;
-                        writeln!(
-                            out,
-                            "  3. Run {} to finalize the resolution",
-                            t.command_suggestion.paint("`but resolve finish`")
-                        )?;
+                        if !single_branch_mode {
+                            writeln!(out, "  2. Edit files to resolve the conflicts")?;
+                            writeln!(
+                                out,
+                                "  3. Run {} to finalize the resolution",
+                                t.command_suggestion.paint("`but resolve finish`")
+                            )?;
+                        }
                     }
 
                     // Undo instructions
