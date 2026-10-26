@@ -1218,19 +1218,36 @@ impl Detail {
         self.pinned = true;
     }
 
+    /// The row the cursor is on, or its file's header where its hunk isn't drawn, as when folded.
+    fn cursor_row(&self) -> Option<usize> {
+        let Cursor { file, hunk } = self.cursor;
+        (hunk.and_then(|hunk| self.row_of(|row| *row == DiffRow::Hunk { file, hunk })))
+            .or_else(|| self.row_of(|row| *row == DiffRow::File(file)))
+    }
+
     /// While the user scrolls the diff, the file at its top, the one its sticky header names,
-    /// is the current one, and the file list marks it, as in but.dev.
+    /// is the current one, and the file list marks it, as in but.dev. Not while the cursor is
+    /// still in sight, so a nudge of the wheel doesn't take away the hunk the keys act on; once
+    /// it's out of sight, its hunk goes too, so no key acts on a hunk that can't be seen.
     pub(super) fn follow_scroll(&mut self, cx: &mut Context<Self>) {
         let Some(diff) = self.diff.as_ref().filter(|_| !self.pinned) else {
             return;
         };
+        let view = self.list.viewport_bounds();
+        if (self.cursor_row())
+            .and_then(|row| self.list.bounds_for_item(row))
+            .is_some_and(|row| row.bottom() > view.top() && row.top() < view.bottom())
+        {
+            return;
+        }
         let top = self.list.logical_scroll_top().item_ix;
         let Some(file) = (diff.rows.get(top..)).and_then(|rows| rows.iter().find_map(|r| r.file()))
         else {
             return;
         };
-        if file != self.cursor.file {
-            self.cursor = Cursor { file, hunk: None };
+        let followed = Cursor { file, hunk: None };
+        if self.cursor != followed {
+            self.cursor = followed;
             cx.notify();
         }
     }
@@ -1546,7 +1563,23 @@ impl Detail {
             .collect()
     }
 
-    fn move_hunk(&mut self, forward: bool, cx: &mut Context<Self>) {
+    pub(crate) fn move_hunk(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
+        // The keys go on to hunks that show, not a cursor out of sight. From a checkout's
+        // overview, the first step opens the file the list starts with, as `move_file`'s does,
+        // and from a branch's pull request, its changes. Nothing else that hides the diff shows
+        // its hunks.
+        if self.showing_now(cx)
+            && let Some(&first) = self.listed_files(cx).first()
+        {
+            self.scroll_to_file(first, cx);
+        }
+        if self.showing_review(cx) {
+            self.review_tab = false;
+            cx.notify();
+        }
+        if self.diff_hidden(cx) {
+            return;
+        }
         let Some(diff) = &self.diff else {
             return;
         };
@@ -1559,17 +1592,26 @@ impl Detail {
                 _ => None,
             })
             .collect();
-        let at = (self.cursor.file, self.cursor.hunk);
+        let at = self.cursor_row().unwrap_or(0);
+        // After a scroll, the keys go on from the edge of the view the cursor went past, as
+        // vim keeps its cursor on screen, rather than jump back to a hunk out of sight.
+        let view = (!self.pinned).then(|| {
+            let top = self.list.logical_scroll_top().item_ix;
+            let bottom = self.list.viewport_bounds().bottom();
+            let last = (top..diff.rows.len())
+                .take_while(|&row| {
+                    (self.list.bounds_for_item(row)).is_some_and(|b| b.top() < bottom)
+                })
+                .last()
+                .unwrap_or(top);
+            (top, last)
+        });
         let next = if forward {
-            hunks.iter().find(|(file, hunk, _)| match at {
-                (f, Some(h)) => (*file, *hunk) > (f, h),
-                (f, None) => *file >= f,
-            })
+            let from = view.map_or(at, |(top, last)| at.clamp(top.saturating_sub(1), last));
+            hunks.iter().find(|(.., row)| *row > from)
         } else {
-            hunks.iter().rev().find(|(file, hunk, _)| match at {
-                (f, Some(h)) => (*file, *hunk) < (f, h),
-                (f, None) => *file < f,
-            })
+            let from = view.map_or(at, |(top, last)| at.clamp(top, last + 1));
+            hunks.iter().rev().find(|(.., row)| *row < from)
         };
         if let Some(&(file, hunk, row)) = next {
             self.place_cursor(Cursor {
@@ -1578,6 +1620,11 @@ impl Detail {
             });
             self.reveal_row(row);
             cx.notify();
+        }
+        // From the file list too: the diff takes the keys, so the hunk shows solid and the
+        // keys after act on it.
+        if self.cursor.hunk.is_some() {
+            window.focus(&self.focus, cx);
         }
     }
 
@@ -2193,11 +2240,19 @@ impl Render for Detail {
             .on_action(cx.listener(|this, _: &PickNextFile, _, cx| this.pick_step(1, cx)))
             .on_action(cx.listener(|this, _: &PickPreviousFile, _, cx| this.pick_step(-1, cx)))
             .on_action(cx.listener(|this, _: &PickAllFiles, _, cx| this.pick_all_files(cx)))
-            .on_action(cx.listener(|this, _: &NextHunk, _, cx| this.move_hunk(true, cx)))
-            .on_action(cx.listener(|this, _: &PreviousHunk, _, cx| this.move_hunk(false, cx)))
+            .on_action(
+                cx.listener(|this, _: &NextHunk, window, cx| this.move_hunk(true, window, cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &PreviousHunk, window, cx| this.move_hunk(false, window, cx)),
+            )
             // Picked lines go first, as ⌘X takes them first. The cursor's file only while it's
-            // shown, not under a checkout's overview, where no row says which it is.
+            // shown, not under a checkout's overview, where no row says which it is. Only with
+            // the diff's keys: elsewhere its hunk shows faint, and a discard mustn't land on it.
             .on_action(cx.listener(|this, _: &DiscardHunk, window, cx| {
+                if !this.focus.is_focused(window) {
+                    return;
+                }
                 if this.line_picks.is_some() {
                     this.discard_picked_lines(window, cx)
                 } else if let Some(hunk) = this.cursor.hunk.filter(|_| !this.showing_now(cx)) {

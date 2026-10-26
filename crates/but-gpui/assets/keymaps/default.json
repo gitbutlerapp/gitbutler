@@ -194,6 +194,15 @@
       "secondary-a": "diff::PickAllFiles"
     }
   },
+  // From the navigator too, into the diff beside it, which the app passes them on to. Before
+  // the diff's own, so the arrows stay the keys shown.
+  {
+    "context": "Navigator && !TextInput",
+    "bindings": {
+      "] c": "diff::NextHunk",
+      "[ c": "diff::PreviousHunk"
+    }
+  },
   // Moving between files and hunks follows Lite. Discarding a hunk follows Zed's agent
   // review, whose cmd-alt-z rejects one.
   {

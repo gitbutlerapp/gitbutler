@@ -128,6 +128,7 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 |---|---|
 | / | filter the projects, worktrees, branches and commits |
 | ↑ ↓ or j k | move through the tree |
+| ]c [c | into the diff beside it, at the next or previous hunk |
 | Space ⇧Space | scroll the diff beside it; at the end of a commit, go on to the next unread commit, from the top again past the end, until All caught up |
 | ⇧↑ ⇧↓ | select a run of commits |
 | ⌥↑ ⌥↓, { } | previous or next branch or project |
@@ -149,6 +150,7 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 |---|---|
 | ↑ ↓ or j k | previous or next file, which the diff scrolls to |
 | ⇧↑ ⇧↓, ⌘A | select a run of files, select them all |
+| ]c [c | into the diff, at the next or previous hunk |
 
 | In the diff | |
 |---|---|

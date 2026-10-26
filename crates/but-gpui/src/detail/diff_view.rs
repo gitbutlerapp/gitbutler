@@ -718,6 +718,8 @@ impl Detail {
         let file_diff = row.file().and_then(|file| diff.files.get(file));
         // A folded file's header ends its card too.
         let last = diff::ends_card(&diff.rows, ix);
+        // The file list's and the message's keys don't act on the diff's cursor.
+        let solid = self.focus.is_focused(window);
         let store = self.store.read(cx);
         // Every file has its path to copy, even where nothing can change it.
         let menu = |menu: Option<Cut>,
@@ -778,7 +780,9 @@ impl Detail {
                     theme,
                     HeaderDecor {
                         trailing: Some(trailing.into_any_element()),
-                        current: self.cursor.file == file,
+                        // Not while one of its hunks is, so one mark says what the keys act on.
+                        current: self.cursor == Cursor { file, hunk: None },
+                        solid,
                         folded: last,
                         ..Default::default()
                     },
@@ -841,7 +845,7 @@ impl Detail {
                     let change = file_diff.part(Some(keys));
                     let checkout = (diff.key.project.clone(), diff.key.linked());
                     let app = self.app.clone();
-                    discard_button(ix, checkout, change, current, tip, app, cx)
+                    discard_button(ix, checkout, change, current && solid, tip, app, cx)
                 });
                 // The lines before the hunk, unless the file shown whole has them above.
                 let unmodified = if self.whole_lines(file_diff).is_some() {
@@ -858,6 +862,7 @@ impl Detail {
                         trailing: discard,
                         excluded: composing && !self.checks.hunk_checked(path, key),
                         current,
+                        solid,
                         ..Default::default()
                     },
                 );
@@ -1181,6 +1186,10 @@ impl Detail {
         (file, hunk, line): (usize, usize, usize),
         entity: &WeakEntity<Detail>,
     ) -> (bool, Option<diff::OnToggle>) {
+        let cursor = Cursor {
+            file,
+            hunk: Some(hunk),
+        };
         let Some(file_diff) = diff.files.get(file) else {
             return (false, None);
         };
@@ -1199,10 +1208,15 @@ impl Detail {
         }
         let excluded = !self.checks.line_checked(&path, key, line);
         let entity = entity.clone();
-        let toggle = Rc::new(move |_: &mut Window, cx: &mut App| {
-            entity
-                .update(cx, |detail, cx| detail.toggle_line(&path, key, line, cx))
-                .ok();
+        // With the diff's keys, as a press on the line's text: they then act on its hunk,
+        // rather than typing into the message.
+        let toggle = Rc::new(move |window: &mut Window, cx: &mut App| {
+            (entity.update(cx, |detail, cx| {
+                detail.place_cursor(cursor);
+                window.focus(&detail.focus, cx);
+                detail.toggle_line(&path, key, line, cx)
+            }))
+            .ok();
         });
         (excluded, Some(toggle))
     }
