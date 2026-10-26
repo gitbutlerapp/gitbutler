@@ -2527,7 +2527,7 @@ fn parent(store: &Store, selection: &Selection) -> Option<Selection> {
         return None;
     }
     Some(
-        match store.worktree_of(&Selection::Branch(project.clone(), bottom)) {
+        match store.worktree_for(&Selection::Branch(project.clone(), bottom)) {
             Some(worktree) => Selection::Worktree(project, worktree.name.clone()),
             None => Selection::Uncommitted(project),
         },

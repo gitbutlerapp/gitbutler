@@ -116,7 +116,7 @@ impl Transfer {
         // worktree would be left detached and the commits the branch started from would
         // come along.
         if let Cut::Branch(project, branch) = payload {
-            let side = |s: &Selection| store.worktree_of(s).map(|wt| wt.name.clone());
+            let side = |s: &Selection| store.worktree_for(s).map(|wt| wt.name.clone());
             let from = side(&Selection::Branch(project.clone(), branch.clone()));
             let stays = match target {
                 Selection::Worktree(..) => from.is_none(),
@@ -267,7 +267,7 @@ impl Transfer {
                 },
                 // The composer commits the main checkout's files to the workspace's branches.
                 (None, Selection::Branch(_, branch))
-                    if worktree.is_none() && store.worktree_of(target).is_none() =>
+                    if worktree.is_none() && !store.in_linked(target) =>
                 {
                     Transfer::StageOnBranch {
                         branch: branch.clone(),
@@ -362,9 +362,8 @@ impl Transfer {
         // The oplog snapshots only the main checkout, so undoing what moves a linked
         // worktree's changes, or rewrites the branches it has checked out, would lose them.
         let in_worktree = |id| store.in_worktree(project, id);
-        let branch_in_worktree = |branch: &str| {
-            (store.worktree_of(&Selection::Branch(project.clone(), branch.to_owned()))).is_some()
-        };
+        let branch_in_worktree =
+            |branch: &str| store.in_linked(&Selection::Branch(project.clone(), branch.to_owned()));
         let lands_in_worktree = |to: &Destination| match to {
             Destination::Branch(branch) => branch_in_worktree(branch),
             Destination::AboveCommit(id) | Destination::BelowCommit(id) => in_worktree(*id),
@@ -519,7 +518,7 @@ impl Transfer {
 /// commit's go into that worktree, as that's where their checkout is, and the rest into the
 /// main one.
 fn uncommits_into(store: &Store, project: &ProjectId, id: CommitId, target: &Selection) -> bool {
-    let home = store.worktree_of(&Selection::Commit(project.clone(), id));
+    let home = store.worktree_for(&Selection::Commit(project.clone(), id));
     match target {
         Selection::Uncommitted(_) => home.is_none(),
         Selection::Worktree(_, name) => home.is_some_and(|worktree| worktree.name == *name),

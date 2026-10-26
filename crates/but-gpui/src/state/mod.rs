@@ -13,13 +13,13 @@ use parking_lot::Mutex;
 use crate::backend::upstream::TargetCommit;
 use crate::backend::watch::Watcher;
 use crate::backend::{
-    self, Branch, Checkout, Commit, CommitId, Project, Selected, SnapshotId, Workspace, Worktree,
-    short_ref,
+    self, Branch, Commit, CommitId, Project, Selected, SnapshotId, Workspace, short_ref,
 };
 
 mod account;
 mod activity;
 mod background;
+mod checkout;
 mod cli;
 mod load;
 mod mesh;
@@ -627,58 +627,12 @@ impl Store {
         }
     }
 
-    /// The linked worktree whose branches `selection`, a branch or a commit, is on, and not
-    /// the workspace's too. Its agent works on them there, so nothing here changes them.
-    pub fn worktree_of(&self, selection: &Selection) -> Option<&Worktree> {
-        // A stack is where its bottom branch is.
-        let bottom;
-        let selection = match selection {
-            Selection::Stack(project, ref_name) => {
-                bottom = Selection::Branch(project.clone(), ref_name.clone());
-                &bottom
-            }
-            _ => selection,
-        };
-        let workspace = self.workspace(selection.project())?;
-        if workspace
-            .branches_in(&Checkout::Main)
-            .any(|branch| selection.on(branch))
-        {
-            return None;
-        }
-        (workspace.worktrees.iter()).find(|wt| {
-            (workspace.worktree_lane(&wt.name))
-                .is_some_and(|lane| lane.branches.iter().any(|b| selection.on(b)))
-        })
-    }
-
-    /// Where an action on `at` happens, for a prompt or a confirmation to say, named as the
-    /// breadcrumbs name it: the project, then the linked worktree or other machine's
-    /// checkout when it isn't the main one, as "shop › agent-x".
-    pub fn place(&self, at: &Selection) -> SharedString {
-        let project = at.project();
-        let name = self
-            .project(project)
-            .map_or("", |entry| &entry.project.name);
-        let elsewhere = match at {
-            Selection::Worktree(_, worktree) => Some(worktree.to_string()),
-            Selection::Mesh(_, id, _) => self.mesh_checkout(project, id).map(|c| c.label()),
-            _ => self
-                .worktree_of(at)
-                .map(|worktree| worktree.name.to_string()),
-        };
-        match elsewhere {
-            Some(elsewhere) => format!("{name} › {elsewhere}").into(),
-            None => name.to_owned().into(),
-        }
-    }
-
     /// Whether the selection is on a linked worktree's branches, saying to do `what`, as
     /// "Push it", there instead when it is.
     pub fn changes_elsewhere(&mut self, what: &str, cx: &mut Context<Self>) -> bool {
         let selection = self.selection.as_ref();
         let Some(name) = selection
-            .and_then(|s| self.worktree_of(s))
+            .and_then(|s| self.worktree_for(s))
             .map(|wt| wt.name.clone())
         else {
             return false;
@@ -688,14 +642,6 @@ impl Store {
             cx,
         );
         true
-    }
-
-    /// Project `id`'s linked worktrees with nothing going on lately, but those on their way
-    /// out.
-    pub fn inactive_worktrees(&self, id: &ProjectId) -> Vec<&Worktree> {
-        (self.workspace(id).into_iter().flat_map(|ws| &ws.worktrees))
-            .filter(|wt| !self.hides_worktree(id, &wt.name) && wt.is_inactive())
-            .collect()
     }
 
     /// The branch `selection` is, or the one holding the commit it is.
@@ -1058,8 +1004,7 @@ impl Store {
 
     /// Whether `id` of `project` is a linked worktree's commit.
     pub fn in_worktree(&self, project: &ProjectId, id: CommitId) -> bool {
-        self.worktree_of(&Selection::Commit(project.clone(), id))
-            .is_some()
+        self.in_linked(&Selection::Commit(project.clone(), id))
     }
 
     /// A snackbar offering to undo the mutation that just ran.

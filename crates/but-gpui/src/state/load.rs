@@ -727,7 +727,7 @@ impl Store {
                 Selection::Commit(_, commit) => workspace.find_commit(*commit).is_none(),
                 _ => false,
             })
-            .and_then(|s| self.worktree_of(s))
+            .and_then(|s| self.worktree_for(s))
             .map(|worktree| worktree.name.clone())
             .filter(|name| workspace.worktrees.iter().any(|w| w.name == *name));
         // Picks follow rewritten commits the same way, and go when a commit is gone.

@@ -1120,7 +1120,7 @@ impl Detail {
             Some(commit) => {
                 // A linked worktree's commit uncommits into that worktree.
                 let uncommitted = match (self.store.read(cx))
-                    .worktree_of(&Selection::Commit(project.clone(), commit))
+                    .worktree_for(&Selection::Commit(project.clone(), commit))
                 {
                     Some(worktree) => Selection::Worktree(project.clone(), worktree.name.clone()),
                     None => Selection::Uncommitted(project.clone()),

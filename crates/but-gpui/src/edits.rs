@@ -382,7 +382,7 @@ impl AppView {
     /// take back: it snapshots only the main checkout.
     fn in_worktree_lane(&self, cx: &App) -> bool {
         let store = self.store.read(cx);
-        (store.selection.as_ref()).is_some_and(|s| store.worktree_of(s).is_some())
+        (store.selection.as_ref()).is_some_and(|s| store.in_linked(s))
     }
 
     /// The selected branch, or a selected stack's top one, when it has a name.
@@ -606,7 +606,7 @@ impl AppView {
         // has checked out, the worktree checks the new one out and commits there, so the title
         // says so.
         let store = self.store.read(cx);
-        let worktree = (store.selection.as_ref()).and_then(|s| store.worktree_of(s));
+        let worktree = (store.selection.as_ref()).and_then(|s| store.worktree_for(s));
         let checked_out = (store.workspace(&project).and_then(|ws| ws.lane_of(&below)))
             .is_some_and(|(_, at)| at == 0);
         let checked_out_in = (worktree.filter(|_| checked_out)).map(|w| w.name.clone());
@@ -694,7 +694,7 @@ impl AppView {
         // A linked worktree keeps the branch it has checked out; the ones stacked under it
         // can go, their commits joining it.
         let selection = Selection::Branch(project.clone(), ref_name.clone());
-        let linked = store.worktree_of(&selection).is_some();
+        let linked = store.in_linked(&selection);
         if at == 0 && linked {
             let message = format!("{name} is checked out in a worktree, which keeps it");
             return snack(&self.store, message, cx);

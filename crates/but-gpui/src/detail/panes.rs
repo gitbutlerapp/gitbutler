@@ -54,7 +54,7 @@ impl Detail {
             // The worktree a branch, stack or commit is in, named as its navigator heading is.
             let heading = |item: &Selection| -> Crumb {
                 let project = item.project().clone();
-                match store.worktree_of(item) {
+                match store.worktree_for(item) {
                     Some(worktree) => (
                         worktree.name.to_string().into(),
                         Some(Selection::Worktree(project, worktree.name.clone()).into()),

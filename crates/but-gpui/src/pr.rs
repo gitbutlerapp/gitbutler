@@ -362,7 +362,7 @@ impl AppView {
     pub fn pr_actions(&self, el: Stateful<Div>, cx: &mut Context<Self>) -> Stateful<Div> {
         let store = self.store.read(cx);
         let Some((selection, branch)) = (store.selection.as_ref())
-            .filter(|s| on_forge(store, s) && store.worktree_of(s).is_none())
+            .filter(|s| on_forge(store, s) && !store.in_linked(s))
             .and_then(|s| Some((s, store.branch_for(s)?)))
             .filter(|(_, b)| !b.ref_name.is_empty())
         else {

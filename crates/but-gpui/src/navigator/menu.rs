@@ -326,7 +326,7 @@ impl Navigator {
                 }
                 // What reaches past a linked worktree, like its remote or a pull request, is
                 // done in it.
-                let linked = store.worktree_of(target).is_some();
+                let linked = store.in_linked(target);
                 if workspace.can_pull(ref_name) && !linked {
                     items.extend([
                         MenuItem::action(
@@ -487,7 +487,7 @@ impl Navigator {
                 };
                 let edits = CommitEdits::of(branch, commit);
                 // A linked worktree's commits stay in it, and their conflicts resolve there.
-                let linked = store.worktree_of(target).is_some();
+                let linked = store.in_linked(target);
                 let mut items = Vec::new();
                 if commit.conflicted && !linked {
                     items.push(action(
@@ -650,7 +650,7 @@ impl Navigator {
                 }
                 items.push(action("New branch on top", &NewBranchOnTop).separated());
                 // A linked worktree's lane stays applied while it has it checked out.
-                if store.worktree_of(target).is_none() && workspace.managed {
+                if !store.in_linked(target) && workspace.managed {
                     items.push(action("Unapply stack", &UnapplyStack));
                 }
                 items

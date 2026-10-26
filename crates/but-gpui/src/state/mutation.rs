@@ -235,7 +235,7 @@ impl Overlay {
         };
         let worktree = match selection {
             Selection::Worktree(_, name) => Some(name),
-            _ => store.worktree_of(selection).map(|wt| &wt.name),
+            _ => store.worktree_for(selection).map(|wt| &wt.name),
         };
         let deleted = match selection {
             Selection::Branch(_, ref_name) | Selection::Stack(_, ref_name) => {
@@ -1289,7 +1289,7 @@ impl Store {
         // A linked worktree's commits uncommit into it, which the oplog can't bring back.
         let undoable = !ids.iter().any(|id| self.in_worktree(project, *id));
         let home = (ids.first())
-            .and_then(|id| self.worktree_of(&Selection::Commit(project.clone(), *id)))
+            .and_then(|id| self.worktree_for(&Selection::Commit(project.clone(), *id)))
             .map(|worktree| worktree.name.clone());
         let project = project.clone();
         self.run(

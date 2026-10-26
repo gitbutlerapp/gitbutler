@@ -94,7 +94,7 @@ impl Detail {
         let review = self.selected_review(cx)?;
         let applies = self.review_tab
             && crate::pr::on_forge(store, selection)
-            && store.worktree_of(selection).is_none()
+            && !store.in_linked(selection)
             && store.review_state(project, review) == ReviewState::Open;
         applies.then_some((project, ref_name.as_str(), review))
     }

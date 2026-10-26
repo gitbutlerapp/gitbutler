@@ -788,7 +788,7 @@ impl AppView {
         // Only what's on screen gets committed: from another page, ⌘↩ shows the changes
         // first, a linked worktree's from its branches and commits.
         let project = selection.project().clone();
-        let checkout = match (&selection, self.store.read(cx).worktree_of(&selection)) {
+        let checkout = match (&selection, self.store.read(cx).worktree_for(&selection)) {
             (Selection::Uncommitted(_) | Selection::Worktree(..), _) => selection.clone(),
             (_, Some(worktree)) => Selection::Worktree(project, worktree.name.clone()),
             (_, None) => Selection::Uncommitted(project),

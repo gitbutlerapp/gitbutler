@@ -25,6 +25,10 @@ impl Checkout {
             Checkout::Linked(name) => Some(name),
         }
     }
+
+    pub fn is_linked(&self) -> bool {
+        matches!(self, Checkout::Linked(_))
+    }
 }
 
 impl From<Option<Arc<str>>> for Checkout {
@@ -82,6 +86,15 @@ impl Workspace {
     pub fn lane_of(&self, ref_name: &str) -> Option<(&Lane, usize)> {
         self.lanes.iter().find_map(|lane| {
             let at = lane.branches.iter().position(|b| b.ref_name == ref_name)?;
+            Some((lane, at))
+        })
+    }
+
+    /// The lane holding commit `id`, and the place from the top of the branch holding it.
+    pub fn lane_holding(&self, id: CommitId) -> Option<(&Lane, usize)> {
+        self.lanes.iter().find_map(|lane| {
+            let at = (lane.branches.iter())
+                .position(|b| b.commits.iter().any(|commit| commit.id == id))?;
             Some((lane, at))
         })
     }
