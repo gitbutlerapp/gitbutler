@@ -12,7 +12,6 @@ use crate::app::{
     PasteHere, Push, Quit, Redo, RenameSelection, StartCommit, ToggleFileTree, ToggleNavigator,
     UncommitSelection, Undo, UpdateFromTarget, ZoomIn, ZoomOut,
 };
-use crate::backend::Checkout;
 use crate::detail::{
     DiscardFile, DiscardHunk, FoldFile, NextFile, NextHunk, PreviousFile, PreviousHunk, UnfoldFile,
 };
@@ -328,7 +327,7 @@ impl AppView {
         let choices = open()
             .flat_map(|(entry, workspace)| {
                 workspace
-                    .branches_in(&Checkout::Main)
+                    .all_branches()
                     .filter(|branch| !branch.ref_name.is_empty())
                     .map(move |branch| {
                         let (id, ref_name) = (entry.id.clone(), branch.ref_name.clone());
