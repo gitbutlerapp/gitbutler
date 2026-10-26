@@ -989,6 +989,30 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn a_commits_lane_is_its_stack_or_linked_worktree() {
+        let ws = workspace(
+            vec![
+                vec![branch("top", &[1, 2]), branch("bottom", &[3])],
+                vec![branch("other", &[4])],
+            ],
+            vec![branch("linked", &[5, 6])],
+        );
+        let id = |n: u8| CommitId(gix::ObjectId::from_bytes_or_panic(&[n; 20]));
+        let ids = |ns: &[u8]| ns.iter().map(|&n| id(n)).collect::<Vec<_>>();
+        assert_eq!(
+            ws.lane_commits(id(3)),
+            Some(ids(&[1, 2, 3])),
+            "a stack's commits across its branches, newest first"
+        );
+        assert_eq!(
+            ws.lane_commits(id(5)),
+            Some(ids(&[5, 6])),
+            "a linked worktree's"
+        );
+        assert_eq!(ws.lane_commits(id(9)), None, "a commit not shown has none");
+    }
+
+    #[test]
     fn renames_are_new_named_branches_holding_a_gone_branchs_commits() {
         let old = workspace(
             vec![vec![branch("a", &[1]), branch("c", &[2])]],
