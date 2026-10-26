@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use super::{Branch, Commit, CommitId, Workspace};
@@ -65,10 +66,6 @@ impl<'a> Link<'a> {
     }
 
     /// Its commits from `from` down, newest first.
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "only tests follow a chain's history so far")
-    )]
     pub fn commits(self) -> impl Iterator<Item = &'a Commit> {
         let from = self.from;
         (self.branches().iter())
@@ -150,14 +147,29 @@ impl Workspace {
     /// unnamed branch, or one no lane holds.
     pub fn chain(&self, ref_name: &str) -> impl Iterator<Item = Link<'_>> {
         let found = self.lane_of(ref_name).filter(|_| !ref_name.is_empty());
-        found.into_iter().flat_map(|(lane, at)| {
-            let own = Link {
-                lane,
-                at,
-                from: None,
-            };
-            std::iter::once(own).chain(self.beneath(lane))
-        })
+        found
+            .into_iter()
+            .flat_map(|(lane, at)| self.chain_from(lane, at))
+    }
+
+    fn chain_from<'a>(&'a self, lane: &'a Lane, at: usize) -> impl Iterator<Item = Link<'a>> {
+        let own = Link {
+            lane,
+            at,
+            from: None,
+        };
+        std::iter::once(own).chain(self.beneath(lane))
+    }
+
+    /// The checkouts rewriting commit `id` moves: the one whose lane holds it, and those of the
+    /// linked worktrees resting on it or on a commit above it, through any lanes between.
+    pub fn moved_by(&self, id: CommitId) -> HashSet<Checkout> {
+        (self.lanes.iter())
+            .filter(|lane| {
+                (self.chain_from(lane, 0).flat_map(Link::commits)).any(|commit| commit.id == id)
+            })
+            .map(|lane| lane.checkout.clone())
+            .collect()
     }
 
     /// The lanes worked on in `checkout`.

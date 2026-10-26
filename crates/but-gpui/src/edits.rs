@@ -14,7 +14,8 @@ use crate::app::{
     UncommitSelection,
 };
 use crate::backend::{
-    self, Branch, Commit, CommitId, Destination, Selected, Undiscarded, Workspace, short_ref,
+    self, Branch, Checkout, Commit, CommitId, Destination, Selected, Undiscarded, Workspace,
+    short_ref,
 };
 use crate::overlays::run_named;
 use crate::state::{Cut, Label, Overlay, ProjectId, Remap, Rereads, Selection, Store, snack};
@@ -766,8 +767,9 @@ impl AppView {
             return;
         };
         let store = self.store.read(cx);
-        let in_worktree = ids.iter().any(|id| store.in_worktree(&project, *id));
-        let undoable = !in_worktree && recorded(store, &project);
+        let moved = store.moved_by(&project, &ids);
+        let in_worktree = moved.iter().any(Checkout::is_linked);
+        let undoable = store.undoable(&project, moved);
         let overlay = Overlay::commits(ids.iter().filter_map(|id| store.key_of(&project, *id)));
         let (message, done) = match ids.len() {
             1 => (
@@ -1298,8 +1300,9 @@ impl AppView {
         };
         let store = self.store.read(cx);
         // The oplog can't bring back a linked worktree's files.
-        let in_worktree = store.in_worktree(&project, commit);
-        let undoable = !in_worktree && recorded(store, &project);
+        let moved = store.moved_by(&project, &[commit]);
+        let in_worktree = moved.iter().any(Checkout::is_linked);
+        let undoable = store.undoable(&project, moved);
         let overlay = Overlay::commit_files(store.key_of(&project, commit), files.iter());
         let at = Selection::Commit(project.clone(), commit);
         let run = then_run(

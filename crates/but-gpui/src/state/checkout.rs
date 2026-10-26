@@ -1,7 +1,9 @@
+use std::collections::HashSet;
+
 use gpui::SharedString;
 
 use super::{ProjectId, Section, Selection, Store};
-use crate::backend::{Checkout, Lane, Worktree};
+use crate::backend::{Checkout, CommitId, Lane, Worktree};
 
 impl Store {
     /// The lane `selection` is in, and the place from the top of the branch it's on: a
@@ -35,6 +37,26 @@ impl Store {
     /// Whether `selection` is in a linked worktree's lane.
     pub fn in_linked(&self, selection: &Selection) -> bool {
         (self.checkout_of(selection).as_ref()).is_some_and(Checkout::is_linked)
+    }
+
+    /// The checkouts rewriting commits `ids` of `project` moves.
+    pub fn moved_by(&self, project: &ProjectId, ids: &[CommitId]) -> HashSet<Checkout> {
+        (self.workspace(project).into_iter())
+            .flat_map(|ws| ids.iter().flat_map(|id| ws.moved_by(*id)))
+            .collect()
+    }
+
+    /// Whether GitButler's history can take back what moves `checkouts`: it records only the
+    /// main checkout, and nothing while the project is unrecorded.
+    pub fn undoable(
+        &self,
+        project: &ProjectId,
+        checkouts: impl IntoIterator<Item = Checkout>,
+    ) -> bool {
+        !(self.workspace(project)).is_some_and(|ws| ws.unrecorded)
+            && checkouts
+                .into_iter()
+                .all(|checkout| checkout == Checkout::Main)
     }
 
     /// The linked worktree `selection` is in.
