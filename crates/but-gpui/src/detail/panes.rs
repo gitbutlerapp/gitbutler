@@ -836,21 +836,20 @@ impl Detail {
                 .children(conflicted_note(conflicted, theme)),
         });
         let target = Selection::Branch(project.clone(), ref_name.to_owned());
-        let push = (ws.push_blocked(ref_name).is_none()).then(|| {
-            let label = ws.push_label(ref_name);
-            button("header-push", label)
-                .small()
-                .dispatch(&crate::app::Push)
-        });
-        let create = (crate::pr::create_offer(store, &target) == Some(Ok(()))).then(|| {
+        let create = crate::pr::create_offer(store, &target).map(|offer| {
             button("header-create-pr", "Create pull request")
                 .small()
                 .style(ButtonStyle::Pop)
                 .dispatch(&crate::pr::CreatePullRequest)
+                .disabled_because(offer.err())
         });
+        let push = button("header-push", ws.push_label(ref_name))
+            .small()
+            .dispatch(&crate::app::Push)
+            .disabled_because(ws.push_blocked(ref_name));
         let meta = meta
             .child(div().flex_1())
-            .child(h_flex().gap(dp(8.)).children(push).children(create));
+            .child(h_flex().gap(dp(8.)).children(create).child(push));
         let title = page_title(Icon::Branch, theme).child(title_text(name.to_owned()));
         let tabs = (branch.review.as_ref()).map(|review| self.review_tabs(review, theme, cx));
         self.page_header(title, meta, target, None, tabs, theme, cx)
