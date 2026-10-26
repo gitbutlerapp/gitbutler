@@ -706,15 +706,24 @@ impl FileChange {
     /// it's a link.
     pub fn mode_change(&self) -> Option<&'static str> {
         use but_core::{ModeFlags as F, TreeStatus as S};
-        let (S::Modification { flags, .. } | S::Rename { flags, .. }) = &self.change.status else {
-            return None;
+        let status = &self.change.status;
+        let flags = match status {
+            S::Modification { flags, .. } | S::Rename { flags, .. } => *flags,
+            _ => None,
         };
-        Some(match (*flags)? {
-            F::ExecutableBitAdded => "Made executable",
-            F::ExecutableBitRemoved => "No longer executable",
-            F::TypeChangeFileToLink => "Turned into a symbolic link",
-            F::TypeChangeLinkToFile => "Turned from a symbolic link into a file",
-            F::TypeChange => "Changed type",
+        // A link's one line is where it points, which reads like a file's content otherwise.
+        let link = (status
+            .state()
+            .or(status.previous_state_and_path().map(|(state, _)| state)))
+        .is_some_and(|state| state.kind == gix::object::tree::EntryKind::Link);
+        Some(match flags {
+            Some(F::ExecutableBitAdded) => "Made executable",
+            Some(F::ExecutableBitRemoved) => "No longer executable",
+            Some(F::TypeChangeFileToLink) => "Turned into a symbolic link",
+            Some(F::TypeChangeLinkToFile) => "Turned from a symbolic link into a file",
+            Some(F::TypeChange) => "Changed type",
+            None if link => "Symbolic link",
+            None => return None,
         })
     }
 
@@ -1087,6 +1096,23 @@ mod tests {
         Branch, Commit, CommitId, CommitState, DiffLine, Hunk, HunkKey, LineKind, PushState,
         RemoteCommit,
     };
+
+    #[test]
+    fn a_symbolic_link_says_so_where_its_target_reads_like_content() {
+        let link = but_core::ChangeState {
+            id: gix::ObjectId::null(gix::hash::Kind::Sha1),
+            kind: gix::object::tree::EntryKind::Link,
+        };
+        let retargeted = crate::backend::file_change(but_core::TreeChange {
+            path: "assets/current".into(),
+            status: but_core::TreeStatus::Modification {
+                previous_state: link,
+                state: link,
+                flags: None,
+            },
+        });
+        assert_eq!(retargeted.mode_change(), Some("Symbolic link"));
+    }
 
     fn header(old_start: u32, old_lines: u32, new_start: u32, new_lines: u32) -> HunkHeader {
         HunkHeader {
