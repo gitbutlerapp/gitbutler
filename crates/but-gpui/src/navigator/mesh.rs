@@ -5,19 +5,15 @@
 
 use std::sync::Arc;
 
-use gpui::{AnyElement, App, Context, ElementId, MouseButton, Window, div, prelude::*};
+use gpui::{AnyElement, App, Context, MouseButton, Window, div, prelude::*};
 
 use super::rows::{COMMIT_INDENT, Row, Rows, found, matches};
-use super::{
-    ClickOpened, NEST, Navigator, RowStyle, change_counts, click_opens, double_click,
-    section_click, section_heading,
-};
+use super::{ClickOpened, NEST, Navigator, RowStyle, change_counts, click_opens, double_click};
 use crate::app::CopySelection;
 use crate::backend::mesh::{self, BranchStatus};
 use crate::overlays::MenuItem;
-use crate::state::{MeshBranch, MeshPick, ProjectId, Selection, Store};
-use crate::theme::Theme;
-use crate::ui::{Icon, Tooltip, dot, faint, icon, just_now, section_label, small_icon};
+use crate::state::{MeshBranch, MeshPick, ProjectId, Section, Selection, Store};
+use crate::ui::{Icon, Tooltip, dot, faint, icon, just_now, small_icon};
 
 impl Navigator {
     /// `id`'s checkouts on other machines under their heading, unless that's folded without
@@ -29,7 +25,7 @@ impl Navigator {
             return;
         }
         rows.rule_off();
-        rows.push(Row::MeshHeading(id.clone()));
+        rows.push(Row::Item(Selection::Section(id.clone(), Section::Mesh)));
         let selected = match &store.selection {
             Some(Selection::Mesh(project, checkout, pick)) if project == id => {
                 Some((checkout, pick))
@@ -81,7 +77,7 @@ impl Navigator {
     ) {
         let start = rows.rows.len();
         rows.rule_off();
-        rows.push(Row::MeshHeading(id.clone()));
+        rows.push(Row::Item(Selection::Section(id.clone(), Section::Mesh)));
         let heading_end = rows.rows.len();
         for checkout in store.mesh_checkouts(id) {
             let own = found(terms, &[&checkout.label()]);
@@ -106,38 +102,29 @@ impl Navigator {
         }
     }
 
-    /// Over `id`'s checkouts elsewhere, lined up with its worktrees' chevrons: a click folds
-    /// them all away, and folded, it says how many there are.
+    /// Over `id`'s checkouts elsewhere, lined up with its worktrees' chevrons: folded, it
+    /// says how many there are.
     pub(super) fn mesh_heading(
         &self,
+        ix: usize,
         id: &ProjectId,
-        theme: &Theme,
+        style: RowStyle,
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
         let open = self.mesh_open(id, cx);
         let checkouts = store.mesh_checkouts(id);
         let active = (checkouts.iter()).any(|c| c.online && c.last_activity.is_some_and(just_now));
-        let project = id.clone();
-        let heading = ElementId::Name(format!("mesh-heading-{id}").into());
-        let label = section_label("Network worktrees", theme);
-        section_heading(heading, 6., open, Some(Icon::Globe), label, theme)
-            .when(!open, |el| {
-                el.child(faint(checkouts.len().to_string(), theme))
-                    .when(active, |el| el.child(dot(theme.safe)))
-            })
-            .tooltip(Tooltip::text(
-                "Unfinished work on your other machines, from your mesh",
-            ))
-            .on_click(section_click(
-                move |this, window, cx| {
-                    let inside = matches!(&this.store.read(cx).selection,
-                        Some(Selection::Mesh(p, ..)) if *p == project);
-                    this.toggle_shown(&project, |p| &mut p.shown_mesh, open, inside, window, cx)
-                },
-                cx,
-            ))
-            .into_any_element()
+        let label = "Network worktrees";
+        let row = self.section_heading(ix, id, &Section::Mesh, label, style, cx);
+        row.when(!open, |el| {
+            el.child(faint(checkouts.len().to_string(), style.theme).text_color(style.quiet()))
+                .when(active, |el| el.child(dot(style.meta(style.theme.safe))))
+        })
+        .tooltip(Tooltip::text(
+            "Unfinished work on your other machines, from your mesh",
+        ))
+        .into_any_element()
     }
 
     /// A row of another machine's: a checkout, drawn as a worktree's heading, or a branch or
@@ -276,7 +263,7 @@ impl Navigator {
 
     /// Whether `project`'s work elsewhere shows under its heading: unfolded, with the
     /// selection in it, or found by the filter.
-    fn mesh_open(&self, project: &ProjectId, cx: &App) -> bool {
+    pub(super) fn mesh_open(&self, project: &ProjectId, cx: &App) -> bool {
         let store = self.store.read(cx);
         store.prefs.shown_mesh.contains(project.as_ref())
             || matches!(&store.selection, Some(Selection::Mesh(p, ..)) if p == project)
@@ -369,7 +356,7 @@ impl Navigator {
                 let key = (project.clone(), id);
                 match !checkout.branches.is_empty() && !self.folded_checkouts.contains(&key) {
                     true => self.toggle_checkout(key, true, window, cx),
-                    false => self.select(Selection::Project(project), window, cx),
+                    false => self.select(Selection::Section(project, Section::Mesh), window, cx),
                 }
             }
             MeshPick::Branch(name) => {

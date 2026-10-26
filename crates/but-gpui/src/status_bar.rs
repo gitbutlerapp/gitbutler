@@ -236,7 +236,11 @@ impl AppView {
             vec![(&NextFile, "next file"), (&NextHunk, "next hunk")]
         } else {
             // In the navigator, the keys for what's selected; what's cut says its own.
-            let mut hints: Vec<(&dyn Action, &str)> = match &store.selection {
+            let mut hints: Vec<(&dyn Action, &str)> = match &store
+                .selection
+                .clone()
+                .map(Selection::page)
+            {
                 Some(Selection::Project(project)) => {
                     let behind = (store.workspace(project))
                         .and_then(|ws| ws.target.as_ref())

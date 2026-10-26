@@ -147,7 +147,18 @@ impl Worktree {
             .filter_map(|file| file.modified.map(|ms| ms / 1000))
             .chain(self.updated_at)
     }
+
+    /// Nothing uncommitted, so not active either, and it hasn't moved in
+    /// [`INACTIVE_AFTER`]. One with no reflog to date it stays active.
+    pub fn is_inactive(&self) -> bool {
+        self.uncommitted.is_empty()
+            && (self.updated_at)
+                .is_some_and(|at| crate::ui::now() - at > INACTIVE_AFTER.as_secs() as i64)
+    }
 }
+
+/// How long a worktree with nothing uncommitted counts as active after it last moved.
+const INACTIVE_AFTER: std::time::Duration = std::time::Duration::from_secs(12 * 60 * 60);
 
 impl Workspace {
     /// The workspace's own branches, its stacks', which commits and moves go to.

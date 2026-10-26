@@ -19,7 +19,9 @@ use crate::backend::{
 };
 use crate::detail::{ChecksChanged, Detail};
 use crate::overlays::MenuItem;
-use crate::state::{Cut, Pane, Prefs, ProjectId, Selection, Store, StoreEvent, WatchedOrder};
+use crate::state::{
+    Cut, Pane, Prefs, ProjectId, Section, Selection, Store, StoreEvent, WatchedOrder,
+};
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
 use crate::ui::emoji::{Colour, ProjectIcon};
@@ -41,7 +43,10 @@ mod rows;
 
 use drop::insertion_line;
 use order::{CardSlot, ProjectDrag};
-use rows::{COMMIT_INDENT, GUIDE_AT, ROW_LEFT, Row, Rows, last_active, section_branches, within};
+use rows::{
+    COMMIT_INDENT, GUIDE_AT, ROW_LEFT, Row, Rows, in_inactive, inactive_open, last_active,
+    section_branches, within,
+};
 
 /// How far a worktree's rows sit in from its heading.
 const NEST: f32 = 14.;
@@ -121,19 +126,6 @@ fn double_click(
 ) -> impl Fn(&ClickEvent, &mut Window, &mut App) + 'static {
     cx.listener(move |this, event: &ClickEvent, window, cx| {
         if this.double_clicked(event) && !this.filtering(cx) {
-            toggle(this, window, cx)
-        }
-    })
-}
-
-/// A section heading's click handler: a click runs `toggle`, and a double-click's second
-/// click doesn't run it again, so a double-click folds or unfolds it once, as it does a row.
-fn section_click(
-    toggle: impl Fn(&mut Navigator, &mut Window, &mut Context<Navigator>) + 'static,
-    cx: &Context<Navigator>,
-) -> impl Fn(&ClickEvent, &mut Window, &mut App) + 'static {
-    cx.listener(move |this, event: &ClickEvent, window, cx| {
-        if event.click_count() == 1 {
             toggle(this, window, cx)
         }
     })
@@ -524,6 +516,15 @@ impl Navigator {
     }
 
     fn select(&mut self, selection: Selection, window: &mut Window, cx: &mut Context<Self>) {
+        // Up to a section's heading, what the selection held open stays open, as a tree's
+        // folder does over the row it was opened to show.
+        if let Selection::Section(project, section) = &selection
+            && !self.filtering(cx)
+            && self.heading_open(project, section, cx)
+            && !self.listed_by_hand(project, section, cx)
+        {
+            self.set_heading_open(project, section, true, cx);
+        }
         self.store
             .update(cx, |store, cx| store.reopen(selection, cx));
         window.focus(&self.focus, cx);
@@ -531,12 +532,7 @@ impl Navigator {
 
     /// The rows that can be selected, in order.
     fn items(&self) -> Vec<&Selection> {
-        (self.rows.iter())
-            .filter_map(|row| match row {
-                Row::Item(item) => Some(item),
-                _ => None,
-            })
-            .collect()
+        items(&self.rows)
     }
 
     /// Space at the end of a commit's diff: on to the next unread commit, in any branch or
@@ -566,7 +562,13 @@ impl Navigator {
     }
 
     fn step(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
-        let items = self.items();
+        // ↓ onto a fold of commits or projects shows the rest and goes on into them, as a feed
+        // loads more: the fold is no stop of its own.
+        let built = (delta > 0 && self.unfold_after_selection(cx)).then(|| self.build_rows(cx));
+        let items = match &built {
+            Some(built) => items(&built.rows),
+            None => self.items(),
+        };
         if items.is_empty() {
             return;
         }
@@ -587,6 +589,21 @@ impl Navigator {
             return;
         };
         self.select(next, window, cx);
+    }
+
+    /// Unfold the "N more" right under the selection, a branch's or the projects', saying
+    /// whether there was one.
+    fn unfold_after_selection(&mut self, cx: &App) -> bool {
+        let selection = self.store.read(cx).selection.as_ref();
+        let at = (self.rows.iter())
+            .position(|row| matches!(row, Row::Item(item) if Some(item) == selection));
+        match at.and_then(|at| self.rows.get(at + 1)) {
+            Some(Row::More(project, ref_name, _)) => {
+                (self.unfolded_branches).insert((project.clone(), ref_name.clone()))
+            }
+            Some(Row::MoreProjects(_)) => !std::mem::replace(&mut self.projects_unfolded, true),
+            _ => false,
+        }
     }
 
     /// Step `delta` commits from the selected one, picking the run as ⇧-click does. Off a
@@ -739,6 +756,11 @@ impl Navigator {
                 cx.notify();
             }
             Some(Selection::Mesh(project, id, pick)) => self.expand_mesh(project, id, pick, cx),
+            Some(Selection::Section(project, section)) => {
+                if !self.heading_open(&project, &section, cx) {
+                    self.toggle_heading(project, section, false, window, cx)
+                }
+            }
             // A remote's merge unfolds the commits it brought in.
             Some(Selection::Upstream(project, ref_name, id))
                 if !self.open_merges.contains(&id)
@@ -800,8 +822,9 @@ impl Navigator {
             Some(Selection::Upstream(project, ref_name, id)) if self.open_merges.contains(&id) => {
                 self.toggle_merge(&project, ref_name, id, window, cx)
             }
-            Some(Selection::Upstream(project, Some(ref_name), _)) => {
-                self.select(Selection::Branch(project, ref_name), window, cx)
+            Some(Selection::Upstream(project, ref_name, _)) => {
+                let heading = Selection::Section(project, Section::Upstream(ref_name));
+                self.select(heading, window, cx)
             }
             Some(Selection::Uncommitted(project)) if folds => {
                 self.toggle_section(&project, None, true, window, cx)
@@ -809,11 +832,33 @@ impl Navigator {
             Some(Selection::Worktree(project, name)) if folds => {
                 self.toggle_section(&project, Some(name), true, window, cx)
             }
+            Some(Selection::Worktree(project, name))
+                if (store.workspace(&project))
+                    .and_then(|ws| ws.find_worktree(&name))
+                    .is_some_and(|wt| wt.is_inactive()) =>
+            {
+                let heading = Selection::Section(project, Section::Inactive);
+                self.select(heading, window, cx)
+            }
             Some(Selection::Stack(project, bottom)) if folds => {
                 self.toggle_stack(&project, &bottom, true, window, cx)
             }
             Some(Selection::Mesh(project, id, pick)) => {
                 self.collapse_mesh(project, id, pick, window, cx)
+            }
+            Some(Selection::Section(project, section)) if !filtering => {
+                match self.heading_open(&project, &section, cx) {
+                    true => self.toggle_heading(project, section, true, window, cx),
+                    false => {
+                        let up = match section {
+                            Section::Upstream(Some(ref_name)) => {
+                                Selection::Branch(project, ref_name)
+                            }
+                            _ => Selection::Project(project),
+                        };
+                        self.select(up, window, cx)
+                    }
+                }
             }
             // Jump up, like closing a folder in a tree.
             Some(selection) => {
@@ -828,6 +873,10 @@ impl Navigator {
     fn confirm(&mut self, _: &Confirm, window: &mut Window, cx: &mut Context<Self>) {
         match self.store.read(cx).selection.clone() {
             Some(Selection::Project(id)) => self.toggle_project(&id, cx),
+            Some(Selection::Section(project, section)) => {
+                let open = self.heading_open(&project, &section, cx);
+                self.toggle_heading(project, section, open, window, cx)
+            }
             Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => {
                 self.detail
                     .update(cx, |detail, cx| detail.focus_message(window, cx));
@@ -952,7 +1001,6 @@ impl Navigator {
         let el = match self.rows.get(ix) {
             None | Some(Row::Gap) => return div().h(dp(12.)).into_any_element(),
             Some(Row::Item(item)) => self.render_item(ix, item, inset, window, theme, cx),
-            Some(Row::MeshHeading(id)) => self.mesh_heading(id, theme, cx),
             // A dashed line, as ui-react's WorktreeDivider.
             Some(Row::WorktreeDivider) => h_flex()
                 .h(dp(12.))
@@ -1034,9 +1082,6 @@ impl Navigator {
                     .into_any_element()
             }
             Some(Row::NewBranch(project)) => self.new_branch_zone(ix, project, theme, cx),
-            Some(Row::UpstreamHeading(project, ref_name)) => {
-                self.upstream_heading(ix, project, ref_name.as_deref(), theme, cx)
-            }
             Some(Row::UpstreamMore(project, more)) => {
                 let page = Selection::Project(project.clone());
                 under_commits("upstream-more", Icon::Kebab)
@@ -1066,9 +1111,6 @@ impl Navigator {
                         cx.notify();
                     }))
                     .into_any_element()
-            }
-            Some(Row::Inactive(project, n, inside)) => {
-                self.inactive_heading(project, *n, *inside, theme, cx)
             }
         };
         // Items step in by their style, keeping the highlight full width; the rest as a whole.
@@ -1193,6 +1235,13 @@ impl Navigator {
             Selection::Upstream(id, ref_name, commit) => {
                 self.upstream_row(item, id, ref_name.as_deref(), commit, style, cx)
             }
+            Selection::Section(id, Section::Upstream(ref_name)) => {
+                self.upstream_heading(ix, id, ref_name.as_deref(), style, cx)
+            }
+            Selection::Section(id, Section::Inactive) => {
+                Some(self.inactive_heading(ix, id, style, cx))
+            }
+            Selection::Section(id, Section::Mesh) => Some(self.mesh_heading(ix, id, style, cx)),
         };
         match el {
             Some(el) => self.drop_target(el, item.clone(), window, theme, cx),
@@ -1308,8 +1357,10 @@ impl Navigator {
         let manual = store.prefs.watched_order == WatchedOrder::Manual;
         let hovered = self.watch_hovered.as_ref() == Some(id);
         // Its target's New on … row, when listed, counts the new commits and has Update.
-        let new_on = (self.rows.iter())
-            .any(|row| matches!(row, Row::UpstreamHeading(project, None) if project == id));
+        let new_on = (self.rows.iter()).any(|row| {
+            matches!(row, Row::Item(Selection::Section(project, Section::Upstream(None)))
+                if project == id)
+        });
         // Folded, the row sums up the whole card; open, it leaves out what the rows under it
         // say: their uncommitted files, unpushed commits and worktrees.
         let summary = workspace.filter(|ws| ws.editing.is_none()).map(|ws| {
@@ -1884,10 +1935,9 @@ impl Navigator {
         let key = (id.clone(), ref_name.to_owned());
         let clicked = ClickOpened::Here(key.clone());
         let closed = !self.is_open(&clicked) && !branch.commits.is_empty();
-        // A selected commit keeps its branch open, as does one only its remote has.
-        let holds_selected = matches!(&store.selection, Some(Selection::Commit(p, c))
-            if p == id && branch.commits.iter().any(|commit| commit.id == *c))
-            || Self::upstream_selected(store, id, Some(ref_name));
+        // What's selected under it keeps it open.
+        let holds_selected =
+            (store.selection.as_ref()).is_some_and(|s| s.project() == id && s.under(branch));
         let open = !closed || holds_selected;
         // As ui-react's SidebarRow: a chevron in a step of its own folds the commits away; a
         // branch without any has a dot there, keeping it in line with those that fold.
@@ -2129,79 +2179,120 @@ impl Navigator {
         )
     }
 
-    /// Over `project`'s `n` inactive worktrees, as Network worktrees is over its checkouts
-    /// elsewhere: a click lists or folds them, and folded, it says how many. The selection in
-    /// one keeps them listed, and folding them over it takes it up to the project.
+    /// Over `project`'s inactive worktrees, as Network worktrees is over its checkouts
+    /// elsewhere: folded, it says how many. The selection in one keeps them listed.
     fn inactive_heading(
         &self,
+        ix: usize,
         project: &ProjectId,
-        n: usize,
-        inside: bool,
-        theme: &Theme,
+        style: RowStyle,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let shown = self
-            .store
-            .read(cx)
-            .prefs
-            .shown_inactive
-            .contains(project.as_ref());
-        let open = inside || shown;
-        let project = project.clone();
-        let id = ElementId::Name(format!("inactive-heading-{project}").into());
-        let label = section_label("Inactive worktrees", theme);
-        section_heading(id, 6., open, Some(Icon::Clock), label, theme)
-            .when(!open, |el| el.child(faint(n.to_string(), theme)))
+        let store = self.store.read(cx);
+        let inactive = store.inactive_worktrees(project);
+        let open = inactive_open(store, project, &inactive);
+        let label = "Inactive worktrees";
+        self.section_heading(ix, project, &Section::Inactive, label, style, cx)
+            .when(!open, |el| {
+                el.child(faint(inactive.len().to_string(), style.theme).text_color(style.quiet()))
+            })
             .tooltip(Tooltip::text(
                 "Nothing uncommitted, and no commits or checkouts in 12 hours",
-            ))
-            .on_click(section_click(
-                move |this, window, cx| {
-                    this.toggle_shown(
-                        &project,
-                        |p| &mut p.shown_inactive,
-                        open,
-                        inside,
-                        window,
-                        cx,
-                    )
-                },
-                cx,
             ))
             .into_any_element()
     }
 
-    /// Fold one of `project`'s sections, as its inactive worktrees, by taking the project out
-    /// of the saved set `shown` picks, or with `open` false list it by putting it in. Folding
-    /// it over the selection, `inside` it, takes the selection up to the project. Under the
-    /// filter, which shows what it finds, it does nothing.
-    fn toggle_shown(
+    /// Whether the rows under a section's heading are listed.
+    fn heading_open(&self, project: &ProjectId, section: &Section, cx: &App) -> bool {
+        let store = self.store.read(cx);
+        match section {
+            Section::Upstream(ref_name) => self.upstream_open(store, project, ref_name.as_deref()),
+            Section::Inactive => inactive_open(store, project, &store.inactive_worktrees(project)),
+            Section::Mesh => self.mesh_open(project, cx),
+        }
+    }
+
+    /// Fold the rows under a section's heading, or with `open` false list them. Folding them
+    /// over the selection takes it up to the heading, as a tree does. Under the filter, which
+    /// shows what it finds, it does nothing.
+    fn toggle_heading(
         &mut self,
-        project: &ProjectId,
-        shown: fn(&mut Prefs) -> &mut HashSet<String>,
+        project: ProjectId,
+        section: Section,
         open: bool,
-        inside: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         if self.filtering(cx) {
             return;
         }
+        let store = self.store.read(cx);
+        let inside = match &section {
+            Section::Upstream(ref_name) => {
+                Self::upstream_selected(store, &project, ref_name.as_deref())
+            }
+            Section::Inactive => in_inactive(store, &project, &store.inactive_worktrees(&project)),
+            Section::Mesh => {
+                matches!(&store.selection, Some(Selection::Mesh(p, ..)) if *p == project)
+            }
+        };
+        // Up to the heading first, which keeps open what the selection held open, then fold.
+        if open && inside {
+            self.select(
+                Selection::Section(project.clone(), section.clone()),
+                window,
+                cx,
+            );
+        }
+        self.set_heading_open(&project, &section, !open, cx);
+    }
+
+    /// Whether the rows under a section's heading were listed by hand, not only while the
+    /// selection is in them.
+    fn listed_by_hand(&self, project: &ProjectId, section: &Section, cx: &App) -> bool {
+        let prefs = &self.store.read(cx).prefs;
+        match section {
+            Section::Upstream(ref_name) => {
+                (self.open_upstream).contains(&(project.clone(), ref_name.clone()))
+            }
+            Section::Inactive => prefs.shown_inactive.contains(project.as_ref()),
+            Section::Mesh => prefs.shown_mesh.contains(project.as_ref()),
+        }
+    }
+
+    /// List the rows under a section's heading, or fold them away, by hand: they stay as
+    /// left, the inactive worktrees and the checkouts elsewhere for the next launch too.
+    fn set_heading_open(
+        &mut self,
+        project: &ProjectId,
+        section: &Section,
+        open: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let shown: fn(&mut Prefs) -> &mut HashSet<String> = match section {
+            Section::Upstream(ref_name) => {
+                let key = (project.clone(), ref_name.clone());
+                match open {
+                    true => self.open_upstream.insert(key),
+                    false => self.open_upstream.remove(&key),
+                };
+                return cx.notify();
+            }
+            Section::Inactive => |p| &mut p.shown_inactive,
+            Section::Mesh => |p| &mut p.shown_mesh,
+        };
         let key = project.to_string();
         self.store.update(cx, |store, cx| {
             store.set_prefs(
                 |prefs| {
                     match open {
-                        true => shown(prefs).remove(&key),
-                        false => shown(prefs).insert(key),
+                        true => shown(prefs).insert(key),
+                        false => shown(prefs).remove(&key),
                     };
                 },
                 cx,
             )
         });
-        if open && inside {
-            self.select(Selection::Project(project.clone()), window, cx)
-        }
     }
 
     /// Update, which rebases `project`'s branches onto its target's new commits; `inverted`
@@ -2238,16 +2329,17 @@ impl Navigator {
 
     /// Over the commits only branch `ref_name`'s remote has, or with `None` the target's new
     /// ones, a section heading as Network worktrees has: where they are, how many while
-    /// folded and whether any is unread, which a click lists or folds, and for a branch, Pull.
+    /// folded and whether any is unread, and for a branch, Pull.
     fn upstream_heading(
         &self,
         ix: usize,
         project: &ProjectId,
         ref_name: Option<&str>,
-        theme: &Theme,
+        style: RowStyle,
         cx: &Context<Self>,
-    ) -> AnyElement {
+    ) -> Option<AnyElement> {
         let store = self.store.read(cx);
+        let theme = style.theme;
         let workspace = store.workspace(project);
         let open = self.upstream_open(store, project, ref_name);
         let target = workspace.and_then(|ws| ws.target.as_ref());
@@ -2278,54 +2370,89 @@ impl Navigator {
         });
         let pull = (ref_name.filter(|r| workspace.is_some_and(|ws| ws.can_pull(r))))
             .map(|r| (project.clone(), r.to_owned()));
-        let key = (project.clone(), ref_name.map(str::to_owned));
-        // Its chevron under a branch's commit glyphs, or as Network worktrees has its own.
-        let indent = upstream_chevrons(ref_name).0 - 7. - ROW_LEFT;
-        let glyph = ref_name.is_none().then_some(Icon::ArrowLineDown);
-        let label = section_label(label, theme).flex_1().min_w_0().truncate();
-        section_heading(("upstream-heading", ix), indent, open, glyph, label, theme)
+        let section = Section::Upstream(ref_name.map(str::to_owned));
+        let row = self.section_heading(ix, project, &section, label, style, cx);
+        let row = row
             .pr(dp(8.))
             .when(!open, |el| {
-                el.children(meta_count(Icon::ArrowDown, count, theme.warn, tip))
-                    .when(unread, |el| el.child(dot(theme.pop)))
+                el.children(meta_count(
+                    Icon::ArrowDown,
+                    count,
+                    style.meta(theme.warn),
+                    tip,
+                ))
+                .when(unread, |el| el.child(dot(style.meta(theme.pop))))
             })
             .when(update, |el| {
-                el.child(self.target_update_button(project, false, cx))
+                el.child(self.target_update_button(project, style.solid, cx))
             })
             .children(pull.map(|(project, ref_name)| {
-                button(ElementId::Name(format!("pull-{ix}").into()), "Pull")
-                    .small()
-                    .style(ButtonStyle::Gray)
-                    .tooltip("Bring them in, with this branch's own commits on top")
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        let ref_name = ref_name.clone();
-                        (this.store).update(cx, |store, cx| {
-                            store.pull_remote(&project, ref_name, None, cx)
-                        })
-                    }))
-            }))
-            .on_click(section_click(
-                move |this, window, cx| {
-                    let (project, ref_name) = key.clone();
-                    let selected =
-                        Self::upstream_selected(this.store.read(cx), &project, ref_name.as_deref());
-                    match open {
-                        true => this.open_upstream.remove(&key),
-                        false => this.open_upstream.insert(key.clone()),
-                    };
-                    // Folding them over the selected one takes the selection up, as a branch's
-                    // chevron does.
-                    match (open && selected, ref_name) {
-                        (true, Some(ref_name)) => {
-                            this.select(Selection::Branch(project, ref_name), window, cx)
-                        }
-                        (true, None) => this.select(Selection::Project(project), window, cx),
-                        (false, _) => cx.notify(),
-                    }
-                },
-                cx,
-            ))
-            .into_any_element()
+                // Pressing it leaves the selection where it is, as Update does.
+                div()
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .child(
+                        button(ElementId::Name(format!("pull-{ix}").into()), "Pull")
+                            .small()
+                            .style(ButtonStyle::Gray)
+                            .inverted(style.solid)
+                            .tooltip("Bring them in, with this branch's own commits on top")
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                let ref_name = ref_name.clone();
+                                (this.store).update(cx, |store, cx| {
+                                    store.pull_remote(&project, ref_name, None, cx)
+                                })
+                            })),
+                    )
+            }));
+        Some(row.into_any_element())
+    }
+
+    /// The heading over `section` of `project`'s card: its fold, its glyph and `label`,
+    /// quiet, its fold set in as a row's would be (see [`RowStyle::row`]). Selecting it shows
+    /// what it folds on its page; its chevron, a double-click or Enter lists or folds them.
+    fn section_heading(
+        &self,
+        ix: usize,
+        project: &ProjectId,
+        section: &Section,
+        label: impl Into<SharedString>,
+        style: RowStyle,
+        cx: &Context<Self>,
+    ) -> Stateful<Div> {
+        let label = label.into();
+        let (indent, glyph) = match section {
+            // A branch's under its commit glyphs, the target's as Network worktrees has its own.
+            Section::Upstream(ref_name) => (
+                upstream_chevrons(ref_name.as_deref()).0 - 7. - ROW_LEFT,
+                ref_name.is_none().then_some(Icon::ArrowLineDown),
+            ),
+            Section::Inactive => (6., Some(Icon::Clock)),
+            Section::Mesh => (6., Some(Icon::Globe)),
+        };
+        let open = self.heading_open(project, section, cx);
+        let item = Selection::Section(project.clone(), section.clone());
+        let toggle = {
+            let (project, section) = (project.clone(), section.clone());
+            move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
+                this.toggle_heading(project.clone(), section.clone(), open, window, cx)
+            }
+        };
+        let quiet = style.quiet();
+        (style.row(format!("section-heading-{ix}"), indent))
+            .gap(dp(6.))
+            .pr(dp(12.))
+            .aria_label(label.clone())
+            .aria_expanded(open)
+            .child(self.fold(("section-fold", ix), Some(open), quiet, cx, toggle.clone()))
+            .children(glyph.map(|glyph| small_icon(glyph).text_color(quiet)))
+            .child(
+                (section_label(label, style.theme).text_color(quiet))
+                    .flex_1()
+                    .min_w_0()
+                    .truncate(),
+            )
+            .on_mouse_down(MouseButton::Left, self.select_on_press(&item, cx))
+            .on_click(double_click(toggle, cx))
     }
 }
 
@@ -2347,30 +2474,14 @@ fn splice(list: &ListState, old: &[Row], new: &[Row], at: usize) -> bool {
     changed
 }
 
-/// The heading over a section of a card, as Network worktrees has: its fold, `glyph` if any
-/// and `label`, quiet, its fold `indent` in as a row's would be (see [`RowStyle::row`]). A
-/// click on it lists the section or folds it.
-fn section_heading(
-    id: impl Into<ElementId>,
-    indent: f32,
-    open: bool,
-    glyph: Option<Icon>,
-    label: Div,
-    theme: &Theme,
-) -> Stateful<Div> {
-    let hover = theme.hover();
-    h_flex()
-        .id(id)
-        .h(dp(ROW_HEIGHT))
-        .mx(dp(3.))
-        .pl(dp(8. + indent))
-        .pr(dp(12.))
-        .gap(dp(6.))
-        .rounded(dp(4.))
-        .hover(move |el| el.bg(hover))
-        .child(fold_glyph(Some(open), theme.text_3))
-        .children(glyph.map(|glyph| small_icon(glyph).text_color(theme.text_3)))
-        .child(label)
+/// The rows of `rows` that can be selected, in order.
+fn items(rows: &[Row]) -> Vec<&Selection> {
+    (rows.iter())
+        .filter_map(|row| match row {
+            Row::Item(item) => Some(item),
+            _ => None,
+        })
+        .collect()
 }
 
 /// Whether `new` stands where `old` did, to keep it under the pointer: the same row, or the

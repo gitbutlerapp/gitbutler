@@ -41,7 +41,7 @@ impl Detail {
     /// navigator, landed.
     pub(super) fn selected_review<'a>(&'a self, cx: &'a App) -> Option<&'a Review> {
         let store = self.store.read(cx);
-        match store.selection.as_ref()? {
+        match &self.selection(cx)? {
             Selection::Branch(project, ref_name) => store
                 .workspace(project)?
                 .find_branch(ref_name)?

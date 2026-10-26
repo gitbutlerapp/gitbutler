@@ -33,6 +33,7 @@ use crate::ui::{
 };
 
 mod activity;
+mod inactive;
 
 /// How many quarters of an hour the activity covers: the last 12 hours.
 const BARS: usize = 48;

@@ -42,7 +42,7 @@ use crate::backend::edit::Editing;
 use crate::backend::{self, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::MenuItem;
 use crate::state::{
-    Cut, FileSort, Pane, Picks, Prefs, ProjectId, Selection, Store, StoreEvent, snack,
+    Cut, FileSort, Pane, Picks, Prefs, ProjectId, Section, Selection, Store, StoreEvent, snack,
 };
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
@@ -656,8 +656,10 @@ impl Detail {
         detail
     }
 
+    /// The page shown: what's selected, or for a section's heading whose rows another page
+    /// lists, that page (see [`Selection::page`]).
     fn selection(&self, cx: &App) -> Option<Selection> {
-        self.store.read(cx).selection.clone()
+        self.store.read(cx).selection.clone().map(Selection::page)
     }
 
     fn selected_project(&self, cx: &App) -> Option<ProjectId> {
@@ -717,6 +719,14 @@ impl Detail {
             }
             Selection::Commit(_, id) => DiffSource::Commit(*id),
             Selection::Upstream(_, _, id) => DiffSource::Commit(*id),
+            // What a pull would bring in, each of the remote's commits in turn: those a local
+            // commit matches are left out of them, so a range from the oldest could bring them
+            // back.
+            Selection::Section(project, Section::Upstream(Some(ref_name))) => {
+                let branch = store.workspace(project)?.find_branch(ref_name)?;
+                DiffSource::Commits(branch.incoming.iter().rev().map(|c| c.id).collect())
+            }
+            Selection::Section(..) => return None,
             Selection::Branch(project, ref_name) => {
                 let branch = store.workspace(project)?.find_branch(ref_name)?;
                 let newest = branch.commits.first()?.id;
@@ -1316,7 +1326,7 @@ impl Detail {
 
     fn open_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         // The project, Branches and History pages filter their lists, as the navigator does.
-        let page = match self.store.read(cx).selection {
+        let page = match self.selection(cx) {
             Some(Selection::Branches(_)) => Some(self.branch_filter.clone()),
             Some(Selection::History(_)) => Some(self.history_filter.clone()),
             Some(Selection::Project(_)) => Some(self.target_filter.clone()),
@@ -2020,12 +2030,22 @@ impl Detail {
     /// though not a checkout's, over Commit… or the composer, nor one being filtered. A
     /// checkout's overview shows beside them, or alone with them hidden, as its diff does.
     pub fn files_shown(&self, window: &Window, cx: &App) -> bool {
-        self.list_page(cx) || (!self.files_hidden && self.files_fit(window, cx))
+        !self.overview_only(cx)
+            && (self.list_page(cx) || (!self.files_hidden && self.files_fit(window, cx)))
+    }
+
+    /// Whether the page is an overview with no column beside it: Inactive and Network
+    /// worktrees', as the navigator lists what they sum up.
+    pub fn overview_only(&self, cx: &App) -> bool {
+        matches!(
+            self.selection(cx),
+            Some(Selection::Section(_, Section::Inactive | Section::Mesh))
+        )
     }
 
     /// Show or hide the file list beside the diff or a checkout's overview, as `f` does.
     pub(super) fn toggle_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.list_page(cx) {
+        if self.list_page(cx) || self.overview_only(cx) {
             return;
         }
         if !self.files_fit(window, cx) {
@@ -2057,7 +2077,7 @@ impl Detail {
 
     pub(super) fn list_page(&self, cx: &App) -> bool {
         matches!(
-            self.store.read(cx).selection,
+            self.selection(cx),
             Some(Selection::Branches(_) | Selection::History(_) | Selection::Project(_))
         )
     }
@@ -2102,7 +2122,13 @@ impl Render for Detail {
                     Selection::Stack(project, bottom) => {
                         self.render_stack_side(project, bottom, &theme, cx)
                     }
-                    Selection::Upstream(..) => self.render_diff_file_list(&theme, cx),
+                    Selection::Upstream(..) | Selection::Section(_, Section::Upstream(_)) => {
+                        self.render_diff_file_list(&theme, cx)
+                    }
+                    // No column: the overview takes the page.
+                    Selection::Section(_, Section::Inactive | Section::Mesh) => {
+                        div().into_any_element()
+                    }
                     Selection::Mesh(project, id, pick) => {
                         self.render_mesh_side(project, id, pick, &theme, cx)
                     }
@@ -2186,6 +2212,12 @@ impl Render for Detail {
                     }
                     Selection::Project(project) if self.showing_shipped(cx) => {
                         Some(self.render_shipped(project, window, cx))
+                    }
+                    Selection::Section(project, Section::Inactive) => {
+                        Some(self.render_inactive_overview(project, &theme, cx))
+                    }
+                    Selection::Section(project, Section::Mesh) => {
+                        Some(self.render_machines_overview(project, &theme, cx))
                     }
                     // What the selected operation did, over the files it changed.
                     Selection::History(project) => {
