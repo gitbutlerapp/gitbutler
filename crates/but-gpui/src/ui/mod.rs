@@ -156,6 +156,7 @@ icons! {
     Ai => "ai",
     ArrowDoubleDown => "arrow-double-down",
     ArrowDown => "arrow-down",
+    ArrowInBox => "arrow-in-box",
     ArrowLineDown => "arrow-line-down",
     ArrowUp => "arrow-up",
     ArrowUpRight => "arrow-up-right",
