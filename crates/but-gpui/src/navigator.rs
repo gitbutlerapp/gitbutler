@@ -28,10 +28,10 @@ use crate::ui::emoji::{Colour, ProjectIcon};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, above_drag, button, commit_title,
+    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, above_drag, ago, button, commit_title,
     count_badge, dot, dp, faint, field, fixed, fold_button, fold_glyph, fold_row, glow_once, guide,
-    h_flex, icon, icon_button, just_now, list_row, meta_count, plural, pulsing, relative_time,
-    resize_handle, review, section_label, small_icon, v_flex,
+    h_flex, icon, icon_button, list_row, meta_count, plural, pulsing, relative_time, resize_handle,
+    review, section_label, small_icon, v_flex,
 };
 
 mod account;
@@ -256,18 +256,6 @@ impl RowStyle<'_> {
             )
             .when(unread, |el| el.child(dot(self.meta(self.theme.pop))))
             .children(at.map(|at| self.age(at)))
-    }
-
-    /// "active", in green, on a checkout written to in the last two minutes, likely by an
-    /// agent at work: a word, as but.dev greens the age, so it isn't taken for the unread dot.
-    fn active(&self, id: impl Into<ElementId>) -> Stateful<Div> {
-        div()
-            .id(id)
-            .flex_none()
-            .text_size(dp(11.))
-            .text_color(self.meta(self.theme.safe))
-            .child("active")
-            .tooltip(Tooltip::text("Changed in the last 2 minutes"))
     }
 }
 
@@ -1551,24 +1539,15 @@ impl Navigator {
                         .when(entry.is_loading(), |el| {
                             el.child(small_icon(Icon::Clock).text_color(theme.text_3))
                         })
-                        // A project something wrote to in the last two minutes is likely an
-                        // agent at work; otherwise say how long it's been quiet.
                         .when_some(activity, |el, at| {
-                            if just_now(at) {
-                                el.child(
-                                    style.active(ElementId::Name(format!("active-{id}").into())),
-                                )
-                            } else {
-                                let age = relative_time(at);
-                                el.child(
-                                    div()
-                                        .id(ElementId::Name(format!("quiet-{id}").into()))
-                                        .text_size(dp(11.))
-                                        .text_color(style.muted())
-                                        .tooltip(Tooltip::text(format!("Last active {age} ago")))
-                                        .child(age),
-                                )
-                            }
+                            el.child(
+                                div()
+                                    .id(ElementId::Name(format!("age-{id}").into()))
+                                    .text_size(dp(11.))
+                                    .text_color(style.muted())
+                                    .tooltip(Tooltip::text(format!("Last active {}", ago(at))))
+                                    .child(relative_time(at)),
+                            )
                         }),
                 )
                 // Only a watched project's: an unwatched one updates from its page or its menu,
@@ -1686,10 +1665,6 @@ impl Navigator {
         let unread = (branches.iter()).any(|branch| store.branch_unread(id, branch));
         // Open even when folded while the selection's in it.
         let open = self.section_open(ix);
-        // Written to or committed in, in the last two minutes, likely by the agent working in
-        // it, not the app.
-        let active = worktree
-            .is_some_and(|wt| (wt.activity()).any(|at| just_now(at) && !store.own_write(id, at)));
         let toggle = {
             let (project, name) = (id.clone(), name.clone());
             move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
@@ -1733,7 +1708,6 @@ impl Navigator {
                 el.children(style.unpushed(unpushed_n))
                     .when(unread, |el| el.child(dot(style.meta(theme.pop))))
             })
-            .when(active, |el| el.child(style.active(("worktree-active", ix))))
             .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
             .when(folds, |el| el.on_click(double_click(toggle, cx)));
         // The worktree's checked files while it's shown, else all of them, but not conflicted
