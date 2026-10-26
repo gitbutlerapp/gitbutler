@@ -3701,3 +3701,66 @@ Error: --message and --file cannot be used when uncommitting
 
 "#]]);
 }
+
+#[test]
+fn squash_uncommit_current_branch_in_single_branch_mode_stack_is_undoable() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("bottom.txt", "bottom\n");
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.file("top.txt", "top\n");
+    env.but("commit -b top --above bottom -m 'on top'")
+        .assert()
+        .success();
+
+    env.but("squash top -t @")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Uncommitted 'top'
+
+"#]]);
+
+    // HEAD moves to the surviving branch, and the uncommitted changes stay in the worktree.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   my A top.txt
+┊
+┊╭┄ bo [bottom] [HEAD]
+┊●   rtw on bottom
+┊│     rtw:t A bottom.txt
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+
+    env.but("undo").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD]
+┊●   mqp on top
+┊│     mqp:m A top.txt
+┊│
+┊├┄ bo [bottom]
+┊●   rtw on bottom
+┊│     rtw:t A bottom.txt
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}

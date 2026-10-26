@@ -440,8 +440,7 @@ fn materialize_repoints_head_when_checkout_reference_is_replaced() -> Result<()>
 }
 
 #[test]
-fn materialize_without_checkout_does_not_repoint_head_when_checkout_reference_is_replaced()
--> Result<()> {
+fn materialize_without_checkout_repoints_head_when_checkout_reference_is_replaced() -> Result<()> {
     let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
     let replacement_ref = gix::refs::FullName::try_from("refs/heads/replacement")?;
 
@@ -466,8 +465,8 @@ fn materialize_without_checkout_does_not_repoint_head_when_checkout_reference_is
 
     assert_eq!(
         repo.head_name()?,
-        Some(gix::refs::FullName::try_from("refs/heads/main")?),
-        "materialize_without_checkout should leave the symbolic HEAD target untouched"
+        Some(replacement_ref.clone()),
+        "HEAD follows the rewrite instead of staying on the deleted branch"
     );
     assert!(
         repo.try_find_reference(replacement_ref.as_ref())?.is_some(),

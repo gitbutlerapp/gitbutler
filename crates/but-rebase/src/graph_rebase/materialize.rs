@@ -152,9 +152,9 @@ fn open_linked_checkout_repos(
 pub struct MaterializeOptions {
     /// Materializes a rebase without checking out the editor's own worktree.
     ///
-    /// Linked worktrees aren't checked out either, but their `HEAD`s still follow the
-    /// rewrite, so what they had checked out surfaces as uncommitted changes there -
-    /// exactly like the editor's own worktree.
+    /// Its `HEAD` still follows the rewrite, also off a branch the rewrite removed,
+    /// so what it had checked out surfaces as uncommitted changes. Linked worktrees
+    /// aren't checked out either, and their `HEAD`s follow the rewrite the same way.
     pub without_checkout: bool,
 }
 
@@ -252,11 +252,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         }
 
         let specs = linked_checkout_specs(&checkouts)?;
-        let head = if materialize_options.without_checkout {
-            None
-        } else {
-            head_checkout(&checkouts)?
-        };
+        let head = head_checkout(&checkouts)?;
 
         if let Some(memory) = self.repo.objects.take_object_memory() {
             memory.persist(&self.repo)?;
