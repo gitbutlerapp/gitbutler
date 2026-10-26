@@ -4,17 +4,6 @@ Deep dive into GitButler's conceptual model and philosophy.
 
 ## The Workspace Model
 
-### Traditional Git: Serial Branching
-
-```
-main ──┬── feature-a (checkout here, work, commit, checkout back)
-       └── feature-b (checkout here, work, commit, checkout back)
-```
-
-- Work on ONE branch at a time
-- Switch contexts with `git checkout`
-- Changes are isolated by branch
-
 ### GitButler: Parallel Stacks
 
 ```
@@ -156,14 +145,6 @@ main ──┬── api-endpoint (independent)
        └── ui-update    (independent)
 ```
 
-Use when:
-
-- Tasks don't depend on each other
-- Can be merged independently
-- No shared code between them
-
-Example: Adding a new API endpoint and updating button styles are independent.
-
 ### Stacked Branches (Dependent Work)
 
 **To stack an existing branch** on top of another: `but move <child-branch-name> --above <parent-branch-name>`.
@@ -173,20 +154,6 @@ Example: Adding a new API endpoint and updating button styles are independent.
 ```
 main ── authentication ── user-profile ── settings-page
         (base)            (stacked)       (stacked)
-```
-
-Use when:
-
-- Feature B needs code from Feature A
-- Building incrementally on previous work
-- Creating a series of related changes
-
-Example: User profile page needs authentication to be implemented first.
-
-**Stacking two existing branches:** If both branches already exist and you need to make one depend on the other, use top-level `move`:
-```bash
-but move feature/frontend --above feature/backend
-# Now frontend is stacked on top of backend — both in the same stack
 ```
 
 To tear off a branch from a stack:
@@ -274,11 +241,6 @@ but commit --empty --below nn -m "TODO: Add error handling"
 but commit --empty --above nn -m "TODO: Add error handling"
 ```
 
-**Use cases:**
-
-1. **Mark future work:** Create empty commit as placeholder for changes you'll make
-2. **Organize history:** Add semantic markers in commit history
-
 Example workflow:
 
 ```bash
@@ -311,41 +273,6 @@ but oplog snapshot -m "known good"
 but oplog restore <snapshot-id>  # Restore to specific point
 ```
 
-Think of it as "git reflog" but for all GitButler operations, not just branch movements.
-
-**Safety net:** Made a mistake? `but undo` it. Experimented and want to go back? `but oplog restore` to earlier snapshot.
-
-## Applied vs Unapplied Branches
-
-Branches can be in two states:
-
-### Applied Branches
-
-- Active in your workspace
-- Checked out directly in single-branch mode, otherwise merged into `gitbutler/workspace`
-- Changes visible in working directory
-- Can make changes and commit
-
-### Unapplied Branches
-
-- Exist but not active
-- Not in working directory
-- Can't make changes (must apply first)
-- Useful for temporarily setting aside work
-
-### Controlling State
-
-```bash
-but apply <branch-name>    # Make branch active
-but unapply <branch-name>  # Make branch inactive
-```
-
-**Use cases:**
-
-- Unapply branches causing conflicts
-- Focus on subset of work (unapply others)
-- Temporarily set aside work without deleting
-
 ## Conflict Resolution Mode
 
 When `but pull` causes conflicts, affected commits are marked as conflicted. Agents resolve them
@@ -353,19 +280,11 @@ without entering a mode, with `but resolve conflicts` and `but resolve apply` (s
 Resolution mode below is for running code against a resolution, and it needs
 `gitbutler/workspace`: while a single branch is checked out, `but resolve <commit-id>` refuses.
 
-### Resolution Workflow
+Enter it with `but resolve <commit-id>` (oldest conflicted commit first), edit the files, then run
+`but resolve finish`, or `but resolve cancel` to back out; `but skill` has the steps. Run no other
+`but` mutations until you finish or cancel.
 
-1. **Identify:** the `but pull` summary lists each conflicted commit's ID, oldest first (`but status` also shows them)
-2. **Enter mode:** `but resolve <commit-id>` — it prints the conflict regions with line numbers. With several conflicted commits, resolve the oldest first: finishing a lower commit rebases the ones above it
-3. **Fix conflicts:** Edit files, remove conflict markers (`but resolve status` re-lists what remains when several files are conflicted)
-4. **Finalize:** `but resolve finish` or `but resolve cancel` — finish reports leftover markers and the surviving uncommitted changes, so no follow-up check is needed
-
-### During Resolution
-
-- You're in a special mode focused on that commit
-- Run no other `but` mutations until you finish or cancel
-- `but status` shows you're in resolution mode
-- Must finish or cancel before continuing normal work
+**Conflicted submodules:** a conflicted submodule has no markers, and `but resolve finish` refuses while it is unresolved, even to keep the commit's own side. Select it explicitly: check out the wanted commit inside the submodule (or write the file that replaces it) and run `git add -- <path>`, or drop it with `git rm -- <path>`. These are the only git write commands allowed during resolution, and only for the paths `finish` names; never `git commit`. If the submodule directory is empty or missing, do not `git add` it (for a missing one that stages its removal): keep any resolution edits you want and report the conflict. `but resolve cancel --force` abandons the resolution and discards its edits; use it only when those edits can be discarded.
 
 ## Read-Only Git Commands
 
@@ -386,5 +305,3 @@ Git commands that don't modify state are safe to use:
 - `git checkout` - Breaks workspace model
 - `git rebase` - Conflicts with GitButler's management
 - `git merge` - `but pull` updates branches from the target; `but merge` lands a branch on the target without review
-
-**Rule of thumb:** If it reads, it's fine. If it writes, use `but` instead.
