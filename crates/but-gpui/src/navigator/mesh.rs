@@ -13,7 +13,7 @@ use crate::app::CopySelection;
 use crate::backend::mesh::{self, BranchStatus};
 use crate::overlays::MenuItem;
 use crate::state::{MeshBranch, MeshPick, ProjectId, Section, Selection, Store};
-use crate::ui::{Icon, Tooltip, dot, faint, icon, just_now, small_icon};
+use crate::ui::{Icon, Tooltip, faint, icon, small_icon};
 
 impl Navigator {
     /// `id`'s checkouts on other machines under their heading, unless that's folded without
@@ -114,12 +114,10 @@ impl Navigator {
         let store = self.store.read(cx);
         let open = self.mesh_open(id, cx);
         let checkouts = store.mesh_checkouts(id);
-        let active = (checkouts.iter()).any(|c| c.online && c.last_activity.is_some_and(just_now));
         let label = "Network worktrees";
         let row = self.section_heading(ix, id, &Section::Mesh, label, style, cx);
         row.when(!open, |el| {
             el.child(faint(checkouts.len().to_string(), style.theme).text_color(style.quiet()))
-                .when(active, |el| el.child(dot(style.meta(style.theme.safe))))
         })
         .tooltip(Tooltip::text(
             "Unfinished work on your other machines, from your mesh",
@@ -208,7 +206,6 @@ impl Navigator {
                 let unpushed: usize = (checkout.branches.iter())
                     .map(|b| b.commits.iter().filter(|c| !c.pushed).count())
                     .sum();
-                let active = checkout.online && checkout.last_activity.is_some_and(just_now);
                 let mut tip = checkout.path.clone();
                 if !checkout.online {
                     tip.push_str("\nOffline");
@@ -250,7 +247,6 @@ impl Navigator {
                         style,
                     ))
                     .when(!open, |el| el.children(style.unpushed(unpushed)))
-                    .when(active, |el| el.child(style.active(("mesh-active", ix))))
                     .when(folds, |el| el.on_click(double_click(toggle, cx)))
             }
             _ => return None,
