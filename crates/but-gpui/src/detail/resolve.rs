@@ -5,6 +5,7 @@
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
+use bstr::ByteSlice as _;
 use gpui::{
     AnyElement, App, Context, Entity, Focusable, Subscription, Task, WeakEntity, Window, actions,
     div, prelude::*,
@@ -13,7 +14,7 @@ use gpui::{
 use super::{Detail, DiffSource};
 use crate::app::AppView;
 use crate::backend::conflicts::{self, Keep};
-use crate::backend::{self, Branch, Checkout, Commit, CommitId, Conflict, Workspace, ai};
+use crate::backend::{self, Branch, Checkout, Commit, CommitId, Conflict, FullName, Workspace, ai};
 use crate::state::{OpKind, Overlay, ProjectId, Rereads, Selection, snack};
 use crate::theme::Theme;
 use crate::ui::conflict::{self, Actions, Kept, Name, Part, Pick};
@@ -344,9 +345,9 @@ impl Detail {
         };
         let text = match self.resolving.keeping.get(&id) {
             Some(Keeping::Text { text, .. }) => text.clone(),
-            Some(Keeping::Pick(pick)) => kept_text(found, *pick),
-            None if files => found.new_base_text.clone(),
-            None => found.commit_text.clone(),
+            Some(Keeping::Pick(pick)) => kept_text(found, *pick).to_str_lossy().into_owned(),
+            None if files => found.new_base_text.to_str_lossy().into_owned(),
+            None => found.commit_text.to_str_lossy().into_owned(),
         };
         let input = cx.new(|cx| {
             let mut input = TextInput::new("The lines to keep", true, cx);
@@ -419,7 +420,10 @@ impl Detail {
         let prompt = ai::resolve_prompt(
             &id.0,
             [&base_name.1, &own],
-            [&found.new_base_text, &found.commit_text],
+            [
+                &found.new_base_text.to_str_lossy(),
+                &found.commit_text.to_str_lossy(),
+            ],
             found.ancestor.as_deref().map(lines).as_deref(),
             [&lines(&found.before), &lines(&found.after)],
         );
@@ -504,16 +508,16 @@ impl Detail {
         let Some(diff) = &self.diff else {
             return false;
         };
-        let keep: Vec<(String, &Conflict, Keep)> = (diff.files.iter())
+        let keep: Vec<(&backend::FileChange, &Conflict, Keep)> = (diff.files.iter())
             .flat_map(|file| file.conflicts().iter().map(move |c| (file, c)))
             .filter_map(|(file, c)| {
                 let keep = match self.resolving.keeping.get(&key(&file.file.path, c))? {
                     Keeping::Pick(Pick::NewBase) => Keep::NewBase,
                     Keeping::Pick(Pick::Commit) => Keep::Commit,
                     Keeping::Pick(Pick::Both) => Keep::Text(kept_text(c, Pick::Both)),
-                    Keeping::Text { text, .. } => Keep::Text(text.clone()),
+                    Keeping::Text { text, .. } => Keep::Text(text.as_str().into()),
                 };
-                Some((file.file.path.clone(), c, keep))
+                Some((&file.file, c, keep))
             })
             .collect();
         if keep.is_empty() {
@@ -521,7 +525,9 @@ impl Detail {
         }
         // Once applied, those conflicts are gone, and the ones left are numbered again: an
         // id applied could be another's by then, which mustn't take its pick.
-        let applied: Vec<Key> = (keep.iter()).map(|(path, c, _)| key(path, c)).collect();
+        let applied: Vec<Key> = (keep.iter())
+            .map(|(file, c, _)| key(&file.path, c))
+            .collect();
         let detail = cx.entity().downgrade();
         let forget = move |cx: &mut App| {
             (detail.update(cx, |detail, _| {
@@ -539,8 +545,8 @@ impl Detail {
                 let decided = keep.len();
                 let editing = (self.store.read(cx).workspace(&project))
                     .is_some_and(|ws| ws.editing.is_some());
-                let keep: Vec<(String, String, Keep)> = (keep.into_iter())
-                    .map(|(path, c, keep)| (path, c.id.clone(), keep))
+                let keep: Vec<(bstr::BString, String, Keep)> = (keep.into_iter())
+                    .map(|(file, c, keep)| (file.change.path.clone(), c.id.clone(), keep))
                     .collect();
                 let project_done = project.clone();
                 self.store.update(cx, |store, cx| {
@@ -582,7 +588,7 @@ impl Detail {
             }
         };
         let keep: Vec<(String, usize, Keep)> = (keep.into_iter())
-            .map(|(path, c, keep)| (path, c.index, keep))
+            .map(|(file, c, keep)| (file.path.clone(), c.index, keep))
             .collect();
         let after = (self.store.read(cx).workspace(&project))
             .map(|ws| stack_after(ws, commit))
@@ -860,16 +866,17 @@ impl Detail {
 }
 
 /// The text keeping `pick` gives conflict `c`: a side, or both, the new base's first.
-fn kept_text(c: &Conflict, pick: Pick) -> String {
+fn kept_text(c: &Conflict, pick: Pick) -> bstr::BString {
     match pick {
         Pick::NewBase => c.new_base_text.clone(),
         Pick::Commit => c.commit_text.clone(),
         Pick::Both => {
             let mut both = c.new_base_text.clone();
-            if !both.is_empty() && !both.ends_with('\n') {
-                both.push('\n');
+            if !both.is_empty() && !both.ends_with(b"\n") {
+                both.push(b'\n');
             }
-            both + &c.commit_text
+            both.extend_from_slice(&c.commit_text);
+            both
         }
     }
 }
@@ -892,9 +899,9 @@ fn oldest_first(workspace: &Workspace, commit: CommitId) -> Vec<CommitId> {
 /// branch holding it. None when that's a linked worktree's, as its conflicts resolve in it.
 pub(super) fn oldest_conflict<'a>(
     workspace: &'a Workspace,
-    ref_name: &str,
+    ref_name: &FullName,
 ) -> Option<(&'a Branch, &'a Commit)> {
-    let (lane, at) = workspace.lane_of(ref_name)?;
+    let (lane, at) = workspace.lane_of(Some(ref_name))?;
     let history: Vec<&Commit> = (workspace.chain_from(lane, at))
         .flat_map(|link| link.commits())
         .collect();
@@ -1004,7 +1011,7 @@ impl AppView {
             }
             Selection::Commit(_, id) => *id,
             Selection::Branch(_, ref_name) => {
-                let (lane, _) = workspace.lane_of(ref_name)?;
+                let (lane, _) = workspace.lane_of(ref_name.as_ref())?;
                 lane.branches.first()?.commits.first()?.id
             }
             _ => return None,
@@ -1128,10 +1135,11 @@ mod tests {
             {
                 commit.conflicted = conflicted.iter().any(|n| id(*n) == commit.id);
             }
-            let oldest =
-                oldest_conflict(&ws, &format!("refs/heads/{name}")).map(|(holder, commit)| {
-                    format!("{} in {}", commit_name(&ws, commit.id), holder.name)
-                });
+            let oldest = oldest_conflict(
+                &ws,
+                &crate::backend::model::build::full(&format!("refs/heads/{name}")),
+            )
+            .map(|(holder, commit)| format!("{} in {}", commit_name(&ws, commit.id), holder.name));
             let conflicted: Vec<String> = (conflicted.iter())
                 .map(|n| commit_name(&ws, id(*n)))
                 .collect();

@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::sync::Arc;
 
 use super::{Branch, Commit, CommitId, Workspace};
 
@@ -8,7 +7,7 @@ use super::{Branch, Commit, CommitId, Workspace};
 pub enum Checkout {
     #[default]
     Main,
-    Linked(Arc<str>),
+    Linked(bstr::BString),
 }
 
 #[derive(Debug, Clone)]
@@ -32,10 +31,10 @@ pub struct Link<'a> {
 }
 
 impl Checkout {
-    pub fn linked(&self) -> Option<&str> {
+    pub fn linked(&self) -> Option<&bstr::BStr> {
         match self {
             Checkout::Main => None,
-            Checkout::Linked(name) => Some(name),
+            Checkout::Linked(name) => Some(name.as_ref()),
         }
     }
 
@@ -48,7 +47,7 @@ impl Lane {
     /// The last commit of its bottom named branch, which a branch moves below to go under the
     /// lane's branches. `None` when that branch has no commits of its own.
     pub fn end(&self) -> Option<CommitId> {
-        let bottom = (self.branches.iter().rev()).find(|branch| !branch.ref_name.is_empty())?;
+        let bottom = (self.branches.iter().rev()).find(|branch| branch.ref_name.is_some())?;
         bottom.commits.last().map(|commit| commit.id)
     }
 }
@@ -74,9 +73,9 @@ impl<'a> Link<'a> {
 
 impl Workspace {
     /// The lane of the linked worktree `name`.
-    pub fn worktree_lane(&self, name: &str) -> Option<&Lane> {
+    pub fn worktree_lane(&self, name: &bstr::BStr) -> Option<&Lane> {
         (self.lanes.iter())
-            .find(|lane| matches!(&lane.checkout, Checkout::Linked(linked) if **linked == *name))
+            .find(|lane| matches!(&lane.checkout, Checkout::Linked(linked) if linked == name))
     }
 
     /// The commits of the lane holding commit `id`, across its branches, newest first.
@@ -102,16 +101,17 @@ impl Workspace {
     }
 
     /// The stack, or linked worktree's lane, whose bottom branch is `bottom`.
-    pub fn lane(&self, bottom: &str) -> Option<&Lane> {
-        (self.lanes.iter())
-            .find(|lane| (lane.branches.last()).is_some_and(|branch| branch.ref_name == bottom))
+    pub fn lane(&self, bottom: Option<&super::FullName>) -> Option<&Lane> {
+        (self.lanes.iter()).find(|lane| {
+            (lane.branches.last()).is_some_and(|branch| branch.ref_name.as_ref() == bottom)
+        })
     }
 
     /// The lane holding the branch `ref_name`, a stack's or a linked worktree's, and the
     /// branch's place in it from the top.
-    pub fn lane_of(&self, ref_name: &str) -> Option<(&Lane, usize)> {
+    pub fn lane_of(&self, ref_name: Option<&super::FullName>) -> Option<(&Lane, usize)> {
         self.lanes.iter().find_map(|lane| {
-            let at = lane.branches.iter().position(|b| b.ref_name == ref_name)?;
+            let at = (lane.branches.iter()).position(|b| b.ref_name.as_ref() == ref_name)?;
             Some((lane, at))
         })
     }
@@ -141,10 +141,10 @@ impl Workspace {
         links.take(self.lanes.len())
     }
 
-    /// The lane of the branch `ref_name` from it down, then the lanes beneath. Empty for an
-    /// unnamed branch, or one no lane holds.
-    pub fn chain(&self, ref_name: &str) -> impl Iterator<Item = Link<'_>> {
-        let found = self.lane_of(ref_name).filter(|_| !ref_name.is_empty());
+    /// The lane of the branch `ref_name` from it down, then the lanes beneath. Empty for one
+    /// no lane holds.
+    pub fn chain(&self, ref_name: &super::FullName) -> impl Iterator<Item = Link<'_>> {
+        let found = self.lane_of(Some(ref_name));
         found
             .into_iter()
             .flat_map(|(lane, at)| self.chain_from(lane, at))
@@ -161,8 +161,8 @@ impl Workspace {
     }
 
     /// Whether another lane rests on a commit of the branch `ref_name`.
-    pub fn rested_on(&self, ref_name: &str) -> bool {
-        let Some(branch) = self.find_branch(ref_name).filter(|_| !ref_name.is_empty()) else {
+    pub fn rested_on(&self, ref_name: &super::FullName) -> bool {
+        let Some(branch) = self.find_branch(Some(ref_name)) else {
             return false;
         };
         (self.lanes.iter())
@@ -201,9 +201,9 @@ impl Workspace {
     }
 
     /// The stack holding the branch `ref_name`, and the branch's place in it from the top.
-    pub fn stack_of(&self, ref_name: &str) -> Option<(&Lane, usize)> {
+    pub fn stack_of(&self, ref_name: Option<&super::FullName>) -> Option<(&Lane, usize)> {
         self.lanes_in(&Checkout::Main).find_map(|stack| {
-            let at = stack.branches.iter().position(|b| b.ref_name == ref_name)?;
+            let at = (stack.branches.iter()).position(|b| b.ref_name.as_ref() == ref_name)?;
             Some((stack, at))
         })
     }
@@ -211,7 +211,7 @@ impl Workspace {
 
 #[cfg(test)]
 mod tests {
-    use super::super::build::{branch, describe_chain, workspace, worktree};
+    use super::super::build::{branch, describe_chain, full, workspace, worktree};
 
     #[test]
     fn a_chain_follows_each_lane_down_to_what_it_rests_on() {
@@ -244,7 +244,7 @@ mod tests {
             (&cycle, "a"),
         ]
         .map(|(ws, name)| {
-            let chain = describe_chain(ws, &format!("refs/heads/{name}"));
+            let chain = describe_chain(ws, &full(&format!("refs/heads/{name}")));
             format!("chain({name})\n{chain}\n")
         })
         .concat();

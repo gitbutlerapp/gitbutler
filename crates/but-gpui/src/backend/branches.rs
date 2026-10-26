@@ -8,7 +8,6 @@ use anyhow::Result;
 use bstr::{BStr, BString, ByteSlice};
 use but_branches::ListedStackStatus;
 
-use super::ops::full_name;
 use super::reviews::from_cache;
 use super::upstream::{TargetCommit, target_commit};
 use super::{Agent, CommitId, Review, open};
@@ -16,7 +15,7 @@ use super::{Agent, CommitId, Review, open};
 #[derive(Debug, Clone)]
 pub struct OtherBranch {
     /// The local branch if there is one, else the remote-tracking one.
-    pub ref_name: String,
+    pub ref_name: super::FullName,
     pub name: String,
     pub local: bool,
     /// The workspace has it applied: the Branches page lists only the others, and its
@@ -86,7 +85,7 @@ pub fn all_branches(path: &Path) -> Result<Vec<OtherBranch>> {
                 branch.commit_count.unwrap_or(1),
             );
             OtherBranch {
-                ref_name: branch.ref_name.to_string(),
+                ref_name: branch.ref_name.clone(),
                 name: branch.display_name.to_str_lossy().into_owned(),
                 local: branch.has_local,
                 applied,
@@ -162,9 +161,13 @@ fn descriptions(repo: &gix::Repository) -> HashMap<BString, BString> {
 /// Set local branch `ref_name`'s description where Git keeps it, as `git branch
 /// --edit-description` does; a blank one removes it. Git config isn't in the oplog, so it
 /// isn't a step to undo.
-pub fn set_branch_description(path: &Path, ref_name: &str, description: &str) -> Result<()> {
+pub fn set_branch_description(
+    path: &Path,
+    ref_name: &super::FullName,
+    description: &str,
+) -> Result<()> {
     let mut ctx = open(path)?;
-    let name = full_name(ref_name)?;
+    let name = ref_name;
     anyhow::ensure!(
         name.category() == Some(gix::refs::Category::LocalBranch),
         "Only a local branch has a description"
@@ -225,10 +228,10 @@ fn write_description(
 
 /// The commits `ref_name` has that the target doesn't, newest first, as the project's page
 /// has a target's, so a picked one shows its message as a target commit does.
-pub fn branch_commits(path: &Path, ref_name: &str) -> Result<Vec<TargetCommit>> {
+pub fn branch_commits(path: &Path, ref_name: &super::FullName) -> Result<Vec<TargetCommit>> {
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
-    let name = full_name(ref_name)?;
+    let name = ref_name;
     let remote = but_core::extract_remote_name_and_short_name(
         name.as_ref(),
         &ctx.repo.get()?.remote_names(),
@@ -244,20 +247,24 @@ pub fn branch_commits(path: &Path, ref_name: &str) -> Result<Vec<TargetCommit>> 
         .collect()
 }
 
-/// How applying a branch went.
+/// How applying a branch went, and the local branch it's applied as.
 pub enum ApplyOutcome {
-    Applied,
-    AlreadyApplied,
+    Applied(super::FullName),
+    AlreadyApplied(super::FullName),
     /// It conflicts with these applied stacks, so nothing changed.
     Conflicts(Vec<String>),
 }
 
 /// Apply `ref_name` to the workspace, once the archived worktree `freeing`, if any, let go of
 /// it. A remote branch gets a local branch to apply.
-pub fn apply(path: &Path, ref_name: &str, freeing: Option<&str>) -> Result<ApplyOutcome> {
+pub fn apply(
+    path: &Path,
+    ref_name: &super::FullName,
+    freeing: Option<&BStr>,
+) -> Result<ApplyOutcome> {
     use but_workspace::branch::apply::OutcomeStatus;
     let mut ctx = open(path)?;
-    let name = full_name(ref_name)?;
+    let name = ref_name;
     // One lock throughout, so nothing else moves the worktree's HEAD or the branch meanwhile.
     let mut guard = ctx.exclusive_worktree_access();
     // The archived worktree `freeing` lets go of the branch first, staying on its commit with
@@ -265,7 +272,7 @@ pub fn apply(path: &Path, ref_name: &str, freeing: Option<&str>) -> Result<Apply
     let freed = match freeing {
         Some(worktree) => {
             let repo = super::checkout(&ctx, Some(worktree))?;
-            (repo.head_name()?.as_ref() == Some(&name)).then_some(repo)
+            (repo.head_name()?.as_ref() == Some(name)).then_some(repo)
         }
         None => None,
     };
@@ -284,9 +291,18 @@ pub fn apply(path: &Path, ref_name: &str, freeing: Option<&str>) -> Result<Apply
         but_core::update_head_reference(&repo, back, false, "checkout", why.as_str().into(), 0)?;
     }
     let outcome = outcome?;
+    let remotes = ctx.repo.get()?.remote_names();
+    let local = match but_core::extract_remote_name_and_short_name(name.as_ref(), &remotes) {
+        Some((_, short)) => {
+            let mut local = BString::from("refs/heads/");
+            local.extend_from_slice(&short);
+            super::FullName::try_from(local)?
+        }
+        None => name.clone(),
+    };
     Ok(match outcome.status {
-        OutcomeStatus::Applied => ApplyOutcome::Applied,
-        OutcomeStatus::AlreadyApplied => ApplyOutcome::AlreadyApplied,
+        OutcomeStatus::Applied => ApplyOutcome::Applied(local),
+        OutcomeStatus::AlreadyApplied => ApplyOutcome::AlreadyApplied(local),
         OutcomeStatus::ConflictAborted => ApplyOutcome::Conflicts(
             outcome
                 .conflicting_stacks

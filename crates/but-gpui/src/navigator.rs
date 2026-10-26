@@ -15,7 +15,8 @@ use crate::app::{
     AddProject, AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious, UpdateFromTarget,
 };
 use crate::backend::{
-    Branch, Checkout, CommitId, CommitState, FileChange, PushState, Review, ReviewState, Target,
+    Branch, Checkout, CommitId, CommitState, FileChange, FullName, PushState, Review, ReviewState,
+    Target,
 };
 use crate::detail::{ChecksChanged, Detail};
 use crate::overlays::MenuItem;
@@ -77,10 +78,13 @@ actions!(
     ]
 );
 
+/// A project's branch by its full ref, `None` for an unnamed one.
+type BranchKey = (ProjectId, Option<FullName>);
+
 /// A branch, here or on another machine, whose commits a click on its row opens.
 #[derive(Clone, PartialEq, Eq, Hash)]
 enum ClickOpened {
-    Here((ProjectId, String)),
+    Here(BranchKey),
     Elsewhere(crate::state::MeshBranch),
 }
 
@@ -101,13 +105,13 @@ struct RowStyle<'a> {
 
 /// How far a remote's commits sit in: the target's as a branch's commits do, a branch's a
 /// step in from their heading, which is under the branch's commit glyphs.
-fn upstream_indent(ref_name: Option<&str>) -> f32 {
+fn upstream_indent(ref_name: Option<&FullName>) -> f32 {
     COMMIT_INDENT + if ref_name.is_some() { STACK_STEP } else { 0. }
 }
 
 /// Where the middles of a remote's heading's chevron and of its merges' chevrons sit: the
 /// target's as the worktree sections' headings have theirs, a branch's under its commit glyphs.
-fn upstream_chevrons(ref_name: Option<&str>) -> (f32, f32) {
+fn upstream_chevrons(ref_name: Option<&FullName>) -> (f32, f32) {
     // The middle of a 12-point glyph set in by `indent`, as a commit's is.
     let glyph = |indent: f32| ROW_LEFT + indent + 6.;
     let heading = match ref_name {
@@ -272,7 +276,7 @@ pub struct Navigator {
     reveal_selection: bool,
     /// Branches showing all their commits, or the first few, against how Settings say open
     /// branches list them: the first few, unless they say all.
-    flipped_folds: HashSet<(ProjectId, String)>,
+    flipped_folds: HashSet<BranchKey>,
     /// Whether open branches list all their commits, as the fold flips were made against.
     /// When Settings change it, the flips go as `flipped` does.
     all_branch_commits: bool,
@@ -286,12 +290,12 @@ pub struct Navigator {
     /// Checkouts showing only their heading.
     folded_worktrees: HashSet<(ProjectId, Checkout)>,
     /// Stacks showing only their caption, by their bottom branch.
-    folded_stacks: HashSet<(ProjectId, String)>,
+    folded_stacks: HashSet<BranchKey>,
     /// Checkouts on other machines showing only their heading, by the mesh's id.
     folded_checkouts: HashSet<(ProjectId, Arc<str>)>,
     /// The commits only a remote has listed under their heading, a branch's (by its full
     /// ref) or with `None` the target's. They start folded to the heading.
-    open_upstream: HashSet<(ProjectId, Option<String>)>,
+    open_upstream: HashSet<(ProjectId, Option<FullName>)>,
     /// The branch a click on its row opened, which a click on another's folds again; one
     /// opened or folded by hand since stays as it's left.
     click_opened: Option<ClickOpened>,
@@ -315,7 +319,7 @@ pub struct Navigator {
     held_order: Option<Vec<ProjectId>>,
     /// Each project's linked worktrees in the order they had then, most recently used first,
     /// which an agent committing in one would change under the pointer as well.
-    held_worktrees: HashMap<ProjectId, Vec<Arc<str>>>,
+    held_worktrees: HashMap<ProjectId, Vec<bstr::BString>>,
     /// The project whose watch button the pointer is on, which shows what a click makes it.
     watch_hovered: Option<ProjectId>,
     /// Where a dragged project card would go, while one is over a card's heading.
@@ -389,24 +393,29 @@ impl Navigator {
                 StoreEvent::Loaded(_) | StoreEvent::MeshRead(_) => this.hold_still = true,
                 // A renamed branch stays open or folded as it was.
                 StoreEvent::Renamed(project, from, to) => {
+                    let to = Some(to.clone());
                     for set in [&mut this.flipped_folds, &mut this.folded_stacks] {
                         if set.remove(&(project.clone(), from.clone())) {
                             set.insert((project.clone(), to.clone()));
                         }
                     }
-                    let here =
-                        |ref_name: &String| ClickOpened::Here((project.clone(), ref_name.clone()));
+                    let here = |ref_name: &Option<FullName>| {
+                        ClickOpened::Here((project.clone(), ref_name.clone()))
+                    };
                     if this.flipped.remove(&here(from)) {
-                        this.flipped.insert(here(to));
+                        this.flipped.insert(here(&to));
                     }
-                    if (this.open_upstream).remove(&(project.clone(), Some(from.clone()))) {
-                        (this.open_upstream).insert((project.clone(), Some(to.clone())));
+                    // `None` there is the target's, which no rename is of.
+                    if from.is_some()
+                        && (this.open_upstream).remove(&(project.clone(), from.clone()))
+                    {
+                        (this.open_upstream).insert((project.clone(), to.clone()));
                     }
                     if let Some(ClickOpened::Here((p, r))) = &mut this.click_opened
                         && p == project
                         && r == from
                     {
-                        *r = to.clone();
+                        *r = to;
                     }
                 }
                 _ => {}
@@ -676,12 +685,12 @@ impl Navigator {
 
     /// Whether the branch at `key` lists all its commits: as Settings say, unless folded or
     /// unfolded since.
-    fn unfolded(&self, key: &(ProjectId, String)) -> bool {
+    fn unfolded(&self, key: &BranchKey) -> bool {
         self.all_branch_commits != self.flipped_folds.contains(key)
     }
 
     /// List all the commits of the branch at `key`, or only the first few, by hand.
-    fn set_unfolded(&mut self, key: (ProjectId, String), unfolded: bool) {
+    fn set_unfolded(&mut self, key: BranchKey, unfolded: bool) {
         match unfolded == self.all_branch_commits {
             true => self.flipped_folds.remove(&key),
             false => self.flipped_folds.insert(key),
@@ -703,9 +712,9 @@ impl Navigator {
 
     /// Whether one of the commits only `ref_name`'s remote has, or with `None` the target's
     /// new ones, is selected.
-    fn upstream_selected(store: &Store, id: &ProjectId, ref_name: Option<&str>) -> bool {
+    fn upstream_selected(store: &Store, id: &ProjectId, ref_name: Option<&FullName>) -> bool {
         matches!(&store.selection, Some(Selection::Upstream(p, r, _))
-            if p == id && r.as_deref() == ref_name)
+            if p == id && r.as_ref() == ref_name)
     }
 
     /// Show the commits remote merge `id` brought in, which load as they open, or fold them,
@@ -713,7 +722,7 @@ impl Navigator {
     fn toggle_merge(
         &mut self,
         project: &ProjectId,
-        ref_name: Option<String>,
+        ref_name: Option<FullName>,
         id: CommitId,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -725,7 +734,7 @@ impl Navigator {
         self.open_merges.remove(&id);
         let store = self.store.read(cx);
         let inside = matches!(&store.selection, Some(Selection::Upstream(p, r, c))
-            if p == project && store.merged_upstream(p, r.as_deref(), *c).is_some_and(|(m, _)| m == id));
+            if p == project && store.merged_upstream(p, r.as_ref(), *c).is_some_and(|(m, _)| m == id));
         match inside {
             true => self.select(
                 Selection::Upstream(project.clone(), ref_name, id),
@@ -738,9 +747,9 @@ impl Navigator {
 
     /// Whether the commits only `ref_name`'s remote has, or with `None` the target's new
     /// ones, are listed under their heading: once it's opened, and while one is selected.
-    fn upstream_open(&self, store: &Store, id: &ProjectId, ref_name: Option<&str>) -> bool {
+    fn upstream_open(&self, store: &Store, id: &ProjectId, ref_name: Option<&FullName>) -> bool {
         self.open_upstream
-            .contains(&(id.clone(), ref_name.map(str::to_owned)))
+            .contains(&(id.clone(), ref_name.cloned()))
             || Self::upstream_selected(store, id, ref_name)
     }
 
@@ -782,7 +791,7 @@ impl Navigator {
             Some(Selection::Upstream(project, ref_name, id))
                 if !self.open_merges.contains(&id)
                     && (store.workspace(&project))
-                        .and_then(|ws| ws.upstream(ref_name.as_deref()).iter().find(|c| c.id == id))
+                        .and_then(|ws| ws.upstream(ref_name.as_ref()).iter().find(|c| c.id == id))
                         .is_some_and(|commit| commit.merge) =>
             {
                 self.toggle_merge(&project, ref_name, id, window, cx)
@@ -800,7 +809,7 @@ impl Navigator {
         let selection = store.selection.clone();
         // A commit a remote's merge brought in goes up to the merge.
         if let Some(Selection::Upstream(project, ref_name, id)) = &selection
-            && let Some((merge, _)) = store.merged_upstream(project, ref_name.as_deref(), *id)
+            && let Some((merge, _)) = store.merged_upstream(project, ref_name.as_ref(), *id)
         {
             let up = Selection::Upstream(project.clone(), ref_name.clone(), merge);
             return self.select(up, window, cx);
@@ -830,9 +839,9 @@ impl Navigator {
             Some(Selection::Commit(project, id)) => {
                 let branch = store
                     .find_commit(&project, id)
-                    .map(|(b, _)| b.ref_name.clone());
+                    .and_then(|(b, _)| b.ref_name.clone());
                 if let Some(ref_name) = branch {
-                    self.select(Selection::Branch(project, ref_name), window, cx);
+                    self.select(Selection::Branch(project, Some(ref_name)), window, cx);
                 }
             }
             // An open merge folds; the target's new commits go up to the project, below.
@@ -851,14 +860,14 @@ impl Navigator {
             }
             Some(Selection::Worktree(project, name))
                 if (store.workspace(&project))
-                    .and_then(|ws| ws.find_worktree(&name))
+                    .and_then(|ws| ws.find_worktree(name.as_ref()))
                     .is_some_and(|wt| wt.is_inactive()) =>
             {
                 let heading = Selection::Section(project, Section::Inactive);
                 self.select(heading, window, cx)
             }
             Some(Selection::Stack(project, bottom)) if folds => {
-                self.toggle_stack(&project, &bottom, true, window, cx)
+                self.toggle_stack(&project, bottom.as_ref(), true, window, cx)
             }
             Some(Selection::Mesh(project, id, pick)) => {
                 self.collapse_mesh(project, id, pick, window, cx)
@@ -869,7 +878,7 @@ impl Navigator {
                     false => {
                         let up = match section {
                             Section::Upstream(Some(ref_name)) => {
-                                Selection::Branch(project, ref_name)
+                                Selection::Branch(project, Some(ref_name))
                             }
                             _ => Selection::Project(project),
                         };
@@ -1221,7 +1230,7 @@ impl Navigator {
         };
         let cut = match (&store.cut, item) {
             (Some(Cut::Branch(p, r)), Selection::Branch(project, ref_name)) => {
-                p == project && r == ref_name
+                p == project && ref_name.as_ref() == Some(r)
             }
             (
                 Some(Cut::Commit(p, ids) | Cut::CherryPick(p, ids)),
@@ -1251,7 +1260,9 @@ impl Navigator {
             Selection::Uncommitted(_) | Selection::Worktree(..) => {
                 self.worktree_heading(ix, item, style, cx)
             }
-            Selection::Branch(id, ref_name) => self.branch_row(item, id, ref_name, style, cx),
+            Selection::Branch(id, ref_name) => {
+                self.branch_row(item, id, ref_name.as_ref(), style, cx)
+            }
             Selection::Commit(id, commit_id) => self.commit_row(item, id, commit_id, style, cx),
             Selection::Branches(_) => {
                 let tip = Some("Branches not applied");
@@ -1261,13 +1272,15 @@ impl Navigator {
                 let label = "Operations history";
                 Some(self.page_row(item, Icon::Clock, label, None, style, cx))
             }
-            Selection::Stack(id, bottom) => self.stack_row(ix, item, id, bottom, style, cx),
+            Selection::Stack(id, bottom) => {
+                self.stack_row(ix, item, id, bottom.as_ref(), style, cx)
+            }
             Selection::Mesh(..) => self.mesh_row(ix, item, style, cx),
             Selection::Upstream(id, ref_name, commit) => {
-                self.upstream_row(item, id, ref_name.as_deref(), commit, style, cx)
+                self.upstream_row(item, id, ref_name.as_ref(), commit, style, cx)
             }
             Selection::Section(id, Section::Upstream(ref_name)) => {
-                self.upstream_heading(ix, id, ref_name.as_deref(), style, cx)
+                self.upstream_heading(ix, id, ref_name.as_ref(), style, cx)
             }
             Selection::Section(id, Section::Inactive) => {
                 Some(self.inactive_heading(ix, id, style, cx))
@@ -1658,7 +1671,10 @@ impl Navigator {
             _ => String::new(),
         };
         let checkout = checkout.map_or(String::new(), |checkout| {
-            format!(" in {}", checkout.linked().unwrap_or("Main worktree"))
+            format!(
+                " in {}",
+                checkout.linked().unwrap_or("Main worktree".into())
+            )
         });
         Some(format!("{name}{below_tip}{checkout}"))
     }
@@ -1716,7 +1732,7 @@ impl Navigator {
         // In as far as a branch is, so its chevron and icon line up with theirs.
         let row = style
             .row(
-                format!("worktree-{id}-{}", checkout.linked().unwrap_or("")),
+                format!("worktree-{id}-{}", checkout.linked().unwrap_or_default()),
                 6.,
             )
             .aria_label(label.clone())
@@ -1818,7 +1834,7 @@ impl Navigator {
         ix: usize,
         item: &Selection,
         id: &ProjectId,
-        bottom: &str,
+        bottom: Option<&FullName>,
         style: RowStyle,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
@@ -1827,7 +1843,10 @@ impl Navigator {
         // Find the stack by its bottom branch as drawn, after pending deletes.
         let branches = (store.workspace(id)?.lanes.iter())
             .map(|lane| store.after_deletes(id, &lane.branches))
-            .find(|lane| lane.last().is_some_and(|branch| branch.ref_name == bottom))?;
+            .find(|lane| {
+                lane.last()
+                    .is_some_and(|branch| branch.ref_name.as_ref() == bottom)
+            })?;
         // Open even when folded while the selection's in it.
         let open = self.section_open(ix);
         let names: Vec<&str> = (branches.iter())
@@ -1840,9 +1859,9 @@ impl Navigator {
             .max();
         let label = format!("Stack of {}", branches.len());
         let toggle = {
-            let (project, bottom) = (id.clone(), bottom.to_owned());
+            let (project, bottom) = (id.clone(), bottom.cloned());
             move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
-                this.toggle_stack(&project, &bottom, open, window, cx)
+                this.toggle_stack(&project, bottom.as_ref(), open, window, cx)
             }
         };
         let step = self.fold(
@@ -1860,7 +1879,13 @@ impl Navigator {
         };
         Some(
             style
-                .row(format!("stack-{id}-{bottom}"), 6.)
+                .row(
+                    format!(
+                        "stack-{id}-{}",
+                        bottom.map(ToString::to_string).unwrap_or_default()
+                    ),
+                    6.,
+                )
                 .aria_label(label)
                 .aria_expanded(open)
                 .child(step)
@@ -1904,12 +1929,12 @@ impl Navigator {
     fn toggle_stack(
         &mut self,
         project: &ProjectId,
-        bottom: &str,
+        bottom: Option<&FullName>,
         open: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let key = (project.clone(), bottom.to_owned());
+        let key = (project.clone(), bottom.cloned());
         if !open {
             self.folded_stacks.remove(&key);
             return cx.notify();
@@ -1923,7 +1948,7 @@ impl Navigator {
         self.folded_stacks.insert(key);
         match inside {
             true => self.select(
-                Selection::Stack(project.clone(), bottom.to_owned()),
+                Selection::Stack(project.clone(), bottom.cloned()),
                 window,
                 cx,
             ),
@@ -1935,18 +1960,20 @@ impl Navigator {
         &self,
         item: &Selection,
         id: &ProjectId,
-        ref_name: &str,
+        ref_name: Option<&FullName>,
         style: RowStyle,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let store = self.store.read(cx);
+        let row_id = ref_name.map(ToString::to_string).unwrap_or_default();
         let theme = style.theme;
         let branch = store.branch_for(item)?;
         let name = store.name_of(id, branch);
         let unpushed_n = unpushed(std::iter::once(branch));
         let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
         // Its pull request shows as it's asked for, pulsing until the forge has it.
-        let publishing = branch.review.is_none() && store.publishing(id, ref_name);
+        let publishing =
+            branch.review.is_none() && ref_name.is_some_and(|r| store.publishing(id, r));
         let (glyph, glyph_color) = match (&branch.review, branch.push) {
             (Some(review), _) => review::state_glyph(store.review_state(id, review), theme),
             (None, _) if publishing => review::state_glyph(ReviewState::Open, theme),
@@ -1970,7 +1997,7 @@ impl Navigator {
                 format!("{name} · #{}{checks}", review.number)
             })
             .unwrap_or_else(|| name.to_owned());
-        let key = (id.clone(), ref_name.to_owned());
+        let key = (id.clone(), ref_name.cloned());
         let clicked = ClickOpened::Here(key.clone());
         let closed = !self.is_open(&clicked) && !branch.commits.is_empty();
         // What's selected under it keeps it open.
@@ -1989,7 +2016,7 @@ impl Navigator {
         };
         let folds = !branch.commits.is_empty();
         let step = self.fold(
-            ElementId::Name(format!("fold-{id}-{ref_name}").into()),
+            ElementId::Name(format!("fold-{id}-{row_id}").into()),
             folds.then_some(open),
             style.quiet(),
             cx,
@@ -2000,7 +2027,7 @@ impl Navigator {
         let review = (branch.review.as_ref()).map(|r| (r, store.review_state(id, r)));
         Some(
             style
-                .row(format!("branch-{id}-{ref_name}"), 6.)
+                .row(format!("branch-{id}-{row_id}"), 6.)
                 .aria_label(format!("Branch {name}"))
                 .child(step)
                 .child(match icon(glyph).text_color(style.meta(glyph_color)) {
@@ -2010,7 +2037,7 @@ impl Navigator {
                 .child(match self.rename_field(id, ref_name, theme) {
                     Some(field) => field,
                     None => branch_name(name, review, unread, &style)
-                        .id(ElementId::Name(format!("name-{id}-{ref_name}").into()))
+                        .id(ElementId::Name(format!("name-{id}-{row_id}").into()))
                         .flex_1()
                         .tooltip(Tooltip::text(tip))
                         .into_any_element(),
@@ -2024,7 +2051,7 @@ impl Navigator {
                         let (store, project) = (self.store.clone(), id.clone());
                         el.child(
                             div()
-                                .id(ElementId::Name(format!("checks-{ref_name}").into()))
+                                .id(ElementId::Name(format!("checks-{row_id}").into()))
                                 .child(small_icon(glyph).text_color(style.meta(color)))
                                 .tooltip(Tooltip::text(tip))
                                 // Checking again doesn't select the branch or open it.
@@ -2060,12 +2087,12 @@ impl Navigator {
                     ))
                 })
                 // While it pushes, its count pulses where it is.
-                .children(style.unpushed(unpushed_n).map(
-                    |count| match store.pushing(id, ref_name) {
+                .children(style.unpushed(unpushed_n).map(|count| {
+                    match ref_name.is_some_and(|r| store.pushing(id, r)) {
                         true => pulsing(count).into_any_element(),
                         false => count.into_any_element(),
-                    },
-                ))
+                    }
+                }))
                 // Folded, how many commits it holds; open, they're listed under it.
                 .when(!open, |el| el.children(style.commits(branch.commits.len())))
                 .when(unread, |el| el.child(dot(style.meta(theme.pop))))
@@ -2073,8 +2100,8 @@ impl Navigator {
                 // A click looks inside, opening its commits; the chevron, a double-click, ⇧←
                 // and ⇧→ fold them.
                 .when(folds, |el| el.on_click(click_opens(clicked, toggle, cx)))
-                .when(!ref_name.is_empty(), |el| {
-                    let payload = Cut::Branch(id.clone(), ref_name.to_owned());
+                .when_some(ref_name, |el, ref_name| {
+                    let payload = Cut::Branch(id.clone(), ref_name.clone());
                     let label = store.label_of(id, branch).to_owned();
                     el.on_drag(payload, drag_preview(self.store.clone(), label.into()))
                 })
@@ -2145,7 +2172,7 @@ impl Navigator {
         &self,
         item: &Selection,
         id: &ProjectId,
-        ref_name: Option<&str>,
+        ref_name: Option<&FullName>,
         commit_id: &CommitId,
         style: RowStyle,
         cx: &Context<Self>,
@@ -2167,7 +2194,7 @@ impl Navigator {
         // A merge folds the commits it brought in on a double-click, or by a chevron in its
         // ↓'s place, as wide as the ↓ in the row's flow so its title lines up with theirs.
         let toggle = merge.then(|| {
-            let (project, owner, merge_id) = (id.clone(), ref_name.map(str::to_owned), *commit_id);
+            let (project, owner, merge_id) = (id.clone(), ref_name.cloned(), *commit_id);
             move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
                 this.toggle_merge(&project, owner.clone(), merge_id, window, cx)
             }
@@ -2229,7 +2256,7 @@ impl Navigator {
     fn heading_open(&self, project: &ProjectId, section: &Section, cx: &App) -> bool {
         let store = self.store.read(cx);
         match section {
-            Section::Upstream(ref_name) => self.upstream_open(store, project, ref_name.as_deref()),
+            Section::Upstream(ref_name) => self.upstream_open(store, project, ref_name.as_ref()),
             Section::Inactive => inactive_open(store, project, &store.inactive_worktrees(project)),
             Section::Mesh => self.mesh_open(project, cx),
         }
@@ -2252,7 +2279,7 @@ impl Navigator {
         let store = self.store.read(cx);
         let inside = match &section {
             Section::Upstream(ref_name) => {
-                Self::upstream_selected(store, &project, ref_name.as_deref())
+                Self::upstream_selected(store, &project, ref_name.as_ref())
             }
             Section::Inactive => in_inactive(store, &project, &store.inactive_worktrees(&project)),
             Section::Mesh => {
@@ -2357,7 +2384,7 @@ impl Navigator {
         &self,
         ix: usize,
         project: &ProjectId,
-        ref_name: Option<&str>,
+        ref_name: Option<&FullName>,
         style: RowStyle,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
@@ -2368,7 +2395,7 @@ impl Navigator {
         let target = workspace.and_then(|ws| ws.target.as_ref());
         let (label, count, tip) = match ref_name {
             Some(ref_name) => {
-                let branch = workspace.and_then(|ws| ws.find_branch(ref_name));
+                let branch = workspace.and_then(|ws| ws.find_branch(Some(ref_name)));
                 let count = branch.map_or(0, |b| b.incoming.len());
                 let label = match branch.and_then(|b| b.remote.as_ref()) {
                     Some(remote) => format!("On {remote}"),
@@ -2392,8 +2419,8 @@ impl Navigator {
             (ws.upstream(Some(ref_name)).iter()).any(|commit| store.is_unread(project, commit))
         });
         let pull = (ref_name.filter(|r| workspace.is_some_and(|ws| ws.can_pull(r))))
-            .map(|r| (project.clone(), r.to_owned()));
-        let section = Section::Upstream(ref_name.map(str::to_owned));
+            .map(|r| (project.clone(), r.clone()));
+        let section = Section::Upstream(ref_name.cloned());
         let row = self.section_heading(ix, project, &section, label, style, cx);
         let row = row
             .pr(dp(8.))
@@ -2446,7 +2473,7 @@ impl Navigator {
         let (indent, glyph) = match section {
             // A branch's under its commit glyphs, the target's as Network worktrees has its own.
             Section::Upstream(ref_name) => (
-                upstream_chevrons(ref_name.as_deref()).0 - 7. - ROW_LEFT,
+                upstream_chevrons(ref_name.as_ref()).0 - 7. - ROW_LEFT,
                 ref_name.is_none().then_some(Icon::ArrowLineDown),
             ),
             Section::Inactive => (6., Some(Icon::Clock)),
@@ -2525,7 +2552,7 @@ fn parent(store: &Store, selection: &Selection) -> Option<Selection> {
     let workspace = store.workspace(&project)?;
     let bottom = match selection {
         Selection::Branch(_, ref_name) => {
-            let (lane, _) = workspace.lane_of(ref_name)?;
+            let (lane, _) = workspace.lane_of(ref_name.as_ref())?;
             match &lane.branches[..] {
                 [_, .., bottom] => {
                     return Some(Selection::Stack(project, bottom.ref_name.clone()));

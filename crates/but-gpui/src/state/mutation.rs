@@ -14,7 +14,7 @@ use super::{Notice, ProjectId, Reload, Selection, Store, StoreEvent};
 use crate::backend::history::Undone;
 use crate::backend::upstream::{UpdateConflicts, UpdateOutcome};
 use crate::backend::{
-    self, Branch, Checkout, Commit, CommitId, Destination, FileChange, HunkKey, Review,
+    self, Branch, Checkout, Commit, CommitId, Destination, FileChange, FullName, HunkKey, Review,
     ReviewState, Selected, SnapshotId, Workspace, short_ref,
 };
 
@@ -39,11 +39,11 @@ pub struct Overlay {
     /// The checkout whose files `files` and `hunks` are.
     pub files_in: Checkout,
     /// Branches leaving, by full ref, as a stack's do when it's unapplied.
-    pub branches: HashSet<String>,
+    pub branches: HashSet<FullName>,
     /// Branches deleted from their stack, by full ref: the ref goes, its commits stay.
-    pub deleted_branches: HashSet<String>,
+    pub deleted_branches: HashSet<FullName>,
     /// Linked worktrees leaving, by name.
-    pub worktrees: HashSet<Arc<str>>,
+    pub worktrees: HashSet<bstr::BString>,
     /// Files leaving a commit whole, by path, under the commit's key.
     pub commit_files: HashMap<String, HashSet<String>>,
     /// Hunks, or lines of them, leaving a commit's files that otherwise stay: by path, under
@@ -54,7 +54,7 @@ pub struct Overlay {
     /// The commit (by key) it gives a new message, and the message.
     pub reworded: Option<(String, String)>,
     /// The branch (full ref) it renames, and its new name.
-    pub renamed: Option<(String, String)>,
+    pub renamed: Option<(FullName, String)>,
     /// What it changes, which the reload after it reads again.
     pub rereads: Rereads,
     /// The pull request, by number, it merges.
@@ -62,7 +62,7 @@ pub struct Overlay {
     /// The pull request, by number, whose auto-merge it turns on or off, and which.
     pub auto_merges: Option<(u64, bool)>,
     /// The branch (full ref) it pushes, with the ones below it.
-    pub pushes: Option<String>,
+    pub pushes: Option<FullName>,
     /// It opens a pull request for the branch it pushes.
     pub publishes: bool,
     /// It only talks to the remote or the forge and moves refs, leaving the worktree and
@@ -104,7 +104,7 @@ pub enum OpKind {
     /// An update from the target.
     Update,
     /// A pull into the branch with this full ref.
-    Pull(String),
+    Pull(FullName),
     /// Resolving conflicts, which are numbered anew once it's done.
     Resolve,
     MarkResolved,
@@ -155,8 +155,8 @@ pub enum Rereads {
 
 /// Where a commit an operation makes shows until it's loaded.
 pub enum NewAt {
-    /// On top of this branch (a full ref).
-    Top(String),
+    /// On top of this branch.
+    Top(FullName),
     /// Right above the commit with this key.
     Above(String),
     /// Right below the commit with this key.
@@ -176,7 +176,7 @@ impl Overlay {
         let keyed = |key: &str| ws.commits().find(|commit| commit.key == key);
         let landing = (self.new_commit.iter()).map(|(at, _)| match at {
             NewAt::Top(ref_name) => {
-                let Some((lane, at)) = ws.lane_of(ref_name) else {
+                let Some((lane, at)) = ws.lane_of(Some(ref_name)) else {
                     return HashSet::new();
                 };
                 let tip = (lane.branches.iter().skip(at)).find_map(|b| b.commits.first());
@@ -197,7 +197,7 @@ impl Overlay {
             .collect()
     }
 
-    pub fn push(ref_name: &str, publishes: bool) -> Self {
+    pub fn push(ref_name: &FullName, publishes: bool) -> Self {
         Self {
             pushes: Some(ref_name.to_owned()),
             publishes,
@@ -233,10 +233,10 @@ impl Overlay {
     /// Whether `selection` is on a branch or in a linked worktree this takes away.
     fn takes_away(&self, selection: &Selection, store: &Store) -> bool {
         let branch = match selection {
-            Selection::Stack(_, bottom) => Some(bottom.as_str()),
+            Selection::Stack(_, bottom) => bottom.as_ref(),
             _ => store
                 .branch_for(selection)
-                .map(|branch| branch.ref_name.as_str()),
+                .and_then(|branch| branch.ref_name.as_ref()),
         };
         let worktree = match selection {
             Selection::Worktree(_, name) => Some(name),
@@ -244,7 +244,7 @@ impl Overlay {
         };
         let deleted = match selection {
             Selection::Branch(_, ref_name) | Selection::Stack(_, ref_name) => {
-                self.deleted_branches.contains(ref_name)
+                (ref_name.as_ref()).is_some_and(|ref_name| self.deleted_branches.contains(ref_name))
             }
             _ => false,
         };
@@ -290,7 +290,7 @@ impl Overlay {
 /// before it may have rewritten them, and the branches renamed meanwhile, by full name.
 pub struct Remap {
     commits: HashMap<CommitId, CommitId>,
-    branches: HashMap<String, String>,
+    branches: HashMap<FullName, FullName>,
 }
 
 impl Remap {
@@ -324,18 +324,19 @@ impl Remap {
     /// with none), that are gone from `now` followed to the one whose top that commit is now,
     /// as a rename queued before leaves them. Not to a branch `captured` has, as the one below
     /// that took a deleted branch's commits, nor to no name: those aren't renames.
-    fn following(mut self, captured: &[(String, String)], now: &Workspace) -> Self {
+    fn following(mut self, captured: &[(FullName, String)], now: &Workspace) -> Self {
         for (name, top) in captured {
-            if top.is_empty() || now.find_branch(name).is_some() {
+            if top.is_empty() || now.find_branch(Some(name)).is_some() {
                 continue;
             }
-            let top_now = now.all_branches().find(|b| {
-                b.commits.first().is_some_and(|c| c.key == *top)
-                    && !b.ref_name.is_empty()
-                    && !captured.iter().any(|(was, _)| *was == b.ref_name)
+            let top_now = now.all_branches().find_map(|b| {
+                let ref_name = b.ref_name.as_ref()?;
+                (b.commits.first().is_some_and(|c| c.key == *top)
+                    && !captured.iter().any(|(was, _)| was == ref_name))
+                .then_some(ref_name)
             });
-            if let Some(b) = top_now {
-                self.branches.insert(name.clone(), b.ref_name.clone());
+            if let Some(ref_name) = top_now {
+                self.branches.insert(name.clone(), ref_name.clone());
             }
         }
         self
@@ -392,7 +393,7 @@ pub(super) struct Queued {
     /// The project's commits when it was asked for, and its branches with their top commits'
     /// keys (empty for one with none), for its [`Remap`].
     captured: HashMap<CommitId, String>,
-    tops: Vec<(String, String)>,
+    tops: Vec<(FullName, String)>,
     /// The selection it moved off what it takes away, back if it fails.
     moved: Option<Selection>,
     /// When it was asked for, which its stand-ins count from.
@@ -880,7 +881,7 @@ impl Store {
                         // Its "Resolve the oldest…" bar is the next step, which a linked
                         // worktree's branch doesn't have, as its conflicts resolve in it.
                         let resolvable = (conflicted.iter())
-                            .filter(|(branch, _)| !branch.is_empty())
+                            .filter(|(branch, _)| branch.is_some())
                             .map(|(branch, _)| Selection::Branch(updated.clone(), branch.clone()))
                             .find(|branch| !store.in_linked(branch));
                         if let Some(branch) = resolvable {
@@ -901,11 +902,11 @@ impl Store {
     pub fn pull_remote(
         &mut self,
         project: &ProjectId,
-        ref_name: String,
-        accepted: Option<Vec<(String, usize)>>,
+        ref_name: FullName,
+        accepted: Option<Vec<(Option<FullName>, usize)>>,
         cx: &mut Context<Self>,
     ) {
-        let name = short_ref(&ref_name).to_owned();
+        let name = short_ref(&ref_name).into_owned();
         // A second pull of the branch while one waits would find nothing left to bring in.
         // An accepted one comes from the card that shows once its pull has finished.
         let kind = OpKind::Pull(ref_name.clone());
@@ -930,7 +931,7 @@ impl Store {
                     backend::pull_remote(path, &ref_name, false).map(|()| None)
                 }
             },
-            move |store, found: Option<Vec<(String, usize)>>, cx| {
+            move |store, found: Option<Vec<(Option<FullName>, usize)>>, cx| {
                 let Some(found) = found else {
                     return store.snack_undoable(format!("Pulled into {name}"), cx);
                 };
@@ -965,17 +966,17 @@ impl Store {
     pub fn push(
         &mut self,
         project: &ProjectId,
-        ref_name: String,
+        ref_name: FullName,
         protect: bool,
         drops: Option<Vec<CommitId>>,
         cx: &mut Context<Self>,
     ) {
-        let name = short_ref(&ref_name).to_owned();
+        let name = short_ref(&ref_name).into_owned();
         // The branches below it with commits to send go along, down the lanes it rests on,
         // which the snackbar says.
         let below = self.workspace(project).map_or(0, |ws| {
             (ws.pushed_with(&ref_name).skip(1))
-                .filter(|b| !b.ref_name.is_empty() && b.can_push())
+                .filter(|b| b.ref_name.is_some() && b.can_push())
                 .count()
         });
         let all = match below {
@@ -1049,7 +1050,7 @@ impl Store {
     pub fn publish(
         &mut self,
         project: &ProjectId,
-        ref_name: String,
+        ref_name: FullName,
         title: String,
         body: String,
         draft: bool,
@@ -1126,7 +1127,7 @@ impl Store {
     pub fn set_worktree_archived(
         &mut self,
         project: &ProjectId,
-        name: Arc<str>,
+        name: bstr::BString,
         archived: bool,
         cx: &mut Context<Self>,
     ) {
@@ -1143,7 +1144,7 @@ impl Store {
             project,
             label,
             overlay,
-            move |path, _| backend::worktrees::set_archived(path, &name, archived),
+            move |path, _| backend::worktrees::set_archived(path, name.as_ref(), archived),
             move |store, (), cx| store.snack(done, cx),
             cx,
         );
@@ -1155,7 +1156,7 @@ impl Store {
     pub fn delete_worktree(
         &mut self,
         project: &ProjectId,
-        name: Arc<str>,
+        name: bstr::BString,
         lost: Vec<(String, Option<i64>, Option<u64>)>,
         cx: &mut Context<Self>,
     ) {
@@ -1168,7 +1169,7 @@ impl Store {
             project,
             "Delete worktree",
             overlay,
-            move |path, _| backend::worktrees::remove(path, &name, &lost),
+            move |path, _| backend::worktrees::remove(path, name.as_ref(), &lost),
             move |store, (), cx| store.snack(done, cx),
             cx,
         );
@@ -1189,7 +1190,7 @@ impl Store {
             Overlay::commits(keys.collect::<Vec<_>>()),
             move |path, remap| backend::move_to_new_branch(path, &remap.all(&ids)?),
             move |store, (_, branch), cx| {
-                store.select(Some(Selection::Branch(shown, branch)), cx);
+                store.select(Some(Selection::Branch(shown, Some(branch))), cx);
                 store.snack_undoable("Moved to a new branch", cx)
             },
             cx,
@@ -1350,12 +1351,12 @@ impl Store {
             .workspace(project)
             .into_iter()
             .flat_map(Workspace::all_branches))
-        .map(|b| {
+        .filter_map(|b| {
             let top = b
                 .commits
                 .first()
                 .map_or_else(String::new, |c| c.key.clone());
-            (b.ref_name.clone(), top)
+            Some((b.ref_name.clone()?, top))
         })
         .collect();
         // What's selected leaving with its branch or worktree, the selection goes now where
@@ -1803,12 +1804,12 @@ impl Store {
         })
     }
 
-    pub fn hides_branch(&self, project: &ProjectId, ref_name: &str) -> bool {
+    pub fn hides_branch(&self, project: &ProjectId, ref_name: &FullName) -> bool {
         self.overlays(project)
             .any(|o| o.branches.contains(ref_name))
     }
 
-    pub fn deletes_branch(&self, project: &ProjectId, ref_name: &str) -> bool {
+    pub fn deletes_branch(&self, project: &ProjectId, ref_name: &FullName) -> bool {
         self.overlays(project)
             .any(|o| o.deleted_branches.contains(ref_name))
     }
@@ -1838,7 +1839,8 @@ impl Store {
         project: &ProjectId,
         branches: &'a [Branch],
     ) -> Cow<'a, [Branch]> {
-        let deleted = |b: &Branch| self.deletes_branch(project, &b.ref_name);
+        let deleted =
+            |b: &Branch| (b.ref_name.as_ref()).is_some_and(|r| self.deletes_branch(project, r));
         if !branches.iter().any(deleted) {
             return Cow::Borrowed(branches);
         }
@@ -1848,7 +1850,7 @@ impl Store {
                 let mut branch = branch.clone();
                 branch.commits.splice(0..0, carried.drain(..));
                 kept.push(branch);
-            } else if let Some(above) = kept.last_mut().filter(|b| !b.ref_name.is_empty()) {
+            } else if let Some(above) = kept.last_mut().filter(|b| b.ref_name.is_some()) {
                 above.commits.extend(branch.commits.iter().cloned());
             } else {
                 carried.extend(branch.commits.iter().cloned());
@@ -1874,7 +1876,7 @@ impl Store {
             .map_or(review.auto_merge, |(_, on)| on)
     }
 
-    pub fn hides_worktree(&self, project: &ProjectId, name: &str) -> bool {
+    pub fn hides_worktree(&self, project: &ProjectId, name: &bstr::BStr) -> bool {
         self.overlays(project).any(|o| o.worktrees.contains(name))
     }
 
@@ -1963,7 +1965,7 @@ impl Store {
     /// `branch`'s name, as the last pending mutation to rename it leaves it.
     pub fn name_of<'a>(&'a self, project: &'a ProjectId, branch: &'a Branch) -> &'a str {
         let renamed = (self.overlays(project).filter_map(|o| o.renamed.as_ref()))
-            .filter(|(ref_name, _)| *ref_name == branch.ref_name)
+            .filter(|(ref_name, _)| branch.ref_name.as_ref() == Some(ref_name))
             .last();
         renamed.map_or(&branch.name, |(_, name)| name)
     }
@@ -1978,15 +1980,15 @@ impl Store {
     }
 
     /// Whether a pending operation pushes `ref_name`, on its own or to open its pull request.
-    pub fn pushing(&self, project: &ProjectId, ref_name: &str) -> bool {
+    pub fn pushing(&self, project: &ProjectId, ref_name: &FullName) -> bool {
         self.overlays(project)
-            .any(|o| o.pushes.as_deref() == Some(ref_name))
+            .any(|o| o.pushes.as_ref() == Some(ref_name))
     }
 
     /// Whether a pending operation opens `ref_name`'s pull request.
-    pub fn publishing(&self, project: &ProjectId, ref_name: &str) -> bool {
+    pub fn publishing(&self, project: &ProjectId, ref_name: &FullName) -> bool {
         self.overlays(project)
-            .any(|o| o.publishes && o.pushes.as_deref() == Some(ref_name))
+            .any(|o| o.publishes && o.pushes.as_ref() == Some(ref_name))
     }
 
     /// Keep the selection on commits an operation rewrote.
@@ -2024,7 +2026,7 @@ fn update_conflicts_detail(
     found: &UpdateConflicts,
     workspace: Option<&Workspace>,
 ) -> String {
-    let linked = |ref_name: &str| {
+    let linked = |ref_name: Option<&FullName>| {
         (workspace.and_then(|ws| ws.lane_of(ref_name)))
             .is_some_and(|(lane, _)| lane.checkout.is_linked())
     };
@@ -2042,7 +2044,11 @@ fn update_conflicts_detail(
             found.files.join(", ")
         ));
     }
-    let resolve = if found.branches.iter().any(|(branch, _)| linked(branch)) {
+    let resolve = if found
+        .branches
+        .iter()
+        .any(|(branch, _)| linked(branch.as_ref()))
+    {
         "You can resolve them afterwards, a linked worktree's in that worktree"
     } else {
         "You can resolve them afterwards"
@@ -2064,7 +2070,11 @@ fn update_conflicts_detail(
 /// What an update from `target` did: the branches (full refs) it left `conflicted`, and
 /// the ones that `landed` and went. Several landed branches are counted, not named, to
 /// keep the snackbar to one line.
-fn updated_message(target: &str, conflicted: &[(String, usize)], landed: &[String]) -> String {
+fn updated_message(
+    target: &str,
+    conflicted: &[(Option<FullName>, usize)],
+    landed: &[FullName],
+) -> String {
     let mut said = vec![format!("Updated from {target}")];
     said.extend(conflicted_parts(conflicted));
     match landed {
@@ -2079,24 +2089,24 @@ fn updated_message(target: &str, conflicted: &[(String, usize)], landed: &[Strin
     said.join(", ")
 }
 
-/// "feature/a has 2 conflicted commits" for each of `conflicted`, full refs (empty for an
+/// "feature/a has 2 conflicted commits" for each of `conflicted`, full refs (`None` for an
 /// unnamed branch) with how many.
-pub fn conflicted_parts(conflicted: &[(String, usize)]) -> impl Iterator<Item = String> {
+pub fn conflicted_parts(conflicted: &[(Option<FullName>, usize)]) -> impl Iterator<Item = String> {
     conflicted.iter().map(|(branch, count)| {
         format!(
             "{} has {}",
-            branch_name(branch),
+            branch_name(branch.as_ref()),
             crate::ui::plural(*count, "conflicted commit")
         )
     })
 }
 
-/// Branches (full refs, empty for an unnamed one) with how many of their commits:
+/// Branches (full refs, `None` for an unnamed one) with how many of their commits:
 /// "feature/a (2 commits), feature/b (1 commit)".
-fn commit_counts(branches: &[(String, usize)]) -> String {
+fn commit_counts(branches: &[(Option<FullName>, usize)]) -> String {
     let counts: Vec<String> = (branches.iter())
         .map(|(ref_name, count)| {
-            let name = branch_name(ref_name);
+            let name = branch_name(ref_name.as_ref());
             format!("{name} ({})", crate::ui::plural(*count, "commit"))
         })
         .collect();
@@ -2104,17 +2114,14 @@ fn commit_counts(branches: &[(String, usize)]) -> String {
 }
 
 /// `ref_name`'s short name, or "an unnamed branch" when it's empty.
-fn branch_name(ref_name: &str) -> &str {
-    match short_ref(ref_name) {
-        "" => "an unnamed branch",
-        name => name,
-    }
+fn branch_name(ref_name: Option<&FullName>) -> Cow<'_, str> {
+    ref_name.map_or("an unnamed branch".into(), short_ref)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::model::build::{branch, workspace, worktree};
+    use crate::backend::model::build::{branch, full, workspace, worktree};
 
     #[test]
     fn an_operation_counts_the_worktrees_its_rewrite_moves_as_its_own() {
@@ -2141,7 +2148,7 @@ mod tests {
             names.join(", ")
         };
         let top_of = |ref_name: &str| Overlay {
-            new_commit: Some((NewAt::Top(ref_name.to_owned()), SharedString::default())),
+            new_commit: Some((NewAt::Top(full(ref_name)), SharedString::default())),
             ..Overlay::default()
         };
         let amending_in = |worktree: &str, key: &str| Overlay {
@@ -2175,8 +2182,8 @@ mod tests {
         assert_eq!(
             updated_message(
                 "origin/main",
-                &[("refs/heads/feature-a".into(), 2)],
-                &["refs/heads/feature-b".into()]
+                &[(Some(full("refs/heads/feature-a")), 2)],
+                &[full("refs/heads/feature-b")]
             ),
             "Updated from origin/main, feature-a has 2 conflicted commits, \
              feature-b landed and was removed",
@@ -2192,9 +2199,9 @@ mod tests {
                 "origin/main",
                 &[],
                 &[
-                    "refs/heads/a".into(),
-                    "refs/heads/b".into(),
-                    "refs/heads/c".into()
+                    full("refs/heads/a"),
+                    full("refs/heads/b"),
+                    full("refs/heads/c")
                 ]
             ),
             "Updated from origin/main, 3 branches landed and were removed",
@@ -2206,7 +2213,7 @@ mod tests {
     fn an_update_card_says_what_a_linked_worktree_keeps_from_it() {
         let found = |names: &[&str]| UpdateConflicts {
             branches: (names.iter())
-                .map(|name| (format!("refs/heads/{name}"), 1))
+                .map(|name| (Some(full(&format!("refs/heads/{name}"))), 1))
                 .collect(),
             files: Vec::new(),
         };
@@ -2254,13 +2261,13 @@ mod tests {
             vec![worktree("wt", None, vec![branch("wt-v2", &[3])])],
         );
         let captured = [
-            ("refs/heads/fix".to_owned(), "key1".to_owned()),
-            ("refs/heads/gone".to_owned(), "missing".to_owned()),
-            ("refs/heads/wt".to_owned(), "key3".to_owned()),
+            (full("refs/heads/fix"), "key1".to_owned()),
+            (full("refs/heads/gone"), "missing".to_owned()),
+            (full("refs/heads/wt"), "key3".to_owned()),
         ];
         let remap = Remap::new(&HashMap::new(), []).following(&captured, &now);
-        let to = |name: &str| match remap.destination(Destination::Branch(name.into())) {
-            Ok(Destination::Branch(name)) => name,
+        let to = |name: &str| match remap.destination(Destination::Branch(full(name))) {
+            Ok(Destination::Branch(name)) => name.to_string(),
             _ => String::new(),
         };
         assert_eq!(
@@ -2290,16 +2297,16 @@ mod tests {
             Vec::new(),
         );
         let captured = [
-            ("refs/heads/top".to_owned(), "key1".to_owned()),
-            ("refs/heads/below".to_owned(), "own".to_owned()),
-            ("refs/heads/top2".to_owned(), "key2".to_owned()),
-            ("refs/heads/empty".to_owned(), String::new()),
+            (full("refs/heads/top"), "key1".to_owned()),
+            (full("refs/heads/below"), "own".to_owned()),
+            (full("refs/heads/top2"), "key2".to_owned()),
+            (full("refs/heads/empty"), String::new()),
         ];
         let remap = Remap::new(&HashMap::new(), []).following(&captured, &now);
         for gone in ["refs/heads/top", "refs/heads/top2"] {
-            let to = remap.destination(Destination::Branch(gone.into()));
+            let to = remap.destination(Destination::Branch(full(gone)));
             assert!(
-                matches!(to, Ok(Destination::Branch(name)) if name == gone),
+                matches!(to, Ok(Destination::Branch(name)) if name == full(gone)),
                 "deleted, not renamed, so what waited for it refuses rather than go below"
             );
         }

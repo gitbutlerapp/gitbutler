@@ -6,6 +6,8 @@ use std::collections::HashMap;
 use std::hash::{Hash as _, Hasher as _};
 use std::ops::Range;
 
+use bstr::{BStr, BString, ByteSlice as _};
+
 /// One conflict, as indexes into the file's lines.
 #[derive(Debug, PartialEq)]
 pub struct Block {
@@ -19,24 +21,29 @@ pub struct Block {
 }
 
 /// The file's lines, each with its line ending.
-pub fn lines(text: &str) -> Vec<&str> {
-    text.split_inclusive('\n').collect()
+pub fn lines(text: &[u8]) -> Vec<&BStr> {
+    text.split_inclusive(|b| *b == b'\n')
+        .map(BStr::new)
+        .collect()
 }
 
 /// Whether `line` is a marker of seven `mark`s, alone or followed by a space and a label.
-fn is_marker(line: &str, mark: u8) -> bool {
-    let bytes = line.as_bytes();
-    (bytes.get(..7)).is_some_and(|head| head.iter().all(|b| *b == mark))
-        && matches!(bytes.get(7), None | Some(b' ' | b'\n' | b'\r'))
+fn is_marker(line: &BStr, mark: u8) -> bool {
+    (line.get(..7)).is_some_and(|head| head.iter().all(|b| *b == mark))
+        && matches!(line.get(7), None | Some(b' ' | b'\n' | b'\r'))
 }
 
-fn label(line: &str) -> String {
-    line.get(7..).unwrap_or_default().trim().to_owned()
+fn label(line: &BStr) -> String {
+    line.get(7..)
+        .unwrap_or_default()
+        .trim()
+        .to_str_lossy()
+        .into_owned()
 }
 
 /// The conflicts among `lines`, or none at all when the markers don't follow each other as
 /// git writes them, as then the file is safer taken as it is.
-pub fn blocks(lines: &[&str]) -> Vec<Block> {
+pub fn blocks(lines: &[&BStr]) -> Vec<Block> {
     let mut blocks = Vec::new();
     let mut at = 0;
     let marker_at = |ix: usize, mark: u8| lines.get(ix).is_some_and(|line| is_marker(line, mark));
@@ -75,7 +82,7 @@ pub fn blocks(lines: &[&str]) -> Vec<Block> {
 
 /// An id for each block that stays the same while the file around it changes: its sides'
 /// text, and how many blocks with the same text come before it.
-pub fn ids(lines: &[&str], blocks: &[Block]) -> Vec<String> {
+pub fn ids(lines: &[&BStr], blocks: &[Block]) -> Vec<String> {
     let mut seen: HashMap<u64, usize> = HashMap::new();
     (blocks.iter())
         .map(|block| {
@@ -98,33 +105,40 @@ pub fn ids(lines: &[&str], blocks: &[Block]) -> Vec<String> {
 }
 
 /// The text of `range` of `lines`, line endings and all.
-pub fn text(lines: &[&str], range: Range<usize>) -> String {
-    lines.get(range).unwrap_or_default().concat()
+pub fn text(lines: &[&BStr], range: Range<usize>) -> BString {
+    lines
+        .get(range)
+        .unwrap_or_default()
+        .iter()
+        .copied()
+        .collect()
 }
 
 /// `lines` with each block `kept` has a text for replaced by that text, in the block's line
 /// endings. The other blocks keep their markers.
-pub fn replace(lines: &[&str], blocks: &[Block], kept: &HashMap<usize, String>) -> String {
-    let mut out = String::new();
+pub fn replace(lines: &[&BStr], blocks: &[Block], kept: &HashMap<usize, BString>) -> BString {
+    let mut out = BString::default();
     let mut next = 0;
     for (ix, block) in blocks.iter().enumerate() {
         let Some(text) = kept.get(&ix) else {
             continue;
         };
         out.extend(
-            lines
-                .get(next..block.lines.start)
-                .unwrap_or_default()
+            (lines.get(next..block.lines.start).unwrap_or_default())
                 .iter()
-                .copied(),
+                .flat_map(|line| line.iter()),
         );
-        match (lines.get(block.lines.start)).is_some_and(|line| line.ends_with("\r\n")) {
-            true => out.push_str(&text.replace("\r\n", "\n").replace('\n', "\r\n")),
-            false => out.push_str(text),
+        match (lines.get(block.lines.start)).is_some_and(|line| line.ends_with(b"\r\n")) {
+            true => out.extend(text.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")),
+            false => out.extend_from_slice(text),
         }
         next = block.lines.end;
     }
-    out.extend(lines.get(next..).unwrap_or_default().iter().copied());
+    out.extend(
+        (lines.get(next..).unwrap_or_default())
+            .iter()
+            .flat_map(|line| line.iter()),
+    );
     out
 }
 
@@ -132,9 +146,11 @@ pub fn replace(lines: &[&str], blocks: &[Block], kept: &HashMap<usize, String>) 
 mod tests {
     use std::collections::HashMap;
 
+    use bstr::ByteSlice as _;
+
     use super::{blocks, ids, lines, replace, text};
 
-    const FILE: &str = "a\n<<<<<<< ours\nmine\n||||||| base\nold\n=======\ntheirs\n>>>>>>> theirs\nb\n<<<<<<< ours\nx\n=======\ny\n>>>>>>> theirs\n";
+    const FILE: &[u8] = b"a\n<<<<<<< ours\nmine\n||||||| base\nold\n=======\ntheirs\n>>>>>>> theirs\nb\n<<<<<<< ours\nx\n=======\ny\n>>>>>>> theirs\n";
 
     #[test]
     fn finds_each_conflict_with_its_sides() {
@@ -174,18 +190,18 @@ mod tests {
 
     #[test]
     fn markers_out_of_order_leave_the_file_alone() {
-        let unclosed = "<<<<<<< ours\nx\n=======\ny\n";
+        let unclosed = b"<<<<<<< ours\nx\n=======\ny\n";
         assert!(
             blocks(&lines(unclosed)).is_empty(),
             "a conflict that never closes"
         );
-        let nested = "<<<<<<< ours\n<<<<<<< ours\nx\n=======\ny\n>>>>>>> theirs\n";
+        let nested = b"<<<<<<< ours\n<<<<<<< ours\nx\n=======\ny\n>>>>>>> theirs\n";
         assert!(
             blocks(&lines(nested)).is_empty(),
             "a conflict opening inside another"
         );
         assert!(
-            blocks(&lines("<<<<<<<< not a marker\n")).is_empty(),
+            blocks(&lines(b"<<<<<<<< not a marker\n")).is_empty(),
             "eight marks aren't a marker"
         );
     }
@@ -194,19 +210,19 @@ mod tests {
     fn replaces_the_kept_conflicts_and_leaves_the_rest() {
         let lines = lines(FILE);
         let found = blocks(&lines);
-        let kept = HashMap::from([(1, "kept\n".to_owned())]);
+        let kept = HashMap::from([(1, "kept\n".into())]);
         let replaced = replace(&lines, &found, &kept);
         assert!(
-            replaced.ends_with("b\nkept\n"),
+            replaced.ends_with_str("b\nkept\n"),
             "the second conflict is replaced"
         );
         assert!(
-            replaced.contains("<<<<<<< ours\nmine\n"),
+            replaced.contains_str("<<<<<<< ours\nmine\n"),
             "the first keeps its markers"
         );
-        let crlf = "<<<<<<< ours\r\nx\r\n=======\r\ny\r\n>>>>>>> theirs\r\nz\r\n";
+        let crlf = b"<<<<<<< ours\r\nx\r\n=======\r\ny\r\n>>>>>>> theirs\r\nz\r\n";
         let crlf_lines = super::lines(crlf);
-        let both = HashMap::from([(0, "x\ny\n".to_owned())]);
+        let both = HashMap::from([(0, "x\ny\n".into())]);
         assert_eq!(
             replace(&crlf_lines, &blocks(&crlf_lines), &both),
             "x\r\ny\r\nz\r\n",

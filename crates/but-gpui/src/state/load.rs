@@ -10,7 +10,9 @@ use gpui::{Context, SharedString, Task};
 
 use super::{Cut, ProjectEntry, ProjectId, Selection, Store, StoreEvent};
 use crate::backend::watch::Watcher;
-use crate::backend::{self, Checkout, CommitId, FileChange, Project, Selected, Workspace};
+use crate::backend::{
+    self, Checkout, CommitId, FileChange, FullName, Project, Selected, Workspace,
+};
 
 /// A watcher's event: the project, whether its git directory changed, the checkout whose
 /// files changed, and which of its files.
@@ -27,7 +29,7 @@ pub(super) struct Reload {
     /// The main checkout's files.
     main: bool,
     /// These linked worktrees' files.
-    linked: HashSet<Arc<str>>,
+    linked: HashSet<bstr::BString>,
 }
 
 impl Reload {
@@ -701,7 +703,7 @@ impl Store {
                     Some(new) => ((new != *commit).then_some((*commit, new)), None),
                     None => {
                         let branch = old.and_then(|old| old.find_commit(*commit));
-                        (None, branch.map(|(branch, _)| branch.ref_name.clone()))
+                        (None, branch.and_then(|(branch, _)| branch.ref_name.clone()))
                     }
                 }
             }
@@ -711,14 +713,13 @@ impl Store {
             }
             _ => (None, None),
         };
-        let gone_from = gone_from
-            .filter(|branch| !branch.is_empty() && workspace.find_branch(branch).is_some());
+        let gone_from = gone_from.filter(|branch| workspace.find_branch(Some(branch)).is_some());
         // Gone from a linked worktree still there, as when an agent checked out another branch
         // in it, the worktree stays selected rather than the main checkout.
         let home = (self.selection.as_ref())
             .filter(|s| s.project() == id && rewritten.is_none() && gone_from.is_none())
             .filter(|s| match s {
-                Selection::Branch(_, branch) => workspace.find_branch(branch).is_none(),
+                Selection::Branch(_, branch) => workspace.find_branch(branch.as_ref()).is_none(),
                 Selection::Commit(_, commit) => workspace.find_commit(*commit).is_none(),
                 _ => false,
             })
@@ -762,7 +763,7 @@ impl Store {
         // shown again or archived starts it over. Edit mode lists none, so going in and out
         // of it doesn't count.
         let unwatched = self.workspace(id).is_some_and(|old| {
-            let names = |ws: &Workspace| -> HashSet<Arc<str>> {
+            let names = |ws: &Workspace| -> HashSet<bstr::BString> {
                 ws.worktrees.iter().map(|w| w.name.clone()).collect()
             };
             old.editing.is_none() && names(old) != names(&workspace)
@@ -781,7 +782,7 @@ impl Store {
             self.picked = picked;
         }
         if let Some(branch) = gone_from {
-            self.select(Some(Selection::Branch(id.clone(), branch)), cx);
+            self.select(Some(Selection::Branch(id.clone(), Some(branch))), cx);
         }
         if let Some(name) = home {
             self.select(Some(Selection::Worktree(id.clone(), name)), cx);
@@ -791,7 +792,7 @@ impl Store {
             && project == id
             && let Some((_, to)) = renamed.iter().find(|(from, _)| from == bottom)
         {
-            self.select(Some(Selection::Stack(id.clone(), to.clone())), cx);
+            self.select(Some(Selection::Stack(id.clone(), Some(to.clone()))), cx);
         }
         for (from, to) in renamed {
             cx.emit(StoreEvent::Renamed(id.clone(), from, to));
@@ -807,15 +808,15 @@ impl Store {
 /// newest commit is on a branch `new` named, in a linked worktree too. One deleted from a
 /// stack isn't renamed to the branch that was there before and took its commits, nor to no
 /// name, as its commits left unnamed.
-fn renamed(old: Option<&Workspace>, new: &Workspace) -> Vec<(String, String)> {
+fn renamed(old: Option<&Workspace>, new: &Workspace) -> Vec<(Option<FullName>, FullName)> {
     (old.iter().flat_map(|old| old.all_branches()))
-        .filter(|branch| new.find_branch(&branch.ref_name).is_none())
+        .filter(|branch| new.find_branch(branch.ref_name.as_ref()).is_none())
         .filter_map(|branch| {
             let newest = follow_by_key(old, new, branch.commits.first()?.id)?;
             let (now, _) = new.find_commit(newest)?;
-            let named = !now.ref_name.is_empty()
-                && old.is_some_and(|old| old.find_branch(&now.ref_name).is_none());
-            named.then(|| (branch.ref_name.clone(), now.ref_name.clone()))
+            let to = (now.ref_name.clone())
+                .filter(|to| old.is_some_and(|old| old.find_branch(Some(to)).is_none()))?;
+            Some((branch.ref_name.clone(), to))
         })
         .collect()
 }
@@ -867,7 +868,7 @@ fn follow_cut(cut: &mut Cut, old: Option<&Workspace>, new: &Workspace) -> bool {
                     .all(|f| (by_path.get(f.file.path.as_str())).is_some_and(|u| same(f, u)))
             })
         }
-        Cut::Branch(_, ref_name) => new.find_branch(ref_name).is_some(),
+        Cut::Branch(_, ref_name) => new.find_branch(Some(ref_name)).is_some(),
     }
 }
 
@@ -914,7 +915,7 @@ fn watch(
 #[cfg(test)]
 mod tests {
     use crate::backend::CommitId;
-    use crate::backend::model::build::{branch, workspace, worktree};
+    use crate::backend::model::build::{branch, full, workspace, worktree};
 
     #[test]
     fn picks_show_together_only_as_one_run_in_one_lane() {
@@ -976,8 +977,12 @@ mod tests {
             vec![vec![branch("b", &[1]), branch("c", &[2])]],
             vec![worktree("agent", None, vec![branch("yy", &[3])])],
         );
-        let renamed =
-            |from: &str, to: &str| (format!("refs/heads/{from}"), format!("refs/heads/{to}"));
+        let renamed = |from: &str, to: &str| {
+            (
+                Some(full(&format!("refs/heads/{from}"))),
+                full(&format!("refs/heads/{to}")),
+            )
+        };
         assert_eq!(
             super::renamed(Some(&old), &new),
             [renamed("a", "b"), renamed("y", "yy")],

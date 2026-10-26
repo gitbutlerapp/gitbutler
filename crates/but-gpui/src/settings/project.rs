@@ -182,7 +182,9 @@ impl SettingsView {
             }),
         );
         let workspace = self.store.read(cx).workspace(project);
-        let target = workspace.and_then(|ws| ws.target_name()).map(str::to_owned);
+        let target = workspace
+            .and_then(|ws| ws.target_name())
+            .map(|name| name.into_owned());
         // With stacks applied, their commits would be read against the new target from
         // where the old one forked; GitButler's other apps don't allow it either. Outside
         // the workspace, the branch checked out shows as a stack, but a new target leaves it

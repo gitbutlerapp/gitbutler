@@ -11,11 +11,12 @@ impl Store {
     pub fn lane_for(&self, selection: &Selection) -> Option<(&Lane, usize)> {
         let workspace = self.workspace(selection.project())?;
         match selection {
-            Selection::Branch(_, ref_name)
-            | Selection::Stack(_, ref_name)
-            | Selection::Upstream(_, Some(ref_name), _)
+            Selection::Branch(_, ref_name) | Selection::Stack(_, ref_name) => {
+                workspace.lane_of(ref_name.as_ref())
+            }
+            Selection::Upstream(_, Some(ref_name), _)
             | Selection::Section(_, Section::Upstream(Some(ref_name))) => {
-                workspace.lane_of(ref_name)
+                workspace.lane_of(Some(ref_name))
             }
             Selection::Commit(_, id) => workspace.lane_holding(*id),
             Selection::Project(_)
@@ -92,7 +93,7 @@ impl Store {
     /// out.
     pub fn inactive_worktrees(&self, id: &ProjectId) -> Vec<&Worktree> {
         (self.workspace(id).into_iter().flat_map(|ws| &ws.worktrees))
-            .filter(|wt| !self.hides_worktree(id, &wt.name) && wt.is_inactive())
+            .filter(|wt| !self.hides_worktree(id, wt.name.as_ref()) && wt.is_inactive())
             .collect()
     }
 }

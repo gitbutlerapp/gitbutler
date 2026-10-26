@@ -6,17 +6,17 @@ use gpui::{
 };
 
 use super::Navigator;
-use crate::backend::short_ref;
+use crate::backend::{FullName, short_ref};
 use crate::overlays::branch_name;
 use crate::state::{ProjectId, Selection, snack};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{dp, field};
 
-/// The branch whose name is being edited, by its full ref, empty for one without a name yet,
+/// The branch whose name is being edited, by its full ref, `None` for one without a name yet,
 /// and the field it's edited in.
 pub(super) struct Renaming {
-    branch: (ProjectId, String),
+    branch: super::BranchKey,
     input: Entity<TextInput>,
     _subscriptions: [Subscription; 3],
 }
@@ -28,12 +28,14 @@ impl Navigator {
     pub(crate) fn rename(
         &mut self,
         project: ProjectId,
-        ref_name: String,
+        ref_name: Option<FullName>,
         window: &mut Window,
         cx: &mut Context<Self>,
         submit: impl FnOnce(String, &mut App) + 'static,
     ) {
-        let current = short_ref(&ref_name).to_owned();
+        let current = ref_name
+            .as_ref()
+            .map_or(String::new(), |r| short_ref(r).into_owned());
         let input = cx.new(|cx| {
             let mut input = TextInput::new("Branch name", false, cx);
             input.load(current.clone(), cx);
@@ -98,14 +100,12 @@ impl Navigator {
             return;
         };
         let store = self.store.read(cx);
-        let gone = (store.workspace(project)).is_some_and(|ws| ws.find_branch(ref_name).is_none());
+        let gone = (store.workspace(project))
+            .is_some_and(|ws| ws.find_branch(ref_name.as_ref()).is_none());
         let selected = matches!(&store.selection,
             Some(Selection::Branch(p, r)) if p == project && r == ref_name);
         let why = gone.then(|| {
-            let name = match ref_name.is_empty() {
-                true => "The branch",
-                false => short_ref(ref_name),
-            };
+            let name = ref_name.as_ref().map_or("The branch".into(), short_ref);
             format!("{name} was renamed or left the workspace meanwhile")
         });
         if selected && why.is_none() {
@@ -121,11 +121,11 @@ impl Navigator {
     pub(super) fn rename_field(
         &self,
         project: &ProjectId,
-        ref_name: &str,
+        ref_name: Option<&FullName>,
         theme: &Theme,
     ) -> Option<AnyElement> {
         let renaming = (self.renaming.as_ref())
-            .filter(|r| r.branch.0 == *project && r.branch.1 == ref_name)?;
+            .filter(|r| r.branch.0 == *project && r.branch.1.as_ref() == ref_name)?;
         Some(
             div()
                 .flex_grow(1.)

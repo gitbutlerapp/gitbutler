@@ -35,8 +35,19 @@ impl<'de> serde::Deserialize<'de> for CommitId {
     }
 }
 
+pub use gix::refs::FullName;
+
 /// A branch's name without `refs/heads/`.
-pub fn short_ref(ref_name: &str) -> &str {
+pub fn short_ref(ref_name: &FullName) -> std::borrow::Cow<'_, str> {
+    use bstr::ByteSlice as _;
+    let name = ref_name.as_bstr();
+    name.strip_prefix(b"refs/heads/")
+        .unwrap_or(name)
+        .to_str_lossy()
+}
+
+/// A branch's name without `refs/heads/`, from text that names it, as the oplog's.
+pub fn short_text(ref_name: &str) -> &str {
     ref_name.strip_prefix("refs/heads/").unwrap_or(ref_name)
 }
 
@@ -76,7 +87,7 @@ pub struct Workspace {
     pub managed: bool,
     /// The project's default branch, by its full name, like `refs/heads/main`: a new commit
     /// goes on a branch of its own rather than onto it, as `but commit` does.
-    pub target_branch: Option<String>,
+    pub target_branch: Option<FullName>,
     /// The Git command a rebase, merge, cherry-pick or revert that stopped partway was
     /// started with, like `git rebase`, to finish it with.
     pub git_operation: Option<&'static str>,
@@ -93,7 +104,7 @@ pub struct Workspace {
     pub worktrees: Vec<Worktree>,
     /// The names of the worktrees archived, to bring back, with the branch each has checked
     /// out.
-    pub archived_worktrees: Vec<(std::sync::Arc<str>, Option<String>)>,
+    pub archived_worktrees: Vec<(bstr::BString, Option<FullName>)>,
     /// A fingerprint of the repository's local and remote branches, of the pull requests the
     /// forge cache knows and of the branches linked worktrees shown have checked out, which
     /// the Branches page lists again when it changes.
@@ -124,10 +135,10 @@ impl Forge {
 #[derive(Debug, Clone)]
 pub struct Worktree {
     /// Its stable name, the folder name under `.git/worktrees/`.
-    pub name: std::sync::Arc<str>,
+    pub name: bstr::BString,
     pub path: std::path::PathBuf,
     /// The full ref of the branch it has checked out, or `None` for a detached `HEAD`.
-    pub branch: Option<String>,
+    pub branch: Option<FullName>,
     pub uncommitted: Vec<FileChange>,
     /// The Git command it's stopped partway through, like `git rebase`.
     pub git_operation: Option<&'static str>,
@@ -182,42 +193,42 @@ impl Workspace {
 
     /// The target's name: its remote counterpart once there is one, else the branch picked,
     /// as one never pushed or of a repository with no remote.
-    pub fn target_name(&self) -> Option<&str> {
+    pub fn target_name(&self) -> Option<std::borrow::Cow<'_, str>> {
         match &self.target {
-            Some(target) => Some(&target.name),
-            None => self.target_branch.as_deref().map(super::short_ref),
+            Some(target) => Some(target.name.as_str().into()),
+            None => self.target_branch.as_ref().map(super::short_ref),
         }
     }
 
     /// The commits only a remote has: branch `ref_name`'s remote, or with `None` the
     /// target's that the workspace doesn't have yet, newest first.
-    pub fn upstream(&self, ref_name: Option<&str>) -> &[RemoteCommit] {
+    pub fn upstream(&self, ref_name: Option<&FullName>) -> &[RemoteCommit] {
         match ref_name {
-            Some(ref_name) => self.find_branch(ref_name).map_or(&[], |b| &b.incoming),
+            Some(ref_name) => self
+                .find_branch(Some(ref_name))
+                .map_or(&[], |b| &b.incoming),
             None => self.target.as_ref().map_or(&[], |t| &t.incoming),
         }
     }
 
-    pub fn find_branch(&self, ref_name: &str) -> Option<&Branch> {
+    pub fn find_branch(&self, ref_name: Option<&FullName>) -> Option<&Branch> {
         self.all_branches()
-            .find(|branch| branch.ref_name == ref_name)
+            .find(|branch| branch.ref_name.as_ref() == ref_name)
     }
 
-    pub fn find_worktree(&self, name: &str) -> Option<&Worktree> {
-        self.worktrees
-            .iter()
-            .find(|worktree| &*worktree.name == name)
+    pub fn find_worktree(&self, name: &bstr::BStr) -> Option<&Worktree> {
+        self.worktrees.iter().find(|worktree| worktree.name == name)
     }
 
-    pub fn checked_out_in(&self, ref_name: &str) -> Option<&Worktree> {
-        (self.worktrees.iter()).find(|worktree| worktree.branch.as_deref() == Some(ref_name))
+    pub fn checked_out_in(&self, ref_name: &FullName) -> Option<&Worktree> {
+        (self.worktrees.iter()).find(|worktree| worktree.branch.as_ref() == Some(ref_name))
     }
 
     /// The uncommitted files of `checkout`.
     pub fn uncommitted_in(&self, checkout: &Checkout) -> Option<&[FileChange]> {
         match checkout {
             Checkout::Main => Some(&self.uncommitted),
-            Checkout::Linked(name) => Some(&self.find_worktree(name)?.uncommitted),
+            Checkout::Linked(name) => Some(&self.find_worktree(name.as_ref())?.uncommitted),
         }
     }
 
@@ -279,8 +290,8 @@ pub const UPSTREAM_SHOWN: usize = 8;
 pub struct Branch {
     /// Short name, like `feature-x`.
     pub name: String,
-    /// Full ref name, like `refs/heads/feature-x`. Empty for an anonymous segment.
-    pub ref_name: String,
+    /// Full ref name, like `refs/heads/feature-x`. `None` for an anonymous segment.
+    pub ref_name: Option<FullName>,
     /// Newest first.
     pub commits: Vec<Commit>,
     /// The commits only the branch's remote has, newest first.
@@ -837,8 +848,8 @@ pub struct Conflict {
     pub ancestor: Option<Vec<DiffLine>>,
     pub after: Vec<DiffLine>,
     /// Each side as the file has it, to keep both or edit from.
-    pub new_base_text: String,
-    pub commit_text: String,
+    pub new_base_text: bstr::BString,
+    pub commit_text: bstr::BString,
     /// What a merge's markers call the two sides, for conflicts it left in a file.
     pub labels: [String; 2],
 }
@@ -995,6 +1006,7 @@ pub enum LineKind {
 
 #[cfg(test)]
 mod tests {
+    use crate::backend::model::build::full;
     use std::collections::BTreeSet;
 
     use but_core::HunkHeader;
@@ -1134,7 +1146,7 @@ mod tests {
         let id = gix::ObjectId::from_bytes_or_panic(&[1; 20]);
         let branch = |push: PushState, states: &[CommitState], incoming: usize| Branch {
             name: "feat".into(),
-            ref_name: "refs/heads/feat".into(),
+            ref_name: Some(full("refs/heads/feat")),
             commits: (states.iter())
                 .map(|state| Commit {
                     state: *state,
@@ -1283,7 +1295,7 @@ mod tests {
         let id = gix::ObjectId::from_bytes_or_panic(&[1; 20]);
         let main = Branch {
             name: "main".into(),
-            ref_name: "refs/heads/main".into(),
+            ref_name: Some(full("refs/heads/main")),
             commits: vec![Commit {
                 state: CommitState::Local,
                 ..Commit::bare(id)
@@ -1299,7 +1311,7 @@ mod tests {
                 checkout: super::Checkout::Main,
                 rests_on: None,
             }],
-            target_branch: Some("refs/heads/main".into()),
+            target_branch: Some(full("refs/heads/main")),
             target: Some(super::Target {
                 name: "origin/main".into(),
                 branch: "main".into(),
@@ -1313,12 +1325,12 @@ mod tests {
             ..super::Workspace::default()
         };
         assert_eq!(
-            ws.push_refused("refs/heads/main"),
+            ws.push_refused(&full("refs/heads/main")),
             None,
             "rewriting your own main and forcing it is allowed"
         );
         assert!(
-            ws.forced_target("refs/heads/main").is_some(),
+            ws.forced_target(&full("refs/heads/main")).is_some(),
             "though it always asks first, as others' work builds on it"
         );
     }

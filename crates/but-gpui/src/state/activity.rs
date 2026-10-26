@@ -45,8 +45,9 @@ pub struct SeenCommit {
     pub time: i64,
     /// Landed once its branch's pull request merged.
     pub state: CommitState,
-    /// The branch it was on, by full ref name, and that branch's pull request.
-    pub branch: String,
+    /// The branch it was on, by full ref name or `None` when unnamed, and that branch's pull
+    /// request.
+    pub branch: Option<String>,
     pub pull: Option<u64>,
 }
 
@@ -55,13 +56,15 @@ impl Activity {
     /// gone since, as merged or unapplied, as last seen, but for any one of `branches` has
     /// now by either of what it goes by, as one renamed does.
     pub fn gone(&self, branches: &[&Branch]) -> Vec<&SeenCommit> {
-        let refs: HashSet<&str> = branches.iter().map(|b| b.ref_name.as_str()).collect();
+        let refs: HashSet<Option<String>> = (branches.iter())
+            .map(|b| b.ref_name.as_ref().map(ToString::to_string))
+            .collect();
         let keys: HashSet<&str> = (branches.iter().flat_map(|b| &b.commits))
             .flat_map(|c| [c.key.as_str(), c.authored.as_str()])
             .collect();
         let here = |c: &SeenCommit| keys.contains(&*c.key) || keys.contains(&*c.authored);
         (self.commits.iter())
-            .filter(|c| !refs.contains(&*c.branch) && !here(c))
+            .filter(|c| !refs.contains(&c.branch) && !here(c))
             .collect()
     }
 }
@@ -88,7 +91,7 @@ fn remembered(kept: Option<&Activity>, now: i64, branches: &[&Branch]) -> Vec<Se
             } else {
                 c.state
             },
-            branch: branch.ref_name.clone(),
+            branch: branch.ref_name.as_ref().map(ToString::to_string),
             pull: branch.review.as_ref().map(|r| r.number),
         })
     }));
@@ -163,7 +166,9 @@ mod tests {
     fn branch(name: &str, commits: &[(u8, i64)], review: Option<ReviewState>) -> Branch {
         Branch {
             name: name.to_owned(),
-            ref_name: format!("refs/heads/{name}"),
+            ref_name: Some(crate::backend::model::build::full(&format!(
+                "refs/heads/{name}"
+            ))),
             commits: (commits.iter())
                 .map(|&(n, time)| Commit {
                     key: format!("change-{n}"),
@@ -191,7 +196,13 @@ mod tests {
 
     fn said(commits: &[SeenCommit]) -> Vec<(&str, &str, CommitState)> {
         (commits.iter())
-            .map(|c| (&*c.key, &*c.branch, c.state))
+            .map(|c| {
+                (
+                    &*c.key,
+                    c.branch.as_deref().expect("every branch here is named"),
+                    c.state,
+                )
+            })
             .collect()
     }
 

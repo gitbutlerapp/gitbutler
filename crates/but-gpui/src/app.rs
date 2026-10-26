@@ -490,7 +490,7 @@ impl AppView {
                 let ids = self.store.read(cx).with_picks(&project, id);
                 Some(Cut::Commit(project, ids))
             }
-            Some(Selection::Branch(project, ref_name)) if !ref_name.is_empty() => {
+            Some(Selection::Branch(project, Some(ref_name))) => {
                 Some(Cut::Branch(project, ref_name))
             }
             // From the diff, the lines, hunk or file under the cursor; from the navigator or
@@ -779,7 +779,7 @@ impl AppView {
         }
         // From a branch, or one of its commits, the commit goes on that branch.
         let branch = (self.store.read(cx).branch_for(&selection))
-            .map(|branch| branch.ref_name.clone())
+            .and_then(|branch| branch.ref_name.clone())
             .filter(|_| matches!(checkout, Selection::Uncommitted(_)));
         self.store
             .update(cx, |store, cx| store.select(Some(checkout.clone()), cx));
@@ -828,13 +828,15 @@ impl AppView {
             .flatten();
         let text = file.or_else(|| match self.selection(cx)? {
             Selection::Commit(_, id) | Selection::Upstream(_, _, id) => Some(id.0.to_string()),
-            Selection::Branch(_, ref_name) => Some(short_ref(&ref_name).to_owned()),
+            Selection::Branch(_, ref_name) => {
+                ref_name.map(|ref_name| short_ref(&ref_name).into_owned())
+            }
             Selection::Project(project) => {
                 Some(self.store.read(cx).path(&project)?.display().to_string())
             }
             Selection::Worktree(project, name) => {
                 let workspace = self.store.read(cx).workspace(&project)?;
-                let worktree = workspace.find_worktree(&name)?;
+                let worktree = workspace.find_worktree(name.as_ref())?;
                 Some(worktree.path.display().to_string())
             }
             Selection::Mesh(project, id, MeshPick::Checkout) => Some(

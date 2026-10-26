@@ -20,6 +20,7 @@ use std::sync::{OnceLock, mpsc};
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
+use bstr::ByteSlice as _;
 use but_error::AnyhowContextExt as _;
 use chrono::{DateTime, Utc};
 use parking_lot::Mutex;
@@ -591,18 +592,28 @@ fn report_error(kind: String, err: &anyhow::Error, key: &str, names: &HashSet<St
 /// and each part of their paths, in lower case.
 fn names<'a>(workspaces: impl IntoIterator<Item = &'a Workspace>) -> HashSet<String> {
     let mut named: Vec<&str> = Vec::new();
+    let mut lossy = Vec::new();
     for workspace in workspaces {
         named.extend(workspace.target.iter().map(|target| target.name.as_str()));
-        named.extend(workspace.target_branch.as_deref());
+        lossy.extend(
+            workspace
+                .target_branch
+                .iter()
+                .map(|name| name.to_string().into()),
+        );
         named.extend(workspace.lost_target.as_deref());
         let worktrees = workspace.worktrees.iter();
-        named.extend(worktrees.clone().map(|worktree| &*worktree.name));
-        named.extend(
+        lossy.extend(
             worktrees
                 .clone()
-                .filter_map(|worktree| worktree.branch.as_deref().map(super::short_ref)),
+                .map(|worktree| worktree.name.to_str_lossy()),
         );
-        named.extend(workspace.archived_worktrees.iter().map(|(name, _)| &**name));
+        lossy.extend(
+            worktrees
+                .clone()
+                .filter_map(|worktree| worktree.branch.as_ref().map(super::short_ref)),
+        );
+        lossy.extend((workspace.archived_worktrees.iter()).map(|(name, _)| name.to_str_lossy()));
         for branch in workspace.all_branches() {
             named.push(&branch.name);
             named.extend(branch.remote.as_deref());
@@ -614,7 +625,8 @@ fn names<'a>(workspaces: impl IntoIterator<Item = &'a Workspace>) -> HashSet<Str
             named.extend(file.previous_path.as_deref());
         }
     }
-    (named.into_iter().flat_map(|name| name.split('/')))
+    (named.into_iter().chain(lossy.iter().map(|name| &**name)))
+        .flat_map(|name| name.split('/'))
         .map(str::to_lowercase)
         .collect()
 }
@@ -623,7 +635,7 @@ fn names<'a>(workspaces: impl IntoIterator<Item = &'a Workspace>) -> HashSet<Str
 fn shape(workspace: &Workspace, props: &mut Props) {
     let branches = workspace.lanes_in(&Checkout::Main).map(|stack| {
         (stack.branches.iter())
-            .filter(|branch| !branch.ref_name.is_empty())
+            .filter(|branch| branch.ref_name.is_some())
             .count()
     });
     props.insert(
@@ -752,7 +764,7 @@ mod tests {
     #[test]
     fn redact_drops_the_names_the_user_gave_things_even_as_plain_words() {
         let workspace = Workspace {
-            target_branch: Some("refs/heads/Develop".into()),
+            target_branch: Some(crate::backend::model::build::full("refs/heads/Develop")),
             lost_target: Some("acme/main".into()),
             ..Default::default()
         };

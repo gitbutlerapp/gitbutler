@@ -2,6 +2,7 @@
 //! have of a project. It's the `but-mesh` program's, which keeps a daemon reporting this
 //! machine's repositories, so everything here runs it and reads its JSON.
 
+use std::ffi::OsStr;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -124,7 +125,7 @@ fn program() -> Result<PathBuf> {
 
 /// Run `but-mesh` with `args` in `dir`, waiting at most `timeout`, and return what it
 /// printed. A failure carries what it said on stderr.
-fn mesh(dir: Option<&Path>, args: &[&str], timeout: Duration) -> Result<String> {
+fn mesh(dir: Option<&Path>, args: &[impl AsRef<OsStr>], timeout: Duration) -> Result<String> {
     let mut command = Command::new(program()?);
     // `CREATE_NO_WINDOW`: on Windows a console program started from a window would open a
     // console of its own.
@@ -494,7 +495,7 @@ pub fn set_project_icon(id: &str, icon: &str) -> Result<()> {
 pub fn report(path: &Path) -> Result<()> {
     mesh(
         None,
-        &["add", &path.to_string_lossy(), "--json"],
+        &[OsStr::new("add"), path.as_os_str(), OsStr::new("--json")],
         READ_TIMEOUT,
     )
     .map(|_| ())

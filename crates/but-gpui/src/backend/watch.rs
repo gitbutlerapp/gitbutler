@@ -1,7 +1,6 @@
 //! File watching, so the UI follows changes made by editors, agents and other GitButler clients.
 
 use anyhow::{Context as _, Result};
-use bstr::ByteSlice;
 
 use super::settings::app_settings;
 use super::{Project, open, runtime};
@@ -53,7 +52,7 @@ pub fn watch(
                 .collect();
             let checkout = match checkout {
                 Checkout::Main => super::Checkout::Main,
-                Checkout::Linked(name) => super::Checkout::Linked(name.to_str_lossy().into()),
+                Checkout::Linked(name) => super::Checkout::Linked(name),
             };
             on_change(git, checkout, paths);
         }

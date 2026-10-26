@@ -2,9 +2,11 @@
 //! only a remote has alike, each with what it would bring in, ready to apply or delete. Beside
 //! the list, an overview of the work under way until one is opened, then its diff.
 
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use bstr::ByteSlice as _;
 use gpui::{
     AnyElement, App, ClickEvent, Context, MouseButton, MouseDownEvent, Pixels, Point, SharedString,
     Window, div, prelude::*,
@@ -22,7 +24,7 @@ use super::upstream::commit_author;
 use crate::app::AppView;
 use crate::backend::branches::{self, ApplyOutcome, OtherBranch};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, TargetCommit};
-use crate::backend::{self, CommitId, DiffSource, ReviewState};
+use crate::backend::{self, CommitId, DiffSource, FullName, ReviewState};
 use crate::edits::CherryPick;
 use crate::overlays::MenuItem;
 use crate::state::{BranchStatus, Cut, Label, Overlay, Picks, ProjectId, Selection, Store};
@@ -46,17 +48,17 @@ pub(super) struct Branches {
     /// overview counts too.
     applied: Vec<OtherBranch>,
     /// The selected branch, by ref, whose diff shows; none while the overview does.
-    selected: Option<String>,
+    selected: Option<FullName>,
     /// The selection is the caption of `selected`'s stack, which names its top branch: that
     /// one's changes are the whole stack's.
     stack: bool,
     /// The branches whose commits show under them, by ref: folded until opened, as the
     /// navigator's are.
-    open: HashSet<String>,
+    open: HashSet<FullName>,
     /// The stacks whose branches are folded away under their caption, by their top branch.
-    folded: HashSet<String>,
+    folded: HashSet<FullName>,
     /// Open branches' commits, by ref and what they were loaded for.
-    commits: HashMap<String, (Loaded, Vec<TargetCommit>)>,
+    commits: HashMap<FullName, (Loaded, Vec<TargetCommit>)>,
     /// One of the selected branch's commits, to see on its own and to copy into the workspace.
     commit: Option<CommitId>,
     /// Commits of the selected branch picked along with the selected one (⌘- or ⇧-click), to
@@ -72,8 +74,8 @@ pub(super) struct Branches {
 
 impl Branches {
     /// Branch `ref_name`, while it's listed.
-    fn branch(&self, ref_name: &str) -> Option<&OtherBranch> {
-        self.list.iter().find(|b| b.ref_name == ref_name)
+    fn branch(&self, ref_name: &FullName) -> Option<&OtherBranch> {
+        self.list.iter().find(|b| b.ref_name == *ref_name)
     }
 
     fn selected_branch(&self) -> Option<&OtherBranch> {
@@ -82,7 +84,7 @@ impl Branches {
 
     /// The commits listed under branch `ref_name`: its own, not those of the branches below it
     /// in a stack.
-    fn listed_commits(&self, ref_name: &str) -> &[TargetCommit] {
+    fn listed_commits(&self, ref_name: &FullName) -> &[TargetCommit] {
         let own = self.branch(ref_name).and_then(|b| b.own_commits);
         match self.commits.get(ref_name) {
             Some((_, commits)) => own.and_then(|own| commits.get(..own)).unwrap_or(commits),
@@ -97,11 +99,7 @@ impl Branches {
         let merge = |id: &CommitId| {
             (self.commits.values().flat_map(|(_, commits)| commits)).any(|c| c.id == *id && c.merge)
         };
-        let Some(ref_name) = self
-            .selected
-            .as_deref()
-            .filter(|_| self.picked.contains(&id))
-        else {
+        let Some(ref_name) = self.selected.as_ref().filter(|_| self.picked.contains(&id)) else {
             return [id].into_iter().filter(|id| !merge(id)).collect();
         };
         (self.listed_commits(ref_name).iter())
@@ -127,7 +125,7 @@ impl Branches {
             .filter(|ref_name| list.iter().any(|b| b.ref_name == *ref_name));
         // Which branches were open and their commits, of those still listed, and the
         // selected commit while its branch stays selected.
-        let listed = |ref_name: &String| list.iter().any(|b| b.ref_name == *ref_name);
+        let listed = |ref_name: &FullName| list.iter().any(|b| b.ref_name == *ref_name);
         let (who, recency) = (previous.as_ref())
             .map(|b| (b.who.clone(), b.recency))
             .unwrap_or_default();
@@ -392,7 +390,7 @@ impl Detail {
     pub(super) fn listed_branch(
         &self,
         project: &ProjectId,
-        ref_name: &str,
+        ref_name: &FullName,
     ) -> Option<&OtherBranch> {
         self.branches_for(project)?.branch(ref_name)
     }
@@ -419,7 +417,7 @@ impl Detail {
         let Some(branches) = self.branches_for(project) else {
             return;
         };
-        let wanted: Vec<(String, Loaded)> = (branches.list.iter())
+        let wanted: Vec<(FullName, Loaded)> = (branches.list.iter())
             .filter(|b| branches.open.contains(&b.ref_name))
             .map(|b| (b.ref_name.clone(), (b.tip, b.ahead)))
             .filter(|(r, key)| (branches.commits.get(r)).is_none_or(|(loaded, _)| loaded != key))
@@ -472,7 +470,7 @@ impl Detail {
 
     /// Fold a stack's branches away under its caption, or show them again, by its top branch.
     /// Folding it over its selected branch or commit selects the caption.
-    fn toggle_stack(&mut self, top: &str, cx: &mut Context<Self>) {
+    fn toggle_stack(&mut self, top: &FullName, cx: &mut Context<Self>) {
         let Some(branches) = self.page_branches_mut(cx) else {
             return;
         };
@@ -490,7 +488,7 @@ impl Detail {
 
     /// Show a branch's commits under it, or fold them away, as a navigator branch does.
     /// Folding it over its selected commit selects the branch.
-    fn toggle_branch(&mut self, ref_name: &str, cx: &mut Context<Self>) {
+    fn toggle_branch(&mut self, ref_name: &FullName, cx: &mut Context<Self>) {
         let Some(branches) = self.page_branches_mut(cx) else {
             return;
         };
@@ -499,7 +497,7 @@ impl Detail {
             self.load_open_commits(&project, cx);
         } else {
             branches.open.remove(ref_name);
-            if branches.selected.as_deref() == Some(ref_name) && branches.commit.take().is_some() {
+            if branches.selected.as_ref() == Some(ref_name) && branches.commit.take().is_some() {
                 branches.picked.clear();
                 self.show_picked(cx);
             }
@@ -591,7 +589,7 @@ impl Detail {
             let named = !query.is_empty() && says(&branch.name);
             let found = query.is_empty()
                 || named
-                || says(title(branch))
+                || says(&title(branch))
                 || branch.description.as_deref().is_some_and(says)
                 || branch.people.iter().any(|person| says(person));
             // One being deleted leaves at once, and one with no commits of its own shows only
@@ -726,16 +724,20 @@ impl Detail {
         }
     }
 
-    pub(super) fn select_other_branch(&mut self, ref_name: Option<String>, cx: &mut Context<Self>) {
+    pub(super) fn select_other_branch(
+        &mut self,
+        ref_name: Option<FullName>,
+        cx: &mut Context<Self>,
+    ) {
         self.select_listed(ref_name, false, cx)
     }
 
     /// Select the caption of the stack whose top branch is `top`.
-    fn select_stack(&mut self, top: String, cx: &mut Context<Self>) {
+    fn select_stack(&mut self, top: FullName, cx: &mut Context<Self>) {
         self.select_listed(Some(top), true, cx)
     }
 
-    fn select_listed(&mut self, ref_name: Option<String>, stack: bool, cx: &mut Context<Self>) {
+    fn select_listed(&mut self, ref_name: Option<FullName>, stack: bool, cx: &mut Context<Self>) {
         self.message_open = false;
         if let Some(branches) = self.page_branches_mut(cx) {
             branches.selected = ref_name;
@@ -749,7 +751,7 @@ impl Detail {
     }
 
     /// Select commit `id` of the branch `ref_name`, which it's listed under, alone.
-    fn select_branch_commit(&mut self, ref_name: &str, id: CommitId, cx: &mut Context<Self>) {
+    fn select_branch_commit(&mut self, ref_name: &FullName, id: CommitId, cx: &mut Context<Self>) {
         self.message_open = false;
         if let Some(branches) = self.page_branches_mut(cx) {
             branches.selected = Some(ref_name.to_owned());
@@ -765,7 +767,7 @@ impl Detail {
     /// selected commit's, it selects just it.
     fn pick_branch_commit(
         &mut self,
-        ref_name: &str,
+        ref_name: &FullName,
         id: CommitId,
         run: bool,
         cx: &mut Context<Self>,
@@ -775,7 +777,7 @@ impl Detail {
         };
         let Some(at) = branches
             .commit
-            .filter(|_| branches.selected.as_deref() == Some(ref_name))
+            .filter(|_| branches.selected.as_ref() == Some(ref_name))
         else {
             return self.select_branch_commit(ref_name, id, cx);
         };
@@ -894,7 +896,7 @@ impl Detail {
     fn branch_menu(
         &mut self,
         project: &ProjectId,
-        ref_name: &str,
+        ref_name: &FullName,
         at: Point<Pixels>,
         cx: &mut Context<Self>,
     ) {
@@ -910,7 +912,7 @@ impl Detail {
     pub(crate) fn branch_menu_items(
         &self,
         project: &ProjectId,
-        ref_name: &str,
+        ref_name: &FullName,
         cx: &App,
     ) -> Vec<MenuItem> {
         // By its name, as the table has none opened.
@@ -969,7 +971,7 @@ impl Detail {
     fn branch_commit_menu(
         &mut self,
         project: &ProjectId,
-        ref_name: &str,
+        ref_name: &FullName,
         id: CommitId,
         at: Point<Pixels>,
         cx: &mut Context<Self>,
@@ -1043,7 +1045,7 @@ impl Detail {
     fn apply_branch(
         &mut self,
         project: &ProjectId,
-        ref_name: &str,
+        ref_name: &FullName,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -1079,13 +1081,14 @@ impl Detail {
                 &project,
                 Label::new("Apply", format!("Apply {name}")),
                 Overlay::default(),
-                move |path, _| branches::apply(path, &ref_name, freeing.as_deref()),
-                move |store, applied, cx| match applied {
-                    ApplyOutcome::Applied | ApplyOutcome::AlreadyApplied => {
-                        let local = format!("refs/heads/{name}");
-                        store.select(Some(Selection::Branch(selected, local)), cx);
+                move |path, _| {
+                    branches::apply(path, &ref_name, freeing.as_ref().map(AsRef::as_ref))
+                },
+                move |store, applied, cx| match &applied {
+                    ApplyOutcome::Applied(local) | ApplyOutcome::AlreadyApplied(local) => {
+                        store.select(Some(Selection::Branch(selected, Some(local.clone()))), cx);
                         // As when an agent applied it meanwhile.
-                        if matches!(applied, ApplyOutcome::AlreadyApplied) {
+                        if matches!(applied, ApplyOutcome::AlreadyApplied(_)) {
                             return store.snack(format!("{name} is already applied"), cx);
                         }
                         store.snack_undoable(format!("Applied {name}"), cx)
@@ -1112,14 +1115,14 @@ impl Detail {
     fn delete_other_branch(
         &mut self,
         project: &ProjectId,
-        ref_name: &str,
+        ref_name: &FullName,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let Some(branch) = self.listed_branch(project, ref_name).filter(|b| b.local) else {
             return;
         };
-        let ref_name = format!("refs/heads/{}", branch.name);
+        let ref_name = branch.ref_name.clone();
         let (project, name, tip) = (project.clone(), branch.name.clone(), branch.tip);
         let detail = cx.entity().downgrade();
         self.app.update_later(window, cx, move |app, window, cx| {
@@ -1176,7 +1179,7 @@ impl Detail {
     fn edit_branch_description(
         &mut self,
         project: &ProjectId,
-        ref_name: &str,
+        ref_name: &FullName,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -1309,7 +1312,7 @@ impl Detail {
                                             .min_w_0()
                                             .truncate()
                                             .text_color(ink(theme.text_1))
-                                            .child(title(top_branch).to_owned()),
+                                            .child(title(top_branch).into_owned()),
                                     )
                                 })
                                 .on_click(cx.listener(move |this, _, _, cx| {
@@ -1436,7 +1439,7 @@ impl Detail {
                                 .when(shown == shown_name(branch), |el| el.text_ellipsis_middle())
                                 .font_weight(gpui::FontWeight::SEMIBOLD)
                                 .text_color(ink(title_color))
-                                .child(shown.to_owned());
+                                .child(shown.into_owned());
                             // The target has it all: said, as the navigator says it of a branch
                             // that landed.
                             let merged = (branch.ahead == Some(0)).then(|| {
@@ -1733,13 +1736,13 @@ impl Detail {
                 review::state_glyph(review.state, theme).0,
                 review.title.clone(),
             ),
-            _ => (Icon::Branch, shown_name(branch).to_owned()),
+            _ => (Icon::Branch, shown_name(branch).into_owned()),
         };
         let name = match branches.stack {
             true => (stack.iter().map(|b| shown_name(b)))
                 .collect::<Vec<_>>()
                 .join(" ← "),
-            false => shown_name(branch).to_owned(),
+            false => shown_name(branch).into_owned(),
         };
         let review = (branch.review.as_ref())
             .filter(|_| !branches.stack)
@@ -1890,18 +1893,20 @@ fn email_of(branches: &Branches, name: &str) -> String {
 
 /// What the list calls a branch, as the navigator does: its pull request's title once known,
 /// else its name, a remote's as the remote names it (origin/…).
-fn title(branch: &OtherBranch) -> &str {
+fn title(branch: &OtherBranch) -> Cow<'_, str> {
     (branch.review.as_ref())
         .map(|review| review.title.as_str())
         .filter(|title| !title.is_empty())
-        .unwrap_or_else(|| shown_name(branch))
+        .map_or_else(|| shown_name(branch), Cow::Borrowed)
 }
 
 /// A branch's name, a remote's as the remote names it (origin/…).
-fn shown_name(branch: &OtherBranch) -> &str {
-    (branch.ref_name.strip_prefix("refs/remotes/"))
+fn shown_name(branch: &OtherBranch) -> Cow<'_, str> {
+    (branch.ref_name.as_bstr().strip_prefix(b"refs/remotes/"))
         .filter(|_| !branch.local)
-        .unwrap_or(&branch.name)
+        .map_or(Cow::Borrowed(branch.name.as_str()), |name| {
+            name.to_str_lossy()
+        })
 }
 
 /// Whether `status` keeps `branch`, by its pull request.

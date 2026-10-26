@@ -6,7 +6,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{Context as _, Result};
-use bstr::ByteSlice;
+use bstr::{BStr, BString, ByteSlice};
 
 use super::{
     CommitId, Conflict, DiffBody, DiffLine, FileChange, FileDiff, Hunk, HunkKey, LineKind, Picture,
@@ -39,7 +39,7 @@ pub fn commit_paths(path: &Path, commits: &[CommitId]) -> Result<Vec<(CommitId, 
 pub fn blame_lines(
     path: &Path,
     tip: CommitId,
-    file: &str,
+    file: &BStr,
     lines: &[u32],
 ) -> Result<HashMap<CommitId, String>> {
     let ctx = open(path)?;
@@ -51,13 +51,13 @@ pub fn blame_lines(
         rewrites: Some(Default::default()),
         ..Default::default()
     };
-    let blame = repo.blame_file(file.as_bytes().as_bstr(), tip.0, options)?;
+    let blame = repo.blame_file(file, tip.0, options)?;
     Ok((blame.entries.iter())
         .map(|e| {
             let named = e.source_file_name.as_ref().map(|name| name.to_string());
             (
                 CommitId(e.commit_id),
-                named.unwrap_or_else(|| file.to_owned()),
+                named.unwrap_or_else(|| file.to_string()),
             )
         })
         .collect())
@@ -68,7 +68,7 @@ pub fn blame_lines(
 pub enum DiffSource {
     Worktree,
     /// The uncommitted changes of the linked worktree with this name, like an agent's.
-    Linked(std::sync::Arc<str>),
+    Linked(BString),
     Commit(CommitId),
     /// Everything from `oldest` (inclusive) up to `newest`, like a whole branch.
     Range {
@@ -180,10 +180,10 @@ pub fn load_diff(
         }
     };
     let context_lines = ctx.settings.context_lines;
-    let previous: HashMap<&str, &FileDiff> = previous
+    let previous: HashMap<&BStr, &FileDiff> = previous
         .iter()
         .flat_map(|files| files.iter())
-        .map(|file| (file.file.path.as_str(), file))
+        .map(|file| (file.file.change.path.as_bstr(), file))
         .collect();
     // Files past the first stay plain unless reused, and a long one among the first waits too.
     let (first, limit) = match annotate_first {
@@ -198,7 +198,7 @@ pub fn load_diff(
         changes,
         || repo.to_thread_local(),
         |repo, index, file| {
-            let previous = previous.get(file.path.as_str()).copied();
+            let previous = previous.get(file.change.path.as_bstr()).copied();
             load_file(
                 repo,
                 file,
@@ -334,7 +334,10 @@ fn commit_side(
 /// would only show the markers as added lines.
 fn add_marker_conflicts(workdir: &Path, diffs: &mut [FileDiff]) {
     for diff in diffs.iter_mut().filter(|diff| diff.file.conflicted) {
-        let Ok(text) = std::fs::read_to_string(workdir.join(&diff.file.path)) else {
+        let Ok(path) = gix::path::from_bstr(diff.file.change.path.as_bstr()) else {
+            continue;
+        };
+        let Ok(text) = std::fs::read(workdir.join(path)) else {
             continue;
         };
         let conflicts = marker_conflicts(&diff.file.path, &text);
@@ -376,7 +379,7 @@ fn set_conflicts(diff: &mut FileDiff, conflicts: Vec<Conflict>) {
 
 /// The conflicts a merge left in `text`, the file at `path`, numbered by its lines: each
 /// side from the line its markers start at, with up to three lines around it.
-fn marker_conflicts(path: &str, text: &str) -> Vec<Conflict> {
+fn marker_conflicts(path: &str, text: &[u8]) -> Vec<Conflict> {
     let lines = markers::lines(text);
     let blocks = markers::blocks(&lines);
     let ids = markers::ids(&lines, &blocks);
@@ -386,7 +389,12 @@ fn marker_conflicts(path: &str, text: &str) -> Vec<Conflict> {
             .unwrap_or_default()
             .iter()
             .zip(from as u32..))
-        .map(|(raw, new)| context_line(new, &display_text(raw.trim_end_matches('\n'))))
+        .map(|(raw, new)| {
+            context_line(
+                new,
+                &display_text(raw.to_str_lossy().trim_end_matches('\n')),
+            )
+        })
         .collect()
     };
     (blocks.iter().enumerate().zip(ids))
@@ -445,8 +453,8 @@ fn conflicts_of(file: &but_api::resolve::ConflictedFile) -> Vec<Conflict> {
                 commit: lines(&hunk.theirs, at),
                 ancestor: hunk.base.as_deref().map(|base| lines(base, at)),
                 after: lines(&hunk.context_after, at + count(&hunk.ours)),
-                new_base_text: hunk.ours.clone(),
-                commit_text: hunk.theirs.clone(),
+                new_base_text: hunk.ours.as_str().into(),
+                commit_text: hunk.theirs.as_str().into(),
                 labels: Default::default(),
             };
             annotate_conflict(&file.path, &mut conflict);
@@ -763,18 +771,15 @@ fn svg_drawing(repo: &gix::Repository, file: &FileChange) -> Option<super::Drawi
 /// makes nothing.
 fn both_sides<T>(
     file: &FileChange,
-    side: impl Fn(but_core::ChangeState, &str) -> Option<T>,
+    side: impl Fn(but_core::ChangeState, &BStr) -> Option<T>,
 ) -> Option<(Option<T>, Option<T>)> {
-    let status = &file.change.status;
+    let (status, path) = (&file.change.status, file.change.path.as_bstr());
     let before = match status.previous_state_and_path() {
-        Some((state, old_path)) => {
-            let path = old_path.map_or_else(|| file.path.clone(), |p| p.to_string());
-            Some(side(state, &path)?)
-        }
+        Some((state, old_path)) => Some(side(state, old_path.unwrap_or(path))?),
         None => None,
     };
     let after = match status.state() {
-        Some(state) => Some(side(state, &file.path)?),
+        Some(state) => Some(side(state, path)?),
         None => None,
     };
     Some((before, after))
@@ -812,14 +817,14 @@ fn image_body(repo: &gix::Repository, file: &FileChange) -> Option<DiffBody> {
 /// `worktree` when there is one.
 pub fn file_lines(
     path: &Path,
-    worktree: Option<&str>,
+    worktree: Option<&bstr::BStr>,
     file: &FileChange,
 ) -> Result<Option<(Vec<DiffLine>, u32)>> {
     let Some(state) = file.change.status.state() else {
         return Ok(None);
     };
     let repo = checkout(&open(path)?, worktree)?;
-    let bytes = read_side(&repo, state, &file.path)?;
+    let bytes = read_side(&repo, state, file.change.path.as_bstr())?;
     if bytes.contains(&0) {
         return Ok(None);
     }
@@ -851,10 +856,10 @@ const WHOLE_HIGHLIGHT_LIMIT: usize = 512 * 1024;
 
 /// The contents of one side of a change at `path`: a side that isn't in the object database
 /// is the file in the worktree.
-fn read_side(repo: &gix::Repository, state: but_core::ChangeState, path: &str) -> Result<Vec<u8>> {
+fn read_side(repo: &gix::Repository, state: but_core::ChangeState, path: &BStr) -> Result<Vec<u8>> {
     if state.id.is_null() {
         let workdir = repo.workdir().context("the repository has no worktree")?;
-        Ok(std::fs::read(workdir.join(path))?)
+        Ok(std::fs::read(workdir.join(gix::path::from_bstr(path)?))?)
     } else {
         Ok(repo.find_blob(state.id)?.data.clone())
     }
@@ -1140,7 +1145,8 @@ mod tests {
             git(path, &["commit", "-q", "-am", "edit"]);
             let edit = head(path);
 
-            let blame = |lines: &[u32]| super::blame_lines(path, edit, "moved", lines).unwrap();
+            let blame =
+                |lines: &[u32]| super::blame_lines(path, edit, "moved".into(), lines).unwrap();
             assert_eq!(
                 blame(&[2]),
                 HashMap::from([(edit, "moved".to_owned())]),

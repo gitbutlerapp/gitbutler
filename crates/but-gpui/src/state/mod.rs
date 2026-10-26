@@ -13,7 +13,8 @@ use parking_lot::Mutex;
 use crate::backend::upstream::TargetCommit;
 use crate::backend::watch::Watcher;
 use crate::backend::{
-    self, Branch, Checkout, Commit, CommitId, Project, Selected, SnapshotId, Workspace, short_ref,
+    self, Branch, Checkout, Commit, CommitId, FullName, Project, Selected, SnapshotId, Workspace,
+    short_ref,
 };
 
 mod account;
@@ -45,22 +46,23 @@ pub type ProjectId = SharedString;
 pub enum Selection {
     Project(ProjectId),
     Uncommitted(ProjectId),
-    Branch(ProjectId, String),
+    /// A branch by its full ref, or `None` for an unnamed one.
+    Branch(ProjectId, Option<FullName>),
     Commit(ProjectId, CommitId),
     /// The branches outside the workspace, to apply or delete.
     Branches(ProjectId),
     /// The operation log, to look back at and restore.
     History(ProjectId),
     /// A linked worktree, by name, and its uncommitted changes.
-    Worktree(ProjectId, Arc<str>),
+    Worktree(ProjectId, bstr::BString),
     /// A stack of two or more branches, by its bottom branch, and what they change together.
-    Stack(ProjectId, String),
+    Stack(ProjectId, Option<FullName>),
     /// A checkout of the project on one of the user's other machines, by the mesh's id for
     /// it, or a branch or commit in it.
     Mesh(ProjectId, Arc<str>, MeshPick),
     /// A commit only a remote has: one of a branch's (by its full ref) its remote has, or
     /// with `None` one of the target's the workspace doesn't have yet.
-    Upstream(ProjectId, Option<String>, CommitId),
+    Upstream(ProjectId, Option<FullName>, CommitId),
     /// The heading over a section of a project's card, whose page shows what it folds away.
     Section(ProjectId, Section),
 }
@@ -70,7 +72,7 @@ pub enum Selection {
 pub enum Section {
     /// The commits only a remote has: branch `String`'s (by its full ref), or with `None` the
     /// target's new ones.
-    Upstream(Option<String>),
+    Upstream(Option<FullName>),
     /// The linked worktrees with nothing going on lately.
     Inactive,
     /// The checkouts on the user's other machines.
@@ -114,7 +116,7 @@ impl Selection {
             Selection::Commit(_, id) => branch.commits.iter().any(|commit| commit.id == *id),
             Selection::Upstream(_, Some(ref_name), _)
             | Selection::Section(_, Section::Upstream(Some(ref_name))) => {
-                branch.ref_name == *ref_name
+                branch.ref_name.as_ref() == Some(ref_name)
             }
             _ => false,
         }
@@ -130,7 +132,7 @@ pub enum Cut {
     /// they're listed.
     CherryPick(ProjectId, Arc<[CommitId]>),
     /// A branch to stack on another, with the branches above it.
-    Branch(ProjectId, String),
+    Branch(ProjectId, FullName),
     /// Files from the worktree (`from: None`), down to the hunks checked, or from a commit.
     Files {
         project: ProjectId,
@@ -174,7 +176,7 @@ impl Cut {
                 },
                 ids => format!("{} commits", ids.len()),
             },
-            Cut::Branch(_, ref_name) => short_ref(ref_name).to_owned(),
+            Cut::Branch(_, ref_name) => short_ref(ref_name).into_owned(),
             Cut::Files { files, .. } => match &**files {
                 // Hunks or lines of one file: what of it isn't said here, where the diff isn't.
                 [file] => match &file.hunks {
@@ -196,7 +198,7 @@ pub enum StoreEvent {
     Reopened,
     /// A project's branch, by full ref, is gone by that name while its newest commit is on
     /// another now, as when an agent renames it.
-    Renamed(ProjectId, String, String),
+    Renamed(ProjectId, Option<FullName>, FullName),
     /// What the user's other machines have of a project was read again, and changed.
     MeshRead(ProjectId),
     /// An operation on a project was queued, started or finished, which hides or shows
@@ -602,7 +604,7 @@ impl Store {
     pub fn merged_upstream(
         &self,
         project: &str,
-        ref_name: Option<&str>,
+        ref_name: Option<&FullName>,
         id: CommitId,
     ) -> Option<(CommitId, &TargetCommit)> {
         let merges = self.workspace(project)?.upstream(ref_name).iter();
@@ -638,7 +640,7 @@ impl Store {
     pub fn branch_for(&self, selection: &Selection) -> Option<&Branch> {
         let workspace = self.workspace(selection.project())?;
         match selection {
-            Selection::Branch(_, ref_name) => workspace.find_branch(ref_name),
+            Selection::Branch(_, ref_name) => workspace.find_branch(ref_name.as_ref()),
             Selection::Commit(_, id) => workspace.find_commit(*id).map(|(branch, _)| branch),
             Selection::Project(_)
             | Selection::Uncommitted(_)
@@ -736,24 +738,24 @@ impl Store {
             | Selection::Uncommitted(_)
             | Selection::Branches(_)
             | Selection::History(_) => true,
-            Selection::Branch(_, ref_name) => workspace.find_branch(ref_name).is_some(),
+            Selection::Branch(_, ref_name) => workspace.find_branch(ref_name.as_ref()).is_some(),
             Selection::Commit(_, id) => workspace.find_commit(*id).is_some(),
             Selection::Worktree(_, name) => workspace.worktrees.iter().any(|w| w.name == *name),
             Selection::Stack(_, bottom) => workspace
-                .lane(bottom)
+                .lane(bottom.as_ref())
                 .is_some_and(|lane| lane.branches.len() > 1),
             // The mesh's reads keep it current.
             Selection::Mesh(..) | Selection::Section(_, Section::Mesh) => true,
             Selection::Section(_, Section::Upstream(ref_name)) => {
-                !workspace.upstream(ref_name.as_deref()).is_empty()
+                !workspace.upstream(ref_name.as_ref()).is_empty()
             }
             Selection::Section(_, Section::Inactive) => {
                 workspace.worktrees.iter().any(|wt| wt.is_inactive())
             }
             Selection::Upstream(project, ref_name, id) => {
-                (workspace.upstream(ref_name.as_deref()).iter()).any(|c| c.id == *id)
+                (workspace.upstream(ref_name.as_ref()).iter()).any(|c| c.id == *id)
                     || self
-                        .merged_upstream(project, ref_name.as_deref(), *id)
+                        .merged_upstream(project, ref_name.as_ref(), *id)
                         .is_some()
             }
         };
@@ -764,9 +766,9 @@ impl Store {
             let home = match selection {
                 Selection::Upstream(_, Some(ref_name), _)
                 | Selection::Section(_, Section::Upstream(Some(ref_name)))
-                    if workspace.find_branch(&ref_name).is_some() =>
+                    if workspace.find_branch(Some(&ref_name)).is_some() =>
                 {
-                    Selection::Branch(project, ref_name)
+                    Selection::Branch(project, Some(ref_name))
                 }
                 Selection::Upstream(_, None, _) | Selection::Section(..) => {
                     Selection::Project(project)

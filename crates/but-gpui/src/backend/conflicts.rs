@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
 
 use anyhow::{Context as _, Result};
+use bstr::{BString, ByteSlice as _};
 use but_api::resolve::{self, HunkResolution, ResolutionSpec};
 
 use super::ops::rewritten;
@@ -15,7 +16,7 @@ use super::{CommitId, Rewritten, checkout, markers, open};
 pub enum Keep {
     NewBase,
     Commit,
-    Text(String),
+    Text(BString),
 }
 
 /// What resolving left.
@@ -37,16 +38,22 @@ pub fn resolve(
     keep: Vec<(String, usize, Keep)>,
 ) -> Result<(Rewritten, Resolved)> {
     let specs = (keep.into_iter())
-        .map(|(file, index, keep)| ResolutionSpec {
-            path: file,
-            hunk: index + 1,
-            resolution: match keep {
+        .map(|(file, index, keep)| {
+            let resolution = match keep {
                 Keep::NewBase => HunkResolution::Ours,
                 Keep::Commit => HunkResolution::Theirs,
-                Keep::Text(text) => HunkResolution::Content(text),
-            },
+                Keep::Text(text) => HunkResolution::Content(
+                    String::from_utf8(text.into())
+                        .with_context(|| format!("What {file} keeps isn't UTF-8 text"))?,
+                ),
+            };
+            Ok(ResolutionSpec {
+                path: file,
+                hunk: index + 1,
+                resolution,
+            })
         })
-        .collect();
+        .collect::<Result<_>>()?;
     let mut ctx = open(path)?;
     // Rewriting the commit checks the workspace out again, which Git can't do over a file a
     // merge left conflicted, and Git's own words for that name none.
@@ -90,8 +97,8 @@ pub fn resolve(
 /// nor a commit checked out for editing.
 pub fn resolve_markers(
     path: &Path,
-    worktree: Option<&str>,
-    keep: Vec<(String, String, Keep)>,
+    worktree: Option<&bstr::BStr>,
+    keep: Vec<(BString, String, Keep)>,
 ) -> Result<usize> {
     use but_oplog::legacy::OperationKind;
     let mut ctx = open(path)?;
@@ -104,7 +111,7 @@ pub fn resolve_markers(
         .workdir()
         .context("The checkout has no files")?
         .to_owned();
-    let mut by_file: BTreeMap<String, Vec<(String, Keep)>> = BTreeMap::new();
+    let mut by_file: BTreeMap<BString, Vec<(String, Keep)>> = BTreeMap::new();
     for (file, id, keep) in keep {
         by_file.entry(file).or_default().push((id, keep));
     }
@@ -112,9 +119,8 @@ pub fn resolve_markers(
     // were shown stops them all, rather than leave the ones before it half done.
     let mut writes = Vec::new();
     for (file, picks) in by_file {
-        let on_disk = workdir.join(&file);
-        let text =
-            std::fs::read_to_string(&on_disk).with_context(|| format!("Couldn't read {file}"))?;
+        let on_disk = workdir.join(gix::path::from_bstr(file.as_bstr())?);
+        let text = std::fs::read(&on_disk).with_context(|| format!("Couldn't read {file}"))?;
         let lines = markers::lines(&text);
         let blocks = markers::blocks(&lines);
         let ids = markers::ids(&lines, &blocks);
@@ -136,8 +142,8 @@ pub fn resolve_markers(
         let text = markers::replace(&lines, &blocks, &kept);
         // JSON, as a notebook is, that keeps both sides of a conflict can stop parsing, which
         // nothing shows until it's opened: refused, while the file parses with one side kept.
-        if whole && (file.ends_with(".json") || file.ends_with(".ipynb")) {
-            let parses = |text: &str| serde_json::from_str::<serde_json::Value>(text);
+        if whole && (file.ends_with(b".json") || file.ends_with(b".ipynb")) {
+            let parses = |text: &[u8]| serde_json::from_slice::<serde_json::Value>(text);
             let ours = (blocks.iter().enumerate())
                 .map(|(ix, block)| (ix, markers::text(&lines, block.ours.clone())))
                 .collect();
@@ -159,7 +165,7 @@ pub fn resolve_markers(
     for (file, on_disk, text, whole) in writes {
         std::fs::write(&on_disk, text)?;
         if whole {
-            resolved.push(file.into());
+            resolved.push(file);
         }
     }
     let count = resolved.len();
@@ -199,12 +205,12 @@ mod tests {
                 .unwrap();
             assert!(!merged.status.success(), "the merge conflicts");
 
-            let text = std::fs::read_to_string(path.join("cell.json")).unwrap();
+            let text = std::fs::read(path.join("cell.json")).unwrap();
             let lines = markers::lines(&text);
             let blocks = markers::blocks(&lines);
             let id = markers::ids(&lines, &blocks)[0].clone();
-            let both = markers::text(&lines, blocks[0].ours.clone())
-                + &markers::text(&lines, blocks[0].theirs.clone());
+            let mut both = markers::text(&lines, blocks[0].ours.clone());
+            both.extend_from_slice(&markers::text(&lines, blocks[0].theirs.clone()));
             let err = resolve_markers(
                 path,
                 None,
@@ -213,7 +219,7 @@ mod tests {
             .expect_err("two array items with no comma between them");
             assert!(err.to_string().contains("not valid JSON"), "{err}");
             assert_eq!(
-                std::fs::read_to_string(path.join("cell.json")).unwrap(),
+                std::fs::read(path.join("cell.json")).unwrap(),
                 text,
                 "nothing is written"
             );

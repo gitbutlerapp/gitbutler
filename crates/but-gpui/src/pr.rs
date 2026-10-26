@@ -9,7 +9,7 @@ use gpui::{
 use crate::app::AppView;
 use crate::backend::ai;
 use crate::backend::reviews::{self, MergeMethod, MergeStatus};
-use crate::backend::{self, Forge, Review, ReviewState, short_ref};
+use crate::backend::{self, Forge, FullName, Review, ReviewState, short_ref};
 use crate::state::{Overlay, ProjectId, Selection, Store, StoreEvent, snack};
 use crate::theme::Theme;
 use crate::ui::modal::{ModalSize, modal};
@@ -30,7 +30,7 @@ pub struct ReviewView {
     store: Entity<Store>,
     project: ProjectId,
     /// The branch, by full ref.
-    branch: String,
+    branch: FullName,
     title: Entity<TextInput>,
     body: Entity<TextInput>,
     /// What scrolls the description's box, which keeps the caret in view.
@@ -54,7 +54,7 @@ impl ReviewView {
     fn new(
         store: Entity<Store>,
         project: ProjectId,
-        branch: String,
+        branch: FullName,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -74,7 +74,7 @@ impl ReviewView {
         // What's written stays for the branch under its new name, as an agent renamed it.
         cx.subscribe(&store, |this, _, event, cx| match event {
             StoreEvent::Renamed(project, from, to)
-                if *project == this.project && *from == this.branch =>
+                if *project == this.project && from.as_ref() == Some(&this.branch) =>
             {
                 this.branch = to.clone();
                 cx.notify();
@@ -87,13 +87,13 @@ impl ReviewView {
         let (subject, description) = store
             .read(cx)
             .workspace(&project)
-            .and_then(|ws| ws.find_branch(&branch))
+            .and_then(|ws| ws.find_branch(Some(&branch)))
             .and_then(|b| match b.commits.as_slice() {
                 [commit] => Some(&commit.message),
                 _ => None,
             })
             .map(|message| backend::subject_and_body(message))
-            .unwrap_or_else(|| (short_ref(&branch).to_owned(), String::new()));
+            .unwrap_or_else(|| (short_ref(&branch).into_owned(), String::new()));
         title.update(cx, |input, cx| {
             input.set_text(subject, cx);
             input.select_all_text(cx);
@@ -146,7 +146,7 @@ impl ReviewView {
             .store
             .read(cx)
             .workspace(&self.project)
-            .and_then(|ws| ws.find_branch(&self.branch))
+            .and_then(|ws| ws.find_branch(Some(&self.branch)))
             .map(|b| b.commits.iter().rev().map(|c| c.message.clone()).collect())
             .unwrap_or_default();
         let (title, body) = (
@@ -212,7 +212,7 @@ impl Render for ReviewView {
         let theme = Theme::get(cx).clone();
         let route = match &self.target {
             Some(target) => format!("{} → {target}", short_ref(&self.branch)),
-            None => short_ref(&self.branch).to_owned(),
+            None => short_ref(&self.branch).into_owned(),
         };
         // Creating it pushes first when it or a branch below it has something to push.
         let push = (self.store.read(cx).workspace(&self.project))
@@ -256,7 +256,7 @@ impl Render for ReviewView {
                     .child(muted(
                         (self.store.read(cx)).place(&Selection::Branch(
                             self.project.clone(),
-                            self.branch.clone(),
+                            Some(self.branch.clone()),
                         )),
                         &theme,
                     ))
@@ -364,7 +364,7 @@ impl AppView {
         let Some((selection, branch)) = (store.selection.as_ref())
             .filter(|s| on_forge(store, s))
             .and_then(|s| Some((s, store.branch_for(s)?)))
-            .filter(|(_, b)| !b.ref_name.is_empty())
+            .filter(|(_, b)| b.ref_name.is_some())
         else {
             return el;
         };
@@ -388,7 +388,7 @@ impl AppView {
 
     /// The selected branch, or the branch of the selected commit, with its pull request if
     /// it has one.
-    fn review_target(&self, cx: &App) -> Option<(ProjectId, String, Option<Review>)> {
+    fn review_target(&self, cx: &App) -> Option<(ProjectId, FullName, Option<Review>)> {
         let store = self.store.read(cx);
         let selection = store.selection.clone()?;
         let branch = store.branch_for(&selection)?;
@@ -396,7 +396,11 @@ impl AppView {
             state: store.review_state(selection.project(), &review),
             ..review
         });
-        Some((selection.project().clone(), branch.ref_name.clone(), review))
+        Some((
+            selection.project().clone(),
+            branch.ref_name.clone()?,
+            review,
+        ))
     }
 
     pub fn create_pull_request(
@@ -527,7 +531,7 @@ impl AppView {
 
 /// Why `branch` (a full ref) can't merge, nor auto-merge, yet: the forge merges what it has,
 /// not the commits only here.
-pub fn push_first(store: &Store, project: &ProjectId, branch: &str) -> Option<&'static str> {
+pub fn push_first(store: &Store, project: &ProjectId, branch: &FullName) -> Option<&'static str> {
     (store.workspace(project))
         .is_some_and(|ws| ws.can_push(branch))
         .then_some("Push first, so the pull request has these commits")
@@ -666,12 +670,12 @@ pub fn on_forge(store: &Store, selection: &Selection) -> bool {
 /// without one yet, and if so why it can't be created now: it has no commits, or can't push
 /// them first.
 pub fn create_offer(store: &Store, selection: &Selection) -> Option<Result<(), &'static str>> {
-    let Selection::Branch(project, ref_name) = selection else {
+    let Selection::Branch(project, Some(ref_name)) = selection else {
         return None;
     };
     let ws = store.workspace(project)?;
     let branch = store.branch_for(selection)?;
-    if !on_forge(store, selection) || ref_name.is_empty() || branch.review.is_some() {
+    if !on_forge(store, selection) || branch.review.is_some() {
         return None;
     }
     Some(match ws.push_refused(ref_name) {

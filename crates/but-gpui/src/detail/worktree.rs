@@ -18,7 +18,8 @@ use super::panes::{
 };
 use super::slots::SlotPick;
 use crate::backend::{
-    self, Branch, Checkout, Commit, CommitId, CommitState, FileChange, ReviewState, Workspace,
+    self, Branch, Checkout, Commit, CommitId, CommitState, FileChange, FullName, ReviewState,
+    Workspace,
 };
 use crate::state::{Activity, ProjectId, QUARTER, SeenCommit, Selection, Store};
 use crate::theme::Theme;
@@ -51,7 +52,7 @@ pub(super) struct Now {
     /// What moved a linked worktree's `HEAD` lately other than its commits, newest first, and
     /// the branch and commit it was read at, as the reflog changes only when they do.
     events: Vec<(i64, String)>,
-    events_at: Option<(Option<String>, Option<CommitId>)>,
+    events_at: Option<(Option<FullName>, Option<CommitId>)>,
     /// The commits of the checkout's branches when it was opened or last loaded, to tell one
     /// an agent just made from those already there.
     known: Option<HashSet<CommitId>>,
@@ -220,7 +221,8 @@ impl Detail {
             self.now.events_at = head.clone();
             let since = window_start(crate::ui::now());
             let (read_from, read_for) = (path.clone(), checkout.clone());
-            let events = backend::run(move || backend::worktrees::events(&read_from, &name, since));
+            let events =
+                backend::run(move || backend::worktrees::events(&read_from, name.as_ref(), since));
             cx.spawn(async move |this, cx| {
                 let events = events.await;
                 this.update(cx, |this, cx| {
@@ -306,12 +308,12 @@ impl Detail {
         let ws = entry.workspace.as_ref();
         let (title, branch, folder, target) = match checkout {
             Checkout::Linked(name) => {
-                let linked = ws.and_then(|ws| ws.find_worktree(name));
+                let linked = ws.and_then(|ws| ws.find_worktree(name.as_ref()));
                 (
                     name.to_string(),
-                    (linked.and_then(|w| w.branch.as_deref()))
+                    (linked.and_then(|w| w.branch.as_ref()))
                         .map_or("No branch checked out".to_owned(), |b| {
-                            backend::short_ref(b).to_owned()
+                            backend::short_ref(b).into_owned()
                         }),
                     linked.map(|w| short_path(&w.path)),
                     Selection::Worktree(project.clone(), name.clone()),
@@ -322,9 +324,12 @@ impl Detail {
                 match ws {
                     // Checked out on its own, as in Git, the branch is named.
                     Some(ws) if !ws.managed => (ws.branches_in(&Checkout::Main).next())
-                        .map(|b| b.name.as_str())
-                        .or(ws.target_branch.as_deref().map(backend::short_ref))
-                        .map_or("No branch checked out".to_owned(), str::to_owned),
+                        .map(|b| b.name.clone())
+                        .or(ws
+                            .target_branch
+                            .as_ref()
+                            .map(|t| backend::short_ref(t).into_owned()))
+                        .unwrap_or_else(|| "No branch checked out".to_owned()),
                     ws => match ws.map_or(0, |ws| ws.branches_in(&Checkout::Main).count()) {
                         1 => "1 branch applied".to_owned(),
                         n => format!("{n} branches applied"),
@@ -604,9 +609,12 @@ impl Detail {
                     || (read && !self.read_back_to(project, seen.time, cx))
             }
             Selection::Branches(project) => {
-                let listed = self.listed_branch(project, &seen.branch).is_some();
+                let seen_branch = (seen.branch.as_deref()).and_then(|b| FullName::try_from(b).ok());
+                let listed = (seen_branch.as_ref())
+                    .and_then(|branch| self.listed_branch(project, branch))
+                    .is_some();
                 if listed {
-                    self.select_other_branch(Some(seen.branch.clone()), cx);
+                    self.select_other_branch(seen_branch, cx);
                 }
                 listed || read
             }
@@ -912,7 +920,9 @@ fn file_label(path: &str, on: bool, theme: &Theme, cx: &App) -> Div {
 /// What names the branch `commit` left the checkout on: its name, with the glyph of a merged
 /// pull request for one that landed, and where it is now for a hover.
 fn left_said(commit: &SeenCommit, theme: &Theme) -> ((Icon, gpui::Hsla), String, String) {
-    let name = backend::short_ref(&commit.branch).to_owned();
+    let name = (commit.branch.as_deref())
+        .map_or("Unnamed branch", backend::short_text)
+        .to_owned();
     match commit.state {
         CommitState::Integrated => (
             state_glyph(ReviewState::Merged, theme),

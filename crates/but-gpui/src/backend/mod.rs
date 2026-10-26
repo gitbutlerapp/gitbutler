@@ -28,7 +28,7 @@ pub mod worktrees;
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::sync::{Arc, OnceLock};
+use std::sync::OnceLock;
 
 use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
@@ -271,12 +271,10 @@ pub(crate) fn open(path: &Path) -> Result<Context> {
 }
 
 /// The project's main checkout, or its linked `worktree` with that name.
-fn checkout(ctx: &Context, worktree: Option<&str>) -> Result<gix::Repository> {
+fn checkout(ctx: &Context, worktree: Option<&bstr::BStr>) -> Result<gix::Repository> {
     let main = ctx.repo.get()?;
     match worktree {
-        Some(name) => {
-            but_workspace::worktrees::open_worktree_repo(&main, name.as_bytes().as_bstr())
-        }
+        Some(name) => but_workspace::worktrees::open_worktree_repo(&main, name),
         None => Ok(main.clone()),
     }
 }
@@ -288,7 +286,7 @@ pub struct Kept {
     /// The main checkout's, with the tree of its `HEAD` they were read against.
     pub main: Option<(Vec<FileChange>, Option<gix::ObjectId>)>,
     /// Linked worktrees' by name.
-    pub linked: HashMap<Arc<str>, KeptWorktree>,
+    pub linked: HashMap<bstr::BString, KeptWorktree>,
 }
 
 /// A linked worktree's uncommitted files as shown, and the tree of its `HEAD` they were read
@@ -300,7 +298,7 @@ impl Kept {
     /// worktrees' files, which are read again. A checkout's files are read again too when
     /// its `HEAD` has another tree by now: an operation on commits writes a checkout's
     /// files only where it changes that tree, so the rest stay as they were.
-    pub fn from(shown: &Workspace, main: bool, linked: &HashSet<Arc<str>>) -> Self {
+    pub fn from(shown: &Workspace, main: bool, linked: &HashSet<bstr::BString>) -> Self {
         Self {
             main: (!main).then(|| (shown.uncommitted.clone(), shown.tree)),
             linked: (shown.worktrees.iter())
@@ -399,7 +397,8 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         .collect();
     lanes.extend(linked_lanes);
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "loaded workspace");
-    let target_branch = (meta.and_then(|meta| meta.target_ref)).map(|name| name.to_string());
+    let target_branch = (meta.and_then(|meta| meta.target_ref))
+        .map(|name| name.as_local_full_name_ref().to_owned());
     // The oplog records a snapshot against the target, so without one set it records none.
     // One whose upstream went, or isn't there yet, still records, against its stored commit.
     let unrecorded = head.is_none() || tree.is_none() || target_branch.is_none();
@@ -469,8 +468,14 @@ fn target(
     let local = source.category() == Some(gix::refs::Category::LocalBranch);
     let untracked = (repo.remote_default_name(gix::remote::Direction::Fetch))
         .filter(|_| local)
-        .map(|remote| format!("{remote}/{}", source.shorten()))
-        .filter(|name| (repo.find_reference(format!("refs/remotes/{name}").as_str())).is_ok());
+        .filter(|remote| {
+            let mut name = bstr::BString::from("refs/remotes/");
+            name.extend_from_slice(remote);
+            name.push(b'/');
+            name.extend_from_slice(source.shorten());
+            repo.find_reference(name.as_bstr()).is_ok()
+        })
+        .map(|remote| format!("{remote}/{}", source.shorten()));
     let target = Target {
         name: source.shorten().to_string(),
         branch,
@@ -504,9 +509,9 @@ fn worktree_branches(
         .filter_map(|segment| {
             // A detached run of commits has no ref to tell it apart by, and a branch the
             // workspace has applied is listed there.
-            let ref_name = segment.ref_name()?.to_string();
+            let ref_name = segment.ref_name()?.to_owned();
             if (stacks.iter().flat_map(|stack| &stack.branches))
-                .any(|stacked| stacked.ref_name == ref_name)
+                .any(|stacked| stacked.ref_name.as_ref() == Some(&ref_name))
             {
                 return None;
             }
@@ -572,8 +577,8 @@ fn branch_from(
     segment: &but_workspace::ref_info::Segment,
 ) -> Branch {
     let (name, ref_name) = match segment.ref_name() {
-        Some(name) => (name.shorten().to_string(), name.to_string()),
-        None => ("Unnamed branch".into(), String::new()),
+        Some(name) => (name.shorten().to_string(), Some(name.to_owned())),
+        None => ("Unnamed branch".into(), None),
     };
     use but_core::ui::PushStatus as P;
     let push = match segment.push_status {
@@ -931,12 +936,12 @@ fn worktree_files(repo: &gix::Repository, previous: &[FileChange]) -> Result<Vec
     // Status leaves out files with unresolved index conflicts; they're changes too.
     let conflicted = conflicted_changes(repo, &changes.ignored_changes)?;
     let count = conflicted.len() + changes.changes.len() <= COUNT_LINES_UP_TO;
-    let counted: HashMap<&str, &FileChange> = (previous.iter())
+    let counted: HashMap<&bstr::BStr, &FileChange> = (previous.iter())
         .filter(|file| file.lines.is_some())
-        .map(|file| (file.path.as_str(), file))
+        .map(|file| (file.change.path.as_bstr(), file))
         .collect();
     let lines = |change: &but_core::TreeChange, modified: Option<i64>, size: Option<u64>| {
-        let kept = counted.get(&*change.path.to_str_lossy()).filter(|old| {
+        let kept = counted.get(change.path.as_bstr()).filter(|old| {
             (old.modified, old.size) == (modified, size)
                 && same_change(&old.change.status, &change.status)
         });
@@ -1111,7 +1116,7 @@ fn ambiguous_target(err: &anyhow::Error) -> Option<&gix::refs::FullName> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TargetChoice {
     pub remote: String,
-    pub branches: Vec<String>,
+    pub branches: Vec<FullName>,
 }
 
 /// What to choose when the project at `path` has `target`, a target several local branches
@@ -1127,7 +1132,7 @@ fn target_choice(path: &Path, target: &gix::refs::FullName) -> Option<TargetChoi
     let branches = (references.local_branches().ok()?)
         .filter_map(Result::ok)
         .filter(|branch| tracks(branch.name()))
-        .map(|branch| branch.name().shorten().to_string())
+        .map(|branch| branch.name().to_owned())
         .collect();
     Some(TargetChoice {
         remote: target.shorten().to_string(),
@@ -1471,7 +1476,7 @@ mod lane_tests {
     fn a_worktree_lane_loads_its_own_branches() {
         linked_workspace(|path| {
             let loaded = crate::backend::load_workspace(path, Default::default()).unwrap();
-            let worktree = |name| (loaded.worktrees.iter()).find(|wt| &*wt.name == name);
+            let worktree = |name: &str| (loaded.worktrees.iter()).find(|wt| wt.name == name);
             git(
                 &worktree("wt").unwrap().path,
                 &["commit", "-q", "--allow-empty", "-m", "more"],
@@ -1515,10 +1520,12 @@ mod lane_tests {
             let linked: Vec<_> = (workspace.lanes.iter())
                 .filter_map(|lane| match &lane.checkout {
                     Checkout::Main => None,
-                    Checkout::Linked(name) => Some(&**name),
+                    Checkout::Linked(name) => Some(name.to_string()),
                 })
                 .collect();
-            let listed: Vec<_> = (workspace.worktrees.iter()).map(|wt| &*wt.name).collect();
+            let listed: Vec<_> = (workspace.worktrees.iter())
+                .map(|wt| wt.name.to_string())
+                .collect();
             assert_eq!(listed[0], "wt-top", "its reflog moved last");
             assert_eq!(
                 linked, listed,
@@ -1528,7 +1535,11 @@ mod lane_tests {
             // its commit in the stack unnamed, and wt-top resting on it.
             // agent2, started from the target's commit agent1 runs down through, rests on agent1.
             snapbox::assert_data_eq!(
-                describe(&workspace) + &describe_chain(&workspace, "refs/heads/agent2"),
+                describe(&workspace)
+                    + &describe_chain(
+                        &workspace,
+                        &crate::backend::model::build::full("refs/heads/agent2")
+                    ),
                 snapbox::str![[r#"
 Main: [Unnamed branch, middle, bottom]
 Main: [beside]
@@ -1571,7 +1582,7 @@ history: [agent2, agent1~2]
             }
             let titles = || {
                 let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
-                let lane = workspace.worktree_lane("agent").unwrap();
+                let lane = workspace.worktree_lane("agent".into()).unwrap();
                 (lane.branches.iter())
                     .flat_map(|branch| &branch.commits)
                     .map(|commit| commit.title.clone())

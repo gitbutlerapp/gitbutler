@@ -8,7 +8,7 @@ use but_api::legacy::{config, projects};
 use but_core::settings::git::ui::GitConfigSettings;
 use but_settings::AppSettingsWithDiskSync;
 
-use super::ops::{changes_source, full_name};
+use super::ops::changes_source;
 use super::{Forge, open};
 
 /// A program to open files or the project in, by id and name.
@@ -33,7 +33,7 @@ pub fn terminals() -> Vec<Program> {
 /// Open `file` of the project at `path`, or of its linked `worktree`, in `editor` at `line`.
 pub fn open_in_editor(
     path: &Path,
-    worktree: Option<&str>,
+    worktree: Option<&bstr::BStr>,
     editor: &str,
     file: &str,
     line: Option<u32>,
@@ -274,7 +274,7 @@ const NO_COMMITS: &str =
 /// The project's local branches, like `refs/heads/main`, to pick a target from, as the
 /// desktop app offers them: the one named as a remote's default branch and tracking it first,
 /// then others tracking it, then the rest by name, leaving out GitButler's own.
-pub fn target_branches(path: &Path) -> Result<Vec<String>> {
+pub fn target_branches(path: &Path) -> Result<Vec<super::FullName>> {
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
     // Its first branch comes with its first commit, so there's nothing to list yet.
@@ -285,7 +285,7 @@ pub fn target_branches(path: &Path) -> Result<Vec<String>> {
             defaults.push(default.to_owned());
         }
     }
-    let mut names: Vec<(u8, String)> = Vec::new();
+    let mut names: Vec<(u8, super::FullName)> = Vec::new();
     for reference in repo.references()?.local_branches()?.filter_map(Result::ok) {
         let name = reference.name();
         if name.as_bstr().starts_with(b"refs/heads/gitbutler/") {
@@ -300,7 +300,7 @@ pub fn target_branches(path: &Path) -> Result<Vec<String>> {
             Some(_) => 1,
             None => 2,
         };
-        names.push((rank, name.as_bstr().to_string()));
+        names.push((rank, name.to_owned()));
     }
     names.sort();
     Ok(names.into_iter().map(|(_, name)| name).collect())
@@ -312,13 +312,12 @@ pub fn target_branches(path: &Path) -> Result<Vec<String>> {
 /// has checked out, and branches rebase onto a changed target at the next update. New
 /// branches go on pushing where they did, as a fork's to the fork when the target becomes the
 /// original repository's main, as the desktop app keeps it.
-pub fn set_target(path: &Path, target: &str) -> Result<()> {
+pub fn set_target(path: &Path, target: &super::FullName) -> Result<()> {
     let mut ctx = open(path)?;
     let (local, push_remote) = {
         let repo = ctx.repo.get()?;
         anyhow::ensure!(!repo.head()?.is_unborn(), NO_COMMITS);
-        let local =
-            but_core::ref_metadata::resolve_local_target(full_name(target)?.as_ref(), &repo)?;
+        let local = but_core::ref_metadata::resolve_local_target(target.as_ref(), &repo)?;
         // One picked stays as it is. One that follows the old target's remote is kept only
         // where it would change: one pushing where the new target fetches from goes on
         // following the target, as through a rename of that remote.
@@ -455,10 +454,14 @@ mod tests {
 
             assert_eq!(
                 super::target_branches(path).unwrap(),
-                ["refs/heads/main", "refs/heads/another"],
+                ["refs/heads/main", "refs/heads/another"].map(crate::backend::model::build::full),
                 "the branch tracking the remote's default first, and none of GitButler's own"
             );
-            super::set_target(path, "refs/remotes/origin/main").unwrap();
+            super::set_target(
+                path,
+                &crate::backend::model::build::full("refs/remotes/origin/main"),
+            )
+            .unwrap();
             assert_eq!(
                 git(path, &["symbolic-ref", "HEAD"]).trim(),
                 "refs/heads/main",
@@ -485,7 +488,8 @@ mod tests {
                 &["remote", "add", "origin", "https://example.com/r.git"],
             );
             git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
-            super::set_target(path, "refs/heads/main").unwrap();
+            super::set_target(path, &crate::backend::model::build::full("refs/heads/main"))
+                .unwrap();
             let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
             assert_eq!(
                 workspace
@@ -516,9 +520,14 @@ mod tests {
                 path,
                 &["branch", "--track", "upstream-main", "upstream/main"],
             );
-            super::set_target(path, "refs/heads/main").unwrap();
+            super::set_target(path, &crate::backend::model::build::full("refs/heads/main"))
+                .unwrap();
 
-            super::set_target(path, "refs/heads/upstream-main").unwrap();
+            super::set_target(
+                path,
+                &crate::backend::model::build::full("refs/heads/upstream-main"),
+            )
+            .unwrap();
             let settings = super::project_settings(path).unwrap();
             assert_eq!(settings.remotes, ["origin", "upstream"]);
             assert_eq!(
@@ -536,7 +545,7 @@ mod tests {
                 "picking where branches go is saved"
             );
             git(path, &["remote", "remove", "upstream"]);
-            super::set_target(path, "refs/heads/main")
+            super::set_target(path, &crate::backend::model::build::full("refs/heads/main"))
                 .expect("a picked remote that's gone doesn't keep the target from changing");
         })
     }

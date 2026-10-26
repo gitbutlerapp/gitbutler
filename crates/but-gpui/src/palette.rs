@@ -328,7 +328,7 @@ impl AppView {
             .flat_map(|(entry, workspace)| {
                 workspace
                     .all_branches()
-                    .filter(|branch| !branch.ref_name.is_empty())
+                    .filter(|branch| branch.ref_name.is_some())
                     .map(move |branch| {
                         let (id, ref_name) = (entry.id.clone(), branch.ref_name.clone());
                         // As the navigator names it: a pull request by its title, its
@@ -345,7 +345,7 @@ impl AppView {
                         let choice = Choice::new(label, move |this, window, cx| {
                             // Gone since the picker opened, as an agent renamed it.
                             if (this.store.read(cx).workspace(&id))
-                                .is_none_or(|ws| ws.find_branch(&ref_name).is_none())
+                                .is_none_or(|ws| ws.find_branch(ref_name.as_ref()).is_none())
                             {
                                 return snack(&this.store, gone, cx);
                             }

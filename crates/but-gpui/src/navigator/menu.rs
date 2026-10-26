@@ -64,9 +64,7 @@ fn new_branch_items(store: &Store, project: &ProjectId, cx: &App) -> Vec<MenuIte
                 window,
                 cx,
                 |path, _, name| crate::backend::worktrees::create(path, name),
-                move |store, name, cx| {
-                    store.select(Some(Selection::Worktree(selected, name.into())), cx)
-                },
+                move |store, name, cx| store.select(Some(Selection::Worktree(selected, name)), cx),
             )
         }));
     }
@@ -146,7 +144,7 @@ impl Navigator {
             // A remote's commit can be copied into a branch here, or its ID copied, and a
             // branch's marked read or unread.
             Selection::Upstream(project, ref_name, id) => {
-                let commit = (ref_name.as_deref()).and_then(|ref_name| {
+                let commit = (ref_name.as_ref()).and_then(|ref_name| {
                     let commits = store.workspace(project)?.upstream(Some(ref_name));
                     commits.iter().find(|commit| commit.id == *id)
                 });
@@ -307,11 +305,14 @@ impl Navigator {
                 else {
                     return items;
                 };
-                if workspace.push_blocked(ref_name).is_none() {
+                let named = ref_name.as_ref();
+                if let Some(ref_name) = named
+                    && workspace.push_blocked(Some(ref_name)).is_none()
+                {
                     items.push(action(workspace.push_label(ref_name), &Push));
                 }
                 let linked = store.in_linked(target);
-                if workspace.can_pull(ref_name) {
+                if named.is_some_and(|ref_name| workspace.can_pull(ref_name)) {
                     items.extend([
                         MenuItem::action(
                             format!(
@@ -338,7 +339,7 @@ impl Navigator {
                         &crate::pr::CreatePullRequest,
                     ))
                 }
-                if crate::pr::on_forge(store, target) && !ref_name.is_empty() {
+                if crate::pr::on_forge(store, target) && named.is_some() {
                     let project = target.project();
                     let open = (branch.review.as_ref()).filter(|r| {
                         store.review_state(project, r) == crate::backend::ReviewState::Open
@@ -349,12 +350,12 @@ impl Navigator {
                         items.extend(offer.map(|offer| action(offer.label(method), offer.action())))
                     }
                 }
-                if ref_name.is_empty() {
+                let Some(ref_name) = named else {
                     if !branch.commits.is_empty() {
                         items.push(action("Name branch…", &RenameSelection).separated());
                     }
                     return items;
-                }
+                };
                 let edits = BranchEdits::of(workspace, ref_name);
                 items.push(action("New branch on top", &NewBranchOnTop).separated());
                 if edits.new_below {
@@ -377,7 +378,7 @@ impl Navigator {
                     items.push(MenuItem::action(label, &crate::edits::LandBranch, cx));
                 }
                 // Only the workspace has stacks to take out of it.
-                if workspace.managed && workspace.stack_of(ref_name).is_some() {
+                if workspace.managed && workspace.stack_of(Some(ref_name)).is_some() {
                     items.push(action(
                         if edits.stacked {
                             "Unapply stack"
@@ -387,7 +388,7 @@ impl Navigator {
                         &UnapplyStack,
                     ));
                 }
-                let name = short_ref(ref_name).to_owned();
+                let name = short_ref(ref_name).into_owned();
                 items.extend([
                     action("Rename…", &RenameSelection).separated(),
                     MenuItem::keyed("Copy name", &CopySelection, cx, move |app, _, cx| {
@@ -395,8 +396,10 @@ impl Navigator {
                     }),
                 ]);
                 // A linked worktree keeps the branch it has checked out, its lane's top one.
-                let checked_out =
-                    linked && workspace.lane_of(ref_name).is_some_and(|(_, at)| at == 0);
+                let checked_out = linked
+                    && workspace
+                        .lane_of(Some(ref_name))
+                        .is_some_and(|(_, at)| at == 0);
                 if !checked_out {
                     items.push(action("Delete branch", &DeleteSelection).danger());
                 }
@@ -517,7 +520,7 @@ impl Navigator {
             }
             Selection::Worktree(project, name) => {
                 let Some(worktree) =
-                    (store.workspace(project)).and_then(|ws| ws.find_worktree(name))
+                    (store.workspace(project)).and_then(|ws| ws.find_worktree(name.as_ref()))
                 else {
                     return Vec::new();
                 };
@@ -591,7 +594,7 @@ impl Navigator {
                 let (fold_project, fold_bottom) = key;
                 let mut items = vec![MenuItem::keyed(label, keys, cx, move |this, window, cx| {
                     (this.navigator).update(cx, |nav, cx| {
-                        nav.toggle_stack(&fold_project, &fold_bottom, !folded, window, cx)
+                        nav.toggle_stack(&fold_project, fold_bottom.as_ref(), !folded, window, cx)
                     })
                 })];
                 let Some(workspace) = store.workspace(project) else {
@@ -599,13 +602,15 @@ impl Navigator {
                 };
                 // Through its top branch, which takes the ones below it along.
                 let Some(top) = workspace
-                    .lane(bottom)
+                    .lane(bottom.as_ref())
                     .and_then(|lane| lane.branches.first())
                 else {
                     return items;
                 };
-                let top = &top.ref_name;
-                if workspace.push_blocked(top).is_none() {
+                let top = top.ref_name.as_ref();
+                if let Some(top) = top
+                    && workspace.push_blocked(Some(top)).is_none()
+                {
                     items.push(
                         action(
                             match workspace.needs_force(top) {
@@ -617,9 +622,9 @@ impl Navigator {
                         .separated(),
                     );
                 }
-                let named = !top.is_empty();
+                let named = top.is_some();
                 if let Some(target) = workspace.target.as_ref()
-                    && named
+                    && let Some(top) = top
                     && BranchEdits::of(workspace, top).land == Some(true)
                 {
                     items.push(MenuItem::action(
@@ -630,7 +635,7 @@ impl Navigator {
                 }
                 items.push(action("New branch on top", &NewBranchOnTop).separated());
                 // A linked worktree's lane stays applied while it has it checked out.
-                if workspace.managed && named && workspace.stack_of(bottom).is_some() {
+                if workspace.managed && named && workspace.stack_of(bottom.as_ref()).is_some() {
                     items.push(action("Unapply stack", &UnapplyStack));
                 }
                 items

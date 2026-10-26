@@ -56,7 +56,7 @@ impl Store {
         let mut activity: Vec<SavedActivity> = (self.activity.iter())
             .map(|((project, worktree), activity)| SavedActivity {
                 project: project.to_string(),
-                worktree: worktree.linked().map(str::to_owned),
+                worktree: worktree.linked().map(|name| name.to_string()),
                 activity: activity.clone(),
             })
             .collect();

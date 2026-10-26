@@ -3,10 +3,9 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::sync::Arc;
 
 use anyhow::Result;
-use bstr::ByteSlice;
+use bstr::{BStr, BString, ByteSlice as _};
 use but_ctx::Context;
 
 use super::{
@@ -16,14 +15,14 @@ use super::{
 
 /// The active linked worktrees with their uncommitted changes, and the names of the
 /// archived ones with the branch each has checked out.
-type Listing = (Vec<Worktree>, Vec<(Arc<str>, Option<String>)>);
+type Listing = (Vec<Worktree>, Vec<(BString, Option<super::FullName>)>);
 
 /// The project's [`Listing`]; `None` with GitButler's worktree support off. A worktree's
 /// files in `kept` are shown again rather than read, while its `HEAD` has the tree they
 /// were read against.
 pub(super) fn linked(
     ctx: &Context,
-    kept: &mut HashMap<Arc<str>, KeptWorktree>,
+    kept: &mut HashMap<BString, KeptWorktree>,
 ) -> Result<Option<Listing>> {
     if !ctx.settings.feature_flags.worktree_manipulation {
         return Ok(None);
@@ -34,21 +33,21 @@ pub(super) fn linked(
     };
     let active = (listing.active.into_iter())
         .filter_map(|listed| {
-            let name: Arc<str> = listed.name.to_str_lossy().into();
-            let checkout = opened(ctx, &name)?;
+            let name = listed.name;
+            let checkout = opened(ctx, name.as_ref())?;
             let tree = head_tree(&checkout);
             // What Git is partway through is cheap to read, and changes without the files.
             let (uncommitted, git_operation) = match kept.remove(&name) {
                 Some((files, read_against)) if read_against == tree => {
                     (files, git_operation(&checkout))
                 }
-                Some((files, _)) => read(&checkout, &name, &files)?,
-                None => read(&checkout, &name, &[])?,
+                Some((files, _)) => read(&checkout, name.as_ref(), &files)?,
+                None => read(&checkout, name.as_ref(), &[])?,
             };
             Some(Worktree {
                 name,
                 path: listed.path,
-                branch: listed.ref_name.map(|name| name.to_string()),
+                branch: listed.ref_name,
                 uncommitted,
                 git_operation,
                 tree,
@@ -58,8 +57,8 @@ pub(super) fn linked(
         .collect();
     let archived = (listing.archived.iter())
         .map(|listed| {
-            let branch = (listed.ref_name.as_ref()).map(|name| name.to_string());
-            (listed.name.to_str_lossy().into(), branch)
+            let branch = listed.ref_name.clone();
+            (listed.name.clone(), branch)
         })
         .collect();
     Ok(Some((active, archived)))
@@ -71,7 +70,7 @@ pub fn reload_uncommitted(
     path: &Path,
     mut shown: Workspace,
     main: bool,
-    linked: &HashSet<Arc<str>>,
+    linked: &HashSet<BString>,
 ) -> Result<Workspace> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
@@ -84,10 +83,10 @@ pub fn reload_uncommitted(
         if !linked.contains(&worktree.name) {
             return true;
         }
-        let Some(checkout) = opened(&ctx, &worktree.name) else {
+        let Some(checkout) = opened(&ctx, worktree.name.as_ref()) else {
             return false;
         };
-        match read(&checkout, &worktree.name, &worktree.uncommitted) {
+        match read(&checkout, worktree.name.as_ref(), &worktree.uncommitted) {
             Some((files, operation)) => {
                 worktree.uncommitted = files;
                 worktree.git_operation = operation;
@@ -106,7 +105,7 @@ pub fn reload_uncommitted(
 /// the worktrees as they are.
 fn read(
     checkout: &gix::Repository,
-    name: &str,
+    name: &BStr,
     previous: &[FileChange],
 ) -> Option<(Vec<FileChange>, Option<&'static str>)> {
     (worktree_files(checkout, previous))
@@ -117,7 +116,7 @@ fn read(
 
 /// Worktree `name`'s own repository, to read its checkout from, or nothing when it can't be
 /// opened, as [`read`] says.
-fn opened(ctx: &Context, name: &str) -> Option<gix::Repository> {
+fn opened(ctx: &Context, name: &BStr) -> Option<gix::Repository> {
     let repo = (checkout(ctx, Some(name)))
         .inspect_err(|err| tracing::warn!("couldn't open worktree {name}: {err:#}"))
         .ok()?;
@@ -129,7 +128,7 @@ fn opened(ctx: &Context, name: &str) -> Option<gix::Repository> {
 /// What moved linked worktree `name`'s `HEAD` since `since`, in seconds since the epoch, other
 /// than its commits, which its branch lists: checkouts, rebases, resets, merges and amends,
 /// newest first, each with when, said as a sentence.
-pub fn events(path: &Path, name: &str, since: i64) -> Result<Vec<(i64, String)>> {
+pub fn events(path: &Path, name: &BStr, since: i64) -> Result<Vec<(i64, String)>> {
     let repo = gix::open(path)?;
     let Some(worktree) = repo.worktree_proxy_by_id(name)? else {
         return Ok(Vec::new());
@@ -192,19 +191,20 @@ pub fn heads(path: &Path) -> Vec<Option<(Option<gix::refs::FullName>, gix::Objec
 
 /// Make a linked worktree on new branch `name`, at the workspace's base, as `but worktree new`
 /// does. Returns the worktree's name.
-pub fn create(path: &Path, name: &str) -> Result<String> {
+pub fn create(path: &Path, name: &str) -> Result<BString> {
     let mut ctx = open(path)?;
     let ref_name = super::ops::branch_ref(name)?;
     let created = but_api::worktrees::worktree_new(&mut ctx, Some(ref_name))?;
-    Ok(created.name.to_str_lossy().into_owned())
+    Ok(created.name)
 }
 
 /// Remove worktree `name` from disk as `git worktree remove` does, with the uncommitted
 /// files `lost`, by their write times and sizes then, which the user agreed to lose. Its
 /// branch stays. One with other uncommitted files, or those written to since, as by an agent
 /// meanwhile, is refused, and so is one with `lost` files that can't be read to check them.
-pub fn remove(path: &Path, name: &str, lost: &[(String, Option<i64>, Option<u64>)]) -> Result<()> {
+pub fn remove(path: &Path, name: &BStr, lost: &[(String, Option<i64>, Option<u64>)]) -> Result<()> {
     let mut ctx = open(path)?;
+    let mut guard = ctx.exclusive_worktree_access();
     // With nothing to lose, nothing is forced, and Git refuses a worktree with changes, so
     // one that can't be opened, as when its folder is gone, can still be removed.
     let files = match checkout(&ctx, Some(name)) {
@@ -219,14 +219,25 @@ pub fn remove(path: &Path, name: &str, lost: &[(String, Option<i64>, Option<u64>
             file.path
         );
     }
-    but_api::worktrees::worktree_remove(&mut ctx, name.to_owned(), !lost.is_empty())
+    but_api::worktrees::worktree_remove_with_perm(
+        &ctx,
+        name,
+        !lost.is_empty(),
+        guard.write_permission(),
+    )
 }
 
 /// Hide worktree `name` from the workspace, or with `archived` false show it again. It
 /// stays on disk either way.
-pub fn set_archived(path: &Path, name: &str, archived: bool) -> Result<()> {
-    let mut ctx = open(path)?;
-    but_api::worktrees::worktree_set_archived(&mut ctx, name.to_owned(), archived)
+pub fn set_archived(path: &Path, name: &BStr, archived: bool) -> Result<()> {
+    let ctx = open(path)?;
+    let guard = ctx.shared_worktree_access();
+    but_api::worktrees::worktree_set_archived_with_perm(
+        &ctx,
+        name,
+        archived,
+        guard.read_permission(),
+    )
 }
 
 #[cfg(test)]
@@ -245,7 +256,7 @@ mod tests {
         std::fs::rename(&linked, outside.path().join("moved")).unwrap();
 
         let said = |since| -> Vec<String> {
-            let events = super::events(path, "agent", since).unwrap();
+            let events = super::events(path, "agent".into(), since).unwrap();
             events.into_iter().map(|(_, said)| said).collect()
         };
         assert_eq!(

@@ -56,7 +56,7 @@ impl Detail {
         worktrees.sort_by_key(|wt| std::cmp::Reverse(wt.updated_at));
         let ws = store.workspace(project);
         let branches: Vec<&[Branch]> = (worktrees.iter())
-            .map(|wt| ws.and_then(|ws| ws.worktree_lane(&wt.name)))
+            .map(|wt| ws.and_then(|ws| ws.worktree_lane(wt.name.as_ref())))
             .map(|lane| lane.map_or(&[][..], |lane| &lane.branches))
             .collect();
         let now = crate::ui::now();
@@ -136,9 +136,9 @@ impl Detail {
                 Left::Pushed => ("pushed".to_owned(), theme.text_3),
                 Left::Nothing => ("no commits".to_owned(), theme.text_3),
             }),
-            branches: (wt.branch.as_deref())
-                .map_or("detached", backend::short_ref)
-                .to_owned(),
+            branches: (wt.branch.as_ref())
+                .map_or("detached".into(), backend::short_ref)
+                .into_owned(),
             commits: (branches.iter().flat_map(|b| &b.commits))
                 .map(|c| c.time)
                 .collect(),

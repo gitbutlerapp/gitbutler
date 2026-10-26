@@ -15,7 +15,7 @@ use super::upstream::noon;
 use super::{Detail, machine};
 use crate::app::{AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious, StartCommit};
 use crate::backend::upstream::{self, ACTIVITY_DAYS};
-use crate::backend::{self, Checkout, CommitId, CommitState, PushState, short_ref};
+use crate::backend::{self, Checkout, CommitId, CommitState, FullName, PushState, short_ref};
 use crate::navigator::{SelectFirst, SelectLast};
 use crate::overlays::MenuItem;
 use crate::state::{ProjectId, Section, Selection};
@@ -78,14 +78,14 @@ impl Detail {
                     )),
                 },
                 Selection::Branch(project, ref_name) => {
-                    let branch = workspace.and_then(|ws| ws.find_branch(ref_name));
-                    let name = match branch {
-                        Some(branch) => store.name_of(project, branch),
-                        None if ref_name.is_empty() => "Unnamed branch",
-                        None => short_ref(ref_name),
+                    let branch = workspace.and_then(|ws| ws.find_branch(ref_name.as_ref()));
+                    let name = match (branch, ref_name) {
+                        (Some(branch), _) => store.name_of(project, branch).into(),
+                        (None, None) => "Unnamed branch".into(),
+                        (None, Some(ref_name)) => short_ref(ref_name),
                     };
                     crumbs.push(heading(selection));
-                    crumbs.push((name.to_owned().into(), None));
+                    crumbs.push((name.into_owned().into(), None));
                 }
                 Selection::Branches(project) => {
                     crumbs.push(("Branches".into(), Some(selection.clone().into())));
@@ -100,7 +100,7 @@ impl Detail {
                 }
                 Selection::Stack(_, bottom) => {
                     let n = workspace
-                        .and_then(|ws| ws.lane(bottom))
+                        .and_then(|ws| ws.lane(bottom.as_ref()))
                         .map_or(0, |lane| lane.branches.len());
                     crumbs.push(heading(selection));
                     crumbs.push((format!("Stack of {n}").into(), None));
@@ -122,11 +122,11 @@ impl Detail {
                         // project.
                         Section::Upstream(ref_name) => match ref_name
                             .as_ref()
-                            .and_then(|r| Some((r, workspace?.find_branch(r)?)))
+                            .and_then(|r| Some((r, workspace?.find_branch(Some(r))?)))
                         {
                             Some((ref_name, branch)) => {
                                 let branch_selection =
-                                    Selection::Branch(project.clone(), ref_name.clone());
+                                    Selection::Branch(project.clone(), Some(ref_name.clone()));
                                 crumbs.push(heading(&branch_selection));
                                 let name = store.name_of(project, branch).to_owned();
                                 crumbs.push((name.into(), Some(branch_selection.into())));
@@ -135,7 +135,7 @@ impl Detail {
                             }
                             None => {
                                 let target = workspace.and_then(|ws| ws.target_name());
-                                format!("New on {}", target.unwrap_or("the target"))
+                                format!("New on {}", target.unwrap_or("the target".into()))
                             }
                         },
                     };
@@ -145,11 +145,11 @@ impl Detail {
                 Selection::Upstream(project, ref_name, id) => {
                     match ref_name
                         .as_ref()
-                        .and_then(|r| Some((r, workspace?.find_branch(r)?)))
+                        .and_then(|r| Some((r, workspace?.find_branch(Some(r))?)))
                     {
                         Some((ref_name, branch)) => {
                             let branch_selection =
-                                Selection::Branch(project.clone(), ref_name.clone());
+                                Selection::Branch(project.clone(), Some(ref_name.clone()));
                             crumbs.push(heading(&branch_selection));
                             let name = store.name_of(project, branch).to_owned();
                             crumbs.push((name.into(), Some(branch_selection.into())));
@@ -157,13 +157,12 @@ impl Detail {
                         None => {
                             let name = workspace.and_then(|ws| ws.target_name());
                             let page = Selection::Project(project.clone());
-                            let name = name.unwrap_or("Target").to_owned();
+                            let name = name.unwrap_or("Target".into()).into_owned();
                             crumbs.push((name.into(), Some(page.into())));
                         }
                     }
                     // A commit a merge brought in, after the merge, as the project's page has it.
-                    if let Some((merge, _)) =
-                        store.merged_upstream(project, ref_name.as_deref(), *id)
+                    if let Some((merge, _)) = store.merged_upstream(project, ref_name.as_ref(), *id)
                     {
                         let up = Selection::Upstream(project.clone(), ref_name.clone(), merge);
                         crumbs.push((merge.short().into(), Some(up.into())));
@@ -172,11 +171,12 @@ impl Detail {
                 }
                 Selection::Commit(project, id) => {
                     if let Some((branch, commit)) = workspace.and_then(|ws| ws.find_commit(*id)) {
-                        let branch_selection =
-                            Selection::Branch(project.clone(), branch.ref_name.clone());
+                        let branch_selection = (branch.ref_name.clone()).map(|ref_name| {
+                            Selection::Branch(project.clone(), Some(ref_name)).into()
+                        });
                         crumbs.push(heading(selection));
                         let name = store.name_of(project, branch).to_owned();
-                        crumbs.push((name.into(), Some(branch_selection.into())));
+                        crumbs.push((name.into(), branch_selection));
                         let last = match store.among_picks(project, *id) {
                             true => plural(store.picked.len(), "commit"),
                             false => commit.id.short(),
@@ -432,7 +432,7 @@ impl Detail {
             )
         } else if !self.composing {
             let target = self.effective_target(project, cx);
-            let target = match (target.as_deref(), checkout) {
+            let target = match (target.as_ref(), checkout) {
                 (Some(target), _) => format!("Commit to {}", short_ref(target)),
                 (None, Checkout::Main) => "Commit to a new branch".to_owned(),
                 (None, Checkout::Linked(_)) => "No branch of its own checked out".to_owned(),
@@ -680,7 +680,7 @@ impl Detail {
     pub(super) fn render_upstream_header(
         &self,
         project: &ProjectId,
-        ref_name: Option<&str>,
+        ref_name: Option<&FullName>,
         id: backend::CommitId,
         theme: &Theme,
         cx: &Context<Self>,
@@ -715,7 +715,9 @@ impl Detail {
             }
         };
         let remote = match ref_name {
-            Some(ref_name) => ws.find_branch(ref_name).and_then(|b| b.remote.clone()),
+            Some(ref_name) => ws
+                .find_branch(Some(ref_name))
+                .and_then(|b| b.remote.clone()),
             None => ws.target.as_ref().map(|target| target.name.clone()),
         };
         let title = page_title(Icon::ArrowDown, theme).child(self.message_title(title, body, cx));
@@ -727,7 +729,7 @@ impl Detail {
                 None => "only on the remote".to_owned(),
             }));
         let message = self.message(title, body.clone(), theme);
-        let target = Selection::Upstream(project.clone(), ref_name.map(str::to_owned), id);
+        let target = Selection::Upstream(project.clone(), ref_name.cloned(), id);
         let tabs = (self.selected_review(cx)).map(|review| self.review_tabs(review, theme, cx));
         self.page_header(message, meta, target, None, tabs, theme, cx)
     }
@@ -804,7 +806,7 @@ impl Detail {
     pub(super) fn render_branch_header(
         &self,
         project: &ProjectId,
-        ref_name: &str,
+        ref_name: Option<&FullName>,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
@@ -835,7 +837,7 @@ impl Detail {
                 .child(div().text_color(color).child(state))
                 .children(conflicted_note(conflicted, theme)),
         });
-        let target = Selection::Branch(project.clone(), ref_name.to_owned());
+        let target = Selection::Branch(project.clone(), ref_name.cloned());
         let create = crate::pr::create_offer(store, &target).map(|offer| {
             button("header-create-pr", "Create pull request")
                 .small()
@@ -843,7 +845,7 @@ impl Detail {
                 .dispatch(&crate::pr::CreatePullRequest)
                 .disabled_because(offer.err())
         });
-        let push = button("header-push", ws.push_label(ref_name))
+        let push = button("header-push", ref_name.map_or("Push", |r| ws.push_label(r)))
             .small()
             .dispatch(&crate::app::Push)
             .disabled_because(ws.push_blocked(ref_name));
@@ -859,7 +861,7 @@ impl Detail {
     pub(super) fn render_stack_header(
         &self,
         project: &ProjectId,
-        bottom: &str,
+        bottom: Option<&FullName>,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
@@ -884,7 +886,7 @@ impl Detail {
             );
         let title = format!("Stack of {}", names.len());
         let title = page_title(Icon::Stack, theme).child(title_text(title));
-        let target = Selection::Stack(project.clone(), bottom.to_owned());
+        let target = Selection::Stack(project.clone(), bottom.cloned());
         self.page_header(title, meta, target, None, None, theme, cx)
     }
 
@@ -939,7 +941,7 @@ impl Detail {
     pub(super) fn render_branch_side(
         &self,
         project: &ProjectId,
-        ref_name: &str,
+        ref_name: Option<&FullName>,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
@@ -953,15 +955,14 @@ impl Detail {
         // Resolving the oldest conflict first, even in a branch below or one the lane rests on,
         // rebases the rest onto its result.
         let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
-        let oldest = (conflicted > 0)
-            .then(|| super::resolve::oldest_conflict(ws, ref_name))
-            .flatten();
+        let oldest = (ref_name.filter(|_| conflicted > 0))
+            .and_then(|ref_name| super::resolve::oldest_conflict(ws, ref_name));
         let resolve_oldest = oldest.map(|(holder, commit)| {
             let app = self.app.clone();
             let (project, id) = (project.clone(), commit.id);
             super::resolve::warn_banner(
                 plural(conflicted, "conflicted commit"),
-                match holder.ref_name == ref_name {
+                match holder.ref_name.as_ref() == ref_name {
                     true if conflicted == 1 => "Resolve opens it to pick what it keeps.".to_owned(),
                     true => {
                         "Start with the oldest: the ones above it are rebuilt on it.".to_owned()
@@ -993,7 +994,7 @@ impl Detail {
     pub(super) fn render_stack_side(
         &self,
         project: &ProjectId,
-        bottom: &str,
+        bottom: Option<&FullName>,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
@@ -1016,7 +1017,7 @@ pub(super) type Crumb = (SharedString, Option<CrumbTo>);
 pub(super) enum CrumbTo {
     Select(Selection),
     /// On the Branches page, the branch over the commit of it picked.
-    OtherBranch(String),
+    OtherBranch(FullName),
     /// On a project's page, the merge over the commit of it shown.
     Merge(CommitId),
 }

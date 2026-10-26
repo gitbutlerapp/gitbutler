@@ -11,7 +11,6 @@ use bstr::ByteSlice;
 use but_core::DryRun;
 use but_core::sync::RepoExclusive;
 
-use super::ops::full_name;
 use super::reviews::{cached_reviews, from_cache};
 use super::{
     Agent, CommitId, RemoteCommit, Review, ReviewState, open, present_first_parent, runtime,
@@ -645,13 +644,12 @@ pub fn fetch_status(path: &Path) -> Result<Option<(Option<i64>, Option<String>)>
 /// pull requests afterwards failed, if it did.
 pub fn push(
     path: &Path,
-    ref_name: &str,
+    ref_name: &super::FullName,
     protect: bool,
     drops: Option<&[CommitId]>,
     run_hooks: bool,
 ) -> Result<(Option<String>, Option<String>)> {
-    let branch = full_name(ref_name)?;
-    let branch = branch.as_ref();
+    let branch = ref_name.as_ref();
     let mut ctx = open(path)?;
     // Decided when it runs, as an amend queued before it rewrites the branch.
     let mut info = but_api::legacy::workspace::head_info(&ctx)?;
@@ -669,7 +667,7 @@ pub fn push(
         // A lane pushes the branches below it too: the refusal names the one it's about.
         let name = |segment: Option<&but_workspace::ref_info::Segment>| {
             (segment.and_then(|segment| segment.ref_name())).map_or_else(
-                || short_ref(ref_name).to_owned(),
+                || short_ref(ref_name).into_owned(),
                 |n| n.shorten().to_string(),
             )
         };
@@ -706,7 +704,7 @@ pub fn push(
                 ctx.into_sync(),
                 force,
                 !protect,
-                ref_name.to_owned(),
+                ref_name.to_string(),
                 run_hooks,
                 Vec::new(),
             ),
@@ -727,9 +725,9 @@ pub fn push(
                 false => "The remote has commits this branch doesn't. Fetch, then pull them in.",
             })
         })?;
-    let short = short_ref(ref_name);
+    let (short, full) = (short_ref(ref_name), ref_name.to_string());
     let remote = (outcome.push.branch_to_remote.into_iter())
-        .find(|(branch, _, _)| branch == short || branch == ref_name)
+        .find(|(branch, _, _)| *branch == short || *branch == full)
         .map(|(_, _, remote)| remote);
     Ok((remote, sync_failure(outcome.review_sync)))
 }
@@ -795,14 +793,17 @@ pub fn push_refusal(err: &anyhow::Error) -> Option<String> {
 /// Bring in the commits only `branch`'s remote has: the local commits rebased on top of
 /// them, leaving out the remote's older versions of commits rewritten here; or with `theirs`
 /// the remote's version of the branch instead of the local one.
-pub fn pull_remote(path: &Path, branch: &str, theirs: bool) -> Result<()> {
+pub fn pull_remote(path: &Path, branch: &super::FullName, theirs: bool) -> Result<()> {
     integrate_remote(&mut open(path)?, branch, theirs, DryRun::No)?;
     Ok(())
 }
 
 /// A dry run of pulling into `branch`: the branches (full refs) it would leave with
 /// conflicted commits they don't have now, each with how many.
-pub fn pull_conflicts(path: &Path, branch: &str) -> Result<Vec<(String, usize)>> {
+pub fn pull_conflicts(
+    path: &Path,
+    branch: &super::FullName,
+) -> Result<Vec<(Option<super::FullName>, usize)>> {
     let mut ctx = open(path)?;
     let info = but_api::legacy::workspace::head_info(&ctx)?;
     let (preview, incoming) = integrate_remote(&mut ctx, branch, false, DryRun::Yes)?;
@@ -814,7 +815,7 @@ pub fn pull_conflicts(path: &Path, branch: &str) -> Result<Vec<(String, usize)>>
         .filter(|(_, change)| incoming.contains(&change.to_string()))
         .count();
     if incoming > 0 {
-        let name = full_name(branch)?.to_string();
+        let name = Some(branch.clone());
         match found.iter_mut().find(|(ref_name, _)| *ref_name == name) {
             Some((_, count)) => *count += incoming,
             None => found.push((name, incoming)),
@@ -825,12 +826,12 @@ pub fn pull_conflicts(path: &Path, branch: &str) -> Result<Vec<(String, usize)>>
 
 fn integrate_remote(
     ctx: &mut but_ctx::Context,
-    branch: &str,
+    branch: &super::FullName,
     theirs: bool,
     dry_run: DryRun,
 ) -> Result<(but_api::branch::IntegrateBranchResult, Vec<String>)> {
     use but_api::branch::json::BranchIntegrationStrategy as Strategy;
-    let name = full_name(branch)?;
+    let name = branch;
     let strategy = if theirs {
         Strategy::PickRemote
     } else {
@@ -906,9 +907,9 @@ pub enum UpdateOutcome {
     Updated {
         /// Branches (full refs) left with conflicted commits they didn't have, each with
         /// how many.
-        conflicted: Vec<(String, usize)>,
+        conflicted: Vec<(Option<super::FullName>, usize)>,
         /// Branches (full refs) that landed on the target, which the update removed.
-        landed: Vec<String>,
+        landed: Vec<super::FullName>,
     },
 }
 
@@ -935,10 +936,10 @@ pub fn update_from_target(
     }
     let updated = integrate_upstream(&mut ctx, &info, DryRun::No, guard.write_permission())?;
     let after = but_api::legacy::workspace::head_info(&ctx)?;
-    let names = |info: &but_workspace::RefInfo| -> Vec<String> {
+    let names = |info: &but_workspace::RefInfo| -> Vec<super::FullName> {
         (info.lanes())
             .flat_map(|lane| lane.segments)
-            .filter_map(|segment| Some(segment.ref_name()?.to_string()))
+            .filter_map(|segment| Some(segment.ref_name()?.to_owned()))
             .collect()
     };
     let remaining = names(&after);
@@ -954,17 +955,17 @@ pub fn update_from_target(
 #[derive(Debug, Clone, PartialEq)]
 pub struct UpdateConflicts {
     /// Branches (full refs), each with how many of its commits.
-    pub branches: Vec<(String, usize)>,
+    pub branches: Vec<(Option<super::FullName>, usize)>,
     /// Uncommitted files the target changed too, which get conflict markers.
     pub files: Vec<String>,
 }
 
-/// The branches (full refs, empty for an unnamed one) in `info` with commits among
+/// The branches (full refs, `None` for an unnamed one) in `info` with commits among
 /// `conflicted` that aren't conflicted yet, each with how many.
 fn newly_conflicted(
     info: &but_workspace::RefInfo,
     conflicted: &[(gix::ObjectId, but_core::ChangeId)],
-) -> Vec<(String, usize)> {
+) -> Vec<(Option<super::FullName>, usize)> {
     // A commit made without a change ID gets one from its commit ID, as the rebase does.
     let newly = |commit: &&but_workspace::ref_info::LocalCommit| {
         let id = commit.inner.change_id();
@@ -974,8 +975,8 @@ fn newly_conflicted(
         .flat_map(|lane| lane.segments)
         .filter_map(|segment| {
             let count = segment.commits.iter().filter(newly).count();
-            let name = segment.ref_name().map(ToString::to_string);
-            (count > 0).then(|| (name.unwrap_or_default(), count))
+            let name = segment.ref_name().map(ToOwned::to_owned);
+            (count > 0).then_some((name, count))
         })
         .collect()
 }
@@ -1000,10 +1001,15 @@ pub fn fetch(path: &Path) -> Result<bool> {
     Ok(true)
 }
 
-/// Put `branch` (a short name), or with `whole_stack` it and every branch below it,
+/// Put `branch`, or with `whole_stack` it and every branch below it,
 /// straight onto the target and push the target, or with no upstream, just move it. Returns
 /// what that left for the other branches.
-pub fn land(path: &Path, branch: &str, tip: CommitId, whole_stack: bool) -> Result<Landed> {
+pub fn land(
+    path: &Path,
+    branch: &super::FullName,
+    tip: CommitId,
+    whole_stack: bool,
+) -> Result<Landed> {
     let mut ctx = open(path)?;
     let info = but_api::legacy::workspace::head_info(&ctx)?;
     // A merge commit when the branch has diverged, as `but land` makes one without its flags.
@@ -1011,7 +1017,7 @@ pub fn land(path: &Path, branch: &str, tip: CommitId, whole_stack: bool) -> Resu
     // commits an agent added since.
     let landed = but_api::land::branch_land(
         &mut ctx,
-        branch.to_owned(),
+        branch.shorten().to_string(),
         false,
         false,
         whole_stack,
@@ -1030,7 +1036,7 @@ pub struct Landed {
     pub update_needed: bool,
     /// Branches (full refs) the update after it left with conflicted commits they didn't
     /// have, each with how many.
-    pub conflicted: Vec<(String, usize)>,
+    pub conflicted: Vec<(Option<super::FullName>, usize)>,
     /// The update gave uncommitted changes conflict markers.
     pub marked: bool,
 }
@@ -1041,6 +1047,7 @@ mod tests {
         ACTIVITY_DAYS, DAY, UpdateOutcome, day_of, overview, push_refusal, pushed_with,
         update_from_target,
     };
+    use crate::backend::model::build::full;
 
     #[test]
     fn an_update_that_would_conflict_a_worktree_branch_names_it() {
@@ -1048,7 +1055,7 @@ mod tests {
         crate::backend::lane_tests::linked_workspace(|path| {
             let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
             let wt = &(workspace.worktrees.iter())
-                .find(|wt| &*wt.name == "wt")
+                .find(|wt| wt.name == "wt")
                 .unwrap()
                 .path;
             git(wt, &["checkout", "-q", "--detach", "main"]);
@@ -1065,7 +1072,7 @@ mod tests {
             };
             assert_eq!(
                 found.branches,
-                [("refs/heads/wt".to_owned(), 1)],
+                [(Some(full("refs/heads/wt")), 1)],
                 "the update rebases wt with middle, and its edit of `file` meets the target's"
             );
         })
@@ -1087,13 +1094,13 @@ mod tests {
             let url = remote.path().to_str().unwrap();
             git(path, &["remote", "set-url", "origin", url]);
             let info = but_api::legacy::workspace::head_info(&super::open(path).unwrap()).unwrap();
-            let branch = super::full_name("refs/heads/wt").unwrap();
+            let branch = gix::refs::FullName::try_from("refs/heads/wt").unwrap();
             let mut guarded: Vec<_> = pushed_with(&info, branch.as_ref())
                 .filter_map(|segment| Some(format!("{}\n", segment.ref_name()?)))
                 .collect();
             guarded.sort();
 
-            super::push(path, "refs/heads/wt", false, None, false).unwrap();
+            super::push(path, &full("refs/heads/wt"), false, None, false).unwrap();
 
             let arrived = git(remote.path(), &["for-each-ref", "--format=%(refname)"]);
             assert_eq!(
@@ -1145,12 +1152,12 @@ refs/heads/wt
             git(&on_it, &["commit", "-q", "--allow-empty", "-m", "on it"]);
 
             let loaded = crate::backend::load_workspace(path, Default::default()).unwrap();
-            for branch in ["refs/heads/on-head", "refs/heads/on-it"] {
+            for branch in ["refs/heads/on-head", "refs/heads/on-it"].map(full) {
                 assert!(
-                    (loaded.push_refused(branch)).is_some_and(|why| why.contains("workspace")),
+                    (loaded.push_refused(&branch)).is_some_and(|why| why.contains("workspace")),
                     "{branch} isn't offered a push, as it would publish every applied branch"
                 );
-                let err = super::push(path, branch, false, None, false)
+                let err = super::push(path, &branch, false, None, false)
                     .expect_err("nor does the push go ahead");
                 assert!(
                     err.to_string().contains("GitButler's workspace commit"),
@@ -1256,7 +1263,7 @@ refs/heads/wt
             );
             commit("Ann", now - 60);
 
-            crate::backend::settings::set_target(path, "refs/heads/main").unwrap();
+            crate::backend::settings::set_target(path, &full("refs/heads/main")).unwrap();
             let summed = overview(path, now).unwrap().expect("a target");
             assert_eq!(summed.daily.len(), ACTIVITY_DAYS, "a bar a day");
             assert_eq!(
@@ -1332,7 +1339,7 @@ refs/heads/wt
             }
             std::fs::write(path.join(".mailmap"), "<ama@acme.io> <ama@gmail.com>\n").unwrap();
 
-            crate::backend::settings::set_target(path, "refs/heads/main").unwrap();
+            crate::backend::settings::set_target(path, &full("refs/heads/main")).unwrap();
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()

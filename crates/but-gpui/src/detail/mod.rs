@@ -40,7 +40,7 @@ use gpui::{
 use crate::app::{AddProject, AppHandle};
 use crate::backend::edit::Editing;
 use crate::backend::{
-    self, Checkout, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected,
+    self, Checkout, DiffLine, DiffSource, FileChange, FileDiff, FullName, HunkKey, Selected,
 };
 use crate::overlays::MenuItem;
 use crate::state::{
@@ -216,13 +216,13 @@ pub struct Detail {
     listed_cursor: std::cell::RefCell<Option<String>>,
     message: Entity<TextInput>,
     /// The branch (full ref) new commits go to; `None` creates a branch.
-    commit_target: Option<String>,
+    commit_target: Option<FullName>,
     checks: composer::Checks,
     /// The checks of the other checkouts looked at, by project and checkout, kept for coming
     /// back to them.
     other_checks: HashMap<(Option<ProjectId>, Checkout), composer::Checks>,
     /// The `commit_target` picked in the other projects looked at.
-    other_targets: HashMap<ProjectId, String>,
+    other_targets: HashMap<ProjectId, FullName>,
     /// Narrows the file list and the diff to the paths it matches, while `filtering`.
     file_filter: Entity<TextInput>,
     filtering: bool,
@@ -266,7 +266,7 @@ pub struct Detail {
     /// The checkout had changes when the composer opened, so it isn't for an empty commit.
     composing_on_changes: bool,
     /// The branch the composer showed the commit going to, which mustn't change unseen.
-    composing_target: Option<String>,
+    composing_target: Option<FullName>,
     /// Where the focus was when writing a commit message started, to go back to after.
     composer_back: Option<FocusHandle>,
     /// What scrolls the commit message box, which keeps the caret in view.
@@ -453,7 +453,7 @@ impl Detail {
                 }
                 // What's picked to commit to follows a branch an agent renames.
                 StoreEvent::Renamed(project, from, to) => {
-                    this.branch_renamed(project, from, to, cx)
+                    this.branch_renamed(project, from.as_ref(), to, cx)
                 }
                 StoreEvent::MeshRead(project) => {
                     if let Some(Selection::Mesh(p, ..)) = this.selection(cx)
@@ -722,7 +722,7 @@ impl Detail {
             // commit matches are left out of them, so a range from the oldest could bring them
             // back.
             Selection::Section(project, Section::Upstream(Some(ref_name))) => {
-                let branch = store.workspace(project)?.find_branch(ref_name)?;
+                let branch = store.workspace(project)?.find_branch(Some(ref_name))?;
                 DiffSource::Commits(branch.incoming.iter().rev().map(|c| c.id).collect())
             }
             // What a pull would bring in from the target, at its newest commit.
@@ -735,7 +735,7 @@ impl Detail {
             }
             Selection::Section(..) => return None,
             Selection::Branch(project, ref_name) => {
-                let branch = store.workspace(project)?.find_branch(ref_name)?;
+                let branch = store.workspace(project)?.find_branch(ref_name.as_ref())?;
                 let newest = branch.commits.first()?.id;
                 let oldest = branch.commits.last()?.id;
                 DiffSource::Range { oldest, newest }
@@ -743,7 +743,7 @@ impl Detail {
             // Its top branch's newest commit back to its bottom branch's oldest, skipping
             // branches with none yet.
             Selection::Stack(project, bottom) => {
-                let branches = &store.workspace(project)?.lane(bottom)?.branches;
+                let branches = &store.workspace(project)?.lane(bottom.as_ref())?.branches;
                 let newest = branches
                     .iter()
                     .find_map(|branch| branch.commits.first())?
@@ -1754,15 +1754,15 @@ impl Detail {
     pub fn branch_renamed(
         &mut self,
         project: &ProjectId,
-        from: &str,
-        to: &str,
+        from: Option<&FullName>,
+        to: &FullName,
         cx: &mut Context<Self>,
     ) {
         let target = match self.checks_project.as_ref() == Some(project) {
             true => self.commit_target.as_mut(),
             false => self.other_targets.get_mut(project),
         };
-        if let Some(target) = target.filter(|target| *target == from) {
+        if let Some(target) = target.filter(|target| Some(&**target) == from) {
             *target = to.to_owned();
             cx.notify();
         }
@@ -1819,7 +1819,12 @@ impl Detail {
 
     /// Commit to `branch` of `project` next: a branch just made is where its commits go, as
     /// are those started from a branch.
-    pub fn branch_created(&mut self, project: &ProjectId, branch: String, cx: &mut Context<Self>) {
+    pub fn branch_created(
+        &mut self,
+        project: &ProjectId,
+        branch: FullName,
+        cx: &mut Context<Self>,
+    ) {
         if self.checks_project.as_ref() == Some(project) {
             self.commit_target = Some(branch);
             cx.notify();
@@ -2135,7 +2140,7 @@ impl Render for Detail {
                         self.render_commit_side(project, *id, &theme, cx)
                     }
                     Selection::Branch(project, ref_name) => {
-                        self.render_branch_side(project, ref_name, &theme, cx)
+                        self.render_branch_side(project, ref_name.as_ref(), &theme, cx)
                     }
                     Selection::History(project) => {
                         self.render_history_side(project, &theme, window, cx)
@@ -2145,7 +2150,7 @@ impl Render for Detail {
                         self.render_uncommitted_side(project, &checkout, &theme, window, cx)
                     }
                     Selection::Stack(project, bottom) => {
-                        self.render_stack_side(project, bottom, &theme, cx)
+                        self.render_stack_side(project, bottom.as_ref(), &theme, cx)
                     }
                     Selection::Upstream(..) | Selection::Section(_, Section::Upstream(_)) => {
                         self.render_diff_file_list(&theme, cx)
@@ -2188,13 +2193,13 @@ impl Render for Detail {
                         Some(self.render_commit_header(project, *id, &theme, window, cx))
                     }
                     Selection::Branch(project, ref_name) => {
-                        Some(self.render_branch_header(project, ref_name, &theme, cx))
+                        Some(self.render_branch_header(project, ref_name.as_ref(), &theme, cx))
                     }
                     Selection::Stack(project, bottom) => {
-                        Some(self.render_stack_header(project, bottom, &theme, cx))
+                        Some(self.render_stack_header(project, bottom.as_ref(), &theme, cx))
                     }
                     Selection::Upstream(project, ref_name, id) => Some(
-                        self.render_upstream_header(project, ref_name.as_deref(), *id, &theme, cx),
+                        self.render_upstream_header(project, ref_name.as_ref(), *id, &theme, cx),
                     ),
                     Selection::Project(project) => {
                         Some(self.render_project_header(project, &theme, cx))

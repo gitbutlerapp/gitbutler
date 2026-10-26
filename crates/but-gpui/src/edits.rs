@@ -14,8 +14,8 @@ use crate::app::{
     UncommitSelection,
 };
 use crate::backend::{
-    self, Branch, Checkout, Commit, CommitId, Destination, Selected, Undiscarded, Workspace,
-    short_ref,
+    self, Branch, Checkout, Commit, CommitId, Destination, FullName, Selected, Undiscarded,
+    Workspace, short_ref,
 };
 use crate::overlays::run_named;
 use crate::state::{Cut, Label, Overlay, ProjectId, Remap, Rereads, Selection, Store, snack};
@@ -132,8 +132,8 @@ fn target_force_detail(target: &backend::Target) -> String {
 /// Whether `ref_name` can land, and if so whether with the branches below it: the bottom
 /// branch of a stack lands alone, the top one of a taller stack lands the whole stack. What
 /// lands needs commits, and none conflicted, which the engine won't land.
-fn land_scope(workspace: &Workspace, ref_name: &str) -> Option<bool> {
-    let (stack, at) = workspace.stack_of(ref_name)?;
+fn land_scope(workspace: &Workspace, ref_name: &FullName) -> Option<bool> {
+    let (stack, at) = workspace.stack_of(Some(ref_name))?;
     let whole = match (at, at + 1 == stack.branches.len()) {
         (_, true) => false,
         (0, false) => true,
@@ -165,8 +165,8 @@ pub struct BranchEdits {
 }
 
 impl BranchEdits {
-    pub fn of(workspace: &Workspace, ref_name: &str) -> Self {
-        let Some((lane, branch)) = (workspace.lane_of(ref_name))
+    pub fn of(workspace: &Workspace, ref_name: &FullName) -> Self {
+        let Some((lane, branch)) = (workspace.lane_of(Some(ref_name)))
             .and_then(|(lane, at)| Some((lane, lane.branches.get(at)?)))
         else {
             return Self::default();
@@ -174,7 +174,7 @@ impl BranchEdits {
         let commits = branch.commits.len();
         let conflicted = branch.commits.iter().any(|c| c.conflicted);
         // A linked worktree's lane takes new branches, but can't come apart yet.
-        let stack = workspace.stack_of(ref_name).is_some();
+        let stack = workspace.stack_of(Some(ref_name)).is_some();
         Self {
             new_below: commits > 0,
             squash_all: commits > 1 && !conflicted,
@@ -199,7 +199,7 @@ pub struct CommitEdits {
 impl CommitEdits {
     pub fn of(branch: &Branch, commit: &Commit) -> Self {
         Self {
-            new_branch_here: !branch.ref_name.is_empty()
+            new_branch_here: branch.ref_name.is_some()
                 && branch.commits.first().map(|c| c.id) != Some(commit.id),
             rewrap: needs_rewrap(&commit.message),
             change_id: commit.has_change_id(),
@@ -265,7 +265,8 @@ impl AppView {
                 let Some(workspace) = store.workspace(project) else {
                     return el;
                 };
-                let el = el.when(workspace.can_pull(ref_name), |el| {
+                let can_pull = (ref_name.as_ref()).is_some_and(|r| workspace.can_pull(r));
+                let el = el.when(can_pull, |el| {
                     el.on_action(cx.listener(|this, _: &PullRemote, window, cx| {
                         this.pull_remote(false, window, cx)
                     }))
@@ -274,9 +275,9 @@ impl AppView {
                     ))
                 });
                 // The rest work on a named branch only, as its menu says.
-                if ref_name.is_empty() {
+                let Some(ref_name) = ref_name.as_ref() else {
                     return el;
-                }
+                };
                 let edits = BranchEdits::of(workspace, ref_name);
                 el.on_action(cx.listener(|this, _: &AddEmptyCommitAbove, _, cx| {
                     this.add_empty_commit(true, cx)
@@ -290,7 +291,7 @@ impl AppView {
                 .when(edits.stacked, |el| el.on_action(cx.listener(Self::unstack)))
                 // Outside the workspace there are no stacks to take out of it.
                 .when(
-                    workspace.managed && workspace.stack_of(ref_name).is_some(),
+                    workspace.managed && workspace.stack_of(Some(ref_name)).is_some(),
                     |el| el.on_action(cx.listener(Self::unapply_stack)),
                 )
                 .when(edits.land.is_some(), |el| {
@@ -303,15 +304,16 @@ impl AppView {
                 let Some(workspace) = store.workspace(project) else {
                     return el;
                 };
-                let top = (workspace.lane(bottom))
+                let top = (workspace.lane(bottom.as_ref()))
                     .and_then(|lane| lane.branches.first())
-                    .filter(|top| !top.ref_name.is_empty());
-                let lands = top.is_some_and(|top| {
-                    BranchEdits::of(workspace, &top.ref_name).land == Some(true)
-                });
+                    .and_then(|top| top.ref_name.as_ref());
+                let lands =
+                    top.is_some_and(|top| BranchEdits::of(workspace, top).land == Some(true));
                 el.when(lands, |el| el.on_action(cx.listener(Self::land_branch)))
                     .when(
-                        workspace.managed && top.is_some() && workspace.stack_of(bottom).is_some(),
+                        workspace.managed
+                            && top.is_some()
+                            && workspace.stack_of(bottom.as_ref()).is_some(),
                         |el| el.on_action(cx.listener(Self::unapply_stack)),
                     )
             }
@@ -333,9 +335,9 @@ impl AppView {
                 store.pull_remote(&project, ref_name, None, cx)
             });
         }
-        let name = short_ref(&ref_name).to_owned();
+        let name = short_ref(&ref_name).into_owned();
         self.confirm_then(
-            Some(Selection::Branch(project.clone(), ref_name.clone())),
+            Some(Selection::Branch(project.clone(), Some(ref_name.clone()))),
             format!("Replace {name} with the remote's version?"),
             &crate::ui::keys_text(
                 "This drops its commits the remote doesn't have. You can undo this with ⌘Z.",
@@ -366,24 +368,25 @@ impl AppView {
     }
 
     /// The selected branch, or a selected stack's top one, when it has a name.
-    fn selected_named_branch(&self, cx: &App) -> Option<(ProjectId, String)> {
+    fn selected_named_branch(&self, cx: &App) -> Option<(ProjectId, FullName)> {
         match self.store.read(cx).selection.as_ref()? {
-            Selection::Branch(..) | Selection::Stack(..) => {
-                (self.branch_of_selection(cx)).filter(|(_, ref_name)| !ref_name.is_empty())
-            }
+            Selection::Branch(..) | Selection::Stack(..) => (self.branch_of_selection(cx))
+                .and_then(|(project, ref_name)| Some((project, ref_name?))),
             _ => None,
         }
     }
 
     /// The selected branch, or the branch holding the selected commit, named or not. A
     /// stack acts through its top branch, which takes the ones below it along.
-    fn branch_of_selection(&self, cx: &App) -> Option<(ProjectId, String)> {
+    fn branch_of_selection(&self, cx: &App) -> Option<(ProjectId, Option<FullName>)> {
         let selection = self.selection(cx)?;
         let store = self.store.read(cx);
         let branch = match &selection {
-            Selection::Stack(project, bottom) => {
-                store.workspace(project)?.lane(bottom)?.branches.first()?
-            }
+            Selection::Stack(project, bottom) => store
+                .workspace(project)?
+                .lane(bottom.as_ref())?
+                .branches
+                .first()?,
             _ => store.branch_for(&selection)?,
         };
         Some((selection.project().clone(), branch.ref_name.clone()))
@@ -406,7 +409,7 @@ impl AppView {
                 let Some(target) = target else {
                     return snack(&self.store, "Select a branch to push", cx);
                 };
-                Some((project, target))
+                Some((project, Some(target)))
             }
             _ => self.branch_of_selection(cx),
         };
@@ -416,9 +419,12 @@ impl AppView {
         let Some(ws) = self.store.read(cx).workspace(&project) else {
             return;
         };
-        if let Some(refused) = ws.push_blocked(&ref_name) {
+        if let Some(refused) = ws.push_blocked(ref_name.as_ref()) {
             return snack(&self.store, refused, cx);
         }
+        let Some(ref_name) = ref_name else {
+            return;
+        };
         let drops = ws.push_drops(&ref_name);
         let detail = match ws.forced_target(&ref_name) {
             // Others' work builds on it, so forcing it always asks.
@@ -436,9 +442,10 @@ impl AppView {
                 // A branch it takes along whose commits only its remote has can't be pulled
                 // first when others are stacked on it or a linked worktree rests on it, nor
                 // here when a linked worktree has it.
-                let stuck = (ws.pushed_with(&ref_name))
-                    .find(|b| !b.incoming.is_empty() && !ws.can_pull(&b.ref_name));
-                let linked = (stuck.and_then(|b| ws.lane_of(&b.ref_name)))
+                let stuck = (ws.pushed_with(&ref_name)).find(|b| {
+                    !b.incoming.is_empty() && !(b.ref_name.as_ref()).is_some_and(|r| ws.can_pull(r))
+                });
+                let linked = (stuck.and_then(|b| ws.lane_of(b.ref_name.as_ref())))
                     .is_some_and(|(lane, _)| lane.checkout.is_linked());
                 match stuck {
                     None => {
@@ -449,11 +456,13 @@ impl AppView {
                          worktree first.",
                         name = stuck.name
                     ),
-                    Some(stuck) if ws.rested_on(&stuck.ref_name) => format!(
-                        "It drops {what} only the remote has. {name}'s can't be pulled first \
+                    Some(stuck) if (stuck.ref_name.as_ref()).is_some_and(|r| ws.rested_on(r)) => {
+                        format!(
+                            "It drops {what} only the remote has. {name}'s can't be pulled first \
                          while a worktree rests on it.",
-                        name = stuck.name
-                    ),
+                            name = stuck.name
+                        )
+                    }
                     Some(stuck) => format!(
                         "It drops {what} only the remote has. To keep {name}'s, unstack the \
                          branches on it and pull it first.",
@@ -464,7 +473,7 @@ impl AppView {
         };
         // Asked here, as the project's own protection is off unless turned on.
         self.confirm_then(
-            Some(Selection::Branch(project.clone(), ref_name.clone())),
+            Some(Selection::Branch(project.clone(), Some(ref_name.clone()))),
             format!("Force push {}?", short_ref(&ref_name)),
             &detail,
             "Force push",
@@ -490,7 +499,8 @@ impl AppView {
                 let ids = self.store.read(cx).with_picks(&project, id);
                 self.discard_commits(project, ids, window, cx)
             }
-            Some(Selection::Branch(project, ref_name)) => {
+            // An unnamed branch has no ref to delete, as its menu says by offering none.
+            Some(Selection::Branch(project, Some(ref_name))) => {
                 self.remove_branch(project, ref_name, window, cx)
             }
             Some(Selection::Uncommitted(project)) => {
@@ -513,34 +523,36 @@ impl AppView {
     ) {
         match self.selection(cx) {
             // An unnamed branch with no commits has nothing to name.
-            Some(Selection::Branch(project, ref_name))
-                if ref_name.is_empty()
-                    && (self.store.read(cx).workspace(&project))
-                        .and_then(|ws| ws.find_branch(""))
-                        .is_none_or(|b| b.commits.is_empty()) => {}
+            Some(Selection::Branch(project, None))
+                if (self.store.read(cx).workspace(&project))
+                    .and_then(|ws| ws.find_branch(None))
+                    .is_none_or(|b| b.commits.is_empty()) => {}
             Some(Selection::Branch(project, ref_name)) => {
                 let store = self.store.read(cx);
                 let branch = Selection::Branch(project.clone(), ref_name.clone());
                 let undoable = store.undoable(&project, store.checkout_of(&branch));
                 let workspace = store.workspace(&project);
                 // An unnamed branch has no ref to rename, so it gets one at its newest commit.
-                let unnamed_top = (workspace.filter(|_| ref_name.is_empty()))
-                    .and_then(|ws| Some(ws.find_branch("")?.commits.first()?.id));
+                let unnamed_top = (workspace.filter(|_| ref_name.is_none()))
+                    .and_then(|ws| Some(ws.find_branch(None)?.commits.first()?.id));
                 // As the desktop app says: a rename doesn't reach the remote.
-                let pushed = (workspace.and_then(|ws| ws.find_branch(&ref_name)))
+                let pushed = (workspace.and_then(|ws| ws.find_branch(ref_name.as_ref())))
                     .is_some_and(|branch| branch.push != backend::PushState::NeverPushed);
-                let renaming = unnamed_top.is_none().then(|| ref_name.clone());
+                let renaming = ref_name.clone();
                 let (store, detail) = (self.store.clone(), self.detail.downgrade());
                 let (at, selected, from) = (project.clone(), project.clone(), ref_name.clone());
                 let submit = move |name: String, cx: &mut App| {
                     let renamed = from.clone();
-                    let op = move |path: &Path, remap: &Remap, name: &str| match unnamed_top {
-                        Some(top) => backend::name_branch(path, remap.get(top)?, name),
-                        None => backend::rename_branch(path, &renamed, name),
-                    };
-                    let done = move |store: &mut Store, to: String, cx: &mut Context<Store>| {
+                    let op =
+                        move |path: &Path, remap: &Remap, name: &str| match (&renamed, unnamed_top)
+                        {
+                            (Some(renamed), _) => backend::rename_branch(path, renamed, name),
+                            (None, Some(top)) => backend::name_branch(path, remap.get(top)?, name),
+                            (None, None) => anyhow::bail!("The branch has no commit to name it at"),
+                        };
+                    let done = move |store: &mut Store, to: FullName, cx: &mut Context<Store>| {
                         (detail.update(cx, |detail, cx| {
-                            detail.branch_renamed(&selected, &from, &to, cx)
+                            detail.branch_renamed(&selected, from.as_ref(), &to, cx)
                         }))
                         .ok();
                         if !undoable {
@@ -555,7 +567,7 @@ impl AppView {
                             );
                             store.snack_after(undoable, message, cx);
                         }
-                        store.select(Some(Selection::Branch(selected, to)), cx)
+                        store.select(Some(Selection::Branch(selected, Some(to))), cx)
                     };
                     store.update(cx, |store, cx| {
                         run_named(store, &at, renaming, name, op, done, cx)
@@ -584,7 +596,7 @@ impl AppView {
     ) {
         let Some((project, below)) = self
             .branch_of_selection(cx)
-            .filter(|(_, ref_name)| !ref_name.is_empty())
+            .and_then(|(project, ref_name)| Some((project, ref_name?)))
         else {
             return;
         };
@@ -597,7 +609,7 @@ impl AppView {
             .and_then(|ws| ws.checked_out_in(&below))
             .map(|w| w.name.clone());
         let here = worktree.is_none();
-        let checkout = store.checkout_of(&Selection::Branch(project.clone(), below.clone()));
+        let checkout = store.checkout_of(&Selection::Branch(project.clone(), Some(below.clone())));
         let op = move |path: &Path, _: &Remap| backend::create_dependent_branch(path, &below);
         self.new_branch_at(project, here, checked_out_in, checkout, window, cx, op);
     }
@@ -611,15 +623,15 @@ impl AppView {
         &mut self,
         project: ProjectId,
         on_top: bool,
-        checked_out_in: Option<Arc<str>>,
+        checked_out_in: Option<bstr::BString>,
         checkout: Option<Checkout>,
         window: &mut Window,
         cx: &mut Context<Self>,
-        op: impl FnOnce(&Path, &Remap) -> anyhow::Result<String> + Send + 'static,
+        op: impl FnOnce(&Path, &Remap) -> anyhow::Result<FullName> + Send + 'static,
     ) {
         let (selected, detail) = (project.clone(), self.detail.downgrade());
         let undoable = self.store.read(cx).undoable(&project, checkout);
-        let done = move |store: &mut Store, branch: String, cx: &mut Context<Store>| {
+        let done = move |store: &mut Store, branch: FullName, cx: &mut Context<Store>| {
             if on_top {
                 (detail.update(cx, |detail, cx| {
                     detail.branch_created(&selected, branch.clone(), cx)
@@ -632,7 +644,7 @@ impl AppView {
                 }
                 None => format!("Created {}", short_ref(&branch)),
             };
-            store.select(Some(Selection::Branch(selected, branch)), cx);
+            store.select(Some(Selection::Branch(selected, Some(branch))), cx);
             store.snack_after(undoable, message, cx)
         };
         // The navigator, where it's selected, takes the keys, as r to rename it.
@@ -663,27 +675,28 @@ impl AppView {
     fn remove_branch(
         &mut self,
         project: ProjectId,
-        ref_name: String,
+        ref_name: FullName,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let name = short_ref(&ref_name).to_owned();
+        let name = short_ref(&ref_name).into_owned();
         let store = self.store.read(cx);
-        // An unnamed branch has no ref to delete, as its menu says by offering none.
-        let Some((lane, _)) = (store.workspace(&project))
-            .filter(|_| !ref_name.is_empty())
-            .and_then(|ws| ws.lane_of(&ref_name))
+        let Some((lane, _)) =
+            (store.workspace(&project)).and_then(|ws| ws.lane_of(Some(&ref_name)))
         else {
             return;
         };
         // The lane as the deletes already asked for leave it, which this one follows.
         let lane = store.after_deletes(&project, &lane.branches);
-        let Some(at) = lane.iter().position(|branch| branch.ref_name == ref_name) else {
+        let Some(at) = lane
+            .iter()
+            .position(|branch| branch.ref_name.as_ref() == Some(&ref_name))
+        else {
             return;
         };
         // A linked worktree keeps the branch it has checked out; the ones stacked under it
         // can go, their commits joining it.
-        let selection = Selection::Branch(project.clone(), ref_name.clone());
+        let selection = Selection::Branch(project.clone(), Some(ref_name.clone()));
         let linked = store.in_linked(&selection);
         if at == 0 && linked {
             let message = format!("{name} is checked out in a worktree, which keeps it");
@@ -691,11 +704,11 @@ impl AppView {
         }
         // Only the ref goes. Its commits stay in the stack, which needs another named branch
         // to hold them: the one above, or below when there's none above.
-        let named = |b: &&Branch| !b.ref_name.is_empty();
+        let named = |b: &&Branch| b.ref_name.is_some();
         if lane.iter().filter(named).count() < 2 && lane.iter().any(|b| !b.commits.is_empty()) {
             // Checked out on its own, it can't be unapplied, only switched away from.
             let target = (store.workspace(&project).filter(|ws| !ws.managed))
-                .and_then(|ws| ws.target_branch.as_deref())
+                .and_then(|ws| ws.target_branch.as_ref())
                 .map(short_ref)
                 .filter(|target| *target != name);
             let message = match target {
@@ -901,7 +914,7 @@ impl AppView {
                 (project, Destination::AboveCommit(id))
             }
             Some(Selection::Commit(project, id)) => (project, Destination::BelowCommit(id)),
-            Some(Selection::Branch(project, ref_name)) if !ref_name.is_empty() => {
+            Some(Selection::Branch(project, Some(ref_name))) => {
                 (project, Destination::Branch(ref_name))
             }
             _ => return,
@@ -942,7 +955,7 @@ impl AppView {
         let store = self.store.read(cx);
         let Some(branch) = store
             .workspace(&project)
-            .and_then(|ws| ws.find_branch(&ref_name))
+            .and_then(|ws| ws.find_branch(Some(&ref_name)))
         else {
             return;
         };
@@ -1013,13 +1026,13 @@ impl AppView {
             .store
             .read(cx)
             .workspace(&project)
-            .and_then(|ws| ws.find_branch(&ref_name))
+            .and_then(|ws| ws.find_branch(Some(&ref_name)))
             .and_then(|branch| branch.commits.last())
             .map(|commit| commit.id);
         let Some(oldest) = oldest else {
             return;
         };
-        let branch = Selection::Branch(project.clone(), ref_name);
+        let branch = Selection::Branch(project.clone(), Some(ref_name));
         let checkout = self.store.read(cx).checkout_of(&branch);
         let op = move |path: &Path, remap: &Remap| {
             backend::create_branch_at_commit(path, remap.get(oldest)?, true)
@@ -1063,17 +1076,18 @@ impl AppView {
         };
         // The whole stack goes, at once, and the snackbar counts the other branches in it.
         // An unnamed one has no ref to tell it from another stack's.
-        let Some(stack): Option<HashSet<String>> = (self.store.read(cx).workspace(&project))
-            .and_then(|ws| ws.stack_of(&ref_name))
+        let Some(stack): Option<HashSet<FullName>> = (self.store.read(cx).workspace(&project))
+            .and_then(|ws| ws.stack_of(Some(&ref_name)))
             .map(|(stack, _)| {
-                let names = stack.branches.iter().map(|b| b.ref_name.clone());
-                names.filter(|name| !name.is_empty()).collect()
+                (stack.branches.iter())
+                    .filter_map(|b| b.ref_name.clone())
+                    .collect()
             })
         else {
             return;
         };
         let name = match stack.len().max(1) {
-            1 => short_ref(&ref_name).to_owned(),
+            1 => short_ref(&ref_name).into_owned(),
             2 => format!("{} and the other branch in its stack", short_ref(&ref_name)),
             n => format!(
                 "{} and the {} other branches in its stack",
@@ -1119,13 +1133,13 @@ impl AppView {
         // on any, or on its caption, moves off; or the bottom branch and its commits.
         let overlay = match whole_stack {
             true => Overlay {
-                branches: (workspace.stack_of(&ref_name).into_iter())
-                    .flat_map(|(stack, _)| stack.branches.iter().map(|b| b.ref_name.clone()))
+                branches: (workspace.stack_of(Some(&ref_name)).into_iter())
+                    .flat_map(|(stack, _)| stack.branches.iter().filter_map(|b| b.ref_name.clone()))
                     .collect(),
                 ..Overlay::default()
             },
             false => Overlay {
-                commits: (workspace.find_branch(&ref_name).into_iter())
+                commits: (workspace.find_branch(Some(&ref_name)).into_iter())
                     .flat_map(|branch| branch.commits.iter().map(|c| c.key.clone()))
                     .collect(),
                 deleted_branches: HashSet::from([ref_name.clone()]),
@@ -1134,7 +1148,7 @@ impl AppView {
         };
         // The branch and those below it, where its ref is even when it has no commits of its
         // own.
-        let landing: Vec<&Branch> = (workspace.stack_of(&ref_name).into_iter())
+        let landing: Vec<&Branch> = (workspace.stack_of(Some(&ref_name)).into_iter())
             .flat_map(|(stack, at)| stack.branches.get(at..).unwrap_or_default())
             .collect();
         // What the question shows, to land only that: the newest commit among them.
@@ -1144,7 +1158,7 @@ impl AppView {
         let tip = tip.id;
         // Commits only the landing branches' remotes have, as a teammate's not pulled yet.
         let remote_only: usize = landing.iter().map(|branch| branch.incoming.len()).sum();
-        let (name, landed) = (short_ref(&ref_name).to_owned(), project.clone());
+        let (name, landed) = (short_ref(&ref_name).into_owned(), project.clone());
         let (what, whose, remotes) = match whole_stack {
             true => (
                 match landing.len() {
@@ -1170,7 +1184,7 @@ impl AppView {
             false => String::new(),
         };
         self.confirm_then(
-            Some(Selection::Branch(project.clone(), ref_name.clone())),
+            Some(Selection::Branch(project.clone(), Some(ref_name.clone()))),
             format!("Land {what} on {target}?"),
             &match local {
                 true => format!("{whose} commits go straight onto {target}.{left_behind}{update}"),
@@ -1186,7 +1200,10 @@ impl AppView {
                 project,
                 Label::new("Land", format!("Land {name}")),
                 overlay,
-                move |path, _| backend::land(path, &name, tip, whole_stack),
+                {
+                    let ref_name = ref_name.clone();
+                    move |path, _| backend::land(path, &ref_name, tip, whole_stack)
+                },
                 move |store, left: backend::Landed, cx| {
                     // Undo would bring the branch back here while the target keeps it.
                     store.drop_last_step();
