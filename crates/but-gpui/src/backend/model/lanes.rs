@@ -24,10 +24,6 @@ pub struct Lane {
 /// A lane from its branch `at` down, entered at `from` when what rests on it starts below that
 /// branch's tip.
 #[derive(Debug, Clone, Copy)]
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "only tests follow chains so far")
-)]
 pub struct Link<'a> {
     pub lane: &'a Lane,
     pub at: usize,
@@ -62,10 +58,6 @@ impl Lane {
     }
 }
 
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "only tests follow chains so far")
-)]
 impl<'a> Link<'a> {
     /// Its branches from `at` down, whole.
     pub fn branches(self) -> &'a [Branch] {
@@ -73,6 +65,10 @@ impl<'a> Link<'a> {
     }
 
     /// Its commits from `from` down, newest first.
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "only tests follow a chain's history so far")
+    )]
     pub fn commits(self) -> impl Iterator<Item = &'a Commit> {
         let from = self.from;
         (self.branches().iter())
@@ -136,10 +132,6 @@ impl Workspace {
 
     /// The lanes `lane` rests on, nearest first. A commit no lane holds ends it, and so does
     /// going down more lanes than there are.
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "only tests follow chains so far")
-    )]
     pub fn beneath<'a>(&'a self, lane: &'a Lane) -> impl Iterator<Item = Link<'a>> {
         let entered = move |rests_on: Option<CommitId>| {
             let id = rests_on?;
@@ -156,10 +148,6 @@ impl Workspace {
 
     /// The lane of the branch `ref_name` from it down, then the lanes beneath. Empty for an
     /// unnamed branch, or one no lane holds.
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "only tests follow chains so far")
-    )]
     pub fn chain(&self, ref_name: &str) -> impl Iterator<Item = Link<'_>> {
         let found = self.lane_of(ref_name).filter(|_| !ref_name.is_empty());
         found.into_iter().flat_map(|(lane, at)| {

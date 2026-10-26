@@ -324,8 +324,8 @@ impl Navigator {
                     };
                     items.push(action(label, &Push));
                 }
-                // What reaches past a linked worktree, like its remote or a pull request, is
-                // done in it.
+                // What reaches past a linked worktree, like pulling or a pull request, is done
+                // in it.
                 let linked = store.in_linked(target);
                 if workspace.can_pull(ref_name) && !linked {
                     items.extend([

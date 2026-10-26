@@ -966,10 +966,10 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let name = short_ref(&ref_name).to_owned();
-        // The branches below it in its stack with commits to send go along, which the
-        // snackbar says.
+        // The branches below it with commits to send go along, down the lanes it rests on,
+        // which the snackbar says.
         let below = self.workspace(project).map_or(0, |ws| {
-            (ws.pushed_with(&ref_name).iter().skip(1))
+            (ws.pushed_with(&ref_name).skip(1))
                 .filter(|b| !b.ref_name.is_empty() && b.can_push())
                 .count()
         });

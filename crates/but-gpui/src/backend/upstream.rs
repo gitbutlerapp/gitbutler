@@ -1094,20 +1094,38 @@ mod tests {
 
     #[test]
     fn a_worktree_branch_pushes_the_stack_branches_it_rests_on() {
+        use crate::backend::ops::tests::git;
+        static ASKPASS: std::sync::Once = std::sync::Once::new();
+        ASKPASS.call_once(but_askpass::disable);
         crate::backend::lane_tests::linked_workspace(|path| {
+            let remote = tempfile::tempdir().unwrap();
+            git(remote.path(), &["init", "-q", "--bare"]);
+            let url = remote.path().to_str().unwrap();
+            git(path, &["remote", "set-url", "origin", url]);
             let info = but_api::legacy::workspace::head_info(&super::open(path).unwrap()).unwrap();
             let branch = super::full_name("refs/heads/wt").unwrap();
-            let pushed: Vec<_> = pushed_with(&info, branch.as_ref())
-                .map(|segment| segment.ref_name().map(|name| name.shorten().to_string()))
+            let mut guarded: Vec<_> = pushed_with(&info, branch.as_ref())
+                .filter_map(|segment| Some(format!("{}\n", segment.ref_name()?)))
                 .collect();
+            guarded.sort();
+
+            super::push(path, "refs/heads/wt", false, None, false).unwrap();
+
+            let arrived = git(remote.path(), &["for-each-ref", "--format=%(refname)"]);
             assert_eq!(
-                pushed,
-                [
-                    Some("wt".into()),
-                    Some("middle".into()),
-                    Some("bottom".into())
-                ],
-                "wt rests on middle, so the push takes middle and bottom along, as the backend does"
+                guarded.concat(),
+                arrived,
+                "the guards cover what the push sends"
+            );
+            // wt rests on middle, so the push takes middle and bottom along.
+            snapbox::assert_data_eq!(
+                arrived,
+                snapbox::str![[r#"
+refs/heads/bottom
+refs/heads/middle
+refs/heads/wt
+
+"#]]
             );
         })
     }

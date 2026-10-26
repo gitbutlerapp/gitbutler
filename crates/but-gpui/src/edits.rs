@@ -218,20 +218,14 @@ impl AppView {
     /// something, which is also what the palette offers.
     pub fn edit_actions(&self, el: Div, cx: &mut Context<Self>) -> Div {
         // A linked worktree's branches and commits are edited here as yours are, apart from
-        // what reaches past the worktree, like pushing, landing or moving them out of it.
+        // what reaches past the worktree, like landing or moving them out of it.
         let linked = self.in_worktree_lane(cx);
         let store = self.store.read(cx);
         let el = el
             .on_action(cx.listener(Self::delete_selection))
             .on_action(cx.listener(Self::rename_selection))
             .on_action(cx.listener(Self::new_branch_on_top))
-            .on_action(cx.listener(Self::uncommit_selection))
-            .when(linked, |el| {
-                let store = self.store.clone();
-                el.on_action(move |_: &Push, _, cx| {
-                    store.update(cx, |store, cx| store.changes_elsewhere("Push it", cx));
-                })
-            });
+            .on_action(cx.listener(Self::uncommit_selection));
         let picked = store.picked.len() > 1;
         match &store.selection {
             Some(Selection::Commit(project, id)) => {
@@ -460,13 +454,20 @@ impl AppView {
                     n => (format!("the {n} commits"), "them"),
                 };
                 // A branch it takes along whose commits only its remote has can't be pulled
-                // first when others are stacked on it.
-                let stuck = (ws.pushed_with(&ref_name).iter())
+                // first when others are stacked on it, nor here when a linked worktree has it.
+                let stuck = (ws.pushed_with(&ref_name))
                     .find(|b| !b.incoming.is_empty() && !ws.can_pull(&b.ref_name));
+                let linked = (stuck.and_then(|b| ws.lane_of(&b.ref_name)))
+                    .is_some_and(|(lane, _)| lane.checkout.is_linked());
                 match stuck {
                     None => {
                         format!("It drops {what} only the remote has. Pull first to keep {them}.")
                     }
+                    Some(stuck) if linked => format!(
+                        "It drops {what} only the remote has. To keep {name}'s, pull it in its \
+                         worktree first.",
+                        name = stuck.name
+                    ),
                     Some(stuck) => format!(
                         "It drops {what} only the remote has. To keep {name}'s, unstack the \
                          branches on it and pull it first.",

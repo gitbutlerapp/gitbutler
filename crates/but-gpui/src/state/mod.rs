@@ -628,7 +628,7 @@ impl Store {
     }
 
     /// Whether the selection is on a linked worktree's branches, saying to do `what`, as
-    /// "Push it", there instead when it is.
+    /// "Name it", there instead when it is.
     pub fn changes_elsewhere(&mut self, what: &str, cx: &mut Context<Self>) -> bool {
         let selection = self.selection.as_ref();
         let Some(name) = selection
