@@ -93,15 +93,6 @@ impl Selection {
         }
     }
 
-    /// The page the detail pane shows for it: the target's new commits show on the project's
-    /// page, which lists them first.
-    pub fn page(self) -> Selection {
-        match self {
-            Selection::Section(project, Section::Upstream(None)) => Selection::Project(project),
-            selection => selection,
-        }
-    }
-
     /// Whether it's `branch`, or under it.
     pub fn on(&self, branch: &Branch) -> bool {
         matches!(self, Selection::Branch(_, ref_name) if branch.ref_name == *ref_name)

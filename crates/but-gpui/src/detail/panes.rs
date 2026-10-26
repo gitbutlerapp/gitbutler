@@ -119,8 +119,8 @@ impl Detail {
                     let label = match section {
                         Section::Inactive => "Inactive worktrees".to_owned(),
                         Section::Mesh => "Network worktrees".to_owned(),
-                        // After the branch, as its commits have it; the target's show on the
-                        // project's page.
+                        // After the branch, as its commits have it; the target's after the
+                        // project.
                         Section::Upstream(ref_name) => match ref_name
                             .as_ref()
                             .and_then(|r| Some((r, workspace?.find_branch(r)?)))
@@ -134,7 +134,10 @@ impl Detail {
                                 (branch.remote.as_ref())
                                     .map_or("On the remote".to_owned(), |r| format!("On {r}"))
                             }
-                            None => "New on the target".to_owned(),
+                            None => {
+                                let target = workspace.and_then(|ws| ws.target_name());
+                                format!("New on {}", target.unwrap_or("the target"))
+                            }
                         },
                     };
                     crumbs.push((label.into(), None));

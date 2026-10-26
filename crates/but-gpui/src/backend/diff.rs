@@ -85,6 +85,13 @@ pub enum DiffSource {
         tip: CommitId,
         ahead: Option<usize>,
     },
+    /// What a pull brings in from the target: from where what's checked out parts from it to
+    /// its tip `tip`. `behind` is how many commits it has that what's checked out doesn't: a
+    /// branch applied with some of them moves where they part without moving the tip.
+    Incoming {
+        tip: CommitId,
+        behind: usize,
+    },
     /// What the operation that snapshot `id` was taken for changed: up to the snapshot
     /// after it, `newer`, or to now.
     Snapshot {
@@ -158,6 +165,11 @@ pub fn load_diff(
             let base = target
                 .and_then(|target| repo.merge_base(tip.0, target).ok().flatten())
                 .map(|id| id.detach());
+            tree_changes(base, tip.0)?
+        }
+        DiffSource::Incoming { tip, .. } => {
+            let head = repo.head_id()?.detach();
+            let base = (repo.merge_base(head, tip.0).ok().flatten()).map(|id| id.detach());
             tree_changes(base, tip.0)?
         }
         DiffSource::Snapshot { id, newer } => {
