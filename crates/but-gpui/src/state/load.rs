@@ -813,7 +813,7 @@ impl Store {
 /// stack isn't renamed to the branch that was there before and took its commits, nor to no
 /// name, as its commits left unnamed.
 fn renamed(old: Option<&Workspace>, new: &Workspace) -> Vec<(String, String)> {
-    (old.iter().flat_map(|old| old.lanes().flatten()))
+    (old.iter().flat_map(|old| old.all_branches()))
         .filter(|branch| new.find_branch(&branch.ref_name).is_none())
         .filter_map(|branch| {
             let newest = follow_by_key(old, new, branch.commits.first()?.id)?;

@@ -1,7 +1,6 @@
 //! The navigator's tree of rows as it's built, before any is drawn: every card's
 //! projects, worktrees, stacks, branches and commits, and under the filter, what it finds.
 
-use std::sync::Arc;
 use std::time::Duration;
 
 use gpui::{App, SharedString};
@@ -185,7 +184,8 @@ impl Navigator {
             // the heading lines up with them, and they with the project.
             let headed = !workspace.worktrees.is_empty();
             let selection = store.selection.as_ref().filter(|s| s.project() == id);
-            let main_selected = selection.is_some_and(|s| within(s, workspace.branches()));
+            let main_selected =
+                selection.is_some_and(|s| within(s, workspace.branches_in(&Checkout::Main)));
             let main_open = self.worktree_open(id, None, main_selected);
             // Always listed, with nothing uncommitted too, so where to commit is always there.
             rows.push(Row::Item(Selection::Uncommitted(id.clone())));
@@ -208,8 +208,8 @@ impl Navigator {
                 rows.close();
                 rows.push(Row::WorktreeDivider);
                 let on_branches = |wt: &Worktree| {
-                    let lane = workspace.worktree_lane(&wt.name);
-                    selection.is_some_and(|s| within(s, lane.iter().flat_map(|l| &l.branches)))
+                    let checkout = Checkout::Linked(wt.name.clone());
+                    selection.is_some_and(|s| within(s, workspace.branches_in(&checkout)))
                 };
                 // The inactive ones wait under a heading of their own, folded unless opened or
                 // the selection's in one.
@@ -633,9 +633,9 @@ pub(super) fn in_inactive(store: &Store, id: &ProjectId, inactive: &[&Worktree])
         .is_some_and(|s| {
             let workspace = store.workspace(id);
             (inactive.iter()).any(|wt| {
-                let lane = workspace.and_then(|ws| ws.worktree_lane(&wt.name));
+                let checkout = Checkout::Linked(wt.name.clone());
                 matches!(s, Selection::Worktree(_, name) if *name == wt.name)
-                    || within(s, lane.iter().flat_map(|lane| &lane.branches))
+                    || within(s, workspace.iter().flat_map(|ws| ws.branches_in(&checkout)))
             })
         })
 }
@@ -655,18 +655,6 @@ pub(super) fn within<'a>(
         selection.on(branch)
             || matches!(selection, Selection::Stack(_, bottom) if *bottom == branch.ref_name)
     })
-}
-
-/// The branches in worktree `name`'s section, the main one's for `None`.
-pub(super) fn section_branches<'a>(
-    workspace: &'a Workspace,
-    name: Option<&Arc<str>>,
-) -> Vec<&'a Branch> {
-    match name {
-        None => workspace.branches().collect(),
-        Some(name) => (workspace.worktree_lane(name))
-            .map_or_else(Vec::new, |lane| lane.branches.iter().collect()),
-    }
 }
 
 /// Which of `terms`, lowercase, any of `texts` holds, as bits by the term's place.

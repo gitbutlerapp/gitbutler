@@ -160,24 +160,13 @@ impl Worktree {
 const INACTIVE_AFTER: std::time::Duration = std::time::Duration::from_secs(12 * 60 * 60);
 
 impl Workspace {
-    /// The workspace's own branches, its stacks', which commits and moves go to.
-    pub fn branches(&self) -> impl Iterator<Item = &Branch> {
-        self.lanes_in(&Checkout::Main)
-            .flat_map(|lane| &lane.branches)
-    }
-
-    /// Every branch shown: the workspace's, then its linked worktrees'.
-    fn shown_branches(&self) -> impl Iterator<Item = &Branch> {
-        self.lanes().flatten()
-    }
-
     /// Every commit shown, its linked worktrees' too.
     pub fn commits(&self) -> impl Iterator<Item = &Commit> {
-        self.shown_branches().flat_map(|branch| &branch.commits)
+        self.all_branches().flat_map(|branch| &branch.commits)
     }
 
     pub fn find_commit(&self, id: CommitId) -> Option<(&Branch, &Commit)> {
-        self.shown_branches().find_map(|branch| {
+        self.all_branches().find_map(|branch| {
             branch
                 .commits
                 .iter()
@@ -188,7 +177,7 @@ impl Workspace {
 
     /// The commits only shown branches' remotes have.
     pub fn remote_commits(&self) -> impl Iterator<Item = &RemoteCommit> {
-        self.shown_branches().flat_map(|branch| &branch.incoming)
+        self.all_branches().flat_map(|branch| &branch.incoming)
     }
 
     /// The target's name: its remote counterpart once there is one, else the branch picked,
@@ -210,7 +199,7 @@ impl Workspace {
     }
 
     pub fn find_branch(&self, ref_name: &str) -> Option<&Branch> {
-        self.shown_branches()
+        self.all_branches()
             .find(|branch| branch.ref_name == ref_name)
     }
 
@@ -237,7 +226,7 @@ impl Workspace {
         // Linked worktrees' too, as an agent committing in one clears its uncommitted files.
         // Any commit, not just the top one, which can be an old one cherry-picked.
         let committed =
-            (self.shown_branches()).flat_map(|branch| branch.commits.iter().map(|c| c.time));
+            (self.all_branches()).flat_map(|branch| branch.commits.iter().map(|c| c.time));
         let in_worktrees = self.worktrees.iter().flat_map(Worktree::activity);
         // Nothing dated ahead of the clock, as a machine whose clock is off dates its commits,
         // which would otherwise keep the project active until then.

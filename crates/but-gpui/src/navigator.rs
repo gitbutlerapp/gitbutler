@@ -45,8 +45,7 @@ mod rows;
 use drop::insertion_line;
 use order::{CardSlot, ProjectDrag};
 use rows::{
-    COMMIT_INDENT, GUIDE_AT, ROW_LEFT, Row, Rows, in_inactive, inactive_open, last_active,
-    section_branches, within,
+    COMMIT_INDENT, GUIDE_AT, ROW_LEFT, Row, Rows, in_inactive, inactive_open, last_active, within,
 };
 
 /// How far a worktree's rows sit in from its heading.
@@ -1660,7 +1659,7 @@ impl Navigator {
             ),
         };
         let uncommitted = store.uncommitted_shown(id, name.as_deref(), uncommitted);
-        let branches = section_branches(workspace, name.as_ref());
+        let branches: Vec<_> = workspace.branches_in(&name.clone().into()).collect();
         let unpushed_n = unpushed(branches.iter().copied());
         let unread = (branches.iter()).any(|branch| store.branch_unread(id, branch));
         // Open even when folded while the selection's in it.
@@ -1753,8 +1752,7 @@ impl Navigator {
         let inside = (store.selection.as_ref())
             .zip(store.workspace(project))
             .is_some_and(|(s, ws)| {
-                s.project() == project
-                    && within(s, section_branches(ws, key.1.as_ref()).into_iter())
+                s.project() == project && within(s, ws.branches_in(&key.1.clone().into()))
             });
         let heading = match &key.1 {
             Some(name) => Selection::Worktree(project.clone(), name.clone()),

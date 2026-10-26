@@ -14,8 +14,8 @@ use super::{Notice, ProjectId, Reload, Selection, Store, StoreEvent};
 use crate::backend::history::Undone;
 use crate::backend::upstream::{UpdateConflicts, UpdateOutcome};
 use crate::backend::{
-    self, Branch, Commit, CommitId, Destination, FileChange, HunkKey, Review, ReviewState,
-    Selected, SnapshotId, Workspace, short_ref,
+    self, Branch, Checkout, Commit, CommitId, Destination, FileChange, HunkKey, Review,
+    ReviewState, Selected, SnapshotId, Workspace, short_ref,
 };
 
 /// How long a mutation runs before the status bar says how long it's taking.
@@ -173,12 +173,9 @@ impl Overlay {
     /// meanwhile, aren't its own.
     pub(super) fn checkouts(&self, ws: &Workspace) -> Checkouts {
         let worktree_with = |has: &dyn Fn(&Branch) -> bool| {
-            (ws.worktrees.iter())
-                .find(|worktree| {
-                    (ws.worktree_lane(&worktree.name))
-                        .is_some_and(|lane| lane.branches.iter().any(has))
-                })
-                .map(|worktree| worktree.name.clone())
+            (ws.lanes.iter())
+                .find(|lane| lane.branches.iter().any(has))
+                .and_then(|lane| lane.checkout.linked().cloned())
         };
         let of_commit = |key: &str| worktree_with(&|b| b.commits.iter().any(|c| c.key == key));
         let landing = (self.new_commit.iter()).map(|(at, _)| match at {
@@ -1351,7 +1348,7 @@ impl Store {
         let tops = (self
             .workspace(project)
             .into_iter()
-            .flat_map(|ws| ws.branches()))
+            .flat_map(|ws| ws.branches_in(&Checkout::Main)))
         .map(|b| {
             let top = b
                 .commits
@@ -1414,7 +1411,7 @@ impl Store {
             .following(
                 &next.tops,
                 &ws.into_iter()
-                    .flat_map(|ws| ws.branches())
+                    .flat_map(|ws| ws.branches_in(&Checkout::Main))
                     .collect::<Vec<_>>(),
             );
             self.running.insert(

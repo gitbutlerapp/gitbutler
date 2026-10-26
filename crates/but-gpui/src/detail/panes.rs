@@ -617,7 +617,7 @@ impl Detail {
         let Some(ws) = store.workspace(project) else {
             return div().into_any_element();
         };
-        let picked: Vec<_> = (ws.lanes().flatten())
+        let picked: Vec<_> = (ws.all_branches())
             .flat_map(|branch| branch.commits.iter().map(move |commit| (branch, commit)))
             .filter(|(_, commit)| store.picked.contains(&commit.id))
             .collect();

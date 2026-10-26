@@ -603,16 +603,7 @@ fn names<'a>(workspaces: impl IntoIterator<Item = &'a Workspace>) -> HashSet<Str
                 .filter_map(|worktree| worktree.branch.as_deref()),
         );
         named.extend(workspace.archived_worktrees.iter().map(|(name, _)| &**name));
-        let branches = (workspace
-            .lanes_in(&Checkout::Main)
-            .flat_map(|stack| &stack.branches))
-        .chain(
-            worktrees
-                .clone()
-                .filter_map(|worktree| workspace.worktree_lane(&worktree.name))
-                .flat_map(|lane| &lane.branches),
-        );
-        for branch in branches {
+        for branch in workspace.all_branches() {
             named.push(&branch.name);
             named.extend(branch.remote.as_deref());
         }

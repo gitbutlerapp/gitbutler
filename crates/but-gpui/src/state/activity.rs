@@ -106,16 +106,10 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let now = crate::ui::now();
-        let main = (None, workspace.branches().collect::<Vec<_>>());
-        let linked = (workspace.worktrees.iter()).map(|w| {
-            let lane = workspace.worktree_lane(&w.name);
-            (
-                Some(w.name.clone()),
-                lane.iter().flat_map(|l| &l.branches).collect(),
-            )
-        });
+        let linked = (workspace.worktrees.iter()).map(|w| Some(w.name.clone()));
         let mut changed = false;
-        for (worktree, branches) in std::iter::once(main).chain(linked) {
+        for worktree in std::iter::once(None).chain(linked) {
+            let branches: Vec<&Branch> = workspace.branches_in(&worktree.clone().into()).collect();
             let checkout: (ProjectId, Option<Arc<str>>) = (id.clone(), worktree);
             let kept = self.activity.get(&checkout);
             let commits = remembered(kept, now, &branches);

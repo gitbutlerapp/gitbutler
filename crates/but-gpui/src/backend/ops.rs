@@ -2232,7 +2232,10 @@ pub(super) mod tests {
             // Written after the files were shown, so only reading them again finds it.
             std::fs::write(path.join("new"), "new\n").unwrap();
             let commits = load(Kept::from(&shown, false, &HashSet::new()));
-            let title = (commits.branches().find_map(|b| b.commits.first())).map(|c| &c.title);
+            let title = (commits
+                .branches_in(&Checkout::Main)
+                .find_map(|b| b.commits.first()))
+            .map(|c| &c.title);
             assert_eq!(
                 title.map(String::as_str),
                 Some("reworded"),
@@ -2804,7 +2807,7 @@ pub(super) mod tests {
             let top = head(path);
             let branch_at_top = |path: &Path| {
                 let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
-                (workspace.branches())
+                (workspace.branches_in(&Checkout::Main))
                     .find(|b| b.commits.first().map(|c| c.id) == Some(top))
                     .map(|b| b.ref_name.clone())
             };

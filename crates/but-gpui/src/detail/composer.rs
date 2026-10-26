@@ -813,7 +813,7 @@ impl Detail {
         }
         // One of its own branches: a linked worktree's are committed to there.
         if let Some(target) = &self.commit_target
-            && (workspace.branches())
+            && (workspace.branches_in(&Checkout::Main))
                 .any(|branch| branch.ref_name == *target && takes_commits(store, project, branch))
         {
             return Some(target.clone());
@@ -1410,7 +1410,7 @@ impl Detail {
         };
         let store = self.store.read(cx);
         let place = store.place(&Selection::Uncommitted(project.clone()));
-        let mut choices: Vec<Choice> = (workspace.branches())
+        let mut choices: Vec<Choice> = (workspace.branches_in(&Checkout::Main))
             .filter(|branch| takes_commits(store, &project, branch))
             .map(|branch| {
                 let (detail, ref_name) = (detail.clone(), branch.ref_name.clone());

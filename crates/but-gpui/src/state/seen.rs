@@ -210,11 +210,8 @@ impl Store {
         // it stays seen when a rebase by Git changes its key, or a reword its message.
         // Only those in the checkouts it made commits in: an agent's in another are news.
         let before = self.rebaseline.get(id).map(|(before, checkouts)| {
-            let there: HashSet<&str> = (workspace.worktrees.iter())
-                .filter(|worktree| checkouts.contains(&Some(worktree.name.clone())))
-                .filter_map(|worktree| workspace.worktree_lane(&worktree.name))
-                .flat_map(|lane| &lane.branches)
-                .chain(workspace.branches().filter(|_| checkouts.contains(&None)))
+            let there: HashSet<&str> = (checkouts.iter())
+                .flat_map(|checkout| workspace.branches_in(&checkout.clone().into()))
                 .flat_map(|branch| &branch.commits)
                 .map(|commit| commit.key.as_str())
                 .collect();

@@ -18,7 +18,7 @@ use super::panes::{
 };
 use super::slots::SlotPick;
 use crate::backend::{
-    self, Branch, Commit, CommitId, CommitState, FileChange, ReviewState, Workspace,
+    self, Branch, Checkout, Commit, CommitId, CommitState, FileChange, ReviewState, Workspace,
 };
 use crate::state::{Activity, ProjectId, QUARTER, SeenCommit, Selection, Store};
 use crate::theme::Theme;
@@ -70,17 +70,8 @@ pub(super) struct Now {
     commits_scroll: ScrollHandle,
 }
 
-/// A checkout's branches, as listed: linked worktree `worktree`'s, or the main checkout's.
-fn checkout_branches<'a>(ws: &'a Workspace, worktree: Option<&str>) -> Vec<&'a Branch> {
-    match worktree {
-        Some(name) => (ws.worktree_lane(name)).map_or(Vec::new(), |l| l.branches.iter().collect()),
-        None => ws.branches().collect(),
-    }
-}
-
-/// The commits of a checkout's branches, as [`checkout_branches`] lists them.
-fn checkout_commits<'a>(ws: &'a Workspace, worktree: Option<&str>) -> Vec<&'a Commit> {
-    (checkout_branches(ws, worktree).into_iter())
+fn checkout_commits<'a>(ws: &'a Workspace, checkout: &Checkout) -> Vec<&'a Commit> {
+    (ws.branches_in(checkout))
         .flat_map(|branch| &branch.commits)
         .collect()
 }
@@ -123,15 +114,14 @@ impl<'a> Made<'a> {
     }
 }
 
-/// What the overview of the checkout of `ws`, linked worktree `worktree` or the main one,
-/// counts: its branches' commits, and those its `activity` remembers of branches gone since,
-/// newest first.
+/// What the overview of `checkout` in `ws` counts: its branches' commits, and those its
+/// `activity` remembers of branches gone since, newest first.
 fn made<'a>(
     ws: &'a Workspace,
-    worktree: Option<&str>,
+    checkout: &Checkout,
     activity: Option<&'a Activity>,
 ) -> Vec<Made<'a>> {
-    let branches = checkout_branches(ws, worktree);
+    let branches: Vec<_> = ws.branches_in(checkout).collect();
     let gone = activity.map_or(Vec::new(), |a| a.gone(&branches));
     let mut made: Vec<Made> = (branches.iter())
         .flat_map(|&branch| branch.commits.iter().map(move |c| Made::Here(branch, c)))
@@ -207,7 +197,7 @@ impl Detail {
         // while another page was picked.
         if opened {
             self.now.known = (self.store.read(cx).workspace(&checkout.0)).map(|ws| {
-                (checkout_commits(ws, checkout.1.as_deref()).iter())
+                (checkout_commits(ws, &checkout.1.clone().into()).iter())
                     .map(|commit| commit.id)
                     .collect()
             });
@@ -265,7 +255,7 @@ impl Detail {
         let Some(ws) = store.workspace(project) else {
             return;
         };
-        let commits = checkout_commits(ws, worktree.as_deref());
+        let commits = checkout_commits(ws, &worktree.clone().into());
         let ids = commits.iter().map(|commit| commit.id).collect();
         let Some(known) = self.now.known.replace(ids) else {
             return;
@@ -329,10 +319,11 @@ impl Detail {
                 "Main worktree".to_owned(),
                 match ws {
                     // Checked out on its own, as in Git, the branch is named.
-                    Some(ws) if !ws.managed => (ws.branches().next().map(|b| b.name.as_str()))
+                    Some(ws) if !ws.managed => (ws.branches_in(&Checkout::Main).next())
+                        .map(|b| b.name.as_str())
                         .or(ws.target_branch.as_deref().map(backend::short_ref))
                         .map_or("No branch checked out".to_owned(), str::to_owned),
-                    ws => match ws.map_or(0, |ws| ws.branches().count()) {
+                    ws => match ws.map_or(0, |ws| ws.branches_in(&Checkout::Main).count()) {
                         1 => "1 branch applied".to_owned(),
                         n => format!("{n} branches applied"),
                     },
@@ -388,7 +379,7 @@ impl Detail {
         let start = window_start(now);
         let inside = |at: i64| at >= start && span.keeps(at.div_euclid(QUARTER));
         let activity = store.activity.get(&(project.clone(), worktree.cloned()));
-        let all = made(ws, name, activity);
+        let all = made(ws, &worktree.cloned().into(), activity);
         let scoped: Vec<Made> = (all.iter().copied())
             .filter(|commit| inside(commit.time()))
             .collect();
@@ -645,7 +636,7 @@ impl Detail {
         let since = window_start(now);
         let known =
             |id: &CommitId| self.now.paths.contains_key(id) || self.now.reading.contains(id);
-        let made = made(ws, checkout.1.as_deref(), store.activity.get(checkout));
+        let made = made(ws, &checkout.1.clone().into(), store.activity.get(checkout));
         let unread: Vec<CommitId> = (made.into_iter())
             .filter(|commit| commit.time() >= since && !known(&commit.id()))
             .map(Made::id)

@@ -13,7 +13,8 @@ use parking_lot::Mutex;
 use crate::backend::upstream::TargetCommit;
 use crate::backend::watch::Watcher;
 use crate::backend::{
-    self, Branch, Commit, CommitId, Project, Selected, SnapshotId, Workspace, Worktree, short_ref,
+    self, Branch, Checkout, Commit, CommitId, Project, Selected, SnapshotId, Workspace, Worktree,
+    short_ref,
 };
 
 mod account;
@@ -639,7 +640,10 @@ impl Store {
             _ => selection,
         };
         let workspace = self.workspace(selection.project())?;
-        if workspace.branches().any(|branch| selection.on(branch)) {
+        if workspace
+            .branches_in(&Checkout::Main)
+            .any(|branch| selection.on(branch))
+        {
             return None;
         }
         (workspace.worktrees.iter()).find(|wt| {

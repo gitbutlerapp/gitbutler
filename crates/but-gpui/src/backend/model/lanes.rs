@@ -18,6 +18,21 @@ pub struct Lane {
     pub checkout: Checkout,
 }
 
+impl Checkout {
+    pub fn linked(&self) -> Option<&Arc<str>> {
+        match self {
+            Checkout::Main => None,
+            Checkout::Linked(name) => Some(name),
+        }
+    }
+}
+
+impl From<Option<Arc<str>>> for Checkout {
+    fn from(linked: Option<Arc<str>>) -> Self {
+        linked.map_or(Checkout::Main, Checkout::Linked)
+    }
+}
+
 impl Lane {
     /// The last commit of its bottom named branch, which a branch moves below to go under the
     /// lane's branches. `None` when that branch has no commits of its own.
@@ -80,11 +95,22 @@ impl Workspace {
     }
 
     /// The lanes worked on in `checkout`.
-    pub fn lanes_in<'a>(
-        &'a self,
-        checkout: &'a Checkout,
-    ) -> impl Iterator<Item = &'a Lane> + Clone {
-        (self.lanes.iter()).filter(move |lane| lane.checkout == *checkout)
+    pub fn lanes_in(&self, checkout: &Checkout) -> impl Iterator<Item = &Lane> + Clone + use<'_> {
+        let checkout = checkout.clone();
+        (self.lanes.iter()).filter(move |lane| lane.checkout == checkout)
+    }
+
+    /// The branches of the lanes worked on in `checkout`, top first.
+    pub fn branches_in(
+        &self,
+        checkout: &Checkout,
+    ) -> impl Iterator<Item = &Branch> + Clone + use<'_> {
+        self.lanes_in(checkout).flat_map(|lane| &lane.branches)
+    }
+
+    /// Every branch shown: the stacks', then the linked worktrees'.
+    pub fn all_branches(&self) -> impl Iterator<Item = &Branch> {
+        self.lanes.iter().flat_map(|lane| &lane.branches)
     }
 
     /// The stack holding the branch `ref_name`, and the branch's place in it from the top.
