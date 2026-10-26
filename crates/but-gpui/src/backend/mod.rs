@@ -821,7 +821,9 @@ pub fn commit_signer(path: &Path, id: CommitId) -> Result<Option<&'static str>> 
 /// A commit message's subject and body as Git and GitHub split them: the subject is its first
 /// paragraph, its lines joined, so a title that runs on to a second line without a blank one
 /// is all of it; the body is the rest, as written, as a pull request description takes it.
+/// Without the codes a terminal colours text with, as test output pasted into one brings.
 pub fn subject_and_body(message: &str) -> (String, String) {
+    let message = printable(message);
     let blank = |line: &&str| line.trim().is_empty();
     let mut lines = message.lines().skip_while(blank);
     let subject: Vec<&str> = (lines.by_ref().take_while(|line| !blank(line)))
@@ -829,6 +831,26 @@ pub fn subject_and_body(message: &str) -> (String, String) {
         .collect();
     let body: Vec<&str> = lines.skip_while(blank).collect();
     (subject.join(" "), body.join("\n").trim_end().to_owned())
+}
+
+/// `text` without a terminal's escape sequences, `ESC [`, its parameters and its final letter,
+/// nor other control characters but line breaks and tabs.
+fn printable(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut chars = text.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '\u{1b}' if chars.as_str().starts_with('[') => {
+                chars.next();
+                // Parameters sort below `@`, the final letter from it.
+                chars.by_ref().find(|c| ('@'..='~').contains(c));
+            }
+            '\n' | '\t' => out.push(c),
+            c if c.is_control() => {}
+            c => out.push(c),
+        }
+    }
+    out
 }
 
 /// A commit message or comment's subject, as [`subject_and_body`] has it.
@@ -1225,6 +1247,11 @@ mod message_tests {
             subject_and_body("Add a flag\n\n    cargo run -- --flag\n- a\n  - nested\n\n").1,
             "    cargo run -- --flag\n- a\n  - nested",
             "the body keeps its indentation, as Markdown's code blocks and nested lists need it"
+        );
+        assert_eq!(
+            subject_and_body("\u{1b}[31;1mFAIL\u{1b}[0m fix flaky test\r\n\r\nSee \u{7}run.\n").0,
+            "FAIL fix flaky test",
+            "a terminal's colour codes and control characters don't show"
         );
     }
 }
