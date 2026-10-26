@@ -1,9 +1,11 @@
+/* The outline glyph draws in text/2, as ⚛️ Core draws the repo glyph in a row, a header and the picker; the colour
+   reaches only the outline, since an emoji ignores it and a coloured book keeps its own hues. */
 .avatar {
 	display: flex;
 	flex-shrink: 0;
 	align-items: center;
 	justify-content: center;
-	color: var(--text-1);
+	color: var(--text-2);
 }
 
 .title {
