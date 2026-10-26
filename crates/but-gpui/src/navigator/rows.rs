@@ -296,9 +296,10 @@ impl Navigator {
             (listed.iter().take(shown))
                 .map(|(entry, _)| Row::Item(Selection::Project(entry.id.clone()))),
         );
+        // Show fewer goes by the fold, not the selection, so selecting the last row keeps it.
         if listed.len() > shown {
             rows.push(Row::MoreProjects(listed.len() - shown));
-        } else if self.projects_unfolded && listed.len() > fold_at {
+        } else if self.projects_unfolded && listed.len() > FOLD_AFTER {
             rows.push(Row::FewerProjects);
         }
         if listed.is_empty() && !others.is_empty() {
@@ -516,13 +517,14 @@ impl Navigator {
                         &|at| matches!(at, NewAt::Below(key) if *key == commit.key),
                     ))
             }));
+            // Show fewer goes by the fold, not the selection, so selecting the last row keeps it.
             if count > shown {
                 rows.push(Row::More(
                     id.clone(),
                     branch.ref_name.clone(),
                     count - shown,
                 ));
-            } else if unfolded && count > fold_at {
+            } else if unfolded && count > FOLD_AFTER {
                 rows.push(Row::Fewer(id.clone(), branch.ref_name.clone()));
             }
             rows.close();
