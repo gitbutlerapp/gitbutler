@@ -6,7 +6,7 @@
 
 use gpui::{
     AnyElement, App, ClickEvent, ClipboardItem, Context, Div, Hsla, MouseButton, Role,
-    SharedString, Stateful, Toggled, Window, div, prelude::*,
+    ScrollHandle, SharedString, Stateful, Toggled, Window, div, prelude::*,
 };
 
 use super::Detail;
@@ -256,8 +256,8 @@ impl Detail {
     }
 
     /// The pull request tab, as Lite lays it out: its title, who opened it and its
-    /// description, beside a panel of where it stands. Narrower than [`TWO_COLUMNS`], the
-    /// panel goes between the title and the description.
+    /// description, beside a panel of where it stands, each scrolling on its own. Narrower
+    /// than [`TWO_COLUMNS`], the panel goes between the title and the description.
     pub(super) fn render_review_tab(
         &self,
         project: &ProjectId,
@@ -334,57 +334,65 @@ impl Detail {
             .children(byline(review, theme));
         let side = v_flex()
             .gap(dp(12.))
-            .children(self.checklist(project, review, state, theme, cx))
-            .child(self.side_sections(project, review, state, forge, theme, cx))
-            .children(fresh.map(|fresh| div().ml(dp(8.)).child(fresh)));
-        // Narrow, the panel goes between the title and the description, so the page still
-        // opens on what the pull request is.
-        let columns = match self.review_width.get() >= TWO_COLUMNS {
+            .children(self.checklist(project, review, state, fresh, theme, cx))
+            .child(self.side_sections(project, review, state, forge, theme, cx));
+        // Side by side, each scrolls on its own, so neither a long description nor a long
+        // list of checks takes the other out of sight. Narrow, the panel goes between the
+        // title and the description, so the page still opens on what the pull request is.
+        let page = match self.review_width.get() >= TWO_COLUMNS {
             true => h_flex()
-                .items_start()
-                .gap(dp(24.))
-                .child((head.flex_grow(1.).min_w_0()).child(description(review, theme)))
-                .child(side.w(dp(PANEL_WIDTH)).flex_none()),
-            false => (v_flex().gap(dp(20.)))
-                .child(head)
-                .child(side)
-                .child(description(review, theme)),
+                .size_full()
+                .max_w(dp(1000. + 2. * 24.))
+                .child(
+                    scrolling(
+                        "review",
+                        "review-scrollbar",
+                        (head.pl(dp(24.)).pr(dp(12.))).child(description(review, theme)),
+                        &self.review_scroll,
+                        theme,
+                    )
+                    .min_w_0(),
+                )
+                .child(
+                    scrolling(
+                        "review-side",
+                        "review-side-scrollbar",
+                        side.pl(dp(12.)).pr(dp(24.)),
+                        &self.review_side_scroll,
+                        theme,
+                    )
+                    .flex_none()
+                    .w(dp(12. + PANEL_WIDTH + 24.)),
+                ),
+            false => scrolling(
+                "review",
+                "review-scrollbar",
+                (v_flex().gap(dp(20.)).px(dp(24.)))
+                    .child(head)
+                    .child(side)
+                    .child(description(review, theme)),
+                &self.review_scroll,
+                theme,
+            ),
         };
-        let page = div()
-            .id("review")
-            .size_full()
-            .overflow_y_scroll()
-            .track_scroll(&self.review_scroll)
-            .child(
-                div()
-                    .w_full()
-                    .max_w(dp(1000. + 2. * 24.))
-                    .px(dp(24.))
-                    .pt(dp(16.))
-                    .pb(dp(24.))
-                    .child(columns),
-            );
         let width = measured(&self.review_width, &self.app, |bounds| {
             bounds.size.width.into()
         });
-        scrolled(
-            page,
-            "review-scrollbar",
-            Scroll::Div(self.review_scroll.clone()),
-            theme,
-        )
-        .w_full()
-        .child(width)
-        .into_any_element()
+        (div().relative().flex_1().min_h_0().w_full())
+            .child(page)
+            .child(width)
+            .into_any_element()
     }
 
     /// What stands between the pull request and merging, as Lite's checklist: where an open
-    /// one stands, over a row for each thing the forge has said about it.
+    /// one stands, over a row for each thing the forge has said about it. Its heading says
+    /// how fresh that is with `fresh`, the button to ask again.
     fn checklist(
         &self,
         project: &ProjectId,
         review: &Review,
         state: ReviewState,
+        fresh: Option<impl IntoElement>,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<Div> {
@@ -420,7 +428,7 @@ impl Detail {
             }
             _ => {}
         }
-        if headline.is_none() && rows.is_empty() {
+        if headline.is_none() && rows.is_empty() && fresh.is_none() {
             return None;
         }
         let clear = rows
@@ -439,15 +447,19 @@ impl Detail {
                 .p(dp(14.))
                 .gap(dp(8.))
                 .child(
+                    // As tall as its words, with the button overhanging, so the rows below
+                    // stay put as it comes and goes.
                     h_flex()
-                        .justify_between()
+                        .h(dp(14.))
+                        .gap(dp(8.))
                         .child(mono("CHECKLIST".into(), theme.text_2))
                         .when(!rows.is_empty(), |el| {
                             el.child(mono(
                                 format!("{clear} of {} checks", rows.len()),
                                 theme.text_3,
                             ))
-                        }),
+                        })
+                        .children(fresh.map(|fresh| div().ml_auto().mr(dp(-6.)).child(fresh))),
                 )
                 .children(headline.map(|(title, color, note)| {
                     v_flex()
@@ -835,6 +847,23 @@ fn description(review: &Review, theme: &Theme) -> Div {
             &body,
             theme,
         ))
+}
+
+/// `content` as a column of the tab that scrolls on its own, under the scrollbar `bar`.
+fn scrolling(
+    id: &'static str,
+    bar: &'static str,
+    content: Div,
+    scroll: &ScrollHandle,
+    theme: &Theme,
+) -> Div {
+    let column = div()
+        .id(id)
+        .size_full()
+        .overflow_y_scroll()
+        .track_scroll(scroll)
+        .child(content.pt(dp(16.)).pb(dp(24.)));
+    scrolled(column, bar, Scroll::Div(scroll.clone()), theme).h_full()
 }
 
 /// A card of the side panel, as Lite's.
