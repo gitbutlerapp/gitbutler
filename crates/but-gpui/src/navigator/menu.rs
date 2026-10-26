@@ -324,8 +324,7 @@ impl Navigator {
                     };
                     items.push(action(label, &Push));
                 }
-                // What reaches past a linked worktree, like pulling or a pull request, is done
-                // in it.
+                // What reaches past a linked worktree, like pulling, is done in it.
                 let linked = store.in_linked(target);
                 if workspace.can_pull(ref_name) && !linked {
                     items.extend([
@@ -348,7 +347,7 @@ impl Navigator {
                         }),
                     ]);
                 }
-                if crate::pr::on_forge(store, target) && !ref_name.is_empty() && !linked {
+                if crate::pr::on_forge(store, target) && !ref_name.is_empty() {
                     use crate::backend::ReviewState as S;
                     let project = target.project();
                     match (branch.review.as_ref()).map(|r| (r, store.review_state(project, r))) {
