@@ -1537,11 +1537,12 @@ impl Detail {
 
     /// Step `delta` files through the ones shown, letting picks go.
     fn move_file(&mut self, delta: isize, cx: &mut Context<Self>) {
-        // From a checkout's overview, the first step opens the file the list starts with.
+        // From a checkout's overview, the first step opens the file the list starts with, and
+        // G the one it ends with.
         if self.showing_now(cx)
-            && let Some(&first) = self.listed_files(cx).first()
+            && let Some(&file) = panes::step_from(&self.listed_files(cx), None, delta)
         {
-            return self.scroll_to_file(first, cx);
+            return self.scroll_to_file(file, cx);
         }
         if let Some(file) = self.file_step(delta, cx) {
             self.file_picks.clear();
