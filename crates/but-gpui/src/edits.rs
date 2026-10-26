@@ -518,15 +518,12 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         match self.selection(cx) {
-            // A linked worktree's unnamed branch is named there, where its HEAD is, and one
-            // with no commits has nothing to name.
+            // An unnamed branch with no commits has nothing to name.
             Some(Selection::Branch(project, ref_name))
                 if ref_name.is_empty()
-                    && ((self.store)
-                        .update(cx, |store, cx| store.changes_elsewhere("Name it", cx))
-                        || (self.store.read(cx).workspace(&project))
-                            .and_then(|ws| ws.find_branch(""))
-                            .is_none_or(|b| b.commits.is_empty())) => {}
+                    && (self.store.read(cx).workspace(&project))
+                        .and_then(|ws| ws.find_branch(""))
+                        .is_none_or(|b| b.commits.is_empty()) => {}
             Some(Selection::Branch(project, ref_name)) => {
                 let store = self.store.read(cx);
                 let branch = Selection::Branch(project.clone(), ref_name.clone());

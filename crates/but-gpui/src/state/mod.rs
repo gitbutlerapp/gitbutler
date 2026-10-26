@@ -631,23 +631,6 @@ impl Store {
         }
     }
 
-    /// Whether the selection is on a linked worktree's branches, saying to do `what`, as
-    /// "Name it", there instead when it is.
-    pub fn changes_elsewhere(&mut self, what: &str, cx: &mut Context<Self>) -> bool {
-        let selection = self.selection.as_ref();
-        let Some(name) = selection
-            .and_then(|s| self.worktree_for(s))
-            .map(|wt| wt.name.clone())
-        else {
-            return false;
-        };
-        self.snack(
-            format!("{what} in worktree {name}, where it's checked out"),
-            cx,
-        );
-        true
-    }
-
     /// The branch `selection` is, or the one holding the commit it is.
     pub fn branch_for(&self, selection: &Selection) -> Option<&Branch> {
         let workspace = self.workspace(selection.project())?;
