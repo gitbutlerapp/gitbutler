@@ -80,11 +80,13 @@
       "shift-r": "remote::UpdateFromTarget",
       "secondary-shift-t": "open_in::OpenInTerminal",
       // Between the navigator, the file list and the diff, as Mail and Xcode move between
-      // their panes. ← and → go to the pane on that side, as from a commit into its
-      // files and back, and stops at the window's edge.
+      // their panes. ← and →, or h and l, go to the pane on that side, as from a commit into
+      // its files and back, and stop at the window's edge.
       "tab": "app::FocusNextPane",
       "shift-tab": "app::FocusPreviousPane",
+      "l": "app::FocusPaneRight",
       "right": "app::FocusPaneRight",
+      "h": "app::FocusPaneLeft",
       "left": "app::FocusPaneLeft"
     }
   },
@@ -122,9 +124,9 @@
       "down": "navigator::SelectNext",
       "j": "navigator::SelectNext",
       // The arrows come last, so menus show them.
-      "l": "navigator::Expand",
+      "shift-l": "navigator::Expand",
       "shift-right": "navigator::Expand",
-      "h": "navigator::Collapse",
+      "shift-h": "navigator::Collapse",
       "shift-left": "navigator::Collapse",
       "enter": "navigator::Confirm",
       // Reading the diff beside it, as a mail client's message list scrolls the message. At
@@ -229,9 +231,9 @@
       "secondary-alt-z": "diff::DiscardHunk",
       "secondary-backspace": "diff::DiscardFile",
       // As the navigator folds, the arrows last so menus show them.
-      "h": "diff::FoldFile",
+      "shift-h": "diff::FoldFile",
       "shift-left": "diff::FoldFile",
-      "l": "diff::UnfoldFile",
+      "shift-l": "diff::UnfoldFile",
       "shift-right": "diff::UnfoldFile",
       "pagedown": "diff::PageDown",
       "space": "diff::PageDown",
@@ -281,9 +283,9 @@
       "home": "navigator::SelectFirst",
       "shift-g": "navigator::SelectLast",
       "end": "navigator::SelectLast",
-      "l": "navigator::Expand",
+      "shift-l": "navigator::Expand",
       "shift-right": "navigator::Expand",
-      "h": "navigator::Collapse",
+      "shift-h": "navigator::Collapse",
       "shift-left": "navigator::Collapse",
       // Applies the branch on Branches, restores to before the operation on Operations
       // history, after asking.

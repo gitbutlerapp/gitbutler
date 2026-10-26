@@ -118,7 +118,7 @@ The Help menu's What's New (the palette finds it by "release notes" too) opens G
 | ⌘F, ⌘G, ⇧⌘G | find in the diff, then, from the diff or the find bar, the next or previous match (n and N in the diff too) |
 | ⌥Z, s | wrap long lines in diffs or stop, show them side by side or one above the other |
 | Tab, ⇧Tab | the next or previous of the navigator, the file list and the diff (F6 and ⇧F6 too on Windows and Linux) |
-| ←, → | the pane to the left or right of the navigator, the file list and the diff: from a commit into its files and back |
+| ←, →, h, l | the pane to the left or right of the navigator, the file list and the diff: from a commit into its files and back |
 | ⌃Tab | a branch's other tab, Changes or its pull request |
 | ⇧⌘H | the selected project's Operations history |
 | ⌘W | close the window, which quits, asking first as ⌘Q does (macOS) |
@@ -135,7 +135,7 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 | ⇧↑ ⇧↓ | select a run of commits in one stack |
 | ⌥↑ ⌥↓, { } | previous or next branch or project |
 | Home End, gg ⇧G | first or last row |
-| ⇧← ⇧→ or h l | collapse or expand: a project, a branch's commits or a section; ⇧← on a commit goes to its branch, on a remote's commit or a folded section's row to the section's heading |
+| ⇧← ⇧→ or ⇧H ⇧L | collapse or expand: a project, a branch's commits or a section; ⇧← on a commit goes to its branch, on a remote's commit or a folded section's row to the section's heading |
 | r or F2, b, ⇧P | rename, new branch on top, push |
 | o | open the pull request |
 | u | mark the selected commit, or the picks it's among, read, or unread when they're all read; on a branch or project, mark all its commits read |
@@ -145,7 +145,7 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 
 | On Branches and Operations history | |
 |---|---|
-| ↑ ↓ or j k, ⇧← ⇧→ or h l | move through the list, fold or unfold a stack |
+| ↑ ↓ or j k, ⇧← ⇧→ or ⇧H ⇧L | move through the list, fold or unfold a stack |
 | Home End, gg ⇧G | first or last row |
 | ↩ | apply the selected branch; on Operations history, restore to before the selected operation, after asking |
 
@@ -153,7 +153,7 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 |---|---|
 | ↑ ↓ or j k | previous or next file, which the diff scrolls to |
 | Home End, gg ⇧G | first or last file |
-| ⇧← ⇧→ or h l | fold or unfold the file in the diff |
+| ⇧← ⇧→ or ⇧H ⇧L | fold or unfold the file in the diff |
 | ⇧↑ ⇧↓, ⌘A | select a run of files, select them all |
 | ]c [c | into the diff, at the next or previous hunk |
 
@@ -164,7 +164,7 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 | ⌃D ⌃U | half a page down or up |
 | j k | next or previous file |
 | Home End, gg ⇧G | first or last file |
-| ⇧← ⇧→ or h l | fold or unfold the file |
+| ⇧← ⇧→ or ⇧H ⇧L | fold or unfold the file |
 | e | open the file in your editor, at the hunk |
 | ⌥⌘Z, ⌘⌫ | discard the hunk, discard the file (Delete too on Windows and Linux) (either takes the picked lines when there are any); on the diff of a commit in an applied branch they point to Discard from commit in the file's menu |
 | 1, 2, 3 | on a conflicted commit: keep the new base's lines, the commit's, or both |
