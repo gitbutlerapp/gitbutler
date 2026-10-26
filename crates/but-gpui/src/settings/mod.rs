@@ -870,15 +870,17 @@ impl SettingsView {
             false => theme.text_2,
         }))
         .child(page.title())
-        .on_click(cx.listener(move |this, _, _, cx| {
-            if page == Page::Ai {
-                this.retry_ai();
-                this.ensure_ai(cx);
-            }
-            this.page = page;
-            this.search.update(cx, |search, cx| search.set_text("", cx));
-            cx.notify();
-        }))
+        .on_click(cx.listener(move |this, _, _, cx| this.show_page(page, cx)))
+    }
+
+    fn show_page(&mut self, page: Page, cx: &mut Context<Self>) {
+        if page == Page::Ai {
+            self.retry_ai();
+            self.ensure_ai(cx);
+        }
+        self.page = page;
+        self.search.update(cx, |search, cx| search.set_text("", cx));
+        cx.notify();
     }
 }
 
