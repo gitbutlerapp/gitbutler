@@ -223,9 +223,9 @@ impl RowStyle<'_> {
             .child(relative_time(at))
     }
 
-    /// A commit's row, `indent` in: `glyph`, its title, a dot while it's unread, and how old
-    /// it is when that's known. The title is quieter once read, so branch names and unread
-    /// commits stand out, but in full on a solid selection.
+    /// A commit's row, `indent` in: `glyph`, its title, and a dot while it's unread. The title
+    /// is quieter once read, so branch names and unread commits stand out, but in full on a
+    /// solid selection.
     fn commit_line(
         &self,
         id: String,
@@ -233,7 +233,6 @@ impl RowStyle<'_> {
         glyph: impl IntoElement,
         title: SharedString,
         unread: bool,
-        at: Option<i64>,
     ) -> Stateful<Div> {
         let quiet = title.is_empty() || !(unread || self.solid);
         self.row(id, indent)
@@ -254,7 +253,6 @@ impl RowStyle<'_> {
                     .child(commit_title(&title)),
             )
             .when(unread, |el| el.child(dot(self.meta(self.theme.pop))))
-            .children(at.map(|at| self.age(at)))
     }
 }
 
@@ -795,7 +793,7 @@ impl Navigator {
 
     /// Step out the way a tree does: a commit to its branch, an open branch, stack or worktree
     /// closed, a branch up to its stack or worktree, and anything else up to its project.
-    /// While the filter lists what it finds, nothing folds, so ← only goes up.
+    /// While the filter lists what it finds, nothing folds, so ⇧← only goes up.
     fn collapse(&mut self, _: &Collapse, window: &mut Window, cx: &mut Context<Self>) {
         let filtering = self.filtering(cx);
         let store = self.store.read(cx);
@@ -1983,7 +1981,7 @@ impl Navigator {
         // branch without any has a dot there, keeping it in line with those that fold.
         let toggle = move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
             this.set_open(ClickOpened::Here(key.clone()), !open, cx);
-            // Folding it over its selected commit takes the selection up to it, as ← does.
+            // Folding it over its selected commit takes the selection up to it, as ⇧← does.
             if open && holds_selected {
                 let (project, ref_name) = key.clone();
                 this.select(Selection::Branch(project, ref_name), window, cx)
@@ -2016,21 +2014,6 @@ impl Navigator {
                         .flex_1()
                         .tooltip(Tooltip::text(tip))
                         .into_any_element(),
-                })
-                // As ui-react's empty MetaCount, the quietest meta, ahead of any counts.
-                .when(branch.commits.is_empty(), |el| {
-                    let quiet = style.quiet();
-                    el.child(
-                        h_flex()
-                            .id(ElementId::Name(format!("empty-{id}-{ref_name}").into()))
-                            .flex_none()
-                            .gap(dp(3.))
-                            .text_size(dp(11.))
-                            .text_color(quiet)
-                            .child(small_icon(Icon::Commit).text_color(quiet).opacity(0.7))
-                            .child("empty")
-                            .tooltip(Tooltip::text("No commits yet")),
-                    )
                 })
                 // CI only while it runs or after it failed: passing is the usual state.
                 .when_some(
@@ -2087,8 +2070,8 @@ impl Navigator {
                 .when(!open, |el| el.children(style.commits(branch.commits.len())))
                 .when(unread, |el| el.child(dot(style.meta(theme.pop))))
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
-                // A click looks inside, opening its commits; the chevron, a double-click, ←
-                // and → fold them.
+                // A click looks inside, opening its commits; the chevron, a double-click, ⇧←
+                // and ⇧→ fold them.
                 .when(folds, |el| el.on_click(click_opens(clicked, toggle, cx)))
                 .when(!ref_name.is_empty(), |el| {
                     let payload = Cut::Branch(id.clone(), ref_name.to_owned());
@@ -2137,7 +2120,6 @@ impl Navigator {
                     small_icon(glyph).text_color(style.meta(color)),
                     label,
                     store.is_unread(id, commit),
-                    Some(commit.time),
                 )
                 // Selected but on its way out.
                 .when(store.hides_commit(id, &commit.key), |el| el.opacity(0.5))
@@ -2172,11 +2154,11 @@ impl Navigator {
         let workspace = store.workspace(id)?;
         let listed = (workspace.upstream(ref_name).iter()).find(|c| c.id == *commit_id);
         // One a merge listed brought in sits a step in under it.
-        let (title, time, merge, nested) = match listed {
-            Some(commit) => (commit.title.clone(), commit.time, commit.merge, false),
+        let (title, merge, nested) = match listed {
+            Some(commit) => (commit.title.clone(), commit.merge, false),
             None => {
                 let (_, commit) = store.merged_upstream(id, ref_name, *commit_id)?;
-                (commit.title.clone(), commit.time, false, true)
+                (commit.title.clone(), false, true)
             }
         };
         let title: SharedString = title.into();
@@ -2213,7 +2195,6 @@ impl Navigator {
                     glyph,
                     title,
                     unread,
-                    Some(time),
                 )
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
                 .when_some(toggle, |el, toggle| el.on_click(double_click(toggle, cx)))
@@ -2536,7 +2517,7 @@ fn same_place(old: &Row, new: &Row) -> bool {
     }
 }
 
-/// What ← goes up to from `selection`, a branch or a stack: a branch in a stack to the stack,
+/// What ⇧← goes up to from `selection`, a branch or a stack: a branch in a stack to the stack,
 /// and a stack, or a branch alone, to its worktree's heading, when its project has linked
 /// worktrees.
 fn parent(store: &Store, selection: &Selection) -> Option<Selection> {

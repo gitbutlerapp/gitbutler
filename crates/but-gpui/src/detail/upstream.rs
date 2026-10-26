@@ -1291,8 +1291,8 @@ impl Detail {
         items
     }
 
-    /// → in the list: open the picked merge, or step into its commits when it's open, as
-    /// on the Branches page. ← folds it, or steps from one of its commits back up to it.
+    /// ⇧→ in the list: open the picked merge, or step into its commits when it's open, as
+    /// on the Branches page. ⇧← folds it, or steps from one of its commits back up to it.
     fn fold_upstream(&mut self, open: bool, cx: &mut Context<Self>) {
         let Some(project) = self.selected_project(cx) else {
             return;

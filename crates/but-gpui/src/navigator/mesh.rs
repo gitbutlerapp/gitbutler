@@ -155,7 +155,7 @@ impl Navigator {
                 let id = format!("mesh-commit-{project}-{key}-{:?}", commit.id);
                 let glyph = small_icon(glyph).text_color(style.meta(color));
                 let title = commit.title.clone().into();
-                style.commit_line(id, COMMIT_INDENT, glyph, title, false, commit.created_at)
+                style.commit_line(id, COMMIT_INDENT, glyph, title, false)
             }
             (MeshPick::Branch(name), Some(branch)) => {
                 let fold = (project.clone(), key.clone(), name.clone());
@@ -313,7 +313,7 @@ impl Navigator {
         }
     }
 
-    /// → on a mesh row: unfold a checkout, or open a branch.
+    /// ⇧→ on a mesh row: unfold a checkout, or open a branch.
     pub(super) fn expand_mesh(
         &mut self,
         project: ProjectId,
@@ -333,7 +333,7 @@ impl Navigator {
         }
     }
 
-    /// ← on a mesh row, as a tree steps out: fold an open checkout or branch, or else go up to
+    /// ⇧← on a mesh row, as a tree steps out: fold an open checkout or branch, or else go up to
     /// what holds it.
     pub(super) fn collapse_mesh(
         &mut self,

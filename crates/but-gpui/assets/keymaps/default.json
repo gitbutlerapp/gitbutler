@@ -80,12 +80,14 @@
       "shift-r": "remote::UpdateFromTarget",
       "secondary-shift-t": "open_in::OpenInTerminal",
       // Between the navigator, the file list and the diff, as Mail and Xcode move between
-      // their panes. ⇧ with an arrow goes to the pane on that side, as from a commit into its
-      // files and back, and stops at the window's edge.
+      // their panes. ← and →, or h and l, go to the pane on that side, as from a commit into
+      // its files and back, and stop at the window's edge.
       "tab": "app::FocusNextPane",
       "shift-tab": "app::FocusPreviousPane",
-      "shift-right": "app::FocusPaneRight",
-      "shift-left": "app::FocusPaneLeft"
+      "l": "app::FocusPaneRight",
+      "right": "app::FocusPaneRight",
+      "h": "app::FocusPaneLeft",
+      "left": "app::FocusPaneLeft"
     }
   },
   // A prompt's or a modal's fields and buttons, from its text fields too, as in a macOS sheet.
@@ -122,10 +124,10 @@
       "down": "navigator::SelectNext",
       "j": "navigator::SelectNext",
       // The arrows come last, so menus show them.
-      "l": "navigator::Expand",
-      "right": "navigator::Expand",
-      "h": "navigator::Collapse",
-      "left": "navigator::Collapse",
+      "shift-l": "navigator::Expand",
+      "shift-right": "navigator::Expand",
+      "shift-h": "navigator::Collapse",
+      "shift-left": "navigator::Collapse",
       "enter": "navigator::Confirm",
       // Reading the diff beside it, as a mail client's message list scrolls the message. At
       // the end of a commit, Space goes on to the next unread one. ⌃D and ⌃U go half a page, as
@@ -229,10 +231,10 @@
       "secondary-alt-z": "diff::DiscardHunk",
       "secondary-backspace": "diff::DiscardFile",
       // As the navigator folds, the arrows last so menus show them.
-      "h": "diff::FoldFile",
-      "left": "diff::FoldFile",
-      "l": "diff::UnfoldFile",
-      "right": "diff::UnfoldFile",
+      "shift-h": "diff::FoldFile",
+      "shift-left": "diff::FoldFile",
+      "shift-l": "diff::UnfoldFile",
+      "shift-right": "diff::UnfoldFile",
       "pagedown": "diff::PageDown",
       "space": "diff::PageDown",
       "pageup": "diff::PageUp",
@@ -281,10 +283,10 @@
       "home": "navigator::SelectFirst",
       "shift-g": "navigator::SelectLast",
       "end": "navigator::SelectLast",
-      "l": "navigator::Expand",
-      "right": "navigator::Expand",
-      "h": "navigator::Collapse",
-      "left": "navigator::Collapse",
+      "shift-l": "navigator::Expand",
+      "shift-right": "navigator::Expand",
+      "shift-h": "navigator::Collapse",
+      "shift-left": "navigator::Collapse",
       // Applies the branch on Branches, restores to before the operation on Operations
       // history, after asking.
       "enter": "navigator::Confirm"
