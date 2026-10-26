@@ -1,6 +1,8 @@
 //! Plain data the UI renders. Nothing in here borrows from a repository, so it can be
 //! built on a background thread and handed to the UI as is.
 
+#[cfg(test)]
+pub(crate) mod build;
 mod lanes;
 mod push;
 

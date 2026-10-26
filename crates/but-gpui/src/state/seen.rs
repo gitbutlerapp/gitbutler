@@ -290,9 +290,9 @@ mod tests {
     use std::collections::HashSet;
 
     use super::{Seeable, amended, amended_since, lone_commit, was_seen};
+    use crate::backend::model::build::{branch, workspace};
     use crate::backend::{Commit, CommitId};
     use crate::state::Selection;
-    use crate::state::load::tests::{branch, workspace};
 
     fn commit(id: u8, parent: u8, tree: u8) -> Commit {
         let oid = |n: u8| gix::ObjectId::from_bytes_or_panic(&[n; 20]);
