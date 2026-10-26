@@ -43,20 +43,20 @@ pub(crate) fn is_worktree_top(
             Ok(worktree_repo.head_name()? == Some(branch))
         }
         CliId::AnonymousSegment(AnonymousSegmentId {
-            anchor_commit_id: Some(anchor),
-            ..
+            anchor_commit_id, ..
         }) => {
             let worktree_repo = but_workspace::worktrees::open_worktree_repo(repo, name)?;
-            Ok(
-                worktree_repo.head_name()?.is_none()
-                    && worktree_repo.head_id()?.detach() == *anchor,
-            )
+            if worktree_repo.head_name()?.is_some() {
+                return Ok(false);
+            }
+            // An empty anonymous segment can only be a detached `HEAD` resting on a commit the
+            // worktree doesn't own, so it is always the top.
+            Ok(match anchor_commit_id {
+                Some(anchor) => worktree_repo.head_id()?.detach() == *anchor,
+                None => true,
+            })
         }
-        CliId::AnonymousSegment(AnonymousSegmentId {
-            anchor_commit_id: None,
-            ..
-        })
-        | CliId::Commit { .. }
+        CliId::Commit { .. }
         | CliId::CommittedFile { .. }
         | CliId::CommittedHunk(..)
         | CliId::UncommittedHunkOrFile(..)

@@ -1063,3 +1063,30 @@ fn commit_from_commit_in_worktree() {
     tui.input(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/commit_from_commit_in_worktree_002.svg"]);
 }
+
+#[test]
+fn remove_worktree_from_empty_anonymous_segment_line() {
+    let (mut tui, _editor) = worktree_tui();
+
+    let path = tui
+        .env()
+        .projects_root()
+        .join(".git/gitbutler/test-worktrees/wt");
+
+    but_testsupport::invoke_bash_at_dir("git checkout -q --detach A", &path);
+    std::fs::remove_file(path.join("wt-file.txt")).unwrap();
+
+    tui.reload();
+
+    tui.input('j');
+    tui.input('j');
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/remove_worktree_from_empty_anonymous_segment_line_001.svg"
+    ]);
+    tui.input('x').assert_rendered_term_svg_eq(file![
+        "snapshots/remove_worktree_from_empty_anonymous_segment_line_002.svg"
+    ]);
+    tui.input('y').assert_rendered_term_svg_eq(file![
+        "snapshots/remove_worktree_from_empty_anonymous_segment_line_003.svg"
+    ]);
+}
