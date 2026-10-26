@@ -1051,9 +1051,10 @@ impl Detail {
             .map(|(p, n)| (p.email.clone(), p.name.clone(), p.email.clone(), n))
             .collect();
         people.sort_by_key(|(.., n)| std::cmp::Reverse(*n));
+        // Landings, as a merge bringing in several of someone's commits counts once.
         let counted = match days {
-            None => format!("commits · {ACTIVITY_DAYS} days"),
-            Some(_) => "commits · days picked".to_owned(),
+            None => format!("landings · {ACTIVITY_DAYS} days"),
+            Some(_) => "landings · days picked".to_owned(),
         };
         let project = project.clone();
         Some(self.people_card(
