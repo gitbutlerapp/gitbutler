@@ -30,6 +30,12 @@
 	overflow-wrap: anywhere;
 }
 
+/* The description's own line, 12px at 160%, is about as tall as the icon's row, so a banner with no
+   title leaves out the padding that sets a title on it. */
+.untitled {
+	padding-block: 0;
+}
+
 .description {
 	color: var(--banner-description, var(--banner-fg));
 }
