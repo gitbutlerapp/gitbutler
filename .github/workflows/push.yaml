@@ -528,7 +528,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: "cargo test -p but-gpui"
         run: cargo test -p but-gpui
-      # The desktop app with the native client, as Windows nightlies build it: GPUI's and Tauri's
+      # The desktop app with the native client, as Windows builds ship it: GPUI's and Tauri's
       # resources only clash when the executable links.
       - name: "cargo build -p gitbutler-tauri --features windows,builtin-gpui"
         run: cargo build -p gitbutler-tauri --features windows,builtin-gpui
