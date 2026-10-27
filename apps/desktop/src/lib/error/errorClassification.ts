@@ -166,6 +166,14 @@ const CLASSIFICATIONS: Partial<Record<Code, Classification>> = {
 	DefaultTargetNotFound: {
 		severity: "silent",
 	},
+	/**
+	 * A target an older GitButler stored as a remote branch that no single
+	 * local branch tracks. The project page asks for a local target branch
+	 * in its place and says why, so a toast would repeat it.
+	 */
+	UnresolvedLegacyTarget: {
+		severity: "silent",
+	},
 	CommitSigningFailed: {
 		severity: "error",
 		userMessage: `

@@ -12,6 +12,7 @@
 	import { BACKEND } from "$lib/backend";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
+	import { parseQueryError } from "$lib/error/error";
 	import { showError } from "$lib/error/showError";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { GITLAB_USER_SERVICE } from "$lib/forge/gitlab/gitlabUserService.svelte";
@@ -365,7 +366,13 @@
 		<FullviewLoading />
 	{/snippet}
 	{#snippet error(baseError)}
-		<ProblemLoadingRepo {projectId} error={baseError} />
+		{@const parsedError = parseQueryError(baseError)}
+		<!-- A target an older GitButler set as a remote branch is replaced by choosing a local one. -->
+		{#if parsedError.code === "UnresolvedLegacyTarget"}
+			<NoBaseBranch {projectId} notice={parsedError.message} />
+		{:else}
+			<ProblemLoadingRepo {projectId} error={baseError} />
+		{/if}
 	{/snippet}
 </ReduxResult>
 

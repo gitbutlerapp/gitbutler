@@ -1114,13 +1114,22 @@ pub fn resolve_local_target(
     if target_ref.category() != Some(gix::refs::Category::RemoteBranch) {
         bail!("target ref '{target_ref}' must be a local or remote-tracking branch");
     }
-    let (err, reason) = match find_local_tracking_branch(target_ref, repo)? {
+    let short_name = target_ref.shorten();
+    let (err, reason, message) = match find_local_tracking_branch(target_ref, repo)? {
         LocalTrackingBranchMatch::Unique(name) => return Ok(name),
         LocalTrackingBranchMatch::None => (
             anyhow::format_err!(
                 "no local branch tracks {target_ref}; choose a local target branch"
             ),
             UnresolvedLegacyTargetReason::NoTrackingBranch,
+            // Making a branch track the legacy target keeps pulls coming from it, while choosing
+            // a branch that tracks something else changes where pulls come from.
+            format!(
+                "GitButler now requires the target to be a local branch, but no local branch \
+                tracks your current target, {short_name}. Make one track it with \
+                `git branch --set-upstream-to={short_name} <branch>` to keep pulling from \
+                {short_name}, or choose a local target branch."
+            ),
         ),
         LocalTrackingBranchMatch::Ambiguous { first, second } => (
             anyhow::format_err!(
@@ -1128,14 +1137,22 @@ pub fn resolve_local_target(
                     {first} and {second}; choose a local target branch"
             ),
             UnresolvedLegacyTargetReason::MultipleTrackingBranches,
+            format!(
+                "GitButler now requires the target to be a local branch, but several local \
+                branches track your current target, {short_name}. Choose a local target branch."
+            ),
         ),
     };
-    Err(err.context(UnresolvedLegacyTargetRefError {
-        target_ref: target_ref.to_owned(),
-        reason,
-        target_commit_id: None,
-        push_remote: None,
-    }))
+    Err(err
+        .context(UnresolvedLegacyTargetRefError {
+            target_ref: target_ref.to_owned(),
+            reason,
+            target_commit_id: None,
+            push_remote: None,
+        })
+        .context(
+            but_error::Context::new(message).with_code(but_error::Code::UnresolvedLegacyTarget),
+        ))
 }
 
 /// Local branches configured to track a particular upstream ref.

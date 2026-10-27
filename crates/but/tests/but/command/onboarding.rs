@@ -269,6 +269,17 @@ Hint: Make a local branch track origin/4.7 with `git branch --set-upstream-to=or
 
 "#]]);
 
+    // showing the target says it needs choosing, rather than that there is none
+    env.but("config target")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: GitButler now requires the target to be a local branch, but no local branch tracks your current target, origin/4.7
+
+Hint: Make a local branch track origin/4.7 with `git branch --set-upstream-to=origin/4.7 <branch>`, or choose a local target branch with `but config target <branch>`
+
+"#]]);
+
     env.but("config target 4.7").assert().success();
 
     assert_eq!(

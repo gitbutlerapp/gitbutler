@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import ProjectNameLabel from "$components/shared/ProjectNameLabel.svelte";
+	import ProjectSwitcher from "$components/shared/ProjectSwitcher.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import gerritLogoSvg from "$lib/assets/gerrit-logo.svg?raw";
 	import { getBestRemote, getBranchRemoteFromRef } from "$lib/branches/branchUtils";
@@ -20,6 +21,7 @@
 		Link,
 		Select,
 		SelectItem,
+		Spacer,
 		TestId,
 		Toggle,
 	} from "@gitbutler/ui-svelte";
@@ -35,6 +37,12 @@
 			branch: [branchName: string, pushRemote: string | undefined],
 		) => Promise<void>;
 		onOpenProject: () => Promise<boolean>;
+		/**
+		 * Why the target needs choosing again, shown above the branch picker. Replacing a target
+		 * that was set before keeps the push remote it had, which project settings can change,
+		 * and leaving means switching projects rather than removing this one.
+		 */
+		notice?: string;
 	}
 
 	const {
@@ -44,6 +52,7 @@
 		localBranches,
 		onBranchSelected,
 		onOpenProject,
+		notice,
 	}: Props = $props();
 
 	const posthog = inject(POSTHOG_WRAPPER);
@@ -78,6 +87,8 @@
 	let selectedRemote = $state<string | undefined>(undefined);
 	const defaultRemote = $derived(getBestRemote(remotes));
 	const remote = $derived(selectedRemote ?? defaultRemote);
+	// The stored push remote can't be read while the target is unresolved, so it's left as is.
+	const replacingTarget = $derived(notice !== undefined);
 
 	async function onSetTargetClick() {
 		if (!branch || loading) return;
@@ -88,7 +99,7 @@
 				landDirectly: $landDirectly,
 			});
 			try {
-				await onBranchSelected([branch.refName, remote]);
+				await onBranchSelected([branch.refName, replacingTarget ? undefined : remote]);
 				targetWasSet = true;
 			} catch (error) {
 				const classified = classify(error);
@@ -118,6 +129,14 @@
 		<h1 class="text-serif-42">Configure your <i>workspace</i></h1>
 	</div>
 
+	{#if notice}
+		<InfoMessage style="warning">
+			{#snippet content()}
+				{notice}
+			{/snippet}
+		</InfoMessage>
+	{/if}
+
 	<div class="project-setup__fields">
 		<div class="project-setup__field-wrap" data-testid={TestId.ProjectSetupPageTargetBranchSelect}>
 			<Select
@@ -146,7 +165,7 @@
 			</p>
 		</div>
 
-		{#if remotes.length > 1}
+		{#if remotes.length > 1 && !replacingTarget}
 			<div class="project-setup__field-wrap">
 				<Select
 					value={remote}
@@ -225,7 +244,10 @@
 	{/if}
 
 	<div class="action-buttons">
-		<Button kind="outline" disabled={loading} onclick={deleteProjectAndGoBack}>Cancel</Button>
+		<!-- Cancelling removes the project and its GitButler data, only right for one just added. -->
+		{#if !replacingTarget}
+			<Button kind="outline" disabled={loading} onclick={deleteProjectAndGoBack}>Cancel</Button>
+		{/if}
 		<Button
 			style="pop"
 			{loading}
@@ -238,6 +260,11 @@
 			{targetWasSet ? "Open project" : "Let's go"}
 		</Button>
 	</div>
+
+	{#if replacingTarget}
+		<Spacer dotted margin={0} />
+		<ProjectSwitcher {projectId} />
+	{/if}
 </div>
 
 <style lang="postcss">

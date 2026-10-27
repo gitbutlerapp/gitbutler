@@ -78,6 +78,9 @@ export function buildBranchEndpoints(build: BackendEndpointBuilder) {
 				// No branch is checked out, so no `git/head` event refreshes the
 				// operating mode - invalidate it explicitly.
 				invalidatesList(ReduxTag.HeadMetadata),
+				// They fail while a legacy target is unresolved, and only start
+				// following the watcher once they load.
+				invalidatesList(ReduxTag.WorktreeChanges),
 			],
 		}),
 		switchBackToWorkspace: build.mutation<BaseBranch, { projectId: string }>({

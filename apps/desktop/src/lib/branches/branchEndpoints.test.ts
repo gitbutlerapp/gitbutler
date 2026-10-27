@@ -43,6 +43,16 @@ describe("buildBranchEndpoints", () => {
 		]);
 	});
 
+	test("setting the target ref reloads worktree changes", () => {
+		const endpoints = buildBranchEndpoints(createEndpointBuilder());
+
+		// Worktree changes fail while a legacy target is unresolved, and only start following
+		// the watcher once they load.
+		expect(endpoints.setTargetRef.invalidatesTags).toContainEqual(
+			invalidatesList(ReduxTag.WorktreeChanges),
+		);
+	});
+
 	test("names the switch-back mutation", () => {
 		const endpoints = buildBranchEndpoints(createEndpointBuilder());
 

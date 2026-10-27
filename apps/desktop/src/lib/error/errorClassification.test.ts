@@ -41,6 +41,17 @@ describe("classify", () => {
 			expect(classify(error).severity).toBe("silent");
 		});
 
+		test("UnresolvedLegacyTarget is silent — the project page asks for a target", () => {
+			const error = new IpcError(
+				{
+					message: "GitButler now requires the target to be a local branch",
+					code: "UnresolvedLegacyTarget",
+				},
+				"get_base_branch_data",
+			);
+			expect(classify(error).severity).toBe("silent");
+		});
+
 		test("NetworkError is silent — offline forge polls shouldn't toast", () => {
 			const error = new IpcError(
 				{ message: "Unable to connect to GitHub.", code: "NetworkError" },

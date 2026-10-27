@@ -4,7 +4,7 @@ use anyhow::{Context as _, Result, anyhow};
 use but_core::{
     RefMetadata as _, WORKSPACE_REF_NAME,
     git_config::{edit_repo_config, ensure_config_value},
-    ref_metadata::{ProjectMeta, StackId, WorkspaceCommitRelation},
+    ref_metadata::{ProjectMeta, StackId, UnresolvedLegacyTargetRefError, WorkspaceCommitRelation},
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::Context;
@@ -99,8 +99,13 @@ pub fn bootstrap_default_target_if_missing(ctx: &Context) -> Result<bool> {
         return Ok(false);
     }
 
-    if ctx.project_meta()?.target_ref.is_some() {
-        return Ok(false);
+    match ctx.project_meta() {
+        Ok(project_meta) if project_meta.target_ref.is_some() => return Ok(false),
+        Ok(_) => {}
+        // A legacy target is set, even if no local branch stands for it, and the user picks the
+        // one to replace it with. Failing here would fail activation, leaving the project unwatched.
+        Err(err) if err.is::<UnresolvedLegacyTargetRefError>() => return Ok(false),
+        Err(err) => return Err(err),
     }
 
     let project_meta = match inferred_default_target(&repo) {
@@ -646,6 +651,41 @@ mod tests {
         assert!(
             error.to_string().contains("refs/remotes/origin/missing"),
             "the error must identify the unavailable selected upstream: {error}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn bootstrap_leaves_an_unresolved_legacy_target_for_the_user_to_replace() -> anyhow::Result<()>
+    {
+        use but_testsupport::{CommandExt as _, git_at_dir};
+
+        let (repo, _tmp) = but_testsupport::writable_scenario("local-target-upstream-ahead");
+        let workdir = repo
+            .workdir()
+            .expect("the scenario has a worktree")
+            .to_owned();
+        // an older GitButler's remote target, which no local branch tracks
+        git_at_dir(&workdir)
+            .args([
+                "config",
+                "gitbutler.project.targetRef",
+                "refs/remotes/origin/missing",
+            ])
+            .run();
+        git_at_dir(&workdir)
+            .args(["config", "gitbutler.project.portedMeta", "true"])
+            .run();
+        let ctx = but_ctx::Context::from_repo_for_testing(repo)?;
+        assert!(
+            !super::bootstrap_default_target_if_missing(&ctx)?,
+            "a target is set, even if no local branch stands for it, so activation goes on"
+        );
+        assert!(
+            ctx.project_meta().is_err_and(|err| {
+                err.is::<but_core::ref_metadata::UnresolvedLegacyTargetRefError>()
+            }),
+            "the legacy target stays until the user picks a local branch to replace it"
         );
         Ok(())
     }
