@@ -2,7 +2,9 @@ use but_testsupport::Sandbox;
 use crossterm::event::*;
 use snapbox::{file, str};
 
-use crate::command::legacy::status::tui::tests::utils::test_status_tui;
+use crate::command::legacy::status::tui::tests::utils::{
+    TestTuiOptions, test_status_tui, test_status_tui_with_options,
+};
 
 #[test]
 fn unapply_stack() {
@@ -186,4 +188,63 @@ fn maintains_cursor_position_if_on_source() {
     // cancelling should put the cursor at a valid position
     tui.input(KeyCode::Esc)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
+}
+
+#[test]
+fn moving_stacks_skips_worktree_lanes() {
+    // Worktree creation resolves the user's home through but_path, outside the sandbox repo.
+    but_testsupport::isolated_app_data_dir(|| {
+        let env =
+            Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack-with-worktree");
+        env.setup_metadata(&["A"]);
+
+        let mut tui = test_status_tui_with_options(
+            env,
+            TestTuiOptions {
+                worktree_manipulation: true,
+                ..Default::default()
+            },
+        );
+
+        // A new stack above `A`, whose commit has a worktree lane nested on it.
+        tui.input('g');
+        tui.input('b');
+        tui.input('n');
+        tui.input(KeyCode::Enter);
+        for _ in 0..100 {
+            tui.input(KeyCode::Backspace);
+        }
+        tui.input("new");
+        tui.input(KeyCode::Enter);
+
+        // A worktree resting on the base, which renders below all stacks.
+        tui.input('w');
+        tui.input(['j'; 20]);
+        tui.input('n');
+
+        tui.input('t');
+        tui.input("new");
+        tui.input(KeyCode::Enter)
+            .assert_current_line_eq(str!["┊╭┄ ne [new] (no commits)"]);
+        tui.input('s');
+        tui.input('m').assert_rendered_term_svg_eq(file![
+            "snapshots/moving_stacks_skips_worktree_lanes_001.svg"
+        ]);
+
+        // The worktree lane nested inside `A` isn't between stacks, so the first target is below `A`.
+        tui.input('j')
+            .assert_current_line_eq(str!["┊<< move stack >>"])
+            .assert_rendered_term_svg_eq(file![
+                "snapshots/moving_stacks_skips_worktree_lanes_002.svg"
+            ]);
+
+        // Stacks always render above worktrees resting on the base, so there is no target below one.
+        tui.input('j').assert_rendered_term_svg_eq(file![
+            "snapshots/moving_stacks_skips_worktree_lanes_003.svg"
+        ]);
+
+        tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+            "snapshots/moving_stacks_skips_worktree_lanes_004.svg"
+        ]);
+    });
 }

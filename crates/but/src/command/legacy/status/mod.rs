@@ -1422,6 +1422,8 @@ fn ci_map<'a>(
 /// Where a worktree lane draws its blank separator line: nested lanes above the heading,
 /// standalone lanes below the closing connector, where the caller's next section expects one.
 /// The lane draws it itself so a lane skipped for lack of IDs leaves no stray separator.
+/// It's a plain connector, not a gap between stacks, as stacks can't be moved into or below a
+/// worktree lane.
 #[derive(Copy, Clone, PartialEq, Eq)]
 enum LaneSeparator {
     Above,
@@ -1477,7 +1479,7 @@ fn print_worktree_lane(
         .context("BUG: a worktree lane names its uncommitted area")?;
 
     if separator == Some(LaneSeparator::Above) {
-        output.between_stacks(in_lane(depth, [Span::raw("┊")]))?;
+        output.connector(in_lane(depth, [Span::raw("┊")]))?;
     }
 
     let source = ChangeSourceId::Worktree(worktree.name.clone());
@@ -1507,7 +1509,7 @@ fn print_worktree_lane(
         std::iter::once(Span::raw("├╯")).chain(worktree_base_label(status_ctx, &repo, worktree)),
     ))?;
     if separator == Some(LaneSeparator::Below) {
-        output.between_stacks(in_lane(depth, [Span::raw("┊")]))?;
+        output.connector(in_lane(depth, [Span::raw("┊")]))?;
     }
     Ok(())
 }
