@@ -21,6 +21,10 @@ workspace = true
 ## Scripted input and frame screenshots for development, see `src/dev.rs`.
 dev-script = ["gpui/test-support", "gpui_platform/test-support"]
 
+[target.'cfg(unix)'.dependencies]
+# Build and restart's Cancel stops the build's whole process group.
+libc.workspace = true
+
 [target.'cfg(target_os = "macos")'.dependencies]
 # Text drawn as the web apps draw it and the Dock icon (see `run`), scripted runs kept out of
 # App Nap, and the cursor shown again when the window becomes key.

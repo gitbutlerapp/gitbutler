@@ -1732,6 +1732,7 @@ dependencies = [
  "gpui_platform",
  "image",
  "indexmap 2.14.0",
+ "libc",
  "md5",
  "notify",
  "objc2 0.6.4",
