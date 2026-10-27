@@ -136,7 +136,7 @@ impl Link {
 
 /// The projects the sidebar lists, each group by name: the watched ones, then those not
 /// watched, all of them while they're shown, else only the one shown, and how many that
-/// leaves out.
+/// leaves out. A search lists every project its words are all in the name of.
 struct Listed {
     watched: Vec<ProjectId>,
     unwatched: Vec<ProjectId>,
@@ -770,13 +770,19 @@ impl SettingsView {
     }
 
     fn listed_projects(&self, cx: &App) -> Listed {
-        let mut projects: Vec<&ProjectEntry> = self.store.read(cx).projects.iter().collect();
-        projects.sort_by_key(|entry| entry.project.name.to_lowercase());
+        let query = self.search.read(cx).text().trim().to_lowercase();
+        let mut projects: Vec<(&ProjectEntry, String)> = (self.store.read(cx).projects.iter())
+            .map(|entry| (entry, entry.project.name.to_lowercase()))
+            .filter(|(_, name)| query.split_whitespace().all(|word| name.contains(word)))
+            .collect();
+        projects.sort_by(|(_, a), (_, b)| a.cmp(b));
         let (watched, unwatched): (Vec<_>, Vec<_>) =
-            projects.into_iter().partition(|entry| entry.expanded);
+            (projects.into_iter().map(|(entry, _)| entry)).partition(|entry| entry.expanded);
         let all = unwatched.len();
         let unwatched: Vec<ProjectId> = (unwatched.into_iter())
-            .filter(|entry| self.more || self.page.project() == Some(&entry.id))
+            .filter(|entry| {
+                self.more || !query.is_empty() || self.page.project() == Some(&entry.id)
+            })
             .map(|entry| entry.id.clone())
             .collect();
         Listed {
@@ -1105,10 +1111,11 @@ impl Render for SettingsView {
                 .border_color(theme.border_3)
                 .child(heading("Projects"))
                 .children(entries(&listed.watched))
-                .when(!listed.unwatched.is_empty(), |el| {
-                    el.child(heading("Not watched").pt(dp(12.)))
-                        .children(entries(&listed.unwatched))
-                })
+                .when(
+                    !listed.watched.is_empty() && !listed.unwatched.is_empty(),
+                    |el| el.child(heading("Not watched").pt(dp(12.))),
+                )
+                .children(entries(&listed.unwatched))
                 .children(more)
         });
         let empty = cards.is_empty();
