@@ -3,6 +3,8 @@
 //! as they're made. What only this app uses is kept with its other
 //! state; fetching is GitButler's shared setting; a project's settings are its own.
 
+use std::collections::HashMap;
+
 use gpui::{
     AnyElement, App, ClickEvent, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle,
     Focusable, ScrollHandle, SharedString, Stateful, Subscription, Task, Window, actions, div,
@@ -20,7 +22,7 @@ mod project;
 use crate::app::{AppHandle, AppView, SelectNext, SelectPrevious};
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
 use crate::overlays::MenuItem;
-use crate::state::{Prefs, ProjectId, ScopeLines, Store};
+use crate::state::{Prefs, ProjectEntry, ProjectId, ScopeLines, Store};
 use crate::theme::{Appearance, CodeSize, Theme, UiScale};
 use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
@@ -74,43 +76,50 @@ impl ProjectPage {
     const ALL: [ProjectPage; 2] = [ProjectPage::Project, ProjectPage::Git];
 }
 
-/// A page of settings, in the sidebar's order, as Lite's has them: the app's, then the
-/// project's.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// A page of settings, in the sidebar's order: the app's, then each project's.
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Page {
     App(AppPage),
-    Project(ProjectPage),
+    Project(ProjectId, ProjectPage),
 }
 
 impl Page {
-    fn title(self) -> &'static str {
+    fn project(&self) -> Option<&ProjectId> {
+        match self {
+            Page::App(_) => None,
+            Page::Project(project, _) => Some(project),
+        }
+    }
+
+    fn title(&self) -> &'static str {
         match self {
             Page::App(AppPage::General) => "General",
             Page::App(AppPage::Appearance) => "Appearance",
             Page::App(AppPage::Keyboard) => "Keyboard",
             Page::App(AppPage::Ai) => "AI",
-            Page::App(AppPage::Git) | Page::Project(ProjectPage::Git) => "Git",
+            Page::App(AppPage::Git) | Page::Project(_, ProjectPage::Git) => "Git",
             Page::App(AppPage::Integrations) => "Integrations",
             Page::App(AppPage::Experimental) => "Experimental",
-            Page::Project(ProjectPage::Project) => "Project",
+            Page::Project(_, ProjectPage::Project) => "Project",
         }
     }
 
-    fn icon(self) -> Icon {
+    fn icon(&self) -> Icon {
         match self {
             Page::App(AppPage::General) => Icon::Settings,
             Page::App(AppPage::Appearance) => Icon::Contrast,
             Page::App(AppPage::Keyboard) => Icon::Keyboard,
             Page::App(AppPage::Ai) => Icon::Ai,
-            Page::App(AppPage::Git) | Page::Project(ProjectPage::Git) => Icon::Pr,
+            Page::App(AppPage::Git) | Page::Project(_, ProjectPage::Git) => Icon::Pr,
             Page::App(AppPage::Integrations) => Icon::Plug,
             Page::App(AppPage::Experimental) => Icon::Lab,
-            Page::Project(ProjectPage::Project) => Icon::Mixer,
+            Page::Project(_, ProjectPage::Project) => Icon::Mixer,
         }
     }
 }
 
 /// A page's link in the sidebar, which the focus moves along.
+#[derive(Clone)]
 struct Link {
     page: Page,
     focus: FocusHandle,
@@ -198,9 +207,8 @@ pub struct SettingsView {
     detail: Entity<crate::detail::Detail>,
     search: Entity<TextInput>,
     page: Page,
-    /// The project the project's pages are about.
-    project: Option<ProjectId>,
-    /// The project's settings as last read, or why they couldn't be; `None` while first read.
+    /// The shown project's settings as last read, or why they couldn't be; `None` while first
+    /// read.
     project_settings: Option<Result<ProjectSettings, SharedString>>,
     name: Entity<TextInput>,
     editors: Vec<Program>,
@@ -223,7 +231,10 @@ pub struct SettingsView {
     _credentials_test: Task<()>,
     recording: Option<keyboard::Recording>,
     app_links: [Link; AppPage::ALL.len()],
-    project_links: [Link; ProjectPage::ALL.len()],
+    /// Each listed project's row, and its Project page's link while it's shown.
+    project_focus: HashMap<ProjectId, FocusHandle>,
+    /// The shown project's Git page's link.
+    project_git_focus: FocusHandle,
     pages_scroll: ScrollHandle,
     cards_scroll: ScrollHandle,
     _subscriptions: Vec<Subscription>,
@@ -239,11 +250,11 @@ impl Focusable for SettingsView {
 }
 
 impl SettingsView {
-    pub fn new(
+    fn new(
         store: Entity<Store>,
         app: AppHandle,
         detail: Entity<crate::detail::Detail>,
-        project: Option<ProjectId>,
+        page: Page,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -281,7 +292,6 @@ impl SettingsView {
             detail,
             search,
             page: Page::App(AppPage::General),
-            project: None,
             project_settings: None,
             name,
             editors: Vec::new(),
@@ -297,13 +307,14 @@ impl SettingsView {
             _credentials_test: Task::ready(()),
             recording: None,
             app_links: AppPage::ALL.map(|page| Link::new(Page::App(page), cx)),
-            project_links: ProjectPage::ALL.map(|page| Link::new(Page::Project(page), cx)),
+            project_focus: HashMap::new(),
+            project_git_focus: cx.focus_handle().tab_stop(true),
             pages_scroll: ScrollHandle::new(),
             cards_scroll: ScrollHandle::new(),
             _subscriptions: subscriptions,
             _load: Task::ready(()),
         };
-        view.show_project(project, cx);
+        view.show_page(page, cx);
         view.load_accounts(cx);
         // A terminal may have installed `but` meanwhile.
         (view.store).update(cx, |store, cx| store.read_cli(cx));
@@ -702,7 +713,7 @@ impl SettingsView {
         window.focus(&self.search.focus_handle(cx), cx);
     }
 
-    fn page_cards(&self, page: Page, window: &Window, cx: &Context<Self>) -> Vec<Card> {
+    fn page_cards(&self, page: &Page, window: &Window, cx: &Context<Self>) -> Vec<Card> {
         let cards = match page {
             Page::App(AppPage::General) => vec![
                 Card::new(
@@ -727,7 +738,7 @@ impl SettingsView {
                     .then(|| self.start_row(cx));
                 vec![Card::new(None, start.into_iter().collect())]
             }
-            Page::Project(page) => self.project_cards(page, window, cx),
+            Page::Project(project, page) => self.project_cards(project, *page, window, cx),
         };
         // Nothing for a card with no rows yet, as before what it shows has loaded.
         cards
@@ -736,22 +747,54 @@ impl SettingsView {
             .collect()
     }
 
-    /// The pages there are, by their links: the app's, and the project's when there's one.
-    fn links(&self) -> impl Iterator<Item = &Link> {
-        let project = self.project.is_some();
-        (self.app_links.iter()).chain(self.project_links.iter().filter(move |_| project))
+    /// The watched projects, by name, and the one shown though it isn't watched.
+    fn listed_projects(&self, cx: &App) -> Vec<ProjectId> {
+        let mut listed: Vec<&ProjectEntry> = (self.store.read(cx).projects.iter())
+            .filter(|entry| entry.expanded || self.page.project() == Some(&entry.id))
+            .collect();
+        listed.sort_by_key(|entry| entry.project.name.to_lowercase());
+        listed.into_iter().map(|entry| entry.id.clone()).collect()
     }
 
-    fn pages(&self) -> impl Iterator<Item = Page> {
-        self.links().map(|link| link.page)
+    /// The links in the sidebar, in its order: the app's pages, then each listed project's
+    /// row, which is its Project page's link, and the shown project's Git page.
+    fn links(&self, cx: &App) -> Vec<Link> {
+        let projects = self.listed_projects(cx).into_iter().flat_map(|project| {
+            let row = (self.project_focus.get(&project)).map(|focus| Link {
+                page: Page::Project(project.clone(), ProjectPage::Project),
+                focus: focus.clone(),
+            });
+            let git = (self.page.project() == Some(&project)).then(|| Link {
+                page: Page::Project(project, ProjectPage::Git),
+                focus: self.project_git_focus.clone(),
+            });
+            row.into_iter().chain(git)
+        });
+        self.app_links.iter().cloned().chain(projects).collect()
+    }
+
+    /// The pages a search looks through: the app's, and the shown project's, the only one
+    /// whose settings are read.
+    fn searched_pages(&self) -> Vec<Page> {
+        let project = (self.page.project().cloned())
+            .into_iter()
+            .flat_map(|project| ProjectPage::ALL.map(|page| Page::Project(project.clone(), page)));
+        AppPage::ALL
+            .map(Page::App)
+            .into_iter()
+            .chain(project)
+            .collect()
     }
 
     /// What a page is called where it isn't under its group's heading: a project's by the
     /// project too.
-    fn page_name(&self, page: Page, cx: &App) -> String {
-        match (page, self.project_name(cx)) {
-            (Page::Project(_), Some(name)) => format!("{name} › {}", page.title()),
-            _ => page.title().to_owned(),
+    fn page_name(&self, page: &Page, cx: &App) -> String {
+        let project = page
+            .project()
+            .and_then(|id| self.store.read(cx).project(id));
+        match project {
+            Some(entry) => format!("{} › {}", entry.project.name, page.title()),
+            None => page.title().to_owned(),
         }
     }
 
@@ -759,18 +802,18 @@ impl SettingsView {
     /// cards named by their page.
     fn cards(&self, query: &str, window: &Window, cx: &Context<Self>) -> Vec<Card> {
         if query.is_empty() {
-            return self.page_cards(self.page, window, cx);
+            return self.page_cards(&self.page, window, cx);
         }
-        let pages: Vec<Page> = self.pages().collect();
-        (pages.into_iter())
+        (self.searched_pages().into_iter())
             .flat_map(|page| {
-                let cards = self.page_cards(page, window, cx);
-                cards.into_iter().map(move |card| (page, card))
+                let name = self.page_name(&page, cx);
+                let cards = self.page_cards(&page, window, cx);
+                cards.into_iter().map(move |card| (name.clone(), card))
             })
-            .filter_map(|(page, card)| {
+            .filter_map(|(name, card)| {
                 let heading = match &card.heading {
-                    Some(heading) => format!("{} › {heading}", self.page_name(page, cx)),
-                    None => self.page_name(page, cx),
+                    Some(heading) => format!("{name} › {heading}"),
+                    None => name,
                 };
                 let rows: Vec<Row> = (card.rows.into_iter())
                     .filter(|row| {
@@ -870,7 +913,7 @@ impl SettingsView {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> impl IntoElement {
-        let page = link.page;
+        let page = link.page.clone();
         let selected = !searching && self.page == page;
         // Solid while it's shown, as a side list's is with the focus.
         ui::tab_stop(
@@ -889,7 +932,55 @@ impl SettingsView {
             false => theme.text_2,
         }))
         .child(page.title())
-        .on_click(cx.listener(move |this, _, _, cx| this.show_page(page, cx)))
+        .on_click(cx.listener(move |this, _, _, cx| this.show_page(page.clone(), cx)))
+    }
+
+    /// A listed project in the sidebar: the shown one under its name with its pages, another
+    /// as a row that shows its Project page.
+    fn project_entry(
+        &self,
+        project: &ProjectId,
+        searching: bool,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        let name = self.store.read(cx).project(project)?.project.name.clone();
+        let focus = self.project_focus.get(project)?;
+        let name = div().flex_1().min_w_0().truncate().child(name);
+        let folder = icon(Icon::Folder).text_color(theme.text_2);
+        if self.page.project() != Some(project) {
+            let page = Page::Project(project.clone(), ProjectPage::Project);
+            let row = side_row(SharedString::from(format!("{page:?}")), false, true, theme);
+            let row = ui::tab_stop(row, theme)
+                .mx_0()
+                .track_focus(focus)
+                .child(folder)
+                .child(name)
+                .on_click(cx.listener(move |this, _, _, cx| this.show_page(page.clone(), cx)));
+            return Some(row.into_any_element());
+        }
+        let links = [
+            (ProjectPage::Project, focus),
+            (ProjectPage::Git, &self.project_git_focus),
+        ]
+        .map(|(page, focus)| Link {
+            page: Page::Project(project.clone(), page),
+            focus: focus.clone(),
+        });
+        let heading = h_flex()
+            .px(dp(8.))
+            .py(dp(6.))
+            .gap(dp(8.))
+            .text_size(dp(13.))
+            .font_weight(gpui::FontWeight::SEMIBOLD)
+            .text_color(theme.text_1)
+            .child(folder)
+            .child(name);
+        let links = (links.iter()).map(|link| self.page_link(link, searching, theme, cx));
+        let entry = v_flex()
+            .child(heading)
+            .child(v_flex().pl(dp(16.)).children(links));
+        Some(entry.into_any_element())
     }
 
     fn show_page(&mut self, page: Page, cx: &mut Context<Self>) {
@@ -897,7 +988,12 @@ impl SettingsView {
             self.retry_ai();
             self.ensure_ai(cx);
         }
+        let other_project = page.project() != self.page.project();
         self.page = page;
+        if other_project {
+            self.forget_project(cx);
+            self.load_project(cx);
+        }
         self.search.update(cx, |search, cx| search.set_text("", cx));
         cx.notify();
     }
@@ -906,14 +1002,14 @@ impl SettingsView {
     /// page shown, none past either end. The focus goes along with a link's, scrolled into view
     /// as Tab scrolls it.
     fn step_page(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
-        let links: Vec<&Link> = self.links().collect();
+        let links = self.links(cx);
         let focused = links.iter().position(|link| link.focus.is_focused(window));
         let next = focused
             .or_else(|| links.iter().position(|link| link.page == self.page))
             .and_then(|at| at.checked_add_signed(delta))
             .and_then(|at| links.get(at));
         let Some(next) = next else { return };
-        let (page, focus) = (next.page, next.focus.clone());
+        let (page, focus) = (next.page.clone(), next.focus.clone());
         self.show_page(page, cx);
         if focused.is_some() {
             window.focus(&focus, cx);
@@ -932,40 +1028,21 @@ impl Render for SettingsView {
         let searching = !query.is_empty();
         let cards = self.cards(&query, window, cx);
         let search_focused = self.search.focus_handle(cx).is_focused(window);
+        let listed = self.listed_projects(cx);
+        for project in &listed {
+            (self.project_focus.entry(project.clone()))
+                .or_insert_with(|| cx.focus_handle().tab_stop(true));
+        }
         let app_links =
             (self.app_links.iter()).map(|link| self.page_link(link, searching, &theme, cx));
-        // The project's pages, under its name, which picks another when there are more.
-        let projects = &self.store.read(cx).projects;
-        let project = self.project_name(cx).map(|name| {
-            let others = projects.len() > 1;
-            let heading = h_flex()
-                .id("settings-project")
+        let projects = (!listed.is_empty()).then(|| {
+            let heading = div()
                 .px(dp(8.))
                 .pb(dp(8.))
-                .gap(dp(8.))
-                .text_size(dp(13.))
+                .text_size(dp(12.))
                 .font_weight(gpui::FontWeight::SEMIBOLD)
                 .text_color(theme.text_3)
-                .child(icon(Icon::Folder).text_color(theme.text_2))
-                .child(div().flex_1().min_w_0().truncate().child(name))
-                .when(others, |el| {
-                    let items: Vec<MenuItem> = (projects.iter())
-                        .map(|entry| {
-                            let this = cx.entity().downgrade();
-                            let id = entry.id.clone();
-                            MenuItem::new(entry.project.name.clone(), move |_, _, cx| {
-                                this.update(cx, |this, cx| this.show_project(Some(id.clone()), cx))
-                                    .ok();
-                            })
-                        })
-                        .collect();
-                    // No tooltip: it would cover the menu's first project.
-                    el.child(icon(Icon::ChevronDown).text_color(theme.text_3))
-                        .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
-                            let items = items.clone();
-                            this.open_menu(event, move |_, _| items, cx)
-                        }))
-                });
+                .child("Projects");
             v_flex()
                 .mt(dp(16.))
                 .pt(dp(16.))
@@ -974,8 +1051,8 @@ impl Render for SettingsView {
                 .border_color(theme.border_3)
                 .child(heading)
                 .children(
-                    (self.project_links.iter())
-                        .map(|link| self.page_link(link, searching, &theme, cx)),
+                    (listed.iter())
+                        .filter_map(|project| self.project_entry(project, searching, &theme, cx)),
                 )
         });
         let empty = cards.is_empty();
@@ -1002,7 +1079,7 @@ impl Render for SettingsView {
                     .mb(dp(10.)),
             )
             .child(v_flex().px(dp(12.)).children(app_links))
-            .children(project);
+            .children(projects);
         let content = v_flex()
             .id("settings-cards")
             .size_full()
@@ -1078,13 +1155,13 @@ impl Render for SettingsView {
 impl AppView {
     /// Settings, at General, signing in to GitButler.
     pub fn sign_in(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let view = self.open_settings_at(None, Page::App(AppPage::General), window, cx);
+        let view = self.open_settings_at(Page::App(AppPage::General), window, cx);
         view.update(cx, |view, cx| view.log_in_to_gitbutler(window, cx));
     }
 
     /// Settings, at Integrations: where a forge account gets connected.
     pub fn open_accounts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.open_settings_at(None, Page::App(AppPage::Integrations), window, cx);
+        self.open_settings_at(Page::App(AppPage::Integrations), window, cx);
     }
 
     /// Settings, at Project, for `project`.
@@ -1094,16 +1171,11 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.open_settings_at(
-            Some(project),
-            Page::Project(ProjectPage::Project),
-            window,
-            cx,
-        );
+        self.open_settings_at(Page::Project(project, ProjectPage::Project), window, cx);
     }
 
     pub fn open_settings(&mut self, _: &OpenSettings, window: &mut Window, cx: &mut Context<Self>) {
-        self.open_settings_at(None, Page::App(AppPage::General), window, cx);
+        self.open_settings_at(Page::App(AppPage::General), window, cx);
     }
 
     pub fn open_keyboard_shortcuts(
@@ -1112,30 +1184,17 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.open_settings_at(None, Page::App(AppPage::Keyboard), window, cx);
+        self.open_settings_at(Page::App(AppPage::Keyboard), window, cx);
     }
 
-    /// Settings, at `page`, for `project`, or else the selected project or the first.
     fn open_settings_at(
         &mut self,
-        project: Option<ProjectId>,
         page: Page,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Entity<SettingsView> {
-        let store = self.store.clone();
-        let project = project.or_else(|| {
-            let store = store.read(cx);
-            (store.selection.as_ref())
-                .map(|s| s.project().clone())
-                .or_else(|| store.projects.first().map(|entry| entry.id.clone()))
-        });
-        let (app, detail) = (AppHandle::of(cx), self.detail.clone());
-        let view = cx.new(|cx| {
-            let mut view = SettingsView::new(store, app, detail, project, window, cx);
-            view.page = page;
-            view
-        });
+        let (store, app, detail) = (self.store.clone(), AppHandle::of(cx), self.detail.clone());
+        let view = cx.new(|cx| SettingsView::new(store, app, detail, page, window, cx));
         self.open_modal(view.clone(), window, cx);
         view
     }

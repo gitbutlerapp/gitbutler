@@ -1,5 +1,5 @@
-//! The project's pages: the selected project's name, target branch and forge, commit
-//! signing and Git hooks, and removing it from GitButler.
+//! A project's pages: its name, target branch and forge, commit signing and Git hooks, and
+//! removing it from GitButler.
 
 use gpui::{App, ClickEvent, Context, DismissEvent, Task, Window, div, prelude::*};
 
@@ -10,24 +10,22 @@ use crate::theme::Theme;
 use crate::ui::{ButtonStyle, button, dp, error_summary, h_flex, muted, switch};
 
 impl SettingsView {
-    /// Show `project`'s settings on its pages, loading them.
-    pub(super) fn show_project(&mut self, project: Option<ProjectId>, cx: &mut Context<Self>) {
-        // Reloading the same project keeps what the field holds: a new name reaches the
-        // store only once the project list is read again.
-        // Another project's settings aren't shown while its own load; the same project's stay
-        // until they're read again, so a switch doesn't flash Loading.
-        if self.project != project {
-            self.project = project.clone();
-            self.reset_name(cx);
-            self.project_settings = None;
-            self.signing = None;
-            self.credentials = None;
-            self._credentials_test = Task::ready(());
-        }
-        let Some(project) = project else {
-            return;
-        };
-        let Some(path) = self.store.read(cx).path(&project) else {
+    /// Drop what was shown of the project before, as another's settings load.
+    pub(super) fn forget_project(&mut self, cx: &mut Context<Self>) {
+        self.reset_name(cx);
+        self.project_settings = None;
+        self.signing = None;
+        self.credentials = None;
+        self._credentials_test = Task::ready(());
+    }
+
+    /// Read the shown project's settings. What's shown of them stays until they're read, so
+    /// reading them again doesn't flash Loading, and the name field keeps what it holds: a
+    /// new name reaches the store only once the project list is read again.
+    pub(super) fn load_project(&mut self, cx: &mut Context<Self>) {
+        let Some(path) =
+            (self.page.project()).and_then(|project| self.store.read(cx).path(project))
+        else {
             return;
         };
         self._load = cx.spawn(async move |this, cx| {
@@ -43,21 +41,21 @@ impl SettingsView {
     /// Read the project list and the project's settings again, as after changing them.
     fn reload_project(&mut self, cx: &mut Context<Self>) {
         self.store.update(cx, |store, cx| store.load_projects(cx));
-        self.show_project(self.project.clone(), cx);
+        self.load_project(cx);
     }
 
     /// [`Self::reload_project`], then ask the forge about pull requests and CI again, as after
     /// picking which forge it is.
     fn reload_forge(&mut self, cx: &mut Context<Self>) {
         self.reload_project(cx);
-        if let Some(project) = self.project.clone() {
+        if let Some(project) = self.page.project().cloned() {
             self.store
                 .update(cx, |store, _| store.refresh_forge(&project));
         }
     }
 
     pub(super) fn project_name(&self, cx: &App) -> Option<String> {
-        let project = self.project.as_ref()?;
+        let project = self.page.project()?;
         Some(self.store.read(cx).project(project)?.project.name.clone())
     }
 
@@ -67,7 +65,8 @@ impl SettingsView {
     }
 
     pub(super) fn save_name(&mut self, cx: &mut Context<Self>) {
-        let (Some(project), Some(current)) = (self.project.clone(), self.project_name(cx)) else {
+        let (Some(project), Some(current)) = (self.page.project().cloned(), self.project_name(cx))
+        else {
             return;
         };
         let name = self.name.read(cx).text().trim().to_owned();
@@ -82,26 +81,28 @@ impl SettingsView {
         );
     }
 
-    /// The project's own pages: Project, with its name and target, and Git, with how it
-    /// pushes, commits and signs.
+    /// `project`'s own pages, while it's the one shown: Project, with its name and target, and
+    /// Git, with how it pushes, commits and signs.
     pub(super) fn project_cards(
         &self,
+        project: &ProjectId,
         page: ProjectPage,
         window: &Window,
         cx: &Context<Self>,
     ) -> Vec<Card> {
         let theme = Theme::get(cx);
-        let (Some(project), Some(settings)) = (&self.project, &self.project_settings) else {
+        let settings =
+            (self.project_settings.as_ref()).filter(|_| self.page.project() == Some(project));
+        let Some(settings) = settings else {
             return Vec::new();
         };
         let settings = match settings {
             Ok(settings) => settings,
             Err(err) => {
-                let retry = |this: &mut Self, cx: &mut Context<Self>| {
-                    this.show_project(this.project.clone(), cx)
-                };
+                let retry = |this: &mut Self, cx: &mut Context<Self>| this.load_project(cx);
                 let title = "Couldn't read the project's settings";
-                let failed = read_failed(Page::Project(page), title, err, retry, cx);
+                let failed =
+                    read_failed(Page::Project(project.clone(), page), title, err, retry, cx);
                 return vec![Card::new(None, vec![failed])];
             }
         };
@@ -154,7 +155,7 @@ impl SettingsView {
                 let result = crate::backend::run(move || backend::test_signing(&path)).await;
                 this.update(cx, |this, cx| {
                     // Unless Settings moved on to another project meanwhile.
-                    if this.project.as_ref() == Some(&tested) {
+                    if this.page.project() == Some(&tested) {
                         this.signing = Some(result.map_err(|err| format!("{err:#}").into()));
                         cx.notify();
                     }
