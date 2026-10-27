@@ -304,10 +304,11 @@ impl AppView {
         let Some(project) = (store.selection.as_ref()).map(|s| s.project().clone()) else {
             return div().into_any_element();
         };
+        let shown = store.selection.as_ref();
         let mut notes = Vec::new();
         if let Some(workspace) = store.workspace(&project) {
             notes.extend(
-                needs(&project, workspace)
+                needs(&project, workspace, shown)
                     .into_iter()
                     .map(|(need, text, to)| {
                         let (id, glyph, color, tip) = match need {
@@ -340,12 +341,11 @@ impl AppView {
                         }
                     }),
             );
-            // A checkout's overview says both, as these do, so they're left to it.
-            let overview = self.detail.read(cx).showing_now(cx);
-            let writing = match overview {
-                true => Vec::new(),
-                false => store.being_written(&project),
-            };
+            // The checkout selected says both of its own, so only the others' count.
+            let here = (self.detail.read(cx).selected_checkout(cx)).map(|(_, checkout)| checkout);
+            let writing: Vec<Checkout> = (store.being_written(&project).into_iter())
+                .filter(|checkout| Some(checkout) != here.as_ref())
+                .collect();
             let names: Vec<String> = (writing.iter())
                 .map(|checkout| match checkout {
                     Checkout::Main => "Main worktree".to_owned(),
@@ -367,8 +367,10 @@ impl AppView {
                     },
                 });
             }
-            let unread: Vec<CommitId> = (workspace.commits())
-                .filter(|commit| !overview && store.is_unread(&project, *commit))
+            let unread: Vec<CommitId> = (workspace.lanes.iter())
+                .filter(|lane| Some(&lane.checkout) != here.as_ref())
+                .flat_map(|lane| lane.branches.iter().flat_map(|branch| &branch.commits))
+                .filter(|commit| store.is_unread(&project, *commit))
                 .map(|commit| commit.id)
                 .collect();
             if let Some(first) = unread.first() {
@@ -384,9 +386,11 @@ impl AppView {
                 });
             }
         }
-        // ⌘Z follows the user, so this may be another project's, which it names.
+        // ⌘Z follows the user, so this may be another project's, which it names. Operations
+        // history lists it first.
         if let Some((done_in, said, at)) = store.last_done()
             && store.project(done_in).is_some()
+            && shown != Some(&Selection::History(done_in.clone()))
         {
             notes.push(Note {
                 id: "last-done",
@@ -399,8 +403,6 @@ impl AppView {
                 to: Selection::History(done_in.clone()),
             });
         }
-        // The page a note goes to says it already, as a worktree's its conflicts.
-        notes.retain(|note| store.selection.as_ref() != Some(&note.to));
         // Each a whole line's height, so what wraps to a second line is out of sight. Pulled
         // left by its hover's padding, so its words start where the other states' do.
         h_flex()
@@ -445,21 +447,24 @@ enum Need {
 
 /// What in `workspace` needs the user, first things first: its conflicted commits, its
 /// checkouts' conflicted files, and the main checkout's branches whose CI failed, as the
-/// forge last said. Linked worktrees' checks aren't refreshed, so they'd be stale. Each says
-/// how many, with where a click goes: the first of them.
-fn needs(project: &ProjectId, workspace: &Workspace) -> Vec<(Need, String, Selection)> {
+/// forge last said. Linked worktrees' checks aren't refreshed, so they'd be stale. What the
+/// page `shown` says of itself is left out. Each says how many, with where a click goes: the
+/// first of them.
+fn needs(
+    project: &ProjectId,
+    workspace: &Workspace,
+    shown: Option<&Selection>,
+) -> Vec<(Need, String, Selection)> {
+    let elsewhere = |to: &Selection| shown != Some(to);
     let mut needs = Vec::new();
-    let conflicted: Vec<CommitId> = (workspace.commits())
+    let commits: Vec<Selection> = (workspace.commits())
         .filter(|commit| commit.conflicted)
-        .map(|commit| commit.id)
+        .map(|commit| Selection::Commit(project.clone(), commit.id))
+        .filter(elsewhere)
         .collect();
-    if let Some(first) = conflicted.first() {
-        let text = plural(conflicted.len(), "conflicted commit");
-        needs.push((
-            Need::ConflictedCommits,
-            text,
-            Selection::Commit(project.clone(), *first),
-        ));
+    if let Some(first) = commits.first() {
+        let text = plural(commits.len(), "conflicted commit");
+        needs.push((Need::ConflictedCommits, text, first.clone()));
     }
     let count = |files: &[FileChange]| files.iter().filter(|file| file.conflicted).count();
     let files: Vec<(usize, Selection)> = std::iter::once((
@@ -470,27 +475,33 @@ fn needs(project: &ProjectId, workspace: &Workspace) -> Vec<(Need, String, Selec
         let to = Selection::Worktree(project.clone(), worktree.name.clone());
         (count(&worktree.uncommitted), to)
     }))
-    .filter(|(n, _)| *n > 0)
+    .filter(|(n, to)| *n > 0 && elsewhere(to))
     .collect();
     if let Some((_, first)) = files.first() {
         let text = plural(files.iter().map(|(n, _)| n).sum(), "conflicted file");
         needs.push((Need::ConflictedFiles, text, first.clone()));
     }
-    let failed: Vec<&Branch> = (workspace.branches_in(&Checkout::Main))
+    let failed: Vec<(&Branch, Selection)> = (workspace.branches_in(&Checkout::Main))
         .filter(|branch| {
             branch.review.as_ref().is_some_and(|review| {
                 matches!(review.state, ReviewState::Open | ReviewState::Draft)
                     && review.checks.is_some_and(|checks| checks.failed > 0)
             })
         })
+        .map(|branch| {
+            (
+                branch,
+                Selection::Branch(project.clone(), branch.ref_name.clone()),
+            )
+        })
+        .filter(|(_, to)| elsewhere(to))
         .collect();
-    if let Some(first) = failed.first() {
+    if let Some((first, to)) = failed.first() {
         let text = match failed.len() {
             1 => format!("CI failed on {}", first.name),
             n => format!("CI failed on {n} branches"),
         };
-        let to = Selection::Branch(project.clone(), first.ref_name.clone());
-        needs.push((Need::FailedChecks, text, to));
+        needs.push((Need::FailedChecks, text, to.clone()));
     }
     needs
 }
@@ -590,11 +601,12 @@ mod tests {
             conflicted: true,
             ..FileChange::bare(path)
         };
+        ws.uncommitted = vec![conflicted("main.rs")];
         ws.worktrees[0].uncommitted = vec![conflicted("a.rs"), conflicted("b.rs")];
 
         let project = ProjectId::from("shop");
         assert_eq!(
-            needs(&project, &ws),
+            needs(&project, &ws, None),
             [
                 (
                     Need::ConflictedCommits,
@@ -603,8 +615,8 @@ mod tests {
                 ),
                 (
                     Need::ConflictedFiles,
-                    "2 conflicted files".to_owned(),
-                    Selection::Worktree(project.clone(), "agent-x".into())
+                    "3 conflicted files".to_owned(),
+                    Selection::Uncommitted(project.clone())
                 ),
                 (
                     Need::FailedChecks,
@@ -613,6 +625,16 @@ mod tests {
                 ),
             ],
             "a merged pull request's checks and a linked worktree's, which go stale, don't count"
+        );
+        let main = Selection::Uncommitted(project.clone());
+        assert_eq!(
+            needs(&project, &ws, Some(&main))[1],
+            (
+                Need::ConflictedFiles,
+                "2 conflicted files".to_owned(),
+                Selection::Worktree(project.clone(), "agent-x".into())
+            ),
+            "Main worktree's page shows its own conflicts, and the linked worktree's still count"
         );
     }
 
