@@ -19,7 +19,7 @@ pub use client::{
     SetPullRequestAutoMergeParams, SetPullRequestDraftStateParams, UpdatePullRequestParams,
 };
 mod token;
-pub use token::GithubAccountIdentifier;
+pub use token::{GithubAccountIdentifier, get_gh_access_token};
 
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]

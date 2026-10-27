@@ -201,7 +201,7 @@ fn moving_stacks_skips_worktree_lanes() {
         let mut tui = test_status_tui_with_options(
             env,
             TestTuiOptions {
-                worktree_manipulation: true,
+                activate_worktrees: true,
                 ..Default::default()
             },
         );

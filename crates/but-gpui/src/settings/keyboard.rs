@@ -25,7 +25,13 @@ const GROUPS: [(&str, &str); 9] = [
 ];
 
 /// Actions that are only a field's or a list's own, which the page leaves out.
-const UNLISTED: [&str; 4] = ["text_input::", "whats_new::", "palette::Palette", "zed::"];
+const UNLISTED: [&str; 5] = [
+    "text_input::",
+    "whats_new::",
+    "image_preview::",
+    "palette::Palette",
+    "zed::",
+];
 
 /// The keys the next keystroke gives a command, while the page waits for them.
 pub(super) struct Recording {

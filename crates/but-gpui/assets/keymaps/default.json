@@ -409,6 +409,18 @@
       "down": "whats_new::NextRelease"
     }
   },
+  // A description's image previewed: the one before or after it, and Space closes it, as in
+  // Quick Look.
+  {
+    "context": "ImagePreview",
+    "bindings": {
+      "left": "image_preview::PreviousImage",
+      "h": "image_preview::PreviousImage",
+      "right": "image_preview::NextImage",
+      "l": "image_preview::NextImage",
+      "space": "app::Cancel"
+    }
+  },
   {
     "context": "Diff && !TextInput",
     "bindings": { "e": "open_in::OpenInEditor" }
