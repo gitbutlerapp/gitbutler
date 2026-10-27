@@ -1392,11 +1392,9 @@ fn restore_snapshot_tree(
     });
 
     let head = repo.head()?;
-    let head_ref = head
-        .referent_name()
-        .context("We will not change a worktree in detached HEAD state")?;
+    let head_ref = head.referent_name();
     // Snapshots with neither checkout identity nor a workspace commit retain the old guard.
-    if restored_checkout.is_none() && head_ref != workspace_ref {
+    if restored_checkout.is_none() && head_ref != Some(workspace_ref) {
         bail!("cannot restore a snapshot without checkout identity outside the workspace branch");
     }
 
