@@ -303,7 +303,7 @@ Git commands that don't modify state are safe to use:
 **Don't use (in either mode):**
 
 - `git status` - Missing the CLI IDs that agents need; with several stacks applied it shows the merged workspace state, not individual stacks
-- `git commit` - On `gitbutler/workspace`, GitButler's pre-commit hook refuses it; use `but commit`
+- `git commit` - On `gitbutler/workspace`, the commit lands on top of the workspace commit and `but` refuses to run until `but teardown`; use `but commit`
 - `git checkout` - Breaks workspace model
 - `git rebase` - Conflicts with GitButler's management
 - `git merge` - `but pull` updates branches from the target; `but merge` lands a branch on the target without review

@@ -97,6 +97,31 @@ fn deleted_applied_ref_is_not_recreated_from_legacy_metadata() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn update_workspace_commit_installs_no_hooks() -> Result<()> {
+    let (mut ctx, _temp_dir) = command_ctx("adjacent-stacks")?;
+
+    gitbutler_branch_actions::update_workspace_commit(&mut ctx, false)?;
+
+    let repo = ctx.repo.get()?;
+    for hook in ["pre-commit", "post-checkout"] {
+        assert!(
+            !repo.git_dir().join("hooks").join(hook).exists(),
+            "GitButler no longer installs a {hook} hook into the hooks directory"
+        );
+    }
+    assert!(
+        !repo.common_dir().join("gitbutler/hooks").exists(),
+        "GitButler no longer writes hook scripts for config-based hooks"
+    );
+    let config = std::fs::read_to_string(repo.common_dir().join("config"))?;
+    assert!(
+        !config.contains("gitbutler-pre-commit") && !config.contains("gitbutler-post-checkout"),
+        "GitButler no longer registers hooks through git config:\n{config}"
+    );
+    Ok(())
+}
+
 /// Regression test for the same merge-base mismatch in
 /// `remerged_workspace_tree_v2`, which updates the workspace commit.
 #[test]
