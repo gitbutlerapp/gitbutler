@@ -707,7 +707,6 @@ pub fn delete_branch_and_commits(path: &Path, ref_name: &FullName, tip: CommitId
     use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
     let mut ctx = open(path)?;
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let perm = guard.write_permission();
     let commits: Vec<gix::ObjectId> = {
         let (_, ws, _) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
@@ -734,25 +733,25 @@ pub fn delete_branch_and_commits(path: &Path, ref_name: &FullName, tip: CommitId
         perm.read_permission(),
         DryRun::No,
     );
-    let (rolled_back, _) = but_transaction::with_transaction_with_perm_only(
-        &mut ctx,
-        &mut meta,
-        perm,
-        DryRun::No,
-        |mut tx| {
+    let (rolled_back, _) =
+        but_transaction::with_transaction_with_perm_only(&mut ctx, perm, DryRun::No, |mut tx| {
             tx.discard_commits(commits)?;
             tx.remove_reference(ref_name.as_ref())?;
             Ok(but_transaction::Commit(()))
-        },
-    )?;
+        })?;
     if !rolled_back && let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(&ctx, perm)) {
         tracing::warn!(?err, "couldn't record the deleted branch for undo");
     }
-    let (mut repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let (mut repo, ws, db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     // The transaction leaves Git's `branch.<name>` section, as its upstream and description,
     // which a branch made later under its name would take on.
     but_workspace::branch::remove_reference::delete_local_branch(&mut repo, ref_name.as_ref())?;
-    but_workspace::branch::dissolve_unnecessary_workspace(&ws, &repo, &meta, Default::default())?;
+    but_workspace::branch::dissolve_unnecessary_workspace(
+        &ws,
+        &repo,
+        &db.meta()?,
+        Default::default(),
+    )?;
     Ok(())
 }
 
@@ -944,11 +943,9 @@ pub fn split_off(
     // The lock first: the metadata read before it could be written back over another
     // process's change.
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let changes = taken_specs(files)?;
     let (new, workspace) = but_transaction::with_transaction_with_perm(
         &mut ctx,
-        &mut meta,
         guard.write_permission(),
         // There's no kind for a split; it makes a commit, rather than moving a file.
         SnapshotDetails::new(OperationKind::CreateCommit),
@@ -969,7 +966,6 @@ pub fn move_to_new_branch(path: &Path, commits: &[CommitId]) -> Result<(Rewritte
     let mut ctx = open(path)?;
     let name = branch_ref(&but_api::branch::branch_canned_name(&ctx)?)?;
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let perm = guard.write_permission();
     // It lists the new branch, so undo deletes it again.
     let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
@@ -979,20 +975,15 @@ pub fn move_to_new_branch(path: &Path, commits: &[CommitId]) -> Result<(Rewritte
         perm.read_permission(),
         DryRun::No,
     );
-    let (rolled_back, workspace) = but_transaction::with_transaction_with_perm_only(
-        &mut ctx,
-        &mut meta,
-        perm,
-        DryRun::No,
-        |mut tx| {
+    let (rolled_back, workspace) =
+        but_transaction::with_transaction_with_perm_only(&mut ctx, perm, DryRun::No, |mut tx| {
             tx.create_reference(name.as_ref(), None, None)?;
             tx.move_commits(
                 commits.iter().map(|commit| commit.0),
                 RelativeTo::Reference(name.clone()),
                 InsertSide::Below,
             )
-        },
-    )?;
+        })?;
     // The commits moved already, so a snapshot that can't be recorded only logs.
     if !rolled_back && let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(&ctx, perm)) {
         tracing::warn!(?err, "couldn't record the new branch for undo");

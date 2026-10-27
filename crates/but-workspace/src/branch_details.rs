@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use anyhow::Context as _;
-use but_core::{RefMetadata, ref_metadata::ProjectMeta};
+use but_core::ref_metadata::ProjectMeta;
 use gix::{
     date::parse::TimeBuf, prelude::ObjectIdExt as _, reference::Category, remote::Direction,
 };
@@ -26,7 +26,7 @@ use crate::ui::{self, CommitState, PushStatus, UpstreamCommit};
 pub fn branch_details(
     repo: &gix::Repository,
     name: &gix::refs::FullNameRef,
-    meta: &impl RefMetadata,
+    meta: &but_core::ref_metadata::Branch,
     project_meta: &ProjectMeta,
 ) -> anyhow::Result<ui::BranchDetails> {
     let integration_branch_name = project_meta
@@ -52,9 +52,6 @@ pub fn branch_details(
         .as_mut()
         .map(|r| r.peel_to_id())
         .transpose()?;
-
-    let meta = meta.branch(name)?;
-    let meta: &but_core::ref_metadata::Branch = &meta;
 
     let cache = repo.commit_graph_if_enabled()?;
     let mut graph = repo.revision_graph(cache.as_ref());

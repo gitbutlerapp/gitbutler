@@ -105,11 +105,11 @@ impl<'conn> Transaction<'conn> {
 }
 
 pub struct ForgeReviewsHandle<'conn> {
-    conn: &'conn rusqlite::Connection,
+    pub(crate) conn: &'conn rusqlite::Connection,
 }
 
 pub struct ForgeReviewsHandleMut<'conn> {
-    sp: rusqlite::Savepoint<'conn>,
+    pub(crate) sp: rusqlite::Savepoint<'conn>,
 }
 
 impl ForgeReviewsHandle<'_> {

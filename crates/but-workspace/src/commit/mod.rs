@@ -60,9 +60,9 @@ pub enum ChangeSource<'a> {
 impl ChangeSource<'_> {
     /// The repository the `changes` are read from, and whose `HEAD^{tree}` the
     /// merge-base override is built on.
-    fn repo<'a, M: but_core::RefMetadata>(
+    fn repo<'a>(
         &'a self,
-        editor: &'a but_rebase::graph_rebase::Editor<'_, '_, M>,
+        editor: &'a but_rebase::graph_rebase::Editor<'_, '_, '_>,
     ) -> &'a gix::Repository {
         match self {
             ChangeSource::Head => editor.repo(),
@@ -73,8 +73,8 @@ impl ChangeSource<'_> {
 
 /// Tell the editor which of `all_changes` were consumed, so the checkout that
 /// provided them doesn't reintroduce them as uncommitted changes.
-fn cancel_consumed_changes<M: but_core::RefMetadata>(
-    editor: &mut but_rebase::graph_rebase::Editor<'_, '_, M>,
+fn cancel_consumed_changes(
+    editor: &mut but_rebase::graph_rebase::Editor<'_, '_, '_>,
     source: &ChangeSource<'_>,
     all_changes: Vec<DiffSpec>,
     rejected_specs: &[(but_core::tree::create_tree::RejectionReason, DiffSpec)],

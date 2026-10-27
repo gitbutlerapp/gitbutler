@@ -102,7 +102,7 @@ Hint: run `but branch new` to create a new branch to work on
 
 #[cfg(feature = "legacy")]
 #[test]
-fn migration_from_virtual_branches_toml_picks_tracking_branch_named_as_on_remote() {
+fn status_ignores_legacy_toml_with_tracking_branch_named_as_on_remote() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
 
     let target_commit_id = env.invoke_git("rev-parse origin/main");
@@ -131,12 +131,6 @@ fn migration_from_virtual_branches_toml_picks_tracking_branch_named_as_on_remote
 Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
-
-    assert_eq!(
-        env.invoke_git("config gitbutler.project.targetRef"),
-        "refs/heads/main",
-        "porting picks the branch named as on the remote over another tracking it"
-    );
 }
 
 /// Make `trunk` and `agent-worktree` track `origin/main`, so none of the branches tracking it is
@@ -190,7 +184,7 @@ Hint: run `but branch new` to create a new branch to work on
 
 #[cfg(feature = "legacy")]
 #[test]
-fn migration_from_virtual_branches_toml_with_multiple_tracking_branches() {
+fn status_ignores_legacy_toml_with_multiple_tracking_branches() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
 
     // projects that were never ported to git config still have their target in
@@ -212,9 +206,7 @@ fn migration_from_virtual_branches_toml_with_multiple_tracking_branches() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Multiple local branches track origin/main
-
-Hint: Choose a local target branch with `but config target <branch>`
+Error: No target branch is configured and none could be inferred. Run `but config target <remote>/<branch>` to configure one.
 
 "#]]);
 
@@ -328,7 +320,7 @@ Hint: run `but branch new` to create a new branch to work on
 
 #[cfg(feature = "legacy")]
 #[test]
-fn migration_from_virtual_branches_toml_without_tracking_branch() {
+fn status_ignores_legacy_toml_without_tracking_branch() {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
     local_branch_tracking_another_remote(&env);
 
@@ -347,24 +339,11 @@ fn migration_from_virtual_branches_toml_without_tracking_branch() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: GitButler now requires the target to be a local branch, but no local branch tracks your current target, origin/4.7
-
-Hint: Make a local branch track origin/4.7 with `git branch --set-upstream-to=origin/4.7 <branch>`, or choose a local target branch with `but config target <branch>`
+Error: No target branch is configured and none could be inferred. Run `but config target <remote>/<branch>` to configure one.
 
 "#]]);
 
     env.but("config target 4.7").assert().success();
-
-    assert_eq!(
-        env.invoke_git("config gitbutler.project.targetRef"),
-        "refs/heads/4.7",
-        "the chosen local branch replaces the legacy target"
-    );
-    assert_eq!(
-        env.invoke_git("config gitbutler.project.targetCommitId"),
-        target_commit_id,
-        "porting keeps the legacy cutoff until a target is chosen"
-    );
 
     env.but("status")
         .assert()

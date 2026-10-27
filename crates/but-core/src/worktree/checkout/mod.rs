@@ -5,6 +5,10 @@ pub struct Options {
     ///
     /// This is typically to be avoided, but may be used if you want to change the HEAD location yourself.
     pub skip_head_update: bool,
+    /// Leave the index unchanged, including when applying a merge-base override.
+    ///
+    /// Callers restoring their own index can hold its lock throughout the checkout.
+    pub skip_index_update: bool,
     /// If set, use this tree instead of `HEAD^{tree}` as the merge base when
     /// resolving the worktree snapshot against the new HEAD.
     ///

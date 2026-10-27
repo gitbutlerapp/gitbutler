@@ -80,7 +80,7 @@ fn options_without_target() -> but_branches::Options {
 
 #[test]
 fn grouped_and_classified() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = named_read_only_in_memory_scenario("branch-listing", "")?;
+    let (repo, mut db) = named_read_only_in_memory_scenario("branch-listing", "")?;
     // The fixture provides every classification the listing knows: an applied and
     // an unapplied stack, a standalone chain, a fork, aliases, a lagging remote,
     // and a remote-only branch.
@@ -114,21 +114,21 @@ fn grouped_and_classified() -> anyhow::Result<()> {
 "#]]
     );
     add_stack_with_segments(
-        &mut meta,
+        &mut db,
         1,
         "applied-top",
         StackState::InWorkspace,
         &["applied-bottom"],
     );
     add_stack_with_segments(
-        &mut meta,
+        &mut db,
         2,
         "unapplied-top",
         StackState::Inactive,
         &["unapplied-bottom"],
     );
 
-    let listing = but_branches::list(&repo, &*meta, &mut db, options_with_target(&repo)?)?;
+    let listing = but_branches::list(&repo, &mut db.connection_mut(), options_with_target(&repo)?)?;
     // Stacks come back purely by recency regardless of status, so the workspace ones
     // land last here on the oldest commits; counts are each branch's exclusive
     // commits, ahead-counts are relative to the target.
@@ -167,10 +167,10 @@ Target [main]
 
 #[test]
 fn local_target_history_uses_cutoff_but_ahead_counts_use_local_tip() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
+    let (repo, mut db) =
         named_read_only_in_memory_scenario("branch-listing-local-target-ahead", "")?;
     add_stack_with_segments(
-        &mut meta,
+        &mut db,
         1,
         "applied-top",
         StackState::InWorkspace,
@@ -178,7 +178,7 @@ fn local_target_history_uses_cutoff_but_ahead_counts_use_local_tip() -> anyhow::
     );
     let mut options = options_with_target(&repo)?;
     options.project_meta.target_commit_id = Some(repo.rev_parse_single("origin/main")?.detach());
-    let listing = but_branches::list(&repo, &*meta, &mut db, options)?;
+    let listing = but_branches::list(&repo, &mut db.connection_mut(), options)?;
     let main = listing
         .stacks
         .iter()
@@ -211,7 +211,7 @@ fn local_target_history_uses_cutoff_but_ahead_counts_use_local_tip() -> anyhow::
 
 #[test]
 fn own_upstream_is_not_reported_as_configured_target() -> anyhow::Result<()> {
-    let (mut repo, meta, mut db) =
+    let (mut repo, mut db) =
         named_read_only_in_memory_scenario("no-ws-ref-no-ws-commit-two-branches", "")?;
     {
         let mut config = repo.config_snapshot_mut();
@@ -227,7 +227,7 @@ fn own_upstream_is_not_reported_as_configured_target() -> anyhow::Result<()> {
         .is_some(),
         "the checked-out branch has an upstream"
     );
-    let listing = but_branches::list(&repo, &*meta, &mut db, options_without_target())?;
+    let listing = but_branches::list(&repo, &mut db.connection_mut(), options_without_target())?;
     assert_eq!(
         listing.target_ref, None,
         "the projection's upstream fallback is not project configuration"
@@ -237,7 +237,7 @@ fn own_upstream_is_not_reported_as_configured_target() -> anyhow::Result<()> {
 
 #[test]
 fn ordinary_repository_without_workspace() -> anyhow::Result<()> {
-    let (repo, meta, mut db) =
+    let (repo, mut db) =
         named_read_only_in_memory_scenario("no-ws-ref-no-ws-commit-two-branches", "")?;
     // Every ref, including the target, points at one single commit.
     snapbox::assert_data_eq!(
@@ -248,7 +248,7 @@ fn ordinary_repository_without_workspace() -> anyhow::Result<()> {
 "#]]
     );
 
-    let listing = but_branches::list(&repo, &*meta, &mut db, options_with_target(&repo)?)?;
+    let listing = but_branches::list(&repo, &mut db.connection_mut(), options_with_target(&repo)?)?;
     // Stacks come back purely by recency regardless of status, so the workspace ones
     // land last here on the oldest commits; counts are each branch's exclusive
     // commits, ahead-counts are relative to the target.
@@ -270,8 +270,7 @@ Target [main]
 
 #[test]
 fn applied_stack_left_by_checking_out_another_branch() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
-        named_read_only_in_memory_scenario("applied-stack-head-on-main", "")?;
+    let (repo, mut db) = named_read_only_in_memory_scenario("applied-stack-head-on-main", "")?;
     // HEAD left the workspace for the target branch, as `git checkout main` does.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -284,14 +283,14 @@ fn applied_stack_left_by_checking_out_another_branch() -> anyhow::Result<()> {
 "#]]
     );
     add_stack_with_segments(
-        &mut meta,
+        &mut db,
         1,
         "applied-top",
         StackState::InWorkspace,
         &["applied-bottom"],
     );
 
-    let listing = but_branches::list(&repo, &*meta, &mut db, options_with_target(&repo)?)?;
+    let listing = but_branches::list(&repo, &mut db.connection_mut(), options_with_target(&repo)?)?;
     // The metadata still says applied, but the checkout isn't the workspace, so the
     // stack's branches are listed with the commits they own.
     snapbox::assert_data_eq!(
@@ -311,8 +310,7 @@ Target [main]
 
 #[test]
 fn remote_branches_sharing_a_tip_both_count_their_commits() -> anyhow::Result<()> {
-    let (repo, meta, mut db) =
-        named_read_only_in_memory_scenario("remote-branches-sharing-a-tip", "")?;
+    let (repo, mut db) = named_read_only_in_memory_scenario("remote-branches-sharing-a-tip", "")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -323,7 +321,7 @@ fn remote_branches_sharing_a_tip_both_count_their_commits() -> anyhow::Result<()
 "#]]
     );
 
-    let listing = but_branches::list(&repo, &*meta, &mut db, options_with_target(&repo)?)?;
+    let listing = but_branches::list(&repo, &mut db.connection_mut(), options_with_target(&repo)?)?;
     // Each counts the commit, though the graph keeps just one of the two names, and the
     // branch above stacks on neither, as shared tips stay separate.
     snapbox::assert_data_eq!(
@@ -346,26 +344,27 @@ Target [main]
 
 #[test]
 fn hard_limit_marks_incomplete_and_hides_clipped_counts() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = named_read_only_in_memory_scenario("branch-listing", "")?;
+    let (repo, mut db) = named_read_only_in_memory_scenario("branch-listing", "")?;
     add_stack_with_segments(
-        &mut meta,
+        &mut db,
         1,
         "applied-top",
         StackState::InWorkspace,
         &["applied-bottom"],
     );
     add_stack_with_segments(
-        &mut meta,
+        &mut db,
         2,
         "unapplied-top",
         StackState::Inactive,
         &["unapplied-bottom"],
     );
 
-    let unlimited = but_branches::list(&repo, &*meta, &mut db, options_with_target(&repo)?)?;
+    let unlimited =
+        but_branches::list(&repo, &mut db.connection_mut(), options_with_target(&repo)?)?;
     let mut options = options_with_target(&repo)?;
     options.hard_limit = Some(6);
-    let limited = but_branches::list(&repo, &*meta, &mut db, options)?;
+    let limited = but_branches::list(&repo, &mut db.connection_mut(), options)?;
 
     assert!(
         !unlimited.incomplete,
@@ -429,23 +428,23 @@ fn hard_limit_marks_incomplete_and_hides_clipped_counts() -> anyhow::Result<()> 
 
 #[test]
 fn no_target_configured_degrades_gracefully() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = named_read_only_in_memory_scenario("branch-listing", "")?;
+    let (repo, mut db) = named_read_only_in_memory_scenario("branch-listing", "")?;
     add_stack_with_segments(
-        &mut meta,
+        &mut db,
         1,
         "applied-top",
         StackState::InWorkspace,
         &["applied-bottom"],
     );
     add_stack_with_segments(
-        &mut meta,
+        &mut db,
         2,
         "unapplied-top",
         StackState::Inactive,
         &["unapplied-bottom"],
     );
 
-    let listing = but_branches::list(&repo, &*meta, &mut db, options_without_target())?;
+    let listing = but_branches::list(&repo, &mut db.connection_mut(), options_without_target())?;
     // Everything still lists and stacks; only target-relative data is absent:
     // no target stack, every ahead-count is n/a, and commit counts fall back to
     // fork-point boundaries instead of integrated history.
@@ -483,8 +482,8 @@ Applied [applied-top]
 
 #[test]
 fn unborn_head_still_lists_remote_branches() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = named_read_only_in_memory_scenario("unborn-head-with-remotes", "")?;
-    let listing = but_branches::list(&repo, &*meta, &mut db, options_without_target())?;
+    let (repo, mut db) = named_read_only_in_memory_scenario("unborn-head-with-remotes", "")?;
+    let listing = but_branches::list(&repo, &mut db.connection_mut(), options_without_target())?;
     // An unborn HEAD must not hide the branches that already exist; the traversal
     // starts from an enumerated tip instead, and only target-relative data is absent.
     snapbox::assert_data_eq!(
