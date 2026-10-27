@@ -69,6 +69,7 @@ but-bitbucket.workspace = true
 but-core.workspace = true
 but-error.workspace = true
 but-forge.workspace = true
+but-forge-storage.workspace = true
 but-github.workspace = true
 but-gitlab.workspace = true
 but-llm.workspace = true
@@ -92,7 +93,7 @@ gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "28d0a354
 syntect = { version = "5.3.0", default-features = false, features = ["parsing", "dump-load", "regex-fancy"] }
 # bat's syntaxes on top of syntect's, for TypeScript, Svelte, TOML and the like, as the CLI's.
 two-face = { version = "0.5.2", default-features = false, features = ["syntect-fancy"] }
-# Decodes a diff's images, shrunk to the size they're shown at.
+# Decodes diffs' and descriptions' images, shrunk to the size they're shown at.
 image = { version = "0.25.1", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
 # Word-level emphasis and tree-sitter scope breadcrumbs for diffs. Release 0.17.0.
 deltoids = { git = "https://github.com/juanibiapina/deltoids", rev = "b797d011ecc6b733025461cc98fae6f9f8719429" }

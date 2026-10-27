@@ -1,11 +1,13 @@
 //! Markdown, as pull request descriptions are written, drawn as formatted text.
 //!
 //! Only what can't reach outside the app is kept. Links open only to the web and to mail,
-//! with where they go shown on hover, as a link's words can say anything. Images are never
-//! fetched, so a description can't learn you've read it, and show their words instead. HTML
-//! is read only as far as a description lays itself out with it: headings, paragraphs and
-//! centring, bold, emphasis and code, links and line breaks; other tags leave only their text.
-//! What's past [`MAX_BYTES`] isn't parsed, and nesting past [`MAX_DEPTH`] steps in no further.
+//! with where they go shown on hover, as a link's words can say anything. Images are drawn
+//! only from GitHub, and any other shows its words, as fetching it would tell its host who
+//! read the description (see [`crate::backend::images`]). A table with images lays its
+//! cells side by side, as a before and after needs. HTML is read only as far as a
+//! description lays itself out with it: headings, paragraphs and centring, bold, emphasis
+//! and code, links, images and line breaks; other tags leave only their text. What's past
+//! [`MAX_BYTES`] isn't parsed, and nesting past [`MAX_DEPTH`] steps in no further.
 //!
 //! Emphasis shows in the medium weight, not slanted: the app embeds no italic face, and
 //! asking for one could pick a variable font installed on the machine, which is slow to
@@ -22,13 +24,20 @@ use gpui::{
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 
 use super::{Tooltip, dp, fixed, h_flex, v_flex};
+use crate::backend::images;
 use crate::theme::Theme;
+
+mod figure;
 
 /// How much of a description is read; the rest is left out, and said to be.
 const MAX_BYTES: usize = 64 * 1024;
 
 /// How far lists and quotes step in at most.
 const MAX_DEPTH: usize = 6;
+
+/// The most images a description draws, more than any written by hand has; the rest show
+/// their words, so a description can't have the app fetch thousands at once.
+const MAX_IMAGES: usize = 24;
 
 /// The HTML tags that make a block of their own.
 const HTML_BLOCKS: &[&str] = &[
@@ -53,6 +62,8 @@ pub struct Block {
     pub links: Vec<(Range<usize>, String)>,
     /// Inside HTML that centres it.
     pub centered: bool,
+    /// Its place in a table with images, which lays its cells side by side.
+    pub cell: Option<TableCell>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -63,6 +74,41 @@ pub enum Kind {
     /// A list item, after its marker: "•", "3." or a box.
     Item(String),
     Rule,
+    /// Images on GitHub, side by side as far as they fit. Its text is their words, for what
+    /// reads a description as text.
+    Images(Vec<Image>),
+}
+
+/// An image a description draws.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Image {
+    pub src: String,
+    pub alt: String,
+    /// The size its HTML gives it, in pixels, as `width="480"`; without one it's drawn a
+    /// point a pixel, as GitHub draws it.
+    pub width: Option<f32>,
+    pub height: Option<f32>,
+    /// Where a click on it goes: the link it's in, else the image itself.
+    pub opens: String,
+}
+
+impl Image {
+    /// What stands in its place where it isn't drawn.
+    fn words(&self) -> String {
+        match self.alt.trim() {
+            "" => "Image".to_owned(),
+            alt => format!("Image: {alt}"),
+        }
+    }
+}
+
+/// Where a cell is in a table with images: its row, counted from 1 through the description,
+/// its column, and how many columns the table has.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TableCell {
+    pub row: usize,
+    pub column: usize,
+    pub columns: usize,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -214,6 +260,26 @@ fn attribute<'a>(attributes: &'a [(String, String)], name: &str) -> Option<&'a s
         .map(|(_, value)| value.as_str())
 }
 
+/// An HTML size in pixels, as `width="480"`; a percentage isn't one.
+fn pixels(value: &str) -> Option<f32> {
+    let pixels: f32 = value.trim().trim_end_matches("px").parse().ok()?;
+    (pixels.is_finite() && pixels > 0.).then_some(pixels)
+}
+
+/// Whether `markdown` draws an image, as a table of screenshots does.
+fn draws_images(markdown: &str, options: Options) -> bool {
+    let mut in_comment = false;
+    Parser::new_ext(markdown, options).any(|event| match event {
+        Event::Start(Tag::Image { dest_url, .. }) => images::on_github(&dest_url),
+        Event::Html(html) | Event::InlineHtml(html) => (html_pieces(&html, &mut in_comment).iter())
+            .any(|piece| {
+                matches!(piece, Html::Open(tag, attributes)
+                    if tag == "img" && attribute(attributes, "src").is_some_and(images::on_github))
+            }),
+        _ => false,
+    })
+}
+
 /// HTML runs its spaces and line breaks together.
 fn collapse_spaces(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
@@ -232,7 +298,7 @@ fn collapse_spaces(text: &str) -> String {
     out
 }
 
-/// `markdown` as blocks to draw, its images by their words.
+/// `markdown` as blocks to draw.
 pub fn parse(markdown: &str) -> Vec<Block> {
     let end = markdown.floor_char_boundary(MAX_BYTES);
     let options =
@@ -257,6 +323,11 @@ pub fn parse(markdown: &str) -> Vec<Block> {
     let mut html_gap = false;
     // In a table row: whether it's the header, and how many of its cells came before.
     let (mut in_head, mut cells) = (false, 0);
+    // How many images are drawn so far.
+    let mut drawn = 0;
+    // In a table with images, how many columns it has, and the rows read so far.
+    let (mut grid, mut rows): (Option<usize>, usize) = (None, 0);
+    let in_cell: Cell<Option<TableCell>> = Cell::new(None);
     let depth = |lists: &Vec<Option<u64>>, quotes: usize| (lists.len() + quotes).min(MAX_DEPTH);
 
     let open = |kind: Kind, lists: &Vec<Option<u64>>, quotes: usize, outermost: usize| Block {
@@ -268,8 +339,13 @@ pub fn parse(markdown: &str) -> Vec<Block> {
         styles: Vec::new(),
         links: Vec::new(),
         centered: centered.get(),
+        cell: in_cell.get(),
     };
+    /// `text` onto `block`; space between images only keeps them side by side.
     fn push(block: &mut Block, text: &str, style: Style) {
+        if matches!(block.kind, Kind::Images(_)) {
+            return;
+        }
         let start = block.text.len();
         block.text.push_str(text);
         if style != Style::default() && !text.is_empty() {
@@ -299,62 +375,151 @@ pub fn parse(markdown: &str) -> Vec<Block> {
             blocks.push(block);
         }
     }
+    fn in_images(current: &Option<Block>) -> bool {
+        matches!(
+            current.as_ref().map(|block| &block.kind),
+            Some(Kind::Images(_))
+        )
+    }
+    /// The block `text` goes on, the current one or else a fresh one, and `text` as it goes
+    /// there. Images end before text, which starts its block without the space before it,
+    /// and space between images, which goes nowhere, keeps them side by side.
+    fn writing<'a, 't>(
+        blocks: &mut Vec<Block>,
+        current: &'a mut Option<Block>,
+        text: &'t str,
+        fresh: impl FnOnce() -> Block,
+    ) -> Option<(&'a mut Block, &'t str)> {
+        let mut text = text;
+        if in_images(current) {
+            if text.trim().is_empty() {
+                return None;
+            }
+            close(blocks, current);
+            text = text.trim_start();
+        }
+        Some((current.get_or_insert_with(fresh), text))
+    }
+    /// End the images `current` is, as a line break does: the next start a line of their own.
+    fn break_images(blocks: &mut Vec<Block>, current: &mut Option<Block>) {
+        if in_images(current) {
+            close(blocks, current);
+        }
+    }
     /// A link from where `current` has got to, to `url` if that's safe to open.
     fn open_link(current: &Option<Block>, url: &str) -> (usize, Option<String>) {
-        let at = current.as_ref().map_or(0, |block| block.text.len());
+        // After images, its words start a block of their own.
+        let words = current
+            .as_ref()
+            .filter(|block| !matches!(block.kind, Kind::Images(_)));
+        let at = words.map_or(0, |block| block.text.len());
         (at, safe_link(url).then(|| url.trim().to_owned()))
     }
     /// Mark the text `link` covers, up to where `current` has got to.
     fn close_link(link: Option<(usize, Option<String>)>, current: &mut Option<Block>) {
         // One opened in a block that's since closed, as a list item, can start anywhere.
+        // Images go where the link does on their own.
         if let (Some((start, Some(url))), Some(block)) = (link, current)
+            && !matches!(block.kind, Kind::Images(_))
             && start < block.text.len()
             && block.text.is_char_boundary(start)
         {
             block.links.push((start..block.text.len(), url));
         }
     }
-    /// An image's words, `alt`, in its place, opening where it's from, `src`, on a click.
+    /// `image` in its place: drawn beside any just before it when it's on GitHub, else its
+    /// words, opening where it's from on a click.
     fn put_image(
+        blocks: &mut Vec<Block>,
         current: &mut Option<Block>,
-        alt: &str,
-        src: &str,
+        image: Image,
         fresh: impl FnOnce() -> Block,
         style: Style,
-        in_link: bool,
+        link: &mut Option<(usize, Option<String>)>,
+        drawn: &mut usize,
     ) {
-        let block = current.get_or_insert_with(fresh);
-        let words = match alt.trim() {
-            "" => "Image".to_owned(),
-            alt => format!("Image: {alt}"),
+        let words = image.words();
+        if images::on_github(&image.src) && *drawn < MAX_IMAGES {
+            *drawn += 1;
+            if !in_images(current) {
+                // A link around words and images covers the words before them here, and
+                // those after from the start of the block they go on.
+                if let Some((start, url)) = link {
+                    close_link(Some((*start, url.clone())), current);
+                    *start = 0;
+                }
+                let mut row = Block {
+                    kind: Kind::Images(Vec::new()),
+                    ..fresh()
+                };
+                // An item of images draws them where its words would go, with no marker
+                // beside nothing.
+                match current.take() {
+                    Some(Block {
+                        kind: Kind::Item(_),
+                        text,
+                        depth,
+                        ..
+                    }) if text.is_empty() => row.depth = depth,
+                    other => {
+                        *current = other;
+                        close(blocks, current);
+                    }
+                }
+                *current = Some(row);
+            }
+            if let Some(block) = current {
+                if !block.text.is_empty() {
+                    block.text.push(' ');
+                }
+                block.text.push_str(&words);
+                if let Kind::Images(images) = &mut block.kind {
+                    images.push(image);
+                }
+            }
+            return;
+        }
+        let Some((block, _)) = writing(blocks, current, &words, fresh) else {
+            return;
         };
         let start = block.text.len();
         push(block, &words, style);
         // Inside a link, only the link opens: a click opens every link it's in.
-        if !in_link && safe_link(src) {
-            block
-                .links
-                .push((start..block.text.len(), src.trim().to_owned()));
+        if link.is_none() && safe_link(&image.src) {
+            block.links.push((start..block.text.len(), image.src));
         }
     }
+    /// Where a click on an image with `src` goes: the `link` it's in, else the image.
+    fn opens(link: &Option<(usize, Option<String>)>, src: &str) -> String {
+        (link.as_ref().and_then(|(_, url)| url.clone())).unwrap_or_else(|| src.to_owned())
+    }
 
-    for event in Parser::new_ext(markdown.get(..end).unwrap_or(markdown), options) {
+    let read = markdown.get(..end).unwrap_or(markdown);
+    for (event, range) in Parser::new_ext(read, options).into_offset_iter() {
         let html_line = matches!(event, Event::Html(_));
         // Text inside an image is its words, shown in its place.
         if let Some((alt, _)) = &mut image {
             match event {
                 Event::Text(text) | Event::Code(text) => alt.push_str(&text),
                 Event::End(TagEnd::Image) => {
-                    let Some((alt, url)) = image.take() else {
+                    let Some((alt, src)) = image.take() else {
                         continue;
                     };
+                    let image = Image {
+                        opens: opens(&link, &src),
+                        src,
+                        alt,
+                        width: None,
+                        height: None,
+                    };
                     put_image(
+                        &mut blocks,
                         &mut current,
-                        &alt,
-                        &url,
+                        image,
                         || open(Kind::Paragraph, &lists, quotes, outermost),
                         style,
-                        link.is_some(),
+                        &mut link,
+                        &mut drawn,
                     );
                 }
                 _ => {}
@@ -442,23 +607,46 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                 close(&mut blocks, &mut current);
                 link = None;
             }
+            Event::Start(Tag::Table(alignments)) => {
+                close(&mut blocks, &mut current);
+                let table = read.get(range).unwrap_or_default();
+                grid = draws_images(table, options).then_some(alignments.len());
+            }
+            Event::End(TagEnd::Table) => grid = None,
             // Each table row is one line, its cells apart and the header bold, because
-            // columns can't line up in wrapped text.
+            // columns can't line up in wrapped text. A table with images lays out its
+            // cells instead, each block of them in its place.
             Event::Start(row @ (Tag::TableHead | Tag::TableRow)) => {
                 close(&mut blocks, &mut current);
                 link = None;
-                current = Some(open(Kind::Paragraph, &lists, quotes, outermost));
+                rows += 1;
+                if grid.is_none() {
+                    current = Some(open(Kind::Paragraph, &lists, quotes, outermost));
+                }
                 (in_head, cells) = (matches!(row, Tag::TableHead), 0);
                 style.bold = in_head;
             }
             // Every cell after the first, empty ones too, so the columns still line up.
             Event::Start(Tag::TableCell) => {
-                if cells > 0
-                    && let Some(block) = &mut current
-                {
-                    push(block, " · ", style);
+                match grid {
+                    Some(columns) => in_cell.set(Some(TableCell {
+                        row: rows,
+                        column: cells,
+                        columns,
+                    })),
+                    None if cells > 0 => {
+                        if let Some(block) = &mut current {
+                            push(block, " · ", style);
+                        }
+                    }
+                    None => {}
                 }
                 cells += 1;
+            }
+            Event::End(TagEnd::TableCell) if grid.is_some() => {
+                close(&mut blocks, &mut current);
+                link = None;
+                in_cell.set(None);
             }
             Event::End(TagEnd::TableHead | TagEnd::TableRow) => {
                 (in_head, style.bold) = (false, false);
@@ -482,16 +670,19 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                 image = Some((String::new(), dest_url.trim().to_owned()));
             }
             Event::Text(text) => {
-                let block =
-                    current.get_or_insert_with(|| open(Kind::Paragraph, &lists, quotes, outermost));
-                push(block, &text, style);
+                let fresh = || open(Kind::Paragraph, &lists, quotes, outermost);
+                if let Some((block, text)) = writing(&mut blocks, &mut current, &text, fresh) {
+                    push(block, text, style);
+                }
             }
             Event::Code(code) => {
-                let block =
-                    current.get_or_insert_with(|| open(Kind::Paragraph, &lists, quotes, outermost));
+                let fresh = || open(Kind::Paragraph, &lists, quotes, outermost);
+                let Some((block, code)) = writing(&mut blocks, &mut current, &code, fresh) else {
+                    continue;
+                };
                 push(
                     block,
-                    &code,
+                    code,
                     Style {
                         code: true,
                         ..style
@@ -513,9 +704,13 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                                 }
                                 continue;
                             }
-                            let block = current.get_or_insert_with(|| {
-                                open(Kind::Paragraph, &lists, quotes, outermost)
-                            });
+                            let Some((block, _)) =
+                                writing(&mut blocks, &mut current, &text, || {
+                                    open(Kind::Paragraph, &lists, quotes, outermost)
+                                })
+                            else {
+                                continue;
+                            };
                             let fresh =
                                 block.text.is_empty() || block.text.ends_with(char::is_whitespace);
                             let text = match fresh {
@@ -529,6 +724,7 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                         }
                         Html::Open(name, attributes) => match name.as_str() {
                             "br" => {
+                                break_images(&mut blocks, &mut current);
                                 if let Some(block) = &mut current {
                                     trim_end(block, ' ');
                                     // A link opened on the spaces starts where they were.
@@ -567,14 +763,26 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                                 let href = attribute(&attributes, "href").unwrap_or("");
                                 link = Some(open_link(&current, href));
                             }
-                            "img" => put_image(
-                                &mut current,
-                                attribute(&attributes, "alt").unwrap_or(""),
-                                attribute(&attributes, "src").unwrap_or(""),
-                                || open(Kind::Paragraph, &lists, quotes, outermost),
-                                style,
-                                link.is_some(),
-                            ),
+                            "img" => {
+                                let src = attribute(&attributes, "src").unwrap_or("").trim();
+                                let size = |name| attribute(&attributes, name).and_then(pixels);
+                                let image = Image {
+                                    opens: opens(&link, src),
+                                    src: src.to_owned(),
+                                    alt: attribute(&attributes, "alt").unwrap_or("").to_owned(),
+                                    width: size("width"),
+                                    height: size("height"),
+                                };
+                                put_image(
+                                    &mut blocks,
+                                    &mut current,
+                                    image,
+                                    || open(Kind::Paragraph, &lists, quotes, outermost),
+                                    style,
+                                    &mut link,
+                                    &mut drawn,
+                                );
+                            }
                             _ => {}
                         },
                         Html::Close(name) => match name.as_str() {
@@ -607,6 +815,7 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                 }
             }
             Event::HardBreak => {
+                break_images(&mut blocks, &mut current);
                 if let Some(block) = &mut current {
                     push(block, "\n", style);
                 }
@@ -637,82 +846,157 @@ pub fn parse(markdown: &str) -> Vec<Block> {
 
 /// `blocks` drawn as text, `id` telling apart the links of one description from another's.
 pub fn render(id: &str, blocks: &[Block], theme: &Theme) -> AnyElement {
-    v_flex()
-        .children(blocks.iter().enumerate().map(|(ix, block)| {
-            // A list's items sit together; other blocks, and other lists, stand apart.
-            let item = |block: &Block| matches!(block.kind, Kind::Item(_));
-            let space = match ix.checked_sub(1).and_then(|before| blocks.get(before)) {
-                None => 0.,
-                Some(before) if item(before) && item(block) && before.list == block.list => 2.,
-                Some(_) => 8.,
-            };
-            let el = match &block.kind {
-                Kind::Rule => div()
-                    .h(fixed(1.))
-                    .my(dp(4.))
-                    .bg(theme.border_3)
-                    .into_any_element(),
-                Kind::Code => div()
-                    .px(dp(10.))
-                    .py(dp(8.))
-                    .rounded(dp(6.))
-                    .bg(theme.fill_gray.opacity(0.08))
-                    .text_size(dp(12.))
-                    .line_height(dp(18.))
-                    .child(text(id, ix, block, theme))
-                    .into_any_element(),
-                // As GitHub draws them, the top two over a rule.
-                Kind::Heading(level) => div()
-                    .pt(dp(8.))
-                    .text_size(dp(match level {
-                        1 => 22.,
-                        2 => 17.,
-                        3 => 15.,
-                        _ => 14.,
-                    }))
-                    .line_height(dp(match level {
-                        1 => 30.,
-                        2 => 24.,
-                        _ => 22.,
-                    }))
-                    .when(*level <= 2 && !block.centered, |el| {
-                        el.pb(dp(6.)).border_b_1().border_color(theme.border_3)
-                    })
-                    .child(text(id, ix, block, theme))
-                    .into_any_element(),
-                Kind::Item(marker) => h_flex()
-                    .items_start()
-                    .gap(dp(6.))
-                    .child(
-                        div()
-                            .flex_none()
-                            .min_w(dp(14.))
-                            .text_color(theme.text_2)
-                            .child(SharedString::from(marker.clone())),
-                    )
-                    .child(div().flex_1().min_w_0().child(text(id, ix, block, theme)))
-                    .into_any_element(),
-                Kind::Paragraph => text(id, ix, block, theme),
-            };
-            let indented = div()
-                .mt(dp(space))
-                .pl(dp(block.depth as f32 * 16.))
-                .text_size(dp(13.))
-                .line_height(dp(20.))
-                .when(block.centered, |el| el.text_center())
-                .child(el);
-            match block.quoted {
-                true => indented
-                    .text_color(theme.text_2)
-                    .border_l_2()
-                    .border_color(theme.border_2)
-                    .ml(dp(2.))
-                    .pl(dp(10. + block.depth as f32 * 16.))
-                    .into_any_element(),
-                false => indented.into_any_element(),
+    let mut column = v_flex();
+    let mut ix = 0;
+    while let Some(block) = blocks.get(ix) {
+        // A list's items sit together; other blocks, and other lists, stand apart, and
+        // images, which have an edge where text has its leading, a little further.
+        let item = |block: &Block| matches!(block.kind, Kind::Item(_));
+        let image = |block: &Block| matches!(block.kind, Kind::Images(_)) && block.cell.is_none();
+        let space = match ix.checked_sub(1).and_then(|before| blocks.get(before)) {
+            None => 0.,
+            Some(before) if item(before) && item(block) && before.list == block.list => 2.,
+            Some(before) if image(before) || image(block) => 12.,
+            Some(_) => 8.,
+        };
+        // A table row with images is its cells, which come one after another, side by side.
+        let row = |cell: TableCell| {
+            let rest = blocks.get(ix..).unwrap_or_default();
+            let same = |other: &&Block| other.cell.is_some_and(|other| other.row == cell.row);
+            rest.get(..rest.iter().take_while(same).count())
+                .unwrap_or_default()
+        };
+        let (el, drawn) = match block.cell {
+            Some(cell) => {
+                let row = row(cell);
+                (table_row(id, ix, row, cell.columns, theme), row.len())
             }
-        }))
+            None => (element(id, ix, block, theme), 1),
+        };
+        column = column.child(placed(block, space, el, theme));
+        ix += drawn.max(1);
+    }
+    column.into_any_element()
+}
+
+/// `block` drawn, without where it sits.
+fn element(id: &str, ix: usize, block: &Block, theme: &Theme) -> AnyElement {
+    match &block.kind {
+        Kind::Rule => div()
+            .h(fixed(1.))
+            .my(dp(4.))
+            .bg(theme.border_3)
+            .into_any_element(),
+        Kind::Code => div()
+            .px(dp(10.))
+            .py(dp(8.))
+            .rounded(dp(6.))
+            .bg(theme.fill_gray.opacity(0.08))
+            .text_size(dp(12.))
+            .line_height(dp(18.))
+            .child(text(id, ix, block, theme))
+            .into_any_element(),
+        // As GitHub draws them, the top two over a rule.
+        Kind::Heading(level) => div()
+            .pt(dp(8.))
+            .text_size(dp(match level {
+                1 => 22.,
+                2 => 17.,
+                3 => 15.,
+                _ => 14.,
+            }))
+            .line_height(dp(match level {
+                1 => 30.,
+                2 => 24.,
+                _ => 22.,
+            }))
+            .when(*level <= 2 && !block.centered, |el| {
+                el.pb(dp(6.)).border_b_1().border_color(theme.border_3)
+            })
+            .child(text(id, ix, block, theme))
+            .into_any_element(),
+        Kind::Item(marker) => h_flex()
+            .items_start()
+            .gap(dp(6.))
+            .child(
+                div()
+                    .flex_none()
+                    .min_w(dp(14.))
+                    .text_color(theme.text_2)
+                    .child(SharedString::from(marker.clone())),
+            )
+            .child(div().flex_1().min_w_0().child(text(id, ix, block, theme)))
+            .into_any_element(),
+        Kind::Paragraph => text(id, ix, block, theme),
+        Kind::Images(images) => {
+            h_flex()
+                .flex_wrap()
+                .items_start()
+                .gap(dp(8.))
+                .when(block.centered, |el| el.justify_center())
+                .children((images.iter().enumerate()).map(|(n, image)| {
+                    figure::Figure::new(format!("{id}-img-{ix}-{n}"), image.clone())
+                }))
+                .into_any_element()
+        }
+    }
+}
+
+/// `el`, drawn for `block`, `space` under what's before it, stepped in as far as `block` is.
+fn placed(block: &Block, space: f32, el: AnyElement, theme: &Theme) -> AnyElement {
+    let indented = div()
+        .mt(dp(space))
+        .pl(dp(block.depth as f32 * 16.))
+        .text_size(dp(13.))
+        .line_height(dp(20.))
+        .when(block.centered, |el| el.text_center())
+        .child(el);
+    match block.quoted {
+        true => indented
+            .text_color(theme.text_2)
+            .border_l_2()
+            .border_color(theme.border_2)
+            .ml(dp(2.))
+            .pl(dp(10. + block.depth as f32 * 16.))
+            .into_any_element(),
+        false => indented.into_any_element(),
+    }
+}
+
+/// A row of a table with images, `first` the index of its first block: its cells side by
+/// side, each a column's share of the width, so a before and after sit as GitHub shows them.
+fn table_row(id: &str, first: usize, row: &[Block], columns: usize, theme: &Theme) -> AnyElement {
+    let cell = |column: usize| {
+        let blocks = (row.iter().enumerate())
+            .filter(move |(_, block)| block.cell.is_some_and(|cell| cell.column == column));
+        v_flex()
+            .flex_1()
+            .min_w_0()
+            .gap(dp(8.))
+            .children(blocks.map(|(n, block)| element(id, first + n, block, theme)))
+    };
+    h_flex()
+        .items_start()
+        .gap(dp(12.))
+        .children((0..columns.max(1)).map(cell))
         .into_any_element()
+}
+
+/// `image`'s words, opening where a click on it would go, where it can't be drawn.
+fn words(id: &str, image: &Image, theme: &Theme) -> AnyElement {
+    let words = image.words();
+    let block = Block {
+        kind: Kind::Paragraph,
+        depth: 0,
+        quoted: false,
+        list: 0,
+        styles: Vec::new(),
+        links: vec![(0..words.len(), image.opens.clone())],
+        text: words,
+        centered: false,
+        cell: None,
+    };
+    text(id, 0, &block, theme)
 }
 
 /// A block's text in its styles, its links clickable and naming where they go on hover.
@@ -849,6 +1133,8 @@ mod tests {
             "<p>Run <code>cargo test</p>\n\n```\nok\n```",
             // A link opened in one list item and closed in the next.
             "- ab <a href=\"https://x.io\">\n- ééééé</a>\n",
+            // A link around an image drawn, which ends the text it opened in.
+            "é [![x](https://github.com/a.png) ü](https://x.io)",
         ] {
             for block in parse(input) {
                 let ranges = (block.styles.iter().map(|(range, _)| range))
@@ -955,7 +1241,7 @@ mod tests {
     }
 
     #[test]
-    fn images_show_their_words_and_are_never_loaded() {
+    fn images_off_github_show_their_words() {
         let blocks = parse("![a chart](https://example.com/c.png) ![](data:image/png;base64,AAAA)");
         assert_eq!(
             blocks[0].text, "Image: a chart Image",
@@ -965,6 +1251,158 @@ mod tests {
             urls(&blocks[0]),
             ["https://example.com/c.png"],
             "a web image can be opened in the browser by its words; nothing else links"
+        );
+    }
+
+    #[test]
+    fn images_on_github_draw_side_by_side() {
+        let blocks = parse(
+            "See:\n<img width=\"480\" alt=\"Before\" src=\"https://github.com/user-attachments/assets/a\"> \
+             <img src=\"https://raw.githubusercontent.com/o/r/s/b.png\" height=\"50%\">\nthen \
+             [![after](https://github.com/c.png)](https://github.com/o/r/pull/1)<br><img src=\"https://github.com/d.png\">",
+        );
+        fn drawn(block: &Block) -> Vec<(&str, Option<f32>, &str)> {
+            match &block.kind {
+                Kind::Images(images) => (images.iter())
+                    .map(|image| (image.src.as_str(), image.width, image.opens.as_str()))
+                    .collect(),
+                _ => Vec::new(),
+            }
+        }
+        assert_eq!(
+            texts(&blocks)
+                .iter()
+                .map(|(_, text)| *text)
+                .collect::<Vec<_>>(),
+            [
+                "See:",
+                "Image: Before Image",
+                "then",
+                "Image: after",
+                "Image"
+            ],
+            "text before and after images stands apart, and they keep their words as text"
+        );
+        assert_eq!(
+            drawn(&blocks[1]),
+            [
+                (
+                    "https://github.com/user-attachments/assets/a",
+                    Some(480.),
+                    "https://github.com/user-attachments/assets/a"
+                ),
+                (
+                    "https://raw.githubusercontent.com/o/r/s/b.png",
+                    None,
+                    "https://raw.githubusercontent.com/o/r/s/b.png"
+                ),
+            ],
+            "images a space apart sit side by side, as wide as their HTML says in pixels"
+        );
+        assert_eq!(
+            drawn(&blocks[3]),
+            [(
+                "https://github.com/c.png",
+                None,
+                "https://github.com/o/r/pull/1"
+            )],
+            "one in a link opens the link, and a line break starts a new row"
+        );
+    }
+
+    #[test]
+    fn a_link_split_by_images_keeps_its_words_linked() {
+        let blocks = parse(
+            "zz [View ![p](https://github.com/a.png) more](https://x.io) \
+             ![q](https://github.com/b.png) [after](https://y.io)",
+        );
+        let linked: Vec<(&str, Vec<(&str, &str)>)> = (blocks.iter())
+            .map(|block| {
+                let links = (block.links.iter())
+                    .map(|(range, url)| (&block.text[range.clone()], url.as_str()))
+                    .collect();
+                (block.text.as_str(), links)
+            })
+            .collect();
+        assert_eq!(
+            linked,
+            [
+                ("zz View", vec![("View", "https://x.io")]),
+                ("Image: p", vec![]),
+                ("more", vec![("more", "https://x.io")]),
+                ("Image: q", vec![]),
+                ("after", vec![("after", "https://y.io")]),
+            ],
+            "the words on either side of an image still link where the link goes, all of them, \
+             and text after an image starts its line without the space before it"
+        );
+    }
+
+    #[test]
+    fn a_list_item_of_images_draws_them_in_its_place() {
+        let blocks = parse("- ![shot](https://github.com/a.png)\n- [x] done\n");
+        assert_eq!(
+            (blocks.iter())
+                .map(|block| (block.depth, block.text.as_str()))
+                .collect::<Vec<_>>(),
+            [(0, "Image: shot"), (0, "done")],
+            "no marker beside nothing, and the image steps in no further than its item"
+        );
+    }
+
+    #[test]
+    fn a_description_draws_only_so_many_images() {
+        let body = (0..=MAX_IMAGES)
+            .map(|n| format!("![{n}](https://github.com/{n}.png)\n\n"))
+            .collect::<String>();
+        let blocks = parse(&body);
+        let drawn = (blocks.iter())
+            .filter(|block| matches!(block.kind, Kind::Images(_)))
+            .count();
+        assert_eq!(drawn, MAX_IMAGES, "past the limit, none is fetched");
+        assert_eq!(
+            blocks
+                .last()
+                .map(|block| (&block.kind, block.text.as_str())),
+            Some((&Kind::Paragraph, format!("Image: {MAX_IMAGES}").as_str())),
+            "the rest show their words"
+        );
+    }
+
+    #[test]
+    fn a_table_with_images_lays_out_its_cells() {
+        let blocks = parse(
+            "| | Before | After |\n|---|---|---|\n| Hover | \
+             <img src=\"https://raw.githubusercontent.com/o/r/s/a.png\" width=\"420\"> | \
+             ![after](https://raw.githubusercontent.com/o/r/s/b.png) |\n",
+        );
+        assert_eq!(
+            (blocks.iter())
+                .map(|block| {
+                    let cell = block.cell.expect("every block is in a cell");
+                    let image = matches!(block.kind, Kind::Images(_));
+                    (
+                        cell.row,
+                        cell.column,
+                        cell.columns,
+                        image,
+                        block.text.as_str(),
+                    )
+                })
+                .collect::<Vec<_>>(),
+            [
+                (1, 1, 3, false, "Before"),
+                (1, 2, 3, false, "After"),
+                (2, 0, 3, false, "Hover"),
+                (2, 1, 3, true, "Image"),
+                (2, 2, 3, true, "Image: after"),
+            ],
+            "each cell in its column, an empty one leaving its place, so a before and after \
+             sit side by side under their headings"
+        );
+        assert!(
+            blocks[0].styles.iter().all(|(_, style)| style.bold),
+            "the headings stand out"
         );
     }
 

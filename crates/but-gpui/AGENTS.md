@@ -123,7 +123,10 @@ unseen is what a laptop's battery pays for.
   over by the next row. Wrap it in `deferred()`.
 - `svg()` draws in one colour and doesn't inherit the text colour, so set one. `img` keeps an
   SVG's colours but loads asynchronously, and an image that arrives late never repaints a
-  cached view. Release image textures with `cx.drop_image`.
+  cached view. Release image textures with `cx.drop_image`. `img` plays an image with
+  several frames by notifying the view drawing it every frame while the window is active,
+  which redraws that view and its parents at the display's rate, so a description's GIF
+  keeps its first frame only.
 - Taffy stretches only children whose height is `auto`. In a row with only a min-height,
   `h_full()` is 0, so use `self_stretch()`. Flex text needs `min_w_0()` to shrink or wrap.
   `flex_1` has a zero basis and lets a name shrink to nothing, so use `flex_grow(1.)` and give
