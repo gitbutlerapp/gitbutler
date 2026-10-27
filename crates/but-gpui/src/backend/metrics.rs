@@ -271,6 +271,10 @@ pub fn load_failed(failure: &super::LoadFailure, err: &anyhow::Error, last: Opti
         "targetChoice".into(),
         failure.target_choice.is_some().into(),
     );
+    // Of those, one no local branch tracks rather than several.
+    let untracked =
+        (failure.target_choice.as_ref()).is_some_and(|choice| choice.branches.is_empty());
+    props.insert("targetUntracked".into(), untracked.into());
     error_props(err, &names, &mut props);
     queue(Kind::Usage, "repo:load_failed", props);
     let known = failure.folder_gone || failure.sparse_index || failure.target_choice.is_some();

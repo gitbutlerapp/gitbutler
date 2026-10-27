@@ -1069,7 +1069,7 @@ pub struct LoadFailure {
     pub folder_gone: bool,
     /// Its index is sparse, which the engine can't read yet, and which is said instead.
     pub sparse_index: bool,
-    /// The branches to pick a target from, when several track it.
+    /// What to pick a target from, when the one an older GitButler stored names no single branch.
     pub target_choice: Option<TargetChoice>,
 }
 
@@ -1079,14 +1079,14 @@ pub async fn load_failure(path: std::path::PathBuf, err: Option<&anyhow::Error>)
     let Some(err) = err else {
         return LoadFailure::default();
     };
-    let ambiguous = ambiguous_target(err).cloned();
+    let unresolved = unresolved_target(err).cloned();
     run(move || {
         Ok(LoadFailure {
             folder_gone: !path.exists(),
             sparse_index: (gix::open(&path).ok())
                 .and_then(|repo| repo.index_or_empty().ok())
                 .is_some_and(|index| index.is_sparse()),
-            target_choice: ambiguous.and_then(|target| target_choice(&path, &target)),
+            target_choice: unresolved.and_then(|target| target_choice(&path, &target)),
         })
     })
     .await
@@ -1094,35 +1094,36 @@ pub async fn load_failure(path: std::path::PathBuf, err: Option<&anyhow::Error>)
 }
 
 /// Why a project or its target couldn't be read: the engine's own words, except for a target
-/// several local branches track, which the project's page asks to pick, as [`TargetChoice`].
+/// an older GitButler stored that names no single local branch, which the project's page asks
+/// to pick, as [`TargetChoice`].
 pub fn read_failure(err: &anyhow::Error) -> String {
-    match ambiguous_target(err) {
+    match unresolved_target(err) {
         Some(_) => "Choose which branch is its target".to_owned(),
         None => format!("{err:#}"),
     }
 }
 
-/// The target `err` failed on, if several local branches track it. A target no local branch
-/// tracks has nothing to pick from, so it isn't one.
-fn ambiguous_target(err: &anyhow::Error) -> Option<&gix::refs::FullName> {
-    use but_core::ref_metadata::{UnresolvedLegacyTargetReason, UnresolvedLegacyTargetRefError};
-    let err = err.downcast_ref::<UnresolvedLegacyTargetRefError>()?;
-    match err.reason {
-        UnresolvedLegacyTargetReason::MultipleTrackingBranches => Some(&err.target_ref),
-        UnresolvedLegacyTargetReason::NoTrackingBranch => None,
-    }
+/// The target `err` failed on, if it's a remote branch an older GitButler stored that no
+/// local branch tracks, or several do.
+fn unresolved_target(err: &anyhow::Error) -> Option<&gix::refs::FullName> {
+    use but_core::ref_metadata::UnresolvedLegacyTargetRefError;
+    (err.downcast_ref::<UnresolvedLegacyTargetRefError>()).map(|err| &err.target_ref)
 }
 
-/// A target that several local branches track, as an older GitButler stored it: the remote
-/// branch, like origin/main, and the local branches tracking it, by name.
+/// A target an older GitButler stored as a remote branch, like origin/main, that names no
+/// single local branch: the local branches tracking it, when several do, or with none tracking
+/// it, the one named as it, like main, that picking `remote` makes track it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TargetChoice {
-    pub remote: String,
+    pub remote: FullName,
     pub branches: Vec<FullName>,
+    /// The branch named as `remote` when none tracks it, and whether picking it creates it.
+    /// None when the remote branch is gone too.
+    pub to_track: Option<(FullName, bool)>,
 }
 
-/// What to choose when the project at `path` has `target`, a target several local branches
-/// track: those branches, picking one of which is the way out.
+/// What to choose when the project at `path` has `target`, a remote branch no single local
+/// branch tracks: one of those tracking it, or with none, the one named as it.
 fn target_choice(path: &Path, target: &gix::refs::FullName) -> Option<TargetChoice> {
     let repo = gix::open(path).ok()?;
     let references = repo.references().ok()?;
@@ -1131,14 +1132,24 @@ fn target_choice(path: &Path, target: &gix::refs::FullName) -> Option<TargetChoi
             .and_then(Result::ok)
             .is_some_and(|upstream| upstream.as_ref() == target.as_ref())
     };
-    let branches = (references.local_branches().ok()?)
+    let branches: Vec<FullName> = (references.local_branches().ok()?)
         .filter_map(Result::ok)
         .filter(|branch| tracks(branch.name()))
         .map(|branch| branch.name().to_owned())
         .collect();
+    let to_track = (branches.is_empty())
+        .then(|| {
+            repo.try_find_reference(target.as_ref()).ok()??;
+            let (local, _) =
+                (repo.upstream_branch_and_remote_for_tracking_branch(target.as_ref())).ok()??;
+            let new = repo.try_find_reference(local.as_ref()).ok()?.is_none();
+            Some((local, new))
+        })
+        .flatten();
     Some(TargetChoice {
-        remote: target.shorten().to_string(),
+        remote: target.clone(),
         branches,
+        to_track,
     })
 }
 
@@ -1330,35 +1341,28 @@ mod failure_tests {
     use super::{failure_detail, read_failure};
 
     #[test]
-    fn only_a_target_several_branches_track_asks_to_pick_one() {
+    fn a_legacy_target_naming_no_single_branch_asks_to_pick_one() {
         use but_core::ref_metadata::{
             UnresolvedLegacyTargetReason, UnresolvedLegacyTargetRefError,
         };
-        let unresolved = |message: &str, reason| {
-            anyhow::anyhow!(message.to_owned()).context(UnresolvedLegacyTargetRefError {
-                target_ref: "refs/remotes/origin/main".try_into().unwrap(),
-                reason,
-                target_commit_id: None,
-                push_remote: None,
-            })
-        };
-        let err = unresolved(
-            "multiple local branches track refs/remotes/origin/main",
+        for reason in [
             UnresolvedLegacyTargetReason::MultipleTrackingBranches,
-        );
-        assert_eq!(
-            read_failure(&err),
-            "Choose which branch is its target",
-            "the project's page lists the branches to pick from"
-        );
-        let err = unresolved(
-            "no local branch tracks refs/remotes/origin/main",
             UnresolvedLegacyTargetReason::NoTrackingBranch,
-        );
-        assert!(
-            read_failure(&err).contains("no local branch tracks refs/remotes/origin/main"),
-            "with no branch to pick, the engine's own words say what's wrong"
-        );
+        ] {
+            let err = anyhow::anyhow!("origin/main is no local branch").context(
+                UnresolvedLegacyTargetRefError {
+                    target_ref: "refs/remotes/origin/main".try_into().unwrap(),
+                    reason,
+                    target_commit_id: None,
+                    push_remote: None,
+                },
+            );
+            assert_eq!(
+                read_failure(&err),
+                "Choose which branch is its target",
+                "the project's page asks for the branch, {reason:?}"
+            );
+        }
     }
 
     #[test]

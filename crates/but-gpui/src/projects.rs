@@ -95,8 +95,9 @@ impl AppView {
         );
     }
 
-    /// Make the local branch `name`, as refs/heads/main, `project`'s target, then read the
-    /// project again and say so.
+    /// Make the branch `name`, as refs/heads/main, `project`'s target, or for a remote branch
+    /// as refs/remotes/origin/main, the local branch tracking it, then read the project again
+    /// and say so.
     pub fn set_target(
         &mut self,
         project: ProjectId,
@@ -107,7 +108,7 @@ impl AppView {
             return;
         };
         let store = self.store.clone();
-        let short = backend::short_ref(&name).into_owned();
+        let short = name.shorten().to_string();
         cx.spawn(async move |_, cx| {
             let set = backend::run(move || settings::set_target(&path, &name)).await;
             store.update(cx, |store, cx| match set {

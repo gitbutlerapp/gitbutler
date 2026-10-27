@@ -297,8 +297,30 @@ pub fn target_branches(path: &Path) -> Result<Vec<super::FullName>> {
 /// has checked out, and branches rebase onto a changed target at the next update. New
 /// branches go on pushing where they did, as a fork's to the fork when the target becomes the
 /// original repository's main, as the desktop app keeps it.
+///
+/// A remote branch no local branch tracks, as an older GitButler stored the target, gets the
+/// one named as it to track it, created there if missing, so pulls go on bringing in what
+/// they did.
 pub fn set_target(path: &Path, target: &super::FullName) -> Result<()> {
+    use but_core::ref_metadata::{LocalTrackingBranchMatch, find_local_tracking_branch};
     let mut ctx = open(path)?;
+    if target.category() == Some(gix::refs::Category::RemoteBranch) {
+        let tracked = {
+            let _exclusive = ctx.exclusive_worktree_access();
+            let repo = ctx.repo.get()?;
+            anyhow::ensure!(!repo.head()?.is_unborn(), NO_COMMITS);
+            match find_local_tracking_branch(target.as_ref(), &repo)? {
+                LocalTrackingBranchMatch::None => Some(track(&repo, target.as_ref())?),
+                _ => None,
+            }
+        };
+        // Read again, with the branch tracking it, once the lock is let go, as setting the
+        // target takes it again. Like any target change this isn't on the undo timeline, and
+        // couldn't be: a snapshot reads the target, unreadable until now.
+        if let Some(local) = tracked {
+            return set_target(path, &local);
+        }
+    }
     let (local, push_remote) = {
         let repo = ctx.repo.get()?;
         anyhow::ensure!(!repo.head()?.is_unborn(), NO_COMMITS);
@@ -323,6 +345,26 @@ pub fn set_target(path: &Path, target: &super::FullName) -> Result<()> {
         local.as_local_full_name_ref(),
         push_remote,
     )
+}
+
+/// Make the local branch named as the remote branch `remote`, like main for origin/main, track
+/// it, as `git branch --set-upstream-to` does, creating it there first if it's missing.
+fn track(repo: &gix::Repository, remote: &gix::refs::FullNameRef) -> Result<super::FullName> {
+    let local = but_workspace::branch::local_tracking_branch(repo, remote)?;
+    let (merge, from) = (repo.upstream_branch_and_remote_for_tracking_branch(remote)?)
+        .with_context(|| format!("No remote fetches {}", remote.shorten()))?;
+    let from = from.name().context("an anonymous remote fetches nothing")?;
+    but_core::git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
+        for (key, value) in [
+            ("remote", from.as_bstr().to_string()),
+            ("merge", merge.to_string()),
+        ] {
+            let key = format!("branch.{}.{key}", local.shorten());
+            but_core::git_config::set_config_value(config, &key, &value)?;
+        }
+        Ok(())
+    })?;
+    Ok(local)
 }
 
 pub use but_api::ai::{AiConfiguration, AiConfigurationUpdate};
@@ -413,6 +455,69 @@ pub(super) fn app_settings() -> Result<AppSettingsWithDiskSync> {
 #[cfg(test)]
 mod tests {
     use crate::backend::ops::tests::{git, repo_with};
+
+    #[test]
+    fn a_legacy_target_no_branch_tracks_is_picked_by_the_branch_named_as_it_tracking_it() {
+        but_testsupport::isolated_app_data_dir(|| {
+            use crate::backend::model::build::full;
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            git(
+                path,
+                &["remote", "add", "origin", "https://example.com/repo.git"],
+            );
+            git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+            git(path, &["update-ref", "refs/remotes/origin/release", "HEAD"]);
+            // As an older GitButler stored it, with main pushed without `-u`.
+            let legacy = |target: &str| {
+                git(path, &["config", "gitbutler.project.targetRef", target]);
+                git(path, &["config", "gitbutler.project.portedMeta", "true"]);
+                let err = crate::backend::load_workspace(path, Default::default()).unwrap_err();
+                assert_eq!(
+                    crate::backend::read_failure(&err),
+                    "Choose which branch is its target"
+                );
+                let target = crate::backend::unresolved_target(&err).unwrap();
+                crate::backend::target_choice(path, target).unwrap()
+            };
+
+            let choice = legacy("refs/remotes/origin/main");
+            assert_eq!(
+                choice.to_track,
+                Some((full("refs/heads/main"), false)),
+                "main is offered to track origin/main, as no branch does"
+            );
+            super::set_target(path, &choice.remote).unwrap();
+            assert_eq!(
+                git(path, &["rev-parse", "--abbrev-ref", "main@{upstream}"]).trim(),
+                "origin/main",
+                "main tracks the old target, so pulls bring in what they did"
+            );
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            assert_eq!(
+                workspace.target.map(|target| target.name).as_deref(),
+                Some("origin/main"),
+                "the project reads again, its target going by its upstream"
+            );
+
+            let choice = legacy("refs/remotes/origin/release");
+            assert_eq!(
+                choice.to_track,
+                Some((full("refs/heads/release"), true)),
+                "a branch the remote alone has is offered too"
+            );
+            super::set_target(path, &choice.remote).unwrap();
+            assert_eq!(
+                git(path, &["rev-parse", "--abbrev-ref", "release@{upstream}"]).trim(),
+                "origin/release",
+                "picking it creates it, tracking the old target"
+            );
+            assert_eq!(
+                git(path, &["config", "gitbutler.project.targetRef"]).trim(),
+                "refs/heads/release"
+            );
+        })
+    }
 
     #[test]
     fn the_default_branch_lists_first_and_picking_it_stays_on_the_branch() {
