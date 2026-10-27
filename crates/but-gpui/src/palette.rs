@@ -127,6 +127,7 @@ pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Open in terminal", &crate::open_in::OpenInTerminal),
     // The menu bar's, for Windows, which has none.
     ("Check for updates…", &CheckForUpdates),
+    ("Build and restart", &crate::app::BuildAndRestart),
     ("GitButler docs", &crate::help::OpenDocs),
     ("What's new (release notes)", &crate::help::OpenReleaseNotes),
     ("Report an issue…", &crate::help::ReportIssue),

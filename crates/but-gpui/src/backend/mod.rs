@@ -20,6 +20,7 @@ pub mod mesh;
 pub mod metrics;
 pub mod model;
 mod ops;
+pub mod rebuild;
 pub mod reviews;
 pub mod saved;
 pub mod settings;

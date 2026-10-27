@@ -293,6 +293,7 @@ impl AppView {
                     ))
                     .on_click(|_, window, cx| window.dispatch_action(Box::new(CommandPalette), cx)),
             )
+            .children(self.rebuild.is_some().then(|| self.build_button(cx)))
     }
 
     /// The bar's left while nothing is under way, picked or cut: what in the selected project

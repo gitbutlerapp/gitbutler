@@ -13,6 +13,8 @@ cargo run -p but-gpui
 
 On Linux, GPUI also links to libxcb, libxkbcommon and fontconfig: on Debian or Ubuntu, `sudo apt install libxcb1-dev libxkbcommon-x11-dev libfontconfig-dev`.
 
+Started with `cargo run` on macOS or Linux, the status bar ends with a Build and restart button, right of Commands, which the palette also has. It builds the client again with the same profile, and `--features gpui_platform/runtime_shaders`, showing cargo's output as it comes, in colour and with its progress bar, then restarts on the new binary in place, so `cargo run` and its terminal keep it. When the repository has more than one worktree with the client, it first asks which to build from. A failed build leaves the app running, with the output on screen. Hide keeps it building, the button then says Building…, and Cancel build stops it, with the compilers it started. Installed builds, and the desktop app's, don't show it.
+
 The project list comes from the app data of the build's channel, which is `dev` by default. Build with `CHANNEL=nightly` (or `release`) to see the projects of an installed GitButler.
 
 ## What you can do

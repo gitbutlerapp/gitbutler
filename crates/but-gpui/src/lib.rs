@@ -38,6 +38,7 @@ mod overlays;
 mod palette;
 mod pr;
 mod projects;
+mod rebuild;
 mod settings;
 mod state;
 mod status_bar;

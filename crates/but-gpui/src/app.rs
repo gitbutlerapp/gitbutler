@@ -47,6 +47,7 @@ actions!(
         ToggleNavigator,
         CommandPalette,
         CheckForUpdates,
+        BuildAndRestart,
         OperationsHistory,
         CloseWindow,
     ]
@@ -97,6 +98,10 @@ pub struct AppView {
     )>,
     /// Palette commands by label, most recently run first.
     pub recent_commands: Vec<&'static str>,
+    /// How to build the app again, when `cargo run` started it, for Build and restart.
+    pub(crate) rebuild: Option<backend::rebuild::Rebuild>,
+    /// The build under way or last ended, and what shows it when it fails out of sight.
+    pub(crate) building: Option<(Entity<crate::rebuild::BuildOutput>, Subscription)>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -245,6 +250,8 @@ impl AppView {
             palette: None,
             modal: None,
             recent_commands: Vec::new(),
+            rebuild: backend::rebuild::Rebuild::detect(),
+            building: None,
             _subscriptions: subscriptions,
         }
     }
@@ -1012,6 +1019,10 @@ impl Render for AppView {
             // Only with a feed to ask, so the palette offers it only then, as the menu does.
             .when(has_update_feed, |el| {
                 el.on_action(cx.listener(Self::check_for_updates))
+            })
+            // Only in a build `cargo run` started, likewise.
+            .when(self.rebuild.is_some(), |el| {
+                el.on_action(cx.listener(Self::build_and_restart))
             })
             .on_action(cx.listener(Self::open_settings))
             .on_action(cx.listener(Self::open_keyboard_shortcuts))
