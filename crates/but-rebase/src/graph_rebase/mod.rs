@@ -400,6 +400,34 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         })
     }
 
+    /// Makes materializing leave the files of every checkout untouched while its `HEAD`
+    /// and index still follow the rewrite, so what the rewrite took out of a checked out
+    /// commit surfaces as uncommitted changes.
+    pub fn keep_worktrees_unchanged(&mut self) -> Result<()> {
+        let trees = self
+            .padded_checkouts()?
+            .into_iter()
+            .map(|PaddedCheckout { tip, .. }| {
+                tip.map(|tip| {
+                    anyhow::Ok(tip.target().attach(&self.repo).object()?.peel_to_tree()?.id)
+                })
+                .transpose()
+            })
+            .collect::<Result<Vec<_>>>()?;
+        for (checkout, tree) in self.checkouts.iter_mut().zip(trees) {
+            let (Checkout::Head {
+                merge_base_override,
+                ..
+            }
+            | Checkout::Worktree {
+                merge_base_override,
+                ..
+            }) = checkout;
+            *merge_base_override = tree;
+        }
+        Ok(())
+    }
+
     fn padded_checkouts(&self) -> Result<Vec<PaddedCheckout<'_>>> {
         self.checkouts
             .iter()

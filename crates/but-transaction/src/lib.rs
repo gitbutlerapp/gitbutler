@@ -150,7 +150,6 @@ where
             pending_ref_changes: PendingRefChanges::default(),
             pending_checkout: None,
             context_lines,
-            materialize_without_checkout: MaterializeWithoutCheckout::Either,
         };
 
         let callback_outcome = {
@@ -174,7 +173,6 @@ where
             mut pending_ref_changes,
             pending_checkout,
             context_lines: _,
-            materialize_without_checkout,
         } = inner;
         let rebase = rebase.take().expect("rebase is always Some(_)");
 
@@ -191,10 +189,6 @@ where
                 FinalizeOptions {
                     checkout: pending_checkout,
                     dry_run,
-                    materialize_without_checkout: matches!(
-                        materialize_without_checkout,
-                        MaterializeWithoutCheckout::Yes
-                    ),
                 },
             )
             .map(Some)
@@ -252,12 +246,6 @@ where
     // need to map commits after each operation.
     commit_mappings: CommitMappings,
     context_lines: u32,
-    // How to materialize the final rebase outcome unfortunately depends on which operations we
-    // perform. Most operations need `materialize` but uncommitting needs
-    // `materialize_without_checkout`. `Either` means no operation has demanded one yet.
-    //
-    // Mixing different kinds of materialize requests results in an error.
-    materialize_without_checkout: MaterializeWithoutCheckout,
 }
 
 impl<'rebase, M> Transaction<'_, 'rebase, M>
@@ -292,7 +280,7 @@ where
                 how_to_combine_messages,
             )?;
             let new_commit = rebase.lookup_commit(commit_selector)?;
-            Ok((new_commit, MaterializeWithoutCheckout::No, rebase))
+            Ok((new_commit, rebase))
         })
     }
 
@@ -305,7 +293,7 @@ where
             let (rebase, edited_commit_selector) =
                 but_workspace::commit::reword(editor, commit_mappings.map(commit), message)?;
             let new_commit = rebase.lookup_commit(edited_commit_selector)?;
-            Ok((new_commit, MaterializeWithoutCheckout::No, rebase))
+            Ok((new_commit, rebase))
         })
     }
 
@@ -320,7 +308,7 @@ where
                     .into_iter()
                     .map(|commit| commit_mappings.map(commit)),
             )?;
-            Ok(((), MaterializeWithoutCheckout::No, rebase))
+            Ok(((), rebase))
         })
     }
 
@@ -329,13 +317,14 @@ where
         subjects: impl IntoIterator<Item = gix::ObjectId>,
     ) -> anyhow::Result<()> {
         self.rebase(|editor, commit_mappings| {
-            let rebase = but_workspace::commit::discard_commits(
+            let mut rebase = but_workspace::commit::discard_commits(
                 editor,
                 subjects
                     .into_iter()
                     .map(|commit| commit_mappings.map(commit)),
             )?;
-            Ok(((), MaterializeWithoutCheckout::Yes, rebase))
+            rebase.keep_worktrees_unchanged()?;
+            Ok(((), rebase))
         })
     }
 
@@ -357,7 +346,7 @@ where
             )?;
 
             let new_commit = rebase.lookup_commit(commit_selector)?;
-            Ok((new_commit, MaterializeWithoutCheckout::No, rebase))
+            Ok((new_commit, rebase))
         })
     }
 
@@ -383,7 +372,6 @@ where
             .reference_target(branch)
             .or_else(|_| resolve_checkout_target(rebase.repo(), branch))?;
 
-        self.request_materialization(MaterializeWithoutCheckout::No)?;
         self.inner.pending_checkout = Some(branch.to_owned());
         Ok(())
     }
@@ -468,7 +456,7 @@ where
                 editor.remove_edges(must_disconnect_child, ref_selector)?;
             }
             let rebase = editor.rebase()?;
-            Ok(((), MaterializeWithoutCheckout::Either, rebase))
+            Ok(((), rebase))
         })?;
         let repo = self.repo().clone();
         self.inner
@@ -496,14 +484,14 @@ where
             };
             let rebase =
                 but_workspace::branch::move_branch(editor, source_branch, relative_to, side)?;
-            Ok(((), MaterializeWithoutCheckout::No, rebase))
+            Ok(((), rebase))
         })
     }
 
     pub fn tear_off_branch(&mut self, source_branch: &FullNameRef) -> anyhow::Result<()> {
         self.rebase(|editor, _| {
             let rebase = but_workspace::branch::tear_off_branch(editor, source_branch)?;
-            Ok(((), MaterializeWithoutCheckout::No, rebase))
+            Ok(((), rebase))
         })?;
 
         Ok(())
@@ -549,7 +537,7 @@ where
             let target = editor.select_commit(commit_id)?;
             let reference = editor.add_step(Step::new_reference(ref_name.to_owned()))?;
             editor.add_edge(reference, target, 0)?;
-            Ok(((), MaterializeWithoutCheckout::No, editor.rebase()?))
+            Ok(((), editor.rebase()?))
         })
     }
 
@@ -573,7 +561,7 @@ where
                 anchor => anchor,
             });
             let rebase = but_workspace::branch::create_reference(editor, ref_name, anchor, order)?;
-            Ok(((), MaterializeWithoutCheckout::No, rebase))
+            Ok(((), rebase))
         })
     }
 
@@ -594,7 +582,7 @@ where
                 commit_mappings.map(top),
                 ref_name,
             )?;
-            Ok(((), MaterializeWithoutCheckout::No, rebase))
+            Ok(((), rebase))
         })
     }
 
@@ -641,7 +629,6 @@ where
                     new_commit,
                     rejected_specs,
                 },
-                MaterializeWithoutCheckout::No,
                 rebase,
             ))
         })
@@ -662,7 +649,7 @@ where
                 but_workspace::commit::insert_blank_commit(editor, side, relative_to)?;
             let new_commit = rebase.lookup_commit(blank_commit_selector)?;
 
-            Ok((new_commit, MaterializeWithoutCheckout::No, rebase))
+            Ok((new_commit, rebase))
         })
     }
 
@@ -714,7 +701,7 @@ where
                 .map(|selector| rebase.lookup_commit(selector))
                 .collect::<anyhow::Result<Vec<_>>>()?;
 
-            Ok((new_commits, MaterializeWithoutCheckout::No, rebase))
+            Ok((new_commits, rebase))
         })
     }
 
@@ -736,7 +723,7 @@ where
             let rebase =
                 but_workspace::commit::move_commits(editor, subject_commit_ids, relative_to, side)?;
 
-            Ok(((), MaterializeWithoutCheckout::No, rebase))
+            Ok(((), rebase))
         })
     }
 
@@ -772,7 +759,6 @@ where
                     new_commit,
                     rejected_specs,
                 },
-                MaterializeWithoutCheckout::No,
                 rebase,
             ))
         })
@@ -805,7 +791,7 @@ where
                 .lookup_commit(destination_selector)
                 .context("failed to find rebased commit")?;
 
-            Ok((new_commit, MaterializeWithoutCheckout::No, rebase))
+            Ok((new_commit, rebase))
         })
     }
 
@@ -834,11 +820,7 @@ where
         F: FnOnce(
             Editor<'rebase, 'rebase, M>,
             &CommitMappings,
-        ) -> anyhow::Result<(
-            T,
-            MaterializeWithoutCheckout,
-            SuccessfulRebase<'rebase, 'rebase, M>,
-        )>,
+        ) -> anyhow::Result<(T, SuccessfulRebase<'rebase, 'rebase, M>)>,
     {
         let editor = self
             .inner
@@ -846,45 +828,17 @@ where
             .take()
             .expect("rebase is always Some(_)")
             .into_editor();
-        let (outcome, materialize_without_checkout, new_rebase) =
-            f(editor, &self.inner.commit_mappings)?;
-
-        self.request_materialization(materialize_without_checkout)?;
+        let (outcome, new_rebase) = f(editor, &self.inner.commit_mappings)?;
 
         self.inner.commit_mappings = CommitMappings(new_rebase.history.commit_mappings());
         self.inner.rebase = Some(new_rebase);
         Ok(outcome)
     }
-
-    fn request_materialization(
-        &mut self,
-        requested: MaterializeWithoutCheckout,
-    ) -> anyhow::Result<()> {
-        match (self.inner.materialize_without_checkout, requested) {
-            (_, MaterializeWithoutCheckout::Either) => {}
-            (MaterializeWithoutCheckout::Either, requested) => {
-                self.inner.materialize_without_checkout = requested;
-            }
-            (demanded, requested) => anyhow::ensure!(
-                demanded == requested,
-                "cannot mix operations that require `materialize` and `materialize_without_checkout`"
-            ),
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum MaterializeWithoutCheckout {
-    Yes,
-    No,
-    Either,
 }
 
 struct FinalizeOptions {
     checkout: Option<FullName>,
     dry_run: DryRun,
-    materialize_without_checkout: bool,
 }
 
 #[derive(Debug, Default)]
@@ -1065,7 +1019,6 @@ fn workspace_state_from_rebase<M: RefMetadata>(
     let FinalizeOptions {
         checkout: pending_checkout,
         dry_run,
-        materialize_without_checkout,
     } = options;
     if dry_run.into() {
         let Some(branch) = pending_checkout else {
@@ -1091,11 +1044,7 @@ fn workspace_state_from_rebase<M: RefMetadata>(
         );
     }
 
-    let materialized = if materialize_without_checkout {
-        rebase.materialize_without_checkout()?
-    } else {
-        rebase.materialize(Default::default())?
-    };
+    let materialized = rebase.materialize(Default::default())?;
     for branch in pending_branch_metadata {
         let mut handle = materialized.meta.branch(branch.name.as_ref())?;
         *handle = branch.value;

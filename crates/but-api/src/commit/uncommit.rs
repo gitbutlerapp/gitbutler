@@ -241,7 +241,8 @@ pub fn commit_uncommit_only_with_perm(
             db,
         )
     } else {
-        let materialized = rebase.materialize_without_checkout()?;
+        rebase.keep_worktrees_unchanged()?;
+        let materialized = rebase.materialize(Default::default())?;
         (
             materialized.workspace,
             materialized.history.commit_mappings(),
@@ -341,7 +342,8 @@ pub fn commit_uncommit_changes_only_with_perm(
             db,
         )
     } else {
-        let materialized = outcome.rebase.materialize_without_checkout()?;
+        outcome.rebase.keep_worktrees_unchanged()?;
+        let materialized = outcome.rebase.materialize(Default::default())?;
         (
             materialized.workspace,
             materialized.history.commit_mappings(),
@@ -524,8 +526,9 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
                 &mut *db,
             )
         }
-    } else if let Some(rebase) = rebase {
-        let materialized = rebase.materialize_without_checkout()?;
+    } else if let Some(mut rebase) = rebase {
+        rebase.keep_worktrees_unchanged()?;
+        let materialized = rebase.materialize(Default::default())?;
         (
             materialized.workspace,
             materialized.history.commit_mappings(),
