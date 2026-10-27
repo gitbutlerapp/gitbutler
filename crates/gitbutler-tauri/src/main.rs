@@ -39,6 +39,7 @@ fn main() -> anyhow::Result<()> {
         std::env::remove_var(but_gpui::INSTALL_UPDATE);
     };
     but_api::panic_capture::install_panic_hook();
+    but_api::fd_limit::raise_soft_limit();
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
