@@ -667,18 +667,8 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Teardown {
         /// Explicit override for which local branch to checkout to.
-        #[clap(
-            long,
-            short = 'c',
-            value_name = "LOCAL_BRANCH",
-            group = "teardown_mode"
-        )]
+        #[clap(long, short = 'c', value_name = "LOCAL_BRANCH")]
         checkout_to: Option<String>,
-        /// Remove legacy GitButler-managed hooks.
-        ///
-        /// These hooks are no longer required and can safely be removed.
-        #[clap(long, group = "teardown_mode")]
-        remove_hooks: bool,
     },
 
     /// Open the GitButler GUI for the current project.
