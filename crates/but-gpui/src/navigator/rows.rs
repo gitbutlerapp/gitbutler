@@ -7,6 +7,7 @@ use gpui::{App, SharedString};
 
 use super::{ClickOpened, NEST, Navigator, STACK_STEP, upstream_chevrons};
 use crate::backend::{Branch, Checkout, FullName, Lane, Workspace, Worktree};
+use crate::edits::BranchEdits;
 use crate::state::{Cut, NewAt, ProjectEntry, ProjectId, Section, Selection, Store};
 
 /// Commits shown per branch before folding the rest into "N more".
@@ -38,7 +39,8 @@ pub(super) enum Row {
     /// A commit a mutation is making, by its title, and whether it's been long enough to
     /// show it's still on its way.
     Pending(SharedString, bool),
-    /// Where a commit of the project being dragged lands in a new branch of its own.
+    /// Where a commit of the project being dragged lands in a new branch of its own, or a
+    /// stacked branch in a stack of its own.
     NewBranch(ProjectId),
     /// The line after a worktree's section.
     WorktreeDivider,
@@ -237,9 +239,7 @@ impl Navigator {
             self.mesh_rows(store, id, &mut rows);
             // After the worktrees, so a drag starting in one doesn't push its rows down. Outside
             // the workspace there's nowhere to put a branch of its own.
-            if workspace.managed
-                && matches!(&store.dragging, Some(Cut::Commit(project, _)) if project == id)
-            {
+            if workspace.managed && lands_apart(store.dragging.as_ref(), id, workspace) {
                 rows.push(Row::NewBranch(id.clone()));
             }
             // The pages are another kind of row than the worktrees', so a line rules them off,
@@ -695,6 +695,18 @@ pub(super) fn within<'a>(
     })
 }
 
+/// Whether what's `dragging` can land apart from the rest of `project`'s `workspace`:
+/// commits in a new branch, and a branch that shares its stack in one of its own.
+fn lands_apart(dragging: Option<&Cut>, project: &ProjectId, workspace: &Workspace) -> bool {
+    match dragging {
+        Some(Cut::Commit(from, _)) => from == project,
+        Some(Cut::Branch(from, branch)) => {
+            from == project && BranchEdits::of(workspace, branch).stacked
+        }
+        _ => false,
+    }
+}
+
 /// Which of `terms`, lowercase, any of `texts` holds, as bits by the term's place.
 pub(super) fn found(terms: &[String], texts: &[&str]) -> u64 {
     (terms.iter().enumerate())
@@ -791,6 +803,51 @@ mod within_tests {
         assert!(
             !within(&heading(None), [&branch].into_iter()),
             "the target's heading sits above every worktree"
+        );
+    }
+}
+
+#[cfg(test)]
+mod lands_apart_tests {
+    use super::lands_apart;
+    use crate::backend::model::build::{branch, full, workspace, worktree};
+    use crate::state::{Cut, ProjectId};
+
+    #[test]
+    fn a_stacked_branch_lands_apart_and_a_lone_one_does_not() {
+        let project = ProjectId::from("p");
+        let ws = workspace(
+            vec![
+                vec![branch("ui", &[3]), branch("api", &[2, 1])],
+                vec![branch("typo", &[4])],
+            ],
+            vec![worktree(
+                "wt",
+                None,
+                vec![branch("top", &[6]), branch("low", &[5])],
+            )],
+        );
+        let dragged =
+            |name: &str| Cut::Branch(project.clone(), full(&format!("refs/heads/{name}")));
+        assert!(
+            lands_apart(Some(&dragged("ui")), &project, &ws),
+            "the top of a stack can leave it"
+        );
+        assert!(
+            lands_apart(Some(&dragged("api")), &project, &ws),
+            "and so can the bottom, the one above then resting on the base"
+        );
+        assert!(
+            !lands_apart(Some(&dragged("typo")), &project, &ws),
+            "a branch alone in its stack is apart already"
+        );
+        assert!(
+            !lands_apart(Some(&dragged("top")), &project, &ws),
+            "a linked worktree's lane can't come apart"
+        );
+        assert!(
+            !lands_apart(Some(&dragged("ui")), &ProjectId::from("other"), &ws),
+            "it lands only in its own project"
         );
     }
 }

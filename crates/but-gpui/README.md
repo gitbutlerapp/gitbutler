@@ -62,6 +62,7 @@ Moving things works by drag and drop or by ⌘X on the source and ⌘V on the de
 | a commit's file | uncommitted changes | uncommits just that file, a worktree commit's into that worktree |
 | a branch | another branch | stacks it, with the branches above it, on top of that one; dropped on its lower half, or with ⇧, below that one instead. A linked worktree's branches only move within its lane |
 | a branch | a linked worktree | puts it under the worktree's branches |
+| a stacked branch | Unstack, below the stacks and any linked worktrees while dragging | moves it into a stack of its own (also Unstack in its menu). Its commits can land conflicted when they build on the branch below; the snackbar then names the branch and counts them, as it does when a branch moves onto another, and Undo puts it back |
 | a hunk of uncommitted changes | a commit or branch | as its file would, with just that hunk |
 | a hunk of a commit | another commit, or uncommitted changes | moves just that hunk, or uncommits it |
 

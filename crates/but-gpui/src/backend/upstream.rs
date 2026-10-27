@@ -962,7 +962,7 @@ pub struct UpdateConflicts {
 
 /// The branches (full refs, `None` for an unnamed one) in `info` with commits among
 /// `conflicted` that aren't conflicted yet, each with how many.
-fn newly_conflicted(
+pub(super) fn newly_conflicted(
     info: &but_workspace::RefInfo,
     conflicted: &[(gix::ObjectId, but_core::ChangeId)],
 ) -> Vec<(Option<super::FullName>, usize)> {

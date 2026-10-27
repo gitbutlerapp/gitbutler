@@ -1197,6 +1197,20 @@ impl Store {
         );
     }
 
+    /// Take `branch` out of the stack it shares into a stack of its own.
+    pub fn unstack(&mut self, project: &ProjectId, branch: FullName, cx: &mut Context<Self>) {
+        self.run(
+            project,
+            "Unstack",
+            Overlay::default(),
+            move |path, _| backend::tear_off_branch(path, &branch),
+            |store, conflicted, cx| {
+                store.snack_undoable(branch_moved("Moved to its own stack", &conflicted), cx)
+            },
+            cx,
+        );
+    }
+
     /// Amend commit `into` with uncommitted `files` of `worktree`, then call `then` once that
     /// worked.
     pub fn amend(
@@ -2086,6 +2100,14 @@ fn updated_message(
         )),
     }
     // A snackbar is one fragment, so its parts are listed rather than sentences.
+    said.join(", ")
+}
+
+/// What a branch move did, `done`, and the branches it left `conflicted`: "Branch moved,
+/// feature/a has 2 conflicted commits".
+pub fn branch_moved(done: &str, conflicted: &[(Option<FullName>, usize)]) -> String {
+    let mut said = vec![done.to_owned()];
+    said.extend(conflicted_parts(conflicted));
     said.join(", ")
 }
 

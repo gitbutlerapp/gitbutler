@@ -164,9 +164,9 @@ impl Navigator {
         }
     }
 
-    /// Where a commit of `project` being dragged lands in a new branch of its own: a dashed
-    /// box, lit while a drag is over it. Padded, not margined: a margin collapses through
-    /// the card's ground.
+    /// Where a commit of `project` being dragged lands in a new branch of its own, or a
+    /// stacked branch in a stack of its own: a dashed box, lit while a drag is over it.
+    /// Padded, not margined: a margin collapses through the card's ground.
     pub(super) fn new_branch_zone(
         &self,
         ix: usize,
@@ -176,6 +176,10 @@ impl Navigator {
     ) -> AnyElement {
         let project = project.clone();
         let highlight = theme.pop;
+        let label = match self.store.read(cx).dragging {
+            Some(Cut::Branch(..)) => "Unstack",
+            _ => "New branch",
+        };
         let zone = h_flex()
             .id(("new-branch-drop", ix))
             .h(dp(30.))
@@ -189,7 +193,7 @@ impl Navigator {
             .text_size(dp(12.))
             .text_color(theme.text_2)
             .child(small_icon(Icon::Branch).text_color(theme.text_2))
-            .child("New branch")
+            .child(label)
             .drag_over::<Cut>(move |style, _, _, _| {
                 style
                     .bg(highlight.opacity(0.14))
@@ -201,13 +205,17 @@ impl Navigator {
                 // A row still lit says where the pill told the drop goes, as when the
                 // zone slid under a pointer that didn't move.
                 let store = this.store.read(cx);
-                if let Some(Cut::Commit(from, ids)) = &store.dragging
-                    && *from == project
-                    && store.drop_at.is_none()
-                {
-                    let (from, ids) = (from.clone(), ids.clone());
-                    this.store
-                        .update(cx, |store, cx| store.move_to_new_branch(&from, ids, cx));
+                if store.drop_at.is_some() {
+                    return;
+                }
+                match store.dragging.clone() {
+                    Some(Cut::Commit(from, ids)) if from == project => this
+                        .store
+                        .update(cx, |store, cx| store.move_to_new_branch(&from, ids, cx)),
+                    Some(Cut::Branch(from, branch)) if from == project => this
+                        .store
+                        .update(cx, |store, cx| store.unstack(&from, branch, cx)),
+                    _ => {}
                 }
             }));
         div().py(dp(2.)).child(zone).into_any_element()
