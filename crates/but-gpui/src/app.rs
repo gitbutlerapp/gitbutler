@@ -310,8 +310,10 @@ impl AppView {
         cx.set_global(Theme::get(cx).clone().with_scale(scale));
         // The lists keep the heights their rows had, which only the width changing drops.
         self.detail.update(cx, |detail, cx| detail.remeasure(cx));
-        self.navigator
-            .update(cx, |navigator, _| navigator.list.remeasure());
+        self.navigator.update(cx, |navigator, _| {
+            navigator.list.remeasure();
+            navigator.drawer_list.remeasure()
+        });
         cx.refresh_windows();
     }
 

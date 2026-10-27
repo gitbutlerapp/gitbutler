@@ -5,10 +5,10 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, DragMoveEvent, ElementId, Entity, FocusHandle,
-    Focusable, Hsla, ListAlignment, ListOffset, ListState, MouseButton, MouseDownEvent, Pixels,
-    Point, ScrollWheelEvent, SharedString, Stateful, Subscription, Task, Window, actions, div,
-    list, prelude::*,
+    AnyElement, App, ClickEvent, Context, CursorStyle, Div, DragMoveEvent, ElementId, EmptyView,
+    Entity, FocusHandle, Focusable, Hsla, ListAlignment, ListOffset, ListState, MouseButton,
+    MouseDownEvent, Pixels, Point, ScrollWheelEvent, SharedString, Stateful, Subscription, Task,
+    Window, actions, div, list, prelude::*, relative,
 };
 
 use crate::app::{
@@ -26,7 +26,7 @@ use crate::state::{
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
 use crate::ui::emoji::{Colour, ProjectIcon};
-use crate::ui::scrollbar::{Scroll, scrolled};
+use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, above_drag, ago, button, commit_title,
@@ -46,8 +46,22 @@ mod rows;
 use drop::insertion_line;
 use order::{CardSlot, ProjectDrag};
 use rows::{
-    COMMIT_INDENT, GUIDE_AT, ROW_LEFT, Row, Rows, in_inactive, inactive_open, last_active, within,
+    COMMIT_INDENT, Drawer, GUIDE_AT, ROW_LEFT, Row, Rows, in_inactive, inactive_open, last_active,
+    within,
 };
+
+/// How tall the drawer's handle is, level with the commit footer beside it, and the space
+/// under its rows.
+const DRAWER_BAR_HEIGHT: f32 = crate::detail::FOOTER_HEIGHT;
+const DRAWER_PADDING: f32 = 6.;
+
+/// The most of the column the open drawer takes until it's dragged, and how little and how
+/// much dragging it can make that.
+const DRAWER_SHARE: f32 = 0.45;
+const DRAWER_SHARES: (f32, f32) = (0.15, 0.85);
+
+/// The open drawer's top edge being dragged, to resize it.
+struct DrawerResize;
 
 /// How far a worktree's or a stack's rows sit in from its heading, as ui-react's SidebarRow
 /// steps them: their chevrons' middle under the heading's 16-point glyph's, the chevron's step,
@@ -270,6 +284,9 @@ pub struct Navigator {
     /// Where each row's guides run.
     guides: Vec<Vec<f32>>,
     pub(crate) list: ListState,
+    /// The projects not watched as last drawn, and the list the drawer draws them in.
+    drawer: Drawer,
+    pub(crate) drawer_list: ListState,
     /// The selection changed: scroll to it once the rows are up to date.
     reveal_selection: bool,
     /// Branches showing all their commits, or the first few, against how Settings say open
@@ -307,8 +324,6 @@ pub struct Navigator {
     filter: Entity<TextInput>,
     /// The first item the filter found, which Enter in it selects.
     first_hit: Option<Selection>,
-    /// The projects not expanded show all of them rather than the first few.
-    projects_unfolded: bool,
     /// Whether the pointer is over the navigator.
     pointer_over: bool,
     /// The watched projects' order by activity as it was when the pointer came over the
@@ -323,9 +338,9 @@ pub struct Navigator {
     /// Where a dragged project card would go, while one is over a card's heading.
     project_drop: Option<CardSlot>,
     /// The row under the pointer holds still through the next change to the rows: one a
-    /// workspace's load made, as an agent's commit, or "Show fewer" folding what's above it,
-    /// which would leave the list scrolled past the fold. What else the user folds or does
-    /// moves the rows as usual.
+    /// workspace's load made, as an agent's commit, or a branch's "Show fewer" folding what's
+    /// above it, which would leave the list scrolled past the fold. What else the user folds
+    /// or does moves the rows as usual.
     hold_still: bool,
     /// How far a frame the list scrolls while something dragged is near its top or bottom
     /// edge, up when negative, and the task that scrolls it.
@@ -386,8 +401,8 @@ impl Navigator {
                 }
                 cx.notify()
             }),
-            cx.subscribe(&store, |this, _, event, _| match event {
-                StoreEvent::SelectionChanged => this.reveal_selection = true,
+            cx.subscribe(&store, |this, _, event, cx| match event {
+                StoreEvent::SelectionChanged => this.reveal(cx),
                 StoreEvent::Loaded(_) | StoreEvent::MeshRead(_) => this.hold_still = true,
                 // A renamed branch stays open or folded as it was.
                 StoreEvent::Renamed(project, from, to) => {
@@ -433,6 +448,8 @@ impl Navigator {
             insets: Vec::new(),
             guides: Vec::new(),
             list: ListState::new(0, ListAlignment::Top, fixed(56.)),
+            drawer: Drawer::default(),
+            drawer_list: ListState::new(0, ListAlignment::Top, fixed(56.)),
             reveal_selection: false,
             flipped_folds: HashSet::new(),
             all_branch_commits,
@@ -447,7 +464,6 @@ impl Navigator {
             folded_stacks: HashSet::new(),
             filter,
             first_hit: None,
-            projects_unfolded: false,
             pointer_over: false,
             held_order: None,
             held_worktrees: HashMap::new(),
@@ -514,9 +530,23 @@ impl Navigator {
     fn filter_changed(&mut self, cx: &mut Context<Self>) {
         self.list.scroll_to(ListOffset::default());
         if self.filter.read(cx).text().trim().is_empty() {
-            self.reveal_selection = true;
+            self.reveal(cx);
         }
         cx.notify();
+    }
+
+    /// Show the selection where it is once the rows are up to date, opening the drawer when
+    /// it's one of its projects.
+    fn reveal(&mut self, cx: &mut Context<Self>) {
+        self.reveal_selection = true;
+        let store = self.store.read(cx);
+        let in_drawer = matches!(&store.selection, Some(Selection::Project(id))
+            if store.project(id).is_some_and(|entry| !entry.expanded));
+        if in_drawer && store.prefs.projects_folded {
+            (self.store).update(cx, |store, cx| {
+                store.set_prefs(|p| p.projects_folded = false, cx)
+            });
+        }
     }
 
     fn select(&mut self, selection: Selection, window: &mut Window, cx: &mut Context<Self>) {
@@ -534,9 +564,9 @@ impl Navigator {
         window.focus(&self.focus, cx);
     }
 
-    /// The rows that can be selected, in order.
+    /// The rows that can be selected, in order: the cards', then the drawer's.
     fn items(&self) -> Vec<&Selection> {
-        items(&self.rows)
+        items(self.rows.iter().chain(&self.drawer.rows))
     }
 
     /// Space at the end of a commit's diff: on to the next unread commit, in any branch or
@@ -566,11 +596,11 @@ impl Navigator {
     }
 
     fn step(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
-        // ↓ onto a fold of commits or projects shows the rest and goes on into them, as a feed
-        // loads more: the fold is no stop of its own.
+        // ↓ onto a fold of commits shows the rest and goes on into them, as a feed loads more:
+        // the fold is no stop of its own.
         let built = (delta > 0 && self.unfold_after_selection(cx)).then(|| self.build_rows(cx));
         let items = match &built {
-            Some(built) => items(&built.rows),
+            Some(built) => items(built.rows.iter().chain(&built.drawer.rows)),
             None => self.items(),
         };
         if items.is_empty() {
@@ -595,20 +625,16 @@ impl Navigator {
         self.select(next, window, cx);
     }
 
-    /// Unfold the "N more" right under the selection, a branch's or the projects', saying
-    /// whether there was one.
+    /// Unfold the branch's "N more" right under the selection, saying whether there was one.
     fn unfold_after_selection(&mut self, cx: &App) -> bool {
         let selection = self.store.read(cx).selection.as_ref();
         let at = (self.rows.iter())
             .position(|row| matches!(row, Row::Item(item) if Some(item) == selection));
-        match at.and_then(|at| self.rows.get(at + 1)) {
-            Some(Row::More(project, ref_name, _)) => {
-                self.set_unfolded((project.clone(), ref_name.clone()), true);
-                true
-            }
-            Some(Row::MoreProjects(_)) => !std::mem::replace(&mut self.projects_unfolded, true),
-            _ => false,
-        }
+        let Some(Row::More(project, ref_name, _)) = at.and_then(|at| self.rows.get(at + 1)) else {
+            return false;
+        };
+        self.set_unfolded((project.clone(), ref_name.clone()), true);
+        true
     }
 
     /// Step `delta` commits from the selected one, picking the run as ⇧-click does. Off a
@@ -923,15 +949,26 @@ impl Navigator {
         })
     }
 
-    /// Bring the list up to date with `rows`, and show the selection if it just changed.
-    /// Rows that didn't change keep their place on screen. When a load changed them while
-    /// the pointer is over the list, so does the row under it: rows added above it, like an
-    /// agent's new commit, push the rows above it up rather than it down.
-    fn sync_list(&mut self, rows: Vec<Row>, window: &Window, cx: &App) {
-        // At the very top the list stays there, showing what's added, as the diff does;
-        // scrolled, the row under the pointer stays where it is.
-        let top = self.list.logical_scroll_top();
-        let at_top = top.item_ix == 0 && top.offset_in_item == Pixels::ZERO;
+    /// Bring the lists up to date with `rows` and `drawer`, and show the selection if it just
+    /// changed. Rows that didn't change keep their place on screen. When a load changed the
+    /// cards' while the pointer is over them, so does the row under it: rows added above it,
+    /// like an agent's new commit, push the rows above it up rather than it down.
+    fn sync_list(&mut self, rows: Vec<Row>, drawer: Drawer, window: &Window, cx: &App) {
+        // Rows not drawn yet count as one row tall, which a project's row is.
+        let row = Theme::get(cx).scaled(ROW_HEIGHT);
+        // At the very top a list stays there, showing what's added, as the diff does: rows
+        // added above the first one count as added above the top, which would leave it
+        // scrolled to their end, as the drawer's rows are when it opens.
+        let drawer_at_top = at_top(&self.drawer_list);
+        if splice(&self.drawer_list, &self.drawer.rows, &drawer.rows, 0) {
+            self.drawer_list.clone().with_uniform_item_height(row);
+            if drawer_at_top {
+                self.drawer_list.scroll_to(ListOffset::default());
+            }
+        }
+        self.drawer = drawer;
+        // Scrolled, the row under the pointer stays where it is.
+        let at_top = at_top(&self.list);
         let hovered = (std::mem::take(&mut self.hold_still) && !at_top)
             .then(|| self.hovered_row(window))
             .flatten();
@@ -957,17 +994,13 @@ impl Navigator {
             }
             None => splice(&self.list, &self.rows, &rows, 0),
         };
-        // Rows added above the first one count as added above the top, which would leave
-        // the list scrolled to their end.
         if at_top && changed {
             self.list.scroll_to(ListOffset::default());
         }
         self.rows = rows;
         if changed {
-            // Rows not drawn yet count as one row tall. The clone shares the list's state.
-            self.list
-                .clone()
-                .with_uniform_item_height(Theme::get(cx).scaled(ROW_HEIGHT));
+            // The clone shares the list's state.
+            self.list.clone().with_uniform_item_height(row);
             if let Some((_, item_ix, offset)) = anchor {
                 self.list.scroll_to(ListOffset {
                     item_ix,
@@ -980,18 +1013,19 @@ impl Navigator {
         if std::mem::take(&mut self.reveal_selection)
             && let Some(selection) = &store.selection
         {
-            match (self.rows.iter())
-                .position(|row| matches!(row, Row::Item(item) if item == selection))
-            {
-                Some(ix) => {
+            let at = |rows: &[Row]| {
+                (rows.iter()).position(|row| matches!(row, Row::Item(item) if item == selection))
+            };
+            match (at(&self.rows), at(&self.drawer.rows)) {
+                (Some(ix), _) => {
                     // Rows not drawn since the list's width changed, as zooming changes it,
                     // count as one row tall rather than none, so the reveal lands on it.
-                    let row = Theme::get(cx).scaled(ROW_HEIGHT);
                     self.list.clone().with_uniform_item_height(row);
                     self.list.scroll_to_reveal_item(ix)
                 }
+                (None, Some(ix)) => self.drawer_list.scroll_to_reveal_item(ix),
                 // A project just added has its rows once it's loaded.
-                None => {
+                (None, None) => {
                     self.reveal_selection =
                         (store.project(selection.project())).is_some_and(|entry| entry.is_loading())
                 }
@@ -1024,7 +1058,7 @@ impl Navigator {
         };
         let el = match self.rows.get(ix) {
             None | Some(Row::Gap) => return div().h(dp(12.)).into_any_element(),
-            Some(Row::Item(item)) => self.render_item(ix, item, inset, window, theme, cx),
+            Some(Row::Item(_)) => self.render_item(&self.rows, ix, inset, window, theme, cx),
             // A dashed line, as ui-react's WorktreeDivider.
             Some(Row::WorktreeDivider) => h_flex()
                 .h(dp(12.))
@@ -1037,29 +1071,7 @@ impl Navigator {
                         .border_color(theme.border_3),
                 )
                 .into_any_element(),
-            Some(Row::Note(text, is_error)) => h_flex()
-                .min_h(dp(ROW_HEIGHT))
-                .px(dp(12.))
-                .py(dp(4.))
-                .gap(dp(6.))
-                .text_size(dp(12.))
-                .text_color(if *is_error {
-                    theme.danger
-                } else {
-                    theme.text_2
-                })
-                .when(*is_error, |el| {
-                    el.child(small_icon(Icon::Warning).text_color(theme.danger))
-                })
-                // A long reason, as a failing filter's command twice over, stays on the
-                // project's page, and its menu copies it.
-                .child(
-                    (div().flex_1().min_w_0())
-                        .line_clamp(4)
-                        .text_ellipsis()
-                        .child(text.clone()),
-                )
-                .into_any_element(),
+            Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
             // As made at once, set in as a commit row is, a stand-in title quiet as one's;
             // dimmed, with an ellipsis, only once it's taking a while.
             Some(Row::Pending(title, slow)) => h_flex()
@@ -1082,29 +1094,6 @@ impl Navigator {
                     el.child(div().text_size(dp(11.)).text_color(theme.text_2).child("…"))
                 })
                 .into_any_element(),
-            Some(Row::ProjectsHeading(title, listed, total)) => {
-                self.projects_heading(title, *listed, *total, theme, cx)
-            }
-            // The glyph under the projects' chevrons, the words under their names.
-            Some(Row::MoreProjects(hidden)) => {
-                fold_row(("more-projects", ix), Icon::Kebab, 11., 35., theme)
-                    .child(format!("{hidden} more"))
-                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                        this.projects_unfolded = true;
-                        cx.notify();
-                    }))
-                    .into_any_element()
-            }
-            Some(Row::FewerProjects) => {
-                fold_row(("fewer-projects", ix), Icon::ChevronUp, 11., 35., theme)
-                    .child("Show fewer")
-                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                        this.projects_unfolded = false;
-                        this.hold_still = true;
-                        cx.notify();
-                    }))
-                    .into_any_element()
-            }
             Some(Row::NewBranch(project)) => self.new_branch_zone(ix, project, theme, cx),
             Some(Row::UpstreamMore(project, more)) => {
                 let page = Selection::Project(project.clone());
@@ -1165,7 +1154,7 @@ impl Navigator {
         // A guide for each row it's under, joining those of the rows above and below into
         // one line, as but.dev's sidebar draws them.
         let guides = (self.guides.get(ix).into_iter().flatten()).map(|at| guide(*at, theme));
-        // A watched project's card, or the one after them, takes a dragged project card.
+        // A watched project's card takes a dragged project card before it.
         let slot = match self.rows.get(ix) {
             _ if self.store.read(cx).prefs.watched_order != WatchedOrder::Manual => None,
             Some(Row::Item(Selection::Project(id)))
@@ -1173,7 +1162,6 @@ impl Navigator {
             {
                 Some(CardSlot::Before(id.clone()))
             }
-            Some(Row::ProjectsHeading(..)) => Some(CardSlot::End),
             _ => None,
         };
         // Padded, not margined: a list lays its rows out from their left edge.
@@ -1205,15 +1193,19 @@ impl Navigator {
             .into_any_element()
     }
 
+    /// Item row `ix` of `rows`, the cards' or the drawer's.
     fn render_item(
         &self,
+        rows: &[Row],
         ix: usize,
-        item: &Selection,
         inset: f32,
         window: &Window,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
+        let Some(Row::Item(item)) = rows.get(ix) else {
+            return div().into_any_element();
+        };
         let store = self.store.read(cx);
         let lit = |item: &Selection| {
             store.selection.as_ref() == Some(item)
@@ -1221,7 +1213,7 @@ impl Navigator {
         };
         let selected = lit(item);
         // Picked commits next to each other join up.
-        let lit_at = |ix: usize| matches!(self.rows.get(ix), Some(Row::Item(other)) if lit(other));
+        let lit_at = |ix: usize| matches!(rows.get(ix), Some(Row::Item(other)) if lit(other));
         let joined = match selected && !store.picked.is_empty() {
             true => (ix > 0 && lit_at(ix - 1), lit_at(ix + 1)),
             false => (false, false),
@@ -1318,48 +1310,145 @@ impl Navigator {
         })
     }
 
-    /// The heading over the projects not expanded: a fold, how many it lists of how many
-    /// there are, and ways to find, order and add projects. While the filter's open, the
-    /// filter in its place.
-    fn projects_heading(
-        &self,
-        title: &'static str,
-        listed: usize,
-        total: usize,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> AnyElement {
-        // The chevron over the projects' chevrons.
-        let row = h_flex()
-            .id("projects-heading")
-            .h(dp(ROW_HEIGHT))
-            .pl(dp(11.))
-            .pr(dp(4.))
-            .gap(dp(2.));
+    /// The projects not watched, in a drawer under the cards that opens upwards to part of
+    /// the column and scrolls past that. With no cards it's the column, open.
+    fn drawer(&self, theme: &Theme, cx: &Context<Self>) -> impl IntoElement {
+        let alone = self.rows.is_empty();
+        let rows = list(
+            self.drawer_list.clone(),
+            cx.processor(|this, ix: usize, window, cx| this.render_drawer_row(ix, window, cx)),
+        )
+        .size_full();
+        let scroll = Scroll::List(self.drawer_list.clone());
+        let manual = self.store.read(cx).prefs.watched_order == WatchedOrder::Manual;
+        let slot = (manual && !alone).then_some(CardSlot::End);
+        let lit = slot.is_some() && self.project_drop == slot;
+        let share = (self.store.read(cx).prefs.drawer_share).unwrap_or(DRAWER_SHARE);
+        // Each of its rows is one row tall.
+        let rows_height = match self.drawer.rows.len() {
+            0 => 0.,
+            n => n as f32 * ROW_HEIGHT + DRAWER_PADDING,
+        };
+        v_flex()
+            .relative()
+            .bg(theme.bg_1)
+            .map(|el| match alone {
+                true => el.flex_1().min_h_0(),
+                false => (el.flex_none())
+                    .h(dp(DRAWER_BAR_HEIGHT + rows_height))
+                    .max_h(relative(share)),
+            })
+            .child(self.drawer_bar(alone, theme, cx))
+            .child(
+                div()
+                    .relative()
+                    .flex_1()
+                    .min_h_0()
+                    .when(rows_height > 0., |el| el.pb(dp(DRAWER_PADDING)))
+                    .child(rows)
+                    .children(scrollbar("drawer-scrollbar", scroll, theme)),
+            )
+            // After the cards, a dragged card goes last.
+            .when_some(slot, |el, slot| el.child(self.card_drop(slot, cx)))
+            .when(lit, |el| {
+                el.child(insertion_line(true, theme.pop).right(dp(10.)).top(dp(-6.)))
+            })
+            .when(!alone && rows_height > 0., |el| {
+                el.child(self.drawer_resize_handle(theme, cx))
+            })
+    }
+
+    /// A strip along the open drawer's top edge: drag it to resize the drawer, as far as its
+    /// rows go, double-click to put it back. The navigator listens with
+    /// [`Self::resize_drawer`].
+    fn drawer_resize_handle(&self, theme: &Theme, cx: &Context<Self>) -> impl IntoElement {
+        div()
+            .id("resize-drawer")
+            .absolute()
+            .left_0()
+            .right_0()
+            .top(dp(-2.))
+            .h(dp(5.))
+            .group("resize-drawer")
+            .cursor(CursorStyle::ResizeUpDown)
+            .block_mouse_except_scroll()
+            // A line along the drawer's top edge, as a pane's handle marks its own.
+            .child(
+                div()
+                    .absolute()
+                    .left_0()
+                    .right_0()
+                    .top(dp(2.))
+                    .h(fixed(1.))
+                    .group_hover("resize-drawer", |el| el.bg(theme.border_1)),
+            )
+            .on_drag(DrawerResize, |_, _, _, cx| cx.new(|_| EmptyView))
+            .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
+                if event.click_count() == 2 {
+                    (this.store).update(cx, |store, cx| {
+                        store.set_prefs(|p| p.drawer_share = None, cx)
+                    })
+                }
+            }))
+    }
+
+    /// Resize the drawer while its top edge is dragged, as a share of the navigator's column,
+    /// which the drawer ends at the bottom of.
+    fn resize_drawer(
+        &mut self,
+        event: &DragMoveEvent<DrawerResize>,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let bounds = event.bounds;
+        let share = (bounds.bottom() - event.event.position.y) / bounds.size.height;
+        let share = share.clamp(DRAWER_SHARES.0, DRAWER_SHARES.1);
+        (self.store).update(cx, |store, cx| {
+            store.set_prefs(|p| p.drawer_share = Some(share), cx)
+        });
+    }
+
+    /// The drawer's handle: a click opens or closes it, and it says how many projects it lists
+    /// of how many there are, and has ways to add, order and find them.
+    fn drawer_bar(&self, alone: bool, theme: &Theme, cx: &Context<Self>) -> impl IntoElement {
+        let Drawer { listed, total, .. } = self.drawer;
+        let title = match alone {
+            true => "All projects",
+            false => "More projects",
+        };
         let count = match listed == total {
             true => total.to_string(),
             false => format!("{listed} of {total}"),
         };
-        let folded = self.store.read(cx).prefs.projects_folded;
-        // Its chevron or a double-click folds it, as a project card's do.
-        let toggle = |this: &mut Self, _: &mut Window, cx: &mut Context<Self>| {
-            (this.store).update(cx, |store, cx| {
-                store.set_prefs(|p| p.projects_folded = !p.projects_folded, cx)
-            })
+        // While the filter lists what it finds, they show as they are, as cards don't fold.
+        let toggles = total > 0 && !alone && !self.filtering(cx);
+        let chevron = match self.store.read(cx).prefs.projects_folded {
+            true => Icon::ChevronUp,
+            false => Icon::ChevronDown,
         };
+        // Its chevron over the projects' eyes.
         let fold = h_flex()
             .flex_1()
             .min_w_0()
             .h_full()
             .gap(dp(6.))
-            .when(total > 0, |el| {
-                el.child(self.fold("projects-fold", Some(!folded), theme.text_3, cx, toggle))
+            .when(toggles, |el| {
+                el.child(small_icon(chevron).text_color(theme.text_3))
             })
             .child(section_label(title, theme).truncate())
             .when(total > 0, |el| {
                 el.child(faint(count, theme).text_size(dp(12.)))
             });
-        row.child(fold)
+        h_flex()
+            .id("drawer-bar")
+            .flex_none()
+            .h(dp(DRAWER_BAR_HEIGHT))
+            .border_t_1()
+            .border_color(theme.border_3)
+            .pl(dp(22.))
+            .pr(dp(15.))
+            .gap(dp(2.))
+            .child(fold)
             .child(
                 icon_button("add-project", Icon::Plus)
                     .small()
@@ -1376,8 +1465,25 @@ impl Navigator {
                         })),
                 )
             })
-            .when(total > 0, |el| el.on_click(double_click(toggle, cx)))
-            .into_any_element()
+            .when(toggles, |el| {
+                el.cursor_pointer()
+                    .hover(|el| el.bg(theme.hover()))
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                        (this.store).update(cx, |store, cx| {
+                            store.set_prefs(|p| p.projects_folded = !p.projects_folded, cx)
+                        })
+                    }))
+            })
+    }
+
+    /// Row `ix` of the drawer, set in as a card's rows are.
+    fn render_drawer_row(&self, ix: usize, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let theme = Theme::get(cx);
+        let el = match self.drawer.rows.get(ix) {
+            Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
+            _ => self.render_item(&self.drawer.rows, ix, 0., window, theme, cx),
+        };
+        div().px(dp(11.)).child(el).into_any_element()
     }
 
     fn project_row(
@@ -2496,6 +2602,29 @@ impl Navigator {
     }
 }
 
+/// A row of words in place of others: why a project has none, or what's loading.
+fn note_row(text: &SharedString, is_error: bool, theme: &Theme) -> AnyElement {
+    h_flex()
+        .min_h(dp(ROW_HEIGHT))
+        .px(dp(12.))
+        .py(dp(4.))
+        .gap(dp(6.))
+        .text_size(dp(12.))
+        .text_color(if is_error { theme.danger } else { theme.text_2 })
+        .when(is_error, |el| {
+            el.child(small_icon(Icon::Warning).text_color(theme.danger))
+        })
+        // A long reason, as a failing filter's command twice over, stays on the project's
+        // page, and its menu copies it.
+        .child(
+            (div().flex_1().min_w_0())
+                .line_clamp(4)
+                .text_ellipsis()
+                .child(text.clone()),
+        )
+        .into_any_element()
+}
+
 /// Tell `list` its rows from `at` changed from `old` to `new`: the ones between what both
 /// start and end with, which it measures again. Whether any did.
 fn splice(list: &ListState, old: &[Row], new: &[Row], at: usize) -> bool {
@@ -2514,9 +2643,15 @@ fn splice(list: &ListState, old: &[Row], new: &[Row], at: usize) -> bool {
     changed
 }
 
+/// Whether `list` shows its first row from its top.
+fn at_top(list: &ListState) -> bool {
+    let top = list.logical_scroll_top();
+    top.item_ix == 0 && top.offset_in_item == Pixels::ZERO
+}
+
 /// The rows of `rows` that can be selected, in order.
-fn items(rows: &[Row]) -> Vec<&Selection> {
-    (rows.iter())
+fn items<'a>(rows: impl IntoIterator<Item = &'a Row>) -> Vec<&'a Selection> {
+    (rows.into_iter())
         .filter_map(|row| match row {
             Row::Item(item) => Some(item),
             _ => None,
@@ -2529,7 +2664,6 @@ fn items(rows: &[Row]) -> Vec<&Selection> {
 fn same_place(old: &Row, new: &Row) -> bool {
     match (old, new) {
         (Row::Fewer(project, ref_name), Row::More(p, r, _)) => project == p && ref_name == r,
-        (Row::FewerProjects, Row::MoreProjects(_)) => true,
         _ => old == new,
     }
 }
@@ -2686,11 +2820,12 @@ impl Render for Navigator {
             insets,
             guides,
             first_hit,
+            drawer,
             ..
         } = self.build_rows(cx);
         self.insets = insets;
         self.guides = guides;
-        self.sync_list(rows, window, cx);
+        self.sync_list(rows, drawer, window, cx);
         let theme = Theme::get(cx).clone();
         self.first_hit = first_hit;
         let store = self.store.read(cx);
@@ -2700,8 +2835,7 @@ impl Render for Navigator {
 
         // Once the cards scroll under it, a rule along its bottom, as but.dev draws one, and
         // level with the location bar's: the same height and border, from the window's top.
-        let top = self.list.logical_scroll_top();
-        let under = top.item_ix > 0 || top.offset_in_item > Pixels::ZERO;
+        let under = !at_top(&self.list);
         let header = h_flex()
             .h(dp(HEADER_HEIGHT))
             .flex_none()
@@ -2746,6 +2880,7 @@ impl Render for Navigator {
         v_flex()
             .id("navigator")
             .key_context("Navigator")
+            .on_drag_move(cx.listener(Self::resize_drawer))
             .track_focus(&self.focus)
             .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
                 this.pointer_over = *hovered;
@@ -2806,6 +2941,8 @@ impl Render for Navigator {
                 // With no projects, the welcome beside it says what to do.
                 if empty {
                     el
+                } else if self.rows.is_empty() {
+                    el.child(self.drawer(&theme, cx))
                 } else {
                     let rows = list(
                         self.list.clone(),
@@ -2826,6 +2963,7 @@ impl Render for Navigator {
                                 },
                             )),
                     )
+                    .child(self.drawer(&theme, cx))
                 }
             })
             // Scrolling moves the rows from under a pointer that stays put, so where a drag

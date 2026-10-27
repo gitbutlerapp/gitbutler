@@ -149,7 +149,7 @@ const FILES_POPOVER_DELAY: Duration = Duration::from_millis(100);
 const SHOW_LOADING: Duration = Duration::from_millis(150);
 
 /// How tall the uncommitted changes' commit footer is, and the composer's row of buttons.
-pub const FOOTER_HEIGHT: f32 = 44.;
+pub const FOOTER_HEIGHT: f32 = 33.;
 
 struct LoadedDiff {
     key: DiffKey,
