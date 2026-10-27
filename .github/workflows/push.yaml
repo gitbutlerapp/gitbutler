@@ -67,7 +67,7 @@ jobs:
               - *rust
               - 'crates/**'
             # Only gitbutler-tauri's `builtin-gpui` feature links the GPUI client, and only
-            # check-rust-windows builds with it. A change to just the GPUI client can't affect
+            # test-rust-windows builds with it. A change to just the GPUI client can't affect
             # any other crate, so jobs that never build it can skip it.
             rust_core:
               - *rust
@@ -501,13 +501,31 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          shared-key: cargo-test
+          shared-key: cargo-check-windows
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: "cargo check"
         run: cargo check --workspace --all-targets --features windows
       # The GPUI client's Windows code: the lint job runs on Linux, which builds it as a stub.
       - name: "cargo clippy -p but-gpui"
         run: cargo clippy -p but-gpui --all-targets -- -D warnings
+
+  # Separate from check-rust-windows so the two run side by side: these steps build code,
+  # those only check it, so they share little of their work or their cache.
+  test-rust-windows:
+    needs: changes
+    runs-on: windows-latest
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: cargo-test
+          save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: "cargo test -p but-gpui"
         run: cargo test -p but-gpui
       # The desktop app with the native client, as Windows nightlies build it: GPUI's and Tauri's
@@ -713,6 +731,7 @@ jobs:
     needs:
       - changes
       - check-rust-windows
+      - test-rust-windows
       - rust-test
       - rust-test-but-api-macros
       - rust-test-tauri
@@ -809,10 +828,16 @@ jobs:
           retention-days: 30
 
   lite-e2e:
+    name: lite-e2e (${{ matrix.shard }}/${{ strategy.job-total }})
     needs: changes
     if: ${{ needs.changes.outputs.lite_e2e == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # The tests run one at a time (see below), so they're split across jobs instead.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     permissions:
       contents: read
     env:
@@ -830,7 +855,7 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: lite-e2e-rust-binaries
-          save-if: ${{ github.ref == 'refs/heads/master' }}
+          save-if: ${{ github.ref == 'refs/heads/master' && matrix.shard == 1 }}
       - name: Build dependencies
         run: |
           pnpm --filter @gitbutler/but-sdk build:napi
@@ -848,8 +873,9 @@ jobs:
           sudo chmod 4755 "$electron_sandbox"
       - name: Run Lite E2E tests
         # Concurrent Electron launches can fail during renderer bootstrap on GitHub's Linux runners.
-        run: xvfb-run --auto-servernum pnpm --filter @gitbutler/lite test:e2e --forbid-only --workers=1
+        run: xvfb-run --auto-servernum pnpm --filter @gitbutler/lite test:e2e --forbid-only --workers=1 --shard="$PLAYWRIGHT_SHARD"
         env:
+          PLAYWRIGHT_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
           BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_LITE_E2E }}
           BUILDKITE_ANALYTICS_BASE_URL: https://tests.but.dev/v1/uploads
           # Normalized run identity, matching what the curl-based uploads send, so
@@ -860,7 +886,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
-          name: lite-e2e-output
+          name: lite-e2e-output-${{ matrix.shard }}-of-${{ strategy.job-total }}
           path: apps/lite/test-results/
           if-no-files-found: ignore
           retention-days: 30
