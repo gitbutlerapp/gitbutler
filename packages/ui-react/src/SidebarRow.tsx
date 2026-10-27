@@ -204,8 +204,8 @@ const Row: FC<
 
 /**
  * A machine in the sidebar: the card's header when the sidebar is grouped by machine, a row
- * inside a repository when grouped by repository. Its picture is the host's (`icon`, 14px); an
- * offline machine's dims, and its light goes grey.
+ * inside a repository when grouped by repository. Its picture is the host's (`icon`, 14px), the
+ * same whether it is online or not: its light says which, so the picture doesn't read as disabled.
  *
  * Folded, its `meta` sums up what it holds (`repos`, or `worktrees` when grouped by repository)
  * and its age. Open as a card's header, it shows no age: its age is the newest of the rows under
@@ -220,7 +220,7 @@ export const MachineItem: FC<
 		{...props}
 		name={name}
 		layout="compact"
-		icon={<span className={classes(styles.picture, !online && styles.offline)}>{icon}</span>}
+		icon={<span className={styles.picture}>{icon}</span>}
 		label={
 			<>
 				<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
