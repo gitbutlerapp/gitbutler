@@ -32,7 +32,9 @@ mod seen;
 pub use activity::{Activity, QUARTER, SeenCommit};
 use load::{Change, Reload};
 pub use mesh::{MeshBranch, MeshPick, MeshState};
-pub use mutation::{Label, NewAt, OpKind, Overlay, Remap, Rereads, SLOW, conflicted_parts};
+pub use mutation::{
+    Label, NewAt, OpKind, Overlay, Remap, Rereads, SLOW, branch_moved, conflicted_parts,
+};
 use mutation::{Queued, Running};
 pub use picks::Picks;
 pub use saved::{BranchStatus, FileSort, Pane, Prefs, ScopeLines, WatchedOrder};

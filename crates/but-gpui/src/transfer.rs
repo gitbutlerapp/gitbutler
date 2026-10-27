@@ -8,7 +8,7 @@ use gpui::{
 };
 
 use crate::backend::{self, Checkout, CommitId, Destination, FullName, Selected, short_ref};
-use crate::state::{Cut, Label, NewAt, Overlay, ProjectId, Selection, Store};
+use crate::state::{Cut, Label, NewAt, Overlay, ProjectId, Selection, Store, branch_moved};
 use crate::theme::Theme;
 use crate::ui::{Icon, dp, popover, small_icon};
 
@@ -416,7 +416,9 @@ impl Transfer {
                 label,
                 Overlay::default(),
                 move |path, _| backend::stack_branch(path, &branch, &onto),
-                move |store, (), cx| store.snack_undoable("Branch moved", cx),
+                move |store, conflicted, cx| {
+                    store.snack_undoable(branch_moved("Branch moved", &conflicted), cx)
+                },
                 cx,
             ),
             Transfer::BranchBelow { branch, commit } => store.run(
@@ -424,7 +426,9 @@ impl Transfer {
                 label,
                 Overlay::default(),
                 move |path, remap| backend::move_branch_below(path, &branch, remap.get(commit)?),
-                move |store, (), cx| store.snack_undoable("Branch moved", cx),
+                move |store, conflicted, cx| {
+                    store.snack_undoable(branch_moved("Branch moved", &conflicted), cx)
+                },
                 cx,
             ),
             Transfer::Squash { ids, into } => store.squash(project, ids.to_vec(), into, cx),

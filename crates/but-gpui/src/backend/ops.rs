@@ -544,37 +544,61 @@ fn create_branch_at(
 }
 
 /// Stack `branch` (a full ref name) on top of `onto`, with the branches above it.
-pub fn stack_branch(path: &Path, branch: &FullName, onto: &FullName) -> Result<()> {
-    let mut ctx = open(path)?;
-    but_api::branch::move_branch(
-        &mut ctx,
-        branch.as_ref(),
-        RelativeTo::Reference(onto.clone()),
-        InsertSide::Above,
-        DryRun::No,
-    )?;
-    Ok(())
+pub fn stack_branch(
+    path: &Path,
+    branch: &FullName,
+    onto: &FullName,
+) -> Result<Vec<(Option<FullName>, usize)>> {
+    move_branch_with(path, |ctx| {
+        but_api::branch::move_branch(
+            ctx,
+            branch.as_ref(),
+            RelativeTo::Reference(onto.clone()),
+            InsertSide::Above,
+            DryRun::No,
+        )
+    })
 }
 
 /// Move `branch` right below `commit`, the last commit of the branch it then sits under.
 /// Below that branch's reference instead, `branch` would take over its commits.
-pub fn move_branch_below(path: &Path, branch: &FullName, commit: CommitId) -> Result<()> {
-    let mut ctx = open(path)?;
-    but_api::branch::move_branch(
-        &mut ctx,
-        branch.as_ref(),
-        RelativeTo::Commit(commit.0),
-        InsertSide::Below,
-        DryRun::No,
-    )?;
-    Ok(())
+pub fn move_branch_below(
+    path: &Path,
+    branch: &FullName,
+    commit: CommitId,
+) -> Result<Vec<(Option<FullName>, usize)>> {
+    move_branch_with(path, |ctx| {
+        but_api::branch::move_branch(
+            ctx,
+            branch.as_ref(),
+            RelativeTo::Commit(commit.0),
+            InsertSide::Below,
+            DryRun::No,
+        )
+    })
 }
 
 /// Take `branch` out of its stack into a stack of its own.
-pub fn tear_off_branch(path: &Path, branch: &FullName) -> Result<()> {
+pub fn tear_off_branch(path: &Path, branch: &FullName) -> Result<Vec<(Option<FullName>, usize)>> {
+    move_branch_with(path, |ctx| {
+        but_api::branch::tear_off_branch(ctx, branch.as_ref(), DryRun::No)
+    })
+}
+
+/// Move a branch with `op`, saying which branches (full refs, `None` for an unnamed one) it
+/// left with conflicted commits they didn't have, each with how many: a branch's commits
+/// rebased onto others' can conflict.
+fn move_branch_with(
+    path: &Path,
+    op: impl FnOnce(&mut but_ctx::Context) -> Result<but_api::branch::MoveBranchResult>,
+) -> Result<Vec<(Option<FullName>, usize)>> {
     let mut ctx = open(path)?;
-    but_api::branch::tear_off_branch(&mut ctx, branch.as_ref(), DryRun::No)?;
-    Ok(())
+    let before = but_api::legacy::workspace::head_info(&ctx)?;
+    let moved = op(&mut ctx)?;
+    Ok(super::upstream::newly_conflicted(
+        &before,
+        &moved.workspace.conflicted_commits,
+    ))
 }
 
 /// Take the stack holding `branch` out of the workspace. Its branches stay in the repository.
@@ -2968,6 +2992,39 @@ pub(super) mod tests {
             let last = crate::backend::history::oplog_head(path).unwrap();
             crate::backend::history::undo_snapshot(path, last, None).unwrap();
             assert_eq!(branch_at_top(path), Some(None), "undo takes the name away");
+        })
+    }
+
+    #[test]
+    fn unstacking_says_which_branches_it_left_conflicted() {
+        but_testsupport::isolated_app_data_dir(|| {
+            // `top`, stacked on a branch that adds api.txt, with a commit writing `file`.
+            let unstacked = |file: &str| {
+                let dir = repo_with("base\n");
+                let path = dir.path();
+                target_origin_main(path);
+                git(path, &["checkout", "-q", "-b", "top"]);
+                std::fs::write(path.join("api.txt"), "list\n").unwrap();
+                git(path, &["add", "api.txt"]);
+                git(path, &["commit", "-q", "-m", "API"]);
+                let api = head(path);
+                std::fs::write(path.join(file), "list\npage\n").unwrap();
+                git(path, &["add", file]);
+                git(path, &["commit", "-q", "-m", "Page"]);
+                create_branch(path, Some("beside")).unwrap();
+                create_branch_at_commit(path, api, false).unwrap();
+                tear_off_branch(path, &full("refs/heads/top")).unwrap()
+            };
+            assert_eq!(
+                unstacked("api.txt"),
+                [(Some(full("refs/heads/top")), 1)],
+                "its commit changes a file only the branch it left has"
+            );
+            assert_eq!(
+                unstacked("page.txt"),
+                [],
+                "a commit of its own applies anywhere"
+            );
         })
     }
 

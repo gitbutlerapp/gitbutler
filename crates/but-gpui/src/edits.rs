@@ -1093,16 +1093,8 @@ impl AppView {
         let Some((project, ref_name)) = self.selected_named_branch(cx) else {
             return;
         };
-        self.store.update(cx, |store, cx| {
-            store.run(
-                &project,
-                "Unstack",
-                Overlay::default(),
-                move |path, _| backend::tear_off_branch(path, &ref_name),
-                |store, (), cx| store.snack_undoable("Moved to its own stack", cx),
-                cx,
-            )
-        });
+        self.store
+            .update(cx, |store, cx| store.unstack(&project, ref_name, cx));
     }
 
     fn unapply_stack(&mut self, _: &UnapplyStack, _: &mut Window, cx: &mut Context<Self>) {
