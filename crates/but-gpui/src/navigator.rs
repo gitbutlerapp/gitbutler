@@ -50,9 +50,9 @@ use rows::{
     within,
 };
 
-/// How tall the drawer's handle is, the space under its rows, and the most of the column it
-/// opens to.
-const DRAWER_BAR_HEIGHT: f32 = ROW_HEIGHT + 4.;
+/// How tall the drawer's handle is, level with the commit footer beside it, the space under
+/// its rows, and the most of the column it opens to.
+const DRAWER_BAR_HEIGHT: f32 = crate::detail::FOOTER_HEIGHT;
 const DRAWER_PADDING: f32 = 6.;
 const DRAWER_SHARE: f32 = 0.45;
 
@@ -1324,8 +1324,6 @@ impl Navigator {
         v_flex()
             .relative()
             .bg(theme.bg_1)
-            .border_t_1()
-            .border_color(theme.border_3)
             .map(|el| match alone {
                 true => el.flex_1().min_h_0(),
                 false => (el.flex_none())
@@ -1384,6 +1382,8 @@ impl Navigator {
             .id("drawer-bar")
             .flex_none()
             .h(dp(DRAWER_BAR_HEIGHT))
+            .border_t_1()
+            .border_color(theme.border_3)
             .pl(dp(22.))
             .pr(dp(15.))
             .gap(dp(2.))
