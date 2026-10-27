@@ -1362,8 +1362,10 @@ impl Detail {
         (self.upstream_scroll).scroll_to_item(row, gpui::ScrollStrategy::Nearest);
     }
 
-    /// How busy the target has been: a bar for each day, the last week's stronger. Clicking
-    /// a day, shift-clicking another or dragging across them filters the history to them.
+    /// How busy the target has been: a bar for each day, the last week's stronger, counting
+    /// only what landed the person picked's commits and changed the area picked, as the history
+    /// lists them. Clicking a day, shift-clicking another or dragging across them filters the
+    /// history to them.
     fn render_activity(
         &self,
         project: &ProjectId,
@@ -1372,9 +1374,22 @@ impl Detail {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let summary = upstream.summary.as_ref()?;
+        // A person picked who's no longer among those who landed anything keeps nothing.
+        let (who, area) = (upstream.view.person.as_ref(), upstream.view.area.as_ref());
+        let theirs = upstream.picked_person().map(|p| &p.landed);
+        let mut daily = vec![0; summary.daily.len()];
+        for landing in (summary.landings.iter())
+            .filter(|l| who.is_none() || theirs.is_some_and(|theirs| theirs.contains(&l.id)))
+            .filter(|l| area.is_none_or(|area| l.areas.contains(area)))
+        {
+            let at = usize::try_from(landing.day - summary.first_day).ok();
+            if let Some(n) = at.and_then(|at| daily.get_mut(at)) {
+                *n += 1;
+            }
+        }
         let (project, cleared) = (project.clone(), project.clone());
         Some(activity_strip(
-            &summary.daily,
+            &daily,
             summary.first_day,
             &upstream.view.days.slots,
             theme,
