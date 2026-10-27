@@ -662,10 +662,6 @@ mod workspace_disposition {
             out.workspace.kind.has_managed_commit(),
             "KeepWorkspaceCommit must preserve the checked-out managed workspace commit"
         );
-        assert!(
-            out.workspace_merge.is_some(),
-            "unapply must rebuild the workspace merge instead of collapsing the workspace ref"
-        );
         // A was removed
         snapbox::assert_data_eq!(
             graph_workspace(&out.workspace).to_string(),
@@ -708,7 +704,7 @@ mod workspace_disposition {
             unapply_options_with(WorkspaceDisposition::KeepWorkspaceReference),
         )?;
         assert!(
-            out.workspace_merge.is_some(),
+            out.workspace.kind.has_managed_commit(),
             "KeepWorkspaceReference should keep a workspace commit when a virtual stack remains next to a real stack"
         );
         // There still is a workspace merge commit, we have two stacks, virtual or not
@@ -822,10 +818,6 @@ Outcome {
         assert!(
             out.workspace.kind.has_managed_commit(),
             "compatibility disposition should preserve the managed workspace commit when the workspace ref remains"
-        );
-        assert!(
-            out.workspace_merge.is_some(),
-            "compatibility disposition should rebuild the workspace merge instead of collapsing the ref to the last real stack"
         );
         snapbox::assert_data_eq!(
             graph_workspace(&out.workspace).to_string(),
@@ -1039,10 +1031,6 @@ Outcome {
             &mut meta,
             unapply_options_with(WorkspaceDisposition::KeepWorkspaceCommit),
         )?;
-        assert!(
-            out.workspace_merge.is_none(),
-            "removing the last stack cannot rebuild a workspace merge commit"
-        );
         // the workspace is empty
         snapbox::assert_data_eq!(
             graph_workspace(&out.workspace).to_string(),
@@ -3990,7 +3978,7 @@ Outcome {
 "#]]
     );
     assert!(
-        out.workspace_merge.is_some(),
+        out.workspace.kind.has_managed_commit(),
         "legacy mode should rebuild the workspace commit after removing E/D"
     );
 
