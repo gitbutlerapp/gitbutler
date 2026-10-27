@@ -12,6 +12,7 @@ use crate::graph_rebase::{
     cherry_pick::{CherryPickOutcome, cherry_pick},
     util::{OrderedParentKind, collect_ordered_parents},
 };
+use crate::merge::ConflictErrorContext;
 
 impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
     /// Perform the rebase
@@ -105,15 +106,19 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                             bases,
                             onto_merge_failed,
                             ontos,
+                            conflicting_paths,
                         } => {
                             // Exit early - the rebase failed because it encountered a commit it couldn't pick
-                            bail!(format_base_merge_error(
+                            return Err(anyhow::Error::msg(ConflictErrorContext {
+                                paths: conflicting_paths,
+                            })
+                            .context(format_base_merge_error(
                                 pick.id,
                                 base_merge_failed,
                                 bases,
                                 onto_merge_failed,
-                                ontos
-                            ));
+                                ontos,
+                            )));
                         }
                     }
                 }
