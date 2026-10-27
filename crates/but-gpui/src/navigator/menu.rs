@@ -499,14 +499,17 @@ impl Navigator {
                 if store.workspace(project).is_some_and(|ws| ws.managed) {
                     items.push(action("Move to a new branch", &MoveToNewBranch).separated());
                 }
-                items.push(
+                let mut copy_id =
                     MenuItem::keyed("Copy commit ID", &CopySelection, cx, move |app, _, cx| {
                         app.copy_text(id.0.to_string(), cx)
                     })
-                    .separated(),
-                );
+                    .separated();
                 if edits.change_id {
-                    items.push(action("Copy change ID", &CopyChangeId));
+                    let mut change_id = action("Copy change ID", &CopyChangeId);
+                    change_id.key = copy_id.key.take().or(change_id.key);
+                    items.extend([copy_id, change_id]);
+                } else {
+                    items.push(copy_id);
                 }
                 items.push(action("Copy message", &CopyMessage));
                 items.extend(read_marks(store, project, [commit], cx));
