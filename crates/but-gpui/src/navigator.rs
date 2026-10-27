@@ -307,8 +307,6 @@ pub struct Navigator {
     filter: Entity<TextInput>,
     /// The first item the filter found, which Enter in it selects.
     first_hit: Option<Selection>,
-    /// The projects not expanded show all of them rather than the first few.
-    projects_unfolded: bool,
     /// Whether the pointer is over the navigator.
     pointer_over: bool,
     /// The watched projects' order by activity as it was when the pointer came over the
@@ -323,9 +321,9 @@ pub struct Navigator {
     /// Where a dragged project card would go, while one is over a card's heading.
     project_drop: Option<CardSlot>,
     /// The row under the pointer holds still through the next change to the rows: one a
-    /// workspace's load made, as an agent's commit, or "Show fewer" folding what's above it,
-    /// which would leave the list scrolled past the fold. What else the user folds or does
-    /// moves the rows as usual.
+    /// workspace's load made, as an agent's commit, or a branch's "Show fewer" folding what's
+    /// above it, which would leave the list scrolled past the fold. What else the user folds
+    /// or does moves the rows as usual.
     hold_still: bool,
     /// How far a frame the list scrolls while something dragged is near its top or bottom
     /// edge, up when negative, and the task that scrolls it.
@@ -447,7 +445,6 @@ impl Navigator {
             folded_stacks: HashSet::new(),
             filter,
             first_hit: None,
-            projects_unfolded: false,
             pointer_over: false,
             held_order: None,
             held_worktrees: HashMap::new(),
@@ -566,8 +563,8 @@ impl Navigator {
     }
 
     fn step(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
-        // ↓ onto a fold of commits or projects shows the rest and goes on into them, as a feed
-        // loads more: the fold is no stop of its own.
+        // ↓ onto a fold of commits shows the rest and goes on into them, as a feed loads more:
+        // the fold is no stop of its own.
         let built = (delta > 0 && self.unfold_after_selection(cx)).then(|| self.build_rows(cx));
         let items = match &built {
             Some(built) => items(&built.rows),
@@ -595,20 +592,16 @@ impl Navigator {
         self.select(next, window, cx);
     }
 
-    /// Unfold the "N more" right under the selection, a branch's or the projects', saying
-    /// whether there was one.
+    /// Unfold the branch's "N more" right under the selection, saying whether there was one.
     fn unfold_after_selection(&mut self, cx: &App) -> bool {
         let selection = self.store.read(cx).selection.as_ref();
         let at = (self.rows.iter())
             .position(|row| matches!(row, Row::Item(item) if Some(item) == selection));
-        match at.and_then(|at| self.rows.get(at + 1)) {
-            Some(Row::More(project, ref_name, _)) => {
-                self.set_unfolded((project.clone(), ref_name.clone()), true);
-                true
-            }
-            Some(Row::MoreProjects(_)) => !std::mem::replace(&mut self.projects_unfolded, true),
-            _ => false,
-        }
+        let Some(Row::More(project, ref_name, _)) = at.and_then(|at| self.rows.get(at + 1)) else {
+            return false;
+        };
+        self.set_unfolded((project.clone(), ref_name.clone()), true);
+        true
     }
 
     /// Step `delta` commits from the selected one, picking the run as ⇧-click does. Off a
@@ -1084,26 +1077,6 @@ impl Navigator {
                 .into_any_element(),
             Some(Row::ProjectsHeading(title, listed, total)) => {
                 self.projects_heading(title, *listed, *total, theme, cx)
-            }
-            // The glyph under the projects' chevrons, the words under their names.
-            Some(Row::MoreProjects(hidden)) => {
-                fold_row(("more-projects", ix), Icon::Kebab, 11., 35., theme)
-                    .child(format!("{hidden} more"))
-                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                        this.projects_unfolded = true;
-                        cx.notify();
-                    }))
-                    .into_any_element()
-            }
-            Some(Row::FewerProjects) => {
-                fold_row(("fewer-projects", ix), Icon::ChevronUp, 11., 35., theme)
-                    .child("Show fewer")
-                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                        this.projects_unfolded = false;
-                        this.hold_still = true;
-                        cx.notify();
-                    }))
-                    .into_any_element()
             }
             Some(Row::NewBranch(project)) => self.new_branch_zone(ix, project, theme, cx),
             Some(Row::UpstreamMore(project, more)) => {
@@ -2529,7 +2502,6 @@ fn items(rows: &[Row]) -> Vec<&Selection> {
 fn same_place(old: &Row, new: &Row) -> bool {
     match (old, new) {
         (Row::Fewer(project, ref_name), Row::More(p, r, _)) => project == p && ref_name == r,
-        (Row::FewerProjects, Row::MoreProjects(_)) => true,
         _ => old == new,
     }
 }

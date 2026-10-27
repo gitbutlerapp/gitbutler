@@ -28,10 +28,6 @@ pub(super) enum Row {
     /// Over the projects not expanded: what it calls them, how many it lists, and how many
     /// there are, filters aside.
     ProjectsHeading(&'static str, usize, usize),
-    /// Projects past the fold, and how many.
-    MoreProjects(usize),
-    /// The end of the projects unfolded, which folds them again.
-    FewerProjects,
     /// A branch's commits folded away, and how many.
     More(ProjectId, Option<FullName>, usize),
     /// The end of a branch's commits unfolded, which folds them again.
@@ -275,23 +271,9 @@ impl Navigator {
         if prefs.projects_folded {
             return rows;
         }
-        // Past the fold, but never past the selected project.
-        let fold_at = FOLD_AFTER
-            .max((listed.iter().position(|(entry, _)| selected(entry))).map_or(0, |at| at + 1));
-        let shown = match self.projects_unfolded {
-            true => listed.len(),
-            false => fold_at,
-        };
         rows.extend(
-            (listed.iter().take(shown))
-                .map(|(entry, _)| Row::Item(Selection::Project(entry.id.clone()))),
+            (listed.iter()).map(|(entry, _)| Row::Item(Selection::Project(entry.id.clone()))),
         );
-        // Show fewer goes by the fold, not the selection, so selecting the last row keeps it.
-        if listed.len() > shown {
-            rows.push(Row::MoreProjects(listed.len() - shown));
-        } else if self.projects_unfolded && listed.len() > FOLD_AFTER {
-            rows.push(Row::FewerProjects);
-        }
         if listed.is_empty() && !others.is_empty() {
             rows.push(Row::Note("None active in the last 7 days".into(), false));
         }
