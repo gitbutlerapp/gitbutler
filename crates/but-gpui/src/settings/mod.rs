@@ -191,7 +191,6 @@ pub struct SettingsView {
     editors: Vec<Program>,
     terminals: Vec<Program>,
     fetch_interval: Option<u64>,
-    worktrees: bool,
     /// The desktop app opens this client at start: GitButler's `featureFlags.gpui`.
     open_at_start: bool,
     /// GitButler's apps send usage metrics, and error reports.
@@ -273,7 +272,6 @@ impl SettingsView {
             editors: Vec::new(),
             terminals: Vec::new(),
             fetch_interval: None,
-            worktrees: false,
             open_at_start: false,
             usage_metrics: false,
             error_reporting: false,
@@ -307,20 +305,16 @@ impl SettingsView {
                     backend::editors(),
                     backend::terminals(),
                     backend::fetch_interval(),
-                    backend::worktrees_enabled(),
                     backend::opens_at_start(),
                     crate::backend::metrics::enabled(),
                 ))
             })
             .await;
-            if let Ok((editors, terminals, fetch_interval, worktrees, open_at_start, metrics)) =
-                loaded
-            {
+            if let Ok((editors, terminals, fetch_interval, open_at_start, metrics)) = loaded {
                 this.update(cx, |this, cx| {
                     this.editors = editors;
                     this.terminals = terminals;
                     this.fetch_interval = fetch_interval;
-                    this.worktrees = worktrees;
                     this.open_at_start = open_at_start;
                     (this.usage_metrics, this.error_reporting) = metrics;
                     cx.notify();
@@ -669,28 +663,6 @@ impl SettingsView {
         })
     }
 
-    fn worktrees_row(&self, cx: &Context<Self>) -> Row {
-        let worktrees =
-            switch("worktrees", self.worktrees, Theme::get(cx)).on_click(Self::toggle_saved(
-                |this| &mut this.worktrees,
-                "Couldn't change the worktree setting",
-                backend::set_worktrees_enabled,
-                // Watched and listed again, with their worktrees or without.
-                |this, cx| {
-                    this.load_app_settings(cx);
-                    this.store.update(cx, |store, cx| store.reopen_expanded(cx));
-                },
-                cx,
-            ));
-        Row::new(
-            "Linked worktrees",
-            "Lists each project's linked worktrees, like the ones agents work in, with their \
-             uncommitted changes. Worktrees that exist when this goes on start archived: a \
-             project's menu shows them again. GitButler's other apps share this.",
-            worktrees,
-        )
-    }
-
     fn start_row(&self, cx: &Context<Self>) -> Row {
         let start = switch("open-at-start", self.open_at_start, Theme::get(cx)).on_click(
             Self::toggle_saved(
@@ -738,8 +710,7 @@ impl SettingsView {
                 let start = cx
                     .has_global::<crate::Embedded>()
                     .then(|| self.start_row(cx));
-                let rows = std::iter::once(self.worktrees_row(cx)).chain(start);
-                vec![Card::new(None, rows.collect())]
+                vec![Card::new(None, start.into_iter().collect())]
             }
             Page::Project | Page::ProjectGit => self.project_cards(page, window, cx),
         };

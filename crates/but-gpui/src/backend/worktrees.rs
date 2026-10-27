@@ -17,16 +17,9 @@ use super::{
 /// archived ones with the branch each has checked out.
 type Listing = (Vec<Worktree>, Vec<(BString, Option<super::FullName>)>);
 
-/// The project's [`Listing`]; `None` with GitButler's worktree support off. A worktree's
-/// files in `kept` are shown again rather than read, while its `HEAD` has the tree they
-/// were read against.
-pub(super) fn linked(
-    ctx: &Context,
-    kept: &mut HashMap<BString, KeptWorktree>,
-) -> Result<Option<Listing>> {
-    if !ctx.settings.feature_flags.worktree_manipulation {
-        return Ok(None);
-    }
+/// The project's [`Listing`]. A worktree's files in `kept` are shown again rather than read,
+/// while its `HEAD` has the tree they were read against.
+pub(super) fn linked(ctx: &Context, kept: &mut HashMap<BString, KeptWorktree>) -> Result<Listing> {
     let listing = {
         let guard = ctx.shared_worktree_access();
         but_api::worktrees::worktrees_list_with_perm(ctx, guard.read_permission())?
@@ -61,7 +54,7 @@ pub(super) fn linked(
             (listed.name.clone(), branch)
         })
         .collect();
-    Ok(Some((active, archived)))
+    Ok((active, archived))
 }
 
 /// `shown` with the uncommitted files read again of the main checkout, with `main`, and of

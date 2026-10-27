@@ -477,8 +477,7 @@ pub struct Options {
     /// [traversal tips](Graph::worktree_tips).
     ///
     /// Discovery may run the one-time worktree adoption and thus write to the
-    /// database, so this is typically set from the `worktreeManipulation`
-    /// feature flag, which must have no side effects while disabled.
+    /// database.
     pub worktrees: bool,
 }
 

@@ -165,7 +165,7 @@ To make one existing branch depend on another: `but move <child-branch-name> --a
 
 ### Work in a linked worktree
 
-Use a worktree when the task needs a separate checkout, for example to build or test one branch while other work stays in the main checkout. If `but worktree` reports that worktree manipulation is not enabled, tell the user: the `worktreeManipulation` feature flag is off, and the CLI cannot turn it on.
+Use a worktree when the task needs a separate checkout, for example to build or test one branch while other work stays in the main checkout.
 
 1. `but worktree new <branch-name>` checks out that branch in a new directory, creating it if needed (an existing branch must not be in the workspace), and prints that directory. Add `-A <commit>` to start the branch at that commit instead of the workspace base. Worktrees made by other tools must sit outside the repository directory or be listed in `.git/info/exclude`; otherwise a bare `but commit` in the main checkout records them in the branch.
 2. Run `but` from that directory, or with `but -C <path>`. There, a bare `but commit -m "<msg>"` or `but diff` takes that worktree's changes, a bare path names a file there, and the commit goes on the worktree's branch. If `but` says the worktree "is not managed by GitButler", it is archived: `but worktree unarchive <name>`. `but undo` refuses to restore a branch a worktree has checked out, so reverse a mistake there with the inverse command (`uncommit`, `reword`).

@@ -1,6 +1,6 @@
 use crate::args::atoms::{BranchArg, CliIdArg};
 
-/// Manage worktrees (experimental, requires the `worktreeManipulation` feature flag).
+/// Manage worktrees.
 ///
 /// Without a subcommand, lists the worktrees.
 #[derive(Debug, clap::Parser)]

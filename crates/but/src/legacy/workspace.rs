@@ -61,8 +61,7 @@ fn head_info(
     // HEAD; during edit mode the workspace ref is queried without them.
     let ws = {
         let mut options = but_graph::init::Options::limited();
-        options.worktrees =
-            edit_mode_workspace_ref.is_none() && ctx.settings.feature_flags.worktree_manipulation;
+        options.worktrees = edit_mode_workspace_ref.is_none();
         let mut db = ctx.db.get_cache_mut()?;
         let graph = match &edit_mode_workspace_ref {
             Some(ref_name) => {
@@ -358,8 +357,7 @@ pub(crate) mod tests {
             push_remote: Some("origin".into()),
         }
         .persist(&repo)?;
-        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-        ctx.settings.feature_flags.worktree_manipulation = true;
+        let ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
         {
             let mut db = ctx.db.get_cache_mut()?;
             // Adoption already ran, so the worktree on disk counts as active.

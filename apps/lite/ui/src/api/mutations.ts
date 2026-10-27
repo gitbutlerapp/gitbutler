@@ -4,7 +4,6 @@ import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { remapSearchBranch, remapSearchCommits, setCursor } from "#ui/use-cursor.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
-	appSettingsQueryOptions,
 	branchDetailsQueryOptions,
 	currentForgeLoginQueryOptions,
 	getReviewQueryOptions,
@@ -55,7 +54,6 @@ import type {
 	ForgeReviewThreadComment,
 	ForgeReviewReaction,
 	ForgeReviewUser,
-	FeatureFlagsUpdate,
 	Snapshot,
 	TreeChange,
 } from "@gitbutler/but-sdk";
@@ -1486,21 +1484,6 @@ export const useBranchRename = (projectId: string) => {
 		meta: { failureTitle: "Failed to rename branch" },
 	});
 };
-
-/**
- * The worktree flag decides whether graph traversal seeds linked worktrees,
- * so every project's workspace is stale once it flips.
- */
-export const useUpdateFeatureFlags = () =>
-	useMutation({
-		scope: { id: "appSettings" },
-		mutationFn: async (update: FeatureFlagsUpdate, ctx) => {
-			await window.lite.updateFeatureFlags(update);
-			await ctx.client.invalidateQueries({ queryKey: appSettingsQueryOptions.queryKey });
-			await invalidateTags(ctx.client, ["Workspace", "Worktrees"]);
-		},
-		meta: { failureTitle: "Failed to save the feature flag" },
-	});
 
 export const useWorktreeSetArchived = (projectId: string) =>
 	useMutation({

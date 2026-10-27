@@ -783,8 +783,7 @@ pub fn list_program_specs_for_file(path: &Path) -> Vec<ProgramSpec> {
 /// The absolute path of `path`, relative to `checkout`: a linked worktree's, or the project's
 /// own.
 ///
-/// A linked worktree requires the `worktreeManipulation` feature flag and an active worktree,
-/// see `worktrees::open_changes_source()`.
+/// A linked worktree has to be active, see `worktrees::open_changes_source()`.
 #[but_api(napi)]
 #[instrument(skip(ctx), err(Debug))]
 pub fn workdir_path(

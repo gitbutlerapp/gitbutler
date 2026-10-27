@@ -196,7 +196,7 @@ fn reconcile_archived(db: &mut DbHandle, names: &[BString]) -> Result<BTreeSet<B
         // An immediate transaction avoids the un-retried `SQLITE_BUSY_SNAPSHOT` a
         // deferred read-then-write would fail with when racing another writer, and
         // the marker is re-checked under the write lock as several processes may
-        // adopt concurrently right after the feature flag is enabled.
+        // adopt concurrently on their first read.
         let mut trans = db.immediate_transaction()?;
         if !trans.worktree_meta().adoption_ran()? {
             trans.worktree_meta_mut().mark_adopted()?;

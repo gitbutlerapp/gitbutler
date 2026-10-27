@@ -267,8 +267,7 @@ struct StatusContext {
     /// The changed files of every checkout with CLI IDs, main worktree first.
     /// Only needed for the tree status letters, which hunks do not carry.
     changes_by_source: Vec<(ChangeSourceId, Vec<ui::TreeChange>)>,
-    /// The active linked worktrees with the commits they own, empty unless the
-    /// `worktreeManipulation` flag is on.
+    /// The active linked worktrees with the commits they own.
     worktrees: Vec<but_workspace::worktrees::WorktreeInfo>,
     /// How many commits of the target tip each worktree resting outside the workspace lacks,
     /// by worktree name.
@@ -1432,8 +1431,7 @@ enum LaneSeparator {
 
 /// Print each linked worktree resting on `base` as a lane nested `depth` levels deep.
 ///
-/// Nothing is printed when no worktree branches off `base`, which is the common case and the
-/// only case at all unless the `worktreeManipulation` flag is on.
+/// Nothing is printed when no worktree branches off `base`, which is the common case.
 fn print_worktree_lanes_on(
     ctx: &Context,
     status_ctx: &StatusContext,

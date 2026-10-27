@@ -22,7 +22,7 @@ const FIXTURE = "project-in-single-branch-with-worktree.sh";
 
 test.use({
 	gitbutlerOptions: {
-		config: { onboardingComplete: true, featureFlags: { worktreeManipulation: true } },
+		config: { onboardingComplete: true },
 	},
 });
 
@@ -525,17 +525,5 @@ test.describe("moving branches between the workspace and a worktree", () => {
 		await dragBranchToTopOf(page, "W-base", lane(page, "W"));
 		expect(git(worktree, ["branch", "--show-current"])).toBe("W-base");
 		await expect(lane(page, "W-base")).toBeVisible();
-	});
-});
-
-test.describe("without the worktree flag", () => {
-	test.use({ gitbutlerOptions: { config: { onboardingComplete: true } } });
-
-	test("shows no worktree lane", async ({ page, gitbutler }) => {
-		await gitbutler.runScript(FIXTURE);
-		await openWorkspace(page);
-
-		await expect(lane(page, "C")).toBeVisible();
-		await expect(lane(page, "W")).toHaveCount(0);
 	});
 });

@@ -137,8 +137,7 @@ pub fn tree_change_diffs(
 /// Like [`tree_change_diffs()`], reading `change` from the checkout `changes_source`
 /// names, so a linked worktree's uncommitted changes diff against its own files.
 ///
-/// A linked worktree requires the `worktreeManipulation` feature flag and an active
-/// worktree, see `worktrees::open_changes_source()`.
+/// A linked worktree has to be active, see `worktrees::open_changes_source()`.
 #[but_api(napi, provides = [Diffs])]
 #[instrument(err(Debug))]
 pub fn tree_change_diffs_from_source(
@@ -188,8 +187,7 @@ pub fn changes_in_worktree(
 /// This UI-version of [`but_core::diff::worktree_changes()`] simplifies the `git status` information for display in
 /// the user interface as it is right now. From here, it's always possible to add more information as the need arises.
 ///
-/// `changes_source` selects the checkout to inspect. Reading a linked worktree
-/// requires the `worktreeManipulation` feature flag and an active worktree, see
+/// `changes_source` selects the checkout to inspect. A linked worktree has to be active, see
 /// `worktrees::open_changes_source()`.
 ///
 /// ### Notable Transformations

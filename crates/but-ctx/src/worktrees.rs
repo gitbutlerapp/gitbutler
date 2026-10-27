@@ -17,14 +17,8 @@ impl Context {
     /// List all usable linked worktrees with their archived state, see
     /// [`but_db::worktrees::worktrees_with_state()`].
     ///
-    /// With the `worktreeManipulation` feature flag disabled this returns nothing and
-    /// has no side effects.
-    ///
     /// Must not be called while a database handle is borrowed.
     pub fn worktrees_with_state(&self) -> Result<Vec<WorktreeEntry>> {
-        if !self.settings.feature_flags.worktree_manipulation {
-            return Ok(Vec::new());
-        }
         let repo = self.repo.get()?;
         let mut db = self.db.get_cache_mut()?;
         but_db::worktrees::worktrees_with_state(&repo, &mut db)

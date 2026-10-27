@@ -1,8 +1,6 @@
 use snapbox::str;
 
-use super::util::{
-    add_worktree_with_commit, enable_worktree_manipulation, sandbox_with_conflicted_commit,
-};
+use super::util::{add_worktree_with_commit, sandbox_with_conflicted_commit};
 use crate::utils::{CommandExt, Sandbox};
 
 fn repo_with_unpushed_branch() -> Sandbox {
@@ -26,12 +24,11 @@ fn repo_with_unpushed_branch() -> Sandbox {
     env
 }
 
-/// [`repo_with_unpushed_branch()`] with the worktree flag on and a linked worktree on the new
-/// branch `wt`, with one commit of its own, resting on the unpushed `branchB`.
+/// [`repo_with_unpushed_branch()`] with a linked worktree on the new branch `wt`, with one
+/// commit of its own, resting on the unpushed `branchB`.
 fn repo_with_worktree_on_unpushed_branch() -> Sandbox {
     let env = repo_with_unpushed_branch();
-    enable_worktree_manipulation(&env);
-    // Worktrees that predate the first flag-on read are adopted as archived.
+    // Worktrees that predate the first read are adopted as archived.
     env.but("worktree list").assert().success();
     add_worktree_with_commit(&env, "wt", "branchB");
     env
@@ -379,7 +376,6 @@ Please resolve conflicts before pushing using 'but resolve <commit>'.
 #[test]
 fn push_refuses_conflicted_commits_in_anonymous_segments_beneath_a_worktree() {
     let env = sandbox_with_conflicted_commit();
-    enable_worktree_manipulation(&env);
     env.but("worktree list").assert().success();
     add_worktree_with_commit(&env, "W", "A");
     env.invoke_git("update-ref refs/heads/A A~1");

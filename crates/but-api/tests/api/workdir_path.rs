@@ -8,7 +8,6 @@ fn resolves_a_path_in_the_named_checkout() -> Result<()> {
     let (repo, tmp) = repo_with_feature_branch()?;
     let linked = checkout_branch_in_linked_worktree(tmp.path(), "feature")?;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-    ctx.settings.feature_flags.worktree_manipulation = true;
     but_api::worktrees::worktree_set_archived(&mut ctx, "wt".into(), false)?;
 
     let main = but_api::open::workdir_path(&ctx, ChangesSource::Head, "dir/file.txt".into())?;
@@ -47,7 +46,7 @@ fn refuses_paths_leaving_the_checkout() -> Result<()> {
 }
 
 #[test]
-fn needs_the_feature_flag_for_a_linked_worktree() -> Result<()> {
+fn refuses_an_archived_linked_worktree() -> Result<()> {
     let (repo, tmp) = repo_with_feature_branch()?;
     let _linked = checkout_branch_in_linked_worktree(tmp.path(), "feature")?;
     let ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
@@ -58,10 +57,10 @@ fn needs_the_feature_flag_for_a_linked_worktree() -> Result<()> {
         "file.txt".into(),
     )
     .unwrap_err();
-    assert!(
-        err.to_string()
-            .contains("worktree manipulation is not enabled"),
-        "linked worktrees are only reachable with the flag: {err}"
+    assert_eq!(
+        err.to_string(),
+        "Worktree wt is archived",
+        "a worktree that predates the first read is adopted as archived"
     );
     Ok(())
 }

@@ -1663,7 +1663,6 @@ Hint: run `but help` for all commands
 fn places_a_branch_in_a_worktree_lane() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
-    util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt = util::add_worktree_with_commit(&env, "wt-feature", "A");
     but_testsupport::invoke_bash_at_dir("echo more >>wt-file.txt && git commit -qam 'add W2'", &wt);
@@ -1730,7 +1729,6 @@ Hint: run `but help` for all commands
 fn an_unstacked_branch_is_refused_from_a_linked_worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
-    util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt = util::add_worktree_with_commit(&env, "wt-feature", "A");
     but_testsupport::invoke_bash_at_dir("echo more >>wt-file.txt && git commit -qam 'add W2'", &wt);

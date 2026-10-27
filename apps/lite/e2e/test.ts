@@ -16,13 +16,10 @@ import {
 	processEnvironment,
 	removeLiteTestEnvironment,
 	seedScenario,
-	writeAppSettings,
 	type ObjectFormat,
 } from "./setup.ts";
 
 type TestOptions = {
-	/** GitButler app settings, written before the scenario runs and the app starts. */
-	appSettings: Record<string, unknown> | null;
 	/** Installed before the test starts; null leaves the app without a forge. */
 	forge: FakeForge | null;
 	objectFormat: ObjectFormat;
@@ -39,14 +36,10 @@ type TestFixtures = {
 	testEnvironment: ReturnType<typeof createLiteTestEnvironment>;
 };
 
-/** App settings for scenarios with linked worktrees, which are behind a feature flag. */
-export const worktreeAppSettings = { featureFlags: { worktreeManipulation: true } };
-
 const require = createRequire(import.meta.url);
 const electronPath = require("electron") as string;
 
 export const test = base.extend<TestOptions & TestFixtures>({
-	appSettings: [null, { option: true }],
 	forge: [null, { option: true }],
 	objectFormat: ["sha1", { option: true }],
 	scenario: [null, { option: true }],
@@ -55,10 +48,9 @@ export const test = base.extend<TestOptions & TestFixtures>({
 	mainProcessLogs: async ({}, provide) => {
 		await provide([]);
 	},
-	testEnvironment: async ({ appSettings, objectFormat, scenario }, provide) => {
+	testEnvironment: async ({ objectFormat, scenario }, provide) => {
 		const environment = createLiteTestEnvironment();
 		try {
-			if (appSettings !== null) writeAppSettings(environment, appSettings);
 			if (scenario !== null) await seedScenario(scenario, environment, objectFormat);
 			await provide(environment);
 		} finally {

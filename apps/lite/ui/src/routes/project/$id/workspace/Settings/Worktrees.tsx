@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import type { FC, ReactNode } from "react";
-import { appSettingsQueryOptions, worktreesListQueryOptions } from "#ui/api/queries.ts";
+import { worktreesListQueryOptions } from "#ui/api/queries.ts";
 import { useWorktreeRemove, useWorktreeSetArchived } from "#ui/api/mutations.ts";
 import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
@@ -22,25 +22,13 @@ const Empty: FC<{ title: string; children: ReactNode }> = (p) => (
 	</div>
 );
 
-/** The project's linked git worktrees; archived ones are hidden from the workspace. */
-export const Worktrees: FC<{ projectId: string }> = ({ projectId }) => {
-	const { data: appSettings } = useSuspenseQuery(appSettingsQueryOptions);
-	if (!appSettings.featureFlags.worktreeManipulation) {
-		return (
-			<Empty title="Linked worktrees are off">
-				Turn them on under Experimental to see them here and in the workspace.
-			</Empty>
-		);
-	}
-	return <WorktreeList projectId={projectId} />;
-};
-
 const worktreeLabel = (worktree: ListedWorktree) =>
 	worktree.refName === null
 		? `${worktree.name} (detached)`
 		: branchDetailsParams(worktree.refName).branchName;
 
-const WorktreeList: FC<{ projectId: string }> = ({ projectId }) => {
+/** The project's linked git worktrees; archived ones are hidden from the workspace. */
+export const Worktrees: FC<{ projectId: string }> = ({ projectId }) => {
 	const { data: listing } = useSuspenseQuery(worktreesListQueryOptions(projectId));
 	const { mutate: setArchived, isPending: isArchiving } = useWorktreeSetArchived(projectId);
 	const { mutate: remove, isPending: isRemoving } = useWorktreeRemove(projectId);

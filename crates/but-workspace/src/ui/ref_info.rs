@@ -308,7 +308,7 @@ pub(crate) mod inner {
         /// This happens when there is a local branch checked out without a remote tracking branch.
         pub target: Option<Target>,
         /// The active linked worktrees along with the commits they own, or empty if the
-        /// traversal wasn't seeded with worktree tips (the `worktreeManipulation` flag is off).
+        /// traversal wasn't seeded with worktree tips.
         pub worktrees: Vec<Worktree>,
     }
     #[cfg(feature = "export-schema")]

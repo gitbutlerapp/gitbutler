@@ -4,12 +4,11 @@ use but_testsupport::{CommandExt, git_at_dir};
 
 use crate::support::{repo_with_feature_branch, write_file};
 
-/// A flag-on context around [`repo_with_feature_branch()`], with adoption already run so
+/// A context around [`repo_with_feature_branch()`], with adoption already run so
 /// worktrees added afterwards start out active.
-fn flag_on_ctx() -> Result<(but_ctx::Context, tempfile::TempDir)> {
+fn adopted_ctx() -> Result<(but_ctx::Context, tempfile::TempDir)> {
     let (repo, tmp) = repo_with_feature_branch()?;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-    ctx.settings.feature_flags.worktree_manipulation = true;
     assert!(
         worktrees_list(&mut ctx)?.active.is_empty(),
         "adoption runs on the first read, with nothing to adopt"
@@ -39,7 +38,7 @@ fn names(worktrees: &[ListedWorktree]) -> Vec<&str> {
 
 #[test]
 fn listing_is_sorted_by_reflog_recency_then_name() -> Result<()> {
-    let (mut ctx, tmp) = flag_on_ctx()?;
+    let (mut ctx, tmp) = adopted_ctx()?;
     add_worktree(tmp.path(), "older", "2000-01-03 00:00:00 +0000");
     add_worktree(tmp.path(), "newer", "2000-01-04 00:00:00 +0000");
     add_worktree(tmp.path(), "same-day-b", "2000-01-02 00:00:00 +0000");
@@ -91,7 +90,7 @@ fn listing_is_sorted_by_reflog_recency_then_name() -> Result<()> {
 
 #[test]
 fn remove_needs_force_for_a_dirty_checkout_and_forgets_the_archived_state() -> Result<()> {
-    let (mut ctx, tmp) = flag_on_ctx()?;
+    let (mut ctx, tmp) = adopted_ctx()?;
     let path = add_worktree(tmp.path(), "wt", "2000-01-03 00:00:00 +0000");
     write_file(&path, "file.txt", "dirty\n")?;
     worktree_set_archived(&mut ctx, "wt".into(), true)?;
@@ -116,22 +115,5 @@ fn remove_needs_force_for_a_dirty_checkout_and_forgets_the_archived_state() -> R
 
     let err = worktree_remove(&mut ctx, "missing".into(), true).unwrap_err();
     assert_eq!(err.to_string(), "Worktree missing does not exist");
-    Ok(())
-}
-
-#[test]
-fn everything_is_gated_on_the_feature_flag() -> Result<()> {
-    let (repo, _tmp) = repo_with_feature_branch()?;
-    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-    for err in [
-        worktrees_list(&mut ctx).map(drop).unwrap_err(),
-        worktree_set_archived(&mut ctx, "wt".into(), true).unwrap_err(),
-        worktree_remove(&mut ctx, "wt".into(), true).unwrap_err(),
-    ] {
-        assert_eq!(
-            err.to_string(),
-            "worktree manipulation is not enabled (featureFlags.worktreeManipulation)"
-        );
-    }
     Ok(())
 }

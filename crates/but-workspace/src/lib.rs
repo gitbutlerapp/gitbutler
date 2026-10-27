@@ -134,7 +134,7 @@ pub struct RefInfo {
     /// **Warning**: If `Some()`, only fixing this issue should be allowed.
     pub ancestor_workspace_commit: Option<AncestorWorkspaceCommit>,
     /// The active linked worktrees along with the commits they own, or empty if the traversal
-    /// wasn't seeded with worktree tips (i.e. the `worktreeManipulation` flag is off).
+    /// wasn't seeded with worktree tips.
     pub worktrees: Vec<worktrees::WorktreeInfo>,
 }
 

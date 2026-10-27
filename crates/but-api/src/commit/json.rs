@@ -375,8 +375,7 @@ pub enum ChangesSource {
     /// A linked worktree, identified by its stable name, i.e. the directory name
     /// under `$GIT_COMMON_DIR/worktrees/`.
     ///
-    /// Requires the `worktreeManipulation` feature flag, and the worktree has to
-    /// be active.
+    /// The worktree has to be active.
     Worktree(String),
 }
 

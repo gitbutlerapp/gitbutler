@@ -1,17 +1,14 @@
-import { useSuspenseQueries } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import type { FC } from "react";
-import { appSettingsQueryOptions, guiSettingsQueryOptions } from "#ui/api/queries.ts";
-import { useSaveGUISettings, useUpdateFeatureFlags } from "#ui/api/mutations.ts";
+import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
+import { useSaveGUISettings } from "#ui/api/mutations.ts";
 import { Switch } from "@gitbutler/ui-react/Switch.tsx";
 import { defaultSettings } from "#ui/settings.ts";
 import { Row, Section } from "./Section.tsx";
 
 export const Experimental: FC = () => {
-	const [{ data: settings }, { data: appSettings }] = useSuspenseQueries({
-		queries: [guiSettingsQueryOptions, appSettingsQueryOptions],
-	});
+	const { data: settings } = useSuspenseQuery(guiSettingsQueryOptions);
 	const { mutate: saveGUISettings } = useSaveGUISettings();
-	const { mutate: updateFeatureFlags } = useUpdateFeatureFlags();
 
 	return (
 		<Section>
@@ -25,19 +22,6 @@ export const Experimental: FC = () => {
 					aria-labelledby="comment-annotations"
 					checked={settings.commentAnnotations ?? defaultSettings.commentAnnotations}
 					onCheckedChange={(commentAnnotations) => saveGUISettings({ commentAnnotations })}
-				/>
-			</Row>
-
-			<Row
-				label="Linked worktrees"
-				labelId="worktree-manipulation"
-				hint="Shows the repository's other worktrees in the workspace. Existing ones start out archived; bring them back under Project → Worktrees."
-			>
-				<Switch
-					size="large"
-					aria-labelledby="worktree-manipulation"
-					checked={appSettings.featureFlags.worktreeManipulation}
-					onCheckedChange={(worktreeManipulation) => updateFeatureFlags({ worktreeManipulation })}
 				/>
 			</Row>
 		</Section>

@@ -1,6 +1,4 @@
-use super::util::{
-    enable_worktree_manipulation, enter_edit_mode_with_conflicted_commit, status_json,
-};
+use super::util::{enter_edit_mode_with_conflicted_commit, status_json};
 use crate::utils::{CommandExt as _, Sandbox};
 use snapbox::IntoData;
 
@@ -256,10 +254,10 @@ Hint: run `but help` for all commands
 "#]]);
 }
 
-/// With `worktreeManipulation` off, linked worktrees are not part of the picture at all:
-/// no tips are seeded, so nothing forks out and no lane is drawn. A branch that happens to
-/// be checked out elsewhere is just an ordinary stack row. Lanes are covered by
-/// [`worktree_lanes`].
+/// Linked worktrees that predate the first read are adopted as archived, so they are not part
+/// of the picture at all: no tips are seeded, so nothing forks out and no lane is drawn. A
+/// branch that happens to be checked out elsewhere is just an ordinary stack row. Lanes are
+/// covered by [`worktree_lanes`].
 #[test]
 fn worktrees() {
     let env = Sandbox::init_scenario_with_target_and_default_settings_slow("two-worktrees");
@@ -1849,10 +1847,9 @@ Hint: run `but help` for all commands
 fn worktree_lanes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
 
-    // The first read with the flag on archives every worktree already on disk, so the ones
-    // under test have to be created after it.
+    // The first read archives every worktree already on disk, so the ones under test have to
+    // be created after it.
     env.but("status").assert().success();
 
     // Checked out into the per-test temp dir, as the scenario directory is reused across runs.
@@ -2093,10 +2090,9 @@ off the target
 fn stacked_worktree_lanes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
 
-    // The first read with the flag on archives every worktree already on disk, so the ones
-    // under test have to be created after it.
+    // The first read archives every worktree already on disk, so the ones under test have to
+    // be created after it.
     env.but("status").assert().success();
 
     // Checked out into the per-test temp dir, as the scenario directory is reused across runs.
@@ -2167,10 +2163,9 @@ second work
 fn status_from_inside_a_linked_worktree_shows_the_main_workspace() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
 
-    // The first read with the flag on archives every worktree already on disk, so the ones
-    // under test have to be created after it.
+    // The first read archives every worktree already on disk, so the ones under test have to
+    // be created after it.
     env.but("status").assert().success();
 
     // Checked out into the per-test temp dir, as the scenario directory is reused across runs.

@@ -3,8 +3,7 @@
 set -euo pipefail
 
 # The stacks project in workspace mode with branch1 applied, and the linked worktree
-# `worktree-W` on W, stacked on W-base, resting on the target. Tests enable the
-# `worktreeManipulation` feature flag through their harness's app settings.
+# `worktree-W` on W, stacked on W-base, resting on the target.
 bash "$(dirname "$0")/project-with-stacks.sh" "$@"
 
 pushd local-clone

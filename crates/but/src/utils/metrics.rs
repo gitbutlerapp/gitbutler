@@ -649,7 +649,7 @@ fn read_only_workspace(ctx: &but_ctx::Context) -> Option<but_graph::Workspace> {
         ctx.project_meta().ok()?,
         &mut db,
         but_graph::init::Options {
-            worktrees: ctx.settings.feature_flags.worktree_manipulation,
+            worktrees: true,
             ..but_graph::init::Options::limited()
         },
     )

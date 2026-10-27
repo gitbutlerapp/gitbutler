@@ -3387,7 +3387,6 @@ Hint: run `but branch new` to create a new branch to work on
 fn squash_a_worktree_commit_into_a_workspace_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
-    super::util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = super::util::add_worktree_with_commit(&env, "wt-feature", "A");
 
@@ -3429,7 +3428,6 @@ Squashed nsn into tpm
 fn squash_a_worktree_branch_into_its_bottom_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
-    super::util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = super::util::add_worktree_with_commit(&env, "wt-feature", "A");
     env.invoke_bash(format!(
@@ -3466,7 +3464,6 @@ Squashed branch 'wt-feature' into nsn
 fn uncommit_a_worktree_commit_into_its_own_area() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
-    super::util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = super::util::add_worktree_with_commit(&env, "wt-feature", "A");
 
@@ -3532,7 +3529,6 @@ Hint: run `but help` for all commands
 fn squash_a_worktrees_whole_uncommitted_area_into_a_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    super::util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     super::util::add_dirty_worktree(&env, "wt-feature", "A");
     env.file("main-file.txt", "main change");
@@ -3592,7 +3588,6 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 fn squash_without_sources_in_a_linked_worktree_takes_its_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    super::util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = super::util::add_dirty_worktree(&env, "wt-feature", "A");
     env.file("main-file.txt", "main change");

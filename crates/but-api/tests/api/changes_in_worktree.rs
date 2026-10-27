@@ -11,7 +11,6 @@ fn ctx_with_active_worktree() -> Result<(but_ctx::Context, tempfile::TempDir, te
     let (repo, tmp) = repo_with_feature_branch()?;
     let linked = checkout_branch_in_linked_worktree(tmp.path(), "feature")?;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-    ctx.settings.feature_flags.worktree_manipulation = true;
     but_api::worktrees::worktree_set_archived(&mut ctx, "wt".into(), false)?;
     Ok((ctx, tmp, linked))
 }
@@ -80,27 +79,6 @@ fn worktree_source_has_unassigned_hunks_and_no_dependencies() -> Result<()> {
     assert!(changes.assignments_error.is_none());
     assert!(changes.dependencies.is_none());
     assert!(changes.dependencies_error.is_none());
-    Ok(())
-}
-
-#[test]
-fn worktree_source_requires_the_feature_flag() -> Result<()> {
-    let (mut ctx, _tmp, _linked) = ctx_with_active_worktree()?;
-    ctx.settings.feature_flags.worktree_manipulation = false;
-
-    let guard = ctx.shared_worktree_access();
-    let err = but_api::diff::changes_in_worktree_with_perm(
-        &ctx,
-        ChangesSource::Worktree("wt".into()),
-        false,
-        guard.read_permission(),
-    )
-    .unwrap_err();
-    assert!(
-        err.to_string()
-            .contains("worktree manipulation is not enabled"),
-        "{err}"
-    );
     Ok(())
 }
 

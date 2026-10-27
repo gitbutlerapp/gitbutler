@@ -12,7 +12,6 @@ use crate::{
 fn unapplying_a_worktree_branch_is_refused() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
-    util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     util::add_worktree_with_commit(&env, "wt-feature", "A");
 
@@ -1013,7 +1012,6 @@ Hint: run `but branch new` to create a new branch to work on
 fn unapplying_the_last_branch_checks_out_main_while_a_worktree_branch_tracks_the_target() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
-    util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     util::add_worktree_with_lower_branch(&env, "wt-inside", "main");
     env.invoke_git("branch --set-upstream-to origin/main wt-lower");

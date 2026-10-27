@@ -338,8 +338,7 @@ export declare function changesInWorktree(projectId: string, changesSource: Chan
  * This UI-version of [`but_core::diff::worktree_changes()`] simplifies the `git status` information for display in
  * the user interface as it is right now. From here, it's always possible to add more information as the need arises.
  *
- * `changes_source` selects the checkout to inspect. Reading a linked worktree
- * requires the `worktreeManipulation` feature flag and an active worktree, see
+ * `changes_source` selects the checkout to inspect. A linked worktree has to be active, see
  * `worktrees::open_changes_source()`.
  *
  * ### Notable Transformations
@@ -682,8 +681,7 @@ export declare function deleteUser(): Promise<void>
  *
  * If whole files should be discarded, be sure to not pass any hunks
  *
- * `changes_source` selects the checkout to discard in. A linked worktree requires the
- * `worktreeManipulation` feature flag and an active worktree, see
+ * `changes_source` selects the checkout to discard in. A linked worktree has to be active, see
  * `worktrees::open_changes_source()`, and is not snapshotted as the oplog can't restore it.
  *
  * Returns the `worktree_changes` that couldn't be applied,
@@ -971,8 +969,7 @@ export declare function getWorkspaceFile(projectId: string, relativePath: string
  * Like [`get_workspace_file()`], reading from the checkout `changes_source` names, so a
  * linked worktree's file comes from its own directory rather than the project's.
  *
- * A linked worktree requires the `worktreeManipulation` feature flag and an active
- * worktree, see `worktrees::open_changes_source()`.
+ * A linked worktree has to be active, see `worktrees::open_changes_source()`.
  *
  * {@link ../../../../../crates/but-api/src/legacy/repo.rs}
  */
@@ -1603,8 +1600,7 @@ export declare function treeChangeDiffs(projectId: string, change: TreeChange): 
  * Like [`tree_change_diffs()`], reading `change` from the checkout `changes_source`
  * names, so a linked worktree's uncommitted changes diff against its own files.
  *
- * A linked worktree requires the `worktreeManipulation` feature flag and an active
- * worktree, see `worktrees::open_changes_source()`.
+ * A linked worktree has to be active, see `worktrees::open_changes_source()`.
  *
  * {@link ../../../../../crates/but-api/src/diff.rs}
  */
@@ -1702,8 +1698,7 @@ export declare function withdrawReviewRequest(projectId: string, reviewId: numbe
  * The absolute path of `path`, relative to `checkout`: a linked worktree's, or the project's
  * own.
  *
- * A linked worktree requires the `worktreeManipulation` feature flag and an active worktree,
- * see `worktrees::open_changes_source()`.
+ * A linked worktree has to be active, see `worktrees::open_changes_source()`.
  *
  * {@link ../../../../../crates/but-api/src/open/mod.rs}
  */
@@ -2987,8 +2982,6 @@ export type FeatureFlags = {
   writeCommitEvolution: boolean;
   /** Show the experimental file browser in the TUI. */
   tuiFileBrowser: boolean;
-  /** Enable experimental worktree manipulation support. */
-  worktreeManipulation: boolean;
   /**
    * Open the experimental native client (GPUI) instead of the web app when GitButler
    * starts, on macOS builds that include it.
@@ -2998,7 +2991,6 @@ export type FeatureFlags = {
 
 /** Update request for [`crate::app_settings::FeatureFlags`]. */
 export type FeatureFlagsUpdate = {
-  worktreeManipulation?: boolean | null;
   gpui?: boolean | null;
 };
 
@@ -4166,7 +4158,7 @@ export type RefInfo = {
   target: Target | null;
   /**
    * The active linked worktrees along with the commits they own, or empty if the
-   * traversal wasn't seeded with worktree tips (the `worktreeManipulation` flag is off).
+   * traversal wasn't seeded with worktree tips.
    */
   worktrees: Array<Worktree>;
 };

@@ -225,7 +225,6 @@ fn branch_rename_moves_head_of_another_worktree_checked_out_on_it() -> anyhow::R
     let (repo, tmp) = repo_with_feature_branch()?;
     persist_default_target(&repo)?;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-    ctx.settings.feature_flags.worktree_manipulation = true;
     assert!(
         but_api::worktrees::worktrees_list(&mut ctx)?
             .active

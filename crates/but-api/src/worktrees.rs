@@ -1,8 +1,7 @@
-//! Commands for listing, creating, archiving and removing linked git worktrees (experimental),
+//! Commands for listing, creating, archiving and removing linked git worktrees,
 //! and the resolution of a [`ChangesSource`](crate::commit::json::ChangesSource) for
 //! the commands that can commit from one.
 //!
-//! All commands here are gated on the `featureFlags.worktreeManipulation` setting.
 //! Linked worktrees are identified by their stable *name*, i.e. the directory name
 //! under `$GIT_COMMON_DIR/worktrees/`, which survives `git worktree move`.
 //!
@@ -69,14 +68,6 @@ but_schemars::register_sdk_type!(ListedWorktree);
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(WorktreeListing);
 
-/// Fail unless the user opted into worktree manipulation.
-pub fn ensure_worktree_manipulation_enabled(ctx: &but_ctx::Context) -> Result<()> {
-    if !ctx.settings.feature_flags.worktree_manipulation {
-        bail!("worktree manipulation is not enabled (featureFlags.worktreeManipulation)");
-    }
-    Ok(())
-}
-
 /// Look up the *active* linked worktree named `name`.
 ///
 /// Every command here operates on active worktrees only - an archived one is
@@ -111,7 +102,6 @@ pub(crate) fn worktree_kind(
     Ok(match source {
         ChangesSource::Head => but_graph::WorktreeKind::Main,
         ChangesSource::Worktree(name) => {
-            ensure_worktree_manipulation_enabled(ctx)?;
             but_graph::WorktreeKind::LinkedId(active_worktree(ctx, name)?.name)
         }
     })
@@ -132,7 +122,6 @@ pub(crate) fn open_changes_source(
     let ChangesSource::Worktree(name) = source else {
         return Ok(None);
     };
-    ensure_worktree_manipulation_enabled(ctx)?;
     let name = active_worktree(ctx, name)?.name;
     let repo = ctx.repo.get()?;
     let wt_repo = open_worktree_repo(&repo, name.as_bstr())?;
@@ -160,7 +149,6 @@ pub(crate) fn changes_source_ref(
 #[but_api(napi, provides = [Worktrees])]
 #[instrument(err(Debug))]
 pub fn worktrees_list(ctx: &mut but_ctx::Context) -> Result<WorktreeListing> {
-    ensure_worktree_manipulation_enabled(ctx)?;
     let guard = ctx.shared_worktree_access();
     worktrees_list_with_perm(ctx, guard.read_permission())
 }
@@ -170,7 +158,6 @@ pub fn worktrees_list_with_perm(
     ctx: &but_ctx::Context,
     _perm: &RepoShared,
 ) -> Result<WorktreeListing> {
-    ensure_worktree_manipulation_enabled(ctx)?;
     let mut listing = WorktreeListing {
         active: Vec::new(),
         archived: Vec::new(),
@@ -228,7 +215,6 @@ pub fn worktree_set_archived(
     name: String,
     archived: bool,
 ) -> Result<()> {
-    ensure_worktree_manipulation_enabled(ctx)?;
     let guard = ctx.shared_worktree_access();
     worktree_set_archived_with_perm(
         ctx,
@@ -246,7 +232,6 @@ pub fn worktree_set_archived_with_perm(
     archived: bool,
     _perm: &RepoShared,
 ) -> Result<()> {
-    ensure_worktree_manipulation_enabled(ctx)?;
     ctx.set_worktree_archived(name, archived)?;
     // A cached workspace would still be seeded with the old set of worktree tips.
     ctx.invalidate_workspace_cache()
@@ -262,7 +247,6 @@ pub fn worktree_set_archived_with_perm(
 #[but_api(napi, invalidates = [Worktrees, Workspace])]
 #[instrument(err(Debug))]
 pub fn worktree_remove(ctx: &mut but_ctx::Context, name: String, force: bool) -> Result<()> {
-    ensure_worktree_manipulation_enabled(ctx)?;
     let mut guard = ctx.exclusive_worktree_access();
     worktree_remove_with_perm(
         ctx,
@@ -280,7 +264,6 @@ pub fn worktree_remove_with_perm(
     force: bool,
     _perm: &mut RepoExclusive,
 ) -> Result<()> {
-    ensure_worktree_manipulation_enabled(ctx)?;
     let worktree = ctx
         .worktrees_with_state()?
         .into_iter()
@@ -341,7 +324,6 @@ pub fn worktree_new(
     ctx: &mut but_ctx::Context,
     #[but_api(crate::json::MaybeLossyFullNameRef)] new_ref: Option<gix::refs::FullName>,
 ) -> Result<NewWorktree> {
-    ensure_worktree_manipulation_enabled(ctx)?;
     let mut guard = ctx.exclusive_worktree_access();
     worktree_new_with_perm(ctx, new_ref, guard.write_permission())
 }
@@ -353,7 +335,6 @@ pub fn worktree_new_with_perm(
     new_ref: Option<gix::refs::FullName>,
     perm: &mut RepoExclusive,
 ) -> Result<NewWorktree> {
-    ensure_worktree_manipulation_enabled(ctx)?;
     let base = {
         let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
         ws.highest_base()
@@ -369,7 +350,6 @@ pub fn worktree_new_at_base_with_perm(
     base: gix::ObjectId,
     perm: &mut RepoExclusive,
 ) -> Result<NewWorktree> {
-    ensure_worktree_manipulation_enabled(ctx)?;
     let ref_name = match new_ref {
         Some(ref_name) => ref_name,
         None => unique_canned_refname(&*ctx.repo.get()?)?,
@@ -400,7 +380,6 @@ pub fn worktree_new_on_branch(
     ctx: &mut but_ctx::Context,
     #[but_api(crate::json::FullNameBytes)] ref_name: gix::refs::FullName,
 ) -> Result<NewWorktree> {
-    ensure_worktree_manipulation_enabled(ctx)?;
     let mut guard = ctx.exclusive_worktree_access();
     worktree_new_on_branch_with_perm(ctx, ref_name, guard.write_permission())
 }
@@ -412,7 +391,6 @@ pub fn worktree_new_on_branch_with_perm(
     ref_name: gix::refs::FullName,
     perm: &mut RepoExclusive,
 ) -> Result<NewWorktree> {
-    ensure_worktree_manipulation_enabled(ctx)?;
     let base = {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
         if ws.refname_is_segment(ref_name.as_ref()) {

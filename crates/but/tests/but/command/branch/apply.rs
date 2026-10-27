@@ -13,7 +13,6 @@ use utils::create_local_branch_with_commit;
 fn applying_a_worktree_branch_is_a_no_op() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
-    util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     util::add_worktree_with_commit(&env, "wt-feature", "A");
 

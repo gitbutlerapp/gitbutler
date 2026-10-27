@@ -49,12 +49,12 @@ fn read_marks<'a, C: Seeable + 'a>(
 }
 
 /// Starting a branch from a project or its main worktree: a new one beside the others, or on
-/// top of the default branch when that's checked out on its own; or, with linked worktrees on,
-/// one in a new linked worktree, as `but worktree new` makes.
+/// top of the default branch when that's checked out on its own; or one in a new linked
+/// worktree, as `but worktree new` makes.
 fn new_branch_items(store: &Store, project: &ProjectId, cx: &App) -> Vec<MenuItem> {
     let managed = store.workspace(project).is_some_and(|ws| ws.managed);
     let mut items = vec![MenuItem::action("New branch", &NewBranch, cx)];
-    if managed && crate::backend::settings::worktrees_enabled() {
+    if managed {
         let project = project.clone();
         items.push(MenuItem::new("New worktree…", move |app, window, cx| {
             let selected = project.clone();

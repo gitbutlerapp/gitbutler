@@ -39,7 +39,6 @@ impl NewOperation {
         name: Option<&BranchArg>,
         above: Option<&CliIdArg>,
     ) -> CliResult<Self> {
-        but_api::worktrees::ensure_worktree_manipulation_enabled(ctx)?;
         if let Some(name) = name {
             let existing = name.resolve_local_branch_name()?;
             if ctx.repo.get()?.try_find_reference(&existing)?.is_some() {

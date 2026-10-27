@@ -443,15 +443,6 @@ impl Store {
         });
     }
 
-    /// Watch and load every expanded project again, after a setting changed what they
-    /// watch and list.
-    pub fn reopen_expanded(&mut self, cx: &mut Context<Self>) {
-        for id in self.expanded_ids() {
-            self.rewatch(&id, cx);
-            self.reload(&id, cx);
-        }
-    }
-
     /// Start watching `id` over, as when the worktrees it should watch changed.
     fn rewatch(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
         let Some(entry) = self.project(id) else {

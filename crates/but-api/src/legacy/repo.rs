@@ -101,8 +101,7 @@ pub fn get_workspace_file(ctx: &Context, relative_path: String) -> Result<FileIn
 /// Like [`get_workspace_file()`], reading from the checkout `changes_source` names, so a
 /// linked worktree's file comes from its own directory rather than the project's.
 ///
-/// A linked worktree requires the `worktreeManipulation` feature flag and an active
-/// worktree, see `worktrees::open_changes_source()`.
+/// A linked worktree has to be active, see `worktrees::open_changes_source()`.
 #[but_api(napi, json::FileInfo, provides = [])]
 #[instrument(err(Debug))]
 pub fn get_workspace_file_from_source(

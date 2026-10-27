@@ -113,8 +113,7 @@ pub struct SourceChanges {
 
 /// The names of the linked worktrees whose uncommitted changes get CLI IDs.
 ///
-/// Empty unless the `worktreeManipulation` feature flag is on, and empty when the
-/// context repository is itself a linked worktree: such a context keeps its own
+/// Empty when the context repository is itself a linked worktree: such a context keeps its own
 /// database, so [`Context::worktrees_with_state()`] refuses to read worktree state
 /// from it. IDs are built by nearly every command, so that case degrades to the
 /// main worktree rather than taking the whole CLI down.
@@ -122,9 +121,6 @@ pub struct SourceChanges {
 /// Must not be called while a database handle is borrowed, see
 /// [`Context::worktrees_with_state()`].
 pub fn active_worktree_sources(ctx: &Context) -> anyhow::Result<Vec<BString>> {
-    if !ctx.settings.feature_flags.worktree_manipulation {
-        return Ok(Vec::new());
-    }
     let in_linked_worktree = {
         let repo = ctx.repo.get()?;
         repo.git_dir() != repo.common_dir()

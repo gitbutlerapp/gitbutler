@@ -1,7 +1,7 @@
 use gitbutler_commit::commit_ext::CommitMessageBstr as _;
 use snapbox::str;
 
-use super::util::{add_worktree_with_commit, enable_worktree_manipulation};
+use super::util::add_worktree_with_commit;
 use crate::utils::Sandbox;
 use but_testsupport::CommandExt as _;
 
@@ -48,7 +48,6 @@ fn names_the_anonymous_segment_of_a_detached_worktree() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
     env.setup_metadata(&["A"]);
-    enable_worktree_manipulation(&env);
     env.but("worktree list").assert().success();
     let worktree = add_worktree_with_commit(&env, "W", "A");
     but_testsupport::git_at_dir(&worktree)
@@ -441,7 +440,6 @@ Hint: Most likely you want `but pull`, which updates the workspace and removes l
 fn reword_a_commit_in_a_linked_worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
-    super::util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = super::util::add_worktree_with_commit(&env, "wt-feature", "A");
 
@@ -496,7 +494,6 @@ Updated commit message for nsn
 fn reword_renames_branches_in_a_linked_worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
-    super::util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = super::util::add_worktree_with_lower_branch(&env, "wt-feature", "A");
 
