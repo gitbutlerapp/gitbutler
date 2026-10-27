@@ -46,7 +46,7 @@ Create a new branch
 - `-B, --below <BRANCH_OR_COMMIT>` Place the branch below BRANCH_OR_COMMIT, which must be an applied branch or commit. If BRANCH_OR_COMMIT is a commit, the new branch is created below the commit. If BRANCH_OR_COMMIT is a branch, the new branch is created below the targeted branch.
 
 ### but branch delete <BRANCHES>...
-Delete branches and their commits from the workspace
+Delete local branches and their commits, applied or not
 - `<BRANCHES>...` One or more branches to delete
 
 ### but branch list [FILTER]

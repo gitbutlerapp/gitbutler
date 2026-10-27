@@ -1,12 +1,13 @@
 use anyhow::Context as _;
 use but_api::WorkspaceState;
 use but_ctx::Context;
-use itertools::Itertools;
+use gix::refs::Category;
 use nonempty::NonEmpty;
 
 use crate::{
     CliResult, IdMap,
     args::atoms::CliIdArg,
+    bad_input,
     command::legacy::discard::{self, DiscardOutcome},
     utils::{IntermediateChannel, OutputChannel},
 };
@@ -23,30 +24,65 @@ pub fn delete(
     branch_args: Vec<CliIdArg>,
 ) -> CliResult<(DiscardOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission(), None)?;
 
-    let branches = {
+    let mut deleted = Vec::new();
+    let mut applied = Vec::new();
+    let mut unapplied = Vec::new();
+    {
         let repo = ctx.repo.get()?;
-        let branches = branch_args
-            .iter()
-            .map(|branch| branch.resolve_branch_in_workspace(&repo, &id_map))
-            .map(|branch| Ok(branch?.resolve_local_branch_name()?))
-            .collect::<CliResult<Vec<_>>>()?
-            .into_iter()
-            .unique()
-            .collect::<Vec<_>>();
-        NonEmpty::from_vec(branches)
-            .context("BUG: branches is required to be non-empty in clap args")?
-    };
+        for branch_arg in &branch_args {
+            let (branch, is_applied) = match branch_arg.try_resolve_branch(&repo, &id_map)? {
+                Some(branch) => (branch.resolve_local_branch_name()?, true),
+                // A local branch outside the workspace has no CLI ID, so only its name finds it.
+                None => match Category::LocalBranch
+                    .to_full_name(branch_arg.0.as_str())
+                    .ok()
+                {
+                    Some(branch) if repo.try_find_reference(branch.as_ref())?.is_some() => {
+                        (branch, false)
+                    }
+                    _ => {
+                        return Err(bad_input(format!("Could not find branch: '{branch_arg}'"))
+                            .hint(CliIdArg::TARGET_MISSING_HINT)
+                            .into());
+                    }
+                },
+            };
+            if !deleted.contains(&branch) {
+                deleted.push(branch.clone());
+                if is_applied {
+                    applied.push(branch);
+                } else {
+                    unapplied.push(branch);
+                }
+            }
+        }
+    }
 
-    Ok(discard::run(
-        ctx,
-        &mut meta,
-        guard.write_permission(),
-        discard::DiscardOperation::Branches(branches),
-        gitbutler_oplog::entry::OperationKind::Discard,
-    )?)
+    let mut ws = None;
+    for branch in unapplied {
+        let result =
+            but_api::branch::branch_remove_with_perm(ctx, branch, guard.write_permission())?;
+        ws = Some(result.workspace);
+    }
+    if let Some(applied) = NonEmpty::from_vec(applied) {
+        // Opened after removing unapplied branches so writing it back can't restore their entries.
+        let mut meta = ctx.meta()?;
+        let (_, applied_ws) = discard::run(
+            ctx,
+            &mut meta,
+            guard.write_permission(),
+            discard::DiscardOperation::Branches(applied),
+            gitbutler_oplog::entry::OperationKind::Discard,
+        )?;
+        ws = Some(applied_ws);
+    }
+
+    let deleted = NonEmpty::from_vec(deleted)
+        .context("BUG: branches is required to be non-empty in clap args")?;
+    let ws = ws.context("BUG: every branch is either applied or unapplied")?;
+    Ok((DiscardOutcome::Branches(deleted), ws))
 }
 
 pub fn show_branches(
