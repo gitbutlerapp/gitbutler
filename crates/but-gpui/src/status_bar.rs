@@ -9,6 +9,7 @@ use crate::app::{
 };
 use crate::backend::CommitId;
 use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
+use crate::pr::{CreatePullRequest, create_offer};
 use crate::state::{Cut, SLOW, Section, Selection};
 use crate::theme::Theme;
 use crate::ui::{Icon, STATUS_BAR_HEIGHT, dp, duration, h_flex, shortcut, small_icon};
@@ -249,14 +250,17 @@ impl AppView {
                         .chain(behind.then_some((&UpdateFromTarget as &dyn Action, "update")))
                         .collect()
                 }
-                Some(Selection::Branch(project, ref_name)) => {
+                Some(selection @ Selection::Branch(project, ref_name)) => {
                     let workspace = store.workspace(project);
                     let push =
                         workspace.is_some_and(|ws| ws.push_blocked(ref_name.as_ref()).is_none());
                     let review = (workspace.and_then(|ws| ws.find_branch(ref_name.as_ref())))
                         .is_some_and(|branch| branch.review.is_some());
+                    let create = (create_offer(store, selection) == Some(Ok(())))
+                        .then_some((&CreatePullRequest as &dyn Action, "create pull request"));
                     (push.then_some((&Push as &dyn Action, "push")).into_iter())
                         .chain(review.then_some((&OpenPullRequest as &dyn Action, "pull request")))
+                        .chain(create)
                         .chain([(&RenameSelection as &dyn Action, "rename")])
                         .collect()
                 }
