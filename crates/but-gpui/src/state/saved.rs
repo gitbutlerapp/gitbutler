@@ -410,6 +410,9 @@ pub struct Prefs {
     pub active_projects_only: bool,
     /// The navigator's other projects are folded away under their heading.
     pub projects_folded: bool,
+    /// How much of the navigator's column the open drawer of other projects may take, as last
+    /// dragged.
+    pub drawer_share: Option<f32>,
     /// Watched projects, by id, whose cards are folded to their row; they're still loaded and
     /// kept current.
     pub folded_projects: HashSet<String>,

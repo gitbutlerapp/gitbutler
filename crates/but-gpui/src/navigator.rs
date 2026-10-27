@@ -5,10 +5,10 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, DragMoveEvent, ElementId, Entity, FocusHandle,
-    Focusable, Hsla, ListAlignment, ListOffset, ListState, MouseButton, MouseDownEvent, Pixels,
-    Point, ScrollWheelEvent, SharedString, Stateful, Subscription, Task, Window, actions, div,
-    list, prelude::*, relative,
+    AnyElement, App, ClickEvent, Context, CursorStyle, Div, DragMoveEvent, ElementId, EmptyView,
+    Entity, FocusHandle, Focusable, Hsla, ListAlignment, ListOffset, ListState, MouseButton,
+    MouseDownEvent, Pixels, Point, ScrollWheelEvent, SharedString, Stateful, Subscription, Task,
+    Window, actions, div, list, prelude::*, relative,
 };
 
 use crate::app::{
@@ -50,11 +50,18 @@ use rows::{
     within,
 };
 
-/// How tall the drawer's handle is, level with the commit footer beside it, the space under
-/// its rows, and the most of the column it opens to.
+/// How tall the drawer's handle is, level with the commit footer beside it, and the space
+/// under its rows.
 const DRAWER_BAR_HEIGHT: f32 = crate::detail::FOOTER_HEIGHT;
 const DRAWER_PADDING: f32 = 6.;
+
+/// The most of the column the open drawer takes until it's dragged, and how little and how
+/// much dragging it can make that.
 const DRAWER_SHARE: f32 = 0.45;
+const DRAWER_SHARES: (f32, f32) = (0.15, 0.85);
+
+/// The open drawer's top edge being dragged, to resize it.
+struct DrawerResize;
 
 /// How far a worktree's or a stack's rows sit in from its heading, as ui-react's SidebarRow
 /// steps them: their chevrons' middle under the heading's 16-point glyph's, the chevron's step,
@@ -1316,6 +1323,7 @@ impl Navigator {
         let manual = self.store.read(cx).prefs.watched_order == WatchedOrder::Manual;
         let slot = (manual && !alone).then_some(CardSlot::End);
         let lit = slot.is_some() && self.project_drop == slot;
+        let share = (self.store.read(cx).prefs.drawer_share).unwrap_or(DRAWER_SHARE);
         // Each of its rows is one row tall.
         let rows_height = match self.drawer.rows.len() {
             0 => 0.,
@@ -1328,7 +1336,7 @@ impl Navigator {
                 true => el.flex_1().min_h_0(),
                 false => (el.flex_none())
                     .h(dp(DRAWER_BAR_HEIGHT + rows_height))
-                    .max_h(relative(DRAWER_SHARE)),
+                    .max_h(relative(share)),
             })
             .child(self.drawer_bar(alone, theme, cx))
             .child(
@@ -1345,6 +1353,59 @@ impl Navigator {
             .when(lit, |el| {
                 el.child(insertion_line(true, theme.pop).right(dp(10.)).top(dp(-6.)))
             })
+            .when(!alone && rows_height > 0., |el| {
+                el.child(self.drawer_resize_handle(theme, cx))
+            })
+    }
+
+    /// A strip along the open drawer's top edge: drag it to resize the drawer, as far as its
+    /// rows go, double-click to put it back. The navigator listens with
+    /// [`Self::resize_drawer`].
+    fn drawer_resize_handle(&self, theme: &Theme, cx: &Context<Self>) -> impl IntoElement {
+        div()
+            .id("resize-drawer")
+            .absolute()
+            .left_0()
+            .right_0()
+            .top(dp(-2.))
+            .h(dp(5.))
+            .group("resize-drawer")
+            .cursor(CursorStyle::ResizeUpDown)
+            .block_mouse_except_scroll()
+            // A line along the drawer's top edge, as a pane's handle marks its own.
+            .child(
+                div()
+                    .absolute()
+                    .left_0()
+                    .right_0()
+                    .top(dp(2.))
+                    .h(fixed(1.))
+                    .group_hover("resize-drawer", |el| el.bg(theme.border_1)),
+            )
+            .on_drag(DrawerResize, |_, _, _, cx| cx.new(|_| EmptyView))
+            .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
+                if event.click_count() == 2 {
+                    (this.store).update(cx, |store, cx| {
+                        store.set_prefs(|p| p.drawer_share = None, cx)
+                    })
+                }
+            }))
+    }
+
+    /// Resize the drawer while its top edge is dragged, as a share of the navigator's column,
+    /// which the drawer ends at the bottom of.
+    fn resize_drawer(
+        &mut self,
+        event: &DragMoveEvent<DrawerResize>,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let bounds = event.bounds;
+        let share = (bounds.bottom() - event.event.position.y) / bounds.size.height;
+        let share = share.clamp(DRAWER_SHARES.0, DRAWER_SHARES.1);
+        (self.store).update(cx, |store, cx| {
+            store.set_prefs(|p| p.drawer_share = Some(share), cx)
+        });
     }
 
     /// The drawer's handle: a click opens or closes it, and it says how many projects it lists
@@ -2819,6 +2880,7 @@ impl Render for Navigator {
         v_flex()
             .id("navigator")
             .key_context("Navigator")
+            .on_drag_move(cx.listener(Self::resize_drawer))
             .track_focus(&self.focus)
             .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
                 this.pointer_over = *hovered;
