@@ -848,9 +848,11 @@ impl Detail {
         rows
     }
 
-    /// What a project whose target several local branches track asks, `choice`: which of them,
-    /// a row each. None is named as the remote's branch, as the engine picks that one by itself.
-    /// Choose another… offers every local branch. The branches not picked stay as they are.
+    /// What a project whose target an older GitButler stored as a remote branch asks, `choice`:
+    /// which of the local branches tracking it, a row each, none named as the remote's branch,
+    /// as the engine picks that one by itself. With none tracking it, the row is the one named as
+    /// it, which picking makes track it. Choose another… offers every local branch. The branches
+    /// not picked stay as they are.
     pub(super) fn target_chooser(
         &self,
         project: &ProjectId,
@@ -869,9 +871,42 @@ impl Detail {
                 },
             )
         };
+        let remote = choice.remote.shorten();
+        // Each row picks the branch it names, but the one to track the remote branch picks the
+        // remote branch, which makes it track it.
+        let picks: Vec<(&backend::FullName, &backend::FullName)> = match &choice.to_track {
+            Some((local, _)) => vec![(local, &choice.remote)],
+            None => choice.branches.iter().map(|name| (name, name)).collect(),
+        };
+        let asked = "Which branch is the target?";
+        let untracked = format!("GitButler now targets a local branch, and none tracks {remote}.");
+        let said = match &choice.to_track {
+            Some((local, new)) => {
+                let does = if *new {
+                    "creates it to track"
+                } else {
+                    "has it track"
+                };
+                let local = backend::short_ref(local);
+                format!(
+                    "{untracked} Picking {local} {does} {remote}, so updates keep coming from there."
+                )
+            }
+            None if choice.branches.is_empty() => {
+                format!("{untracked} Pick the one your branches build on.")
+            }
+            None => {
+                format!("Several branches track {remote}. Pick the one your branches build on.")
+            }
+        };
         let another = {
             let project = project.clone();
-            button("target-another", "Choose another…")
+            let label = if picks.is_empty() {
+                "Choose a branch…"
+            } else {
+                "Choose another…"
+            };
+            button("target-another", label)
                 .style(ButtonStyle::Ghost)
                 .on_click(cx.listener(move |this, _, window, cx| {
                     let project = project.clone();
@@ -880,8 +915,8 @@ impl Detail {
                     });
                 }))
         };
-        let remote = &choice.remote;
-        let rows = (choice.branches.iter().enumerate()).map(|(ix, name)| {
+        let has_rows = !picks.is_empty();
+        let rows = (picks.into_iter().enumerate()).map(|(ix, (name, picked))| {
             list_row(("target-choice", ix), false, theme)
                 .cursor_pointer()
                 .child(small_icon(Icon::Branch).text_color(theme.text_3))
@@ -892,23 +927,23 @@ impl Detail {
                         .truncate()
                         .child(backend::short_ref(name).into_owned()),
                 )
-                .on_click(pick(name))
+                .on_click(pick(picked))
         });
-        let asked = "Which branch is the target?";
-        let said = format!("Several branches track {remote}. Pick the one your branches build on.");
         let answers = v_flex()
             .items_center()
             .gap(dp(8.))
-            .child(
-                v_flex()
-                    .w(dp(260.))
-                    .py(dp(4.))
-                    .rounded(dp(8.))
-                    .border_1()
-                    .border_color(theme.border_3)
-                    .text_left()
-                    .children(rows),
-            )
+            .when(has_rows, |answers| {
+                answers.child(
+                    v_flex()
+                        .w(dp(260.))
+                        .py(dp(4.))
+                        .rounded(dp(8.))
+                        .border_1()
+                        .border_color(theme.border_3)
+                        .text_left()
+                        .children(rows),
+                )
+            })
             .child(another);
         v_flex()
             .size_full()
