@@ -134,6 +134,21 @@ impl Link {
     }
 }
 
+/// The projects the sidebar lists, each group by name: the watched ones, then those not
+/// watched, all of them while they're shown, else only the one shown, and how many that
+/// leaves out.
+struct Listed {
+    watched: Vec<ProjectId>,
+    unwatched: Vec<ProjectId>,
+    hidden: usize,
+}
+
+impl Listed {
+    fn iter(&self) -> impl Iterator<Item = &ProjectId> {
+        self.watched.iter().chain(&self.unwatched)
+    }
+}
+
 /// A card of rows, one setting each, under a heading unless it's the page's first.
 struct Card {
     heading: Option<SharedString>,
@@ -235,6 +250,8 @@ pub struct SettingsView {
     project_focus: HashMap<ProjectId, FocusHandle>,
     /// The shown project's Git page's link.
     project_git_focus: FocusHandle,
+    /// The sidebar lists the projects not watched too.
+    more: bool,
     pages_scroll: ScrollHandle,
     cards_scroll: ScrollHandle,
     _subscriptions: Vec<Subscription>,
@@ -286,6 +303,10 @@ impl SettingsView {
                 }
             }),
         ];
+        let unwatched = (page
+            .project()
+            .and_then(|project| store.read(cx).project(project)))
+        .is_some_and(|entry| !entry.expanded);
         let mut view = Self {
             store,
             app,
@@ -309,6 +330,7 @@ impl SettingsView {
             app_links: AppPage::ALL.map(|page| Link::new(Page::App(page), cx)),
             project_focus: HashMap::new(),
             project_git_focus: cx.focus_handle().tab_stop(true),
+            more: unwatched,
             pages_scroll: ScrollHandle::new(),
             cards_scroll: ScrollHandle::new(),
             _subscriptions: subscriptions,
@@ -747,19 +769,28 @@ impl SettingsView {
             .collect()
     }
 
-    /// The watched projects, by name, and the one shown though it isn't watched.
-    fn listed_projects(&self, cx: &App) -> Vec<ProjectId> {
-        let mut listed: Vec<&ProjectEntry> = (self.store.read(cx).projects.iter())
-            .filter(|entry| entry.expanded || self.page.project() == Some(&entry.id))
+    fn listed_projects(&self, cx: &App) -> Listed {
+        let mut projects: Vec<&ProjectEntry> = self.store.read(cx).projects.iter().collect();
+        projects.sort_by_key(|entry| entry.project.name.to_lowercase());
+        let (watched, unwatched): (Vec<_>, Vec<_>) =
+            projects.into_iter().partition(|entry| entry.expanded);
+        let all = unwatched.len();
+        let unwatched: Vec<ProjectId> = (unwatched.into_iter())
+            .filter(|entry| self.more || self.page.project() == Some(&entry.id))
+            .map(|entry| entry.id.clone())
             .collect();
-        listed.sort_by_key(|entry| entry.project.name.to_lowercase());
-        listed.into_iter().map(|entry| entry.id.clone()).collect()
+        Listed {
+            watched: watched.into_iter().map(|entry| entry.id.clone()).collect(),
+            hidden: all - unwatched.len(),
+            unwatched,
+        }
     }
 
     /// The links in the sidebar, in its order: the app's pages, then each listed project's
     /// row, which is its Project page's link, and the shown project's Git page.
     fn links(&self, cx: &App) -> Vec<Link> {
-        let projects = self.listed_projects(cx).into_iter().flat_map(|project| {
+        let listed = self.listed_projects(cx);
+        let projects = listed.iter().cloned().flat_map(|project| {
             let row = (self.project_focus.get(&project)).map(|focus| Link {
                 page: Page::Project(project.clone(), ProjectPage::Project),
                 focus: focus.clone(),
@@ -1029,31 +1060,56 @@ impl Render for SettingsView {
         let cards = self.cards(&query, window, cx);
         let search_focused = self.search.focus_handle(cx).is_focused(window);
         let listed = self.listed_projects(cx);
-        for project in &listed {
+        for project in listed.iter() {
             (self.project_focus.entry(project.clone()))
                 .or_insert_with(|| cx.focus_handle().tab_stop(true));
         }
         let app_links =
             (self.app_links.iter()).map(|link| self.page_link(link, searching, &theme, cx));
-        let projects = (!listed.is_empty()).then(|| {
-            let heading = div()
-                .px(dp(8.))
-                .pb(dp(8.))
-                .text_size(dp(12.))
-                .font_weight(gpui::FontWeight::SEMIBOLD)
-                .text_color(theme.text_3)
-                .child("Projects");
+        let any = listed.iter().next().is_some() || listed.hidden > 0;
+        let projects = any.then(|| {
+            let heading = |label: &'static str| {
+                div()
+                    .px(dp(8.))
+                    .pb(dp(8.))
+                    .text_size(dp(12.))
+                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .text_color(theme.text_3)
+                    .child(label)
+            };
+            let entries = |projects: &[ProjectId]| {
+                (projects.iter())
+                    .filter_map(|project| self.project_entry(project, searching, &theme, cx))
+                    .collect::<Vec<_>>()
+            };
+            let more = match self.more {
+                true => "Show fewer".to_owned(),
+                false => format!("Show {} more", listed.hidden),
+            };
+            let more = (self.more || listed.hidden > 0).then(|| {
+                div().pt(dp(4.)).child(
+                    button("settings-more-projects", more)
+                        .small()
+                        .style(ButtonStyle::Ghost)
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.more ^= true;
+                            cx.notify();
+                        })),
+                )
+            });
             v_flex()
                 .mt(dp(16.))
                 .pt(dp(16.))
                 .px(dp(12.))
                 .border_t_1()
                 .border_color(theme.border_3)
-                .child(heading)
-                .children(
-                    (listed.iter())
-                        .filter_map(|project| self.project_entry(project, searching, &theme, cx)),
-                )
+                .child(heading("Projects"))
+                .children(entries(&listed.watched))
+                .when(!listed.unwatched.is_empty(), |el| {
+                    el.child(heading("Not watched").pt(dp(12.)))
+                        .children(entries(&listed.unwatched))
+                })
+                .children(more)
         });
         let empty = cards.is_empty();
         let height = (f32::from(window.viewport_size().height) / theme.scale * 0.76).min(1000.);
