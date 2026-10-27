@@ -428,10 +428,6 @@
 	display: flex;
 }
 
-.offline {
-	opacity: 0.5;
-}
-
 /* A stack's caption names what follows; it doesn't open, so alone it doesn't answer the pointer
    beyond showing its menu. */
 .caption {
