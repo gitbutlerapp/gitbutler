@@ -90,6 +90,12 @@
       "left": "app::FocusPaneLeft"
     }
   },
+  // o opens a branch's pull request and ⇧O opens a new one, as GitHub calls creating one. Not
+  // from a dialog, whose form a new one would replace.
+  {
+    "context": "(Navigator || Diff) && !TextInput",
+    "bindings": { "shift-o": "pr::CreatePullRequest" }
+  },
   // A prompt's or a modal's fields and buttons, from its text fields too, as in a macOS sheet.
   {
     "context": "Dialog",

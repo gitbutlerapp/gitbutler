@@ -842,11 +842,17 @@ impl Detail {
             button("header-create-pr", "Create pull request")
                 .small()
                 .style(ButtonStyle::Pop)
+                .tooltip("Push and open a pull request")
                 .dispatch(&crate::pr::CreatePullRequest)
                 .disabled_because(offer.err())
         });
+        let force = ref_name.is_some_and(|r| ws.needs_force(r));
         let push = button("header-push", ref_name.map_or("Push", |r| ws.push_label(r)))
             .small()
+            .tooltip(match force {
+                true => "Replace the remote's version",
+                false => "Push to the remote",
+            })
             .dispatch(&crate::app::Push)
             .disabled_because(ws.push_blocked(ref_name));
         let meta = meta
