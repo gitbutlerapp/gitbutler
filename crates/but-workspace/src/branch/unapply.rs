@@ -13,12 +13,6 @@ pub struct Outcome<'workspace> {
     /// when [WorkspaceDisposition] allows deleting the workspace reference and switching away from it,
     /// or when unapplying an ad-hoc branch checks out the local target branch.
     pub checked_out: Option<gix::refs::FullName>,
-    /// If not `None`, a non-conflicting workspace merge was materialized while rebuilding the
-    /// workspace merge commit after removing the stack.
-    ///
-    /// Unapply does not return conflicted merge outcomes. If rebuilding the workspace merge commit
-    /// conflicts, `unapply()` fails before refs, metadata, index, or worktree are updated.
-    pub workspace_merge: Option<crate::commit::merge::Outcome>,
 }
 
 impl<'workspace> Outcome<'workspace> {
@@ -26,7 +20,6 @@ impl<'workspace> Outcome<'workspace> {
         Outcome {
             workspace: ws,
             checked_out: None,
-            workspace_merge: None,
         }
     }
 }
@@ -44,7 +37,6 @@ impl std::fmt::Debug for Outcome<'_> {
         let Outcome {
             workspace: _,
             checked_out,
-            workspace_merge: _,
         } = self;
         let checked_out = checked_out.as_ref().map(|rn| rn.to_string());
         let mut f = f.debug_struct("Outcome");
@@ -258,7 +250,6 @@ pub(crate) mod function {
             return Ok(Outcome {
                 workspace: Cow::Owned(workspace),
                 checked_out: Some(destination.ref_name),
-                workspace_merge: None,
             });
         }
 
@@ -333,7 +324,7 @@ pub(crate) mod function {
         // - re-merge or collapse the workspace commit
         // - point workspace to it
         // - update metadata and workspace
-        let workspace_merge = update_workspace_ref_after_unapply(
+        update_workspace_ref_after_unapply(
             &ws,
             repo,
             workspace_ref_name.as_ref(),
@@ -373,13 +364,11 @@ pub(crate) mod function {
             return Ok(Outcome {
                 workspace: Cow::Owned(ws),
                 checked_out: Some(checked_out),
-                workspace_merge: None,
             });
         }
         Ok(Outcome {
             workspace: Cow::Owned(ws),
             checked_out: None,
-            workspace_merge,
         })
     }
 
@@ -402,7 +391,7 @@ pub(crate) mod function {
         ws_md: &but_core::ref_metadata::Workspace,
         disposition: WorkspaceDisposition,
         excluded_anonymous_tip_id: Option<gix::ObjectId>,
-    ) -> anyhow::Result<Option<crate::commit::merge::Outcome>> {
+    ) -> anyhow::Result<()> {
         let future_workspace_tips = future_workspace_tips(ws_md, ws, excluded_anonymous_tip_id)?;
         let remaining_tip_count = future_workspace_tips.len();
         let keep_workspace_commit = match disposition {
@@ -420,30 +409,20 @@ pub(crate) mod function {
             let new_head_id =
                 commit_to_point_workspace_ref_to_after_unapply(ws, &future_workspace_tips)?;
             checkout_and_update_workspace_ref(repo, new_head_id, workspace_ref_name)?;
-            return Ok(None);
+            return Ok(());
         }
 
         let mut in_memory_repo = repo.clone().for_tree_diffing()?.with_object_memory();
-        let merge = merge_workspace_after_unapply(ws, &future_workspace_tips, &in_memory_repo)?;
+        let new_head_id =
+            merge_workspace_after_unapply(ws, &future_workspace_tips, &in_memory_repo)?;
 
         // materialize the merged objects.
-        let new_head_id = merge.workspace_commit_id;
         if let Some(storage) = in_memory_repo.objects.take_object_memory() {
             storage.persist(repo)?;
             drop(in_memory_repo);
         }
         checkout_and_update_workspace_ref(repo, new_head_id, workspace_ref_name)?;
-        Ok(merge.workspace_merge)
-    }
-
-    struct WorkspaceMergeAfterUnapply {
-        /// The commit to materialize as the new workspace ref target.
-        workspace_commit_id: gix::ObjectId,
-        /// The merge attempt callers should receive, if it represents a real workspace merge.
-        ///
-        /// This is `None` for the legacy empty-workspace keep-merge case, where the merge outcome
-        /// is only an implementation detail used to create a managed no-op workspace commit.
-        workspace_merge: Option<crate::commit::merge::Outcome>,
+        Ok(())
     }
 
     fn future_workspace_tips(
@@ -523,7 +502,6 @@ pub(crate) mod function {
         Ok(Outcome {
             workspace: Cow::Owned(ws),
             checked_out: Some(ref_to_checkout.ref_name),
-            workspace_merge: None,
         })
     }
 
@@ -537,19 +515,14 @@ pub(crate) mod function {
         ws: &but_graph::Workspace,
         future_workspace_tips: &[crate::commit::merge::Tip],
         repo: &gix::Repository,
-    ) -> anyhow::Result<WorkspaceMergeAfterUnapply> {
+    ) -> anyhow::Result<gix::ObjectId> {
         let mut tips = future_workspace_tips.to_vec();
-        let report_workspace_merge = !tips.is_empty();
         if tips.is_empty() {
             tips.push(base_tip_after_unapply(ws, future_workspace_tips)?);
         }
         let outcome = WorkspaceCommit::from_new_merge_with_tips(tips, &ws.graph, repo, None)?;
         ensure_workspace_merge_has_no_conflicts(&outcome)?;
-        let workspace_commit_id = outcome.workspace_commit_id;
-        Ok(WorkspaceMergeAfterUnapply {
-            workspace_commit_id,
-            workspace_merge: report_workspace_merge.then_some(outcome),
-        })
+        Ok(outcome.workspace_commit_id)
     }
 
     fn ensure_workspace_merge_has_no_conflicts(
