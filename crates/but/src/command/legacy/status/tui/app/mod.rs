@@ -389,8 +389,8 @@ impl App {
         let is_details_visible = launch_options.show_diff || initial_hunk.is_some();
 
         let app_key_binds = AppKeyBinds {
-            key_binds: default_key_binds(&ctx.settings.feature_flags),
-            normal_with_marks_key_binds: normal_with_marks_key_binds(&ctx.settings.feature_flags),
+            key_binds: default_key_binds(),
+            normal_with_marks_key_binds: normal_with_marks_key_binds(),
             confirm_key_binds: confirm_key_binds(),
         };
 
@@ -2063,7 +2063,7 @@ impl App {
                 but_workspace::ref_info::Options {
                     project_meta: ctx.project_meta()?,
                     traversal: but_graph::init::Options {
-                        worktrees: ctx.settings.feature_flags.worktree_manipulation,
+                        worktrees: true,
                         ..Default::default()
                     },
                     ..Default::default()

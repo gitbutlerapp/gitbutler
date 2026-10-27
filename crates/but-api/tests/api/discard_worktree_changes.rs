@@ -17,7 +17,6 @@ fn worktree_source_discards_in_the_linked_checkout_only() -> Result<()> {
     let (repo, tmp) = repo_with_feature_branch()?;
     let linked = checkout_branch_in_linked_worktree(tmp.path(), "feature")?;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-    ctx.settings.feature_flags.worktree_manipulation = true;
     but_api::worktrees::worktree_set_archived(&mut ctx, "wt".into(), false)?;
 
     let linked = linked.path().join("wt");

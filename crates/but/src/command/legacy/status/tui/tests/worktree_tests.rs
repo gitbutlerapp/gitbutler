@@ -32,7 +32,7 @@ fn worktree_tui() -> (TestTui<App>, String) {
     let tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
-            worktree_manipulation: true,
+            activate_worktrees: true,
             ..Default::default()
         },
     );
@@ -79,7 +79,7 @@ fn linked_worktree_head_marker_survives_reload() {
     let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
-            worktree_manipulation: true,
+            activate_worktrees: true,
             launch_options: TuiLaunchOptions {
                 invoked_from: Some(crate::utils::change_source::InvokedFrom::LinkedWorktree(
                     "wt".into(),
@@ -104,7 +104,7 @@ fn interactive_commit_picker_marks_invoking_worktree_head() {
     let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
-            worktree_manipulation: true,
+            activate_worktrees: true,
             run_options: crate::command::legacy::status::TuiRunOptions::PickChanges,
             launch_options: TuiLaunchOptions {
                 invoked_from: Some(crate::utils::change_source::InvokedFrom::LinkedWorktree(
@@ -143,7 +143,7 @@ fn branch_picker_jumps_to_detached_worktree() {
     let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
-            worktree_manipulation: true,
+            activate_worktrees: true,
             ..Default::default()
         },
     );
@@ -201,7 +201,7 @@ fn sibling_worktree_lanes_are_separated_after_uncommitted_files() {
     let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
-            worktree_manipulation: true,
+            activate_worktrees: true,
             ..Default::default()
         },
     );
@@ -303,7 +303,7 @@ fn remember_selection_on_worktree_rows() {
     };
     let options = || TestTuiOptions {
         launch_options: launch_options.clone(),
-        worktree_manipulation: true,
+        activate_worktrees: true,
         ..Default::default()
     };
     let mut tui = test_status_tui_with_options(env, options());
@@ -795,7 +795,7 @@ fn a_branch_below_the_worktree_top_gets_the_branch_confirm_not_worktree_removal(
     let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
-            worktree_manipulation: true,
+            activate_worktrees: true,
             ..Default::default()
         },
     );
@@ -916,7 +916,7 @@ fn creating_new_worktrees() {
         let mut tui = test_status_tui_with_options(
             env,
             TestTuiOptions {
-                worktree_manipulation: true,
+                activate_worktrees: true,
                 ..Default::default()
             },
         );
@@ -963,7 +963,7 @@ fn cannot_create_worktrees_on_conflicted_commits() {
     let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
-            worktree_manipulation: true,
+            activate_worktrees: true,
             ..Default::default()
         },
     );

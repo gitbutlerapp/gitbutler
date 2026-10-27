@@ -2,7 +2,6 @@ import type {
 	AiConfiguration,
 	AiConfigurationUpdate,
 	AppSettings,
-	FeatureFlagsUpdate,
 	WatcherEvent,
 	AskpassPromptEvent,
 } from "@gitbutler/but-sdk";
@@ -64,8 +63,6 @@ export type LiteElectronApi = SDK & {
 		onToken: (token: string) => void,
 	) => Promise<string>;
 	updateAiConfiguration: (update: AiConfigurationUpdate) => Promise<AiConfiguration>;
-	/** Feature flags shared with the other surfaces; unset fields are left unchanged. */
-	updateFeatureFlags: (update: FeatureFlagsUpdate) => Promise<void>;
 	watcherSubscribe: (projectId: string, callback: (event: WatcherEvent) => void) => Promise<string>;
 	watcherUnsubscribe: (subscriptionId: string) => Promise<boolean>;
 	watcherStopAll: () => Promise<number>;
@@ -110,7 +107,6 @@ export const localEndpoints = [
 	"showNativeMenu",
 	"showNotification",
 	"streamAiResponse",
-	"updateFeatureFlags",
 	"watcherStopAll",
 	"watcherSubscribe",
 	"watcherUnsubscribe",

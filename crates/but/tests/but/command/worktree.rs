@@ -2,16 +2,15 @@ use but_testsupport::invoke_bash_at_dir;
 use snapbox::IntoData;
 
 use crate::{
-    command::util::{add_dirty_worktree, add_worktree_with_commit, enable_worktree_manipulation},
+    command::util::{add_dirty_worktree, add_worktree_with_commit},
     utils::{CommandExt, Sandbox},
 };
 
-/// A flag-on sandbox on `two-stacks` after its first flag-on read, so that worktrees added
-/// afterwards start out active.
-fn flag_on_sandbox() -> Sandbox {
+/// A sandbox on `two-stacks` after its first read, so that worktrees added afterwards start
+/// out active.
+fn adopted_sandbox() -> Sandbox {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("worktree list").assert().success();
     env
 }
@@ -33,8 +32,7 @@ fn add_worktree_at(env: &Sandbox, name: &str, flags: &str, commit: &str, committ
 fn list_previews_archived_worktrees_and_sorts_by_recency() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
-    // Worktrees that predate the first flag-on read are adopted as archived.
+    // Worktrees that predate the first read are adopted as archived.
     for day in 3..=6 {
         add_worktree_at(
             &env,
@@ -225,7 +223,7 @@ old-3 - [..]/worktrees/old-3
 
 #[test]
 fn archive_and_unarchive_by_id_or_name() {
-    let env = flag_on_sandbox();
+    let env = adopted_sandbox();
     add_worktree_with_commit(&env, "wt-feature", "A");
     let sentinel = env.context().project_data_dir.join("INVALIDATE");
     let watcher_token = but_project_handle::process_sentinel_token();
@@ -334,7 +332,7 @@ Hint: Run `but worktree list` for the worktrees and their IDs.
 
 #[test]
 fn remove_requires_force_for_a_dirty_checkout() {
-    let env = flag_on_sandbox();
+    let env = adopted_sandbox();
     add_dirty_worktree(&env, "wt-dirty", "A");
     add_worktree_with_commit(&env, "wt-clean", "B");
     env.but("worktree archive wt-clean").assert().success();
@@ -414,38 +412,8 @@ wt wt-clean - [..]/worktrees/wt-clean
 }
 
 #[test]
-fn refuses_without_the_feature_flag() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
-    env.setup_metadata(&["A", "B"]);
-    env.but("worktree list")
-        .assert()
-        .failure()
-        .stdout_eq(snapbox::str![])
-        .stderr_eq(snapbox::str![[r#"
-Error: worktree manipulation is not enabled (featureFlags.worktreeManipulation)
-
-"#]]);
-    env.but("worktree archive wt")
-        .assert()
-        .failure()
-        .stdout_eq(snapbox::str![])
-        .stderr_eq(snapbox::str![[r#"
-Error: worktree manipulation is not enabled (featureFlags.worktreeManipulation)
-
-"#]]);
-    env.but("worktree new")
-        .assert()
-        .failure()
-        .stdout_eq(snapbox::str![])
-        .stderr_eq(snapbox::str![[r#"
-Error: worktree manipulation is not enabled (featureFlags.worktreeManipulation)
-
-"#]]);
-}
-
-#[test]
 fn new_checks_out_a_new_branch_at_the_highest_base() {
-    let env = flag_on_sandbox();
+    let env = adopted_sandbox();
     env.but("worktree new Feature/One")
         .assert()
         .success()
@@ -544,7 +512,7 @@ Error: Branch 'A' is already in the workspace
 
 #[test]
 fn new_checks_out_an_existing_branch_outside_the_workspace() {
-    let env = flag_on_sandbox();
+    let env = adopted_sandbox();
     env.invoke_git("branch loose main");
     env.but("worktree new loose")
         .assert()
@@ -581,7 +549,6 @@ Cannot place the existing branch 'loose' above a commit
 #[test]
 fn new_worktreeinclude_preserves_symlinks_and_skips_special_files() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
-    enable_worktree_manipulation(&env);
 
     env.file(".gitignore", "/included/\n");
     env.but("commit -b my-branch -m 'Ignore included artifacts'")
@@ -635,7 +602,6 @@ fn new_worktreeinclude_preserves_symlinks_and_skips_special_files() {
 #[test]
 fn new_worktreeinclude_preserves_explicitly_included_symlinks() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
-    enable_worktree_manipulation(&env);
     let outside = tempfile::tempdir().unwrap();
 
     env.file(".gitignore", "/included/\n");
@@ -703,7 +669,6 @@ fn new_worktreeinclude_preserves_explicitly_included_symlinks() {
 #[test]
 fn new_worktreeinclude_handles_overlapping_roots() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
-    enable_worktree_manipulation(&env);
     env.file(".gitignore", "/included/\n");
     env.but("commit -b my-branch -m 'Ignore artifacts'")
         .assert()
@@ -731,7 +696,6 @@ fn new_worktreeinclude_handles_overlapping_roots() {
 fn new_worktreeinclude_handles_specific_file_inclusion() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
-    enable_worktree_manipulation(&env);
 
     env.file(".gitignore", "included/\n");
     env.but("commit -m 'Add gitignore'").assert().success();
@@ -775,7 +739,6 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 fn new_worktreeinclude_ignores_negative_patterns_and_wildcards() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
-    enable_worktree_manipulation(&env);
 
     env.file(".gitignore", "file\n");
     env.but("commit -m 'Add gitignore'").assert().success();
@@ -817,7 +780,6 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 #[test]
 fn new_worktreeinclude_skips_files_blocked_by_tracked_destination_ancestor() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
-    enable_worktree_manipulation(&env);
 
     env.file(".gitignore", "/my/nice/file\n");
     env.file("my", "destination tracked file\n");
@@ -866,7 +828,6 @@ fn new_worktreeinclude_skips_files_blocked_by_tracked_destination_ancestor() {
 #[test]
 fn new_worktreeinclude_skips_files_blocked_by_tracked_immediate_parent() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
-    enable_worktree_manipulation(&env);
 
     env.file(".gitignore", "/my/nice/file\n");
     env.file("my/nice", "destination tracked file\n");
@@ -913,7 +874,6 @@ fn new_worktreeinclude_skips_files_blocked_by_tracked_immediate_parent() {
 #[test]
 fn new_worktreeinclude_skips_files_colliding_with_destination_directory() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
-    enable_worktree_manipulation(&env);
 
     env.file(".gitignore", "/my/nice\n");
     env.file("my/nice/child", "destination tracked child\n");
@@ -960,7 +920,6 @@ fn new_worktreeinclude_skips_files_colliding_with_destination_directory() {
 #[test]
 fn new_worktreeinclude_skips_files_beneath_tracked_destination_symlink() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
-    enable_worktree_manipulation(&env);
     let outside = tempfile::tempdir().unwrap();
     env.file(
         outside.path().join("nice/file"),
@@ -1013,7 +972,6 @@ fn new_worktreeinclude_skips_files_beneath_tracked_destination_symlink() {
 #[test]
 fn new_worktreeinclude_skips_case_alias_of_tracked_destination_symlink() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
-    enable_worktree_manipulation(&env);
 
     // Probe where linked worktrees are created, not the source repository's filesystem.
     std::fs::create_dir_all(env.home_dir()).unwrap();
@@ -1085,7 +1043,6 @@ fn new_worktreeinclude_skips_case_alias_of_tracked_destination_symlink() {
 #[test]
 fn new_worktreeinclude_copies_only_destination_ignored_files_untracked_in_both_indexes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
-    enable_worktree_manipulation(&env);
 
     env.file(
         ".gitignore",
@@ -1186,7 +1143,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 
 #[test]
 fn new_handles_non_ascii_name() {
-    let env = flag_on_sandbox();
+    let env = adopted_sandbox();
 
     env.but("worktree new '日本語'")
         .assert()
@@ -1235,7 +1192,7 @@ Hint: run `but help` for all commands
 
 #[test]
 fn new_handles_directory_collision_with_random_suffix() {
-    let env = flag_on_sandbox();
+    let env = adopted_sandbox();
 
     // collision because `_` is stripped, but the `my-worktree` stem still remains
     env.but("worktree new 'my-worktree_'")
@@ -1322,7 +1279,7 @@ Hint: run `but help` for all commands
 
 #[test]
 fn new_random_suffix_handles_multiple_collisions() {
-    let env = flag_on_sandbox();
+    let env = adopted_sandbox();
 
     env.but("worktree new my-worktree").assert().success();
     env.but("worktree new my-worktree_").assert().success();
@@ -1348,7 +1305,7 @@ fn new_random_suffix_handles_multiple_collisions() {
 
 #[test]
 fn new_above_a_commit_cli_id() {
-    let env = flag_on_sandbox();
+    let env = adopted_sandbox();
     env.but("worktree new feature --above tpm")
         .assert()
         .success()
@@ -1376,7 +1333,7 @@ Created worktree feature on 'feature' from [..] at [..]/home/.gitbutler-worktree
 
 #[test]
 fn new_above_a_commit_sha_with_a_generated_name() {
-    let env = flag_on_sandbox();
+    let env = adopted_sandbox();
     let commit = env.invoke_git("rev-parse B");
     env.but(format!("worktree new -A {}", commit.trim()))
         .assert()
@@ -1395,7 +1352,7 @@ Created worktree a-branch-1 on 'a-branch-1' from [..] at [..]/home/.gitbutler-wo
 
 #[test]
 fn new_above_rejects_a_branch() {
-    let env = flag_on_sandbox();
+    let env = adopted_sandbox();
     env.but("worktree new feature --above A")
         .assert()
         .failure()
@@ -1410,7 +1367,7 @@ Hint: Run `but status` for applicable targets.
 
 #[test]
 fn new_above_rejects_an_unknown_commit() {
-    let env = flag_on_sandbox();
+    let env = adopted_sandbox();
     env.but("worktree new feature --above nonexistent")
         .assert()
         .failure()
@@ -1426,7 +1383,6 @@ Hint: Run `but status` for applicable targets.
 #[test]
 fn new_above_rejects_a_conflicted_commit() {
     let env = crate::command::util::sandbox_with_conflicted_commit();
-    enable_worktree_manipulation(&env);
     let commit = env.invoke_git("rev-parse A");
     env.but(format!("worktree new feature --above {}", commit.trim()))
         .assert()
@@ -1442,7 +1398,7 @@ Cannot create a worktree from a conflicted commit
 
 #[test]
 fn new_from_a_linked_worktree_uses_the_main_repository_basename() {
-    let env = flag_on_sandbox();
+    let env = adopted_sandbox();
     let root = env
         .home_dir()
         .join(".gitbutler-worktrees")
@@ -1467,7 +1423,7 @@ fn new_from_a_linked_worktree_uses_the_main_repository_basename() {
 /// A worktree is named by its checkout, never by a branch below it, which it merely holds.
 #[test]
 fn a_lower_branch_does_not_name_its_worktree() {
-    let env = flag_on_sandbox();
+    let env = adopted_sandbox();
     crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
 
     env.but("worktree remove wt-lower")

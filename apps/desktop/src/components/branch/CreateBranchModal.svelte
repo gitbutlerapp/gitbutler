@@ -5,7 +5,6 @@
 	import newStackRightSvg from "$components/stackTabs/assets/new-stack-right.svg?raw";
 	import worktreeBranchSvg from "$components/stackTabs/assets/worktree-branch.svg?raw";
 	import { autoSelectBranchCreationFeature } from "$lib/config/uiFeatureFlags";
-	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { getStackName } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -35,13 +34,6 @@
 	const [createNewStack, stackCreation] = stackService.newStack;
 	const [createNewBranch, branchCreation] = stackService.branchCreate;
 	const [createWorktree, worktreeCreation] = stackService.newWorktree;
-	const settingsStore = inject(SETTINGS_SERVICE).appSettings;
-	const canCreateWorktree = $derived(!!$settingsStore?.featureFlags.worktreeManipulation);
-	// Room for a third option card.
-	const modalWidth = $derived.by(() => {
-		if (canCreateWorktree) return 740;
-		return 500;
-	});
 	const { openGeneralSettings } = useSettingsModal();
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
@@ -164,7 +156,7 @@
 	}
 </script>
 
-<Modal bind:this={createRefModal} width={modalWidth} testId={TestId.CreateNewBranchModal}>
+<Modal bind:this={createRefModal} width={740} testId={TestId.CreateNewBranchModal}>
 	<div class="content-wrap">
 		<BranchNameTextbox
 			bind:this={branchNameInput}
@@ -235,33 +227,31 @@
 					</div>
 				</div>
 			</label>
-			{#if canCreateWorktree}
-				<label
-					for="new-worktree"
-					class="radio-label"
-					class:radio-selected={createRefType === "worktree"}
-				>
-					<div class="radio-btn">
-						<RadioButton
-							checked={createRefType === "worktree"}
-							name="create-new"
-							id="new-worktree"
-							onchange={() => (createRefType = "worktree")}
-						/>
-					</div>
+			<label
+				for="new-worktree"
+				class="radio-label"
+				class:radio-selected={createRefType === "worktree"}
+			>
+				<div class="radio-btn">
+					<RadioButton
+						checked={createRefType === "worktree"}
+						name="create-new"
+						id="new-worktree"
+						onchange={() => (createRefType = "worktree")}
+					/>
+				</div>
 
-					<div class="radio-content">
-						<h3 class="text-14 text-bold text-body radio-title">Worktree</h3>
-						<p class="text-12 text-body radio-caption">
-							Create a branch checked out<br />in its own folder.
-						</p>
+				<div class="radio-content">
+					<h3 class="text-14 text-bold text-body radio-title">Worktree</h3>
+					<p class="text-12 text-body radio-caption">
+						Create a branch checked out<br />in its own folder.
+					</p>
 
-						<div class="radio-illustration">
-							{@html worktreeBranchSvg}
-						</div>
+					<div class="radio-illustration">
+						{@html worktreeBranchSvg}
 					</div>
-				</label>
-			{/if}
+				</div>
+			</label>
 		</div>
 
 		{#if createRefType === "dependent"}

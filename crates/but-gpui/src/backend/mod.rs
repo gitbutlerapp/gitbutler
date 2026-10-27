@@ -379,11 +379,11 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         .collect();
     let meta = ctx.project_meta().ok();
     let (target, lost_target) = target(&ctx, meta.as_ref(), &info, &cached)?;
-    let listed = worktrees::linked(&ctx, &mut linked).unwrap_or_else(|err| {
-        tracing::warn!("couldn't list the linked worktrees: {err:#}");
-        None
-    });
-    let (worktrees, archived_worktrees) = listed.unwrap_or_default();
+    let (worktrees, archived_worktrees) =
+        worktrees::linked(&ctx, &mut linked).unwrap_or_else(|err| {
+            tracing::warn!("couldn't list the linked worktrees: {err:#}");
+            Default::default()
+        });
     let linked_lanes: Vec<Lane> = (worktrees.iter())
         .filter_map(|worktree| {
             let lane = (info.lanes())
@@ -1438,7 +1438,6 @@ mod lane_tests {
             }
             create_branch(path, Some("beside")).unwrap();
 
-            crate::backend::settings::set_worktrees_enabled(true).unwrap();
             let ctx = super::open(path).unwrap();
             (ctx.db.get_cache_mut().unwrap())
                 .worktree_meta_mut()
@@ -1564,7 +1563,6 @@ history: [agent2, agent1~2]
             let path = dir.path();
             target_origin_main(path);
             create_branch(path, Some("beside")).unwrap();
-            crate::backend::settings::set_worktrees_enabled(true).unwrap();
             let ctx = super::open(path).unwrap();
             (ctx.db.get_cache_mut().unwrap())
                 .worktree_meta_mut()

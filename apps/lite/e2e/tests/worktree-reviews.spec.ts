@@ -1,9 +1,8 @@
 import { aReview } from "../forge.ts";
-import { expect, test, worktreeAppSettings } from "../test.ts";
+import { expect, test } from "../test.ts";
 
 test.use({
 	scenario: "project-in-single-branch-with-worktree.sh",
-	appSettings: worktreeAppSettings,
 	forge: { reviews: [] },
 });
 

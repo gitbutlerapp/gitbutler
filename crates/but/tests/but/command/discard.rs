@@ -3,7 +3,7 @@ use bstr::ByteSlice;
 use crate::{
     command::util::{
         self, add_dirty_worktree, add_worktree_with_commit,
-        commit_file_with_worktree_changes_as_two_hunks, enable_worktree_manipulation,
+        commit_file_with_worktree_changes_as_two_hunks,
     },
     utils::{CommandExt as _, Sandbox},
 };
@@ -1294,7 +1294,6 @@ Hint: run `but help` for all commands
 fn discarding_the_top_of_a_clean_worktree_removes_it() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     add_worktree_with_commit(&env, "wt-feature", "A");
 
@@ -1324,7 +1323,6 @@ Archived worktrees
 fn discarding_the_top_of_a_dirty_worktree_is_refused() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     add_dirty_worktree(&env, "wt-feature", "A");
 
@@ -1344,7 +1342,6 @@ Hint: Use `but worktree remove --force wt-feature` to remove it anyway
 fn discarding_a_linked_worktrees_changes_discards_them_in_that_worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
     env.file("main.txt", "dirty in main\n");
@@ -1434,7 +1431,6 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 fn a_bare_path_names_a_file_in_the_checkout_it_is_run_from() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
     env.file("main.txt", "dirty in main\n");
@@ -1492,7 +1488,6 @@ Discarded uncommitted changes from note.txt
 fn a_path_prefix_names_files_in_the_checkout_it_is_run_from() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
     std::fs::create_dir_all(wt_dir.join("dir")).unwrap();
@@ -2034,7 +2029,6 @@ Hint: run `but help` for all commands
 fn discarding_changes_from_two_checkouts_at_once_is_refused() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
     env.file("main.txt", "dirty in main\n");

@@ -425,8 +425,7 @@ fn worktree_adoption_archives_preexisting_worktrees() -> anyhow::Result<()> {
          git worktree add -b feat-b ../wt-b",
         &repo,
     );
-    let mut ctx = Context::from_repo_for_testing(repo)?;
-    ctx.settings.feature_flags.worktree_manipulation = true;
+    let ctx = Context::from_repo_for_testing(repo)?;
 
     assert_eq!(
         active_names(&ctx)?,
@@ -535,8 +534,7 @@ fn setting_archived_state_before_the_first_read_survives_adoption() -> anyhow::R
          git worktree add -b feat-a ../wt-a",
         &repo,
     );
-    let mut ctx = Context::from_repo_for_testing(repo)?;
-    ctx.settings.feature_flags.worktree_manipulation = true;
+    let ctx = Context::from_repo_for_testing(repo)?;
 
     // Un-archiving is the very first worktree operation this project ever sees, so
     // adoption still has to run. If it ran afterwards it would archive everything
@@ -552,7 +550,7 @@ fn setting_archived_state_before_the_first_read_survives_adoption() -> anyhow::R
 }
 
 #[test]
-fn worktree_manipulation_flag_gates_worktree_state() -> anyhow::Result<()> {
+fn first_read_adopts_pre_existing_worktrees() -> anyhow::Result<()> {
     let root = TempDir::new()?;
     gix::init(root.path().join("main"))?;
     let repo = open_repo(&root.path().join("main"))?;
@@ -562,25 +560,7 @@ fn worktree_manipulation_flag_gates_worktree_state() -> anyhow::Result<()> {
         &repo,
     );
 
-    // Flag off: nothing is returned and no adoption side-effects happen.
-    let ctx = Context::from_repo_for_testing(repo.clone())?;
-    assert_eq!(active_names(&ctx)?, Vec::<String>::new());
-    {
-        let db = ctx.db.get_cache_mut()?;
-        assert!(
-            !db.worktree_meta().adoption_ran()?,
-            "flag off must not adopt"
-        );
-        assert_eq!(
-            db.worktree_meta().list()?.len(),
-            0,
-            "flag off must not touch the worktree_meta table"
-        );
-    }
-
-    // Flag on: the first read adopts (archives) the pre-existing worktree.
-    let mut ctx = Context::from_repo_for_testing(repo)?;
-    ctx.settings.feature_flags.worktree_manipulation = true;
+    let ctx = Context::from_repo_for_testing(repo)?;
     assert_eq!(
         active_names(&ctx)?,
         Vec::<String>::new(),
@@ -602,8 +582,7 @@ fn worktree_adoption_with_zero_worktrees_is_persisted() -> anyhow::Result<()> {
     gix::init(root.path().join("main"))?;
     let repo = open_repo(&root.path().join("main"))?;
     but_testsupport::invoke_bash("git commit --allow-empty -m M", &repo);
-    let mut ctx = Context::from_repo_for_testing(repo)?;
-    ctx.settings.feature_flags.worktree_manipulation = true;
+    let ctx = Context::from_repo_for_testing(repo)?;
 
     assert_eq!(active_names(&ctx)?, Vec::<String>::new());
 
@@ -648,8 +627,7 @@ fn pruned_or_inaccessible_worktrees_are_adopted_but_not_returned() -> anyhow::Re
     )?;
     std::fs::remove_file(root.path().join("wt-broken/.git"))?;
 
-    let mut ctx = Context::from_repo_for_testing(repo)?;
-    ctx.settings.feature_flags.worktree_manipulation = true;
+    let ctx = Context::from_repo_for_testing(repo)?;
     assert_eq!(
         active_names(&ctx)?,
         Vec::<String>::new(),
@@ -681,8 +659,7 @@ fn pruned_or_inaccessible_worktrees_are_adopted_but_not_returned() -> anyhow::Re
 fn rows_of_worktrees_git_forgot_are_pruned_on_read() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-seeding");
     let workdir = repo.workdir().expect("fixture is non-bare").to_owned();
-    let mut ctx = Context::from_repo_for_testing(repo)?;
-    ctx.settings.feature_flags.worktree_manipulation = true;
+    let ctx = Context::from_repo_for_testing(repo)?;
     assert_eq!(active_names(&ctx)?, Vec::<String>::new());
     snapbox::assert_data_eq!(
         db_state(&ctx)?,
@@ -725,8 +702,7 @@ fn unborn_head_worktrees_enumerate_but_resolve_no_head() -> anyhow::Result<()> {
         &repo,
     );
 
-    let mut ctx = Context::from_repo_for_testing(repo)?;
-    ctx.settings.feature_flags.worktree_manipulation = true;
+    let ctx = Context::from_repo_for_testing(repo)?;
     assert_eq!(
         active_names(&ctx)?,
         Vec::<String>::new(),
@@ -763,8 +739,7 @@ fn workspace_ref_worktrees_enumerate_but_never_resolve_or_seed() -> anyhow::Resu
         &repo,
     );
 
-    let mut ctx = Context::from_repo_for_testing(repo)?;
-    ctx.settings.feature_flags.worktree_manipulation = true;
+    let ctx = Context::from_repo_for_testing(repo)?;
     assert_eq!(active_names(&ctx)?, Vec::<String>::new());
     {
         let mut db = ctx.db.get_cache_mut()?;
@@ -811,17 +786,7 @@ fn worktree_state_is_unreachable_from_linked_worktree_contexts() -> anyhow::Resu
     // A context opened inside a linked worktree stores its database in the
     // worktree's private git dir - adoption and archived state written there
     // would silently diverge from the main worktree's database.
-    let mut ctx = Context::from_repo_for_testing(open_repo(&root.path().join("wt-a"))?)?;
-    assert_eq!(
-        active_names(&ctx)?,
-        Vec::<String>::new(),
-        "with the flag off even a linked-worktree context returns nothing, without erroring"
-    );
-    assert!(
-        ctx.workspace_and_db().is_ok(),
-        "with the flag off, workspace building in a linked worktree is unaffected"
-    );
-    ctx.settings.feature_flags.worktree_manipulation = true;
+    let ctx = Context::from_repo_for_testing(open_repo(&root.path().join("wt-a"))?)?;
     assert!(
         ctx.worktrees_with_state()
             .unwrap_err()
@@ -829,10 +794,7 @@ fn worktree_state_is_unreachable_from_linked_worktree_contexts() -> anyhow::Resu
             .contains("main worktree"),
         "linked-worktree contexts must be refused, not given their own state"
     );
-    // A fresh context bypasses the workspace cached by the flag-off call above.
     // Workspace building inherits the refusal - seeding must not read diverging state.
-    let mut ctx = Context::from_repo_for_testing(open_repo(&root.path().join("wt-a"))?)?;
-    ctx.settings.feature_flags.worktree_manipulation = true;
     snapbox::assert_data_eq!(
         ctx.workspace_and_db()
             .err()
@@ -850,8 +812,7 @@ fn worktree_state_is_unreachable_from_linked_worktree_contexts() -> anyhow::Resu
          git -C bare.git worktree add -b feat-bare ../wt-bare",
         root.path(),
     );
-    let mut ctx = Context::from_repo_for_testing(open_repo(&root.path().join("wt-bare"))?)?;
-    ctx.settings.feature_flags.worktree_manipulation = true;
+    let ctx = Context::from_repo_for_testing(open_repo(&root.path().join("wt-bare"))?)?;
     assert!(
         ctx.worktrees_with_state()
             .unwrap_err()
@@ -870,23 +831,9 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
         Ok(graph_tree(&ws.graph).to_string())
     };
 
-    // Flag off: no tips are seeded and the database is untouched.
-    let ctx = Context::from_repo_for_testing(repo.clone())?;
-    snapbox::assert_data_eq!(
-        workspace_graph(&ctx)?,
-        snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    └── 🏁·85efbe4 (⌂)
-
-"#]]
-    );
-    snapbox::assert_data_eq!(db_state(&ctx)?, snapbox::str!["adopted: false, rows: []"]);
-
-    // Flag on: the first workspace build adopts, archiving the pre-existing
+    // The first workspace build adopts, archiving the pre-existing
     // worktrees - archived worktrees are not seeded.
-    let mut ctx = Context::from_repo_for_testing(repo.clone())?;
-    ctx.settings.feature_flags.worktree_manipulation = true;
+    let ctx = Context::from_repo_for_testing(repo.clone())?;
     snapbox::assert_data_eq!(
         workspace_graph(&ctx)?,
         snapbox::str![[r#"
@@ -911,8 +858,7 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
             archived: false,
         })?;
     }
-    let mut ctx = Context::from_repo_for_testing(repo)?;
-    ctx.settings.feature_flags.worktree_manipulation = true;
+    let ctx = Context::from_repo_for_testing(repo)?;
     {
         let (_guard, _repo, ws, _db) = ctx.workspace_and_db()?;
         assert_eq!(

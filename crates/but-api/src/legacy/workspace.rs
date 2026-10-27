@@ -37,7 +37,7 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
             ctx.project_meta()?,
             &mut db,
             but_graph::init::Options {
-                worktrees: ctx.settings.feature_flags.worktree_manipulation,
+                worktrees: true,
                 ..but_graph::init::Options::limited()
             },
         )?
@@ -78,7 +78,7 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
 pub fn show_graph_svg(ctx: &Context) -> Result<()> {
     let mut options = but_graph::init::Options::limited();
     options.collect_tags = true;
-    options.worktrees = ctx.settings.feature_flags.worktree_manipulation;
+    options.worktrees = true;
     let repo = ctx.open_isolated_repo()?;
     let meta = ctx.meta()?;
     let mut db = ctx.db.get_cache_mut()?;
@@ -216,8 +216,7 @@ pub fn branch_details(
 ///
 /// If whole files should be discarded, be sure to not pass any hunks
 ///
-/// `changes_source` selects the checkout to discard in. A linked worktree requires the
-/// `worktreeManipulation` feature flag and an active worktree, see
+/// `changes_source` selects the checkout to discard in. A linked worktree has to be active, see
 /// `worktrees::open_changes_source()`, and is not snapshotted as the oplog can't restore it.
 ///
 /// Returns the `worktree_changes` that couldn't be applied,
@@ -457,7 +456,7 @@ pub fn workspace_branch_and_ancestors_push_only(
         ctx.project_meta()?,
         &mut db,
         but_graph::init::Options {
-            worktrees: ctx.settings.feature_flags.worktree_manipulation,
+            worktrees: true,
             ..but_graph::init::Options::limited()
         },
     )?

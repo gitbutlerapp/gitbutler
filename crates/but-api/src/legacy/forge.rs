@@ -704,8 +704,7 @@ mod tests {
             push_remote: Some("origin".into()),
         }
         .persist(&repo)?;
-        let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-        ctx.settings.feature_flags.worktree_manipulation = true;
+        let ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
         let reviews = [(1, "A"), (2, "B"), (3, "W")];
         {
             let mut db = ctx.db.get_cache_mut()?;

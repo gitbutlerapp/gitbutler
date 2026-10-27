@@ -1,8 +1,7 @@
-import { expect, test, worktreeAppSettings } from "../test.ts";
+import { expect, test } from "../test.ts";
 
 test.use({
 	scenario: "project-in-single-branch-with-worktree.sh",
-	appSettings: worktreeAppSettings,
 });
 
 test("a worktree branch pushes with the branches it rests on", async ({ app }) => {

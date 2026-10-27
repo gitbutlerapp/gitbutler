@@ -156,7 +156,6 @@ fn uncommitting_from_a_linked_worktree_commit_keeps_the_change_in_its_checkout()
     let main_head = repo.head_id()?.detach();
 
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-    ctx.settings.feature_flags.worktree_manipulation = true;
     // Adoption archives the worktrees that exist when the flag is first read.
     but_api::worktrees::worktree_set_archived(&mut ctx, "wt".into(), false)?;
 

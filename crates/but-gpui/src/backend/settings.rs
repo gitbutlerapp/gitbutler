@@ -86,28 +86,13 @@ fn feature_flags() -> Option<but_settings::app_settings::FeatureFlags> {
     Some(app_settings().ok()?.get().ok()?.feature_flags.clone())
 }
 
-/// Whether GitButler's experimental support for linked worktrees is on.
-pub fn worktrees_enabled() -> bool {
-    feature_flags().is_some_and(|flags| flags.worktree_manipulation)
-}
-
-pub fn set_worktrees_enabled(on: bool) -> Result<()> {
-    app_settings()?.update_feature_flags(but_settings::api::FeatureFlagsUpdate {
-        worktree_manipulation: Some(on),
-        ..Default::default()
-    })
-}
-
 /// Whether the desktop app opens this client rather than its web app when it starts.
 pub fn opens_at_start() -> bool {
     feature_flags().is_some_and(|flags| flags.gpui)
 }
 
 pub fn set_opens_at_start(on: bool) -> Result<()> {
-    app_settings()?.update_feature_flags(but_settings::api::FeatureFlagsUpdate {
-        gpui: Some(on),
-        ..Default::default()
-    })
+    app_settings()?.update_feature_flags(but_settings::api::FeatureFlagsUpdate { gpui: Some(on) })
 }
 
 /// What the Project section of the settings shows.

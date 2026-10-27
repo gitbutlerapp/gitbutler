@@ -75,7 +75,7 @@ export class StackService {
 		);
 	}
 
-	/** Active linked worktrees, empty unless `featureFlags.worktreeManipulation` is on. */
+	/** Active linked worktrees. */
 	worktrees(projectId: string) {
 		return this.backendApi.endpoints.workspaceDetails.useQuery(
 			{ projectId },

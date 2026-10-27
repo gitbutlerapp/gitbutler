@@ -23,7 +23,6 @@ fn ctx_with_linked_change(
     prepare_worktree(&linked.path().join("wt"));
     write_file(&linked.path().join("wt"), "wt.txt", "worktree change\n")?;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-    ctx.settings.feature_flags.worktree_manipulation = true;
     // Adoption archives the worktrees that exist when the flag is first read.
     but_api::worktrees::worktree_set_archived(&mut ctx, "wt".into(), false)?;
     Ok((ctx, tmp, linked))

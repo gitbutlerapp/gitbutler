@@ -1,8 +1,7 @@
 #[test]
 fn head_info_discovers_worktrees_through_the_database() -> anyhow::Result<()> {
     let (repo, _tmp) = crate::support::repo_with_feature_branch()?;
-    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-    ctx.settings.feature_flags.worktree_manipulation = true;
+    let ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
 
     assert!(
         !ctx.db.get_cache()?.worktree_meta().adoption_ran()?,

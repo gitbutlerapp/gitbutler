@@ -65,8 +65,6 @@ pub struct FeatureFlags {
     pub write_commit_evolution: bool,
     /// Show the experimental file browser in the TUI.
     pub tui_file_browser: bool,
-    /// Enable experimental worktree manipulation support.
-    pub worktree_manipulation: bool,
     /// Open the experimental native client (GPUI) instead of the web app when GitButler
     /// starts, on macOS builds that include it.
     pub gpui: bool,

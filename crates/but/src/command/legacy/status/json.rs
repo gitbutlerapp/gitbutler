@@ -36,7 +36,7 @@ pub struct WorkspaceStatus {
     pub conflicted_files: Vec<String>,
     /// The stacks that are applied in the current workspace
     pub stacks: Vec<Stack>,
-    /// The active linked worktrees, omitted unless the `worktreeManipulation` flag is on
+    /// The active linked worktrees, omitted when there are none
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub worktrees: Vec<Worktree>,
     /// The most recent common merge base between all applied stacks and the target upstream branch
@@ -622,7 +622,7 @@ fn convert_branch_to_json(
     )
 }
 
-/// Convert the active linked worktrees, empty unless the `worktreeManipulation` flag is on.
+/// Convert the active linked worktrees.
 fn build_worktrees_json(
     status_ctx: &StatusContext,
     repo: &gix::Repository,

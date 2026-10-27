@@ -254,22 +254,11 @@ mod util {
             .any(|change| change["filePath"].as_str().unwrap() == file_path)
     }
 
-    /// Turn on the experimental `worktreeManipulation` feature flag, which has no CLI toggle.
-    pub fn enable_worktree_manipulation(env: &Sandbox) {
-        let path = env.app_data_dir().join("gitbutler/settings.json");
-        let mut settings: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(&path).expect("settings were written"))
-                .expect("settings are valid JSON");
-        settings["featureFlags"]["worktreeManipulation"] = true.into();
-        std::fs::write(&path, settings.to_string()).expect("settings are writable");
-    }
-
     /// Add a dirty linked worktree named `name` on a new branch of the same name at
     /// `start_point`, with `note.txt` uncommitted in it, then return the worktree's directory.
     ///
-    /// The caller must have run a flag-on command first: the first read with the
-    /// flag on archives every worktree already on disk, so the ones under test
-    /// have to be created after it. Checked out into the per-test temp dir, as
+    /// The caller must have run a command first: the first read archives every
+    /// worktree already on disk, so the ones under test have to be created after it. Checked out into the per-test temp dir, as
     /// scenario directories are reused across runs.
     pub fn add_dirty_worktree(env: &Sandbox, name: &str, start_point: &str) -> std::path::PathBuf {
         let wt = env.app_data_dir().join("worktrees");
@@ -291,7 +280,7 @@ mod util {
     /// checkout, then return the worktree's directory.
     ///
     /// The same archiving caveat as [`add_dirty_worktree`] applies: create the
-    /// worktree only after a flag-on command has run.
+    /// worktree only after a command has run.
     pub fn add_worktree_with_commit(
         env: &Sandbox,
         name: &str,

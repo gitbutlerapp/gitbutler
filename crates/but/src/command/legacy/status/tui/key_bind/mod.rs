@@ -1,6 +1,5 @@
 use std::{borrow::Cow, collections::HashMap};
 
-use but_settings::app_settings::FeatureFlags;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use strum::IntoEnumIterator;
 
@@ -26,14 +25,14 @@ use super::{
 #[cfg(test)]
 mod tests;
 
-pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
+pub fn default_key_binds() -> KeyBinds {
     let mut key_binds = KeyBinds::new();
 
     for mode in ModeDiscriminant::iter() {
         let mut builder = key_binds.for_modes([mode]);
         match mode {
             ModeDiscriminant::Normal => {
-                register_normal_mode_key_binds(&mut builder, true, feature_flags);
+                register_normal_mode_key_binds(&mut builder, true);
             }
             ModeDiscriminant::PickChanges => {
                 builder.mark().register();
@@ -90,16 +89,14 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Worktree => {
-                if feature_flags.worktree_manipulation {
-                    builder.worktree_new().register();
-                    builder.worktree_archive().register();
-                    builder.worktree_unarchive().register();
-                    builder
-                        .discard()
-                        .long_description("Discard worktree")
-                        .register();
-                    register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
-                }
+                builder.worktree_new().register();
+                builder.worktree_archive().register();
+                builder.worktree_unarchive().register();
+                builder
+                    .discard()
+                    .long_description("Discard worktree")
+                    .register();
+                register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Details => {
                 builder
@@ -356,12 +353,12 @@ pub fn help_key_binds() -> KeyBinds {
     key_binds
 }
 
-pub fn normal_with_marks_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
+pub fn normal_with_marks_key_binds() -> KeyBinds {
     let mut key_binds = KeyBinds::new();
 
     let mut builder = key_binds.for_modes(Vec::from([ModeDiscriminant::Normal]));
 
-    register_normal_mode_key_binds(&mut builder, false, feature_flags);
+    register_normal_mode_key_binds(&mut builder, false);
 
     key_binds
 }
@@ -1227,11 +1224,7 @@ impl KeyBindsBuilder<'_> {
     }
 }
 
-fn register_normal_mode_key_binds(
-    builder: &mut KeyBindsBuilder<'_>,
-    without_marks: bool,
-    feature_flags: &FeatureFlags,
-) {
+fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_marks: bool) {
     builder.up().register();
     builder.down().register();
     builder.next_section().register();
@@ -1258,9 +1251,7 @@ fn register_normal_mode_key_binds(
     builder.branch().register();
     if without_marks {
         builder.stack().register();
-        if feature_flags.worktree_manipulation {
-            builder.worktree().register();
-        }
+        builder.worktree().register();
     }
 
     builder.cherry_pick().register();

@@ -22,7 +22,6 @@ but_schemars::register_sdk_type!(TelemetryUpdate);
 #[schemars(extend("x-input" = true))]
 /// Update request for [`crate::app_settings::FeatureFlags`].
 pub struct FeatureFlagsUpdate {
-    pub worktree_manipulation: Option<bool>,
     pub gpui: Option<bool>,
 }
 but_schemars::register_sdk_type!(FeatureFlagsUpdate);
@@ -89,15 +88,9 @@ impl AppSettingsWithDiskSync {
 
     pub fn update_feature_flags(
         &self,
-        FeatureFlagsUpdate {
-            worktree_manipulation,
-            gpui,
-        }: FeatureFlagsUpdate,
+        FeatureFlagsUpdate { gpui }: FeatureFlagsUpdate,
     ) -> Result<()> {
         let mut settings = self.get_mut_enforce_save()?;
-        if let Some(worktree_manipulation) = worktree_manipulation {
-            settings.feature_flags.worktree_manipulation = worktree_manipulation;
-        }
         if let Some(gpui) = gpui {
             settings.feature_flags.gpui = gpui;
         }
@@ -147,15 +140,14 @@ mod tests {
     }
 
     #[test]
-    fn update_feature_flags_updates_worktree_manipulation_and_persists() {
+    fn update_feature_flags_updates_gpui_and_persists() {
         let (dir, settings) = create_test_settings();
         let original_watch_mode = settings.get().unwrap().feature_flags.watch_mode.clone();
-        let enabled = !settings.get().unwrap().feature_flags.worktree_manipulation;
+        let enabled = !settings.get().unwrap().feature_flags.gpui;
 
         settings
             .update_feature_flags(FeatureFlagsUpdate {
-                worktree_manipulation: Some(enabled),
-                ..Default::default()
+                gpui: Some(enabled),
             })
             .unwrap();
 
@@ -168,7 +160,7 @@ mod tests {
 
         let reloaded = AppSettingsWithDiskSync::new_with_customization(dir.path(), None).unwrap();
         assert_eq!(
-            reloaded.get().unwrap().feature_flags.worktree_manipulation,
+            reloaded.get().unwrap().feature_flags.gpui,
             enabled,
             "feature flag updates should persist across reloads"
         );
@@ -195,26 +187,23 @@ mod tests {
     fn empty_feature_flags_update_preserves_existing_value() {
         let (_dir, settings) = create_test_settings();
         settings
-            .update_feature_flags(FeatureFlagsUpdate {
-                worktree_manipulation: Some(true),
-                ..Default::default()
-            })
+            .update_feature_flags(FeatureFlagsUpdate { gpui: Some(true) })
             .unwrap();
         settings
             .update_feature_flags(FeatureFlagsUpdate::default())
             .unwrap();
         assert!(
-            settings.get().unwrap().feature_flags.worktree_manipulation,
+            settings.get().unwrap().feature_flags.gpui,
             "an omitted flag should retain its value"
         );
     }
 
     #[test]
-    fn feature_flags_update_deserializes_worktree_manipulation() {
+    fn feature_flags_update_deserializes_gpui() {
         let update: FeatureFlagsUpdate =
-            serde_json::from_value(serde_json::json!({ "worktreeManipulation": true })).unwrap();
+            serde_json::from_value(serde_json::json!({ "gpui": true })).unwrap();
         assert_eq!(
-            update.worktree_manipulation,
+            update.gpui,
             Some(true),
             "the API accepts camelCase feature flags"
         );

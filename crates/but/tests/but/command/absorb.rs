@@ -833,7 +833,6 @@ c
 fn absorbing_a_linked_worktrees_changes_is_refused() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = util::add_dirty_worktree(&env, "wt-feature", "A");
     env.file("main.txt", "dirty in main\n");

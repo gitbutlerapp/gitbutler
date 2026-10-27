@@ -72,7 +72,7 @@ pub fn list_branches(
             ctx.project_meta()?,
             &mut db,
             but_graph::init::Options {
-                worktrees: ctx.settings.feature_flags.worktree_manipulation,
+                worktrees: true,
                 ..traversal.clone()
             },
         )?

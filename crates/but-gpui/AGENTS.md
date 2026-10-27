@@ -292,9 +292,8 @@ anything else.
 
 - Run against an `E2E_TEST_APP_DATA_DIR` sandbox. Opening Settings > AI, or searching settings,
   reads the keychain and prompts. Copy menu items write the real clipboard.
-- Linked-worktree fixtures need the `worktree_manipulation` flag. Adoption archives every
-  worktree it finds the first time, so mark the project adopted before adding worktrees, or they
-  vanish from the navigator.
+- Adoption archives every linked worktree it finds the first time, so mark the project adopted
+  before adding worktrees, or they vanish from the navigator.
 - To show PRs offline, point `origin` at a GitHub URL, turn auto-fetch off, set
   `vb_stack_heads.pr_number` and add the review to `forge_reviews`, as camelCase JSON with the
   `struct_version` from `but-forge`. One malformed row fails the whole workspace load. With no

@@ -5098,7 +5098,6 @@ dependencies = [
  "gitbutler-operating-modes",
  "gix",
  "serde-error",
- "serde_json",
  "tempfile",
  "tokio",
  "tokio-util",

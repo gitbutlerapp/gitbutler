@@ -1,7 +1,4 @@
-use super::util::{
-    add_dirty_worktree, enable_worktree_manipulation, find_branch, status_json,
-    status_json_with_files,
-};
+use super::util::{add_dirty_worktree, find_branch, status_json, status_json_with_files};
 use crate::utils::{CommandExt as _, Sandbox};
 
 mod unborn;
@@ -3339,7 +3336,6 @@ For more information, try '--help'.
 fn commit_a_file_from_a_linked_worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     add_dirty_worktree(&env, "wt-feature", "A");
 
@@ -3415,7 +3411,6 @@ Hint: run `but help` for all commands
 fn commit_a_worktrees_whole_uncommitted_area() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     add_dirty_worktree(&env, "wt-feature", "A");
 
@@ -3464,7 +3459,6 @@ Hint: run `but help` for all commands
 fn commit_refuses_changes_from_several_checkouts() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     add_dirty_worktree(&env, "wt-feature", "A");
     env.file("main.txt", "dirty in the main worktree\n");
@@ -3541,7 +3535,6 @@ Hint: Run `but status` to show applicable targets
 fn commit_below_a_worktree_targets_its_branch_tip() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
     env.file("main.txt", "from the main checkout\n");
@@ -3584,7 +3577,6 @@ Created commit nuy on branch 'wt-inside'
 fn commit_above_a_worktree_is_refused() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
 
@@ -3607,7 +3599,6 @@ Hint: Use `--below` to target the tip of the worktree's branch
 fn commit_b_targets_a_worktree_by_id() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
     env.file("main.txt", "from the main checkout\n");
@@ -3629,7 +3620,6 @@ Created commit nuy on branch 'wt-inside'
 fn commit_b_targets_a_worktrees_branch_by_name() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt = env.app_data_dir().join("worktrees");
     but_testsupport::invoke_bash_at_dir(
@@ -3658,7 +3648,6 @@ Created commit szp on branch 'wt-branch'
 fn commit_from_a_worktree_defaults_to_its_own_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = crate::command::util::add_worktree_with_commit(&env, "wt-feature", "A");
     std::fs::write(wt_dir.join("note.txt"), "dirty\n").unwrap();
@@ -3727,7 +3716,6 @@ Hint: run `but help` for all commands
 fn bare_commit_in_a_linked_worktree_commits_its_changes_to_its_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
     env.file("main-file.txt", "main change");
@@ -3778,7 +3766,6 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 fn commit_to_a_new_branch_in_a_linked_worktree_is_refused() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
 
@@ -3855,7 +3842,6 @@ Hint: run `but help` for all commands
 fn empty_commit_in_a_linked_worktree_goes_to_its_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
 
@@ -3945,7 +3931,6 @@ Created commit tux on branch 'B'
 fn commit_from_a_worktree_sharing_its_branch_tip_advances_only_the_worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     add_dirty_worktree(&env, "wt-feature", "A");
 
@@ -3982,7 +3967,6 @@ Created commit lpo on branch 'wt-feature'
 fn commit_from_a_detached_worktree_is_refused() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt = env.app_data_dir().join("worktrees");
     but_testsupport::invoke_bash_at_dir(
@@ -4013,7 +3997,6 @@ fn commit_to_a_worktree_on_a_merged_branch_is_refused() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
     env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
-    enable_worktree_manipulation(&env);
     env.but("status").env("NO_BG_TASKS", "1").assert().success();
     let wt = env.app_data_dir().join("worktrees");
     but_testsupport::invoke_bash_at_dir(
@@ -4255,7 +4238,6 @@ Error: Cannot use `-b/--branch` when committing relative to commits
 fn cannot_split_worktree_by_committing_above_on_new_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
-    enable_worktree_manipulation(&env);
 
     env.but("wt new").assert().success();
 
@@ -4298,7 +4280,6 @@ Error: Cannot use `-b/--branch` when committing relative to worktrees
 fn commit_b_targets_a_lower_worktree_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
     env.file("main.txt", "from the main checkout\n");
@@ -4335,7 +4316,6 @@ Created commit nuy on branch 'wt-lower'
 fn commit_below_a_lower_worktree_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
     env.file("main.txt", "from the main checkout\n");

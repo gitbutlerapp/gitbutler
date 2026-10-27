@@ -1,7 +1,7 @@
 use snapbox::str;
 
 use crate::{
-    command::util::{add_worktree_with_commit, enable_worktree_manipulation},
+    command::util::add_worktree_with_commit,
     utils::{CommandExt, Sandbox},
 };
 
@@ -235,16 +235,42 @@ fn pull_leaves_a_diverged_local_target_alone_when_the_workspace_is_current() {
 }
 
 #[test]
-fn pull_leaves_a_checked_out_local_target_alone_when_the_workspace_is_current() {
+fn pull_leaves_a_local_target_checked_out_in_an_archived_worktree_alone() {
     let env = local_target_only_pull_scenario();
     let old_target = rev_parse(&env, "main");
     let worktree = env.app_data_dir().join("linked-main");
     env.invoke_git(&format!("worktree add -q \"{}\" main", worktree.display()));
+    env.but("worktree archive linked-main").assert().success();
     env.but("pull").assert().success();
     assert_eq!(
         rev_parse(&env, "main"),
         old_target,
-        "pull must preserve the linked worktree's target"
+        "pull must not move a branch checked out in a worktree GitButler doesn't manage"
+    );
+}
+
+#[test]
+fn pull_fast_forwards_a_local_target_checked_out_in_an_active_worktree() {
+    let env = local_target_only_pull_scenario();
+    let worktree = env.app_data_dir().join("linked-main");
+    env.invoke_git(&format!("worktree add -q \"{}\" main", worktree.display()));
+    env.but("pull").assert().success();
+    let upstream = rev_parse(&env, "origin/main");
+    assert_eq!(
+        rev_parse(&env, "main"),
+        upstream,
+        "pull advances the lagging target"
+    );
+    let worktree_arg = shell_words::quote(&worktree.display().to_string()).into_owned();
+    assert_eq!(
+        env.invoke_git(&format!("-C {worktree_arg} rev-parse HEAD")),
+        upstream,
+        "the active worktree's checkout follows its branch"
+    );
+    assert_eq!(
+        env.invoke_git(&format!("-C {worktree_arg} status --porcelain")),
+        "",
+        "the active worktree is left clean"
     );
 }
 
@@ -704,10 +730,17 @@ fn single_branch_pull_replaces_integrated_checkout_when_main_is_in_another_workt
 ┊●   tyt add A
 ├╯
 ┊
+┊╭┄ ma:@ [uncommitted] {linked-main} (no changes)
+┊├┄ ma [main] (merged upstream)
+┊●   oul add upstream
+┊●   osy merge A
+├╯
+┊
 ┊● 5aa8cbc (main, upstream: origin/main) 2 new commits
 ├╯ 85efbe4 (common base) 2000-01-02 M
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
+Hint: linked-main is behind origin/main; run `but pull` to update it
 Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
 
 "#]]);
@@ -726,6 +759,7 @@ Upstream:	2 new commits on origin/main
 
 Branch Status
   [integrated] A
+  [ok] main
 
 Run `but pull` to update your branches
 
@@ -751,6 +785,10 @@ Run `but pull` to update your branches
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1] [HEAD] (no commits)
+├╯
+┊
+┊╭┄ ma:@ [uncommitted] {linked-main} (no changes)
+┊├┄ ma [main] (no commits)
 ├╯
 ┊
 ┴ 5aa8cbc (common base, main, origin/main) 2000-01-02 add upstream
@@ -1770,8 +1808,7 @@ Hint: run `but help` for all commands
 fn worktrees_behind_target_scenario() -> Sandbox {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
-    // The first read with the flag on archives every worktree already on disk.
+    // The first read archives every worktree already on disk.
     env.but("status").assert().success();
     add_worktree_with_commit(&env, "wt-inside", "A");
     add_worktree_with_commit(&env, "wt-outside", "main");
@@ -1805,8 +1842,7 @@ fn contains_target(env: &Sandbox, branch: &str) -> bool {
 fn pull_points_worktree_conflicts_at_their_commit_ids() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
-    // The first read with the flag on archives every worktree already on disk.
+    // The first read archives every worktree already on disk.
     env.but("status").assert().success();
     env.invoke_bash(format!(
         r#"
@@ -2164,8 +2200,7 @@ Run `but pull` to update your branches
 fn pull_reports_conflicts_in_a_detached_worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
-    // The first read with the flag on archives every worktree already on disk.
+    // The first read archives every worktree already on disk.
     env.but("status").assert().success();
     // `add local` conflicts with the upstream commit while `add other` on top of it applies
     // cleanly: a worktree cannot check out a conflicted commit, and so cannot end on one.
@@ -2499,8 +2534,7 @@ fn pull_without_upstream_ignores_unrelated_remotes() {
 #[test]
 fn pull_without_remote_update_worktrees_leaves_the_workspace_for_later() {
     let env = sandbox_without_remote_with_two_branches();
-    enable_worktree_manipulation(&env);
-    // The first read with the flag on archives every worktree already on disk.
+    // The first read archives every worktree already on disk.
     env.but("status").assert().success();
     add_worktree_with_commit(&env, "wt-inside", "one");
     add_worktree_with_commit(&env, "wt-outside", "main");

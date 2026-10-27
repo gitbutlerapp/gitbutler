@@ -727,7 +727,7 @@ impl Context {
             self.project_meta()?,
             &mut db,
             but_graph::init::Options {
-                worktrees: self.settings.feature_flags.worktree_manipulation,
+                worktrees: true,
                 ..but_graph::init::Options::limited()
             },
         )?;
@@ -772,7 +772,7 @@ impl Context {
             self.project_meta()?,
             &mut db,
             but_graph::init::Options {
-                worktrees: self.settings.feature_flags.worktree_manipulation,
+                worktrees: true,
                 ..but_graph::init::Options::limited()
             },
         )?;

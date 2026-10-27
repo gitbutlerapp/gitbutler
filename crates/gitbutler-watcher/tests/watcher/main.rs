@@ -59,10 +59,7 @@ fn isolated(test: impl Future<Output = anyhow::Result<()>>) -> anyhow::Result<()
 }
 
 fn watch(main: &Path, config_dir: &Path) -> anyhow::Result<Watched> {
-    let app_settings = AppSettingsWithDiskSync::new_with_customization(
-        config_dir,
-        Some(serde_json::json!({ "featureFlags": { "worktreeManipulation": true } })),
-    )?;
+    let app_settings = AppSettingsWithDiskSync::new_with_customization(config_dir, None)?;
     let project_id = ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(main)?);
     let (tx, changes) = unbounded_channel();
     let watcher = gitbutler_watcher::watch_in_background(

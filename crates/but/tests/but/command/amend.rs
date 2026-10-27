@@ -2,8 +2,7 @@ use snapbox::str;
 
 use crate::{
     command::util::{
-        add_dirty_worktree, branch_commit_cli_ids, enable_worktree_manipulation,
-        status_json_with_files as status_json,
+        add_dirty_worktree, branch_commit_cli_ids, status_json_with_files as status_json,
     },
     utils::Sandbox,
 };
@@ -375,7 +374,6 @@ fn retired_flag_with_help_passes_through_without_hint() {
 fn amend_a_file_from_a_linked_worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     add_dirty_worktree(&env, "wt-feature", "A");
 
@@ -424,7 +422,6 @@ Hint: run `but help` for all commands
 fn amend_a_worktrees_whole_uncommitted_area() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     add_dirty_worktree(&env, "wt-feature", "A");
 
@@ -470,7 +467,6 @@ Hint: run `but help` for all commands
 fn amend_without_sources_in_a_linked_worktree_takes_its_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
     env.file("main-file.txt", "main change");
@@ -542,7 +538,6 @@ Hint: Run `but worktree list` to see the worktrees GitButler manages
 fn amend_refuses_changes_from_several_checkouts() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     add_dirty_worktree(&env, "wt-feature", "A");
     env.file("main.txt", "dirty in the main worktree\n");
@@ -565,7 +560,6 @@ Hint: An operation can only take changes from one checkout at a time
 fn amend_a_clean_worktree_has_nothing_to_amend() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt = env.app_data_dir().join("worktrees");
     but_testsupport::invoke_bash_at_dir(

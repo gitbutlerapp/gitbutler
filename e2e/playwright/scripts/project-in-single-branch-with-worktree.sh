@@ -3,8 +3,7 @@
 set -euo pipefail
 
 # The three-branch stack master <- A <- B <- C, with the linked worktree `worktree-W`
-# on branch W resting on B. Tests enable the `worktreeManipulation` feature flag
-# through their harness's app settings, before the app starts.
+# on branch W resting on B.
 bash "$(dirname "$0")/project-in-single-branch-three-branch-stack.sh"
 
 pushd local-clone

@@ -28,9 +28,9 @@ pub struct TestTuiOptions {
     pub launch_options: TuiLaunchOptions,
     /// Override deterministic change-ID generation for tests that need collisions.
     pub testing_change_id: Option<&'static str>,
-    /// Turn on the experimental `worktreeManipulation` flag and make the fixture's linked
-    /// worktrees active, so they take part in the status the TUI is built from.
-    pub worktree_manipulation: bool,
+    /// Make the fixture's linked worktrees active, so they take part in the status the TUI is
+    /// built from.
+    pub activate_worktrees: bool,
 }
 
 impl Default for TestTuiOptions {
@@ -42,7 +42,7 @@ impl Default for TestTuiOptions {
             show_file_browser: false,
             launch_options: Default::default(),
             testing_change_id: None,
-            worktree_manipulation: false,
+            activate_worktrees: false,
         }
     }
 }
@@ -51,7 +51,7 @@ pub fn test_status_tui(env: Sandbox) -> TestTui<App> {
     test_status_tui_with_options(env, TestTuiOptions::default())
 }
 
-pub fn test_status_tui_with_options(mut env: Sandbox, options: TestTuiOptions) -> TestTui<App> {
+pub fn test_status_tui_with_options(env: Sandbox, options: TestTuiOptions) -> TestTui<App> {
     let TestTuiOptions {
         width,
         height,
@@ -59,7 +59,7 @@ pub fn test_status_tui_with_options(mut env: Sandbox, options: TestTuiOptions) -
         show_file_browser,
         launch_options,
         testing_change_id,
-        worktree_manipulation,
+        activate_worktrees,
     } = options;
 
     configure_test_repo(&env);
@@ -68,14 +68,9 @@ pub fn test_status_tui_with_options(mut env: Sandbox, options: TestTuiOptions) -
             "config --local gitbutler.testing.changeId {change_id}"
         ));
     }
-    if worktree_manipulation {
-        // Set on the sandbox rather than on one `Context`, because every render builds a fresh
-        // one - a flag set on a single context would vanish on the first reload.
-        env.app_settings_mut().feature_flags.worktree_manipulation = true;
-    }
     let mut ctx = env.context();
-    if worktree_manipulation {
-        // The first read with the flag on adopts, i.e. archives every worktree already on disk
+    if activate_worktrees {
+        // The first read adopts, i.e. archives every worktree already on disk
         // on the assumption it predates GitButler. A fixture's worktrees are the subject of the
         // test, so bring them back. This is persisted, so later contexts see them as active.
         let adopted = ctx

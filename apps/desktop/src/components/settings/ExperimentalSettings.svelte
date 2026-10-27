@@ -39,26 +39,6 @@
 		{/snippet}
 	</CardGroup.Item>
 
-	<CardGroup.Item labelFor="worktree-manipulation">
-		{#snippet title()}
-			Worktree manipulation
-		{/snippet}
-		{#snippet caption()}
-			Shows the repository's other worktrees in the workspace. Existing ones start out archived;
-			bring them back under Project settings → Worktrees.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="worktree-manipulation"
-				checked={$settingsStore?.featureFlags.worktreeManipulation}
-				onclick={() =>
-					settingsService.updateFeatureFlags({
-						worktreeManipulation: !$settingsStore?.featureFlags.worktreeManipulation,
-					})}
-			/>
-		{/snippet}
-	</CardGroup.Item>
-
 	{#if hasNativeApp}
 		<CardGroup.Item labelFor="native-app">
 			{#snippet title()}

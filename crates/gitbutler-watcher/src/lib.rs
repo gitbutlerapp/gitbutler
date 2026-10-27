@@ -79,8 +79,7 @@ pub fn watch_in_background(
         worktree_path.as_ref(),
         {
             let project_id = project_id.clone();
-            let app_settings = app_settings.clone();
-            move || active_linked_worktrees(project_id.clone(), &app_settings)
+            move || active_linked_worktrees(project_id.clone())
         },
         events_out,
         watch_mode,
@@ -123,10 +122,8 @@ pub fn watch_in_background(
 
 fn active_linked_worktrees(
     project_id: ProjectHandleOrLegacyProjectId,
-    app_settings: &AppSettingsWithDiskSync,
 ) -> Result<Vec<LinkedWorktree>> {
-    let mut ctx: Context = project_id.try_into()?;
-    ctx.settings = app_settings.get()?.clone();
+    let ctx: Context = project_id.try_into()?;
     Ok(ctx
         .worktrees_with_state()?
         .into_iter()

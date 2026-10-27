@@ -2,7 +2,7 @@ use snapbox::IntoData as _;
 
 use crate::{
     command::util::{
-        branch_commit_cli_ids, commit_two_files_as_two_hunks_each, enable_worktree_manipulation,
+        branch_commit_cli_ids, commit_two_files_as_two_hunks_each,
         status_json_with_files as status_json,
     },
     utils::{CommandExt as _, Sandbox},
@@ -4735,7 +4735,6 @@ Hint: `--branch` can only move branches onto existing branches
 fn move_a_commit_out_of_a_linked_worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    super::util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = super::util::add_worktree_with_commit(&env, "wt-feature", "A");
 
@@ -4802,7 +4801,6 @@ Moved nsn to the tip of branch 'B'
 #[test]
 fn move_a_worktree_commit_onto_the_branch_worktrees_fork_from() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt = env.app_data_dir().join("worktrees");
     but_testsupport::invoke_bash_at_dir(
@@ -4861,9 +4859,8 @@ Moved zqt to the tip of branch 'feature'
 fn move_commit_below_a_worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    crate::command::util::enable_worktree_manipulation(&env);
-    // The first read with the flag on archives every worktree already on disk, so the one
-    // under test has to be created after it.
+    // The first read archives every worktree already on disk, so the one under test has to
+    // be created after it.
     env.but("status").assert().success();
     crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
 
@@ -4900,7 +4897,6 @@ Moved lrm to the tip of branch 'wt-inside'
 fn move_commit_above_a_worktree_is_refused() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    crate::command::util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
 
@@ -4924,7 +4920,6 @@ Hint: Use `--below` to target the tip of the worktree's branch
 fn move_a_commit_to_a_worktrees_branch_by_name() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    crate::command::util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
 
@@ -4962,7 +4957,6 @@ Moved lrm to the tip of branch 'wt-inside'
 fn move_a_branch_onto_a_worktrees_checked_out_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    crate::command::util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
 
@@ -5021,7 +5015,6 @@ Hint: run `but help` for all commands
 fn move_a_worktrees_checked_out_branch_off_a_branch_tracking_the_target() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "main");
     env.invoke_git("branch --set-upstream-to origin/main wt-lower");
@@ -5050,7 +5043,6 @@ fn move_a_worktrees_checked_out_branch_off_a_branch_tracking_the_target() {
 fn move_a_worktrees_checked_out_branch_off_an_empty_branch_tracking_the_target() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = crate::command::util::add_worktree_with_commit(&env, "wt-inside", "main");
     env.but("branch new wt-lower --below wt-inside")
@@ -5527,7 +5519,6 @@ Error: Cannot use `-b/--branch` when moving relative to commits
 fn cannot_name_branches_when_moving_commits_relative_to_worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
 
     env.but("wt new").assert().success();
 
@@ -5566,7 +5557,6 @@ Error: Cannot use `-b/--branch` when moving relative to worktrees
 fn move_a_commit_to_a_lower_worktree_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
 
@@ -5601,7 +5591,6 @@ Moved lrm to the tip of branch 'wt-lower'
 fn move_commit_below_a_lower_worktree_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
 
@@ -5667,7 +5656,6 @@ Hint: run `but help` for all commands
 fn move_a_branch_onto_a_lower_worktree_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
 
@@ -5730,7 +5718,6 @@ Hint: run `but help` for all commands
 fn move_a_lower_worktree_branch_onto_a_workspace_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
 
@@ -5797,7 +5784,6 @@ Hint: run `but help` for all commands
 fn move_a_worktrees_checked_out_branch_onto_a_workspace_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
 
@@ -5864,7 +5850,6 @@ Hint: run `but help` for all commands
 fn move_a_worktrees_checked_out_branch_off_an_unordered_empty_branch_at_the_target() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt = env.app_data_dir().join("worktrees").join("wt-inside");
     env.invoke_bash(format!(
@@ -5952,7 +5937,6 @@ Hint: run `but help` for all commands
 fn move_a_worktrees_only_branch_onto_a_workspace_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
 

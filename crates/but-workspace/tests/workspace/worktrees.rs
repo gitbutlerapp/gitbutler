@@ -13,7 +13,7 @@ use crate::ref_info::with_workspace_commit::utils::{StackState, add_stack, add_w
 use crate::utils::writable_scenario_slow;
 
 /// Build a graph seeded with every active linked worktree of `repo`, the way `but-ctx`
-/// does when the `worktreeManipulation` flag is on, and project the result.
+/// does, and project the result.
 fn ref_info_with_worktree_tips(
     repo: &gix::Repository,
     meta: &impl but_core::RefMetadata,

@@ -616,7 +616,6 @@ Error: Cannot use `-b/--branch` when committing relative to commits
 fn pick_relative_to_worktree_rejects_new_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    super::util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     super::util::add_worktree_with_commit(&env, "wt-inside", "A");
 
@@ -637,7 +636,6 @@ Error: Cannot use `-b/--branch` when committing relative to worktrees
 fn pick_a_worktree_commit_onto_a_workspace_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    super::util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     super::util::add_worktree_with_commit(&env, "wt-feature", "A");
 
@@ -674,7 +672,6 @@ Picked 580bef0 onto branch 'B' to create qnu
 fn pick_a_commit_onto_a_worktree_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    super::util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     super::util::add_worktree_with_commit(&env, "wt-inside", "A");
 
@@ -710,7 +707,6 @@ Picked d3e2ba3 onto branch 'wt-inside' to create olw
 fn pick_in_a_linked_worktree_defaults_to_its_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    super::util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = super::util::add_worktree_with_commit(&env, "wt-inside", "A");
 

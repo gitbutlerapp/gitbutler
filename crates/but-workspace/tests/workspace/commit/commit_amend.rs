@@ -247,7 +247,7 @@ mod from_worktree {
     }
 
     /// Build the graph over `repo` with both linked worktrees discovered from `db`,
-    /// mirroring what `but-ctx` does with the `worktreeManipulation` flag enabled;
+    /// mirroring what `but-ctx` does;
     /// adoption is marked as already run so they count as active.
     fn graph_with_worktree_tips(
         repo: &gix::Repository,

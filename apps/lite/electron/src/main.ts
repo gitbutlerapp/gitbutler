@@ -354,7 +354,6 @@ const electronHandlerOverrides = {
 	},
 	watcherStopAll: () => WatcherManager.getInstance().stopAllWatchersForShutdown(),
 	readGUISettings: () => readSettings(),
-	updateFeatureFlags: (update) => sdk.updateFeatureFlags(update),
 	writeGUISettings: async (settings) => {
 		applyGUISettings(settings);
 		await writeSettings(settings);

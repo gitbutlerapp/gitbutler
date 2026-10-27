@@ -26,8 +26,6 @@
 		"watchMode": "auto",
 		"writeCommitEvolution": false,
 		"tuiFileBrowser": false,
-		/// Enable experimental worktree manipulation support.
-		"worktreeManipulation": false,
 		/// Open the experimental native client (GPUI) instead of the web app when GitButler starts,
 		/// on macOS builds that include it.
 		"gpui": false
