@@ -2,9 +2,7 @@ use but_testsupport::Sandbox;
 use crossterm::event::*;
 use snapbox::{file, str};
 
-use crate::command::legacy::status::tui::tests::utils::{
-    TestTuiOptions, test_status_tui, test_status_tui_with_options,
-};
+use crate::command::legacy::status::tui::tests::utils::{test_status_tui, unarchive_worktrees};
 
 #[test]
 fn unapply_stack() {
@@ -198,13 +196,8 @@ fn moving_stacks_skips_worktree_lanes() {
             Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack-with-worktree");
         env.setup_metadata(&["A"]);
 
-        let mut tui = test_status_tui_with_options(
-            env,
-            TestTuiOptions {
-                activate_worktrees: true,
-                ..Default::default()
-            },
-        );
+        unarchive_worktrees(&env);
+        let mut tui = test_status_tui(env);
 
         // A new stack above `A`, whose commit has a worktree lane nested on it.
         tui.input('g');
