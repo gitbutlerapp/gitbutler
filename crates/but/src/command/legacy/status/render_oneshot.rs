@@ -79,11 +79,7 @@ pub(super) fn render_oneshot(
             spans.append(&mut decoration_end);
             spans.append(&mut suffix);
         }
-        StatusOutputContent::MergeBase(MergeBaseLineContent {
-            mut id,
-            mut suffix,
-            commit_id: _,
-        }) => {
+        StatusOutputContent::MergeBase(MergeBaseLineContent { mut id, mut suffix }) => {
             spans.append(&mut id);
             spans.append(&mut suffix);
         }

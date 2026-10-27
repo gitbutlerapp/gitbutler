@@ -571,7 +571,7 @@ impl KeyBindsBuilder<'_> {
         })
         .hide_from_hotbar()
         .show_only_in_normal_mode_help_section()
-        .long_description("Search for short IDs and jump there")
+        .long_description("Jump to a line by its ID, name, message, or path")
     }
 
     fn jump_previous(&mut self) -> KeyBindsInModesBuilder<'_> {

@@ -16,13 +16,13 @@ use unicode_width::UnicodeWidthStr;
 use crate::{
     CliId,
     command::legacy::status::{
-        CommitLineContent, FileLineContent, FilesStatusFlag, StatusOutputLine,
+        CommitLineContent, FileLineContent, StatusOutputLine,
         output::{
             BranchLineContent, MergeBaseLineContent, StatusOutputContent, StatusOutputLineData,
             UncommittedLineContent,
         },
         tui::app::{
-            BranchMode, CherryPickMode, CommitMessageComposer, CommitMode, JumpMode, MoveMarks,
+            BranchMode, CherryPickMode, CommitMessageComposer, CommitMode, JumpPart, MoveMarks,
             MoveMode, MoveSource, MoveStackMode, StackMode, WorktreeMode,
             lines_part_of_current_stack,
             mark::{CommittedMark, committed_changes_to_act_on},
@@ -332,11 +332,6 @@ fn render_status(app: &App, area: Rect, frame: &mut Frame) {
         .lines_part_of_current_branch(&app.mode, app.status_lines.iter().map(|line| &line.data));
 
     let mut areas = available_lines_in_area(area);
-    let immediate_jump_targets = if let Mode::Jump(mode) = &*app.mode {
-        mode.immediate_jump_targets(&app.status_lines, app.flags.show_files)
-    } else {
-        Vec::new()
-    };
 
     for (idx, status_line) in app
         .status_lines
@@ -359,7 +354,6 @@ fn render_status(app: &App, area: Rect, frame: &mut Frame) {
             status_line,
             app.cursor.index() == idx,
             mode_highlight,
-            immediate_jump_targets.get(idx).copied().unwrap_or(false),
             idx,
             lines_part_of_current_branch.as_deref(),
             &mut areas,
@@ -411,7 +405,6 @@ fn render_status_list_item(
     status_line: &StatusOutputLine,
     is_selected: bool,
     mode_highlight: bool,
-    is_immediate_jump_target: bool,
     status_line_idx: usize,
     lines_part_of_current_branch: Option<&[bool]>,
     areas: &mut dyn Iterator<Item = Rect>,
@@ -549,16 +542,8 @@ fn render_status_list_item(
             .render_operation_source_marker(app, data, &mut line);
     }
 
-    // A commit file list only advertises jump hints within its selectable scope.
-    let jump_mode = if let Mode::Jump(mode) = &*app.mode
-        && (!matches!(app.flags.show_files, FilesStatusFlag::Commit(_))
-            || super::app::prefix_match(
-                mode.query(),
-                status_line,
-                &mode.return_mode,
-                app.flags.show_files,
-            )) {
-        Some(mode)
+    let jump_match = if let Mode::Jump(mode) = &*app.mode {
+        mode.match_line(status_line, app.flags.show_files)
     } else {
         None
     };
@@ -570,16 +555,11 @@ fn render_status_list_item(
             StatusOutputContent::Plain(spans) => {
                 line.extend(spans);
             }
-            StatusOutputContent::MergeBase(MergeBaseLineContent {
-                id,
-                suffix,
-                commit_id: _,
-            }) => {
-                if let Some(jump_mode) = jump_mode {
-                    line.extend(style_jump_mode_matches(
+            StatusOutputContent::MergeBase(MergeBaseLineContent { id, suffix }) => {
+                if let Some(jump_match) = &jump_match {
+                    line.extend(underline_jump_matches(
                         id,
-                        jump_mode,
-                        is_immediate_jump_target,
+                        jump_match.char_indices(JumpPart::Id),
                     ));
                 } else {
                     line.extend(id);
@@ -602,12 +582,11 @@ fn render_status_list_item(
                         }
                     }));
                 } else if !change_id.is_empty()
-                    && let Some(jump_mode) = jump_mode
+                    && let Some(jump_match) = &jump_match
                 {
-                    line.extend(style_jump_mode_matches(
+                    line.extend(underline_jump_matches(
                         change_id,
-                        jump_mode,
-                        is_immediate_jump_target,
+                        jump_match.char_indices(JumpPart::Id),
                     ));
                 } else {
                     line.extend(change_id.iter().cloned());
@@ -616,12 +595,11 @@ fn render_status_list_item(
                 if line_has_copied_highlight && change_id.is_empty() {
                     line.extend(sha.iter().cloned().map(with_highlight));
                 } else if change_id.is_empty()
-                    && let Some(jump_mode) = jump_mode
+                    && let Some(jump_match) = &jump_match
                 {
-                    line.extend(style_jump_mode_matches(
+                    line.extend(underline_jump_matches(
                         sha,
-                        jump_mode,
-                        is_immediate_jump_target,
+                        jump_match.char_indices(JumpPart::Id),
                     ));
                 } else {
                     line.extend(sha);
@@ -642,7 +620,14 @@ fn render_status_list_item(
                     line.render(Span::raw(" "));
                     line.render_textarea(textarea);
                 } else {
-                    line.extend(message);
+                    if let Some(jump_match) = &jump_match {
+                        line.extend(underline_jump_matches(
+                            message,
+                            jump_match.char_indices(JumpPart::Text),
+                        ));
+                    } else {
+                        line.extend(message);
+                    }
                     line.extend(suffix);
                 }
             }
@@ -655,11 +640,10 @@ fn render_status_list_item(
             }) => {
                 if line_has_copied_highlight {
                     line.extend(id);
-                } else if let Some(jump_mode) = jump_mode {
-                    line.extend(style_jump_mode_matches(
+                } else if let Some(jump_match) = &jump_match {
+                    line.extend(underline_jump_matches(
                         id,
-                        jump_mode,
-                        is_immediate_jump_target,
+                        jump_match.char_indices(JumpPart::Id),
                     ));
                 } else {
                     line.extend(id);
@@ -679,6 +663,11 @@ fn render_status_list_item(
                 } else {
                     if line_has_copied_highlight {
                         line.extend(branch_name.iter().cloned().map(with_highlight));
+                    } else if let Some(jump_match) = &jump_match {
+                        line.extend(underline_jump_matches(
+                            branch_name,
+                            jump_match.char_indices(JumpPart::Text),
+                        ));
                     } else {
                         line.extend(branch_name);
                     }
@@ -690,11 +679,10 @@ fn render_status_list_item(
             StatusOutputContent::File(FileLineContent { id, status, path }) => {
                 if line_has_copied_highlight {
                     line.extend(id);
-                } else if let Some(jump_mode) = jump_mode {
-                    line.extend(style_jump_mode_matches(
+                } else if let Some(jump_match) = &jump_match {
+                    line.extend(underline_jump_matches(
                         id,
-                        jump_mode,
-                        is_immediate_jump_target,
+                        jump_match.char_indices(JumpPart::Id),
                     ));
                 } else {
                     line.extend(id);
@@ -702,6 +690,11 @@ fn render_status_list_item(
                 line.extend(status);
                 if line_has_copied_highlight {
                     line.extend(path.iter().cloned().map(with_highlight));
+                } else if let Some(jump_match) = &jump_match {
+                    line.extend(underline_jump_matches(
+                        path,
+                        jump_match.char_indices(JumpPart::Text),
+                    ));
                 } else {
                     line.extend(path);
                 }
@@ -715,17 +708,23 @@ fn render_status_list_item(
             }) => {
                 if line_has_copied_highlight {
                     line.extend(id.iter().cloned().map(with_highlight));
-                } else if let Some(jump_mode) = jump_mode {
-                    line.extend(style_jump_mode_matches(
+                } else if let Some(jump_match) = &jump_match {
+                    line.extend(underline_jump_matches(
                         id,
-                        jump_mode,
-                        is_immediate_jump_target,
+                        jump_match.char_indices(JumpPart::Id),
                     ));
                 } else {
                     line.extend(id);
                 }
                 line.extend(decoration_start);
-                line.extend(label);
+                if let Some(jump_match) = &jump_match {
+                    line.extend(underline_jump_matches(
+                        label,
+                        jump_match.char_indices(JumpPart::Text),
+                    ));
+                } else {
+                    line.extend(label);
+                }
                 line.extend(decoration_end);
                 line.extend(suffix);
             }
@@ -1509,84 +1508,36 @@ fn cursor_at_end(textarea: &TextArea<'_>) -> bool {
     col == textarea.lines()[0].chars().count()
 }
 
-fn style_jump_mode_matches(
-    content: &[Span<'static>],
-    jump_mode: &JumpMode,
-    is_immediate_jump_target: bool,
-) -> impl IntoIterator<Item = Span<'static>> {
-    use itertools::Either;
-
-    let query = jump_mode.query();
-
-    let Some(first_non_whitespace_index) = content
-        .iter()
-        .position(|span| !span.content.as_ref().chars().all(char::is_whitespace))
-    else {
-        return Either::Left(content.iter().cloned());
-    };
-
-    let (leading, rest) = content.split_at(first_non_whitespace_index);
-
-    let mut remaining_query = query;
-    for span in rest {
-        if remaining_query.is_empty() {
-            break;
+/// Underlines the characters at `char_indices`, counted across all of `content`.
+fn underline_jump_matches(content: &[Span<'static>], char_indices: &[usize]) -> Vec<Span<'static>> {
+    let mut styled_content = Vec::with_capacity(content.len());
+    let mut char_idx = 0;
+    for span in content {
+        let mut run = String::new();
+        let mut run_is_match = false;
+        for c in span.content.chars() {
+            let is_match = char_indices.contains(&char_idx);
+            if is_match != run_is_match && !run.is_empty() {
+                styled_content.push(jump_match_run(
+                    std::mem::take(&mut run),
+                    span.style,
+                    run_is_match,
+                ));
+            }
+            run_is_match = is_match;
+            run.push(c);
+            char_idx += 1;
         }
-
-        let span_content = span.content.as_ref();
-        if let Some(remaining) = remaining_query.strip_prefix(span_content) {
-            remaining_query = remaining;
-        } else if span_content.starts_with(remaining_query) {
-            remaining_query = "";
-        } else {
-            return Either::Left(content.iter().cloned());
+        if !run.is_empty() {
+            styled_content.push(jump_match_run(run, span.style, run_is_match));
         }
     }
-    if !remaining_query.is_empty() {
-        return Either::Left(content.iter().cloned());
-    }
+    styled_content
+}
 
-    let next_char_style = if is_immediate_jump_target {
-        Style::default().black().on_green()
-    } else {
-        Style::default().black().on_white()
-    };
-
-    let mut styled_content = Vec::with_capacity(content.len() + 2);
-    styled_content.extend(leading.iter().cloned());
-
-    let mut remaining_query_len = query.len();
-    let mut highlighted_next_char = false;
-    for span in rest {
-        let span_content = span.content.as_ref();
-        if highlighted_next_char || remaining_query_len >= span_content.len() {
-            remaining_query_len = remaining_query_len.saturating_sub(span_content.len());
-            styled_content.push(span.clone());
-            continue;
-        }
-
-        let (matching, after_match) = span_content.split_at(remaining_query_len);
-        let next_char_len = after_match
-            .chars()
-            .next()
-            .map(char::len_utf8)
-            .unwrap_or_default();
-        let (next_char, remaining) = after_match.split_at(next_char_len);
-        if !matching.is_empty() {
-            styled_content.push(Span::styled(matching.to_owned(), span.style));
-        }
-        styled_content.push(Span::styled(next_char.to_owned(), span.style).style(next_char_style));
-        if !remaining.is_empty() {
-            styled_content.push(Span::styled(remaining.to_owned(), span.style));
-        }
-        highlighted_next_char = true;
-    }
-
-    if !highlighted_next_char && let Some(last_match) = styled_content.last_mut() {
-        last_match.style = next_char_style;
-    }
-
-    Either::Right(styled_content.into_iter())
+fn jump_match_run(run: String, style: Style, is_match: bool) -> Span<'static> {
+    let span = Span::styled(run, style);
+    if is_match { span.underlined() } else { span }
 }
 
 impl Mode {

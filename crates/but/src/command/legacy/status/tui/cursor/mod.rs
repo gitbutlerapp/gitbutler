@@ -14,7 +14,6 @@ use crate::{
             app::{
                 CommitSource, SquashMode,
                 mark::{CommittedMark, MarkableRef, Marks, hunk_is_child_of},
-                prefix_match,
             },
             mode::ModeRef,
             render::{
@@ -534,6 +533,26 @@ impl Cursor {
         }
 
         selected_line.data.cli_id()
+    }
+
+    /// The selected line of `lines` found again in `new_lines` after a reload, or `None` if it's
+    /// gone.
+    pub fn restore_after_reload(
+        self,
+        lines: &[StatusOutputLine],
+        new_lines: &[StatusOutputLine],
+        show_files: FilesStatusFlag,
+    ) -> Option<Self> {
+        // The merge base has no CLI ID to find it by.
+        if self
+            .selected_line(lines)
+            .is_some_and(|line| matches!(line.data, StatusOutputLineData::MergeBase))
+        {
+            return Cursor::select_merge_base(new_lines);
+        }
+
+        self.selection_cli_id_for_reload(lines, show_files)
+            .and_then(|cli_id| Cursor::restore(cli_id, new_lines))
     }
 
     fn parent_cli_id_of_selected_file(self, lines: &[StatusOutputLine]) -> Option<&Arc<CliId>> {
@@ -1391,11 +1410,6 @@ pub fn is_selectable_in_mode(
             is_selectable_in_mode(line, command_mode.return_mode.as_ref(), show_files_flag)
         }
         ModeRef::InlineReword(..) => true,
-        ModeRef::Jump(jump_mode) => prefix_match(
-            jump_mode.query(),
-            line,
-            &jump_mode.return_mode,
-            show_files_flag,
-        ),
+        ModeRef::Jump(jump_mode) => jump_mode.match_line(line, show_files_flag).is_some(),
     }
 }
