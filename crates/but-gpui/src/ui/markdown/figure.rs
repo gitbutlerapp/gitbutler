@@ -15,7 +15,7 @@ use parking_lot::Mutex;
 use super::{Image, words};
 use crate::backend::{self, Picture};
 use crate::theme::Theme;
-use crate::ui::{Tooltip, dp};
+use crate::ui::dp;
 
 /// About how many bytes of pixels the images drawn lately keep, some twenty screenshots;
 /// past that the oldest go, and are fetched again if they're drawn again.
@@ -24,42 +24,52 @@ const KEPT_BYTES: usize = 160 << 20;
 /// How tall a box holds an image's place until it's fetched, when the HTML doesn't say.
 const PLACE_HEIGHT: f32 = 160.;
 
+/// An image of a description, which a click previews, with the rest of its `gallery`, the
+/// description's images, a key away.
 #[derive(IntoElement)]
 pub(super) struct Figure {
     id: SharedString,
-    image: Image,
+    gallery: Arc<[Image]>,
+    at: usize,
 }
 
 impl Figure {
-    pub(super) fn new(id: impl Into<SharedString>, image: Image) -> Self {
+    pub(super) fn new(id: impl Into<SharedString>, gallery: Arc<[Image]>, at: usize) -> Self {
         Self {
             id: id.into(),
-            image,
+            gallery,
+            at,
         }
     }
 }
 
+/// The picture at `src`, once fetched, counted as drawn in this frame.
+pub(super) fn fetched(src: &str, window: &mut Window, cx: &mut App) -> Option<Option<Picture>> {
+    let src = SharedString::from(src.to_owned());
+    // Once fetched, the view drawing it draws again.
+    let fetched = window.use_asset::<Fetched>(&src, cx);
+    if let Some(Some(picture)) = &fetched {
+        keep(&src, picture, cx);
+    }
+    fetched
+}
+
 impl RenderOnce for Figure {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let Figure { id, image } = self;
+        let Figure { id, gallery, at } = self;
+        let Some(image) = gallery.get(at).cloned() else {
+            return div().into_any_element();
+        };
         let src = SharedString::from(image.src.clone());
-        // Once fetched, the view drawing it draws again.
-        let fetched = window.use_asset::<Fetched>(&src, cx);
-        if let Some(Some(picture)) = &fetched {
-            keep(&src, picture, cx);
-        }
+        let fetched = fetched(&image.src, window, cx);
         let theme = Theme::get(cx);
         let place = div()
             .id(id.clone())
             .relative()
             .max_w_full()
-            .role(Role::Link)
+            .role(Role::Button)
             .aria_label(image.words())
-            .tooltip(Tooltip::text(image.opens.clone()))
-            .on_click({
-                let opens = image.opens.clone();
-                move |_, _, cx| cx.open_url(&opens)
-            });
+            .on_click(move |_, window, cx| super::preview::open(gallery.clone(), at, window, cx));
         // A hairline over its edge, so a screenshot as pale as the page still has one.
         let edge = div()
             .absolute()

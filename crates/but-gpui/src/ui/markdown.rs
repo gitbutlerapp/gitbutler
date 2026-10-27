@@ -15,6 +15,7 @@
 
 use std::cell::Cell;
 use std::ops::Range;
+use std::sync::Arc;
 
 use gpui::{
     AnyElement, App, Font, FontWeight, Hsla, InteractiveText, IntoElement, ParentElement,
@@ -28,6 +29,7 @@ use crate::backend::images;
 use crate::theme::Theme;
 
 mod figure;
+mod preview;
 
 /// How much of a description is read; the rest is left out, and said to be.
 const MAX_BYTES: usize = 64 * 1024;
@@ -844,8 +846,32 @@ pub fn parse(markdown: &str) -> Vec<Block> {
     blocks
 }
 
+/// The images a description draws, in order, and where each block's first is among them, so a
+/// preview pages through all of them.
+struct Gallery {
+    images: Arc<[Image]>,
+    firsts: Vec<usize>,
+}
+
+impl Gallery {
+    fn of(blocks: &[Block]) -> Self {
+        let (mut images, mut firsts) = (Vec::new(), Vec::with_capacity(blocks.len()));
+        for block in blocks {
+            firsts.push(images.len());
+            if let Kind::Images(drawn) = &block.kind {
+                images.extend(drawn.iter().cloned());
+            }
+        }
+        Self {
+            images: images.into(),
+            firsts,
+        }
+    }
+}
+
 /// `blocks` drawn as text, `id` telling apart the links of one description from another's.
 pub fn render(id: &str, blocks: &[Block], theme: &Theme) -> AnyElement {
+    let gallery = Gallery::of(blocks);
     let mut column = v_flex();
     let mut ix = 0;
     while let Some(block) = blocks.get(ix) {
@@ -869,9 +895,12 @@ pub fn render(id: &str, blocks: &[Block], theme: &Theme) -> AnyElement {
         let (el, drawn) = match block.cell {
             Some(cell) => {
                 let row = row(cell);
-                (table_row(id, ix, row, cell.columns, theme), row.len())
+                (
+                    table_row(id, ix, row, cell.columns, &gallery, theme),
+                    row.len(),
+                )
             }
-            None => (element(id, ix, block, theme), 1),
+            None => (element(id, ix, block, &gallery, theme), 1),
         };
         column = column.child(placed(block, space, el, theme));
         ix += drawn.max(1);
@@ -880,7 +909,7 @@ pub fn render(id: &str, blocks: &[Block], theme: &Theme) -> AnyElement {
 }
 
 /// `block` drawn, without where it sits.
-fn element(id: &str, ix: usize, block: &Block, theme: &Theme) -> AnyElement {
+fn element(id: &str, ix: usize, block: &Block, gallery: &Gallery, theme: &Theme) -> AnyElement {
     match &block.kind {
         Kind::Rule => div()
             .h(fixed(1.))
@@ -929,13 +958,17 @@ fn element(id: &str, ix: usize, block: &Block, theme: &Theme) -> AnyElement {
             .into_any_element(),
         Kind::Paragraph => text(id, ix, block, theme),
         Kind::Images(images) => {
+            let Some(&first) = gallery.firsts.get(ix) else {
+                return div().into_any_element();
+            };
             h_flex()
                 .flex_wrap()
                 .items_start()
                 .gap(dp(8.))
                 .when(block.centered, |el| el.justify_center())
-                .children((images.iter().enumerate()).map(|(n, image)| {
-                    figure::Figure::new(format!("{id}-img-{ix}-{n}"), image.clone())
+                .children((0..images.len()).map(|n| {
+                    let id = format!("{id}-img-{ix}-{n}");
+                    figure::Figure::new(id, gallery.images.clone(), first + n)
                 }))
                 .into_any_element()
         }
@@ -965,7 +998,14 @@ fn placed(block: &Block, space: f32, el: AnyElement, theme: &Theme) -> AnyElemen
 
 /// A row of a table with images, `first` the index of its first block: its cells side by
 /// side, each a column's share of the width, so a before and after sit as GitHub shows them.
-fn table_row(id: &str, first: usize, row: &[Block], columns: usize, theme: &Theme) -> AnyElement {
+fn table_row(
+    id: &str,
+    first: usize,
+    row: &[Block],
+    columns: usize,
+    gallery: &Gallery,
+    theme: &Theme,
+) -> AnyElement {
     let cell = |column: usize| {
         let blocks = (row.iter().enumerate())
             .filter(move |(_, block)| block.cell.is_some_and(|cell| cell.column == column));
@@ -973,7 +1013,7 @@ fn table_row(id: &str, first: usize, row: &[Block], columns: usize, theme: &Them
             .flex_1()
             .min_w_0()
             .gap(dp(8.))
-            .children(blocks.map(|(n, block)| element(id, first + n, block, theme)))
+            .children(blocks.map(|(n, block)| element(id, first + n, block, gallery, theme)))
     };
     h_flex()
         .items_start()

@@ -166,6 +166,7 @@ icons! {
     BulletDisc => "bullet-disc",
     Camera => "camera",
     ChevronDown => "chevron-down",
+    ChevronLeft => "chevron-left",
     ChevronUp => "chevron-up",
     ChevronRight => "chevron-right",
     Clock => "clock",
