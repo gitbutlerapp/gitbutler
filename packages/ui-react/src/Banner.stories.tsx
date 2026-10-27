@@ -144,3 +144,22 @@ export const WithoutActionOrIcon = meta.story({
 		</div>
 	),
 });
+
+/** A note inside a card, such as why its chart is empty: no title, one sentence in the description's type. */
+export const DescriptionOnly = meta.story({
+	render: () => (
+		<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+			<Banner variant="gray">Not enough samples yet</Banner>
+			<Banner
+				variant="gray"
+				action={
+					<Button variant="ghost" size="small">
+						Retry
+					</Button>
+				}
+			>
+				Couldn’t load history
+			</Banner>
+		</div>
+	),
+});

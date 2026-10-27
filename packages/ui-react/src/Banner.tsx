@@ -38,9 +38,10 @@ const defaultIcon = (variant: BannerVariant): IconName =>
  * paused, a machine offline, a server that won't answer. It stays while the condition is true and
  * leaves when it clears, so it has no close button; the caller renders it only while it applies.
  *
- * The title is the one line every banner has. `children` is an optional second sentence under it.
- * The icon and the action line up with the title. The action is the fix (Retry, Reconnect, Pull):
- * one small ghost `Button`, which takes the banner's colour.
+ * The title says the condition; `children` is an optional second sentence under it. A quiet note
+ * set inside a card, such as why a chart is empty, leaves the title out and is that one sentence in
+ * the description's type. The icon and the action line up with the first line. The action is the
+ * fix (Retry, Reconnect, Pull): one small ghost `Button`, which takes the banner's colour.
  *
  * Use a Snackbar for the outcome of something the user just did; a banner is for state.
  *
@@ -50,8 +51,8 @@ const defaultIcon = (variant: BannerVariant): IconName =>
 export const Banner: FC<
 	{
 		variant: BannerVariant;
-		/** One line saying the condition. */
-		title: ReactNode;
+		/** One line saying the condition. Left out, `children` is the banner's only line. */
+		title?: ReactNode;
 		/** Overrides the variant's own glyph; `false` drops it. */
 		icon?: IconName | false;
 		/** One small ghost `Button`. */
@@ -76,8 +77,10 @@ export const Banner: FC<
 		)}
 	>
 		{icon !== false && <Icon name={icon ?? defaultIcon(variant)} className={styles.icon} />}
-		<div className={styles.content}>
-			<div className={classes(styles.title, "text-13", "text-semibold")}>{title}</div>
+		<div className={classes(styles.content, title === undefined && styles.untitled)}>
+			{title !== undefined && (
+				<div className={classes(styles.title, "text-13", "text-semibold")}>{title}</div>
+			)}
 			{children !== undefined && (
 				<div className={classes(styles.description, "text-12", "text-body")}>{children}</div>
 			)}
