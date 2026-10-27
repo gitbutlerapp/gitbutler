@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use gpui::{App, SharedString};
 
-use super::{ClickOpened, NEST, Navigator, STACK_STEP, upstream_chevrons};
+use super::{ClickOpened, Navigator, STEP, upstream_chevrons};
 use crate::backend::{Branch, Checkout, FullName, Lane, Workspace, Worktree};
 use crate::edits::BranchEdits;
 use crate::state::{Cut, NewAt, ProjectEntry, ProjectId, Section, Selection, Store};
@@ -184,9 +184,8 @@ impl Navigator {
                 rows.push(Row::Item(Selection::Uncommitted(id.clone())));
                 continue;
             }
-            // The main worktree's heading folds its branches away; with linked worktrees each is
-            // a section too, and the branches step in under their headings. Alone, they don't:
-            // the heading lines up with them, and they with the project.
+            // The main worktree's heading folds its branches away, which step in under it; with
+            // linked worktrees each is a section too, ruled off from the next.
             let headed = !workspace.worktrees.is_empty();
             let selection = store.selection.as_ref().filter(|s| s.project() == id);
             let main_selected =
@@ -194,9 +193,7 @@ impl Navigator {
             let main_open = self.worktree_open(id, Checkout::Main, main_selected);
             // Always listed, with nothing uncommitted too, so where to commit is always there.
             rows.push(Row::Item(Selection::Uncommitted(id.clone())));
-            if headed {
-                rows.open_in(NEST);
-            }
+            rows.open_in(STEP);
             if main_open {
                 // A stack being unapplied leaves at once.
                 let stacks = workspace.lanes_in(&Checkout::Main).filter(|stack| {
@@ -210,8 +207,8 @@ impl Navigator {
                     self.lane_rows(store, id, &stack.branches, &mut rows);
                 }
             }
+            rows.close();
             if headed {
-                rows.close();
                 rows.push(Row::WorktreeDivider);
                 let on_branches = |wt: &Worktree| {
                     let checkout = Checkout::Linked(wt.name.clone());
@@ -321,22 +318,17 @@ impl Navigator {
             let project_end = rows.rows.len();
             let workspace = (entry.workspace.as_ref()).filter(|ws| ws.editing.is_none());
             if let Some(workspace) = workspace {
-                // The main worktree's branches under its heading when there are linked ones.
-                let headed = !workspace.worktrees.is_empty();
+                // The main worktree's branches under its heading.
                 let main = rows.rows.len();
-                if headed {
-                    rows.push(Row::Item(Selection::Uncommitted(id.clone())));
-                    rows.open_in(NEST);
-                }
+                rows.push(Row::Item(Selection::Uncommitted(id.clone())));
+                rows.open_in(STEP);
                 let heading_end = rows.rows.len();
                 for stack in workspace.lanes_in(&Checkout::Main) {
                     self.filtered_lane(store, id, &stack.branches, terms, own, &mut rows);
                 }
-                if headed {
-                    rows.close();
-                    if rows.rows.len() == heading_end {
-                        rows.truncate(main);
-                    }
+                rows.close();
+                if rows.rows.len() == heading_end {
+                    rows.truncate(main);
                 }
                 let worktrees = (self.worktrees(id, workspace).into_iter())
                     .filter(|wt| !store.hides_worktree(id, wt.name.as_ref()));
@@ -345,7 +337,7 @@ impl Navigator {
                     let wt_own = found(terms, &[wt.name.to_string().as_str()]);
                     let item = Selection::Worktree(id.clone(), wt.name.clone());
                     rows.push_found(item, hit(own, wt_own));
-                    rows.open_in(NEST);
+                    rows.open_in(STEP);
                     let lane = workspace.worktree_lane(wt.name.as_ref());
                     let branches = lane.map_or(&[][..], |lane| &lane.branches);
                     self.filtered_lane(store, id, branches, terms, own | wt_own, &mut rows);
@@ -410,7 +402,7 @@ impl Navigator {
                 id.clone(),
                 bottom.ref_name.clone(),
             )));
-            rows.open_in(STACK_STEP);
+            rows.open_in(STEP);
         }
         let caption_end = rows.rows.len();
         for branch in branches {
@@ -460,7 +452,7 @@ impl Navigator {
             if self.folded_stacks.contains(&key) && !selected {
                 return;
             }
-            rows.open_in(STACK_STEP);
+            rows.open_in(STEP);
         }
         for branch in branches {
             let key = (id.clone(), branch.ref_name.clone());
@@ -556,7 +548,7 @@ impl Navigator {
         let name = worktree.name.clone();
         rows.push(Row::Item(Selection::Worktree(id.clone(), name.clone())));
         if self.worktree_open(id, Checkout::Linked(name.clone()), selected) {
-            rows.open_in(NEST);
+            rows.open_in(STEP);
             let workspace = store.workspace(id);
             let lane = workspace.and_then(|ws| ws.worktree_lane(name.as_ref()));
             self.lane_rows(store, id, lane.map_or(&[][..], |lane| &lane.branches), rows);

@@ -49,12 +49,10 @@ use rows::{
     COMMIT_INDENT, GUIDE_AT, ROW_LEFT, Row, Rows, in_inactive, inactive_open, last_active, within,
 };
 
-/// How far a worktree's rows sit in from its heading.
-const NEST: f32 = 14.;
-
-/// How far a stack's branches sit in from its caption: one of ui-react's SidebarRow steps
-/// and the gap after it, so their chevrons line up under the caption's glyph.
-const STACK_STEP: f32 = 22.;
+/// How far a worktree's or a stack's rows sit in from its heading, as ui-react's SidebarRow
+/// steps them: their chevrons' middle under the heading's 16-point glyph's, the chevron's step,
+/// 14, the gap, 8, and half the glyph past the chevron's half.
+const STEP: f32 = 14. + 8. + 1.;
 
 /// The eye of a project the app watches, or struck through for one it doesn't.
 fn watch_glyph(watched: bool) -> gpui::Svg {
@@ -106,7 +104,7 @@ struct RowStyle<'a> {
 /// How far a remote's commits sit in: the target's as a branch's commits do, a branch's a
 /// step in from their heading, which is under the branch's commit glyphs.
 fn upstream_indent(ref_name: Option<&FullName>) -> f32 {
-    COMMIT_INDENT + if ref_name.is_some() { STACK_STEP } else { 0. }
+    COMMIT_INDENT + if ref_name.is_some() { STEP } else { 0. }
 }
 
 /// Where the middles of a remote's heading's chevron and of its merges' chevrons sit: the
@@ -1812,17 +1810,9 @@ impl Navigator {
     }
 
     /// Whether row `ix` heads rows stepped in under it that show: an open worktree or stack.
-    /// The main worktree's branches, alone, aren't stepped in: its heading is open while
-    /// they follow it.
     fn section_open(&self, ix: usize) -> bool {
         let next = self.insets.get(ix + 1);
-        match self.rows.get(ix) {
-            Some(Row::Item(Selection::Uncommitted(_))) if next == self.insets.get(ix) => matches!(
-                self.rows.get(ix + 1),
-                Some(Row::Item(Selection::Stack(..) | Selection::Branch(..)))
-            ),
-            _ => (next.zip(self.insets.get(ix))).is_some_and(|(next, this)| next > this),
-        }
+        (next.zip(self.insets.get(ix))).is_some_and(|(next, this)| next > this)
     }
 
     /// Over a stack of two or more branches, as ui-react's StackCaption: a chevron, its
@@ -2218,7 +2208,7 @@ impl Navigator {
                 // Under its heading's words, as a branch's commits are under its name.
                 .commit_line(
                     format!("upstream-{id}-{}", commit_id.0),
-                    upstream_indent(ref_name) + if nested { STACK_STEP } else { 0. },
+                    upstream_indent(ref_name) + if nested { STEP } else { 0. },
                     glyph,
                     title,
                     unread,
@@ -2545,8 +2535,7 @@ fn same_place(old: &Row, new: &Row) -> bool {
 }
 
 /// What ⇧← goes up to from `selection`, a branch or a stack: a branch in a stack to the stack,
-/// and a stack, or a branch alone, to its worktree's heading, when its project has linked
-/// worktrees.
+/// and a stack, or a branch alone, to its worktree's heading.
 fn parent(store: &Store, selection: &Selection) -> Option<Selection> {
     let project = selection.project().clone();
     let workspace = store.workspace(&project)?;
@@ -2563,9 +2552,6 @@ fn parent(store: &Store, selection: &Selection) -> Option<Selection> {
         Selection::Stack(_, bottom) => bottom.clone(),
         _ => return None,
     };
-    if workspace.worktrees.is_empty() {
-        return None;
-    }
     Some(
         match store.worktree_for(&Selection::Branch(project.clone(), bottom)) {
             Some(worktree) => Selection::Worktree(project, worktree.name.clone()),
