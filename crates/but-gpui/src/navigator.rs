@@ -394,8 +394,8 @@ impl Navigator {
                 }
                 cx.notify()
             }),
-            cx.subscribe(&store, |this, _, event, _| match event {
-                StoreEvent::SelectionChanged => this.reveal_selection = true,
+            cx.subscribe(&store, |this, _, event, cx| match event {
+                StoreEvent::SelectionChanged => this.reveal(cx),
                 StoreEvent::Loaded(_) | StoreEvent::MeshRead(_) => this.hold_still = true,
                 // A renamed branch stays open or folded as it was.
                 StoreEvent::Renamed(project, from, to) => {
@@ -523,9 +523,23 @@ impl Navigator {
     fn filter_changed(&mut self, cx: &mut Context<Self>) {
         self.list.scroll_to(ListOffset::default());
         if self.filter.read(cx).text().trim().is_empty() {
-            self.reveal_selection = true;
+            self.reveal(cx);
         }
         cx.notify();
+    }
+
+    /// Show the selection where it is once the rows are up to date, opening the drawer when
+    /// it's one of its projects.
+    fn reveal(&mut self, cx: &mut Context<Self>) {
+        self.reveal_selection = true;
+        let store = self.store.read(cx);
+        let in_drawer = matches!(&store.selection, Some(Selection::Project(id))
+            if store.project(id).is_some_and(|entry| !entry.expanded));
+        if in_drawer && store.prefs.projects_folded {
+            (self.store).update(cx, |store, cx| {
+                store.set_prefs(|p| p.projects_folded = false, cx)
+            });
+        }
     }
 
     fn select(&mut self, selection: Selection, window: &mut Window, cx: &mut Context<Self>) {
