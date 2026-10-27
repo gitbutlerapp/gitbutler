@@ -418,13 +418,14 @@ pub(super) struct Running {
 }
 
 /// An operation of the user's that ⌘Z takes back: the oplog entry it recorded in its project,
-/// when it was asked for, which orders it among the others, and when it finished, in
-/// milliseconds since the Unix epoch as file times are.
+/// when it was asked for, which orders it among the others, when it finished, in
+/// milliseconds since the Unix epoch as file times are, and what its snackbar said.
 pub(super) struct UndoStep {
     pub(super) project: ProjectId,
     pub(super) snapshot: SnapshotId,
     asked: Instant,
     done: i64,
+    pub(super) said: Option<SharedString>,
 }
 
 /// A file by its path, or several by how many, as an undo or redo card names what changed.
@@ -500,8 +501,22 @@ impl Store {
             snapshot,
             asked,
             done,
+            said: None,
         });
         self.undo_steps.sort_by_key(|step| step.asked);
+    }
+
+    /// What ⌘Z takes back next, as its snackbar said it, with its project and when it
+    /// finished, in milliseconds since the Unix epoch. None while that snackbar still shows,
+    /// or when it said nothing.
+    pub fn last_done(&self) -> Option<(&ProjectId, &SharedString, i64)> {
+        let step = self.undo_steps.last()?;
+        let said = step.said.as_ref()?;
+        let showing = self.toasts.iter().any(|toast| {
+            matches!(&toast.notice, Notice::Snackbar { undo: Some((project, snapshot)), .. }
+                if *project == step.project && *snapshot == step.snapshot)
+        });
+        (!showing).then_some((&step.project, said, step.done))
     }
 
     /// Make `snapshot`, which the operation that just ran recorded on its way, a ⌘Z step of its
@@ -520,6 +535,7 @@ impl Store {
             snapshot,
             asked,
             done,
+            said: None,
         };
         self.undo_steps.insert(at, step);
     }
