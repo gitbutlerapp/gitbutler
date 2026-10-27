@@ -2,9 +2,9 @@
   <rect x="0" y="0" width="820" height="380" fill="#000000" />
   <rect x="50" y="64" width="96" height="18" fill="#555555" />
   <rect x="66" y="82" width="96" height="18" fill="#555555" />
-  <rect x="10" y="208" width="40" height="18" fill="#45475A" />
-  <rect x="50" y="208" width="96" height="18" fill="#0000AA" />
-  <rect x="146" y="208" width="664" height="18" fill="#45475A" />
+  <rect x="10" y="154" width="40" height="18" fill="#45475A" />
+  <rect x="50" y="154" width="96" height="18" fill="#0000AA" />
+  <rect x="146" y="154" width="664" height="18" fill="#45475A" />
   <rect x="10" y="352" width="80" height="18" fill="#0000AA" />
   <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
     <text x="10 18" y="24" style="fill:#CCCCCC;">╭┄</text>
@@ -42,25 +42,25 @@
     <text x="66" y="150" style="fill:#CCCCCC;">[</text>
     <text x="74" y="150" style="fill:#00AA00;">C</text>
     <text x="82" y="150" style="fill:#CCCCCC;">]</text>
-    <text x="10 18" y="168" style="fill:#CCCCCC;">┊●</text>
-    <text x="50" y="168" style="fill:#AA00AA;">x</text>
-    <text x="58 66" y="168" style="fill:#CCCCCC;opacity:0.75;">wn</text>
-    <text x="82 90 98" y="168" style="fill:#CCCCCC;">add</text>
-    <text x="114" y="168" style="fill:#CCCCCC;">C</text>
+    <text x="10 18" y="168" style="fill:#FFFFFF;font-weight:bold;">┊●</text>
+    <text x="50 58" y="168" style="fill:#000000;font-weight:bold;">&lt;&lt;</text>
+    <text x="74 82 90 98 106 114" y="168" style="fill:#000000;font-weight:bold;">squash</text>
+    <text x="130 138" y="168" style="fill:#000000;font-weight:bold;">&gt;&gt;</text>
+    <text x="154" y="168" style="fill:#AA00AA;font-weight:bold;">x</text>
+    <text x="162 170" y="168" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">wn</text>
+    <text x="186 194 202" y="168" style="fill:#FFFFFF;font-weight:bold;">add</text>
+    <text x="218" y="168" style="fill:#FFFFFF;font-weight:bold;">C</text>
     <text x="10 18" y="186" style="fill:#CCCCCC;">┊│</text>
     <text x="10 18 26" y="204" style="fill:#CCCCCC;">┊├┄</text>
     <text x="42 50" y="204" style="fill:#0000AA;font-weight:bold;">i0</text>
     <text x="66" y="204" style="fill:#CCCCCC;">[</text>
     <text x="74" y="204" style="fill:#00AA00;">B</text>
     <text x="82" y="204" style="fill:#CCCCCC;">]</text>
-    <text x="10 18" y="222" style="fill:#FFFFFF;font-weight:bold;">┊●</text>
-    <text x="50 58" y="222" style="fill:#000000;font-weight:bold;">&lt;&lt;</text>
-    <text x="74 82 90 98 106 114" y="222" style="fill:#000000;font-weight:bold;">squash</text>
-    <text x="130 138" y="222" style="fill:#000000;font-weight:bold;">&gt;&gt;</text>
-    <text x="154" y="222" style="fill:#AA00AA;font-weight:bold;">l</text>
-    <text x="162 170" y="222" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">rm</text>
-    <text x="186 194 202" y="222" style="fill:#FFFFFF;font-weight:bold;">add</text>
-    <text x="218" y="222" style="fill:#FFFFFF;font-weight:bold;">B</text>
+    <text x="10 18" y="222" style="fill:#CCCCCC;">┊●</text>
+    <text x="50" y="222" style="fill:#AA00AA;">l</text>
+    <text x="58 66" y="222" style="fill:#CCCCCC;opacity:0.75;">rm</text>
+    <text x="82 90 98" y="222" style="fill:#CCCCCC;">add</text>
+    <text x="114" y="222" style="fill:#CCCCCC;">B</text>
     <text x="10 18" y="240" style="fill:#CCCCCC;">├╯</text>
     <text x="10" y="258" style="fill:#CCCCCC;">┊</text>
     <text x="10" y="276" style="fill:#CCCCCC;">┴</text>

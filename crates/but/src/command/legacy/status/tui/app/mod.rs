@@ -1067,7 +1067,7 @@ impl App {
                 }
             }
             BackstackEntry::LeaveNormalMode => {
-                // Cancelling jump only restores the mode and backstack, never the cursor.
+                // Cancelling jump restores the mode, backstack, and cursor from before jumping.
                 if self.restore_mode_before_jump() {
                     return;
                 }
@@ -1544,24 +1544,16 @@ impl App {
 
         self.cursor = match select_after_reload {
             None | Some(SelectAfterReload::UncommittedDetailsSection { .. }) => {
-                let restored_cursor = self
-                    .cursor
-                    .selection_cli_id_for_reload(&self.status_lines, self.flags.show_files)
-                    .and_then(|cli_id| Cursor::restore(cli_id, &new_lines));
+                let restored_cursor = self.cursor.restore_after_reload(
+                    &self.status_lines,
+                    &new_lines,
+                    self.flags.show_files,
+                );
 
                 if select_details_section_after_reload.is_some() {
                     restored_cursor.or_else(|| Cursor::select_uncommitted(&new_lines))
                 } else {
-                    let selected_merge_base = self
-                        .cursor
-                        .selected_line(&self.status_lines)
-                        .is_some_and(|line| matches!(line.data, StatusOutputLineData::MergeBase));
-
-                    if selected_merge_base {
-                        Cursor::select_merge_base(&new_lines).or(restored_cursor)
-                    } else {
-                        restored_cursor
-                    }
+                    restored_cursor
                 }
             }
             Some(SelectAfterReload::Commit(commit_id)) => {
@@ -1611,6 +1603,17 @@ impl App {
             Some(SelectAfterReload::CliId(cli_id)) => Cursor::restore(&cli_id, &new_lines),
         }
         .unwrap_or_else(|| Cursor::new(&new_lines));
+
+        // Cancelling jump returns to where it started, so that line has to be found again too.
+        if let Mode::Jump(jump_mode) = self
+            .mode
+            .get_mut_and_i_promise_not_to_switch_to_a_different_state()
+        {
+            jump_mode.return_cursor = jump_mode
+                .return_cursor
+                .restore_after_reload(&self.status_lines, &new_lines, self.flags.show_files)
+                .unwrap_or_else(|| Cursor::new(&new_lines));
+        }
 
         if close_empty_global_file_list_after_reload
             && !new_lines.iter().any(|line| {

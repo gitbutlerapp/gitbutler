@@ -252,15 +252,10 @@ impl StatusOutput<'_> {
         connector: Vec<Span<'static>>,
         id: Vec<Span<'static>>,
         suffix: Vec<Span<'static>>,
-        commit_id: gix::ObjectId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::MergeBase(MergeBaseLineContent {
-                id,
-                suffix,
-                commit_id,
-            }),
+            StatusOutputContent::MergeBase(MergeBaseLineContent { id, suffix }),
             StatusOutputLineData::MergeBase,
         )
     }
@@ -293,7 +288,6 @@ pub enum StatusOutputContent {
 pub struct MergeBaseLineContent {
     pub id: Vec<Span<'static>>,
     pub suffix: Vec<Span<'static>>,
-    pub commit_id: gix::ObjectId,
 }
 
 #[derive(Debug, Default, Clone)]

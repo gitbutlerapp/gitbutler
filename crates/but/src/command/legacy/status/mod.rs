@@ -1310,7 +1310,6 @@ fn print_common_merge_base_summary(
             t.hint,
         )]),
         summary,
-        common_merge_base.commit_id,
     )?;
     Ok(())
 }

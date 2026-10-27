@@ -196,19 +196,18 @@ fn sibling_worktree_lanes_are_separated_after_uncommitted_files() {
     ]);
 }
 
-/// An ambiguous worktree ID needs Enter, leaving its uncommitted area reachable by typing ':'.
+/// The worktree's uncommitted area `wt:@` also matches `wt`, but the branch's exact ID wins.
 #[test]
 fn jump_to_a_worktree_reference_despite_its_area_extending_the_id() {
     let (mut tui, _editor) = worktree_tui();
 
     tui.reload();
     tui.input('/');
-    // Neither worktree heading is an immediate target while both share the prefix.
-    tui.input('w').assert_rendered_term_svg_eq(file![
-        "snapshots/jump_to_a_worktree_reference_despite_its_area_extending_the_id_001.svg"
-    ]);
-    tui.input('t')
-        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
+    tui.input("wt")
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/jump_to_a_worktree_reference_despite_its_area_extending_the_id_001.svg"
+        ]);
     tui.input(KeyCode::Enter)
         .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
 }
@@ -219,7 +218,8 @@ fn jump_to_a_worktree_uncommitted_area() {
 
     tui.reload();
     tui.input('/');
-    tui.input("wt:")
+    tui.input("wt:");
+    tui.input(KeyCode::Enter)
         .assert_current_line_eq(str!["┊┊╭┄ wt:@ [uncommitted] {wt}"]);
 
     // Confirming the exact branch ID must win even when the area is already selected.
@@ -238,7 +238,8 @@ fn jump_to_a_file_that_is_also_dirty_in_the_main_worktree() {
 
     tui.reload();
     tui.input('/');
-    tui.input("ok")
+    tui.input("ok");
+    tui.input(KeyCode::Enter)
         .assert_current_line_eq(str!["┊┊┊   ok A wt-file.txt"]);
 }
 
