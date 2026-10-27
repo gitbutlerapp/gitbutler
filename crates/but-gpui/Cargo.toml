@@ -94,25 +94,8 @@ syntect = { version = "5.3.0", default-features = false, features = ["parsing", 
 two-face = { version = "0.5.2", default-features = false, features = ["syntect-fancy"] }
 # Decodes a diff's images, shrunk to the size they're shown at.
 image = { version = "0.25.1", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
-# Word-level emphasis and tree-sitter scope breadcrumbs for diffs. GitButler's fork, whose
-# features leave out bat (an LGPL dependency and a second syntax set) and the grammars that
-# cost the most for the least: Kotlin, C++, SQL, Ruby and Bash diffs go without breadcrumbs.
-deltoids = { git = "https://github.com/gitbutlerapp/deltoids", rev = "b1558f1aec39ed4f3d1a76988d563423579e8c12", default-features = false, features = [
-    "lang-c",
-    "lang-css",
-    "lang-go",
-    "lang-hcl",
-    "lang-java",
-    "lang-javascript",
-    "lang-json",
-    "lang-lua",
-    "lang-markdown",
-    "lang-python",
-    "lang-rust",
-    "lang-toml",
-    "lang-typescript",
-    "lang-yaml",
-] }
+# Word-level emphasis and tree-sitter scope breadcrumbs for diffs. Release 0.17.0.
+deltoids = { git = "https://github.com/juanibiapina/deltoids", rev = "b797d011ecc6b733025461cc98fae6f9f8719429" }
 # Pull request descriptions as formatted text. Only its parser: none of its HTML output.
 pulldown-cmark = { version = "0.13.4", default-features = false }
 
