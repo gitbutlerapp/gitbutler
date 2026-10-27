@@ -18,11 +18,13 @@ pub mod window_controls;
 pub mod window_frame;
 
 use std::borrow::Cow;
+use std::ops::Range;
 
 use gpui::{
     Action, AnyElement, App, AssetSource, ClickEvent, Context, CursorStyle, Div, DragMoveEvent,
-    ElementId, EmptyView, Entity, Hsla, MouseButton, MouseDownEvent, Pixels, Point, Rems, Role,
-    SharedString, Stateful, Svg, Toggled, Window, div, prelude::*, rems, svg,
+    ElementId, EmptyView, Entity, HighlightStyle, Hsla, MouseButton, MouseDownEvent, Pixels, Point,
+    Rems, Role, SharedString, Stateful, StyledText, Svg, Toggled, UnderlineStyle, Window, div,
+    prelude::*, rems, svg,
 };
 
 use crate::state::{Pane, Store};
@@ -415,6 +417,22 @@ pub fn faint(text: impl IntoElement, theme: &Theme) -> Div {
         .text_size(dp(11.))
         .text_color(theme.text_3)
         .child(text)
+}
+
+/// `text` with the letters a search found in it underlined, so a list shows why each row is
+/// there. `found` are byte ranges of `text`, in order and apart.
+pub fn matched(
+    text: impl Into<SharedString>,
+    found: impl IntoIterator<Item = Range<usize>>,
+) -> StyledText {
+    let underline = HighlightStyle {
+        underline: Some(UnderlineStyle {
+            thickness: fixed(1.),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    StyledText::new(text).with_highlights(found.into_iter().map(|range| (range, underline)))
 }
 
 /// The heading over a group of rows.

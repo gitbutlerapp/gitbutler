@@ -1,6 +1,8 @@
 //! The command palette (⌘K): every action that applies where focus was, with its keys,
 //! filtered as you type. It doubles as the list of shortcuts, as in Lite and Zed.
 
+use std::ops::Range;
+
 use gpui::{
     Action, AnyElement, ClickEvent, Context, Entity, FocusHandle, Focusable as _, ScrollHandle,
     SharedString, Subscription, Window, actions, div, prelude::*,
@@ -26,7 +28,7 @@ use crate::theme::Theme;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    POPOVER_RADIUS, dp, h_flex, keycap, list_row, muted, popover, shortcut_here, v_flex,
+    POPOVER_RADIUS, dp, h_flex, keycap, list_row, matched, muted, popover, shortcut_here, v_flex,
 };
 
 actions!(
@@ -226,33 +228,55 @@ impl Palette {
     }
 }
 
-/// How well `query` matches `label`: all of it beats the start of a word, which beats the
-/// middle of one, which beats a scattered match, and earlier beats later. `None` when the
-/// letters don't appear in order.
-fn score(label: &str, query: &str) -> Option<i32> {
+/// A choice the query finds, with the letters it found to underline: in its label, or in its
+/// detail when that matched better.
+struct Found {
+    ix: usize,
+    label: Vec<Range<usize>>,
+    detail: Vec<Range<usize>>,
+}
+
+/// How well `query` matches `label`, and the byte ranges of `label` it matched: all of it
+/// beats the start of a word, which beats the middle of one, which beats a scattered match,
+/// and earlier beats later. `None` when the letters don't appear in order.
+fn score(label: &str, query: &str) -> Option<(i32, Vec<Range<usize>>)> {
     if query.is_empty() {
-        return Some(0);
+        return Some((0, Vec::new()));
     }
-    let label = label.to_lowercase();
-    let query = query.to_lowercase();
+    // Compared a character at a time, so what's found keeps its place in `label`.
+    let lower = |c: char| c.to_lowercase().next().unwrap_or(c);
+    let letters: Vec<(Range<usize>, char)> = (label.char_indices())
+        .map(|(at, c)| (at..at + c.len_utf8(), lower(c)))
+        .collect();
+    let query: Vec<char> = query.chars().map(lower).collect();
     // A branch named in full, as `min-size`, before the ones it starts, as `min-size-docs`.
-    if label == query {
-        return Some(3000);
+    if letters.iter().map(|(_, c)| c).eq(&query) {
+        let all = 0..label.len();
+        return Some((3000, vec![all]));
     }
-    if let Some((at, _)) = label
-        .match_indices(&query)
-        .find(|(at, _)| *at == 0 || label.get(..*at).is_some_and(|head| head.ends_with(' ')))
-    {
-        return Some(2000 - at as i32);
+    // Where all of it appears: the letter it starts at, and the bytes it covers.
+    let whole: Vec<(usize, Range<usize>)> = (letters.windows(query.len()).enumerate())
+        .filter(|(_, run)| run.iter().map(|(_, c)| c).eq(&query))
+        .filter_map(|(at, run)| Some((at, run.first()?.0.start..run.last()?.0.end)))
+        .collect();
+    let starts_word = |at: usize| at == 0 || letters.get(at - 1).is_some_and(|(_, c)| *c == ' ');
+    if let Some((at, range)) = whole.iter().find(|(at, _)| starts_word(*at)) {
+        return Some((2000 - *at as i32, vec![range.clone()]));
     }
-    if let Some(at) = label.find(&query) {
-        return Some(1000 - at as i32);
+    if let Some((at, range)) = whole.first() {
+        return Some((1000 - *at as i32, vec![range.clone()]));
     }
-    let mut chars = label.chars();
-    query
-        .chars()
-        .all(|wanted| chars.any(|c| c == wanted))
-        .then_some(0)
+    // Each letter at the first place it appears after the one before, neighbours in one range.
+    let mut rest = letters.iter();
+    let mut found: Vec<Range<usize>> = Vec::new();
+    for wanted in &query {
+        let (range, _) = rest.find(|(_, c)| c == wanted)?;
+        match found.last_mut() {
+            Some(last) if last.end == range.start => last.end = range.end,
+            _ => found.push(range.clone()),
+        }
+    }
+    Some((0, found))
 }
 
 /// What ⇧Y offers to copy from `selection`, labelled, the first what y copies.
@@ -556,36 +580,61 @@ impl AppView {
         cx.notify();
     }
 
-    fn matches(&self, cx: &gpui::App) -> Vec<usize> {
+    fn matches(&self, cx: &gpui::App) -> Vec<Found> {
         let Some(palette) = &self.palette else {
             return Vec::new();
         };
         let query = palette.input.read(cx).text().trim().to_owned();
         let taken =
             (palette.choices.iter()).any(|c| !c.names && c.label.eq_ignore_ascii_case(&query));
-        let mut scored: Vec<(i32, usize)> = palette
+        let mut scored: Vec<(i32, Found)> = palette
             .choices
             .iter()
             .enumerate()
             .filter_map(|(ix, choice)| {
                 // Last, under what the text finds.
                 if choice.names && !query.is_empty() {
-                    return (!taken).then_some((-1, ix));
+                    let found = Found {
+                        ix,
+                        label: Vec::new(),
+                        detail: Vec::new(),
+                    };
+                    return (!taken).then_some((-1, found));
                 }
+                let label = score(&choice.label, &query);
                 // The label first on a tie, as a branch named as another's detail says.
                 let detail = (choice.detail.as_ref())
                     .and_then(|detail| score(detail, &query))
-                    .map(|score| score - 1);
-                let score = score(&choice.label, &query).max(detail)?;
+                    .map(|(score, found)| (score - 1, found))
+                    .filter(|(score, _)| label.as_ref().is_none_or(|(label, _)| score > label));
+                let (score, found) = match (label, detail) {
+                    (_, Some((score, detail))) => (
+                        score,
+                        Found {
+                            ix,
+                            label: Vec::new(),
+                            detail,
+                        },
+                    ),
+                    (Some((score, label)), None) => (
+                        score,
+                        Found {
+                            ix,
+                            label,
+                            detail: Vec::new(),
+                        },
+                    ),
+                    (None, None) => return None,
+                };
                 // One that throws work away shows for its words, not for letters scattered
                 // through it, so typing a command missing here doesn't land on it.
                 let scattered = score == 0 && !query.is_empty();
-                (!scattered || !choice.risky).then_some((score, ix))
+                (!scattered || !choice.risky).then_some((score, found))
             })
             .collect();
         // Stable, so equal scores keep the recent-first order.
         scored.sort_by_key(|(score, _)| -score);
-        scored.into_iter().map(|(_, ix)| ix).collect()
+        scored.into_iter().map(|(_, found)| found).collect()
     }
 
     fn run_command(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) {
@@ -606,8 +655,8 @@ impl AppView {
 
     fn run_selected(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let selected = self.palette.as_ref().map_or(0, |p| p.selected);
-        if let Some(&ix) = self.matches(cx).get(selected) {
-            self.run_command(ix, window, cx);
+        if let Some(found) = self.matches(cx).get(selected) {
+            self.run_command(found.ix, window, cx);
         }
     }
 
@@ -633,21 +682,21 @@ impl AppView {
         let matches = self.matches(cx);
         let typed = palette.input.read(cx).text().trim().to_owned();
         let rows: Vec<AnyElement> = matches
-            .iter()
+            .into_iter()
             .enumerate()
-            .filter_map(|(row, &ix)| {
+            .filter_map(|(row, found)| {
+                let ix = found.ix;
                 let choice = palette.choices.get(ix)?;
                 let selected = row == palette.selected;
+                let label: SharedString = match choice.names && !typed.is_empty() {
+                    true => format!("{} \"{typed}\"", choice.label).into(),
+                    false => choice.label.clone(),
+                };
                 let el = list_row(("command", ix), selected, &theme)
                     .gap(dp(12.))
-                    .child(div().flex_1().truncate().child(
-                        match choice.names && !typed.is_empty() {
-                            true => format!("{} \"{typed}\"", choice.label).into(),
-                            false => choice.label.clone(),
-                        },
-                    ))
+                    .child(div().flex_1().truncate().child(matched(label, found.label)))
                     .when_some(choice.detail.clone(), |el, detail| {
-                        el.child(muted(detail, &theme))
+                        el.child(muted(matched(detail, found.detail), &theme))
                     })
                     .when_some(choice.key.clone(), |el, key| el.child(keycap(&key, &theme)))
                     .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
@@ -744,9 +793,33 @@ mod tests {
 
     #[test]
     fn a_name_typed_in_full_comes_before_the_longer_ones_it_starts() {
+        let rank = |label| score(label, "min-size").map(|(score, _)| score);
         assert!(
-            score("min-size", "min-size") > score("min-size-docs", "min-size"),
+            rank("min-size") > rank("min-size-docs"),
             "Enter takes the first, so it must be the one named"
+        );
+    }
+
+    #[test]
+    fn the_letters_found_are_the_ones_underlined() {
+        let underlined = |label: &'static str, query| -> Option<Vec<&str>> {
+            let (_, found) = score(label, query)?;
+            found.into_iter().map(|range| label.get(range)).collect()
+        };
+        assert_eq!(
+            underlined("Open pull request", "PULL"),
+            Some(vec!["pull"]),
+            "a word typed in any case underlines that word"
+        );
+        assert_eq!(
+            underlined("Next hunk", "nhu"),
+            Some(vec!["N", "hu"]),
+            "scattered letters underline each, neighbours as one"
+        );
+        assert_eq!(
+            underlined("Über-Änderung", "üänd"),
+            Some(vec!["Ü", "Änd"]),
+            "ranges are bytes of the label as shown, so a letter two bytes long stays whole"
         );
     }
 
