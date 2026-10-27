@@ -163,8 +163,8 @@ pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<Hoo
                     if code == 0 {
                         HookResult::Success
                     } else {
-                        // If the output contains GITBUTLER_ERROR, it's our managed hook blocking
-                        // commits on gitbutler/workspace - this is expected behavior, not a failure
+                        // If the output contains GITBUTLER_ERROR, it's the hook an older GitButler
+                        // installed to block commits on gitbutler/workspace - not a failure
                         if stdout.contains("GITBUTLER_ERROR") || stderr.contains("GITBUTLER_ERROR")
                         {
                             HookResult::Success
