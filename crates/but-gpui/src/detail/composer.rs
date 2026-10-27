@@ -737,9 +737,6 @@ impl Detail {
             move |this, input, event, window, cx| match event {
                 InputEvent::Submit => {
                     let message = input.read(cx).text().trim().to_owned();
-                    if message.is_empty() {
-                        return snack(&this.store, "Write a commit message first", cx);
-                    }
                     // Unchanged, rewording would only give it and the commits above it new ids.
                     if message == opened {
                         this.rewording = None;
@@ -835,11 +832,6 @@ impl Detail {
             return;
         }
         let message = self.message.read(cx).text().trim().to_owned();
-        if message.is_empty() {
-            snack(&self.store, "Write a commit message first", cx);
-            self.focus_message(window, cx);
-            return;
-        }
         if self.choices_loading(&project, cx) {
             return;
         }

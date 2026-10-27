@@ -1810,7 +1810,7 @@ impl Detail {
     /// Commit what the open composer has once its message is written; until then, go to
     /// the message box.
     pub fn commit_or_write(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.composing && !self.message.read(cx).text().trim().is_empty() {
+        if self.composing {
             self.commit(window, cx)
         } else {
             self.focus_message(window, cx)
