@@ -19,15 +19,19 @@ impl SettingsView {
         self._credentials_test = Task::ready(());
     }
 
-    /// Read the shown project's settings. What's shown of them stays until they're read, so
-    /// reading them again doesn't flash Loading, and the name field keeps what it holds: a
-    /// new name reaches the store only once the project list is read again.
+    /// Read the shown project's settings, and its workspace once when it isn't watched, for
+    /// its target. What's shown of them stays until they're read, so reading them again
+    /// doesn't flash Loading, and the name field keeps what it holds: a new name reaches the
+    /// store only once the project list is read again.
     pub(super) fn load_project(&mut self, cx: &mut Context<Self>) {
-        let Some(path) =
-            (self.page.project()).and_then(|project| self.store.read(cx).path(project))
-        else {
+        let Some(project) = self.page.project().cloned() else {
             return;
         };
+        let Some(entry) = self.store.read(cx).project(&project) else {
+            return;
+        };
+        let path = entry.project.path.clone();
+        let unread = !entry.expanded && entry.workspace.is_none();
         self._load = cx.spawn(async move |this, cx| {
             let loaded = crate::backend::run(move || backend::project_settings(&path)).await;
             this.update(cx, |this, cx| {
@@ -35,6 +39,18 @@ impl SettingsView {
                 cx.notify();
             })
             .ok();
+            if unread {
+                // A moment later, as the store waits, so arrowing past projects not watched
+                // doesn't read each one: showing another drops this.
+                cx.background_executor()
+                    .timer(std::time::Duration::from_millis(150))
+                    .await;
+                this.update(cx, |this, cx| {
+                    this.store
+                        .update(cx, |store, cx| store.reload(&project, cx))
+                })
+                .ok();
+            }
         });
     }
 
