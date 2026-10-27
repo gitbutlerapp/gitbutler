@@ -674,6 +674,64 @@ pub fn remove_branch(path: &Path, ref_name: &FullName, tip: Option<CommitId>) ->
     Ok(())
 }
 
+/// Delete `ref_name` with its commits, in one step that one undo takes back, as `but branch
+/// delete` does: for the only named branch of its stack, as [`remove_branch`] keeps the
+/// commits, which need another branch to hold them. A workspace left with one stack checks
+/// that out, as unapplying does. One whose newest commit is no longer `tip` stays: its new
+/// commits would go too.
+pub fn delete_branch_and_commits(path: &Path, ref_name: &FullName, tip: CommitId) -> Result<()> {
+    use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
+    let mut ctx = open(path)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let mut meta = ctx.meta()?;
+    let perm = guard.write_permission();
+    let commits: Vec<gix::ObjectId> = {
+        let (_, ws, _) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+        // Checked out on its own, HEAD would be left on nothing.
+        if !ws.kind.has_managed_ref() {
+            bail!("{} is checked out on its own", short_ref(ref_name));
+        }
+        let segment = (ws.try_find_segment_by_refname(ref_name.as_ref()))
+            .with_context(|| format!("{} isn't applied any more", short_ref(ref_name)))?;
+        segment.commits.iter().map(|commit| commit.id).collect()
+    };
+    if commits.first() != Some(&tip.0) {
+        bail!(
+            "{} changed since you asked, so it wasn't deleted",
+            short_ref(ref_name)
+        );
+    }
+    // It names the branch, so undo brings it back.
+    let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
+        &ctx,
+        SnapshotDetails::new(OperationKind::DeleteBranch)
+            .with_trailers([Trailer::Name(ref_name.to_string())]),
+        &[ref_name.as_ref()],
+        perm.read_permission(),
+        DryRun::No,
+    );
+    let (rolled_back, _) = but_transaction::with_transaction_with_perm_only(
+        &mut ctx,
+        &mut meta,
+        perm,
+        DryRun::No,
+        |mut tx| {
+            tx.discard_commits(commits)?;
+            tx.remove_reference(ref_name.as_ref())?;
+            Ok(but_transaction::Commit(()))
+        },
+    )?;
+    if !rolled_back && let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(&ctx, perm)) {
+        tracing::warn!(?err, "couldn't record the deleted branch for undo");
+    }
+    let (mut repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    // The transaction leaves Git's `branch.<name>` section, as its upstream and description,
+    // which a branch made later under its name would take on.
+    but_workspace::branch::remove_reference::delete_local_branch(&mut repo, ref_name.as_ref())?;
+    but_workspace::branch::dissolve_unnecessary_workspace(&ws, &repo, &meta, Default::default())?;
+    Ok(())
+}
+
 /// Add the `selected` changes of the main checkout, or of the linked `worktree`, to
 /// `commit`. With `run_hooks`, pre-commit runs first and can refuse, and post-commit runs
 /// after, as the desktop app does; what a failed post-commit printed comes back as the
@@ -2801,6 +2859,87 @@ pub(super) mod tests {
             assert!(
                 !git(path, &["branch", "--list", "side"]).is_empty(),
                 "the branch and its new commit stay"
+            );
+        })
+    }
+
+    #[test]
+    fn a_lone_branch_goes_with_its_commits_and_undoes() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "feature"]);
+            std::fs::write(path.join("feature.txt"), "work\n").unwrap();
+            git(path, &["add", "feature.txt"]);
+            git(path, &["commit", "-q", "-m", "feature work"]);
+            let work = head(path);
+            git(path, &["config", "branch.feature.remote", "origin"]);
+            git(
+                path,
+                &["config", "branch.feature.merge", "refs/heads/feature"],
+            );
+            git(path, &["config", "branch.feature.description", "Why"]);
+            create_branch(path, Some("second")).unwrap();
+            let head_ref = |path: &Path| git(path, &["symbolic-ref", "HEAD"]).trim().to_owned();
+            assert_eq!(head_ref(path), "refs/heads/gitbutler/workspace");
+
+            delete_branch_and_commits(path, &full("refs/heads/feature"), work).unwrap();
+            assert!(
+                git(path, &["branch", "--list", "feature"]).is_empty(),
+                "the branch is gone"
+            );
+            let config = Command::new("git")
+                .current_dir(path)
+                .args(["config", "--get-regexp", r"^branch\.feature\."])
+                .output()
+                .unwrap();
+            assert!(
+                config.stdout.is_empty(),
+                "so is its configuration, which a new branch of its name would take on: {:?}",
+                String::from_utf8_lossy(&config.stdout)
+            );
+            assert!(
+                !path.join("feature.txt").exists(),
+                "and what its commit changed with it"
+            );
+            assert_eq!(
+                head_ref(path),
+                "refs/heads/second",
+                "the one branch left is checked out, as after unapplying"
+            );
+
+            let last = crate::backend::history::oplog_head(path).unwrap();
+            crate::backend::history::undo_snapshot(path, last, None).unwrap();
+            assert_eq!(
+                git(path, &["rev-parse", "feature"]).trim(),
+                work.0.to_string(),
+                "one undo brings the branch back with its commit"
+            );
+            assert!(path.join("feature.txt").exists(), "and its file");
+            assert_eq!(head_ref(path), "refs/heads/gitbutler/workspace");
+        })
+    }
+
+    #[test]
+    fn a_branch_checked_out_on_its_own_keeps_its_commits() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "not pushed"]);
+            let tip = head(path);
+
+            let refused =
+                delete_branch_and_commits(path, &full("refs/heads/main"), tip).unwrap_err();
+            assert!(
+                format!("{refused:#}").contains("checked out on its own"),
+                "there's no workspace to leave it for: {refused:#}"
+            );
+            assert_eq!(head(path), tip, "main and its commit stay");
+            assert_eq!(
+                git(path, &["symbolic-ref", "HEAD"]).trim(),
+                "refs/heads/main"
             );
         })
     }
