@@ -321,3 +321,147 @@ fn branch_remove_of_the_second_to_last_lane_leaves_the_workspace() -> anyhow::Re
     assert!(repo.try_find_reference(lane.as_ref())?.is_some());
     Ok(())
 }
+
+/// A linked worktree at `wt` with `below` checked out, holding one commit of its own over the
+/// target, with the worktree kept active.
+fn worktree_on_a_branch_of_its_own(
+    ctx: &mut but_ctx::Context,
+    main_worktree: &std::path::Path,
+) -> anyhow::Result<(tempfile::TempDir, std::path::PathBuf)> {
+    // Adoption runs before the worktree exists, so it starts out active.
+    but_api::worktrees::worktrees_list(ctx)?;
+    git_at_dir(main_worktree).args(["branch", "below"]).run();
+    let dir = checkout_branch_in_linked_worktree(main_worktree, "below")?;
+    let path = dir.path().join("wt");
+    git_at_dir(&path)
+        .args(["commit", "--allow-empty", "-m", "below"])
+        .run();
+    Ok((dir, path))
+}
+
+#[test]
+fn branch_remove_of_a_linked_worktrees_empty_tip_checks_out_the_branch_below() -> anyhow::Result<()>
+{
+    let (repo, tmp) = repo_with_feature_branch()?;
+    persist_default_target(&repo)?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let (_dir, worktree) = worktree_on_a_branch_of_its_own(&mut ctx, tmp.path())?;
+    let below = gix::refs::FullName::try_from("refs/heads/below")?;
+    let tip = gix::refs::FullName::try_from("refs/heads/tip")?;
+    let at = gix::open(&worktree)?.head_id()?.detach();
+    create_empty_branch_above(&mut ctx, &tip, &below)?;
+    assert_eq!(
+        gix::open(&worktree)?.head_name()?,
+        Some(tip.clone()),
+        "the worktree checks out the branch made on top of its own"
+    );
+
+    but_api::branch::branch_remove(&mut ctx, tip.clone())?;
+
+    let linked = gix::open(&worktree)?;
+    assert_eq!(
+        linked.head_name()?,
+        Some(below),
+        "the worktree is back on the branch below"
+    );
+    assert_eq!(linked.head_id()?, at, "which is where it was");
+    assert!(ctx.repo.get()?.try_find_reference(tip.as_ref())?.is_none());
+    Ok(())
+}
+
+#[test]
+fn branch_remove_of_a_linked_worktrees_tip_hands_its_commits_to_the_branch_below()
+-> anyhow::Result<()> {
+    let (repo, tmp) = repo_with_feature_branch()?;
+    persist_default_target(&repo)?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let (_dir, worktree) = worktree_on_a_branch_of_its_own(&mut ctx, tmp.path())?;
+    let below = gix::refs::FullName::try_from("refs/heads/below")?;
+    let tip = gix::refs::FullName::try_from("refs/heads/tip")?;
+    git_at_dir(&worktree).args(["switch", "-c", "tip"]).run();
+    write_file(&worktree, "tip.txt", "tip\n")?;
+    git_at_dir(&worktree).args(["add", "tip.txt"]).run();
+    git_at_dir(&worktree).args(["commit", "-m", "tip"]).run();
+    let tip_commit = gix::open(&worktree)?.head_id()?.detach();
+
+    but_api::branch::branch_remove(&mut ctx, tip.clone())?;
+
+    let linked = gix::open(&worktree)?;
+    assert_eq!(linked.head_name()?, Some(below.clone()));
+    assert_eq!(
+        linked.head_id()?,
+        tip_commit,
+        "the branch below takes over the commit, so nothing is lost"
+    );
+    let status = git_at_dir(&worktree)
+        .args(["status", "--porcelain"])
+        .output()?;
+    assert!(
+        status.stdout.is_empty() && worktree.join("tip.txt").exists(),
+        "and the worktree's files stay as they were"
+    );
+    assert!(ctx.repo.get()?.try_find_reference(tip.as_ref())?.is_none());
+
+    let err = but_api::branch::branch_remove(&mut ctx, below.clone())
+        .expect_err("the worktree has no other branch to check out");
+    assert!(
+        err.to_string().contains("checked out"),
+        "unexpected error: {err}"
+    );
+    assert_eq!(gix::open(&worktree)?.head_name()?, Some(below));
+    Ok(())
+}
+
+#[test]
+fn branch_remove_of_a_linked_worktrees_tip_refuses_when_its_branches_moved_meanwhile()
+-> anyhow::Result<()> {
+    for moved in ["tip", "below"] {
+        let (repo, tmp) = repo_with_feature_branch()?;
+        persist_default_target(&repo)?;
+        let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        let (_dir, worktree) = worktree_on_a_branch_of_its_own(&mut ctx, tmp.path())?;
+        let tip = gix::refs::FullName::try_from("refs/heads/tip")?;
+        git_at_dir(&worktree).args(["switch", "-c", "tip"]).run();
+        git_at_dir(&worktree)
+            .args(["commit", "--allow-empty", "-m", "tip"])
+            .run();
+        {
+            let guard = ctx.shared_worktree_access();
+            drop(ctx.workspace_and_db_with_perm(guard.read_permission())?);
+        }
+        // After the workspace was read, an agent commits on `tip`, or another process moves
+        // `below`.
+        if moved == "tip" {
+            git_at_dir(&worktree)
+                .args(["commit", "--allow-empty", "-m", "late"])
+                .run();
+        } else {
+            git_at_dir(tmp.path())
+                .args(["branch", "-f", "below", "main"])
+                .run();
+        }
+        let tips = |ctx: &but_ctx::Context| -> anyhow::Result<Vec<gix::ObjectId>> {
+            let repo = ctx.repo.get()?;
+            ["refs/heads/tip", "refs/heads/below"]
+                .into_iter()
+                .map(|name| Ok(repo.find_reference(name)?.peel_to_id()?.detach()))
+                .collect()
+        };
+        let before = tips(&ctx)?;
+
+        but_api::branch::branch_remove(&mut ctx, tip.clone())
+            .expect_err("a branch moved since the workspace was read");
+
+        assert_eq!(
+            gix::open(&worktree)?.head_name()?,
+            Some(tip),
+            "the worktree stays, after {moved} moved"
+        );
+        assert_eq!(
+            tips(&ctx)?,
+            before,
+            "and both branches stay where they are now"
+        );
+    }
+    Ok(())
+}

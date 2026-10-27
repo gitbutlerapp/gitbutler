@@ -301,7 +301,9 @@ export declare function branchNameSegment(projectId: string, checkout: ChangesSo
  * ad-hoc/single-branch workspace it can also remove the currently checked-out
  * reference: when that reference owns no commits and has another named
  * reference underneath it, `HEAD` is first moved onto the reference below (the
- * reverse of creating an empty branch above the checked-out one). Like unapply,
+ * reverse of creating an empty branch above the checked-out one). A linked
+ * worktree with `ref_name` checked out likewise moves onto the next named branch
+ * down its lane, which takes over `ref_name`'s commits. Like unapply,
  * leaving a managed workspace with one lane checks out that lane, or with none
  * the local target branch, and deletes the workspace reference. For lower-level
  * implementation details, see

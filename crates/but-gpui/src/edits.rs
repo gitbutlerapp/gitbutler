@@ -694,12 +694,15 @@ impl AppView {
         else {
             return;
         };
-        // A linked worktree keeps the branch it has checked out; the ones stacked under it
-        // can go, their commits joining it.
+        // A linked worktree keeps the branch it has checked out while there's no named one below
+        // for it to check out instead, which then takes over its commits. The ones stacked under
+        // it can go, their commits joining it.
         let selection = Selection::Branch(project.clone(), Some(ref_name.clone()));
         let linked = store.in_linked(&selection);
-        if at == 0 && linked {
-            let message = format!("{name} is checked out in a worktree, which keeps it");
+        if at == 0 && linked && !lane.iter().skip(1).any(|b| b.ref_name.is_some()) {
+            let message = format!(
+                "{name} is checked out in a worktree, which has no other branch to check out"
+            );
             return snack(&self.store, message, cx);
         }
         // Only the ref goes. Its commits stay in the stack while another named branch can hold
@@ -774,13 +777,17 @@ impl AppView {
         };
         // What the user saw on top, so new commits made meanwhile aren't dropped unseen.
         let tip = (commits.first()).filter(|_| with_commits).map(|c| c.id);
+        // One that can't be undone refuses if it moved since it was asked about.
+        let asked = (lane.iter().skip(at).flat_map(|b| &b.commits).next())
+            .filter(|_| !undoable)
+            .map(|c| c.id);
         let run = then_run(
             project,
             "Delete branch",
             overlay,
             move |path, _| match tip {
                 Some(tip) => backend::delete_branch_and_commits(path, &ref_name, tip),
-                None => backend::remove_branch(path, &ref_name, None),
+                None => backend::remove_branch(path, &ref_name, asked),
             },
             move |store, (), cx| store.snack_after(undoable, deleted, cx),
         );

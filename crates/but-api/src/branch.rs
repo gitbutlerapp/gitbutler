@@ -1132,7 +1132,9 @@ pub fn branch_name_segment_with_perm(
 /// ad-hoc/single-branch workspace it can also remove the currently checked-out
 /// reference: when that reference owns no commits and has another named
 /// reference underneath it, `HEAD` is first moved onto the reference below (the
-/// reverse of creating an empty branch above the checked-out one). Like unapply,
+/// reverse of creating an empty branch above the checked-out one). A linked
+/// worktree with `ref_name` checked out likewise moves onto the next named branch
+/// down its lane, which takes over `ref_name`'s commits. Like unapply,
 /// leaving a managed workspace with one lane checks out that lane, or with none
 /// the local target branch, and deletes the workspace reference. For lower-level
 /// implementation details, see
@@ -1247,6 +1249,49 @@ pub fn branch_remove_with_perm(
         branch_checkout_with_perm_only(ctx, below, perm)?;
     }
 
+    // A linked worktree with `ref_name` checked out moves onto the next named branch down its
+    // lane, which takes over the commits above it, so the worktree stays on the same commit and
+    // its files don't change. The editor refuses if the worktree moved since the workspace was
+    // read.
+    let moved_worktree = {
+        let mut meta = ctx.meta()?;
+        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let below = (ws.worktrees.iter())
+            .find(|wt| wt.ref_name.as_ref() == Some(&ref_name))
+            .map(|worktree| {
+                let Some((below, segment)) = (worktree.segments.iter().skip(1))
+                    .find_map(|s| Some((s.ref_name()?.to_owned(), s.id)))
+                else {
+                    bail_precondition!(
+                        "Cannot remove '{}': it is checked out in worktree '{}', which has no \
+                         other branch to check out",
+                        ref_name.shorten(),
+                        worktree.name
+                    );
+                };
+                let tip = (ws.tip_commit_by_segment_id(segment))
+                    .with_context(|| format!("'{}' has no commit", below.shorten()))?
+                    .id;
+                anyhow::Ok((below, tip))
+            })
+            .transpose()?;
+        if let Some((below, below_tip)) = &below {
+            let mut editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+            let below_step = editor.select_reference(below.as_ref())?;
+            editor.replace_with_none(below_step)?;
+            let checked_out = editor.select_reference(ref_name.as_ref())?;
+            editor.replace_reference(checked_out, below.clone())?;
+            let rebase = editor.rebase()?;
+            // The rebase expects `below` where it is now, so it must still be where the
+            // workspace was read.
+            if repo.find_reference(below.as_ref())?.peel_to_id()? != *below_tip {
+                bail!("'{}' moved since the workspace was read", below.shorten());
+            }
+            rebase.materialize(Default::default())?;
+        }
+        below.is_some()
+    };
+
     let mut meta = ctx.meta()?;
     let (mut repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let new_ws = if moved_head {
@@ -1278,13 +1323,14 @@ pub fn branch_remove_with_perm(
         true
     } else {
         // Standalone branches are intentionally absent from the workspace
-        // projection, as is a checked-out tip after moving HEAD below it.
+        // projection, as is a checked-out tip after moving HEAD below it. A linked
+        // worktree's is gone already, which leaves only its configuration here.
         let deleted_ref = but_workspace::branch::remove_reference::delete_local_branch(
             &mut repo,
             ref_name.as_ref(),
         )?;
         let deleted_meta = meta.remove(ref_name.as_ref())?;
-        if deleted_ref || deleted_meta {
+        if deleted_ref || deleted_meta || moved_worktree {
             let new_ws = ws
                 .graph
                 .redo_traversal_with_overlay(&repo, &meta, Default::default())?

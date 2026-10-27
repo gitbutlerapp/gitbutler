@@ -395,12 +395,13 @@ impl Navigator {
                         app.copy_text(name.clone(), cx)
                     }),
                 ]);
-                // A linked worktree keeps the branch it has checked out, its lane's top one.
-                let checked_out = linked
-                    && workspace
-                        .lane_of(Some(ref_name))
-                        .is_some_and(|(_, at)| at == 0);
-                if !checked_out {
+                // A linked worktree keeps the branch it has checked out, its lane's top one,
+                // while there's no named one below for it to check out instead.
+                let kept = linked
+                    && workspace.lane_of(Some(ref_name)).is_some_and(|(lane, at)| {
+                        at == 0 && !lane.branches.iter().skip(1).any(|b| b.ref_name.is_some())
+                    });
+                if !kept {
                     items.push(action("Delete branch", &DeleteSelection).danger());
                 }
                 items
