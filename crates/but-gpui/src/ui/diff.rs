@@ -12,7 +12,9 @@ use gpui::{
 use super::conflict::{self, Part};
 use super::file_icons::file_icon;
 use super::{Icon, dp, faint, fixed, h_flex, plural, small_icon, v_flex};
-use crate::backend::{ChangeKind, Conflict, DiffBody, DiffLine, FileDiff, Hunk, LineKind, Picture};
+use crate::backend::{
+    ChangeKind, Conflict, DiffBody, DiffLine, FileDiff, Hunk, LineKind, Picture, scope_name,
+};
 use crate::theme::Theme;
 
 pub const FILE_HEADER_HEIGHT: f32 = 38.;
@@ -569,9 +571,39 @@ pub fn unmodified_before(hunks: &[Hunk], ix: usize) -> u32 {
         .saturating_sub(from)
 }
 
+/// The scopes hunk `ix` of `hunks` names in its header: the ones it changes, less those on
+/// screen already. These are the outer ones the hunk before shares when none of the lines
+/// between them are left out, as `unmodified` counts them, and the inner ones whose first
+/// line shows above the hunk's changes. `around` says whether [`rows`] draws the lines a
+/// scope adds around each hunk, as it doesn't among conflicts; without them it names all.
+pub fn named_scopes(hunks: &[Hunk], ix: usize, unmodified: u32, around: bool) -> &[String] {
+    let Some(hunk) = hunks.get(ix) else {
+        return &[];
+    };
+    if !around {
+        return &hunk.scope;
+    }
+    let shared = match ix.checked_sub(1).and_then(|previous| hunks.get(previous)) {
+        Some(previous) if unmodified == 0 => (hunk.scope.iter())
+            .zip(&previous.scope)
+            .take_while(|(scope, previous)| scope == previous)
+            .count(),
+        _ => 0,
+    };
+    let before_changes = (hunk.lines.iter()).take_while(|line| line.kind == LineKind::Context);
+    let above: Vec<&str> = (hunk.lead.iter().chain(before_changes))
+        .map(|line| scope_name(&line.text))
+        .collect();
+    let rest = hunk.scope.get(shared..).unwrap_or_default();
+    let shown = (rest.iter().rev())
+        .take_while(|scope| above.contains(&scope.as_str()))
+        .count();
+    rest.get(..rest.len() - shown).unwrap_or_default()
+}
+
 /// The tab on a card's edge that marks the file or hunk the cursor is on, `solid` while the
 /// diff has the keys.
-fn cursor_tab(solid: bool, theme: &Theme) -> gpui::Div {
+pub fn cursor_tab(solid: bool, theme: &Theme) -> gpui::Div {
     div()
         .absolute()
         .left_0()
@@ -586,11 +618,18 @@ fn cursor_tab(solid: bool, theme: &Theme) -> gpui::Div {
 }
 
 /// Above a hunk's lines, as @pierre/diffs parts hunks: a grey box saying how many
-/// `unmodified` lines before it aren't shown, with the scopes the hunk changes.
-pub fn hunk_header(hunk: &Hunk, unmodified: u32, theme: &Theme, decor: HeaderDecor) -> AnyElement {
-    let title = match (unmodified, scopes(&hunk.scope, theme)) {
-        // Nothing hidden and no scope to name: the `@@` header says where the hunk is.
-        (0, None) => Some(
+/// `unmodified` lines before it aren't shown, with the scopes `named` of those it changes.
+pub fn hunk_header(
+    hunk: &Hunk,
+    unmodified: u32,
+    named: &[String],
+    theme: &Theme,
+    decor: HeaderDecor,
+) -> AnyElement {
+    let title = match (unmodified, scopes(named, theme)) {
+        // Nothing hidden and no scope to name: the `@@` header says where the hunk is,
+        // unless the lines around it name its scopes.
+        (0, None) if hunk.scope.is_empty() => Some(
             div()
                 .font_family(theme.mono_font.clone())
                 .child(hunk.header.clone())
@@ -1154,8 +1193,8 @@ fn outline_box((top, bottom): (bool, bool), theme: &Theme) -> gpui::Div {
         .when(bottom, |el| el.border_b_1())
 }
 
-/// The scopes a hunk changes, as a breadcrumb that keeps the innermost one readable. None
-/// when the language isn't one deltoids parses.
+/// The scopes a hunk names, as a breadcrumb that keeps the innermost one readable. None
+/// when it names none.
 fn scopes(scope: &[String], theme: &Theme) -> Option<AnyElement> {
     let (inner, outer) = scope.split_last()?;
     let breadcrumb = h_flex()

@@ -5,7 +5,7 @@ use std::ops::Range;
 
 use deltoids::{EmphKind, LineEmphasis};
 
-use super::model::{DiffLine, Hunk, LineKind};
+use super::model::{DiffLine, Hunk, LineKind, scope_name};
 
 /// Change runs whose removed bytes × added bytes exceed this are left plain: pairing lines
 /// up costs about that much time and memory, so a rewrite of hundreds of lines could
@@ -106,14 +106,7 @@ pub fn label_scopes(hunks: &mut [Hunk], old: &str, new: &str, path: &str, limit:
             // A one-line item, as `mod foo;`, is the changed line itself, not around it.
             hunk.scope = (containing.ancestors.iter())
                 .filter(|scope| scope.end_line > scope.start_line)
-                .map(|scope| {
-                    scope
-                        .text
-                        .trim()
-                        .trim_end_matches('{')
-                        .trim_end()
-                        .to_owned()
-                })
+                .map(|scope| scope_name(&scope.text).to_owned())
                 .collect();
         }
         spans.push(containing.map(|containing| side(containing, true)));
@@ -185,8 +178,15 @@ fn widen(hunks: &mut [Hunk], spans: &[Option<Range<usize>>], new: &str, limit: u
 mod tests {
     use super::*;
     use crate::backend::HunkKey;
+    use crate::ui::diff::{named_scopes, unmodified_before};
 
     const LIMIT: usize = 20;
+
+    /// The scopes hunk `ix`'s header names with only the hunks shown, the lines a scope adds
+    /// around them drawn while `around`.
+    fn named(hunks: &[Hunk], ix: usize, around: bool) -> &[String] {
+        named_scopes(hunks, ix, unmodified_before(hunks, ix), around)
+    }
 
     #[test]
     fn a_paragraph_on_one_line_gets_its_changed_word_marked() {
@@ -268,6 +268,15 @@ mod tests {
             "fn work() {",
             "with the file's text"
         );
+        assert!(
+            named(&hunks, 0, true).is_empty(),
+            "so its header doesn't name the function again"
+        );
+        assert_eq!(
+            named(&hunks, 0, false),
+            hunks[0].scope,
+            "unless conflicts in the file leave those lines out"
+        );
     }
 
     #[test]
@@ -294,9 +303,18 @@ mod tests {
         );
         assert_eq!(numbers(&hunks[1].tail), [18], "and the rest after it");
         assert_eq!(
-            crate::ui::diff::unmodified_before(&hunks, 1),
+            unmodified_before(&hunks, 1),
             0,
             "nothing between them is left out"
+        );
+        assert!(
+            named(&hunks, 1, true).is_empty(),
+            "so the second's header doesn't name the function the first is in"
+        );
+        assert_eq!(
+            named(&hunks, 1, false),
+            hunks[1].scope,
+            "unless conflicts leave out the lines between them"
         );
     }
 
@@ -319,6 +337,15 @@ mod tests {
                 .all(|hunk| hunk.lead.is_empty() && hunk.tail.is_empty()),
             "each would add few lines, but the function adds more than {LIMIT} in all"
         );
+        assert_eq!(
+            named(&hunks, 1, true),
+            hunks[1].scope,
+            "the lines between them are left out, so the second names the function again"
+        );
+        assert!(
+            named_scopes(&hunks, 1, 0, true).is_empty(),
+            "but not in the file shown whole, which draws every line between them"
+        );
     }
 
     #[test]
@@ -339,6 +366,27 @@ mod tests {
             hunks[0].lead.is_empty() && hunks[0].tail.is_empty(),
             "the function would add more than {LIMIT} lines"
         );
-        assert!(!hunks[0].scope.is_empty(), "it's still named");
+        assert!(
+            !hunks[0].scope.is_empty() && named(&hunks, 0, true) == hunks[0].scope,
+            "its header still names the function, whose first line isn't shown"
+        );
+    }
+
+    #[test]
+    fn an_outer_scope_whose_first_line_isnt_shown_is_still_named() {
+        let consts: String = (1..=40)
+            .map(|n| format!("    const C{n}: i32 = {n};\n"))
+            .collect();
+        let module = |edit| format!("mod outer {{\n{consts}{}}}\n", source(6, 4, edit));
+        let (old, new) = (module(false), module(true));
+        // The function starts on line 42, in the hunk's context before its change.
+        let mut hunks = [changed_line(&old, &new, 45)];
+        label_scopes(&mut hunks, &old, &new, "lib.rs", LIMIT);
+        assert_eq!(hunks[0].scope, ["mod outer", "fn work()"]);
+        assert_eq!(
+            named(&hunks, 0, true),
+            ["mod outer"],
+            "the function's first line shows above the change, the module's doesn't"
+        );
     }
 }

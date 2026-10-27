@@ -147,6 +147,40 @@ impl Detail {
         }
     }
 
+    /// What hunk `hunk` of `file`'s box says: how many lines before it are left out, unless
+    /// the file shown whole has them above, and the scopes it names.
+    fn hunk_title<'a>(&self, file: &'a FileDiff, hunk: usize) -> (u32, &'a [String]) {
+        let (hunks, whole) = (file.hunks(), self.whole_lines(file).is_some());
+        let unmodified = if whole {
+            0
+        } else {
+            diff::unmodified_before(hunks, hunk)
+        };
+        // As `diff::rows` leaves a scope's lines out among conflicts.
+        let around = whole || file.conflicts().is_empty();
+        let named = diff::named_scopes(hunks, hunk, unmodified, around);
+        (unmodified, named)
+    }
+
+    /// Whether hunk `hunk` of `file` goes without a box, as when it runs on from the one
+    /// above it in a scope shown whole: nothing before it is left out and the lines show
+    /// every scope it's in. Not in the composer, where the box holds its checkbox.
+    fn boxless(&self, file: &FileDiff, hunk: usize) -> bool {
+        let named = (file.hunks().get(hunk)).is_some_and(|hunk| !hunk.scope.is_empty());
+        named && !self.composes() && matches!(self.hunk_title(file, hunk), (0, []))
+    }
+
+    /// Whether the cursor is on hunk `hunk` of `file` with no box to show it, so its lines
+    /// carry the cursor's tab.
+    fn marks_lines(&self, file_diff: &FileDiff, file: usize, hunk: usize) -> bool {
+        self.cursor
+            == (Cursor {
+                file,
+                hunk: Some(hunk),
+            })
+            && self.boxless(file_diff, hunk)
+    }
+
     /// The diff line at `row`, if that row is one.
     fn line_at(&self, row: usize) -> Option<&DiffLine> {
         self.line_of(*self.diff.as_ref()?.rows.get(row)?)
@@ -884,6 +918,10 @@ impl Detail {
                 let Some(found) = hunks.get(hunk) else {
                     return padded.into_any_element();
                 };
+                // The lines run on from the hunk above, with nothing between to say.
+                if self.boxless(file_diff, hunk) {
+                    return padded.into_any_element();
+                }
                 let (key, path) = (found.key, &file_diff.file.path);
                 let at = Cursor {
                     file,
@@ -924,15 +962,11 @@ impl Detail {
                     let app = self.app.clone();
                     discard_button(ix, checkout, change, current && solid, tip, app, cx)
                 });
-                // The lines before the hunk, unless the file shown whole has them above.
-                let unmodified = if self.whole_lines(file_diff).is_some() {
-                    0
-                } else {
-                    diff::unmodified_before(hunks, hunk)
-                };
+                let (unmodified, named) = self.hunk_title(file_diff, hunk);
                 let header = diff::hunk_header(
                     found,
                     unmodified,
+                    named,
                     theme,
                     HeaderDecor {
                         leading,
@@ -989,8 +1023,11 @@ impl Detail {
                 };
                 let layout = self.layout(file_diff, &store.prefs);
                 let element = diff::line_row(text, place, last, theme, &layout, decor);
+                let marked = self.marks_lines(file_diff, file, hunk);
                 padded
+                    .relative()
                     .child(element)
+                    .when(marked, |el| el.child(line_tab(solid, theme)))
                     .on_mouse_down(MouseButton::Right, menu)
                     .into_any_element()
             }
@@ -1034,8 +1071,11 @@ impl Detail {
                     file,
                     hunk: Some(hunk),
                 });
+                let marked = self.marks_lines(file_diff, file, hunk);
                 padded
+                    .relative()
                     .child(pair)
+                    .when(marked, |el| el.child(line_tab(solid, theme)))
                     .on_mouse_down(MouseButton::Right, menu)
                     .on_mouse_down(MouseButton::Left, press_off(entity, cursor))
                     .into_any_element()
@@ -1419,6 +1459,16 @@ fn press_off(
         }))
         .ok();
     }
+}
+
+/// The cursor's tab on a line of a hunk with no header to carry it, at the card's edge past
+/// the row's padding, as a header's is. The hunk's lines' tabs meet in one.
+fn line_tab(solid: bool, theme: &Theme) -> gpui::Div {
+    (diff::cursor_tab(solid, theme))
+        .left(dp(12.))
+        .top_0()
+        .bottom_0()
+        .rounded_none()
 }
 
 /// Right-clicking the line at row `ix`: see [`Detail::line_menu`].
