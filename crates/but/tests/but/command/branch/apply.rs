@@ -304,7 +304,6 @@ fn local_branch_with_json_output() {
   "appliedBranches": [
     "refs/heads/feature-branch"
   ],
-  "workspaceRefCreated": false,
   "conflictingStacks": []
 }
 
@@ -703,7 +702,6 @@ fn apply_branch_conflicting_with_workspace_reports_json_error() {
   "status": "conflictAborted",
   "workspaceChanged": true,
   "appliedBranches": [],
-  "workspaceRefCreated": false,
   "conflictingStacks": [
     "refs/heads/A"
   ]

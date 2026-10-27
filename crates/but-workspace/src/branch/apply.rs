@@ -99,8 +99,6 @@ pub struct Outcome {
     /// Further, if there is no target or if the current branch isn't the target branch, then the current branch and the given one
     /// will be applied, and two branches are listed here.
     pub applied_branches: Vec<gix::refs::FullName>,
-    /// `true` if we created the given workspace ref as it didn't exist yet.
-    pub workspace_ref_created: bool,
     /// Stacks that conflicted while trying to apply the branch.
     ///
     /// Each entry includes the stable stack id and its tip ref name, so callers don't have to
@@ -121,13 +119,11 @@ impl std::fmt::Debug for Outcome {
         let Outcome {
             workspace: _,
             status: _,
-            workspace_ref_created,
             conflicting_stacks,
             applied_branches,
         } = self;
         let mut f = f.debug_struct("Outcome");
         f.field("workspace_changed", &self.workspace_changed())
-            .field("workspace_ref_created", workspace_ref_created)
             .field(
                 "applied_branches",
                 &format!(
@@ -244,12 +240,10 @@ pub fn apply(
             && (!allow_applying_already_applied_branch_when_outside_workspace
                 || head_on_managed_workspace_ref))
     {
-        let workspace_ref_created = false;
         // When exiting early, don't try to adjust the ws commit.
         return Ok(Outcome {
             workspace: ws,
             status: OutcomeStatus::AlreadyApplied,
-            workspace_ref_created,
             conflicting_stacks: Vec::new(),
             applied_branches: Vec::new(),
         });
@@ -295,7 +289,6 @@ pub fn apply(
         return Ok(Outcome {
             workspace: ws,
             status: OutcomeStatus::Applied,
-            workspace_ref_created: false,
             conflicting_stacks: Vec::new(),
             applied_branches,
         });
@@ -372,29 +365,22 @@ pub fn apply(
         .is_some_and(|head| head.as_bstr() == workspace_ref_name_to_update.as_bstr());
 
     // First, see if the branches to apply would naturally emerge if they had metadata.
-    let (ws_ref_id, ws_ref_exists) = match repo
-        .try_find_reference(workspace_ref_name_to_update.as_ref())?
-    {
+    let ws_ref_id = match repo.try_find_reference(workspace_ref_name_to_update.as_ref())? {
         None => {
             // Pretend to create a workspace reference later at the current AdHoc workspace id
-            let tip = ws.tip_commit().map(|c| c.id).context(
-                    "BUG: how can an empty ad-hoc workspace exist? Should have at least one stack-segment with commit",
-                )?;
-            (tip, false)
+            ws.tip_commit().map(|c| c.id).context(
+                "BUG: how can an empty ad-hoc workspace exist? Should have at least one stack-segment with commit",
+            )?
         }
         Some(mut existing_workspace_reference) => match &ws.kind {
             WorkspaceKind::Managed { .. } | WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => {
-                let id = existing_workspace_reference.peel_to_id()?;
-                (id.detach(), true)
+                existing_workspace_reference.peel_to_id()?.detach()
             }
             // If starting from an adhoc workspace, re-create the managed workspace from the current
             // HEAD and not from the old workspace. Branches that were previously applied might have
             // moved and thus the old workspace will contain out of date commits that'll become
             // anonymous segments.
-            WorkspaceKind::AdHoc => {
-                let tip = repo.head_id()?;
-                (tip.detach(), true)
-            }
+            WorkspaceKind::AdHoc => repo.head_id()?.detach(),
         },
     };
 
@@ -475,7 +461,6 @@ pub fn apply(
     let all_applied_branches_are_already_visible = branches_to_apply
         .iter()
         .all(|rn| ws.find_segment_and_stack_by_refname(rn.as_ref()).is_some());
-    let needs_ws_ref_creation = !ws_ref_exists;
     let local_tracking_config_and_ref_info =
         local_tracking_config_and_ref_info.zip(commit_to_create_branch_at.map({
             let branch = branch.clone();
@@ -532,7 +517,6 @@ pub fn apply(
         return Ok(Outcome {
             workspace: graph.into_workspace()?,
             status: OutcomeStatus::Applied,
-            workspace_ref_created: needs_ws_ref_creation,
             conflicting_stacks: Vec::new(),
             applied_branches,
         });
@@ -574,7 +558,6 @@ pub fn apply(
         return Ok(Outcome {
             workspace: ws,
             status: OutcomeStatus::ConflictAborted,
-            workspace_ref_created: false,
             conflicting_stacks,
             applied_branches: Vec::new(),
         });
@@ -687,7 +670,6 @@ pub fn apply(
             return Ok(Outcome {
                 workspace: ws,
                 status: OutcomeStatus::ConflictAborted,
-                workspace_ref_created: false,
                 conflicting_stacks,
                 applied_branches: Vec::new(),
             });
@@ -754,7 +736,6 @@ pub fn apply(
     Ok(Outcome {
         workspace: ws,
         status: OutcomeStatus::Applied,
-        workspace_ref_created: needs_ws_ref_creation,
         conflicting_stacks,
         applied_branches,
     })

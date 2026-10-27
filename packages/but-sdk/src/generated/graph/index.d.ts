@@ -2152,8 +2152,6 @@ export type ApplyOutcome = {
    * This is empty for `alreadyApplied` and `conflictAborted`, and populated for `applied`.
    */
   appliedBranches: Array<FullRefName>;
-  /** Whether the workspace reference had to be created. */
-  workspaceRefCreated: boolean;
   /** Stacks that conflicted while applying the branch. */
   conflictingStacks: Array<ConflictingStack>;
 };

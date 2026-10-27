@@ -100,7 +100,6 @@ impl CliOutput for ApplyOutcome {
             status: OutcomeStatus,
             workspace_changed: bool,
             applied_branches: Vec<String>,
-            workspace_ref_created: bool,
             conflicting_stacks: Vec<String>,
         }
 
@@ -114,7 +113,6 @@ impl CliOutput for ApplyOutcome {
                         .into_iter()
                         .map(|branch| branch.to_string())
                         .collect(),
-                    workspace_ref_created: value.workspace_ref_created,
                     conflicting_stacks: value
                         .conflicting_stacks
                         .into_iter()

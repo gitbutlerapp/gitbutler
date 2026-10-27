@@ -532,7 +532,6 @@ fn ws_ref_no_ws_commit_two_virtual_stacks_on_same_commit_apply_dependent_first()
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: false,
     applied_branches: "[refs/heads/B]",
 }
 
@@ -1184,7 +1183,6 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: false,
-    workspace_ref_created: false,
     applied_branches: "[]",
 }
 
@@ -1204,7 +1202,6 @@ Outcome {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: true,
     applied_branches: "[refs/heads/main, refs/heads/review/feature]",
 }
 
@@ -1386,7 +1383,6 @@ fn workspace_with_out_of_ws_ref_and_anon_stack() -> anyhow::Result<()> {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: false,
     applied_branches: "[refs/heads/feature]",
 }
 
@@ -1440,7 +1436,6 @@ fn ws_ref_no_ws_commit_two_stacks_on_same_commit() -> anyhow::Result<()> {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: false,
     applied_branches: "[refs/heads/A]",
 }
 
@@ -1474,7 +1469,6 @@ Outcome {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: false,
     applied_branches: "[refs/heads/B]",
 }
 
@@ -1751,7 +1745,6 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: true,
     applied_branches: "[refs/heads/A]",
 }
 
@@ -1787,7 +1780,6 @@ Outcome {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: false,
     applied_branches: "[refs/heads/B]",
 }
 
@@ -2428,7 +2420,6 @@ fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> any
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: false,
     applied_branches: "[refs/heads/B, refs/heads/A]",
 }
 
@@ -2798,7 +2789,6 @@ fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: true,
     applied_branches: "[refs/heads/main, refs/heads/A]",
 }
 
@@ -2845,7 +2835,6 @@ Outcome {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: false,
     applied_branches: "[refs/heads/B]",
 }
 
@@ -3178,7 +3167,6 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: true,
     applied_branches: "[refs/heads/unrelated]",
 }
 
@@ -3207,7 +3195,6 @@ Outcome {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: false,
     applied_branches: "[refs/heads/A1]",
 }
 
@@ -3236,7 +3223,6 @@ Outcome {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: false,
     applied_branches: "[refs/heads/A2]",
 }
 
@@ -3619,7 +3605,6 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: true,
     applied_branches: "[refs/heads/E]",
 }
 
@@ -3750,7 +3735,6 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: true,
     applied_branches: "[refs/heads/A]",
 }
 
@@ -3788,7 +3772,6 @@ Outcome {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: false,
     applied_branches: "[refs/heads/B]",
 }
 
@@ -3829,7 +3812,6 @@ Outcome {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: false,
     applied_branches: "[refs/heads/C]",
 }
 
@@ -3872,7 +3854,6 @@ Outcome {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: false,
     applied_branches: "[refs/heads/D]",
 }
 
@@ -3916,7 +3897,6 @@ Outcome {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: false,
     applied_branches: "[refs/heads/E]",
 }
 
@@ -4352,7 +4332,6 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: false,
     applied_branches: "[]",
     conflicting_stacks: [
         ConflictingStack {
@@ -4489,7 +4468,6 @@ fn conflicting_apply_reports_no_applied_branches_and_names_conflicting_stacks() 
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: false,
     applied_branches: "[]",
     conflicting_stacks: [
         ConflictingStack {
@@ -4551,7 +4529,6 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: false,
-    workspace_ref_created: false,
     applied_branches: "[]",
 }
 
@@ -4592,7 +4569,6 @@ Outcome {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: false,
-    workspace_ref_created: false,
     applied_branches: "[]",
 }
 
@@ -4620,7 +4596,6 @@ Outcome {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: false,
     applied_branches: "[refs/heads/B, refs/heads/A]",
 }
 
@@ -4696,7 +4671,6 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: false,
-    workspace_ref_created: false,
     applied_branches: "[]",
 }
 
@@ -4738,7 +4712,6 @@ Outcome {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: false,
-    workspace_ref_created: false,
     applied_branches: "[]",
 }
 
@@ -4773,7 +4746,6 @@ Outcome {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: false,
     applied_branches: "[refs/heads/B, refs/heads/A]",
 }
 
@@ -4923,7 +4895,6 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: false,
-    workspace_ref_created: false,
     applied_branches: "[]",
 }
 
@@ -4945,7 +4916,6 @@ Outcome {
         snapbox::str![[r#"
 Outcome {
     workspace_changed: false,
-    workspace_ref_created: false,
     applied_branches: "[]",
 }
 

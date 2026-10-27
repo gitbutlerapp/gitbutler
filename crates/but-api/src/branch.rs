@@ -101,8 +101,6 @@ pub mod json {
         ///
         /// This is empty for `alreadyApplied` and `conflictAborted`, and populated for `applied`.
         pub applied_branches: Vec<crate::json::FullRefName>,
-        /// Whether the workspace reference had to be created.
-        pub workspace_ref_created: bool,
         /// Stacks that conflicted while applying the branch.
         pub conflicting_stacks: Vec<ConflictingStack>,
     }
@@ -129,7 +127,6 @@ pub mod json {
                 workspace: _,
                 status,
                 applied_branches,
-                workspace_ref_created,
                 conflicting_stacks,
             } = value;
 
@@ -137,7 +134,6 @@ pub mod json {
                 status,
                 workspace_changed,
                 applied_branches: applied_branches.into_iter().map(Into::into).collect(),
-                workspace_ref_created,
                 conflicting_stacks: conflicting_stacks
                     .into_iter()
                     .map(|stack| {
