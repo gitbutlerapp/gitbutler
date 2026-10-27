@@ -8,12 +8,77 @@ function replacePropertyContent(metaTags: string, property: string, newContent: 
 	return metaTags;
 }
 
+interface PageMeta {
+	title: string;
+	description: string;
+	/** Another page that shows the same content and should be indexed instead. */
+	canonicalPath?: string;
+}
+
+const DEFAULT_META: PageMeta = {
+	title: "GitButler",
+	description:
+		"GitButler is a Git client for modern, AI-assisted development: parallel and stacked branches, unlimited undo and agent integrations, on top of your existing Git repositories.",
+};
+
+// What search engines and link previews show for the marketing pages.
+const PAGE_META: Record<string, PageMeta> = {
+	"/": {
+		title: "GitButler | Version control for your agents",
+		description:
+			"GitButler is a Git CLI and desktop client built for humans and AI coding agents. Stacked and parallel branches, absorb, unlimited undo and stacked pull requests, on any Git repository.",
+	},
+	"/client": {
+		title: "GitButler | Desktop",
+		description:
+			"The GitButler desktop client: work on parallel and stacked branches at once, drag changes between commits, undo anything and open stacked pull requests, all on top of Git.",
+	},
+	"/downloads": {
+		title: "Download GitButler",
+		description:
+			"Download the GitButler desktop client for macOS, Windows and Linux, with release notes for every version.",
+	},
+	"/releases": {
+		title: "GitButler releases",
+		description: "Release notes and downloads for every GitButler release.",
+		canonicalPath: "/downloads",
+	},
+	"/nightly": {
+		title: "GitButler nightly builds",
+		description: "Download the latest GitButler nightly builds for macOS, Windows and Linux.",
+	},
+};
+
+/** The marketing pages that are indexed under their own address. */
+export const SITEMAP_PATHS = Object.entries(PAGE_META)
+	.filter(([, meta]) => !meta.canonicalPath)
+	.map(([path]) => path);
+
+const HOME_STRUCTURED_DATA = JSON.stringify({
+	"@context": "https://schema.org",
+	"@type": "SoftwareApplication",
+	name: "GitButler",
+	applicationCategory: "DeveloperApplication",
+	operatingSystem: "macOS, Windows, Linux",
+	description: PAGE_META["/"].description,
+	url: "https://gitbutler.com/",
+	offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+});
+
 export async function fillMeta(html: string, url: string) {
+	const { pathname, origin } = new URL(url);
+	const pageMeta = PAGE_META[pathname];
+	const { title, description } = pageMeta ?? DEFAULT_META;
 	let metaTags = `
+        <title>${title}</title>
+        <meta name="description" content="${description}" />
+        ${pageMeta ? `<link rel="canonical" href="${origin}${pageMeta.canonicalPath ?? pathname}" />` : ""}
+        ${pathname === "/" ? `<script type="application/ld+json">${HOME_STRUCTURED_DATA}</script>` : ""}
+
         <!-- Meta Tags -->
         <!-- Open Graph -->
-        <meta property="og:title" content="GitButler" />
-        <meta property="og:description" content="GitButler software development platform" />
+        <meta property="og:title" content="${title}" />
+        <meta property="og:description" content="${description}" />
         <meta property="og:image" content="%image%" />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
@@ -22,8 +87,8 @@ export async function fillMeta(html: string, url: string) {
 
         <!-- Twitter Card Meta Tags -->
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="GitButler" />
-        <meta name="twitter:description" content="GitButler software development platform" />
+        <meta name="twitter:title" content="${title}" />
+        <meta name="twitter:description" content="${description}" />
         <meta name="twitter:image" content="%image%" />
         <meta name="twitter:site" content="@gitbutler" />
         <!-- / Meta Tags -->
