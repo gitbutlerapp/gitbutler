@@ -41,10 +41,8 @@ fn keys_in_diff(action: &dyn gpui::Action, does: &str, cx: &App) -> String {
         .map_or_else(String::new, |keys| format!(" {keys} in a diff {does}."))
 }
 
-/// A page of settings, in the sidebar's order, as Lite's has them: the app's, then the
-/// project's.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Page {
+enum AppPage {
     General,
     Appearance,
     Keyboard,
@@ -52,45 +50,62 @@ enum Page {
     Git,
     Integrations,
     Experimental,
+}
+
+impl AppPage {
+    const ALL: [AppPage; 7] = [
+        AppPage::General,
+        AppPage::Appearance,
+        AppPage::Keyboard,
+        AppPage::Ai,
+        AppPage::Git,
+        AppPage::Integrations,
+        AppPage::Experimental,
+    ];
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ProjectPage {
     Project,
-    ProjectGit,
+    Git,
+}
+
+impl ProjectPage {
+    const ALL: [ProjectPage; 2] = [ProjectPage::Project, ProjectPage::Git];
+}
+
+/// A page of settings, in the sidebar's order, as Lite's has them: the app's, then the
+/// project's.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Page {
+    App(AppPage),
+    Project(ProjectPage),
 }
 
 impl Page {
-    const APP: [Page; 7] = [
-        Page::General,
-        Page::Appearance,
-        Page::Keyboard,
-        Page::Ai,
-        Page::Git,
-        Page::Integrations,
-        Page::Experimental,
-    ];
-    const PROJECT: [Page; 2] = [Page::Project, Page::ProjectGit];
-
     fn title(self) -> &'static str {
         match self {
-            Page::General => "General",
-            Page::Appearance => "Appearance",
-            Page::Keyboard => "Keyboard",
-            Page::Ai => "AI",
-            Page::Git | Page::ProjectGit => "Git",
-            Page::Integrations => "Integrations",
-            Page::Experimental => "Experimental",
-            Page::Project => "Project",
+            Page::App(AppPage::General) => "General",
+            Page::App(AppPage::Appearance) => "Appearance",
+            Page::App(AppPage::Keyboard) => "Keyboard",
+            Page::App(AppPage::Ai) => "AI",
+            Page::App(AppPage::Git) | Page::Project(ProjectPage::Git) => "Git",
+            Page::App(AppPage::Integrations) => "Integrations",
+            Page::App(AppPage::Experimental) => "Experimental",
+            Page::Project(ProjectPage::Project) => "Project",
         }
     }
 
     fn icon(self) -> Icon {
         match self {
-            Page::General => Icon::Settings,
-            Page::Appearance => Icon::Contrast,
-            Page::Keyboard => Icon::Keyboard,
-            Page::Ai => Icon::Ai,
-            Page::Git | Page::ProjectGit => Icon::Pr,
-            Page::Integrations => Icon::Plug,
-            Page::Experimental => Icon::Lab,
-            Page::Project => Icon::Mixer,
+            Page::App(AppPage::General) => Icon::Settings,
+            Page::App(AppPage::Appearance) => Icon::Contrast,
+            Page::App(AppPage::Keyboard) => Icon::Keyboard,
+            Page::App(AppPage::Ai) => Icon::Ai,
+            Page::App(AppPage::Git) | Page::Project(ProjectPage::Git) => Icon::Pr,
+            Page::App(AppPage::Integrations) => Icon::Plug,
+            Page::App(AppPage::Experimental) => Icon::Lab,
+            Page::Project(ProjectPage::Project) => Icon::Mixer,
         }
     }
 }
@@ -207,8 +222,8 @@ pub struct SettingsView {
     /// its own results show.
     _credentials_test: Task<()>,
     recording: Option<keyboard::Recording>,
-    app_links: [Link; Page::APP.len()],
-    project_links: [Link; Page::PROJECT.len()],
+    app_links: [Link; AppPage::ALL.len()],
+    project_links: [Link; ProjectPage::ALL.len()],
     pages_scroll: ScrollHandle,
     cards_scroll: ScrollHandle,
     _subscriptions: Vec<Subscription>,
@@ -265,7 +280,7 @@ impl SettingsView {
             app,
             detail,
             search,
-            page: Page::General,
+            page: Page::App(AppPage::General),
             project: None,
             project_settings: None,
             name,
@@ -281,8 +296,8 @@ impl SettingsView {
             credentials: None,
             _credentials_test: Task::ready(()),
             recording: None,
-            app_links: Page::APP.map(|page| Link::new(page, cx)),
-            project_links: Page::PROJECT.map(|page| Link::new(page, cx)),
+            app_links: AppPage::ALL.map(|page| Link::new(Page::App(page), cx)),
+            project_links: ProjectPage::ALL.map(|page| Link::new(Page::Project(page), cx)),
             pages_scroll: ScrollHandle::new(),
             cards_scroll: ScrollHandle::new(),
             _subscriptions: subscriptions,
@@ -689,7 +704,7 @@ impl SettingsView {
 
     fn page_cards(&self, page: Page, window: &Window, cx: &Context<Self>) -> Vec<Card> {
         let cards = match page {
-            Page::General => vec![
+            Page::App(AppPage::General) => vec![
                 Card::new(
                     None,
                     vec![self.gitbutler_row(window, cx), self.mesh_row(cx)],
@@ -700,19 +715,19 @@ impl SettingsView {
                 // Last, out of the way, as the desktop app keeps it on a page of its own.
                 Card::new(Some("Metrics"), self.metrics_rows(cx)),
             ],
-            Page::Appearance => self.appearance_cards(cx),
-            Page::Keyboard => self.keyboard_cards(cx),
-            Page::Ai => vec![Card::new(None, self.ai_rows(window, cx))],
-            Page::Git => vec![Card::new(None, vec![self.fetch_row(cx)])],
-            Page::Integrations => self.integration_cards(window, cx),
-            Page::Experimental => {
+            Page::App(AppPage::Appearance) => self.appearance_cards(cx),
+            Page::App(AppPage::Keyboard) => self.keyboard_cards(cx),
+            Page::App(AppPage::Ai) => vec![Card::new(None, self.ai_rows(window, cx))],
+            Page::App(AppPage::Git) => vec![Card::new(None, vec![self.fetch_row(cx)])],
+            Page::App(AppPage::Integrations) => self.integration_cards(window, cx),
+            Page::App(AppPage::Experimental) => {
                 // Only where the desktop app's binary has this client built in.
                 let start = cx
                     .has_global::<crate::Embedded>()
                     .then(|| self.start_row(cx));
                 vec![Card::new(None, start.into_iter().collect())]
             }
-            Page::Project | Page::ProjectGit => self.project_cards(page, window, cx),
+            Page::Project(page) => self.project_cards(page, window, cx),
         };
         // Nothing for a card with no rows yet, as before what it shows has loaded.
         cards
@@ -734,8 +749,8 @@ impl SettingsView {
     /// What a page is called where it isn't under its group's heading: a project's by the
     /// project too.
     fn page_name(&self, page: Page, cx: &App) -> String {
-        match (Page::PROJECT.contains(&page), self.project_name(cx)) {
-            (true, Some(name)) => format!("{name} › {}", page.title()),
+        match (page, self.project_name(cx)) {
+            (Page::Project(_), Some(name)) => format!("{name} › {}", page.title()),
             _ => page.title().to_owned(),
         }
     }
@@ -878,7 +893,7 @@ impl SettingsView {
     }
 
     fn show_page(&mut self, page: Page, cx: &mut Context<Self>) {
-        if page == Page::Ai {
+        if page == Page::App(AppPage::Ai) {
             self.retry_ai();
             self.ensure_ai(cx);
         }
@@ -1063,13 +1078,13 @@ impl Render for SettingsView {
 impl AppView {
     /// Settings, at General, signing in to GitButler.
     pub fn sign_in(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let view = self.open_settings_at(None, Page::General, window, cx);
+        let view = self.open_settings_at(None, Page::App(AppPage::General), window, cx);
         view.update(cx, |view, cx| view.log_in_to_gitbutler(window, cx));
     }
 
     /// Settings, at Integrations: where a forge account gets connected.
     pub fn open_accounts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.open_settings_at(None, Page::Integrations, window, cx);
+        self.open_settings_at(None, Page::App(AppPage::Integrations), window, cx);
     }
 
     /// Settings, at Project, for `project`.
@@ -1079,11 +1094,16 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.open_settings_at(Some(project), Page::Project, window, cx);
+        self.open_settings_at(
+            Some(project),
+            Page::Project(ProjectPage::Project),
+            window,
+            cx,
+        );
     }
 
     pub fn open_settings(&mut self, _: &OpenSettings, window: &mut Window, cx: &mut Context<Self>) {
-        self.open_settings_at(None, Page::General, window, cx);
+        self.open_settings_at(None, Page::App(AppPage::General), window, cx);
     }
 
     pub fn open_keyboard_shortcuts(
@@ -1092,7 +1112,7 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.open_settings_at(None, Page::Keyboard, window, cx);
+        self.open_settings_at(None, Page::App(AppPage::Keyboard), window, cx);
     }
 
     /// Settings, at `page`, for `project`, or else the selected project or the first.

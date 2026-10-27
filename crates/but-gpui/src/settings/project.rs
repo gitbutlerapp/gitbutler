@@ -3,7 +3,7 @@
 
 use gpui::{App, ClickEvent, Context, DismissEvent, Task, Window, div, prelude::*};
 
-use super::{Card, Page, Row, SettingsView, field_with_save, read_failed};
+use super::{Card, Page, ProjectPage, Row, SettingsView, field_with_save, read_failed};
 use crate::backend::{Checkout, Forge, settings as backend};
 use crate::state::ProjectId;
 use crate::theme::Theme;
@@ -86,7 +86,7 @@ impl SettingsView {
     /// pushes, commits and signs.
     pub(super) fn project_cards(
         &self,
-        page: Page,
+        page: ProjectPage,
         window: &Window,
         cx: &Context<Self>,
     ) -> Vec<Card> {
@@ -101,7 +101,7 @@ impl SettingsView {
                     this.show_project(this.project.clone(), cx)
                 };
                 let title = "Couldn't read the project's settings";
-                let failed = read_failed(page, title, err, retry, cx);
+                let failed = read_failed(Page::Project(page), title, err, retry, cx);
                 return vec![Card::new(None, vec![failed])];
             }
         };
@@ -390,11 +390,11 @@ impl SettingsView {
                 .on_click(remove),
         );
         match page {
-            Page::Project => vec![
+            ProjectPage::Project => vec![
                 Card::new(None, vec![name, target, forge]),
                 Card::new(None, vec![remove]),
             ],
-            _ => vec![
+            ProjectPage::Git => vec![
                 Card::new(None, push_to.into_iter().chain([force, hooks]).collect()),
                 Card::new(Some("Signing"), vec![sign]),
                 Card::new(
