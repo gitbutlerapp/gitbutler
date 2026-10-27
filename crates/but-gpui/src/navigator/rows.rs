@@ -25,9 +25,6 @@ pub(super) enum Row {
     /// one of a project's pages, a section's heading, or one of these on another machine.
     Item(Selection),
     Note(SharedString, bool),
-    /// Over the projects not expanded: what it calls them, how many it lists, and how many
-    /// there are, filters aside.
-    ProjectsHeading(&'static str, usize, usize),
     /// A branch's commits folded away, and how many.
     More(ProjectId, Option<FullName>, usize),
     /// The end of a branch's commits unfolded, which folds them again.
@@ -63,6 +60,16 @@ pub(super) struct Rows {
     outer: Vec<f32>,
     /// The first item the filter found, which Enter in it selects.
     pub(super) first_hit: Option<Selection>,
+    pub(super) drawer: Drawer,
+}
+
+/// The projects not watched, in the drawer under the cards: their rows while it's open, how
+/// many it lists, and how many there are, filters aside. With no cards it's always open.
+#[derive(Default)]
+pub(super) struct Drawer {
+    pub(super) rows: Vec<Row>,
+    pub(super) listed: usize,
+    pub(super) total: usize,
 }
 
 /// Where an item row's content starts in its card: the row's margin, 3, and its padding, 8,
@@ -139,8 +146,8 @@ impl Extend<Row> for Rows {
 }
 
 impl Navigator {
-    /// Rows of every card, with a gap between two cards. Expanded projects get a card
-    /// each; the collapsed ones share one compact card at the end.
+    /// Rows of every card, with a gap between two cards, and of the drawer. Watched projects
+    /// get a card each; the rest wait in the drawer.
     pub(super) fn build_rows(&self, cx: &App) -> Rows {
         let terms = self.filter_terms(cx);
         if !terms.is_empty() {
@@ -241,15 +248,6 @@ impl Navigator {
             rows.push(Row::Item(Selection::Branches(id.clone())));
             rows.push(Row::Item(Selection::History(id.clone())));
         }
-        // The rest share one card under a heading that also adds projects, so it's there
-        // when every project is expanded too.
-        let title = match rows.rows.is_empty() {
-            true => "All projects",
-            false => "More projects",
-        };
-        if !rows.rows.is_empty() {
-            rows.push(Row::Gap);
-        }
         let others: Vec<&ProjectEntry> = (store.projects.iter())
             .filter(|entry| !entry.expanded)
             .collect();
@@ -267,15 +265,16 @@ impl Navigator {
         if prefs.projects_by_activity {
             listed.sort_by_key(|(_, at)| std::cmp::Reverse(*at));
         }
-        rows.push(Row::ProjectsHeading(title, listed.len(), others.len()));
-        if prefs.projects_folded {
+        rows.drawer.listed = listed.len();
+        rows.drawer.total = others.len();
+        if prefs.projects_folded && !rows.rows.is_empty() {
             return rows;
         }
-        rows.extend(
-            (listed.iter()).map(|(entry, _)| Row::Item(Selection::Project(entry.id.clone()))),
-        );
+        rows.drawer.rows = (listed.iter())
+            .map(|(entry, _)| Row::Item(Selection::Project(entry.id.clone())))
+            .collect();
         if listed.is_empty() && !others.is_empty() {
-            rows.push(Row::Note("None active in the last 7 days".into(), false));
+            (rows.drawer.rows).push(Row::Note("None active in the last 7 days".into(), false));
         }
         rows
     }
@@ -336,23 +335,21 @@ impl Navigator {
         }
         let others = (store.projects.iter()).filter(|entry| !entry.expanded);
         let total = others.clone().count();
-        let listed: Vec<_> = others
+        let listed: Vec<Row> = others
             .filter(|entry| hit(0, found(terms, &[&entry.project.name])))
+            .map(|entry| Row::Item(Selection::Project(entry.id.clone())))
             .collect();
-        if !listed.is_empty() {
-            let title = match rows.rows.is_empty() {
-                true => "All projects",
-                false => "More projects",
-            };
-            if !rows.rows.is_empty() {
-                rows.push(Row::Gap);
-            }
-            rows.push(Row::ProjectsHeading(title, listed.len(), total));
-            for entry in listed {
-                rows.push_found(Selection::Project(entry.id.clone()), true);
-            }
+        if rows.first_hit.is_none()
+            && let Some(Row::Item(first)) = listed.first()
+        {
+            rows.first_hit = Some(first.clone());
         }
-        if rows.rows.is_empty() {
+        rows.drawer = Drawer {
+            listed: listed.len(),
+            total,
+            rows: listed,
+        };
+        if rows.rows.is_empty() && rows.drawer.rows.is_empty() {
             rows.push(Row::Note("Nothing matches".into(), false));
         }
         rows
