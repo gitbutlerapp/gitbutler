@@ -8,7 +8,7 @@ use std::sync::Arc;
 use gpui::{AnyElement, App, Context, MouseButton, Window, div, prelude::*};
 
 use super::rows::{COMMIT_INDENT, Row, Rows, found, matches};
-use super::{ClickOpened, NEST, Navigator, RowStyle, change_counts, click_opens, double_click};
+use super::{ClickOpened, Navigator, RowStyle, STEP, change_counts, click_opens, double_click};
 use crate::app::CopySelection;
 use crate::backend::mesh::{self, BranchStatus};
 use crate::overlays::MenuItem;
@@ -42,7 +42,7 @@ impl Navigator {
             rows.push(at(MeshPick::Checkout));
             let inside = pick.and_then(MeshPick::branch).is_some();
             if inside || !self.folded_checkouts.contains(&(id.clone(), key.clone())) {
-                rows.open_in(NEST);
+                rows.open_in(STEP);
                 for branch in &checkout.branches {
                     rows.push(at(MeshPick::Branch(branch.name.clone())));
                     let on_commit =
@@ -91,7 +91,7 @@ impl Navigator {
             let key: Arc<str> = checkout.id.as_str().into();
             let at = |pick| Selection::Mesh(id.clone(), key.clone(), pick);
             rows.push_found(at(MeshPick::Checkout), hit);
-            rows.open_in(NEST);
+            rows.open_in(STEP);
             for branch in branches {
                 rows.push_found(at(MeshPick::Branch(branch.name.clone())), true);
             }
