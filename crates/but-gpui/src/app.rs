@@ -824,7 +824,11 @@ impl AppView {
         let detail = self.detail.read(cx);
         let file = detail
             .is_focused(window, cx)
-            .then(|| detail.selected_text().or_else(|| detail.cursor_path()))
+            .then(|| {
+                detail
+                    .selected_text()
+                    .or_else(|| detail.shown_cursor_path(cx))
+            })
             .flatten();
         let text = file.or_else(|| match self.selection(cx)? {
             Selection::Commit(project, id) => {
@@ -1018,6 +1022,7 @@ impl Render for AppView {
             .map(|el| self.resolve_actions(el, cx))
             .on_action(cx.listener(Self::go_to_branch))
             .on_action(cx.listener(Self::show_actions))
+            .on_action(cx.listener(Self::copy_more))
             .on_action(cx.listener(Self::open_selected_in_terminal))
             // The selection doesn't decide: an operation that finished in another project is
             // still the last thing done.

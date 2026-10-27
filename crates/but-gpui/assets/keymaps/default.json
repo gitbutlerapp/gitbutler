@@ -66,8 +66,11 @@
       "secondary-z": "app::Undo",
       "secondary-shift-z": "app::Redo",
       "secondary-x": "navigator::CutSelection",
-      // y as in vim and the TUI, first so ⌘C is the key shown.
+      // y as in vim and the TUI, first so ⌘C is the key shown. ⇧Y picks what else to copy,
+      // as the TUI's does, and ⇧⌘C, shown, as ⌘C is.
       "y": "navigator::CopySelection",
+      "shift-y": "palette::CopyMore",
+      "secondary-shift-c": "palette::CopyMore",
       // ⌥ turns moving a commit onto another into squashing it, as when dragging. Bound
       // first, so ⌘V is the key shown.
       "alt-secondary-v": "navigator::PasteHere",

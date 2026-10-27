@@ -985,10 +985,7 @@ impl Detail {
         if !(self.files_focus.is_focused(window) || self.focus.is_focused(window)) {
             return None;
         }
-        let path = self.diff_path(self.cursor.file)?;
-        if self.showing_now(cx) && !self.file_picks.contains(&path) {
-            return None;
-        }
+        let path = self.shown_cursor_path(cx)?;
         // A picked file's menu is all the picks', as on its row.
         let payload = match self.file_picks.contains(&path) {
             true => self.owned_cut(self.picked_changes(), cx),
@@ -996,6 +993,40 @@ impl Detail {
         };
         let at = At::File(path, None);
         Some(self.changes_items(payload, at, None, window.mouse_position(), cx))
+    }
+
+    /// The path of the file under the cursor while the file list or the diff has the keys,
+    /// and the full path to it on disk.
+    pub(crate) fn focused_file_paths(
+        &self,
+        window: &gpui::Window,
+        cx: &App,
+    ) -> Option<(String, String)> {
+        if !(self.files_focus.is_focused(window) || self.focus.is_focused(window)) {
+            return None;
+        }
+        let path = self.shown_cursor_path(cx)?;
+        let key = &self.diff.as_ref()?.key;
+        let root = self.checkout_root(&key.project, &key.files_checkout(), cx)?;
+        // Git's paths use `/`; Windows' own `\`.
+        let full = root.join(path.replace('/', std::path::MAIN_SEPARATOR_STR));
+        Some((path, full.display().to_string()))
+    }
+
+    /// The folder `checkout`'s files are in: a linked worktree's own.
+    fn checkout_root(
+        &self,
+        project: &ProjectId,
+        checkout: &Checkout,
+        cx: &App,
+    ) -> Option<std::path::PathBuf> {
+        let store = self.store.read(cx);
+        match checkout.linked() {
+            None => store.path(project),
+            Some(name) => (store.workspace(project))
+                .and_then(|ws| ws.find_worktree(name))
+                .map(|w| w.path.clone()),
+        }
     }
 
     fn changes_items(
@@ -1167,15 +1198,8 @@ impl Detail {
         position: Point<Pixels>,
         cx: &App,
     ) -> Vec<MenuItem> {
-        // A linked worktree's files are in its own folder.
         let store = self.store.read(cx);
-        let root = match checkout.linked() {
-            None => store.path(project),
-            Some(name) => (store.workspace(project))
-                .and_then(|ws| ws.find_worktree(name))
-                .map(|w| w.path.clone()),
-        };
-        let Some(root) = root else {
+        let Some(root) = self.checkout_root(project, &checkout, cx) else {
             return Vec::new();
         };
         let (relative, line) = match at {

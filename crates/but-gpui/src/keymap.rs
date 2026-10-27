@@ -544,6 +544,7 @@ mod tests {
             ("palette::GoToBranch", "secondary-p"),
             ("navigator::RenameSelection", "r"),
             ("navigator::CopySelection", "secondary-c"),
+            ("palette::CopyMore", "secondary-shift-c"),
             ("diff::NextHunk", "down"),
             ("find::FindNext", "secondary-g"),
         ];
