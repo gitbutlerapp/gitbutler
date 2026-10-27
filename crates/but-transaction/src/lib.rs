@@ -329,13 +329,14 @@ where
         subjects: impl IntoIterator<Item = gix::ObjectId>,
     ) -> anyhow::Result<()> {
         self.rebase(|editor, commit_mappings| {
-            let rebase = but_workspace::commit::discard_commits(
+            let mut rebase = but_workspace::commit::discard_commits(
                 editor,
                 subjects
                     .into_iter()
                     .map(|commit| commit_mappings.map(commit)),
             )?;
-            Ok(((), MaterializeWithoutCheckout::Yes, rebase))
+            rebase.keep_worktrees_unchanged()?;
+            Ok(((), MaterializeWithoutCheckout::No, rebase))
         })
     }
 

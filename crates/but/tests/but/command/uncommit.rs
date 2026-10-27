@@ -381,3 +381,42 @@ Hint: run `but help` for all commands
 
 "#]]);
 }
+
+#[test]
+fn uncommit_current_branch_in_single_branch_mode_is_undoable() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("y.txt", "y\n");
+    env.but("commit -b y -m 'add y'").assert().success();
+
+    env.but("uncommit y").assert().success().stdout_eq(str![[r#"
+Uncommitted 'y'
+
+"#]]);
+
+    // HEAD leaves the removed branch, and its changes stay in the worktree.
+    env.but("status -f").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted]
+┊   oq A y.txt
+┊
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+
+    env.but("undo").assert().success();
+
+    env.but("status -f").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [y] [HEAD]
+┊●   xms add y
+┊│     xms:o A y.txt
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
