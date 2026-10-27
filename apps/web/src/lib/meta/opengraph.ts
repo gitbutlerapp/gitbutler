@@ -54,6 +54,14 @@ export const SITEMAP_PATHS = Object.entries(PAGE_META)
 	.filter(([, meta]) => !meta.canonicalPath)
 	.map(([path]) => path);
 
+/**
+ * The title `fillMeta` writes for a path. Pages put the same title in
+ * `<svelte:head>`, because Svelte sets `document.title` from it in the browser.
+ */
+export function pageTitle(pathname: string) {
+	return (PAGE_META[pathname] ?? DEFAULT_META).title;
+}
+
 const HOME_STRUCTURED_DATA = JSON.stringify({
 	"@context": "https://schema.org",
 	"@type": "SoftwareApplication",
