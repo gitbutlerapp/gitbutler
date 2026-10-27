@@ -1023,8 +1023,8 @@ impl Detail {
     }
 
     /// Whose commits landed on the target, the most landings first, counted on the days
-    /// picked or all the activity's; the one picked stays, however few they have then. Clicking one
-    /// filters the history to what landed theirs.
+    /// picked or all the activity's, and only those that changed the area picked; the one picked
+    /// stays, however few they have then. Clicking one filters the history to what landed theirs.
     fn render_people(
         &self,
         project: &ProjectId,
@@ -1037,7 +1037,17 @@ impl Detail {
         if summary.people.is_empty() && who.is_none() {
             return None;
         }
+        // What landed in the area picked on those days, while one is.
+        let in_area: Option<HashSet<CommitId>> = (upstream.view.area.as_ref()).map(|area| {
+            (summary.landings.iter())
+                .filter(|l| l.areas.contains(area) && days.is_none_or(|d| d.contains(&l.day)))
+                .map(|l| l.id)
+                .collect()
+        });
         let on_days = |person: &Person| -> usize {
+            if let Some(in_area) = &in_area {
+                return person.landed.intersection(in_area).count();
+            }
             (person.daily.iter().enumerate())
                 .filter(|(ix, _)| {
                     days.is_none_or(|d| d.contains(&(summary.first_day + *ix as i64)))
