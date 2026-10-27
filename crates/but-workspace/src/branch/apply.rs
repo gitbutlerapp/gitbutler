@@ -101,9 +101,6 @@ pub struct Outcome {
     pub applied_branches: Vec<gix::refs::FullName>,
     /// `true` if we created the given workspace ref as it didn't exist yet.
     pub workspace_ref_created: bool,
-    /// If not `None`, an actual merge was attempted, but depending on whether there was a conflict,
-    /// this was persisted or not.
-    pub workspace_merge: Option<crate::commit::merge::Outcome>,
     /// Stacks that conflicted while trying to apply the branch.
     ///
     /// Each entry includes the stable stack id and its tip ref name, so callers don't have to
@@ -125,7 +122,6 @@ impl std::fmt::Debug for Outcome {
             workspace: _,
             status: _,
             workspace_ref_created,
-            workspace_merge: _,
             conflicting_stacks,
             applied_branches,
         } = self;
@@ -254,7 +250,6 @@ pub fn apply(
             workspace: ws,
             status: OutcomeStatus::AlreadyApplied,
             workspace_ref_created,
-            workspace_merge: None,
             conflicting_stacks: Vec::new(),
             applied_branches: Vec::new(),
         });
@@ -301,7 +296,6 @@ pub fn apply(
             workspace: ws,
             status: OutcomeStatus::Applied,
             workspace_ref_created: false,
-            workspace_merge: None,
             conflicting_stacks: Vec::new(),
             applied_branches,
         });
@@ -539,7 +533,6 @@ pub fn apply(
             workspace: graph.into_workspace()?,
             status: OutcomeStatus::Applied,
             workspace_ref_created: needs_ws_ref_creation,
-            workspace_merge: None,
             conflicting_stacks: Vec::new(),
             applied_branches,
         });
@@ -582,7 +575,6 @@ pub fn apply(
             workspace: ws,
             status: OutcomeStatus::ConflictAborted,
             workspace_ref_created: false,
-            workspace_merge: Some(merge_result),
             conflicting_stacks,
             applied_branches: Vec::new(),
         });
@@ -696,7 +688,6 @@ pub fn apply(
                 workspace: ws,
                 status: OutcomeStatus::ConflictAborted,
                 workspace_ref_created: false,
-                workspace_merge: Some(merge_result),
                 conflicting_stacks,
                 applied_branches: Vec::new(),
             });
@@ -764,7 +755,6 @@ pub fn apply(
         workspace: ws,
         status: OutcomeStatus::Applied,
         workspace_ref_created: needs_ws_ref_creation,
-        workspace_merge: Some(merge_result),
         conflicting_stacks,
         applied_branches,
     })

@@ -130,7 +130,6 @@ pub mod json {
                 status,
                 applied_branches,
                 workspace_ref_created,
-                workspace_merge: _,
                 conflicting_stacks,
             } = value;
 
