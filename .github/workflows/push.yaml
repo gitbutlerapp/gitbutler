@@ -819,6 +819,9 @@ jobs:
           electron_sandbox="$(dirname "$electron_path")/chrome-sandbox"
           sudo chown root:root "$electron_sandbox"
           sudo chmod 4755 "$electron_sandbox"
+      # The tests load this build when CI is set, instead of a dev server.
+      - name: Build Lite UI
+        run: pnpm --filter @gitbutler/lite build:ui
       - name: Run Lite E2E tests
         # Concurrent Electron launches can fail during renderer bootstrap on GitHub's Linux runners.
         run: xvfb-run --auto-servernum pnpm --filter @gitbutler/lite test:e2e --forbid-only --workers=1

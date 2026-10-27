@@ -8,6 +8,12 @@ const fixtureScriptsDir = path.join(repoRoot, "e2e/playwright/scripts");
 const fixtureGitConfig = path.join(repoRoot, "e2e/playwright/fixtures/.gitconfig");
 const but = process.env.BUT ?? path.join(repoRoot, "target/debug/but");
 
+/**
+ * CI runs against the built UI in `dist/ui`: a cold dev server spends ~20s compiling
+ * the UI for whichever test opens it first, and every shard has a first test.
+ */
+export const devServerUrl = process.env.CI === "true" ? undefined : "http://127.0.0.1:5173";
+
 export type LiteTestEnvironment = {
 	appDataDir: string;
 	electronUserDataDir: string;

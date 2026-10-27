@@ -12,6 +12,7 @@ import { installForge, type FakeForge } from "./forge.ts";
 import { Repo } from "./repo.ts";
 import {
 	createLiteTestEnvironment,
+	devServerUrl,
 	paths,
 	processEnvironment,
 	removeLiteTestEnvironment,
@@ -73,7 +74,7 @@ export const test = base.extend<TestOptions & TestFixtures>({
 				E2E_TEST_APP_DATA_DIR: testEnvironment.appDataDir,
 				GIT_CONFIG_GLOBAL: testEnvironment.gitConfig,
 				GITBUTLER_LITE_HEADLESS: String(headless),
-				VITE_DEV_SERVER_URL: "http://127.0.0.1:5173",
+				...(devServerUrl !== undefined && { VITE_DEV_SERVER_URL: devServerUrl }),
 			}),
 		});
 		app.on("console", (message) =>
