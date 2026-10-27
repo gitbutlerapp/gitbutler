@@ -859,12 +859,19 @@ pub struct Hunk {
     pub key: HunkKey,
     pub header: String,
     pub lines: Vec<DiffLine>,
-    /// The scopes the hunk changes, outermost first, each as its first source line.
+    /// The scopes the hunk changes, outermost first, each as [`scope_name`] gives its first
+    /// source line.
     pub scope: Vec<String>,
     /// Unchanged lines before and after `lines`, out to the edges of the innermost scope it
     /// changes, when that's only a few: shown, never acted on.
     pub lead: Vec<DiffLine>,
     pub tail: Vec<DiffLine>,
+}
+
+/// A scope as a hunk names it: its first source `line`, without the indent or the brace
+/// that opens its body.
+pub fn scope_name(line: &str) -> &str {
+    line.trim().trim_end_matches('{').trim_end()
 }
 
 impl Hunk {
