@@ -1857,6 +1857,17 @@ impl Detail {
         self.diff_path(self.cursor.file)
     }
 
+    /// The path of the file under the cursor, unless the diff it's in is hidden: under a
+    /// pull request's tab, which draws no files, or a checkout's overview, where the list
+    /// marks only picked ones.
+    pub fn shown_cursor_path(&self, cx: &App) -> Option<String> {
+        if self.showing_review(cx) {
+            return None;
+        }
+        let path = self.cursor_path()?;
+        (!self.showing_now(cx) || self.file_picks.contains(&path)).then_some(path)
+    }
+
     /// The indexes of the files the diff shows, in ascending order for the binary searches
     /// over them (Find's among them): not those a filter or a pending operation hides.
     fn shown_files(&self) -> Vec<usize> {

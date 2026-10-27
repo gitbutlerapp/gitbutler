@@ -4,7 +4,7 @@ use snapbox::{IntoData as _, file, str};
 use temp_env::with_var;
 
 use crate::command::legacy::status::tui::tests::utils::{
-    TestTuiOptions, test_status_tui_with_options,
+    TestTuiOptions, test_status_tui, test_status_tui_with_options, unarchive_worktrees,
 };
 use crate::command::legacy::status::{
     TuiLaunchOptions,
@@ -29,13 +29,8 @@ fn worktree_tui() -> (TestTui<App>, String) {
     )
     .expect("app data dir is writable");
     let editor_command = format!("sh {}", editor_script.display());
-    let tui = test_status_tui_with_options(
-        env,
-        TestTuiOptions {
-            activate_worktrees: true,
-            ..Default::default()
-        },
-    );
+    unarchive_worktrees(&env);
+    let tui = test_status_tui(env);
     (tui, editor_command)
 }
 
@@ -76,10 +71,10 @@ fn linked_worktree_head_marker_survives_reload() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack-with-worktree");
     env.setup_metadata(&["A"]);
+    unarchive_worktrees(&env);
     let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
-            activate_worktrees: true,
             launch_options: TuiLaunchOptions {
                 invoked_from: Some(crate::utils::change_source::InvokedFrom::LinkedWorktree(
                     "wt".into(),
@@ -101,10 +96,10 @@ fn interactive_commit_picker_marks_invoking_worktree_head() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack-with-worktree");
     env.setup_metadata(&["A"]);
+    unarchive_worktrees(&env);
     let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
-            activate_worktrees: true,
             run_options: crate::command::legacy::status::TuiRunOptions::PickChanges,
             launch_options: TuiLaunchOptions {
                 invoked_from: Some(crate::utils::change_source::InvokedFrom::LinkedWorktree(
@@ -140,13 +135,8 @@ fn branch_picker_jumps_to_detached_worktree() {
         Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack-with-worktree");
     env.setup_metadata(&["A"]);
     env.invoke_bash("git -C .git/gitbutler/test-worktrees/wt checkout -q --detach");
-    let mut tui = test_status_tui_with_options(
-        env,
-        TestTuiOptions {
-            activate_worktrees: true,
-            ..Default::default()
-        },
-    );
+    unarchive_worktrees(&env);
+    let mut tui = test_status_tui(env);
 
     tui.input('t');
     tui.input("wt").assert_rendered_term_svg_eq(file![
@@ -198,13 +188,8 @@ fn sibling_worktree_lanes_are_separated_after_uncommitted_files() {
     env.invoke_git(
         "worktree add -b wt-child-two .git/gitbutler/test-worktrees/zz-child-two wt-branch",
     );
-    let mut tui = test_status_tui_with_options(
-        env,
-        TestTuiOptions {
-            activate_worktrees: true,
-            ..Default::default()
-        },
-    );
+    unarchive_worktrees(&env);
+    let mut tui = test_status_tui(env);
 
     tui.reload().assert_rendered_term_svg_eq(file![
         "snapshots/sibling_worktree_lanes_are_separated_after_uncommitted_files_001.svg"
@@ -303,9 +288,9 @@ fn remember_selection_on_worktree_rows() {
     };
     let options = || TestTuiOptions {
         launch_options: launch_options.clone(),
-        activate_worktrees: true,
         ..Default::default()
     };
+    unarchive_worktrees(&env);
     let mut tui = test_status_tui_with_options(env, options());
 
     tui.reload();
@@ -792,13 +777,8 @@ fn a_branch_below_the_worktree_top_gets_the_branch_confirm_not_worktree_removal(
         git -C .git/gitbutler/test-worktrees/wt commit -q --allow-empty -m "top work"
         "#,
     );
-    let mut tui = test_status_tui_with_options(
-        env,
-        TestTuiOptions {
-            activate_worktrees: true,
-            ..Default::default()
-        },
-    );
+    unarchive_worktrees(&env);
+    let mut tui = test_status_tui(env);
 
     tui.input("jjjjjj")
         .assert_current_line_eq(str!["┊┊├┄ el [wt-below]"]);
@@ -913,13 +893,7 @@ fn creating_new_worktrees() {
         let env = Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack");
         env.setup_metadata(&["A"]);
 
-        let mut tui = test_status_tui_with_options(
-            env,
-            TestTuiOptions {
-                activate_worktrees: true,
-                ..Default::default()
-            },
-        );
+        let mut tui = test_status_tui(env);
 
         // create a new worktree at the base
         tui.input('w')
@@ -960,13 +934,7 @@ fn cannot_create_worktrees_on_conflicted_commits() {
     );
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_status_tui_with_options(
-        env,
-        TestTuiOptions {
-            activate_worktrees: true,
-            ..Default::default()
-        },
-    );
+    let mut tui = test_status_tui(env);
 
     // create a conflicted commit
     tui.input('j');

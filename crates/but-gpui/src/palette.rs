@@ -12,6 +12,7 @@ use crate::app::{
     PasteHere, Push, Quit, Redo, RenameSelection, StartCommit, ToggleFileTree, ToggleNavigator,
     UncommitSelection, Undo, UpdateFromTarget, ZoomIn, ZoomOut,
 };
+use crate::backend::{Checkout, Worktree, short_ref};
 use crate::detail::{
     DiscardFile, DiscardHunk, FoldFile, NextFile, NextHunk, PreviousFile, PreviousHunk, UnfoldFile,
 };
@@ -20,7 +21,7 @@ use crate::edits::{
     NewBranchBelow, NewBranchHere, RewrapMessage, SquashAll, UnapplyStack, Unstack,
 };
 use crate::overlays::backdrop;
-use crate::state::{Notice, Selection, snack};
+use crate::state::{Notice, Selection, Store, snack};
 use crate::theme::Theme;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -28,7 +29,10 @@ use crate::ui::{
     POPOVER_RADIUS, dp, h_flex, keycap, list_row, muted, popover, shortcut_here, v_flex,
 };
 
-actions!(palette, [PaletteUp, PaletteDown, GoToBranch, ShowActions]);
+actions!(
+    palette,
+    [PaletteUp, PaletteDown, GoToBranch, ShowActions, CopyMore]
+);
 
 /// Every command, in the order they're listed before anything is typed.
 pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
@@ -76,6 +80,7 @@ pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Copy commit message", &CopyMessage),
     ("Discard or delete selection", &DeleteSelection),
     ("Copy", &CopySelection),
+    ("Copy…", &CopyMore),
     ("Cut", &CutSelection),
     ("Paste here", &PasteHere),
     ("Toggle navigator", &ToggleNavigator),
@@ -250,6 +255,79 @@ fn score(label: &str, query: &str) -> Option<i32> {
         .then_some(0)
 }
 
+/// What ⇧Y offers to copy from `selection`, labelled, the first what y copies.
+fn copies(store: &Store, selection: &Selection) -> Vec<(&'static str, String)> {
+    let mut copies = Vec::new();
+    match selection {
+        Selection::Commit(project, id) => {
+            let Some((_, commit)) = store.find_commit(project, *id) else {
+                return copies;
+            };
+            if commit.has_change_id() {
+                copies.push(("Change ID", commit.key.clone()));
+            }
+            copies.extend([
+                ("Commit ID", id.0.to_string()),
+                ("Short commit ID", id.0.to_hex_with_len(7).to_string()),
+            ]);
+            if !commit.message.trim().is_empty() {
+                copies.extend([
+                    ("Message title", commit.title.clone()),
+                    ("Whole message", commit.message.clone()),
+                ]);
+            }
+            // Git's author, which the byline swaps for the committer when an agent wrote it.
+            let (name, email) = match &commit.agent {
+                Some(agent) => (&agent.name, &agent.email),
+                None => (&commit.author, &commit.email),
+            };
+            copies.push(("Author", format!("{name} <{email}>")));
+        }
+        Selection::Branch(project, ref_name) => {
+            let Some(branch) = store.branch_for(selection) else {
+                return copies;
+            };
+            if let Some(ref_name) = ref_name {
+                copies.push(("Branch name", short_ref(ref_name).into_owned()));
+            }
+            if let Some(url) = branch.review.as_ref().and_then(|r| r.url.clone()) {
+                copies.push(("Pull request link", url));
+            }
+            // A branch in a linked worktree's lane, the one it has checked out or one below.
+            let checkout = store.checkout_of(selection);
+            let worktree = (checkout.as_ref().and_then(Checkout::linked))
+                .and_then(|name| store.workspace(project)?.find_worktree(name));
+            copies.extend(worktree.map(worktree_copies).into_iter().flatten());
+        }
+        Selection::Worktree(project, name) => {
+            let worktree =
+                (store.workspace(project)).and_then(|ws| ws.find_worktree(name.as_ref()));
+            copies.extend(worktree.map(worktree_copies).into_iter().flatten());
+        }
+        // The main worktree's row, which has no name of its own.
+        Selection::Uncommitted(project) => {
+            if let Some(path) = store.path(project) {
+                copies.push(("Worktree path", path.display().to_string()));
+            }
+        }
+        Selection::Project(_)
+        | Selection::Upstream(..)
+        | Selection::Mesh(..)
+        | Selection::Branches(_)
+        | Selection::History(_)
+        | Selection::Stack(..)
+        | Selection::Section(..) => {}
+    }
+    copies
+}
+
+fn worktree_copies(worktree: &Worktree) -> [(&'static str, String); 2] {
+    [
+        ("Worktree path", worktree.path.display().to_string()),
+        ("Worktree name", worktree.name.to_string()),
+    ]
+}
+
 impl AppView {
     pub fn open_palette(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         // Commands the app handles everywhere, as the Help menu's, count too.
@@ -394,6 +472,32 @@ impl AppView {
         }
         let place = self.store.read(cx).place(&selection);
         self.open_picker(Some(place), "Actions", "Run", choices, window, cx);
+        if let Some(palette) = &mut self.palette {
+            palette.holds_ids = true;
+        }
+    }
+
+    /// What can be copied from the selection, to pick from with the keys, as the TUI's ⇧Y
+    /// offers: the file under the cursor while the file list or the diff has the keys, as M
+    /// takes it. The first is what y copies, unless text is selected in the diff.
+    pub fn copy_more(&mut self, _: &CopyMore, window: &mut Window, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        let Some(selection) = store.selection.clone() else {
+            return;
+        };
+        let file = self.detail.read(cx).focused_file_paths(window, cx);
+        let copies = match file {
+            Some((path, full)) => vec![("File path", path), ("Full path", full)],
+            None => copies(store, &selection),
+        };
+        if copies.is_empty() {
+            return;
+        }
+        let choices = (copies.into_iter())
+            .map(|(label, text)| Choice::new(label, move |this, _, cx| this.copy_text(text, cx)))
+            .collect();
+        let place = store.place(&selection);
+        self.open_picker(Some(place), "Copy", "Copy", choices, window, cx);
         if let Some(palette) = &mut self.palette {
             palette.holds_ids = true;
         }

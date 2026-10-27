@@ -28,9 +28,6 @@ pub struct TestTuiOptions {
     pub launch_options: TuiLaunchOptions,
     /// Override deterministic change-ID generation for tests that need collisions.
     pub testing_change_id: Option<&'static str>,
-    /// Make the fixture's linked worktrees active, so they take part in the status the TUI is
-    /// built from.
-    pub activate_worktrees: bool,
 }
 
 impl Default for TestTuiOptions {
@@ -42,8 +39,22 @@ impl Default for TestTuiOptions {
             show_file_browser: false,
             launch_options: Default::default(),
             testing_change_id: None,
-            activate_worktrees: false,
         }
+    }
+}
+
+/// Bring back the linked worktrees `env`'s fixture has on disk. The first read adopts, i.e.
+/// archives every worktree already on disk on the assumption it predates GitButler, but a
+/// fixture's worktrees are the subject of the test. This is persisted, so later contexts see
+/// them as active.
+pub fn unarchive_worktrees(env: &Sandbox) {
+    let ctx = env.context();
+    let adopted = ctx
+        .worktrees_with_state()
+        .expect("worktree state is readable");
+    for worktree in adopted {
+        ctx.set_worktree_archived(worktree.name.as_ref(), false)
+            .expect("archived state is writable");
     }
 }
 
@@ -59,7 +70,6 @@ pub fn test_status_tui_with_options(env: Sandbox, options: TestTuiOptions) -> Te
         show_file_browser,
         launch_options,
         testing_change_id,
-        activate_worktrees,
     } = options;
 
     configure_test_repo(&env);
@@ -69,18 +79,6 @@ pub fn test_status_tui_with_options(env: Sandbox, options: TestTuiOptions) -> Te
         ));
     }
     let mut ctx = env.context();
-    if activate_worktrees {
-        // The first read adopts, i.e. archives every worktree already on disk
-        // on the assumption it predates GitButler. A fixture's worktrees are the subject of the
-        // test, so bring them back. This is persisted, so later contexts see them as active.
-        let adopted = ctx
-            .worktrees_with_state()
-            .expect("worktree state is readable");
-        for worktree in adopted {
-            ctx.set_worktree_archived(worktree.name.as_ref(), false)
-                .expect("archived state is writable");
-        }
-    }
     let mut out = OutputChannel::new(OutputFormat::Human { agent: false });
 
     let flags = StatusFlags::all_false();
