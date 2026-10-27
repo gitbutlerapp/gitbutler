@@ -198,11 +198,12 @@ else
 	exit 1
 fi
 
+# The experimental native client, which opens instead of the web app once it's turned on
+# with the `gpui` feature flag.
+FEATURES="$FEATURES builtin-gpui"
+
 if [ "$CHANNEL" = "nightly" ]; then
 	FEATURES="$FEATURES nightly"
-	# The experimental native client, which opens instead of the web app once it's turned on
-	# with the `gpui` feature flag.
-	FEATURES="$FEATURES builtin-gpui"
 fi
 
 # update the version in the tauri release config
