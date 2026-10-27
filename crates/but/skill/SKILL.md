@@ -1,7 +1,7 @@
 ---
 name: but
 version: 0.0.0
-description: "Commit, push, branch, and manage version control with GitButler. Use for commits, selective dirty-file or hunk commits, branches, diffs, PRs, history edits, squashes, amends, undo, merge, apply, unapply, and linked worktrees. For selected dirty files or hunks, inspect with `but diff`; use compact `but status` for commit order, branch/stack placement, or conflict overview; use `but status -fv` when file IDs or per-commit file details matter. Replaces git write commands. Applies in every checkout of the repository, including linked worktrees such as `.claude/worktrees/*`, and to git writes made while testing or cleaning up (stash, checkout -- <file>, restore, reset)."
+description: "Commit, push, branch, and manage version control with GitButler. Use for commits, selective dirty-file or hunk commits, branches, diffs, PRs, history edits, squashes, amends, undo, merge, fetching, pulling and syncing a branch with its remote, apply, unapply, and linked worktrees. For selected dirty files or hunks, inspect with `but diff`; use compact `but status` for commit order, branch/stack placement, or conflict overview; use `but status -fv` when file IDs or per-commit file details matter. Replaces git write commands, including fetch and pull. Applies in every checkout of the repository, even when a plain branch is checked out, including linked worktrees such as `.claude/worktrees/*`, and to git writes made while testing or cleaning up (stash, checkout -- <file>, restore, reset)."
 author: GitButler Team
 ---
 
@@ -22,6 +22,9 @@ but status
 
 # File IDs, per-commit files, amend details:
 but status -fv
+
+# What one applied branch or commit changed, for review:
+but diff <branch-or-commit>
 
 # Details for one known branch or commit:
 but show <id>
@@ -53,7 +56,7 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 
 ## Non-Negotiable Rules
 
-1. Use `but` for all write operations. Never run `git add`, `git commit`, `git push`, `git checkout`, `git merge`, `git rebase`, `git stash`, or `git cherry-pick`. The only exceptions are selecting a side of a conflicted submodule in resolution mode (see Resolve conflicted commits) and creating a missing target branch (see Notes). If the user says a `git` write command, translate it to `but` and run that.
+1. Use `but` for all write operations. Never run `git add`, `git commit`, `git push`, `git fetch`, `git pull`, `git checkout`, `git merge`, `git rebase`, `git stash`, or `git cherry-pick`; `but pull --check` fetches. The only exceptions are selecting a side of a conflicted submodule in resolution mode (see Resolve conflicted commits) and creating a missing target branch (see Notes). If the user says a `git` write command, translate it to `but` and run that.
 2. Mutation commands print their result without appending workspace status. Add `--status-after` only when the next step needs resulting workspace IDs or details; otherwise trust the mutation result and do not run a verification status/diff.
 3. Branches marked `(merged upstream)` have landed; start new work on another branch. That marker alone does not mean `but pull` removes them: run `but pull --check` first. `but pull` removes only branches listed `[integrated]` ("has been integrated upstream and removed locally", or "has been merged into <target> and removed" when the target has no upstream) and rebases the rest, which stay applied. To clear a landed branch that stays applied, use `but unapply <branch>` (acts on its whole stack) rather than `but discard`. `push` and mutations (`commit`, `amend`, `squash`, `uncommit`, `reword`, `move`) refuse landed branches and commits, `absorb` skips them with a notice, and `commit` skips them when picking a default target.
 4. Keep going between routine `but` commands. Put any status note in the same message as the next command, and don't end a turn on a summary that announces the next `but` step without running it. Finish with a concise summary.
@@ -71,17 +74,17 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 - The branch is never positional (`but commit <branch>` fails; use `-b`), `but amend` always needs `-t`, and `but diff` takes one target (use a shared `dir/` or one call each).
 - Commit at a specific history position: `--above <commit-or-branch>` or `--below <commit-or-branch>` (mutually exclusive). With a branch target, add `-b <new-name>` to name the new branch; otherwise its name is generated. The name must not already exist. Do not combine `-b` (even without a name) with commit/worktree targets.
 - Targeting is **required** when more than one **stack** is applied; without it `but commit` fails with "Unclear where to commit. Found more than one stack". Several branches stacked together count as one stack — an untargeted commit then silently lands on the stack's top branch, so pass `-b` whenever the branch matters.
-- Always pass `-m "<msg>"` (or `-F -` with a heredoc, `-F <file>` with a file outside the repository, or `--no-message`) to `but commit`, and to `but squash` whenever its sources are commits or branches unless the target is `@` — those compose a new message; without a flag an agent run keeps whatever the command composed (empty for `but commit`, the joined source messages for `but squash`) and a terminal opens an editor. Squash sources that are uncommitted or committed changes reuse the target's message and need no flag; squashing into `@` rejects message flags outright.
+- Always pass `-m "<msg>"` (or `-F -` with a heredoc, `-F <file>` with a file outside the repository, or `--no-message`) to `but commit`, and to `but squash` whenever its sources are commits or branches unless the target is `@` (squash also takes `-u` to keep the target's message) — those compose a new message; without a flag an agent run keeps whatever the command composed (empty for `but commit`, the joined source messages for `but squash`) and a terminal opens an editor. Squash sources that are uncommitted or committed changes reuse the target's message and need no flag; squashing into `@` rejects message flags outright.
 - Amend: `but amend -t <commit-or-branch> <file-or-hunk-id> <file-or-hunk-id>` — a branch target resolves to its newest commit
 - Uncommit: `but uncommit <commit-id>` (whole commit), `but uncommit <branch>` (all commits and remove branch), `but uncommit <commit-id>:<file-id>` (committed file), or `but uncommit <commit-id>:<file-id>:<hunk-id>` (committed hunk); committed files and hunks may be mixed, but all must come from one commit
-- Pick onto a new named branch: `but pick <commit-sha> --above <branch> -b <new-name>` (`--below` also works), with the same `-b` rules.
+- Copy commits (sources stay unchanged): `but pick <sha> [<sha>...] -b <new-branch>` puts the copies on a new independent branch from the target, `-b <existing-branch>` on that applied branch's tip, and `--above <branch> -b <new-name>` (or `--below`) on a new branch stacked there. Pick applies sources in the order given, so pass them oldest first. For a branch that is not applied, list SHAs with `git log --reverse <target>..<branch>` and inspect them with `git show` or `but show <sha>`; `but diff` and the IDs that `but branch show` prints for it do not work.
 - Move committed changes into an existing commit or `@`: `but squash <commit-id>:<file-id> -t <commit-id-or-@>` for a committed file; `but squash <commit-id>:<file-id>:<hunk-id> -t <commit-id-or-@>` for a committed hunk; all sources must come from one commit
 - Move committed changes into a new commit at a chosen position: `but move <commit-id>:<file-id> --above <commit-or-branch> -m "<msg>"` for a committed file; `but move <commit-id>:<file-id>:<hunk-id> --above <commit-or-branch> -m "<msg>"` for a committed hunk (`--below`, `--branch`, and `--unstack` also work)
 - `but split` and a `but move` of committed changes name their new commit with `-m` or `-F` too; without either the commit gets an empty message. `but move` rejects `-m`/`-F` for whole-commit and branch sources.
 - Move commit to branch top: `but move <commit-id> -b <branch>`
 - Move commits or committed changes onto a new named branch: `but move <source> --above <branch> -b <new-name>` (`--below` also works); use `but move <source> --unstack -b <new-name>` for an independent branch. Omit `-b` for a generated name. Naming is not supported when stacking or unstacking a branch source.
 - Discard: `but discard <id> [<id>...]` — accepts branches, commits, committed changes, uncommitted changes, or `@` for all uncommitted changes
-- Push: `but push <top-branch>` — pushes the selected branch and its ancestors; to update a stack, select its top branch once and never loop. Bare `but push` pushes all unpushed work when run non-interactively — one push per stack (its topmost unpushed branch, ancestors included), and the output lists every branch it pushed. It exits non-zero if any stack failed; stacks that already pushed stay pushed, and rerunning after fixing the failure is safe (up-to-date stacks are skipped). `but push` and `but pr new` replace the remote branch: if others may have pushed to it, `but pull` first, and when `but status` then shows `(upstream: on origin/<branch>)` under the branch, run `but branch update <branch>` before pushing.
+- Push: `but push <top-branch>` — pushes the selected branch and its ancestors; to update a stack, select its top branch once and never loop. Bare `but push` pushes all unpushed work when run non-interactively — one push per stack (its topmost unpushed branch, ancestors included), and the output lists every branch it pushed. It exits non-zero if any stack failed; stacks that already pushed stay pushed, and rerunning after fixing the failure is safe (up-to-date stacks are skipped). `but push` and `but pr new` replace the remote branch: if others may have pushed to it, bring their commits in first (see Bring in commits pushed to a branch's own remote).
 - Create PR: `but pr new <branch-name> [-m "Title..."] [-F - | -F <file>] [-t] [--draft]` — auto-pushes first; do not run `but push` before it
 
 ## Task Recipes
@@ -94,10 +97,17 @@ For "get latest from main", "update/sync this workspace", "rebase onto main", or
 2. If commits come back conflicted, resolve them with the `but resolve conflicts <branch>` and `but resolve apply` loop in Resolve conflicted commits, one branch at a time. When `HEAD` is `gitbutler/workspace`, `but pull` prints `but resolve <commit>` as the next step; that is edit mode, which is only for running code against a resolution.
 
 `but pull --check` answers "would this conflict?" without updating. Do not use it as a routine
-preflight; use it when the user asks for a preview, repository policy requires one, other agents'
+preflight; use it when the user asks for a preview, you need a fetch, repository policy requires one, other agents'
 branches may move, or an applied branch was just merged upstream (see rule 3).
 
 Rebasing applied branches onto the latest target IS `but pull` — never `move`, `config target`, `unapply`, or raw `git pull`/`git rebase`. The base shown in status is the last FETCHED state: when `git log` shows the remote target (for example `origin/main`) ahead of it, that is exactly the update `but pull` fetches and applies — the target setting is not stale and repointing it is never the fix. Pull carries uncommitted changes along; there is no stash, so do not hand-revert files.
+
+### Bring in commits pushed to a branch's own remote
+
+`but pull` only rebases onto the target. Commits someone pushed to your branch's remote show in `but status` under `(upstream: on <remote>/<branch>)`, above the branch's own commits; if status may be stale, run `but pull --check` to fetch.
+
+1. `but branch update <branch>`, once, on the branch they pushed to.
+2. Then `but pull` if the target moved too. Update before pulling. If the branch was rebased since its last push (for example by an earlier `but pull`), the update leaves an empty `(no changes)` copy of a shared commit. On a single branch, `but discard` that copy by its `#N` ref. In a stack, `but undo` the update and tell the user, because the update can also move commits into the lower branch. Do not update a second time, even if `(upstream: …)` still lists commits, because a second update duplicates commits.
 
 ### Commit selected files or hunks
 
@@ -155,7 +165,7 @@ To make one existing branch depend on another: `but move <child-branch-name> --a
 
 ### Work in a linked worktree
 
-Use a worktree when the task needs a separate checkout, for example to build or test one branch while other work stays in the main checkout.
+Use a worktree when the task needs a separate checkout, for example to build or test one branch while other work stays in the main checkout. If `but worktree` reports that worktree manipulation is not enabled, tell the user: the `worktreeManipulation` feature flag is off, and the CLI cannot turn it on.
 
 1. `but worktree new <branch-name>` checks out that branch in a new directory, creating it if needed (an existing branch must not be in the workspace), and prints that directory. Add `-A <commit>` to start the branch at that commit instead of the workspace base. Worktrees made by other tools must sit outside the repository directory or be listed in `.git/info/exclude`; otherwise a bare `but commit` in the main checkout records them in the branch.
 2. Run `but` from that directory, or with `but -C <path>`. There, a bare `but commit -m "<msg>"` or `but diff` takes that worktree's changes, a bare path names a file there, and the commit goes on the worktree's branch. If `but` says the worktree "is not managed by GitButler", it is archived: `but worktree unarchive <name>`. `but undo` refuses to restore a branch a worktree has checked out, so reverse a mistake there with the inverse command (`uncommit`, `reword`).
@@ -202,7 +212,7 @@ A wrong resolution is reverted with `but undo`.
 1. `but resolve <commit-id>` — enters resolution mode and prints the conflict regions.
 2. **Edit the files** to remove every conflict marker — `<<<<<<<`, `|||||||` (the common-ancestor section), `=======` and `>>>>>>>` — and keep the correct content. Do NOT skip this; do NOT use `but amend` on conflicted commits.
    - A conflicted submodule has no markers and `finish` refuses until you select its side: see Conflict Resolution Mode in `but skill concepts`.
-3. `but resolve finish` reports leftover markers, surviving uncommitted changes, every remaining conflicted commit, and the exact current `but resolve <id>` command. Add `--status-after` to the finish you expect to clear the last conflict only when the task needs the complete resulting workspace. When it says no conflicted commits remain, stop; do not run a verification status. Cancel instead with `but resolve cancel`.
+3. `but resolve finish` reports leftover markers, surviving uncommitted changes, every remaining conflicted commit, and the exact current `but resolve <id>` command. Add `--status-after` to the finish you expect to clear the last conflict only when the task needs the complete resulting workspace. When it says no conflicted commits remain, stop; do not run a verification status. Cancel instead with `but resolve cancel --force`, which drops your resolution edits; without `--force` it refuses once the conflict markers are checked out.
 4. Repeat for remaining conflicted commits, oldest first — finishing a lower commit rebases the ones above it.
 
 ### Conflicts in uncommitted files
@@ -221,13 +231,15 @@ A wrong resolution is reverted with `but undo`.
 | `git rebase --onto` | `but move <branch> --above <new-base>` |
 | `git checkout -- <file>` / `git restore` | `but discard <path>`, or a hunk ID from `but diff` |
 | `git cherry-pick` | `but pick` |
+| `git fetch` | `but pull --check` (fetches; changes no branch) |
+| `git pull` on a branch others pushed to | `but branch update <branch>`, then `but pull` |
 | `git worktree add -b <branch>` | `but worktree new <branch>` |
 | `git worktree remove` | `but worktree remove <name>` |
 | `gh pr create` | `but pr new <branch-name> -m "Title..."` |
 
 ## Notes
 
-- `but` needs no setup in a Git repository. `HEAD` is either one checked-out branch, marked `[HEAD]` in `but status`, or `gitbutler/workspace`, which merges every applied stack. Applying a second stack switches to `gitbutler/workspace`, and unapplying back to one stack checks that branch out again. Commands and IDs are the same either way. It does need a local branch tracking the remote's default branch: if commands fail with "No target branch is configured", run `git branch --track main origin/main` (with the default branch's name), not `--set-upstream-to` on your own branch, which makes that branch the target.
+- `but` needs no setup in a Git repository. `HEAD` is either one checked-out branch, marked `[HEAD]` in `but status`, or `gitbutler/workspace`, which merges every applied stack. Applying a second stack, or applying a branch while the target branch is checked out, switches to `gitbutler/workspace`; unapplying back to one stack checks that branch out again. Commands and IDs are the same either way. It does need a local branch tracking the remote's default branch: if commands fail with "No target branch is configured", run `git branch --track main origin/main` (with the default branch's name), not `--set-upstream-to` on your own branch, which makes that branch the target.
 - `but undo` restores the whole snapshot, so uncommitted edits made after the undone operation are lost (`but redo` brings them back). Commit them first.
 - Read-only git inspection (`git log`, `git blame`, `git show --stat`) is allowed.
 - If `but` prints an `AGENT ACTION REQUIRED` skill warning, run the suggested command once, then reload/use the GitButler skill. If it repeats, report it instead of retrying.
