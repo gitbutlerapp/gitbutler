@@ -100,6 +100,48 @@ fn remembered(kept: Option<&Activity>, now: i64, branches: &[&Branch]) -> Vec<Se
 }
 
 impl Store {
+    /// When something other than the app last wrote to `checkout` of `project`: what the file
+    /// watcher saw, or an uncommitted file's time, as of one written before the app started.
+    pub fn last_write(&self, project: &ProjectId, checkout: &Checkout) -> Option<i64> {
+        let files = (self.workspace(project)).and_then(|ws| ws.uncommitted_in(checkout));
+        let written = (files.unwrap_or_default().iter())
+            .filter_map(|file| file.modified.map(|ms| ms / 1000))
+            .filter(|at| !self.own_write(project, *at))
+            .max();
+        let activity = self.activity.get(&(project.clone(), checkout.clone()));
+        activity.and_then(|a| a.last).max(written)
+    }
+
+    /// Whether `checkout` of `project` is being written: written to just now, and since its
+    /// newest commit, a branch's that left since too, as committing makes it quiet again.
+    pub fn writing(&self, project: &ProjectId, checkout: &Checkout) -> bool {
+        let Some(workspace) = self.workspace(project) else {
+            return false;
+        };
+        let gone = (self.activity.get(&(project.clone(), checkout.clone())))
+            .and_then(|activity| activity.commits.first())
+            .map(|commit| commit.time);
+        let newest = (workspace.branches_in(checkout))
+            .flat_map(|branch| &branch.commits)
+            .map(|commit| commit.time)
+            .max()
+            .max(gone);
+        (self.last_write(project, checkout))
+            .is_some_and(|at| crate::ui::just_now(at) && newest < Some(at))
+    }
+
+    /// The checkouts of `project` being [written](Store::writing): the main one first, then
+    /// the linked worktrees.
+    pub fn being_written(&self, project: &ProjectId) -> Vec<Checkout> {
+        let Some(workspace) = self.workspace(project) else {
+            return Vec::new();
+        };
+        let linked = (workspace.worktrees.iter()).map(|w| Checkout::Linked(w.name.clone()));
+        (std::iter::once(Checkout::Main).chain(linked))
+            .filter(|checkout| self.writing(project, checkout))
+            .collect()
+    }
+
     /// Remember the commits each checkout of `workspace` has, as [`remembered`] keeps them.
     pub(super) fn remember_commits(
         &mut self,

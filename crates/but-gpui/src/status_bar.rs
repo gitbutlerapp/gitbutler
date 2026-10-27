@@ -1,18 +1,22 @@
 //! The strip along the bottom of the window: what's running, what's cut, and the keys
 //! that matter right now.
 
-use gpui::{Action, AnyElement, Context, Focusable as _, Window, div, prelude::*};
+use gpui::{
+    Action, AnyElement, Context, Div, Focusable as _, Hsla, Role, Stateful, Window, div, prelude::*,
+};
 
 use crate::app::{
     AppView, CommandPalette, CutSelection, Fetch, FocusDiff, OpenPullRequest, PasteHere, Push,
     RenameSelection, StartCommit, UncommitSelection, Undo, UpdateFromTarget,
 };
-use crate::backend::CommitId;
+use crate::backend::{Branch, Checkout, CommitId, FileChange, ReviewState, Workspace};
 use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
 use crate::pr::{CreatePullRequest, create_offer};
-use crate::state::{Cut, SLOW, Section, Selection};
+use crate::state::{Cut, ProjectId, SLOW, Section, Selection};
 use crate::theme::Theme;
-use crate::ui::{Icon, STATUS_BAR_HEIGHT, dp, duration, h_flex, shortcut, small_icon};
+use crate::ui::{
+    Icon, STATUS_BAR_HEIGHT, Tooltip, ago, dot, dp, duration, h_flex, plural, shortcut, small_icon,
+};
 
 impl AppView {
     pub fn render_status_bar(
@@ -128,67 +132,34 @@ impl AppView {
                 )
                 .child(hint("esc", "cancel", &theme))
                 .into_any_element()
-        } else if let Some((path, place)) = (detail.is_focused(window, cx)
-            && !detail.diff_hidden(cx))
-        .then(|| detail.cursor_place())
-        .flatten()
+        } else if let Some(place) = (detail.is_focused(window, cx) && !detail.diff_hidden(cx))
+            .then(|| detail.cursor_place())
+            .flatten()
         {
             // In the diff or the lists beside it, where the cursor is, as an editor's status
-            // bar names the file and the line.
-            h_flex()
-                .gap(dp(6.))
-                .min_w_0()
-                .child(div().min_w_0().truncate().child(path))
-                .child(div().flex_none().text_color(theme.text_3).child(place))
-                .into_any_element()
+            // bar says the line.
+            div().child(place).into_any_element()
         } else {
-            // The selected project's standing against its target, and how fresh that is.
-            let summary = store.selection.as_ref().and_then(|selection| {
-                let entry = store.project(selection.project())?;
-                let target = entry.workspace.as_ref()?.target.as_ref()?;
-                // A target with no upstream stands where it is whatever a fetch brings. After
-                // a failed fetch, what the remote has now is anyone's guess.
-                let failed = store.fetch_failed_at(&entry.id).is_some() && !target.local;
-                let fetched = match failed {
-                    true => Some(" · couldn't fetch".to_owned()),
-                    false => (store.fetched_at(&entry.id))
-                        .filter(|_| !target.local)
-                        .and_then(|at| at.duration_since(std::time::UNIX_EPOCH).ok())
-                        .map(|at| format!(" · fetched {}", crate::ui::ago(at.as_secs() as i64))),
-                };
-                // A stack can be on an older target commit, as one just applied can.
-                let standing = match target.behind {
-                    0 if target.needs_update => {
-                        format!(
-                            "{} · some branches are behind {}",
-                            entry.project.name, target.name
-                        )
-                    }
-                    0 => match &target.untracked {
-                        Some(remote) => format!(
-                            "{} · {} doesn't track {remote}",
-                            entry.project.name, target.name
-                        ),
-                        // Not up to date for all it knows.
-                        None if failed => {
-                            let said =
-                                format!("{} · couldn't fetch {}", entry.project.name, target.name);
-                            return Some(said);
-                        }
-                        None => format!("{} · up to date with {}", entry.project.name, target.name),
-                    },
-                    n => format!(
-                        "{} · {} behind {}{}",
-                        entry.project.name,
-                        crate::ui::plural(n, "commit"),
-                        target.name,
-                        crate::navigator::with_merged(target)
-                    ),
-                };
-                Some(standing + fetched.as_deref().unwrap_or_default())
-            });
-            div().children(summary).into_any_element()
+            self.render_notes(&theme, cx)
         };
+        // How fresh the selected project's view of its remote is, which a click fetches again.
+        // A target with no upstream stands where it is whatever a fetch brings. Not on the
+        // project's page, whose header says it, with its own Fetch.
+        let fetched = (store.selection.as_ref()).and_then(|selection| {
+            if let Selection::Project(_) | Selection::Section(_, Section::Upstream(None)) =
+                selection
+            {
+                return None;
+            }
+            let id = selection.project();
+            store.workspace(id)?.target.as_ref().filter(|t| !t.local)?;
+            match store.fetch_failed_at(id) {
+                Some(_) => Some((true, "Couldn't fetch".to_owned())),
+                None => (store.fetched_at(id))
+                    .and_then(|at| at.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|at| (false, format!("Fetched {}", ago(at.as_secs() as i64)))),
+            }
+        });
 
         let detail_focused = detail.is_focused(window, cx);
         // A linked worktree's changes commit and discard as the main checkout's do.
@@ -300,15 +271,21 @@ impl AppView {
                 let keys = shortcut(action, cx)?;
                 Some(hint(&keys, label, &theme))
             }))
+            .when_some(fetched, |el, (failed, said)| {
+                let tip = if failed { "Fetch again" } else { "Fetch" };
+                el.child(
+                    clickable("fetched", &said, &theme)
+                        .text_color(if failed { theme.warn } else { theme.text_3 })
+                        .when(failed, |el| {
+                            el.child(small_icon(Icon::Warning).text_color(theme.warn))
+                        })
+                        .child(said)
+                        .tooltip(Tooltip::keyed(tip, shortcut(&Fetch, cx)))
+                        .on_click(|_, window, cx| window.dispatch_action(Box::new(Fetch), cx)),
+                )
+            })
             .child(
-                h_flex()
-                    .id("open-commands")
-                    .flex_none()
-                    .gap(dp(4.))
-                    .px(dp(6.))
-                    .h(dp(22.))
-                    .rounded(dp(4.))
-                    .hover(|el| el.bg(theme.hover()))
+                clickable("open-commands", "Commands", &theme)
                     .child(hint(
                         shortcut(&CommandPalette, cx).as_deref().unwrap_or("⌘K"),
                         "Commands",
@@ -317,6 +294,241 @@ impl AppView {
                     .on_click(|_, window, cx| window.dispatch_action(Box::new(CommandPalette), cx)),
             )
     }
+
+    /// The bar's left while nothing is under way, picked or cut: what in the selected project
+    /// needs the user, where something is writing, the commits not read yet and what ⌘Z takes
+    /// back, in that order, each a click from what it names. What doesn't fit goes whole,
+    /// from the end.
+    fn render_notes(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+        let store = self.store.read(cx);
+        let Some(project) = (store.selection.as_ref()).map(|s| s.project().clone()) else {
+            return div().into_any_element();
+        };
+        let shown = store.selection.as_ref();
+        let mut notes = Vec::new();
+        if let Some(workspace) = store.workspace(&project) {
+            notes.extend(
+                needs(&project, workspace, shown)
+                    .into_iter()
+                    .map(|(need, text, to)| {
+                        let (id, glyph, color, tip) = match need {
+                            Need::ConflictedCommits => (
+                                "conflicted-commits",
+                                Icon::Warning,
+                                theme.warn,
+                                "Show the conflict",
+                            ),
+                            Need::ConflictedFiles => (
+                                "conflicted-files",
+                                Icon::Warning,
+                                theme.warn,
+                                "Show the conflict",
+                            ),
+                            Need::FailedChecks => (
+                                "failed-checks",
+                                Icon::Cross,
+                                theme.danger,
+                                "Show the branch",
+                            ),
+                        };
+                        Note {
+                            id,
+                            mark: small_icon(glyph).text_color(color).into_any_element(),
+                            color: Some(color),
+                            text,
+                            tip,
+                            to,
+                        }
+                    }),
+            );
+            // The checkout selected says both of its own, so only the others' count.
+            let here = (self.detail.read(cx).selected_checkout(cx)).map(|(_, checkout)| checkout);
+            let writing: Vec<Checkout> = (store.being_written(&project).into_iter())
+                .filter(|checkout| Some(checkout) != here.as_ref())
+                .collect();
+            let names: Vec<String> = (writing.iter())
+                .map(|checkout| match checkout {
+                    Checkout::Main => "Main worktree".to_owned(),
+                    Checkout::Linked(name) => name.to_string(),
+                })
+                .collect();
+            if let (Some(text), Some(first)) = (written_in(&names), writing.first()) {
+                notes.push(Note {
+                    id: "writing",
+                    mark: dot(theme.pop).into_any_element(),
+                    color: None,
+                    text,
+                    tip: "Show the worktree",
+                    to: match first {
+                        Checkout::Main => Selection::Uncommitted(project.clone()),
+                        Checkout::Linked(name) => {
+                            Selection::Worktree(project.clone(), name.clone())
+                        }
+                    },
+                });
+            }
+            let unread: Vec<CommitId> = (workspace.lanes.iter())
+                .filter(|lane| Some(&lane.checkout) != here.as_ref())
+                .flat_map(|lane| lane.branches.iter().flat_map(|branch| &branch.commits))
+                .filter(|commit| store.is_unread(&project, *commit))
+                .map(|commit| commit.id)
+                .collect();
+            if let Some(first) = unread.first() {
+                notes.push(Note {
+                    id: "unread",
+                    mark: small_icon(Icon::Commit)
+                        .text_color(theme.text_3)
+                        .into_any_element(),
+                    color: None,
+                    text: format!("{} unread", unread.len()),
+                    tip: "Read the first one",
+                    to: Selection::Commit(project.clone(), *first),
+                });
+            }
+        }
+        // ⌘Z follows the user, so this may be another project's, which it names. Operations
+        // history lists it first.
+        if let Some((done_in, said, at)) = store.last_done()
+            && store.project(done_in).is_some()
+            && shown != Some(&Selection::History(done_in.clone()))
+        {
+            notes.push(Note {
+                id: "last-done",
+                mark: small_icon(Icon::Undo)
+                    .text_color(theme.text_3)
+                    .into_any_element(),
+                color: None,
+                text: format!("{said}{} · {}", store.in_project(done_in), ago(at / 1000)),
+                tip: "Show the operations history",
+                to: Selection::History(done_in.clone()),
+            });
+        }
+        // Each a whole line's height, so what wraps to a second line is out of sight. Pulled
+        // left by its hover's padding, so its words start where the other states' do.
+        h_flex()
+            .w_full()
+            .h(dp(22.))
+            .ml(dp(-6.))
+            .flex_wrap()
+            .overflow_hidden()
+            .children(notes.into_iter().map(|note| {
+                let to = note.to;
+                clickable(note.id, &note.text, theme)
+                    .when_some(note.color, |el, color| el.text_color(color))
+                    .child(note.mark)
+                    .child(note.text)
+                    .tooltip(Tooltip::text(note.tip))
+                    .on_click(
+                        cx.listener(move |this, _, window, cx| this.select(to.clone(), window, cx)),
+                    )
+            }))
+            .into_any_element()
+    }
+}
+
+/// Something the bar's left says while nothing else is under way, and where a click on it
+/// goes. Its words take `color`, or the bar's.
+struct Note {
+    id: &'static str,
+    mark: AnyElement,
+    color: Option<Hsla>,
+    text: String,
+    tip: &'static str,
+    to: Selection,
+}
+
+/// What kind of thing needs the user, which says how the bar marks it.
+#[derive(Debug, PartialEq)]
+enum Need {
+    ConflictedCommits,
+    ConflictedFiles,
+    FailedChecks,
+}
+
+/// What in `workspace` needs the user, first things first: its conflicted commits, its
+/// checkouts' conflicted files, and the main checkout's branches whose CI failed, as the
+/// forge last said. Linked worktrees' checks aren't refreshed, so they'd be stale. What the
+/// page `shown` says of itself is left out. Each says how many, with where a click goes: the
+/// first of them.
+fn needs(
+    project: &ProjectId,
+    workspace: &Workspace,
+    shown: Option<&Selection>,
+) -> Vec<(Need, String, Selection)> {
+    let elsewhere = |to: &Selection| shown != Some(to);
+    let mut needs = Vec::new();
+    let commits: Vec<Selection> = (workspace.commits())
+        .filter(|commit| commit.conflicted)
+        .map(|commit| Selection::Commit(project.clone(), commit.id))
+        .filter(elsewhere)
+        .collect();
+    if let Some(first) = commits.first() {
+        let text = plural(commits.len(), "conflicted commit");
+        needs.push((Need::ConflictedCommits, text, first.clone()));
+    }
+    let count = |files: &[FileChange]| files.iter().filter(|file| file.conflicted).count();
+    let files: Vec<(usize, Selection)> = std::iter::once((
+        count(&workspace.uncommitted),
+        Selection::Uncommitted(project.clone()),
+    ))
+    .chain((workspace.worktrees.iter()).map(|worktree| {
+        let to = Selection::Worktree(project.clone(), worktree.name.clone());
+        (count(&worktree.uncommitted), to)
+    }))
+    .filter(|(n, to)| *n > 0 && elsewhere(to))
+    .collect();
+    if let Some((_, first)) = files.first() {
+        let text = plural(files.iter().map(|(n, _)| n).sum(), "conflicted file");
+        needs.push((Need::ConflictedFiles, text, first.clone()));
+    }
+    let failed: Vec<(&Branch, Selection)> = (workspace.branches_in(&Checkout::Main))
+        .filter(|branch| {
+            branch.review.as_ref().is_some_and(|review| {
+                matches!(review.state, ReviewState::Open | ReviewState::Draft)
+                    && review.checks.is_some_and(|checks| checks.failed > 0)
+            })
+        })
+        .map(|branch| {
+            (
+                branch,
+                Selection::Branch(project.clone(), branch.ref_name.clone()),
+            )
+        })
+        .filter(|(_, to)| elsewhere(to))
+        .collect();
+    if let Some((first, to)) = failed.first() {
+        let text = match failed.len() {
+            1 => format!("CI failed on {}", first.name),
+            n => format!("CI failed on {n} branches"),
+        };
+        needs.push((Need::FailedChecks, text, to.clone()));
+    }
+    needs
+}
+
+/// Where files are being written, as a checkout's overview says it of its own, named as the
+/// breadcrumbs name each checkout.
+fn written_in(names: &[String]) -> Option<String> {
+    Some(match names {
+        [] => return None,
+        [one] => format!("Being written now in {one}"),
+        [one, other] => format!("Being written now in {one} and {other}"),
+        many => format!("Being written now in {} worktrees", many.len()),
+    })
+}
+
+/// A part of the bar a click acts on, which a hover marks as it does the Commands button.
+fn clickable(id: &'static str, label: &str, theme: &Theme) -> Stateful<Div> {
+    h_flex()
+        .id(id)
+        .role(Role::Button)
+        .aria_label(label.to_owned())
+        .flex_none()
+        .gap(dp(6.))
+        .px(dp(6.))
+        .h(dp(22.))
+        .rounded(dp(4.))
+        .hover(|el| el.bg(theme.hover()))
 }
 
 /// An operation's label, which names it as a command ("Push main"), as what's under way
@@ -355,7 +567,76 @@ fn hint(keys: &str, label: &str, theme: &Theme) -> gpui::Div {
 
 #[cfg(test)]
 mod tests {
-    use super::under_way;
+    use super::{Need, needs, under_way};
+    use crate::backend::model::build::{branch, full, id, workspace, worktree};
+    use crate::backend::{Checks, FileChange, Review, ReviewState};
+    use crate::state::{ProjectId, Selection};
+
+    #[test]
+    fn needs_list_conflicts_then_failed_checks_each_going_to_the_first() {
+        let failing = |state| {
+            let checks = Checks {
+                passed: 3,
+                failed: 1,
+                running: 0,
+            };
+            Some(Review {
+                state,
+                checks: Some(checks),
+                ..Review::default()
+            })
+        };
+        let mut stack = vec![
+            branch("auth", &[1, 2]),
+            branch("login", &[3]),
+            branch("old", &[4]),
+        ];
+        stack[0].commits[1].conflicted = true;
+        stack[1].review = failing(ReviewState::Open);
+        stack[2].review = failing(ReviewState::Merged);
+        let mut agent = branch("agent", &[5]);
+        agent.review = failing(ReviewState::Open);
+        let mut ws = workspace(vec![stack], vec![worktree("agent-x", None, vec![agent])]);
+        let conflicted = |path| FileChange {
+            conflicted: true,
+            ..FileChange::bare(path)
+        };
+        ws.uncommitted = vec![conflicted("main.rs")];
+        ws.worktrees[0].uncommitted = vec![conflicted("a.rs"), conflicted("b.rs")];
+
+        let project = ProjectId::from("shop");
+        assert_eq!(
+            needs(&project, &ws, None),
+            [
+                (
+                    Need::ConflictedCommits,
+                    "1 conflicted commit".to_owned(),
+                    Selection::Commit(project.clone(), id(2))
+                ),
+                (
+                    Need::ConflictedFiles,
+                    "3 conflicted files".to_owned(),
+                    Selection::Uncommitted(project.clone())
+                ),
+                (
+                    Need::FailedChecks,
+                    "CI failed on login".to_owned(),
+                    Selection::Branch(project.clone(), Some(full("refs/heads/login")))
+                ),
+            ],
+            "a merged pull request's checks and a linked worktree's, which go stale, don't count"
+        );
+        let main = Selection::Uncommitted(project.clone());
+        assert_eq!(
+            needs(&project, &ws, Some(&main))[1],
+            (
+                Need::ConflictedFiles,
+                "2 conflicted files".to_owned(),
+                Selection::Worktree(project.clone(), "agent-x".into())
+            ),
+            "Main worktree's page shows its own conflicts, and the linked worktree's still count"
+        );
+    }
 
     #[test]
     fn labels_read_as_what_is_under_way() {

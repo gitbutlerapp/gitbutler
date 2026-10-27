@@ -998,11 +998,19 @@ impl Store {
 
     /// A snackbar offering to undo the mutation that just ran.
     pub fn snack_undoable(&mut self, message: impl Into<SharedString>, cx: &mut Context<Self>) {
+        let message = message.into();
         let undo = self.last_snapshot.clone();
+        // Once the snackbar goes, the status bar says it while ⌘Z still takes it back.
+        if let Some((project, snapshot)) = &undo
+            && let Some(step) = (self.undo_steps.iter_mut())
+                .find(|step| step.project == *project && step.snapshot == *snapshot)
+        {
+            step.said = Some(message.clone());
+        }
         // Done in another project than the one shown, it says which its Undo takes back.
         let message = match &undo {
-            Some((project, _)) => self.card_title(project, message.into().to_string()).into(),
-            None => message.into(),
+            Some((project, _)) => self.card_title(project, message.to_string()).into(),
+            None => message,
         };
         self.notify_user(Notice::Snackbar { message, undo }, cx);
     }

@@ -29,8 +29,7 @@ use crate::ui::review::state_glyph;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
     ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dot, dp, faint, glow_once,
-    h_flex, just_now, keep_focus_on_press, list_row, relative_time, short_path, shortcut,
-    small_icon, v_flex,
+    h_flex, keep_focus_on_press, list_row, relative_time, short_path, shortcut, small_icon, v_flex,
 };
 
 mod activity;
@@ -403,7 +402,7 @@ impl Detail {
                 _ => None,
             })
             .collect();
-        let status = self.now_status(project, files, activity, &all, unread.len(), theme, cx);
+        let status = self.now_status(project, checkout, files, &all, unread.len(), theme, cx);
         // Side by side where both fit, as the tiles wrap.
         let columns = [
             (self.now_hot_files(&scoped, theme, cx), 2., 240.),
@@ -471,30 +470,25 @@ impl Detail {
             )
     }
 
-    /// Where the checkout is, in a line: whether files are being written or how long it's
+    /// Where `checkout` is, in a line: whether files are being written or how long it's
     /// been quiet, how many `files` are uncommitted and how many of its `commits` are `unread`,
     /// or All caught up.
     #[expect(clippy::too_many_arguments)]
     fn now_status(
         &self,
         project: &ProjectId,
+        checkout: &Checkout,
         files: &[FileChange],
-        activity: Option<&Activity>,
         commits: &[Made],
         unread: usize,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Div {
         let store = self.store.read(cx);
-        let written = (files.iter())
-            .filter_map(|file| file.modified.map(|ms| ms / 1000))
-            .filter(|at| !store.own_write(project, *at))
-            .max();
-        let last_write = activity.and_then(|a| a.last).max(written);
-        // Written to lately, and since its last commit: once committed, it's quiet again.
+        let last_write = store.last_write(project, checkout);
         let now = crate::ui::now();
         let newest = commits.first().map(|commit| commit.time());
-        let writing = last_write.is_some_and(|at| just_now(at) && newest < Some(at));
+        let writing = store.writing(project, checkout);
         let state = match (writing, newest) {
             (true, _) => "Being written now".to_owned(),
             (false, Some(last)) => match now - last_write.max(Some(last)).unwrap_or(last) {
