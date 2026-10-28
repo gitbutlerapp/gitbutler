@@ -12,7 +12,7 @@ use gpui::{
 use super::blame::Blamed;
 use super::file_tree::{self, TreeRow};
 use super::panes::side_list;
-use super::{Detail, FilterFiles, LoadedDiff, keeps_path, merged, ranked};
+use super::{Copied, Detail, FilterFiles, LoadedDiff, keeps_path, merged, ranked};
 use crate::app::AppView;
 use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::MenuItem;
@@ -22,8 +22,8 @@ use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
 use crate::ui::illustration::Illustration;
 use crate::ui::{
-    Icon, ROW_HEIGHT, checkbox, count_badge, dp, empty_state, faint, fixed, h_flex, icon_button,
-    matched, muted, popover, side_row, small_icon, v_flex,
+    Icon, ROW_HEIGHT, blink_once, checkbox, count_badge, dp, empty_state, faint, fixed, h_flex,
+    icon_button, matched, muted, popover, side_row, small_icon, v_flex,
 };
 
 /// Where a file list's files come from.
@@ -936,7 +936,15 @@ impl Detail {
             .items_center()
             .justify_center()
             .child(mark);
+        // Copied while the list has the keys, not the files picked with it.
+        let blink = (current && solid)
+            .then(|| self.blink(Copied::Cursor))
+            .flatten();
         let mut row = file_row(("file", ix), current || picked, solid, theme)
+            .when_some(blink, |el, n| {
+                let shape = div().absolute().inset_0().rounded(dp(4.));
+                el.relative().child(blink_once(("blink", n), shape, theme))
+            })
             .map(|el| crate::ui::joined(el, extras.joined, solid, theme))
             .aria_label(file.path.clone())
             .aria_description(file.kind.word())
@@ -1298,7 +1306,7 @@ impl Detail {
             At::File(path, line) => (path, Some(line)),
             At::Folder(path) => (path, None),
         };
-        // Git's paths use `/`; Windows' own `\`, which "Copy full path" and Explorer expect.
+        // Git's paths use `/`; Windows' own `\`, which "Copy absolute path" and Explorer expect.
         let absolute = root.join(relative.replace('/', std::path::MAIN_SEPARATOR_STR));
         let full = absolute.display().to_string();
         #[expect(
@@ -1321,12 +1329,12 @@ impl Detail {
         }
         items.extend([
             MenuItem::keyed(
-                "Copy path",
+                "Copy relative path",
                 &crate::app::CopySelection,
                 cx,
                 move |this, _, cx| this.copy_text(relative.clone(), cx),
             ),
-            MenuItem::new("Copy full path", move |this, _, cx| {
+            MenuItem::new("Copy absolute path", move |this, _, cx| {
                 this.copy_text(full.clone(), cx)
             }),
         ]);

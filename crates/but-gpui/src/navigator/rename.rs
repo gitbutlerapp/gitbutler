@@ -37,7 +37,7 @@ impl Navigator {
             .as_ref()
             .map_or(String::new(), |r| short_ref(r).into_owned());
         let input = cx.new(|cx| {
-            let mut input = TextInput::new("Branch name", false, cx);
+            let mut input = TextInput::new("Branch name", false, cx).spaces_as_dashes();
             input.load(current.clone(), cx);
             input.select_all_text(cx);
             input

@@ -131,6 +131,16 @@ impl Cursor {
     }
 }
 
+/// What of the detail y copied, which blinks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Copied {
+    /// The text selected in the diff.
+    Text,
+    /// The path of the file under the cursor: its row in the file list, or in the diff what
+    /// the cursor's on, whichever has the keys.
+    Cursor,
+}
+
 impl Stop {
     /// The hunk the hunk keys act on, not one with the cursor on the box above it.
     fn hunk(self) -> Option<usize> {
@@ -342,6 +352,8 @@ pub struct Detail {
     /// The reword box's, which scrolls past a dozen lines as the commit box does.
     reword_scroll: ScrollHandle,
     cursor: Cursor,
+    /// How many times what y copied here has blinked, and what it last was and when.
+    blinked: (usize, Option<(Copied, Instant)>),
     /// Whether the selected commit's message shows its body, not just its title.
     message_open: bool,
     /// Whether a branch with a pull request shows it in place of its changes.
@@ -682,6 +694,7 @@ impl Detail {
             message_scroll,
             reword_scroll: ScrollHandle::new(),
             cursor: Cursor::default(),
+            blinked: (0, None),
             message_open: false,
             review_tab: false,
             now_open: false,
@@ -2013,6 +2026,25 @@ impl Detail {
         }
         let path = self.cursor_path()?;
         (!self.showing_now(cx) || self.file_picks.contains(&path)).then_some(path)
+    }
+
+    /// What copying takes from here: the selected text, or the path of the file under the
+    /// cursor. It blinks, as the TUI highlights what it copied.
+    pub fn copy(&mut self, cx: &mut Context<Self>) -> Option<String> {
+        let (text, copied) = match self.selected_text() {
+            Some(text) => (text, Copied::Text),
+            None => (self.shown_cursor_path(cx)?, Copied::Cursor),
+        };
+        self.blinked = (self.blinked.0 + 1, Some((copied, Instant::now())));
+        cx.notify();
+        Some(text)
+    }
+
+    /// Which blink `copied` is in while it blinks: see [`crate::ui::blink_once`].
+    fn blink(&self, copied: Copied) -> Option<usize> {
+        let (n, last) = self.blinked;
+        last.filter(|&(what, at)| what == copied && at.elapsed() < crate::ui::BLINK)
+            .map(|_| n)
     }
 
     /// The indexes of the files the diff shows, in ascending order for the binary searches

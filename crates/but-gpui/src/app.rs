@@ -833,17 +833,13 @@ impl AppView {
     }
 
     /// Copy what's selected in the form other tools take: a file's path, a commit's id,
-    /// a branch's name or a project's directory.
+    /// a branch's name or a project's directory. What it copied blinks, as the TUI highlights
+    /// it.
     fn copy_selection(&mut self, _: &CopySelection, window: &mut Window, cx: &mut Context<Self>) {
-        let detail = self.detail.read(cx);
-        let file = detail
-            .is_focused(window, cx)
-            .then(|| {
-                detail
-                    .selected_text()
-                    .or_else(|| detail.shown_cursor_path(cx))
-            })
+        let file = (self.detail.read(cx).is_focused(window, cx))
+            .then(|| self.detail.update(cx, |detail, cx| detail.copy(cx)))
             .flatten();
+        let selected = file.is_none();
         let text = file.or_else(|| match self.selection(cx)? {
             Selection::Commit(project, id) => {
                 let (_, commit) = self.store.read(cx).find_commit(&project, id)?;
@@ -880,6 +876,9 @@ impl AppView {
             | Selection::Section(..) => None,
         });
         if let Some(text) = text {
+            if selected {
+                (self.navigator).update(cx, |navigator, cx| navigator.blink_selection(cx));
+            }
             self.copy_text(text, cx);
         }
     }

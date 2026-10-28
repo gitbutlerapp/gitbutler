@@ -165,6 +165,8 @@ pub struct TextInput {
     multiline: bool,
     /// Draw `*` instead of the text, for passwords.
     masked: bool,
+    /// Type a dash for a space, as in a branch name.
+    dashes: bool,
     selected_range: Range<usize>,
     selection_reversed: bool,
     marked_range: Option<Range<usize>>,
@@ -202,6 +204,7 @@ impl TextInput {
             placeholder: placeholder.into(),
             multiline,
             masked: false,
+            dashes: false,
             selected_range: 0..0,
             selection_reversed: false,
             marked_range: None,
@@ -223,6 +226,13 @@ impl TextInput {
 
     pub fn masked(mut self) -> Self {
         self.masked = true;
+        self
+    }
+
+    /// Type a dash for a space, as the TUI does in a branch name, which Git doesn't allow spaces
+    /// in. A pasted name keeps its spaces, for the name's check to change.
+    pub fn spaces_as_dashes(mut self) -> Self {
+        self.dashes = true;
         self
     }
 
@@ -639,6 +649,10 @@ impl TextInput {
             let at = self.cursor_offset();
             return at..at;
         }
+        let new_text = match new_text {
+            " " if self.dashes => "-",
+            text => text,
+        };
         let new_text = &cleaned(new_text, self.multiline);
         let range = range_utf16
             .map(|range_utf16| self.range_from_utf16(&range_utf16))
