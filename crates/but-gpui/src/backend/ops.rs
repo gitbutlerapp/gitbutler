@@ -819,21 +819,33 @@ pub fn amend(
     Ok((rewritten(&outcome.workspace), left_out, hook_failed))
 }
 
-pub fn move_commits(
-    path: &Path,
-    commits: &[CommitId],
-    destination: &Destination,
-) -> Result<Rewritten> {
-    let mut ctx = open(path)?;
-    let (relative_to, side) = destination.relative_to()?;
-    let outcome = but_api::commit::move_commit::commit_move(
-        &mut ctx,
-        commits.iter().map(|id| id.0).collect(),
-        relative_to,
-        side,
-        DryRun::No,
-    )?;
-    Ok(rewritten(&outcome.workspace))
+/// Move `commits` to `to`.
+pub struct MoveCommits {
+    pub commits: Arc<[CommitId]>,
+    pub to: Destination,
+}
+
+impl Intent for MoveCommits {
+    type Done = Rewritten;
+
+    fn apply(self, run: &mut Run) -> Result<Rewritten> {
+        use but_oplog::legacy::{OperationKind, SnapshotDetails};
+        let Self { commits, to } = self;
+        let (relative_to, side) = to.relative_to()?;
+        let workspace = run.locked(|ctx, perm| {
+            let mut meta = ctx.meta()?;
+            but_transaction::with_transaction_with_perm(
+                ctx,
+                &mut meta,
+                perm,
+                SnapshotDetails::new(OperationKind::MoveCommit).with_count(commits.len()),
+                &[],
+                DryRun::No,
+                |mut tx| tx.move_commits(commits.iter().map(|id| id.0), relative_to, side),
+            )
+        })?;
+        Ok(rewritten(&workspace))
+    }
 }
 
 /// Squash `commits`, newest first as picked, into `into`, keeping every message.
@@ -3355,7 +3367,11 @@ third
             git(path, &["rm", "-q", "file"]);
             git(path, &["commit", "-q", "-m", "delete"]);
             let delete = head(path);
-            let rewritten = move_commits(path, &[delete], &Destination::BelowCommit(edit)).unwrap();
+            let moving = MoveCommits {
+                commits: [delete].into(),
+                to: Destination::BelowCommit(edit),
+            };
+            let (rewritten, _) = crate::backend::apply(path, moving).unwrap();
             let delete = rewritten[&delete];
 
             let diff = load_diff(path, DiffSource::Commit(delete), None, None, None, None).unwrap();

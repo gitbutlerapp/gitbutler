@@ -373,14 +373,14 @@ impl Transfer {
                 cx,
             ),
             // It leaves where it was and shows dimmed where it goes.
-            Transfer::MoveCommit { ids, to } => store.run(
+            Transfer::MoveCommit { ids, to } => store.apply(
                 project,
                 label,
                 Overlay {
                     new_commit: store.arriving(project, &ids, &to),
                     ..Overlay::commits(ids.iter().filter_map(|id| store.key_of(project, *id)))
                 },
-                move |path| backend::move_commits(path, &ids, &to),
+                backend::MoveCommits { commits: ids, to },
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
                     store.snack_undoable("Moved", cx)
