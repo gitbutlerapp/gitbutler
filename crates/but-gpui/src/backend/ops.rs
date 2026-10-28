@@ -1,9 +1,9 @@
 //! Mutations of commits, branches and uncommitted changes; the UI reloads the workspace
 //! afterwards. An [`Intent`], such as [`Squash`], runs under the one lock [`Run::locked`] takes,
-//! in one `but_transaction` transaction that records one oplog entry. The rest open the project
-//! and call the matching `but-api` function, which locks and records its own oplog snapshot,
-//! except that [`discard`] and [`create_beside_checkout`] record their own, as does
-//! [`super::conflicts::resolve_markers`] through [`record_undo`].
+//! in one `but_transaction` transaction or one `_with_perm` call, recording one oplog entry. The
+//! rest open the project and call the matching `but-api` function, which locks and records its
+//! own oplog snapshot, except that [`discard`] and [`create_beside_checkout`] record their own,
+//! as does [`super::conflicts::resolve_markers`] through [`record_undo`].
 
 use gitbutler_repo::hooks::{ErrorData, HookResult, MessageHookResult};
 use std::collections::HashMap;
@@ -988,16 +988,29 @@ fn refuse_buried_merges(repo: &gix::Repository, commits: &[CommitId]) -> Result<
 }
 
 /// Take `files` out of `commit` and leave them uncommitted.
-pub fn uncommit_files(path: &Path, commit: CommitId, files: &[Selected]) -> Result<Rewritten> {
-    let mut ctx = open(path)?;
-    let outcome = but_api::commit::uncommit::commit_uncommit_changes(
-        &mut ctx,
-        commit.0,
-        taken_specs(files)?,
-        None,
-        DryRun::No,
-    )?;
-    Ok(rewritten(&outcome.workspace))
+pub struct UncommitFiles {
+    pub commit: CommitId,
+    pub files: Arc<[Selected]>,
+}
+
+impl Intent for UncommitFiles {
+    type Done = Rewritten;
+
+    fn apply(self, run: &mut Run) -> Result<Rewritten> {
+        let Self { commit, files } = self;
+        let changes = taken_specs(&files)?;
+        let outcome = run.locked(|ctx, perm| {
+            but_api::commit::uncommit::commit_uncommit_changes_with_perm(
+                ctx,
+                commit.0,
+                changes,
+                None,
+                DryRun::No,
+                perm,
+            )
+        })?;
+        Ok(rewritten(&outcome.workspace))
+    }
 }
 
 /// Move `files` that `from` changes into `to`.
@@ -1923,7 +1936,11 @@ pub(super) mod tests {
             let commit = head(path);
             let diff = load_diff(path, DiffSource::Commit(commit), None, None, None, None).unwrap();
             let first_hunk = diff[0].part(Some(vec![diff[0].hunks()[0].key]));
-            let err = uncommit_files(path, commit, &[first_hunk])
+            let uncommit = UncommitFiles {
+                commit,
+                files: [first_hunk].into(),
+            };
+            let err = crate::backend::apply(path, uncommit)
                 .expect_err("nor is one of a commit's to take out");
             assert!(err.to_string().contains("textconv"), "{err}");
         })
@@ -3418,7 +3435,11 @@ third
         but_testsupport::isolated_app_data_dir(|| {
             let (dir, commit, diff, edited) = workspace_with_an_edit();
             let path = dir.path();
-            let rewritten = uncommit_files(path, commit, &[five_b_out(&diff)]).unwrap();
+            let uncommit = UncommitFiles {
+                commit,
+                files: [five_b_out(&diff)].into(),
+            };
+            let (rewritten, _) = crate::backend::apply(path, uncommit).unwrap();
             let commit = rewritten.get(&commit).copied().unwrap_or(commit);
             let committed = git(path, &["show", &format!("{}:file", commit.0)]);
             assert!(committed.contains("five a\n"), "{committed}");

@@ -361,11 +361,14 @@ impl Transfer {
         }
         match self {
             Transfer::Uncommit(ids) => store.uncommit(project, ids.to_vec(), cx),
-            Transfer::UncommitFiles { from, files } => store.run(
+            Transfer::UncommitFiles { from, files } => store.apply(
                 project,
                 label,
                 Overlay::commit_files(store.key_of(project, from), files.iter()),
-                move |path| backend::uncommit_files(path, from, &files),
+                backend::UncommitFiles {
+                    commit: from,
+                    files,
+                },
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
                     store.snack_undoable("Moved to uncommitted changes", cx)
