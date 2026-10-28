@@ -1,6 +1,6 @@
 ---
 name: gitbutler-ui
-description: Use when changing what users see in an app built on `@gitbutler/ui-react`, such as the but.dev web app: adding or restyling a component, modal, form, list, empty state or toast, or writing the words on screen. Not for logic, data or backend work, even inside a UI file.
+description: "Use when changing what users see in an app built on `@gitbutler/ui-react`, such as the but.dev web app: adding or restyling a component, modal, form, list, empty state or toast, or writing the words on screen. Not for logic, data or backend work, even inside a UI file."
 ---
 
 # Building GitButler UI
