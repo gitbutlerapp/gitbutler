@@ -11,7 +11,8 @@ use std::time::{Duration, Instant};
 use anyhow::{Context as _, Result, bail};
 use serde::Deserialize;
 
-use super::CommitId;
+use super::intent::Run;
+use super::{CommitId, Intent};
 
 /// How long a read of the mesh may take. The CLI waits on the server and the daemon, and a
 /// daemon that stopped answering leaves it waiting for minutes.
@@ -501,19 +502,34 @@ pub fn report(path: &Path) -> Result<()> {
     .map(|_| ())
 }
 
-/// Apply branch `mesh_id` from another machine to the workspace at `path`, under its own name
-/// or `<name>-from-<machine>`, once [`fetch()`] has brought its commits here. Returns the name
+/// Apply branch `mesh_id` from another machine to the workspace, under its own name or
+/// `<name>-from-<machine>`, once [`fetch()`] has brought its commits here. Done is the name
 /// it's applied as.
-pub fn apply(path: &Path, mesh_id: &str) -> Result<String> {
-    #[derive(Deserialize)]
-    struct Applied {
-        applied_as: Option<String>,
+pub struct BringHere {
+    pub mesh_id: String,
+}
+
+impl Intent for BringHere {
+    type Done = String;
+
+    fn apply(self, run: &mut Run) -> Result<String> {
+        #[derive(Deserialize)]
+        struct Applied {
+            applied_as: Option<String>,
+        }
+        // `but-mesh` takes GitButler's lock itself, so it's watched rather than locked. With the
+        // commits already here, it only checks with the server, which a read's timeout bounds.
+        let out = run.watched(|path| {
+            mesh(
+                Some(path),
+                &["apply", &self.mesh_id, "--json"],
+                READ_TIMEOUT,
+            )
+        })?;
+        let applied: Applied =
+            serde_json::from_str(&out).context("Couldn't read what was applied")?;
+        Ok(applied.applied_as.unwrap_or(self.mesh_id))
     }
-    // It runs in the project's queue: with the commits already here, the CLI only checks with
-    // the server, which a read's timeout bounds.
-    let out = mesh(Some(path), &["apply", mesh_id, "--json"], READ_TIMEOUT)?;
-    let applied: Applied = serde_json::from_str(&out).context("Couldn't read what was applied")?;
-    Ok(applied.applied_as.unwrap_or_else(|| mesh_id.to_owned()))
 }
 
 /// Have branch `mesh_id` from another machine in the repository at `path`, its tip `reported`

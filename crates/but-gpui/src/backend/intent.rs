@@ -64,7 +64,7 @@ impl Run {
     }
 
     /// Run `work`, which takes GitButler's lock itself, noting what it recorded and moved.
-    fn watched<R>(&mut self, work: impl FnOnce(&Path) -> Result<R>) -> Result<R> {
+    pub(super) fn watched<R>(&mut self, work: impl FnOnce(&Path) -> Result<R>) -> Result<R> {
         let path = self.path.clone();
         self.noting(|_| work(&path))
     }
