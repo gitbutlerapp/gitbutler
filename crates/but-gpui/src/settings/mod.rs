@@ -1248,8 +1248,11 @@ impl AppView {
         self.open_settings_at(Page::Project(project, ProjectPage::Project), window, cx);
     }
 
+    /// Settings, at General; already open, it stays on the page it shows.
     pub fn open_settings(&mut self, _: &OpenSettings, window: &mut Window, cx: &mut Context<Self>) {
-        self.open_settings_at(Page::App(AppPage::General), window, cx);
+        if self.open_settings_view().is_none() {
+            self.open_settings_at(Page::App(AppPage::General), window, cx);
+        }
     }
 
     pub fn open_keyboard_shortcuts(
@@ -1261,16 +1264,28 @@ impl AppView {
         self.open_settings_at(Page::App(AppPage::Keyboard), window, cx);
     }
 
+    /// Settings, at `page`. Already open, it shows `page` there: built again, it would draw
+    /// without what it reads until that's read, and forget what had the keys before it opened.
     fn open_settings_at(
         &mut self,
         page: Page,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Entity<SettingsView> {
+        if let Some(view) = self.open_settings_view() {
+            view.update(cx, |view, cx| view.show_page(page, cx));
+            return view;
+        }
         let (store, app, detail) = (self.store.clone(), AppHandle::of(cx), self.detail.clone());
         let view = cx.new(|cx| SettingsView::new(store, app, detail, page, window, cx));
         self.open_modal(view.clone(), window, cx);
         view
+    }
+
+    /// Settings, while it's the modal open.
+    fn open_settings_view(&self) -> Option<Entity<SettingsView>> {
+        let (view, ..) = self.modal.as_ref()?;
+        view.clone().downcast().ok()
     }
 }
 
