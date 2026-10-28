@@ -12,7 +12,7 @@ use gpui::{
 use super::blame::Blamed;
 use super::file_tree::{self, TreeRow};
 use super::panes::side_list;
-use super::{Detail, FilterFiles, keeps_path, merged, ranked};
+use super::{Detail, FilterFiles, LoadedDiff, keeps_path, merged, ranked};
 use crate::app::AppView;
 use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::MenuItem;
@@ -23,7 +23,7 @@ use crate::ui::file_icons::file_icon;
 use crate::ui::illustration::Illustration;
 use crate::ui::{
     Icon, ROW_HEIGHT, checkbox, count_badge, dp, empty_state, faint, fixed, h_flex, icon_button,
-    matched, muted, popover, quiet, relative_time, side_row, small_icon, v_flex,
+    matched, muted, popover, side_row, small_icon, v_flex,
 };
 
 /// Where a file list's files come from.
@@ -61,7 +61,14 @@ struct FileRow {
     joined: (bool, bool),
     /// The byte ranges of its path the filter found, to underline.
     found: Vec<Range<usize>>,
+    /// The characters the list's widest added and removed counts take, to line its own up
+    /// with the other rows': see [`diff::column_stats`].
+    columns: (usize, usize),
 }
+
+/// The room a row keeps for its file's change letter, which a folder's keeps empty, so their
+/// counts end in one place.
+const MARK_WIDTH: f32 = 22.;
 
 /// How far each level of a file tree steps in.
 const STEP: f32 = 12.;
@@ -318,6 +325,19 @@ impl Detail {
                 .collect()
         };
         let found = underlined(&rows, &paths, found);
+        // Room for the widest counts any row shows: a file's own, or in a tree a folder's,
+        // which all the files' together bound.
+        let counted = self
+            .counted_diff(&source)
+            .map_or(&[][..], |diff| &diff.files[..]);
+        let counts = counted.iter().map(FileDiff::stats);
+        let columns = match tree {
+            true => {
+                let folders = diff::widest_up_to(diff::total_stats(counted));
+                diff::stats_columns(counts.chain(folders))
+            }
+            false => diff::stats_columns(counts),
+        };
         let scroll = match &source {
             FileSource::Uncommitted(..) => &self.uncommitted_files,
             FileSource::Diff => &self.diff_files,
@@ -369,7 +389,8 @@ impl Detail {
             move |this, ix, theme, window, cx| match rows.get(ix)? {
                 dir @ TreeRow::Dir { .. } => {
                     let found = found.get(ix)?;
-                    this.render_dir_row(dir, cursor_row == Some(ix), &source, found, theme, cx)
+                    let holds_cursor = cursor_row == Some(ix);
+                    this.render_dir_row(dir, holds_cursor, &source, found, columns, theme, cx)
                 }
                 TreeRow::File { pos, depth } => {
                     let lit = |ix: usize| lit.get(ix).copied().unwrap_or(false);
@@ -382,6 +403,7 @@ impl Detail {
                         picked: lit(ix),
                         menu: picked.clone().filter(|_| lit(ix)),
                         found: found.get(ix)?.clone(),
+                        columns,
                         ..Default::default()
                     };
                     // The current file is solid while the list holds the focus, as the
@@ -634,14 +656,18 @@ impl Detail {
         matches!(&cut, Cut::Files { files, .. } if !files.is_empty()).then_some(cut)
     }
 
+    /// The diff the files of `source` take their line counts from.
+    fn counted_diff(&self, source: &FileSource) -> Option<&LoadedDiff> {
+        match source {
+            FileSource::Uncommitted(..) => self.worktree_diff(),
+            FileSource::Diff => self.diff.as_ref(),
+        }
+    }
+
     /// The lines the files under the folder `dir` in `source` add and remove, summed from the
     /// diff the list's files take theirs from, over the files it shows.
     fn folder_stats(&self, source: &FileSource, dir: &str, cx: &App) -> (u32, u32) {
-        let loaded = match source {
-            FileSource::Uncommitted(..) => self.worktree_diff(),
-            FileSource::Diff => self.diff.as_ref(),
-        };
-        let Some(loaded) = loaded else {
+        let Some(loaded) = self.counted_diff(source) else {
             return (0, 0);
         };
         let prefix = format!("{dir}/");
@@ -653,13 +679,16 @@ impl Detail {
         }))
     }
 
-    /// A tree's folder row, with the byte ranges of its name the filter `found`.
+    /// A tree's folder row, with the byte ranges of its name the filter `found`, its end lined
+    /// up with the list's other rows at `columns`.
+    #[expect(clippy::too_many_arguments)]
     fn render_dir_row(
         &self,
         row: &TreeRow,
         holds_cursor: bool,
         source: &FileSource,
         found: &[Range<usize>],
+        columns: (usize, usize),
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
@@ -701,20 +730,26 @@ impl Detail {
                 .child(img(Icon::FolderFill.path()).w(dp(17.)).h(dp(14.))),
         )
         // Cut in the middle: a chain of folders, `ios/App/Resources/de.lproj`, ends in the one
-        // that tells it from its siblings.
+        // that tells it from its siblings. Folded, how many files it holds follows the name, so
+        // its end lines up with the files'.
         .child(
-            (div()
+            h_flex()
                 .flex_1()
                 .min_w_0()
-                .overflow_hidden()
-                .whitespace_nowrap())
-            .text_ellipsis_middle()
-            .child(matched(name, found.iter().cloned())),
+                .gap(dp(8.))
+                .child(
+                    (div().min_w_0().overflow_hidden().whitespace_nowrap())
+                        .text_ellipsis_middle()
+                        .child(matched(name, found.iter().cloned())),
+                )
+                .when(collapsed, |el| {
+                    el.child(faint(files.to_string(), theme).flex_none())
+                }),
         )
         .when(added + removed > 0, |el| {
-            el.child(diff::stats(added, removed, theme))
+            el.child(diff::column_stats(added, removed, columns, theme))
         })
-        .when(collapsed, |el| el.child(faint(files.to_string(), theme)))
+        .child(div().flex_none().w(dp(MARK_WIDTH)))
         .on_mouse_down(
             MouseButton::Right,
             cx.listener({
@@ -895,7 +930,7 @@ impl Detail {
         });
         let end = div()
             .flex_none()
-            .w(dp(22.))
+            .w(dp(MARK_WIDTH))
             .h_full()
             .flex()
             .items_center()
@@ -942,15 +977,8 @@ impl Detail {
                     }),
             )
             .when_some(stats, |el, (added, removed)| {
-                el.child(diff::stats(added, removed, theme))
+                el.child(diff::column_stats(added, removed, extras.columns, theme))
             })
-            // When it last changed, faint, for watching what an agent touches.
-            .children(
-                (!file.conflicted)
-                    .then_some(file.modified)
-                    .flatten()
-                    .map(|ms| quiet(faint(relative_time(ms / 1000), theme), solid, theme)),
-            )
             .child(end)
             .when_some(diff_ix, |el, diff_ix| {
                 // ⌘ (ctrl off macOS) or ⇧ picks files. A plain press on a picked file keeps

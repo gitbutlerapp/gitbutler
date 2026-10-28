@@ -321,29 +321,88 @@ pub fn total_stats<'a>(files: impl IntoIterator<Item = &'a FileDiff>) -> (u32, u
     (files.into_iter().map(FileDiff::stats)).fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr))
 }
 
-pub fn stats(added: u32, removed: u32, theme: &Theme) -> gpui::Div {
-    // One run of text, coloured in parts: a list draws this on every row.
-    let mut text = String::new();
-    let mut colors = Vec::new();
-    for (count, sign, color) in [(added, '+', theme.safe), (removed, '-', theme.danger)] {
-        if count > 0 {
-            if !text.is_empty() {
-                text.push(' ');
-            }
-            let start = text.len();
-            // In thousands from six figures, which leave a file list's name no room.
-            match count {
-                ..100_000 => text.push_str(&format!("{sign}{count}")),
-                _ => text.push_str(&format!("{sign}{}k", count / 1000)),
-            }
-            colors.push((start..text.len(), HighlightStyle::from(color)));
-        }
+/// The count [`stats`] writes in thousands from: six figures leave a file list's name no room.
+const THOUSANDS_FROM: u32 = 100_000;
+
+/// `count` lines with their `sign`, as [`stats`] writes them.
+fn count_text(sign: char, count: u32) -> String {
+    match count {
+        0 => String::new(),
+        1..THOUSANDS_FROM => format!("{sign}{count}"),
+        _ => format!("{sign}{}k", count / 1000),
     }
+}
+
+/// How long [`count_text`] writes `count`, without writing it: a list asks of every file each
+/// frame.
+fn count_len(count: u32) -> usize {
+    let digits = |n: u32| n.checked_ilog10().map_or(1, |log| log as usize + 1);
+    match count {
+        0 => 0,
+        1..THOUSANDS_FROM => 1 + digits(count),
+        _ => 2 + digits(count / 1000),
+    }
+}
+
+/// How many characters the widest added and removed counts of `counts` take, for
+/// [`column_stats`] to line rows' counts up.
+pub fn stats_columns(counts: impl IntoIterator<Item = (u32, u32)>) -> (usize, usize) {
+    (counts.into_iter()).fold((0, 0), |(a, r), (added, removed)| {
+        (a.max(count_len(added)), r.max(count_len(removed)))
+    })
+}
+
+/// The counts written widest of all those up to `bound`, for [`stats_columns`] to make room
+/// for counts it isn't given, as a tree's folders' are at most its files' together. That's
+/// the bound itself or, as a count written whole can be wider than a bigger one in thousands
+/// (`+99999` against `+100k`), the widest written whole.
+pub fn widest_up_to(bound: (u32, u32)) -> [(u32, u32); 2] {
+    let whole = |count: u32| count.min(THOUSANDS_FROM - 1);
+    [bound, (whole(bound.0), whole(bound.1))]
+}
+
+pub fn stats(added: u32, removed: u32, theme: &Theme) -> gpui::Div {
+    column_stats(added, removed, (0, 0), theme)
+}
+
+/// [`stats`], each count right-aligned in `columns` characters of the monospace font, so the
+/// rows of a list given the same `columns` line their additions up under each other's, and
+/// their removals.
+pub fn column_stats(added: u32, removed: u32, columns: (usize, usize), theme: &Theme) -> gpui::Div {
+    // One run of text, coloured in parts: a list draws this on every row.
+    let (text, [added, removed]) = stats_text(added, removed, columns);
+    let colors = [(added, theme.safe), (removed, theme.danger)]
+        .into_iter()
+        .filter(|(range, _)| !range.is_empty())
+        .map(|(range, color)| (range, HighlightStyle::from(color)));
     div()
         .flex_none()
         .text_size(dp(11.))
         .font_family(theme.mono_font.clone())
         .child(StyledText::new(text).with_highlights(colors))
+}
+
+/// What [`column_stats`] writes, and where in it its added and removed counts are: empty
+/// ranges for counts of nothing.
+fn stats_text(added: u32, removed: u32, columns: (usize, usize)) -> (String, [Range<usize>; 2]) {
+    let mut text = String::new();
+    let mut ranges = [0..0, 0..0];
+    let counts = [('+', added, columns.0), ('-', removed, columns.1)];
+    for ((sign, count, width), range) in counts.into_iter().zip(&mut ranges) {
+        let count = count_text(sign, count);
+        let pad = width.saturating_sub(count.len());
+        if count.len() + pad == 0 {
+            continue;
+        }
+        if !text.is_empty() {
+            text.push(' ');
+        }
+        text.extend(std::iter::repeat_n(' ', pad));
+        let start = text.len();
+        text.push_str(&count);
+        *range = start..text.len();
+    }
+    (text, ranges)
 }
 
 /// What the diff's owner adds to a file or hunk header.
@@ -1333,8 +1392,73 @@ fn image_row(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> 
 #[cfg(test)]
 mod tests {
     use super::DiffRow::{Context, File, Gap, Line, Note, Pair};
-    use super::pair_lines;
+    use super::{count_len, count_text, pair_lines, stats_columns, stats_text, widest_up_to};
     use crate::backend::{DiffLine, LineKind};
+
+    #[test]
+    fn a_folder_under_a_hundred_thousand_fits_a_list_over_it() {
+        // Ten files removing 9,999 lines each in one folder, and one removing 10 elsewhere:
+        // all of them together remove 100,000, written `-100k`, but the folder's `-99990`.
+        let files = [(1, 9_999); 10].into_iter().chain([(1, 10)]);
+        let total = (11, 100_000);
+        let columns = stats_columns(files.chain(widest_up_to(total)));
+        assert_eq!(
+            stats_text(10, 99_990, columns).0.len(),
+            stats_text(1, 10, columns).0.len(),
+            "the folder's counts take the room the files' do"
+        );
+    }
+
+    #[test]
+    fn count_len_is_how_long_count_text_writes_a_count() {
+        for count in [0, 1, 9, 10, 99_999, 100_000, 999_999, 1_000_000, u32::MAX] {
+            assert_eq!(
+                count_len(count),
+                count_text('+', count).len(),
+                "{count} takes the room it's written in"
+            );
+        }
+    }
+
+    #[test]
+    fn stats_line_up_in_the_columns_of_a_lists_widest_counts() {
+        let rows = [
+            (676, 1140),
+            (6, 33),
+            (0, 72),
+            (139, 0),
+            (0, 0),
+            (120_000, 2),
+        ];
+        let columns = stats_columns(rows);
+        assert_eq!(columns, (5, 5), "`+676` and `+120k`, then `-1140`");
+        let texts: Vec<String> = (rows.into_iter())
+            .map(|(added, removed)| stats_text(added, removed, columns).0)
+            .collect();
+        assert_eq!(
+            texts,
+            [
+                " +676 -1140",
+                "   +6   -33",
+                "        -72",
+                " +139      ",
+                "           ",
+                "+120k    -2",
+            ],
+            "each count ends where its column does",
+        );
+        let (text, ranges) = stats_text(0, 72, columns);
+        assert_eq!(
+            (&text[ranges[1].clone()], ranges[0].is_empty()),
+            ("-72", true),
+            "only the counts there are get a colour",
+        );
+        assert_eq!(
+            stats_text(0, 72, (0, 0)).0,
+            "-72",
+            "outside a list, a count of nothing takes no room",
+        );
+    }
 
     #[test]
     fn same_place_finds_a_row_again_after_a_rebuild_or_in_the_other_layout() {
