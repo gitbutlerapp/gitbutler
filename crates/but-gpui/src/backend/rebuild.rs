@@ -13,6 +13,9 @@ use parking_lot::Mutex;
 /// The binary `cargo build` makes, as `Cargo.toml` names it.
 const BIN: &str = "gitbutler-gpui";
 
+/// The askpass helper that fetch and push run, which they look for beside [`BIN`].
+const ASKPASS_BIN: &str = "gitbutler-git-askpass";
+
 /// How many columns cargo's progress bar takes, its crates' names included: as wide as the
 /// modal showing it.
 const PROGRESS_WIDTH: u16 = 100;
@@ -92,14 +95,27 @@ impl Rebuild {
 
     /// What `cargo build` is given, after `cargo`: this binary with the profile it was built
     /// with, its features, and the shaders compiled at runtime rather than with Xcode's tools.
+    /// The askpass helper too, in the same build so it lands beside the binary, as cargo
+    /// doesn't build a dependency's binaries and each worktree has a target folder of its own.
     pub fn args(&self) -> Vec<String> {
         let mut features = vec!["gpui_platform/runtime_shaders"];
         if cfg!(feature = "dev-script") {
             features.push("dev-script");
         }
-        let mut args = ["build", "--bin", BIN, "--features"]
-            .map(str::to_owned)
-            .to_vec();
+        let mut args = [
+            "build",
+            "-p",
+            "but-gpui",
+            "-p",
+            "gitbutler-git",
+            "--bin",
+            BIN,
+            "--bin",
+            ASKPASS_BIN,
+            "--features",
+        ]
+        .map(str::to_owned)
+        .to_vec();
         args.push(features.join(","));
         match self.profile.as_deref() {
             None => {}
@@ -347,6 +363,33 @@ mod tests {
         assert!(
             !alive(&compiler),
             "cancelling stops the compiler cargo started, not only cargo"
+        );
+    }
+
+    #[test]
+    fn the_build_makes_the_askpass_helper_too() {
+        use super::Rebuild;
+
+        let rebuild = Rebuild {
+            cargo: "cargo".into(),
+            checkout: "/checkout".into(),
+            crate_dir: "crates/but-gpui".into(),
+            profile: None,
+        };
+        assert_eq!(
+            rebuild.args()[..9],
+            [
+                "build",
+                "-p",
+                "but-gpui",
+                "-p",
+                "gitbutler-git",
+                "--bin",
+                "gitbutler-gpui",
+                "--bin",
+                "gitbutler-git-askpass",
+            ],
+            "fetch and push run the helper from beside the client, so the build puts it there too"
         );
     }
 
