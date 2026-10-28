@@ -608,8 +608,8 @@ impl AppView {
             .map(|w| w.name.clone());
         let here = worktree.is_none();
         let checkout = store.checkout_of(&Selection::Branch(project.clone(), Some(below.clone())));
-        let op = backend::Legacy::new(move |path| backend::create_dependent_branch(path, &below));
-        self.new_branch_at(project, here, checked_out_in, checkout, window, cx, op);
+        let create = backend::CreateDependentBranch { below };
+        self.new_branch_at(project, here, checked_out_in, checkout, window, cx, create);
     }
 
     /// Make a branch with a made-up name with `op` and select it, for r to rename, as the other

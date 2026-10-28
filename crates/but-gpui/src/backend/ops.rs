@@ -557,10 +557,24 @@ fn create_beside_checkout(
     Ok(new_ref)
 }
 
-/// Stack a new branch with a made-up name on top of `below` (a full ref name).
-pub fn create_dependent_branch(path: &Path, below: &FullName) -> Result<FullName> {
-    let relative_to = but_api::commit::json::RelativeTo::Reference(below.clone());
-    create_branch_at(path, relative_to, InsertSide::Above)
+/// Stack a new branch with a made-up name on top of `below`.
+pub struct CreateDependentBranch {
+    pub below: FullName,
+}
+
+impl Intent for CreateDependentBranch {
+    type Done = FullName;
+
+    fn apply(self, run: &mut Run) -> Result<FullName> {
+        let placement = but_api::branch::json::BranchCreatePlacement::Dependent {
+            relative_to: but_api::commit::json::RelativeTo::Reference(self.below),
+            side: InsertSide::Above,
+        };
+        run.locked(|ctx, perm| {
+            let created = but_api::branch::branch_create_with_perm(ctx, None, placement, perm)?;
+            Ok(created.new_ref)
+        })
+    }
 }
 
 /// Make a new branch, with a made-up name, whose newest commit is `commit`, taking it and the
