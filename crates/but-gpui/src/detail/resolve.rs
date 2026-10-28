@@ -596,14 +596,14 @@ impl Detail {
             .unwrap_or_default();
         let shown = project.clone();
         self.store.update(cx, |store, cx| {
-            store.run(
+            store.apply(
                 &project,
                 "Resolve",
                 Overlay {
                     kind: OpKind::Resolve,
                     ..Overlay::default()
                 },
-                move |path| conflicts::resolve(path, commit, keep),
+                conflicts::ResolveCommit { commit, keep },
                 move |store, (rewritten, outcome), cx| {
                     forget(cx);
                     // The commits above it were rebuilt on it, conflicted now or not

@@ -2,7 +2,6 @@
 //! left in uncommitted files: each keeps one side, the other, or text written for it.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::path::Path;
 
 use anyhow::{Context as _, Result};
 use bstr::{BString, ByteSlice as _};
@@ -11,7 +10,7 @@ use but_oplog::legacy::OperationKind;
 
 use super::intent::Run;
 use super::ops::rewritten;
-use super::{Checkout, CommitId, Intent, Rewritten, checkout, markers, open};
+use super::{Checkout, CommitId, Intent, Rewritten, checkout, markers};
 
 /// What a conflict keeps.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,8 +33,22 @@ pub struct Resolved {
 
 /// Resolve conflicts of `commit`, each by its file and its place among the file's conflicts.
 /// The rest stay conflicted. The commit is rewritten either way.
-pub fn resolve(
-    path: &Path,
+pub struct ResolveCommit {
+    pub commit: CommitId,
+    pub keep: Vec<(String, usize, Keep)>,
+}
+
+impl Intent for ResolveCommit {
+    type Done = (Rewritten, Resolved);
+
+    fn apply(self, run: &mut Run) -> Result<(Rewritten, Resolved)> {
+        run.locked(|ctx, perm| resolve_commit(ctx, perm, self.commit, self.keep))
+    }
+}
+
+fn resolve_commit(
+    ctx: &mut but_ctx::Context,
+    perm: &mut but_ctx::access::RepoExclusive,
     commit: CommitId,
     keep: Vec<(String, usize, Keep)>,
 ) -> Result<(Rewritten, Resolved)> {
@@ -56,7 +69,6 @@ pub fn resolve(
             })
         })
         .collect::<Result<_>>()?;
-    let mut ctx = open(path)?;
     // Rewriting the commit checks the workspace out again, which Git can't do over a file a
     // merge left conflicted, and Git's own words for that name none.
     {
@@ -72,7 +84,7 @@ pub fn resolve(
             );
         }
     }
-    let outcome = resolve::resolve_commit_conflict_hunks(&mut ctx, commit.0, specs)?;
+    let outcome = resolve::resolve_commit_conflict_hunks_with_perm(ctx, commit.0, specs, perm)?;
     let mut rewrites = rewritten(&outcome.workspace);
     rewrites.insert(commit, CommitId(outcome.new_commit));
     let remaining = (outcome.remaining.iter())
