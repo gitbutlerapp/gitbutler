@@ -9,9 +9,9 @@ use std::time::{Duration, Instant};
 
 use futures::StreamExt as _;
 use gpui::{
-    App, ClipboardItem, Context, DismissEvent, EventEmitter, FocusHandle, Focusable, FontWeight,
-    HighlightStyle, Hsla, ScrollStrategy, SharedString, StyledText, Task, UniformListScrollHandle,
-    Window, div, prelude::*, uniform_list,
+    App, ClipboardItem, Context, DismissEvent, EventEmitter, FocusHandle, Focusable, FollowMode,
+    FontWeight, HighlightStyle, Hsla, ListAlignment, ListState, SharedString, StyledText, Task,
+    Window, div, list, prelude::*,
 };
 
 use crate::app::{AppView, BuildAndRestart};
@@ -24,9 +24,9 @@ use crate::state::Store;
 use crate::theme::Theme;
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
-use crate::ui::{ButtonStyle, button, dp, duration, h_flex, muted, v_flex};
+use crate::ui::{ButtonStyle, button, dp, duration, fixed, h_flex, muted, v_flex};
 
-/// How tall a line of cargo's output is.
+/// The line height of cargo's output, which wraps a long line onto more.
 const LINE_HEIGHT: f32 = 18.;
 
 impl AppView {
@@ -172,7 +172,8 @@ pub struct BuildOutput {
     /// The build, once cargo has started, to cancel.
     build: Option<Build>,
     started: Instant,
-    scroll: UniformListScrollHandle,
+    /// The rows, following the last while it's in view, as a terminal does.
+    list: ListState,
     focus: FocusHandle,
     _run: Task<()>,
     /// Counts the time up while it builds.
@@ -204,7 +205,7 @@ impl BuildOutput {
             progress: None,
             build: None,
             started: Instant::now(),
-            scroll: UniformListScrollHandle::new(),
+            list: ListState::new(0, ListAlignment::Top, fixed(400.)),
             focus: cx.focus_handle(),
             _run: Task::ready(()),
             _tick: Task::ready(()),
@@ -227,6 +228,8 @@ impl BuildOutput {
             self.rebuild.args().join(" ")
         ))];
         self.progress = None;
+        self.list.reset(self.rows());
+        self.list.set_follow_mode(FollowMode::Tail);
         cx.notify();
         self._tick = cx.spawn(async |this, cx| {
             loop {
@@ -286,6 +289,7 @@ impl BuildOutput {
                 if building {
                     this.state = State::Restarting;
                     this.progress = None;
+                    this.changed_from(this.lines.len());
                     cx.notify();
                 }
                 building
@@ -319,6 +323,7 @@ impl BuildOutput {
         if self.state != State::Building {
             return;
         }
+        let kept = self.lines.len();
         for printed in printed {
             match printed {
                 Printed::Line(line) => self.lines.push(Line::from_terminal(&line)),
@@ -329,7 +334,7 @@ impl BuildOutput {
                 }
             }
         }
-        self.scroll_to_end();
+        self.changed_from(kept);
         cx.notify();
     }
 
@@ -346,8 +351,10 @@ impl BuildOutput {
         self.lines.len() + usize::from(self.progress.is_some())
     }
 
-    fn scroll_to_end(&self) {
-        (self.scroll).scroll_to_item(self.rows().saturating_sub(1), ScrollStrategy::Bottom);
+    /// Have the list measure the rows from `kept` on again: the lines added there, and the
+    /// progress bar, drawn anew each time.
+    fn changed_from(&self, kept: usize) {
+        (self.list).splice(kept..self.list.item_count(), self.rows() - kept);
     }
 
     /// Stop with `state`, saying why on the last line, unless it stopped already.
@@ -357,10 +364,13 @@ impl BuildOutput {
         }
         self.state = state;
         self.progress = None;
+        let kept = self.lines.len();
         if let Some(why) = why {
             self.lines.push(Line::plain(format!("{why:#}")));
         }
-        self.scroll_to_end();
+        self.changed_from(kept);
+        // Scrolled up, back to the end, where it says why.
+        self.list.set_follow_mode(FollowMode::Tail);
         cx.emit(BuildEnded);
         cx.notify();
     }
@@ -412,36 +422,33 @@ impl Render for BuildOutput {
                     .child(format!("Build and restart from {folder}")),
             )
             .child(muted(status, theme).text_color(color));
-        let list = uniform_list(
-            "build-output",
-            self.rows(),
-            cx.processor(|this, range: Range<usize>, _, cx| {
+        let rows = list(
+            self.list.clone(),
+            cx.processor(|this, ix, _, cx| {
+                let Some(line) = this.row(ix) else {
+                    return div().into_any_element();
+                };
                 let theme = Theme::get(cx);
-                (range.filter_map(|ix| this.row(ix)))
-                    .map(|line| {
-                        let styles = line.styles.iter().map(|(range, style)| {
-                            let style = HighlightStyle {
-                                color: style.color.map(|color| terminal_color(color, theme)),
-                                font_weight: style.bold.then_some(FontWeight::SEMIBOLD),
-                                ..Default::default()
-                            };
-                            (range.clone(), style)
-                        });
-                        div()
-                            .w_full()
-                            .h(dp(LINE_HEIGHT))
-                            .px(dp(20.))
-                            .whitespace_nowrap()
-                            .child(StyledText::new(line.text.clone()).with_highlights(styles))
-                    })
-                    .collect::<Vec<_>>()
+                let styles = line.styles.iter().map(|(range, style)| {
+                    let style = HighlightStyle {
+                        color: style.color.map(|color| terminal_color(color, theme)),
+                        font_weight: style.bold.then_some(FontWeight::SEMIBOLD),
+                        ..Default::default()
+                    };
+                    (range.clone(), style)
+                });
+                div()
+                    .w_full()
+                    .px(dp(20.))
+                    .line_height(dp(LINE_HEIGHT))
+                    .child(StyledText::new(line.text.clone()).with_highlights(styles))
+                    .into_any_element()
             }),
         )
-        .track_scroll(&self.scroll)
         .size_full()
         .py(dp(8.));
-        let scroll = Scroll::Div(self.scroll.0.borrow().base_handle.clone());
-        let body = scrolled(list, "build-output-scrollbar", scroll, theme)
+        let scroll = Scroll::List(self.list.clone());
+        let body = scrolled(rows, "build-output-scrollbar", scroll, theme)
             .bg(theme.bg_2)
             .font_family(theme.mono_font.clone())
             .text_size(dp(12.));
