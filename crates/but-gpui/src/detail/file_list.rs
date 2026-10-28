@@ -1,7 +1,8 @@
 //! The file lists beside the diff: uncommitted files, or the loaded diff's, flat or as a
 //! tree, with what right-clicking them offers.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::ops::Range;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, ElementId, MouseButton, MouseDownEvent, Pixels,
@@ -11,7 +12,7 @@ use gpui::{
 use super::blame::Blamed;
 use super::file_tree::{self, TreeRow};
 use super::panes::side_list;
-use super::{Detail, FilterFiles, keeps_path};
+use super::{Detail, FilterFiles, keeps_path, merged, ranked};
 use crate::app::AppView;
 use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::MenuItem;
@@ -22,7 +23,7 @@ use crate::ui::file_icons::file_icon;
 use crate::ui::illustration::Illustration;
 use crate::ui::{
     Icon, ROW_HEIGHT, checkbox, count_badge, dp, empty_state, faint, fixed, h_flex, icon_button,
-    muted, popover, quiet, relative_time, side_row, small_icon, v_flex,
+    matched, muted, popover, quiet, relative_time, side_row, small_icon, v_flex,
 };
 
 /// Where a file list's files come from.
@@ -58,6 +59,8 @@ struct FileRow {
     picked: bool,
     /// The rows above and below are picked with it: see [`crate::ui::joined`].
     joined: (bool, bool),
+    /// The byte ranges of its path the filter found, to underline.
+    found: Vec<Range<usize>>,
 }
 
 /// How far each level of a file tree steps in.
@@ -97,6 +100,52 @@ fn steps(depth: usize, chevron: Option<gpui::Svg>, theme: &Theme) -> Div {
                 .map(|_| step().child(div().w(fixed(1.)).h_full().bg(theme.text_2.opacity(0.2)))),
         )
         .children(chevron.map(|chevron| step().items_center().child(chevron)))
+}
+
+/// Those of `found`, byte ranges of a path, in its part `part`, as ranges of that part.
+fn found_in(found: &[Range<usize>], part: Range<usize>) -> Vec<Range<usize>> {
+    (found.iter())
+        .filter(|range| range.start < part.end && range.end > part.start)
+        .map(|range| range.start.max(part.start) - part.start..range.end.min(part.end) - part.start)
+        .collect()
+}
+
+/// What each of `rows` underlines of what the filter `found` in `paths`, by position: a file
+/// row what was found in its path, and a folder row what was found in its name for any file
+/// under it, as a tree shows only a file's name.
+fn underlined(
+    rows: &[TreeRow],
+    paths: &[&str],
+    mut found: Vec<Vec<Range<usize>>>,
+) -> Vec<Vec<Range<usize>>> {
+    let dirs: HashMap<&str, usize> = (rows.iter().enumerate())
+        .filter_map(|(ix, row)| match row {
+            TreeRow::Dir { path, .. } => Some((path.as_str(), ix)),
+            TreeRow::File { .. } => None,
+        })
+        .collect();
+    let mut underlined = vec![Vec::new(); rows.len()];
+    // Each folder a file is under, as its path has them.
+    for (path, found) in paths.iter().zip(&found).filter(|_| !dirs.is_empty()) {
+        for (end, _) in path.match_indices('/') {
+            let Some(&ix) = path.get(..end).and_then(|dir| dirs.get(dir)) else {
+                continue;
+            };
+            if let (Some(TreeRow::Dir { name, .. }), Some(row)) =
+                (rows.get(ix), underlined.get_mut(ix))
+            {
+                row.extend(found_in(found, end - name.len()..end));
+            }
+        }
+    }
+    for (row, underlined) in rows.iter().zip(&mut underlined) {
+        *underlined = match row {
+            TreeRow::File { pos, .. } => (found.get_mut(*pos)).map(std::mem::take),
+            TreeRow::Dir { .. } => Some(merged(std::mem::take(underlined))),
+        }
+        .unwrap_or_default();
+    }
+    underlined
 }
 
 /// A folder row, for what shows on it under the pointer.
@@ -230,21 +279,19 @@ impl Detail {
         let terms = self.filter_terms(cx);
         // Each shown file's position in its source, as files a pending operation takes away
         // aren't shown.
-        let (index, paths): (Vec<usize>, Vec<&str>) = match &source {
+        let shown: Vec<(usize, &str)> = match &source {
             FileSource::Uncommitted(project, worktree) => {
                 let files = (store.workspace(project))
                     .and_then(|ws| ws.uncommitted_in(worktree))
                     .unwrap_or_default();
                 let mut kept: Vec<(usize, &FileChange)> = (files.iter().enumerate())
-                    .filter(|(_, f)| {
-                        !store.hides_file(project, worktree, &f.path) && keeps_path(&terms, &f.path)
-                    })
+                    .filter(|(_, f)| !store.hides_file(project, worktree, &f.path))
                     .collect();
                 // In the order picked, as the diff beside it has them.
                 kept.sort_by(|(_, a), (_, b)| file_tree::file_order(store.prefs.file_sort, a, b));
                 (kept.into_iter())
                     .map(|(pos, f)| (pos, f.path.as_str()))
-                    .unzip()
+                    .collect()
             }
             FileSource::Diff => self
                 .diff
@@ -254,12 +301,18 @@ impl Detail {
                     diff.files
                         .iter()
                         .enumerate()
-                        .filter(|(_, f)| keeps_path(&terms, &f.file.path) && !leaving(&f.file.path))
+                        .filter(|(_, f)| !leaving(&f.file.path))
                         .map(|(pos, f)| (pos, f.file.path.as_str()))
-                        .unzip()
+                        .collect()
                 })
                 .unwrap_or_default(),
         };
+        // While the filter's open, only what it keeps, the best matches first.
+        let listed = ranked(&terms, shown, |(_, path)| *path);
+        let (index, paths): (Vec<usize>, Vec<&str>) = (listed.iter())
+            .map(|((pos, path), _)| (*pos, *path))
+            .unzip();
+        let found = listed.into_iter().map(|(_, found)| found).collect();
         let rows: Vec<TreeRow> = if tree {
             file_tree::tree_rows(&paths, &self.collapsed_dirs)
         } else {
@@ -267,6 +320,7 @@ impl Detail {
                 .map(|pos| TreeRow::File { pos, depth: 0 })
                 .collect()
         };
+        let found = underlined(&rows, &paths, found);
         let scroll = match &source {
             FileSource::Uncommitted(..) => &self.uncommitted_files,
             FileSource::Diff => &self.diff_files,
@@ -317,7 +371,8 @@ impl Detail {
             cx,
             move |this, ix, theme, window, cx| match rows.get(ix)? {
                 dir @ TreeRow::Dir { .. } => {
-                    this.render_dir_row(dir, cursor_row == Some(ix), &source, theme, cx)
+                    let found = found.get(ix)?;
+                    this.render_dir_row(dir, cursor_row == Some(ix), &source, found, theme, cx)
                 }
                 TreeRow::File { pos, depth } => {
                     let lit = |ix: usize| lit.get(ix).copied().unwrap_or(false);
@@ -329,6 +384,7 @@ impl Detail {
                         },
                         picked: lit(ix),
                         menu: picked.clone().filter(|_| lit(ix)),
+                        found: found.get(ix)?.clone(),
                         ..Default::default()
                     };
                     // The current file is solid while the list holds the focus, as the
@@ -581,11 +637,13 @@ impl Detail {
         matches!(&cut, Cut::Files { files, .. } if !files.is_empty()).then_some(cut)
     }
 
+    /// A tree's folder row, with the byte ranges of its name the filter `found`.
     fn render_dir_row(
         &self,
         row: &TreeRow,
         holds_cursor: bool,
         source: &FileSource,
+        found: &[Range<usize>],
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
@@ -643,7 +701,7 @@ impl Detail {
                 .overflow_hidden()
                 .whitespace_nowrap())
             .text_ellipsis_middle()
-            .child(name),
+            .child(matched(name, found.iter().cloned())),
         )
         .when(added + removed > 0, |el| {
             el.child(
@@ -773,6 +831,9 @@ impl Detail {
         cx: &Context<Self>,
     ) -> AnyElement {
         let (name, dir) = diff::split_path(&file.path);
+        // The letters the filter found, underlined where the name and its folder show them.
+        let name_found = found_in(&extras.found, file.path.len() - name.len()..file.path.len());
+        let dir_found = found_in(&extras.found, 0..dir.len());
         let path = file.path.clone();
         let diff_ix = extras.diff_ix;
         let stats = (diff_ix.and_then(|ix| self.diff.as_ref()?.files.get(ix))).map(FileDiff::stats);
@@ -863,7 +924,7 @@ impl Detail {
                             .overflow_hidden()
                             .whitespace_nowrap()
                             .text_ellipsis_middle()
-                            .child(name.to_owned()),
+                            .child(matched(name.to_owned(), name_found)),
                     )
                     .when(!dir.is_empty(), |el| {
                         el.child(
@@ -873,7 +934,7 @@ impl Detail {
                                 .whitespace_nowrap()
                                 .text_ellipsis_middle()
                                 .text_color(muted)
-                                .child(dir.to_owned()),
+                                .child(matched(dir.to_owned(), dir_found)),
                         )
                     }),
             )
@@ -1244,5 +1305,45 @@ impl Detail {
             }));
         }
         items
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use super::underlined;
+    use crate::detail::file_tree::{TreeRow, tree_rows};
+    use crate::detail::path_match;
+
+    #[test]
+    fn a_folder_underlines_what_the_filter_found_in_its_name() {
+        let paths = ["assets/keymaps/default.json", "src/keymap.rs"];
+        let terms = vec!["keymap".to_owned()];
+        let found = (paths.iter())
+            .map(|path| path_match(&terms, path).map(|(_, found)| found))
+            .collect::<Option<Vec<_>>>()
+            .expect("the filter keeps both");
+        let rows = tree_rows(&paths, &HashSet::new());
+        let shown: Vec<(&str, Vec<&str>)> = (rows.iter().zip(underlined(&rows, &paths, found)))
+            .map(|(row, found)| {
+                let text = match row {
+                    TreeRow::Dir { name, .. } => name.as_str(),
+                    TreeRow::File { pos, .. } => paths.get(*pos).copied().unwrap_or_default(),
+                };
+                let found = found.into_iter().filter_map(|range| text.get(range));
+                (text, found.collect())
+            })
+            .collect();
+        assert_eq!(
+            shown,
+            [
+                ("assets/keymaps", vec!["keymap"]),
+                ("assets/keymaps/default.json", vec!["keymap"]),
+                ("src", vec![]),
+                ("src/keymap.rs", vec!["keymap"]),
+            ],
+            "a folder underlines what its files' paths have in its name, a file all of its path"
+        );
     }
 }

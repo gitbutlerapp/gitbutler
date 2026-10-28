@@ -133,7 +133,7 @@ impl AppView {
                 .child(hint("esc", "cancel", &theme))
                 .into_any_element()
         } else if let Some(place) = (detail.is_focused(window, cx) && !detail.diff_hidden(cx))
-            .then(|| detail.cursor_place())
+            .then(|| detail.cursor_place(cx))
             .flatten()
         {
             // In the diff or the lists beside it, where the cursor is, as an editor's status
