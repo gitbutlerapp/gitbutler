@@ -3778,7 +3778,7 @@ fn commit_to_a_new_branch_in_a_linked_worktree_is_refused() {
             .stderr_eq(snapbox::str![[r#"
 Error: Cannot commit to an unstacked branch from worktree wt-feature
 
-Hint: Stack the new branch on this worktree first with `but branch new <name> --above wt-feature`
+Hint: Omit `-b` to commit to wt-feature, the branch this worktree has checked out
 
 "#]]);
     }
@@ -3787,23 +3787,14 @@ Hint: Stack the new branch on this worktree first with `but branch new <name> --
         "the worktree keeps its change"
     );
 
-    // The hinted way keeps the change in the worktree, on a branch stacked on its own.
-    env.but("branch new fresh --above wt-feature")
+    // The hinted way commits to the worktree's own branch.
+    env.but("commit -m 'from wt'")
         .current_dir(&wt_dir)
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-Created branch 'fresh' above branch 'wt-feature'
-
-"#]]);
-    env.but("commit -b fresh -m 'from wt'")
-        .current_dir(&wt_dir)
-        .assert()
-        .success()
-        .stderr_eq(snapbox::str![])
-        .stdout_eq(snapbox::str![[r#"
-Created commit lpo on branch 'fresh'
+Created commit lpo on branch 'wt-feature'
 
 "#]]);
     env.but("status -f")
@@ -3815,12 +3806,10 @@ Created commit lpo on branch 'fresh'
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ fr:@ [uncommitted] {wt-feature} (no changes)
-┊┊├┄ fr [fresh]
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ wt [wt-feature]
 ┊┊●   lpo from wt
 ┊┊│     lpo:u A note.txt
-┊┊│
-┊┊├┄ wt [wt-feature] (no commits)
 ┊├╯
 ┊●   tpm add A
 ┊│     tpm:t A A

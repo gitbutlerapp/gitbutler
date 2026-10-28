@@ -308,7 +308,7 @@ fn resolve(
             "Cannot commit to an unstacked branch from worktree {worktree}"
         ))
         .hint(format!(
-            "Stack the new branch on this worktree first with `but branch new <name> --above {checked_out}`"
+            "Omit `-b` to commit to {checked_out}, the branch this worktree has checked out"
         ))
         .into());
     }
