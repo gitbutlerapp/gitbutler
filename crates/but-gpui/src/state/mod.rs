@@ -32,7 +32,7 @@ pub use activity::{Activity, QUARTER, SeenCommit};
 use load::{Change, Reload};
 pub use mesh::{MeshBranch, MeshPick, MeshState};
 use mutation::Running;
-pub use mutation::{Label, NewAt, OpKind, Overlay, Rereads, SLOW, branch_moved, conflicted_parts};
+pub use mutation::{Label, NewAt, Overlay, Rereads, SLOW, branch_moved, conflicted_parts};
 pub use picks::Picks;
 pub use saved::{BranchStatus, FileSort, Pane, Prefs, ScopeLines, WatchedOrder};
 use saved::{Restored, Saved};
@@ -345,8 +345,8 @@ pub struct Store {
     /// mesh does lives in `state/mesh.rs`; see the crate's AGENTS.md for its rules.
     pub mesh: mesh::Mesh,
     /// Each project's operation in flight, one at a time until the reload after it lands, so
-    /// the next sees what it did, plus those that run beside it ([`OpKind::beside`]). Projects
-    /// don't wait on each other.
+    /// the next sees what it did, plus those that run beside it
+    /// ([`OpKind::beside`](crate::backend::OpKind::beside)). Projects don't wait on each other.
     running: Vec<Running>,
     /// How many operations have started, which numbers the next.
     ops_started: usize,

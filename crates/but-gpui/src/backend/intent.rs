@@ -4,12 +4,61 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::Result;
 use but_core::sync::RepoExclusive;
 
-use super::{SnapshotId, history, open, worktrees};
+use super::{FullName, SnapshotId, history, open, worktrees};
 
 /// The git side of one user action, applied by [`apply`].
 pub trait Intent: Send + 'static {
     type Done: Send + 'static;
     fn apply(self, run: &mut Run) -> Result<Self::Done>;
+}
+
+/// The operations treated apart from the rest. Labels are only what the user reads.
+#[derive(Default, Clone, PartialEq)]
+pub enum OpKind {
+    #[default]
+    Other,
+    Fetch,
+    /// A push of the branch with this full ref, with the ones below it, on its own or to open
+    /// its pull request.
+    Push(FullName),
+    /// Deleting the linked worktree with this name.
+    DeleteWorktree(bstr::BString),
+    /// An update from the target.
+    Update,
+    /// A pull into the branch with this full ref.
+    Pull(FullName),
+    /// Resolving conflicts, which are numbered anew once it's done.
+    Resolve,
+    MarkResolved,
+    FinishEditing,
+    CancelEditing,
+    /// ⌘Z and ⌘⇧Z, of the step with this oplog entry, which keep the undo history themselves.
+    Undo(SnapshotId),
+    Redo(SnapshotId),
+    /// Operations history's restore, the way back when a project can't be read.
+    Restore,
+}
+
+impl OpKind {
+    /// Whether it runs beside the project's other operation: it only talks to the remote or
+    /// deletes a folder, so nothing another one does depends on it, and it can take long
+    /// enough to hold them up.
+    pub fn beside(&self) -> bool {
+        matches!(self, Self::Fetch | Self::Push(_) | Self::DeleteWorktree(_))
+    }
+
+    /// Whether it runs while a commit is checked out for editing: fetching, which leaves the
+    /// worktree alone, and what resolves the commit and ends the edit.
+    pub fn while_editing(&self) -> bool {
+        matches!(
+            self,
+            Self::Fetch
+                | Self::Resolve
+                | Self::MarkResolved
+                | Self::FinishEditing
+                | Self::CancelEditing
+        )
+    }
 }
 
 /// One operation on one project.
