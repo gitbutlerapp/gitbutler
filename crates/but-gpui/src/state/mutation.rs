@@ -1524,7 +1524,7 @@ impl Store {
                     backend::history::oplog_head(&path).filter(|after| Some(*after) != before);
                 // The oplog records only the main checkout: what moved a linked worktree,
                 // even one stacked on a branch here, can't be undone.
-                let moved_worktree = backend::worktrees::heads(&path) != heads;
+                let moved_worktree = backend::worktrees::heads(&path).moved_since(&heads);
                 Ok((value, recorded, moved_worktree, ran))
             })
             .await;

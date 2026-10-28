@@ -168,18 +168,32 @@ fn event_said(message: &str) -> Option<String> {
     None
 }
 
-/// Where each linked worktree's `HEAD` points, the branch it has checked out and its commit,
-/// to tell whether an operation moved one.
-pub fn heads(path: &Path) -> Vec<Option<(Option<gix::refs::FullName>, gix::ObjectId)>> {
+/// Where each linked worktree's `HEAD` points, by the worktree's id: the branch it has checked
+/// out and its commit, to tell whether an operation moved one.
+#[derive(Debug, PartialEq)]
+pub struct Heads(HashMap<BString, Option<(Option<gix::refs::FullName>, gix::ObjectId)>>);
+
+impl Heads {
+    /// Whether a worktree there both now and `before` points elsewhere. One added or removed
+    /// meanwhile, as a worktree deleted beside the operation is, didn't move.
+    pub fn moved_since(&self, before: &Heads) -> bool {
+        (self.0.iter()).any(|(id, head)| before.0.get(id).is_some_and(|was| was != head))
+    }
+}
+
+pub fn heads(path: &Path) -> Heads {
     let Ok(repo) = gix::open(path) else {
-        return Vec::new();
+        return Heads(HashMap::new());
     };
-    (repo.worktrees().into_iter().flatten())
-        .map(|wt| {
+    let heads = (repo.worktrees().into_iter().flatten()).filter_map(|wt| {
+        let id = wt.id().ok()?.to_owned();
+        let head = (|| {
             let repo = wt.into_repo().ok()?;
             Some((repo.head_name().ok()?, repo.head_id().ok()?.detach()))
-        })
-        .collect()
+        })();
+        Some((id, head))
+    });
+    Heads(heads.collect())
 }
 
 /// Make a linked worktree on new branch `name`, at the workspace's base, as `but worktree new`
