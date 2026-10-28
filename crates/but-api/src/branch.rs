@@ -1705,12 +1705,25 @@ pub fn get_initial_branch_integration(
     branch: &gix::refs::FullNameRef,
     strategy: Option<json::BranchIntegrationStrategy>,
 ) -> anyhow::Result<InitialBranchIntegration> {
-    let mut meta = ctx.meta()?;
-    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-    let mut ws = ws.clone();
+    let guard = ctx.shared_worktree_access();
     let strategy = strategy
         .map(BranchIntegrationStrategy::from)
         .unwrap_or_default();
+    get_initial_branch_integration_with_perm(ctx, branch, strategy, guard.read_permission())
+}
+
+/// Get the initial upstream integration script for `branch` under caller-held repository access.
+///
+/// See [`get_initial_branch_integration()`] for behavior.
+pub fn get_initial_branch_integration_with_perm(
+    ctx: &Context,
+    branch: &gix::refs::FullNameRef,
+    strategy: BranchIntegrationStrategy,
+    perm: &RepoShared,
+) -> anyhow::Result<InitialBranchIntegration> {
+    let mut meta = ctx.meta()?;
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
+    let mut ws = ws.clone();
     but_workspace::branch::integrate_branch_upstream::get_initial_integration_steps_for_branch(
         branch, strategy, &mut ws, &mut meta, &repo, &mut db,
     )
