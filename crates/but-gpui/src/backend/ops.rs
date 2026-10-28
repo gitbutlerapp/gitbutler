@@ -1586,19 +1586,15 @@ impl Intent for DiscardChanges {
     type Done = Option<Undiscarded>;
 
     fn apply(self, run: &mut Run) -> Result<Option<Undiscarded>> {
-        let worktree = self.checkout.linked();
+        let Self {
+            changes,
+            checkout,
+            unrecorded,
+        } = self;
+        let worktree = checkout.linked();
         let project = format!("{}/", run.path().display());
         // One lock throughout, so what's conflicted can't change under the discard.
-        run.locked(|ctx, perm| {
-            discard(
-                ctx,
-                perm,
-                worktree,
-                &self.changes,
-                self.unrecorded,
-                &project,
-            )
-        })
+        run.locked(|ctx, perm| discard(ctx, perm, worktree, &changes, unrecorded, &project))
     }
 }
 
