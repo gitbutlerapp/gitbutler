@@ -184,7 +184,7 @@ unseen is what a laptop's battery pays for.
   transaction's `snapshot_refs`, else `from_details_with_refs_and_perm`), or undo leaves the
   branch behind or doesn't bring it back.
 - ⌘Z follows the user, not the selection. `Store::undo_steps` takes the oplog entry of every
-  operation the app runs, in any project, ordered by when it was asked for, and ⌘Z undoes the
+  operation the app runs, in any project, ordered by when it started, and ⌘Z undoes the
   newest only while it's still its project's undo target, so it never takes back an agent's or
   the CLI's work. Undo and Redo are `OpKind::Undo` and `OpKind::Redo` and keep the lists
   themselves; an operation the oplog can't undo calls `keep_last_snapshot`, which drops it.

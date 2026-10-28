@@ -315,12 +315,12 @@ pub(super) enum Phase {
 }
 
 /// An operation of the user's that ⌘Z takes back: the oplog entry it recorded in its project,
-/// when it was asked for, which orders it among the others, when it finished, in
-/// milliseconds since the Unix epoch as file times are, and what its snackbar said.
+/// when it started, which orders it among the others, when it finished, in milliseconds since
+/// the Unix epoch as file times are, and what its snackbar said.
 pub(super) struct UndoStep {
     pub(super) project: ProjectId,
     pub(super) snapshot: SnapshotId,
-    asked: Instant,
+    started: Instant,
     done: i64,
     pub(super) said: Option<SharedString>,
 }
@@ -359,8 +359,8 @@ impl Store {
         // The newest step not being undone already, as by a ⌘Z just before.
         let last = (self.undo_steps.iter().rev())
             .find(|step| !self.pending(&step.project, Some(&OpKind::Undo(step.snapshot)), false));
-        // Asked for after it in any project, as ⌘Z follows the user there, and still running.
-        if self.running_after(last.map(|step| step.asked), None) {
+        // Started after it in any project, as ⌘Z follows the user there, and still running.
+        if self.running_after(last.map(|step| step.started), None) {
             return self.snack(WAIT_TO_UNDO, cx);
         }
         match last.map(|step| (step.project.clone(), step.snapshot)) {
@@ -369,14 +369,16 @@ impl Store {
         }
     }
 
-    /// Whether an operation that started after `asked`, or any without it, is running in
-    /// `project`, or in any without it, a push or a redo too: it's what the user means to undo.
-    fn running_after(&self, asked: Option<Instant>, project: Option<&ProjectId>) -> bool {
+    /// Whether an operation the user would mean to undo first is still working: one started
+    /// after `after` (any, if `None`) in `project` (any, if `None`). Fetches don't count but
+    /// pushes do, and undos never count.
+    fn running_after(&self, after: Option<Instant>, project: Option<&ProjectId>) -> bool {
         self.working().any(|r| {
-            project.is_none_or(|p| r.project == *p)
-                && (!r.overlay.remote_only || matches!(r.overlay.kind, OpKind::Push(_)))
-                && !matches!(r.overlay.kind, OpKind::Undo(_))
-                && asked.is_none_or(|asked| r.started > asked)
+            let undoable = (!r.overlay.remote_only || matches!(r.overlay.kind, OpKind::Push(_)))
+                && !matches!(r.overlay.kind, OpKind::Undo(_));
+            undoable
+                && project.is_none_or(|p| r.project == *p)
+                && after.is_none_or(|after| r.started > after)
         })
     }
 
@@ -386,17 +388,17 @@ impl Store {
     }
 
     /// Make the operation that recorded `snapshot` in `project` one ⌘Z takes back, among the
-    /// others by when it was asked for.
-    fn push_undo_step(&mut self, project: ProjectId, snapshot: SnapshotId, asked: Instant) {
+    /// others by when it started.
+    fn push_undo_step(&mut self, project: ProjectId, snapshot: SnapshotId, started: Instant) {
         let done = now_millis();
         (self.undo_steps).push(UndoStep {
             project,
             snapshot,
-            asked,
+            started,
             done,
             said: None,
         });
-        self.undo_steps.sort_by_key(|step| step.asked);
+        self.undo_steps.sort_by_key(|step| step.started);
     }
 
     /// What ⌘Z takes back next, as its snackbar said it, with its project and when it
@@ -418,7 +420,7 @@ impl Store {
         let Some((project, last)) = self.last_snapshot.clone() else {
             return;
         };
-        let Some((at, &UndoStep { asked, done, .. })) =
+        let Some((at, &UndoStep { started, done, .. })) =
             (self.undo_steps.iter().enumerate()).find(|(_, step)| step.snapshot == last)
         else {
             return;
@@ -426,7 +428,7 @@ impl Store {
         let step = UndoStep {
             project,
             snapshot,
-            asked,
+            started,
             done,
             said: None,
         };
@@ -458,7 +460,7 @@ impl Store {
         accepted: Option<i64>,
         cx: &mut Context<Self>,
     ) {
-        let (kept, ran, again, asked) = (
+        let (kept, ran, again, started) = (
             self.kept_snapshots
                 .get(&project)
                 .cloned()
@@ -504,7 +506,7 @@ impl Store {
                 (store.redo_steps).retain(|step| *step != (again.clone(), undo));
                 // Back on top of what ⌘Z takes back.
                 if let Some((project, snapshot)) = store.last_snapshot.clone() {
-                    store.push_undo_step(project, snapshot, asked);
+                    store.push_undo_step(project, snapshot, started);
                 }
                 store.snack_undoable(format!("Redone: {operation}"), cx)
             },
@@ -555,8 +557,8 @@ impl Store {
         }
         let step = (self.undo_steps.iter())
             .find(|step| step.project == *project && step.snapshot == snapshot);
-        let asked = step.map(|step| step.asked);
-        if self.running_after(asked, Some(project)) {
+        let started = step.map(|step| step.started);
+        if self.running_after(started, Some(project)) {
             return self.snack(WAIT_TO_UNDO, cx);
         }
         // What came after it, or after the user said to undo anyway, which still stops for
@@ -622,7 +624,8 @@ impl Store {
                     // It, and the project's steps before it, are behind what came after.
                     Ok(Undone::Behind(why)) => {
                         store.undo_steps.retain(|step| {
-                            step.project != again || asked.is_none_or(|asked| step.asked > asked)
+                            step.project != again
+                                || started.is_none_or(|started| step.started > started)
                         });
                         store.error(title(store), why, cx)
                     }
