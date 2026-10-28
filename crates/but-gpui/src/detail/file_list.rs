@@ -148,9 +148,6 @@ fn underlined(
     underlined
 }
 
-/// A folder row, for what shows on it under the pointer.
-const DIR_GROUP: &str = "dir-row";
-
 /// The panel's heading: Files, how many, and their lines added and removed.
 fn files_heading(count: usize, (added, removed): (u32, u32), theme: &Theme) -> Div {
     h_flex()
@@ -637,6 +634,25 @@ impl Detail {
         matches!(&cut, Cut::Files { files, .. } if !files.is_empty()).then_some(cut)
     }
 
+    /// The lines the files under the folder `dir` in `source` add and remove, summed from the
+    /// diff the list's files take theirs from, over the files it shows.
+    fn folder_stats(&self, source: &FileSource, dir: &str, cx: &App) -> (u32, u32) {
+        let loaded = match source {
+            FileSource::Uncommitted(..) => self.worktree_diff(),
+            FileSource::Diff => self.diff.as_ref(),
+        };
+        let Some(loaded) = loaded else {
+            return (0, 0);
+        };
+        let prefix = format!("{dir}/");
+        let terms = self.filter_terms(cx);
+        let leaving = loaded.key.leaving(self.store.read(cx));
+        diff::total_stats(loaded.files.iter().filter(|f| {
+            let path = f.file.path.as_str();
+            path.starts_with(&prefix) && keeps_path(&terms, path) && !leaving(path)
+        }))
+    }
+
     /// A tree's folder row, with the byte ranges of its name the filter `found`.
     fn render_dir_row(
         &self,
@@ -657,21 +673,13 @@ impl Detail {
         else {
             return None;
         };
-        // The lines its files add and remove, shown on hover: always there, they'd crowd the
-        // names. Summed from the diff's files, as each file's own counts are.
-        let under = format!("{path}/");
-        let (added, removed) = diff::total_stats(
-            (self.diff.iter())
-                .flat_map(|diff| diff.files.iter())
-                .filter(|file| file.file.path.starts_with(&under)),
-        );
+        let (added, removed) = self.folder_stats(source, &path, cx);
         let row = file_row(
             ElementId::Name(format!("dir-{path}").into()),
             holds_cursor,
             false,
             theme,
         )
-        .group(DIR_GROUP)
         .child(steps(
             depth,
             Some(
@@ -704,12 +712,7 @@ impl Detail {
             .child(matched(name, found.iter().cloned())),
         )
         .when(added + removed > 0, |el| {
-            el.child(
-                diff::stats(added, removed, theme)
-                    .flex_none()
-                    .opacity(0.)
-                    .group_hover(DIR_GROUP, |style| style.opacity(1.)),
-            )
+            el.child(diff::stats(added, removed, theme))
         })
         .when(collapsed, |el| el.child(faint(files.to_string(), theme)))
         .on_mouse_down(
