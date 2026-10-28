@@ -1238,7 +1238,7 @@ impl AppView {
                     tip,
                     whole_stack,
                 },
-                move |store, left: backend::Landed, cx| {
+                move |store, left, cx| {
                     // Undo would bring the branch back here while the target keeps it.
                     store.drop_last_step();
                     // What the update after it left conflicted, as Update says.
