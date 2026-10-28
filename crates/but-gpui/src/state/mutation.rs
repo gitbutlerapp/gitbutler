@@ -1152,15 +1152,14 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let overlay = Overlay::commits(ids.iter().filter_map(|id| self.key_of(project, *id)));
-        self.run(
+        let label = Label::new("Squash", format!("Squash {} commits", ids.len() + 1));
+        let squash = backend::Squash { commits: ids, into };
+        self.apply(
             project,
-            Label::new("Squash", format!("Squash {} commits", ids.len() + 1)),
+            label,
             overlay,
-            move |path| {
-                let oldest_first: Vec<CommitId> = ids.iter().rev().copied().collect();
-                backend::squash(path, &oldest_first, into)
-            },
-            move |store, rewritten, cx| {
+            squash,
+            |store, rewritten, cx| {
                 store.follow(&rewritten, cx);
                 store.snack_undoable("Squashed into one commit", cx)
             },

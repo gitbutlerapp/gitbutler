@@ -1,8 +1,9 @@
-//! Mutations of commits, branches and uncommitted changes. Each opens the project, calls
-//! the matching `but-api` function and returns; the UI reloads the workspace afterwards.
-//! Undo history comes from `but-api`'s own oplog snapshots, except that [`discard`],
-//! [`split_off`], [`move_to_new_branch`] and [`create_beside_checkout`] record their own, as
-//! does [`super::conflicts::resolve_markers`] through [`record_undo`].
+//! Mutations of commits, branches and uncommitted changes; the UI reloads the workspace
+//! afterwards. An [`Intent`], such as [`Squash`], runs under the one lock [`Run::locked`] takes,
+//! in one `but_transaction` transaction that records one oplog entry. The rest open the project
+//! and call the matching `but-api` function, which locks and records its own oplog snapshot,
+//! except that [`discard`], [`split_off`], [`move_to_new_branch`] and [`create_beside_checkout`]
+//! record their own, as does [`super::conflicts::resolve_markers`] through [`record_undo`].
 
 use gitbutler_repo::hooks::{ErrorData, HookResult, MessageHookResult};
 use std::collections::HashMap;
@@ -15,7 +16,8 @@ use but_core::tree::create_tree::RejectionReason;
 use but_core::{DiffSpec, DryRun};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 
-use super::{ChangeKind, CommitId, FullName, Selected, checkout, open, short_ref, stamp};
+use super::intent::Run;
+use super::{ChangeKind, CommitId, FullName, Intent, Selected, checkout, open, short_ref, stamp};
 
 /// Where a commit or a set of changes lands.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -799,22 +801,44 @@ pub fn move_commits(
     Ok(rewritten(&outcome.workspace))
 }
 
-/// Squash `commits` into `into`, keeping all messages.
-pub fn squash(path: &Path, commits: &[CommitId], into: CommitId) -> Result<Rewritten> {
-    let mut ctx = open(path)?;
-    let outcome = but_api::commit::squash::commit_squash(
-        &mut ctx,
-        commits.iter().map(|id| id.0).collect(),
-        into.0,
-        but_workspace::commit::squash_commits::MessageCombinationStrategy::KeepBoth,
-        DryRun::No,
-    )?;
-    let mut rewrites = rewritten(&outcome.workspace);
-    // The squashed commits live on in the result.
-    for id in commits.iter().chain([&into]) {
-        rewrites.insert(*id, CommitId(outcome.new_commit));
+/// Squash `commits`, newest first as picked, into `into`, keeping every message.
+pub struct Squash {
+    pub commits: Vec<CommitId>,
+    pub into: CommitId,
+}
+
+impl Intent for Squash {
+    type Done = Rewritten;
+
+    fn apply(self, run: &mut Run) -> Result<Rewritten> {
+        use but_oplog::legacy::{OperationKind, SnapshotDetails};
+        use but_workspace::commit::squash_commits::MessageCombinationStrategy;
+        let Self { commits, into } = self;
+        let (made, workspace) = run.locked(|ctx, perm| {
+            let mut meta = ctx.meta()?;
+            but_transaction::with_transaction_with_perm(
+                ctx,
+                &mut meta,
+                perm,
+                SnapshotDetails::new(OperationKind::SquashCommit),
+                &[],
+                DryRun::No,
+                |mut tx| {
+                    let oldest_first = commits.iter().rev().map(|id| id.0);
+                    let made = tx.squash_commits(
+                        oldest_first,
+                        into.0,
+                        MessageCombinationStrategy::KeepBoth,
+                    )?;
+                    Ok(but_transaction::Commit(CommitId(made.id)))
+                },
+            )
+        })?;
+        let mut rewritten = rewritten(&workspace);
+        // The squashed commits live on in the result.
+        rewritten.extend(commits.iter().chain([&into]).map(|id| (*id, made)));
+        Ok(rewritten)
     }
-    Ok(rewrites)
 }
 
 /// Turn `commits` back into uncommitted changes.
@@ -3129,6 +3153,61 @@ pub(super) mod tests {
         let commit = head(path);
         let diff = load_diff(path, DiffSource::Commit(commit), None, None, None, None).unwrap();
         (dir, commit, diff, edited)
+    }
+
+    /// The kind of each oplog entry newer than `before`, newest first, a line each.
+    fn entries_since(path: &Path, before: Option<crate::backend::SnapshotId>) -> String {
+        let ctx = open(path).unwrap();
+        let snapshots = but_api::legacy::oplog::list_snapshots(&ctx, 100, None, None, None);
+        (snapshots.unwrap().into_iter())
+            .take_while(|snapshot| Some(snapshot.commit_id) != before.map(|id| id.0))
+            .map(|snapshot| format!("{:?}\n", snapshot.details.unwrap().operation))
+            .collect()
+    }
+
+    #[test]
+    fn squashing_is_one_oplog_entry_its_run_saw() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let (dir, edit, ..) = workspace_with_an_edit();
+            let path = dir.path();
+            git(path, &["commit", "-q", "--allow-empty", "-m", "second"]);
+            let second = head(path);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "third"]);
+            let third = head(path);
+            let before = crate::backend::history::oplog_head(&open(path).unwrap());
+
+            let squash = Squash {
+                commits: vec![third, second],
+                into: edit,
+            };
+            let (rewritten, ran) = crate::backend::apply(path, squash).unwrap();
+            let squashed = rewritten[&edit];
+            assert_eq!(
+                (rewritten[&second], rewritten[&third]),
+                (squashed, squashed),
+                "a selection on any of the commits follows into the squash"
+            );
+            assert_eq!(
+                ran.recorded,
+                crate::backend::history::oplog_head(&open(path).unwrap()),
+                "the run saw the entry it wrote"
+            );
+            let message = git(path, &["log", "-1", "--format=%B", &squashed.0.to_string()]);
+            // One entry since the fixture, and one commit holding every message, oldest first.
+            snapbox::assert_data_eq!(
+                entries_since(path, before) + &message,
+                snapbox::str![[r#"
+SquashCommit
+edit
+
+second
+
+third
+
+
+"#]]
+            );
+        })
     }
 
     #[test]
