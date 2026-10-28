@@ -37,6 +37,10 @@ impl Run {
         &self.ctx
     }
 
+    pub(super) fn path(&self) -> &Path {
+        &self.path
+    }
+
     /// Refuse while `.git/index.lock` exists. Left by a Git that crashed or was killed, as an
     /// agent's can be, it stops an operation partway, after it has written files.
     pub(super) fn refuse_index_locked(&self) -> Result<()> {

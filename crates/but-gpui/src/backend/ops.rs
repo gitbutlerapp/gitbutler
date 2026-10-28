@@ -2,8 +2,8 @@
 //! afterwards. An [`Intent`], such as [`Squash`], runs under the one lock [`Run::locked`] takes,
 //! in one `but_transaction` transaction, one `_with_perm` call, or work wrapped in [`recorded`],
 //! recording one oplog entry. The rest open the project and call the matching `but-api`
-//! function, which locks and records its own oplog snapshot, except that [`discard`] records its
-//! own, as does [`super::conflicts::resolve_markers`] through [`record_undo`].
+//! function, which locks and records its own oplog snapshot. [`DiscardChanges`] records its own
+//! before it writes, as does [`super::conflicts::resolve_markers`] through [`record_undo`].
 
 use gitbutler_repo::hooks::{ErrorData, HookResult, MessageHookResult};
 use std::borrow::Cow;
@@ -1575,21 +1575,44 @@ pub enum Undiscarded {
     Partway(String),
 }
 
-/// Throw away the `selected` uncommitted changes of the main checkout, or of the linked
-/// `worktree` with that name. The main checkout's are recorded for undo first. When that
-/// fails nothing is thrown away, for the user to decide whether to go on without undo, unless
-/// `unrecorded` says they did.
-pub fn discard(
-    path: &Path,
-    worktree: Option<&bstr::BStr>,
+/// Throw away uncommitted `changes` of `checkout`. The main checkout's are recorded for undo
+/// first. When that fails nothing is thrown away, for the user to decide whether to go on
+/// without undo, unless `unrecorded` says they did.
+pub struct DiscardChanges {
+    pub changes: Arc<[Selected]>,
+    pub checkout: Checkout,
+    pub unrecorded: bool,
+}
+
+impl Intent for DiscardChanges {
+    type Done = Option<Undiscarded>;
+
+    fn apply(self, run: &mut Run) -> Result<Option<Undiscarded>> {
+        let worktree = self.checkout.linked();
+        let project = format!("{}/", run.path().display());
+        // One lock throughout, so what's conflicted can't change under the discard.
+        run.locked(|ctx, perm| {
+            discard(
+                ctx,
+                perm,
+                worktree,
+                &self.changes,
+                self.unrecorded,
+                &project,
+            )
+        })
+    }
+}
+
+fn discard(
+    ctx: &but_ctx::Context,
+    perm: &mut but_ctx::access::RepoExclusive,
+    worktree: Option<&BStr>,
     selected: &[Selected],
     unrecorded: bool,
+    project: &str,
 ) -> Result<Option<Undiscarded>> {
-    let mut ctx = open(path)?;
-    // One lock throughout, so what's conflicted can't change under the discard.
-    let mut guard = ctx.exclusive_worktree_access();
-    let perm = guard.write_permission();
-    let repo = &checkout(&ctx, worktree)?;
+    let repo = &checkout(ctx, worktree)?;
     // Discarding goes by status, which leaves conflicted files out: take them as they are,
     // then throw that away. Only whole: discarding part of one would take the rest of it
     // as resolved, markers and all.
@@ -1616,11 +1639,11 @@ pub fn discard(
     if worktree.is_none() {
         let details = SnapshotDetails::new(OperationKind::DiscardChanges);
         let snapshot = but_oplog::UnmaterializedOplogSnapshot::prepare_checkpoint(
-            &ctx,
+            ctx,
             details,
             perm.read_permission(),
         )
-        .and_then(|snapshot| snapshot.commit(&ctx, perm));
+        .and_then(|snapshot| snapshot.commit(ctx, perm));
         match snapshot {
             Ok(()) => recorded = true,
             Err(err) if !unrecorded => {
@@ -1658,7 +1681,7 @@ pub fn discard(
         // What it threw away before failing comes back with undo, as its step stays. Paths in
         // the project as it names them, as a failed operation's card says them.
         Err(err) if recorded => Ok(Some(Undiscarded::Partway(
-            super::failure_detail(&err).replace(&format!("{}/", path.display()), ""),
+            super::failure_detail(&err).replace(project, ""),
         ))),
         discarded => discarded.map(|()| None),
     }
@@ -1831,6 +1854,20 @@ pub(super) mod tests {
             checkout: Checkout::Main,
             run_hooks: false,
         }
+    }
+
+    fn discard(
+        path: &Path,
+        checkout: Checkout,
+        selected: &[Selected],
+        unrecorded: bool,
+    ) -> Result<Option<Undiscarded>> {
+        let discard = DiscardChanges {
+            changes: selected.into(),
+            checkout,
+            unrecorded,
+        };
+        Ok(crate::backend::apply(path, discard)?.0)
     }
 
     fn uncommitted(path: &Path) -> Vec<crate::backend::FileChange> {
@@ -2050,13 +2087,13 @@ pub(super) mod tests {
                 file: files[0].clone(),
                 hunks: Some(Vec::new()),
             };
-            let refused = discard(path, None, &[part], true).unwrap_err();
+            let refused = discard(path, Checkout::Main, &[part], true).unwrap_err();
             assert!(
                 refused.to_string().contains("has conflicts"),
                 "part of it would leave the rest resolved, markers and all: {refused:#}"
             );
             let whole = Selected::whole(&files[0]);
-            discard(path, None, &[whole], true).unwrap();
+            discard(path, Checkout::Main, &[whole], true).unwrap();
             assert_eq!(
                 std::fs::read_to_string(path.join("file")).unwrap(),
                 "ours\n"
@@ -2074,14 +2111,14 @@ pub(super) mod tests {
             let path = dir.path();
             std::fs::write(path.join("file"), "two\n").unwrap();
             let whole = Selected::whole(&uncommitted(path)[0]);
-            let why = discard(path, None, std::slice::from_ref(&whole), false).unwrap();
+            let why = discard(path, Checkout::Main, std::slice::from_ref(&whole), false).unwrap();
             assert!(why.is_some(), "it says why it couldn't record the discard");
             assert_eq!(
                 std::fs::read_to_string(path.join("file")).unwrap(),
                 "two\n",
                 "and throws nothing away, as undo couldn't bring it back"
             );
-            assert_eq!(discard(path, None, &[whole], true).unwrap(), None);
+            assert_eq!(discard(path, Checkout::Main, &[whole], true).unwrap(), None);
             assert_eq!(
                 std::fs::read_to_string(path.join("file")).unwrap(),
                 "one\n",
@@ -2107,7 +2144,7 @@ pub(super) mod tests {
                 .find(|file| file.path == "legacy/README")
                 .unwrap();
 
-            let outcome = discard(path, None, &[Selected::whole(&gone)], false).unwrap();
+            let outcome = discard(path, Checkout::Main, &[Selected::whole(&gone)], false).unwrap();
             assert!(
                 matches!(outcome, Some(super::Undiscarded::Partway(_))),
                 "it recorded first, so the failure is an outcome undo takes back: {outcome:?}"
@@ -2128,7 +2165,7 @@ pub(super) mod tests {
             let line = diff[0].part(Some(
                 hunks[0].picked(&std::collections::BTreeSet::from([1])),
             ));
-            let refused = discard(path, None, &[line], false).unwrap_err();
+            let refused = discard(path, Checkout::Main, &[line], false).unwrap_err();
             assert!(
                 refused
                     .to_string()
@@ -2139,11 +2176,12 @@ pub(super) mod tests {
             let hunk = diff[0].part(Some(vec![hunks[0].key]));
             assert!(hunk.hunks.is_none(), "all of its hunks is the file whole");
             assert_eq!(
-                discard(path, None, std::slice::from_ref(&hunk), false).unwrap(),
+                discard(path, Checkout::Main, std::slice::from_ref(&hunk), false).unwrap(),
                 None
             );
             assert!(!path.join("new").exists(), "the whole file goes");
-            discard(path, None, &[hunk], false).expect("nothing left to discard is no error");
+            discard(path, Checkout::Main, &[hunk], false)
+                .expect("nothing left to discard is no error");
         })
     }
 
@@ -2163,7 +2201,8 @@ pub(super) mod tests {
             };
             let whole = read();
             std::fs::write(linked.join("file"), "agent, more\n").unwrap();
-            let refused = discard(path, Some("agent".into()), &[whole], true).unwrap_err();
+            let refused =
+                discard(path, Checkout::Linked("agent".into()), &[whole], true).unwrap_err();
             assert!(
                 refused
                     .to_string()
@@ -2171,7 +2210,7 @@ pub(super) mod tests {
                 "what was written after the diff was read isn't thrown away unseen, as nothing \
                  brings a linked worktree's discard back: {refused}"
             );
-            discard(path, Some("agent".into()), &[read()], true).unwrap();
+            discard(path, Checkout::Linked("agent".into()), &[read()], true).unwrap();
             assert_eq!(
                 std::fs::read_to_string(linked.join("file")).unwrap(),
                 "one\n",
@@ -2278,7 +2317,7 @@ pub(super) mod tests {
             assert_eq!(selected.len(), 2, "the conflicted file and the edit");
             // Deleted since the diff was shown, so its hunk can't be discarded alone.
             std::fs::remove_file(linked.join("gone")).unwrap();
-            discard(path, Some("agent".into()), &selected, true).unwrap_err();
+            discard(path, Checkout::Linked("agent".into()), &selected, true).unwrap_err();
             assert_eq!(
                 git(&linked, &["ls-files", "-u", "file"]).lines().count(),
                 3,
@@ -2345,7 +2384,7 @@ pub(super) mod tests {
             let err = crate::backend::apply(path, part)
                 .expect_err("a hunk of the converted copy isn't one of the file");
             assert!(err.to_string().contains("textconv"), "{err}");
-            discard(path, None, &[first_hunk], false).expect_err("nor is one to discard");
+            discard(path, Checkout::Main, &[first_hunk], false).expect_err("nor is one to discard");
             assert_eq!(
                 std::fs::read_to_string(path.join("file")).unwrap(),
                 lines.concat(),
@@ -3793,9 +3832,9 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 "the edits are far enough apart for two hunks"
             );
             let hunk = |ix: usize| diff[0].part(Some(vec![hunks[ix].key]));
-            discard(path, None, &[hunk(0)], true).unwrap();
+            discard(path, Checkout::Main, &[hunk(0)], true).unwrap();
             // Read before the first discard, which took two lines out above it.
-            let err = discard(path, None, &[hunk(1)], true).unwrap_err();
+            let err = discard(path, Checkout::Main, &[hunk(1)], true).unwrap_err();
             assert!(
                 err.to_string().contains("changed since the diff was shown"),
                 "its place in the file is from before the first discard: {err}"
@@ -3803,7 +3842,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
             let hunks = diff[0].hunks();
             let fresh = diff[0].part(Some(vec![hunks[0].key]));
-            discard(path, None, &[fresh], true).unwrap();
+            discard(path, Checkout::Main, &[fresh], true).unwrap();
             assert_eq!(
                 std::fs::read_to_string(path.join("file")).unwrap(),
                 lines.concat(),
@@ -3834,7 +3873,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let entry = format!("100644,{},file", blob.trim());
             git(path, &["update-index", "--cacheinfo", &entry]);
             git(path, &["commit", "-q", "-m", "first edit"]);
-            let err = discard(path, None, &[second], true).unwrap_err();
+            let err = discard(path, Checkout::Main, &[second], true).unwrap_err();
             assert!(
                 err.to_string().contains("changed since the diff was shown"),
                 "its hunk was read against the file before the commit: {err}"
@@ -3869,7 +3908,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let hunk = &diff[0].hunks()[0];
             let picks = std::collections::BTreeSet::from([line_in(hunk, "five b")]);
             let lines_picked = diff[0].part(Some(hunk.picked(&picks)));
-            discard(path, None, &[lines_picked], true).unwrap();
+            discard(path, Checkout::Main, &[lines_picked], true).unwrap();
 
             let mut expected = lines;
             expected[4] = "five a\n".into();

@@ -61,19 +61,24 @@ pub fn discard_label(what: &str, linked: bool) -> String {
 fn discard_unrecorded(
     store: &mut Store,
     project: &ProjectId,
-    changes: &[Selected],
+    changes: Arc<[Selected]>,
     cx: &mut Context<Store>,
 ) {
     let overlay = Overlay {
         rereads: Rereads::Files,
-        ..Overlay::files(changes)
+        ..Overlay::files(changes.iter())
     };
-    let (changes, named) = (changes.to_vec(), project.clone());
-    store.run(
+    let named = project.clone();
+    let discard = backend::DiscardChanges {
+        changes,
+        checkout: Checkout::Main,
+        unrecorded: true,
+    };
+    store.apply(
         project,
         "Discard",
         overlay,
-        move |path| backend::discard(path, None, &changes, true),
+        discard,
         move |store, outcome, cx| match outcome {
             None => store.snack(store.card_title(&named, "Changes discarded".into()), cx),
             Some(Undiscarded::Partway(why) | Undiscarded::Unrecorded(why)) => {
@@ -904,21 +909,25 @@ impl AppView {
         };
         // Asked already when undo can't take it back; else, when GitButler can't record it
         // after all, nothing goes, and the card asks.
+        let changes: Arc<[Selected]> = changes.into();
         let (asked, again) = (project.clone(), changes.clone());
+        let discard = backend::DiscardChanges {
+            changes,
+            checkout: worktree,
+            unrecorded: !undoable,
+        };
         let run = then_run(
             project,
             "Discard",
             overlay,
-            backend::Legacy::new(move |path| {
-                backend::discard(path, worktree.linked(), &changes, !undoable)
-            }),
+            discard,
             move |store, outcome, cx| match outcome {
                 None => store.snack_after(undoable, "Changes discarded", cx),
                 Some(Undiscarded::Unrecorded(why)) => store.error_with_retry(
                     store.card_title(&asked, "Changes weren't discarded".into()),
                     format!("GitButler couldn't record them to undo: {why}"),
                     "Discard anyway",
-                    move |store, cx| discard_unrecorded(store, &asked, &again, cx),
+                    move |store, cx| discard_unrecorded(store, &asked, again.clone(), cx),
                     cx,
                 ),
                 Some(Undiscarded::Partway(why)) => store.error(
