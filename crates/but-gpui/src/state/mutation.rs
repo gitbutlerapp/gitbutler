@@ -1,5 +1,5 @@
-//! Operations that change a project. A project's operations run one at a time, and the ones
-//! asked for meanwhile wait in a queue, their overlays hiding what they take away.
+//! Operations that change a project. A project runs one at a time, its overlay hiding what it
+//! takes away until the reload after it, and refuses another meanwhile.
 
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
@@ -25,7 +25,7 @@ pub const SLOW: Duration = Duration::from_millis(800);
 /// still running: one done sooner never looks pending.
 const PENDING_AFTER: Duration = Duration::from_millis(400);
 
-/// What a running or queued operation takes away, hidden until the reload after it shows
+/// What a running operation takes away, hidden until the reload after it shows
 /// the result, and the commit it makes, shown as a stand-in meanwhile. Nothing here predicts
 /// what git will do; the reload always has the last word.
 #[derive(Default)]
@@ -68,7 +68,7 @@ pub struct Overlay {
     /// It only talks to the remote or the forge and moves refs, leaving the worktree and
     /// the commits alone, so reloads the watcher starts meanwhile go ahead.
     pub remote_only: bool,
-    /// Which operation it is, where the queue treats it apart from the rest.
+    /// Which operation it is, where it's treated apart from the rest.
     pub kind: OpKind,
 }
 
@@ -95,7 +95,7 @@ impl From<&'static str> for Label {
     }
 }
 
-/// The operations the queue treats apart from the rest. Labels are only what the user reads.
+/// The operations treated apart from the rest. Labels are only what the user reads.
 #[derive(Default, Clone, PartialEq)]
 pub enum OpKind {
     #[default]
@@ -129,12 +129,6 @@ impl OpKind {
                 | Self::FinishEditing
                 | Self::CancelEditing
         )
-    }
-
-    /// Whether a second, asked for while the first waits or runs, as by a double-click, would
-    /// only fail as there's no edit left.
-    fn once(&self) -> bool {
-        matches!(self, Self::FinishEditing | Self::CancelEditing)
     }
 }
 
@@ -385,25 +379,6 @@ impl Remap {
     }
 }
 
-/// An operation waiting for the ones before it.
-pub(super) struct Queued {
-    project: ProjectId,
-    label: SharedString,
-    overlay: Overlay,
-    /// The project's commits when it was asked for, and its branches with their top commits'
-    /// keys (empty for one with none), for its [`Remap`].
-    captured: HashMap<CommitId, String>,
-    tops: Vec<(FullName, String)>,
-    /// The selection it moved off what it takes away, back if it fails.
-    moved: Option<Selection>,
-    /// When it was asked for, which its stand-ins count from.
-    asked: Instant,
-    start: Start,
-}
-
-/// Starts a queued operation, with its commits as they are by then.
-type Start = Box<dyn FnOnce(&mut Store, Remap, &mut Context<Store>)>;
-
 /// A project's operation running now, from when it starts until the reload after it lands.
 pub(super) struct Running {
     label: SharedString,
@@ -484,12 +459,11 @@ impl Store {
         })
     }
 
-    /// Every operation waiting or running, but for one waiting only for its reload, with its
-    /// project and when it was asked for.
+    /// Every operation running, but for one waiting only for its reload, with its project and
+    /// when it was asked for.
     fn unfinished_asked(&self) -> impl Iterator<Item = (&ProjectId, &Overlay, Instant)> {
         let running = self.running.iter().filter(|(_, r)| !r.settling);
-        (running.map(|(p, r)| (p, &r.overlay, r.asked)))
-            .chain(self.queue.iter().map(|q| (&q.project, &q.overlay, q.asked)))
+        running.map(|(p, r)| (p, &r.overlay, r.asked))
     }
 
     /// Make the operation that recorded `snapshot` in `project` one ⌘Z takes back, among the
@@ -855,7 +829,7 @@ impl Store {
     /// leaving anything conflicted that isn't now, with a card that offers to update anyway,
     /// unless that's what was `accepted` there. Unless `accepted`, it does nothing while
     /// another update waits or runs; the card shows before its update has finished, so an
-    /// accepted one queues regardless.
+    /// accepted one goes ahead regardless.
     pub fn update_from_target(
         &mut self,
         project: &ProjectId,
@@ -1080,7 +1054,7 @@ impl Store {
                 store.publish(&project, ref_name.clone(), title, body, draft, cx)
             }
         };
-        // The queue turns an operation down with only a snackbar while a commit is being
+        // An operation is turned down with only a snackbar while a commit is being
         // edited, as in `but resolve`, which would lose what was typed: the card keeps it.
         if self
             .workspace(project)
@@ -1349,9 +1323,9 @@ impl Store {
         );
     }
 
-    /// Run `op` on `project` once the mutations before it have finished, then reload it,
-    /// busy until the reload lands. Until then, `overlay` hides what it takes away. `op`
-    /// gets the commits it captured as they are by the time it runs; `done` gets its result.
+    /// Run `op` on `project`, then reload it, busy until the reload lands. Until then,
+    /// `overlay` hides what it takes away, and another operation on `project` is refused, so
+    /// each one acts on what the one before it did. `done` gets its result.
     pub fn run<T: Send + 'static>(
         &mut self,
         project: &ProjectId,
@@ -1361,8 +1335,12 @@ impl Store {
         done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
         cx: &mut Context<Self>,
     ) {
-        if overlay.kind.once() && self.pending(project, Some(&overlay.kind), false) {
-            return;
+        if self.running.contains_key(project) {
+            let why = format!(
+                "Wait for the running operation{} to finish",
+                self.in_project(project)
+            );
+            return self.snack(why, cx);
         }
         let Label { name, text: label } = label.into();
         let mut captured = self.workspace(project).map_or_else(HashMap::new, |ws| {
@@ -1377,7 +1355,7 @@ impl Store {
         {
             captured.insert(from, key);
         }
-        let tops = (self
+        let tops: Vec<_> = (self
             .workspace(project)
             .into_iter()
             .flat_map(Workspace::all_branches))
@@ -1398,8 +1376,6 @@ impl Store {
         if moved.is_some() {
             self.select(Some(Selection::Uncommitted(project.clone())), cx);
         }
-        let id = project.clone();
-        let start_label = Label::new(name, label.clone());
         // Drawn again when the commit it makes, if any, is due to dim.
         if overlay.new_commit.is_some() {
             cx.spawn(async move |this, cx| {
@@ -1408,61 +1384,33 @@ impl Store {
             })
             .detach();
         }
-        self.queue.push_back(Queued {
-            project: project.clone(),
-            label,
-            overlay,
-            captured,
-            tops,
-            moved,
-            asked: Instant::now(),
-            start: Box::new(move |store, remap, cx| {
-                store.start(&id, start_label, op, done, remap, cx)
-            }),
-        });
+        let ws = self.workspace(project);
+        let now = ws.into_iter().flat_map(|ws| ws.commits());
+        let remap = Remap::new(
+            &captured,
+            now.map(|commit| (commit.key.as_str(), commit.id)),
+        );
+        let remap = match ws {
+            Some(ws) => remap.following(&tops, ws),
+            None => remap,
+        };
+        let now = Instant::now();
+        self.running.insert(
+            project.clone(),
+            Running {
+                label: label.clone(),
+                overlay,
+                started: now,
+                asked: now,
+                settling: false,
+                deferred: Reload::default(),
+                moved,
+            },
+        );
         cx.emit(StoreEvent::Pending(project.clone()));
-        cx.notify();
-        self.start_next(cx);
-    }
-
-    /// Start the first waiting mutation of every project that has none running.
-    fn start_next(&mut self, cx: &mut Context<Self>) {
-        let mut started = false;
-        while let Some(ix) =
-            (self.queue.iter()).position(|q| !self.running.contains_key(&q.project))
-        {
-            let Some(next) = self.queue.remove(ix) else {
-                break;
-            };
-            let ws = self.workspace(&next.project);
-            let now = ws.into_iter().flat_map(|ws| ws.commits());
-            let remap = Remap::new(
-                &next.captured,
-                now.map(|commit| (commit.key.as_str(), commit.id)),
-            );
-            let remap = match ws {
-                Some(ws) => remap.following(&next.tops, ws),
-                None => remap,
-            };
-            self.running.insert(
-                next.project,
-                Running {
-                    label: next.label,
-                    overlay: next.overlay,
-                    started: Instant::now(),
-                    asked: next.asked,
-                    settling: false,
-                    deferred: Reload::default(),
-                    moved: next.moved,
-                },
-            );
-            (next.start)(self, remap, cx);
-            started = true;
-        }
-        if started {
-            // Replacing the last one's ticker stops it.
-            self.busy_ticker = Self::tick_while_busy(cx);
-        }
+        self.start(project, Label::new(name, label), op, done, remap, cx);
+        // Replacing the last one's ticker stops it.
+        self.busy_ticker = Self::tick_while_busy(cx);
     }
 
     /// Redraw while a mutation runs, so the status bar can say how long it's taking.
@@ -1524,7 +1472,6 @@ impl Store {
                 );
                 self.snack(why, cx);
             }
-            // `start_next` goes on to this project's next operation.
             self.running.remove(project);
             cx.emit(StoreEvent::Pending(project.clone()));
             return;
@@ -1729,8 +1676,7 @@ impl Store {
             .map(|(project, running)| (project, &running.label, running.started.elapsed()))
     }
 
-    /// End `id`'s running mutation once it has loaded what it did, or can't load at all,
-    /// and start what waits on it.
+    /// End `id`'s running mutation once it has loaded what it did, or can't load at all.
     pub(super) fn settled(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
         if self.settles(id) {
             // One that only talks to a remote, as a push, writes no files.
@@ -1743,7 +1689,6 @@ impl Store {
                 spans.push(started..=now + 2);
             }
             cx.emit(StoreEvent::Pending(id.clone()));
-            self.start_next(cx);
         }
     }
 
@@ -1752,17 +1697,17 @@ impl Store {
         self.running.get(id).is_some_and(|r| r.settling)
     }
 
-    /// Operations quitting now would cut off: the ones running, and the ones waiting.
+    /// Operations quitting now would cut off.
     pub fn unfinished(&self) -> usize {
         self.unfinished_asked().count()
     }
 
-    /// Operations besides the longest-running one: running elsewhere, or waiting.
+    /// Operations besides the longest-running one, running in other projects.
     pub fn others_busy(&self) -> usize {
-        self.running.len().saturating_sub(1) + self.queue.len()
+        self.running.len().saturating_sub(1)
     }
 
-    /// Whether an operation of `kind`, or any with `None`, waits or runs for `project`. One
+    /// Whether an operation of `kind`, or any with `None`, runs for `project`. One
     /// that has finished and waits for the reload after it counts only with `settling`: a
     /// repeat then would do nothing more, but a retry after it failed may be asked for then.
     pub(super) fn pending(
@@ -1771,11 +1716,9 @@ impl Store {
         kind: Option<&OpKind>,
         settling: bool,
     ) -> bool {
-        let running = (self.running.get(project)).filter(|r| settling || !r.settling);
-        let queued = (self.queue.iter()).filter(|q| q.project == *project);
-        (running.map(|r| &r.overlay.kind).into_iter())
-            .chain(queued.map(|q| &q.overlay.kind))
-            .any(|pending| kind.is_none_or(|kind| pending == kind))
+        (self.running.get(project))
+            .filter(|r| settling || !r.settling)
+            .is_some_and(|r| kind.is_none_or(|kind| r.overlay.kind == *kind))
     }
 
     /// Whether conflicts are being resolved in `project`, whose picks are numbered anew once
@@ -1784,7 +1727,7 @@ impl Store {
         self.pending(project, Some(&OpKind::Resolve), false)
     }
 
-    /// Whether an update from the target waits or runs on `project`.
+    /// Whether an update from the target runs on `project`.
     pub fn updating(&self, project: &ProjectId) -> bool {
         self.pending(project, Some(&OpKind::Update), true)
     }
@@ -1802,10 +1745,7 @@ impl Store {
         &'a self,
         project: &'a ProjectId,
     ) -> impl Iterator<Item = (&'a Overlay, Instant)> {
-        let queued = self.queue.iter().filter(move |q| q.project == *project);
-        (self.running.get(project).map(|r| (&r.overlay, r.asked)))
-            .into_iter()
-            .chain(queued.map(|q| (&q.overlay, q.asked)))
+        (self.running.get(project).map(|r| (&r.overlay, r.asked))).into_iter()
     }
 
     pub fn hides_commit(&self, project: &ProjectId, key: &str) -> bool {

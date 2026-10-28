@@ -1,7 +1,7 @@
 //! App state shared by every view: the projects with their loaded workspaces, the
 //! selection, what's been cut, and each project's operation in flight.
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
@@ -32,10 +32,10 @@ mod seen;
 pub use activity::{Activity, QUARTER, SeenCommit};
 use load::{Change, Reload};
 pub use mesh::{MeshBranch, MeshPick, MeshState};
+use mutation::Running;
 pub use mutation::{
     Label, NewAt, OpKind, Overlay, Remap, Rereads, SLOW, branch_moved, conflicted_parts,
 };
-use mutation::{Queued, Running};
 pub use picks::Picks;
 pub use saved::{BranchStatus, FileSort, Pane, Prefs, ScopeLines, WatchedOrder};
 use saved::{Restored, Saved};
@@ -203,7 +203,7 @@ pub enum StoreEvent {
     Renamed(ProjectId, Option<FullName>, FullName),
     /// What the user's other machines have of a project was read again, and changed.
     MeshRead(ProjectId),
-    /// An operation on a project was queued, started or finished, which hides or shows
+    /// An operation on a project started or finished, which hides or shows
     /// what it takes away.
     Pending(ProjectId),
     /// Git has no author to record commits with in a project: ask for the user's name and
@@ -344,9 +344,8 @@ pub struct Store {
     /// The user's other machines, and what they have of the watched projects. Everything the
     /// mesh does lives in `state/mesh.rs`; see the crate's AGENTS.md for its rules.
     pub mesh: mesh::Mesh,
-    /// Each project's mutation in flight. A project's mutations run one at a time, each
-    /// until the reload after it lands, so the next one sees what it did; projects don't
-    /// wait on each other.
+    /// Each project's mutation in flight. A project runs one at a time, until the reload after
+    /// it lands, so the next one sees what it did; projects don't wait on each other.
     running: HashMap<ProjectId, Running>,
     /// When, in seconds since the Unix epoch, each project's mutations of the last two
     /// minutes wrote: each from its start until the file watcher has told of its writes, a
@@ -356,8 +355,6 @@ pub struct Store {
     /// came before rewrites what the remote has.
     pushed_at: HashMap<ProjectId, i64>,
     busy_ticker: Task<()>,
-    /// Mutations waiting for their project's running one, in order.
-    queue: VecDeque<Queued>,
     /// The oplog entry the last mutation recorded, which the Undo offered for it restores.
     last_snapshot: Option<(ProjectId, SnapshotId)>,
     /// What ⌘Z takes back, newest last: the oplog entries the user's operations recorded, in
@@ -369,13 +366,12 @@ pub struct Store {
     redo_steps: Vec<(ProjectId, SnapshotId)>,
     /// When, in milliseconds since the Unix epoch, the app's operations ran, ⌘Z and ⌘⇧Z
     /// included but not pushes and fetches, by project: the files they wrote and the branches
-    /// they moved aren't changes a later ⌘Z asks about. Shared as `kept_snapshots` is, so a queued undo sees the spans of
-    /// those before it.
+    /// they moved aren't changes a later ⌘Z asks about. Shared as `kept_snapshots` is, with the
+    /// undo reading it on its own thread.
     ran: Arc<Mutex<Spans>>,
     /// Oplog entries of mutations that changed more than the oplog snapshots (a linked
     /// worktree, a branch outside the workspace), which ⌘Z doesn't take back, by project.
-    /// Shared with a queued undo, which reads it once it runs, after what ran before it is
-    /// kept.
+    /// Shared with the undo or redo reading it on its own thread.
     kept_snapshots: Arc<Mutex<HashMap<ProjectId, HashSet<SnapshotId>>>>,
     next_toast: usize,
     seen: Seen,
@@ -447,8 +443,7 @@ pub fn snack(store: &Entity<Store>, message: impl Into<SharedString>, cx: &mut A
 
 impl Store {
     /// Projects listed and nothing loading or mutating, for the dev script's timings.
-    /// Nothing waits without something running: queued mutations wait on a running one,
-    /// and queued loads on a load in flight.
+    /// Nothing waits without something running: queued loads wait on a load in flight.
     #[cfg(feature = "dev-script")]
     pub fn is_settled(&self) -> bool {
         self.projects_loaded && self.running.is_empty() && self.projects.iter().all(|p| !p.loading)
@@ -483,7 +478,6 @@ impl Store {
             own_writes: HashMap::new(),
             pushed_at: HashMap::new(),
             busy_ticker: Task::ready(()),
-            queue: VecDeque::new(),
             last_snapshot: None,
             undo_steps: Vec::new(),
             redo_steps: Vec::new(),

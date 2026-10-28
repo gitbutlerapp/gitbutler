@@ -168,10 +168,10 @@ unseen is what a laptop's battery pays for.
   them by the workspace's commits misses a pull's incoming ones, so `integrate_remote` returns
   their change IDs; any conflicted commit the main checkout doesn't know may be a linked
   worktree's that was conflicted already.
-- The queue tells operations apart by `Overlay::kind` (`OpKind` in `state/mutation.rs`), never by
-  their label, which is only what the user reads. One a double-click would ask for twice, and
-  whose repeat would only fail, is `OpKind::once`, which drops the repeat while it waits or runs.
-  Resolve refuses while one is under way instead, as the conflicts left are numbered anew after it.
+- A project runs one operation at a time, until the reload after it lands, and `Store::run`
+  turns down another asked for meanwhile, so each acts on the state the user saw the one before
+  leave; nothing queues. Operations are told apart by `Overlay::kind` (`OpKind` in
+  `state/mutation.rs`), never by their label, which is only what the user reads.
 - The oplog records the workspace and the main checkout only. Undo and History restore refuse
   anything that touched a linked worktree, in older snapshots too. Commits in a linked worktree
   skip hooks, which would run against the main checkout's files. Branches move only within their
@@ -184,8 +184,7 @@ unseen is what a laptop's battery pays for.
   themselves; an operation the oplog can't undo calls `keep_last_snapshot`, which drops it.
 - An oplog restore puts the whole worktree back, so `history::undo_snapshot` first checks for
   files written and branches moved after the operation, leaving out the spans the app's own
-  local operations ran in (`Store::ran`, read when the undo runs, so a queued one sees those
-  before it; pushes and fetches record none, as they write only what the remote has, and a
+  local operations ran in (`Store::ran`, read when the undo runs; pushes and fetches record none, as they write only what the remote has, and a
   Git commit logged in a second wholly after the operation counts even inside a later one's,
   as the app never logs "commit"; with no log of HEAD, as
   with core.logAllRefUpdates off, undo refuses rather than guess): a move
@@ -241,8 +240,8 @@ anything else.
   but one status check a minute. Gate anything new on `store.mesh.connection()`.
 - Every mesh call goes through `backend::run` with one of the timeouts in `backend/mesh.rs`,
   never on the UI thread. The poll and the branch fetches make one call at a time.
-- Network work never runs in a project's operation queue, where it would hold up commits,
-  pushes and updates. `mesh_apply` fetches first, outside it, and applies with a read's timeout.
+- Network work never runs as a project's operation, which would hold up commits, pushes and
+  updates. `mesh_apply` fetches first, outside it, and applies with a read's timeout.
 - Background failures (the poll, reporting a project, the branch fetches) log at debug and keep
   the last good read, and are tried again: a report on the next read, a fetch when its page is
   selected again. A failed status check while connected keeps the connection, so a network blip
@@ -252,7 +251,7 @@ anything else.
   drawn. Its rows are the navigator's, in its `list`, so another machine's long branch costs
   nothing to draw; a checkout's view beside the diff lists at most `LISTED` uncommitted files.
 - Try failures with a fake `but-mesh` first on the `PATH`, which the app searches before
-  `~/.local/bin`: one that sleeps tests the timeouts and that the project's queue stays free,
+  `~/.local/bin`: one that sleeps tests the timeouts and that the project stays free for operations,
   and one that exits non-zero or prints garbage tests the fallbacks. A sandbox keeps the app's
   data apart but not the mesh's: with the real `but-mesh` signed in, a sandbox run reports its
   repositories to your mesh.

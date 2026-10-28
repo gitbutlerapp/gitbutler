@@ -120,8 +120,7 @@ impl Store {
                         reloads.entry(id).or_default().add(git, checkout);
                     }
                     for (id, reload) in reloads {
-                        // An operation under way reads these with its own reload, which the
-                        // operations queued after it find their commits by, hidden or not.
+                        // An operation under way reads these with its own reload, hidden or not.
                         let busy = (store.running.get(&id))
                             .is_some_and(|r| !r.settling && !r.overlay.remote_only);
                         match store.hidden && !busy {
