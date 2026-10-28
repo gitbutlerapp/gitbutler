@@ -1793,6 +1793,19 @@ pub(super) mod tests {
         crate::backend::history::oplog_head(&open(path).unwrap()).unwrap()
     }
 
+    fn undo(
+        path: &Path,
+        snapshot: crate::backend::SnapshotId,
+        newer_than: Option<(i64, &[(i64, i64)])>,
+    ) -> Result<crate::backend::history::Undone> {
+        let newer_than = newer_than.map(|(at, spans)| (at, spans.to_vec()));
+        let undo = crate::backend::history::Undo {
+            snapshot,
+            newer_than,
+        };
+        crate::backend::apply(path, undo)?.0
+    }
+
     /// "line 1" to "line 20", a line each.
     fn twenty_lines() -> Vec<String> {
         (1..=20).map(|n| format!("line {n}\n")).collect()
@@ -2579,8 +2592,7 @@ pub(super) mod tests {
                 let new = short_ref(&committed.branch).into_owned();
                 let entries = entries_since(path, before);
                 let head_after = head(path).replace(&new, "<new>");
-                let undone =
-                    crate::backend::history::undo_snapshot(path, ran.recorded.unwrap(), None);
+                let undone = undo(path, ran.recorded.unwrap(), None);
                 let undone = match undone.unwrap() {
                     crate::backend::history::Undone::Done(operation) => operation,
                     _ => "nothing",
@@ -2857,7 +2869,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             );
 
             let last = newest_entry(path);
-            crate::backend::history::undo_snapshot(path, last, None).unwrap();
+            undo(path, last, None).unwrap();
             assert_eq!(
                 head(path),
                 "refs/heads/feature",
@@ -3142,7 +3154,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     #[test]
     fn undoing_a_move_to_a_new_branch_takes_the_branch_away_too() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{Undone, undo_snapshot};
+            use crate::backend::history::Undone;
             let (dir, commit, ..) = workspace_with_an_edit();
             let path = dir.path();
             let moving = MoveToNewBranch {
@@ -3150,10 +3162,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             };
             let ((_, name), _) = crate::backend::apply(path, moving).unwrap();
             let moved = newest_entry(path);
-            assert!(matches!(
-                undo_snapshot(path, moved, None).unwrap(),
-                Undone::Done(_)
-            ));
+            assert!(matches!(undo(path, moved, None).unwrap(), Undone::Done(_)));
             let left = git(path, &["branch", "--list", &short_ref(&name)]);
             assert_eq!(
                 left, "",
@@ -3165,7 +3174,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     #[test]
     fn the_apps_own_operations_dont_stop_undoing_the_one_before() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{Undone, undo_snapshot};
+            use crate::backend::history::Undone;
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
@@ -3183,12 +3192,12 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             ran.push((started, now_millis()));
             let inserted = newest_entry(path);
             let started = now_millis();
-            let undone = undo_snapshot(path, inserted, Some((ran[1].1, &ran))).unwrap();
+            let undone = undo(path, inserted, Some((ran[1].1, &ran))).unwrap();
             assert!(matches!(undone, Undone::Done(_)), "the newest undoes");
             ran.push((started, now_millis()));
             assert!(
                 matches!(
-                    undo_snapshot(path, named, Some((done, &ran))).unwrap(),
+                    undo(path, named, Some((done, &ran))).unwrap(),
                     Undone::Done(_)
                 ),
                 "the branch moves the app's own operation and undo logged aren't another's"
@@ -3199,7 +3208,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     #[test]
     fn undo_stops_for_a_commit_in_the_second_of_a_later_operation() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{Undone, undo_snapshot};
+            use crate::backend::history::Undone;
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
@@ -3221,7 +3230,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             assert!(committed.success(), "git commits");
             assert!(
                 matches!(
-                    undo_snapshot(path, named, Some((done, &[(started, done), later]))).unwrap(),
+                    undo(path, named, Some((done, &[(started, done), later]))).unwrap(),
                     Undone::Behind(why) if why.contains("agent work")
                 ),
                 "a Git commit is no operation of the app's, whichever second it's in"
@@ -3232,7 +3241,6 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     #[test]
     fn undo_refuses_without_a_log_of_head() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::undo_snapshot;
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
@@ -3244,7 +3252,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let named = newest_entry(path);
             // As core.logAllRefUpdates off leaves it.
             std::fs::remove_file(path.join(".git/logs/HEAD")).unwrap();
-            let undone = undo_snapshot(path, named, Some((done, &[(started, done)])));
+            let undone = undo(path, named, Some((done, &[(started, done)])));
             assert!(
                 undone.is_err_and(|refused| refused.to_string().contains("no log")),
                 "with nothing to tell what moved by, undo doesn't guess"
@@ -3255,7 +3263,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     #[test]
     fn undo_and_redo_stop_for_what_came_after_and_for_files_written_since() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{TakeSnapshot, Undone, redo_snapshot, undo_snapshot};
+            use crate::backend::history::{TakeSnapshot, Undone, redo_snapshot};
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
@@ -3270,7 +3278,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             std::thread::sleep(std::time::Duration::from_millis(5));
             std::fs::write(path.join("file"), "two\n").unwrap();
             assert!(
-                matches!(undo_snapshot(path, named, Some((done, &[(started, done)]))).unwrap(),
+                matches!(undo(path, named, Some((done, &[(started, done)]))).unwrap(),
                     Undone::Newer(files) if files == ["file"]),
                 "a file written after the operation is one undoing it puts back"
             );
@@ -3278,26 +3286,23 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             crate::backend::apply(path, TakeSnapshot { message: None }).unwrap();
             let snapshot = newest_entry(path);
             assert!(
-                matches!(undo_snapshot(path, named, None).unwrap(), Undone::Behind(_)),
+                matches!(undo(path, named, None).unwrap(), Undone::Behind(_)),
                 "the snapshot came after it, and undoing it would take that back too"
             );
             assert!(
                 matches!(
-                    undo_snapshot(path, snapshot, Some((done, &[(done, now_millis())]))).unwrap(),
+                    undo(path, snapshot, Some((done, &[(done, now_millis())]))).unwrap(),
                     Undone::Done(_)
                 ),
                 "written while the app's own undo ran, the file isn't the user's change"
             );
             assert!(
-                matches!(
-                    undo_snapshot(path, snapshot, None).unwrap(),
-                    Undone::Already(_)
-                ),
+                matches!(undo(path, snapshot, None).unwrap(), Undone::Already(_)),
                 "undone once, as by another client, it isn't taken for behind what came before"
             );
             let undoing = now_millis();
             assert!(
-                matches!(undo_snapshot(path, named, None).unwrap(), Undone::Done(_)),
+                matches!(undo(path, named, None).unwrap(), Undone::Done(_)),
                 "what came before it is still there to undo"
             );
             let undone = now_millis();
@@ -3317,7 +3322,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     #[test]
     fn undo_and_redo_stop_for_a_commit_made_outside_the_app_since() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{Undone, redo_snapshot, undo_snapshot};
+            use crate::backend::history::{Undone, redo_snapshot};
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
@@ -3339,13 +3344,13 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             };
             commit_later(1, "terminal work");
             assert!(
-                matches!(undo_snapshot(path, named, Some((done, &[]))).unwrap(),
+                matches!(undo(path, named, Some((done, &[]))).unwrap(),
                     Undone::Behind(why) if why.contains("terminal work")),
                 "undoing would take the commit out of every branch, so it says what came after"
             );
 
             assert!(
-                matches!(undo_snapshot(path, named, None).unwrap(), Undone::Done(_)),
+                matches!(undo(path, named, None).unwrap(), Undone::Done(_)),
                 "undone anyway"
             );
             let undo = newest_entry(path);
@@ -3362,7 +3367,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     #[test]
     fn undo_stops_for_an_applied_branch_moved_outside_the_app_since() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{Undone, undo_snapshot};
+            use crate::backend::history::Undone;
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
@@ -3390,7 +3395,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 in_terminal(&["commit-tree", tree.trim(), "-p", "named", "-m", "elsewhere"]);
             in_terminal(&["update-ref", "refs/heads/named", commit.trim()]);
             assert!(
-                matches!(undo_snapshot(path, named, Some((done, &[(started, done)]))).unwrap(),
+                matches!(undo(path, named, Some((done, &[(started, done)]))).unwrap(),
                     Undone::Behind(why) if why.contains("named")),
                 "undoing would move the branch back and drop that commit, so it says so"
             );
@@ -3400,7 +3405,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     #[test]
     fn undo_goes_on_past_what_git_logged_that_a_restore_leaves() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{Undone, undo_snapshot};
+            use crate::backend::history::Undone;
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
@@ -3427,7 +3432,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             in_terminal(path, &["reset", "-q", "--hard", "HEAD"]);
             assert!(
                 matches!(
-                    undo_snapshot(path, named, Some((done, &[(started, done)]))).unwrap(),
+                    undo(path, named, Some((done, &[(started, done)]))).unwrap(),
                     Undone::Done(_)
                 ),
                 "an agent's stash in its worktree and a reset to where HEAD was move nothing \
@@ -3439,7 +3444,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     #[test]
     fn undo_stops_for_a_commit_in_the_same_second_it_was_asked_after() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{Undone, undo_snapshot};
+            use crate::backend::history::Undone;
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
@@ -3461,7 +3466,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             assert!(committed.success(), "git commits");
             assert!(
                 matches!(
-                    undo_snapshot(path, named, Some((accepted, &[(started, done)]))).unwrap(),
+                    undo(path, named, Some((accepted, &[(started, done)]))).unwrap(),
                     Undone::Behind(why) if why.contains("terminal work")
                 ),
                 "logged in the second the user said to undo anyway, it may be after that"
@@ -3706,7 +3711,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             );
 
             let last = newest_entry(path);
-            crate::backend::history::undo_snapshot(path, last, None).unwrap();
+            undo(path, last, None).unwrap();
             assert_eq!(
                 git(path, &["rev-parse", "feature"]).trim(),
                 work.0.to_string(),
@@ -3771,7 +3776,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             assert_eq!(branch_at_top(path), Some(Some(full("refs/heads/named"))));
 
             let last = newest_entry(path);
-            crate::backend::history::undo_snapshot(path, last, None).unwrap();
+            undo(path, last, None).unwrap();
             assert_eq!(branch_at_top(path), Some(None), "undo takes the name away");
         })
     }

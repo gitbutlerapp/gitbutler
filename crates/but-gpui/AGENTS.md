@@ -189,8 +189,8 @@ unseen is what a laptop's battery pays for.
   newest only while it's still its project's undo target, so it never takes back an agent's or
   the CLI's work. Undo and Redo are `OpKind::Undo` and `OpKind::Redo` and keep the lists
   themselves; an operation the oplog can't undo calls `keep_last_snapshot`, which drops it.
-- An oplog restore puts the whole worktree back, so `history::undo_snapshot` first checks for
-  files written and branches moved after the operation, leaving out the spans the app's own
+- An oplog restore puts the whole worktree back, so `history::Undo` first checks, under the
+  restore's lock, for files written and branches moved after the operation, leaving out the spans the app's own
   local operations ran in (`Store::ran`, as it is when the undo is asked for; pushes and fetches record none, as they write only what the remote has, and a
   Git commit logged in a second wholly after the operation counts even inside a later one's,
   as the app never logs "commit"; with no log of HEAD, as

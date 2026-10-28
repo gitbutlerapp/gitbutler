@@ -584,7 +584,9 @@ pub fn redo_snapshot(
         return Ok(Some(Undone::Newer(newer)));
     }
     let kind = RestoreKind::RestoreFromSnapshotViaRedo;
-    restore_titled(&mut ctx, target.commit_id, target.details, kind)
+    let mut guard = ctx.exclusive_worktree_access();
+    let perm = guard.write_permission();
+    restore_titled(&mut ctx, perm, target.commit_id, target.details, kind)
         .map(|op| Some(Undone::Done(op)))
 }
 
@@ -612,32 +614,46 @@ pub enum Undone {
 /// undo: the log is shared with the CLI and agents, and restoring anything else would take
 /// back more than the user asked for. With `newer_than`, it also stops for what Git logged
 /// since outside its spans, as [`moved_since`] reads it, and for the files [`written_since`].
-pub fn undo_snapshot(
-    path: &Path,
+pub struct Undo {
+    pub snapshot: SnapshotId,
+    pub newer_than: Option<(i64, Vec<(i64, i64)>)>,
+}
+
+impl Intent for Undo {
+    type Done = Result<Undone>;
+
+    fn apply(self, run: &mut Run) -> Result<Result<Undone>> {
+        let newer_than = (self.newer_than.as_ref()).map(|(at, spans)| (*at, spans.as_slice()));
+        run.locked(|ctx, perm| Ok(undo_snapshot(ctx, perm, self.snapshot, newer_than)))
+    }
+}
+
+fn undo_snapshot(
+    ctx: &mut but_ctx::Context,
+    perm: &mut but_ctx::access::RepoExclusive,
     snapshot: SnapshotId,
     newer_than: Option<(i64, &[(i64, i64)])>,
 ) -> Result<Undone> {
-    let mut ctx = open(path)?;
     // Git would go on from where it stopped, past what the restore puts back.
     super::ops::refuse_unfinished(&*ctx.repo.get()?, false)?;
     // With nothing left to undo, or only what came before it, something undid it already.
     let before_it = |target: gix::ObjectId| -> Result<bool> {
         Ok(target != snapshot.0 && super::is_ancestor(&*ctx.repo.get()?, target, snapshot.0)?)
     };
-    let target = match oplog::get_undo_target_snapshot(&ctx)? {
+    let target = match oplog::get_undo_target_snapshot(ctx)? {
         Some(target) if !before_it(target.commit_id)? => target,
         _ => {
-            let details = oplog::get_snapshot(&ctx, snapshot.0)?.details;
-            return Ok(Undone::Already(titled(&ctx, snapshot.0, details)?));
+            let details = oplog::get_snapshot(ctx, snapshot.0)?.details;
+            return Ok(Undone::Already(titled(ctx, snapshot.0, details)?));
         }
     };
     if target.commit_id != snapshot.0 {
         let ours = titled(
-            &ctx,
+            ctx,
             snapshot.0,
-            oplog::get_snapshot(&ctx, snapshot.0)?.details,
+            oplog::get_snapshot(ctx, snapshot.0)?.details,
         )?;
-        let since = titled(&ctx, target.commit_id, target.details)?;
+        let since = titled(ctx, target.commit_id, target.details)?;
         return Ok(Undone::Behind(format!(
             "\"{ours}\" can't be undone on its own: \"{since}\" came after it. Operations \
              history can restore to before both."
@@ -645,20 +661,20 @@ pub fn undo_snapshot(
     }
     if let Some((after, spans)) = newer_than {
         // As another client's operation would be: the undo would take it back too.
-        if let Some(what) = moved_since(&ctx, after, spans)? {
-            let ours = titled(&ctx, snapshot.0, target.details)?;
+        if let Some(what) = moved_since(ctx, after, spans)? {
+            let ours = titled(ctx, snapshot.0, target.details)?;
             return Ok(Undone::Behind(format!(
                 "\"{ours}\" can't be undone on its own: {what}, outside the app, came after \
                  it. Operations history can restore to before both."
             )));
         }
-        let newer = written_since(&ctx, after, spans)?;
+        let newer = written_since(ctx, after, spans)?;
         if !newer.is_empty() {
             return Ok(Undone::Newer(newer));
         }
     }
     let kind = RestoreKind::RestoreFromSnapshotViaUndo;
-    restore_titled(&mut ctx, snapshot.0, target.details, kind).map(Undone::Done)
+    restore_titled(ctx, perm, snapshot.0, target.details, kind).map(Undone::Done)
 }
 
 /// What a terminal or another tool did after `after`, in milliseconds since the Unix epoch,
@@ -778,12 +794,13 @@ fn titled(
 /// Restore snapshot `id`, recorded with `details`, and name the operation it takes back.
 fn restore_titled(
     ctx: &mut but_ctx::Context,
+    perm: &mut but_ctx::access::RepoExclusive,
     id: gix::ObjectId,
     details: Option<SnapshotDetails>,
     kind: oplog::RestoreKind,
 ) -> Result<&'static str> {
     let title = titled(ctx, id, details)?;
-    oplog::restore_snapshot_with_kind(ctx, kind, id)?;
+    oplog::restore_snapshot_with_kind_with_perm(ctx, kind, id, perm)?;
     Ok(title)
 }
 

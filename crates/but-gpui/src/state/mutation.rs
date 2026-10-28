@@ -560,16 +560,16 @@ impl Store {
         self.toasts.retain(|toast| {
             !matches!(&toast.notice, Notice::Snackbar { undo: Some(undo), .. } if *undo == offered)
         });
-        self.run(
+        self.apply(
             project,
             "Undo",
             Overlay {
                 kind: OpKind::Undo(snapshot),
                 ..Overlay::rewriting_main()
             },
-            move |path| {
-                let newer_than = newer_than.map(|at| (at, ran.as_slice()));
-                Ok(backend::history::undo_snapshot(path, snapshot, newer_than))
+            backend::history::Undo {
+                snapshot,
+                newer_than: newer_than.map(|at| (at, ran)),
             },
             move |store, undone, cx| {
                 let title = |store: &Store| store.card_title(&again, "Undo failed".into());
