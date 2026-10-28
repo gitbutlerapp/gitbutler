@@ -345,6 +345,29 @@ Target [main]
 }
 
 #[test]
+fn remote_refs_to_trees_and_blobs_are_skipped() -> anyhow::Result<()> {
+    let (repo, meta, mut db) =
+        named_read_only_in_memory_scenario("remote-refs-to-non-commits", "")?;
+    let listing = but_branches::list(&repo, &*meta, &mut db, options_with_target(&repo)?)?;
+    // A tree or blob can't seed the commit graph, so those refs are left out instead of
+    // failing the whole listing, while the annotated tag still peels to its commit.
+    snapbox::assert_data_eq!(
+        listing_snapshot(&listing),
+        snapbox::str![[r#"
+target: refs/heads/main, incomplete: false
+Standalone [feature]
+  feature (remote: refs/remotes/origin/feature) b8d9feb commits=1 target(+1)
+Standalone [release]
+  release (remote: refs/remotes/origin/release) b8d9feb commits=1 target(+1)
+Target [main]
+  main (local+remote: refs/remotes/origin/main) b425f56 commits=0 target(+0)
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
 fn hard_limit_marks_incomplete_and_hides_clipped_counts() -> anyhow::Result<()> {
     let (repo, mut meta, mut db) = named_read_only_in_memory_scenario("branch-listing", "")?;
     add_stack_with_segments(

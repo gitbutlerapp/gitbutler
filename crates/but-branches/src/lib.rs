@@ -642,7 +642,7 @@ fn enumerate_branch_refs(
 ) -> anyhow::Result<BTreeMap<BString, Vec<BranchRef>>> {
     let platform = repo.references()?;
     let mut out = BTreeMap::<BString, Vec<BranchRef>>::new();
-    for reference in platform.all()?.filter_map(Result::ok) {
+    for mut reference in platform.all()?.filter_map(Result::ok) {
         let ref_name = reference.name().to_owned();
         let (remote, identity) = match ref_name.category() {
             Some(Category::LocalBranch) => (None, ref_name.shorten().to_owned()),
@@ -659,15 +659,15 @@ fn enumerate_branch_refs(
         if is_technical_branch_name(identity.as_bstr()) {
             continue;
         }
-        let Ok(tip) = reference.into_fully_peeled_id() else {
-            // Broken or unborn refs can't participate in a commit graph.
+        let Ok(tip) = reference.peel_to_commit() else {
+            // Broken or unborn refs, and refs to trees or blobs, can't participate in a commit graph.
             continue;
         };
         out.entry(identity.clone()).or_default().push(BranchRef {
             ref_name,
             remote,
             identity,
-            tip: tip.detach(),
+            tip: tip.id,
         });
     }
     Ok(out)
