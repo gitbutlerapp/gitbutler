@@ -1755,10 +1755,8 @@ impl Store {
 
     /// Whether `review` merges by itself once it can, as pending mutations leave it.
     pub fn auto_merge_on(&self, project: &ProjectId, review: &Review) -> bool {
-        // The last asked for wins.
-        (self.overlays(project).filter_map(|o| o.auto_merges))
-            .filter(|(number, _)| *number == review.number)
-            .last()
+        (self.overlays(project))
+            .find_map(|o| o.auto_merges.filter(|(number, _)| *number == review.number))
             .map_or(review.auto_merge, |(_, on)| on)
     }
 
@@ -1833,26 +1831,25 @@ impl Store {
         Some((self.new_at(project, to)?, title.into()))
     }
 
-    /// `commit`'s title and message, as the last pending mutation to reword it leaves them.
+    /// `commit`'s title and message, as a pending reword leaves them.
     pub fn message_of<'a>(
         &'a self,
         project: &'a ProjectId,
         commit: &'a Commit,
     ) -> (&'a str, &'a str) {
-        let reworded = (self.overlays(project).filter_map(|o| o.reworded.as_ref()))
-            .filter(|(key, _)| *key == commit.key)
-            .last();
+        let reworded = (self.overlays(project))
+            .find_map(|o| o.reworded.as_ref().filter(|(key, _)| *key == commit.key));
         match reworded {
             Some((_, message)) => (message.lines().next().unwrap_or_default().trim(), message),
             None => (&commit.title, &commit.message),
         }
     }
 
-    /// `branch`'s name, as the last pending mutation to rename it leaves it.
+    /// `branch`'s name, as a pending rename leaves it.
     pub fn name_of<'a>(&'a self, project: &'a ProjectId, branch: &'a Branch) -> &'a str {
-        let renamed = (self.overlays(project).filter_map(|o| o.renamed.as_ref()))
-            .filter(|(ref_name, _)| branch.ref_name.as_ref() == Some(ref_name))
-            .last();
+        let renamed = self.overlays(project).find_map(|o| {
+            (o.renamed.as_ref()).filter(|(ref_name, _)| branch.ref_name.as_ref() == Some(ref_name))
+        });
         renamed.map_or(&branch.name, |(_, name)| name)
     }
 
