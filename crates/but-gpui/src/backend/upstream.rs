@@ -11,10 +11,11 @@ use bstr::ByteSlice;
 use but_core::DryRun;
 use but_core::sync::RepoExclusive;
 
+use super::intent::Run;
 use super::reviews::{cached_reviews, from_cache};
 use super::{
-    Agent, CommitId, RemoteCommit, Review, ReviewState, open, present_first_parent, runtime,
-    short_ref, title,
+    Agent, CommitId, Intent, RemoteCommit, Review, ReviewState, open, present_first_parent,
+    runtime, short_ref, title,
 };
 
 #[derive(Debug, Clone)]
@@ -999,6 +1000,18 @@ pub fn fetch(path: &Path) -> Result<bool> {
     }
     but_api::workspace::workspace_fetch_from_remotes(&mut ctx, Some("fetch".into()))?;
     Ok(true)
+}
+
+/// Fetch from the project's remotes as [`fetch()`] does. Done is its result, a failure
+/// included, so the project page notes it as it does a background fetch's.
+pub struct Fetch;
+
+impl Intent for Fetch {
+    type Done = Result<bool>;
+
+    fn apply(self, run: &mut Run) -> Result<Result<bool>> {
+        Ok(fetch(run.path()))
+    }
 }
 
 /// Put `branch`, or with `whole_stack` it and every branch below it,

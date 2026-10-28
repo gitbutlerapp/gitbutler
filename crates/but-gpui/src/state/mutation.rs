@@ -685,15 +685,14 @@ impl Store {
     /// Fetch `project`'s remotes.
     pub fn fetch(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
         let fetched = project.clone();
-        self.run(
+        self.apply(
             project,
             "Fetch",
             Overlay {
                 kind: OpKind::Fetch,
                 ..Overlay::remote()
             },
-            // Failing, it's noted as a background fetch's failure is, for the project page.
-            |path| Ok(backend::fetch(path)),
+            backend::upstream::Fetch,
             move |store, fetched_or_not, cx| match fetched_or_not {
                 Ok(any_remote) => {
                     store.fetched_now(&fetched, any_remote);
