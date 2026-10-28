@@ -579,21 +579,16 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { abortEditAndReturnToWorkspace, absorb, absorptionPlan, addCommentReaction, addProject, addReviewLabels, addReviewReaction, addSubmissionReaction, apply, applyBranchIntegration, assignHunk, branchCannedName, branchCheckout, branchCheckoutNew, branchCreate, branchDetails, branchDiff, branchLand, branchList, branchNameSegment, branchRemove, branchRename, changesInWorktree, changesInWorktreeWithPerm, checkGithubAuthStatus, checkSigningSettings, commentArchive, commentCreate, commentsList, commentUpdate, commitAmend, commitCherryPick, commitConflicts, commitCreate, commitDetailsWithLineStats, commitDiscard, commitDiscardChanges, commitInsertBlank, commitMove, commitMoveChangesBetween, commitRangeDiff, commitReword, commitSquash, commitUncommit, commitUncommitChanges, commitUncommitChangesFromCommits, createReviewComment, createReviewThreadReply, currentForgeLogin, deleteAllData, deleteProject, deleteReviewComment, deleteUser, discardWorktreeChanges, editChangesFromInitial, editInitialIndexState, enterEditMode, forgeCompareBranchUrl, forgeInfo, forgeProvider, forgetBitbucketAccount, forgetGithubAccount, forgetGitlabAccount, getAiConfiguration, getBbUser, getBlobFile, getGbConfig, getGhUser, getGlUser, getInitialBranchIntegration, getLoginToken, getRedoTargetSnapshot, getRepoInfo, getReview, getReviewBaseRepoUrl, getReviewMergeStatus, getTerminalOptionsForPlatform, getUndoTargetSnapshot, getUserProfileLocal, getWorkspace, getWorkspaceFile, getWorkspaceFileFromSource, gitTestFetch, gitTestPush, headInfo, initApplicationNamespace, initGithubDeviceOauth, installCliV2, listAvailableReviewTemplates, listBranches, listCiChecks, listCommentReactions, listEditors, listKnownBitbucketAccounts, listKnownGithubAccounts, listKnownGitlabAccounts, listPrograms, listProjectsStateless, listRepoLabels, listReviewComments, listReviewerCandidates, listReviewReactions, listReviews, listReviewsForBranch, listReviewSubmissions, listReviewThreads, listReviewTimelineEvents, listSnapshots, loginAndPersist, mergeReview, moveBranch, newReviewTarget, openInProgram, openInTerminal, operatingMode, peelRestoreSnapshot, ProgramCategory, publishReview, removeCommentReaction, removeReviewLabel, removeReviewReaction, removeSubmissionReaction, requestReview, resetAiConfiguration, resolveCommitConflictHunks, resolveWorktreeConflicts, restoreSnapshotWithKind, reviewApply, reviewTemplate, saveEditAndReturnToWorkspace, setGbConfig, setPushRemote, setReviewAutoMerge, setReviewDraftiness, setReviewTemplate, setReviewThreadResolved, setTargetRefAndInitProject, showInFinder, storeBitbucketApiToken, storeGithubPat, storeGitlabPat, tearOffBranch, treeChangeDiffs, treeChangeDiffsFromSource, unapplyStack, updateAiConfiguration, updateProfileAndPersist, updateProjectSettings, updateReview, updateReviewComment, updateReviewFooters, uploadFile, warmCiChecksCache, withdrawReviewRequest, workdirPath, workspaceBranchAndAncestorsPush, workspaceCheckout, workspaceFetchFromRemotes, workspaceFetchStatus, workspaceIntegrateUpstream, workspaceRecreate, workspaceTargetCommits, worktreeNew, worktreeNewOnBranch, worktreeRemove, worktreeSetArchived, worktreesList, WatcherHandle, ANY_FORK, ANY_FORK_OR_MERGE, ANY_MERGE, askpassInit, askpassSubmitPromptResponse, CHILD, getAppSettings, HORIZ_ANCESTOR, HORIZ_PARENT, HORIZONTAL, initTracing, interactiveLoginShellEnvironment, LEFT_FORK, LEFT_FORK_ANCESTOR, LEFT_FORK_PARENT, LEFT_MERGE, LEFT_MERGE_ANCESTOR, LEFT_MERGE_PARENT, RIGHT_FORK, RIGHT_FORK_ANCESTOR, RIGHT_FORK_PARENT, RIGHT_MERGE, RIGHT_MERGE_ANCESTOR, RIGHT_MERGE_PARENT, shutdownTracing, streamAiResponse, updateFeatureFlags, updateFetch, updateOnboardingComplete, updateReviews, updateTelemetry, updateTelemetryDistinctId, updateUi, VERT_ANCESTOR, VERT_PARENT, VERTICAL, watcherStart } = nativeBinding
+const { abortEditAndReturnToWorkspace, absorb, absorptionPlan, addProject, apply, applyBranchIntegration, assignHunk, branchCannedName, branchCheckout, branchCreate, branchDetails, branchDiff, branchLand, branchList, branchNameSegment, branchRemove, branchRename, changesInWorktree, changesInWorktreeWithPerm, checkGithubAuthStatus, checkSigningSettings, commentArchive, commitAmend, commitCherryPick, commitConflicts, commitCreate, commitDetailsWithLineStats, commitDiscard, commitDiscardChanges, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitSquash, commitUncommit, commitUncommitChanges, commitUncommitChangesFromCommits, deleteAllData, deleteProject, deleteUser, discardWorktreeChanges, editChangesFromInitial, editInitialIndexState, enterEditMode, forgeCompareBranchUrl, forgeInfo, forgeProvider, forgetBitbucketAccount, forgetGithubAccount, forgetGitlabAccount, getAiConfiguration, getBbUser, getBlobFile, getGbConfig, getGhUser, getGlUser, getInitialBranchIntegration, getLoginToken, getRedoTargetSnapshot, getRepoInfo, getReview, getReviewBaseRepoUrl, getReviewMergeStatus, getTerminalOptionsForPlatform, getUndoTargetSnapshot, getUserProfileLocal, getWorkspace, getWorkspaceFile, gitTestFetch, gitTestPush, headInfo, initApplicationNamespace, initGithubDeviceOauth, installCliV2, listAvailableReviewTemplates, listBranches, listCiChecks, listEditors, listKnownBitbucketAccounts, listKnownGithubAccounts, listKnownGitlabAccounts, listProjectsStateless, listReviewComments, listReviews, listReviewSubmissions, listReviewThreads, listSnapshots, loginAndPersist, mergeReview, moveBranch, newReviewTarget, openInProgram, openInTerminal, operatingMode, peelRestoreSnapshot, publishReview, resolveCommitConflictHunks, resolveWorktreeConflicts, restoreSnapshotWithKind, reviewApply, reviewTemplate, saveEditAndReturnToWorkspace, setGbConfig, setPushRemote, setReviewAutoMerge, setReviewDraftiness, setReviewTemplate, setTargetRefAndInitProject, showInFinder, storeBitbucketApiToken, storeGithubPat, storeGitlabPat, tearOffBranch, treeChangeDiffs, treeChangeDiffsFromSource, unapplyStack, updateAiConfiguration, updateProjectSettings, updateReview, updateReviewFooters, warmCiChecksCache, workdirPath, workspaceBranchAndAncestorsPush, workspaceFetchFromRemotes, workspaceFetchStatus, workspaceIntegrateUpstream, workspaceTargetCommits, worktreeNew, worktreeRemove, worktreeSetArchived, worktreesList, WatcherHandle, ANY_FORK, ANY_FORK_OR_MERGE, ANY_MERGE, askpassInit, askpassSubmitPromptResponse, CHILD, getAppSettings, HORIZ_ANCESTOR, HORIZ_PARENT, HORIZONTAL, initTracing, interactiveLoginShellEnvironment, LEFT_FORK, LEFT_FORK_ANCESTOR, LEFT_FORK_PARENT, LEFT_MERGE, LEFT_MERGE_ANCESTOR, LEFT_MERGE_PARENT, RIGHT_FORK, RIGHT_FORK_ANCESTOR, RIGHT_FORK_PARENT, RIGHT_MERGE, RIGHT_MERGE_ANCESTOR, RIGHT_MERGE_PARENT, shutdownTracing, streamAiResponse, updateFeatureFlags, updateFetch, updateOnboardingComplete, updateReviews, updateTelemetry, updateTelemetryDistinctId, updateUi, VERT_ANCESTOR, VERT_PARENT, VERTICAL, watcherStart } = nativeBinding
 export { abortEditAndReturnToWorkspace }
 export { absorb }
 export { absorptionPlan }
-export { addCommentReaction }
 export { addProject }
-export { addReviewLabels }
-export { addReviewReaction }
-export { addSubmissionReaction }
 export { apply }
 export { applyBranchIntegration }
 export { assignHunk }
 export { branchCannedName }
 export { branchCheckout }
-export { branchCheckoutNew }
 export { branchCreate }
 export { branchDetails }
 export { branchDiff }
@@ -607,9 +602,6 @@ export { changesInWorktreeWithPerm }
 export { checkGithubAuthStatus }
 export { checkSigningSettings }
 export { commentArchive }
-export { commentCreate }
-export { commentsList }
-export { commentUpdate }
 export { commitAmend }
 export { commitCherryPick }
 export { commitConflicts }
@@ -620,18 +612,13 @@ export { commitDiscardChanges }
 export { commitInsertBlank }
 export { commitMove }
 export { commitMoveChangesBetween }
-export { commitRangeDiff }
 export { commitReword }
 export { commitSquash }
 export { commitUncommit }
 export { commitUncommitChanges }
 export { commitUncommitChangesFromCommits }
-export { createReviewComment }
-export { createReviewThreadReply }
-export { currentForgeLogin }
 export { deleteAllData }
 export { deleteProject }
-export { deleteReviewComment }
 export { deleteUser }
 export { discardWorktreeChanges }
 export { editChangesFromInitial }
@@ -661,7 +648,6 @@ export { getUndoTargetSnapshot }
 export { getUserProfileLocal }
 export { getWorkspace }
 export { getWorkspaceFile }
-export { getWorkspaceFileFromSource }
 export { gitTestFetch }
 export { gitTestPush }
 export { headInfo }
@@ -671,22 +657,15 @@ export { installCliV2 }
 export { listAvailableReviewTemplates }
 export { listBranches }
 export { listCiChecks }
-export { listCommentReactions }
 export { listEditors }
 export { listKnownBitbucketAccounts }
 export { listKnownGithubAccounts }
 export { listKnownGitlabAccounts }
-export { listPrograms }
 export { listProjectsStateless }
-export { listRepoLabels }
 export { listReviewComments }
-export { listReviewerCandidates }
-export { listReviewReactions }
 export { listReviews }
-export { listReviewsForBranch }
 export { listReviewSubmissions }
 export { listReviewThreads }
-export { listReviewTimelineEvents }
 export { listSnapshots }
 export { loginAndPersist }
 export { mergeReview }
@@ -696,14 +675,7 @@ export { openInProgram }
 export { openInTerminal }
 export { operatingMode }
 export { peelRestoreSnapshot }
-export { ProgramCategory }
 export { publishReview }
-export { removeCommentReaction }
-export { removeReviewLabel }
-export { removeReviewReaction }
-export { removeSubmissionReaction }
-export { requestReview }
-export { resetAiConfiguration }
 export { resolveCommitConflictHunks }
 export { resolveWorktreeConflicts }
 export { restoreSnapshotWithKind }
@@ -715,7 +687,6 @@ export { setPushRemote }
 export { setReviewAutoMerge }
 export { setReviewDraftiness }
 export { setReviewTemplate }
-export { setReviewThreadResolved }
 export { setTargetRefAndInitProject }
 export { showInFinder }
 export { storeBitbucketApiToken }
@@ -726,24 +697,17 @@ export { treeChangeDiffs }
 export { treeChangeDiffsFromSource }
 export { unapplyStack }
 export { updateAiConfiguration }
-export { updateProfileAndPersist }
 export { updateProjectSettings }
 export { updateReview }
-export { updateReviewComment }
 export { updateReviewFooters }
-export { uploadFile }
 export { warmCiChecksCache }
-export { withdrawReviewRequest }
 export { workdirPath }
 export { workspaceBranchAndAncestorsPush }
-export { workspaceCheckout }
 export { workspaceFetchFromRemotes }
 export { workspaceFetchStatus }
 export { workspaceIntegrateUpstream }
-export { workspaceRecreate }
 export { workspaceTargetCommits }
 export { worktreeNew }
-export { worktreeNewOnBranch }
 export { worktreeRemove }
 export { worktreeSetArchived }
 export { worktreesList }

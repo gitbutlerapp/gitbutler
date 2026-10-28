@@ -141,23 +141,6 @@ impl BitbucketClient {
         Ok(prs.into_iter().map(Into::into).collect())
     }
 
-    pub async fn list_prs_for_target(
-        &self,
-        workspace: &str,
-        repo_slug: &str,
-        target_branch: &str,
-    ) -> Result<Vec<BitbucketPullRequest>> {
-        let url = format!(
-            "{}/repositories/{}/{}/pullrequests?pagelen=50&sort=-updated_on&q={}",
-            self.base_url,
-            urlencoding::encode(workspace),
-            urlencoding::encode(repo_slug),
-            urlencoding::encode(&list_for_target_query(target_branch)),
-        );
-        let prs: Vec<BitbucketApiPullRequest> = self.get_first_page(url).await?;
-        Ok(prs.into_iter().map(Into::into).collect())
-    }
-
     /// Fetch the single page of the most recently updated merged, declined,
     /// or superseded pull requests.
     ///
@@ -684,16 +667,6 @@ pub(crate) fn resolve_account(
 /// the query.
 fn escape_bbql(value: &str) -> String {
     value.replace('\\', "\\\\").replace('"', "\\\"")
-}
-
-/// BBQL predicate matching pull requests in any state targeting `target_branch`.
-/// States are folded into `q` (not separate `state=` params) so the predicate is
-/// unambiguous; the branch name is escaped.
-fn list_for_target_query(target_branch: &str) -> String {
-    format!(
-        "(state = \"OPEN\" OR state = \"MERGED\" OR state = \"DECLINED\" OR state = \"SUPERSEDED\") AND destination.branch.name = \"{}\"",
-        escape_bbql(target_branch)
-    )
 }
 
 /// Build a full PUT body for a pull-request update, preserving the PR's current
@@ -1420,18 +1393,6 @@ mod tests {
         assert_eq!(json["draft"], false);
         assert_eq!(json["close_source_branch"], true);
         assert_eq!(json["reviewers"].as_array().unwrap().len(), 2);
-    }
-
-    #[test]
-    fn list_for_target_query_includes_all_states_and_escapes_branch() {
-        let q = list_for_target_query(r#"feat/"x"#);
-        for state in ["OPEN", "MERGED", "DECLINED", "SUPERSEDED"] {
-            assert!(
-                q.contains(&format!("state = \"{state}\"")),
-                "missing {state}"
-            );
-        }
-        assert!(q.contains(r#"destination.branch.name = "feat/\"x""#));
     }
 
     #[test]

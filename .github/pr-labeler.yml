@@ -20,10 +20,6 @@ GPUI:
   - changed-files:
       - any-glob-to-any-file: apps/web/**/*
 
-"@gitbutler/lite":
-  - changed-files:
-      - any-glob-to-any-file: apps/lite/**/*
-
 "@gitbutler/ui-svelte":
   - changed-files:
       - any-glob-to-any-file: packages/ui-svelte/**/*

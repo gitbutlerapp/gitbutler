@@ -8,11 +8,10 @@ The main applications are found in the `apps` directory:
 
 - `desktop` containing the Tauri application's frontend code
 - `web` containing the web application's frontend code
-- `lite` containing the Electron/React desktop app
 
 Rust code is found in the `crates` directory. It contains `gitbutler-tauri` for
-the Tauri application, `but-api` for the API surface used by Tauri, Electron,
-CLI, and TUI callers, and the `but` CLI crate.
+the Tauri application, `but-api` for the API surface used by Tauri, CLI,
+and TUI callers, and the `but` CLI crate.
 
 The `packages` directory contains different self-contained npm packages.
 These are shared between the applications.

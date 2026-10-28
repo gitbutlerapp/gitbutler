@@ -14,8 +14,7 @@ use crate::open::program::FILE_EXTENSION_WILDCARD;
 use crate::open::{
     program::{
         OpenSpec, PROGRAMS, ProgramSpec, USER_DEFINED_PROGRAMS_FILENAME, UserDefinedProgramSpec,
-        json::{Editor, Program},
-        open_in_program_unchecked,
+        json::Editor, open_in_program_unchecked,
     },
     spawn::spawn_and_reap,
 };
@@ -671,17 +670,6 @@ pub fn list_editors() -> anyhow::Result<Vec<Editor>> {
         .collect())
 }
 
-/// List all programs that can be opened from a GUI client.
-#[but_api(napi)]
-#[instrument(err(Debug))]
-pub fn list_programs() -> anyhow::Result<Vec<Program>> {
-    Ok(list_program_specs()
-        .iter()
-        .filter(|program| !program.requires_terminal())
-        .map(Into::into)
-        .collect())
-}
-
 /// List all user-defined programs.
 ///
 /// This function never fails, it only logs errors as warnings if something goes wrong.
@@ -826,7 +814,7 @@ fn resolve_workdir_path(
 ///
 /// `line_nr` can be provided to open a file at a specific line.
 ///
-/// [`list_programs`] provides the available `program_id`s.
+/// [`list_program_specs()`] provides the available `program_id`s.
 #[but_api(napi)]
 #[instrument(skip(ctx), err(Debug))]
 pub fn open_in_program(

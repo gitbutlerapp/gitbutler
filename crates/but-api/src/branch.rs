@@ -24,7 +24,6 @@ use but_workspace::branch::{
     BranchIntegrationStrategy, InitialBranchIntegration,
     integrate_branch_upstream::InteractiveIntegration,
 };
-use gix::refs::transaction::PreviousValue;
 use tracing::instrument;
 
 /// Outcome after moving a branch.
@@ -1478,102 +1477,6 @@ pub fn branch_checkout(
 ) -> anyhow::Result<BranchCheckoutResult> {
     let mut guard = ctx.exclusive_worktree_access();
     branch_checkout_with_perm(ctx, branch, guard.write_permission())
-}
-
-/// Creates a new local branch at the selected project cutoff, checks it out, and
-/// returns the resulting workspace state.
-///
-/// If `name` is provided, it is treated as a short branch name and normalized
-/// before creating `refs/heads/<name>`. If omitted, a unique canned branch name
-/// is generated. The resulting branch must not already exist. Records an oplog
-/// snapshot on success, which undo restores by deleting the branch again.
-#[but_api(napi, try_from = json::BranchCheckoutResult)]
-#[instrument(err(Debug))]
-pub fn branch_checkout_new(
-    ctx: &mut but_ctx::Context,
-    name: Option<String>,
-) -> anyhow::Result<BranchCheckoutResult> {
-    let mut guard = ctx.exclusive_worktree_access();
-    branch_checkout_new_with_perm(ctx, name, guard.write_permission())
-}
-
-/// Creates a new local branch at the selected project cutoff and checks it out under
-/// caller-held exclusive repository access, recording an oplog snapshot on success.
-pub fn branch_checkout_new_with_perm(
-    ctx: &mut but_ctx::Context,
-    name: Option<String>,
-    perm: &mut RepoExclusive,
-) -> anyhow::Result<BranchCheckoutResult> {
-    let project_meta = ctx.project_meta()?;
-    let (branch, target_commit_id) = {
-        let repo = ctx.repo.get()?;
-        let target_commit_id = project_meta.resolve_target_commit(&repo)?;
-        let branch = match name {
-            Some(name) => {
-                let normalized = but_core::branch::normalize_short_name(name.as_str())?;
-                let branch = gix::refs::Category::LocalBranch.to_full_name(normalized.as_bstr())?;
-                if repo.try_find_reference(branch.as_ref())?.is_some() {
-                    bail!("Branch '{}' already exists", branch.as_bstr());
-                }
-                branch
-            }
-            None => unique_canned_refname(&repo)?,
-        };
-        (branch, target_commit_id)
-    };
-    // The snapshot lists the new branch so that undo deletes it again, as `branch_create` does.
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
-        ctx,
-        SnapshotDetails::new(OperationKind::SwitchBranch),
-        &[branch.as_ref()],
-        perm.read_permission(),
-        but_core::DryRun::No,
-    );
-    ctx.repo
-        .get()?
-        .reference(
-            branch.as_ref(),
-            target_commit_id,
-            PreviousValue::MustNotExist,
-            "branch checkout new",
-        )
-        .with_context(|| format!("Could not create branch '{}'", branch.as_bstr()))?;
-
-    let result = branch_checkout_with_perm_only(ctx, branch, perm)?;
-    if let Some(snapshot) = maybe_oplog_entry {
-        _ = snapshot.commit(ctx, perm);
-    }
-    Ok(result)
-}
-
-/// Switch to the workspace reference
-#[but_api(napi, try_from = json::BranchCheckoutResult)]
-#[instrument(err(Debug))]
-pub fn workspace_checkout(ctx: &mut but_ctx::Context) -> anyhow::Result<BranchCheckoutResult> {
-    let mut guard = ctx.exclusive_worktree_access();
-    workspace_checkout_with_perm(ctx, guard.write_permission())
-}
-
-/// Switch to the workspace reference under caller-held exclusive repository access.
-pub fn workspace_checkout_with_perm(
-    ctx: &mut but_ctx::Context,
-    perm: &mut RepoExclusive,
-) -> anyhow::Result<BranchCheckoutResult> {
-    let snapshot_details = SnapshotDetails::new(OperationKind::SwitchToWorkspace);
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
-        ctx,
-        snapshot_details,
-        perm.read_permission(),
-        but_core::DryRun::No,
-    );
-
-    let result = workspace_checkout_with_perm_only(ctx, perm)?;
-
-    if let Some(snapshot) = maybe_oplog_entry {
-        _ = snapshot.commit(ctx, perm);
-    }
-
-    Ok(result)
 }
 
 /// Checks out the GitButler workspace reference under caller-held exclusive repository access.

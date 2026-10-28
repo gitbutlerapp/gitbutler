@@ -1,8 +1,7 @@
 # GitButler workspace MCP App
 
 These React apps render the structured results of the `gitbutler_workspace` and
-`gitbutler_review_card` MCP tools. Their compact workspace and review components
-take their visual cues from GitButler Lite. Selecting a workspace commit or
+`gitbutler_review_card` MCP tools. Selecting a workspace commit or
 branch opens a responsive details panel with copy, explain, and review actions.
 Review cards refresh open reviews and their CI status every 30 seconds until the
 review closes, CI fails, or a refresh request fails.

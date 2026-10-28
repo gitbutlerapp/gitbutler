@@ -31,8 +31,7 @@ export default {
 		],
 		"declaration-property-value-allowed-list": [
 			{
-				// The type scale: 11 to 16, as Figma's Base/ and Body/ styles. Lite's Markdown
-				// headings go to 18 in its own CSS, outside this package.
+				// The type scale: 11 to 16, as Figma's Base/ and Body/ styles.
 				"font-size": ["/^1[1-6]px$/", "inherit", "/^var\\(/"],
 				// Radii come from the scale, or from a token with padding subtracted (design/foundations/radius.md).
 				"border-radius": ["/^var\\(--radius-/", "/^calc\\(/", "0", "inherit"],

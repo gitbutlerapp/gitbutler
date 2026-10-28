@@ -27,40 +27,12 @@ export declare function absorb(projectId: string, absorptionPlan: Array<CommitAb
 export declare function absorptionPlan(projectId: string, target: AbsorptionTarget): Promise<Array<CommitAbsorption>>
 
 /**
- * Add the caller's reaction to one comment.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function addCommentReaction(projectId: string, commentId: number, kind: string): Promise<ForgeReviewReaction>
-
-/**
  * Adds an existing git repository as a GitButler project.
  * `path` is the Git repository to remember as project.
  *
  * {@link ../../../../../crates/but-api/src/legacy/projects.rs}
  */
 export declare function addProject(path: string): Promise<AddProjectOutcome>
-
-/**
- * Add labels to a review; returns the resulting label set.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function addReviewLabels(projectId: string, reviewId: number, labels: Array<string>): Promise<Array<ForgeReviewLabel>>
-
-/**
- * Add the caller's reaction to a review itself.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function addReviewReaction(projectId: string, reviewId: number, kind: string): Promise<ForgeReviewReaction>
-
-/**
- * Add the caller's reaction to one submitted review.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function addSubmissionReaction(projectId: string, reviewId: number, submissionId: number, kind: string): Promise<ForgeReviewReaction>
 
 /**
  * The AI configuration as clients see it, with secrets reduced to whether
@@ -191,19 +163,6 @@ export declare function branchCannedName(projectId: string): Promise<string>
  * {@link ../../../../../crates/but-api/src/branch.rs}
  */
 export declare function branchCheckout(projectId: string, branch: FullNameBytes): Promise<BranchCheckoutResult>
-
-/**
- * Creates a new local branch at the selected project cutoff, checks it out, and
- * returns the resulting workspace state.
- *
- * If `name` is provided, it is treated as a short branch name and normalized
- * before creating `refs/heads/<name>`. If omitted, a unique canned branch name
- * is generated. The resulting branch must not already exist. Records an oplog
- * snapshot on success, which undo restores by deleting the branch again.
- *
- * {@link ../../../../../crates/but-api/src/branch.rs}
- */
-export declare function branchCheckoutNew(projectId: string, name: string | null): Promise<BranchCheckoutResult>
 
 /**
  * Creates a new branch named `new_ref` at `placement`.
@@ -398,31 +357,6 @@ export declare function checkSigningSettings(projectId: string): Promise<boolean
 export declare function commentArchive(projectId: string, id: string): Promise<boolean>
 
 /**
- * Create a new comment anchored to a line in a diff.
- *
- * See [`but_comments::create_comment`] for the anchoring semantics.
- *
- * {@link ../../../../../crates/but-api/src/comments.rs}
- */
-export declare function commentCreate(projectId: string, comment: NewComment): Promise<DiffComment>
-
-/**
- * List all unarchived comments, re-anchored against the current diffs.
- *
- * See [`but_comments::list_comments`] for the re-anchoring and auto-archiving semantics.
- *
- * {@link ../../../../../crates/but-api/src/comments.rs}
- */
-export declare function commentsList(projectId: string): Promise<Array<DiffComment>>
-
-/**
- * Replace the payload of the unarchived comment with the given `id`.
- *
- * {@link ../../../../../crates/but-api/src/comments.rs}
- */
-export declare function commentUpdate(projectId: string, id: string, payload: string): Promise<void>
-
-/**
  * Amend the commit at `commit_id` with the `changes` of `changes_source` and
  * record an oplog snapshot on success.
  *
@@ -556,21 +490,6 @@ export declare function commitMove(projectId: string, subjectCommitIds: Array<st
 export declare function commitMoveChangesBetween(projectId: string, sourceCommitId: string, destinationCommitId: string, changes: Array<DiffSpec>, dryRun: boolean): Promise<MoveChangesResult>
 
 /**
- * Computes the combined changes of the commits from `oldest` to `newest`,
- * both included, with line statistics: the tree of `newest` against the tree
- * of `oldest`'s first parent, or against an empty tree when `oldest` is a root
- * commit.
- *
- * `oldest` is expected to be `newest` or one of its first-parent ancestors;
- * otherwise the result is the plain difference between the two trees. It
- * returns what `branch_diff` returns, so a caller can show a part of a branch
- * the way it shows all of it.
- *
- * {@link ../../../../../crates/but-api/src/diff.rs}
- */
-export declare function commitRangeDiff(projectId: string, oldest: string, newest: string): Promise<TreeChanges>
-
-/**
  * Reword `commit_id` to `message` using the behavior described by
  * [`commit_reword_with_perm()`].
  *
@@ -633,28 +552,6 @@ export declare function commitUncommitChanges(projectId: string, commitId: strin
 export declare function commitUncommitChangesFromCommits(projectId: string, sources: Array<UncommitChangesSource>, assignTo: string | null, dryRun: boolean): Promise<UncommitChangesFromCommitsResult>
 
 /**
- * Post a top-level conversation comment on a review.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function createReviewComment(projectId: string, reviewId: number, body: string): Promise<ForgeReviewComment>
-
-/**
- * Reply into one of a review's diff-anchored comment threads.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function createReviewThreadReply(projectId: string, threadId: string, body: string): Promise<ForgeReviewThreadComment>
-
-/**
- * The login this project's forge calls authenticate as, if any account is
- * configured. Resolved from stored accounts; no network.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function currentForgeLogin(projectId: string): Promise<string | null>
-
-/**
  * {@link ../../../../../crates/but-api/src/legacy/git.rs}
  */
 export declare function deleteAllData(): Promise<void>
@@ -663,13 +560,6 @@ export declare function deleteAllData(): Promise<void>
  * {@link ../../../../../crates/but-api/src/legacy/projects.rs}
  */
 export declare function deleteProject(projectId: ProjectHandleOrLegacyProjectId): Promise<void>
-
-/**
- * Delete a top-level conversation comment on a review.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function deleteReviewComment(projectId: string, commentId: number): Promise<void>
 
 /**
  * {@link ../../../../../crates/but-api/src/legacy/users.rs}
@@ -966,16 +856,6 @@ export declare function getWorkspace(projectId: string): Promise<DetailedGraphWo
 export declare function getWorkspaceFile(projectId: string, relativePath: string): Promise<FileInfo>
 
 /**
- * Like [`get_workspace_file()`], reading from the checkout `changes_source` names, so a
- * linked worktree's file comes from its own directory rather than the project's.
- *
- * A linked worktree has to be active, see `worktrees::open_changes_source()`.
- *
- * {@link ../../../../../crates/but-api/src/legacy/repo.rs}
- */
-export declare function getWorkspaceFileFromSource(projectId: string, changesSource: ChangesSource, relativePath: string): Promise<FileInfo>
-
-/**
  * {@link ../../../../../crates/but-api/src/legacy/git.rs}
  */
 export declare function gitTestFetch(projectId: string, remoteName: string, action: string | null): Promise<void>
@@ -1046,13 +926,6 @@ export declare function listBranches(projectId: string, filter: BranchListingFil
 export declare function listCiChecks(projectId: string, reference: string, cacheConfig: CacheConfig | null): Promise<Array<CiCheck>>
 
 /**
- * List the individual reactions (with who reacted) on one comment.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function listCommentReactions(projectId: string, commentId: number): Promise<Array<ForgeReviewReaction>>
-
-/**
  * List all editors that can be opened from a GUI client.
  *
  * {@link ../../../../../crates/but-api/src/open/mod.rs}
@@ -1102,23 +975,9 @@ export declare function listKnownGithubAccounts(): Promise<Array<GithubAccountId
 export declare function listKnownGitlabAccounts(): Promise<Array<GitlabAccountIdentifier>>
 
 /**
- * List all programs that can be opened from a GUI client.
- *
- * {@link ../../../../../crates/but-api/src/open/mod.rs}
- */
-export declare function listPrograms(): Promise<Array<Program>>
-
-/**
  * {@link ../../../../../crates/but-api/src/legacy/projects.rs}
  */
 export declare function listProjectsStateless(): Promise<Array<ProjectForFrontend>>
-
-/**
- * List the labels defined on the repository backing this project's reviews.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function listRepoLabels(projectId: string): Promise<Array<ForgeReviewLabel>>
 
 /**
  * List the top-level conversation comments on a review, oldest first.
@@ -1128,28 +987,9 @@ export declare function listRepoLabels(projectId: string): Promise<Array<ForgeRe
 export declare function listReviewComments(projectId: string, reviewId: number): Promise<Array<ForgeReviewComment>>
 
 /**
- * List users who can be requested to review on this project's repository.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function listReviewerCandidates(projectId: string): Promise<Array<ForgeReviewUser>>
-
-/**
- * List the individual reactions (with who reacted) on a review itself.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function listReviewReactions(projectId: string, reviewId: number): Promise<Array<ForgeReviewReaction>>
-
-/**
  * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
  */
 export declare function listReviews(projectId: string, cacheConfig: CacheConfig | null): Promise<Array<ForgeReview>>
-
-/**
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function listReviewsForBranch(projectId: string, branch: string, filter: ForgeReviewFilter | null): Promise<Array<ForgeReview>>
 
 /**
  * List the submitted reviews (approvals, change requests) on a review.
@@ -1164,13 +1004,6 @@ export declare function listReviewSubmissions(projectId: string, reviewId: numbe
  * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
  */
 export declare function listReviewThreads(projectId: string, reviewId: number): Promise<Array<ForgeReviewThread>>
-
-/**
- * List the pushed commits and review requests on a review's timeline.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function listReviewTimelineEvents(projectId: string, reviewId: number): Promise<Array<ForgeReviewTimelineEvent>>
 
 /**
  * List snapshots in the oplog.
@@ -1235,7 +1068,7 @@ export declare function newReviewTarget(projectId: string, branch: string): Prom
  *
  * `line_nr` can be provided to open a file at a specific line.
  *
- * [`list_programs`] provides the available `program_id`s.
+ * [`list_program_specs()`] provides the available `program_id`s.
  *
  * {@link ../../../../../crates/but-api/src/open/mod.rs}
  */
@@ -1314,74 +1147,10 @@ export declare function operatingMode(projectId: string): Promise<HeadAndMode>
  */
 export declare function peelRestoreSnapshot(projectId: string, sha: string): Promise<Snapshot | null>
 
-/** Supported program configuration for API clients. */
-export interface Program {
-  /** Identifier used to refer to the program. */
-  id: string
-  /** Name of the program. */
-  name: string
-  /** Category of the program. */
-  category: ProgramCategory
-  /** File extensions associated with the program, without leading periods. */
-  extensions?: Array<string>
-}
-
-/** Program category exposed to API clients. */
-export declare const enum ProgramCategory {
-  /** A text editor/IDE. */
-  Editor = 'editor',
-  /** A file manager such as Finder, Explorer or Thunar. */
-  FileManager = 'fileManager',
-  /** Anything that does not fit another category. */
-  Other = 'other'
-}
-
 /**
  * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
  */
 export declare function publishReview(projectId: string, params: PublishReviewInput): Promise<PublishReviewOutcome>
-
-/**
- * Remove one of the caller's reactions from one comment.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function removeCommentReaction(projectId: string, commentId: number, reactionId: number): Promise<void>
-
-/**
- * Remove one label from a review.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function removeReviewLabel(projectId: string, reviewId: number, label: string): Promise<void>
-
-/**
- * Remove one of the caller's reactions from a review itself.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function removeReviewReaction(projectId: string, reviewId: number, reactionId: number): Promise<void>
-
-/**
- * Remove the caller's reaction of one kind from one submitted review.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function removeSubmissionReaction(projectId: string, reviewId: number, submissionId: number, kind: string): Promise<void>
-
-/**
- * Request reviews from the given users on a review.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function requestReview(projectId: string, reviewId: number, logins: Array<string>): Promise<void>
-
-/**
- * Clear application-global AI configuration and stored provider API keys.
- *
- * {@link ../../../../../crates/but-api/src/ai.rs}
- */
-export declare function resetAiConfiguration(): Promise<AiConfiguration>
 
 /**
  * Apply `specs` to the conflicted commit `commit_id` and rebase descendants.
@@ -1480,14 +1249,6 @@ export declare function setReviewDraftiness(projectId: string, reviewId: number,
  * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
  */
 export declare function setReviewTemplate(projectId: string, templatePath: string | null): Promise<void>
-
-/**
- * Set a review conversation's resolution on the forge.
- * This remote operation is outside the local repository snapshot timeline.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function setReviewThreadResolved(projectId: string, threadId: string, resolved: boolean): Promise<void>
 
 /**
  * Make `target_ref` the project's default target without applying branches or entering
@@ -1627,16 +1388,6 @@ export declare function unapplyStack(projectId: string, stackId: string): Promis
 export declare function updateAiConfiguration(update: AiConfigurationUpdate): Promise<AiConfiguration>
 
 /**
- * Change the profile on gitbutler.com and keep the stored account in step.
- *
- * The API call alone would leave the local copy stale, so the name shown next to the
- * picture would still be the old one until the next sign-in.
- *
- * {@link ../../../../../crates/but-api/src/legacy/users.rs}
- */
-export declare function updateProfileAndPersist(params: UpdateUserParams): Promise<UserProfile>
-
-/**
  * Change the stored settings of a project, leaving absent fields as they were.
  *
  * {@link ../../../../../crates/but-api/src/legacy/projects.rs}
@@ -1652,29 +1403,11 @@ export declare function updateProjectSettings(projectId: ProjectHandleOrLegacyPr
 export declare function updateReview(projectId: string, reviewId: number, title: string | null, body: string | null, state: ReviewState | null, targetBase: string | null): Promise<void>
 
 /**
- * Edit a top-level conversation comment on a review.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function updateReviewComment(projectId: string, commentId: number, body: string): Promise<ForgeReviewComment>
-
-/**
  * Update stacked reviews: description footers and, optionally, target branches.
  *
  * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
  */
 export declare function updateReviewFooters(projectId: string, reviews: Array<ForgeReviewUpdate>): Promise<void>
-
-/**
- * Upload a file to gitbutler.com so it can be linked from a review body.
- *
- * The upload is public, so callers should confirm that with the user first. Runs
- * here rather than in the frontend because the account token never leaves this
- * process, so a renderer cannot make the authenticated call itself.
- *
- * {@link ../../../../../crates/but-api/src/legacy/users.rs}
- */
-export declare function uploadFile(params: UploadFileParams): Promise<Upload>
 
 /**
  * Warm up the CI checks cache for all applied branches with PRs.
@@ -1686,13 +1419,6 @@ export declare function uploadFile(params: UploadFileParams): Promise<Upload>
  * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
  */
 export declare function warmCiChecksCache(projectId: string): Promise<void>
-
-/**
- * Withdraw review requests for the given users on a review.
- *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs}
- */
-export declare function withdrawReviewRequest(projectId: string, reviewId: number, logins: Array<string>): Promise<void>
 
 /**
  * The absolute path of `path`, relative to `checkout`: a linked worktree's, or the project's
@@ -1710,13 +1436,6 @@ export declare function workdirPath(projectId: string, checkout: ChangesSource, 
  * {@link ../../../../../crates/but-api/src/legacy/workspace.rs}
  */
 export declare function workspaceBranchAndAncestorsPush(projectId: string, withForce: boolean, skipForcePushProtection: boolean, branch: string, runHooks: boolean, pushOpts: Array<PushFlag>): Promise<PushResult>
-
-/**
- * Switch to the workspace reference
- *
- * {@link ../../../../../crates/but-api/src/branch.rs}
- */
-export declare function workspaceCheckout(projectId: string): Promise<BranchCheckoutResult>
 
 /**
  * Fetch all configured remotes and persist the outcome for [`workspace_fetch_status()`].
@@ -1764,20 +1483,6 @@ export declare function workspaceFetchStatus(projectId: string): Promise<Workspa
 export declare function workspaceIntegrateUpstream(projectId: string, updates: Array<BottomUpdate>, dryRun: boolean): Promise<WorkspaceIntegrateUpstreamOutcome>
 
 /**
- * Recreate an existing workspace by applying all previously applied branches.
- *
- * Unlike [`crate::branch::workspace_checkout()`], this incorporates changes made in
- * single-branch mode. The current branch is included unless it is the target or its
- * local tracking branch. Conflicting stacks remain unapplied and are returned as
- * partial success. Already being on the workspace is a no-op.
- *
- * The workspace reference must already exist. This does not initialize a new workspace.
- *
- * {@link ../../../../../crates/but-api/src/workspace.rs}
- */
-export declare function workspaceRecreate(projectId: string): Promise<WorkspaceRecreateResult>
-
-/**
  * List the target's derived upstream first-parent commits from its tip down to
  * the workspace lower bound, ordered from newest to oldest.
  *
@@ -1813,21 +1518,11 @@ export declare function workspaceTargetCommits(projectId: string, from: string |
  * the main worktree. The slug is derived from the short branch name, falling back to `wt`
  * if empty. If the directory is taken, creation retries up to five times with a random ASCII suffix.
  * This fails without a target to base the worktree on, and refuses an existing branch, see
- * [`worktree_new_on_branch()`] for that.
+ * [`worktree_new_on_branch_with_perm()`] for that.
  *
  * {@link ../../../../../crates/but-api/src/worktrees.rs}
  */
 export declare function worktreeNew(projectId: string, newRef: MaybeLossyFullNameRef): Promise<NewWorktree>
-
-/**
- * Create a linked worktree on the existing local branch `ref_name`, placed like [`worktree_new()`].
- *
- * This refuses a branch that is part of the workspace, checked out in any worktree, or whose
- * tip is conflicted.
- *
- * {@link ../../../../../crates/but-api/src/worktrees.rs}
- */
-export declare function worktreeNewOnBranch(projectId: string, refName: FullNameBytes): Promise<NewWorktree>
 
 /**
  * Remove the linked worktree named `name` from disk the way `git worktree remove` does,
@@ -3142,8 +2837,6 @@ export type ForgeReviewComment = {
   reactions: Array<ForgeReviewReactionCount>;
 };
 
-export type ForgeReviewFilter = "today" | "thisWeek" | "thisMonth" | "all";
-
 export type ForgeReviewLabel = {
   name: string;
   description: string | null;
@@ -3249,26 +2942,6 @@ export type ForgeReviewThreadComment = {
  * comment, so both can be anchored the same way.
  */
 export type ForgeReviewThreadSide = "old" | "new";
-
-/**
- * A non-comment row of a review's conversation timeline: a pushed commit
- * or a review request. Fetched fresh from the forge; not cached. Commit
- * rows carry the git author name (not a forge user); review requests
- * carry the requesting and requested users.
- */
-export type ForgeReviewTimelineEvent = {
-  kind: ForgeReviewTimelineEventKind;
-  actor: ForgeReviewUser | null;
-  requestedReviewer: ForgeReviewUser | null;
-  commitSha: string | null;
-  commitSummary: string | null;
-  commitAuthorName: string | null;
-  /** ISO 8601 timestamp of the event. */
-  createdAt: string | null;
-};
-
-/** What a non-comment timeline row represents. */
-export type ForgeReviewTimelineEventKind = "committed" | "reviewRequested";
 
 export type ForgeReviewUpdate = {
   /** The unique identifier number for this review within its repository. This can be a PR or MR number. */
@@ -3958,7 +3631,7 @@ export type NewComment = {
   payload: string;
 };
 
-/** A linked worktree freshly created by [`worktree_new()`] or [`worktree_new_on_branch()`]. */
+/** A linked worktree freshly created by [`worktree_new()`] or [`worktree_new_on_branch_with_perm()`]. */
 export type NewWorktree = {
   /** The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`. */
   name: string;
@@ -4801,29 +4474,6 @@ export type UpdateUserParams = {
    * Gravatar. Ignored when a new avatar is sent in the same update.
    */
   remove_avatar: boolean | null;
-};
-
-/** A file uploaded to gitbutler.com, ready to be linked from markdown. */
-export type Upload = {
-  uuid: string;
-  filename: string;
-  contentType: string;
-  /** Publicly reachable URL of the uploaded file. */
-  url: string;
-  public: boolean;
-  createdAt: string;
-  /** Whether the file should be embedded (`![]()`) rather than linked (`[]()`). */
-  isImage: boolean;
-};
-
-/** Parameters for uploading a file to the GitButler API. */
-export type UploadFileParams = {
-  /** Original filename, used as the multipart part's filename. */
-  filename: string;
-  /** MIME type of the file, when the caller knows it. */
-  content_type: string | null;
-  /** Base64-encoded file bytes. */
-  data_base64: string;
 };
 
 /**

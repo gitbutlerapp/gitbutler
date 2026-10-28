@@ -278,7 +278,7 @@ pub fn worktree_remove_with_perm(
     ctx.invalidate_workspace_cache()
 }
 
-/// A linked worktree freshly created by [`worktree_new()`] or [`worktree_new_on_branch()`].
+/// A linked worktree freshly created by [`worktree_new()`] or [`worktree_new_on_branch_with_perm()`].
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
@@ -317,7 +317,7 @@ but_schemars::register_sdk_type!(NewWorktree);
 /// the main worktree. The slug is derived from the short branch name, falling back to `wt`
 /// if empty. If the directory is taken, creation retries up to five times with a random ASCII suffix.
 /// This fails without a target to base the worktree on, and refuses an existing branch, see
-/// [`worktree_new_on_branch()`] for that.
+/// [`worktree_new_on_branch_with_perm()`] for that.
 #[but_api(napi, invalidates = [Worktrees, Workspace])]
 #[instrument(err(Debug))]
 pub fn worktree_new(
@@ -370,22 +370,11 @@ pub fn worktree_new_at_base_with_perm(
     })
 }
 
-/// Create a linked worktree on the existing local branch `ref_name`, placed like [`worktree_new()`].
+/// Create a linked worktree on the existing local branch `ref_name`, placed like [`worktree_new()`],
+/// under caller-held exclusive worktree access.
 ///
 /// This refuses a branch that is part of the workspace, checked out in any worktree, or whose
 /// tip is conflicted.
-#[but_api(napi, invalidates = [Worktrees, Workspace])]
-#[instrument(err(Debug))]
-pub fn worktree_new_on_branch(
-    ctx: &mut but_ctx::Context,
-    #[but_api(crate::json::FullNameBytes)] ref_name: gix::refs::FullName,
-) -> Result<NewWorktree> {
-    let mut guard = ctx.exclusive_worktree_access();
-    worktree_new_on_branch_with_perm(ctx, ref_name, guard.write_permission())
-}
-
-/// See [`worktree_new_on_branch()`]; this variant is for callers that already hold exclusive
-/// worktree access.
 pub fn worktree_new_on_branch_with_perm(
     ctx: &but_ctx::Context,
     ref_name: gix::refs::FullName,

@@ -29,21 +29,6 @@ pub const DEFAULT_LMSTUDIO_ENDPOINT: &str = "http://127.0.0.1:1234/v1";
 pub const DEFAULT_LMSTUDIO_MODEL: &str = "default";
 pub const DEFAULT_OPENROUTER_MODEL: &str = "openai/gpt-4.1-mini";
 
-const AI_CONFIG_KEYS: &[&str] = &[
-    AI_MODEL_PROVIDER_KEY,
-    AI_OPENAI_KEY_OPTION_KEY,
-    AI_OPENAI_MODEL_NAME_KEY,
-    AI_OPENAI_CUSTOM_ENDPOINT_KEY,
-    AI_ANTHROPIC_KEY_OPTION_KEY,
-    AI_ANTHROPIC_MODEL_NAME_KEY,
-    AI_OLLAMA_ENDPOINT_KEY,
-    AI_OLLAMA_MODEL_NAME_KEY,
-    AI_LMSTUDIO_ENDPOINT_KEY,
-    AI_LMSTUDIO_MODEL_NAME_KEY,
-    AI_OPENROUTER_MODEL_NAME_KEY,
-    AI_OPENROUTER_ENDPOINT_KEY,
-];
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OpenAiConfiguration {
     pub key_option: CredentialsKeyOption,
@@ -364,13 +349,6 @@ pub fn apply_openrouter_configuration(
     set_optional(config, AI_OPENROUTER_MODEL_NAME_KEY, model)
 }
 
-pub fn clear_ai_configuration(config: &mut gix::config::File) -> Result<()> {
-    for key in AI_CONFIG_KEYS {
-        remove_config_value(config, key)?;
-    }
-    Ok(())
-}
-
 fn set_provider(config: &mut gix::config::File, provider: LLMProviderKind) -> Result<()> {
     set_config_value(
         config,
@@ -448,29 +426,6 @@ mod tests {
             AiConfiguration::from_git_config(&config).unwrap(),
             expected,
             "one shared model must own config keys and defaults"
-        );
-    }
-
-    #[test]
-    fn clear_removes_all_ai_keys() {
-        let mut config =
-            gix::config::File::new(gix::config::file::Metadata::from(gix::config::Source::User));
-        AiConfiguration::default().apply(&mut config).unwrap();
-        set_config_value(&mut config, AI_OPENROUTER_MODEL_NAME_KEY, "model").unwrap();
-        set_config_value(
-            &mut config,
-            AI_OPENROUTER_ENDPOINT_KEY,
-            "https://example.com",
-        )
-        .unwrap();
-
-        clear_ai_configuration(&mut config).unwrap();
-
-        assert!(
-            AI_CONFIG_KEYS
-                .iter()
-                .all(|key| config.string(key).is_none()),
-            "reset must remove every shared AI configuration key"
         );
     }
 

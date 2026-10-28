@@ -113,7 +113,7 @@ pnpm --filter @gitbutler/but-sdk check
 pnpm --filter @gitbutler/but-sdk testTypes
 ```
 
-## Usage in Electron (`apps/lite` pattern)
+## Usage in Electron
 
 Use native bindings in the Electron **main process**, then expose only typed IPC APIs to the renderer.
 

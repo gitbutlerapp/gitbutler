@@ -20,24 +20,17 @@ pub use forge_info::{ForgeCapabilities, ForgeInfo, ForgeUnitInfo, compare_branch
 pub use repo::{RepoInfo, RepoPermissions, get_repo_info};
 pub use review::{
     CacheConfig, CreateForgeReviewParams, ForgeAccountValidity, ForgeReview, ForgeReviewComment,
-    ForgeReviewFilter, ForgeReviewLabel, ForgeReviewReaction, ForgeReviewReactionCount,
-    ForgeReviewSubmission, ForgeReviewSubmissionState, ForgeReviewTargetUpdate, ForgeReviewThread,
-    ForgeReviewThreadComment, ForgeReviewThreadSide, ForgeReviewTimelineEvent,
-    ForgeReviewTimelineEventKind, ForgeReviewUpdate, ForgeReviewUser, GitHubStackingMode,
-    PublishReviewOutcome, ReviewMergeMethod, ReviewMergeStatus, ReviewStackingDescription,
-    ReviewState, ReviewSyncOutcome, ReviewTemplateFunctions, ReviewUpdatePayload,
-    add_comment_reaction, add_review_labels, add_review_reaction, add_submission_reaction,
-    available_review_templates, cache_review, check_forge_account_is_valid,
-    compute_review_target_updates, create_forge_review, create_review_comment,
-    create_review_thread_reply, delete_review_comment, get_forge_review, get_review_base_repo_url,
-    get_review_merge_status, get_review_template_functions, list_comment_reactions,
-    list_forge_reviews_for_branch, list_forge_reviews_with_cache, list_repo_labels,
-    list_review_comments, list_review_reactions, list_review_submissions, list_review_threads,
-    list_review_timeline_events, list_reviewer_candidates, merge_review,
-    prepare_review_target_updates, remove_comment_reaction, remove_review_label,
-    remove_review_reaction, remove_submission_reaction, request_review, restore_native_stacks,
-    set_review_auto_merge_state, set_review_draftiness, set_review_thread_resolved, sync_reviews,
-    update_review, update_review_comment, withdraw_review_request,
+    ForgeReviewLabel, ForgeReviewReaction, ForgeReviewReactionCount, ForgeReviewSubmission,
+    ForgeReviewSubmissionState, ForgeReviewTargetUpdate, ForgeReviewThread,
+    ForgeReviewThreadComment, ForgeReviewThreadSide, ForgeReviewUpdate, ForgeReviewUser,
+    GitHubStackingMode, PublishReviewOutcome, ReviewMergeMethod, ReviewMergeStatus,
+    ReviewStackingDescription, ReviewState, ReviewSyncOutcome, ReviewTemplateFunctions,
+    ReviewUpdatePayload, available_review_templates, cache_review, check_forge_account_is_valid,
+    compute_review_target_updates, create_forge_review, get_forge_review, get_review_base_repo_url,
+    get_review_merge_status, get_review_template_functions, list_forge_reviews_with_cache,
+    list_review_comments, list_review_submissions, list_review_threads, merge_review,
+    prepare_review_target_updates, restore_native_stacks, set_review_auto_merge_state,
+    set_review_draftiness, sync_reviews, update_review,
 };
 
 fn determine_forge_from_host(host: &str) -> Option<ForgeName> {
@@ -289,22 +282,6 @@ pub(crate) fn resolve_account(
     })
 }
 
-/// The login repository API calls authenticate as: the stored preferred
-/// account if it matches the forge and host, otherwise (with no preference)
-/// the first matching account. `None` when no eligible account is configured.
-pub fn current_forge_login(
-    preferred_forge_user: &Option<ForgeUser>,
-    forge_repo_info: &ForgeRepoInfo,
-    storage: &but_forge_storage::Controller,
-) -> anyhow::Result<Option<String>> {
-    let account = find_forge_account(preferred_forge_user, forge_repo_info, storage)?;
-    Ok(account.and_then(|account| match account {
-        ForgeUser::GitHub(account) => Some(account.username().to_string()),
-        ForgeUser::GitLab(account) => Some(account.username().to_string()),
-        ForgeUser::Bitbucket(_) => None,
-    }))
-}
-
 /// Get all known forge accounts
 pub fn get_all_forge_accounts() -> anyhow::Result<Vec<ForgeUser>> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
@@ -394,9 +371,9 @@ mod tests {
     use super::ForgeUser::{GitHub, GitLab};
     use super::test_support::{accounts, assert_auth_error, repo};
     use super::{
-        ForgeName, ForgeUser, account_matches_repository as account_matches, current_forge_login,
-        derive_forge_repo_info, match_host_to_accounts_custom_host, normalize_host_for_comparison,
-        resolve_account, resolve_forge_name,
+        ForgeName, ForgeUser, account_matches_repository as account_matches,
+        derive_forge_repo_info, find_forge_account, match_host_to_accounts_custom_host,
+        normalize_host_for_comparison, resolve_account, resolve_forge_name,
     };
 
     #[test]
@@ -416,11 +393,11 @@ mod tests {
         private_repo.protocol = "ssh".into();
         for preferred in [None, Some(expected.clone())] {
             let account = resolve_account(&preferred, &private_repo, &storage).unwrap();
-            let login = current_forge_login(&preferred, &private_repo, &storage).unwrap();
+            let found = find_forge_account(&preferred, &private_repo, &storage).unwrap();
             assert_eq!(
-                (account, login),
-                (Some(expected.clone()), Some("private".into())),
-                "retain the matching endpoint and report the same live login"
+                (account, found),
+                (Some(expected.clone()), Some(expected.clone())),
+                "retain the matching endpoint and find the same live account"
             );
         }
         for preferred in public.into_iter().chain([
@@ -471,7 +448,7 @@ mod tests {
             let remote = format!("https://{host}/owner/repo");
             let repository = derive_forge_repo_info(&remote, Some(ForgeName::GitLab)).unwrap();
             assert_eq!(
-                current_forge_login(&None, &repository, &storage).unwrap(),
+                find_forge_account(&None, &repository, &storage).unwrap(),
                 None,
                 "keywords and overrides do not authorize a public account for {host}"
             );
