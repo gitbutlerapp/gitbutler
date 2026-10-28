@@ -29,7 +29,7 @@ pub fn install_cli() -> Result<()> {
 
 /// Install the bundled macOS CLI. Trusted hosts supply the source path, not renderers.
 /// Returns false when administrator authorization is cancelled.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn install_cli_v2(cli_path: String, symlink_policy: ExistingSymlinkPolicy) -> Result<bool> {
     #[cfg(target_os = "macos")]

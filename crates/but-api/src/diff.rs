@@ -81,7 +81,7 @@ pub fn commit_details(
 ///
 /// This exists for callers that always want line statistics without passing
 /// `line_stats` explicitly.
-#[but_api(napi, json::CommitDetails, provides = [Commits])]
+#[but_api(json::CommitDetails)]
 #[instrument(err(Debug))]
 pub fn commit_details_with_line_stats(
     ctx: &Context,
@@ -94,7 +94,7 @@ pub fn commit_details_with_line_stats(
 ///
 /// `change` must not be a type change or a submodule change. For lower-level
 /// implementation details, see [`but_core::TreeChange::unified_patch()`].
-#[but_api(napi, provides = [Diffs])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn tree_change_diffs(
     ctx: &Context,
@@ -109,7 +109,7 @@ pub fn tree_change_diffs(
 /// names, so a linked worktree's uncommitted changes diff against its own files.
 ///
 /// A linked worktree has to be active, see `worktrees::open_changes_source()`.
-#[but_api(napi, provides = [Diffs])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn tree_change_diffs_from_source(
     ctx: &Context,
@@ -139,7 +139,7 @@ fn worktree_changes_with_modification_times(
 }
 
 /// See [`changes_in_worktree_with_perm()`].
-#[but_api(napi, provides = [WorktreeChanges])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn changes_in_worktree(
     ctx: &Context,
@@ -178,7 +178,7 @@ pub fn changes_in_worktree(
 /// [`but_core::diff::worktree_changes()`],
 /// [`but_hunk_assignment::assignments_with_fallback()`], and
 /// [`but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir()`].
-#[but_api(napi)]
+#[but_api]
 #[instrument(skip_all, err(Debug))]
 pub fn changes_in_worktree_with_perm(
     ctx: &Context,
@@ -292,7 +292,7 @@ pub fn assign_hunk_only_with_perm(
 /// assignments.
 ///
 /// See [`assign_hunk_with_perm()`] for details.
-#[but_api(napi)]
+#[but_api]
 #[instrument(skip_all, err(Debug))]
 pub fn assign_hunk(
     ctx: &mut Context,

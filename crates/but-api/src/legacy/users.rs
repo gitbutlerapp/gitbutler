@@ -106,14 +106,14 @@ impl From<User> for UserProfile {
 ///
 /// Only the stored profile is read: the keychain, which may prompt on macOS, is left to the
 /// first call that needs the token.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn get_user_profile_local() -> Result<Option<UserProfile>> {
     Ok(gitbutler_user::get_user()?.map(Into::into))
 }
 
 /// Complete a login and persist the account, so the token never leaves this process.
-#[but_api(napi)]
+#[but_api]
 #[instrument(skip(token), err(Debug))]
 pub fn login_and_persist(token: String) -> Result<UserProfile> {
     let value = gitbutler_user::api::fetch_user_by_token(&token)?;
@@ -147,13 +147,13 @@ pub fn set_user(user: User) -> Result<()> {
     gitbutler_user::set_user(&user)
 }
 
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn delete_user() -> Result<()> {
     gitbutler_user::delete_user()
 }
 
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn get_login_token() -> Result<gitbutler_user::api::LoginToken> {
     gitbutler_user::api::fetch_login_token()

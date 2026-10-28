@@ -71,7 +71,7 @@ pub(super) fn terminal_binary(identifier: &str) -> &str {
 /// But it could be generalised as more consumers join in.
 /// Big question is if the backend shouldn't just know the platform… If it is needed, it should be an enum here.
 #[cfg(feature = "legacy")]
-#[but_api_macros::but_api(napi)]
+#[but_api_macros::but_api]
 #[tracing::instrument(err(Debug))]
 pub fn get_terminal_options_for_platform(platform: String) -> anyhow::Result<Vec<TerminalOption>> {
     Ok(ALL_TERMINALS

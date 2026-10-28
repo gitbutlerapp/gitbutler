@@ -101,7 +101,7 @@ pub fn pr_templates(ctx: &but_ctx::Context, forge: ForgeName) -> Result<Vec<Stri
 ///
 /// This is determined by the forge the base branch is pointing to.
 /// Returns no value when the project has no target yet or its target forge is unknown.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn forge_provider(ctx: &Context) -> Result<Option<ForgeName>> {
     Ok(forge_info(ctx)?.map(|info| info.name))
@@ -110,7 +110,7 @@ pub fn forge_provider(ctx: &Context) -> Result<Option<ForgeName>> {
 /// Per-project forge display + URL config. Lets the renderer build
 /// commit/PR URLs and pick labels without branching on forge name.
 /// Returns no value when the project has no target yet or its target forge is unknown.
-#[but_api(napi, provides = [ForgeInfo])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn forge_info(ctx: &Context) -> Result<Option<but_forge::ForgeInfo>> {
     let project_meta = ctx.project_meta()?;
@@ -131,7 +131,7 @@ pub fn forge_info(ctx: &Context) -> Result<Option<but_forge::ForgeInfo>> {
 /// Web compare URL for a branch — drives the "Open in browser"
 /// affordances without making the renderer hold per-forge URL
 /// templates. `fork` is the owner namespace for fork compares.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn forge_compare_branch_url(
     ctx: &Context,
@@ -155,7 +155,7 @@ pub fn forge_compare_branch_url(
 }
 
 /// Get the list of review template paths for the given project.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn list_available_review_templates(ctx: &Context) -> Result<Vec<String>> {
     let project_meta = ctx.project_meta()?;
@@ -215,7 +215,7 @@ but_schemars::register_sdk_type!(ReviewTemplateInfo);
 ///
 /// This function determines the forge of a project and retrieves the review template
 /// from the git config.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn review_template(ctx: &Context) -> Result<Option<ReviewTemplateInfo>> {
     let project_meta = ctx.project_meta()?;
@@ -259,7 +259,7 @@ pub fn review_template(ctx: &Context) -> Result<Option<ReviewTemplateInfo>> {
 
 /// Set the review template path in the git configuration for the given project.
 /// The template path will be validated.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn set_review_template(ctx: &but_ctx::Context, template_path: Option<String>) -> Result<()> {
     let repo = ctx.open_isolated_repo()?;
@@ -292,7 +292,7 @@ pub fn set_review_template(ctx: &but_ctx::Context, template_path: Option<String>
     repo.set_git_settings(&git_config)
 }
 
-#[but_api(napi, provides = [Reviews])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn list_reviews(
     ctx: &Context,
@@ -334,7 +334,7 @@ pub fn list_reviews(
 /// This fetches the review's head repository through a configured or newly
 /// created remote, applies the fetched remote-tracking branch, and records the
 /// review number on the applied branch metadata.
-#[but_api(napi, crate::branch::json::ApplyOutcome)]
+#[but_api(crate::branch::json::ApplyOutcome)]
 #[instrument(err(Debug))]
 pub fn review_apply(
     ctx: &mut but_ctx::Context,
@@ -1079,7 +1079,7 @@ mod tests {
     }
 }
 
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn get_review_base_repo_url(
     ctx: ThreadSafeContext,
@@ -1096,7 +1096,7 @@ pub async fn get_review_base_repo_url(
 }
 
 /// List the top-level conversation comments on a review, oldest first.
-#[but_api(napi, provides = [ReviewComments])]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn list_review_comments(
     ctx: ThreadSafeContext,
@@ -1108,7 +1108,7 @@ pub async fn list_review_comments(
 }
 
 /// List the diff-anchored comment threads on a review, oldest first.
-#[but_api(napi, provides = [ReviewThreads])]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn list_review_threads(
     ctx: ThreadSafeContext,
@@ -1120,7 +1120,7 @@ pub async fn list_review_threads(
 }
 
 /// List the submitted reviews (approvals, change requests) on a review.
-#[but_api(napi, provides = [ReviewSubmissions])]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn list_review_submissions(
     ctx: ThreadSafeContext,
@@ -1131,7 +1131,7 @@ pub async fn list_review_submissions(
         .await
 }
 
-#[but_api(napi, provides = [MergeStatus])]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn get_review_merge_status(
     ctx: ThreadSafeContext,
@@ -1142,7 +1142,7 @@ pub async fn get_review_merge_status(
         .await
 }
 
-#[but_api(napi, provides = [Reviews])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn get_review(ctx: &Context, review_id: usize) -> Result<but_forge::ForgeReview> {
     let (storage, forge_repo_info, preferred_forge_user) = {
@@ -1171,7 +1171,7 @@ pub fn get_review(ctx: &Context, review_id: usize) -> Result<but_forge::ForgeRev
     )
 }
 
-#[but_api(napi, provides = [RepoInfo])]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn get_repo_info(ctx: ThreadSafeContext) -> Result<but_forge::RepoInfo> {
     let (storage, forge_repo_info, preferred_forge_user) = {
@@ -1196,7 +1196,7 @@ pub async fn get_repo_info(ctx: ThreadSafeContext) -> Result<but_forge::RepoInfo
     .await
 }
 
-#[but_api(napi, provides = [Checks])]
+#[but_api]
 #[instrument(skip(ctx), err(Debug))]
 pub fn list_ci_checks(
     ctx: &Context,
@@ -1254,7 +1254,7 @@ fn ci_checks(
 ///
 /// Unlike [`publish_review`], nothing needs to be pushed yet, so a caller can show the target
 /// before pushing. `branch` is a full reference name.
-#[but_api(napi, provides = [Workspace, Reviews])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn new_review_target(ctx: &Context, branch: String) -> Result<String> {
     let branch: gix::refs::FullName = branch.try_into()?;
@@ -1276,7 +1276,7 @@ pub fn new_review_target(ctx: &Context, branch: String) -> Result<String> {
     }
 }
 
-#[but_api(napi, invalidates = [Reviews, Branches, Workspace])]
+#[but_api(invalidates = [Reviews, Branches, Workspace])]
 #[instrument(err(Debug))]
 pub async fn publish_review(
     ctx: ThreadSafeContext,
@@ -1415,7 +1415,7 @@ fn persist_review_association(
 }
 
 /// Merge a review on the forge.
-#[but_api(napi, invalidates = [Reviews, MergeStatus, Checks, Branches])]
+#[but_api(invalidates = [Reviews, MergeStatus, Checks, Branches])]
 #[instrument(err(Debug))]
 pub async fn merge_review(
     ctx: ThreadSafeContext,
@@ -1435,7 +1435,7 @@ pub async fn merge_review(
 }
 
 /// Enable or disable a review's auto-merge.
-#[but_api(napi, invalidates = [Reviews])]
+#[but_api(invalidates = [Reviews])]
 #[instrument(err(Debug))]
 pub async fn set_review_auto_merge(
     ctx: ThreadSafeContext,
@@ -1455,7 +1455,7 @@ pub async fn set_review_auto_merge(
 }
 
 /// Set a review to draft or ready-for-review
-#[but_api(napi, invalidates = [Reviews, MergeStatus])]
+#[but_api(invalidates = [Reviews, MergeStatus])]
 #[instrument(err(Debug))]
 pub async fn set_review_draftiness(
     ctx: ThreadSafeContext,
@@ -1490,7 +1490,7 @@ pub async fn set_review_draftiness(
 
 /// Update arbitrary fields of a single review (title, body, state, target base).
 /// Each `None` leaves that field unchanged on the forge.
-#[but_api(napi, invalidates = [Reviews])]
+#[but_api(invalidates = [Reviews])]
 #[instrument(err(Debug))]
 pub async fn update_review(
     ctx: ThreadSafeContext,
@@ -1514,7 +1514,7 @@ pub async fn update_review(
 }
 
 /// Update stacked reviews: description footers and, optionally, target branches.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn update_review_footers(
     ctx: ThreadSafeContext,
@@ -2329,7 +2329,7 @@ fn local_branch_for_review(ctx: &Context, wanted: i64) -> Result<gix::refs::Full
 /// without returning any data. It only processes branches that have associated pull requests.
 /// Additionally, it cleans up stale CI check entries for references that are no longer
 /// part of any applied stack.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
     // Get all applied stacks and their branches

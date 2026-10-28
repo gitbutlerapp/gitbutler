@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
@@ -21,26 +19,16 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 ///     - `Result<Vec<T>>` converts each `T` into `JSONReturnType`.
 ///     - Controls how the actual return value is fallibly converted for JSON serialization in `func_json` and `func_cmd`.
 ///
-/// * `provides = [CacheTag, ..]`
-///     - Use it on a read like `but_api(napi, provides = [Reviews])` to declare which tags its
-///       result is made of. Clients refresh their cache of it whenever a mutation or a watcher
-///       event invalidates one of those tags.
-///     - Omitting it means "not classified yet", which stays distinguishable from `[]`, meaning
-///       "no tag — nothing refreshes this".
 /// * `invalidates = [CacheTag, ..]`
-///     - Use it on a mutation like `but_api(napi, invalidates = [Reviews])` to declare which tags
+///     - Use it on a mutation like `but_api(invalidates = [Reviews])` to declare which tags
 ///       it makes stale, so clients drop those caches when the call succeeds.
 ///     - Only for state the repository watcher cannot observe: forge, app, and config writes. A
 ///       mutation that writes to the repository declares nothing — the watcher reports the change
 ///       and the event carries the invalidation.
 ///     - A successful call also records the tags in the project's invalidation sentinel, so the
-///       watcher of another process — the desktop app, after a `but` command — drops the same
-///       caches. `<FN_NAME>_INVALIDATES` names the list for a primitive that stands in for the
-///       endpoint out of process.
-///
-/// An endpoint either provides or invalidates, never both. Naming a tag that does not exist in
-/// `crate::tags::CacheTag` is a compile error. The SDK exports both maps (`apiProvides`,
-/// `apiInvalidates`) together with the event table as `cache-tags`.
+///       watcher of another process can drop the same caches. `<FN_NAME>_INVALIDATES` names the
+///       list for a primitive that stands in for the endpoint out of process.
+///     - Naming a tag that does not exist in `crate::tags::CacheTag` is a compile error.
 ///
 /// # Parameter Attributes
 ///
@@ -56,8 +44,7 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 /// These permission-bearing variants are more composable for Rust callers because they reuse a
 /// caller-held lock instead of acquiring one themselves.
 ///
-/// These can be combined with commas, e.g. `#[but_api(napi, try_from = json::CommitDetails)]`
-/// or `#[but_api(napi, json::CommitDetails)]`.
+/// These can be combined with commas, e.g. `#[but_api(try_from = json::CommitDetails, invalidates = [Reviews])]`.
 ///
 /// # Generated Functions
 ///
@@ -78,19 +65,6 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 ///           parameter by acquiring the matching lock in the generated wrapper.
 /// * `func_cmd` for calls from the `but-server`, taking `(params: Params) ` and returning `Result<serde_json::Value, json::Error>`.
 ///     - It performs all **Parameter Transformations** of `func_json`.
-/// * `func_napi` (opt-in) for calls from Node.js via napi-rs, taking individual typed parameters and returning `napi::Result<serde_json::Value>`.
-///     - **Only generated when `napi` is specified**: `#[but_api(napi)]`, `#[but_api(napi, Foo)]`, or `#[but_api(napi, try_from = Foo)]`.
-///     - Gated behind `#[cfg(feature = "napi")]`.
-///     - **Parameter Transformation**
-///         - `Context`/`&Context`/`&mut Context`/`ThreadSafeContext` → `String` named `project_id`
-///         - Owned `gix::ObjectId` and `crate::json::HexHash` → `String` (hex-encoded)
-///         - Owned `Vec<gix::ObjectId>` → `Vec<String>` (hex-encoded)
-///         - `&gix::refs::FullNameRef` → `String`
-///         - `BString` → `String`
-///         - `&mut RepoExclusive` and `&RepoShared` stay internal and are derived from the context
-///           parameter by acquiring the matching lock in the generated wrapper
-///         - Other serde-compatible types → `serde_json::Value`
-///     - Automatically converts `anyhow::Error` → `napi::Error`.
 #[proc_macro_attribute]
 pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(item as ItemFn);
@@ -99,7 +73,6 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     let vis = &input_fn.vis;
     let sig = &input_fn.sig;
     let fn_name = &sig.ident;
-    let napi_doc_attrs = doc_attributes(&input_fn.attrs);
     let asyncness = &sig.asyncness;
     let input = &sig.inputs;
     let output = &sig.output;
@@ -175,33 +148,6 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         }}
     };
 
-    // Build napi-specific parameter list and conversions.
-    // For napi, Context → String (project_id), ObjectId/HexHash → String,
-    // Vec<ObjectId> → Vec<String>, FullNameRef → String,
-    // BString → String, other serde types → serde_json::Value.
-    let napi_info = if opts.napi {
-        let json_ty_by_name = match build_json_type_mapping(input.iter()) {
-            Ok(m) => m,
-            Err(err) => return err.into_compile_error().into(),
-        };
-        match build_napi_params(input.iter(), &json_ty_by_name) {
-            Ok(info) => info,
-            Err(err) => return err.into_compile_error().into(),
-        }
-    } else {
-        NapiParamsInfo::default()
-    };
-
-    let napi_fn_params = &napi_info.params;
-    let napi_param_conversions = &napi_info.conversions;
-    let napi_call_arg_idents = &napi_info.call_arg_idents;
-
-    let napi_call_fn_args = if asyncness.is_some() {
-        quote! { #fn_name(#(#napi_call_arg_idents),*).await }
-    } else {
-        quote! { #fn_name(#(#napi_call_arg_idents),*) }
-    };
-
     // Struct name: <FunctionName>Params (PascalCase)
     let param_struct_name = format_ident!("{}Params", fn_name.to_string().to_case(Case::Pascal));
 
@@ -210,12 +156,6 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     // Cmd function name: <function_name>_json
     let fn_json_name = format_ident!("{}_json", fn_name);
-
-    // Napi function name: <function_name>_napi
-    let fn_napi_name = format_ident!("{}_napi", fn_name);
-
-    // Module name for tauri-renames, to keep the original function names.
-    let napi_mod_name = format_ident!("napi_{}", fn_name);
 
     // Module name for tauri-renames, to keep the original function names.
     let tauri_mod_name = format_ident!("tauri_{}", fn_name);
@@ -274,162 +214,16 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         quote! {}
     };
 
-    // Compute the TypeScript return type name string for napi's ts_return_type attribute.
-    let ts_return_type_str = format!("Promise<{}>", type_to_ts_name(&json_ty));
-
-    // The napi function needs `legacy` when json_ty_by_name is non-empty (Context parameter).
-    let napi_legacy_cfg = if wrapper_params.requires_legacy {
-        quote! { #[cfg(all(feature = "napi", feature = "legacy"))] }
-    } else {
-        quote! { #[cfg(feature = "napi")] }
-    };
-
-    // Build the napi function body.
-    // For async functions, we use an `async {}` block; for sync, spawn_blocking.
-    // Both return anyhow::Result to handle any error type uniformly.
-    let napi_body = if asyncness.is_some() {
-        quote! {
-            let __napi_body_result: ::anyhow::Result<::serde_json::Value> = async {
-                let result = #napi_call_fn_args?;
-                #convert_to_json_result_type
-                Ok(::serde_json::to_value(result)?)
-            }.await;
-            __napi_body_result.map_err(|e: ::anyhow::Error| {
-                let ctx = but_error::AnyhowContextExt::custom_context_or_error_chain(&e);
-                let message = ctx
-                    .message
-                    .map(|m| m.to_string())
-                    .unwrap_or_else(|| format!("{e:#}"));
-                napi::Error::new(napi::Status::GenericFailure, message)
-            })
-        }
-    } else {
-        // For sync functions, param conversions must be inside spawn_blocking
-        // so that non-Send types (e.g. Context with Rc) are never moved across threads.
-        quote! {
-            ::tokio::task::spawn_blocking(move || {
-                #(#napi_param_conversions);*
-                let __napi_body_result: ::anyhow::Result<::serde_json::Value> = (|| {
-                    let result = #napi_call_fn_args?;
-                    #convert_to_json_result_type
-                    Ok(::serde_json::to_value(result)?)
-                })();
-                __napi_body_result.map_err(|e: ::anyhow::Error| {
-                    let ctx = but_error::AnyhowContextExt::custom_context_or_error_chain(&e);
-                    let message = ctx
-                        .message
-                        .map(|m| m.to_string())
-                        .unwrap_or_else(|| format!("{e:#}"));
-                    napi::Error::new(napi::Status::GenericFailure, message)
-                })
-            })
-            .await
-            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, format!("spawn_blocking join error: {e}")))?
-        }
-    };
-
-    // For async functions, param conversions happen outside the body (in the async fn).
-    // For sync functions, they're already inside spawn_blocking in napi_body.
-    let napi_external_conversions = if asyncness.is_some() {
-        quote! { #(#napi_param_conversions);* }
-    } else {
-        quote! {}
-    };
-
-    let js_name = fn_name
-        .to_string()
-        .split("_")
-        .enumerate()
-        .map(|(idx, word)| {
-            if idx == 0 {
-                word.into()
-            } else if let Some((head, tail)) = word.split_at_checked(1) {
-                [head.to_uppercase(), tail.to_string()].concat()
-            } else {
-                word.into()
-            }
-        })
-        .reduce(|a, b| format!("{a}{b}"));
-
-    // Parameter names for the napi declaration, camelCased the way napi-rs
-    // renders them, so a caller can address arguments by name.
-    let napi_param_js_names: Vec<String> = napi_info
-        .names
-        .iter()
-        .map(|name| name.to_case(Case::Camel))
-        .collect();
-    let js_name_str = js_name.clone().unwrap_or_else(|| fn_name.to_string());
-
-    // `None` stays distinguishable from an empty list: unclassified is not the
-    // same answer as "no tag".
-    let tag_list_value = |tags: &Option<Vec<syn::Ident>>| match tags {
-        None => quote! { None },
-        Some(tags) => {
-            let names: Vec<String> = tags.iter().map(|tag| tag.to_string()).collect();
-            quote! { Some(&[#(#names),*]) }
-        }
-    };
-    let provides_value = tag_list_value(&opts.provides);
-    let invalidates_value = tag_list_value(&opts.invalidates);
-
     // Naming a tag that does not exist fails here rather than shipping a name
     // nothing ever matches.
-    let tag_checks = opts
-        .provides
-        .iter()
-        .chain(opts.invalidates.iter())
-        .flatten()
-        .map(|tag| {
-            quote! {
-                const _: crate::tags::CacheTag = crate::tags::CacheTag::#tag;
-            }
-        });
-
-    // Registered whenever the attribute opts into napi, deliberately not
-    // behind `cfg(feature = "napi")`: but-ts reads this registry and builds
-    // but-api without that feature. The entry is inert metadata either way.
-    let napi_registry_entry = if opts.napi {
+    let tag_checks = opts.invalidates.iter().flatten().map(|tag| {
         quote! {
-            #(#tag_checks)*
-
-            ::but_schemars::internal_submit! {
-                ::but_schemars::ApiFnEntry {
-                    js_name: #js_name_str,
-                    params: &[#(#napi_param_js_names),*],
-                    source_file: file!(),
-                    provides: #provides_value,
-                    invalidates: #invalidates_value,
-                }
-            }
+            const _: crate::tags::CacheTag = crate::tags::CacheTag::#tag;
         }
-    } else {
-        quote! {}
-    };
-
-    let napi_fn_block = if opts.napi {
-        quote! {
-            #(#napi_doc_attrs)*
-            #napi_legacy_cfg
-            #[napi_derive::napi(ts_return_type = #ts_return_type_str, js_name = #js_name)]
-            #vis async fn #fn_napi_name(
-                #(#napi_fn_params),*
-            ) -> napi::Result<::serde_json::Value> {
-                #napi_external_conversions
-                #napi_body
-            }
-
-            /// A module to re-export napi functions with the original function name.
-            #napi_legacy_cfg
-            pub mod #napi_mod_name {
-                pub use super::#fn_napi_name as #fn_name;
-            }
-        }
-    } else {
-        quote! {}
-    };
+    });
 
     let expanded = quote! {
-        #napi_registry_entry
+        #(#tag_checks)*
 
         // Generated struct
         #[cfg(feature = "legacy")]
@@ -482,7 +276,6 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
             pub use super::#tauri_command_name_macro as #tauri_orig_command_name_macro;
         }
 
-        #napi_fn_block
     };
 
     expanded.into()
@@ -1000,28 +793,6 @@ fn is_object_id_type(ty: &syn::Type) -> bool {
     matches!(ty, syn::Type::Path(type_path) if is_object_id_path(&type_path.path))
 }
 
-fn is_hex_hash_path(path: &syn::Path) -> bool {
-    path.segments
-        .last()
-        .is_some_and(|last| last.ident == "HexHash")
-        && (path.segments.len() == 1
-            || path.segments[0].ident == "json"
-            || (path.segments.len() >= 2
-                && path.segments[0].ident == "crate"
-                && path.segments[1].ident == "json"))
-}
-
-fn is_hex_hash_container_path(path: &syn::Path, expected_container: &str) -> bool {
-    let Some(inner_ty) = single_generic_type_arg(path, expected_container) else {
-        return false;
-    };
-    let syn::Type::Path(type_path) = inner_ty else {
-        return false;
-    };
-
-    is_hex_hash_path(&type_path.path)
-}
-
 fn is_full_name_ref_path(path: &syn::Path) -> bool {
     path.segments
         .last()
@@ -1044,126 +815,6 @@ fn single_generic_type_arg<'a>(path: &'a syn::Path, expected: &str) -> Option<&'
         syn::GenericArgument::Type(ty) => Some(ty),
         _ => None,
     }
-}
-
-fn doc_attributes(attrs: &[syn::Attribute]) -> Vec<syn::Attribute> {
-    attrs
-        .iter()
-        .filter(|attr| attr.path().is_ident("doc"))
-        .cloned()
-        .collect()
-}
-
-struct JsonParameterMapping {
-    /// The mapped type to which the actual type can be converted.
-    json_ty: syn::Path,
-    /// The identifier to use when referring to the `json_ty`.
-    ///
-    /// This is important as the frontend actually uses the parameter names as identifiers.
-    json_ident: Option<syn::Ident>,
-}
-
-/// The mapping is from type name to their respective json types.
-fn build_json_type_mapping<'a>(
-    input: impl IntoIterator<Item = &'a syn::FnArg>,
-) -> Result<HashMap<String, JsonParameterMapping>, syn::Error> {
-    let mut out = HashMap::new();
-
-    for arg in input {
-        let syn::FnArg::Typed(pat_ty) = arg else {
-            continue;
-        };
-
-        let pat = &pat_ty.pat;
-        let ty = &pat_ty.ty;
-
-        let Pat::Ident(pat_ident) = &**pat else {
-            continue;
-        };
-
-        let (path, is_reference) = if let syn::Type::Reference(r) = &**ty {
-            // Extract the referenced type
-            let inner = &r.elem;
-            let syn::Type::Path(tp) = &**inner else {
-                return Err(syn::Error::new_spanned(
-                    inner,
-                    "Expected a type path inside reference",
-                ));
-            };
-
-            (&tp.path, true)
-        } else if let syn::Type::Path(ty_path) = &**ty {
-            (&ty_path.path, false)
-        } else {
-            continue;
-        };
-
-        let segments = &path.segments;
-        if segments.is_empty() {
-            return Err(syn::Error::new_spanned(
-                ty,
-                "Unexpected empty type path in reference",
-            ));
-        }
-
-        let (name, mapping) = if is_context_path(path) {
-            (
-                pat_ident.ident.to_string(),
-                JsonParameterMapping {
-                    json_ty: syn::parse_str("but_ctx::ProjectHandleOrLegacyProjectId")?,
-                    json_ident: Some(syn::parse_str("project_id")?),
-                },
-            )
-        } else if is_object_id_path(path) {
-            (
-                pat_ident.ident.to_string(),
-                JsonParameterMapping {
-                    json_ty: syn::parse_str("crate::json::HexHash")?,
-                    json_ident: None,
-                },
-            )
-        } else if let Some(inner_ty) = single_generic_type_arg(path, "Option")
-            && is_object_id_type(inner_ty)
-        {
-            (
-                pat_ident.ident.to_string(),
-                JsonParameterMapping {
-                    json_ty: syn::parse_str("Option<crate::json::HexHash>")?,
-                    json_ident: None,
-                },
-            )
-        } else if let Some(inner_ty) = single_generic_type_arg(path, "Vec")
-            && is_object_id_type(inner_ty)
-        {
-            (
-                pat_ident.ident.to_string(),
-                JsonParameterMapping {
-                    json_ty: syn::parse_str("Vec<crate::json::HexHash>")?,
-                    json_ident: None,
-                },
-            )
-        } else if is_full_name_ref_path(path) {
-            (
-                pat_ident.ident.to_string(),
-                JsonParameterMapping {
-                    json_ty: syn::parse_str("gix::refs::FullName")?,
-                    json_ident: None,
-                },
-            )
-        } else if permission_param_kind(ty)?.is_some() {
-            continue;
-        } else if is_reference {
-            return Err(syn::Error::new_spanned(
-                ty,
-                "Only `&Context`, `&but_ctx::Context`, `&ThreadSafeContext`, `&RepoShared`, `&mut RepoExclusive`, or `&gix::refs::FullNameRef` may be references",
-            ));
-        } else {
-            continue;
-        };
-        out.insert(name, mapping);
-    }
-
-    Ok(out)
 }
 
 fn extract_ok_type(output: &syn::ReturnType) -> syn::Result<syn::Type> {
@@ -1229,18 +880,8 @@ struct Options {
     /// It's `None` if the result type converts to JSON naturally.
     /// Otherwise, we convert to it.
     result_conversion: Option<ResultConversion>,
-    /// If `true`, generate a `_napi` function for Node.js bindings.
-    /// Enabled by writing `#[but_api(napi)]` or `#[but_api(napi, try_from = Foo)]`.
-    napi: bool,
-    /// `CacheTag` variants this read's result is made of, written
-    /// `#[but_api(napi, provides = [Reviews])]`.
-    ///
-    /// `None` means unclassified; `Some([])` means classified as "no tag".
-    /// Consumers need to tell those apart.
-    provides: Option<Vec<syn::Ident>>,
     /// `CacheTag` variants this mutation makes stale, written
-    /// `#[but_api(napi, invalidates = [Reviews])]`. Mutually exclusive with
-    /// `provides`.
+    /// `#[but_api(invalidates = [Reviews])]`.
     invalidates: Option<Vec<syn::Ident>>,
 }
 
@@ -1259,17 +900,14 @@ fn parse_options(
     input: syn::parse::ParseStream,
     container: ResultContainer,
 ) -> syn::Result<Options> {
-    let mut napi = false;
     let mut conversion_path: Option<(FromMode, syn::Path)> = None;
-    let mut provides: Option<Vec<syn::Ident>> = None;
     let mut invalidates: Option<Vec<syn::Ident>> = None;
-    let mut tag_list_ident: Option<syn::Ident> = None;
 
     while !input.is_empty() {
         if input.peek(syn::Ident) && input.peek2(syn::Token![=]) {
-            // try_from = Path, or provides/invalidates = [Tag, ..]
+            // try_from = Path, or invalidates = [Tag, ..]
             let ident: syn::Ident = input.parse()?;
-            if ident == "provides" || ident == "invalidates" {
+            if ident == "invalidates" {
                 input.parse::<syn::Token![=]>()?;
                 let content;
                 syn::bracketed!(content in input);
@@ -1277,25 +915,13 @@ fn parse_options(
                     syn::punctuated::Punctuated::<syn::Ident, syn::Token![,]>::parse_terminated(
                         &content,
                     )?;
-                let list = if ident == "provides" {
-                    &mut provides
-                } else {
-                    &mut invalidates
-                };
-                if list.is_some() {
+                if invalidates.is_some() {
                     return Err(syn::Error::new_spanned(
                         &ident,
-                        format!("Only one `{ident}` list may be specified"),
+                        "Only one `invalidates` list may be specified",
                     ));
                 }
-                *list = Some(tags.into_iter().collect());
-                if provides.is_some() && invalidates.is_some() {
-                    return Err(syn::Error::new_spanned(
-                        &ident,
-                        "An endpoint either provides tags or invalidates them, not both",
-                    ));
-                }
-                tag_list_ident = Some(ident);
+                invalidates = Some(tags.into_iter().collect());
                 if !input.is_empty() {
                     input.parse::<syn::Token![,]>()?;
                 }
@@ -1304,7 +930,7 @@ fn parse_options(
             if ident != "try_from" {
                 return Err(syn::Error::new_spanned(
                     ident,
-                    "Expected `try_from = Type`, `provides = [Tag, ..]`, or `invalidates = [Tag, ..]`",
+                    "Expected `try_from = Type` or `invalidates = [Tag, ..]`",
                 ));
             }
             input.parse::<syn::Token![=]>()?;
@@ -1318,32 +944,18 @@ fn parse_options(
             conversion_path = Some((FromMode::TryFrom, path));
         } else {
             let path: syn::Path = input.parse()?;
-            if path.is_ident("napi") {
-                napi = true;
-            } else {
-                if conversion_path.is_some() {
-                    return Err(syn::Error::new_spanned(
-                        path,
-                        "Only one conversion type may be specified",
-                    ));
-                }
-                conversion_path = Some((FromMode::From, path));
+            if conversion_path.is_some() {
+                return Err(syn::Error::new_spanned(
+                    path,
+                    "Only one conversion type may be specified",
+                ));
             }
+            conversion_path = Some((FromMode::From, path));
         }
 
         if !input.is_empty() {
             input.parse::<syn::Token![,]>()?;
         }
-    }
-
-    // `napi` may follow the list in the attribute, so this can only be judged here.
-    if let Some(ident) = &tag_list_ident
-        && !napi
-    {
-        return Err(syn::Error::new_spanned(
-            ident,
-            format!("`{ident}` requires `napi`: tag declarations are read from the napi registry"),
-        ));
     }
 
     let result_conversion = conversion_path.map(|(mode, p)| {
@@ -1366,8 +978,6 @@ fn parse_options(
 
     Ok(Options {
         result_conversion,
-        napi,
-        provides,
         invalidates,
     })
 }
@@ -1399,522 +1009,16 @@ fn result_container(ty: &syn::Type) -> ResultContainer {
     }
 }
 
-/// Information about the napi-specific parameters for a function.
-#[derive(Default)]
-struct NapiParamsInfo {
-    /// The napi-compatible function parameters.
-    params: Vec<proc_macro2::TokenStream>,
-    /// The name of each napi parameter, in the same order as `params`.
-    names: Vec<String>,
-    /// Code to convert napi parameters into the types the original function expects.
-    conversions: Vec<proc_macro2::TokenStream>,
-    /// The identifiers to pass to the original function call (may include `&` or `&mut`).
-    call_arg_idents: Vec<proc_macro2::TokenStream>,
-}
-
-/// Build napi-compatible parameter lists and conversions.
-///
-/// For napi, we need to map Rust types to types that napi-rs can handle:
-/// - `Context`/`&Context`/`&mut Context`/`ThreadSafeContext` → `String` (project_id)
-/// - Owned `gix::ObjectId` → `String` (hex-encoded)
-/// - Owned `Vec<gix::ObjectId>` → `Vec<String>` (hex-encoded)
-/// - `json::HexHash` → `String` (hex-encoded)
-/// - `&gix::refs::FullNameRef` → `String`
-/// - `BString` → `String`
-/// - Other types that implement Serialize/Deserialize → `serde_json::Value`
-fn build_napi_params<'a>(
-    input: impl IntoIterator<Item = &'a syn::FnArg>,
-    json_ty_by_name: &HashMap<String, JsonParameterMapping>,
-) -> Result<NapiParamsInfo, syn::Error> {
-    let mut params = Vec::new();
-    let mut names = Vec::new();
-    let mut conversions = Vec::new();
-    let mut call_arg_idents = Vec::new();
-    let mut context_bindings = Vec::new();
-    let mut permission_bindings = Vec::new();
-
-    for arg in input {
-        let syn::FnArg::Typed(pat_ty) = arg else {
-            continue;
-        };
-        let Pat::Ident(pat_ident) = &*pat_ty.pat else {
-            return Err(syn::Error::new_spanned(
-                &pat_ty.pat,
-                "Cannot handle this pattern in napi generation",
-            ));
-        };
-        let ident = &pat_ident.ident;
-
-        if let Some(context_kind) = context_param_kind(&pat_ty.ty) {
-            context_bindings.push(ContextParamBinding {
-                ident: ident.clone(),
-                kind: context_kind,
-            });
-        }
-
-        if let Some(custom_transport) = parse_param_transport_mapping(pat_ty)? {
-            let transport_ty = &custom_transport.transport_ty;
-            let ts_type_str = type_to_ts_name(transport_ty);
-            let transport_ident = format_ident!("__{}_transport", ident);
-            let actual_ty = &pat_ty.ty;
-            params.push(quote! { #[napi(ts_arg_type = #ts_type_str)] #ident: ::serde_json::Value });
-            names.push(ident.to_string());
-            conversions.push(quote! {
-                let #transport_ident: #transport_ty = ::serde_json::from_value(#ident)
-                    .map_err(|e| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
-                let #ident: #actual_ty = <#actual_ty>::from(#transport_ident);
-            });
-            call_arg_idents.push(quote! { #ident });
-            continue;
-        }
-
-        if let Some(permission_kind) = permission_param_kind(&pat_ty.ty)? {
-            let guard_ident = permission_guard_ident(ident);
-            permission_bindings.push(PermissionParamBinding {
-                ty: (*pat_ty.ty).clone(),
-                kind: permission_kind,
-                guard_ident: guard_ident.clone(),
-            });
-            call_arg_idents.push(match permission_kind {
-                PermissionParamKind::Exclusive => quote! { #guard_ident.write_permission() },
-                PermissionParamKind::Shared => quote! { #guard_ident.read_permission() },
-            });
-            continue;
-        }
-
-        // Check if this parameter has a json type mapping (Context, ObjectId)
-        if let Some(mapping) = json_ty_by_name.get(&ident.to_string()) {
-            let param_name = mapping.json_ident.as_ref().unwrap_or(ident);
-            let last_segment = mapping.json_ty.segments.last().unwrap();
-            let last_ident = &last_segment.ident;
-
-            if *last_ident == "LegacyProjectId" || *last_ident == "ProjectHandleOrLegacyProjectId" {
-                // Context → String project_id, then convert to Context
-                params.push(quote! { #param_name: String });
-                names.push(param_name.to_string());
-                // Determine the actual type we need to produce (stripping references)
-                let actual_ty = match &*pat_ty.ty {
-                    syn::Type::Reference(r) => &*r.elem,
-                    other => other,
-                };
-                let json_ty = &mapping.json_ty;
-                conversions.push(quote! {
-                    let project_id: #json_ty = #param_name.parse()
-                        .map_err(|e: <#json_ty as ::std::str::FromStr>::Err| {
-                            napi::Error::new(napi::Status::InvalidArg, format!("{e:#}"))
-                        })?;
-                    let mut #ident = <#actual_ty>::try_from(project_id)
-                        .map_err(|e: anyhow::Error| napi::Error::new(napi::Status::GenericFailure, format!("{e:#}")))?;
-                });
-                // Pass as reference if original was a reference
-                let call_ident = match &*pat_ty.ty {
-                    syn::Type::Reference(r) => {
-                        let mutability = &r.mutability;
-                        quote! { &#mutability #ident }
-                    }
-                    _ => quote! { #ident },
-                };
-                call_arg_idents.push(call_ident);
-            } else if *last_ident == "HexHash" {
-                // ObjectId via HexHash → String, then parse
-                params.push(quote! { #param_name: String });
-                names.push(param_name.to_string());
-                conversions.push(quote! {
-                    let #ident = ::std::str::FromStr::from_str(&#param_name)
-                        .map_err(|e: gix::Error| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
-                });
-                let call_ident = match &*pat_ty.ty {
-                    syn::Type::Reference(r) => {
-                        let mutability = &r.mutability;
-                        quote! { &#mutability #ident }
-                    }
-                    _ => quote! { #ident },
-                };
-                call_arg_idents.push(call_ident);
-            } else if *last_ident == "FullName" {
-                // FullNameRef via FullName transport → String, then parse
-                params.push(quote! { #param_name: String });
-                names.push(param_name.to_string());
-                conversions.push(quote! {
-                    let #ident: gix::refs::FullName = gix::refs::FullName::try_from(#param_name)
-                        .map_err(|e: gix::refs::name::Error| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
-                });
-                let call_ident = match &*pat_ty.ty {
-                    syn::Type::Reference(_) => quote! { #ident.as_ref() },
-                    _ => quote! { #ident },
-                };
-                call_arg_idents.push(call_ident);
-            } else if *last_ident == "Option"
-                && is_hex_hash_container_path(&mapping.json_ty, "Option")
-            {
-                // Option<ObjectId> via Option<HexHash> → Option<String>, then parse when present.
-                params.push(quote! { #param_name: Option<String> });
-                names.push(param_name.to_string());
-                conversions.push(quote! {
-                    let #ident: Option<gix::ObjectId> = #param_name
-                        .map(|value| {
-                            ::std::str::FromStr::from_str(&value).map_err(|e: gix::Error| {
-                                napi::Error::new(
-                                    napi::Status::InvalidArg,
-                                    format!("invalid '{}': {e}", stringify!(#param_name)),
-                                )
-                            })
-                        })
-                        .transpose()?;
-                });
-                call_arg_idents.push(quote! { #ident });
-            } else if *last_ident == "Vec" && is_hex_hash_container_path(&mapping.json_ty, "Vec") {
-                // Vec<ObjectId> via Vec<HexHash> → Vec<String>, then parse each entry
-                params.push(quote! { #param_name: Vec<String> });
-                names.push(param_name.to_string());
-                conversions.push(quote! {
-                    let #ident: Vec<gix::ObjectId> = #param_name
-                        .into_iter()
-                        .enumerate()
-                        .map(|(index, value)| {
-                            ::std::str::FromStr::from_str(&value).map_err(|e: gix::Error| {
-                                napi::Error::new(
-                                    napi::Status::InvalidArg,
-                                    format!("invalid '{}' at index {index}: {e}", stringify!(#param_name)),
-                                )
-                            })
-                        })
-                        .collect::<std::result::Result<Vec<_>, napi::Error>>()?;
-                });
-                let call_ident = match &*pat_ty.ty {
-                    syn::Type::Reference(r) => {
-                        let mutability = &r.mutability;
-                        quote! { &#mutability #ident }
-                    }
-                    _ => quote! { #ident },
-                };
-                call_arg_idents.push(call_ident);
-            } else {
-                // Fallback: use serde_json::Value with ts_arg_type for proper TS typing
-                let ts_type_str = type_to_ts_name(&pat_ty.ty);
-                params.push(
-                    quote! { #[napi(ts_arg_type = #ts_type_str)] #param_name: ::serde_json::Value },
-                );
-                names.push(param_name.to_string());
-                let actual_ty = match &*pat_ty.ty {
-                    syn::Type::Reference(r) => &*r.elem,
-                    other => other,
-                };
-                conversions.push(quote! {
-                    let mut #ident: #actual_ty = ::serde_json::from_value(#param_name)
-                        .map_err(|e| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
-                });
-                let call_ident = match &*pat_ty.ty {
-                    syn::Type::Reference(r) => {
-                        let mutability = &r.mutability;
-                        quote! { &#mutability #ident }
-                    }
-                    _ => quote! { #ident },
-                };
-                call_arg_idents.push(call_ident);
-            }
-        } else {
-            // No json mapping — use the original type information
-            let ty = &*pat_ty.ty;
-            let (base_ty, is_ref) = match ty {
-                syn::Type::Reference(r) => (&*r.elem, true),
-                other => (other, false),
-            };
-
-            // Check for known types that need special napi handling
-            let type_name = type_last_segment_name(base_ty);
-            match type_name.as_deref() {
-                Some("BString") => {
-                    params.push(quote! { #ident: String });
-                    names.push(ident.to_string());
-                    conversions.push(quote! {
-                        let #ident: bstr::BString = #ident.into();
-                    });
-                    if is_ref {
-                        call_arg_idents.push(quote! { &#ident });
-                    } else {
-                        call_arg_idents.push(quote! { #ident });
-                    }
-                }
-                Some("HexHash") => {
-                    // json::HexHash used directly as parameter (not via ObjectId mapping)
-                    params.push(quote! { #ident: String });
-                    names.push(ident.to_string());
-                    conversions.push(quote! {
-                        let #ident: crate::json::HexHash = ::std::str::FromStr::from_str(&#ident)
-                            .map(crate::json::HexHash)
-                            .map_err(|e: gix::Error| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
-                    });
-                    call_arg_idents.push(quote! { #ident });
-                }
-                _ => {
-                    // For all other types: check for napi-incompatible types first
-                    if let Some(napi_ty) = napi_type_remap(base_ty) {
-                        // Type needs remapping (e.g., usize → i64)
-                        params.push(quote! { #ident: #napi_ty });
-                        names.push(ident.to_string());
-                        let arg_name = ident.to_string();
-                        let conversion = match type_name.as_deref() {
-                            Some("usize") => quote! {
-                                let #ident: usize = ::std::convert::TryFrom::try_from(#ident).map_err(|_| {
-                                    napi::Error::new(
-                                        napi::Status::InvalidArg,
-                                        format!(
-                                            "argument '{}' must be a non-negative integer that fits in usize",
-                                            #arg_name
-                                        ),
-                                    )
-                                })?;
-                            },
-                            Some("isize") => quote! {
-                                let #ident: isize = ::std::convert::TryFrom::try_from(#ident).map_err(|_| {
-                                    napi::Error::new(
-                                        napi::Status::InvalidArg,
-                                        format!(
-                                            "argument '{}' must be an integer that fits in isize",
-                                            #arg_name
-                                        ),
-                                    )
-                                })?;
-                            },
-                            _ => quote! {},
-                        };
-                        conversions.push(conversion);
-                        call_arg_idents.push(quote! { #ident });
-                    } else if is_simple_napi_type(base_ty) {
-                        // Simple types (String, bool, numbers) can be passed directly
-                        params.push(quote! { #ident: #ty });
-                        names.push(ident.to_string());
-                        call_arg_idents.push(quote! { #ident });
-                    } else {
-                        // Complex types → serde_json::Value with ts_arg_type for proper TS typing
-                        let ts_type_str = type_to_ts_name(ty);
-                        params.push(quote! { #[napi(ts_arg_type = #ts_type_str)] #ident: ::serde_json::Value });
-                        names.push(ident.to_string());
-                        conversions.push(quote! {
-                            let #ident: #base_ty = ::serde_json::from_value(#ident)
-                                .map_err(|e| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
-                        });
-                        if is_ref {
-                            call_arg_idents.push(quote! { &#ident });
-                        } else {
-                            call_arg_idents.push(quote! { #ident });
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if let Some(permission) = permission_bindings.first() {
-        if permission_bindings.len() > 1 {
-            return Err(syn::Error::new_spanned(
-                &permission.ty,
-                "Only one explicit repository permission parameter is supported",
-            ));
-        }
-
-        let context_binding = match context_bindings.as_slice() {
-            [] => {
-                return Err(syn::Error::new_spanned(
-                    &permission.ty,
-                    "Explicit repository permission parameters require a `Context`, `&Context`, or `&mut Context` parameter",
-                ));
-            }
-            [binding] => binding,
-            _ => {
-                return Err(syn::Error::new_spanned(
-                    &permission.ty,
-                    "Explicit repository permission parameters require exactly one context parameter",
-                ));
-            }
-        };
-
-        if context_binding.kind == ContextParamKind::ThreadSafeContext {
-            return Err(syn::Error::new_spanned(
-                &permission.ty,
-                "Explicit repository permission parameters are not supported with `ThreadSafeContext`; convert it to `Context` before locking",
-            ));
-        }
-
-        let context_ident = &context_binding.ident;
-        let guard_ident = &permission.guard_ident;
-        conversions.push(match permission.kind {
-            PermissionParamKind::Exclusive => quote! {
-                let mut #guard_ident = #context_ident.exclusive_worktree_access();
-            },
-            PermissionParamKind::Shared => quote! {
-                let #guard_ident = #context_ident.shared_worktree_access();
-            },
-        });
-    }
-
-    Ok(NapiParamsInfo {
-        params,
-        names,
-        conversions,
-        call_arg_idents,
-    })
-}
-
-/// Get the last segment name of a type path, if it is a simple path.
-fn type_last_segment_name(ty: &syn::Type) -> Option<String> {
-    if let syn::Type::Path(tp) = ty {
-        tp.path.segments.last().map(|s| s.ident.to_string())
-    } else {
-        None
-    }
-}
-
-/// Check if a type is "simple" enough to pass directly to napi without serde_json::Value.
-/// This includes primitive types and String.
-fn is_simple_napi_type(ty: &syn::Type) -> bool {
-    let Some(name) = type_last_segment_name(ty) else {
-        return false;
-    };
-    matches!(
-        name.as_str(),
-        "String" | "bool" | "u8" | "u16" | "u32" | "i8" | "i16" | "i32" | "i64" | "f32" | "f64"
-    )
-}
-
-/// Check if a Rust type needs to be remapped for napi compatibility.
-/// Returns Some(napi_type) if the type needs remapping.
-fn napi_type_remap(ty: &syn::Type) -> Option<proc_macro2::TokenStream> {
-    let name = type_last_segment_name(ty)?;
-    match name.as_str() {
-        // napi doesn't support usize/isize — remap to i64
-        "usize" => Some(quote! { i64 }),
-        "isize" => Some(quote! { i64 }),
-        _ => None,
-    }
-}
-
-/// Convert a Rust `syn::Type` to a TypeScript type name string.
-///
-/// This produces a string suitable for napi-rs's `ts_return_type` attribute
-/// and for schema registration names.
-fn type_to_ts_name(ty: &syn::Type) -> String {
-    match ty {
-        syn::Type::Path(tp) => {
-            let segments: Vec<_> = tp.path.segments.iter().collect();
-            if segments.is_empty() {
-                return "any".to_string();
-            }
-            let last = segments.last().unwrap();
-            let name = last.ident.to_string();
-
-            match name.as_str() {
-                // Primitive type mappings
-                "String" | "str" => "string".to_string(),
-                "bool" => "boolean".to_string(),
-                "u8" | "u16" | "u32" | "i8" | "i16" | "i32" | "f32" | "f64" | "usize" | "isize" => {
-                    "number".to_string()
-                }
-                "i64" | "u64" | "i128" | "u128" => "number".to_string(),
-                // Unit type
-                "()" => "void".to_string(),
-                // Generic containers
-                "Vec" => {
-                    if let syn::PathArguments::AngleBracketed(args) = &last.arguments
-                        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
-                    {
-                        let inner_name = type_to_ts_name(inner);
-                        return format!("Array<{inner_name}>");
-                    }
-                    "Array<any>".to_string()
-                }
-                "Option" => {
-                    if let syn::PathArguments::AngleBracketed(args) = &last.arguments
-                        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
-                    {
-                        let inner_name = type_to_ts_name(inner);
-                        return format!("{inner_name} | null");
-                    }
-                    "any | null".to_string()
-                }
-                // `Sensitive` marks a value as not-to-be-logged. It deserializes straight
-                // through to the value and deliberately cannot serialize at all, so the
-                // inner type is what crosses the wire and it has no schema of its own.
-                "Sensitive" => {
-                    if let syn::PathArguments::AngleBracketed(args) = &last.arguments
-                        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
-                    {
-                        return type_to_ts_name(inner);
-                    }
-                    "any".to_string()
-                }
-                "HashMap" | "BTreeMap" => {
-                    if let syn::PathArguments::AngleBracketed(args) = &last.arguments {
-                        let mut iter = args.args.iter();
-                        if let (
-                            Some(syn::GenericArgument::Type(k)),
-                            Some(syn::GenericArgument::Type(v)),
-                        ) = (iter.next(), iter.next())
-                        {
-                            let key_name = type_to_ts_name(k);
-                            let val_name = type_to_ts_name(v);
-                            return format!("Record<{key_name}, {val_name}>");
-                        }
-                    }
-                    "Record<string, any>".to_string()
-                }
-                // Tuple of two elements (e.g., (HexHash, HexHash))
-                "HexHash" | "HexHashString" => "string".to_string(),
-                "ObjectId" => "string".to_string(),
-                "BString" => "string".to_string(),
-                "StackId" => "string".to_string(),
-                "DryRun" => "boolean".to_string(),
-                // Named types — use their name as-is (these will be defined in the generated .d.ts)
-                other => other.to_string(),
-            }
-        }
-        syn::Type::Tuple(tuple) => {
-            if tuple.elems.is_empty() {
-                "void".to_string()
-            } else {
-                let inner: Vec<_> = tuple.elems.iter().map(type_to_ts_name).collect();
-                format!("[{}]", inner.join(", "))
-            }
-        }
-        syn::Type::Reference(r) => type_to_ts_name(&r.elem),
-        _ => "any".to_string(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use quote::quote;
-    use syn::{FnArg, ItemFn, parse_quote};
+    use syn::{FnArg, parse_quote};
 
     use super::{
         ContextParamKind, PermissionParamKind, WrapperCallArgKind, WrapperConversionKind,
-        build_json_type_mapping, build_napi_params, build_wrapper_parameter_mapping,
-        build_wrapper_params, context_param_kind, doc_attributes, permission_param_kind,
+        build_wrapper_parameter_mapping, build_wrapper_params, context_param_kind,
+        permission_param_kind,
     };
-
-    #[test]
-    fn collects_only_doc_attributes_for_napi_forwarding() {
-        let item_fn: ItemFn = parse_quote! {
-            #[doc = "First line."]
-            #[cfg(feature = "napi")]
-            #[doc = "Second line."]
-            pub fn my_api() -> anyhow::Result<()> {
-                Ok(())
-            }
-        };
-
-        let attrs = doc_attributes(&item_fn.attrs);
-
-        assert_eq!(
-            quote!(#(#attrs)*).to_string(),
-            quote!(
-                #[doc = "First line."]
-                #[doc = "Second line."]
-            )
-            .to_string()
-        );
-    }
 
     #[test]
     fn maps_object_id_to_hex_hash_transport() {
@@ -1966,105 +1070,6 @@ mod tests {
             vec_mapping.conversion_kind,
             WrapperConversionKind::VecFrom
         ),);
-    }
-
-    #[test]
-    fn maps_option_and_vec_object_id_to_hex_hash_in_json_mapping() {
-        let arg: FnArg = parse_quote!(cursor: Option<gix::ObjectId>);
-        let mapping = build_json_type_mapping([&arg]).unwrap();
-        let option_mapping = mapping
-            .get("cursor")
-            .expect("Option<ObjectId> should be present in json mapping");
-        let json_ty = &option_mapping.json_ty;
-
-        assert_eq!(
-            quote!(#json_ty).to_string(),
-            quote!(Option<crate::json::HexHash>).to_string()
-        );
-
-        let arg: FnArg = parse_quote!(commit_ids: Vec<gix::ObjectId>);
-        let mapping = build_json_type_mapping([&arg]).unwrap();
-        let vec_mapping = mapping
-            .get("commit_ids")
-            .expect("Vec<ObjectId> should be present in json mapping");
-        let json_ty = &vec_mapping.json_ty;
-
-        assert_eq!(
-            quote!(#json_ty).to_string(),
-            quote!(Vec<crate::json::HexHash>).to_string()
-        );
-    }
-
-    #[test]
-    fn maps_vec_object_id_to_vec_string_napi_param_and_parser() {
-        let arg: FnArg = parse_quote!(commit_ids: Vec<gix::ObjectId>);
-        let json_mapping = build_json_type_mapping([&arg]).unwrap();
-        let napi_info = build_napi_params([&arg], &json_mapping).unwrap();
-        let params = &napi_info.params;
-        let call_arg_idents = &napi_info.call_arg_idents;
-        let conversions = &napi_info.conversions;
-
-        assert_eq!(
-            quote!(#(#params),*).to_string(),
-            quote!(commit_ids: Vec<String>).to_string()
-        );
-        assert_eq!(
-            quote!(#(#call_arg_idents),*).to_string(),
-            quote!(commit_ids).to_string()
-        );
-        assert_eq!(
-            quote!(#(#conversions)*).to_string(),
-            quote! {
-                let commit_ids: Vec<gix::ObjectId> = commit_ids
-                    .into_iter()
-                    .enumerate()
-                    .map(|(index, value)| {
-                        ::std::str::FromStr::from_str(&value).map_err(|e: gix::Error| {
-                            napi::Error::new(
-                                napi::Status::InvalidArg,
-                                format!("invalid '{}' at index {index}: {e}", stringify!(commit_ids)),
-                            )
-                        })
-                    })
-                    .collect::<std::result::Result<Vec<_>, napi::Error>>()?;
-            }
-            .to_string()
-        );
-    }
-
-    #[test]
-    fn maps_option_object_id_to_option_string_napi_param_and_parser() {
-        let arg: FnArg = parse_quote!(cursor: Option<gix::ObjectId>);
-        let json_mapping = build_json_type_mapping([&arg]).unwrap();
-        let napi_info = build_napi_params([&arg], &json_mapping).unwrap();
-        let params = &napi_info.params;
-        let call_arg_idents = &napi_info.call_arg_idents;
-        let conversions = &napi_info.conversions;
-
-        assert_eq!(
-            quote!(#(#params),*).to_string(),
-            quote!(cursor: Option<String>).to_string()
-        );
-        assert_eq!(
-            quote!(#(#call_arg_idents),*).to_string(),
-            quote!(cursor).to_string()
-        );
-        assert_eq!(
-            quote!(#(#conversions)*).to_string(),
-            quote! {
-                let cursor: Option<gix::ObjectId> = cursor
-                    .map(|value| {
-                        ::std::str::FromStr::from_str(&value).map_err(|e: gix::Error| {
-                            napi::Error::new(
-                                napi::Status::InvalidArg,
-                                format!("invalid '{}': {e}", stringify!(cursor)),
-                            )
-                        })
-                    })
-                    .transpose()?;
-            }
-            .to_string()
-        );
     }
 
     #[test]

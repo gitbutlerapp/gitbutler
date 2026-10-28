@@ -22,7 +22,7 @@ use tracing::instrument;
 
 use crate::commit::json::ChangesSource;
 
-#[but_api(napi, try_from = but_workspace::ui::RefInfo, provides = [Workspace])]
+#[but_api(try_from = but_workspace::ui::RefInfo)]
 #[instrument(err(Debug))]
 pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
@@ -150,7 +150,7 @@ fn handle_gerrit(
     Ok(())
 }
 
-#[but_api(napi, provides = [Branches])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn branch_details(
     ctx: &but_ctx::Context,
@@ -220,7 +220,7 @@ pub fn branch_details(
 /// `worktrees::open_changes_source()`, and is not snapshotted as the oplog can't restore it.
 ///
 /// Returns the `worktree_changes` that couldn't be applied,
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn discard_worktree_changes(
     ctx: &mut but_ctx::Context,
@@ -345,7 +345,7 @@ pub fn stash_into_branch(
 }
 
 /// Push a branch and any parent references that lie within the current workspace projection.
-#[but_api(napi, json::PushResult, invalidates = [Workspace, Reviews, MergeStatus, Checks, ReviewTimeline])]
+#[but_api(json::PushResult, invalidates = [Workspace, Reviews, MergeStatus, Checks, ReviewTimeline])]
 #[instrument(err(Debug))]
 pub async fn workspace_branch_and_ancestors_push(
     ctx: ThreadSafeContext,

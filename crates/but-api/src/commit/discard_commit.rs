@@ -74,7 +74,7 @@ pub fn commit_discard_only_with_perm(
 ///
 /// When `dry_run` is enabled, the returned workspace previews the discard and
 /// no oplog entry is persisted. See [`commit_discard_with_perm()`] for details.
-#[but_api(napi, try_from = crate::commit::json::CommitDiscardResult)]
+#[but_api(try_from = crate::commit::json::CommitDiscardResult)]
 #[instrument(err(Debug))]
 pub fn commit_discard(
     ctx: &mut but_ctx::Context,
@@ -176,7 +176,7 @@ pub fn commit_discard_changes_only_with_perm(
 /// are not surfaced as uncommitted workspace modifications. When `dry_run` is
 /// enabled, the returned workspace previews the discard and no oplog entry is
 /// persisted. See [`commit_discard_changes_with_perm()`] for details.
-#[but_api(napi, try_from = crate::commit::json::MoveChangesResult)]
+#[but_api(try_from = crate::commit::json::MoveChangesResult)]
 #[instrument(err(Debug))]
 pub fn commit_discard_changes(
     ctx: &mut but_ctx::Context,

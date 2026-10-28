@@ -17,7 +17,7 @@ use tracing::instrument;
 ///
 /// For lower-level implementation details,
 /// see [`but_github::init_github_device_oauth()`].
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn init_github_device_oauth() -> Result<Verification> {
     but_github::init_github_device_oauth().await
@@ -38,7 +38,7 @@ pub async fn init_github_device_oauth() -> Result<Verification> {
 /// * `Err(_)` - If the authorization is pending, denied, or the request fails
 ///
 /// For lower-level implementation details, see [`but_github::check_github_auth_status()`].
-#[but_api(napi, json::GithubAuthStatusResponse)]
+#[but_api(json::GithubAuthStatusResponse)]
 #[instrument(err(Debug))]
 pub async fn check_github_auth_status(device_code: String) -> Result<AuthStatusResponse> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
@@ -58,7 +58,7 @@ pub async fn check_github_auth_status(device_code: String) -> Result<AuthStatusR
 ///
 /// * `Ok(_)` - The token is valid and stored
 /// * `Err(_)` - If the token is invalid or storage fails
-#[but_api(napi, json::GithubAuthStatusResponse, invalidates = [ForgeAccounts, ForgeLogin])]
+#[but_api(json::GithubAuthStatusResponse, invalidates = [ForgeAccounts, ForgeLogin])]
 #[instrument(err(Debug))]
 pub async fn store_github_pat(access_token: Sensitive<String>) -> Result<AuthStatusResponse> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
@@ -101,7 +101,7 @@ pub async fn store_github_enterprise_pat(
 /// # Returns
 ///
 /// * `Ok(())` - Always succeeds, even if no token was found
-#[but_api(napi, invalidates = [ForgeAccounts, ForgeLogin])]
+#[but_api(invalidates = [ForgeAccounts, ForgeLogin])]
 #[instrument(err(Debug))]
 pub fn forget_github_account(account: but_github::GithubAccountIdentifier) -> Result<()> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
@@ -139,7 +139,7 @@ pub fn clear_all_github_tokens() -> Result<()> {
 /// * `Ok(Some(AuthenticatedUser))` - User information with access token
 /// * `Ok(None)` - No credentials stored for this account
 /// * `Err(_)` - If the API request fails or credentials are invalid
-#[but_api(napi, json::GithubAuthenticatedUserSensitive)]
+#[but_api(json::GithubAuthenticatedUserSensitive)]
 #[instrument(err(Debug))]
 pub async fn get_gh_user(
     account: but_github::GithubAccountIdentifier,
@@ -157,7 +157,7 @@ pub async fn get_gh_user(
 ///
 /// * `Ok(Vec<GithubAccountIdentifier>)` - List of all known accounts
 /// * `Err(_)` - If storage access fails
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn list_known_github_accounts() -> Result<Vec<but_github::GithubAccountIdentifier>> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);

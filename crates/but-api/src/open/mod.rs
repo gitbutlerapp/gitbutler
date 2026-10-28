@@ -377,7 +377,7 @@ fn add_did_param(url: &mut Url) {
 /// - The specified path does not exist or is not accessible
 /// - The terminal_id is not recognized for the current platform
 /// - On all platforms, only spawn failures are detected; the terminal's later exit status is not checked
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
     use std::process::Command;
@@ -595,7 +595,7 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
 /// On macOS this reveals the item in Finder, on Windows it selects the item in
 /// Explorer, and on Linux it opens either the directory itself or the file's
 /// parent directory.
-#[but_api(napi)]
+#[but_api]
 #[instrument(skip(ctx), err(Debug))]
 pub fn show_in_finder(ctx: &but_ctx::Context, checkout: ChangesSource, path: String) -> Result<()> {
     reveal_in_file_manager(&resolve_workdir_path(ctx, &checkout, &path)?)
@@ -660,7 +660,7 @@ fn reveal_in_file_manager(path: &Path) -> Result<()> {
 }
 
 /// List all editors that can be opened from a GUI client.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn list_editors() -> anyhow::Result<Vec<Editor>> {
     Ok(list_program_specs()
@@ -772,7 +772,7 @@ pub fn list_program_specs_for_file(path: &Path) -> Vec<ProgramSpec> {
 /// own.
 ///
 /// A linked worktree has to be active, see `worktrees::open_changes_source()`.
-#[but_api(napi)]
+#[but_api]
 #[instrument(skip(ctx), err(Debug))]
 pub fn workdir_path(
     ctx: &but_ctx::Context,
@@ -815,7 +815,7 @@ fn resolve_workdir_path(
 /// `line_nr` can be provided to open a file at a specific line.
 ///
 /// [`list_program_specs()`] provides the available `program_id`s.
-#[but_api(napi)]
+#[but_api]
 #[instrument(skip(ctx), err(Debug))]
 pub fn open_in_program(
     ctx: &mut but_ctx::Context,

@@ -225,7 +225,7 @@ pub fn ensure_supported_target_upstream(
 /// A target without an upstream is moved locally instead, and the whole land is a single undoable
 /// oplog entry, recorded as soon as the target moved so `but undo` reverts even a land whose
 /// reconcile failed.
-#[but_api(napi, try_from = json::BranchLandResult)]
+#[but_api(try_from = json::BranchLandResult)]
 #[instrument(skip(ctx), err(Debug))]
 pub fn branch_land(
     ctx: &mut Context,

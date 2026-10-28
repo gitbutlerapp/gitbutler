@@ -26,7 +26,7 @@ this order:
 - Inspect nearby code before introducing patterns.
 - Prefer existing APIs, tests, and conventions.
 - Before declaring shared behavior done, check each applicable surface and contract
-  (desktop, web, CLI/TUI, N-API, SDK, and docs) and update it or explicitly
+  (desktop, web, CLI/TUI, SDK types, and docs) and update it or explicitly
   determine that it is unaffected.
 - Run targeted validation for the area touched.
 - Before adding new machinery to fix a behavior bug, reproduce the bug in a failing

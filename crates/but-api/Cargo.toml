@@ -15,10 +15,6 @@ ignored = [
     # Used by macro-generated async API glue that machete does not detect reliably.
     "futures",
     "tokio",
-    # Used only when the `napi` feature is enabled for Node bindings.
-    "napi",
-    # Used only when the `napi` feature is enabled for Node bindings.
-    "napi-derive",
     # Used only when the `tauri` feature is enabled for Tauri command bindings.
     "tauri",
 ]
@@ -31,9 +27,6 @@ default = []
 ## Provide Tauri commands automatically where possible, to avoid duplication.
 ## Needs "legacy" as long as it needs legacy project support.
 tauri = ["dep:tauri", "legacy"]
-## Provide napi bindings for Node.js via napi-rs.
-## Needs "legacy" as long as it needs legacy project support.
-napi = ["dep:napi", "dep:napi-derive", "legacy", "export-schema"]
 ## When paths are turned into strings they are lossy. Also provide a `_bytes` variant of such fields with the original value
 ## for lossless use.
 path-bytes = []
@@ -59,7 +52,7 @@ export-schema = [
 ##
 ## This changes the shape of a public type, so it must stay coherent across one
 ## build: never enable it in any crate's default features. Leaf crates
-## (`gitbutler-tauri`, `but-napi`, `but`) forward it so artifact builds can opt
+## (`gitbutler-tauri`, `but`) forward it so artifact builds can opt
 ## in on the command line.
 graph-workspace = []
 ## Make legacy functionality available.
@@ -129,11 +122,6 @@ gitbutler-git.workspace = true
 tauri = { version = "^2.10.3", features = [
     "unstable",
 ], optional = true } # For the #[tauri::command(async)] macro only
-napi = { version = "3.8.5", features = [
-    "serde-json",
-    "tokio_rt",
-], optional = true }
-napi-derive = { version = "3.5.4", optional = true }
 boolean-enums.workspace = true
 bstr = { workspace = true }
 schemars.workspace = true
