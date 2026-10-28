@@ -136,6 +136,29 @@ pub(super) fn record_undo(
     }
 }
 
+/// Record the project as it is in one oplog entry naming `refs`, once `work` succeeded. One
+/// that can't be recorded only logs: the work stands, without its undo step.
+fn recorded<T>(
+    ctx: &mut but_ctx::Context,
+    perm: &mut but_ctx::access::RepoExclusive,
+    details: SnapshotDetails,
+    refs: &[&gix::refs::FullNameRef],
+    work: impl FnOnce(&mut but_ctx::Context, &mut but_ctx::access::RepoExclusive) -> Result<T>,
+) -> Result<T> {
+    let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
+        ctx,
+        details,
+        refs,
+        perm.read_permission(),
+        DryRun::No,
+    );
+    let value = work(ctx, perm)?;
+    if let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(ctx, perm)) {
+        tracing::warn!(?err, "couldn't record the operation for undo");
+    }
+    Ok(value)
+}
+
 /// Where changes are read from: the main checkout, or the linked `worktree`.
 pub(super) fn changes_source(worktree: Option<&bstr::BStr>) -> ChangesSource {
     worktree.map_or(ChangesSource::Head, |name| {
@@ -486,31 +509,25 @@ fn create_beside_checkout(
         (new_ref, base.detach())
     };
     // It lists the new branch, so undo deletes it again.
-    let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
-        ctx,
-        SnapshotDetails::new(OperationKind::CreateBranch)
-            .with_trailers([Trailer::Name(new_ref.to_string())]),
-        &[new_ref.as_ref()],
-        perm.read_permission(),
-        DryRun::No,
-    );
-    let previous = gix::refs::transaction::PreviousValue::MustNotExist;
-    (ctx.repo.get()?)
-        .reference(new_ref.as_ref(), base, previous, "GitButler: new branch")
-        .with_context(|| format!("Couldn't create branch {}", new_ref.shorten()))?;
-    let applied = but_api::branch::apply_only_with_perm(ctx, new_ref.as_ref(), perm);
-    if !(applied.as_ref()).is_ok_and(|outcome| outcome.status.persisted_mutation()) {
-        ctx.repo.get()?.find_reference(new_ref.as_ref())?.delete()?;
-        applied?;
-        bail!(
-            "Couldn't start {} beside {}",
-            new_ref.shorten(),
-            head.shorten()
-        );
-    }
-    if let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(ctx, perm)) {
-        tracing::warn!(?err, "couldn't record the new branch for undo");
-    }
+    let details = SnapshotDetails::new(OperationKind::CreateBranch)
+        .with_trailers([Trailer::Name(new_ref.to_string())]);
+    recorded(ctx, perm, details, &[new_ref.as_ref()], |ctx, perm| {
+        let previous = gix::refs::transaction::PreviousValue::MustNotExist;
+        (ctx.repo.get()?)
+            .reference(new_ref.as_ref(), base, previous, "GitButler: new branch")
+            .with_context(|| format!("Couldn't create branch {}", new_ref.shorten()))?;
+        let applied = but_api::branch::apply_only_with_perm(ctx, new_ref.as_ref(), perm);
+        if !(applied.as_ref()).is_ok_and(|outcome| outcome.status.persisted_mutation()) {
+            ctx.repo.get()?.find_reference(new_ref.as_ref())?.delete()?;
+            applied?;
+            bail!(
+                "Couldn't start {} beside {}",
+                new_ref.shorten(),
+                head.shorten()
+            );
+        }
+        Ok(())
+    })?;
     Ok(new_ref)
 }
 
