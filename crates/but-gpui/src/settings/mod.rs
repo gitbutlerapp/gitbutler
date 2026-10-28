@@ -752,7 +752,8 @@ impl SettingsView {
             "Show FPS",
             "The frames drawn in the last second, in the window's top right corner. When a \
              frame of the last three seconds was much slower, its pace shows beside them in \
-             amber. While it shows, the window draws every frame it can, so a slow view brings \
+             amber, and a graph before them shows how long each frame of those seconds took. \
+             While it shows, the window draws every frame it can, so a slow view brings \
              them down.",
             self.pref_switch("show-fps", on, |p| p.show_fps ^= true, cx),
         )
