@@ -279,6 +279,9 @@ impl Intent for ApplyBranch {
     fn apply(self, run: &mut Run) -> Result<ApplyOutcome> {
         use but_workspace::branch::apply::OutcomeStatus;
         let Self { branch, freeing } = self;
+        let point_head = |repo: &gix::Repository, at, why: String| {
+            but_core::update_head_reference(repo, at, false, "checkout", why.as_str().into(), 0)
+        };
         let outcome = run.locked(|ctx, perm| {
             // The archived worktree `freeing` lets go of the branch first, staying on its
             // commit with its files as they are, or the workspace's commits would move the
@@ -293,14 +296,7 @@ impl Intent for ApplyBranch {
             if let Some(repo) = &freed {
                 let at = gix::refs::Target::Object(repo.head_id()?.detach());
                 let why = format!("leaving {} to the workspace", branch.shorten());
-                but_core::update_head_reference(
-                    repo,
-                    at,
-                    false,
-                    "checkout",
-                    why.as_str().into(),
-                    0,
-                )?;
+                point_head(repo, at, why)?;
             }
             let outcome = but_api::branch::apply_with_perm(ctx, branch.as_ref(), perm);
             // Not applied after all, it goes back to the worktree, so its next commits move it
@@ -310,14 +306,7 @@ impl Intent for ApplyBranch {
             if let Some(repo) = freed.filter(|_| !kept) {
                 let back = gix::refs::Target::Symbolic(branch.clone());
                 let why = format!("taking {} back, as it wasn't applied", branch.shorten());
-                but_core::update_head_reference(
-                    &repo,
-                    back,
-                    false,
-                    "checkout",
-                    why.as_str().into(),
-                    0,
-                )?;
+                point_head(&repo, back, why)?;
             }
             outcome
         })?;
