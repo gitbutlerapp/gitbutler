@@ -391,6 +391,11 @@ pub fn channel() -> &'static str {
     }
 }
 
+/// The build is one of its own, as `cargo run` makes, not a nightly or a release.
+pub fn dev_build() -> bool {
+    but_path::AppChannel::new() == but_path::AppChannel::Dev
+}
+
 /// The version the desktop app's update `feed` offers in place of this build's, or `None`
 /// when this build is the latest, which the feed says with no content.
 pub fn newer_version(feed: &str) -> Result<Option<String>> {

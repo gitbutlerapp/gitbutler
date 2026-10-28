@@ -30,6 +30,7 @@ mod detail;
 )]
 mod dev;
 mod edits;
+mod fps;
 mod help;
 mod keymap;
 mod navigator;
