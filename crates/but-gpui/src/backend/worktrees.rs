@@ -216,29 +216,40 @@ impl Intent for CreateWorktree {
 /// files `lost`, by their write times and sizes then, which the user agreed to lose. Its
 /// branch stays. One with other uncommitted files, or those written to since, as by an agent
 /// meanwhile, is refused, and so is one with `lost` files that can't be read to check them.
-pub fn remove(path: &Path, name: &BStr, lost: &[(String, Option<i64>, Option<u64>)]) -> Result<()> {
-    let mut ctx = open(path)?;
-    let mut guard = ctx.exclusive_worktree_access();
-    // With nothing to lose, nothing is forced, and Git refuses a worktree with changes, so
-    // one that can't be opened, as when its folder is gone, can still be removed.
-    let files = match checkout(&ctx, Some(name)) {
-        Ok(worktree) => worktree_files(&worktree, &[])?,
-        Err(_) if lost.is_empty() => Vec::new(),
-        Err(err) => return Err(err.context(format!("Couldn't check {name}'s files"))),
-    };
-    let asked = |file: &FileChange| lost.contains(&(file.path.clone(), file.modified, file.size));
-    if let Some(file) = files.iter().find(|file| !asked(file)) {
-        anyhow::bail!(
-            "{name} has a change you weren't asked about, {}. Look at it before deleting.",
-            file.path
-        );
+pub struct DeleteWorktree {
+    pub name: BString,
+    pub lost: Vec<(String, Option<i64>, Option<u64>)>,
+}
+
+impl Intent for DeleteWorktree {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        let Self { name, lost } = self;
+        run.locked(|ctx, perm| {
+            // With nothing to lose, nothing is forced, and Git refuses a worktree with changes,
+            // so one that can't be opened, as when its folder is gone, can still be removed.
+            let files = match checkout(ctx, Some(name.as_ref())) {
+                Ok(worktree) => worktree_files(&worktree, &[])?,
+                Err(_) if lost.is_empty() => Vec::new(),
+                Err(err) => return Err(err.context(format!("Couldn't check {name}'s files"))),
+            };
+            let asked =
+                |file: &FileChange| lost.contains(&(file.path.clone(), file.modified, file.size));
+            if let Some(file) = files.iter().find(|file| !asked(file)) {
+                anyhow::bail!(
+                    "{name} has a change you weren't asked about, {}. Look at it before deleting.",
+                    file.path
+                );
+            }
+            but_api::worktrees::worktree_remove_with_perm(
+                ctx,
+                name.as_ref(),
+                !lost.is_empty(),
+                perm,
+            )
+        })
     }
-    but_api::worktrees::worktree_remove_with_perm(
-        &ctx,
-        name,
-        !lost.is_empty(),
-        guard.write_permission(),
-    )
 }
 
 /// Hide worktree `name` from the workspace, or with `archived` false show it again. It

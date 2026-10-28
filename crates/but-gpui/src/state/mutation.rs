@@ -1030,11 +1030,11 @@ impl Store {
             worktrees: HashSet::from([name.clone()]),
             ..Overlay::default()
         };
-        self.run(
+        self.apply(
             project,
             "Delete worktree",
             overlay,
-            move |path| backend::worktrees::remove(path, name.as_ref(), &lost),
+            backend::worktrees::DeleteWorktree { name, lost },
             move |store, (), cx| store.snack(done, cx),
             cx,
         );

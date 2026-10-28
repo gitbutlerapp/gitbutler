@@ -2258,8 +2258,14 @@ pub(super) mod tests {
             // Written after the user was asked about the change above.
             std::fs::write(linked.join("fresh"), "new\n").unwrap();
 
-            let remove = crate::backend::worktrees::remove;
-            let err = remove(path, "agent".into(), &asked).unwrap_err();
+            let remove = || {
+                let delete = crate::backend::worktrees::DeleteWorktree {
+                    name: "agent".into(),
+                    lost: asked.to_vec(),
+                };
+                crate::backend::apply(path, delete)
+            };
+            let err = remove().unwrap_err();
             assert!(
                 format!("{err:#}").contains("fresh"),
                 "it names the change nobody agreed to lose: {err:#}"
@@ -2275,7 +2281,7 @@ pub(super) mod tests {
                 .write(true)
                 .open(linked.join("file"));
             file.unwrap().set_modified(later).unwrap();
-            let err = remove(path, "agent".into(), &asked).unwrap_err();
+            let err = remove().unwrap_err();
             assert!(
                 format!("{err:#}").contains("file"),
                 "nor what was written to a file named since: {err:#}"
@@ -2283,7 +2289,7 @@ pub(super) mod tests {
 
             let moved = outside.path().join("moved");
             std::fs::rename(&linked, &moved).unwrap();
-            let err = remove(path, "agent".into(), &asked).unwrap_err();
+            let err = remove().unwrap_err();
             assert!(
                 format!("{err:#}").starts_with("Couldn't check agent's files"),
                 "a worktree it can't read, it can't check, so it refuses: {err:#}"
