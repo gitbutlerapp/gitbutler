@@ -1071,11 +1071,11 @@ impl Store {
     ) {
         let shown = project.clone();
         let keys = ids.iter().filter_map(|id| self.key_of(project, *id));
-        self.run(
+        self.apply(
             project,
             "Move to a new branch",
             Overlay::commits(keys.collect::<Vec<_>>()),
-            move |path| backend::move_to_new_branch(path, &ids),
+            backend::MoveToNewBranch { commits: ids },
             move |store, (_, branch), cx| {
                 store.select(Some(Selection::Branch(shown, Some(branch))), cx);
                 store.snack_undoable("Moved to a new branch", cx)

@@ -2,8 +2,8 @@
 //! afterwards. An [`Intent`], such as [`Squash`], runs under the one lock [`Run::locked`] takes,
 //! in one `but_transaction` transaction that records one oplog entry. The rest open the project
 //! and call the matching `but-api` function, which locks and records its own oplog snapshot,
-//! except that [`discard`], [`move_to_new_branch`] and [`create_beside_checkout`] record their
-//! own, as does [`super::conflicts::resolve_markers`] through [`record_undo`].
+//! except that [`discard`] and [`create_beside_checkout`] record their own, as does
+//! [`super::conflicts::resolve_markers`] through [`record_undo`].
 
 use gitbutler_repo::hooks::{ErrorData, HookResult, MessageHookResult};
 use std::collections::HashMap;
@@ -984,31 +984,40 @@ impl Intent for SplitOff {
     }
 }
 
-/// Move `commits` into a new branch of their own, beside the other stacks, as one operation
-/// to undo. Returns what moved, and the new branch's full name.
-pub fn move_to_new_branch(path: &Path, commits: &[CommitId]) -> Result<(Rewritten, FullName)> {
-    use but_oplog::legacy::{OperationKind, SnapshotDetails};
-    let mut ctx = open(path)?;
-    let name = branch_ref(&but_api::branch::branch_canned_name(&ctx)?)?;
-    let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
-    let workspace = but_transaction::with_transaction_with_perm(
-        &mut ctx,
-        &mut meta,
-        guard.write_permission(),
-        SnapshotDetails::new(OperationKind::MoveCommit),
-        &[name.as_ref()],
-        DryRun::No,
-        |mut tx| {
-            tx.create_reference(name.as_ref(), None, None)?;
-            tx.move_commits(
-                commits.iter().map(|commit| commit.0),
-                RelativeTo::Reference(name.clone()),
-                InsertSide::Below,
-            )
-        },
-    )?;
-    Ok((rewritten(&workspace), name))
+/// Move `commits` into a new branch of their own, beside the other stacks.
+/// Done is what moved, and the new branch's full name.
+pub struct MoveToNewBranch {
+    pub commits: Arc<[CommitId]>,
+}
+
+impl Intent for MoveToNewBranch {
+    type Done = (Rewritten, FullName);
+
+    fn apply(self, run: &mut Run) -> Result<(Rewritten, FullName)> {
+        use but_oplog::legacy::{OperationKind, SnapshotDetails};
+        let Self { commits } = self;
+        run.locked(|ctx, perm| {
+            let name = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
+            let mut meta = ctx.meta()?;
+            let workspace = but_transaction::with_transaction_with_perm(
+                ctx,
+                &mut meta,
+                perm,
+                SnapshotDetails::new(OperationKind::MoveCommit),
+                &[name.as_ref()],
+                DryRun::No,
+                |mut tx| {
+                    tx.create_reference(name.as_ref(), None, None)?;
+                    tx.move_commits(
+                        commits.iter().map(|commit| commit.0),
+                        RelativeTo::Reference(name.clone()),
+                        InsertSide::Below,
+                    )
+                },
+            )?;
+            Ok((rewritten(&workspace), name))
+        })
+    }
 }
 
 pub fn reword(path: &Path, commit: CommitId, message: &str) -> Result<Rewritten> {
@@ -2375,7 +2384,10 @@ pub(super) mod tests {
             use crate::backend::history::{Undone, undo_snapshot};
             let (dir, commit, ..) = workspace_with_an_edit();
             let path = dir.path();
-            let (_, name) = move_to_new_branch(path, &[commit]).unwrap();
+            let moving = MoveToNewBranch {
+                commits: [commit].into(),
+            };
+            let ((_, name), _) = crate::backend::apply(path, moving).unwrap();
             let moved = newest_entry(path);
             assert!(matches!(
                 undo_snapshot(path, moved, None).unwrap(),
