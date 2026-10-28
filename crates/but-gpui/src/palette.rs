@@ -177,6 +177,10 @@ pub struct Choice {
     /// It makes something named as typed: any text but another choice's label finds it,
     /// shown after its label.
     names: bool,
+    /// A commit's full id, which finds it typed from its start, as `git log` and Copy commit ID
+    /// give it, though its detail shows less. Never by letters scattered through it, which
+    /// would find every commit.
+    id: Option<SharedString>,
     run: Run,
 }
 
@@ -192,6 +196,7 @@ impl Choice {
             detail: None,
             risky: false,
             names: false,
+            id: None,
             run: Box::new(move |this, _, window, cx| run(this, window, cx)),
         }
     }
@@ -307,6 +312,20 @@ fn score(label: &str, query: &str) -> Option<(i32, Vec<Range<usize>>)> {
         }
     }
     Some((0, found))
+}
+
+/// Whether `query` is `id` typed from its start, in either case.
+fn id_starts(id: &str, query: &str) -> bool {
+    (id.get(..query.len())).is_some_and(|start| start.eq_ignore_ascii_case(query))
+}
+
+/// The bytes at the start of `text` that `query` starts with too, in either case: a commit's
+/// short id at the start of its detail when its full id was typed.
+fn shared_start(text: &str, query: &str) -> Option<Range<usize>> {
+    (text.char_indices().zip(query.chars()))
+        .take_while(|((_, shown), typed)| shown.eq_ignore_ascii_case(typed))
+        .last()
+        .map(|((at, shown), _)| 0..at + shown.len_utf8())
 }
 
 /// What ⇧Y offers to copy from `selection`, labelled, the first what y copies.
@@ -462,9 +481,11 @@ fn commit_choice(
             None => snack(&this.store, gone, cx),
         }
     });
-    choice
-        .icon(Icon::Commit)
-        .details(details.into_iter().chain(project))
+    let choice = (choice.icon(Icon::Commit)).details(details.into_iter().chain(project));
+    Choice {
+        id: Some(commit.id.0.to_string().into()),
+        ..choice
+    }
 }
 
 impl AppView {
@@ -594,6 +615,7 @@ impl AppView {
                 detail: item.detail,
                 risky: item.danger,
                 names: false,
+                id: None,
                 run: Box::new(move |this, _, window, cx| (item.handler)(this, window, cx)),
             })
             .collect();
@@ -731,7 +753,21 @@ impl AppView {
                             detail: Vec::new(),
                         },
                     ),
-                    (None, None) => return None,
+                    // A longer id than the detail shows, the short one it starts with underlined.
+                    (None, None) => match &choice.id {
+                        Some(id) if id_starts(id, &query) => (
+                            2000,
+                            Found {
+                                ix,
+                                label: Vec::new(),
+                                detail: (choice.detail.as_ref())
+                                    .and_then(|detail| shared_start(detail, &query))
+                                    .into_iter()
+                                    .collect(),
+                            },
+                        ),
+                        _ => return None,
+                    },
                 };
                 // One that throws work away shows for its words, not for letters scattered
                 // through it, so typing a command missing here doesn't land on it.
@@ -906,7 +942,51 @@ impl AppView {
 
 #[cfg(test)]
 mod tests {
-    use super::{COMMANDS, RISKY, score};
+    use super::{COMMANDS, RISKY, id_starts, score, shared_start};
+
+    const ID: &str = "3a79334c0b5e8f1d2a6b7c9e0f1a2b3c4d5e6f70";
+
+    #[test]
+    fn a_full_id_is_found_typed_from_its_start_in_either_case() {
+        assert!(
+            id_starts(ID, "3A79334C0B"),
+            "an id as `git log` abbreviates it, or pasted upper case, finds its commit"
+        );
+    }
+
+    #[test]
+    fn a_full_id_is_found_whole() {
+        assert!(
+            id_starts(ID, ID),
+            "Copy commit ID's whole id finds its commit"
+        );
+    }
+
+    #[test]
+    fn a_full_id_is_not_found_by_letters_inside_it() {
+        assert!(
+            !id_starts(ID, "c0b5e8"),
+            "only from its start, or most queries would find some commit"
+        );
+    }
+
+    #[test]
+    fn a_full_id_is_not_found_by_more_than_it_has() {
+        assert!(
+            !id_starts(ID, &format!("{ID}0")),
+            "a longer id is another commit's"
+        );
+    }
+
+    #[test]
+    fn typing_a_full_id_underlines_the_short_one_shown() {
+        let detail = "3a79334 · cart-checkout";
+        assert_eq!(
+            shared_start(detail, "3a79334c0b5e").map(|range| &detail[range]),
+            Some("3a79334"),
+            "the short id the detail starts with is why the row is there"
+        );
+    }
 
     #[test]
     fn a_name_typed_in_full_comes_before_the_longer_ones_it_starts() {
