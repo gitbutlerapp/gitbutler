@@ -24,15 +24,18 @@ pub enum Keymap {
     /// GitButler's own, after macOS's and vim's.
     #[default]
     GitButler,
+    /// Like the `but` TUI's. So far only its keys for moving around.
+    Tui,
 }
 
 impl Keymap {
     /// Every keymap, in the order Settings › Keyboard lists them.
-    pub const ALL: [Keymap; 1] = [Keymap::GitButler];
+    pub const ALL: [Keymap; 2] = [Keymap::GitButler, Keymap::Tui];
 
     pub fn name(self) -> &'static str {
         match self {
             Keymap::GitButler => "GitButler",
+            Keymap::Tui => "TUI",
         }
     }
 
@@ -41,6 +44,7 @@ impl Keymap {
     fn files(self) -> [&'static str; 2] {
         let own = match self {
             Keymap::GitButler => include_str!("../assets/keymaps/gitbutler.json"),
+            Keymap::Tui => include_str!("../assets/keymaps/tui.json"),
         };
         [own, BASE]
     }
@@ -280,6 +284,16 @@ mod tests {
                     ("palette::CopyMore", "secondary-shift-c"),
                     ("diff::NextHunk", "down"),
                     ("find::FindNext", "secondary-g"),
+                ],
+                // The TUI's letters, which come after the arrows.
+                Keymap::Tui => &[
+                    ("app::CommandPalette", ":"),
+                    ("palette::GoTo", "/"),
+                    ("navigator::SelectNext", "j"),
+                    ("navigator::SelectPrevious", "k"),
+                    ("diff::NextHunk", "j"),
+                    ("diff::PreviousHunk", "k"),
+                    ("diff::NextFile", "j"),
                 ],
             };
             for os in PLATFORMS {
