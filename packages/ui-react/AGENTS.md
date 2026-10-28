@@ -1,9 +1,9 @@
 # @gitbutler/ui-react
 
 The React component library: the components, icons, illustrations and base
-styles shared by Lite, `but panel` and the MCP app. It ships source, not a
-build; each consumer's Vite compiles it, and React Compiler runs on it under
-the consumer's config as it does on the consumer's own code.
+styles. It ships source, not a build; each consumer's Vite compiles it, and
+React Compiler runs on it under the consumer's config as it does on the
+consumer's own code.
 
 `DESIGN.md` beside this file is the visual language: how things should look
 and read. It is an index of the pages in `design/`, one per topic; read the
@@ -12,10 +12,12 @@ is the tooling that enforces them.
 
 ## Writing the code
 
-Lite's rules apply here unchanged; `apps/lite/AGENTS.md` has them. In short:
-React Compiler makes `useMemo`, `useCallback` and `React.memo` redundant
-outside hot paths; `useEffect` is usually an anti-pattern and needs consent;
-comments explain the non-obvious why, never the what.
+React Compiler makes `useMemo`, `useCallback` and `React.memo` redundant,
+except in hot paths where the compiler can't tell that a computation is pure;
+check the compiler's output before adding one. `useEffect` is usually an
+anti-pattern: think hard before reaching for it, and ask for consent before
+adding one. Comments explain the non-obvious why, never the what; when in
+doubt, leave the comment out.
 
 ### Changing a component
 
@@ -30,10 +32,10 @@ else it touches, and call it out in the PR description.
 ### What belongs here
 
 A component belongs here when it doesn't reach into an app: no API calls,
-no settings, no store, nothing on `window.lite`. Everything a component needs
+no settings, no store, nothing on `window`. Everything a component needs
 from its host arrives as a prop, the way `TextLink` takes its `onClick` rather
-than assuming Electron. A component that needs the app stays in the app;
-Lite keeps its Markdown renderer and mention suggestions for that reason.
+than assuming how its host opens a link. A component that needs the app stays
+in the app.
 
 Imports are deep and carry the extension: `@gitbutler/ui-react/Button.tsx`.
 There is no barrel file. Inside the package, siblings import each other
@@ -86,13 +88,13 @@ Two files, split the way the code is:
   own page): a stories file names its group in `title` and keeps its old `id`,
   so the story ids below don't change when a component moves group.
 - **Client**, the working file —
-  <https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client>: Lite's own
+  <https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client>: app
   components on the ⚙️ Meta page, the full screens, and drafts on the
   🚧 Drafts page and the pages under it. A new mockup or an exploration goes
   here, never in the library.
 
 A component is drawn where its code lives: one in this package goes in
-⚛️ Core, one in `apps/lite` on ⚙️ Meta. When a component moves between the two
+⚛️ Core, one in an app on ⚙️ Meta. When a component moves between the two
 in code, its drawing moves with it in the same piece of work, and the
 mockups' instances are swapped to the new one.
 
@@ -123,7 +125,8 @@ $ pnpm -F @gitbutler/ui-react check
 $ pnpm -F @gitbutler/ui-react test
 ```
 
-`check` typechecks and then runs Stylelint over the components' CSS with the
+`check` typechecks, checks the stories and tokens (below), and runs Stylelint
+over the components' CSS with the
 rules the design pages give a machine: colours are tokens, font sizes are on
 the 11–16 scale, radii come from the radius tokens. An error names what to use
 instead. The exceptions are the ones the pages name, and each is marked where
@@ -136,32 +139,40 @@ the reason after `--`.
 
 ### Tokens
 
-Every `var(--x)` in this package has to resolve. Lite's token check reads this
-package's source alongside its own:
-
-```console
-$ pnpm -F @gitbutler/lite check
-```
-
-It fails on any undefined name and suggests the nearest real one. Run it
-after any CSS change here, even when the package's own check passes.
+Every `var(--x)` in this package has to resolve: a token from
+`@gitbutler/design-core`, a variable `base.css` or a component declares, or
+one a dependency sets. A name nothing declares doesn't error in the browser;
+the property silently falls back. `check` runs `scripts/check-tokens.mjs`,
+which fails on any undefined name and suggests the nearest real one. When a
+dependency sets a variable at runtime that the script can't see, or a
+component reads a knob its host may set, add it to `KNOWN_RUNTIME` in the
+script with who sets it.
 
 ### Stories
 
 Every component has a story beside it, in both themes, and a component that
 lives only in code is half a component. `pnpm check` holds the package to it
 through `scripts/check-stories.mjs`, which fails on a component no story
-imports. Storybook is Lite's, on port 6007, and lists this package's stories
-under `components/`:
+imports. Storybook runs on port 6007 and lists the stories under
+`components/`:
 
 ```console
-$ pnpm -F @gitbutler/lite demos
+$ pnpm -F @gitbutler/ui-react demos
 ```
 
-The package's own `test` runs its unit tests, not its stories. Lite's runs
-every story, this package's included, as a test in headless Chromium; run
-them alone with `pnpm -F @gitbutler/lite test:stories` (`apps/lite/AGENTS.md`
-has the setup).
+`test` runs the unit tests and then every story as a test in headless
+Chromium. A story fails when it throws while rendering or its `play` function
+fails. Run the stories alone with:
+
+```console
+$ pnpm -F @gitbutler/ui-react test:stories
+```
+
+They need Playwright's Chromium, once per checkout:
+
+```console
+$ pnpm -F @gitbutler/ui-react playwright:install:unit
+```
 
 A story renders alone at
 `http://localhost:6007/iframe.html?id=components-<name>--<export>&viewMode=story`;
@@ -204,14 +215,13 @@ reads it instead of guessing an API. Two things about it to know:
   `@import import { Badge } from "@gitbutler/ui-react/Badge.tsx";`. Give a
   new component one: without it the manifest falls back to the package
   root, and there is no such barrel. Storybook reads the tag through
-  `experimentalReactComponentMeta` in Lite's `.storybook/main.ts`.
+  `experimentalReactComponentMeta` in `.storybook/main.ts`.
 - The link to the Figma component is the story's `design` parameter, not
   the manifest. `grep -l 'type: "figma"' src/*.stories.tsx` lists the stories
   that have one; a story without one has no drawn spec yet.
 
-A story with no component behind it, as Lite's `AppUpdater.stories.tsx`,
-carries `tags: ["!manifest"]` and says why. That is also why a styling
-helper is not how a control is offered: `getButtonClassName` is for making
+A story with no component behind it carries `tags: ["!manifest"]` and says
+why. That is also why a styling helper is not how a control is offered: `getButtonClassName` is for making
 another component look like a button, and a button is `<Button>`, which the
 manifest documents.
 
@@ -273,13 +283,13 @@ than failing the build; accept it when it is the change you meant.
 
 ### Linting & formatting
 
-The package is linted by oxlint with Lite's config, not by ESLint:
+The package is linted by oxlint with its own `oxlint.config.ts`, not by
+ESLint:
 
 ```console
 $ pnpm exec prettier --check packages/ui-react
 $ pnpm run oxlint
-$ pnpm knip:non-prod
 ```
 
-Run these before declaring the work done, and run `check-tokens` (above) with
-them. The lint job in CI runs all of them and fails on what any one reports.
+Run these before declaring the work done. The lint job in CI runs both and
+fails on what either reports.

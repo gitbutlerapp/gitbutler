@@ -21,14 +21,5 @@ e2e/playwright/fixtures
 packages/but-sdk/src/generated
 packages/but-sdk/**/*.md
 
-# TanStack Router's generated types for file-based routing
-apps/lite/ui/src/routeTree.gen.ts
-
 # Auto-generated icon names union type
 packages/ui-react/src/iconNames.ts
-
-# Icon assets, including Apple Icon Composer generated files
-apps/lite/resources/icons/
-apps/lite/resources/icons-dev/
-
-apps/lite/release

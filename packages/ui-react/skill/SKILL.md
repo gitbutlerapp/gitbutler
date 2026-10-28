@@ -1,6 +1,6 @@
 ---
 name: gitbutler-ui
-description: Use when changing what users see in an app built on `@gitbutler/ui-react` — Lite, the but.dev web app — adding or restyling a component, modal, form, list, empty state or toast, or writing the words on screen. Not for logic, data or backend work, even inside a UI file.
+description: Use when changing what users see in an app built on `@gitbutler/ui-react`, such as the but.dev web app: adding or restyling a component, modal, form, list, empty state or toast, or writing the words on screen. Not for logic, data or backend work, even inside a UI file.
 ---
 
 # Building GitButler UI
@@ -49,8 +49,8 @@ same two places: an index of one page per topic, in `design/`, each saying
 when to read it. Read the pages for what you are building, not all of them.
 In Storybook they are the Design section, and `docs-list` lists them.
 
-Each app keeps its own choices in its own `DESIGN.md`: Lite's is
-`apps/lite/DESIGN.md`, but.dev's is at its repository root.
+Each app keeps its own choices in its own `DESIGN.md`; but.dev's is at its
+repository root.
 
 ## Words
 
@@ -61,5 +61,5 @@ on screen, once, without parentheses.
 ## Check it
 
 Look at the result in light and dark, and keep one screenshot. In the
-gitbutler repository a component's story runs with `pnpm -F @gitbutler/lite
-demos`; `apps/lite/AGENTS.md` has how to reach a single story.
+gitbutler repository a component's story runs with `pnpm -F @gitbutler/ui-react
+demos`; `packages/ui-react/AGENTS.md` has how to reach a single story.

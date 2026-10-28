@@ -1,8 +1,0 @@
-/* File rows outside a FileList panel, as on the graph: inset and a pixel apart, the way the panel
-   sets its own. */
-.rows {
-	display: flex;
-	row-gap: 1px;
-	flex-direction: column;
-	padding-inline: var(--padding-list);
-}

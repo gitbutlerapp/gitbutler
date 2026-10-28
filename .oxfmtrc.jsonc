@@ -23,8 +23,6 @@
 		"e2e/playwright/fixtures",
 		"packages/but-sdk/src/generated",
 		"packages/but-sdk/**/*.md",
-		"apps/lite/ui/src/routeTree.gen.ts",
-		"apps/lite/resources/icons/macos/icon.icon/icon.json",
 
 		// Everything above here was via --migrate prettier.
 		"*.toml",

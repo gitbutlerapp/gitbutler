@@ -19,8 +19,6 @@ allowBuilds:
   "@ffmpeg-installer/win32-x64": true
   "@prisma/client": true
   core-js: true
-  electron: true
-  electron-winstaller: true
   "@parcel/watcher": false
   "@posthog/cli": false
   "@sentry/cli": false

@@ -1,9 +1,9 @@
 name: Chromatic
 
-# Publishes the React Storybook (Lite's stories and @gitbutler/ui-react's) to
-# Chromatic. On master it becomes the published Storybook, with its MCP server's
-# docs tools; on a pull request it gives a preview link and a UI Review check
-# that compares every story's screenshot with master's.
+# Publishes @gitbutler/ui-react's Storybook to Chromatic. On master it becomes
+# the published Storybook, with its MCP server's docs tools; on a pull request
+# it gives a preview link and a UI Review check that compares every story's
+# screenshot with master's.
 #
 # A visual change doesn't fail the build: it waits in Chromatic's UI Review for
 # someone to accept or deny.
@@ -21,9 +21,6 @@ on:
     branches: [master]
   pull_request:
     paths:
-      - "apps/lite/ui/**"
-      - "apps/lite/.storybook/**"
-      - "apps/lite/package.json"
       - "packages/ui-react/**"
       - "pnpm-lock.yaml"
       - ".github/workflows/chromatic.yml"
@@ -61,12 +58,12 @@ jobs:
       - uses: $/.github/actions/init-env-node
       # The CLI from the lockfile rather than chromaui/action, which the
       # organisation's allowed-actions list doesn't include. Its options are the
-      # `chromatic` script in apps/lite/package.json: only the stories a change can
+      # `chromatic` script in packages/ui-react/package.json: only the stories a change can
       # affect are snapshotted, to stay inside the monthly quota, a visual change
       # waits in UI Review rather than failing, and the job ends once the
       # Storybook is uploaded while Chromatic takes the screenshots.
       - name: Publish to Chromatic
-        working-directory: apps/lite
+        working-directory: packages/ui-react
         env:
           CHROMATIC_PROJECT_TOKEN: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
           # The checkout is a detached commit, so name the branch it belongs to.
@@ -83,7 +80,7 @@ jobs:
         run: |
           # A push no story depends on skips the build: nothing to look at, and
           # the links would lead to a build that doesn't exist.
-          if jq -e '.skip == true' apps/lite/chromatic-diagnostics.json >/dev/null; then
+          if jq -e '.skip == true' packages/ui-react/chromatic-diagnostics.json >/dev/null; then
             echo "No story affected, so no build and no comment."
             exit 0
           fi
