@@ -15,6 +15,7 @@ use bstr::{BStr, ByteSlice as _};
 use but_api::commit::json::ChangesSource;
 use but_core::tree::create_tree::RejectionReason;
 use but_core::{DiffSpec, DryRun};
+use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 
 use super::intent::Run;
@@ -120,10 +121,10 @@ fn refuse_changed(repo: &gix::Repository, selected: &[Selected], whole: bool) ->
 /// can't be recorded only logs: the operation goes ahead, without its undo step.
 pub(super) fn record_undo(
     ctx: &but_ctx::Context,
-    kind: but_oplog::legacy::OperationKind,
+    kind: OperationKind,
     perm: &mut but_ctx::access::RepoExclusive,
 ) {
-    let details = but_oplog::legacy::SnapshotDetails::new(kind);
+    let details = SnapshotDetails::new(kind);
     let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
         ctx,
         details,
@@ -463,7 +464,6 @@ fn create_beside_checkout(
     head: &gix::refs::FullName,
     new_ref: Option<gix::refs::FullName>,
 ) -> Result<FullName> {
-    use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
     let (new_ref, base) = {
@@ -630,7 +630,6 @@ impl Intent for InsertEmptyCommit {
     type Done = CommitId;
 
     fn apply(self, run: &mut Run) -> Result<CommitId> {
-        use but_oplog::legacy::{OperationKind, SnapshotDetails};
         let (relative_to, side) = self.at.relative_to()?;
         let (made, _workspace) = run.locked(|ctx, perm| {
             let mut meta = ctx.meta()?;
@@ -662,7 +661,6 @@ impl Intent for CherryPick {
     type Done = Rewritten;
 
     fn apply(self, run: &mut Run) -> Result<Rewritten> {
-        use but_oplog::legacy::{OperationKind, SnapshotDetails};
         let Self { commits, to } = self;
         let (relative_to, side) = to.relative_to()?;
         let workspace = run.locked(|ctx, perm| {
@@ -751,7 +749,6 @@ impl Intent for DeleteBranchAndCommits {
     type Done = ();
 
     fn apply(self, run: &mut Run) -> Result<()> {
-        use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
         let Self { branch, tip } = self;
         run.locked(|ctx, perm| {
             let commits: Vec<gix::ObjectId> = {
@@ -848,7 +845,6 @@ impl Intent for MoveCommits {
     type Done = Rewritten;
 
     fn apply(self, run: &mut Run) -> Result<Rewritten> {
-        use but_oplog::legacy::{OperationKind, SnapshotDetails};
         let Self { commits, to } = self;
         let (relative_to, side) = to.relative_to()?;
         let workspace = run.locked(|ctx, perm| {
@@ -877,7 +873,6 @@ impl Intent for Squash {
     type Done = Rewritten;
 
     fn apply(self, run: &mut Run) -> Result<Rewritten> {
-        use but_oplog::legacy::{OperationKind, SnapshotDetails};
         use but_workspace::commit::squash_commits::MessageCombinationStrategy;
         let Self { commits, into } = self;
         let (made, workspace) = run.locked(|ctx, perm| {
@@ -916,7 +911,6 @@ impl Intent for Uncommit {
     type Done = ();
 
     fn apply(self, run: &mut Run) -> Result<()> {
-        use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
         let Self { commits } = self;
         run.locked(|ctx, perm| {
             refuse_buried_merges(&*ctx.repo.get()?, &commits)?;
@@ -1024,7 +1018,6 @@ impl Intent for MoveFiles {
     type Done = Rewritten;
 
     fn apply(self, run: &mut Run) -> Result<Rewritten> {
-        use but_oplog::legacy::{OperationKind, SnapshotDetails};
         let Self { from, to, files } = self;
         let changes = taken_specs(&files)?;
         let workspace = run.locked(|ctx, perm| {
@@ -1056,7 +1049,6 @@ impl Intent for DiscardFromCommit {
     type Done = Rewritten;
 
     fn apply(self, run: &mut Run) -> Result<Rewritten> {
-        use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
         let Self { commit, files } = self;
         let changes = taken_specs(&files)?;
         let workspace = run.locked(|ctx, perm| {
@@ -1090,7 +1082,6 @@ impl Intent for SplitOff {
     type Done = (Rewritten, CommitId);
 
     fn apply(self, run: &mut Run) -> Result<(Rewritten, CommitId)> {
-        use but_oplog::legacy::{OperationKind, SnapshotDetails};
         let Self { commit, files } = self;
         let changes = taken_specs(&files)?;
         let (new, workspace) = run.locked(|ctx, perm| {
@@ -1125,7 +1116,6 @@ impl Intent for MoveToNewBranch {
     type Done = (Rewritten, FullName);
 
     fn apply(self, run: &mut Run) -> Result<(Rewritten, FullName)> {
-        use but_oplog::legacy::{OperationKind, SnapshotDetails};
         let Self { commits } = self;
         run.locked(|ctx, perm| {
             let name = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
@@ -1161,7 +1151,6 @@ impl Intent for Reword {
     type Done = Rewritten;
 
     fn apply(self, run: &mut Run) -> Result<Rewritten> {
-        use but_oplog::legacy::{OperationKind, SnapshotDetails};
         let Self { commit, message } = self;
         let (made, workspace) = run.locked(|ctx, perm| {
             let mut meta = ctx.meta()?;
@@ -1193,7 +1182,6 @@ impl Intent for DiscardCommits {
     type Done = ();
 
     fn apply(self, run: &mut Run) -> Result<()> {
-        use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
         let Self { commits } = self;
         run.locked(|ctx, perm| {
             refuse_buried_merges(&*ctx.repo.get()?, &commits)?;
@@ -1233,7 +1221,6 @@ pub fn discard(
     selected: &[Selected],
     unrecorded: bool,
 ) -> Result<Option<Undiscarded>> {
-    use but_oplog::legacy::OperationKind;
     let mut ctx = open(path)?;
     // One lock throughout, so what's conflicted can't change under the discard.
     let mut guard = ctx.exclusive_worktree_access();
@@ -1263,7 +1250,7 @@ pub fn discard(
     // discarded. The oplog can't restore a linked worktree, so its discard has none.
     let mut recorded = false;
     if worktree.is_none() {
-        let details = but_oplog::legacy::SnapshotDetails::new(OperationKind::DiscardChanges);
+        let details = SnapshotDetails::new(OperationKind::DiscardChanges);
         let snapshot = but_oplog::UnmaterializedOplogSnapshot::prepare_checkpoint(
             &ctx,
             details,
