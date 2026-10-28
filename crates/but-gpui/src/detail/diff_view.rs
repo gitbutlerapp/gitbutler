@@ -1567,8 +1567,8 @@ fn line_menu(
 impl Detail {
     /// What right-clicking the line at `row` offers. Across selected text: copying it,
     /// finding it when it's on one line, and opening the file at the line. Otherwise what can
-    /// be done to a changed line's run, or to an unchanged line's hunk, or its file outside the
-    /// hunks.
+    /// be done to its hunk, which the cursor goes to, or to the picked lines when it's one of
+    /// them; to its file for an unchanged line outside the hunks.
     fn line_menu(
         &mut self,
         row: usize,
@@ -1618,8 +1618,6 @@ impl Detail {
             .filter(|(start, end)| (start.0..=end.0).contains(&row))
             .and_then(|_| self.selected_text());
         let Some(text) = selected else {
-            // A changed line's run, or the picked lines when it's one of them, as its grip
-            // takes; an unchanged one's hunk.
             let place = match diff.rows.get(row) {
                 Some(&DiffRow::Line { file, hunk, line }) => Some((file, hunk, line)),
                 _ => paired,
@@ -1627,9 +1625,12 @@ impl Detail {
             let changed = place
                 .filter(|place| line_of(*place).is_some_and(|line| line.kind != LineKind::Context));
             let key = hunk.and_then(|hunk| Some(file_diff.hunks().get(hunk)?.key));
-            let menu = match changed {
-                Some(place) => self.lines_cut(file, self.grip_takes(place), cx),
-                None => self.diff_cut(file, key.map(|key| vec![key]), cx),
+            let picked = changed.zip(key).is_some_and(|((_, _, line), key)| {
+                self.line_picked(&file_diff.file.path, key, line)
+            });
+            let menu = match picked {
+                true => self.lines_cut(file, self.picked_lines(file), cx),
+                false => self.diff_cut(file, key.map(|key| vec![key]), cx),
             };
             let added = (changed.and_then(line_of))
                 .filter(|line| line.kind == LineKind::Added)
@@ -1637,6 +1638,11 @@ impl Detail {
             let blamed = added.map(Blamed::Line).or(key.map(Blamed::Hunk));
             let at = At::File(file_diff.file.path.clone(), line);
             self.clear_text_selection(cx);
+            // So the hunk shows marked as what the menu acts on.
+            self.place_cursor(Cursor {
+                file,
+                at: hunk.map_or(Stop::File, Stop::Hunk),
+            });
             self.changes_menu(menu, at, blamed, position, cx);
             return;
         };
