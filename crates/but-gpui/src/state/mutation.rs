@@ -370,23 +370,20 @@ impl Store {
         }
     }
 
-    /// Whether an operation asked for after `asked`, or any at all without it, is waiting or
-    /// running in `project`, or in any without it, a push or a redo too: it's what the user
-    /// means to undo, and an undo asked for now would run after it.
+    /// Whether an operation that started after `asked`, or any without it, is running in
+    /// `project`, or in any without it, a push or a redo too: it's what the user means to undo.
     fn running_after(&self, asked: Option<Instant>, project: Option<&ProjectId>) -> bool {
-        self.unfinished_asked().any(|(p, o, at)| {
-            project.is_none_or(|project| p == project)
-                && (!o.remote_only || matches!(o.kind, OpKind::Push(_)))
-                && !matches!(o.kind, OpKind::Undo(_))
-                && asked.is_none_or(|asked| at > asked)
+        self.working().any(|r| {
+            project.is_none_or(|p| r.project == *p)
+                && (!r.overlay.remote_only || matches!(r.overlay.kind, OpKind::Push(_)))
+                && !matches!(r.overlay.kind, OpKind::Undo(_))
+                && asked.is_none_or(|asked| r.started > asked)
         })
     }
 
-    /// Every operation running, but for one waiting only for its reload, with its project and
-    /// when it was asked for.
-    fn unfinished_asked(&self) -> impl Iterator<Item = (&ProjectId, &Overlay, Instant)> {
-        let working = self.running.iter().filter(|r| r.phase == Phase::Working);
-        working.map(|r| (&r.project, &r.overlay, r.started))
+    /// Every operation running, but for one waiting only for its reload.
+    fn working(&self) -> impl Iterator<Item = &Running> {
+        self.running.iter().filter(|r| r.phase == Phase::Working)
     }
 
     /// Make the operation that recorded `snapshot` in `project` one ⌘Z takes back, among the
@@ -439,7 +436,7 @@ impl Store {
 
     /// Redo what ⌘Z last took back, unless the user has done something since.
     pub fn redo_last(&mut self, cx: &mut Context<Self>) {
-        if (self.unfinished_asked()).any(|(_, o, _)| matches!(o.kind, OpKind::Undo(_))) {
+        if (self.working()).any(|r| matches!(r.overlay.kind, OpKind::Undo(_))) {
             return self.snack("Wait for the undo to finish, then redo it", cx);
         }
         // The newest not being redone already.
@@ -1615,7 +1612,7 @@ impl Store {
 
     /// Operations quitting now would cut off.
     pub fn unfinished(&self) -> usize {
-        self.unfinished_asked().count()
+        self.working().count()
     }
 
     /// Operations besides the longest-running one, running in other projects.
