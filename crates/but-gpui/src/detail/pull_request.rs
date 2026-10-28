@@ -25,7 +25,7 @@ use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, ago, button, count_badge, dot, dp, dropdown_button, duration,
     h_flex, icon, keep_focus_on_press, local_time, muted, now, plural, relative_time, shortcut,
-    small_icon, tab_stop, v_flex,
+    small_icon, switch_grounds, switch_spring, tab_stop, v_flex,
 };
 
 /// How tall the tabs over the diff beside a list are.
@@ -729,6 +729,7 @@ fn headline(merge: &Mergeability, theme: &Theme) -> (SharedString, Hsla, Option<
 /// Auto-merge as Lite's outlined switch button: on while it merges by itself, pressable unless
 /// `why_not` says otherwise.
 fn auto_merge_switch(on: bool, why_not: Option<SharedString>, theme: &Theme) -> Stateful<Div> {
+    use gpui::AnimationExt as _;
     let offer = match on {
         true => Offer::DisableAutoMerge,
         false => Offer::EnableAutoMerge,
@@ -738,6 +739,7 @@ fn auto_merge_switch(on: bool, why_not: Option<SharedString>, theme: &Theme) -> 
         false => "Merge it by itself once its required checks and reviews pass".into(),
     });
     let enabled = why_not.is_none();
+    let [off_ground, on_ground] = switch_grounds(theme);
     let el = h_flex()
         .id("auto-merge")
         .role(Role::Switch)
@@ -759,13 +761,17 @@ fn auto_merge_switch(on: bool, why_not: Option<SharedString>, theme: &Theme) -> 
                 .h(dp(12.))
                 .p(dp(2.))
                 .rounded_full()
-                .bg(if on {
-                    theme.pop_bg
-                } else {
-                    theme.fill_gray.opacity(0.22)
-                })
-                .when(on, |el| el.justify_end())
-                .child(div().size(dp(8.)).rounded_full().bg(gpui::white())),
+                .with_spring("track", switch_spring(on), move |el, phase| {
+                    el.bg(phase.interpolate_clamped(off_ground, on_ground))
+                        .child(
+                            div()
+                                // The track's width, less its padding and the knob.
+                                .ml(phase.interpolate_clamped(dp(0.), dp(8.)))
+                                .size(dp(8.))
+                                .rounded_full()
+                                .bg(gpui::white()),
+                        )
+                }),
         )
         .child("Auto-merge")
         .tooltip(move |window, cx| {
