@@ -22,7 +22,7 @@ use super::panes::{
 use super::upstream::commit_author;
 
 use crate::app::AppView;
-use crate::backend::branches::{self, ApplyBranch, ApplyOutcome, OtherBranch};
+use crate::backend::branches::{self, ApplyBranch, ApplyOutcome, DescribeBranch, OtherBranch};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, FullName, ReviewState};
 use crate::edits::CherryPick;
@@ -1224,11 +1224,14 @@ impl Detail {
                     let (saved, gone, listed_in) =
                         (text.clone(), ref_name.clone(), project.clone());
                     app.store.update(cx, |store, cx| {
-                        store.run(
+                        store.apply(
                             &project,
                             "Describe branch",
                             Overlay::default(),
-                            move |path| branches::set_branch_description(path, &ref_name, &text),
+                            DescribeBranch {
+                                branch: ref_name,
+                                description: text,
+                            },
                             // Its refs didn't change, so the list isn't read again.
                             move |_, (), cx| {
                                 (detail.update(cx, |detail, cx| {

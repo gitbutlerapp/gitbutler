@@ -1877,8 +1877,15 @@ pub(super) mod tests {
     #[test]
     fn a_description_is_listed_and_follows_its_branch() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::branches::{
-                all_branches, move_description, set_branch_description,
+            use crate::backend::branches::{DescribeBranch, all_branches, move_description};
+            let describe = |path, branch, description: &str| {
+                crate::backend::apply(
+                    path,
+                    DescribeBranch {
+                        branch: full(branch),
+                        description: description.to_owned(),
+                    },
+                )
             };
             let dir = repo_with("one\n");
             let path = dir.path();
@@ -1887,7 +1894,7 @@ pub(super) mod tests {
             git(path, &["commit", "-q", "--allow-empty", "-m", "Topic"]);
             git(path, &["checkout", "-q", "main"]);
 
-            set_branch_description(path, &full("refs/heads/topic"), "  Why it's there \n").unwrap();
+            describe(path, "refs/heads/topic", "  Why it's there \n").unwrap();
             let listed = (all_branches(path).unwrap().into_iter())
                 .find(|branch| branch.name == "topic")
                 .and_then(|branch| branch.description);
@@ -1918,7 +1925,7 @@ pub(super) mod tests {
                 "and goes with the branch, as `git branch -d` drops it"
             );
             assert!(
-                set_branch_description(path, &full("refs/heads/renamed"), "Lost?").is_err(),
+                describe(path, "refs/heads/renamed", "Lost?").is_err(),
                 "a branch that's gone isn't given one, for a later branch by its name to take up"
             );
         })

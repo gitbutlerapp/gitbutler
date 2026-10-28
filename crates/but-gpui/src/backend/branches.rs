@@ -159,32 +159,42 @@ fn descriptions(repo: &gix::Repository) -> HashMap<BString, BString> {
         .collect()
 }
 
-/// Set local branch `ref_name`'s description where Git keeps it, as `git branch
+/// Set local branch `branch`'s description where Git keeps it, as `git branch
 /// --edit-description` does; a blank one removes it. Git config isn't in the oplog, so it
 /// isn't a step to undo.
-pub fn set_branch_description(
-    path: &Path,
-    ref_name: &super::FullName,
-    description: &str,
-) -> Result<()> {
-    let mut ctx = open(path)?;
-    let name = ref_name;
-    anyhow::ensure!(
-        name.category() == Some(gix::refs::Category::LocalBranch),
-        "Only a local branch has a description"
-    );
-    let _guard = ctx.exclusive_worktree_access();
-    let repo = ctx.repo.get()?;
-    // Not under a name that's gone, as after an agent renamed it while it was being written,
-    // where a branch made later by that name would take it up. Copying the error keeps it.
-    if repo.try_find_reference(name.as_ref())?.is_none() {
-        anyhow::bail!(
-            "{} was renamed or deleted meanwhile, so this wasn't saved:\n\n{description}",
-            name.shorten()
+pub struct DescribeBranch {
+    pub branch: super::FullName,
+    pub description: String,
+}
+
+impl Intent for DescribeBranch {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        let Self {
+            branch,
+            description,
+        } = self;
+        anyhow::ensure!(
+            branch.category() == Some(gix::refs::Category::LocalBranch),
+            "Only a local branch has a description"
         );
+        run.locked(|ctx, _| {
+            let repo = ctx.repo.get()?;
+            // Not under a name that's gone, as after an agent renamed it while it was being
+            // written, where a branch made later by that name would take it up. Copying the
+            // error keeps it.
+            if repo.try_find_reference(branch.as_ref())?.is_none() {
+                anyhow::bail!(
+                    "{} was renamed or deleted meanwhile, so this wasn't saved:\n\n{}",
+                    branch.shorten(),
+                    description
+                );
+            }
+            let description = Some(description.trim()).filter(|d| !d.is_empty());
+            write_description(&repo, branch.shorten(), description.map(BStr::new))
+        })
     }
-    let description = Some(description.trim()).filter(|d| !d.is_empty());
-    write_description(&repo, name.shorten(), description.map(BStr::new))
 }
 
 /// Move branch `from`'s description to `to`, as `git branch -m` does, or drop it with no `to`,
