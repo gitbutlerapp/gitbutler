@@ -859,24 +859,17 @@ impl Store {
         }
         let pushed = project.clone();
         let run_hooks = self.runs_hooks(project);
-        self.run(
+        self.apply(
             project,
             Label::new("Push", format!("Push {name}")),
             Overlay::push(&ref_name, false),
-            {
-                let ref_name = ref_name.clone();
-                move |path| match backend::push(
-                    path,
-                    &ref_name,
-                    protect,
-                    drops.as_deref(),
-                    run_hooks,
-                ) {
-                    Ok((_, sync_failed)) => Ok(Ok(sync_failed)),
-                    Err(err) => backend::push_refusal(&err).map(Err).ok_or(err),
-                }
+            backend::upstream::Push {
+                ref_name: ref_name.clone(),
+                protect,
+                drops,
+                run_hooks,
             },
-            move |store, outcome: Result<Option<String>, String>, cx| {
+            move |store, outcome, cx| {
                 // A push can open or move a pull request's checks, and the branches below
                 // may have gone up before the one refused.
                 store.refresh_forge(&pushed);
@@ -944,25 +937,16 @@ impl Store {
         }
         let published = project.clone();
         let run_hooks = self.runs_hooks(project);
-        self.run(
+        self.apply(
             project,
             "Create pull request",
             Overlay::push(&ref_name, true),
-            {
-                let ref_name = ref_name.clone();
-                move |path| {
-                    let made =
-                        backend::reviews::publish(path, &ref_name, title, body, draft, run_hooks);
-                    Ok(
-                        made.map_err(|err| match backend::push_refusal(&err).as_deref() {
-                            None => backend::failure_detail(&err),
-                            Some("") => "Someone pushed to the branch since the last fetch, and \
-                                     pushing would drop their commits. Fetch to see them."
-                                .to_owned(),
-                            Some(said) => format!("The remote refused the push: {said}"),
-                        }),
-                    )
-                }
+            backend::reviews::Publish {
+                ref_name,
+                title,
+                body,
+                draft,
+                run_hooks,
             },
             move |store, made, cx| {
                 // The push can move the stack's other pull requests too.
@@ -977,9 +961,16 @@ impl Store {
                             store.error(said, message, cx);
                         }
                     }
-                    Err(failed) => {
+                    Err(err) => {
                         // The branches may have gone up before the forge said no.
                         store.pushed(&published);
+                        let failed = match backend::upstream::push_refusal(&err).as_deref() {
+                            None => backend::failure_detail(&err),
+                            Some("") => "Someone pushed to the branch since the last fetch, and \
+                                         pushing would drop their commits. Fetch to see them."
+                                .to_owned(),
+                            Some(said) => format!("The remote refused the push: {said}"),
+                        };
                         let said = "Couldn't create the pull request".to_owned();
                         let said = store.card_title(&published, said);
                         store.error_with_retry(said, failed, "Try again", again, cx);

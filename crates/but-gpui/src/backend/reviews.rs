@@ -10,11 +10,12 @@ use but_api::legacy::forge;
 use but_ctx::Context;
 use but_forge::ForgeName;
 
+use super::intent::Run;
 use super::ops::holds;
-use super::upstream::sync_failure;
+use super::upstream::{push, sync_failure};
 use super::{
-    CheckRun, Checks, DiffLine, Forge, ForgeUser, Note, PushState, Remark, Review, ReviewLabel,
-    ReviewState, Thread, open, push, runtime, short_ref,
+    CheckRun, Checks, DiffLine, Forge, ForgeUser, Intent, Note, PushState, Remark, Review,
+    ReviewLabel, ReviewState, Thread, open, runtime, short_ref,
 };
 
 /// Which forge hosts the project: the one its target's remote, or a forge account with a
@@ -300,39 +301,58 @@ pub struct Published {
     pub sync_failed: Option<String>,
 }
 
-/// Push `branch` (a full ref) and the branches below it, those that have anything to push,
-/// then open a pull request for it. `run_hooks` runs the pre-push hook first.
-pub fn publish(
-    path: &Path,
-    branch: &super::FullName,
-    title: String,
-    body: String,
-    draft: bool,
-    run_hooks: bool,
-) -> Result<Published> {
-    // The pull request's head is the branch as the remote names it: what a push reports,
-    // or for a branch pushed before, the remote branch it tracks.
-    let (pushed, push_sync_failed) = push(path, branch, true, Some(&[]), run_hooks)?;
-    let short = short_ref(branch).into_owned();
-    let ctx = open(path)?;
-    let pushed = match pushed {
-        Some(name) => Some(name),
-        None => tracked_name(&ctx, branch)?,
-    };
-    let outcome = runtime().handle().block_on(forge::publish_review(
-        ctx.into_sync(),
-        forge::PublishReviewInput {
+/// Push `ref_name` and the branches below it, those that have anything to push, then open a
+/// pull request for it. `run_hooks` runs the pre-push hook first. Done says why it failed, a
+/// refused push included, so the card can offer to try again.
+pub struct Publish {
+    pub ref_name: super::FullName,
+    pub title: String,
+    pub body: String,
+    pub draft: bool,
+    pub run_hooks: bool,
+}
+
+impl Intent for Publish {
+    type Done = Result<Published>;
+
+    fn apply(self, run: &mut Run) -> Result<Result<Published>> {
+        Ok(self.publish(run.path()))
+    }
+}
+
+impl Publish {
+    fn publish(self, path: &Path) -> Result<Published> {
+        let Self {
+            ref_name,
             title,
             body,
-            source_branch: pushed.unwrap_or_else(|| short.clone()),
-            local_branch: short,
             draft,
-        },
-    ))?;
-    Ok(Published {
-        number: outcome.review.number as u64,
-        sync_failed: sync_failure(outcome.review_sync).or(push_sync_failed),
-    })
+            run_hooks,
+        } = self;
+        // The pull request's head is the branch as the remote names it: what a push reports,
+        // or for a branch pushed before, the remote branch it tracks.
+        let (pushed, push_sync_failed) = push(path, &ref_name, true, Some(&[]), run_hooks)?;
+        let short = short_ref(&ref_name).into_owned();
+        let ctx = open(path)?;
+        let pushed = match pushed {
+            Some(name) => Some(name),
+            None => tracked_name(&ctx, &ref_name)?,
+        };
+        let outcome = runtime().handle().block_on(forge::publish_review(
+            ctx.into_sync(),
+            forge::PublishReviewInput {
+                title,
+                body,
+                source_branch: pushed.unwrap_or_else(|| short.clone()),
+                local_branch: short,
+                draft,
+            },
+        ))?;
+        Ok(Published {
+            number: outcome.review.number as u64,
+            sync_failed: sync_failure(outcome.review_sync).or(push_sync_failed),
+        })
+    }
 }
 
 /// The name of the remote branch `branch` (a full ref) tracks, without its remote.

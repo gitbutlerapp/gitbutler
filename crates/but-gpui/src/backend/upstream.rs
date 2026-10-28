@@ -643,7 +643,7 @@ pub fn fetch_status(path: &Path) -> Result<Option<(Option<i64>, Option<String>)>
 /// was pushed, and with `run_hooks` after the repository's pre-push hook passes. Returns the
 /// name it has on its remote, which needn't be its local one, and why updating the stack's
 /// pull requests afterwards failed, if it did.
-pub fn push(
+pub(super) fn push(
     path: &Path,
     ref_name: &super::FullName,
     protect: bool,
@@ -731,6 +731,32 @@ pub fn push(
         .find(|(branch, _, _)| *branch == short || *branch == full)
         .map(|(_, _, remote)| remote);
     Ok((remote, sync_failure(outcome.review_sync)))
+}
+
+/// Push `ref_name` as [`push()`] does. Done is why updating the stack's pull requests failed,
+/// if it did, or what [`push_refusal()`] makes of a refused push.
+pub struct Push {
+    pub ref_name: super::FullName,
+    pub protect: bool,
+    pub drops: Option<Vec<CommitId>>,
+    pub run_hooks: bool,
+}
+
+impl Intent for Push {
+    type Done = Result<Option<String>, String>;
+
+    fn apply(self, run: &mut Run) -> Result<Result<Option<String>, String>> {
+        let Self {
+            ref_name,
+            protect,
+            drops,
+            run_hooks,
+        } = self;
+        match push(run.path(), &ref_name, protect, drops.as_deref(), run_hooks) {
+            Ok((_, sync_failed)) => Ok(Ok(sync_failed)),
+            Err(err) => push_refusal(&err).map(Err).ok_or(err),
+        }
+    }
 }
 
 /// Why updating the stack's pull requests failed, if it did.
