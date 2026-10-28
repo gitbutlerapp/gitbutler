@@ -202,6 +202,18 @@ pub fn push_scope_with_expensive_commit_info(
     }))
 }
 
+/// The short names of the branches a push of `branch` pushes: `branch` and those beneath it, down
+/// the lanes it rests on, that the remote doesn't have yet.
+pub fn branches_to_push(
+    ctx: &Context,
+    branch: &gix::refs::FullNameRef,
+) -> anyhow::Result<Vec<String>> {
+    let (info, _) = head_info(ctx, true)?;
+    Ok(but_workspace::legacy::push::branches_to_push(&info, branch)
+        .map(|(_, ref_name)| ref_name.shorten().to_string())
+        .collect())
+}
+
 /// The branches a review of `branch` stacks on followed by `branch` itself, base first: those
 /// beneath it in its lane and in each lane it rests on. `None` if `branch` is in no lane.
 pub fn review_chain(
