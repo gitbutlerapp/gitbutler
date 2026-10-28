@@ -202,4 +202,5 @@ It is a member of the main workspace, so `cargo check --workspace` catches `but-
 
 - `GITBUTLER_GPUI_APPEARANCE=dark` (or `light`) overrides the system appearance.
 - `E2E_TEST_APP_DATA_DIR=<dir>` points GitButler's app data and settings at a sandbox.
-- Build with `cargo build -p but-gpui --features dev-script` and set `GITBUTLER_GPUI_SCRIPT=<file>` to replay clicks, drags and keystrokes and save screenshots of the window. `src/dev.rs` documents the commands.
+- Build with `cargo build -p but-gpui --features dev-script` and set `GITBUTLER_GPUI_SCRIPT=<file>` to replay clicks, drags and keystrokes and save screenshots of the window. `src/dev.rs` documents the commands. The window never shows, the app stays out of the Dock and never takes the keys from the app in front, and the run quits when the script ends.
+- `scripts/drive.sh run <file>` builds that and runs the script against app data of its own, killing it after a timeout. `scripts/drive.sh start`, then `step <command>…` and `stop`, drives one run a step at a time, saving a screenshot after each.

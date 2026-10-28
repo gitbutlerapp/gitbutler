@@ -18,8 +18,9 @@ so update it, shortcuts table included, with every change in behaviour.
   it's in `assets/fonts` and add it from the full Inter if not, as the key symbols were.
 - The files are cut 60 lighter than the design-core weights they stand in for, because GPUI
   draws thicker stems than Chrome. Compare against but.dev before changing a weight: render both
-  at the same scale (headless Chrome with `--force-device-scale-factor=2` and a harness `shot`)
-  and compare stem thickness, not screenshots taken at different scales.
+  at the same scale (headless Chrome with `--force-device-scale-factor=2` and a harness `shot`
+  of a region, which keeps the display's scale) and compare stem thickness, not screenshots
+  taken at different scales.
 
 ## Measuring performance
 
@@ -33,7 +34,7 @@ so update it, shortcuts table included, with every change in behaviour.
   nothing in the app changed. The dev script opts out with `NSProcessInfo` (see `src/dev.rs`).
   Keep it in any harness that drives the app off screen, and distrust a slowdown that starts
   partway through a run.
-- The harness window is off screen, so macOS draws it only when the script asks. Anything that
+- The harness window never shows, so macOS draws it only when the script asks. Anything that
   needs a second frame shows in the next step's screenshot, not this one's.
 - Profile with `sample <pid> <seconds> -file out.txt`. Look at the main thread: a scripted run
   idles between steps, so most samples there are idle. A thread's sample count is how long it
@@ -258,14 +259,19 @@ anything else.
 
 ## Scripted runs
 
+- Look at the UI with `scripts/drive.sh` (the `gpui-screenshots` skill), never by starting the
+  app: `cargo run` and the plain binary open a window on the user's screen and take their keys.
+  It builds the dev-script binary, runs a script against app data of its own, and keeps a
+  session to step through. Its window never shows, the app stays out of the Dock and never
+  comes in front, and a run quits when its script ends. `drive.sh run --release` measures.
 - The plain and dev-script builds write the same `target/release/gitbutler-gpui`. The plain one
   ignores `GITBUTLER_GPUI_SCRIPT`, and the run hangs. Check with
   `strings target/release/gitbutler-gpui | grep -c GITBUTLER_GPUI_SCRIPT`, and rebuild the plain
   one with `cargo build --release -p but-gpui -p gitbutler-git --bins` when done, so the askpass
   helper is there for pushes.
-- The script waits for loads to settle without a timeout, quit waits for running operations, and
-  macOS has no `timeout`, so guard long runs with a kill of your own. Kill only the process you
-  started.
+- The script waits for loads to settle without a timeout and quit waits for running operations,
+  so `drive.sh` kills a run after its `--timeout`. Running the binary yourself, guard it with a
+  kill of your own, as macOS has no `timeout`. Kill only the process you started.
 - Each step settles for 120ms, so a delay shorter than that never shows. Stretch the constant to
   check one. A hover registers only after a second small `move`.
 - `dclick` draws a frame between its clicks, as a hand's double-click has several, so the second
@@ -283,18 +289,28 @@ anything else.
 - To make an operation slow enough to race, turn on signing with a `gpg.program` script that
   sleeps, then prints a dummy signature. Keep the racing steps in one script run.
 - Rows move under the pointer: a drag inserts drop zones, and an optimistic stand-in adds a row.
-  Take a `shot` mid-drag with `hold` and aim from it. Coordinates read off a cropped shot need the
-  crop's origin added.
+  Take a `shot` mid-drag with `hold` and aim from it. A whole-window shot is at the window's
+  scale, so its pixels are click coordinates; a region keeps the display's, so divide by it and
+  add the region's origin.
+- Typing reaches what `keys` names, and `drive.sh step` prints it after each step. In a list or
+  the diff, letters run shortcuts, and after `add` the navigator has the keys, so click a field
+  before typing in it.
 - The log target is `but_gpui`, as in `RUST_LOG=but_gpui=debug`. The log also goes to the
   desktop app's log folder (`backend::logs::dir()`), which in a sandbox is
   `$E2E_TEST_APP_DATA_DIR/logs`.
-- The harness window is off screen, which macOS reports as hidden, so a scripted run ignores
+- The harness window never shows, which macOS reports as hidden, so a scripted run ignores
   the real visibility and starts shown. `hide` and `show` steps set it, as covering the window
   and bringing it back would.
+- The harness window is never key, as the app never comes in front, and GPUI runs focus and
+  blur listeners only in a key window: `on_focus` and `on_blur` never fire, so a rename doesn't
+  end on a click elsewhere, and carets don't blink. `on_focus_lost` fires as usual. Check those
+  by hand.
+- AppKit's own windows, as Add project's folder picker, would still open on the user's screen,
+  so add projects with `add`.
 
 ## Sandboxes and fixtures
 
-- Run against an `E2E_TEST_APP_DATA_DIR` sandbox. Opening Settings > AI, or searching settings,
+- Run against an `E2E_TEST_APP_DATA_DIR` sandbox, as `drive.sh` does. Opening Settings > AI, or searching settings,
   reads the keychain and prompts. Copy menu items write the real clipboard.
 - Adoption archives every linked worktree it finds the first time, so mark the project adopted
   before adding worktrees, or they vanish from the navigator.

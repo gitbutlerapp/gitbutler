@@ -199,9 +199,12 @@ impl AppView {
             }),
             #[cfg(target_os = "macos")]
             cx.observe_global_in::<Theme>(window, |_, window, cx| place_traffic_lights(window, cx)),
+            // A scripted window opens off screen, which isn't where the user left theirs.
             cx.observe_window_bounds(window, |this, window, cx| {
-                this.store
-                    .update(cx, |store, cx| store.save_window_place(window, cx));
+                if !scripted() {
+                    this.store
+                        .update(cx, |store, cx| store.save_window_place(window, cx));
+                }
             }),
             cx.observe_window_visibility(window, |this, visibility, _, cx| {
                 if !scripted() {
@@ -1300,7 +1303,7 @@ fn show_cursor_again(window: &Window) {
 }
 
 /// Whether a dev script drives the window, which then says when it's hidden.
-fn scripted() -> bool {
+pub(crate) fn scripted() -> bool {
     #[cfg(feature = "dev-script")]
     return crate::dev::scripted();
     #[cfg(not(feature = "dev-script"))]
