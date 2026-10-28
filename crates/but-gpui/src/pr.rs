@@ -451,14 +451,14 @@ impl AppView {
         }
         let method = merge_method(self.store.read(cx), &project).unwrap_or(MergeMethod::Merge);
         self.store.update(cx, |store, cx| {
-            store.run(
+            store.apply(
                 &project,
                 "Merge pull request",
                 Overlay {
                     merges: Some(number),
                     ..Overlay::remote()
                 },
-                move |path| reviews::merge(path, number, method),
+                reviews::Merge { number, method },
                 |store, merged, cx| {
                     let said = match merged {
                         true => "Merged, Update brings it into your workspace",
@@ -514,14 +514,14 @@ impl AppView {
             false => ("Disable auto-merge", "Auto-merge is off"),
         };
         self.store.update(cx, |store, cx| {
-            store.run(
+            store.apply(
                 &project,
                 label,
                 Overlay {
                     auto_merges: Some((number, on)),
                     ..Overlay::remote()
                 },
-                move |path| reviews::set_auto_merge(path, number, on),
+                reviews::SetAutoMerge { number, on },
                 move |store, (), cx| store.snack(done, cx),
                 cx,
             )

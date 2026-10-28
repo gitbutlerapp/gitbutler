@@ -4,11 +4,9 @@
 
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use anyhow::Result;
 use gpui::{Context, SharedString, Task};
 
 use super::{Notice, ProjectId, Reload, Selection, Store, StoreEvent};
@@ -1187,23 +1185,6 @@ impl Store {
             },
             cx,
         );
-    }
-
-    /// [`Self::apply`] for an operation not yet written as an intent.
-    pub fn run<T: Send + 'static>(
-        &mut self,
-        project: &ProjectId,
-        label: impl Into<Label>,
-        overlay: Overlay,
-        op: impl FnOnce(&Path) -> Result<T> + Send + 'static,
-        done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
-        cx: &mut Context<Self>,
-    ) {
-        let legacy = backend::Legacy {
-            work: op,
-            remote_only: overlay.remote_only,
-        };
-        self.apply(project, label, overlay, legacy, done, cx)
     }
 
     /// Apply `intent` to `project`, then reload it, busy until the reload lands. Until then,

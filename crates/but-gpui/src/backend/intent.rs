@@ -111,27 +111,3 @@ pub fn apply<I: Intent>(path: &Path, intent: I) -> Result<(I::Done, Ran)> {
 pub fn now_millis() -> i64 {
     (SystemTime::now().duration_since(UNIX_EPOCH)).map_or(0, |t| t.as_millis() as i64)
 }
-
-/// An operation not yet written as an intent: a closure on the project's path.
-pub struct Legacy<F> {
-    pub work: F,
-    pub remote_only: bool,
-}
-
-impl<F, T> Intent for Legacy<F>
-where
-    F: FnOnce(&Path) -> Result<T> + Send + 'static,
-    T: Send + 'static,
-{
-    type Done = T;
-
-    fn apply(self, run: &mut Run) -> Result<T> {
-        match self.remote_only {
-            true => (self.work)(&run.path),
-            false => {
-                let path = run.path.clone();
-                run.watched(|_| (self.work)(&path))
-            }
-        }
-    }
-}

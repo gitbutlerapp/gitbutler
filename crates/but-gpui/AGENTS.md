@@ -171,8 +171,8 @@ unseen is what a laptop's battery pays for.
   their change IDs; any conflicted commit the main checkout doesn't know may be a linked
   worktree's that was conflicted already.
 - A project runs one operation at a time, until the reload after it lands, and `Store::apply`
-  (which `Store::run` wraps a closure for) turns down another asked for meanwhile, so each acts
-  on the state the user saw the one before leave; nothing queues. Fetches, pushes and deleting a
+  turns down another asked for meanwhile, so each acts on the state the user saw the one before
+  leave; nothing queues. Fetches, pushes and deleting a
   linked worktree (`OpKind::beside`) run beside it, refusing only one of their own kind, and
   record no undo step: `Store::apply` drops the oplog entry and linked-worktree moves seen
   around them. Operations are told apart by

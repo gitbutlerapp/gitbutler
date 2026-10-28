@@ -40,7 +40,7 @@ use but_core::{
 use but_ctx::Context;
 
 pub use diff::{DiffSource, blame_lines, commit_paths, file_lines, load_diff};
-pub use intent::{Intent, Legacy, apply, now_millis};
+pub use intent::{Intent, apply, now_millis};
 pub use model::*;
 pub use ops::*;
 pub use reviews::{refresh_checks, refresh_reviews};
