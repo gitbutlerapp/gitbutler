@@ -37,19 +37,6 @@ pub async fn list_recently_closed(
         .context("Failed to list recently closed merge requests")
 }
 
-pub async fn list_all_for_target(
-    preferred_account: Option<&crate::GitlabAccountIdentifier>,
-    project_id: GitLabProjectId,
-    target_branch: &str,
-    storage: &but_forge_storage::Controller,
-) -> Result<Vec<crate::client::MergeRequest>> {
-    GitLabClient::from_storage(storage, preferred_account)?
-        .list_mrs_for_target(project_id, target_branch)
-        .await
-        .map_err(classify_review_listing_error)
-        .context("Failed to list merge requests for target branch")
-}
-
 pub async fn list_for_commit(
     preferred_account: Option<&crate::GitlabAccountIdentifier>,
     project_id: GitLabProjectId,

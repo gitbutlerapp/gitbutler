@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    ffi::OsString,
     path::{Path, PathBuf},
 };
 
@@ -187,7 +186,9 @@ where
         current_exe = current_exe.parent().unwrap().to_path_buf();
     }
 
-    let askpath_path = askpass_executable_path(&current_exe);
+    let askpath_path = current_exe
+        .with_file_name("gitbutler-git-askpass")
+        .with_extension(std::env::consts::EXE_EXTENSION);
 
     let res = executor.stat(&askpath_path).await.map_err(Error::<E>::Exec);
     if res.is_err() {
@@ -333,21 +334,6 @@ where
             }
         }
     }
-}
-
-fn askpass_executable_path(current_exe: &Path) -> PathBuf {
-    askpass_executable_path_from_override(std::env::var_os("GITBUTLER_ASKPASS_BIN"), current_exe)
-}
-
-fn askpass_executable_path_from_override(
-    override_path: Option<OsString>,
-    current_exe: &Path,
-) -> PathBuf {
-    override_path.map(PathBuf::from).unwrap_or_else(|| {
-        current_exe
-            .with_file_name("gitbutler-git-askpass")
-            .with_extension(std::env::consts::EXE_EXTENSION)
-    })
 }
 
 /// Directly execute the Git command without invoking the askpass pipe machinery. This is useful
@@ -703,8 +689,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::{ffi::OsString, path::Path};
-
     #[tokio::test]
     async fn fetch_distinguishes_missing_remotes_from_invalid_configuration() -> anyhow::Result<()>
     {
@@ -738,39 +722,5 @@ mod tests {
             "an existing remote with an invalid refspec remains a configuration error"
         );
         Ok(())
-    }
-
-    #[test]
-    fn askpass_executable_path_honors_override() {
-        let path = super::askpass_executable_path_from_override(
-            Some(OsString::from("/tmp/custom-askpass")),
-            Path::new("/Applications/GitButler Lite.app/Contents/MacOS/GitButler Lite"),
-        );
-
-        assert_eq!(
-            path,
-            Path::new("/tmp/custom-askpass"),
-            "explicit askpass path should be used for packaged Electron apps"
-        );
-    }
-
-    #[test]
-    fn askpass_executable_path_falls_back_next_to_current_exe() {
-        let path =
-            super::askpass_executable_path_from_override(None, Path::new("/tmp/gitbutler-lite"));
-        let expected = if std::env::consts::EXE_EXTENSION.is_empty() {
-            "/tmp/gitbutler-git-askpass".to_string()
-        } else {
-            format!(
-                "/tmp/gitbutler-git-askpass.{}",
-                std::env::consts::EXE_EXTENSION
-            )
-        };
-
-        assert_eq!(
-            path,
-            Path::new(&expected),
-            "fallback should preserve the historical current_exe sibling lookup"
-        );
     }
 }

@@ -453,8 +453,8 @@ pub fn create_branch(path: &Path, name: Option<&str>) -> Result<FullName> {
 /// conflicts, whatever the target has done since.
 ///
 /// A stopgap until `but_api::branch::branch_create` does this itself: it refuses a branch of
-/// its own outside the workspace, and the CLI's way around that lives in the CLI. This is
-/// `branch_checkout_new` with the branch applied rather than checked out, in one step to undo.
+/// its own outside the workspace, and the CLI's way around that lives in the CLI. The branch is
+/// applied rather than checked out, in one step to undo.
 fn create_beside_checkout(
     ctx: &mut but_ctx::Context,
     head: &gix::refs::FullName,
