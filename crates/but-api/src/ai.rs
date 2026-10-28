@@ -9,10 +9,9 @@ use anyhow::{Context as _, Result, bail};
 use but_api_macros::but_api;
 use but_core::git_config::edit_config;
 use but_llm::{
-    AI_ANTHROPIC_SECRET_HANDLE, AI_OPENAI_SECRET_HANDLE, AI_OPENROUTER_SECRET_HANDLE,
-    AiConfiguration as DomainConfiguration, AnthropicConfiguration, CredentialsKeyOption,
-    GITBUTLER_ACCESS_TOKEN_HANDLE, LLMProviderKind, LmStudioConfiguration, OllamaConfiguration,
-    OpenAiConfiguration, clear_ai_configuration,
+    AI_ANTHROPIC_SECRET_HANDLE, AI_OPENAI_SECRET_HANDLE, AiConfiguration as DomainConfiguration,
+    AnthropicConfiguration, CredentialsKeyOption, GITBUTLER_ACCESS_TOKEN_HANDLE, LLMProviderKind,
+    LmStudioConfiguration, OllamaConfiguration, OpenAiConfiguration,
 };
 use but_secret::{Sensitive, secret};
 use serde::{Deserialize, Serialize};
@@ -251,20 +250,6 @@ pub fn update_ai_configuration(update: AiConfigurationUpdate) -> Result<AiConfig
         configuration.apply(config)
     })?;
 
-    get_configuration()
-}
-
-/// Clear application-global AI configuration and stored provider API keys.
-#[but_api(napi, invalidates = [AiConfiguration])]
-pub fn reset_ai_configuration() -> Result<AiConfiguration> {
-    edit_config(None, gix::config::Source::User, clear_ai_configuration)?;
-    for handle in [
-        AI_OPENAI_SECRET_HANDLE,
-        AI_ANTHROPIC_SECRET_HANDLE,
-        AI_OPENROUTER_SECRET_HANDLE,
-    ] {
-        secret::delete(handle, secret::Namespace::Global)?;
-    }
     get_configuration()
 }
 

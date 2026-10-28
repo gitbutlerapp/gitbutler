@@ -442,7 +442,6 @@ async fn stored_account(replies: Vec<Reply>) -> StoredAccount {
 #[derive(Debug, Clone, Copy)]
 enum Read {
     OpenList,
-    TargetList,
     CommitList,
     RecentlyClosed,
     Get,
@@ -460,9 +459,6 @@ async fn perform(
     let project = GitLabProjectId::new("group", "repo");
     Ok(match read {
         Read::OpenList => but_gitlab::mr::list(account, project, storage).await?.len(),
-        Read::TargetList => but_gitlab::mr::list_all_for_target(account, project, "main", storage)
-            .await?
-            .len(),
         Read::CommitList => {
             but_gitlab::mr::list_for_commit(account, project, "0123456789abcdef", storage)
                 .await?
@@ -498,7 +494,6 @@ fn rejected_token_on_read_paths_carries_the_unauthorized_code_on_every_seam() {
                 Read::OpenList,
                 vec![page(format!("[{}]", mr(1)), "2"), reply(401, REJECTED)],
             ),
-            (Read::TargetList, vec![reply(401, REJECTED)]),
             (Read::CommitList, vec![reply(401, REJECTED)]),
             (Read::RecentlyClosed, vec![reply(401, REJECTED)]),
             (
@@ -545,7 +540,6 @@ fn forbidden_review_listing_carries_the_access_refusal_code() {
                 Read::OpenList,
                 vec![page(format!("[{}]", mr(1)), "2"), reply(403, REJECTED)],
             ),
-            (Read::TargetList, vec![reply(403, REJECTED)]),
             (Read::CommitList, vec![reply(403, REJECTED)]),
             (Read::RecentlyClosed, vec![reply(403, REJECTED)]),
             (
@@ -641,7 +635,6 @@ fn read_failures_other_than_a_rejected_token_stay_unclassified() {
 
     run(async {
         let cases: Vec<(Read, Vec<Reply>, &str)> = vec![
-            (Read::TargetList, vec![reply(404, REJECTED)], "404"),
             (Read::CommitList, vec![reply(404, REJECTED)], "404"),
             (Read::RecentlyClosed, vec![reply(404, REJECTED)], "404"),
             (Read::Get, vec![reply(404, REJECTED)], "404"),

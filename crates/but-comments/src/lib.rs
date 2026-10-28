@@ -335,26 +335,6 @@ pub struct Listing {
     pub persisted_changes: bool,
 }
 
-/// Replace the payload of the unarchived comment with the given `id`.
-pub fn update_payload(
-    store: &CommentStore,
-    id: &str,
-    payload: String,
-    now_ms: i64,
-) -> anyhow::Result<()> {
-    store.update(|comments| {
-        let Some(comment) = comments.iter_mut().find(|c| c.id == id) else {
-            bail!("No comment with id {id}");
-        };
-        if comment.archived_at_ms.is_some() {
-            bail!("Comment {id} is archived and cannot be updated");
-        }
-        comment.payload = payload;
-        comment.updated_at_ms = now_ms;
-        Ok(())
-    })
-}
-
 /// Archive the comment with the given `id`, hiding it from all future listings.
 /// Returns `false` if the comment does not exist or was already archived.
 pub fn archive_comment(store: &CommentStore, id: &str, now_ms: i64) -> anyhow::Result<bool> {

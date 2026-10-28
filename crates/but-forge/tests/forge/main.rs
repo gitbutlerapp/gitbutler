@@ -8,7 +8,7 @@ mod repo;
 mod review;
 mod test_support;
 
-use but_forge::{ForgeName, ForgeRepoInfo, ForgeUser, current_forge_login, derive_forge_repo_info};
+use but_forge::{ForgeName, derive_forge_repo_info};
 
 #[test]
 fn derives_supported_forge_repository_urls() {
@@ -146,133 +146,6 @@ fn rejects_non_forge_and_malformed_repository_urls() {
     }
 }
 
-fn github_repo_info() -> ForgeRepoInfo {
-    ForgeRepoInfo {
-        forge: ForgeName::GitHub,
-        host: "github.com".into(),
-        port: None,
-        owner: "gitbutlerapp".into(),
-        repo: "gitbutler".into(),
-        protocol: "https".into(),
-    }
-}
-
-fn gitlab_repo_info() -> ForgeRepoInfo {
-    ForgeRepoInfo {
-        forge: ForgeName::GitLab,
-        host: "gitlab.com".into(),
-        port: None,
-        owner: "gitbutlerapp".into(),
-        repo: "gitbutler".into(),
-        protocol: "https".into(),
-    }
-}
-
-fn github_storage(usernames: &[&str]) -> (but_forge_storage::Controller, tempfile::TempDir) {
-    let tmp = tempfile::tempdir().unwrap();
-    let storage = but_forge_storage::Controller::from_path(tmp.path());
-    for username in usernames {
-        storage
-            .add_github_account(&but_forge_storage::settings::GitHubAccount::OAuth {
-                username: (*username).into(),
-                access_token_key: format!("github_oauth_{username}"),
-            })
-            .unwrap();
-    }
-    (storage, tmp)
-}
-
-fn gitlab_storage(usernames: &[&str]) -> (but_forge_storage::Controller, tempfile::TempDir) {
-    let tmp = tempfile::tempdir().unwrap();
-    let storage = but_forge_storage::Controller::from_path(tmp.path());
-    for username in usernames {
-        storage
-            .add_gitlab_account(&but_forge_storage::settings::GitLabAccount::Pat {
-                username: (*username).into(),
-                access_token_key: format!("gitlab_pat_{username}"),
-            })
-            .unwrap();
-    }
-    (storage, tmp)
-}
-#[test]
-fn current_login_uses_the_first_account_without_a_preference() {
-    let (github, _gh_tmp) = github_storage(&["alice"]);
-    let (gitlab, _gl_tmp) = gitlab_storage(&["alice"]);
-
-    assert_eq!(
-        current_forge_login(&None, &github_repo_info(), &github).unwrap(),
-        Some("alice".into()),
-        "the GitHub client defaults to the first stored account"
-    );
-    assert_eq!(
-        current_forge_login(&None, &gitlab_repo_info(), &gitlab).unwrap(),
-        Some("alice".into()),
-        "the GitLab client defaults to the first stored account"
-    );
-}
-
-#[test]
-fn current_login_uses_the_configured_preferred_account() {
-    let (github, _gh_tmp) = github_storage(&["alice", "bob"]);
-    let (gitlab, _gl_tmp) = gitlab_storage(&["alice", "bob"]);
-
-    assert_eq!(
-        current_forge_login(
-            &Some(ForgeUser::GitHub(
-                but_github::GithubAccountIdentifier::oauth("bob"),
-            )),
-            &github_repo_info(),
-            &github,
-        )
-        .unwrap(),
-        Some("bob".into()),
-        "a stored preferred account is the one the GitHub client authenticates as"
-    );
-    assert_eq!(
-        current_forge_login(
-            &Some(ForgeUser::GitLab(but_gitlab::GitlabAccountIdentifier::pat(
-                "bob"
-            ),)),
-            &gitlab_repo_info(),
-            &gitlab,
-        )
-        .unwrap(),
-        Some("bob".into()),
-        "a stored preferred account is the one the GitLab client authenticates as"
-    );
-}
-
-#[test]
-fn current_login_rejects_a_missing_preferred_account() {
-    let (github, _gh_tmp) = github_storage(&["alice"]);
-    let (gitlab, _gl_tmp) = gitlab_storage(&["alice"]);
-
-    assert_eq!(
-        current_forge_login(
-            &Some(ForgeUser::GitHub(
-                but_github::GithubAccountIdentifier::oauth("forgotten"),
-            )),
-            &github_repo_info(),
-            &github,
-        )
-        .unwrap(),
-        None,
-        "the GitHub client refuses a preferred account gone from storage, so no login is reported"
-    );
-    assert_eq!(
-        current_forge_login(
-            &Some(ForgeUser::GitLab(but_gitlab::GitlabAccountIdentifier::pat(
-                "forgotten"
-            ),)),
-            &gitlab_repo_info(),
-            &gitlab,
-        )
-        .unwrap(),
-        None,
-        "the GitLab client refuses a preferred account gone from storage, so no login is reported"
-    );
-}
 #[test]
 fn derive_repo_info_uses_override_for_self_hosted_url() {
     // End-to-end for #14319: resolve the override before parsing the

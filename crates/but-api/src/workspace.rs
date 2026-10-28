@@ -63,25 +63,15 @@ pub(crate) fn create_empty_workspace_commit(
     Ok(merged.workspace_commit_id)
 }
 
-/// Recreate an existing workspace by applying all previously applied branches.
+/// Recreate an existing workspace by applying all previously applied branches, under
+/// caller-held exclusive access, recording one undo snapshot.
 ///
-/// Unlike [`crate::branch::workspace_checkout()`], this incorporates changes made in
-/// single-branch mode. The current branch is included unless it is the target or its
-/// local tracking branch. Conflicting stacks remain unapplied and are returned as
-/// partial success. Already being on the workspace is a no-op.
+/// This incorporates changes made in single-branch mode. The current branch is included
+/// unless it is the target or its local tracking branch. Conflicting stacks remain unapplied
+/// and are returned as partial success. Already being on the workspace is a no-op, and then
+/// no snapshot is prepared.
 ///
 /// The workspace reference must already exist. This does not initialize a new workspace.
-#[but_api(napi, try_from = json::WorkspaceRecreateResult)]
-#[instrument(err(Debug))]
-pub fn workspace_recreate(ctx: &mut but_ctx::Context) -> anyhow::Result<WorkspaceRecreateResult> {
-    let mut guard = ctx.exclusive_worktree_access();
-    workspace_recreate_with_perm(ctx, guard.write_permission())
-}
-
-/// Recreate the workspace under caller-held exclusive access, recording one undo snapshot.
-///
-/// See [`workspace_recreate()`] for behavior and preconditions. No snapshot is prepared
-/// when already on the workspace.
 pub fn workspace_recreate_with_perm(
     ctx: &mut but_ctx::Context,
     perm: &mut RepoExclusive,
