@@ -222,6 +222,42 @@ impl Detail {
         }
     }
 
+    /// The rows, first and last, that the keys bring into view with the cursor on `cursor`:
+    /// its file's card; a hunk's lines, the unchanged ones around its changes too; or the box
+    /// above a hunk with the hunk's lines under it.
+    pub(super) fn extent(&self, cursor: Cursor) -> Option<(usize, usize)> {
+        let rows = &self.diff.as_ref()?.rows;
+        let file = cursor.file;
+        let in_hunk = |hunk| {
+            move |row: &DiffRow| match *row {
+                DiffRow::Line {
+                    file: f, hunk: h, ..
+                }
+                | DiffRow::Pair {
+                    file: f, hunk: h, ..
+                } => (f, h) == (file, hunk),
+                _ => false,
+            }
+        };
+        match cursor.at {
+            Stop::File => {
+                let first = rows.iter().position(|row| *row == DiffRow::File(file))?;
+                let card = (rows.iter().skip(first)).take_while(|row| **row != DiffRow::Gap);
+                Some((first, first + card.count().saturating_sub(1)))
+            }
+            Stop::Gap(hunk) => {
+                let first = rows
+                    .iter()
+                    .position(|row| *row == DiffRow::Hunk { file, hunk })?;
+                Some((first, rows.iter().rposition(in_hunk(hunk)).unwrap_or(first)))
+            }
+            Stop::Hunk(hunk) => Some((
+                rows.iter().position(in_hunk(hunk))?,
+                rows.iter().rposition(in_hunk(hunk))?,
+            )),
+        }
+    }
+
     /// Whether `row` shows part of the changes of the hunk the cursor is on, which carry the
     /// cursor's tab and tint.
     fn marks(&self, row: DiffRow) -> bool {
@@ -418,8 +454,17 @@ impl Detail {
     /// Scroll a share of the way left to where the keys sent the diff, as each frame draws, by
     /// how long since the last: it sets out quickly and eases in, however often frames come.
     /// Going down, it stops once the diff's end is on screen, as no row can come higher.
+    ///
+    /// One that reveals what the cursor's on aims afresh each frame, and is done once that's in
+    /// view: the rows it passes are drawn as it goes and their heights known, where they were
+    /// only guessed at when it set out, as wrapped lines' are short.
     pub(super) fn follow_glide(&mut self, window: &mut Window, cx: &App) {
-        let Some(&Glide { to, last }) = self.glide.as_ref() else {
+        let Some(&Glide {
+            mut to,
+            last,
+            reveal,
+        }) = self.glide.as_ref()
+        else {
             return;
         };
         let at = self.scrolled_to();
@@ -431,6 +476,16 @@ impl Detail {
             self.glide = None;
             return;
         }
+        if reveal {
+            match self.reveal_target(cx) {
+                Some(aim) if (aim - at).abs() > 0.01 => to = aim,
+                // In view, or as near as it gets, as against the diff's top.
+                _ => {
+                    self.glide = None;
+                    return;
+                }
+            }
+        }
         let now = Instant::now();
         let share = 1. - (-(now - last).as_secs_f32() / super::GLIDE.as_secs_f32()).exp();
         // Within a hundredth of a row, it's there.
@@ -439,10 +494,15 @@ impl Detail {
             false => at + (to - at) * share,
         };
         self.list.scroll_to(self.list_offset(next, cx));
-        match next == to {
+        // A reveal looks again once there, as the rows there are drawn then.
+        match next == to && !reveal {
             true => self.glide = None,
             false => {
-                self.glide = Some(Glide { to, last: now });
+                self.glide = Some(Glide {
+                    to,
+                    last: now,
+                    reveal,
+                });
                 window.request_animation_frame();
             }
         }

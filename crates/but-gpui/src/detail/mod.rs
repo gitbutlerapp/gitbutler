@@ -155,10 +155,12 @@ const GLIDE: Duration = Duration::from_millis(40);
 
 /// The diff's way to where the keys moved its cursor, in rows, as gpui knows the heights only
 /// of rows it has drawn: to place `to`, a row and how far down it by its height, a share of
-/// the way each frame by how long since the `last`.
+/// the way each frame by how long since the `last`. One that `reveal`s what the cursor's on
+/// aims afresh as it goes: see [`Detail::follow_glide`].
 struct Glide {
     to: f32,
     last: Instant,
+    reveal: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1775,9 +1777,9 @@ impl Detail {
         let stop = next_stop(&diff.rows, from, forward, |row, entry| {
             self.stop_at(row, entry)
         });
-        if let Some((cursor, row)) = stop {
+        if let Some((cursor, _)) = stop {
             self.place_cursor(cursor);
-            self.reveal_row(row);
+            self.reveal_cursor(cx);
             cx.notify();
         }
         // From the file list too: the diff takes the keys, so the hunk or header shows solid
@@ -2157,11 +2159,48 @@ impl Detail {
                     self.glide = Some(Glide {
                         to: row as f32,
                         last: Instant::now(),
+                        reveal: false,
                     })
                 }
                 false => self.list.scroll_to(to),
             }
         }
+    }
+
+    /// Glide to bring as much into view as fits of what the cursor's on, as the TUI's details
+    /// scroll to a section. In view already, the diff stops where it is: a glide to somewhere
+    /// else, as to the next file, would take it out of view.
+    fn reveal_cursor(&mut self, cx: &App) {
+        self.glide = (self.reveal_target(cx)).map(|to| Glide {
+            to,
+            last: Instant::now(),
+            reveal: true,
+        });
+    }
+
+    /// Where the diff goes from where it is now to bring what the cursor's on into view: the
+    /// rows [`Detail::extent`] gives, scrolled as [`reveal_by`] says. None within a pixel of
+    /// there.
+    pub(super) fn reveal_target(&self, cx: &App) -> Option<f32> {
+        let (first, last) = self.extent(self.cursor)?;
+        let at = self.scrolled_to();
+        let top = self.distance(at, first as f32, cx);
+        let bottom = self.distance(at, (last + 1) as f32, cx);
+        // Under a file's header, its sticky header hides the diff's top.
+        let clear = match self.cursor.at {
+            Stop::File => Pixels::ZERO,
+            Stop::Gap(_) | Stop::Hunk(_) => Theme::get(cx).scaled(diff::FILE_HEADER_HEIGHT),
+        };
+        // A little of what follows shows below it, rather than it ending against the edge.
+        let room = code_line(cx) * 2.;
+        let by = reveal_by(
+            top,
+            bottom,
+            clear,
+            room,
+            self.list.viewport_bounds().size.height,
+        );
+        (by.abs() >= fixed(1.)).then(|| self.place_after(at, by, cx))
     }
 
     /// The place the diff shows from: its top row and how far down it, by its height.
@@ -2180,6 +2219,39 @@ impl Detail {
             item_ix: row,
             offset_in_item: self.row_height(row, cx) * at.fract(),
         }
+    }
+
+    /// How far place `to` is below place `from`, or above it when negative, each a row and
+    /// how far down it by its height.
+    fn distance(&self, from: f32, to: f32, cx: &App) -> Pixels {
+        let (upper, lower) = (from.min(to), from.max(to));
+        let (first, last) = (upper.floor() as usize, lower.floor() as usize);
+        let rows = (first..last).fold(Pixels::ZERO, |sum, ix| sum + self.row_height(ix, cx));
+        let span = rows - self.row_height(first, cx) * upper.fract()
+            + self.row_height(last, cx) * lower.fract();
+        if to < from { -span } else { span }
+    }
+
+    /// The place `by` below place `from`, or above it when negative, short of the diff's ends.
+    fn place_after(&self, from: f32, by: Pixels, cx: &App) -> f32 {
+        let last = (self.diff.as_ref()).map_or(0, |diff| diff.rows.len().saturating_sub(1));
+        let mut row = (from.floor() as usize).min(last);
+        // How far below the top of `row` the place is.
+        let mut down = by + self.row_height(row, cx) * from.fract();
+        while down < Pixels::ZERO && row > 0 {
+            row -= 1;
+            down += self.row_height(row, cx);
+        }
+        while row < last && down >= self.row_height(row, cx) {
+            down -= self.row_height(row, cx);
+            row += 1;
+        }
+        let tall = self.row_height(row, cx);
+        let into = match tall > Pixels::ZERO {
+            true => (down / tall).clamp(0., 1.),
+            false => 0.,
+        };
+        row as f32 + into
     }
 
     /// How tall diff row `ix` is: as drawn, or for one gpui hasn't drawn or doesn't say, as
@@ -2811,6 +2883,22 @@ fn hunk_keys(file: &FileDiff) -> Vec<HunkKey> {
     file.hunks().iter().map(|hunk| hunk.key).collect()
 }
 
+/// How far to scroll the diff to bring rows running from `top` to `bottom`, down from the
+/// view's top, as far into view as they fit, as the TUI's details scroll to a section. The view
+/// is `height` tall, above `clear` the sticky header hides it, and `room` is left below them.
+/// Taller than what's left, or starting above it, they go to its top; ending below it, their
+/// end comes up to `room` above its bottom; in view already, they stay put.
+fn reveal_by(top: Pixels, bottom: Pixels, clear: Pixels, room: Pixels, height: Pixels) -> Pixels {
+    let end = height - room;
+    if bottom - top > end - clear || top < clear {
+        top - clear
+    } else if bottom > end {
+        bottom - end
+    } else {
+        Pixels::ZERO
+    }
+}
+
 /// Where the hunk keys go from row `from` of `rows`, `forward` or back: the next row `stop`
 /// says the cursor stops on, and that row. Headers are stops too, so the keys go back up to one
 /// they left and down to the next file's rather than past it.
@@ -2900,8 +2988,11 @@ fn same_files<'a>(
 mod tests {
     use std::collections::HashSet;
 
+    use gpui::Pixels;
+
     use super::{
-        Cursor, Stop, follow_hunk, keeps_path, next_stop, path_match, ranked, same_files, unfolded,
+        Cursor, Stop, follow_hunk, keeps_path, next_stop, path_match, ranked, reveal_by,
+        same_files, unfolded,
     };
     use crate::backend::FileChange;
     use crate::ui::diff::DiffRow;
@@ -3153,6 +3244,49 @@ mod tests {
             next_stop(&rows, 9, true, stop),
             None,
             "nothing below the last hunk"
+        );
+    }
+
+    #[test]
+    fn a_stop_scrolls_as_far_into_view_as_it_fits() {
+        let px = Pixels::from;
+        // A view 500 tall, its top 40 under the sticky header, and 20 left below what shows.
+        let by = |top, bottom| reveal_by(px(top), px(bottom), px(40.), px(20.), px(500.));
+        assert_eq!(by(100., 300.), px(0.), "in view already, it stays put");
+        assert_eq!(
+            by(400., 600.),
+            px(120.),
+            "ending below the view, its end comes up to the room left at the bottom"
+        );
+        assert_eq!(
+            by(100., 490.),
+            px(10.),
+            "in view but into the room at the bottom, it comes up out of it"
+        );
+        assert_eq!(
+            by(-100., 100.),
+            px(-140.),
+            "starting above the view, its start comes down to below the sticky header"
+        );
+        assert_eq!(
+            by(20., 100.),
+            px(-20.),
+            "under the sticky header counts as above the view"
+        );
+        assert_eq!(
+            by(300., 1000.),
+            px(260.),
+            "taller than the view, its start goes to the top rather than its end to the bottom"
+        );
+        assert_eq!(
+            by(300., 750.),
+            px(260.),
+            "fitting the view but not with the room below, its start goes to the top"
+        );
+        assert_eq!(
+            reveal_by(px(0.), px(600.), px(0.), px(20.), px(500.)),
+            px(0.),
+            "a file taller than the view, its header at the top, stays put"
         );
     }
 }
