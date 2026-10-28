@@ -6,9 +6,8 @@
 use std::collections::HashMap;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle,
-    Focusable, ScrollHandle, SharedString, Stateful, Subscription, Task, Window, actions, div,
-    prelude::*,
+    AnyElement, App, ClickEvent, Context, DismissEvent, Entity, EventEmitter, FocusHandle,
+    Focusable, ScrollHandle, SharedString, Subscription, Task, Window, actions, div, prelude::*,
 };
 
 mod accounts;
@@ -28,8 +27,8 @@ use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    self, ButtonStyle, Icon, button, dp, dropdown, error_summary, field, h_flex, icon, muted,
-    side_row, small_icon, switch, v_flex,
+    self, ButtonStyle, Icon, Switch, button, dp, dropdown, error_summary, field, h_flex, icon,
+    muted, side_row, small_icon, switch, v_flex,
 };
 
 pub use cli::welcome_card;
@@ -688,7 +687,7 @@ impl SettingsView {
         on: bool,
         flip: fn(&mut Prefs),
         cx: &Context<Self>,
-    ) -> Stateful<Div> {
+    ) -> Switch {
         switch(id, on, Theme::get(cx)).on_click(cx.listener(move |this, _, _, cx| {
             this.store.update(cx, |store, cx| store.set_prefs(flip, cx))
         }))

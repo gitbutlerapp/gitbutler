@@ -635,9 +635,37 @@ pub fn shown_when_focused(el: Stateful<Div>) -> Stateful<Div> {
     )
 }
 
+/// How a switch's knob slides and its ground fades when it's turned: critically damped, most of
+/// the way in about 0.1s, as ui-react's Switch moves in `--transition-medium`. A spring, unlike
+/// `with_animation`, starts where it's going when first drawn, so opening a page moves nothing,
+/// and a second click mid-slide turns it back from where it is.
+const SWITCH_SPRING: gpui::SpringConfig = gpui::SpringConfig::new(1600., 80., 1.);
+
+/// A switch's spring toward `on`, settled once the knob is a tenth of a pixel from its end.
+pub fn switch_spring(on: bool) -> gpui::SpringAnimation<bool> {
+    gpui::SpringAnimation::new(SWITCH_SPRING)
+        .to(on)
+        .with_epsilon(0.01)
+}
+
+/// A switch's ground off and on, to mix in sRGB as CSS does: mixing `Hsla` would sweep the
+/// gray's hue round to pop's and tint the middle.
+pub fn switch_grounds(theme: &Theme) -> [gpui::Rgba; 2] {
+    [theme.fill_gray.opacity(0.22).into(), theme.pop_bg.into()]
+}
+
+/// A [`switch`], which takes clicks as the `Stateful<Div>` it wraps does.
+pub struct Switch {
+    id: ElementId,
+    on: bool,
+    el: Stateful<Div>,
+    grounds: [gpui::Rgba; 2],
+}
+
 /// An on/off switch, for a setting that applies at once.
-pub fn switch(id: impl Into<ElementId>, on: bool, theme: &Theme) -> Stateful<Div> {
-    tab_stop(h_flex().id(id), theme)
+pub fn switch(id: impl Into<ElementId>, on: bool, theme: &Theme) -> Switch {
+    let id = id.into();
+    let el = tab_stop(h_flex().id(id.clone()), theme)
         .role(Role::Switch)
         .aria_toggled(if on { Toggled::True } else { Toggled::False })
         .flex_none()
@@ -645,14 +673,45 @@ pub fn switch(id: impl Into<ElementId>, on: bool, theme: &Theme) -> Stateful<Div
         .h(dp(18.))
         .p(dp(2.))
         .rounded_full()
-        .bg(if on {
-            theme.pop_bg
-        } else {
-            theme.fill_gray.opacity(0.22)
-        })
-        .when(on, |el| el.justify_end())
-        .hover(|el| el.opacity(0.9))
-        .child(div().size(dp(14.)).rounded_full().bg(gpui::white()))
+        .hover(|el| el.opacity(0.9));
+    Switch {
+        id,
+        on,
+        el,
+        grounds: switch_grounds(theme),
+    }
+}
+
+impl Switch {
+    pub fn on_click(
+        mut self,
+        handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.el = self.el.on_click(handler);
+        self
+    }
+}
+
+impl IntoElement for Switch {
+    type Element = gpui::SpringAnimationElement<Stateful<Div>>;
+
+    fn into_element(self) -> Self::Element {
+        use gpui::AnimationExt as _;
+        let [off, on] = self.grounds;
+        // The spring wraps the whole switch, not a child: the track is the tab stop, whose
+        // focus ring is drawn over its ground and under its children.
+        self.el
+            .with_spring(self.id, switch_spring(self.on), move |el, phase| {
+                el.bg(phase.interpolate_clamped(off, on)).child(
+                    div()
+                        // The track's width, less its padding and the knob.
+                        .ml(phase.interpolate_clamped(dp(0.), dp(12.)))
+                        .size(dp(14.))
+                        .rounded_full()
+                        .bg(gpui::white()),
+                )
+            })
+    }
 }
 
 /// A checkbox, ticked, empty or, for a group partly checked, a dash.

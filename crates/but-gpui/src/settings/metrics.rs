@@ -1,7 +1,7 @@
 //! The Metrics card at the end of the General page: whether GitButler's apps send error reports
 //! and usage metrics, as the desktop app's Telemetry page sets.
 
-use gpui::{Context, prelude::*};
+use gpui::Context;
 
 use super::{Row, SettingsView};
 use crate::backend::metrics;
