@@ -1248,6 +1248,35 @@ impl Store {
             return self.snack(why, cx);
         }
         let Label { name, text: label } = label.into();
+        let editing = self
+            .workspace(project)
+            .is_some_and(|ws| ws.editing.is_some());
+        if editing && !overlay.kind.while_editing() {
+            let why = format!(
+                "Finish or cancel editing the commit{} first",
+                self.in_project(project)
+            );
+            return self.snack(why, cx);
+        }
+        // What's shown is what it last read, which an agent's `git merge` onto the workspace
+        // can leave it unable to read again: the operation would act on what's gone, and the
+        // engine can make a commit it then fails to report.
+        let unreadable = (self.project(project)).is_some_and(|p| p.error.is_some())
+            && !(overlay.remote_only
+                || matches!(
+                    overlay.kind,
+                    OpKind::Undo(_) | OpKind::Redo(_) | OpKind::Restore
+                ));
+        if unreadable {
+            let why = format!(
+                "Can't read the project{} now; fix what it says first",
+                self.in_project(project)
+            );
+            return self.snack(why, cx);
+        }
+        let Some(path) = self.path(project) else {
+            return;
+        };
         // What's selected leaving with its branch or worktree, the selection goes now where
         // the reload after it would put it.
         let selection = self.selection.as_ref();
@@ -1265,6 +1294,21 @@ impl Store {
             })
             .detach();
         }
+        // While editing there are no commits to compare with afterwards; every commit would
+        // count as the operation's own and lose its unread mark, as an agent's commit that
+        // lands during a push would: one that only talks to the remote makes none, nor does one
+        // beside the others, whose commits are theirs.
+        let remote_only = overlay.remote_only;
+        // Those only a remote has too, so pulling them keeps their read marks.
+        let before = (!editing && !remote_only && !beside).then(|| {
+            let ws = self.workspace(project);
+            let keys = ws.map_or_else(HashSet::new, |ws| {
+                super::seen::shown(ws)
+                    .map(|(_, [key, _])| key.to_owned())
+                    .collect()
+            });
+            (keys, ws.map(|ws| overlay.checkouts(ws)).unwrap_or_default())
+        });
         let (now, id) = (Instant::now(), self.ops_started);
         self.ops_started += 1;
         self.running.push(Running {
@@ -1278,93 +1322,9 @@ impl Store {
             moved,
         });
         cx.emit(StoreEvent::Pending(project.clone()));
-        self.start(project, id, Label::new(name, label), op, done, cx);
+        cx.notify();
         // Replacing the last one's ticker stops it.
         self.busy_ticker = Self::tick_while_busy(cx);
-    }
-
-    /// Redraw while a mutation runs, so the status bar can say how long it's taking.
-    fn tick_while_busy(cx: &mut Context<Self>) -> Task<()> {
-        cx.spawn(async move |this, cx| {
-            loop {
-                // It counts whole seconds.
-                cx.background_executor().timer(Duration::from_secs(1)).await;
-                let Ok(true) = this.update(cx, |store, cx| {
-                    if store.busy().is_some_and(|(_, _, t)| t >= SLOW) {
-                        cx.notify();
-                    }
-                    !store.running.is_empty()
-                }) else {
-                    break;
-                };
-            }
-        })
-    }
-
-    fn start<T: Send + 'static>(
-        &mut self,
-        project: &ProjectId,
-        id: usize,
-        label: Label,
-        op: impl FnOnce(&Path) -> Result<T> + Send + 'static,
-        done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
-        cx: &mut Context<Self>,
-    ) {
-        let Label { name, text: label } = label;
-        let editing = self
-            .workspace(project)
-            .is_some_and(|ws| ws.editing.is_some());
-        let Some(running) = self.running.iter().find(|r| r.id == id) else {
-            return;
-        };
-        let refused = editing && !running.overlay.kind.while_editing();
-        // What's shown is what it last read, which an agent's `git merge` onto the workspace
-        // can leave it unable to read again: the operation would act on what's gone, and the
-        // engine can make a commit it then fails to report.
-        let unreadable = (self.project(project)).is_some_and(|p| p.error.is_some())
-            && !(running.overlay.remote_only
-                || matches!(
-                    running.overlay.kind,
-                    OpKind::Undo(_) | OpKind::Redo(_) | OpKind::Restore
-                ));
-        let path = self.path(project).filter(|_| !refused && !unreadable);
-        let Some(path) = path else {
-            if refused {
-                let why = format!(
-                    "Finish or cancel editing the commit{} first",
-                    self.in_project(project)
-                );
-                self.snack(why, cx);
-            } else if unreadable {
-                let why = format!(
-                    "Can't read the project{} now; fix what it says first",
-                    self.in_project(project)
-                );
-                self.snack(why, cx);
-            }
-            self.running.retain(|r| r.id != id);
-            cx.emit(StoreEvent::Pending(project.clone()));
-            return;
-        };
-        // While editing there are no commits to compare with afterwards; every commit would
-        // count as the operation's own and lose its unread mark, as an agent's commit that
-        // lands during a push would: one that only talks to the remote makes none, nor does one
-        // beside the others, whose commits are theirs.
-        let running = self.running.iter().find(|r| r.id == id);
-        let remote_only = running.is_some_and(|r| r.overlay.remote_only);
-        let beside = running.is_some_and(|r| r.overlay.kind.beside());
-        // Those only a remote has too, so pulling them keeps their read marks.
-        let before = (!editing && !remote_only && !beside).then(|| {
-            let ws = self.workspace(project);
-            let keys = ws.map_or_else(HashSet::new, |ws| {
-                super::seen::shown(ws)
-                    .map(|(_, [key, _])| key.to_owned())
-                    .collect()
-            });
-            let checkouts = (running.zip(ws)).map(|(r, ws)| r.overlay.checkouts(ws));
-            (keys, checkouts.unwrap_or_default())
-        });
-        cx.notify();
         let project = project.clone();
         let reason = label.to_string();
         let began = Instant::now();
@@ -1535,6 +1495,24 @@ impl Store {
             .ok();
         })
         .detach();
+    }
+
+    /// Redraw while a mutation runs, so the status bar can say how long it's taking.
+    fn tick_while_busy(cx: &mut Context<Self>) -> Task<()> {
+        cx.spawn(async move |this, cx| {
+            loop {
+                // It counts whole seconds.
+                cx.background_executor().timer(Duration::from_secs(1)).await;
+                let Ok(true) = this.update(cx, |store, cx| {
+                    if store.busy().is_some_and(|(_, _, t)| t >= SLOW) {
+                        cx.notify();
+                    }
+                    !store.running.is_empty()
+                }) else {
+                    break;
+                };
+            }
+        })
     }
 
     /// The key of `project`'s commit `id`, which survives rewrites.
