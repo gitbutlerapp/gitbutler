@@ -4,13 +4,15 @@
 	import Features from "./sections/Features.svelte";
 	import Hero from "./sections/Hero.svelte";
 	import OptimizedForAgents from "./sections/OptimizedForAgents.svelte";
+	import { page } from "$app/state";
 	import FeatureUpdates from "$home/sections/FeatureUpdates.svelte";
 	import SocialQuotes from "$home/sections/SocialQuotes.svelte";
 	import Footer from "$lib/components/marketing/Footer.svelte";
+	import { pageTitle } from "$lib/meta/opengraph";
 </script>
 
 <svelte:head>
-	<title>GitButler</title>
+	<title>{pageTitle(page.url.pathname)}</title>
 </svelte:head>
 
 <Hero currentPage="cli">

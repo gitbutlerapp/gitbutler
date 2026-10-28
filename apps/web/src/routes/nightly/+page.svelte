@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { page } from "$app/state";
 	import Footer from "$lib/components/marketing/Footer.svelte";
 	import Header from "$lib/components/marketing/Header.svelte";
 	import ReleaseDownloadLinks from "$lib/components/marketing/ReleaseDownloadLinks.svelte";
+	import { pageTitle } from "$lib/meta/opengraph";
 	import { Icon } from "@gitbutler/ui-svelte";
 	import { untrack } from "svelte";
 	import type { Release } from "$lib/types/releases";
@@ -28,7 +30,7 @@
 </script>
 
 <svelte:head>
-	<title>GitButler | Nightly Builds</title>
+	<title>{pageTitle(page.url.pathname)}</title>
 </svelte:head>
 
 <section class="latest-nightly-wrapper">

@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { page } from "$app/state";
 	import Footer from "$lib/components/marketing/Footer.svelte";
 	import Header from "$lib/components/marketing/Header.svelte";
 	import ReleaseCard from "$lib/components/marketing/ReleaseCard.svelte";
+	import { pageTitle } from "$lib/meta/opengraph";
 	import { untrack } from "svelte";
 	import Markdown from "svelte-exmarkdown";
 	import type { Release } from "$lib/types/releases";
@@ -24,7 +26,7 @@
 </script>
 
 <svelte:head>
-	<title>GitButler | Downloads</title>
+	<title>{pageTitle(page.url.pathname)}</title>
 </svelte:head>
 
 <section class="latest-release-wrapper">
