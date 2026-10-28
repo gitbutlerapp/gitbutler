@@ -622,16 +622,33 @@ pub(super) fn holds(segment: &but_workspace::ref_info::Segment, branch: &FullNam
 }
 
 /// An empty commit at `at`, to move changes into later.
-pub fn insert_empty_commit(path: &Path, at: &Destination) -> Result<CommitId> {
-    let mut ctx = open(path)?;
-    let (relative_to, side) = at.relative_to()?;
-    let outcome = but_api::commit::insert_blank::commit_insert_blank(
-        &mut ctx,
-        relative_to,
-        side,
-        DryRun::No,
-    )?;
-    Ok(CommitId(outcome.new_commit))
+pub struct InsertEmptyCommit {
+    pub at: Destination,
+}
+
+impl Intent for InsertEmptyCommit {
+    type Done = CommitId;
+
+    fn apply(self, run: &mut Run) -> Result<CommitId> {
+        use but_oplog::legacy::{OperationKind, SnapshotDetails};
+        let (relative_to, side) = self.at.relative_to()?;
+        let (made, _workspace) = run.locked(|ctx, perm| {
+            let mut meta = ctx.meta()?;
+            but_transaction::with_transaction_with_perm(
+                ctx,
+                &mut meta,
+                perm,
+                SnapshotDetails::new(OperationKind::InsertBlankCommit),
+                &[],
+                DryRun::No,
+                |mut tx| {
+                    let made = tx.insert_blank_commit(relative_to, side)?;
+                    Ok(but_transaction::Commit(CommitId(made.id)))
+                },
+            )
+        })?;
+        Ok(made)
+    }
 }
 
 /// Put copies of `commits`, listed newest first, at `to` in one go, keeping the originals
@@ -2500,7 +2517,8 @@ pub(super) mod tests {
             // Git logs moves in whole seconds.
             std::thread::sleep(std::time::Duration::from_millis(1100));
             let started = now_millis();
-            insert_empty_commit(path, &Destination::Branch(full("refs/heads/named"))).unwrap();
+            let at = Destination::Branch(full("refs/heads/named"));
+            crate::backend::apply(path, InsertEmptyCommit { at }).unwrap();
             ran.push((started, now_millis()));
             let inserted = newest_entry(path);
             let started = now_millis();
@@ -3421,7 +3439,8 @@ third
         but_testsupport::isolated_app_data_dir(|| {
             let (dir, commit, diff, _) = workspace_with_an_edit();
             let path = dir.path();
-            let empty = insert_empty_commit(path, &Destination::AboveCommit(commit)).unwrap();
+            let at = Destination::AboveCommit(commit);
+            let (empty, _) = crate::backend::apply(path, InsertEmptyCommit { at }).unwrap();
             let rewritten = move_files(path, commit, empty, &[five_b_out(&diff)]).unwrap();
             let (commit, empty) = (
                 rewritten.get(&commit).copied().unwrap_or(commit),

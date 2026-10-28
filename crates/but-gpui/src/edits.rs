@@ -956,11 +956,11 @@ impl AppView {
                 new_commit: at.map(|at| (at, SharedString::default())),
                 ..Overlay::default()
             };
-            store.run(
+            store.apply(
                 &project,
                 "Add empty commit",
                 overlay,
-                move |path| backend::insert_empty_commit(path, &to),
+                backend::InsertEmptyCommit { at: to },
                 move |store, _, cx| store.snack_undoable("Empty commit added", cx),
                 cx,
             )

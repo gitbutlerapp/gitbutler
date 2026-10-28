@@ -1423,8 +1423,8 @@ mod lane_tests {
     use crate::backend::model::build::{describe, describe_chain};
     use crate::backend::ops::tests::{git, repo_with, target_origin_main};
     use crate::backend::ops::{
-        Destination, create_branch, create_branch_at_commit, create_dependent_branch,
-        insert_empty_commit, rename_branch,
+        Destination, InsertEmptyCommit, create_branch, create_branch_at_commit,
+        create_dependent_branch, rename_branch,
     };
     use crate::backend::{Checkout, CommitId};
 
@@ -1437,11 +1437,13 @@ mod lane_tests {
             let path = dir.path();
             target_origin_main(path);
             let mut below = create_branch(path, Some("bottom")).unwrap();
-            insert_empty_commit(path, &Destination::Branch(below.clone())).unwrap();
+            let at = Destination::Branch(below.clone());
+            crate::backend::apply(path, InsertEmptyCommit { at }).unwrap();
             for name in ["middle", "top"] {
                 let new = create_dependent_branch(path, &below).unwrap();
                 below = rename_branch(path, &new, name).unwrap();
-                insert_empty_commit(path, &Destination::Branch(below.clone())).unwrap();
+                let at = Destination::Branch(below.clone());
+                crate::backend::apply(path, InsertEmptyCommit { at }).unwrap();
             }
             create_branch(path, Some("beside")).unwrap();
 
