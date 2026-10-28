@@ -411,6 +411,10 @@ impl Intent for Merge {
         }
         Ok(merged)
     }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Forge
+    }
 }
 
 /// What the forge says about whether a pull request can merge now.
@@ -448,6 +452,10 @@ impl Intent for SetAutoMerge {
             );
         }
         Ok(())
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Forge
     }
 }
 

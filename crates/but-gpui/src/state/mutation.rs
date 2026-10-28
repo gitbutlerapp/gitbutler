@@ -62,9 +62,6 @@ pub struct Overlay {
     pub auto_merges: Option<(u64, bool)>,
     /// It opens a pull request for the branch it pushes.
     pub publishes: bool,
-    /// It only talks to the remote or the forge and moves refs, leaving the worktree and
-    /// the commits alone, so reloads the watcher starts meanwhile go ahead.
-    pub remote_only: bool,
 }
 
 /// What an operation is called: `text` is what the user reads, which may name a branch or a
@@ -147,14 +144,6 @@ impl Overlay {
             .flatten()
             .chain([self.files_in.clone()])
             .collect()
-    }
-
-    /// For an operation that only talks to the remote or the forge.
-    pub fn remote() -> Self {
-        Self {
-            remote_only: true,
-            ..Self::default()
-        }
     }
 
     /// For an operation that can rewrite the main checkout's files under its `HEAD`: see
@@ -304,12 +293,11 @@ impl Store {
     }
 
     /// Whether an operation the user would mean to undo first is still working: one started
-    /// after `after` (any, if `None`) in `project` (any, if `None`). Fetches don't count but
-    /// pushes do, and undos never count.
+    /// after `after` (any, if `None`) in `project` (any, if `None`). Fetches and pull-request
+    /// merges don't count but pushes do, and undos never count.
     fn running_after(&self, after: Option<Instant>, project: Option<&ProjectId>) -> bool {
         self.working().any(|r| {
-            let undoable = (!r.overlay.remote_only || matches!(r.kind, OpKind::Push(_)))
-                && !matches!(r.kind, OpKind::Undo(_));
+            let undoable = !matches!(r.kind, OpKind::Fetch | OpKind::Forge | OpKind::Undo(_));
             undoable
                 && project.is_none_or(|p| r.project == *p)
                 && after.is_none_or(|after| r.started > after)
@@ -612,7 +600,7 @@ impl Store {
         self.apply(
             project,
             "Fetch",
-            Overlay::remote(),
+            Overlay::default(),
             backend::upstream::Fetch,
             move |store, fetched_or_not, cx| match fetched_or_not {
                 Ok(any_remote) => {
@@ -771,7 +759,7 @@ impl Store {
         self.apply(
             project,
             Label::new("Push", format!("Push {name}")),
-            Overlay::remote(),
+            Overlay::default(),
             backend::upstream::Push {
                 ref_name: ref_name.clone(),
                 protect,
@@ -851,7 +839,7 @@ impl Store {
             "Create pull request",
             Overlay {
                 publishes: true,
-                ..Overlay::remote()
+                ..Overlay::default()
             },
             backend::reviews::Publish {
                 ref_name,
@@ -1119,11 +1107,11 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let kind = intent.kind();
-        if let Some(why) = self.refusal(project, &kind, overlay.remote_only) {
+        if let Some(why) = self.refusal(project, &kind) {
             return self.snack(why, cx);
         }
         let beside = kind.beside();
-        let remote_only = overlay.remote_only;
+        let remote_only = kind.remote_only();
         let Label { name, text: label } = label.into();
         let editing = (self.workspace(project)).is_some_and(|ws| ws.editing.is_some());
         let Some(path) = self.path(project) else {
@@ -1305,7 +1293,7 @@ impl Store {
     }
 
     /// Why an operation of `kind` can't start in `project` now, if it can't.
-    fn refusal(&self, project: &ProjectId, kind: &OpKind, remote_only: bool) -> Option<String> {
+    fn refusal(&self, project: &ProjectId, kind: &OpKind) -> Option<String> {
         let in_project = self.in_project(project);
         let taken = self.running_in(project).any(|r| match kind.beside() {
             true => r.kind == *kind,
@@ -1326,7 +1314,7 @@ impl Store {
         // can leave it unable to read again: the operation would act on what's gone, and the
         // engine can make a commit it then fails to report.
         let unreadable = (self.project(project)).is_some_and(|p| p.error.is_some())
-            && !(remote_only
+            && !(kind.remote_only()
                 || matches!(kind, OpKind::Undo(_) | OpKind::Redo(_) | OpKind::Restore));
         unreadable
             .then(|| format!("Can't read the project{in_project} now; fix what it says first"))
@@ -1380,7 +1368,7 @@ impl Store {
             r.project == *project
                 && r.phase == Phase::Working
                 && !r.kind.beside()
-                && !r.overlay.remote_only
+                && !r.kind.remote_only()
         })
     }
 
@@ -1412,7 +1400,7 @@ impl Store {
             return;
         }
         // One that only talks to a remote, as a push, writes no files.
-        for ended in ended.iter().filter(|r| !r.overlay.remote_only) {
+        for ended in ended.iter().filter(|r| !r.kind.remote_only()) {
             let now = crate::ui::now();
             // A second early, as whole seconds can put its first writes before its start.
             let started = now - ended.started.elapsed().as_secs() as i64 - 1;

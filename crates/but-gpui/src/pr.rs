@@ -456,7 +456,7 @@ impl AppView {
                 "Merge pull request",
                 Overlay {
                     merges: Some(number),
-                    ..Overlay::remote()
+                    ..Overlay::default()
                 },
                 reviews::Merge { number, method },
                 |store, merged, cx| {
@@ -519,7 +519,7 @@ impl AppView {
                 label,
                 Overlay {
                     auto_merges: Some((number, on)),
-                    ..Overlay::remote()
+                    ..Overlay::default()
                 },
                 reviews::SetAutoMerge { number, on },
                 move |store, (), cx| store.snack(done, cx),

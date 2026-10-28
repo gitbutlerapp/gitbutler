@@ -38,9 +38,17 @@ pub enum OpKind {
     Redo(SnapshotId),
     /// Operations history's restore, the way back when a project can't be read.
     Restore,
+    /// Merging a pull request or turning its auto-merge on or off.
+    Forge,
 }
 
 impl OpKind {
+    /// Whether it only talks to the remote or the forge and moves refs, leaving the worktree
+    /// and the commits alone, so reloads the watcher starts meanwhile go ahead.
+    pub fn remote_only(&self) -> bool {
+        matches!(self, Self::Fetch | Self::Push(_) | Self::Forge)
+    }
+
     /// Whether it runs beside the project's other operation: it only talks to the remote or
     /// deletes a folder, so nothing another one does depends on it, and it can take long
     /// enough to hold them up.
