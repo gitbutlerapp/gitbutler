@@ -575,7 +575,7 @@ impl Detail {
                 .position(|f| f.file.path == next)
         });
         if let Some(file) = file {
-            self.scroll_to_file(file, cx);
+            self.scroll_to_file(file, true, cx);
         }
         cx.notify();
     }
@@ -962,7 +962,7 @@ impl Detail {
                         if !picked {
                             this.clear_file_picks(cx);
                         }
-                        this.scroll_to_file(diff_ix, cx)
+                        this.scroll_to_file(diff_ix, true, cx)
                     }),
                 )
                 .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
@@ -1007,7 +1007,7 @@ impl Detail {
                 if !picked {
                     this.clear_file_picks(cx);
                     if let Some(diff_ix) = diff_ix {
-                        this.scroll_to_file(diff_ix, cx);
+                        this.scroll_to_file(diff_ix, true, cx);
                     }
                 }
                 let at = At::File(path.clone(), None);
