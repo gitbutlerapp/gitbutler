@@ -338,8 +338,20 @@ fn merged_reviews_by_integration_sha(
         if !review.is_merged() || review.target_branch != target_branch_name {
             continue;
         }
+        let head = gix::ObjectId::from_hex(review.sha.as_bytes()).ok();
         for sha in &review.integration_commit_shas {
-            if let Ok(id) = gix::ObjectId::from_hex(sha.as_bytes()) {
+            let Ok(id) = gix::ObjectId::from_hex(sha.as_bytes()) else {
+                continue;
+            };
+            // GitHub can give two reviews the same merge commit. Keep the one
+            // whose head is a parent of that commit.
+            let merged_head = || {
+                head.is_some_and(|head| {
+                    repo.find_commit(id)
+                        .is_ok_and(|commit| commit.parent_ids().any(|parent| parent == head))
+                })
+            };
+            if !reviews_by_sha.contains_key(&id) || merged_head() {
                 reviews_by_sha.insert(id, review.clone().into());
             }
         }

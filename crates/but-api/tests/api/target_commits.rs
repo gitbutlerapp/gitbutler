@@ -258,6 +258,87 @@ fn github_merge_commit_names_its_pull_request_from_the_message() -> anyhow::Resu
     Ok(())
 }
 
+/// GitHub can record one merge commit for two pull requests, when it notices a
+/// merge only after a later merge lands. The commit names the review whose
+/// head it merged, whichever the cache lists last.
+#[test]
+fn shared_merge_commit_names_the_review_whose_head_it_merged() -> anyhow::Result<()> {
+    let (repo, tmp) = repo_with_feature_branch()?;
+    git_at_dir(tmp.path()).args(["switch", "-c", "topic"]).run();
+    write_file(tmp.path(), "topic.txt", "topic\n")?;
+    git_at_dir(tmp.path()).args(["add", "topic.txt"]).run();
+    git_at_dir(tmp.path()).args(["commit", "-m", "topic"]).run();
+    git_at_dir(tmp.path()).args(["switch", "main"]).run();
+    git_at_dir(tmp.path())
+        .args(["merge", "--no-ff", "topic", "-m", "merge topic"])
+        .run();
+    git_at_dir(tmp.path())
+        .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
+        .run();
+    git_at_dir(tmp.path()).args(["switch", "feature"]).run();
+    git_at_dir(tmp.path())
+        .args(["switch", "-c", "gitbutler/workspace"])
+        .run();
+    git_at_dir(tmp.path())
+        .args([
+            "commit",
+            "--allow-empty",
+            "-m",
+            "GitButler Workspace Commit",
+        ])
+        .run();
+    let merge = repo.rev_parse_single("main")?.detach();
+    let topic = repo.rev_parse_single("topic")?.detach();
+    let older = repo.rev_parse_single("main~2")?.detach();
+    drop(repo);
+
+    let mut ctx =
+        but_ctx::Context::from_repo_for_testing(open_repo(tmp.path())?)?.with_memory_app_cache();
+    let target_ref = gix::refs::FullName::try_from("refs/heads/main")?;
+    but_api::workspace::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
+    {
+        let mut db = ctx.db.get_cache_mut()?;
+        but_forge::cache_review(&mut db, &merged_review(1, topic, merge))?;
+        but_forge::cache_review(&mut db, &merged_review(2, older, merge))?;
+    }
+
+    let page = but_api::target_commits::workspace_target_commits(&ctx, None, None)?;
+    assert_eq!(
+        page.commits[0].review.as_ref().map(|review| review.number),
+        Some(1),
+        "the merge commit merged #1's head, not #2's"
+    );
+    Ok(())
+}
+
+fn merged_review(number: i64, head: gix::ObjectId, merge: gix::ObjectId) -> but_forge::ForgeReview {
+    but_forge::ForgeReview {
+        html_url: format!("https://example.com/pull/{number}"),
+        number,
+        title: format!("Review {number}"),
+        body: None,
+        author: None,
+        labels: vec![],
+        draft: false,
+        source_branch: format!("branch-{number}"),
+        target_branch: "main".into(),
+        sha: head.to_string(),
+        integration_commit_shas: vec![merge.to_string()],
+        created_at: None,
+        modified_at: None,
+        merged_at: Some("2026-01-01T00:00:00Z".into()),
+        closed_at: None,
+        repository_ssh_url: None,
+        repository_https_url: None,
+        repo_owner: None,
+        head_repo_is_fork: false,
+        auto_merge_enabled: false,
+        reviewers: vec![],
+        unit_symbol: "#".into(),
+        last_sync_at: Default::default(),
+    }
+}
+
 /// A still-applied stack landed upstream through a merge commit: the workspace
 /// lower bound becomes the stack tip, which sits on the merge's *second*
 /// parent and is never met by the first-parent walk. The stack's base bounds
