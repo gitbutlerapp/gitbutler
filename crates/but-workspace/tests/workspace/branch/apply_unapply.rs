@@ -4976,7 +4976,6 @@ fn apply_from_single_branch_mode_does_not_report_already_applied_head_branch() -
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    workspace_ref_created: true,
     applied_branches: "[refs/heads/A]",
 }
 
