@@ -2,24 +2,26 @@
 //! and the actions that fit it.
 
 use std::cell::Cell;
-use std::ops::Range;
 use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, Bounds, ClickEvent, Context, Div, Entity, FocusHandle, Focusable as _,
-    MouseDownEvent, Pixels, Point, SharedString, Stateful, UniformListScrollHandle, Window, div,
-    prelude::*, uniform_list,
+    ListAlignment, ListOffset, ListState, MouseDownEvent, Pixels, Point, SharedString, Stateful,
+    Window, div, list, prelude::*,
 };
 
 use super::upstream::noon;
-use super::{Detail, machine};
-use crate::app::{AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious, StartCommit};
+use super::{Detail, PageFold, machine};
+use crate::app::{
+    AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious, StartCommit, ToggleFold,
+};
 use crate::backend::upstream::{self, ACTIVITY_DAYS};
 use crate::backend::{self, Checkout, CommitId, CommitState, FullName, PushState, short_ref};
 use crate::navigator::{SelectFirst, SelectLast};
 use crate::overlays::MenuItem;
 use crate::state::{ProjectId, Section, Selection};
 use crate::theme::Theme;
+use crate::ui::fold::{MOVING_ROWS, Moved, clipped};
 use crate::ui::illustration::Illustration;
 use crate::ui::person::{author_avatar, byline};
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
@@ -1295,32 +1297,94 @@ pub(super) fn unfinished_banner(op: &str, theme: &Theme) -> Div {
 }
 
 /// One of the lists beside the diff, drawn only as far as it's on screen, with a
-/// scrollbar whose state goes by `scrollbar`. `row` draws the item at an index.
+/// scrollbar whose state goes by `scrollbar`. `row` draws the item at an index, a row tall,
+/// and `moving` says how a fold moving it moves it, as far as the list shows the fold.
 pub(super) fn side_list(
-    id: &'static str,
     count: usize,
-    scroll: &UniformListScrollHandle,
+    scroll: &ListState,
     scrollbar: &'static str,
     cx: &Context<Detail>,
+    moving: impl Fn(&Detail, usize) -> Option<Moved> + 'static,
     row: impl Fn(&Detail, usize, &Theme, &Window, &Context<Detail>) -> Option<AnyElement> + 'static,
 ) -> Div {
-    let list = uniform_list(
-        id,
-        count,
-        cx.processor(move |this, range: Range<usize>, window, cx| {
+    let theme = Theme::get(cx);
+    // When the count changes, as a fold or the filter changes it, the list stays where it was.
+    if scroll.item_count() != count {
+        resize_side_list(scroll, count, theme);
+    }
+    let list = list(
+        scroll.clone(),
+        cx.processor(move |this, ix, window, cx| {
             let theme = Theme::get(cx);
-            range
-                .filter_map(|ix| row(this, ix, theme, window, cx))
-                // A list item is as wide as its content unless something stretches it.
-                .map(|row| div().w_full().child(row))
-                .collect::<Vec<_>>()
+            let moved = moving(this, ix);
+            let shown = moved.map(|moved| moved.shown(ROW_HEIGHT));
+            // Under the curtain, a row isn't drawn at all.
+            if shown.is_some_and(|height| height <= 0.) {
+                return div().into_any_element();
+            }
+            let Some(row) = row(this, ix, theme, window, cx) else {
+                return div().into_any_element();
+            };
+            // A list item is as wide as its content unless something stretches it.
+            let slot = div().w_full().h(dp(ROW_HEIGHT)).child(row);
+            match moved.zip(shown) {
+                Some((moved, height)) => clipped(slot, dp(height), moved.closing)
+                    .w_full()
+                    .into_any_element(),
+                None => slot.into_any_element(),
+            }
         }),
     )
-    .track_scroll(scroll)
     .size_full();
-    let theme = Theme::get(cx);
-    let scroll = Scroll::Div(scroll.0.borrow().base_handle.clone());
-    scrolled(list, scrollbar, scroll, theme)
+    scrolled(list, scrollbar, Scroll::List(scroll.clone()), theme)
+}
+
+/// Give side list `scroll` `count` rows, each a row tall, so its scrollbar's right before
+/// they're drawn, at the interface's scale, keeping its place.
+pub(super) fn resize_side_list(scroll: &ListState, count: usize, theme: &Theme) {
+    let top = scroll.logical_scroll_top();
+    scroll.reset_with_uniform_height(count, theme.scaled(ROW_HEIGHT));
+    scroll.scroll_to(top);
+}
+
+/// How many rows of side list `scroll` fit under row `ix` where it last drew it, as many as a
+/// fold under it moves.
+pub(super) fn rows_under(scroll: &ListState, ix: usize, theme: &Theme) -> usize {
+    let view = scroll.viewport_bounds();
+    (scroll.bounds_for_item(ix)).map_or(MOVING_ROWS, |row| {
+        let room = (view.bottom() - row.bottom()).max(Pixels::ZERO);
+        (room / theme.scaled(ROW_HEIGHT)).ceil() as usize
+    })
+}
+
+/// Show row `ix` of side list `scroll`, which has `count` rows now: as near as it is, or with
+/// `middle`, in the middle of the list, as a pick from elsewhere is shown.
+pub(super) fn reveal_side_row(
+    scroll: &ListState,
+    count: usize,
+    ix: usize,
+    middle: bool,
+    theme: &Theme,
+) {
+    if scroll.item_count() != count {
+        resize_side_list(scroll, count, theme);
+    }
+    match middle {
+        false => scroll.scroll_to_reveal_item(ix),
+        true => {
+            scroll.scroll_to(ListOffset {
+                item_ix: ix,
+                offset_in_item: Pixels::ZERO,
+            });
+            let room = scroll.viewport_bounds().size.height - theme.scaled(ROW_HEIGHT);
+            scroll.scroll_by(-room / 2.);
+        }
+    }
+}
+
+/// A new side list's state, scrolled to its top.
+pub(super) fn side_list_state() -> ListState {
+    ListState::new(0, ListAlignment::Top, fixed(ROW_HEIGHT * 2.))
 }
 
 /// A group's heading in a side list, sitting on the rows under it.
@@ -1399,10 +1463,13 @@ impl Detail {
     /// A list page's column, whose list takes the focus: ↑ and ↓ `step` through it, gg and G
     /// to either end, ⇧→ and ⇧← `fold` what's selected, on a page whose rows fold, and Return
     /// does `confirm` to it. Where rows don't fold, ⇧→ and ⇧← do nothing, not fold the diff.
+    /// The TUI's keymap has Return `toggle` what's selected where rows fold, and `confirm`
+    /// it only where they don't.
     pub(super) fn list_column(
         &self,
         step: fn(&mut Self, isize, &mut Context<Self>),
         fold: Option<fn(&mut Self, bool, &mut Context<Self>)>,
+        toggle: Option<fn(&mut Self, &mut Context<Self>)>,
         confirm: Option<fn(&mut Self, &mut Window, &mut Context<Self>)>,
         cx: &Context<Self>,
     ) -> Div {
@@ -1426,6 +1493,13 @@ impl Detail {
             .on_action(cx.listener(move |this, _: &Collapse, _, cx| {
                 if let Some(fold) = fold {
                     fold(this, false, cx)
+                }
+            }))
+            .on_action(cx.listener(move |this, _: &ToggleFold, window, cx| {
+                match (toggle, confirm) {
+                    (Some(toggle), _) => toggle(this, cx),
+                    (None, Some(confirm)) => confirm(this, window, cx),
+                    (None, None) => {}
                 }
             }))
             .when_some(confirm, |el, confirm| {
@@ -1485,16 +1559,29 @@ impl Detail {
             }
         };
         let fold_to = |this: &mut Self, open: bool, cx: &mut Context<Self>| {
+            if this.people_open != open {
+                this.page_folds.start(PageFold::People, open, cx);
+            }
             this.people_open = open;
             cx.notify();
         };
         let everyone = rows.len();
         let open = self.people_open && everyone > PEOPLE_SHOWN;
-        let rows: Vec<_> = (rows.into_iter().enumerate())
-            .filter(|(ix, _)| open || *ix < PEOPLE_SHOWN || Some(*ix) == picked)
-            .map(|(_, row)| row)
-            .collect();
+        // Folded, the busiest few and whoever's picked; the rest open under them, and while
+        // they open or close, they do so after them, as one.
+        let moving = self.page_folds.openness(&PageFold::People).is_some();
+        let (rows, held): (Vec<_>, Vec<_>) = (rows.into_iter().enumerate())
+            .partition(|(ix, _)| (open && !moving) || *ix < PEOPLE_SHOWN || Some(*ix) == picked);
+        let rows: Vec<_> = rows.into_iter().map(|(_, row)| row).collect();
         let rest = everyone - rows.len();
+        let shows = self.page_folds.shows(&PageFold::People, open);
+        let held = (shows && !held.is_empty()).then(|| {
+            let held = v_flex()
+                .gap(dp(2.))
+                .pt(dp(2.))
+                .children(held.into_iter().map(|(_, row)| row));
+            self.page_folds.reveal(&PageFold::People, held)
+        });
         let open_height =
             (window.viewport_size().height * 0.3).clamp(theme.scaled(190.), theme.scaled(380.));
         let clear = anyone_picked.then(|| {
@@ -1509,6 +1596,7 @@ impl Detail {
             };
             fold_row(id, glyph, 18., 42., theme).on_click(cx.listener(move |this, _, _, cx| {
                 this.people_open = !open;
+                this.page_folds.start(PageFold::People, !open, cx);
                 this.people_scroll.set_offset(Point::default());
                 cx.notify();
             }))
@@ -1531,6 +1619,11 @@ impl Detail {
             .on_action(cx.listener(move |this, _: &SelectPrevious, _, cx| step(this, -1, cx)))
             .on_action(cx.listener(move |this, _: &Expand, _, cx| fold_to(this, true, cx)))
             .on_action(cx.listener(move |this, _: &Collapse, _, cx| fold_to(this, false, cx)))
+            .on_action(
+                cx.listener(move |this, _: &ToggleFold, _, cx| {
+                    fold_to(this, !this.people_open, cx)
+                }),
+            )
             .on_mouse_down_out(back_to_list(&self.people_focus, cx))
             // As tall with Clear as without, so picking someone moves no row.
             .child(
@@ -1558,10 +1651,11 @@ impl Detail {
                             .id("people-rows")
                             .min_h_0()
                             .gap(dp(2.))
-                            .when(open, |el| el.max_h(open_height))
+                            .when(shows, |el| el.max_h(open_height))
                             .overflow_y_scroll()
                             .track_scroll(&self.people_scroll)
-                            .children(rows),
+                            .children(rows)
+                            .children(held),
                     )
                     .children(scrollbar(
                         "people-scrollbar",
@@ -1569,7 +1663,7 @@ impl Detail {
                         theme,
                     )),
             )
-            .when(rest > 0, |el| {
+            .when(rest > 0 && !open, |el| {
                 el.child(fold(false).flex_none().child(format!("{rest} more")))
             })
             .when(open, |el| {

@@ -2,6 +2,7 @@
 //! stacks, branches and commits as one tree of rows.
 
 use std::collections::{HashMap, HashSet};
+use std::f32::consts::PI;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -13,7 +14,8 @@ use gpui::{
 };
 
 use crate::app::{
-    AddProject, AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious, UpdateFromTarget,
+    AddProject, AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious, ToggleFold,
+    UpdateFromTarget,
 };
 use crate::backend::{
     Branch, Checkout, CommitId, CommitState, FileChange, FullName, PushState, Review, ReviewState,
@@ -27,6 +29,7 @@ use crate::state::{
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
 use crate::ui::emoji::{Colour, ProjectIcon};
+use crate::ui::fold::{self, Folds, clipped, curtain, inert};
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -47,8 +50,8 @@ mod rows;
 use drop::insertion_line;
 use order::{CardSlot, ProjectDrag};
 use rows::{
-    COMMIT_INDENT, Drawer, GUIDE_AT, ROW_LEFT, Row, Rows, in_inactive, inactive_open, last_active,
-    within,
+    COMMIT_INDENT, Drawer, Fold, GUIDE_AT, Moving, ROW_LEFT, Row, Rows, in_inactive, inactive_open,
+    last_active, within,
 };
 
 /// How tall the drawer's handle is, level with the commit footer beside it, and the space
@@ -287,6 +290,13 @@ pub struct Navigator {
     insets: Vec<f32>,
     /// Where each row's guides run.
     guides: Vec<Vec<f32>>,
+    /// Each row's place in the fold it moves with, while one does.
+    moving: Vec<Option<Moving>>,
+    /// The folds opening or closing now.
+    folds: Folds<Fold>,
+    /// Whether each fold the rows were last built through showed what it holds, to tell
+    /// which opened or shut since.
+    folds_seen: HashMap<Fold, bool>,
     pub(crate) list: ListState,
     /// The projects not watched as last drawn, and the list the drawer draws them in.
     drawer: Drawer,
@@ -453,6 +463,9 @@ impl Navigator {
             rows: Vec::new(),
             insets: Vec::new(),
             guides: Vec::new(),
+            moving: Vec::new(),
+            folds: Folds::default(),
+            folds_seen: HashMap::new(),
             list: ListState::new(0, ListAlignment::Top, fixed(56.)),
             drawer: Drawer::default(),
             drawer_list: ListState::new(0, ListAlignment::Top, fixed(56.)),
@@ -514,7 +527,7 @@ impl Navigator {
         toggle: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
     ) -> AnyElement {
         match open.is_some() && self.filtering(cx) {
-            true => fold_glyph(Some(true), color).into_any_element(),
+            true => fold_glyph(id, Some(true), color).into_any_element(),
             false => fold_button(id, open, color, cx, toggle).into_any_element(),
         }
     }
@@ -577,9 +590,24 @@ impl Navigator {
         window.focus(&self.focus, cx);
     }
 
-    /// The rows that can be selected, in order: the cards', then the drawer's.
+    /// The rows that can be selected, in order: the cards', then the drawer's, but not
+    /// those a fold closing takes away.
     fn items(&self) -> Vec<&Selection> {
-        items(self.rows.iter().chain(&self.drawer.rows))
+        self.staying(&self.rows, &self.moving, &self.drawer.rows)
+    }
+
+    /// The items of `rows`, which move as `moving` says, then of `drawer`, without those on
+    /// their way out.
+    fn staying<'a>(
+        &self,
+        rows: &'a [Row],
+        moving: &[Option<Moving>],
+        drawer: &'a [Row],
+    ) -> Vec<&'a Selection> {
+        let closing = |m: &Option<Moving>| m.as_ref().is_some_and(|m| self.folds.closing(&m.fold));
+        let cards = (rows.iter().zip(moving)).filter(|(_, m)| !closing(m));
+        let drawer = drawer.iter().filter(|_| !self.folds.closing(&Fold::Drawer));
+        items(cards.map(|(row, _)| row).chain(drawer))
     }
 
     /// Space at the end of a commit's diff: on to the next unread commit, in any branch or
@@ -613,7 +641,7 @@ impl Navigator {
         // the fold is no stop of its own.
         let built = (delta > 0 && self.unfold_after_selection(cx)).then(|| self.build_rows(cx));
         let items = match &built {
-            Some(built) => items(built.rows.iter().chain(&built.drawer.rows)),
+            Some(built) => self.staying(&built.rows, &built.moving, &built.drawer.rows),
             None => self.items(),
         };
         if items.is_empty() {
@@ -948,6 +976,45 @@ impl Navigator {
         }
     }
 
+    /// Return in the TUI's keymap: fold or unfold the rows the selected one heads, as its
+    /// chevron does. A row that heads none stays as it is, as every row does under the filter.
+    fn toggle_fold(&mut self, _: &ToggleFold, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(selection) = self.store.read(cx).selection.clone() else {
+            return;
+        };
+        let fold = Fold::Under(selection.clone());
+        let Some(open) = (self.build_rows(cx).folds.into_iter())
+            .find_map(|(f, open, _)| (f == fold).then_some(open))
+        else {
+            return;
+        };
+        match selection {
+            Selection::Project(id) => self.toggle_project(&id, cx),
+            Selection::Section(project, section) => {
+                self.toggle_heading(project, section, open, window, cx)
+            }
+            Selection::Branch(project, ref_name) => {
+                self.set_open(ClickOpened::Here((project, ref_name)), !open, cx)
+            }
+            Selection::Uncommitted(project) => {
+                self.toggle_section(&project, Checkout::Main, open, window, cx)
+            }
+            Selection::Worktree(project, name) => {
+                self.toggle_section(&project, Checkout::Linked(name), open, window, cx)
+            }
+            Selection::Stack(project, bottom) => {
+                self.toggle_stack(&project, bottom.as_ref(), open, window, cx)
+            }
+            Selection::Mesh(project, id, pick) => {
+                self.toggle_mesh(project, id, pick, open, window, cx)
+            }
+            Selection::Upstream(project, ref_name, id) => {
+                self.toggle_merge(&project, ref_name, id, window, cx)
+            }
+            Selection::Commit(..) | Selection::Branches(_) | Selection::History(_) => {}
+        }
+    }
+
     /// Enter or a double-click on project `id`, or its card's chevron: a watched project's
     /// card folds or unfolds, as a folder does, still watched, and another starts being
     /// watched. While the filter lists what it finds, cards don't fold.
@@ -960,6 +1027,69 @@ impl Navigator {
                 false => store.set_expanded(id, true, cx),
             }
         })
+    }
+
+    /// Set moving the folds `seen` building the rows that opened or shut since they were last
+    /// built, saying whether any did. Only one whose rows start on screen moves: elsewhere it
+    /// would move only what's in view. Under the filter, which lists what it finds whatever's
+    /// folded, none do.
+    fn follow_folds(&mut self, seen: &[(Fold, bool, Option<usize>)], cx: &App) -> bool {
+        if self.filtering(cx) {
+            self.folds_seen.clear();
+            self.folds.stop_all();
+            return false;
+        }
+        // Where the rows above them were drawn, which is where they'll be.
+        let list = &self.list;
+        let view = list.viewport_bounds();
+        let on_screen = |above: Option<usize>| {
+            above.is_none_or(|ix| {
+                (list.bounds_for_item(ix))
+                    .is_some_and(|row| row.bottom() > view.top() && row.bottom() < view.bottom())
+            })
+        };
+        let (mut changed, mut started) = (seen.len() != self.folds_seen.len(), false);
+        for (fold, open, above) in seen {
+            match self.folds_seen.get(fold) {
+                Some(was) if was == open => {}
+                Some(_) => {
+                    changed = true;
+                    if on_screen(*above) {
+                        self.folds.start(fold.clone(), *open, cx);
+                        started = true;
+                    }
+                }
+                None => changed = true,
+            }
+        }
+        if changed {
+            self.folds_seen = (seen.iter())
+                .map(|(fold, open, _)| (fold.clone(), *open))
+                .collect();
+        }
+        started
+    }
+
+    /// Have each moving fold move only as far as the list shows it, from the row above it as
+    /// last drawn: the rows past the list's bottom go or come at once, so what's seen moves
+    /// all the way. Here, as a row can't ask the list while it draws.
+    fn fit_folds(&mut self, cx: &App) {
+        if !self.folds.any() {
+            return;
+        }
+        let (list, scale) = (&self.list, Theme::get(cx).scale);
+        let view = list.viewport_bounds();
+        let room = |above: Option<usize>| {
+            (above.and_then(|ix| list.bounds_for_item(ix)))
+                .map(|row| f32::from(view.bottom() - row.bottom()).max(0.) / scale)
+        };
+        let mut rooms = HashMap::new();
+        for m in self.moving.iter_mut().flatten() {
+            let room = *rooms.entry(m.above).or_insert_with(|| room(m.above));
+            if let Some(room) = room {
+                m.extent = m.extent.min(room);
+            }
+        }
     }
 
     /// Bring the lists up to date with `rows` and `drawer`, and show the selection if it just
@@ -1063,6 +1193,17 @@ impl Navigator {
     fn render_row(&self, ix: usize, window: &Window, cx: &Context<Self>) -> AnyElement {
         let theme = Theme::get(cx);
         let inset = self.insets.get(ix).copied().unwrap_or_default();
+        // A row a fold is moving shows as far as the fold's open: inside its card, so the
+        // card's edges stay where they are, and taking no clicks while it goes. Under the
+        // curtain, it isn't drawn at all.
+        let moving = (self.moving.get(ix).and_then(Option::as_ref)).and_then(|m| {
+            let open = self.folds.openness(&m.fold)?;
+            Some((
+                curtain(open, m.extent, m.top, m.height),
+                self.folds.closing(&m.fold),
+            ))
+        });
+        let hidden = moving.is_some_and(|(height, _)| height <= 0.);
         // A fold row at the end of commits: its glyph under theirs, its words under their
         // titles, past the glyph and the commit row's gap.
         let under_commits = |id: &'static str, glyph| {
@@ -1071,6 +1212,7 @@ impl Navigator {
         };
         let el = match self.rows.get(ix) {
             None | Some(Row::Gap) => return div().h(dp(12.)).into_any_element(),
+            _ if hidden => div().into_any_element(),
             Some(Row::Item(_)) => self.render_item(&self.rows, ix, inset, window, theme, cx),
             // A dashed line, as ui-react's WorktreeDivider.
             Some(Row::WorktreeDivider) => h_flex()
@@ -1189,8 +1331,14 @@ impl Navigator {
                     .border_r_1()
                     .when(first, |el| el.border_t_1().rounded_t(dp(6.)).pt(dp(3.)))
                     .when(last, |el| el.border_b_1().rounded_b(dp(6.)).pb(dp(3.)))
-                    .child(el)
-                    .children(guides),
+                    .map(|card| match moving {
+                        Some((height, closing)) => card.child(clipped(
+                            div().relative().child(el).children(guides),
+                            dp(height),
+                            closing,
+                        )),
+                        None => card.child(el).children(guides),
+                    }),
             )
             .when_some(slot.filter(|_| first), |el, slot| {
                 let lit = self.project_drop.as_ref() == Some(&slot);
@@ -1341,11 +1489,12 @@ impl Navigator {
         let slot = (manual && !alone).then_some(CardSlot::End);
         let lit = slot.is_some() && self.project_drop == slot;
         let share = (self.store.read(cx).prefs.drawer_share).unwrap_or(DRAWER_SHARE);
-        // Each of its rows is one row tall.
+        // Each of its rows is one row tall. Opening or closing, it's as tall as it's open.
         let rows_height = match self.drawer.rows.len() {
             0 => 0.,
             n => n as f32 * ROW_HEIGHT + DRAWER_PADDING,
-        };
+        } * self.folds.openness(&Fold::Drawer).unwrap_or(1.);
+        let closing = self.folds.closing(&Fold::Drawer);
         v_flex()
             .relative()
             .bg(theme.bg_1)
@@ -1363,7 +1512,8 @@ impl Navigator {
                     .min_h_0()
                     .when(rows_height > 0., |el| el.pb(dp(DRAWER_PADDING)))
                     .child(rows)
-                    .children(scrollbar("drawer-scrollbar", scroll, theme)),
+                    .children(scrollbar("drawer-scrollbar", scroll, theme))
+                    .map(|el| inert(el, closing)),
             )
             // After the cards, a dragged card goes last.
             .when_some(slot, |el, slot| el.child(self.card_drop(slot, cx)))
@@ -1439,19 +1589,16 @@ impl Navigator {
         };
         // While the filter lists what it finds, they show as they are, as cards don't fold.
         let toggles = total > 0 && !alone && !self.filtering(cx);
-        let chevron = match self.store.read(cx).prefs.projects_folded {
-            true => Icon::ChevronUp,
-            false => Icon::ChevronDown,
-        };
+        // Up while it's folded, turning down as it opens.
+        let open = !self.store.read(cx).prefs.projects_folded;
+        let chevron = fold::turned("drawer-fold", open, Icon::ChevronUp, PI, theme.text_3);
         // Its chevron over the projects' eyes.
         let fold = h_flex()
             .flex_1()
             .min_w_0()
             .h_full()
             .gap(dp(6.))
-            .when(toggles, |el| {
-                el.child(small_icon(chevron).text_color(theme.text_3))
-            })
+            .when(toggles, |el| el.child(chevron))
             .child(section_label(title, theme).truncate())
             .when(total > 0, |el| {
                 el.child(faint(count, theme).text_size(dp(12.)))
@@ -1702,7 +1849,7 @@ impl Navigator {
                 .when(expanded, |el| {
                     el.child(
                         button("fold-project", |this, id, cx| this.toggle_project(id, cx))
-                            .child(fold_glyph(Some(!card_folded), style.quiet()))
+                            .child(fold_glyph("fold", Some(!card_folded), style.quiet()))
                             .tooltip(Tooltip::text(match (filtering, card_folded) {
                                 (true, _) => "Clear the filter to fold the project",
                                 (false, true) => "Show the project",
@@ -2816,17 +2963,29 @@ impl Focusable for Navigator {
 
 impl Render for Navigator {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.folds.frame();
+        let mut built = self.build_rows(cx);
+        // A fold that just opened or shut is drawn moving from this frame on.
+        if self.follow_folds(&built.folds, cx) {
+            built = self.build_rows(cx);
+        }
+        if self.folds.any() {
+            window.request_animation_frame();
+        }
         let Rows {
             rows,
             insets,
             guides,
+            moving,
             first_hit,
             drawer,
             ..
-        } = self.build_rows(cx);
+        } = built;
         self.insets = insets;
         self.guides = guides;
+        self.moving = moving;
         self.sync_list(rows, drawer, window, cx);
+        self.fit_folds(cx);
         let theme = Theme::get(cx).clone();
         self.first_hit = first_hit;
         let store = self.store.read(cx);
@@ -2932,6 +3091,7 @@ impl Render for Navigator {
             .on_action(cx.listener(Self::expand))
             .on_action(cx.listener(Self::collapse))
             .on_action(cx.listener(Self::confirm))
+            .on_action(cx.listener(Self::toggle_fold))
             .size_full()
             .relative()
             .bg(theme.bg_2)

@@ -25,7 +25,7 @@ pub enum Keymap {
     #[default]
     GitButler,
     /// Like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming and
-    /// adding an empty commit.
+    /// adding an empty commit, and Return to fold and unfold.
     Tui,
 }
 

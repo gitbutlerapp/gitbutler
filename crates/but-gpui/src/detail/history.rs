@@ -9,8 +9,8 @@ use gpui::{
 
 use super::Detail;
 use super::panes::{
-    list_empty, list_filtered_out, list_heading, meta_item, meta_row, page_title, side_list,
-    step_from, title_text,
+    list_empty, list_filtered_out, list_heading, meta_item, meta_row, page_title, reveal_side_row,
+    side_list, step_from, title_text,
 };
 use crate::backend::history::{Change, Operation, Recorded};
 use crate::backend::{self, CommitId, DiffSource, SnapshotId};
@@ -426,12 +426,14 @@ impl Detail {
             return;
         };
         // Kept in view by its row, below the day headings.
-        let row = rows(history, &shown)
-            .iter()
-            .position(|row| matches!(row, Row::Operation(ix) if *ix == next));
+        let rows = rows(history, &shown);
+        let (count, row) = (
+            rows.len(),
+            (rows.iter()).position(|row| matches!(row, Row::Operation(ix) if *ix == next)),
+        );
         self.select_operation(id, cx);
         if let Some(row) = row {
-            (self.history_scroll).scroll_to_item(row, gpui::ScrollStrategy::Nearest);
+            reveal_side_row(&self.history_scroll, count, row, false, Theme::get(cx));
         }
     }
 
@@ -516,7 +518,7 @@ impl Detail {
         if let Some(history) = self.history.get_mut(project) {
             history.selected = None;
         }
-        (self.history_scroll).scroll_to_item(0, gpui::ScrollStrategy::Top);
+        (self.history_scroll).scroll_to(Default::default());
     }
 
     /// Back to the newest operation listed, at the top, as the page opens on, when it's picked
@@ -528,7 +530,7 @@ impl Detail {
         let newest = self.shown_operations(history, cx).first().copied();
         if let Some(op) = newest.and_then(|ix| history.operations.get(ix)) {
             self.select_operation(op.id, cx);
-            (self.history_scroll).scroll_to_item(0, gpui::ScrollStrategy::Top);
+            (self.history_scroll).scroll_to(Default::default());
         }
     }
 
@@ -902,11 +904,11 @@ impl Detail {
             let rows = rows(history, &shown);
             let project = project.clone();
             side_list(
-                "history",
                 rows.len(),
                 &self.history_scroll,
                 "history-scrollbar",
                 cx,
+                |_, _| None,
                 move |this, ix, theme, window, cx| {
                     let history = this.history_for(&project)?;
                     let row = match rows.get(ix)? {
@@ -981,6 +983,7 @@ impl Detail {
         };
         self.list_column(
             Self::step_history,
+            None,
             None,
             Some(Self::restore_selected_operation),
             cx,

@@ -11,6 +11,7 @@ use gpui::{
 
 use super::conflict::{self, Part};
 use super::file_icons::file_icon;
+use super::fold::{self, MOVING_ROWS};
 use super::{Icon, blink_once, dp, faint, fixed, h_flex, plural, small_icon, v_flex};
 use crate::backend::{
     ChangeKind, Conflict, DiffBody, DiffLine, FileDiff, Hunk, LineKind, Picture, scope_name,
@@ -119,6 +120,32 @@ impl DiffRow {
             DiffRow::Gap => None,
         }
     }
+}
+
+/// `rows` with each file `moving` says is folding or unfolding cut to [`MOVING_ROWS`] under its
+/// header, past the first few it says it leaves out, which are what move; the rest wait till
+/// it's there.
+pub fn moving_rows(rows: Vec<DiffRow>, moving: impl Fn(usize) -> Option<usize>) -> Vec<DiffRow> {
+    let (mut cutting, mut at) = (None, 0);
+    (rows.into_iter())
+        .filter(|row| match *row {
+            DiffRow::File(file) => {
+                (cutting, at) = (moving(file), 0);
+                true
+            }
+            DiffRow::Gap => {
+                cutting = None;
+                true
+            }
+            _ => match cutting {
+                Some(left_out) => {
+                    at += 1;
+                    at > left_out && at <= left_out + MOVING_ROWS
+                }
+                None => true,
+            },
+        })
+        .collect()
 }
 
 /// Whether row `ix` of `rows` ends its file's card, as the row before the gap after each file
@@ -421,6 +448,8 @@ pub struct HeaderDecor {
     pub solid: bool,
     /// The file shows only its header.
     pub folded: bool,
+    /// The file is folding, its lines going up into its header.
+    pub closing: bool,
     /// The current one was just copied, by which blink it is: see [`super::blink_once`].
     pub blink: Option<usize>,
 }
@@ -547,11 +576,6 @@ pub fn file_header(
 ) -> AnyElement {
     let (name, dir) = split_path(&file.file.path);
     let (added, removed) = file.stats();
-    let chevron = if decor.folded {
-        Icon::ChevronRight
-    } else {
-        Icon::ChevronDown
-    };
     // Under the cursor, as a list's selected row: solid with its text inverted while the diff
     // has the keys, faint while they're elsewhere.
     let on = decor.current && decor.solid;
@@ -580,7 +604,11 @@ pub fn file_header(
                 .when(decor.folded, |el| el.rounded_b(dp(6.)));
             el.relative().child(blink_once(("blink", n), shape, theme))
         })
-        .child(small_icon(chevron).text_color(soft(theme.text_2)))
+        .child(fold::chevron(
+            "fold",
+            !(decor.folded || decor.closing),
+            soft(theme.text_2),
+        ))
         .child(
             h_flex()
                 .flex_1()
@@ -1426,7 +1454,10 @@ fn image_row(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> 
 #[cfg(test)]
 mod tests {
     use super::DiffRow::{Context, File, Gap, Line, Note, Pair};
-    use super::{count_len, count_text, pair_lines, stats_columns, stats_text, widest_up_to};
+    use super::{
+        MOVING_ROWS, count_len, count_text, moving_rows, pair_lines, stats_columns, stats_text,
+        widest_up_to,
+    };
     use crate::backend::{DiffLine, LineKind};
 
     #[test]
@@ -1491,6 +1522,32 @@ mod tests {
             stats_text(0, 72, (0, 0)).0,
             "-72",
             "outside a list, a count of nothing takes no room",
+        );
+    }
+
+    #[test]
+    fn a_moving_file_keeps_the_rows_after_those_it_leaves_out() {
+        let line = |file, line| Line {
+            file,
+            hunk: 0,
+            line,
+        };
+        let file = |ix: usize| {
+            let lines = (0..MOVING_ROWS + 10).map(move |n| line(ix, n));
+            std::iter::once(File(ix)).chain(lines).chain([Gap])
+        };
+        let rows: Vec<_> = file(0).chain(file(1)).collect();
+        let kept = moving_rows(rows, |file| (file == 0).then_some(3));
+        let first: Vec<_> = kept.iter().take_while(|row| **row != Gap).collect();
+        assert_eq!(
+            (first.get(1), first.len()),
+            (Some(&&line(0, 3)), MOVING_ROWS + 1),
+            "the file moving keeps its header and the rows that move, from the fourth"
+        );
+        assert_eq!(
+            kept.len(),
+            first.len() + 1 + MOVING_ROWS + 12,
+            "the file at rest keeps every row"
         );
     }
 

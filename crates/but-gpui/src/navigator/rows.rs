@@ -5,10 +5,12 @@ use std::time::Duration;
 
 use gpui::{App, SharedString};
 
-use super::{ClickOpened, Navigator, STEP, upstream_chevrons};
-use crate::backend::{Branch, Checkout, FullName, Lane, Workspace, Worktree};
+use super::{BranchKey, ClickOpened, Navigator, STEP, upstream_chevrons};
+use crate::backend::{Branch, Checkout, Commit, FullName, Lane, Workspace, Worktree};
 use crate::edits::BranchEdits;
 use crate::state::{Cut, NewAt, ProjectEntry, ProjectId, Section, Selection, Store};
+use crate::ui::ROW_HEIGHT;
+use crate::ui::fold::{Folds, MOVING_ROWS};
 
 /// Commits shown per branch before folding the rest into "N more".
 const FOLD_AFTER: usize = 8;
@@ -44,14 +46,51 @@ pub(super) enum Row {
     RestsOn(Selection, Option<Checkout>),
 }
 
+impl Row {
+    /// How tall the row is drawn, near enough for a fold moving it to count by.
+    fn height(&self) -> f32 {
+        match self {
+            Row::Gap | Row::WorktreeDivider => 12.,
+            Row::More(..) | Row::Fewer(..) | Row::UpstreamMore(..) | Row::RestsOn(..) => 24.,
+            Row::Item(_) | Row::Note(..) | Row::Pending(..) | Row::NewBranch(_) => ROW_HEIGHT,
+        }
+    }
+}
+
+/// What a fold in the cards holds: the rows under an item's row, a branch's commits past the
+/// first few, or the drawer's projects.
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub(super) enum Fold {
+    Under(Selection),
+    More(BranchKey),
+    Drawer,
+}
+
+/// Where a row is in the fold it moves with: how far down the fold's rows, by their heights,
+/// how tall it is, and how tall they are together, and the row above them, which says where
+/// on screen the fold starts.
+#[derive(Clone)]
+pub(super) struct Moving {
+    pub(super) fold: Fold,
+    pub(super) top: f32,
+    pub(super) height: f32,
+    pub(super) extent: f32,
+    pub(super) above: Option<usize>,
+}
+
 /// The rows as they're built, each with how far in it sits: a worktree's section and a
 /// stack's branches step in from what holds them. Each also has the guides it draws, as
-/// but.dev's sidebar does: a line down from under the chevron of each row it's under.
+/// but.dev's sidebar does: a line down from under the chevron of each row it's under, and
+/// while a fold holding it moves, its place in that.
 #[derive(Default)]
 pub(super) struct Rows {
     pub(super) rows: Vec<Row>,
     pub(super) insets: Vec<f32>,
     pub(super) guides: Vec<Vec<f32>>,
+    pub(super) moving: Vec<Option<Moving>>,
+    /// Each fold the rows were built through: whether it showed what it holds, and the row
+    /// just above that, which says where it is.
+    pub(super) folds: Vec<(Fold, bool, Option<usize>)>,
     /// What the rows pushed next sit in by.
     inset: f32,
     /// Where the guides of the rows pushed next run.
@@ -90,6 +129,44 @@ impl Rows {
         self.rows.push(row);
         self.insets.push(self.inset);
         self.guides.push(self.open.clone());
+        self.moving.push(None);
+    }
+
+    /// Push, with `rows`, what `fold` holds while it shows that: `open`, or still closing.
+    /// While it moves, those rows are drawn as far as it's open, as one curtain, the first
+    /// [`MOVING_ROWS`] of them; the rest join or go once it's there. A fold inside one that
+    /// moves is drawn with it.
+    pub(super) fn fold(
+        &mut self,
+        fold: Fold,
+        open: bool,
+        folds: &Folds<Fold>,
+        rows: impl FnOnce(&mut Self),
+    ) {
+        let above = self.rows.len().checked_sub(1);
+        self.folds.push((fold.clone(), open, above));
+        if !folds.shows(&fold, open) {
+            return;
+        }
+        let from = self.rows.len();
+        rows(self);
+        if folds.openness(&fold).is_none() {
+            return;
+        }
+        self.truncate(self.rows.len().min(from + MOVING_ROWS));
+        let heights: Vec<f32> = (self.rows.iter().skip(from)).map(Row::height).collect();
+        let extent = heights.iter().sum();
+        let mut top = 0.;
+        for (moving, height) in self.moving.iter_mut().skip(from).zip(heights) {
+            *moving = Some(Moving {
+                fold: fold.clone(),
+                top,
+                height,
+                extent,
+                above,
+            });
+            top += height;
+        }
     }
 
     /// Set the rows pushed until [`Self::close`] under the row just pushed, a guide running
@@ -136,6 +213,7 @@ impl Rows {
         self.rows.truncate(len);
         self.insets.truncate(len);
         self.guides.truncate(len);
+        self.moving.truncate(len);
     }
 }
 
@@ -159,94 +237,12 @@ impl Navigator {
             if !rows.rows.is_empty() {
                 rows.push(Row::Gap);
             }
-            let id = &entry.id;
-            rows.push(Row::Item(Selection::Project(id.clone())));
-            if store.project_folded(id) {
-                continue;
-            }
-            let Some(workspace) = &entry.workspace else {
-                rows.push(match &entry.error {
-                    Some(err) => Row::Note(err.clone(), true),
-                    None => Row::Note("Loading…".into(), false),
-                });
-                continue;
-            };
-            if let Some(err) = &entry.error {
-                rows.push(Row::Note(err.clone(), true));
-            }
-            // The target's new commits are a section of their own, as Network worktrees is,
-            // ruled off from the worktrees.
-            let before = rows.rows.len();
-            self.upstream_rows(store, workspace, id, None, &mut rows);
-            if rows.rows.len() > before {
-                rows.push(Row::WorktreeDivider);
-            }
-            // Nothing but the edit goes on while a commit is checked out, its files listed
-            // where the uncommitted ones are.
-            if workspace.editing.is_some() {
-                rows.push(Row::Item(Selection::Uncommitted(id.clone())));
-                continue;
-            }
-            // The main worktree's heading folds its branches away, which step in under it; with
-            // linked worktrees each is a section too, ruled off from the next.
-            let headed = !workspace.worktrees.is_empty();
-            let selection = store.selection.as_ref().filter(|s| s.project() == id);
-            let main_selected =
-                selection.is_some_and(|s| within(s, workspace.branches_in(&Checkout::Main)));
-            let main_open = self.worktree_open(id, Checkout::Main, main_selected);
-            // Always listed, with nothing uncommitted too, so where to commit is always there.
-            rows.push(Row::Item(Selection::Uncommitted(id.clone())));
-            rows.open_in(STEP);
-            if main_open {
-                // A stack being unapplied leaves at once.
-                let stacks = workspace.lanes_in(&Checkout::Main).filter(|stack| {
-                    !(stack.branches.iter())
-                        .any(|b| (b.ref_name.as_ref()).is_some_and(|r| store.hides_branch(id, r)))
-                });
-                // Whether a branch is checked out on its own or several share the workspace,
-                // they're listed alike; with none, as on the default branch, there's nothing to
-                // list, and the next commit starts one.
-                for stack in stacks {
-                    self.lane_rows(store, id, &stack.branches, &mut rows);
-                }
-            }
-            rows.close();
-            if headed {
-                rows.push(Row::WorktreeDivider);
-                let on_branches = |wt: &Worktree| {
-                    let checkout = Checkout::Linked(wt.name.clone());
-                    selection.is_some_and(|s| within(s, workspace.branches_in(&checkout)))
-                };
-                // The inactive ones wait under a heading of their own, folded unless opened or
-                // the selection's in one.
-                let (inactive, active): (Vec<_>, Vec<_>) = (self.worktrees(id, workspace))
-                    .into_iter()
-                    .filter(|wt| !store.hides_worktree(id, wt.name.as_ref()))
-                    .partition(|wt| wt.is_inactive());
-                for wt in active {
-                    self.worktree_rows(store, id, wt, on_branches(wt), &mut rows);
-                }
-                if !inactive.is_empty() {
-                    rows.push(Row::Item(Selection::Section(id.clone(), Section::Inactive)));
-                    if inactive_open(store, id, &inactive) {
-                        for wt in inactive {
-                            self.worktree_rows(store, id, wt, on_branches(wt), &mut rows);
-                        }
-                    }
-                }
-            }
-            // Its checkouts on the user's other machines, as worktrees: none while signed out.
-            self.mesh_rows(store, id, &mut rows);
-            // After the worktrees, so a drag starting in one doesn't push its rows down. Outside
-            // the workspace there's nowhere to put a branch of its own.
-            if workspace.managed && lands_apart(store.dragging.as_ref(), id, workspace) {
-                rows.push(Row::NewBranch(id.clone()));
-            }
-            // The pages are another kind of row than the worktrees', so a line rules them off,
-            // as the last worktree's does when there are linked ones.
-            rows.rule_off();
-            rows.push(Row::Item(Selection::Branches(id.clone())));
-            rows.push(Row::Item(Selection::History(id.clone())));
+            let item = Selection::Project(entry.id.clone());
+            rows.push(Row::Item(item.clone()));
+            let open = !store.project_folded(&entry.id);
+            rows.fold(Fold::Under(item), open, &self.folds, |rows| {
+                self.card_rows(store, entry, rows)
+            });
         }
         let others: Vec<&ProjectEntry> = (store.projects.iter())
             .filter(|entry| !entry.expanded)
@@ -267,8 +263,13 @@ impl Navigator {
         }
         rows.drawer.listed = listed.len();
         rows.drawer.total = others.len();
-        if prefs.projects_folded && !rows.rows.is_empty() {
-            return rows;
+        // With no cards it's always open.
+        if !rows.rows.is_empty() {
+            let open = !prefs.projects_folded;
+            rows.folds.push((Fold::Drawer, open, None));
+            if !self.folds.shows(&Fold::Drawer, open) {
+                return rows;
+            }
         }
         rows.drawer.rows = (listed.iter())
             .map(|(entry, _)| Row::Item(Selection::Project(entry.id.clone())))
@@ -277,6 +278,98 @@ impl Navigator {
             (rows.drawer.rows).push(Row::Note("None active in the last 7 days".into(), false));
         }
         rows
+    }
+
+    /// The rows of watched project `entry`'s card under its own: its worktrees with their
+    /// branches, its checkouts elsewhere, then its pages.
+    fn card_rows(&self, store: &Store, entry: &ProjectEntry, rows: &mut Rows) {
+        let id = &entry.id;
+        let Some(workspace) = &entry.workspace else {
+            rows.push(match &entry.error {
+                Some(err) => Row::Note(err.clone(), true),
+                None => Row::Note("Loading…".into(), false),
+            });
+            return;
+        };
+        if let Some(err) = &entry.error {
+            rows.push(Row::Note(err.clone(), true));
+        }
+        // The target's new commits are a section of their own, as Network worktrees is,
+        // ruled off from the worktrees.
+        let before = rows.rows.len();
+        self.upstream_rows(store, workspace, id, None, rows);
+        if rows.rows.len() > before {
+            rows.push(Row::WorktreeDivider);
+        }
+        // Nothing but the edit goes on while a commit is checked out, its files listed
+        // where the uncommitted ones are.
+        if workspace.editing.is_some() {
+            rows.push(Row::Item(Selection::Uncommitted(id.clone())));
+            return;
+        }
+        // The main worktree's heading folds its branches away, which step in under it; with
+        // linked worktrees each is a section too, ruled off from the next.
+        let headed = !workspace.worktrees.is_empty();
+        let selection = store.selection.as_ref().filter(|s| s.project() == id);
+        let main_selected =
+            selection.is_some_and(|s| within(s, workspace.branches_in(&Checkout::Main)));
+        let main_open = self.worktree_open(id, Checkout::Main, main_selected);
+        // Always listed, with nothing uncommitted too, so where to commit is always there.
+        let heading = Selection::Uncommitted(id.clone());
+        rows.push(Row::Item(heading.clone()));
+        rows.open_in(STEP);
+        rows.fold(Fold::Under(heading), main_open, &self.folds, |rows| {
+            // A stack being unapplied leaves at once.
+            let stacks = workspace.lanes_in(&Checkout::Main).filter(|stack| {
+                !(stack.branches.iter())
+                    .any(|b| (b.ref_name.as_ref()).is_some_and(|r| store.hides_branch(id, r)))
+            });
+            // Whether a branch is checked out on its own or several share the workspace,
+            // they're listed alike; with none, as on the default branch, there's nothing to
+            // list, and the next commit starts one.
+            for stack in stacks {
+                self.lane_rows(store, id, &stack.branches, rows);
+            }
+        });
+        rows.close();
+        if headed {
+            rows.push(Row::WorktreeDivider);
+            let on_branches = |wt: &Worktree| {
+                let checkout = Checkout::Linked(wt.name.clone());
+                selection.is_some_and(|s| within(s, workspace.branches_in(&checkout)))
+            };
+            // The inactive ones wait under a heading of their own, folded unless opened or
+            // the selection's in one.
+            let (inactive, active): (Vec<_>, Vec<_>) = (self.worktrees(id, workspace))
+                .into_iter()
+                .filter(|wt| !store.hides_worktree(id, wt.name.as_ref()))
+                .partition(|wt| wt.is_inactive());
+            for wt in active {
+                self.worktree_rows(store, id, wt, on_branches(wt), rows);
+            }
+            if !inactive.is_empty() {
+                let heading = Selection::Section(id.clone(), Section::Inactive);
+                rows.push(Row::Item(heading.clone()));
+                let open = inactive_open(store, id, &inactive);
+                rows.fold(Fold::Under(heading), open, &self.folds, |rows| {
+                    for wt in inactive {
+                        self.worktree_rows(store, id, wt, on_branches(wt), rows);
+                    }
+                });
+            }
+        }
+        // Its checkouts on the user's other machines, as worktrees: none while signed out.
+        self.mesh_rows(store, id, rows);
+        // After the worktrees, so a drag starting in one doesn't push its rows down. Outside
+        // the workspace there's nowhere to put a branch of its own.
+        if workspace.managed && lands_apart(store.dragging.as_ref(), id, workspace) {
+            rows.push(Row::NewBranch(id.clone()));
+        }
+        // The pages are another kind of row than the worktrees', so a line rules them off,
+        // as the last worktree's does when there are linked ones.
+        rows.rule_off();
+        rows.push(Row::Item(Selection::Branches(id.clone())));
+        rows.push(Row::Item(Selection::History(id.clone())));
     }
 
     /// The rows while the filter has words in it: every project, worktree, branch and commit
@@ -422,40 +515,47 @@ impl Navigator {
     /// with its commits, up to the fold, unless it's closed.
     fn lane_rows(&self, store: &Store, id: &ProjectId, branches: &[Branch], rows: &mut Rows) {
         let branches = &*store.after_deletes(id, branches);
-        let stacked = branches.len() > 1;
-        if let [_, .., bottom] = branches {
-            let key = (id.clone(), bottom.ref_name.clone());
-            let selected = (store.selection.as_ref())
-                .is_some_and(|s| s.project() == id && branches.iter().any(|b| s.on(b)));
-            rows.push(Row::Item(Selection::Stack(key.0.clone(), key.1.clone())));
-            if self.folded_stacks.contains(&key) && !selected {
-                return;
+        let [_, .., bottom] = branches else {
+            for branch in branches {
+                self.branch_rows(store, id, branch, rows);
             }
+            return;
+        };
+        let key = (id.clone(), bottom.ref_name.clone());
+        let selected = (store.selection.as_ref())
+            .is_some_and(|s| s.project() == id && branches.iter().any(|b| s.on(b)));
+        let caption = Selection::Stack(key.0.clone(), key.1.clone());
+        rows.push(Row::Item(caption.clone()));
+        let open = !self.folded_stacks.contains(&key) || selected;
+        rows.fold(Fold::Under(caption), open, &self.folds, |rows| {
             rows.open_in(STEP);
-        }
-        for branch in branches {
-            let key = (id.clone(), branch.ref_name.clone());
-            // Past the fold, but never past the selected commit, as after moving it down a step.
-            let selected_at = match &store.selection {
-                Some(Selection::Commit(p, c)) if p == id => {
-                    branch.commits.iter().position(|commit| commit.id == *c)
-                }
-                _ => None,
-            };
-            let unfolded = self.unfolded(&key);
-            let fold_at = FOLD_AFTER.max(selected_at.map_or(0, |at| at + 1));
-            let shown = match unfolded {
-                true => branch.commits.len(),
-                false => fold_at,
-            };
-            let closed = !branch.commits.is_empty()
-                && !(store.selection.as_ref())
-                    .is_some_and(|s| s.project() == id && s.under(branch))
-                && !self.is_open(&ClickOpened::Here(key.clone()));
-            rows.push(Row::Item(Selection::Branch(key.0, key.1)));
-            if closed {
-                continue;
+            for branch in branches {
+                self.branch_rows(store, id, branch, rows);
             }
+            rows.close();
+        });
+    }
+
+    /// A branch's row and, unless it's closed, its remote's commits and its own, up to the
+    /// fold unless that's open.
+    fn branch_rows(&self, store: &Store, id: &ProjectId, branch: &Branch, rows: &mut Rows) {
+        let key = (id.clone(), branch.ref_name.clone());
+        // Past the fold, but never past the selected commit, as after moving it down a step.
+        let selected_at = match &store.selection {
+            Some(Selection::Commit(p, c)) if p == id => {
+                branch.commits.iter().position(|commit| commit.id == *c)
+            }
+            _ => None,
+        };
+        let unfolded = self.unfolded(&key);
+        let fold_at = FOLD_AFTER.max(selected_at.map_or(0, |at| at + 1));
+        let shown = match unfolded {
+            true => branch.commits.len(),
+            false => fold_at,
+        };
+        let item = Selection::Branch(key.0.clone(), key.1.clone());
+        rows.push(Row::Item(item.clone()));
+        let inside = |rows: &mut Rows| {
             rows.open();
             // `None` there is the target's: an unnamed branch has no remote of its own.
             if let (Some(workspace), Some(ref_name)) = (store.workspace(id), &branch.ref_name) {
@@ -475,16 +575,26 @@ impl Navigator {
                     !store.hides_commit(id, &commit.key)
                         || (selected_at == Some(at) && !store.moves_commit(id, &commit.key))
                 })
+                .map(|(_, commit)| commit)
                 .collect();
             let count = commits.len();
-            rows.extend((commits.into_iter()).take(shown).flat_map(|(_, commit)| {
-                let item = Row::Item(Selection::Commit(id.clone(), commit.id));
-                (pending(&|at| matches!(at, NewAt::Above(key) if *key == commit.key)))
-                    .chain([item])
-                    .chain(pending(
-                        &|at| matches!(at, NewAt::Below(key) if *key == commit.key),
-                    ))
-            }));
+            let commit_rows = |commits: &[&Commit], rows: &mut Rows| {
+                rows.extend(commits.iter().flat_map(|commit| {
+                    let item = Row::Item(Selection::Commit(id.clone(), commit.id));
+                    (pending(&|at| matches!(at, NewAt::Above(key) if *key == commit.key)))
+                        .chain([item])
+                        .chain(pending(
+                            &|at| matches!(at, NewAt::Below(key) if *key == commit.key),
+                        ))
+                }));
+            };
+            let (first, rest) = commits.split_at(fold_at.min(count));
+            commit_rows(first, rows);
+            if !rest.is_empty() {
+                rows.fold(Fold::More(key.clone()), unfolded, &self.folds, |rows| {
+                    commit_rows(rest, rows)
+                });
+            }
             // Show fewer goes by the fold, not the selection, so selecting the last row keeps it.
             if count > shown {
                 rows.push(Row::More(
@@ -496,10 +606,14 @@ impl Navigator {
                 rows.push(Row::Fewer(id.clone(), branch.ref_name.clone()));
             }
             rows.close();
+        };
+        // A branch with no commits has nothing to fold.
+        if branch.commits.is_empty() {
+            return inside(rows);
         }
-        if stacked {
-            rows.close();
-        }
+        let open = (store.selection.as_ref()).is_some_and(|s| s.project() == id && s.under(branch))
+            || self.is_open(&ClickOpened::Here(key.clone()));
+        rows.fold(Fold::Under(item), open, &self.folds, inside);
     }
 
     /// `workspace`'s linked worktrees, in the order they had when the pointer came over the
@@ -525,8 +639,10 @@ impl Navigator {
         rows: &mut Rows,
     ) {
         let name = worktree.name.clone();
-        rows.push(Row::Item(Selection::Worktree(id.clone(), name.clone())));
-        if self.worktree_open(id, Checkout::Linked(name.clone()), selected) {
+        let heading = Selection::Worktree(id.clone(), name.clone());
+        rows.push(Row::Item(heading.clone()));
+        let open = self.worktree_open(id, Checkout::Linked(name.clone()), selected);
+        rows.fold(Fold::Under(heading), open, &self.folds, |rows| {
             rows.open_in(STEP);
             let workspace = store.workspace(id);
             let lane = workspace.and_then(|ws| ws.worktree_lane(name.as_ref()));
@@ -542,7 +658,7 @@ impl Navigator {
                 );
             }
             rows.close();
-        }
+        });
         rows.push(Row::WorktreeDivider);
     }
 
@@ -562,44 +678,47 @@ impl Navigator {
             return;
         }
         let owner = ref_name.cloned();
-        rows.push(Row::Item(Selection::Section(
-            id.clone(),
-            Section::Upstream(owner.clone()),
-        )));
-        if !self.upstream_open(store, id, ref_name) {
-            return;
-        }
-        // Guides from the heading's chevron and an open merge's, as from a branch's.
-        let (heading, merge) = upstream_chevrons(ref_name);
-        rows.open_at(heading);
-        let selected = match &store.selection {
-            Some(Selection::Upstream(p, r, c)) if p == id && *r == owner => Some(*c),
-            _ => None,
-        };
-        for commit in commits {
-            rows.push(Row::Item(Selection::Upstream(
-                id.clone(),
-                owner.clone(),
-                commit.id,
-            )));
-            let Some((merged, _)) = (store.merged.get(&commit.id)).and_then(|m| m.as_ref()) else {
-                continue;
+        let section = Selection::Section(id.clone(), Section::Upstream(owner.clone()));
+        rows.push(Row::Item(section.clone()));
+        let open = self.upstream_open(store, id, ref_name);
+        rows.fold(Fold::Under(section), open, &self.folds, |rows| {
+            // Guides from the heading's chevron and an open merge's, as from a branch's.
+            let (heading, merge) = upstream_chevrons(ref_name);
+            rows.open_at(heading);
+            let selected = match &store.selection {
+                Some(Selection::Upstream(p, r, c)) if p == id && *r == owner => Some(*c),
+                _ => None,
             };
-            let holds = selected.is_some_and(|c| merged.iter().any(|m| m.id == c));
-            if commit.merge && (self.open_merges.contains(&commit.id) || holds) {
-                rows.open_at(merge);
-                rows.extend(merged.iter().map(|merged| {
-                    Row::Item(Selection::Upstream(id.clone(), owner.clone(), merged.id))
-                }));
-                rows.close();
+            for commit in commits {
+                let item = Selection::Upstream(id.clone(), owner.clone(), commit.id);
+                rows.push(Row::Item(item.clone()));
+                if !commit.merge {
+                    continue;
+                }
+                // Its commits load as it opens.
+                let merged = (store.merged.get(&commit.id))
+                    .and_then(|m| m.as_ref())
+                    .map(|(merged, _)| merged);
+                let holds =
+                    selected.is_some_and(|c| merged.is_some_and(|m| m.iter().any(|m| m.id == c)));
+                let open = merged.is_some() && (self.open_merges.contains(&commit.id) || holds);
+                rows.fold(Fold::Under(item), open, &self.folds, |rows| {
+                    if let Some(merged) = merged {
+                        rows.open_at(merge);
+                        rows.extend(merged.iter().map(|merged| {
+                            Row::Item(Selection::Upstream(id.clone(), owner.clone(), merged.id))
+                        }));
+                        rows.close();
+                    }
+                });
             }
-        }
-        let behind = (workspace.target.as_ref()).filter(|_| owner.is_none());
-        let more = behind.map_or(0, |target| target.behind.saturating_sub(commits.len()));
-        if more > 0 {
-            rows.push(Row::UpstreamMore(id.clone(), more));
-        }
-        rows.close();
+            let behind = (workspace.target.as_ref()).filter(|_| owner.is_none());
+            let more = behind.map_or(0, |target| target.behind.saturating_sub(commits.len()));
+            if more > 0 {
+                rows.push(Row::UpstreamMore(id.clone(), more));
+            }
+            rows.close();
+        });
     }
 }
 

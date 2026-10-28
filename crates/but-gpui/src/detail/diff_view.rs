@@ -1,6 +1,7 @@
 //! The diff column: every changed file as a card, built row by row so only what's on
 //! screen is laid out.
 
+use std::cell::Cell;
 use std::ops::Range;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -18,8 +19,8 @@ use super::file_list::At;
 use super::find::Spot;
 use super::lines::Pick;
 use super::{
-    Copied, Cursor, Detail, FILES_POPOVER_DELAY, FileLines, Glide, LoadedDiff, Stop, TextPoint,
-    ToggleFiles, TogglePlainLines, ToggleSplit, ToggleWrap,
+    Copied, Cursor, Detail, FILES_POPOVER_DELAY, FileLines, FoldRows, Glide, LoadedDiff, Stop,
+    TextPoint, ToggleFiles, TogglePlainLines, ToggleSplit, ToggleWrap,
 };
 use crate::backend::{
     self, Branch, ChangeKind, DiffBody, DiffLine, DiffSource, Drawing, FileDiff, HunkKey, LineKind,
@@ -29,6 +30,7 @@ use crate::overlays::MenuItem;
 use crate::state::{Cut, Prefs, Selection};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
+use crate::ui::fold::{MOVING_ROWS, clipped, curtain};
 use crate::ui::illustration::Illustration;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
@@ -88,12 +90,27 @@ impl DiffPane {
     }
 }
 
+/// How much of a diff row shows while its file folds or unfolds, whether it's on its way out,
+/// and where among its file's moving rows to keep how tall it's drawn.
+struct FoldClip {
+    height: Pixels,
+    closing: bool,
+    heights: Rc<[Cell<Pixels>]>,
+    at: usize,
+}
+
 impl Render for DiffPane {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx).clone();
         let drawn = self.detail.update(cx, |detail, cx| {
+            let rebuilt = detail.follow_folds(window, cx);
             detail.follow_glide(window, cx);
-            detail.follow_scroll(cx);
+            // Rows just rebuilt have no place on screen yet, so the cursor's would count as
+            // scrolled out of sight, as when a fold settles while a press in the diff has let
+            // the cursor go: it would flash to the file at the top until the click placed it.
+            if !rebuilt {
+                detail.follow_scroll(cx);
+            }
             detail.follow_drag(window, cx);
             let top = detail.list.logical_scroll_top();
             (
@@ -461,6 +478,145 @@ impl Detail {
         Some((area, sideways))
     }
 
+    /// Draw the files folding or unfolding as far as they've got, and once one's there, the
+    /// rows it has then: its header alone, or all its lines. Whether that rebuilt the rows,
+    /// which the list knows no place on screen for until it lays them out.
+    pub(super) fn follow_folds(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let arrived = self.file_folds.frame();
+        if arrived {
+            // A file that turned back open gets the rows it left out back above the lines
+            // that stayed, which stay where they are.
+            let back = self.reopened();
+            let moving = &self.file_folds;
+            (self.fold_rows).retain(|path, _| moving.openness(path).is_some());
+            self.rebuild_rows(cx);
+            if let Some((file, left_out, top)) = back
+                && let Some(header) = self.row_of(|row| *row == DiffRow::File(file))
+            {
+                self.glide = None;
+                let by = top - self.list.viewport_bounds().top();
+                let at = self.place_after((header + 1 + left_out) as f32, -by, cx);
+                self.list.scroll_to(self.list_offset(at, cx));
+            }
+        }
+        if !self.file_folds.any() {
+            return arrived;
+        }
+        window.request_animation_frame();
+        // How far the diff shows below each header, as last drawn, here, as a row can't ask
+        // the list while it draws.
+        let (Some(diff), view) = (&self.diff, self.list.viewport_bounds()) else {
+            return arrived;
+        };
+        for (path, rows) in &mut self.fold_rows {
+            let file = diff.files.iter().position(|f| f.file.path == *path);
+            let header = file
+                .and_then(|file| (diff.rows.iter()).position(|row| *row == DiffRow::File(file)));
+            rows.room = (header.and_then(|row| self.list.bounds_for_item(row)))
+                .map(|header| (view.bottom() - header.bottom()).max(Pixels::ZERO));
+        }
+        arrived
+    }
+
+    /// The rows under file `file`'s header past the first `passed`, as many as move when it
+    /// folds, as tall as they're drawn, or as they're guessed to be before they are.
+    pub(super) fn moving_rows_of(&self, file: usize, passed: usize, cx: &App) -> FoldRows {
+        let rows = self
+            .diff
+            .as_ref()
+            .map_or(&[][..], |diff| diff.rows.as_slice());
+        let heights: Rc<[Cell<Pixels>]> =
+            match rows.iter().position(|row| *row == DiffRow::File(file)) {
+                Some(header) => (rows.iter().enumerate().skip(header + 1))
+                    .take_while(|(_, row)| row.file() == Some(file))
+                    .skip(passed)
+                    .take(MOVING_ROWS)
+                    .map(|(ix, _)| Cell::new(self.row_height(ix, cx)))
+                    .collect(),
+                None => Rc::new([]),
+            };
+        FoldRows {
+            heights,
+            room: None,
+            left_out: 0,
+        }
+    }
+
+    /// Where file `file` closes from, if it's in sight: how many rows under its header it
+    /// leaves out, as they're above the diff's top or under its header stuck there, and with
+    /// its header stuck there, how far above the top the header goes for the lines left to
+    /// stay where they are. None while neither the file's header nor its lines show.
+    pub(super) fn close_from(&self, file: usize, cx: &App) -> Option<(usize, Option<Pixels>)> {
+        let diff = self.diff.as_ref()?;
+        let theme = Theme::get(cx);
+        let view = self.list.viewport_bounds();
+        let header = (diff.rows.iter()).position(|row| *row == DiffRow::File(file))?;
+        if let Some(bounds) = self.list.bounds_for_item(header)
+            && bounds.top() >= view.top()
+        {
+            return (bounds.top() < view.bottom()).then_some((0, None));
+        }
+        let (stuck, lift) = self.sticky_header(diff, theme)?;
+        if stuck != header {
+            return None;
+        }
+        let tall = theme.scaled(diff::FILE_HEADER_HEIGHT);
+        // The first line that shows below it, as the rows above the list's top have no place.
+        let under = view.top() + tall + lift;
+        let from = self.list.logical_scroll_top().item_ix.max(header + 1);
+        let (first, line) = (diff.rows.iter().enumerate().skip(from))
+            .take_while(|(_, row)| row.file() == Some(file))
+            .find_map(|(ix, _)| {
+                let line = self.list.bounds_for_item(ix)?;
+                (line.bottom() > under).then_some((ix, line))
+            })?;
+        let above = (view.top() + tall - line.top()).clamp(Pixels::ZERO, tall);
+        Some((first - header - 1, Some(above)))
+    }
+
+    /// A file that just got back open after leaving rows out: which, how many it left out, and
+    /// where the first line it kept is on screen.
+    fn reopened(&self) -> Option<(usize, usize, Pixels)> {
+        let diff = self.diff.as_ref()?;
+        let (path, rows) = (self.fold_rows.iter()).find(|(path, rows)| {
+            rows.left_out > 0
+                && self.file_folds.openness(path).is_none()
+                && !self.folded.contains(*path)
+        })?;
+        let file = (diff.files.iter()).position(|f| f.file.path == *path)?;
+        let header = self.row_of(|row| *row == DiffRow::File(file))?;
+        let kept = self.list.bounds_for_item(header + 1)?;
+        Some((file, rows.left_out, kept.top()))
+    }
+
+    /// How much of diff row `ix` shows while its file folds or unfolds, and whether it's on its
+    /// way out: the lines under the header move as one curtain, as far as the diff shows them.
+    fn fold_clip(&self, ix: usize) -> Option<FoldClip> {
+        let diff = self.diff.as_ref()?;
+        let row = *diff.rows.get(ix)?;
+        let file = match row {
+            DiffRow::File(_) => return None,
+            row => row.file()?,
+        };
+        let path = &diff.files.get(file)?.file.path;
+        let open = self.file_folds.openness(path)?;
+        let FoldRows { heights, room, .. } = self.fold_rows.get(path)?;
+        let header = (diff.rows.get(..ix)?.iter()).rposition(|row| *row == DiffRow::File(file))?;
+        let at = ix.checked_sub(header + 1)?;
+        let sum =
+            |heights: &[Cell<Pixels>]| (heights.iter()).fold(0., |sum, h| sum + f32::from(h.get()));
+        let (top, extent) = (sum(heights.get(..at)?), sum(heights));
+        // Lines below the diff's bottom go or come at once, so what's seen moves all the way.
+        let extent = room.map_or(extent, |room| extent.min(f32::from(room)));
+        let shown = curtain(open, extent, top, f32::from(heights.get(at)?.get()));
+        Some(FoldClip {
+            height: Pixels::from(shown),
+            closing: self.file_folds.closing(path),
+            heights: heights.clone(),
+            at,
+        })
+    }
+
     /// Scroll a share of the way left to where the keys sent the diff, as each frame draws, by
     /// how long since the last: it sets out quickly and eases in, however often frames come.
     /// Going down, it stops once the diff's end is on screen, as no row can come higher.
@@ -709,10 +865,39 @@ impl Detail {
                     .size_full()
                     .child(
                         list(self.list.clone(), move |ix, window, cx| {
-                            let Some(detail) = entity.upgrade() else {
+                            let Some(entity) = entity.upgrade() else {
                                 return div().into_any_element();
                             };
-                            (detail.read(cx)).render_diff_row(ix, detail.downgrade(), window, cx)
+                            let detail = entity.read(cx);
+                            let row = |detail: &Detail| {
+                                detail.render_diff_row(ix, entity.downgrade(), window, cx)
+                            };
+                            match detail.fold_clip(ix) {
+                                // Under the curtain, a line isn't drawn at all: a file opening
+                                // starts with all of its under it.
+                                Some(clip) if clip.height <= Pixels::ZERO => {
+                                    div().into_any_element()
+                                }
+                                Some(FoldClip {
+                                    height,
+                                    closing,
+                                    heights,
+                                    at,
+                                }) => {
+                                    let drawn = canvas(
+                                        move |bounds, _, _| {
+                                            if let Some(cell) = heights.get(at) {
+                                                cell.set(bounds.size.height)
+                                            }
+                                        },
+                                        |_, _, _, _| {},
+                                    );
+                                    let row = (div().relative().child(row(detail)))
+                                        .child(drawn.absolute().inset_0());
+                                    clipped(row, height, closing).into_any_element()
+                                }
+                                None => row(detail),
+                            }
                         })
                         .size_full(),
                     )
@@ -1050,6 +1235,7 @@ impl Detail {
                         current,
                         solid,
                         folded: last,
+                        closing: self.file_folds.closing(&file_diff.file.path),
                         blink: (current && solid)
                             .then(|| self.blink(Copied::Cursor))
                             .flatten(),

@@ -1,9 +1,9 @@
 // A keymap like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming
-// and adding an empty commit, and the keys the app's lists and overlays need, as GitButler's
-// keymap has them. `base.json`, which macOS gives every app, binds after these. `secondary` is cmd on macOS
-// and ctrl elsewhere; a section with "os" binds only there. Order matters: within a context the
-// binding added last wins, and the last binding for an action is the key menus and tooltips
-// show, so the TUI's letters come after the arrows.
+// and adding an empty commit, Return to fold and unfold, and the keys the app's lists and
+// overlays need, as GitButler's keymap has them. `base.json`, which macOS gives every app,
+// binds after these. `secondary` is cmd on macOS and ctrl elsewhere; a section with "os" binds
+// only there. Order matters: within a context the binding added last wins, and the last binding
+// for an action is the key menus and tooltips show, so the TUI's letters come after the arrows.
 [
   // : for the TUI's command line, ? for its help, / for its jump and Esc to go back. y copies the
   // selection and ⇧Y picks what else of it to copy. u undoes and ⇧U redoes. ← and →, or h and l,
@@ -27,7 +27,8 @@
   },
   // The TUI's status list: up and down, ⇧J and ⇧K between sections, g and ⇧G to either end. r
   // renames, where the TUI's squashes, and n adds an empty commit above the selected one, or on
-  // top of the selected branch.
+  // top of the selected branch. Return folds or unfolds what the selected row heads: a card, a
+  // section, a worktree, a stack, a branch or a merge.
   {
     "context": "Navigator && !TextInput",
     "bindings": {
@@ -40,11 +41,12 @@
       "g": "navigator::SelectFirst",
       "shift-g": "navigator::SelectLast",
       "r": "navigator::RenameSelection",
-      "n": "edits::AddEmptyCommitAbove"
+      "n": "edits::AddEmptyCommitAbove",
+      "enter": "navigator::ToggleFold"
     }
   },
   // The TUI's details: j and k between hunks, ⌃D and ⌃U half a page, g and ⇧G to the first and
-  // last file.
+  // last file. Return on a file's header folds or unfolds it, as on its row in the file list.
   {
     "context": "Diff && !TextInput",
     "bindings": {
@@ -55,7 +57,8 @@
       "ctrl-d": "diff::HalfPageDown",
       "ctrl-u": "diff::HalfPageUp",
       "g": "diff::FirstFile",
-      "shift-g": "diff::LastFile"
+      "shift-g": "diff::LastFile",
+      "enter": "diff::ToggleFileFold"
     }
   },
   // The file list, inside the diff's context, steps through its files rather than going on to
@@ -70,7 +73,9 @@
     }
   },
   // The History and Branches lists step and jump as the navigator does, and fold as GitButler's
-  // keymap folds them, the arrows last so menus show them.
+  // keymap folds them, the arrows last so menus show them. Return folds or unfolds as in the
+  // navigator, the People card under a list too; on Operations history, where nothing folds,
+  // it restores to before the operation, after asking.
   {
     "context": "List && !TextInput",
     "bindings": {
@@ -84,9 +89,7 @@
       "shift-right": "navigator::Expand",
       "shift-h": "navigator::Collapse",
       "shift-left": "navigator::Collapse",
-      // Applies the branch on Branches, restores to before the operation on Operations
-      // history, after asking.
-      "enter": "navigator::Confirm"
+      "enter": "navigator::ToggleFold"
     }
   },
   // After the text field's own keys, so these win in the find field.

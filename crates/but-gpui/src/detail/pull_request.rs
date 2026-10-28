@@ -9,15 +9,16 @@ use gpui::{
     ScrollHandle, SharedString, Stateful, Toggled, Window, div, list, prelude::*,
 };
 
-use super::Detail;
 use super::panes::measured;
 use super::resolve::{banner_action, warn_banner};
+use super::{Detail, PageFold};
 use crate::backend::reviews::MergeMethod;
 use crate::backend::{CheckRun, Forge, FullName, Review, ReviewState};
 use crate::overlays::MenuItem;
 use crate::pr::{Mergeability, Offer};
 use crate::state::{ProjectId, Selection, snack};
 use crate::theme::Theme;
+use crate::ui::fold;
 use crate::ui::markdown;
 use crate::ui::person::forge_avatar;
 use crate::ui::review as ui_review;
@@ -713,16 +714,12 @@ impl Detail {
                 };
                 el.role(Role::Button)
                     .aria_label(tip)
-                    .child(
-                        small_icon(match open {
-                            true => Icon::ChevronDown,
-                            false => Icon::ChevronRight,
-                        })
-                        .text_color(theme.text_3),
-                    )
+                    .child(fold::chevron("fold", open, theme.text_3))
                     .tooltip(Tooltip::text(tip))
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.passed_checks_open = !this.passed_checks_open;
+                        let open = this.passed_checks_open;
+                        this.page_folds.start(PageFold::PassedChecks, open, cx);
                         cx.notify();
                     }))
             })
@@ -735,14 +732,24 @@ impl Detail {
             .child(h_flex().min_h(dp(20.)).child(heading))
             .child(bar)
             .child(counts)
-            .when(!live.is_empty() || open, |el| {
-                el.child(
-                    v_flex()
-                        .children(live.iter().map(|(ix, run)| check_row(*ix, run, theme)))
-                        .when(open, |el| {
-                            el.children(rest.iter().map(|(ix, run)| check_row(*ix, run, theme)))
-                        }),
-                )
+            .map(|el| {
+                let checks = |runs: &[(usize, &CheckRun)]| {
+                    (runs.iter().map(|(ix, run)| check_row(*ix, run, theme))).collect::<Vec<_>>()
+                };
+                // Alone under the counts, the gap above them folds with them.
+                let alone = live.is_empty();
+                let passed = (self.page_folds.shows(&PageFold::PassedChecks, open)).then(|| {
+                    let rows = v_flex().when(alone, |el| el.pt(dp(8.)));
+                    (self.page_folds).reveal(&PageFold::PassedChecks, rows.children(checks(&rest)))
+                });
+                el.when(!alone || passed.is_some(), |el| {
+                    el.child(
+                        v_flex()
+                            .when(alone, |el| el.mt(dp(-8.)))
+                            .children(checks(&live))
+                            .children(passed),
+                    )
+                })
             })
     }
 

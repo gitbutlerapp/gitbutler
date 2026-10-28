@@ -14,12 +14,12 @@ use gpui::{
 
 mod overview;
 
-use super::Detail;
 use super::panes::{
     Crumb, CrumbTo, LIST_MIN_HEIGHT, list_empty, list_filtered_out, list_heading, measured,
-    meta_item, meta_row, page_title, side_list, step_from, title_text,
+    meta_item, meta_row, page_title, reveal_side_row, rows_under, side_list, step_from, title_text,
 };
 use super::upstream::commit_author;
+use super::{Detail, PageFold};
 
 use crate::app::AppView;
 use crate::backend::branches::{self, ApplyBranch, ApplyOutcome, DescribeBranch, OtherBranch};
@@ -475,12 +475,17 @@ impl Detail {
             return;
         };
         if branches.folded.remove(top) {
+            self.page_folds
+                .start(PageFold::Stack(top.to_owned()), true, cx);
             return cx.notify();
         }
         branches.folded.insert(top.to_owned());
         let stack = branches.branch(top).map(|b| b.stack);
         let inside = (branches.selected_branch()).is_some_and(|b| Some(b.stack) == stack);
-        if inside && !branches.stack {
+        let on_caption = branches.stack;
+        self.page_folds
+            .start(PageFold::Stack(top.to_owned()), false, cx);
+        if inside && !on_caption {
             self.select_stack(top.to_owned(), cx);
         }
         cx.notify();
@@ -492,7 +497,8 @@ impl Detail {
         let Some(branches) = self.page_branches_mut(cx) else {
             return;
         };
-        if branches.open.insert(ref_name.to_owned()) {
+        let open = branches.open.insert(ref_name.to_owned());
+        if open {
             let project = branches.project.clone();
             self.load_open_commits(&project, cx);
         } else {
@@ -502,11 +508,14 @@ impl Detail {
                 self.show_picked(cx);
             }
         }
+        self.page_folds
+            .start(PageFold::Branch(ref_name.to_owned()), open, cx);
         cx.notify();
     }
 
     /// The branches the filters keep, newest first, under headings by when they last
     /// changed, a stack's branches together under a caption while more than one of them shows.
+    /// What's folding stays till it's shut.
     fn branch_rows(&self, branches: &Branches, cx: &Context<Self>) -> Vec<Row> {
         let shown: Vec<(usize, &OtherBranch)> = (self.kept_in(branches, &branches.list, None, cx))
             .into_iter()
@@ -548,7 +557,10 @@ impl Detail {
                     .unwrap_or((first_ix, first));
                 let folded = branches.folded.contains(&top_branch.ref_name);
                 rows.push(Row::Stack(top, stack.len(), folded));
-                if folded {
+                let closing = self
+                    .page_folds
+                    .closing(&PageFold::Stack(top_branch.ref_name.clone()));
+                if folded && !closing {
                     continue;
                 }
             }
@@ -556,7 +568,10 @@ impl Detail {
                 rows.push(Row::Branch(ix, stacked));
                 // By its tip only, so the rows stay while a fetch has them reload. Only its
                 // own commits: a stacked branch's listing goes on through the ones below it.
-                if branches.open.contains(&branch.ref_name)
+                let closing = self
+                    .page_folds
+                    .closing(&PageFold::Branch(branch.ref_name.clone()));
+                if (branches.open.contains(&branch.ref_name) || closing)
                     && let Some(((tip, _), commits)) = branches.commits.get(&branch.ref_name)
                     && *tip == branch.tip
                 {
@@ -816,8 +831,9 @@ impl Detail {
             is_selected(branches, row) || matches!(*row, Row::Stack(top, _, true) if in_stack(top))
         });
         if let Some(&(next, row)) = step_from(&selectable, at, delta) {
+            let count = rows.len();
             self.select_branch_row(row, cx);
-            (self.branches_scroll).scroll_to_item(next, gpui::ScrollStrategy::Nearest);
+            reveal_side_row(&self.branches_scroll, count, next, false, Theme::get(cx));
         }
     }
 
@@ -863,6 +879,25 @@ impl Detail {
                 }
             }
             _ => {}
+        }
+    }
+
+    /// Return in the TUI's keymap: fold or unfold the selected stack, or the selected
+    /// branch's commits. One of its commits stays as it is.
+    fn toggle_branches_fold(&mut self, cx: &mut Context<Self>) {
+        let Some(branches) = self.page_branches(cx) else {
+            return;
+        };
+        let Some(branch) = branches.selected_branch() else {
+            return;
+        };
+        let ref_name = branch.ref_name.clone();
+        if branches.stack {
+            self.toggle_stack(&ref_name, cx)
+        } else if branches.commit.is_none()
+            && (branches.open.contains(&ref_name) || branch.own_commits != Some(0))
+        {
+            self.toggle_branch(&ref_name, cx)
         }
     }
 
@@ -1271,6 +1306,21 @@ impl Detail {
         let filter = self.branch_filter_bar(project, window, cx);
         let chips = self.branch_filter_chips(cx);
         let rows = self.branch_rows(branches, cx);
+        let ref_at = |ix: usize| branches.list.get(ix).map(|b| b.ref_name.clone());
+        let (rows, places) = self.page_folds.place(
+            rows,
+            |row| match *row {
+                Row::Stack(top, ..) => ref_at(top).map(PageFold::Stack),
+                Row::Branch(ix, _) => ref_at(ix).map(PageFold::Branch),
+                Row::Heading(_) | Row::Commit(..) => None,
+            },
+            |head, row| match (head, row) {
+                (Row::Stack(..), Row::Branch(_, stacked) | Row::Commit(_, _, stacked)) => *stacked,
+                (Row::Branch(ix, _), Row::Commit(of, ..)) => ix == of,
+                _ => false,
+            },
+            |head| rows_under(&self.branches_scroll, head, theme),
+        );
         let people = self.branch_people_card(branches, window, cx);
         let target = (self.store.read(cx).workspace(project))
             .and_then(|ws| ws.target.as_ref())
@@ -1280,11 +1330,11 @@ impl Detail {
         } else {
             let shown = project.clone();
             side_list(
-                "other-branches",
                 rows.len(),
                 &self.branches_scroll,
                 "branches-scrollbar",
                 cx,
+                move |this, ix| (this.page_folds).moved(places.get(ix).and_then(Option::as_ref)),
                 move |this, ix, theme, window, cx| {
                     let branches = this.branches_for(&shown)?;
                     let solid = this.side_focus.is_focused(window);
@@ -1523,6 +1573,7 @@ impl Detail {
         self.list_column(
             Self::step_branches,
             Some(Self::fold_branches),
+            Some(Self::toggle_branches_fold),
             Some(Self::apply_selected_branch),
             cx,
         )

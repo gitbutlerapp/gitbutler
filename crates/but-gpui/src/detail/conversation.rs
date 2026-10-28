@@ -6,13 +6,14 @@ use gpui::{
     Animation, AnimationExt as _, AnyElement, App, Context, Div, ElementId, Role, div, prelude::*,
 };
 
-use super::Detail;
 use super::pull_request::{card, tag};
+use super::{Detail, PageFold};
 use crate::backend::reviews::Verdict;
 use crate::backend::{Forge, Note, Remark, Review, Thread};
 use crate::state::ProjectId;
 use crate::theme::Theme;
 use crate::ui::diff::{excerpt, split_path};
+use crate::ui::fold;
 use crate::ui::markdown;
 use crate::ui::person::forge_avatar;
 use crate::ui::{
@@ -152,13 +153,7 @@ impl Detail {
             .gap(dp(6.))
             .text_size(dp(12.))
             .hover(|el| el.bg(theme.hover()))
-            .child(
-                small_icon(match open {
-                    true => Icon::ChevronDown,
-                    false => Icon::ChevronRight,
-                })
-                .text_color(theme.text_3),
-            )
+            .child(fold::chevron("fold", open, theme.text_3))
             .child(
                 h_flex()
                     .flex_grow(1.)
@@ -192,8 +187,11 @@ impl Detail {
                 if !this.threads_flipped.remove(&id) {
                     this.threads_flipped.insert(id.clone());
                 }
+                this.page_folds
+                    .start(PageFold::Thread(id.clone()), !open, cx);
                 cx.notify();
             }));
+        let fold = PageFold::Thread(thread.id.clone());
         v_flex()
             .rounded(dp(6.))
             .border_1()
@@ -201,26 +199,29 @@ impl Detail {
             .bg(theme.bg_2)
             .overflow_hidden()
             .child(anchor)
-            .when(open, |el| {
+            .when(self.page_folds.shows(&fold, open), |el| {
                 el.child(
-                    v_flex()
-                        .p(dp(10.))
-                        .gap(dp(10.))
-                        .border_t_1()
-                        .border_color(theme.border_3)
-                        .bg(theme.bg_1)
-                        .when(!thread.excerpt.is_empty(), |el| {
-                            el.child(excerpt(&thread.excerpt, theme))
-                        })
-                        .children(thread.comments.iter().enumerate().map(|(ix, note)| {
-                            v_flex()
-                                .gap(dp(6.))
-                                .when(ix > 0, |el| {
-                                    el.pt(dp(10.)).border_t_1().border_color(theme.border_3)
-                                })
-                                .child(header(note, None, true, theme))
-                                .child(markdown::render(&note.url, &note.body, theme))
-                        })),
+                    self.page_folds.reveal(
+                        &fold,
+                        v_flex()
+                            .p(dp(10.))
+                            .gap(dp(10.))
+                            .border_t_1()
+                            .border_color(theme.border_3)
+                            .bg(theme.bg_1)
+                            .when(!thread.excerpt.is_empty(), |el| {
+                                el.child(excerpt(&thread.excerpt, theme))
+                            })
+                            .children(thread.comments.iter().enumerate().map(|(ix, note)| {
+                                v_flex()
+                                    .gap(dp(6.))
+                                    .when(ix > 0, |el| {
+                                        el.pt(dp(10.)).border_t_1().border_color(theme.border_3)
+                                    })
+                                    .child(header(note, None, true, theme))
+                                    .child(markdown::render(&note.url, &note.body, theme))
+                            })),
+                    ),
                 )
             })
     }

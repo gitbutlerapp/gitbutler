@@ -14,6 +14,7 @@ use crate::app::AppView;
 use crate::backend::{self, settings::Published};
 use crate::help::OpenReleaseNotes;
 use crate::theme::Theme;
+use crate::ui::fold::Folds;
 use crate::ui::markdown::{self, Block, Kind, Style};
 use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
@@ -182,6 +183,8 @@ pub struct WhatsNew {
     selected: Option<SharedString>,
     /// The folded sections opened, by release and heading.
     unfolded: HashSet<(SharedString, String)>,
+    /// Those opening or closing now.
+    folds: Folds<(SharedString, String)>,
     releases_scroll: ScrollHandle,
     notes_scroll: ScrollHandle,
     _read: Task<()>,
@@ -223,6 +226,7 @@ impl WhatsNew {
             releases: None,
             selected: None,
             unfolded: HashSet::new(),
+            folds: Folds::default(),
             releases_scroll: ScrollHandle::new(),
             notes_scroll: ScrollHandle::new(),
             _read: Task::ready(()),
@@ -425,23 +429,31 @@ impl WhatsNew {
                     .font_weight(FontWeight::SEMIBOLD)
                     .text_color(theme.text_2)
                     .hover(|el| el.text_color(theme.text_1))
-                    .child(fold_glyph(Some(open), theme.text_3))
+                    .child(fold_glyph("fold", Some(open), theme.text_3))
                     .child(section.folded())
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        if !this.unfolded.remove(&key) {
-                            this.unfolded.insert(key.clone());
-                        }
-                        cx.notify();
-                    }))
+                    .on_click({
+                        let key = key.clone();
+                        cx.listener(move |this, _, _, cx| {
+                            let open = !this.unfolded.remove(&key);
+                            if open {
+                                this.unfolded.insert(key.clone());
+                            }
+                            this.folds.start(key.clone(), open, cx);
+                            cx.notify();
+                        })
+                    })
                     .into_any_element(),
                 false => section_label(section.title.clone(), theme).into_any_element(),
             };
+            // The space under the heading goes with what folds, so it opens from the heading.
+            let notes = div()
+                .pt(dp(6.))
+                .child(markdown::render(&id, &section.blocks, theme));
             parts.push(
                 v_flex()
-                    .gap(dp(6.))
                     .child(head)
-                    .when(open, |el| {
-                        el.child(markdown::render(&id, &section.blocks, theme))
+                    .when(self.folds.shows(&key, open), |el| {
+                        el.child(self.folds.reveal(&key, notes))
                     })
                     .into_any_element(),
             );
@@ -570,6 +582,10 @@ impl WhatsNew {
 
 impl Render for WhatsNew {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.folds.frame();
+        if self.folds.any() {
+            window.request_animation_frame();
+        }
         let theme = Theme::get(cx).clone();
         let typed = self.search.read(cx).text().trim().to_owned();
         let query = self.query(cx);

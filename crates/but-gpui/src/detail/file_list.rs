@@ -1,18 +1,19 @@
 //! The file lists beside the diff: uncommitted files, or the loaded diff's, flat or as a
 //! tree, with what right-clicking them offers.
 
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, ElementId, MouseButton, MouseDownEvent, Pixels,
-    Point, ScrollStrategy, SharedString, Stateful, Toggled, div, img, prelude::*,
+    Point, SharedString, Stateful, Toggled, div, img, prelude::*,
 };
 
 use super::blame::Blamed;
 use super::file_tree::{self, TreeRow};
-use super::panes::side_list;
-use super::{Copied, Detail, FilterFiles, LoadedDiff, keeps_path, merged, ranked};
+use super::panes::{rows_under, side_list};
+use super::{Copied, Detail, FilterFiles, LoadedDiff, PageFold, keeps_path, merged, ranked};
 use crate::app::AppView;
 use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::MenuItem;
@@ -20,6 +21,7 @@ use crate::state::{Cut, FileSort, Overlay, ProjectId, Rereads, Selection};
 use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
+use crate::ui::fold;
 use crate::ui::illustration::Illustration;
 use crate::ui::{
     Icon, ROW_HEIGHT, blink_once, checkbox, count_badge, dp, empty_state, faint, fixed, h_flex,
@@ -89,7 +91,7 @@ fn file_row(id: impl Into<ElementId>, selected: bool, solid: bool, theme: &Theme
 /// A tree row's indent, as ui-react's FileListItem draws it: a step per level, each with a
 /// guide that joins the rows above and below into one line down its directory, and a
 /// directory's `chevron` in a step of its own. A file's icon so sits under its directory's.
-fn steps(depth: usize, chevron: Option<gpui::Svg>, theme: &Theme) -> Div {
+fn steps(depth: usize, chevron: Option<AnyElement>, theme: &Theme) -> Div {
     let step = || {
         div()
             .w(dp(STEP))
@@ -193,7 +195,7 @@ impl Detail {
         cx: &Context<Self>,
     ) -> AnyElement {
         let source = FileSource::Uncommitted(project.clone(), checkout.clone());
-        let (rows, _) = self.file_list("uncommitted-files", source, cx);
+        let (rows, _) = self.file_list(source, cx);
         // Counted as listed: without the files a pending operation is taking.
         let store = self.store.read(cx);
         let shown = |path: &str| !store.hides_file(project, checkout, path);
@@ -241,7 +243,7 @@ impl Detail {
                 .py(dp(10.))
                 .into_any_element();
         };
-        let (rows, _) = self.file_list("diff-files", FileSource::Diff, cx);
+        let (rows, _) = self.file_list(FileSource::Diff, cx);
         // Counted as listed: without the files a pending operation is taking out.
         let leaving = diff.key.leaving(self.store.read(cx));
         let paths = (diff.files.iter())
@@ -265,7 +267,7 @@ impl Detail {
             .map_or(FileSource::Diff, |(project, worktree)| {
                 FileSource::Uncommitted(project, worktree)
             });
-        let (rows, count) = self.file_list("popover-files", source, cx);
+        let (rows, count) = self.file_list(source, cx);
         popover(theme)
             .w(dp(340.))
             // The rows, the padding and the border.
@@ -277,7 +279,7 @@ impl Detail {
 
     /// A file list, flat or as a tree as the user chose, drawn only as far as it's on
     /// screen: an agent can leave thousands of files. Also how many rows it has.
-    fn file_list(&self, id: &'static str, source: FileSource, cx: &Context<Self>) -> (Div, usize) {
+    fn file_list(&self, source: FileSource, cx: &Context<Self>) -> (Div, usize) {
         let store = self.store.read(cx);
         let tree = store.prefs.file_tree;
         let terms = self.filter_terms(cx);
@@ -318,12 +320,40 @@ impl Detail {
             .unzip();
         let found = listed.into_iter().map(|(_, found)| found).collect();
         let rows: Vec<TreeRow> = if tree {
-            file_tree::tree_rows(&paths, &self.collapsed_dirs)
+            // A folder closing stays open till it's shut.
+            let closing = |dir: &String| self.page_folds.closing(&PageFold::Dir(dir.clone()));
+            let shut: Cow<HashSet<String>> = match self.page_folds.any() {
+                true => Cow::Owned(
+                    (self.collapsed_dirs.iter())
+                        .filter(|dir| !closing(dir))
+                        .cloned()
+                        .collect(),
+                ),
+                false => Cow::Borrowed(&self.collapsed_dirs),
+            };
+            file_tree::tree_rows(&paths, &shut)
         } else {
             (0..paths.len())
                 .map(|pos| TreeRow::File { pos, depth: 0 })
                 .collect()
         };
+        let depth = |row: &TreeRow| match row {
+            TreeRow::Dir { depth, .. } | TreeRow::File { depth, .. } => *depth,
+        };
+        let scroll = match &source {
+            FileSource::Uncommitted(..) => &self.uncommitted_files,
+            FileSource::Diff => &self.diff_files,
+        };
+        let theme = Theme::get(cx);
+        let (rows, places) = self.page_folds.place(
+            rows,
+            |row| match row {
+                TreeRow::Dir { path, .. } => Some(PageFold::Dir(path.clone())),
+                TreeRow::File { .. } => None,
+            },
+            |dir, row| depth(row) > depth(dir),
+            |dir| rows_under(scroll, dir, theme),
+        );
         let found = underlined(&rows, &paths, found);
         // Room for the widest counts any row shows: a file's own, or in a tree a folder's,
         // which all the files' together bound.
@@ -337,10 +367,6 @@ impl Detail {
                 diff::stats_columns(counts.chain(folders))
             }
             false => diff::stats_columns(counts),
-        };
-        let scroll = match &source {
-            FileSource::Uncommitted(..) => &self.uncommitted_files,
-            FileSource::Diff => &self.diff_files,
         };
         // The list follows the cursor to another file, as j and ↓ move it, or to the folded
         // directory the file is in.
@@ -358,10 +384,10 @@ impl Detail {
                 TreeRow::Dir { .. } => false,
             })
         });
-        if *self.listed_cursor.borrow() != cursor
-            && let Some(row) = cursor_row
-        {
-            scroll.scroll_to_item(row, ScrollStrategy::Nearest);
+        let follow = (*self.listed_cursor.borrow() != cursor)
+            .then_some(cursor_row)
+            .flatten();
+        if follow.is_some() {
             *self.listed_cursor.borrow_mut() = cursor;
         }
         // Which rows are picked, while some are, so picked files next to each other join up.
@@ -381,11 +407,11 @@ impl Detail {
         };
         let count = rows.len();
         let list = side_list(
-            id,
             count,
             scroll,
             "files-scrollbar",
             cx,
+            move |this, ix| (this.page_folds).moved(places.get(ix).and_then(Option::as_ref)),
             move |this, ix, theme, window, cx| match rows.get(ix)? {
                 dir @ TreeRow::Dir { .. } => {
                     let found = found.get(ix)?;
@@ -413,6 +439,10 @@ impl Detail {
                 }
             },
         );
+        // Once the list has its rows.
+        if let Some(row) = follow {
+            scroll.scroll_to_reveal_item(row);
+        }
         (list, count)
     }
 
@@ -703,24 +733,16 @@ impl Detail {
             return None;
         };
         let (added, removed) = self.folder_stats(source, &path, cx);
+        let fold = PageFold::Dir(path.clone());
+        let open = !collapsed && !self.page_folds.closing(&fold);
+        let chevron = fold::chevron("fold", open, theme.text_3).into_any_element();
         let row = file_row(
             ElementId::Name(format!("dir-{path}").into()),
             holds_cursor,
             false,
             theme,
         )
-        .child(steps(
-            depth,
-            Some(
-                small_icon(if collapsed {
-                    Icon::ChevronRight
-                } else {
-                    Icon::ChevronDown
-                })
-                .text_color(theme.text_3),
-            ),
-            theme,
-        ))
+        .child(steps(depth, Some(chevron), theme))
         // In colour and at its own 17 by 14 points, as ui-react's FolderIcon draws it, in the
         // box a file's icon has, which it runs a little past.
         .child(
@@ -742,7 +764,7 @@ impl Detail {
                         .text_ellipsis_middle()
                         .child(matched(name, found.iter().cloned())),
                 )
-                .when(collapsed, |el| {
+                .when(!open, |el| {
                     el.child(faint(files.to_string(), theme).flex_none())
                 }),
         )
@@ -762,9 +784,11 @@ impl Detail {
             }),
         )
         .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-            if !this.collapsed_dirs.remove(&path) {
+            let open = this.collapsed_dirs.remove(&path);
+            if !open {
                 this.collapsed_dirs.insert(path.clone());
             }
+            this.page_folds.start(fold.clone(), open, cx);
             cx.notify();
         }));
         Some(row.into_any_element())

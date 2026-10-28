@@ -36,13 +36,14 @@ use std::time::{Duration, Instant};
 use gpui::{
     AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, ListAlignment,
     ListOffset, ListState, Pixels, Point, RenderImage, ScrollHandle, SharedString, Subscription,
-    Task, UniformListScrollHandle, Window, actions, div, prelude::*,
+    Task, Window, actions, div, prelude::*,
 };
 
 use crate::app::{AddProject, AppHandle};
 use crate::backend::edit::Editing;
 use crate::backend::{
-    self, Checkout, DiffLine, DiffSource, FileChange, FileDiff, FullName, HunkKey, Selected,
+    self, Checkout, CommitId, DiffLine, DiffSource, FileChange, FileDiff, FullName, HunkKey,
+    Selected,
 };
 use crate::overlays::MenuItem;
 use crate::palette::score;
@@ -51,6 +52,7 @@ use crate::state::{
 };
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
+use crate::ui::fold::Folds;
 use crate::ui::illustration::{Illustration, illustration};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -74,6 +76,7 @@ actions!(
         DiscardFile,
         FoldFile,
         UnfoldFile,
+        ToggleFileFold,
         PageDown,
         PageUp,
         HalfPageDown,
@@ -171,6 +174,32 @@ struct Glide {
     to: f32,
     last: Instant,
     reveal: bool,
+}
+
+/// The rows a file folding or unfolding moves: how tall each is, and how far the diff shows
+/// below its header, past which they go or come at once. A row not drawn yet, as one of a file
+/// opening, has only a guess, a line tall even where it wraps, so each drawn while it moves
+/// keeps how tall it was for the next frame.
+struct FoldRows {
+    heights: Rc<[Cell<Pixels>]>,
+    room: Option<Pixels>,
+    /// How many rows under the header go at once as it starts, as they're out of sight: above
+    /// the diff's top, or under the header stuck there.
+    left_out: usize,
+}
+
+/// What folds on the pages beside the diff: a folder of a tree of files, a stack's branches or
+/// a branch's commits on the Branches page, the commits a merge on the target brought in, the
+/// People card's rest, or on a pull request, a thread or the checks that passed.
+#[derive(Clone, PartialEq, Eq, Hash)]
+enum PageFold {
+    Dir(String),
+    Stack(FullName),
+    Branch(FullName),
+    Merge(CommitId),
+    People,
+    Thread(String),
+    PassedChecks,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -287,8 +316,8 @@ pub struct Detail {
     _waiting: Task<()>,
     list: ListState,
     /// Where the uncommitted file list and a commit's or branch's file list are scrolled.
-    uncommitted_files: UniformListScrollHandle,
-    diff_files: UniformListScrollHandle,
+    uncommitted_files: ListState,
+    diff_files: ListState,
     /// The cursor's file the file list last scrolled to show, so it follows the cursor's
     /// moves but not its own scrolling.
     listed_cursor: std::cell::RefCell<Option<String>>,
@@ -389,6 +418,8 @@ pub struct Detail {
     header_height: Rc<Cell<f32>>,
     /// Directories folded shut in tree-shaped file lists, by path.
     collapsed_dirs: HashSet<String>,
+    /// What's opening or closing on the pages beside the diff.
+    page_folds: Folds<PageFold>,
     /// Text selected in the diff, from where the drag started to where it is now.
     text_selection: Option<(TextPoint, TextPoint)>,
     /// The left button went down on a line and hasn't come up yet.
@@ -398,6 +429,9 @@ pub struct Detail {
     follow: Option<Point<Pixels>>,
     /// Files folded by hand.
     folded: HashSet<String>,
+    /// Files folding or unfolding now, and the rows each moves, by path.
+    file_folds: Folds<String>,
+    fold_rows: HashMap<String, FoldRows>,
     /// The commit message being written with AI, streaming into the box, and what the box
     /// held before, which a write cut short puts back.
     writing: Option<(Task<()>, String)>,
@@ -408,14 +442,14 @@ pub struct Detail {
     /// Each project page's target history, by project, kept so going back to one shows it
     /// at once, while it's read again.
     upstream: HashMap<ProjectId, upstream::Upstream>,
-    upstream_scroll: UniformListScrollHandle,
+    upstream_scroll: ListState,
     _upstream_load: Task<()>,
     /// Each Branches page's branches, the same way, and the filter over them.
     branches: HashMap<ProjectId, branches::Branches>,
     branch_filter: Entity<TextInput>,
     /// The project page's, over its history.
     target_filter: Entity<TextInput>,
-    branches_scroll: UniformListScrollHandle,
+    branches_scroll: ListState,
     _branches_load: Task<()>,
     /// What's fetched of other machines' branches; see `detail/machine.rs`.
     mesh: machine::MeshFetches,
@@ -425,7 +459,7 @@ pub struct Detail {
     history: HashMap<ProjectId, history::History>,
     history_filter: Entity<TextInput>,
     history_hidden: HashSet<history::Group>,
-    history_scroll: UniformListScrollHandle,
+    history_scroll: ListState,
     _history_load: Task<()>,
     /// The file list beside the diff is hidden, for more room.
     files_hidden: bool,
@@ -663,8 +697,8 @@ impl Detail {
             waiting_since: None,
             _waiting: Task::ready(()),
             list: ListState::new(0, ListAlignment::Top, fixed(40.)),
-            uncommitted_files: UniformListScrollHandle::new(),
-            diff_files: UniformListScrollHandle::new(),
+            uncommitted_files: panes::side_list_state(),
+            diff_files: panes::side_list_state(),
             listed_cursor: Default::default(),
             message,
             commit_target: None,
@@ -711,27 +745,30 @@ impl Detail {
             shipped_focus: cx.focus_handle(),
             header_height: Rc::new(Cell::new(panes::COMMIT_HEADER_HEIGHT)),
             collapsed_dirs: HashSet::new(),
+            page_folds: Folds::default(),
             text_selection: None,
             selecting: false,
             follow: None,
             folded: HashSet::new(),
+            file_folds: Folds::default(),
+            fold_rows: HashMap::new(),
             writing: None,
             find: None,
             resolving: Default::default(),
             upstream: HashMap::new(),
-            upstream_scroll: UniformListScrollHandle::new(),
+            upstream_scroll: panes::side_list_state(),
             _upstream_load: Task::ready(()),
             branches: HashMap::new(),
             branch_filter,
             target_filter,
-            branches_scroll: UniformListScrollHandle::new(),
+            branches_scroll: panes::side_list_state(),
             _branches_load: Task::ready(()),
             mesh: machine::MeshFetches::default(),
             _branch_commits_load: Task::ready(()),
             history: HashMap::new(),
             history_filter,
             history_hidden: HashSet::new(),
-            history_scroll: UniformListScrollHandle::new(),
+            history_scroll: panes::side_list_state(),
             _history_load: Task::ready(()),
             files_hidden: false,
             files_hover: (None, false),
@@ -879,6 +916,8 @@ impl Detail {
         self.line_picks = None;
         self.cursor = Cursor::default();
         self.folded.clear();
+        self.file_folds.stop_all();
+        self.fold_rows.clear();
         self.review_list.reset(0);
         self.review_side_scroll.set_offset(Default::default());
     }
@@ -1430,9 +1469,14 @@ impl Detail {
             (None, None) => HashMap::new(),
         };
         let parts_of = |file: &FileDiff| parts.get(file.file.path.as_str());
-        diff::rows(
+        // A file folding stays open till it's shut.
+        let folded = |file: &FileDiff| {
+            let path = &file.file.path;
+            !unfolded && self.folded.contains(path) && !self.file_folds.closing(path)
+        };
+        let rows = diff::rows(
             files,
-            |file| !unfolded && self.folded.contains(&file.file.path),
+            folded,
             |file| self.drawing_of(file).is_some(),
             |file| leaving(&file.file.path) || !keeps_path(&terms, &file.file.path),
             |file, hunk| parts_of(file).is_some_and(|keys| keys.contains(&hunk.key)),
@@ -1442,7 +1486,18 @@ impl Detail {
             |file| (self.whole_lines(file)).map(|(_, lines, _)| lines.len() as u32),
             store.prefs.split && !unfolded,
             |file, conflict| self.conflict_view(&file.file.path, conflict),
-        )
+        );
+        match unfolded || !self.file_folds.any() {
+            true => rows,
+            false => {
+                let moving = |file: usize| {
+                    let path = &files.get(file)?.file.path;
+                    self.file_folds.openness(path)?;
+                    Some(self.fold_rows.get(path).map_or(0, |rows| rows.left_out))
+                };
+                diff::moving_rows(rows, moving)
+            }
+        }
     }
 
     /// What the open file filter keeps paths by: each term's letters, in order, somewhere in
@@ -1680,6 +1735,16 @@ impl Detail {
         self.glide = None;
         self.list.scroll_to(top);
         self.review_list.remeasure();
+        let theme = Theme::get(cx);
+        for side in [
+            &self.uncommitted_files,
+            &self.diff_files,
+            &self.upstream_scroll,
+            &self.branches_scroll,
+            &self.history_scroll,
+        ] {
+            panes::resize_side_list(side, side.item_count(), theme);
+        }
         cx.notify();
     }
 
@@ -2059,15 +2124,70 @@ impl Detail {
             .collect()
     }
 
+    /// Fold file `file_ix` to its header, or unfold it. One whose header is in sight moves
+    /// there, its lines going up into the header or coming down from it.
     pub fn toggle_fold(&mut self, file_ix: usize, cx: &mut Context<Self>) {
         let Some(path) = self.diff_path(file_ix) else {
             return;
         };
-        if !self.folded.remove(&path) {
-            self.folded.insert(path);
+        let open = self.folded.remove(&path);
+        if !open {
+            self.folded.insert(path.clone());
         }
+        let view = self.list.viewport_bounds();
+        let header = self.row_of(|row| *row == DiffRow::File(file_ix));
+        let shows = (header.and_then(|row| self.list.bounds_for_item(row)))
+            .is_some_and(|row| row.bottom() > view.top() && row.top() < view.bottom());
+        // Turning back, it keeps the rows it left out; from rest, it closes from where its
+        // lines show, under its header stuck at the diff's top too.
+        let moving = (self.fold_rows.get(&path))
+            .filter(|_| self.file_folds.openness(&path).is_some())
+            .map(|rows| rows.left_out);
+        let start = match (moving, open) {
+            (Some(left_out), _) => shows.then_some((left_out, None)),
+            (None, true) => shows.then_some((0, None)),
+            (None, false) => self.close_from(file_ix, cx),
+        };
         self.place_cursor(Cursor::on_file(file_ix));
+        let Some((left_out, stuck)) = start else {
+            self.file_folds.stop(&path);
+            self.fold_rows.remove(&path);
+            return self.rebuild_rows(cx);
+        };
+        self.file_folds.start(path.clone(), open, cx);
+        if moving.is_none() {
+            self.fold_rows.remove(&path);
+        }
+        // Its lines go as tall as they're drawn, and come as tall as they'll be: from rest, past
+        // those it leaves out, which a file already moving has left out.
+        if !open {
+            let passed = if moving.is_some() { 0 } else { left_out };
+            let rows = FoldRows {
+                left_out,
+                ..self.moving_rows_of(file_ix, passed, cx)
+            };
+            self.fold_rows.insert(path.clone(), rows);
+        }
         self.rebuild_rows(cx);
+        if open {
+            let rows = FoldRows {
+                left_out,
+                ..self.moving_rows_of(file_ix, 0, cx)
+            };
+            self.fold_rows.insert(path, rows);
+        }
+        // Closing under its header stuck at the top, the header takes the stuck one's place,
+        // over the lines that stay where they are, and comes down whole as they go.
+        if let (Some(above), Some(header)) = (stuck, header) {
+            let at = ListOffset {
+                item_ix: header,
+                offset_in_item: above,
+            };
+            self.list.scroll_to(at);
+            if above > Pixels::ZERO {
+                self.scroll_to_row(header, true);
+            }
+        }
     }
 
     /// ⇧← folds the cursor's file and ⇧→ unfolds it, as the navigator folds. Not in a diff that
@@ -2431,6 +2551,10 @@ impl Focusable for Detail {
 
 impl Render for Detail {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.page_folds.frame();
+        if self.page_folds.any() {
+            window.request_animation_frame();
+        }
         let theme = Theme::get(cx).clone();
         let selection = self.selection(cx);
         let body: AnyElement = match &selection {
@@ -2668,6 +2792,15 @@ impl Render for Detail {
             }))
             .on_action(cx.listener(|this, _: &FoldFile, _, cx| this.fold_cursor_file(true, cx)))
             .on_action(cx.listener(|this, _: &UnfoldFile, _, cx| this.fold_cursor_file(false, cx)))
+            // On its header, or its row in the file list, not from inside one of its hunks.
+            .on_action(cx.listener(|this, _: &ToggleFileFold, window, cx| {
+                if this.cursor.at != Stop::File && !this.files_focused(window) {
+                    return;
+                }
+                let file = this.diff_path(this.cursor.file);
+                let folded = file.is_some_and(|path| this.folded.contains(&path));
+                this.fold_cursor_file(!folded, cx)
+            }))
             .on_action(cx.listener(|this, _: &PageDown, window, cx| this.page(PAGE, window, cx)))
             .on_action(cx.listener(|this, _: &PageUp, window, cx| this.page(-PAGE, window, cx)))
             .on_action(cx.listener(|this, _: &HalfPageDown, window, cx| this.page(0.5, window, cx)))
