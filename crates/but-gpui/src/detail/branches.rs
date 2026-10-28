@@ -1081,9 +1081,7 @@ impl Detail {
                 &project,
                 Label::new("Apply", format!("Apply {name}")),
                 Overlay::default(),
-                move |path, _| {
-                    branches::apply(path, &ref_name, freeing.as_ref().map(AsRef::as_ref))
-                },
+                move |path| branches::apply(path, &ref_name, freeing.as_ref().map(AsRef::as_ref)),
                 move |store, applied, cx| match &applied {
                     ApplyOutcome::Applied(local) | ApplyOutcome::AlreadyApplied(local) => {
                         store.select(Some(Selection::Branch(selected, Some(local.clone()))), cx);
@@ -1145,7 +1143,7 @@ impl Detail {
                             &project,
                             "Delete branch",
                             overlay,
-                            move |path, _| backend::remove_branch(path, &ref_name, Some(tip)),
+                            move |path| backend::remove_branch(path, &ref_name, Some(tip)),
                             // Out of the list now: reading the branches again, as their
                             // refs changed, lands after the overlay is gone.
                             move |store, (), cx| {
@@ -1223,7 +1221,7 @@ impl Detail {
                             &project,
                             "Describe branch",
                             Overlay::default(),
-                            move |path, _| branches::set_branch_description(path, &ref_name, &text),
+                            move |path| branches::set_branch_description(path, &ref_name, &text),
                             // Its refs didn't change, so the list isn't read again.
                             move |_, (), cx| {
                                 (detail.update(cx, |detail, cx| {

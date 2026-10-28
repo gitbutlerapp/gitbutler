@@ -651,7 +651,7 @@ pub fn push(
 ) -> Result<(Option<String>, Option<String>)> {
     let branch = ref_name.as_ref();
     let mut ctx = open(path)?;
-    // Decided when it runs, as an amend queued before it rewrites the branch.
+    // Decided when it runs, from the branch as it is then.
     let mut info = but_api::legacy::workspace::head_info(&ctx)?;
     // Forced, as decided when it runs, the push goes past the lease, which would refuse to
     // drop even the commits only the remote has that were shown. Unless pushing anyway, it

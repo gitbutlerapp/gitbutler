@@ -440,7 +440,7 @@ impl Store {
                     &project,
                     Label::new("Bring here", format!("Bring {branch} here")),
                     Overlay::rewriting_main(),
-                    move |path, _| backend::mesh::apply(path, &mesh_id),
+                    move |path| backend::mesh::apply(path, &mesh_id),
                     move |store, applied_as, cx| store.snack(format!("Applied {applied_as}"), cx),
                     cx,
                 ),

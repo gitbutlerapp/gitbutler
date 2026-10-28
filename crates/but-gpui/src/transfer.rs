@@ -365,9 +365,7 @@ impl Transfer {
                 project,
                 label,
                 Overlay::commit_files(store.key_of(project, from), files.iter()),
-                move |path, remap| {
-                    backend::uncommit_files(path, remap.taken_from(from, &files)?, &files)
-                },
+                move |path| backend::uncommit_files(path, from, &files),
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
                     store.snack_undoable("Moved to uncommitted changes", cx)
@@ -382,9 +380,7 @@ impl Transfer {
                     new_commit: store.arriving(project, &ids, &to),
                     ..Overlay::commits(ids.iter().filter_map(|id| store.key_of(project, *id)))
                 },
-                move |path, remap| {
-                    backend::move_commits(path, &remap.all(&ids)?, &remap.destination(to)?)
-                },
+                move |path| backend::move_commits(path, &ids, &to),
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
                     store.snack_undoable("Moved", cx)
@@ -398,13 +394,7 @@ impl Transfer {
                     new_commit: store.arriving(project, &ids, &to),
                     ..Overlay::default()
                 },
-                move |path, remap| {
-                    // A commit from outside the workspace can't have been rewritten.
-                    let ids: Vec<_> = (ids.iter())
-                        .map(|id| remap.get(*id).unwrap_or(*id))
-                        .collect();
-                    backend::cherry_pick(path, &ids, &remap.destination(to)?)
-                },
+                move |path| backend::cherry_pick(path, &ids, &to),
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
                     store.snack_undoable("Cherry-picked", cx)
@@ -415,7 +405,7 @@ impl Transfer {
                 project,
                 label,
                 Overlay::default(),
-                move |path, _| backend::stack_branch(path, &branch, &onto),
+                move |path| backend::stack_branch(path, &branch, &onto),
                 move |store, conflicted, cx| {
                     store.snack_undoable(branch_moved("Branch moved", &conflicted), cx)
                 },
@@ -425,7 +415,7 @@ impl Transfer {
                 project,
                 label,
                 Overlay::default(),
-                move |path, remap| backend::move_branch_below(path, &branch, remap.get(commit)?),
+                move |path| backend::move_branch_below(path, &branch, commit),
                 move |store, conflicted, cx| {
                     store.snack_undoable(branch_moved("Branch moved", &conflicted), cx)
                 },
@@ -441,14 +431,7 @@ impl Transfer {
                 project,
                 label,
                 Overlay::commit_files(store.key_of(project, from), files.iter()),
-                move |path, remap| {
-                    backend::move_files(
-                        path,
-                        remap.taken_from(from, &files)?,
-                        remap.get(to)?,
-                        &files,
-                    )
-                },
+                move |path| backend::move_files(path, from, to, &files),
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
                     store.snack_undoable("Changes moved", cx)
@@ -471,7 +454,7 @@ impl Transfer {
                     project,
                     label,
                     overlay,
-                    move |path, _| {
+                    move |path| {
                         let to = Destination::Branch(branch);
                         backend::commit(path, &to, &files, worktree.linked(), "", false)
                     },

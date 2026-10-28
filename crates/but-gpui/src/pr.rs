@@ -458,7 +458,7 @@ impl AppView {
                     merges: Some(number),
                     ..Overlay::remote()
                 },
-                move |path, _| reviews::merge(path, number, method),
+                move |path| reviews::merge(path, number, method),
                 |store, merged, cx| {
                     let said = match merged {
                         true => "Merged, Update brings it into your workspace",
@@ -521,7 +521,7 @@ impl AppView {
                     auto_merges: Some((number, on)),
                     ..Overlay::remote()
                 },
-                move |path, _| reviews::set_auto_merge(path, number, on),
+                move |path| reviews::set_auto_merge(path, number, on),
                 move |store, (), cx| store.snack(done, cx),
                 cx,
             )

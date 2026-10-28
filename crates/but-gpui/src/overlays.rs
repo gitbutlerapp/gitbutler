@@ -14,7 +14,7 @@ use gpui::{
 use crate::app::{AppView, Cancel, FocusNextPane, FocusPreviousPane};
 use crate::backend::{self, FullName, short_ref};
 use crate::help::OpenReleaseNotes;
-use crate::state::{Notice, Overlay, ProjectId, Remap, Selection, Store};
+use crate::state::{Notice, Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -156,7 +156,7 @@ pub(crate) fn run_named<T: Send + 'static>(
     project: &ProjectId,
     renaming: Option<FullName>,
     name: String,
-    op: impl FnOnce(&Path, &Remap, &str) -> Result<T> + Send + 'static,
+    op: impl FnOnce(&Path, &str) -> Result<T> + Send + 'static,
     done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
     cx: &mut Context<Store>,
 ) {
@@ -179,7 +179,7 @@ pub(crate) fn run_named<T: Send + 'static>(
         renamed: renaming.map(|from| (from, short)),
         ..Overlay::default()
     };
-    let op = move |path: &Path, remap: &Remap| op(path, remap, &name);
+    let op = move |path: &Path| op(path, &name);
     store.run(project, label, overlay, op, done, cx)
 }
 
@@ -233,7 +233,7 @@ impl AppView {
         title: &str,
         window: &mut Window,
         cx: &mut Context<Self>,
-        op: impl FnOnce(&Path, &Remap, &str) -> Result<T> + Send + 'static,
+        op: impl FnOnce(&Path, &str) -> Result<T> + Send + 'static,
         done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
     ) {
         let project = at.project().clone();

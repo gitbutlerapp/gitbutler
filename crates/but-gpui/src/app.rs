@@ -367,7 +367,7 @@ impl AppView {
         }) else {
             return;
         };
-        self.new_branch_at(project, true, None, None, window, cx, |path, _| {
+        self.new_branch_at(project, true, None, None, window, cx, |path| {
             backend::create_branch(path, None)
         });
     }

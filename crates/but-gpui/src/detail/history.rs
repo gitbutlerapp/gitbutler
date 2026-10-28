@@ -835,7 +835,7 @@ impl Detail {
                             &project,
                             "Snapshot",
                             Overlay::default(),
-                            move |path, _| backend::history::take_snapshot(path, message),
+                            move |path| backend::history::take_snapshot(path, message),
                             |store, (), cx| store.snack("Snapshot taken", cx),
                             cx,
                         )

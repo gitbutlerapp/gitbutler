@@ -153,8 +153,10 @@ unseen is what a laptop's battery pays for.
   count as one. `git rebase` drops the change ID, so what's been read also goes by
   `Commit::authored`, a hash of the author, time and message, which every rebase keeps.
 - A menu, prompt, picker, form or drag holds the ref name or commit id it opened on, which an
-  agent can rename or rewrite before it's used. Follow it (`follow_by_key`, `Remap`,
-  `StoreEvent::Renamed`), or close or refuse once it's gone; never act on the stale one.
+  agent can rename or rewrite before it's used. Follow it (`follow_by_key`,
+  `StoreEvent::Renamed`), or close or refuse once it's gone; never act on the stale one. An
+  operation gets the commit ids it was asked with, and the rebase editor refuses one that's no
+  longer in the workspace.
 - A confirmation that can't be undone (a linked worktree's discard or delete, Land) carries what it
   asked about, as a file's `modified` time or a branch's tip, and refuses if that moved meanwhile.
 - Hunk and line selections in uncommitted files are positional, and an agent's edit slides them.
@@ -198,9 +200,9 @@ unseen is what a laptop's battery pays for.
 - An operation's `done` runs with `Store::staying` set when the user has moved to another
   project, which makes `Store::select` do nothing: what it would select, and the picks a select
   clears, stay where the user is, and `card_title` names the operation's project.
-- What undo can't take back (a linked worktree's discards) takes its commit with
-  `Remap::exactly`, refusing one an agent rewrote since it was asked about, where `Remap::get`
-  would follow it.
+- What undo can't take back (a linked worktree's discards) acts on the commit id it was asked
+  about and never follows a rewrite: one an agent rewrote since is refused, as it's no longer in
+  the workspace.
 - A snapshot taken with one branch checked out outside the workspace keeps no stacks: only the
   branch's ref and tip under `checkout/`, and the refs below it under `additional-refs/`. History
   reads those branches' commits from the repository, down to the snapshot's target.

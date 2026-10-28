@@ -63,7 +63,7 @@ fn new_branch_items(store: &Store, project: &ProjectId, cx: &App) -> Vec<MenuIte
                 "New worktree",
                 window,
                 cx,
-                |path, _, name| crate::backend::worktrees::create(path, name),
+                crate::backend::worktrees::create,
                 move |store, name, cx| store.select(Some(Selection::Worktree(selected, name)), cx),
             )
         }));

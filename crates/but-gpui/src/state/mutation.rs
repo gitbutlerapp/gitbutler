@@ -8,7 +8,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use anyhow::{Context as _, Result, bail};
+use anyhow::Result;
 use gpui::{Context, SharedString, Task};
 
 use super::{Notice, ProjectId, Reload, Selection, Store, StoreEvent};
@@ -291,105 +291,6 @@ impl Overlay {
     }
 }
 
-/// The commits an operation captured, found again by key when it runs, as operations queued
-/// before it may have rewritten them, and the branches renamed meanwhile, by full name.
-pub struct Remap {
-    commits: HashMap<CommitId, CommitId>,
-    branches: HashMap<FullName, FullName>,
-}
-
-impl Remap {
-    fn new<'a>(
-        captured: &HashMap<CommitId, String>,
-        now: impl IntoIterator<Item = (&'a str, CommitId)>,
-    ) -> Self {
-        // A key two commits share, as a linked worktree's copy of a commit can, doesn't say
-        // which one a rewritten commit became.
-        let mut by_key: HashMap<&str, Option<CommitId>> = HashMap::new();
-        let mut ids = HashSet::new();
-        for (key, id) in now {
-            ids.insert(id);
-            (by_key.entry(key))
-                .and_modify(|found| *found = None)
-                .or_insert(Some(id));
-        }
-        Self {
-            commits: (captured.iter())
-                .filter_map(|(id, key)| match ids.contains(id) {
-                    // Still there: nothing rewrote it.
-                    true => Some((*id, *id)),
-                    false => Some((*id, (*by_key.get(key.as_str())?)?)),
-                })
-                .collect(),
-            branches: HashMap::new(),
-        }
-    }
-
-    /// With the branches of `captured`, each with the key of its top commit (empty for one
-    /// with none), that are gone from `now` followed to the one whose top that commit is now,
-    /// as a rename queued before leaves them. Not to a branch `captured` has, as the one below
-    /// that took a deleted branch's commits, nor to no name: those aren't renames.
-    fn following(mut self, captured: &[(FullName, String)], now: &Workspace) -> Self {
-        for (name, top) in captured {
-            if top.is_empty() || now.find_branch(Some(name)).is_some() {
-                continue;
-            }
-            let top_now = now.all_branches().find_map(|b| {
-                let ref_name = b.ref_name.as_ref()?;
-                (b.commits.first().is_some_and(|c| c.key == *top)
-                    && !captured.iter().any(|(was, _)| was == ref_name))
-                .then_some(ref_name)
-            });
-            if let Some(ref_name) = top_now {
-                self.branches.insert(name.clone(), ref_name.clone());
-            }
-        }
-        self
-    }
-
-    pub fn get(&self, id: CommitId) -> Result<CommitId> {
-        self.commits
-            .get(&id)
-            .copied()
-            .context("A commit changed before this could run. Try again.")
-    }
-
-    /// `id`, as [`Self::get`] has it, for taking `files` out of: some of a file goes by line
-    /// numbers that rewriting the commit may have moved, so a rewritten one is refused.
-    pub fn taken_from(&self, id: CommitId, files: &[Selected]) -> Result<CommitId> {
-        let now = self.get(id)?;
-        if now != id && files.iter().any(|f| f.hunks.is_some()) {
-            bail!("A commit changed before this could run. Try again.");
-        }
-        Ok(now)
-    }
-
-    /// `id` itself, refusing once it was rewritten: for what undo can't take back, which
-    /// mustn't reach what an agent made of the commit since it was asked about.
-    pub fn exactly(&self, id: CommitId) -> Result<CommitId> {
-        if self.get(id)? != id {
-            bail!("The commit changed since you asked, so it was left as it is.");
-        }
-        Ok(id)
-    }
-
-    /// Each of `ids`, as [`Self::get`] has it.
-    pub fn all(&self, ids: &[CommitId]) -> Result<Vec<CommitId>> {
-        ids.iter().map(|id| self.get(*id)).collect()
-    }
-
-    /// `to`, with the commit it's relative to as it is after the operations queued before.
-    pub fn destination(&self, to: Destination) -> Result<Destination> {
-        Ok(match to {
-            Destination::AboveCommit(id) => Destination::AboveCommit(self.get(id)?),
-            Destination::BelowCommit(id) => Destination::BelowCommit(self.get(id)?),
-            Destination::Branch(name) => {
-                Destination::Branch(self.branches.get(&name).cloned().unwrap_or(name))
-            }
-        })
-    }
-}
-
 /// A project's operation running now, from when it starts until the reload after it lands.
 pub(super) struct Running {
     project: ProjectId,
@@ -576,7 +477,7 @@ impl Store {
                 kind: OpKind::Redo(undo),
                 ..Overlay::rewriting_main()
             },
-            move |path, _| {
+            move |path| {
                 let kept = kept.lock().get(&of).cloned();
                 let ran = ran.lock().get(&of).cloned().unwrap_or_default();
                 backend::history::redo_snapshot(
@@ -635,7 +536,7 @@ impl Store {
                 kind: OpKind::Restore,
                 ..Overlay::rewriting_main()
             },
-            move |path, _| {
+            move |path| {
                 let kept = kept.lock().get(&of).cloned();
                 backend::history::restore(path, snapshot, &kept.unwrap_or_default())
             },
@@ -702,7 +603,7 @@ impl Store {
                 kind: OpKind::Undo(snapshot),
                 ..Overlay::rewriting_main()
             },
-            move |path, _| {
+            move |path| {
                 let ran = ran.lock().get(&of).cloned().unwrap_or_default();
                 let newer_than = newer_than.map(|at| (at, ran.as_slice()));
                 Ok(backend::history::undo_snapshot(path, snapshot, newer_than))
@@ -719,9 +620,8 @@ impl Store {
                         }
                         store.snack(done, cx)
                     }
-                    // Behind a newer step of the user's own, as a quick second ⌘Z asks for
-                    // this one while the first still waits to run: that one goes first, and
-                    // this one stays.
+                    // Behind a newer step of the user's own: that one goes first, and this one
+                    // stays.
                     // The list is oldest first, a new branch's step just before its commit's.
                     Ok(Undone::Behind(_))
                         if (store.undo_steps.iter())
@@ -776,7 +676,7 @@ impl Store {
                 kind: OpKind::FinishEditing,
                 ..Overlay::rewriting_main()
             },
-            |path, _| backend::edit::finish(path),
+            backend::edit::finish,
             |store, (), cx| store.snack("Finished editing", cx),
             cx,
         );
@@ -793,7 +693,7 @@ impl Store {
                 kind: OpKind::CancelEditing,
                 ..Overlay::rewriting_main()
             },
-            move |path, _| backend::edit::cancel(path, force),
+            move |path| backend::edit::cancel(path, force),
             move |store, left, cx| match left {
                 true => store.snack("Stopped editing, the commit is as it was", cx),
                 // A conflicted commit's files always differ, markers and all, from the commit
@@ -828,7 +728,7 @@ impl Store {
                 ..Overlay::remote()
             },
             // Failing, it's noted as a background fetch's failure is, for the project page.
-            |path, _| Ok(backend::fetch(path)),
+            |path| Ok(backend::fetch(path)),
             move |store, fetched_or_not, cx| match fetched_or_not {
                 Ok(any_remote) => {
                     store.fetched_now(&fetched, any_remote);
@@ -870,7 +770,7 @@ impl Store {
                 kind: OpKind::Update,
                 ..Overlay::default()
             },
-            move |path, _| backend::update_from_target(path, accepted.as_ref()),
+            move |path| backend::update_from_target(path, accepted.as_ref()),
             move |store, outcome, cx| {
                 let target = (store.workspace(&updated).and_then(|ws| ws.target.as_ref()))
                     .map_or_else(|| "the target".to_owned(), |target| target.name.clone());
@@ -936,7 +836,7 @@ impl Store {
             },
             {
                 let ref_name = ref_name.clone();
-                move |path, _| {
+                move |path| {
                     let found = backend::pull_conflicts(path, &ref_name)?;
                     if !found.is_empty() && accepted.as_ref() != Some(&found) {
                         return Ok(Some(found));
@@ -1010,7 +910,7 @@ impl Store {
             Overlay::push(&ref_name, false),
             {
                 let ref_name = ref_name.clone();
-                move |path, _| match backend::push(
+                move |path| match backend::push(
                     path,
                     &ref_name,
                     protect,
@@ -1095,7 +995,7 @@ impl Store {
             Overlay::push(&ref_name, true),
             {
                 let ref_name = ref_name.clone();
-                move |path, _| {
+                move |path| {
                     let made =
                         backend::reviews::publish(path, &ref_name, title, body, draft, run_hooks);
                     Ok(
@@ -1157,7 +1057,7 @@ impl Store {
             project,
             label,
             overlay,
-            move |path, _| backend::worktrees::set_archived(path, name.as_ref(), archived),
+            move |path| backend::worktrees::set_archived(path, name.as_ref(), archived),
             move |store, (), cx| store.snack(done, cx),
             cx,
         );
@@ -1183,7 +1083,7 @@ impl Store {
             project,
             "Delete worktree",
             overlay,
-            move |path, _| backend::worktrees::remove(path, name.as_ref(), &lost),
+            move |path| backend::worktrees::remove(path, name.as_ref(), &lost),
             move |store, (), cx| store.snack(done, cx),
             cx,
         );
@@ -1202,7 +1102,7 @@ impl Store {
             project,
             "Move to a new branch",
             Overlay::commits(keys.collect::<Vec<_>>()),
-            move |path, remap| backend::move_to_new_branch(path, &remap.all(&ids)?),
+            move |path| backend::move_to_new_branch(path, &ids),
             move |store, (_, branch), cx| {
                 store.select(Some(Selection::Branch(shown, Some(branch))), cx);
                 store.snack_undoable("Moved to a new branch", cx)
@@ -1217,7 +1117,7 @@ impl Store {
             project,
             "Unstack",
             Overlay::default(),
-            move |path, _| backend::tear_off_branch(path, &branch),
+            move |path| backend::tear_off_branch(path, &branch),
             |store, conflicted, cx| {
                 store.snack_undoable(branch_moved("Moved to its own stack", &conflicted), cx)
             },
@@ -1250,8 +1150,8 @@ impl Store {
             project,
             Label::new("Amend", format!("Amend {}", into.short())),
             overlay,
-            move |path, remap| {
-                let into = remap.get(into)?;
+            move |path| {
+                let into = into;
                 backend::amend(path, into, &files, worktree.linked(), run_hooks)
             },
             move |store, (rewritten, left_out, hook_failed), cx| {
@@ -1283,9 +1183,9 @@ impl Store {
             project,
             Label::new("Squash", format!("Squash {} commits", ids.len() + 1)),
             overlay,
-            move |path, remap| {
+            move |path| {
                 let oldest_first: Vec<CommitId> = ids.iter().rev().copied().collect();
-                backend::squash(path, &remap.all(&oldest_first)?, remap.get(into)?)
+                backend::squash(path, &oldest_first, into)
             },
             move |store, rewritten, cx| {
                 store.follow(&rewritten, cx);
@@ -1330,7 +1230,7 @@ impl Store {
             &project.clone(),
             label,
             Overlay::commits(keys.clone()),
-            move |path, remap| backend::uncommit(path, &remap.all(&ids)?),
+            move |path| backend::uncommit(path, &ids),
             move |store, (), cx| {
                 // The selected commit's changes are uncommitted now; show them there.
                 if let Some(Selection::Commit(selected, id)) = &store.selection
@@ -1356,7 +1256,7 @@ impl Store {
         project: &ProjectId,
         label: impl Into<Label>,
         overlay: Overlay,
-        op: impl FnOnce(&Path, &Remap) -> Result<T> + Send + 'static,
+        op: impl FnOnce(&Path) -> Result<T> + Send + 'static,
         done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
         cx: &mut Context<Self>,
     ) {
@@ -1373,30 +1273,6 @@ impl Store {
             return self.snack(why, cx);
         }
         let Label { name, text: label } = label.into();
-        let mut captured = self.workspace(project).map_or_else(HashMap::new, |ws| {
-            ws.commits()
-                .map(|commit| (commit.id, commit.key.clone()))
-                .collect()
-        });
-        // The selected commit as it was before an agent rewrote it, which a prompt opened on
-        // it still names.
-        if let Some((from, to)) = self.followed
-            && let Some(key) = captured.get(&to).cloned()
-        {
-            captured.insert(from, key);
-        }
-        let tops: Vec<_> = (self
-            .workspace(project)
-            .into_iter()
-            .flat_map(Workspace::all_branches))
-        .filter_map(|b| {
-            let top = b
-                .commits
-                .first()
-                .map_or_else(String::new, |c| c.key.clone());
-            Some((b.ref_name.clone()?, top))
-        })
-        .collect();
         // What's selected leaving with its branch or worktree, the selection goes now where
         // the reload after it would put it.
         let selection = self.selection.as_ref();
@@ -1414,16 +1290,6 @@ impl Store {
             })
             .detach();
         }
-        let ws = self.workspace(project);
-        let now = ws.into_iter().flat_map(|ws| ws.commits());
-        let remap = Remap::new(
-            &captured,
-            now.map(|commit| (commit.key.as_str(), commit.id)),
-        );
-        let remap = match ws {
-            Some(ws) => remap.following(&tops, ws),
-            None => remap,
-        };
         let (now, id) = (Instant::now(), self.ops_started);
         self.ops_started += 1;
         self.running.push(Running {
@@ -1438,7 +1304,7 @@ impl Store {
             moved,
         });
         cx.emit(StoreEvent::Pending(project.clone()));
-        self.start(project, id, Label::new(name, label), op, done, remap, cx);
+        self.start(project, id, Label::new(name, label), op, done, cx);
         // Replacing the last one's ticker stops it.
         self.busy_ticker = Self::tick_while_busy(cx);
     }
@@ -1461,15 +1327,13 @@ impl Store {
         })
     }
 
-    #[expect(clippy::too_many_arguments)]
     fn start<T: Send + 'static>(
         &mut self,
         project: &ProjectId,
         id: usize,
         label: Label,
-        op: impl FnOnce(&Path, &Remap) -> Result<T> + Send + 'static,
+        op: impl FnOnce(&Path) -> Result<T> + Send + 'static,
         done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
-        remap: Remap,
         cx: &mut Context<Self>,
     ) {
         let Label { name, text: label } = label;
@@ -1555,7 +1419,7 @@ impl Store {
                 // Just the work itself: what Git logs right after it, as an agent's commit
                 // waiting on the lock does, isn't the app's.
                 let started = now_millis();
-                let value = op(&path, &remap)?;
+                let value = op(&path)?;
                 let ran = (started, now_millis());
                 let (recorded, moved_worktree) = match watched {
                     None => (None, false),
@@ -2304,122 +2168,6 @@ mod tests {
             "Rebasing onto main leaves conflicted commits in middle (1 commit). \
              You can resolve them afterwards, or undo the update.",
             "b rests on a, which the update leaves where it is"
-        );
-    }
-
-    fn id(n: u8) -> CommitId {
-        CommitId(gix::ObjectId::from([n; 20]))
-    }
-
-    #[test]
-    fn remap_follows_a_renamed_branch_by_its_top_commit() {
-        let now = workspace(
-            vec![vec![branch("fix-v2", &[1]), branch("other", &[2])]],
-            vec![worktree("wt", None, vec![branch("wt-v2", &[3])])],
-        );
-        let captured = [
-            (full("refs/heads/fix"), "key1".to_owned()),
-            (full("refs/heads/gone"), "missing".to_owned()),
-            (full("refs/heads/wt"), "key3".to_owned()),
-        ];
-        let remap = Remap::new(&HashMap::new(), []).following(&captured, &now);
-        let to = |name: &str| match remap.destination(Destination::Branch(full(name))) {
-            Ok(Destination::Branch(name)) => name.to_string(),
-            _ => String::new(),
-        };
-        assert_eq!(
-            to("refs/heads/fix"),
-            "refs/heads/fix-v2",
-            "renamed, its top went with it"
-        );
-        assert_eq!(
-            to("refs/heads/gone"),
-            "refs/heads/gone",
-            "nothing to follow, as it was"
-        );
-        assert_eq!(to("refs/heads/other"), "refs/heads/other", "still there");
-        assert_eq!(
-            to("refs/heads/wt"),
-            "refs/heads/wt-v2",
-            "renamed in a linked worktree"
-        );
-    }
-
-    #[test]
-    fn remap_doesnt_take_the_branch_below_for_a_deleted_one() {
-        // Deleted from the top of their stacks, their commits joined the branch below, which
-        // had commits of its own in one and none in the other.
-        let now = workspace(
-            vec![vec![branch("below", &[1])], vec![branch("empty", &[2])]],
-            Vec::new(),
-        );
-        let captured = [
-            (full("refs/heads/top"), "key1".to_owned()),
-            (full("refs/heads/below"), "own".to_owned()),
-            (full("refs/heads/top2"), "key2".to_owned()),
-            (full("refs/heads/empty"), String::new()),
-        ];
-        let remap = Remap::new(&HashMap::new(), []).following(&captured, &now);
-        for gone in ["refs/heads/top", "refs/heads/top2"] {
-            let to = remap.destination(Destination::Branch(full(gone)));
-            assert!(
-                matches!(to, Ok(Destination::Branch(name)) if name == full(gone)),
-                "deleted, not renamed, so what waited for it refuses rather than go below"
-            );
-        }
-    }
-
-    #[test]
-    fn remap_follows_rewritten_commits_by_key() {
-        let captured = HashMap::from([
-            (id(1), "a".to_owned()),
-            (id(2), "b".to_owned()),
-            (id(3), "c".to_owned()),
-        ]);
-        let remap = Remap::new(&captured, [("a", id(11)), ("b", id(12)), ("c", id(3))]);
-        assert_eq!(
-            remap.get(id(2)).unwrap(),
-            id(12),
-            "b was rebased to a new id"
-        );
-        assert_eq!(
-            remap.get(id(1)).unwrap(),
-            id(11),
-            "a was rebased to a new id"
-        );
-        assert!(
-            remap.exactly(id(2)).is_err(),
-            "what undo can't take back doesn't follow b to its new id"
-        );
-        assert_eq!(remap.exactly(id(3)).unwrap(), id(3), "c wasn't rewritten");
-    }
-
-    #[test]
-    fn remap_refuses_commits_that_are_gone() {
-        let captured = HashMap::from([(id(1), "a".to_owned())]);
-        let remap = Remap::new(&captured, [("b", id(12))]);
-        assert!(
-            remap.get(id(1)).is_err(),
-            "a was squashed away while it waited"
-        );
-        assert!(
-            remap.get(id(9)).is_err(),
-            "an id never captured has nothing to follow"
-        );
-    }
-
-    #[test]
-    fn remap_follows_no_key_two_commits_share() {
-        let captured = HashMap::from([(id(1), "a".to_owned()), (id(2), "a".to_owned())]);
-        let remap = Remap::new(&captured, [("a", id(2)), ("a", id(13))]);
-        assert!(
-            remap.get(id(1)).is_err(),
-            "1 was rewritten, and either commit with its key could be what it became"
-        );
-        assert_eq!(
-            remap.get(id(2)).unwrap(),
-            id(2),
-            "2 is still there as it was"
         );
     }
 }
