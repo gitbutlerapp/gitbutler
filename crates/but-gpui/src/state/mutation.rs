@@ -632,14 +632,14 @@ impl Store {
 
     /// Commit the edited commit as its files are now, and go back to the workspace.
     pub fn finish_editing(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
-        self.run(
+        self.apply(
             project,
             "Finish editing",
             Overlay {
                 kind: OpKind::FinishEditing,
                 ..Overlay::rewriting_main()
             },
-            backend::edit::finish,
+            backend::edit::Finish,
             |store, (), cx| store.snack("Finished editing", cx),
             cx,
         );
@@ -649,14 +649,14 @@ impl Store {
     /// first when that drops what changed.
     pub fn cancel_editing(&mut self, project: &ProjectId, force: bool, cx: &mut Context<Self>) {
         let again = project.clone();
-        self.run(
+        self.apply(
             project,
             "Cancel editing",
             Overlay {
                 kind: OpKind::CancelEditing,
                 ..Overlay::rewriting_main()
             },
-            move |path| backend::edit::cancel(path, force),
+            backend::edit::Cancel { force },
             move |store, left, cx| match left {
                 true => store.snack("Stopped editing, the commit is as it was", cx),
                 // A conflicted commit's files always differ, markers and all, from the commit
