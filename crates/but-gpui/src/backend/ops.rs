@@ -1019,39 +1019,94 @@ impl Intent for DeleteBranchAndCommits {
     }
 }
 
-/// Add the `selected` changes of the main checkout, or of the linked `worktree`, to
-/// `commit`. With `run_hooks`, pre-commit runs first and can refuse, and post-commit runs
-/// after, as the desktop app does; what a failed post-commit printed comes back as the
-/// third value.
-pub fn amend(
-    path: &Path,
-    commit: CommitId,
-    selected: &[Selected],
-    worktree: Option<&bstr::BStr>,
-    run_hooks: bool,
-) -> Result<(Rewritten, LeftOut, Option<String>)> {
-    let mut ctx = open(path)?;
-    refuse_unfinished(&checkout(&ctx, worktree)?, worktree.is_none())?;
-    refuse_conflicted(&ctx, worktree, selected)?;
-    refuse_converted(selected)?;
-    let run_hooks = run_hooks && worktree.is_none();
-    let changes = selected_specs(selected);
-    if run_hooks {
-        pre_commit(&ctx, &changes)?;
+/// Add the `changes` of `checkout` to `into`, keeping its message. With `run_hooks`, in the
+/// main checkout only, pre-commit runs first and can refuse, outside GitButler's lock as for
+/// [`CommitChanges`], and post-commit runs after, as the desktop app does.
+pub struct Amend {
+    pub into: CommitId,
+    pub changes: Arc<[Selected]>,
+    pub checkout: Checkout,
+    pub run_hooks: bool,
+}
+
+/// The commits an amend rewrote, with the changes left out of it and what a failing
+/// post-commit hook printed.
+#[derive(Debug)]
+pub struct Amended {
+    pub rewritten: Rewritten,
+    pub left_out: LeftOut,
+    pub hook_failed: Option<String>,
+}
+
+impl Intent for Amend {
+    type Done = Amended;
+
+    fn apply(self, run: &mut Run) -> Result<Amended> {
+        use but_transaction::DynamicOutcome;
+        let Self {
+            into,
+            changes,
+            checkout,
+            run_hooks,
+        } = self;
+        let worktree = checkout.linked();
+        let run_hooks = run_hooks && worktree.is_none();
+        let specs = selected_specs(&changes);
+        run.refuse_index_locked()?;
+        let ctx = run.ctx();
+        refuse_unfinished(&super::checkout(ctx, worktree)?, worktree.is_none())?;
+        refuse_conflicted(ctx, worktree, &changes)?;
+        refuse_converted(&changes)?;
+        if run_hooks {
+            pre_commit(ctx, &specs)?;
+        }
+        let outcome = run.locked(|ctx, perm| {
+            let linked = (worktree.map(|name| super::checkout(ctx, Some(name)))).transpose()?;
+            let source = match (worktree, &linked) {
+                (Some(name), Some(repo)) => ChangeSource::Worktree { repo, name },
+                _ => ChangeSource::Head,
+            };
+            // Named so undo moves it back, leaving the changes uncommitted there.
+            let worktree_branch = match worktree {
+                Some(name) => ctx.worktree_head(name)?.and_then(|head| head.ref_name),
+                None => None,
+            };
+            let mut meta = ctx.meta()?;
+            but_transaction::with_transaction_with_perm(
+                ctx,
+                &mut meta,
+                perm,
+                SnapshotDetails::new(OperationKind::AmendCommit),
+                worktree_branch
+                    .as_ref()
+                    .map(|name| name.as_ref())
+                    .as_slice(),
+                DryRun::No,
+                |mut tx| {
+                    let made = tx.amend_commit(into.0, specs, source)?;
+                    Ok(match made.new_commit {
+                        Some(_) => DynamicOutcome::Commit(made.rejected_specs),
+                        None => DynamicOutcome::Rollback(made.rejected_specs),
+                    })
+                },
+            )
+        })?;
+        let (rejected, workspace) = match outcome {
+            DynamicOutcome::Commit(amended) => amended,
+            DynamicOutcome::Rollback(rejected) => {
+                bail!(
+                    "Nothing could be amended.\n{}",
+                    left_out(&rejected).join("\n")
+                )
+            }
+        };
+        let hook_failed = run_hooks.then(|| post_commit(run.ctx())).flatten();
+        Ok(Amended {
+            rewritten: rewritten(&workspace),
+            left_out: left_out(&rejected),
+            hook_failed,
+        })
     }
-    let outcome = but_api::commit::amend::commit_amend(
-        &mut ctx,
-        commit.0,
-        changes,
-        changes_source(worktree),
-        DryRun::No,
-    )?;
-    let left_out = left_out(&outcome.rejected_specs);
-    if outcome.new_commit.is_none() {
-        bail!("Nothing could be amended.\n{}", left_out.join("\n"));
-    }
-    let hook_failed = run_hooks.then(|| post_commit(&ctx)).flatten();
-    Ok((rewritten(&outcome.workspace), left_out, hook_failed))
 }
 
 /// Move `commits` to `to`.
@@ -1666,6 +1721,15 @@ pub(super) mod tests {
         }
     }
 
+    fn amend_main(into: CommitId, changes: Vec<Selected>) -> Amend {
+        Amend {
+            into,
+            changes: changes.into(),
+            checkout: Checkout::Main,
+            run_hooks: false,
+        }
+    }
+
     fn uncommitted(path: &Path) -> Vec<crate::backend::FileChange> {
         let shown = crate::backend::Workspace::default();
         let none = Default::default();
@@ -1827,7 +1891,7 @@ pub(super) mod tests {
             let whole = Selected::whole(&files[0]);
             // As an update leaves it: conflicted, with no merge of Git's to finish.
             std::fs::remove_file(path.join(".git/MERGE_HEAD")).unwrap();
-            let refused = amend(path, head, std::slice::from_ref(&whole), None, false).unwrap_err();
+            let refused = crate::backend::apply(path, amend_main(head, vec![whole])).unwrap_err();
             assert!(
                 refused.to_string().contains("resolved first"),
                 "the markers would go in: {refused:#}"
@@ -2137,7 +2201,7 @@ pub(super) mod tests {
             );
             let head = head(path);
             let first_hunk = diff[0].part(Some(vec![hunks[0].key]));
-            amend(path, head, &[first_hunk], None, false).unwrap();
+            crate::backend::apply(path, amend_main(head, vec![first_hunk])).unwrap();
 
             let amended = git(path, &["show", "HEAD:file"]);
             assert!(amended.starts_with("first edit\n"), "{amended}");
@@ -2206,11 +2270,31 @@ pub(super) mod tests {
             // Committed elsewhere, as by the CLI, which leaves the file as it is.
             git(path, &["commit", "-qam", "elsewhere"]);
             let head = head(path);
-            let err = amend(path, head, &[first_hunk], None, false).unwrap_err();
+            let err = crate::backend::apply(path, amend_main(head, vec![first_hunk])).unwrap_err();
             assert!(
                 err.to_string().contains("changed since the diff was shown"),
                 "its hunks are numbered against a base that's gone: {err}"
             );
+        })
+    }
+
+    #[test]
+    fn an_amend_that_takes_nothing_records_nothing_to_undo() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            std::fs::write(path.join("file"), "two\n").unwrap();
+            let changed = Selected::whole(&uncommitted(path)[0]);
+            std::fs::write(path.join("file"), "one\n").unwrap();
+            let before = crate::backend::history::oplog_head(&open(path).unwrap());
+
+            let err =
+                crate::backend::apply(path, amend_main(head(path), vec![changed])).unwrap_err();
+            assert!(
+                err.to_string().contains("Nothing could be amended"),
+                "the file changes nothing: {err}"
+            );
+            assert_eq!(entries_since(path, before), "", "the amend rolled back");
         })
     }
 
@@ -2359,12 +2443,15 @@ pub(super) mod tests {
         // Each placement records one entry naming the new branch, checked out when made on top
         // of main, so one undo takes back the commit and the branch, leaving the change
         // uncommitted where it was.
-        snapbox::assert_data_eq!(said, snapbox::str![[r#"
+        snapbox::assert_data_eq!(
+            said,
+            snapbox::str![[r#"
 gitbutler/workspace: CreateCommit on gitbutler/workspace; undid Created commit: on gitbutler/workspace, <new> gone true, 1 uncommitted
 main: CreateCommit on <new>; undid Created commit: on main, <new> gone true, 1 uncommitted
 feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, <new> gone true, 1 uncommitted
 
-"#]]);
+"#]]
+        );
     }
 
     #[test]
@@ -3930,7 +4017,7 @@ third
             let picks = std::collections::BTreeSet::from([line_in(hunk, "five a")]);
             let picked = diff[0].part(Some(hunk.picked(&picks)));
             let head = head(path);
-            amend(path, head, &[picked], None, false).unwrap();
+            crate::backend::apply(path, amend_main(head, vec![picked])).unwrap();
 
             let amended = git(path, &["show", "HEAD:file"]);
             // Just the added line: line 5, whose removal wasn't picked, stays below it.

@@ -1087,31 +1087,33 @@ impl Store {
         then: impl FnOnce(&mut Store, &mut Context<Store>) + 'static,
         cx: &mut Context<Self>,
     ) {
-        let run_hooks = self.runs_hooks(project);
         let undoable = self.undoable(project, [worktree.clone()]);
         let overlay = Overlay {
             files_in: worktree.clone(),
             ..Overlay::files(files.iter())
         };
         // Which commit, as it's often not on screen.
-        let amended = (self.find_commit(project, into)).map_or("Amended".into(), |(_, commit)| {
+        let said = (self.find_commit(project, into)).map_or("Amended".into(), |(_, commit)| {
             format!("Amended \"{}\"", crate::ui::commit_title(&commit.title))
         });
-        self.run(
+        let amend = backend::Amend {
+            into,
+            changes: files,
+            checkout: worktree,
+            run_hooks: self.runs_hooks(project),
+        };
+        self.apply(
             project,
             Label::new("Amend", format!("Amend {}", into.short())),
             overlay,
-            move |path| {
-                let into = into;
-                backend::amend(path, into, &files, worktree.linked(), run_hooks)
-            },
-            move |store, (rewritten, left_out, hook_failed), cx| {
-                store.follow(&rewritten, cx);
+            amend,
+            move |store, amended, cx| {
+                store.follow(&amended.rewritten, cx);
                 if !undoable {
                     store.keep_last_snapshot(cx);
                 }
-                store.report_left_out(&amended, &left_out, cx);
-                if let Some(output) = hook_failed {
+                store.report_left_out(&said, &amended.left_out, cx);
+                if let Some(output) = amended.hook_failed {
                     store.error("Amended, but the post-commit hook failed", output, cx);
                 }
                 then(store, cx)
