@@ -831,11 +831,11 @@ impl Detail {
                 move |app, message, _, cx| {
                     let message = Some(message.trim().to_owned()).filter(|m| !m.is_empty());
                     app.store.update(cx, |store, cx| {
-                        store.run(
+                        store.apply(
                             &project,
                             "Snapshot",
                             Overlay::default(),
-                            move |path| backend::history::take_snapshot(path, message),
+                            backend::history::TakeSnapshot { message },
                             |store, (), cx| store.snack("Snapshot taken", cx),
                             cx,
                         )

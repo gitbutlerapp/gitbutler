@@ -1156,6 +1156,40 @@ pub fn branch_remove_with_perm(
     ref_name: gix::refs::FullName,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<BranchRemoveResult> {
+    // Name the branch so undo recreates it even when it isn't in the workspace.
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
+        ctx,
+        SnapshotDetails::new(OperationKind::DeleteBranch)
+            .with_trailers([Trailer::Name(ref_name.to_string())]),
+        &[ref_name.as_ref()],
+        perm.read_permission(),
+        DryRun::No,
+    );
+
+    let removed = branch_remove_only_with_perm(ctx, ref_name, perm)?;
+    if removed && let Some(snapshot) = maybe_oplog_entry {
+        snapshot.commit(ctx, perm).ok();
+    }
+    let mut meta = ctx.meta()?;
+    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let workspace = WorkspaceState::from_workspace_with_db(
+        &ws,
+        &mut meta,
+        &repo,
+        BTreeMap::new(),
+        Vec::new(),
+        &mut db,
+    )?;
+    Ok(BranchRemoveResult { workspace })
+}
+
+/// Remove the local branch `ref_name` as [`branch_remove_with_perm()`] does,
+/// without creating an oplog entry. Returns whether anything was removed.
+pub fn branch_remove_only_with_perm(
+    ctx: &mut but_ctx::Context,
+    ref_name: gix::refs::FullName,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<bool> {
     if ref_name.category() != Some(gix::refs::Category::LocalBranch) {
         bail!(
             "Can only delete local branches under refs/heads, got '{}'",
@@ -1168,16 +1202,6 @@ pub fn branch_remove_with_perm(
             ref_name.shorten()
         );
     }
-
-    // Name the branch so undo recreates it even when it isn't in the workspace.
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
-        ctx,
-        SnapshotDetails::new(OperationKind::DeleteBranch)
-            .with_trailers([Trailer::Name(ref_name.to_string())]),
-        &[ref_name.as_ref()],
-        perm.read_permission(),
-        DryRun::No,
-    );
 
     // Decide whether we must move `HEAD` off `ref_name` before deleting it. In an
     // ad-hoc workspace the checked-out reference is the projection tip; we only
@@ -1257,7 +1281,7 @@ pub fn branch_remove_with_perm(
             },
         )?
     };
-    let changed = if let Some(new_ws) = new_ws {
+    let removed = if let Some(new_ws) = new_ws {
         // Like unapply, leave a workspace that removing the branch left without purpose.
         let new_ws = but_workspace::branch::dissolve_unnecessary_workspace(
             &new_ws,
@@ -1293,22 +1317,7 @@ pub fn branch_remove_with_perm(
             false
         }
     };
-    drop(meta);
-
-    if changed && let Some(snapshot) = maybe_oplog_entry {
-        snapshot.commit(ctx, perm).ok();
-    }
-    let mut meta = ctx.meta()?;
-    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace = WorkspaceState::from_workspace_with_db(
-        &ws,
-        &mut meta,
-        &repo,
-        BTreeMap::new(),
-        Vec::new(),
-        &mut db,
-    )?;
-    Ok(BranchRemoveResult { workspace })
+    Ok(removed)
 }
 
 /// Renames the local branch `ref_name` to `new_name`, moving its git reference and
@@ -1696,12 +1705,25 @@ pub fn get_initial_branch_integration(
     branch: &gix::refs::FullNameRef,
     strategy: Option<json::BranchIntegrationStrategy>,
 ) -> anyhow::Result<InitialBranchIntegration> {
-    let mut meta = ctx.meta()?;
-    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-    let mut ws = ws.clone();
+    let guard = ctx.shared_worktree_access();
     let strategy = strategy
         .map(BranchIntegrationStrategy::from)
         .unwrap_or_default();
+    get_initial_branch_integration_with_perm(ctx, branch, strategy, guard.read_permission())
+}
+
+/// Get the initial upstream integration script for `branch` under caller-held repository access.
+///
+/// See [`get_initial_branch_integration()`] for behavior.
+pub fn get_initial_branch_integration_with_perm(
+    ctx: &Context,
+    branch: &gix::refs::FullNameRef,
+    strategy: BranchIntegrationStrategy,
+    perm: &RepoShared,
+) -> anyhow::Result<InitialBranchIntegration> {
+    let mut meta = ctx.meta()?;
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
+    let mut ws = ws.clone();
     but_workspace::branch::integrate_branch_upstream::get_initial_integration_steps_for_branch(
         branch, strategy, &mut ws, &mut meta, &repo, &mut db,
     )

@@ -1090,6 +1090,7 @@ pub fn run(
             meta,
             perm,
             snapshot_details,
+            &[],
             DryRun::No,
             |tx| move_with_transaction(tx, move_op, switch, None),
         )

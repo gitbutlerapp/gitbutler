@@ -2,14 +2,16 @@
 //! left in uncommitted files: each keeps one side, the other, or text written for it.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::path::Path;
 
 use anyhow::{Context as _, Result};
 use bstr::{BString, ByteSlice as _};
 use but_api::resolve::{self, HunkResolution, ResolutionSpec};
+use but_core::DryRun;
+use but_oplog::legacy::{OperationKind, SnapshotDetails};
 
+use super::intent::Run;
 use super::ops::rewritten;
-use super::{CommitId, Rewritten, checkout, markers, open};
+use super::{Checkout, CommitId, Intent, OpKind, Rewritten, checkout, markers};
 
 /// What a conflict keeps.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,8 +34,26 @@ pub struct Resolved {
 
 /// Resolve conflicts of `commit`, each by its file and its place among the file's conflicts.
 /// The rest stay conflicted. The commit is rewritten either way.
-pub fn resolve(
-    path: &Path,
+pub struct ResolveCommit {
+    pub commit: CommitId,
+    pub keep: Vec<(String, usize, Keep)>,
+}
+
+impl Intent for ResolveCommit {
+    type Done = (Rewritten, Resolved);
+
+    fn apply(self, run: &mut Run) -> Result<(Rewritten, Resolved)> {
+        run.locked(|ctx, perm| resolve_commit(ctx, perm, self.commit, self.keep))
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Resolve
+    }
+}
+
+fn resolve_commit(
+    ctx: &mut but_ctx::Context,
+    perm: &mut but_ctx::access::RepoExclusive,
     commit: CommitId,
     keep: Vec<(String, usize, Keep)>,
 ) -> Result<(Rewritten, Resolved)> {
@@ -54,7 +74,6 @@ pub fn resolve(
             })
         })
         .collect::<Result<_>>()?;
-    let mut ctx = open(path)?;
     // Rewriting the commit checks the workspace out again, which Git can't do over a file a
     // merge left conflicted, and Git's own words for that name none.
     {
@@ -70,7 +89,7 @@ pub fn resolve(
             );
         }
     }
-    let outcome = resolve::resolve_commit_conflict_hunks(&mut ctx, commit.0, specs)?;
+    let outcome = resolve::resolve_commit_conflict_hunks_with_perm(ctx, commit.0, specs, perm)?;
     let mut rewrites = rewritten(&outcome.workspace);
     rewrites.insert(commit, CommitId(outcome.new_commit));
     let remaining = (outcome.remaining.iter())
@@ -90,23 +109,37 @@ pub fn resolve(
     ))
 }
 
-/// Resolve conflicts a merge left in uncommitted files of the checkout `worktree` names, or
-/// the main one, each by its file and id: what's kept replaces the conflict's markers, and a
-/// file with none left is marked resolved. Returns how many files were. Recorded for undo
-/// first in the main checkout, as discarding is; the oplog can't restore a linked worktree,
-/// nor a commit checked out for editing.
-pub fn resolve_markers(
-    path: &Path,
+/// Resolve conflicts a merge left in uncommitted files of `checkout`, each by its file and id:
+/// what's kept replaces the conflict's markers, and a file with none left is marked resolved.
+/// Done says how many files were. Recorded for undo first in the main checkout, as discarding
+/// is; the oplog can't restore a linked worktree, nor a commit checked out for editing.
+pub struct ResolveMarkers {
+    pub keep: Vec<(BString, String, Keep)>,
+    pub checkout: Checkout,
+}
+
+impl Intent for ResolveMarkers {
+    type Done = usize;
+
+    fn apply(self, run: &mut Run) -> Result<usize> {
+        let worktree = self.checkout.linked();
+        let unrecorded = worktree.is_some() || super::edit::editing(run.ctx())?.is_some();
+        run.locked(|ctx, perm| resolve_markers(ctx, perm, worktree, unrecorded, self.keep))
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Resolve
+    }
+}
+
+fn resolve_markers(
+    ctx: &but_ctx::Context,
+    perm: &mut but_ctx::access::RepoExclusive,
     worktree: Option<&bstr::BStr>,
+    unrecorded: bool,
     keep: Vec<(BString, String, Keep)>,
 ) -> Result<usize> {
-    use but_oplog::legacy::OperationKind;
-    let mut ctx = open(path)?;
-    // Asked before taking the worktree, as asking takes it too.
-    let editing = super::edit::editing(&ctx)?.is_some();
-    let mut guard = ctx.exclusive_worktree_access();
-    let perm = guard.write_permission();
-    let repo = checkout(&ctx, worktree)?;
+    let repo = checkout(ctx, worktree)?;
     let workdir = repo
         .workdir()
         .context("The checkout has no files")?
@@ -157,9 +190,19 @@ pub fn resolve_markers(
         }
         writes.push((file, on_disk, text, whole));
     }
-    // Recorded once the picks are found, so a refused Apply leaves nothing to undo.
-    if worktree.is_none() && !editing {
-        super::ops::record_undo(&ctx, OperationKind::ResolveConflicts, perm);
+    // Recorded once the picks are found, so a refused Apply leaves nothing to undo. One that
+    // can't be recorded only logs: the files are still resolved, without an undo step.
+    if !unrecorded {
+        let details = SnapshotDetails::new(OperationKind::ResolveConflicts);
+        let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+            ctx,
+            details,
+            perm.read_permission(),
+            DryRun::No,
+        );
+        if let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(ctx, perm)) {
+            tracing::warn!(?err, "couldn't record resolving conflicts for undo");
+        }
     }
     let mut resolved = Vec::new();
     for (file, on_disk, text, whole) in writes {
@@ -179,7 +222,7 @@ pub fn resolve_markers(
 mod tests {
     use std::process::Command;
 
-    use super::{Keep, markers, resolve_markers};
+    use super::{Checkout, Keep, ResolveMarkers, markers};
     use crate::backend::ops::tests::{git, repo_with};
 
     #[test]
@@ -211,21 +254,21 @@ mod tests {
             let id = markers::ids(&lines, &blocks)[0].clone();
             let mut both = markers::text(&lines, blocks[0].ours.clone());
             both.extend_from_slice(&markers::text(&lines, blocks[0].theirs.clone()));
-            let err = resolve_markers(
-                path,
-                None,
-                vec![("cell.json".into(), id.clone(), Keep::Text(both))],
-            )
-            .expect_err("two array items with no comma between them");
+            let resolve = |keep| {
+                let keep = vec![("cell.json".into(), id.clone(), keep)];
+                let checkout = Checkout::Main;
+                crate::backend::apply(path, ResolveMarkers { keep, checkout }).map(|(n, _)| n)
+            };
+            let err =
+                resolve(Keep::Text(both)).expect_err("two array items with no comma between them");
             assert!(err.to_string().contains("not valid JSON"), "{err}");
             assert_eq!(
                 std::fs::read(path.join("cell.json")).unwrap(),
                 text,
                 "nothing is written"
             );
-            let kept = resolve_markers(path, None, vec![("cell.json".into(), id, Keep::NewBase)]);
             assert_eq!(
-                kept.unwrap(),
+                resolve(Keep::NewBase).unwrap(),
                 1,
                 "one side parses, and the file is resolved"
             );

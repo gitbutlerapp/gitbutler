@@ -7,7 +7,9 @@ use gpui::{
     App, Context, Div, Entity, Modifiers, Pixels, Point, SharedString, Window, div, prelude::*,
 };
 
-use crate::backend::{self, Checkout, CommitId, Destination, FullName, Selected, short_ref};
+use crate::backend::{
+    self, Checkout, CommitId, CommitTo, Destination, FullName, Selected, short_ref,
+};
 use crate::state::{Cut, Label, NewAt, Overlay, ProjectId, Selection, Store, branch_moved};
 use crate::theme::Theme;
 use crate::ui::{Icon, dp, popover, small_icon};
@@ -360,12 +362,15 @@ impl Transfer {
             store.picked.clear();
         }
         match self {
-            Transfer::Uncommit(ids) => store.uncommit(project, ids.to_vec(), cx),
-            Transfer::UncommitFiles { from, files } => store.run(
+            Transfer::Uncommit(ids) => store.uncommit(project, ids, cx),
+            Transfer::UncommitFiles { from, files } => store.apply(
                 project,
                 label,
                 Overlay::commit_files(store.key_of(project, from), files.iter()),
-                move |path| backend::uncommit_files(path, from, &files),
+                backend::UncommitFiles {
+                    commit: from,
+                    files,
+                },
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
                     store.snack_undoable("Moved to uncommitted changes", cx)
@@ -373,65 +378,65 @@ impl Transfer {
                 cx,
             ),
             // It leaves where it was and shows dimmed where it goes.
-            Transfer::MoveCommit { ids, to } => store.run(
+            Transfer::MoveCommit { ids, to } => store.apply(
                 project,
                 label,
                 Overlay {
                     new_commit: store.arriving(project, &ids, &to),
                     ..Overlay::commits(ids.iter().filter_map(|id| store.key_of(project, *id)))
                 },
-                move |path| backend::move_commits(path, &ids, &to),
+                backend::MoveCommits { commits: ids, to },
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
                     store.snack_undoable("Moved", cx)
                 },
                 cx,
             ),
-            Transfer::CherryPick { ids, to } => store.run(
+            Transfer::CherryPick { ids, to } => store.apply(
                 project,
                 label,
                 Overlay {
                     new_commit: store.arriving(project, &ids, &to),
                     ..Overlay::default()
                 },
-                move |path| backend::cherry_pick(path, &ids, &to),
+                backend::CherryPick { commits: ids, to },
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
                     store.snack_undoable("Cherry-picked", cx)
                 },
                 cx,
             ),
-            Transfer::StackBranch { branch, onto } => store.run(
+            Transfer::StackBranch { branch, onto } => store.apply(
                 project,
                 label,
                 Overlay::default(),
-                move |path| backend::stack_branch(path, &branch, &onto),
+                backend::StackBranch { branch, onto },
                 move |store, conflicted, cx| {
                     store.snack_undoable(branch_moved("Branch moved", &conflicted), cx)
                 },
                 cx,
             ),
-            Transfer::BranchBelow { branch, commit } => store.run(
+            Transfer::BranchBelow { branch, commit } => store.apply(
                 project,
                 label,
                 Overlay::default(),
-                move |path| backend::move_branch_below(path, &branch, commit),
+                backend::MoveBranchBelow { branch, commit },
                 move |store, conflicted, cx| {
                     store.snack_undoable(branch_moved("Branch moved", &conflicted), cx)
                 },
                 cx,
             ),
-            Transfer::Squash { ids, into } => store.squash(project, ids.to_vec(), into, cx),
+            Transfer::Squash { ids, into } => store.squash(project, ids, into, cx),
             Transfer::Amend {
                 into,
                 files,
                 worktree,
             } => store.amend(project, into, files, worktree, |_, _| {}, cx),
-            Transfer::MoveFiles { from, to, files } => store.run(
+            Transfer::MoveFiles { from, to, files } => store.apply(
                 project,
                 label,
                 Overlay::commit_files(store.key_of(project, from), files.iter()),
-                move |path| backend::move_files(path, from, to, &files),
+                backend::MoveFiles { from, to, files },
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
                     store.snack_undoable("Changes moved", cx)
@@ -450,19 +455,23 @@ impl Transfer {
                     files_in: worktree.clone(),
                     ..Overlay::files(files.iter())
                 };
-                store.run(
+                let commit = backend::CommitChanges {
+                    to: CommitTo::Branch(branch),
+                    changes: files,
+                    checkout: worktree,
+                    message: String::new(),
+                    run_hooks: false,
+                };
+                store.apply(
                     project,
                     label,
                     overlay,
-                    move |path| {
-                        let to = Destination::Branch(branch);
-                        backend::commit(path, &to, &files, worktree.linked(), "", false)
-                    },
-                    move |store, (id, left_out, _), cx| {
-                        store.select(Some(Selection::Commit(selected, id)), cx);
+                    commit,
+                    move |store, committed, cx| {
+                        store.select_made(&selected, committed.made, cx);
                         store.keep_last_snapshot(cx);
                         let done = "Committed. Double-click its title to write a message";
-                        store.report_left_out(done, &left_out, cx)
+                        store.report_left_out(done, &committed.left_out, cx)
                     },
                     cx,
                 )

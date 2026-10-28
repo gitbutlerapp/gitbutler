@@ -8,9 +8,10 @@ use anyhow::Result;
 use bstr::{BStr, BString, ByteSlice as _};
 use but_ctx::Context;
 
+use super::intent::Run;
 use super::{
-    FileChange, KeptWorktree, Workspace, Worktree, checkout, git_operation, head_tree, open,
-    worktree_files,
+    FileChange, Intent, KeptWorktree, OpKind, Workspace, Worktree, checkout, git_operation,
+    head_tree, open, worktree_files,
 };
 
 /// The active linked worktrees with their uncommitted changes, and the names of the
@@ -181,10 +182,7 @@ impl Heads {
     }
 }
 
-pub fn heads(path: &Path) -> Heads {
-    let Ok(repo) = gix::open(path) else {
-        return Heads(HashMap::new());
-    };
+pub fn heads(repo: &gix::Repository) -> Heads {
     let heads = (repo.worktrees().into_iter().flatten()).filter_map(|wt| {
         let id = wt.id().ok()?.to_owned();
         let head = (|| {
@@ -197,54 +195,87 @@ pub fn heads(path: &Path) -> Heads {
 }
 
 /// Make a linked worktree on new branch `name`, at the workspace's base, as `but worktree new`
-/// does. Returns the worktree's name.
-pub fn create(path: &Path, name: &str) -> Result<BString> {
-    let mut ctx = open(path)?;
-    let ref_name = super::ops::branch_ref(name)?;
-    let created = but_api::worktrees::worktree_new(&mut ctx, Some(ref_name))?;
-    Ok(created.name)
+/// does. Done is the worktree's name.
+pub struct CreateWorktree {
+    pub name: String,
+}
+
+impl Intent for CreateWorktree {
+    type Done = BString;
+
+    fn apply(self, run: &mut Run) -> Result<BString> {
+        let ref_name = super::ops::branch_ref(&self.name)?;
+        let created = run.locked(|ctx, perm| {
+            but_api::worktrees::worktree_new_with_perm(ctx, Some(ref_name), perm)
+        })?;
+        Ok(created.name)
+    }
 }
 
 /// Remove worktree `name` from disk as `git worktree remove` does, with the uncommitted
 /// files `lost`, by their write times and sizes then, which the user agreed to lose. Its
 /// branch stays. One with other uncommitted files, or those written to since, as by an agent
 /// meanwhile, is refused, and so is one with `lost` files that can't be read to check them.
-pub fn remove(path: &Path, name: &BStr, lost: &[(String, Option<i64>, Option<u64>)]) -> Result<()> {
-    let mut ctx = open(path)?;
-    let mut guard = ctx.exclusive_worktree_access();
-    // With nothing to lose, nothing is forced, and Git refuses a worktree with changes, so
-    // one that can't be opened, as when its folder is gone, can still be removed.
-    let files = match checkout(&ctx, Some(name)) {
-        Ok(worktree) => worktree_files(&worktree, &[])?,
-        Err(_) if lost.is_empty() => Vec::new(),
-        Err(err) => return Err(err.context(format!("Couldn't check {name}'s files"))),
-    };
-    let asked = |file: &FileChange| lost.contains(&(file.path.clone(), file.modified, file.size));
-    if let Some(file) = files.iter().find(|file| !asked(file)) {
-        anyhow::bail!(
-            "{name} has a change you weren't asked about, {}. Look at it before deleting.",
-            file.path
-        );
+pub struct DeleteWorktree {
+    pub name: BString,
+    pub lost: Vec<(String, Option<i64>, Option<u64>)>,
+}
+
+impl Intent for DeleteWorktree {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        let Self { name, lost } = self;
+        run.locked(|ctx, perm| {
+            // With nothing to lose, nothing is forced, and Git refuses a worktree with changes,
+            // so one that can't be opened, as when its folder is gone, can still be removed.
+            let files = match checkout(ctx, Some(name.as_ref())) {
+                Ok(worktree) => worktree_files(&worktree, &[])?,
+                Err(_) if lost.is_empty() => Vec::new(),
+                Err(err) => return Err(err.context(format!("Couldn't check {name}'s files"))),
+            };
+            let asked =
+                |file: &FileChange| lost.contains(&(file.path.clone(), file.modified, file.size));
+            if let Some(file) = files.iter().find(|file| !asked(file)) {
+                anyhow::bail!(
+                    "{name} has a change you weren't asked about, {}. Look at it before deleting.",
+                    file.path
+                );
+            }
+            but_api::worktrees::worktree_remove_with_perm(
+                ctx,
+                name.as_ref(),
+                !lost.is_empty(),
+                perm,
+            )
+        })
     }
-    but_api::worktrees::worktree_remove_with_perm(
-        &ctx,
-        name,
-        !lost.is_empty(),
-        guard.write_permission(),
-    )
+
+    fn kind(&self) -> OpKind {
+        OpKind::DeleteWorktree(self.name.clone())
+    }
 }
 
 /// Hide worktree `name` from the workspace, or with `archived` false show it again. It
 /// stays on disk either way.
-pub fn set_archived(path: &Path, name: &BStr, archived: bool) -> Result<()> {
-    let ctx = open(path)?;
-    let guard = ctx.shared_worktree_access();
-    but_api::worktrees::worktree_set_archived_with_perm(
-        &ctx,
-        name,
-        archived,
-        guard.read_permission(),
-    )
+pub struct SetArchived {
+    pub name: BString,
+    pub archived: bool,
+}
+
+impl Intent for SetArchived {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        run.locked(|ctx, perm| {
+            but_api::worktrees::worktree_set_archived_with_perm(
+                ctx,
+                self.name.as_ref(),
+                self.archived,
+                perm.read_permission(),
+            )
+        })
+    }
 }
 
 #[cfg(test)]

@@ -532,11 +532,21 @@ pub fn resolve_worktree_conflicts(
     ctx: &mut but_ctx::Context,
     paths: Vec<BString>,
 ) -> anyhow::Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
+    resolve_worktree_conflicts_with_perm(ctx, paths, guard.write_permission())
+}
+
+/// Mark conflicts resolved under caller-held exclusive access, recording one undo snapshot.
+///
+/// See [`resolve_worktree_conflicts()`] for behavior.
+pub fn resolve_worktree_conflicts_with_perm(
+    ctx: &mut but_ctx::Context,
+    paths: Vec<BString>,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<()> {
     if paths.is_empty() {
         return Ok(());
     }
-    let mut guard = ctx.exclusive_worktree_access();
-    let perm = guard.write_permission();
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
         ctx,
         SnapshotDetails::new(OperationKind::ResolveConflicts),

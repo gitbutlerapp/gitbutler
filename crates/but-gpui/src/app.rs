@@ -291,7 +291,7 @@ impl AppView {
     }
 
     /// Whether to quit right away. While an operation hasn't finished, ask instead, and quit
-    /// on a yes: quitting would stop it partway and drop the ones waiting.
+    /// on a yes: quitting would stop it partway.
     fn can_quit(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let (message, detail) = match self.store.read(cx).unfinished() {
             0 => return true,
@@ -301,7 +301,7 @@ impl AppView {
             ),
             n => (
                 format!("Quit before {n} operations finish?"),
-                "Those running may stop partway, and the rest won't run.",
+                "They may stop partway.",
             ),
         };
         self.confirm_then(None, message, detail, "Quit", window, cx, |_, cx| cx.quit());
@@ -367,9 +367,8 @@ impl AppView {
         }) else {
             return;
         };
-        self.new_branch_at(project, true, None, None, window, cx, |path| {
-            backend::create_branch(path, None)
-        });
+        let create = backend::CreateBranch { name: None };
+        self.new_branch_at(project, true, None, None, window, cx, create);
     }
 
     /// Ask the desktop app's update feed now: show the update card for the newer version it
@@ -931,7 +930,7 @@ impl AppView {
     }
 
     /// Rebase onto the target. When that would leave commits conflicted that aren't now, the
-    /// card saying so offers to go ahead. Asking again while one waits or runs does nothing.
+    /// card saying so offers to go ahead.
     pub fn update_from_target(&mut self, project: ProjectId, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         let Some(target) = store.workspace(&project).and_then(|ws| ws.target.as_ref()) else {

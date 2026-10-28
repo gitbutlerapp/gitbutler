@@ -13,6 +13,7 @@ pub mod edit;
 mod highlight;
 pub mod history;
 pub mod images;
+mod intent;
 pub mod logs;
 mod markers;
 pub mod mesh;
@@ -39,12 +40,11 @@ use but_core::{
 use but_ctx::Context;
 
 pub use diff::{DiffSource, blame_lines, commit_paths, file_lines, load_diff};
+pub use intent::{Intent, OpKind, apply, now_millis};
 pub use model::*;
 pub use ops::*;
 pub use reviews::{refresh_checks, refresh_reviews};
-pub use upstream::{
-    Landed, fetch, land, pull_conflicts, pull_remote, push, push_refusal, update_from_target,
-};
+pub use upstream::fetch;
 pub use worktrees::reload_uncommitted;
 
 /// Process-wide setup, before any other call.
@@ -1419,10 +1419,9 @@ mod lane_tests {
     use std::path::Path;
 
     use crate::backend::model::build::{describe, describe_chain};
-    use crate::backend::ops::tests::{git, repo_with, target_origin_main};
+    use crate::backend::ops::tests::{branch_named, git, repo_with, target_origin_main};
     use crate::backend::ops::{
-        Destination, create_branch, create_branch_at_commit, create_dependent_branch,
-        insert_empty_commit, rename_branch,
+        CreateBranchAtCommit, CreateDependentBranch, Destination, InsertEmptyCommit, RenameBranch,
     };
     use crate::backend::{Checkout, CommitId};
 
@@ -1434,14 +1433,24 @@ mod lane_tests {
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
-            let mut below = create_branch(path, Some("bottom")).unwrap();
-            insert_empty_commit(path, &Destination::Branch(below.clone())).unwrap();
+            let mut below = crate::backend::apply(path, branch_named("bottom"))
+                .unwrap()
+                .0;
+            let at = Destination::Branch(below.clone());
+            crate::backend::apply(path, InsertEmptyCommit { at }).unwrap();
             for name in ["middle", "top"] {
-                let new = create_dependent_branch(path, &below).unwrap();
-                below = rename_branch(path, &new, name).unwrap();
-                insert_empty_commit(path, &Destination::Branch(below.clone())).unwrap();
+                let new = crate::backend::apply(path, CreateDependentBranch { below })
+                    .unwrap()
+                    .0;
+                let rename = RenameBranch {
+                    branch: new,
+                    name: name.into(),
+                };
+                below = crate::backend::apply(path, rename).unwrap().0;
+                let at = Destination::Branch(below.clone());
+                crate::backend::apply(path, InsertEmptyCommit { at }).unwrap();
             }
-            create_branch(path, Some("beside")).unwrap();
+            crate::backend::apply(path, branch_named("beside")).unwrap();
 
             let ctx = super::open(path).unwrap();
             (ctx.db.get_cache_mut().unwrap())
@@ -1487,7 +1496,11 @@ mod lane_tests {
             );
             let wt_work = git(path, &["rev-parse", "wt~"]);
             let wt_work = CommitId(gix::ObjectId::from_hex(wt_work.trim().as_bytes()).unwrap());
-            create_branch_at_commit(path, wt_work, false).unwrap();
+            let at_work = CreateBranchAtCommit {
+                commit: wt_work,
+                below: false,
+            };
+            crate::backend::apply(path, at_work).unwrap();
             let wt_top = worktree("wt-top");
             let out = std::process::Command::new("git")
                 .current_dir(&wt_top.unwrap().path)
@@ -1567,7 +1580,7 @@ history: [agent2, agent1~2]
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
-            create_branch(path, Some("beside")).unwrap();
+            crate::backend::apply(path, branch_named("beside")).unwrap();
             let ctx = super::open(path).unwrap();
             (ctx.db.get_cache_mut().unwrap())
                 .worktree_meta_mut()

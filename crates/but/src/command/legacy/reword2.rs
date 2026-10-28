@@ -495,6 +495,7 @@ fn reword_commit(
         meta,
         perm,
         snapshot_details,
+        &[],
         DryRun::No,
         |mut tx| {
             let new_commit =

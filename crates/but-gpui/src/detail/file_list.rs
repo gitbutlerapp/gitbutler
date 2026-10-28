@@ -16,7 +16,7 @@ use super::{Detail, FilterFiles, LoadedDiff, keeps_path, merged, ranked};
 use crate::app::AppView;
 use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::MenuItem;
-use crate::state::{Cut, FileSort, OpKind, Overlay, ProjectId, Rereads, Selection};
+use crate::state::{Cut, FileSort, Overlay, ProjectId, Rereads, Selection};
 use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
@@ -1195,20 +1195,20 @@ impl Detail {
                     items.insert(
                         0,
                         MenuItem::new("Mark resolved", move |this, _, cx| {
-                            let (files, worktree) = (conflicted.clone(), worktree.clone());
+                            let resolved = backend::MarkResolved {
+                                paths: conflicted.clone(),
+                                checkout: worktree.clone(),
+                            };
                             this.store.update(cx, |store, cx| {
-                                store.run(
+                                store.apply(
                                     &project,
                                     "Mark resolved",
                                     Overlay {
-                                        kind: OpKind::MarkResolved,
                                         rereads: Rereads::Files,
                                         files_in: worktree.clone(),
                                         ..Overlay::default()
                                     },
-                                    move |path| {
-                                        backend::mark_resolved(path, worktree.linked(), files)
-                                    },
+                                    resolved,
                                     move |store, (), cx| {
                                         store.snack_after(undoable, "Marked resolved", cx)
                                     },

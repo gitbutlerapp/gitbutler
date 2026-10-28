@@ -436,11 +436,11 @@ impl Store {
             let id = mesh_id.clone();
             let fetched = backend::run(move || backend::mesh::fetch(&path, &id, None)).await;
             this.update(cx, |store, cx| match fetched {
-                Ok(_) => store.run(
+                Ok(_) => store.apply(
                     &project,
                     Label::new("Bring here", format!("Bring {branch} here")),
                     Overlay::rewriting_main(),
-                    move |path| backend::mesh::apply(path, &mesh_id),
+                    backend::mesh::BringHere { mesh_id },
                     move |store, applied_as, cx| store.snack(format!("Applied {applied_as}"), cx),
                     cx,
                 ),

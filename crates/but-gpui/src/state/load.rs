@@ -687,7 +687,14 @@ impl Store {
         let renamed = renamed(old, &workspace);
         let (rewritten, gone_from) = match &self.selection {
             Some(Selection::Commit(project, commit)) if project == id => {
-                match follow_by_key(old, &workspace, *commit) {
+                let followed = follow_by_key(old, &workspace, *commit).or_else(|| {
+                    let made = (self.made.as_ref()).filter(|made| made.id == *commit)?;
+                    workspace
+                        .commits()
+                        .find(|c| c.key == made.key)
+                        .map(|c| c.id)
+                });
+                match followed {
                     Some(new) => ((new != *commit).then_some((*commit, new)), None),
                     None => {
                         let branch = old.and_then(|old| old.find_commit(*commit));

@@ -90,15 +90,21 @@ where
 {
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
-    with_transaction_with_perm(ctx, meta, perm, snapshot_details, dry_run, f)
+    with_transaction_with_perm(ctx, meta, perm, snapshot_details, &[], dry_run, f)
 }
 
 /// Like [`with_transaction`] but allows the caller to provide the lock.
+///
+/// The snapshot also preserves `snapshot_refs`, so undo restores each or, if it did not exist
+/// yet, deletes it. See [`but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm`].
+/// Recording it is best-effort: a transaction that landed succeeds even when its oplog entry
+/// can't be written, so it can't be undone.
 pub fn with_transaction_with_perm<M, F, T>(
     ctx: &mut Context,
     meta: &mut M,
     perm: &mut RepoExclusive,
     snapshot_details: SnapshotDetails,
+    snapshot_refs: &[&FullNameRef],
     dry_run: DryRun,
     f: F,
 ) -> anyhow::Result<T::Outcome>
@@ -107,17 +113,21 @@ where
     M: RefMetadata,
     T: TransactionOutcome,
 {
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
         ctx,
         snapshot_details,
+        snapshot_refs,
         perm.read_permission(),
         dry_run,
     );
 
     let (should_rollback, outcome) = with_transaction_with_perm_only(ctx, meta, perm, dry_run, f)?;
 
-    if !should_rollback && let Some(snapshot) = maybe_oplog_entry {
-        snapshot.commit(ctx, perm)?;
+    if !should_rollback
+        && let Some(snapshot) = maybe_oplog_entry
+        && let Err(err) = snapshot.commit(ctx, perm)
+    {
+        tracing::warn!(?err, "couldn't record the transaction in the oplog");
     }
 
     Ok(outcome)

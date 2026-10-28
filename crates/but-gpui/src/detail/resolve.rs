@@ -15,7 +15,7 @@ use super::{Detail, DiffSource};
 use crate::app::AppView;
 use crate::backend::conflicts::{self, Keep};
 use crate::backend::{self, Branch, Checkout, Commit, CommitId, Conflict, FullName, Workspace, ai};
-use crate::state::{OpKind, Overlay, ProjectId, Rereads, Selection, snack};
+use crate::state::{Overlay, ProjectId, Rereads, Selection, snack};
 use crate::theme::Theme;
 use crate::ui::conflict::{self, Actions, Kept, Name, Part, Pick};
 use crate::ui::diff::{DiffRow, Layout, OnToggle};
@@ -549,20 +549,20 @@ impl Detail {
                     .map(|(file, c, keep)| (file.change.path.clone(), c.id.clone(), keep))
                     .collect();
                 let project_done = project.clone();
+                let resolve = conflicts::ResolveMarkers {
+                    keep,
+                    checkout: worktree.clone(),
+                };
                 self.store.update(cx, |store, cx| {
-                    store.run(
+                    store.apply(
                         &project,
                         "Resolve",
                         Overlay {
-                            kind: OpKind::Resolve,
                             rereads: Rereads::Files,
                             files_in: worktree.clone(),
                             ..Overlay::default()
                         },
-                        {
-                            let worktree = worktree.clone();
-                            move |path| conflicts::resolve_markers(path, worktree.linked(), keep)
-                        },
+                        resolve,
                         move |store, files, cx| {
                             forget(cx);
                             if finish {
@@ -595,14 +595,11 @@ impl Detail {
             .unwrap_or_default();
         let shown = project.clone();
         self.store.update(cx, |store, cx| {
-            store.run(
+            store.apply(
                 &project,
                 "Resolve",
-                Overlay {
-                    kind: OpKind::Resolve,
-                    ..Overlay::default()
-                },
-                move |path| conflicts::resolve(path, commit, keep),
+                Overlay::default(),
+                conflicts::ResolveCommit { commit, keep },
                 move |store, (rewritten, outcome), cx| {
                     forget(cx);
                     // The commits above it were rebuilt on it, conflicted now or not

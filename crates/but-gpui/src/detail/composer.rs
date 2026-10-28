@@ -10,7 +10,7 @@ use gpui::{
 
 use super::{ChecksChanged, Detail, DiffKey, PickCommitTarget};
 use crate::backend::{
-    self, Branch, Checkout, CommitId, Destination, DiffBody, DiffSource, FileChange, FileDiff,
+    self, Branch, Checkout, CommitId, CommitTo, DiffBody, DiffSource, FileChange, FileDiff,
     FullName, Hunk, HunkKey, LineKind, PushState, Selected, ai, short_ref,
 };
 use crate::palette::Choice;
@@ -362,26 +362,6 @@ impl Detail {
                 .clone(),
             hunks: partial.then_some(picked),
         })
-    }
-
-    /// The checked changes, less the files and hunks a pending operation already takes, as
-    /// after a quick second click.
-    fn changes_not_pending(&self, project: &ProjectId, cx: &App) -> Vec<Selected> {
-        let store = self.store.read(cx);
-        let worktree = &self.checks_worktree;
-        (self.selected_changes(cx).into_iter())
-            .filter(|s| !store.hides_file(project, worktree, &s.file.path))
-            .filter_map(|mut s| {
-                if let Some(hunks) = &mut s.hunks {
-                    hunks.retain(|hunk| !store.hides_hunk(project, worktree, &s.file.path, *hunk));
-                    // No hunks would take the whole file.
-                    if hunks.is_empty() {
-                        return None;
-                    }
-                }
-                Some(s)
-            })
-            .collect()
     }
 
     /// The hunks of `path` in the loaded worktree diff.
@@ -757,11 +737,15 @@ impl Detail {
                             reworded,
                             ..Overlay::default()
                         };
-                        store.run(
+                        let reword = backend::Reword {
+                            commit: id,
+                            message,
+                        };
+                        store.apply(
                             &project,
                             "Edit message",
                             overlay,
-                            move |path| backend::reword(path, id, &message),
+                            reword,
                             move |store, rewritten, cx| {
                                 store.follow(&rewritten, cx);
                                 store.snack_undoable("Message updated", cx);
@@ -835,7 +819,7 @@ impl Detail {
         if self.choices_loading(&project, cx) {
             return;
         }
-        let files = self.changes_not_pending(&project, cx);
+        let files = self.selected_changes(cx);
         // A checkout with no changes at all commits an empty commit.
         let nothing_changed = (self.store.read(cx).workspace(&project))
             .and_then(|ws| ws.uncommitted_in(&worktree))
@@ -847,13 +831,7 @@ impl Detail {
             return;
         }
         if files.is_empty() && !nothing_changed {
-            // Changes checked but none left are what an operation still running is taking,
-            // most likely the last commit.
-            let why = match self.selected_changes(cx).is_empty() {
-                true => "Nothing checked to commit",
-                false => "Wait for the running operation to finish",
-            };
-            snack(&self.store, why, cx);
+            snack(&self.store, "Nothing checked to commit", cx);
             return;
         }
         let target = self.effective_target(&project, cx);
@@ -862,12 +840,10 @@ impl Detail {
         }
         // A linked worktree's commit goes on its own branch, so the next one in the main
         // checkout still goes where it would have.
-        let linked = worktree.is_linked();
-        let picked = (!linked).then(|| self.commit_target.clone());
-        let run_hooks = self.store.read(cx).runs_hooks(&project);
+        let picked = (!worktree.is_linked()).then(|| self.commit_target.clone());
         let detail = cx.entity().downgrade();
         let window = window.window_handle();
-        let (finished, committed, from) = (project.clone(), message.clone(), worktree.clone());
+        let (finished, written, from) = (project.clone(), message.clone(), worktree.clone());
         // The files leave the list and the commit shows on its branch right away.
         let overlay = Overlay {
             new_commit: target.clone().map(|branch| {
@@ -878,48 +854,27 @@ impl Detail {
             ..Overlay::files(&files)
         };
         self.store.update(cx, |store, cx| {
-            store.run(
+            let commit = backend::CommitChanges {
+                to: target.map_or(CommitTo::NewBranch, CommitTo::Branch),
+                changes: files.into(),
+                checkout: worktree,
+                message,
+                run_hooks: store.runs_hooks(&project),
+            };
+            store.apply(
                 &project,
                 "Commit",
                 overlay,
-                move |path| {
-                    let (branch, created) = match target {
-                        Some(branch) => (branch, false),
-                        None if linked => {
-                            anyhow::bail!("The worktree has no branch of its own checked out")
-                        }
-                        None => (backend::create_branch(path, None)?, true),
-                    };
-                    // Undone apart from the commit, so a second ⌘Z takes the branch away.
-                    let made = created
-                        .then(|| backend::history::oplog_head(path))
-                        .flatten();
-                    let committed = backend::commit(
-                        path,
-                        &Destination::Branch(branch.clone()),
-                        &files,
-                        worktree.linked(),
-                        &message,
-                        run_hooks,
-                    );
-                    // A commit a hook refused leaves no empty branch made for it behind.
-                    if committed.is_err() && created {
-                        backend::remove_branch(path, &branch, None).ok();
-                    }
-                    Ok((branch, made, committed?))
-                },
-                move |store, (branch, made, (_id, left_out, hook_failed)), cx| {
-                    if let Some(made) = made {
-                        store.push_earlier_step(made);
-                    }
+                commit,
+                move |store, committed, cx| {
                     // The message is done with, even kept for a checkout left meanwhile.
                     let key = (finished.clone(), from.clone());
-                    if (store.drafts.get(&key)).is_some_and(|d| d.trim() == committed) {
+                    if (store.drafts.get(&key)).is_some_and(|d| d.trim() == written) {
                         store.drafts.remove(&key);
                     }
                     // The box may hold the next commit's message by now, or another
                     // checkout's.
-                    let target = branch.clone();
+                    let target = committed.branch.clone();
                     after_landing(&detail, window, &finished, cx, |detail, window, cx| {
                         // The next commit goes where this one did, not to whichever stack is
                         // first now, as one an agent just made, unless another was picked
@@ -927,18 +882,18 @@ impl Detail {
                         if picked.as_ref() == Some(&detail.commit_target) {
                             detail.commit_target = Some(target);
                         }
-                        if detail.message.read(cx).text().trim() == committed {
+                        if detail.message.read(cx).text().trim() == written {
                             (detail.message).update(cx, |input, cx| input.set_text("", cx));
                             detail.finish_composing(&from, window, cx);
                         }
                     });
                     forget_checks_left(&detail, &finished, &from, cx);
                     store.report_left_out(
-                        &format!("Committed to {}", short_ref(&branch)),
-                        &left_out,
+                        &format!("Committed to {}", short_ref(&committed.branch)),
+                        &committed.left_out,
                         cx,
                     );
-                    if let Some(output) = hook_failed {
+                    if let Some(output) = committed.hook_failed {
                         store.error("Committed, but the post-commit hook failed", output, cx);
                     }
                 },
@@ -969,11 +924,12 @@ impl Detail {
     /// commit shown there isn't the newest.
     fn commit_pending(&self, project: &ProjectId, cx: &App) -> bool {
         (self.effective_target(project, cx)).is_some_and(|target| {
-            let pending = self.store.read(cx).new_commits(
-                project,
-                |at| matches!(at, NewAt::Top(branch) if *branch == target),
-            );
-            !pending.is_empty()
+            (self.store.read(cx))
+                .new_commit(
+                    project,
+                    |at| matches!(at, NewAt::Top(branch) if *branch == target),
+                )
+                .is_some()
         })
     }
 
@@ -1060,7 +1016,7 @@ impl Detail {
         if self.choices_loading(&project, cx) {
             return;
         }
-        let files = self.changes_not_pending(&project, cx);
+        let files = self.selected_changes(cx);
         if files.is_empty() {
             snack(&self.store, "Nothing checked to amend", cx);
             return;
@@ -1442,8 +1398,8 @@ impl Detail {
                 store.snack_undoable(message, cx)
             };
             this.store.update(cx, |store, cx| {
-                let create = move |path: &_| backend::create_branch(path, name.as_deref());
-                store.run(
+                let create = backend::CreateBranch { name };
+                store.apply(
                     &project,
                     "Create branch",
                     Overlay::default(),

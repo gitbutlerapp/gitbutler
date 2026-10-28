@@ -1,7 +1,6 @@
 //! What opens above the window: right-click menus, one-line prompts, modals, and the
 //! snackbars and error cards.
 
-use std::path::Path;
 use std::rc::Rc;
 
 use anyhow::Result;
@@ -148,16 +147,16 @@ pub(crate) fn branch_name(
     }
 }
 
-/// Run `op` with `name`, typed for a branch, and hand `done` the full ref name of the branch
-/// it returns. With `renaming`, a full ref, that branch is being renamed; without, a branch
-/// is made or one without a name yet is named.
-pub(crate) fn run_named<T: Send + 'static>(
+/// Apply the intent `op` makes of `name`, typed for a branch, and hand `done` what it returns.
+/// With `renaming`, a full ref, that branch is being renamed; without, a branch is made or
+/// one without a name yet is named.
+pub(crate) fn run_named<I: backend::Intent>(
     store: &mut Store,
     project: &ProjectId,
     renaming: Option<FullName>,
     name: String,
-    op: impl FnOnce(&Path, &str) -> Result<T> + Send + 'static,
-    done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
+    op: impl FnOnce(String) -> I,
+    done: impl FnOnce(&mut Store, I::Done, &mut Context<Store>) + 'static,
     cx: &mut Context<Store>,
 ) {
     let name = name.trim().to_owned();
@@ -179,8 +178,7 @@ pub(crate) fn run_named<T: Send + 'static>(
         renamed: renaming.map(|from| (from, short)),
         ..Overlay::default()
     };
-    let op = move |path: &Path| op(path, &name);
-    store.run(project, label, overlay, op, done, cx)
+    store.apply(project, label, overlay, op(name), done, cx)
 }
 
 /// A small modal asking for one line of text: a branch name, a repository to clone, a pull
@@ -224,17 +222,17 @@ impl AppView {
         cx.notify();
     }
 
-    /// Ask for a new branch's name, then run `op` with it and hand `done` the full ref name of
-    /// the branch it returns. `at` is what it acts on, the project or a branch or commit in it,
-    /// for the prompt to say where.
-    pub(crate) fn prompt_branch<T: Send + 'static>(
+    /// Ask for a new branch's name, then apply the intent `op` makes of it and hand `done` what
+    /// it returns. `at` is what it acts on, the project or a branch or commit in it, for the
+    /// prompt to say where.
+    pub(crate) fn prompt_branch<I: backend::Intent>(
         &mut self,
         at: Selection,
         title: &str,
         window: &mut Window,
         cx: &mut Context<Self>,
-        op: impl FnOnce(&Path, &str) -> Result<T> + Send + 'static,
-        done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
+        op: impl FnOnce(String) -> I + 'static,
+        done: impl FnOnce(&mut Store, I::Done, &mut Context<Store>) + 'static,
     ) {
         let project = at.project().clone();
         let place = self.store.read(cx).place(&at);

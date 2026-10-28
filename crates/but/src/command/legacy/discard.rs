@@ -673,6 +673,7 @@ pub fn run(
             meta,
             perm,
             SnapshotDetails::new(oplog_operation_kind),
+            &[],
             DryRun::No,
             transaction,
         )?

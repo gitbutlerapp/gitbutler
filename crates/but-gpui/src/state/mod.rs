@@ -32,7 +32,7 @@ pub use activity::{Activity, QUARTER, SeenCommit};
 use load::{Change, Reload};
 pub use mesh::{MeshBranch, MeshPick, MeshState};
 use mutation::Running;
-pub use mutation::{Label, NewAt, OpKind, Overlay, Rereads, SLOW, branch_moved, conflicted_parts};
+pub use mutation::{Label, NewAt, Overlay, Rereads, SLOW, branch_moved, conflicted_parts};
 pub use picks::Picks;
 pub use saved::{BranchStatus, FileSort, Pane, Prefs, ScopeLines, WatchedOrder};
 use saved::{Restored, Saved};
@@ -296,6 +296,9 @@ pub struct Store {
     /// The commit the selection was on and the one it moved to, when it last moved because
     /// an operation rewrote the commit.
     followed: Option<(CommitId, CommitId)>,
+    /// The new commit an operation selected, until the selection moves: a reload follows it by
+    /// change id, as the workspace before it never had the commit to follow.
+    made: Option<backend::Made>,
     /// While an operation of a project the user has left finishes, which leaves the selection,
     /// and what's picked with it, where the user is.
     staying: bool,
@@ -341,8 +344,9 @@ pub struct Store {
     /// The user's other machines, and what they have of the watched projects. Everything the
     /// mesh does lives in `state/mesh.rs`; see the crate's AGENTS.md for its rules.
     pub mesh: mesh::Mesh,
-    /// Each project's mutation in flight. A project runs one at a time, until the reload after
-    /// it lands, so the next one sees what it did; projects don't wait on each other.
+    /// Each project's operation in flight, one at a time until the reload after it lands, so
+    /// the next sees what it did, plus those that run beside it ([`backend::OpKind::beside`]).
+    /// Projects don't wait on each other.
     running: Vec<Running>,
     /// How many operations have started, which numbers the next.
     ops_started: usize,
@@ -458,6 +462,7 @@ impl Store {
             cut: None,
             picked: Picks::default(),
             followed: None,
+            made: None,
             staying: false,
             added: None,
             asked_author: false,
@@ -780,6 +785,7 @@ impl Store {
             return;
         }
         self.followed = None;
+        self.made = None;
         if !self.picked.is_empty() {
             self.picked.clear();
             cx.notify();

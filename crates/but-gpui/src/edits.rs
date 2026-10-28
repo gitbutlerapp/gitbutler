@@ -4,7 +4,6 @@
 //! window instead, so the branch page's button reaches it.
 
 use std::collections::HashSet;
-use std::path::Path;
 use std::sync::Arc;
 
 use gpui::{App, Context, Div, SharedString, Window, actions, prelude::*};
@@ -62,19 +61,24 @@ pub fn discard_label(what: &str, linked: bool) -> String {
 fn discard_unrecorded(
     store: &mut Store,
     project: &ProjectId,
-    changes: &[Selected],
+    changes: Arc<[Selected]>,
     cx: &mut Context<Store>,
 ) {
     let overlay = Overlay {
         rereads: Rereads::Files,
-        ..Overlay::files(changes)
+        ..Overlay::files(changes.iter())
     };
-    let (changes, named) = (changes.to_vec(), project.clone());
-    store.run(
+    let named = project.clone();
+    let discard = backend::DiscardChanges {
+        changes,
+        checkout: Checkout::Main,
+        unrecorded: true,
+    };
+    store.apply(
         project,
         "Discard",
         overlay,
-        move |path| backend::discard(path, None, &changes, true),
+        discard,
         move |store, outcome, cx| match outcome {
             None => store.snack(store.card_title(&named, "Changes discarded".into()), cx),
             Some(Undiscarded::Partway(why) | Undiscarded::Unrecorded(why)) => {
@@ -85,18 +89,18 @@ fn discard_unrecorded(
     );
 }
 
-/// What a confirmation runs: operation `label` on `project`, as [`Store::run`] runs it.
-fn then_run<T: Send + 'static>(
+/// What a confirmation runs: operation `label` on `project`, as [`Store::apply`] runs it.
+fn then_run<I: backend::Intent>(
     project: ProjectId,
     label: impl Into<Label>,
     overlay: Overlay,
-    op: impl FnOnce(&Path) -> anyhow::Result<T> + Send + 'static,
-    done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
+    intent: I,
+    done: impl FnOnce(&mut Store, I::Done, &mut Context<Store>) + 'static,
 ) -> impl FnOnce(&mut AppView, &mut Context<AppView>) + 'static {
     let label = label.into();
     move |this, cx| {
         (this.store).update(cx, |store, cx| {
-            store.run(&project, label, overlay, op, done, cx)
+            store.apply(&project, label, overlay, intent, done, cx)
         })
     }
 }
@@ -349,7 +353,7 @@ impl AppView {
                 project,
                 "Replace with the remote's version",
                 Overlay::default(),
-                move |path| backend::pull_remote(path, &ref_name, true),
+                backend::upstream::Replace { branch: ref_name },
                 move |store, (), cx| {
                     store.snack_undoable(format!("{name} now matches the remote"), cx)
                 },
@@ -538,16 +542,10 @@ impl AppView {
                 // As the desktop app says: a rename doesn't reach the remote.
                 let pushed = (workspace.and_then(|ws| ws.find_branch(ref_name.as_ref())))
                     .is_some_and(|branch| branch.push != backend::PushState::NeverPushed);
-                let renaming = ref_name.clone();
                 let (store, detail) = (self.store.clone(), self.detail.downgrade());
                 let (at, selected, from) = (project.clone(), project.clone(), ref_name.clone());
                 let submit = move |name: String, cx: &mut App| {
                     let renamed = from.clone();
-                    let op = move |path: &Path, name: &str| match (&renamed, unnamed_top) {
-                        (Some(renamed), _) => backend::rename_branch(path, renamed, name),
-                        (None, Some(top)) => backend::name_branch(path, top, name),
-                        (None, None) => anyhow::bail!("The branch has no commit to name it at"),
-                    };
                     let done = move |store: &mut Store, to: FullName, cx: &mut Context<Store>| {
                         (detail.update(cx, |detail, cx| {
                             detail.branch_renamed(&selected, from.as_ref(), &to, cx)
@@ -567,8 +565,17 @@ impl AppView {
                         }
                         store.select(Some(Selection::Branch(selected, Some(to))), cx)
                     };
-                    store.update(cx, |store, cx| {
-                        run_named(store, &at, renaming, name, op, done, cx)
+                    store.update(cx, |store, cx| match (renamed, unnamed_top) {
+                        (Some(branch), _) => {
+                            let renaming = Some(branch.clone());
+                            let op = |name| backend::RenameBranch { branch, name };
+                            run_named(store, &at, renaming, name, op, done, cx)
+                        }
+                        (None, Some(top)) => {
+                            let op = |name| backend::NameBranch { top, name };
+                            run_named(store, &at, None, name, op, done, cx)
+                        }
+                        (None, None) => store.snack("The branch has no commit to name it at", cx),
                     })
                 };
                 // The name is edited in its row there.
@@ -608,8 +615,8 @@ impl AppView {
             .map(|w| w.name.clone());
         let here = worktree.is_none();
         let checkout = store.checkout_of(&Selection::Branch(project.clone(), Some(below.clone())));
-        let op = move |path: &Path| backend::create_dependent_branch(path, &below);
-        self.new_branch_at(project, here, checked_out_in, checkout, window, cx, op);
+        let create = backend::CreateDependentBranch { below };
+        self.new_branch_at(project, here, checked_out_in, checkout, window, cx, create);
     }
 
     /// Make a branch with a made-up name with `op` and select it, for r to rename, as the other
@@ -625,7 +632,7 @@ impl AppView {
         checkout: Option<Checkout>,
         window: &mut Window,
         cx: &mut Context<Self>,
-        op: impl FnOnce(&Path) -> anyhow::Result<FullName> + Send + 'static,
+        op: impl backend::Intent<Done = FullName>,
     ) {
         let (selected, detail) = (project.clone(), self.detail.downgrade());
         let undoable = self.store.read(cx).undoable(&project, checkout);
@@ -648,7 +655,7 @@ impl AppView {
         // The navigator, where it's selected, takes the keys, as r to rename it.
         self.focus_navigator(&FocusNavigator, window, cx);
         self.store.update(cx, |store, cx| {
-            store.run(&project, "Create branch", Overlay::default(), op, done, cx)
+            store.apply(&project, "Create branch", Overlay::default(), op, done, cx)
         });
     }
 
@@ -662,7 +669,7 @@ impl AppView {
     ) {
         match self.selection(cx) {
             Some(Selection::Commit(project, id)) => self.store.update(cx, |store, cx| {
-                let ids = store.with_picks(&project, id).to_vec();
+                let ids = store.with_picks(&project, id);
                 store.uncommit(&project, ids, cx)
             }),
             Some(Selection::Branch(..)) => self.unapply_stack(&UnapplyStack, window, cx),
@@ -772,16 +779,27 @@ impl AppView {
         };
         // What the user saw on top, so new commits made meanwhile aren't dropped unseen.
         let tip = (commits.first()).filter(|_| with_commits).map(|c| c.id);
-        let run = then_run(
-            project,
-            "Delete branch",
-            overlay,
-            move |path| match tip {
-                Some(tip) => backend::delete_branch_and_commits(path, &ref_name, tip),
-                None => backend::remove_branch(path, &ref_name, None),
-            },
-            move |store, (), cx| store.snack_after(undoable, deleted, cx),
-        );
+        let run = move |this: &mut AppView, cx: &mut Context<AppView>| {
+            let done = move |store: &mut Store, (), cx: &mut Context<Store>| {
+                store.snack_after(undoable, deleted, cx)
+            };
+            this.store.update(cx, |store, cx| match tip {
+                Some(tip) => {
+                    let delete = backend::DeleteBranchAndCommits {
+                        branch: ref_name,
+                        tip,
+                    };
+                    store.apply(&project, "Delete branch", overlay, delete, done, cx)
+                }
+                None => {
+                    let remove = backend::RemoveBranch {
+                        branch: ref_name,
+                        tip: None,
+                    };
+                    store.apply(&project, "Delete branch", overlay, remove, done, cx)
+                }
+            })
+        };
         if undoable {
             return run(self, cx);
         }
@@ -824,7 +842,7 @@ impl AppView {
             project,
             "Discard commit",
             overlay,
-            move |path| backend::discard_commits(path, &ids),
+            backend::DiscardCommits { commits: ids },
             move |store, (), cx| store.snack_after(undoable, done, cx),
         );
         if undoable {
@@ -841,21 +859,11 @@ impl AppView {
         &mut self,
         project: ProjectId,
         worktree: Checkout,
-        mut changes: Vec<Selected>,
+        changes: Vec<Selected>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        // Not what a pending discard or commit already takes, as after a quick second press.
         let store = self.store.read(cx);
-        changes.retain(|change| {
-            let path = &change.file.path;
-            match &change.hunks {
-                None => !store.hides_file(&project, &worktree, path),
-                Some(hunks) => {
-                    !(hunks.iter()).all(|h| store.hides_hunk(&project, &worktree, path, *h))
-                }
-            }
-        });
         let lasting = match &worktree {
             Checkout::Linked(_) => Some("Changes discarded in a linked worktree can't be undone."),
             Checkout::Main if (store.workspace(&project)).is_some_and(|ws| ws.unrecorded) => Some(
@@ -901,19 +909,25 @@ impl AppView {
         };
         // Asked already when undo can't take it back; else, when GitButler can't record it
         // after all, nothing goes, and the card asks.
+        let changes: Arc<[Selected]> = changes.into();
         let (asked, again) = (project.clone(), changes.clone());
+        let discard = backend::DiscardChanges {
+            changes,
+            checkout: worktree,
+            unrecorded: !undoable,
+        };
         let run = then_run(
             project,
             "Discard",
             overlay,
-            move |path| backend::discard(path, worktree.linked(), &changes, !undoable),
+            discard,
             move |store, outcome, cx| match outcome {
                 None => store.snack_after(undoable, "Changes discarded", cx),
                 Some(Undiscarded::Unrecorded(why)) => store.error_with_retry(
                     store.card_title(&asked, "Changes weren't discarded".into()),
                     format!("GitButler couldn't record them to undo: {why}"),
                     "Discard anyway",
-                    move |store, cx| discard_unrecorded(store, &asked, &again, cx),
+                    move |store, cx| discard_unrecorded(store, &asked, again.clone(), cx),
                     cx,
                 ),
                 Some(Undiscarded::Partway(why)) => store.error(
@@ -952,11 +966,11 @@ impl AppView {
                 new_commit: at.map(|at| (at, SharedString::default())),
                 ..Overlay::default()
             };
-            store.run(
+            store.apply(
                 &project,
                 "Add empty commit",
                 overlay,
-                move |path| backend::insert_empty_commit(path, &to),
+                backend::InsertEmptyCommit { at: to },
                 move |store, _, cx| store.snack_undoable("Empty commit added", cx),
                 cx,
             )
@@ -1019,7 +1033,7 @@ impl AppView {
         let Some(into) = into.filter(|id| store.picked.contains(id)).or(oldest) else {
             return;
         };
-        let rest: Vec<_> = picked.into_iter().filter(|id| *id != into).collect();
+        let rest: Arc<[_]> = picked.into_iter().filter(|id| *id != into).collect();
         if rest.is_empty() {
             return;
         }
@@ -1059,8 +1073,11 @@ impl AppView {
         };
         let branch = Selection::Branch(project.clone(), Some(ref_name));
         let checkout = self.store.read(cx).checkout_of(&branch);
-        let op = move |path: &Path| backend::create_branch_at_commit(path, oldest, true);
-        self.new_branch_at(project, false, None, checkout, window, cx, op);
+        let create = backend::CreateBranchAtCommit {
+            commit: oldest,
+            below: true,
+        };
+        self.new_branch_at(project, false, None, checkout, window, cx, create);
     }
 
     /// Split the selected commit's branch: a new branch ending at it takes it and the
@@ -1071,8 +1088,11 @@ impl AppView {
         };
         let id = commit.id;
         let checkout = (self.store.read(cx)).checkout_of(&Selection::Commit(project.clone(), id));
-        let op = move |path: &Path| backend::create_branch_at_commit(path, id, false);
-        self.new_branch_at(project, false, None, checkout, window, cx, op);
+        let create = backend::CreateBranchAtCommit {
+            commit: id,
+            below: false,
+        };
+        self.new_branch_at(project, false, None, checkout, window, cx, create);
     }
 
     fn unstack(&mut self, _: &Unstack, _: &mut Window, cx: &mut Context<Self>) {
@@ -1109,14 +1129,14 @@ impl AppView {
             ),
         };
         self.store.update(cx, |store, cx| {
-            store.run(
+            store.apply(
                 &project,
                 "Unapply",
                 Overlay {
                     branches: stack,
                     ..Overlay::rewriting_main()
                 },
-                move |path| backend::unapply_stack(path, &ref_name),
+                backend::UnapplyStack { branch: ref_name },
                 move |store, (), cx| store.snack_undoable(format!("Unapplied {name}"), cx),
                 cx,
             )
@@ -1213,11 +1233,12 @@ impl AppView {
                 project,
                 Label::new("Land", format!("Land {name}")),
                 overlay,
-                {
-                    let ref_name = ref_name.clone();
-                    move |path| backend::land(path, &ref_name, tip, whole_stack)
+                backend::upstream::Land {
+                    branch: ref_name.clone(),
+                    tip,
+                    whole_stack,
                 },
-                move |store, left: backend::Landed, cx| {
+                move |store, left, cx| {
                     // Undo would bring the branch back here while the target keeps it.
                     store.drop_last_step();
                     // What the update after it left conflicted, as Update says.
@@ -1239,17 +1260,21 @@ impl AppView {
         let Some((project, commit)) = self.selected_commit(cx) else {
             return;
         };
-        let (id, message) = (commit.id, backend::wrapped_message(&commit.message));
+        let message = backend::wrapped_message(&commit.message);
         let overlay = Overlay {
             reworded: Some((commit.key.clone(), message.clone())),
             ..Overlay::default()
         };
+        let reword = backend::Reword {
+            commit: commit.id,
+            message,
+        };
         self.store.update(cx, |store, cx| {
-            store.run(
+            store.apply(
                 &project,
                 "Rewrap message",
                 overlay,
-                move |path| backend::reword(path, id, &message),
+                reword,
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
                     store.snack_undoable("Message rewrapped", cx)
@@ -1286,11 +1311,11 @@ impl AppView {
     ) {
         let selected = project.clone();
         self.store.update(cx, |store, cx| {
-            store.run(
+            store.apply(
                 &project,
                 "Split commit",
                 Overlay::commit_files(store.key_of(&project, commit), files.iter()),
-                move |path| backend::split_off(path, commit, &files),
+                backend::SplitOff { commit, files },
                 move |store, (_, new), cx| {
                     store.select(Some(Selection::Commit(selected, new)), cx);
                     store.snack_undoable("Split into a new commit", cx)
@@ -1325,7 +1350,7 @@ impl AppView {
             project,
             "Discard from commit",
             overlay,
-            move |path| backend::discard_from_commit(path, commit, &files),
+            backend::DiscardFromCommit { commit, files },
             move |store, rewritten, cx| {
                 store.follow(&rewritten, cx);
                 store.snack_after(undoable, "Discarded from the commit", cx)

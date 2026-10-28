@@ -988,7 +988,7 @@ impl Detail {
                 });
                 // What discarding this hunk means, fixed now: by the time a click lands, a
                 // reload may have moved other hunks into this row's indices.
-                // A conflicted file goes whole or not at all; see `backend::discard`.
+                // A conflicted file goes whole or not at all; see `backend::DiscardChanges`.
                 // Of a hunk with lines picked, just those, as ⌥⌘Z takes.
                 let discard = (diff.key.source.live() && !file_diff.file.conflicted).then(|| {
                     let picked: std::collections::BTreeSet<usize> = (0..found.lines.len())

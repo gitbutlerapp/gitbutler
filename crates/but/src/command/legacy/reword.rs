@@ -135,6 +135,7 @@ fn create_branch_for_anonymous_segment(
         &mut meta,
         perm,
         SnapshotDetails::new(OperationKind::CreateBranch),
+        &[],
         DryRun::No,
         |mut tx| {
             tx.name_segment(&checkout, anchor_commit_id, new_ref.as_ref())?;

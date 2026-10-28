@@ -4,19 +4,17 @@
 
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
-use anyhow::Result;
 use gpui::{Context, SharedString, Task};
 
 use super::{Notice, ProjectId, Reload, Selection, Store, StoreEvent};
 use crate::backend::history::Undone;
 use crate::backend::upstream::{UpdateConflicts, UpdateOutcome};
 use crate::backend::{
-    self, Branch, Checkout, Commit, CommitId, Destination, FileChange, FullName, HunkKey, Review,
-    ReviewState, Selected, SnapshotId, Workspace, short_ref,
+    self, Branch, Checkout, Commit, CommitId, Destination, FileChange, FullName, HunkKey, OpKind,
+    Review, ReviewState, Selected, SnapshotId, Workspace, short_ref,
 };
 
 /// How long a mutation runs before the status bar says how long it's taking.
@@ -64,11 +62,6 @@ pub struct Overlay {
     pub auto_merges: Option<(u64, bool)>,
     /// It opens a pull request for the branch it pushes.
     pub publishes: bool,
-    /// It only talks to the remote or the forge and moves refs, leaving the worktree and
-    /// the commits alone, so reloads the watcher starts meanwhile go ahead.
-    pub remote_only: bool,
-    /// Which operation it is, where it's treated apart from the rest.
-    pub kind: OpKind,
 }
 
 /// What an operation is called: `text` is what the user reads, which may name a branch or a
@@ -91,55 +84,6 @@ impl Label {
 impl From<&'static str> for Label {
     fn from(text: &'static str) -> Self {
         Self::new(text, text)
-    }
-}
-
-/// The operations treated apart from the rest. Labels are only what the user reads.
-#[derive(Default, Clone, PartialEq)]
-pub enum OpKind {
-    #[default]
-    Other,
-    Fetch,
-    /// A push of the branch with this full ref, with the ones below it, on its own or to open
-    /// its pull request.
-    Push(FullName),
-    /// Deleting the linked worktree with this name.
-    DeleteWorktree(bstr::BString),
-    /// An update from the target.
-    Update,
-    /// A pull into the branch with this full ref.
-    Pull(FullName),
-    /// Resolving conflicts, which are numbered anew once it's done.
-    Resolve,
-    MarkResolved,
-    FinishEditing,
-    CancelEditing,
-    /// ⌘Z and ⌘⇧Z, of the step with this oplog entry, which keep the undo history themselves.
-    Undo(SnapshotId),
-    Redo(SnapshotId),
-    /// Operations history's restore, the way back when a project can't be read.
-    Restore,
-}
-
-impl OpKind {
-    /// Whether it runs beside the project's other operations rather than taking its turn: it
-    /// only talks to the remote or deletes a folder, so nothing another one does depends on it,
-    /// and it can take long enough to hold them up.
-    fn beside(&self) -> bool {
-        matches!(self, Self::Fetch | Self::Push(_) | Self::DeleteWorktree(_))
-    }
-
-    /// Whether it runs while a commit is checked out for editing: fetching, which leaves the
-    /// worktree alone, and what resolves the commit and ends the edit.
-    fn while_editing(&self) -> bool {
-        matches!(
-            self,
-            Self::Fetch
-                | Self::Resolve
-                | Self::MarkResolved
-                | Self::FinishEditing
-                | Self::CancelEditing
-        )
     }
 }
 
@@ -200,23 +144,6 @@ impl Overlay {
             .flatten()
             .chain([self.files_in.clone()])
             .collect()
-    }
-
-    pub fn push(ref_name: &FullName, publishes: bool) -> Self {
-        Self {
-            kind: OpKind::Push(ref_name.to_owned()),
-            publishes,
-            remote_only: true,
-            ..Self::default()
-        }
-    }
-
-    /// For an operation that only talks to the remote or the forge.
-    pub fn remote() -> Self {
-        Self {
-            remote_only: true,
-            ..Self::default()
-        }
     }
 
     /// For an operation that can rewrite the main checkout's files under its `HEAD`: see
@@ -298,11 +225,11 @@ pub(super) struct Running {
     id: usize,
     label: SharedString,
     pub(super) overlay: Overlay,
+    kind: OpKind,
     started: Instant,
     pub(super) phase: Phase,
     /// Reloads asked for while it ran, which the reload after it reads too.
     pub(super) deferred: Reload,
-    moved: Option<Selection>,
 }
 
 /// How far a running operation has got: the reload after it, not its own end, ends it.
@@ -316,12 +243,12 @@ pub(super) enum Phase {
 }
 
 /// An operation of the user's that ⌘Z takes back: the oplog entry it recorded in its project,
-/// when it was asked for, which orders it among the others, when it finished, in
-/// milliseconds since the Unix epoch as file times are, and what its snackbar said.
+/// when it started, which orders it among the others, when it finished, in milliseconds since
+/// the Unix epoch as file times are, and what its snackbar said.
 pub(super) struct UndoStep {
     pub(super) project: ProjectId,
     pub(super) snapshot: SnapshotId,
-    asked: Instant,
+    started: Instant,
     done: i64,
     pub(super) said: Option<SharedString>,
 }
@@ -335,11 +262,6 @@ fn files_named(files: &[String]) -> String {
 }
 
 const WAIT_TO_UNDO: &str = "Wait for the running operation to finish, then undo it";
-
-/// Now, in milliseconds since the Unix epoch, as file times are.
-fn now_millis() -> i64 {
-    (SystemTime::now().duration_since(UNIX_EPOCH)).map_or(0, |t| t.as_millis() as i64)
-}
 
 impl Store {
     /// Confirm an operation, or warn about the changes it had to leave out.
@@ -360,8 +282,8 @@ impl Store {
         // The newest step not being undone already, as by a ⌘Z just before.
         let last = (self.undo_steps.iter().rev())
             .find(|step| !self.pending(&step.project, Some(&OpKind::Undo(step.snapshot)), false));
-        // Asked for after it in any project, as ⌘Z follows the user there, and still running.
-        if self.running_after(last.map(|step| step.asked), None) {
+        // Started after it in any project, as ⌘Z follows the user there, and still running.
+        if self.running_after(last.map(|step| step.started), None) {
             return self.snack(WAIT_TO_UNDO, cx);
         }
         match last.map(|step| (step.project.clone(), step.snapshot)) {
@@ -370,37 +292,34 @@ impl Store {
         }
     }
 
-    /// Whether an operation asked for after `asked`, or any at all without it, is waiting or
-    /// running in `project`, or in any without it, a push or a redo too: it's what the user
-    /// means to undo, and an undo asked for now would run after it.
-    fn running_after(&self, asked: Option<Instant>, project: Option<&ProjectId>) -> bool {
-        self.unfinished_asked().any(|(p, o, at)| {
-            project.is_none_or(|project| p == project)
-                && (!o.remote_only || matches!(o.kind, OpKind::Push(_)))
-                && !matches!(o.kind, OpKind::Undo(_))
-                && asked.is_none_or(|asked| at > asked)
+    /// Whether an operation the user would mean to undo first is still working: one started
+    /// after `after` (any, if `None`) in `project` (any, if `None`). Fetches and what only asks
+    /// the forge don't count but pushes do, and undos never count.
+    fn running_after(&self, after: Option<Instant>, project: Option<&ProjectId>) -> bool {
+        self.working().any(|r| {
+            !matches!(r.kind, OpKind::Fetch | OpKind::Forge | OpKind::Undo(_))
+                && project.is_none_or(|p| r.project == *p)
+                && after.is_none_or(|after| r.started > after)
         })
     }
 
-    /// Every operation running, but for one waiting only for its reload, with its project and
-    /// when it was asked for.
-    fn unfinished_asked(&self) -> impl Iterator<Item = (&ProjectId, &Overlay, Instant)> {
-        let working = self.running.iter().filter(|r| r.phase == Phase::Working);
-        working.map(|r| (&r.project, &r.overlay, r.started))
+    /// Every operation running, but for one waiting only for its reload.
+    fn working(&self) -> impl Iterator<Item = &Running> {
+        self.running.iter().filter(|r| r.phase == Phase::Working)
     }
 
     /// Make the operation that recorded `snapshot` in `project` one ⌘Z takes back, among the
-    /// others by when it was asked for.
-    fn push_undo_step(&mut self, project: ProjectId, snapshot: SnapshotId, asked: Instant) {
-        let done = now_millis();
+    /// others by when it started.
+    fn push_undo_step(&mut self, project: ProjectId, snapshot: SnapshotId, started: Instant) {
+        let done = backend::now_millis();
         (self.undo_steps).push(UndoStep {
             project,
             snapshot,
-            asked,
+            started,
             done,
             said: None,
         });
-        self.undo_steps.sort_by_key(|step| step.asked);
+        self.undo_steps.sort_by_key(|step| step.started);
     }
 
     /// What ⌘Z takes back next, as its snackbar said it, with its project and when it
@@ -416,30 +335,9 @@ impl Store {
         (!showing).then_some((&step.project, said, step.done))
     }
 
-    /// Make `snapshot`, which the operation that just ran recorded on its way, a ⌘Z step of its
-    /// own taken back after that operation's, as the branch a commit was made on.
-    pub fn push_earlier_step(&mut self, snapshot: SnapshotId) {
-        let Some((project, last)) = self.last_snapshot.clone() else {
-            return;
-        };
-        let Some((at, &UndoStep { asked, done, .. })) =
-            (self.undo_steps.iter().enumerate()).find(|(_, step)| step.snapshot == last)
-        else {
-            return;
-        };
-        let step = UndoStep {
-            project,
-            snapshot,
-            asked,
-            done,
-            said: None,
-        };
-        self.undo_steps.insert(at, step);
-    }
-
     /// Redo what ⌘Z last took back, unless the user has done something since.
     pub fn redo_last(&mut self, cx: &mut Context<Self>) {
-        if (self.unfinished_asked()).any(|(_, o, _)| matches!(o.kind, OpKind::Undo(_))) {
+        if (self.working()).any(|r| matches!(r.kind, OpKind::Undo(_))) {
             return self.snack("Wait for the undo to finish, then redo it", cx);
         }
         // The newest not being redone already.
@@ -462,7 +360,7 @@ impl Store {
         accepted: Option<i64>,
         cx: &mut Context<Self>,
     ) {
-        let (kept, ran, again, asked) = (
+        let (kept, ran, again, started) = (
             self.kept_snapshots
                 .get(&project)
                 .cloned()
@@ -471,19 +369,21 @@ impl Store {
             project.clone(),
             Instant::now(),
         );
-        self.run(
+        self.apply(
             &project,
             "Redo",
-            Overlay {
-                kind: OpKind::Redo(undo),
-                ..Overlay::rewriting_main()
+            Overlay::rewriting_main(),
+            backend::history::Redo {
+                undo,
+                kept,
+                spans: ran,
+                accepted,
             },
-            move |path| backend::history::redo_snapshot(path, undo, &kept, &ran, accepted),
             move |store, redone, cx| {
                 let operation = match redone {
                     Some(Undone::Done(operation)) => operation,
                     Some(Undone::Newer(files)) => {
-                        let (what, asked) = (files_named(&files), Some(now_millis()));
+                        let (what, asked) = (files_named(&files), Some(backend::now_millis()));
                         return store.error_with_retry(
                             store.card_title(&again, "Redo takes back newer changes too".into()),
                             format!(
@@ -508,7 +408,7 @@ impl Store {
                 (store.redo_steps).retain(|step| *step != (again.clone(), undo));
                 // Back on top of what ⌘Z takes back.
                 if let Some((project, snapshot)) = store.last_snapshot.clone() {
-                    store.push_undo_step(project, snapshot, asked);
+                    store.push_undo_step(project, snapshot, started);
                 }
                 store.snack_undoable(format!("Redone: {operation}"), cx)
             },
@@ -524,14 +424,11 @@ impl Store {
             .get(project)
             .cloned()
             .unwrap_or_default();
-        self.run(
+        self.apply(
             project,
             "Restore",
-            Overlay {
-                kind: OpKind::Restore,
-                ..Overlay::rewriting_main()
-            },
-            move |path| backend::history::restore(path, snapshot, &kept),
+            Overlay::rewriting_main(),
+            backend::history::Restore { snapshot, kept },
             |store, (), cx| store.snack_undoable("Restored", cx),
             cx,
         );
@@ -559,8 +456,8 @@ impl Store {
         }
         let step = (self.undo_steps.iter())
             .find(|step| step.project == *project && step.snapshot == snapshot);
-        let asked = step.map(|step| step.asked);
-        if self.running_after(asked, Some(project)) {
+        let started = step.map(|step| step.started);
+        if self.running_after(started, Some(project)) {
             return self.snack(WAIT_TO_UNDO, cx);
         }
         // What came after it, or after the user said to undo anyway, which still stops for
@@ -572,7 +469,7 @@ impl Store {
         {
             // The card comes before anything else is checked, so going ahead still checks
             // from where it would have, but for pushes up to now.
-            let asked_now = Some(now_millis());
+            let asked_now = Some(backend::now_millis());
             return self.error_with_retry(
                 self.card_title(project, "Undo may take back what was pushed".into()),
                 "A push came after the operation it undoes. If the push took what the \
@@ -588,16 +485,13 @@ impl Store {
         self.toasts.retain(|toast| {
             !matches!(&toast.notice, Notice::Snackbar { undo: Some(undo), .. } if *undo == offered)
         });
-        self.run(
+        self.apply(
             project,
             "Undo",
-            Overlay {
-                kind: OpKind::Undo(snapshot),
-                ..Overlay::rewriting_main()
-            },
-            move |path| {
-                let newer_than = newer_than.map(|at| (at, ran.as_slice()));
-                Ok(backend::history::undo_snapshot(path, snapshot, newer_than))
+            Overlay::rewriting_main(),
+            backend::history::Undo {
+                snapshot,
+                newer_than: newer_than.map(|at| (at, ran)),
             },
             move |store, undone, cx| {
                 let title = |store: &Store| store.card_title(&again, "Undo failed".into());
@@ -613,7 +507,6 @@ impl Store {
                     }
                     // Behind a newer step of the user's own: that one goes first, and this one
                     // stays.
-                    // The list is oldest first, a new branch's step just before its commit's.
                     Ok(Undone::Behind(_))
                         if (store.undo_steps.iter())
                             .skip_while(|step| step.project != again || step.snapshot != snapshot)
@@ -626,7 +519,8 @@ impl Store {
                     // It, and the project's steps before it, are behind what came after.
                     Ok(Undone::Behind(why)) => {
                         store.undo_steps.retain(|step| {
-                            step.project != again || asked.is_none_or(|asked| step.asked > asked)
+                            step.project != again
+                                || started.is_none_or(|started| step.started > started)
                         });
                         store.error(title(store), why, cx)
                     }
@@ -637,7 +531,7 @@ impl Store {
                         store.snack(store.card_title(&again, why), cx)
                     }
                     Ok(Undone::Newer(files)) => {
-                        let (what, asked) = (files_named(&files), Some(now_millis()));
+                        let (what, asked) = (files_named(&files), Some(backend::now_millis()));
                         store.error_with_retry(
                             store.card_title(&again, "Undo takes back newer changes too".into()),
                             format!(
@@ -660,14 +554,11 @@ impl Store {
 
     /// Commit the edited commit as its files are now, and go back to the workspace.
     pub fn finish_editing(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
-        self.run(
+        self.apply(
             project,
             "Finish editing",
-            Overlay {
-                kind: OpKind::FinishEditing,
-                ..Overlay::rewriting_main()
-            },
-            backend::edit::finish,
+            Overlay::rewriting_main(),
+            backend::edit::Finish,
             |store, (), cx| store.snack("Finished editing", cx),
             cx,
         );
@@ -677,14 +568,11 @@ impl Store {
     /// first when that drops what changed.
     pub fn cancel_editing(&mut self, project: &ProjectId, force: bool, cx: &mut Context<Self>) {
         let again = project.clone();
-        self.run(
+        self.apply(
             project,
             "Cancel editing",
-            Overlay {
-                kind: OpKind::CancelEditing,
-                ..Overlay::rewriting_main()
-            },
-            move |path| backend::edit::cancel(path, force),
+            Overlay::rewriting_main(),
+            backend::edit::Cancel { force },
             move |store, left, cx| match left {
                 true => store.snack("Stopped editing, the commit is as it was", cx),
                 // A conflicted commit's files always differ, markers and all, from the commit
@@ -708,15 +596,11 @@ impl Store {
     /// Fetch `project`'s remotes.
     pub fn fetch(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
         let fetched = project.clone();
-        self.run(
+        self.apply(
             project,
             "Fetch",
-            Overlay {
-                kind: OpKind::Fetch,
-                ..Overlay::remote()
-            },
-            // Failing, it's noted as a background fetch's failure is, for the project page.
-            |path| Ok(backend::fetch(path)),
+            Overlay::default(),
+            backend::upstream::Fetch,
             move |store, fetched_or_not, cx| match fetched_or_not {
                 Ok(any_remote) => {
                     store.fetched_now(&fetched, any_remote);
@@ -746,14 +630,11 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let updated = project.clone();
-        self.run(
+        self.apply(
             project,
             "Update",
-            Overlay {
-                kind: OpKind::Update,
-                ..Overlay::default()
-            },
-            move |path| backend::update_from_target(path, accepted.as_ref()),
+            Overlay::default(),
+            backend::upstream::Update { accepted },
             move |store, outcome, cx| {
                 let target = (store.workspace(&updated).and_then(|ws| ws.target.as_ref()))
                     .map_or_else(|| "the target".to_owned(), |target| target.name.clone());
@@ -803,26 +684,17 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let name = short_ref(&ref_name).into_owned();
-        let kind = OpKind::Pull(ref_name.clone());
         let pulled = project.clone();
-        self.run(
+        let pull = backend::upstream::Pull {
+            branch: ref_name.clone(),
+            accepted,
+        };
+        self.apply(
             project,
             Label::new("Pull", format!("Pull {name}")),
-            Overlay {
-                kind,
-                ..Overlay::default()
-            },
-            {
-                let ref_name = ref_name.clone();
-                move |path| {
-                    let found = backend::pull_conflicts(path, &ref_name)?;
-                    if !found.is_empty() && accepted.as_ref() != Some(&found) {
-                        return Ok(Some(found));
-                    }
-                    backend::pull_remote(path, &ref_name, false).map(|()| None)
-                }
-            },
-            move |store, found: Option<Vec<(Option<FullName>, usize)>>, cx| {
+            Overlay::default(),
+            pull,
+            move |store, found, cx| {
                 let Some(found) = found else {
                     return store.snack_undoable(format!("Pulled into {name}"), cx);
                 };
@@ -847,7 +719,8 @@ impl Store {
 
     /// Note that `project` just pushed, so ⌘Z asks before taking back what came before.
     pub fn pushed(&mut self, project: &ProjectId) {
-        self.pushed_at.insert(project.clone(), now_millis());
+        self.pushed_at
+            .insert(project.clone(), backend::now_millis());
     }
 
     /// Push `ref_name`, and with `protect` refuse to drop commits only the remote has: the
@@ -882,24 +755,17 @@ impl Store {
         }
         let pushed = project.clone();
         let run_hooks = self.runs_hooks(project);
-        self.run(
+        self.apply(
             project,
             Label::new("Push", format!("Push {name}")),
-            Overlay::push(&ref_name, false),
-            {
-                let ref_name = ref_name.clone();
-                move |path| match backend::push(
-                    path,
-                    &ref_name,
-                    protect,
-                    drops.as_deref(),
-                    run_hooks,
-                ) {
-                    Ok((_, sync_failed)) => Ok(Ok(sync_failed)),
-                    Err(err) => backend::push_refusal(&err).map(Err).ok_or(err),
-                }
+            Overlay::default(),
+            backend::upstream::Push {
+                ref_name: ref_name.clone(),
+                protect,
+                drops,
+                run_hooks,
             },
-            move |store, outcome: Result<Option<String>, String>, cx| {
+            move |store, outcome, cx| {
                 // A push can open or move a pull request's checks, and the branches below
                 // may have gone up before the one refused.
                 store.refresh_forge(&pushed);
@@ -967,25 +833,19 @@ impl Store {
         }
         let published = project.clone();
         let run_hooks = self.runs_hooks(project);
-        self.run(
+        self.apply(
             project,
             "Create pull request",
-            Overlay::push(&ref_name, true),
-            {
-                let ref_name = ref_name.clone();
-                move |path| {
-                    let made =
-                        backend::reviews::publish(path, &ref_name, title, body, draft, run_hooks);
-                    Ok(
-                        made.map_err(|err| match backend::push_refusal(&err).as_deref() {
-                            None => backend::failure_detail(&err),
-                            Some("") => "Someone pushed to the branch since the last fetch, and \
-                                     pushing would drop their commits. Fetch to see them."
-                                .to_owned(),
-                            Some(said) => format!("The remote refused the push: {said}"),
-                        }),
-                    )
-                }
+            Overlay {
+                publishes: true,
+                ..Overlay::default()
+            },
+            backend::reviews::Publish {
+                ref_name,
+                title,
+                body,
+                draft,
+                run_hooks,
             },
             move |store, made, cx| {
                 // The push can move the stack's other pull requests too.
@@ -1000,9 +860,16 @@ impl Store {
                             store.error(said, message, cx);
                         }
                     }
-                    Err(failed) => {
+                    Err(err) => {
                         // The branches may have gone up before the forge said no.
                         store.pushed(&published);
+                        let failed = match backend::upstream::push_refusal(&err).as_deref() {
+                            None => backend::failure_detail(&err),
+                            Some("") => "Someone pushed to the branch since the last fetch, and \
+                                         pushing would drop their commits. Fetch to see them."
+                                .to_owned(),
+                            Some(said) => format!("The remote refused the push: {said}"),
+                        };
                         let said = "Couldn't create the pull request".to_owned();
                         let said = store.card_title(&published, said);
                         store.error_with_retry(said, failed, "Try again", again, cx);
@@ -1031,11 +898,11 @@ impl Store {
             worktrees: archived.then(|| name.clone()).into_iter().collect(),
             ..Overlay::default()
         };
-        self.run(
+        self.apply(
             project,
             label,
             overlay,
-            move |path| backend::worktrees::set_archived(path, name.as_ref(), archived),
+            backend::worktrees::SetArchived { name, archived },
             move |store, (), cx| store.snack(done, cx),
             cx,
         );
@@ -1053,15 +920,14 @@ impl Store {
     ) {
         let done = format!("Deleted {name}");
         let overlay = Overlay {
-            kind: OpKind::DeleteWorktree(name.clone()),
             worktrees: HashSet::from([name.clone()]),
             ..Overlay::default()
         };
-        self.run(
+        self.apply(
             project,
             "Delete worktree",
             overlay,
-            move |path| backend::worktrees::remove(path, name.as_ref(), &lost),
+            backend::worktrees::DeleteWorktree { name, lost },
             move |store, (), cx| store.snack(done, cx),
             cx,
         );
@@ -1076,11 +942,11 @@ impl Store {
     ) {
         let shown = project.clone();
         let keys = ids.iter().filter_map(|id| self.key_of(project, *id));
-        self.run(
+        self.apply(
             project,
             "Move to a new branch",
             Overlay::commits(keys.collect::<Vec<_>>()),
-            move |path| backend::move_to_new_branch(path, &ids),
+            backend::MoveToNewBranch { commits: ids },
             move |store, (_, branch), cx| {
                 store.select(Some(Selection::Branch(shown, Some(branch))), cx);
                 store.snack_undoable("Moved to a new branch", cx)
@@ -1091,11 +957,11 @@ impl Store {
 
     /// Take `branch` out of the stack it shares into a stack of its own.
     pub fn unstack(&mut self, project: &ProjectId, branch: FullName, cx: &mut Context<Self>) {
-        self.run(
+        self.apply(
             project,
             "Unstack",
             Overlay::default(),
-            move |path| backend::tear_off_branch(path, &branch),
+            backend::TearOffBranch { branch },
             |store, conflicted, cx| {
                 store.snack_undoable(branch_moved("Moved to its own stack", &conflicted), cx)
             },
@@ -1114,31 +980,33 @@ impl Store {
         then: impl FnOnce(&mut Store, &mut Context<Store>) + 'static,
         cx: &mut Context<Self>,
     ) {
-        let run_hooks = self.runs_hooks(project);
         let undoable = self.undoable(project, [worktree.clone()]);
         let overlay = Overlay {
             files_in: worktree.clone(),
             ..Overlay::files(files.iter())
         };
         // Which commit, as it's often not on screen.
-        let amended = (self.find_commit(project, into)).map_or("Amended".into(), |(_, commit)| {
+        let said = (self.find_commit(project, into)).map_or("Amended".into(), |(_, commit)| {
             format!("Amended \"{}\"", crate::ui::commit_title(&commit.title))
         });
-        self.run(
+        let amend = backend::Amend {
+            into,
+            changes: files,
+            checkout: worktree,
+            run_hooks: self.runs_hooks(project),
+        };
+        self.apply(
             project,
             Label::new("Amend", format!("Amend {}", into.short())),
             overlay,
-            move |path| {
-                let into = into;
-                backend::amend(path, into, &files, worktree.linked(), run_hooks)
-            },
-            move |store, (rewritten, left_out, hook_failed), cx| {
-                store.follow(&rewritten, cx);
+            amend,
+            move |store, amended, cx| {
+                store.follow(&amended.rewritten, cx);
                 if !undoable {
                     store.keep_last_snapshot(cx);
                 }
-                store.report_left_out(&amended, &left_out, cx);
-                if let Some(output) = hook_failed {
+                store.report_left_out(&said, &amended.left_out, cx);
+                if let Some(output) = amended.hook_failed {
                     store.error("Amended, but the post-commit hook failed", output, cx);
                 }
                 then(store, cx)
@@ -1152,20 +1020,19 @@ impl Store {
     pub fn squash(
         &mut self,
         project: &ProjectId,
-        ids: Vec<CommitId>,
+        ids: Arc<[CommitId]>,
         into: CommitId,
         cx: &mut Context<Self>,
     ) {
         let overlay = Overlay::commits(ids.iter().filter_map(|id| self.key_of(project, *id)));
-        self.run(
+        let label = Label::new("Squash", format!("Squash {} commits", ids.len() + 1));
+        let squash = backend::Squash { commits: ids, into };
+        self.apply(
             project,
-            Label::new("Squash", format!("Squash {} commits", ids.len() + 1)),
+            label,
             overlay,
-            move |path| {
-                let oldest_first: Vec<CommitId> = ids.iter().rev().copied().collect();
-                backend::squash(path, &oldest_first, into)
-            },
-            move |store, rewritten, cx| {
+            squash,
+            |store, rewritten, cx| {
                 store.follow(&rewritten, cx);
                 store.snack_undoable("Squashed into one commit", cx)
             },
@@ -1173,7 +1040,7 @@ impl Store {
         );
     }
 
-    pub fn uncommit(&mut self, project: &ProjectId, ids: Vec<CommitId>, cx: &mut Context<Self>) {
+    pub fn uncommit(&mut self, project: &ProjectId, ids: Arc<[CommitId]>, cx: &mut Context<Self>) {
         // A conflicted commit's files are one side's, so uncommitting it would bring back
         // nothing and lose the change it carries.
         let conflicted = (ids.iter())
@@ -1204,11 +1071,11 @@ impl Store {
             .and_then(|id| self.checkout_of(&Selection::Commit(project.clone(), *id)))
             .unwrap_or_default();
         let project = project.clone();
-        self.run(
+        self.apply(
             &project.clone(),
             label,
             Overlay::commits(keys.clone()),
-            move |path| backend::uncommit(path, &ids),
+            backend::Uncommit { commits: ids },
             move |store, (), cx| {
                 // The selected commit's changes are uncommitted now; show them there.
                 if let Some(Selection::Commit(selected, id)) = &store.selection
@@ -1225,32 +1092,30 @@ impl Store {
         );
     }
 
-    /// Run `op` on `project`, then reload it, busy until the reload lands. Until then,
+    /// Apply `intent` to `project`, then reload it, busy until the reload lands. Until then,
     /// `overlay` hides what it takes away, and another operation on `project` is refused, so
     /// each one acts on what the one before it did, but for those that run beside it
     /// ([`OpKind::beside`]), each refusing only one of its own kind. `done` gets its result.
-    pub fn run<T: Send + 'static>(
+    pub fn apply<I: backend::Intent>(
         &mut self,
         project: &ProjectId,
         label: impl Into<Label>,
         overlay: Overlay,
-        op: impl FnOnce(&Path) -> Result<T> + Send + 'static,
-        done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
+        intent: I,
+        done: impl FnOnce(&mut Store, I::Done, &mut Context<Store>) + 'static,
         cx: &mut Context<Self>,
     ) {
-        let beside = overlay.kind.beside();
-        let taken = self.running_in(project).any(|r| match beside {
-            true => r.overlay.kind == overlay.kind,
-            false => !r.overlay.kind.beside(),
-        });
-        if taken {
-            let why = format!(
-                "Wait for the running operation{} to finish",
-                self.in_project(project)
-            );
+        let kind = intent.kind();
+        if let Some(why) = self.refusal(project, &kind) {
             return self.snack(why, cx);
         }
+        let beside = kind.beside();
+        let remote_only = kind.remote_only();
         let Label { name, text: label } = label.into();
+        let editing = (self.workspace(project)).is_some_and(|ws| ws.editing.is_some());
+        let Some(path) = self.path(project) else {
+            return;
+        };
         // What's selected leaving with its branch or worktree, the selection goes now where
         // the reload after it would put it.
         let selection = self.selection.as_ref();
@@ -1268,95 +1133,9 @@ impl Store {
             })
             .detach();
         }
-        let (now, id) = (Instant::now(), self.ops_started);
-        self.ops_started += 1;
-        self.running.push(Running {
-            project: project.clone(),
-            id,
-            label: label.clone(),
-            overlay,
-            started: now,
-            phase: Phase::Working,
-            deferred: Reload::default(),
-            moved,
-        });
-        cx.emit(StoreEvent::Pending(project.clone()));
-        self.start(project, id, Label::new(name, label), op, done, cx);
-        // Replacing the last one's ticker stops it.
-        self.busy_ticker = Self::tick_while_busy(cx);
-    }
-
-    /// Redraw while a mutation runs, so the status bar can say how long it's taking.
-    fn tick_while_busy(cx: &mut Context<Self>) -> Task<()> {
-        cx.spawn(async move |this, cx| {
-            loop {
-                // It counts whole seconds.
-                cx.background_executor().timer(Duration::from_secs(1)).await;
-                let Ok(true) = this.update(cx, |store, cx| {
-                    if store.busy().is_some_and(|(_, _, t)| t >= SLOW) {
-                        cx.notify();
-                    }
-                    !store.running.is_empty()
-                }) else {
-                    break;
-                };
-            }
-        })
-    }
-
-    fn start<T: Send + 'static>(
-        &mut self,
-        project: &ProjectId,
-        id: usize,
-        label: Label,
-        op: impl FnOnce(&Path) -> Result<T> + Send + 'static,
-        done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
-        cx: &mut Context<Self>,
-    ) {
-        let Label { name, text: label } = label;
-        let editing = self
-            .workspace(project)
-            .is_some_and(|ws| ws.editing.is_some());
-        let Some(running) = self.running.iter().find(|r| r.id == id) else {
-            return;
-        };
-        let refused = editing && !running.overlay.kind.while_editing();
-        // What's shown is what it last read, which an agent's `git merge` onto the workspace
-        // can leave it unable to read again: the operation would act on what's gone, and the
-        // engine can make a commit it then fails to report.
-        let unreadable = (self.project(project)).is_some_and(|p| p.error.is_some())
-            && !(running.overlay.remote_only
-                || matches!(
-                    running.overlay.kind,
-                    OpKind::Undo(_) | OpKind::Redo(_) | OpKind::Restore
-                ));
-        let path = self.path(project).filter(|_| !refused && !unreadable);
-        let Some(path) = path else {
-            if refused {
-                let why = format!(
-                    "Finish or cancel editing the commit{} first",
-                    self.in_project(project)
-                );
-                self.snack(why, cx);
-            } else if unreadable {
-                let why = format!(
-                    "Can't read the project{} now; fix what it says first",
-                    self.in_project(project)
-                );
-                self.snack(why, cx);
-            }
-            self.running.retain(|r| r.id != id);
-            cx.emit(StoreEvent::Pending(project.clone()));
-            return;
-        };
-        // While editing there are no commits to compare with afterwards; every commit would
-        // count as the operation's own and lose its unread mark, as an agent's commit that
-        // lands during a push would: one that only talks to the remote makes none, nor does one
-        // beside the others, whose commits are theirs.
-        let running = self.running.iter().find(|r| r.id == id);
-        let remote_only = running.is_some_and(|r| r.overlay.remote_only);
-        let beside = running.is_some_and(|r| r.overlay.kind.beside());
-        // Those only a remote has too, so pulling them keeps their read marks.
+        // Commits shown before it, so that afterwards only its own lose their unread marks; none
+        // while editing, nor for one that only talks to the remote or runs beside the others,
+        // which make none of their own.
         let before = (!editing && !remote_only && !beside).then(|| {
             let ws = self.workspace(project);
             let keys = ws.map_or_else(HashSet::new, |ws| {
@@ -1364,101 +1143,70 @@ impl Store {
                     .map(|(_, [key, _])| key.to_owned())
                     .collect()
             });
-            let checkouts = (running.zip(ws)).map(|(r, ws)| r.overlay.checkouts(ws));
-            (keys, checkouts.unwrap_or_default())
+            (keys, ws.map(|ws| overlay.checkouts(ws)).unwrap_or_default())
         });
+        let undo = matches!(kind, OpKind::Undo(_) | OpKind::Redo(_));
+        // The reload after it reads just the uncommitted files, or just the commits and
+        // branches, if that's all it changed.
+        let mut reload = match overlay.rereads {
+            // Files taken out of a checkout leave it even when its `HEAD` stays put, as a
+            // linked worktree's committed to a branch here do.
+            Rereads::Commits if !overlay.files.is_empty() || !overlay.hunks.is_empty() => {
+                let mut reload = Reload::commits();
+                reload.merge(Reload::files(overlay.files_in.clone()));
+                reload
+            }
+            Rereads::Commits => Reload::commits(),
+            Rereads::Files => Reload::files(overlay.files_in.clone()),
+            Rereads::CommitsAndMain => {
+                let mut reload = Reload::commits();
+                reload.merge(Reload::files(Checkout::Main));
+                reload
+            }
+        };
+        let (now, id) = (Instant::now(), self.ops_started);
+        self.ops_started += 1;
+        self.running.push(Running {
+            project: project.clone(),
+            id,
+            label: label.clone(),
+            overlay,
+            kind,
+            started: now,
+            phase: Phase::Working,
+            deferred: Reload::default(),
+        });
+        cx.emit(StoreEvent::Pending(project.clone()));
         cx.notify();
+        // Replacing the last one's ticker stops it.
+        self.busy_ticker = Self::tick_while_busy(cx);
         let project = project.clone();
         let reason = label.to_string();
-        let began = Instant::now();
         cx.spawn(async move |this, cx| {
             // Asked for by the user, so it runs at full speed even if they switch away
             // meanwhile, rather than as macOS runs a hidden app's work.
             let _awake = cx.background_executor().prevent_app_nap(&reason);
-            // Which oplog entry the operation recorded, if it did, for its Undo button.
-            #[expect(
-                clippy::disallowed_methods,
-                reason = "in `backend::run`, off the UI thread"
-            )]
-            let result = backend::run(move || {
-                // Left by a Git that crashed or was killed, as an agent's can be, the lock
-                // stops an operation partway, after it has written files.
-                anyhow::ensure!(
-                    remote_only || !path.join(".git/index.lock").exists(),
-                    "Another Git process is using the repository, or one that stopped left \
-                     .git/index.lock behind. Delete it if no Git command is running."
-                );
-                // One beside the others records nothing, and what changes meanwhile is theirs.
-                let watched = (!beside).then(|| {
-                    let heads = backend::worktrees::heads(&path);
-                    (backend::history::oplog_head(&path), heads)
-                });
-                // Just the work itself: what Git logs right after it, as an agent's commit
-                // waiting on the lock does, isn't the app's.
-                let started = now_millis();
-                let value = op(&path)?;
-                let ran = (started, now_millis());
-                let (recorded, moved_worktree) = match watched {
-                    None => (None, false),
-                    Some((before, heads)) => (
-                        backend::history::oplog_head(&path).filter(|after| Some(*after) != before),
-                        // The oplog records only the main checkout: what moved a linked
-                        // worktree, even one stacked on a branch here, can't be undone.
-                        backend::worktrees::heads(&path).moved_since(&heads),
-                    ),
-                };
-                Ok((value, recorded, moved_worktree, ran))
-            })
-            .await;
+            let result = backend::run(move || backend::apply(&path, intent)).await;
             this.update(cx, |store, cx| {
-                // The reload after it reads just the uncommitted files, or just the commits
-                // and branches, if that's all it changed, and what was asked for while it ran.
-                let mut reload = Reload::full();
-                let mut moved = None;
-                let (mut undo, mut asked) = (false, Instant::now());
+                // What was asked for while it ran too.
                 if let Some(running) = store.running.iter_mut().find(|r| r.id == id) {
-                    let kind = &running.overlay.kind;
-                    (undo, asked) = (
-                        matches!(kind, OpKind::Undo(_) | OpKind::Redo(_)),
-                        running.started,
-                    );
                     running.phase = Phase::Finished;
-                    moved = running.moved.take();
-                    let overlay = &running.overlay;
-                    reload = match overlay.rereads {
-                        // Files taken out of a checkout leave it even when its `HEAD` stays
-                        // put, as a linked worktree's committed to a branch here do.
-                        Rereads::Commits
-                            if !overlay.files.is_empty() || !overlay.hunks.is_empty() =>
-                        {
-                            let mut reload = Reload::commits();
-                            reload.merge(Reload::files(overlay.files_in.clone()));
-                            reload
-                        }
-                        Rereads::Commits => Reload::commits(),
-                        Rereads::Files => Reload::files(overlay.files_in.clone()),
-                        Rereads::CommitsAndMain => {
-                            let mut reload = Reload::commits();
-                            reload.merge(Reload::files(Checkout::Main));
-                            reload
-                        }
-                    };
                     reload.merge(std::mem::take(&mut running.deferred));
                 }
                 backend::metrics::operation(
                     name,
-                    began.elapsed(),
+                    now.elapsed(),
                     result.as_ref().err(),
                     store.workspace(&project),
                 );
                 let source = (project.clone(), label.clone());
                 let first_card = store.next_toast;
                 match result {
-                    Ok((value, recorded, moved_worktree, ran)) => {
+                    Ok((value, ran)) => {
                         // A push or fetch writes only what the remote has, which undo leaves,
                         // so what an agent did while it ran still counts.
                         if !remote_only {
-                            store.ran.entry(project.clone()).or_default().push(ran);
+                            store.ran.entry(project.clone()).or_default().push(ran.span);
                         }
                         // Set here rather than at the start, so a load the watcher started
                         // mid-operation can't use it up; not after a failure, which made
@@ -1474,8 +1222,11 @@ impl Store {
                             } => *s != source,
                             _ => true,
                         });
-                        store.last_snapshot = recorded.map(|snapshot| (project.clone(), snapshot));
-                        if moved_worktree {
+                        // One beside the others records nothing, and what changes meanwhile
+                        // is theirs.
+                        store.last_snapshot = (ran.recorded.filter(|_| !beside))
+                            .map(|snapshot| (project.clone(), snapshot));
+                        if ran.moved_worktree && !beside {
                             store.keep_last_snapshot(cx);
                         }
                         // Something new done, ⌘Z takes it back first, and what it took back
@@ -1483,7 +1234,7 @@ impl Store {
                         if let Some((project, snapshot)) =
                             store.last_snapshot.clone().filter(|_| !undo)
                         {
-                            store.push_undo_step(project, snapshot, asked);
+                            store.push_undo_step(project, snapshot, now);
                             store.redo_steps.clear();
                         }
                         // Gone on to another project meanwhile, the user stays there, picks and
@@ -1540,6 +1291,52 @@ impl Store {
         .detach();
     }
 
+    /// Why an operation of `kind` can't start in `project` now, if it can't.
+    fn refusal(&self, project: &ProjectId, kind: &OpKind) -> Option<String> {
+        let in_project = self.in_project(project);
+        let taken = self.running_in(project).any(|r| match kind.beside() {
+            true => r.kind == *kind,
+            false => !r.kind.beside(),
+        });
+        if taken {
+            return Some(format!(
+                "Wait for the running operation{in_project} to finish"
+            ));
+        }
+        let editing = (self.workspace(project)).is_some_and(|ws| ws.editing.is_some());
+        if editing && !kind.while_editing() {
+            return Some(format!(
+                "Finish or cancel editing the commit{in_project} first"
+            ));
+        }
+        // What's shown is what it last read, which an agent's `git merge` onto the workspace
+        // can leave it unable to read again: the operation would act on what's gone, and the
+        // engine can make a commit it then fails to report.
+        let unreadable = (self.project(project)).is_some_and(|p| p.error.is_some())
+            && !(kind.remote_only()
+                || matches!(kind, OpKind::Undo(_) | OpKind::Redo(_) | OpKind::Restore));
+        unreadable
+            .then(|| format!("Can't read the project{in_project} now; fix what it says first"))
+    }
+
+    /// Redraw while a mutation runs, so the status bar can say how long it's taking.
+    fn tick_while_busy(cx: &mut Context<Self>) -> Task<()> {
+        cx.spawn(async move |this, cx| {
+            loop {
+                // It counts whole seconds.
+                cx.background_executor().timer(Duration::from_secs(1)).await;
+                let Ok(true) = this.update(cx, |store, cx| {
+                    if store.busy().is_some_and(|(_, _, t)| t >= SLOW) {
+                        cx.notify();
+                    }
+                    !store.running.is_empty()
+                }) else {
+                    break;
+                };
+            }
+        })
+    }
+
     /// The key of `project`'s commit `id`, which survives rewrites.
     pub fn key_of(&self, project: &ProjectId, id: CommitId) -> Option<String> {
         let (_, commit) = self.find_commit(project, id)?;
@@ -1569,8 +1366,8 @@ impl Store {
         self.running.iter_mut().find(|r| {
             r.project == *project
                 && r.phase == Phase::Working
-                && !r.overlay.kind.beside()
-                && !r.overlay.remote_only
+                && !r.kind.beside()
+                && !r.kind.remote_only()
         })
     }
 
@@ -1602,7 +1399,7 @@ impl Store {
             return;
         }
         // One that only talks to a remote, as a push, writes no files.
-        for ended in ended.iter().filter(|r| !r.overlay.remote_only) {
+        for ended in ended.iter().filter(|r| !r.kind.remote_only()) {
             let now = crate::ui::now();
             // A second early, as whole seconds can put its first writes before its start.
             let started = now - ended.started.elapsed().as_secs() as i64 - 1;
@@ -1615,10 +1412,10 @@ impl Store {
 
     /// Operations quitting now would cut off.
     pub fn unfinished(&self) -> usize {
-        self.unfinished_asked().count()
+        self.working().count()
     }
 
-    /// Operations besides the longest-running one, running in other projects.
+    /// Operations running besides the longest-running one.
     pub fn others_busy(&self) -> usize {
         self.running.len().saturating_sub(1)
     }
@@ -1634,7 +1431,7 @@ impl Store {
     ) -> bool {
         (self.running_in(project))
             .filter(|r| settling || r.phase == Phase::Working)
-            .any(|r| kind.is_none_or(|kind| r.overlay.kind == *kind))
+            .any(|r| kind.is_none_or(|kind| r.kind == *kind))
     }
 
     /// Whether conflicts are being resolved in `project`, whose picks are numbered anew once
@@ -1653,15 +1450,7 @@ impl Store {
     }
 
     fn overlays<'a>(&'a self, project: &'a ProjectId) -> impl Iterator<Item = &'a Overlay> {
-        self.overlays_asked(project).map(|(overlay, _)| overlay)
-    }
-
-    /// [`Self::overlays`], each with when its mutation was asked for.
-    fn overlays_asked<'a>(
-        &'a self,
-        project: &'a ProjectId,
-    ) -> impl Iterator<Item = (&'a Overlay, Instant)> {
-        self.running_in(project).map(|r| (&r.overlay, r.started))
+        self.running_in(project).map(|r| &r.overlay)
     }
 
     pub fn hides_commit(&self, project: &ProjectId, key: &str) -> bool {
@@ -1676,18 +1465,6 @@ impl Store {
     /// Whether the file at `path` is leaving the uncommitted files of `checkout`.
     pub fn hides_file(&self, project: &ProjectId, checkout: &Checkout, path: &str) -> bool {
         (self.overlays(project)).any(|o| o.files_in == *checkout && o.files.contains(path))
-    }
-
-    pub fn hides_hunk(
-        &self,
-        project: &ProjectId,
-        checkout: &Checkout,
-        path: &str,
-        hunk: HunkKey,
-    ) -> bool {
-        self.overlays(project).any(|o| {
-            o.files_in == *checkout && o.hunks.get(path).is_some_and(|hunks| hunks.contains(&hunk))
-        })
     }
 
     pub fn hides_branch(&self, project: &ProjectId, ref_name: &FullName) -> bool {
@@ -1755,10 +1532,8 @@ impl Store {
 
     /// Whether `review` merges by itself once it can, as pending mutations leave it.
     pub fn auto_merge_on(&self, project: &ProjectId, review: &Review) -> bool {
-        // The last asked for wins.
-        (self.overlays(project).filter_map(|o| o.auto_merges))
-            .filter(|(number, _)| *number == review.number)
-            .last()
+        (self.overlays(project))
+            .find_map(|o| o.auto_merges.filter(|(number, _)| *number == review.number))
             .map_or(review.auto_merge, |(_, on)| on)
     }
 
@@ -1794,18 +1569,17 @@ impl Store {
             .any(|o| (o.commit_files.get(commit)).is_some_and(|files| files.contains(path)))
     }
 
-    /// The titles of commits pending mutations will make where `at` says, each with whether
+    /// The title of the commit a pending operation will make where `at` says, with whether
     /// it's been on its way long enough to show it's still pending.
-    pub fn new_commits(
+    pub fn new_commit(
         &self,
         project: &ProjectId,
         at: impl Fn(&NewAt) -> bool,
-    ) -> Vec<(SharedString, bool)> {
-        self.overlays_asked(project)
-            .filter_map(|(o, asked)| Some((o.new_commit.as_ref()?, asked)))
-            .filter(|((place, _), _)| at(place))
-            .map(|((_, title), asked)| (title.clone(), asked.elapsed() >= PENDING_AFTER))
-            .collect()
+    ) -> Option<(SharedString, bool)> {
+        self.running_in(project).find_map(|r| {
+            let (place, title) = r.overlay.new_commit.as_ref()?;
+            at(place).then(|| (title.clone(), r.started.elapsed() >= PENDING_AFTER))
+        })
     }
 
     /// Where a commit going to `to` shows until it's there.
@@ -1833,26 +1607,25 @@ impl Store {
         Some((self.new_at(project, to)?, title.into()))
     }
 
-    /// `commit`'s title and message, as the last pending mutation to reword it leaves them.
+    /// `commit`'s title and message, as a pending reword leaves them.
     pub fn message_of<'a>(
         &'a self,
         project: &'a ProjectId,
         commit: &'a Commit,
     ) -> (&'a str, &'a str) {
-        let reworded = (self.overlays(project).filter_map(|o| o.reworded.as_ref()))
-            .filter(|(key, _)| *key == commit.key)
-            .last();
+        let reworded = (self.overlays(project))
+            .find_map(|o| o.reworded.as_ref().filter(|(key, _)| *key == commit.key));
         match reworded {
             Some((_, message)) => (message.lines().next().unwrap_or_default().trim(), message),
             None => (&commit.title, &commit.message),
         }
     }
 
-    /// `branch`'s name, as the last pending mutation to rename it leaves it.
+    /// `branch`'s name, as a pending rename leaves it.
     pub fn name_of<'a>(&'a self, project: &'a ProjectId, branch: &'a Branch) -> &'a str {
-        let renamed = (self.overlays(project).filter_map(|o| o.renamed.as_ref()))
-            .filter(|(ref_name, _)| branch.ref_name.as_ref() == Some(ref_name))
-            .last();
+        let renamed = self.overlays(project).find_map(|o| {
+            (o.renamed.as_ref()).filter(|(ref_name, _)| branch.ref_name.as_ref() == Some(ref_name))
+        });
         renamed.map_or(&branch.name, |(_, name)| name)
     }
 
@@ -1867,13 +1640,13 @@ impl Store {
 
     /// Whether a pending operation pushes `ref_name`, on its own or to open its pull request.
     pub fn pushing(&self, project: &ProjectId, ref_name: &FullName) -> bool {
-        (self.overlays(project)).any(|o| matches!(&o.kind, OpKind::Push(r) if r == ref_name))
+        (self.running_in(project)).any(|r| matches!(&r.kind, OpKind::Push(to) if to == ref_name))
     }
 
     /// Whether a pending operation opens `ref_name`'s pull request.
     pub fn publishing(&self, project: &ProjectId, ref_name: &FullName) -> bool {
-        (self.overlays(project))
-            .any(|o| o.publishes && matches!(&o.kind, OpKind::Push(r) if r == ref_name))
+        (self.running_in(project))
+            .any(|r| r.overlay.publishes && matches!(&r.kind, OpKind::Push(to) if to == ref_name))
     }
 
     /// Keep the selection on commits an operation rewrote.
@@ -1896,6 +1669,17 @@ impl Store {
     ) {
         self.select(Some(Selection::Commit(project, to)), cx);
         self.followed = Some((from, to));
+    }
+
+    /// Select commit `made`, which an operation just made in `project`.
+    pub fn select_made(
+        &mut self,
+        project: &ProjectId,
+        made: backend::Made,
+        cx: &mut Context<Self>,
+    ) {
+        self.select(Some(Selection::Commit(project.clone(), made.id)), cx);
+        self.made = Some(made);
     }
 
     /// Whether the selection moved from commit `from` to `to` as an operation rewrote it,

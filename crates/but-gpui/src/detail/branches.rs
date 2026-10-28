@@ -22,7 +22,7 @@ use super::panes::{
 use super::upstream::commit_author;
 
 use crate::app::AppView;
-use crate::backend::branches::{self, ApplyOutcome, OtherBranch};
+use crate::backend::branches::{self, ApplyBranch, ApplyOutcome, DescribeBranch, OtherBranch};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, FullName, ReviewState};
 use crate::edits::CherryPick;
@@ -1077,11 +1077,14 @@ impl Detail {
             }),
         );
         let apply = move |store: &mut Store, cx: &mut Context<Store>| {
-            store.run(
+            store.apply(
                 &project,
                 Label::new("Apply", format!("Apply {name}")),
                 Overlay::default(),
-                move |path| branches::apply(path, &ref_name, freeing.as_ref().map(AsRef::as_ref)),
+                ApplyBranch {
+                    branch: ref_name,
+                    freeing,
+                },
                 move |store, applied, cx| match &applied {
                     ApplyOutcome::Applied(local) | ApplyOutcome::AlreadyApplied(local) => {
                         store.select(Some(Selection::Branch(selected, Some(local.clone()))), cx);
@@ -1139,11 +1142,15 @@ impl Detail {
                             ..Overlay::default()
                         };
                         let (gone, listed_in) = (ref_name.clone(), project.clone());
-                        store.run(
+                        let remove = backend::RemoveBranch {
+                            branch: ref_name,
+                            tip: Some(tip),
+                        };
+                        store.apply(
                             &project,
                             "Delete branch",
                             overlay,
-                            move |path| backend::remove_branch(path, &ref_name, Some(tip)),
+                            remove,
                             // Out of the list now: reading the branches again, as their
                             // refs changed, lands after the overlay is gone.
                             move |store, (), cx| {
@@ -1217,11 +1224,14 @@ impl Detail {
                     let (saved, gone, listed_in) =
                         (text.clone(), ref_name.clone(), project.clone());
                     app.store.update(cx, |store, cx| {
-                        store.run(
+                        store.apply(
                             &project,
                             "Describe branch",
                             Overlay::default(),
-                            move |path| branches::set_branch_description(path, &ref_name, &text),
+                            DescribeBranch {
+                                branch: ref_name,
+                                description: text,
+                            },
                             // Its refs didn't change, so the list isn't read again.
                             move |_, (), cx| {
                                 (detail.update(cx, |detail, cx| {

@@ -11,10 +11,11 @@ use bstr::ByteSlice;
 use but_core::DryRun;
 use but_core::sync::RepoExclusive;
 
+use super::intent::Run;
 use super::reviews::{cached_reviews, from_cache};
 use super::{
-    Agent, CommitId, RemoteCommit, Review, ReviewState, open, present_first_parent, runtime,
-    short_ref, title,
+    Agent, CommitId, Intent, OpKind, RemoteCommit, Review, ReviewState, open, present_first_parent,
+    runtime, short_ref, title,
 };
 
 #[derive(Debug, Clone)]
@@ -642,7 +643,7 @@ pub fn fetch_status(path: &Path) -> Result<Option<(Option<i64>, Option<String>)>
 /// was pushed, and with `run_hooks` after the repository's pre-push hook passes. Returns the
 /// name it has on its remote, which needn't be its local one, and why updating the stack's
 /// pull requests afterwards failed, if it did.
-pub fn push(
+pub(super) fn push(
     path: &Path,
     ref_name: &super::FullName,
     protect: bool,
@@ -732,6 +733,36 @@ pub fn push(
     Ok((remote, sync_failure(outcome.review_sync)))
 }
 
+/// Push `ref_name` as [`push()`] does. Done is why updating the stack's pull requests failed,
+/// if it did, or what [`push_refusal()`] makes of a refused push.
+pub struct Push {
+    pub ref_name: super::FullName,
+    pub protect: bool,
+    pub drops: Option<Vec<CommitId>>,
+    pub run_hooks: bool,
+}
+
+impl Intent for Push {
+    type Done = Result<Option<String>, String>;
+
+    fn apply(self, run: &mut Run) -> Result<Result<Option<String>, String>> {
+        let Self {
+            ref_name,
+            protect,
+            drops,
+            run_hooks,
+        } = self;
+        match push(run.path(), &ref_name, protect, drops.as_deref(), run_hooks) {
+            Ok((_, sync_failed)) => Ok(Ok(sync_failed)),
+            Err(err) => push_refusal(&err).map(Err).ok_or(err),
+        }
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Push(self.ref_name.clone())
+    }
+}
+
 /// Why updating the stack's pull requests failed, if it did.
 pub(super) fn sync_failure(outcome: but_forge::ReviewSyncOutcome) -> Option<String> {
     match outcome {
@@ -791,22 +822,55 @@ pub fn push_refusal(err: &anyhow::Error) -> Option<String> {
 }
 
 /// Bring in the commits only `branch`'s remote has: the local commits rebased on top of
-/// them, leaving out the remote's older versions of commits rewritten here; or with `theirs`
-/// the remote's version of the branch instead of the local one.
-pub fn pull_remote(path: &Path, branch: &super::FullName, theirs: bool) -> Result<()> {
-    integrate_remote(&mut open(path)?, branch, theirs, DryRun::No)?;
-    Ok(())
+/// them, leaving out the remote's older versions of commits rewritten here. A dry run goes
+/// first, and when it would leave commits conflicted that aren't now, it stops there with
+/// them, unless they're what was `accepted`: a fetch since can bring more.
+pub struct Pull {
+    pub branch: super::FullName,
+    pub accepted: Option<Vec<(Option<super::FullName>, usize)>>,
+}
+
+impl Intent for Pull {
+    type Done = Option<Vec<(Option<super::FullName>, usize)>>;
+
+    fn apply(self, run: &mut Run) -> Result<Self::Done> {
+        let Self { branch, accepted } = self;
+        run.locked(|ctx, perm| {
+            let found = pull_conflicts(ctx, perm, &branch)?;
+            if !found.is_empty() && accepted.as_ref() != Some(&found) {
+                return Ok(Some(found));
+            }
+            integrate_remote(ctx, perm, &branch, false, DryRun::No)?;
+            Ok(None)
+        })
+    }
+}
+
+/// Replace `branch` with its remote's version.
+pub struct Replace {
+    pub branch: super::FullName,
+}
+
+impl Intent for Replace {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        run.locked(|ctx, perm| {
+            integrate_remote(ctx, perm, &self.branch, true, DryRun::No)?;
+            Ok(())
+        })
+    }
 }
 
 /// A dry run of pulling into `branch`: the branches (full refs) it would leave with
 /// conflicted commits they don't have now, each with how many.
-pub fn pull_conflicts(
-    path: &Path,
+fn pull_conflicts(
+    ctx: &mut but_ctx::Context,
+    perm: &mut RepoExclusive,
     branch: &super::FullName,
 ) -> Result<Vec<(Option<super::FullName>, usize)>> {
-    let mut ctx = open(path)?;
-    let info = but_api::legacy::workspace::head_info(&ctx)?;
-    let (preview, incoming) = integrate_remote(&mut ctx, branch, false, DryRun::Yes)?;
+    let info = but_api::legacy::workspace::head_info(ctx)?;
+    let (preview, incoming) = integrate_remote(ctx, perm, branch, false, DryRun::Yes)?;
     let conflicted = &preview.workspace.conflicted_commits;
     let mut found = newly_conflicted(&info, conflicted);
     // The remote's own commits can land conflicted too, rebased onto the branch's, and they
@@ -826,19 +890,23 @@ pub fn pull_conflicts(
 
 fn integrate_remote(
     ctx: &mut but_ctx::Context,
+    perm: &mut RepoExclusive,
     branch: &super::FullName,
     theirs: bool,
     dry_run: DryRun,
 ) -> Result<(but_api::branch::IntegrateBranchResult, Vec<String>)> {
-    use but_api::branch::json::BranchIntegrationStrategy as Strategy;
-    let name = branch;
+    use but_workspace::branch::BranchIntegrationStrategy as Strategy;
     let strategy = if theirs {
         Strategy::PickRemote
     } else {
         Strategy::PullRebase
     };
-    let mut plan =
-        but_api::branch::get_initial_branch_integration(ctx, name.as_ref(), Some(strategy))?;
+    let mut plan = but_api::branch::get_initial_branch_integration_with_perm(
+        ctx,
+        branch.as_ref(),
+        strategy,
+        perm.read_permission(),
+    )?;
     // Rebasing would bring back the remote's versions of commits rewritten here, beside
     // their new ones, so they're left out, as Lite's "Combine both" does. A version is the
     // same change ID on both sides, one made without counting as the one the engine gives it
@@ -888,18 +956,17 @@ fn integrate_remote(
         ours.splice(at..at, incoming);
         plan.integration.steps = ours;
     }
-    let mut guard = ctx.exclusive_worktree_access();
     let result = but_api::branch::apply_branch_integration_with_perm(
         ctx,
-        name.as_ref(),
+        branch.as_ref(),
         plan.integration,
         dry_run,
-        guard.write_permission(),
+        perm,
     )?;
     Ok((result, incoming))
 }
 
-/// What [`update_from_target()`] did.
+/// What [`Update`] did.
 #[derive(Debug)]
 pub enum UpdateOutcome {
     /// It would have left these conflicted that aren't now, so nothing changed.
@@ -913,45 +980,55 @@ pub enum UpdateOutcome {
     },
 }
 
-/// Rebase every stack onto the target as it is now. Doesn't fetch first; see [`fetch()`].
+/// Rebase every stack onto the target as it is now. Doesn't fetch first; see [`Fetch`].
 /// A dry run goes first, and when the rebase would leave anything conflicted that isn't now,
 /// it stops there, unless that's what was `accepted`: a fetch since can bring more.
-pub fn update_from_target(
-    path: &Path,
-    accepted: Option<&UpdateConflicts>,
-) -> Result<UpdateOutcome> {
-    let mut ctx = open(path)?;
-    // Held from reading the workspace through the update, so nothing changes it in between.
-    let mut guard = ctx.exclusive_worktree_access();
-    let info = but_api::legacy::workspace::head_info(&ctx)?;
-    let preview = integrate_upstream(&mut ctx, &info, DryRun::Yes, guard.write_permission())?;
-    let found = UpdateConflicts {
-        branches: newly_conflicted(&info, &preview.workspace_state.conflicted_commits),
-        files: (preview.worktree_conflicts.iter())
-            .map(|path| path.to_str_lossy().into_owned())
-            .collect(),
-    };
-    if (!found.branches.is_empty() || !found.files.is_empty()) && accepted != Some(&found) {
-        return Ok(UpdateOutcome::WouldConflict(found));
-    }
-    let updated = integrate_upstream(&mut ctx, &info, DryRun::No, guard.write_permission())?;
-    let after = but_api::legacy::workspace::head_info(&ctx)?;
-    let names = |info: &but_workspace::RefInfo| -> Vec<super::FullName> {
-        (info.lanes())
-            .flat_map(|lane| lane.segments)
-            .filter_map(|segment| Some(segment.ref_name()?.to_owned()))
-            .collect()
-    };
-    let remaining = names(&after);
-    Ok(UpdateOutcome::Updated {
-        conflicted: newly_conflicted(&info, &updated.workspace_state.conflicted_commits),
-        landed: (names(&info).into_iter())
-            .filter(|name| !remaining.contains(name))
-            .collect(),
-    })
+pub struct Update {
+    pub accepted: Option<UpdateConflicts>,
 }
 
-/// What [`update_from_target()`] would leave conflicted that isn't now.
+impl Intent for Update {
+    type Done = UpdateOutcome;
+
+    fn apply(self, run: &mut Run) -> Result<UpdateOutcome> {
+        run.locked(|ctx, perm| {
+            let info = but_api::legacy::workspace::head_info(ctx)?;
+            let preview = integrate_upstream(ctx, &info, DryRun::Yes, perm)?;
+            let found = UpdateConflicts {
+                branches: newly_conflicted(&info, &preview.workspace_state.conflicted_commits),
+                files: (preview.worktree_conflicts.iter())
+                    .map(|path| path.to_str_lossy().into_owned())
+                    .collect(),
+            };
+            if (!found.branches.is_empty() || !found.files.is_empty())
+                && self.accepted.as_ref() != Some(&found)
+            {
+                return Ok(UpdateOutcome::WouldConflict(found));
+            }
+            let updated = integrate_upstream(ctx, &info, DryRun::No, perm)?;
+            let after = but_api::legacy::workspace::head_info(ctx)?;
+            let names = |info: &but_workspace::RefInfo| -> Vec<super::FullName> {
+                (info.lanes())
+                    .flat_map(|lane| lane.segments)
+                    .filter_map(|segment| Some(segment.ref_name()?.to_owned()))
+                    .collect()
+            };
+            let remaining = names(&after);
+            Ok(UpdateOutcome::Updated {
+                conflicted: newly_conflicted(&info, &updated.workspace_state.conflicted_commits),
+                landed: (names(&info).into_iter())
+                    .filter(|name| !remaining.contains(name))
+                    .collect(),
+            })
+        })
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Update
+    }
+}
+
+/// What [`Update`] would leave conflicted that isn't now.
 #[derive(Debug, Clone, PartialEq)]
 pub struct UpdateConflicts {
     /// Branches (full refs), each with how many of its commits.
@@ -1001,36 +1078,60 @@ pub fn fetch(path: &Path) -> Result<bool> {
     Ok(true)
 }
 
-/// Put `branch`, or with `whole_stack` it and every branch below it,
-/// straight onto the target and push the target, or with no upstream, just move it. Returns
-/// what that left for the other branches.
-pub fn land(
-    path: &Path,
-    branch: &super::FullName,
-    tip: CommitId,
-    whole_stack: bool,
-) -> Result<Landed> {
-    let mut ctx = open(path)?;
-    let info = but_api::legacy::workspace::head_info(&ctx)?;
-    // A merge commit when the branch has diverged, as `but land` makes one without its flags.
-    // Only at `tip`, the one the user was asked about: a push can't be undone, so not of
-    // commits an agent added since.
-    let landed = but_api::land::branch_land(
-        &mut ctx,
-        branch.shorten().to_string(),
-        false,
-        false,
-        whole_stack,
-        Some(tip.0),
-    )?;
-    Ok(Landed {
-        update_needed: landed.reconcile_skipped,
-        conflicted: newly_conflicted(&info, &landed.workspace.conflicted_commits),
-        marked: landed.workspace.checkout_conflict_occurred,
-    })
+/// Fetch from the project's remotes as [`fetch()`] does. Done is its result, a failure
+/// included, so the project page notes it as it does a background fetch's.
+pub struct Fetch;
+
+impl Intent for Fetch {
+    type Done = Result<bool>;
+
+    fn apply(self, run: &mut Run) -> Result<Result<bool>> {
+        Ok(fetch(run.path()))
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Fetch
+    }
 }
 
-/// What [`land()`] left for the other branches.
+/// Put `branch`, or with `whole_stack` it and every branch below it, straight onto the target
+/// and push the target, or with no upstream, just move it. Done is what that left for the
+/// other branches.
+pub struct Land {
+    pub branch: super::FullName,
+    pub tip: CommitId,
+    pub whole_stack: bool,
+}
+
+impl Intent for Land {
+    type Done = Landed;
+
+    fn apply(self, run: &mut Run) -> Result<Landed> {
+        // `branch_land` takes GitButler's lock itself, around its fetch and push, so it's
+        // watched rather than locked.
+        run.watched(|ctx| {
+            let info = but_api::legacy::workspace::head_info(ctx)?;
+            // A merge commit when the branch has diverged, as `but land` makes one without its
+            // flags. Only at `tip`, the one the user was asked about: a push can't be undone,
+            // so not of commits an agent added since.
+            let landed = but_api::land::branch_land(
+                ctx,
+                self.branch.shorten().to_string(),
+                false,
+                false,
+                self.whole_stack,
+                Some(self.tip.0),
+            )?;
+            Ok(Landed {
+                update_needed: landed.reconcile_skipped,
+                conflicted: newly_conflicted(&info, &landed.workspace.conflicted_commits),
+                marked: landed.workspace.checkout_conflict_occurred,
+            })
+        })
+    }
+}
+
+/// What [`Land`] left for the other branches.
 pub struct Landed {
     /// They still need an update to sit on the moved target.
     pub update_needed: bool,
@@ -1044,8 +1145,7 @@ pub struct Landed {
 #[cfg(test)]
 mod tests {
     use super::{
-        ACTIVITY_DAYS, DAY, UpdateOutcome, day_of, overview, push_refusal, pushed_with,
-        update_from_target,
+        ACTIVITY_DAYS, DAY, Update, UpdateOutcome, day_of, overview, push_refusal, pushed_with,
     };
     use crate::backend::model::build::full;
 
@@ -1066,7 +1166,7 @@ mod tests {
             std::fs::write(wt.join("file"), "wt\n").unwrap();
             git(wt, &["commit", "-q", "-am", "wt edit"]);
 
-            let outcome = update_from_target(path, None).unwrap();
+            let (outcome, _) = crate::backend::apply(path, Update { accepted: None }).unwrap();
             let UpdateOutcome::WouldConflict(found) = outcome else {
                 panic!("{outcome:?}");
             };

@@ -170,33 +170,41 @@ unseen is what a laptop's battery pays for.
   them by the workspace's commits misses a pull's incoming ones, so `integrate_remote` returns
   their change IDs; any conflicted commit the main checkout doesn't know may be a linked
   worktree's that was conflicted already.
-- A project runs one operation at a time, until the reload after it lands, and `Store::run`
+- An operation is an `Intent` in `src/backend`: the ids the user acted on, applied by
+  `Store::apply`. One that writes the workspace does so in one `Run::locked` call, one
+  transaction or `_with_perm` call, so it is one oplog entry and one ⌘Z step, and the oplog and
+  linked-worktree heads are read under the same lock. `Run::watched` is only for work that takes
+  GitButler's lock itself, as Land and mesh apply do. Fetches, pushes and the forge's merges
+  call neither: they write no workspace state and record no undo step, and `but-api` locks for
+  fetching and pushing itself.
+- A project runs one operation at a time, until the reload after it lands, and `Store::apply`
   turns down another asked for meanwhile, so each acts on the state the user saw the one before
   leave; nothing queues. Fetches, pushes and deleting a linked worktree (`OpKind::beside`) run
-  beside it, refusing only one of their own kind, and record no undo step, so the oplog and
-  linked worktrees' heads are compared only around the others. Operations are told apart by
-  `Overlay::kind` (`OpKind` in `state/mutation.rs`), never by their label, which is only what
+  beside it, refusing only one of their own kind, and record no undo step: `Store::apply` drops
+  the oplog entry and linked-worktree moves seen around them. Operations are told apart by
+  `Intent::kind` (`OpKind` in `backend/intent.rs`), never by their label, which is only what
   the user reads.
 - The oplog records the workspace and the main checkout only. Undo and History restore refuse
   anything that touched a linked worktree, in older snapshots too. Commits in a linked worktree
   skip hooks, which would run against the main checkout's files. Branches move only within their
-  own side. An operation that makes a branch records its snapshot with
-  `from_details_with_refs_and_perm` naming it, or undo leaves the branch behind.
+  own side. An operation that makes or deletes a branch names it in its snapshot (a
+  transaction's `snapshot_refs`, else `from_details_with_refs_and_perm`), or undo leaves the
+  branch behind or doesn't bring it back.
 - ⌘Z follows the user, not the selection. `Store::undo_steps` takes the oplog entry of every
-  operation the app runs, in any project, ordered by when it was asked for, and ⌘Z undoes the
+  operation the app runs, in any project, ordered by when it started, and ⌘Z undoes the
   newest only while it's still its project's undo target, so it never takes back an agent's or
   the CLI's work. Undo and Redo are `OpKind::Undo` and `OpKind::Redo` and keep the lists
   themselves; an operation the oplog can't undo calls `keep_last_snapshot`, which drops it.
-- An oplog restore puts the whole worktree back, so `history::undo_snapshot` first checks for
-  files written and branches moved after the operation, leaving out the spans the app's own
-  local operations ran in (`Store::ran`, as it is when the undo is asked for; pushes and fetches record none, as they write only what the remote has, and a
-  Git commit logged in a second wholly after the operation counts even inside a later one's,
-  as the app never logs "commit"; with no log of HEAD, as
-  with core.logAllRefUpdates off, undo refuses rather than guess): a move
-  Git logged then is `Undone::Behind`, a file written then `Undone::Newer` for ⌘Z to ask
-  about; `redo_snapshot` checks the same from the undo's own snapshot. A step stays on the
-  list unless it was undone, `Undone::Behind` says something came after it, or
-  `Undone::Already` says something else undid it.
+- An oplog restore puts the whole worktree back, so `history::Undo` first checks, under the
+  restore's lock, for files written and branches moved after the operation, leaving out the
+  spans the app's own local operations ran in (`Store::ran`, as it is when the undo is asked
+  for; pushes and fetches record none, as they write only what the remote has, and a Git commit
+  logged in a second wholly after the operation counts even inside a later one's, as the app
+  never logs "commit"; with no log of HEAD, as with core.logAllRefUpdates off, undo refuses
+  rather than guess): a move Git logged then is `Undone::Behind`, a file written then
+  `Undone::Newer` for ⌘Z to ask about; `history::Redo` checks the same, under its lock, from
+  the undo's own snapshot. A step stays on the list unless it was undone, `Undone::Behind` says
+  something came after it, or `Undone::Already` says something else undid it.
 - An operation's `done` runs with `Store::staying` set when the user has moved to another
   project, which makes `Store::select` do nothing: what it would select, and the picks a select
   clears, stay where the user is, and `card_title` names the operation's project.

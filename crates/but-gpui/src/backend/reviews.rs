@@ -10,11 +10,12 @@ use but_api::legacy::forge;
 use but_ctx::Context;
 use but_forge::ForgeName;
 
+use super::intent::Run;
 use super::ops::holds;
-use super::upstream::sync_failure;
+use super::upstream::{push, sync_failure};
 use super::{
-    CheckRun, Checks, DiffLine, Forge, ForgeUser, Note, PushState, Remark, Review, ReviewLabel,
-    ReviewState, Thread, open, push, runtime, short_ref,
+    CheckRun, Checks, DiffLine, Forge, ForgeUser, Intent, Note, OpKind, PushState, Remark, Review,
+    ReviewLabel, ReviewState, Thread, open, runtime, short_ref,
 };
 
 /// Which forge hosts the project: the one its target's remote, or a forge account with a
@@ -300,39 +301,62 @@ pub struct Published {
     pub sync_failed: Option<String>,
 }
 
-/// Push `branch` (a full ref) and the branches below it, those that have anything to push,
-/// then open a pull request for it. `run_hooks` runs the pre-push hook first.
-pub fn publish(
-    path: &Path,
-    branch: &super::FullName,
-    title: String,
-    body: String,
-    draft: bool,
-    run_hooks: bool,
-) -> Result<Published> {
-    // The pull request's head is the branch as the remote names it: what a push reports,
-    // or for a branch pushed before, the remote branch it tracks.
-    let (pushed, push_sync_failed) = push(path, branch, true, Some(&[]), run_hooks)?;
-    let short = short_ref(branch).into_owned();
-    let ctx = open(path)?;
-    let pushed = match pushed {
-        Some(name) => Some(name),
-        None => tracked_name(&ctx, branch)?,
-    };
-    let outcome = runtime().handle().block_on(forge::publish_review(
-        ctx.into_sync(),
-        forge::PublishReviewInput {
+/// Push `ref_name` and the branches below it, those that have anything to push, then open a
+/// pull request for it. `run_hooks` runs the pre-push hook first. Done says why it failed, a
+/// refused push included, so the card can offer to try again.
+pub struct Publish {
+    pub ref_name: super::FullName,
+    pub title: String,
+    pub body: String,
+    pub draft: bool,
+    pub run_hooks: bool,
+}
+
+impl Intent for Publish {
+    type Done = Result<Published>;
+
+    fn apply(self, run: &mut Run) -> Result<Result<Published>> {
+        Ok(self.publish(run.path()))
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Push(self.ref_name.clone())
+    }
+}
+
+impl Publish {
+    fn publish(self, path: &Path) -> Result<Published> {
+        let Self {
+            ref_name,
             title,
             body,
-            source_branch: pushed.unwrap_or_else(|| short.clone()),
-            local_branch: short,
             draft,
-        },
-    ))?;
-    Ok(Published {
-        number: outcome.review.number as u64,
-        sync_failed: sync_failure(outcome.review_sync).or(push_sync_failed),
-    })
+            run_hooks,
+        } = self;
+        // The pull request's head is the branch as the remote names it: what a push reports,
+        // or for a branch pushed before, the remote branch it tracks.
+        let (pushed, push_sync_failed) = push(path, &ref_name, true, Some(&[]), run_hooks)?;
+        let short = short_ref(&ref_name).into_owned();
+        let ctx = open(path)?;
+        let pushed = match pushed {
+            Some(name) => Some(name),
+            None => tracked_name(&ctx, &ref_name)?,
+        };
+        let outcome = runtime().handle().block_on(forge::publish_review(
+            ctx.into_sync(),
+            forge::PublishReviewInput {
+                title,
+                body,
+                source_branch: pushed.unwrap_or_else(|| short.clone()),
+                local_branch: short,
+                draft,
+            },
+        ))?;
+        Ok(Published {
+            number: outcome.review.number as u64,
+            sync_failed: sync_failure(outcome.review_sync).or(push_sync_failed),
+        })
+    }
 }
 
 /// The name of the remote branch `branch` (a full ref) tracks, without its remote.
@@ -357,22 +381,40 @@ pub use but_forge::ReviewMergeMethod as MergeMethod;
 
 /// Merge pull request `number`, then fetch so the target has the merge and the workspace can
 /// update from it. Asking for the request again records it merged in the cache, so the
-/// reload after shows it merged without waiting for the next listing. Whether it merged, as
-/// GitHub can put a stacked one in its merge queue instead.
-pub fn merge(path: &Path, number: u64, method: MergeMethod) -> Result<bool> {
-    let ctx = open(path)?.into_sync();
-    (runtime().handle()).block_on(forge::merge_review(ctx, number as usize, Some(method)))?;
-    let merged = match open(path).and_then(|ctx| forge::get_review(&ctx, number as usize)) {
-        Ok(review) => review.merged_at.is_some(),
-        Err(err) => {
-            tracing::warn!(?err, "merged, but couldn't read the pull request back");
-            true
+/// reload after shows it merged without waiting for the next listing. Done says whether it
+/// merged, as GitHub can put a stacked one in its merge queue instead.
+pub struct Merge {
+    pub number: u64,
+    pub method: MergeMethod,
+}
+
+impl Intent for Merge {
+    type Done = bool;
+
+    fn apply(self, run: &mut Run) -> Result<bool> {
+        let Self { number, method } = self;
+        let ctx = run.ctx();
+        (runtime().handle()).block_on(forge::merge_review(
+            ctx.to_sync(),
+            number as usize,
+            Some(method),
+        ))?;
+        let merged = match forge::get_review(ctx, number as usize) {
+            Ok(review) => review.merged_at.is_some(),
+            Err(err) => {
+                tracing::warn!(?err, "merged, but couldn't read the pull request back");
+                true
+            }
+        };
+        if let Err(err) = super::fetch(run.path()) {
+            tracing::warn!(?err, "merged, but couldn't fetch");
         }
-    };
-    if let Err(err) = super::fetch(path) {
-        tracing::warn!(?err, "merged, but couldn't fetch");
+        Ok(merged)
     }
-    Ok(merged)
+
+    fn kind(&self) -> OpKind {
+        OpKind::Forge
+    }
 }
 
 /// What the forge says about whether a pull request can merge now.
@@ -387,16 +429,34 @@ pub fn merge_status(path: &Path, number: u64) -> Result<MergeStatus> {
 
 /// Turn auto-merge of pull request `number` on or off. Asking for the request again records
 /// that in the cache, so the reload after shows it.
-pub fn set_auto_merge(path: &Path, number: u64, on: bool) -> Result<()> {
-    let ctx = open(path)?.into_sync();
-    (runtime().handle()).block_on(forge::set_review_auto_merge(ctx, number as usize, on))?;
-    if let Err(err) = open(path).and_then(|ctx| forge::get_review(&ctx, number as usize)) {
-        tracing::warn!(
-            ?err,
-            "set auto-merge, but couldn't read the pull request back"
-        );
+pub struct SetAutoMerge {
+    pub number: u64,
+    pub on: bool,
+}
+
+impl Intent for SetAutoMerge {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        let Self { number, on } = self;
+        let ctx = run.ctx();
+        (runtime().handle()).block_on(forge::set_review_auto_merge(
+            ctx.to_sync(),
+            number as usize,
+            on,
+        ))?;
+        if let Err(err) = forge::get_review(ctx, number as usize) {
+            tracing::warn!(
+                ?err,
+                "set auto-merge, but couldn't read the pull request back"
+            );
+        }
+        Ok(())
     }
-    Ok(())
+
+    fn kind(&self) -> OpKind {
+        OpKind::Forge
+    }
 }
 
 /// A review's verdict, as the forge gives it.
