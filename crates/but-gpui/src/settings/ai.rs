@@ -4,7 +4,7 @@
 
 use gpui::{App, Context, Entity, SharedString, Task, Window, prelude::*};
 
-use super::{Page, Row, SettingsView, field_with_save, read_failed, segmented};
+use super::{AppPage, Page, Row, SettingsView, field_with_save, read_failed, segmented};
 use crate::backend::run;
 use crate::backend::settings::{self as backend, AiConfiguration, AiConfigurationUpdate};
 use crate::theme::Theme;
@@ -261,8 +261,8 @@ impl SettingsView {
                 this.ensure_ai(cx)
             };
             let title = "Couldn't read the AI settings";
-            let failed =
-                (self.ai.failed.as_deref()).map(|err| read_failed(Page::Ai, title, err, retry, cx));
+            let failed = (self.ai.failed.as_deref())
+                .map(|err| read_failed(Page::App(AppPage::Ai), title, err, retry, cx));
             return failed.into_iter().collect();
         };
         // A field with Save while it differs from what's stored.
