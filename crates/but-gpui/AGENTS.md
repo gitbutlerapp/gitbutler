@@ -189,7 +189,7 @@ unseen is what a laptop's battery pays for.
   themselves; an operation the oplog can't undo calls `keep_last_snapshot`, which drops it.
 - An oplog restore puts the whole worktree back, so `history::undo_snapshot` first checks for
   files written and branches moved after the operation, leaving out the spans the app's own
-  local operations ran in (`Store::ran`, read when the undo runs; pushes and fetches record none, as they write only what the remote has, and a
+  local operations ran in (`Store::ran`, as it is when the undo is asked for; pushes and fetches record none, as they write only what the remote has, and a
   Git commit logged in a second wholly after the operation counts even inside a later one's,
   as the app never logs "commit"; with no log of HEAD, as
   with core.logAllRefUpdates off, undo refuses rather than guess): a move

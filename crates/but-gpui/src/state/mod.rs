@@ -8,7 +8,6 @@ use std::time::{Duration, Instant, SystemTime};
 
 use futures::channel::mpsc;
 use gpui::{App, Context, Entity, EventEmitter, SharedString, Subscription, Task};
-use parking_lot::Mutex;
 
 use crate::backend::upstream::TargetCommit;
 use crate::backend::watch::Watcher;
@@ -366,13 +365,11 @@ pub struct Store {
     redo_steps: Vec<(ProjectId, SnapshotId)>,
     /// When, in milliseconds since the Unix epoch, the app's operations ran, ⌘Z and ⌘⇧Z
     /// included but not pushes and fetches, by project: the files they wrote and the branches
-    /// they moved aren't changes a later ⌘Z asks about. Shared as `kept_snapshots` is, with the
-    /// undo reading it on its own thread.
-    ran: Arc<Mutex<Spans>>,
+    /// they moved aren't changes a later ⌘Z asks about.
+    ran: Spans,
     /// Oplog entries of mutations that changed more than the oplog snapshots (a linked
     /// worktree, a branch outside the workspace), which ⌘Z doesn't take back, by project.
-    /// Shared with the undo or redo reading it on its own thread.
-    kept_snapshots: Arc<Mutex<HashMap<ProjectId, HashSet<SnapshotId>>>>,
+    kept_snapshots: HashMap<ProjectId, HashSet<SnapshotId>>,
     next_toast: usize,
     seen: Seen,
     /// When each commit an agent made showed up, while its rows still glow: see
@@ -482,18 +479,16 @@ impl Store {
             last_snapshot: None,
             undo_steps: Vec::new(),
             redo_steps: Vec::new(),
-            ran: Arc::default(),
-            kept_snapshots: Arc::new(Mutex::new(
-                (saved.kept_by_project.into_iter())
-                    .map(|(project, ids)| {
-                        let ids = (ids.iter())
-                            .filter_map(|id| gix::ObjectId::from_hex(id.as_bytes()).ok())
-                            .map(SnapshotId)
-                            .collect();
-                        (ProjectId::from(project), ids)
-                    })
-                    .collect(),
-            )),
+            ran: HashMap::new(),
+            kept_snapshots: (saved.kept_by_project.into_iter())
+                .map(|(project, ids)| {
+                    let ids = (ids.iter())
+                        .filter_map(|id| gix::ObjectId::from_hex(id.as_bytes()).ok())
+                        .map(SnapshotId)
+                        .collect();
+                    (ProjectId::from(project), ids)
+                })
+                .collect(),
             next_toast: 0,
             seen: saved.seen,
             arrived: HashMap::new(),
@@ -957,7 +952,7 @@ impl Store {
     /// changed what the oplog can't bring back, as a linked worktree.
     pub fn keep_last_snapshot(&mut self, cx: &mut Context<Self>) {
         if let Some((project, snapshot)) = self.drop_last_step() {
-            (self.kept_snapshots.lock())
+            (self.kept_snapshots)
                 .entry(project)
                 .or_default()
                 .insert(snapshot);

@@ -72,7 +72,7 @@ impl Store {
             widths: self.widths.clone(),
             window: self.window.clone(),
             prefs: self.prefs.clone(),
-            kept_by_project: (self.kept_snapshots.lock().iter())
+            kept_by_project: (self.kept_snapshots.iter())
                 .map(|(project, kept)| {
                     let mut ids: Vec<String> = kept.iter().map(|id| id.0.to_string()).collect();
                     ids.sort();
@@ -92,13 +92,13 @@ impl Store {
         // What ⌘Z and ⇧⌘Z would do in one, which can't be done without it.
         self.undo_steps.retain(|step| listed(&step.project));
         self.redo_steps.retain(|(id, _)| listed(id));
-        (self.ran.lock()).retain(|id, _| listed(id));
+        self.ran.retain(|id, _| listed(id));
         // None listed is more likely a list that couldn't be read than every one removed.
         if self.projects.is_empty() {
             return;
         }
         self.seen.commits.retain(|id, _| listed(id));
-        (self.kept_snapshots.lock()).retain(|id, _| listed(id));
+        self.kept_snapshots.retain(|id, _| listed(id));
         let since = crate::ui::now() - super::activity::KEPT_FOR;
         (self.activity).retain(|(id, _), activity| {
             let latest = activity.last.max(activity.commits.first().map(|c| c.time));

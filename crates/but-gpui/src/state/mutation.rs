@@ -299,7 +299,6 @@ pub(super) struct Running {
     label: SharedString,
     pub(super) overlay: Overlay,
     started: Instant,
-    asked: Instant,
     pub(super) phase: Phase,
     /// Reloads asked for while it ran, which the reload after it reads too.
     pub(super) deferred: Reload,
@@ -387,7 +386,7 @@ impl Store {
     /// when it was asked for.
     fn unfinished_asked(&self) -> impl Iterator<Item = (&ProjectId, &Overlay, Instant)> {
         let working = self.running.iter().filter(|r| r.phase == Phase::Working);
-        working.map(|r| (&r.project, &r.overlay, r.asked))
+        working.map(|r| (&r.project, &r.overlay, r.started))
     }
 
     /// Make the operation that recorded `snapshot` in `project` one ⌘Z takes back, among the
@@ -463,10 +462,12 @@ impl Store {
         accepted: Option<i64>,
         cx: &mut Context<Self>,
     ) {
-        let (kept, ran, of, again, asked) = (
-            self.kept_snapshots.clone(),
-            self.ran.clone(),
-            project.clone(),
+        let (kept, ran, again, asked) = (
+            self.kept_snapshots
+                .get(&project)
+                .cloned()
+                .unwrap_or_default(),
+            self.ran.get(&project).cloned().unwrap_or_default(),
             project.clone(),
             Instant::now(),
         );
@@ -477,17 +478,7 @@ impl Store {
                 kind: OpKind::Redo(undo),
                 ..Overlay::rewriting_main()
             },
-            move |path| {
-                let kept = kept.lock().get(&of).cloned();
-                let ran = ran.lock().get(&of).cloned().unwrap_or_default();
-                backend::history::redo_snapshot(
-                    path,
-                    undo,
-                    &kept.unwrap_or_default(),
-                    &ran,
-                    accepted,
-                )
-            },
+            move |path| backend::history::redo_snapshot(path, undo, &kept, &ran, accepted),
             move |store, redone, cx| {
                 let operation = match redone {
                     Some(Undone::Done(operation)) => operation,
@@ -528,7 +519,11 @@ impl Store {
     /// Put `project` back to before the operation `snapshot` was taken for, unless that takes
     /// back one kept from undo.
     pub fn restore(&mut self, project: &ProjectId, snapshot: SnapshotId, cx: &mut Context<Self>) {
-        let (kept, of) = (self.kept_snapshots.clone(), project.clone());
+        let kept = self
+            .kept_snapshots
+            .get(project)
+            .cloned()
+            .unwrap_or_default();
         self.run(
             project,
             "Restore",
@@ -536,10 +531,7 @@ impl Store {
                 kind: OpKind::Restore,
                 ..Overlay::rewriting_main()
             },
-            move |path| {
-                let kept = kept.lock().get(&of).cloned();
-                backend::history::restore(path, snapshot, &kept.unwrap_or_default())
-            },
+            move |path| backend::history::restore(path, snapshot, &kept),
             |store, (), cx| store.snack_undoable("Restored", cx),
             cx,
         );
@@ -590,7 +582,7 @@ impl Store {
                 cx,
             );
         }
-        let (ran, of) = (self.ran.clone(), project.clone());
+        let ran = self.ran.get(project).cloned().unwrap_or_default();
         // The snackbar offering to undo it goes with it.
         let offered = (project.clone(), snapshot);
         self.toasts.retain(|toast| {
@@ -604,7 +596,6 @@ impl Store {
                 ..Overlay::rewriting_main()
             },
             move |path| {
-                let ran = ran.lock().get(&of).cloned().unwrap_or_default();
                 let newer_than = newer_than.map(|at| (at, ran.as_slice()));
                 Ok(backend::history::undo_snapshot(path, snapshot, newer_than))
             },
@@ -714,11 +705,8 @@ impl Store {
         );
     }
 
-    /// Fetch `project`'s remotes, unless a fetch already waits or runs.
+    /// Fetch `project`'s remotes.
     pub fn fetch(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
-        if self.fetching(project) {
-            return;
-        }
         let fetched = project.clone();
         self.run(
             project,
@@ -750,18 +738,13 @@ impl Store {
 
     /// Rebase the project's branches onto its target's latest commits. It stops short of
     /// leaving anything conflicted that isn't now, with a card that offers to update anyway,
-    /// unless that's what was `accepted` there. Unless `accepted`, it does nothing while
-    /// another update waits or runs; the card shows before its update has finished, so an
-    /// accepted one goes ahead regardless.
+    /// unless that's what was `accepted` there.
     pub fn update_from_target(
         &mut self,
         project: &ProjectId,
         accepted: Option<backend::upstream::UpdateConflicts>,
         cx: &mut Context<Self>,
     ) {
-        if accepted.is_none() && self.updating(project) {
-            return;
-        }
         let updated = project.clone();
         self.run(
             project,
@@ -820,12 +803,7 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let name = short_ref(&ref_name).into_owned();
-        // A second pull of the branch while one waits would find nothing left to bring in.
-        // An accepted one comes from the card that shows once its pull has finished.
         let kind = OpKind::Pull(ref_name.clone());
-        if accepted.is_none() && self.pending(project, Some(&kind), true) {
-            return;
-        }
         let pulled = project.clone();
         self.run(
             project,
@@ -1298,7 +1276,6 @@ impl Store {
             label: label.clone(),
             overlay,
             started: now,
-            asked: now,
             phase: Phase::Working,
             deferred: Reload::default(),
             moved,
@@ -1443,7 +1420,7 @@ impl Store {
                     let kind = &running.overlay.kind;
                     (undo, asked) = (
                         matches!(kind, OpKind::Undo(_) | OpKind::Redo(_)),
-                        running.asked,
+                        running.started,
                     );
                     running.phase = Phase::Finished;
                     moved = running.moved.take();
@@ -1481,12 +1458,7 @@ impl Store {
                         // A push or fetch writes only what the remote has, which undo leaves,
                         // so what an agent did while it ran still counts.
                         if !remote_only {
-                            store
-                                .ran
-                                .lock()
-                                .entry(project.clone())
-                                .or_default()
-                                .push(ran);
+                            store.ran.entry(project.clone()).or_default().push(ran);
                         }
                         // Set here rather than at the start, so a load the watcher started
                         // mid-operation can't use it up; not after a failure, which made
@@ -1689,7 +1661,7 @@ impl Store {
         &'a self,
         project: &'a ProjectId,
     ) -> impl Iterator<Item = (&'a Overlay, Instant)> {
-        self.running_in(project).map(|r| (&r.overlay, r.asked))
+        self.running_in(project).map(|r| (&r.overlay, r.started))
     }
 
     pub fn hides_commit(&self, project: &ProjectId, key: &str) -> bool {
