@@ -725,29 +725,20 @@ pub fn delete_branch_and_commits(path: &Path, ref_name: &FullName, tip: CommitId
             short_ref(ref_name)
         );
     }
-    // It names the branch, so undo brings it back.
-    let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
-        &ctx,
-        SnapshotDetails::new(OperationKind::DeleteBranch)
-            .with_trailers([Trailer::Name(ref_name.to_string())]),
-        &[ref_name.as_ref()],
-        perm.read_permission(),
-        DryRun::No,
-    );
-    let (rolled_back, _) = but_transaction::with_transaction_with_perm_only(
+    but_transaction::with_transaction_with_perm(
         &mut ctx,
         &mut meta,
         perm,
+        SnapshotDetails::new(OperationKind::DeleteBranch)
+            .with_trailers([Trailer::Name(ref_name.to_string())]),
+        &[ref_name.as_ref()],
         DryRun::No,
         |mut tx| {
             tx.discard_commits(commits)?;
             tx.remove_reference(ref_name.as_ref())?;
-            Ok(but_transaction::Commit(()))
+            Ok(())
         },
     )?;
-    if !rolled_back && let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(&ctx, perm)) {
-        tracing::warn!(?err, "couldn't record the deleted branch for undo");
-    }
     let (mut repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     // The transaction leaves Git's `branch.<name>` section, as its upstream and description,
     // which a branch made later under its name would take on.
@@ -971,19 +962,12 @@ pub fn move_to_new_branch(path: &Path, commits: &[CommitId]) -> Result<(Rewritte
     let name = branch_ref(&but_api::branch::branch_canned_name(&ctx)?)?;
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let perm = guard.write_permission();
-    // It lists the new branch, so undo deletes it again.
-    let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
-        &ctx,
-        SnapshotDetails::new(OperationKind::MoveCommit),
-        &[name.as_ref()],
-        perm.read_permission(),
-        DryRun::No,
-    );
-    let (rolled_back, workspace) = but_transaction::with_transaction_with_perm_only(
+    let workspace = but_transaction::with_transaction_with_perm(
         &mut ctx,
         &mut meta,
-        perm,
+        guard.write_permission(),
+        SnapshotDetails::new(OperationKind::MoveCommit),
+        &[name.as_ref()],
         DryRun::No,
         |mut tx| {
             tx.create_reference(name.as_ref(), None, None)?;
@@ -994,10 +978,6 @@ pub fn move_to_new_branch(path: &Path, commits: &[CommitId]) -> Result<(Rewritte
             )
         },
     )?;
-    // The commits moved already, so a snapshot that can't be recorded only logs.
-    if !rolled_back && let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(&ctx, perm)) {
-        tracing::warn!(?err, "couldn't record the new branch for undo");
-    }
     Ok((rewritten(&workspace), name))
 }
 

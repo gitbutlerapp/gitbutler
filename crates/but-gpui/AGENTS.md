@@ -180,8 +180,9 @@ unseen is what a laptop's battery pays for.
 - The oplog records the workspace and the main checkout only. Undo and History restore refuse
   anything that touched a linked worktree, in older snapshots too. Commits in a linked worktree
   skip hooks, which would run against the main checkout's files. Branches move only within their
-  own side. An operation that makes a branch records its snapshot with
-  `from_details_with_refs_and_perm` naming it, or undo leaves the branch behind.
+  own side. An operation that makes or deletes a branch names it in its snapshot (a
+  transaction's `snapshot_refs`, else `from_details_with_refs_and_perm`), or undo leaves the
+  branch behind or doesn't bring it back.
 - ⌘Z follows the user, not the selection. `Store::undo_steps` takes the oplog entry of every
   operation the app runs, in any project, ordered by when it was asked for, and ⌘Z undoes the
   newest only while it's still its project's undo target, so it never takes back an agent's or
