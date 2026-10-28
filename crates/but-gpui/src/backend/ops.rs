@@ -1088,12 +1088,33 @@ impl Intent for Reword {
 }
 
 /// Drop `commits` and everything they changed.
-pub fn discard_commits(path: &Path, commits: &[CommitId]) -> Result<()> {
-    let mut ctx = open(path)?;
-    refuse_buried_merges(&*ctx.repo.get()?, commits)?;
-    let commits = commits.iter().map(|id| id.0).collect();
-    but_api::commit::discard_commit::commit_discard(&mut ctx, commits, DryRun::No)?;
-    Ok(())
+pub struct DiscardCommits {
+    pub commits: Arc<[CommitId]>,
+}
+
+impl Intent for DiscardCommits {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
+        let Self { commits } = self;
+        run.locked(|ctx, perm| {
+            refuse_buried_merges(&*ctx.repo.get()?, &commits)?;
+            let mut meta = ctx.meta()?;
+            but_transaction::with_transaction_with_perm(
+                ctx,
+                &mut meta,
+                perm,
+                SnapshotDetails::new(OperationKind::DiscardCommit)
+                    .with_count(commits.len())
+                    .with_trailers(commits.iter().map(|id| Trailer::Sha(id.0))),
+                &[],
+                DryRun::No,
+                |mut tx| tx.discard_commits(commits.iter().map(|id| id.0)),
+            )?;
+            Ok(())
+        })
+    }
 }
 
 /// Why a discard didn't throw away all it was asked to, when that isn't an error.

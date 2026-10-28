@@ -836,7 +836,7 @@ impl AppView {
             project,
             "Discard commit",
             overlay,
-            backend::Legacy::new(move |path| backend::discard_commits(path, &ids)),
+            backend::DiscardCommits { commits: ids },
             move |store, (), cx| store.snack_after(undoable, done, cx),
         );
         if undoable {
