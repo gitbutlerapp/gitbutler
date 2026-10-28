@@ -443,14 +443,19 @@ impl Store {
             project.clone(),
             Instant::now(),
         );
-        self.run(
+        self.apply(
             &project,
             "Redo",
             Overlay {
                 kind: OpKind::Redo(undo),
                 ..Overlay::rewriting_main()
             },
-            move |path| backend::history::redo_snapshot(path, undo, &kept, &ran, accepted),
+            backend::history::Redo {
+                undo,
+                kept,
+                spans: ran,
+                accepted,
+            },
             move |store, redone, cx| {
                 let operation = match redone {
                     Some(Undone::Done(operation)) => operation,

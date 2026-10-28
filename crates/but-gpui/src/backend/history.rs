@@ -558,36 +558,40 @@ impl Intent for TakeSnapshot {
 /// isn't one of `kept`, or `None` when something changed the project since. It stops for
 /// uncommitted files written since the undo outside `spans`, as undo does, or since `accepted`
 /// when the user said to redo anyway then.
-pub fn redo_snapshot(
-    path: &Path,
-    undo: SnapshotId,
-    kept: &HashSet<SnapshotId>,
-    spans: &[(i64, i64)],
-    accepted: Option<i64>,
-) -> Result<Option<Undone>> {
-    let mut ctx = open(path)?;
-    super::ops::refuse_unfinished(&*ctx.repo.get()?, false)?;
-    let target = oplog::get_redo_target_snapshot(&ctx)?;
-    let Some(target) = target.filter(|target| target.commit_id == undo.0) else {
-        return Ok(None);
-    };
-    if kept.contains(&SnapshotId(target.commit_id)) {
-        bail!(UNRECORDED);
+pub struct Redo {
+    pub undo: SnapshotId,
+    pub kept: HashSet<SnapshotId>,
+    pub spans: Vec<(i64, i64)>,
+    pub accepted: Option<i64>,
+}
+
+impl Intent for Redo {
+    type Done = Option<Undone>;
+
+    fn apply(self, run: &mut Run) -> Result<Option<Undone>> {
+        run.locked(|ctx, perm| {
+            super::ops::refuse_unfinished(&*ctx.repo.get()?, false)?;
+            let target = oplog::get_redo_target_snapshot(ctx)?;
+            let Some(target) = target.filter(|target| target.commit_id == self.undo.0) else {
+                return Ok(None);
+            };
+            if self.kept.contains(&SnapshotId(target.commit_id)) {
+                bail!(UNRECORDED);
+            }
+            let since = (target.created_at.seconds * 1000).max(self.accepted.unwrap_or_default());
+            // As for undo, what a terminal did since would be taken back too.
+            if moved_since(ctx, since, &self.spans)?.is_some() {
+                return Ok(None);
+            }
+            let newer = written_since(ctx, since, &self.spans)?;
+            if !newer.is_empty() {
+                return Ok(Some(Undone::Newer(newer)));
+            }
+            let kind = RestoreKind::RestoreFromSnapshotViaRedo;
+            restore_titled(ctx, perm, target.commit_id, target.details, kind)
+                .map(|op| Some(Undone::Done(op)))
+        })
     }
-    let since = (target.created_at.seconds * 1000).max(accepted.unwrap_or_default());
-    // As for undo, what a terminal did since would be taken back too.
-    if moved_since(&ctx, since, spans)?.is_some() {
-        return Ok(None);
-    }
-    let newer = written_since(&ctx, since, spans)?;
-    if !newer.is_empty() {
-        return Ok(Some(Undone::Newer(newer)));
-    }
-    let kind = RestoreKind::RestoreFromSnapshotViaRedo;
-    let mut guard = ctx.exclusive_worktree_access();
-    let perm = guard.write_permission();
-    restore_titled(&mut ctx, perm, target.commit_id, target.details, kind)
-        .map(|op| Some(Undone::Done(op)))
 }
 
 /// The newest entry in the project's operation log.

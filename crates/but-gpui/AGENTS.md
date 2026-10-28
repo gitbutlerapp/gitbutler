@@ -196,7 +196,7 @@ unseen is what a laptop's battery pays for.
   as the app never logs "commit"; with no log of HEAD, as
   with core.logAllRefUpdates off, undo refuses rather than guess): a move
   Git logged then is `Undone::Behind`, a file written then `Undone::Newer` for ⌘Z to ask
-  about; `redo_snapshot` checks the same from the undo's own snapshot. A step stays on the
+  about; `history::Redo` checks the same, under its lock, from the undo's own snapshot. A step stays on the
   list unless it was undone, `Undone::Behind` says something came after it, or
   `Undone::Already` says something else undid it.
 - An operation's `done` runs with `Store::staying` set when the user has moved to another

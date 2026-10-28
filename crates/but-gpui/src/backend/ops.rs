@@ -1806,6 +1806,20 @@ pub(super) mod tests {
         crate::backend::apply(path, undo)?.0
     }
 
+    fn redo(
+        path: &Path,
+        undo: crate::backend::SnapshotId,
+        spans: &[(i64, i64)],
+    ) -> Result<Option<crate::backend::history::Undone>> {
+        let redo = crate::backend::history::Redo {
+            undo,
+            kept: Default::default(),
+            spans: spans.to_vec(),
+            accepted: None,
+        };
+        Ok(crate::backend::apply(path, redo)?.0)
+    }
+
     /// "line 1" to "line 20", a line each.
     fn twenty_lines() -> Vec<String> {
         (1..=20).map(|n| format!("line {n}\n")).collect()
@@ -3263,7 +3277,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     #[test]
     fn undo_and_redo_stop_for_what_came_after_and_for_files_written_since() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{TakeSnapshot, Undone, redo_snapshot};
+            use crate::backend::history::{TakeSnapshot, Undone};
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
@@ -3312,7 +3326,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             std::fs::write(path.join("file"), "three\n").unwrap();
             let spans = [(undoing, undone)];
             assert!(
-                matches!(redo_snapshot(path, undo, &Default::default(), &spans, None).unwrap(),
+                matches!(redo(path, undo, &spans).unwrap(),
                     Some(Undone::Newer(files)) if files == ["file"]),
                 "a file written after the undo is one redoing it puts back"
             );
@@ -3322,7 +3336,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     #[test]
     fn undo_and_redo_stop_for_a_commit_made_outside_the_app_since() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{Undone, redo_snapshot};
+            use crate::backend::history::Undone;
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
@@ -3356,9 +3370,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let undo = newest_entry(path);
             commit_later(2, "more terminal work");
             assert!(
-                redo_snapshot(path, undo, &Default::default(), &[], None)
-                    .unwrap()
-                    .is_none(),
+                redo(path, undo, &[]).unwrap().is_none(),
                 "redoing would take that one out too"
             );
         })
