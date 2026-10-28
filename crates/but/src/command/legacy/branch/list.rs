@@ -23,14 +23,10 @@ pub fn list(
     check_merge: bool,
     show_empty: bool,
 ) -> Result<(), anyhow::Error> {
-    let listing_filter = if local {
-        Some(BranchListingFilter {
-            local: Some(true),
-            ..Default::default()
-        })
-    } else {
-        None
-    };
+    let listing_filter = Some(BranchListingFilter {
+        local: local.then_some(true),
+        applied: Some(false),
+    });
 
     let branch_review_map = if review {
         crate::command::legacy::forge::review::get_review_map(
@@ -97,16 +93,6 @@ pub fn list(
     }
 
     let mut branches = but_api::legacy::virtual_branches::list_branches(ctx, listing_filter)?;
-
-    // Filter out branches that are part of applied stacks
-    let applied_stack_ids: Vec<_> = applied_stacks.iter().filter_map(|s| s.id).collect();
-    branches.retain(|branch| {
-        if let Some(stack_ref) = &branch.stack {
-            !applied_stack_ids.contains(&stack_ref.id)
-        } else {
-            true
-        }
-    });
 
     // Apply local/remote filtering
     if local {

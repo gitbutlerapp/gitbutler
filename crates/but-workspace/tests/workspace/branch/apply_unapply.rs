@@ -4966,6 +4966,55 @@ Outcome {
     Ok(())
 }
 
+#[test]
+fn apply_from_single_branch_mode_does_not_report_already_applied_head_branch() -> anyhow::Result<()>
+{
+    let (_tmp, repo, mut meta, mut db) = named_writable_scenario("ws-ref-ws-commit-two-stacks")?;
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
+
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/A"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options_with(WorkspaceDisposition::PreventUnnecessaryWorkspaceReferences),
+    )?;
+    // HEAD is on B directly, while metadata still records B as applied.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 09d8e52 (A) A
+| * c813d8d (HEAD -> B) B
+|/  
+* 85efbe4 (origin/main, main) M
+
+"#]]
+    );
+
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        out.workspace.into_owned(),
+        &repo,
+        &mut meta,
+        apply_options(),
+    )?;
+    // B was applied before, so only A is reported.
+    snapbox::assert_data_eq!(
+        out.to_debug(),
+        snapbox::str![[r#"
+Outcome {
+    workspace_changed: true,
+    workspace_ref_created: true,
+    applied_branches: "[refs/heads/A]",
+}
+
+"#]]
+    );
+    Ok(())
+}
+
 fn apply_options() -> but_workspace::branch::apply::Options {
     but_workspace::branch::apply::Options {
         new_stack_id: Some(stack_id_for_name),
