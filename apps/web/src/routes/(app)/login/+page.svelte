@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { page } from "$app/state";
 	import RedirectIfLoggedIn from "$lib/auth/RedirectIfLoggedIn.svelte";
+	import { safeCallback } from "$lib/auth/callback";
 	import OAuthButtons from "$lib/components/auth/OAuthButtons.svelte";
 	import FullscreenIllustrationCard from "$lib/components/service/FullscreenIllustrationCard.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -42,6 +44,9 @@
 
 	const isFormValid = $derived(!!email && !!password && (!email || emailTextbox?.isValid()));
 
+	// Where to send the reader once they are signed in, when whoever sent them here said.
+	const callback = $derived(safeCallback(page.url.searchParams.get("callback"), page.url.href));
+
 	const loginService = inject(LOGIN_SERVICE);
 	const routesService = inject(WEB_ROUTES_SERVICE);
 
@@ -66,6 +71,7 @@
 			const token = response.data;
 			const url = new URL("successful_login", env.PUBLIC_APP_HOST);
 			url.searchParams.set("access_token", encodeURIComponent(token));
+			if (callback) url.searchParams.set("callback", callback);
 			const path = url.toString();
 			window.location.href = path;
 		}
@@ -102,7 +108,7 @@
 	<title>GitButler | Login</title>
 </svelte:head>
 
-<RedirectIfLoggedIn />
+<RedirectIfLoggedIn {callback} />
 
 <FullscreenIllustrationCard>
 	{#snippet title()}
@@ -166,7 +172,7 @@
 
 		<Button style="pop" disabled={!isFormValid} onclick={handleSubmit}>Log in</Button>
 
-		<OAuthButtons mode="signup" />
+		<OAuthButtons mode="signup" {callback} />
 	</div>
 
 	{#snippet footer()}

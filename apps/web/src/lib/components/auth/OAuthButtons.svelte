@@ -4,9 +4,11 @@
 
 	interface Props {
 		mode?: "signin" | "signup";
+		/** Where to send the reader once signed in, kept by the API across the provider. */
+		callback?: string;
 	}
 
-	let { mode = "signin" }: Props = $props();
+	let { mode = "signin", callback }: Props = $props();
 
 	const actionText = untrack(() => mode) === "signup" ? "Sign up" : "Sign in";
 </script>
@@ -41,7 +43,7 @@
 
 			<a
 				class="oauth-btn"
-				href={`${env.PUBLIC_APP_HOST}${config.endpoint}?origin=${encodeURIComponent(window.location.href)}`}
+				href={`${env.PUBLIC_APP_HOST}${config.endpoint}?origin=${encodeURIComponent(window.location.href)}${callback ? `&callback=${encodeURIComponent(callback)}` : ""}`}
 				title={config.title}
 				aria-label={config.title}
 			>
