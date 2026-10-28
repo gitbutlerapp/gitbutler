@@ -934,14 +934,19 @@ impl Detail {
         let padded = div().w_full().px(dp(12.));
         match (row, file_diff) {
             (DiffRow::File(file), Some(file_diff)) => {
-                let whole = self.whole_button(ix, file, file_diff, entity.clone());
-                let drawn = self.drawing_button(ix, file, file_diff, entity.clone());
+                // Not while one of its hunks is, so one mark says what the keys act on.
+                let current = self.cursor == Cursor::on_file(file);
+                // Its controls on the solid ground it then has, as a list's selected row's.
+                let on = current && solid;
+                let whole = self.whole_button(ix, file, file_diff, on, entity.clone());
+                let drawn = self.drawing_button(ix, file, file_diff, on, entity.clone());
                 let toggle = entity.clone();
                 // What right-clicking the header offers, behind a ⋯ as well.
                 let cut = self.diff_cut(file, None, cx);
                 let open = menu(cut, file_diff, None, entity.clone());
                 let more = icon_button(("file-more", ix), Icon::Kebab)
                     .small()
+                    .inverted(on)
                     .on_click({
                         let open = open.clone();
                         move |event, _, cx| open(event.position(), cx)
@@ -955,7 +960,10 @@ impl Detail {
                             .max_w(dp(220.))
                             .truncate()
                             .text_size(dp(11.))
-                            .text_color(theme.text_3)
+                            .text_color(match on {
+                                true => theme.muted_on_solid(),
+                                false => theme.text_3,
+                            })
                             .child(commit_title(&commit.title)),
                     )
                 });
@@ -974,8 +982,7 @@ impl Detail {
                     theme,
                     HeaderDecor {
                         trailing: Some(trailing.into_any_element()),
-                        // Not while one of its hunks is, so one mark says what the keys act on.
-                        current: self.cursor == Cursor::on_file(file),
+                        current,
                         solid,
                         folded: last,
                         ..Default::default()
@@ -1197,11 +1204,13 @@ impl Detail {
     }
 
     /// On a changed file's header: show the unchanged lines around its hunks, or hide them.
+    /// `on` the header's solid selection.
     fn whole_button(
         &self,
         ix: usize,
         file: usize,
         file_diff: &FileDiff,
+        on: bool,
         entity: WeakEntity<Detail>,
     ) -> Option<AnyElement> {
         let has_context = matches!(file_diff.body, DiffBody::Hunks { .. })
@@ -1222,6 +1231,7 @@ impl Detail {
         Some(
             icon_button(("whole", ix), icon)
                 .small()
+                .inverted(on)
                 .tooltip(tip)
                 .on_click(move |_, _, cx| {
                     entity
@@ -1232,12 +1242,14 @@ impl Detail {
         )
     }
 
-    /// On an SVG's header: show its lines rather than its drawing, or the drawing again.
+    /// On an SVG's header: show its lines rather than its drawing, or the drawing again. `on`
+    /// the header's solid selection.
     fn drawing_button(
         &self,
         ix: usize,
         file: usize,
         file_diff: &FileDiff,
+        on: bool,
         entity: WeakEntity<Detail>,
     ) -> Option<AnyElement> {
         file_diff.drawing.as_ref()?;
@@ -1245,6 +1257,7 @@ impl Detail {
         Some(
             icon_button(("drawing", ix), Icon::TextCode)
                 .small()
+                .inverted(on)
                 .selected(text)
                 .tooltip(if text {
                     "Show the drawing"
@@ -1528,18 +1541,23 @@ fn press_off(
     }
 }
 
-/// What marks a row of the changes of the hunk the cursor is on: the cursor's tab, inside the
-/// card's border past the row's padding, as a header's is, over the bar a changed line has
-/// there, and while the diff has the keys, a tint over the card, grey as a list's selection
-/// is so removals stay red. The rows' tabs and tints meet in one; the tint rounds with the
-/// card's `last` row.
+/// What marks a row of the changes of the hunk the cursor is on: a tab inside the card's
+/// border past the row's padding, over the bar a changed line has there, faint while the keys
+/// are elsewhere, and while the diff has them, a tint over the card, grey as a list's
+/// selection is so removals stay red. The rows' tabs and tints meet in one; the tint rounds
+/// with the card's `last` row.
 fn hunk_marks(solid: bool, last: bool, theme: &Theme) -> impl Iterator<Item = gpui::Div> {
-    let tab = (diff::cursor_tab(solid, theme))
-        .left(dp(12.))
-        .ml(fixed(1.))
+    let tab = div()
+        .absolute()
         .top_0()
         .bottom_0()
-        .rounded_none();
+        .left(dp(12.))
+        .ml(fixed(1.))
+        .w(dp(4.))
+        .bg(match solid {
+            true => theme.fill_gray,
+            false => theme.fill_gray.opacity(0.25),
+        });
     let tint = div()
         .absolute()
         .top_0()
