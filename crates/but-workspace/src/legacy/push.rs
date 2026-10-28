@@ -41,7 +41,6 @@ pub fn workspace_branch_and_ancestors_push(
     push_opts: Vec<but_gerrit::PushFlag>,
 ) -> Result<PushResult> {
     let graph = &ws.graph;
-    let to_push = branch_and_ancestor_segments(ref_info, branch);
     if pushes_workspace_commit(repo, ref_info, branch) {
         anyhow::bail!(
             "{} is built on GitButler's workspace commit, which merges every applied branch, so \
@@ -74,22 +73,8 @@ pub fn workspace_branch_and_ancestors_push(
         branch_sha_updates: vec![],
     };
 
-    for (sidx, segment) in to_push.iter().rev() {
-        let Some(ref_name) = segment
-            .ref_name()
-            .filter(|name| name.category() == Some(Category::LocalBranch))
-        else {
-            continue;
-        };
-
-        if matches!(
-            segment.push_status,
-            PushStatus::Integrated | PushStatus::NothingToPush
-        ) {
-            continue;
-        }
-
-        let Some(local_sha) = graph.tip_skip_empty(*sidx) else {
+    for (segment, ref_name) in branches_to_push(ref_info, branch).rev() {
+        let Some(local_sha) = graph.tip_skip_empty(segment.id) else {
             continue;
         };
 
@@ -194,9 +179,8 @@ fn track_pushed_branch(
 /// order, crossing into the lane a worktree rests on.
 ///
 /// This is the logical scope of a push operation: every commit the push transfers sits in one of
-/// these segments, whether or not a branch names it. Only segments named by a local branch are
-/// pushed as refs, and [`workspace_branch_and_ancestors_push()`] skips those already current on
-/// the remote.
+/// these segments, whether or not a branch names it. [`branches_to_push()`] picks the ones pushed
+/// as refs.
 pub fn branch_and_ancestor_segments<'a>(
     ref_info: &'a RefInfo,
     branch: &gix::refs::FullNameRef,
@@ -207,6 +191,32 @@ pub fn branch_and_ancestor_segments<'a>(
         .flat_map(|(lane, index)| lane.segments_from(index))
         .map(|segment| (segment.id, segment))
         .collect()
+}
+
+/// The segments of [`branch_and_ancestor_segments()`] that pushing `branch` pushes, in top-to-base
+/// order, each with the local branch naming it: those not integrated and not already current on
+/// the remote.
+///
+/// [`workspace_branch_and_ancestors_push()`] pushes exactly these, so a preview of the push must
+/// list them too.
+pub fn branches_to_push<'a>(
+    ref_info: &'a RefInfo,
+    branch: &gix::refs::FullNameRef,
+) -> impl DoubleEndedIterator<Item = (&'a Segment, &'a gix::refs::FullNameRef)> + use<'a> {
+    branch_and_ancestor_segments(ref_info, branch)
+        .into_values()
+        .filter(|segment| {
+            !matches!(
+                segment.push_status,
+                PushStatus::Integrated | PushStatus::NothingToPush
+            )
+        })
+        .filter_map(|segment| {
+            let ref_name = segment
+                .ref_name()
+                .filter(|name| name.category() == Some(Category::LocalBranch))?;
+            Some((segment, ref_name))
+        })
 }
 
 /// Whether pushing `branch` sends GitButler's workspace commit, which merges every applied

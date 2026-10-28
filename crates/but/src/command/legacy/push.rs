@@ -193,10 +193,12 @@ fn handle_dry_run(
         // Resolve branch name
         let id_map = IdMap::legacy_new_from_context(ctx)?;
         let branch_name = resolve_branch_name(ctx, &id_map, branch_id)?;
+        let branch = gix::refs::Category::LocalBranch.to_full_name(branch_name.as_str())?;
+        let to_push = crate::legacy::workspace::branches_to_push(ctx, branch.as_ref())?;
 
         branches_with_info
             .into_iter()
-            .filter(|(name, count, _)| name == &branch_name && *count > 0)
+            .filter(|(name, _, _)| to_push.contains(name))
             .collect()
     } else {
         // Show all branches with unpushed commits
