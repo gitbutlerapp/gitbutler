@@ -13,7 +13,6 @@ pub mod edit;
 mod highlight;
 pub mod history;
 pub mod images;
-pub mod keymap;
 pub mod logs;
 mod markers;
 pub mod mesh;

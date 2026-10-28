@@ -256,7 +256,6 @@ pub struct SettingsView {
     /// The credentials test running: a new test or another project's settings drop it, so only
     /// its own results show.
     _credentials_test: Task<()>,
-    recording: Option<keyboard::Recording>,
     app_links: Vec<Link>,
     /// Each listed project's row, and its Project page's link while it's shown.
     project_focus: HashMap<ProjectId, FocusHandle>,
@@ -305,7 +304,6 @@ impl SettingsView {
             }),
             // The target and the project's name show what the store has.
             cx.observe(&store, |_, _, cx| cx.notify()),
-            cx.observe_global::<crate::keymap::UserKeymap>(|_, cx| cx.notify()),
             cx.subscribe_in(&name, window, |this, _, event, window, cx| match event {
                 InputEvent::Submit => this.save_name(cx),
                 InputEvent::Changed => cx.notify(),
@@ -338,7 +336,6 @@ impl SettingsView {
             signing: None,
             credentials: None,
             _credentials_test: Task::ready(()),
-            recording: None,
             app_links: (AppPage::shown())
                 .map(|page| Link::new(Page::App(page), cx))
                 .collect(),

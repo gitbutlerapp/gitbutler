@@ -2,7 +2,8 @@
 //! that matter right now.
 
 use gpui::{
-    Action, AnyElement, Context, Div, Focusable as _, Hsla, Role, Stateful, Window, div, prelude::*,
+    Action, AnyElement, Context, Div, Focusable as _, Hsla, Role, SharedString, Stateful, Window,
+    div, prelude::*,
 };
 
 use crate::app::{
@@ -15,7 +16,8 @@ use crate::pr::{CreatePullRequest, create_offer};
 use crate::state::{Cut, ProjectId, SLOW, Section, Selection};
 use crate::theme::Theme;
 use crate::ui::{
-    Icon, STATUS_BAR_HEIGHT, Tooltip, ago, dot, dp, duration, h_flex, plural, shortcut, small_icon,
+    Icon, STATUS_BAR_HEIGHT, Tooltip, ago, dot, dp, duration, h_flex, plural, shortcut,
+    shortcut_here, small_icon,
 };
 
 impl AppView {
@@ -52,13 +54,17 @@ impl AppView {
             };
             format!("{doing}…{elapsed}{others}")
         });
-        let state: AnyElement = if let Some(working) = working {
-            h_flex()
+        // What the bar's left says, and the keys that go with it, which go on its right with the
+        // others.
+        let (state, state_keys): (AnyElement, Vec<(SharedString, &str)>) = if let Some(working) =
+            working
+        {
+            let working = h_flex()
                 .gap(dp(6.))
                 .text_color(theme.pop)
                 .child(small_icon(Icon::Clock).text_color(theme.pop))
-                .child(working)
-                .into_any_element()
+                .child(working);
+            (working.into_any_element(), Vec::new())
         } else if let Some(cut) = &store.cut {
             // On another commit, a commit goes above it, below it with ⇧, or one that's cut
             // rather than copied into it with ⌥.
@@ -78,26 +84,22 @@ impl AppView {
                 )
                 .collect(),
             };
-            // Its keys apart from what's cut, as far as the hints on the right are apart.
-            h_flex()
-                .gap(dp(10.))
+            // What's cut gives way first, then its verb is cut short.
+            let what = h_flex()
+                .gap(dp(6.))
                 .min_w_0()
-                // What's cut gives way first, then its verb is cut short, never drawn under
-                // the keys.
-                .child(
-                    h_flex()
-                        .gap(dp(6.))
-                        .min_w_0()
-                        .overflow_hidden()
-                        .child(div().flex_none().text_color(theme.pop).child(cut.verb()))
-                        .child(div().min_w_0().truncate().child(cut.describe(store))),
-                )
-                // Not while typing, where ⌘V pastes text and esc leaves the field.
-                .when(!typing, |el| {
-                    (el.children(paste.iter().map(|(keys, label)| hint(keys, label, &theme))))
-                        .child(hint("esc", "cancel", &theme))
-                })
-                .into_any_element()
+                .overflow_hidden()
+                .child(div().flex_none().text_color(theme.pop).child(cut.verb()))
+                .child(div().min_w_0().truncate().child(cut.describe(store)));
+            // Not while typing, where ⌘V pastes text and esc leaves the field.
+            let keys = match typing {
+                true => Vec::new(),
+                false => paste
+                    .into_iter()
+                    .chain([("esc".into(), "cancel")])
+                    .collect(),
+            };
+            (what.into_any_element(), keys)
         } else if let Some((n, what, how)) = [
             // Only the navigator's highlight shows them otherwise.
             (
@@ -118,29 +120,24 @@ impl AppView {
         .into_iter()
         .find(|(n, ..)| *n > 0)
         {
-            h_flex()
-                .gap(dp(10.))
+            let selected = h_flex()
+                .gap(dp(6.))
                 .child(
-                    h_flex()
-                        .gap(dp(6.))
-                        .child(
-                            div()
-                                .text_color(theme.pop)
-                                .child(format!("{} selected", crate::ui::plural(n, what))),
-                        )
-                        .children(how),
+                    div()
+                        .text_color(theme.pop)
+                        .child(format!("{} selected", crate::ui::plural(n, what))),
                 )
-                .child(hint("esc", "cancel", &theme))
-                .into_any_element()
+                .children(how);
+            (selected.into_any_element(), vec![("esc".into(), "cancel")])
         } else if let Some(place) = (detail.is_focused(window, cx) && !detail.diff_hidden(cx))
             .then(|| detail.cursor_place(cx))
             .flatten()
         {
             // In the diff or the lists beside it, where the cursor is, as an editor's status
             // bar says the line.
-            div().child(place).into_any_element()
+            (div().child(place).into_any_element(), Vec::new())
         } else {
-            self.render_notes(&theme, cx)
+            (self.render_notes(&theme, cx), Vec::new())
         };
         // How fresh the selected project's view of its remote is, which a click fetches again.
         // A target with no upstream stands where it is whatever a fetch brings. Not on the
@@ -167,7 +164,8 @@ impl AppView {
             store.selection,
             Some(Selection::Uncommitted(_) | Selection::Worktree(..))
         );
-        let hints: Vec<(&dyn Action, &str)> = if uncommitted && detail.composing() {
+        let composing = uncommitted && detail.composing();
+        let hints: Vec<(&dyn Action, &str)> = if composing {
             let amend = detail
                 .can_amend(cx)
                 .then_some((&AmendTop as &dyn Action, "amend"));
@@ -266,15 +264,14 @@ impl AppView {
             .bg(theme.bg_2)
             .text_size(dp(12.))
             .text_color(theme.text_2)
-            .child(div().flex_1().min_w_0().truncate().child(state))
-            .children(hints.into_iter().filter_map(|(action, label)| {
-                let keys = shortcut(action, cx)?;
-                Some(hint(&keys, label, &theme))
-            }))
+            // What's going on on the left, how fresh the remote is first, as it's there whatever
+            // else is, and the keys on the right, Commands last so it stays put.
             .when_some(fetched, |el, (failed, said)| {
                 let tip = if failed { "Fetch again" } else { "Fetch" };
                 el.child(
                     clickable("fetched", &said, &theme)
+                        // Pulled left by its hover's padding, so its words start at the bar's edge.
+                        .ml(dp(-6.))
                         .text_color(if failed { theme.warn } else { theme.text_3 })
                         .when(failed, |el| {
                             el.child(small_icon(Icon::Warning).text_color(theme.warn))
@@ -284,13 +281,26 @@ impl AppView {
                         .on_click(|_, window, cx| window.dispatch_action(Box::new(Fetch), cx)),
                 )
             })
+            .child(div().flex_1().min_w_0().truncate().child(state))
+            // What's cut or picked first, as the hints line up from the right.
+            .children((state_keys.iter()).map(|(keys, label)| hint(keys, label, &theme)))
+            .children(hints.into_iter().filter_map(|(action, label)| {
+                // The keys that run it where the keys go now, so one a keymap binds only
+                // elsewhere, as the TUI's next file in the file list, isn't offered in the diff.
+                // While committing, ⌘↩ commits from the message box too, through its own key.
+                let keys = match (composing, window.focused(cx)) {
+                    (false, Some(_)) => shortcut_here(action, window, cx),
+                    _ => shortcut(action, cx),
+                }?;
+                Some(hint(&keys, label, &theme))
+            }))
             .child(
                 clickable("open-commands", "Commands", &theme)
-                    .child(hint(
-                        shortcut(&CommandPalette, cx).as_deref().unwrap_or("⌘K"),
-                        "Commands",
-                        &theme,
-                    ))
+                    // A keymap can leave the palette without a key, as the TUI's does so far.
+                    .child(match shortcut(&CommandPalette, cx) {
+                        Some(keys) => hint(&keys, "Commands", &theme),
+                        None => div().child("Commands"),
+                    })
                     .on_click(|_, window, cx| window.dispatch_action(Box::new(CommandPalette), cx)),
             )
             .children(self.rebuild.is_some().then(|| self.build_button(cx)))

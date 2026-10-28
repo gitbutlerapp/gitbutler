@@ -9,9 +9,9 @@ use std::time::Instant;
 
 use gpui::{
     Action, AnyElement, App, Bounds, ClickEvent, Context, CursorStyle, DispatchPhase, Div, Entity,
-    MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Point, ScrollHandle, SharedString,
-    Stateful, Subscription, WeakEntity, Window, anchored, canvas, deferred, div, list, point,
-    prelude::*,
+    ListOffset, MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Point, ScrollHandle,
+    SharedString, Stateful, Subscription, WeakEntity, Window, anchored, canvas, deferred, div,
+    list, point, prelude::*,
 };
 
 use super::blame::Blamed;
@@ -95,6 +95,7 @@ impl Render for DiffPane {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx).clone();
         let drawn = self.detail.update(cx, |detail, cx| {
+            detail.follow_glide(window, cx);
             detail.follow_scroll(cx);
             detail.follow_drag(window, cx);
             let top = detail.list.logical_scroll_top();
@@ -113,13 +114,18 @@ impl Render for DiffPane {
             self.top = top;
             window.request_animation_frame();
         }
-        // A press in the diff, as on its scrollbar, hands the cursor back to its scroll;
-        // what was pressed may then place it again.
+        // A press in the diff, as on its scrollbar, hands the cursor back to its scroll, and
+        // stops a glide, which would move the diff from under the pointer; what was pressed
+        // may then place the cursor again.
         let unpin = self.detail.clone();
         v_flex()
             .size_full()
             .capture_any_mouse_down(move |_, _, cx| {
-                (unpin.update(cx, |detail, _| detail.pinned = false)).ok();
+                (unpin.update(cx, |detail, _| {
+                    detail.pinned = false;
+                    detail.glide = None;
+                }))
+                .ok();
             })
             // Keys go to the detail, as when the diff was drawn inside it.
             .on_mouse_down(MouseButton::Left, move |_, window, cx| {
@@ -368,6 +374,44 @@ impl Detail {
             (area.origin.x, area.size.width) = (text.left(), text.size.width);
         }
         Some((area, sideways))
+    }
+
+    /// Scroll a step of the way to where the keys sent the diff, as each frame draws, easing
+    /// out so it gets there quickly and settles, then exactly onto its row. Within a row it goes
+    /// by the row's height, a line's while it isn't drawn yet. Going down, it stops once the
+    /// diff's end is on screen, as no row can come higher.
+    pub(super) fn follow_glide(&mut self, window: &mut Window, cx: &App) {
+        let Some(glide) = &self.glide else {
+            return;
+        };
+        let view = self.list.viewport_bounds();
+        let last = (self.diff.as_ref()).map_or(0, |diff| diff.rows.len().saturating_sub(1));
+        let end_shown =
+            (self.list.bounds_for_item(last)).is_some_and(|item| item.bottom() <= view.bottom());
+        let done = (glide.started.elapsed().as_secs_f32() / super::GLIDE.as_secs_f32()).min(1.);
+        let to = glide.to as f32;
+        if to > glide.from && end_shown {
+            self.glide = None;
+            return;
+        }
+        if done >= 1. {
+            self.list.scroll_to(ListOffset {
+                item_ix: glide.to,
+                offset_in_item: Pixels::ZERO,
+            });
+            self.glide = None;
+            return;
+        }
+        let eased = 1. - (1. - done).powi(3);
+        let at = glide.from + (to - glide.from) * eased;
+        let row = at.floor() as usize;
+        let tall = (self.list.bounds_for_item(row))
+            .map_or_else(|| super::code_line(cx), |item| item.size.height);
+        self.list.scroll_to(ListOffset {
+            item_ix: row,
+            offset_in_item: tall * (at - row as f32),
+        });
+        window.request_animation_frame();
     }
 
     /// While a drag selects text past the edge of the diff, scroll toward the pointer, the

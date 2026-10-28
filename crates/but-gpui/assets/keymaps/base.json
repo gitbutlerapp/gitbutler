@@ -1,0 +1,35 @@
+// The keys every keymap shares: the ones macOS gives every app, which mean the same whatever
+// the keymap, as ⌘Q always quits. Everything the app gives a meaning to, even on a key as
+// standard as ⌘C, is the keymap's. `secondary` is cmd on macOS and ctrl elsewhere; a section with
+// "os" binds only there. These bind after the keymap's own, which can't take them.
+[
+  {
+    "bindings": {
+      "secondary-q": "app::Quit",
+      // As a browser zooms, and Lite and the desktop app with it.
+      "secondary-=": "app::ZoomIn",
+      "secondary-+": "app::ZoomIn",
+      "secondary--": "app::ZoomOut",
+      "secondary-0": "app::ActualSize",
+      "secondary-,": "settings::OpenSettings"
+    }
+  },
+  // A prompt's or a modal's fields and buttons, from its text fields too, as in a macOS sheet.
+  {
+    "context": "Dialog",
+    "bindings": {
+      "tab": "app::FocusNextPane",
+      "shift-tab": "app::FocusPreviousPane"
+    }
+  },
+  // Elsewhere the window's buttons do these.
+  {
+    "os": ["macos"],
+    "bindings": {
+      "cmd-w": "app::CloseWindow",
+      "cmd-h": "app::Hide",
+      "alt-cmd-h": "app::HideOthers",
+      "cmd-m": "app::Minimize"
+    }
+  }
+]

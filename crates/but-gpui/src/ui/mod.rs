@@ -1191,21 +1191,6 @@ pub fn bindings_of(action: &dyn gpui::Action, cx: &App) -> Vec<(SharedString, Op
         .collect()
 }
 
-/// `keys`, as a keymap writes them (`secondary-shift-p`), as [`shortcut`] writes keys.
-pub fn keys_written(keys: &str, cx: &App) -> Option<SharedString> {
-    let mapper = cx.keyboard_mapper();
-    let binding = (gpui::KeyBinding::load(
-        keys,
-        Box::new(gpui::NoAction),
-        None,
-        false,
-        None,
-        mapper.as_ref(),
-    ))
-    .ok()?;
-    Some(keys_of(&binding))
-}
-
 /// The keys that run `action` where the keys go now, unless the same keys do something else
 /// there, as [`shortcut`] writes them.
 pub fn shortcut_here(action: &dyn gpui::Action, window: &Window, cx: &App) -> Option<SharedString> {
