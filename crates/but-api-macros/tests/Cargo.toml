@@ -23,7 +23,6 @@ serde.workspace = true
 serde_json.workspace = true
 gix.workspace = true
 futures.workspace = true
-bstr = { workspace = true, features = ["serde"] }
 tauri = { version = "^2.10.3", features = ["unstable"], optional = true, default-features = false }
 
 [dev-dependencies]

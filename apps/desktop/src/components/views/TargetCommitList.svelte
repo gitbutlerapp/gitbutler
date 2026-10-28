@@ -8,12 +8,12 @@
 	import { createCommitSelection } from "$lib/selection/key";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
-	import type { UpstreamCommit } from "@gitbutler/but-sdk";
 	import { inject } from "@gitbutler/core/context";
 
 	import VirtualList from "@gitbutler/ui-svelte/components/VirtualList.svelte";
 	import { getColorFromBranchType } from "@gitbutler/ui-svelte/utils/getColorFromBranchType";
 	import { onMount } from "svelte";
+	import type { UpstreamCommit } from "@gitbutler/but-sdk";
 
 	type Props = {
 		projectId: string;

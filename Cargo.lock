@@ -1379,7 +1379,6 @@ name = "but-api-macros-tests"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "bstr",
  "but-api-macros",
  "but-ctx",
  "but-error",
