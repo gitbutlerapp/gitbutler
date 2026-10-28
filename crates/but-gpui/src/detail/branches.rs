@@ -22,7 +22,7 @@ use super::panes::{
 use super::upstream::commit_author;
 
 use crate::app::AppView;
-use crate::backend::branches::{self, ApplyOutcome, OtherBranch};
+use crate::backend::branches::{self, ApplyBranch, ApplyOutcome, OtherBranch};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, FullName, ReviewState};
 use crate::edits::CherryPick;
@@ -1077,11 +1077,14 @@ impl Detail {
             }),
         );
         let apply = move |store: &mut Store, cx: &mut Context<Store>| {
-            store.run(
+            store.apply(
                 &project,
                 Label::new("Apply", format!("Apply {name}")),
                 Overlay::default(),
-                move |path| branches::apply(path, &ref_name, freeing.as_ref().map(AsRef::as_ref)),
+                ApplyBranch {
+                    branch: ref_name,
+                    freeing,
+                },
                 move |store, applied, cx| match &applied {
                     ApplyOutcome::Applied(local) | ApplyOutcome::AlreadyApplied(local) => {
                         store.select(Some(Selection::Branch(selected, Some(local.clone()))), cx);

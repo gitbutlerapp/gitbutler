@@ -3451,7 +3451,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     #[test]
     fn applying_a_branch_an_archived_worktree_has_lets_the_worktree_go_of_it() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::branches::{ApplyOutcome, apply};
+            use crate::backend::branches::{ApplyBranch, ApplyOutcome};
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
@@ -3460,7 +3460,11 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let theirs = head(&linked);
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
 
-            let applied = apply(path, &full("refs/heads/agent"), Some("agent".into())).unwrap();
+            let agent = ApplyBranch {
+                branch: full("refs/heads/agent"),
+                freeing: Some("agent".into()),
+            };
+            let (applied, _) = crate::backend::apply(path, agent).unwrap();
             assert!(
                 matches!(applied, ApplyOutcome::Applied(_)),
                 "the branch is applied"
@@ -3481,7 +3485,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     #[test]
     fn a_branch_that_doesnt_apply_goes_back_to_its_archived_worktree() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::branches::{ApplyOutcome, apply};
+            use crate::backend::branches::{ApplyBranch, ApplyOutcome};
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
@@ -3493,7 +3497,11 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             git(path, &["commit", "-q", "-am", "ours"]);
             crate::backend::apply(path, name_at(head(path), "ours")).unwrap();
 
-            let applied = apply(path, &full("refs/heads/agent"), Some("agent".into())).unwrap();
+            let agent = ApplyBranch {
+                branch: full("refs/heads/agent"),
+                freeing: Some("agent".into()),
+            };
+            let (applied, _) = crate::backend::apply(path, agent).unwrap();
             assert!(
                 matches!(applied, ApplyOutcome::Conflicts(_)),
                 "both change the same line"
