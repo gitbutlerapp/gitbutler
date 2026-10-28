@@ -1220,7 +1220,9 @@ pub(super) mod tests {
     use std::process::Command;
 
     use super::*;
-    use crate::backend::{Checkout, DiffBody, DiffSource, FileDiff, Kept, Workspace, load_diff};
+    use crate::backend::{
+        Checkout, DiffBody, DiffSource, FileDiff, Kept, Workspace, load_diff, now_millis,
+    };
 
     /// A linked worktree of `path` on a new branch `agent`, in a directory of its own. Dropping
     /// the directory deletes the worktree.
@@ -2385,29 +2387,25 @@ pub(super) mod tests {
     fn the_apps_own_operations_dont_stop_undoing_the_one_before() {
         but_testsupport::isolated_app_data_dir(|| {
             use crate::backend::history::{Undone, undo_snapshot};
-            let now = || {
-                let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
-                since.unwrap().as_millis() as i64
-            };
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
-            let started = now();
+            let started = now_millis();
             name_branch(path, head(path), "named").unwrap();
-            let (named, done) = (newest_entry(path), now());
+            let (named, done) = (newest_entry(path), now_millis());
             let mut ran = vec![(started, done)];
             // Git logs moves in whole seconds.
             std::thread::sleep(std::time::Duration::from_millis(1100));
-            let started = now();
+            let started = now_millis();
             insert_empty_commit(path, &Destination::Branch(full("refs/heads/named"))).unwrap();
-            ran.push((started, now()));
+            ran.push((started, now_millis()));
             let inserted = newest_entry(path);
-            let started = now();
+            let started = now_millis();
             let undone = undo_snapshot(path, inserted, Some((ran[1].1, &ran))).unwrap();
             assert!(matches!(undone, Undone::Done(_)), "the newest undoes");
-            ran.push((started, now()));
+            ran.push((started, now_millis()));
             assert!(
                 matches!(
                     undo_snapshot(path, named, Some((done, &ran))).unwrap(),
@@ -2422,18 +2420,14 @@ pub(super) mod tests {
     fn undo_stops_for_a_commit_in_the_second_of_a_later_operation() {
         but_testsupport::isolated_app_data_dir(|| {
             use crate::backend::history::{Undone, undo_snapshot};
-            let now = || {
-                let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
-                since.unwrap().as_millis() as i64
-            };
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
-            let started = now();
+            let started = now_millis();
             name_branch(path, head(path), "named").unwrap();
-            let done = now();
+            let done = now_millis();
             let named = newest_entry(path);
             // Another of the app's operations ran a minute on, and an agent committed in its
             // second.
@@ -2459,18 +2453,14 @@ pub(super) mod tests {
     fn undo_refuses_without_a_log_of_head() {
         but_testsupport::isolated_app_data_dir(|| {
             use crate::backend::history::undo_snapshot;
-            let now = || {
-                let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
-                since.unwrap().as_millis() as i64
-            };
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
-            let started = now();
+            let started = now_millis();
             name_branch(path, head(path), "named").unwrap();
-            let done = now();
+            let done = now_millis();
             let named = newest_entry(path);
             // As core.logAllRefUpdates off leaves it.
             std::fs::remove_file(path.join(".git/logs/HEAD")).unwrap();
@@ -2486,20 +2476,16 @@ pub(super) mod tests {
     fn undo_and_redo_stop_for_what_came_after_and_for_files_written_since() {
         but_testsupport::isolated_app_data_dir(|| {
             use crate::backend::history::{Undone, redo_snapshot, take_snapshot, undo_snapshot};
-            let now = || {
-                let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
-                since.unwrap().as_millis() as i64
-            };
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
             let top = head(path);
-            let started = now();
+            let started = now_millis();
             name_branch(path, top, "named").unwrap();
             let named = newest_entry(path);
-            let done = now();
+            let done = now_millis();
             // Later than it, as an edit in an editor is.
             std::thread::sleep(std::time::Duration::from_millis(5));
             std::fs::write(path.join("file"), "two\n").unwrap();
@@ -2517,7 +2503,7 @@ pub(super) mod tests {
             );
             assert!(
                 matches!(
-                    undo_snapshot(path, snapshot, Some((done, &[(done, now())]))).unwrap(),
+                    undo_snapshot(path, snapshot, Some((done, &[(done, now_millis())]))).unwrap(),
                     Undone::Done(_)
                 ),
                 "written while the app's own undo ran, the file isn't the user's change"
@@ -2529,12 +2515,12 @@ pub(super) mod tests {
                 ),
                 "undone once, as by another client, it isn't taken for behind what came before"
             );
-            let undoing = now();
+            let undoing = now_millis();
             assert!(
                 matches!(undo_snapshot(path, named, None).unwrap(), Undone::Done(_)),
                 "what came before it is still there to undo"
             );
-            let undone = now();
+            let undone = now_millis();
 
             let undo = newest_entry(path);
             std::thread::sleep(std::time::Duration::from_millis(5));
@@ -2559,8 +2545,7 @@ pub(super) mod tests {
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
             name_branch(path, head(path), "named").unwrap();
             let named = newest_entry(path);
-            let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
-            let done = since.unwrap().as_millis() as i64;
+            let done = now_millis();
             // In a terminal, `minutes` on.
             let commit_later = |minutes: i64, title: &str| {
                 let later = format!("{} +0000", done / 1000 + minutes * 60);
@@ -2603,14 +2588,10 @@ pub(super) mod tests {
             target_origin_main(path);
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
-            let now = || {
-                let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
-                since.unwrap().as_millis() as i64
-            };
-            let started = now();
+            let started = now_millis();
             name_branch(path, head(path), "named").unwrap();
             let named = newest_entry(path);
-            let done = now();
+            let done = now_millis();
             // A minute on, a commit put on the branch from a terminal, as `update-ref` or a
             // cherry-pick in another checkout does, with HEAD left where it is.
             let later = format!("{} +0000", done / 1000 + 60);
@@ -2640,19 +2621,15 @@ pub(super) mod tests {
     fn undo_goes_on_past_what_git_logged_that_a_restore_leaves() {
         but_testsupport::isolated_app_data_dir(|| {
             use crate::backend::history::{Undone, undo_snapshot};
-            let now = || {
-                let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
-                since.unwrap().as_millis() as i64
-            };
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
             let (_outside, linked) = agent_worktree(path);
-            let started = now();
+            let started = now_millis();
             name_branch(path, head(path), "named").unwrap();
-            let done = now();
+            let done = now_millis();
             let named = newest_entry(path);
             // A minute on, in a terminal.
             let later = format!("{} +0000", done / 1000 + 60);
@@ -2683,18 +2660,14 @@ pub(super) mod tests {
     fn undo_stops_for_a_commit_in_the_same_second_it_was_asked_after() {
         but_testsupport::isolated_app_data_dir(|| {
             use crate::backend::history::{Undone, undo_snapshot};
-            let now = || {
-                let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
-                since.unwrap().as_millis() as i64
-            };
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
-            let started = now();
+            let started = now_millis();
             name_branch(path, head(path), "named").unwrap();
-            let done = now();
+            let done = now_millis();
             let named = newest_entry(path);
             // "Undo anyway" a minute on, and a terminal commit 10ms after, which Git logs at
             // the start of that second.
