@@ -5,7 +5,7 @@ use std::ops::Range;
 
 use gpui::{
     Action, AnyElement, ClickEvent, Context, Entity, FocusHandle, Focusable as _, ScrollHandle,
-    SharedString, Subscription, Window, actions, div, prelude::*,
+    SharedString, Subscription, Window, actions, div, prelude::*, relative,
 };
 
 use crate::app::{
@@ -14,7 +14,7 @@ use crate::app::{
     PasteHere, Push, Quit, Redo, RenameSelection, StartCommit, ToggleFileTree, ToggleNavigator,
     UncommitSelection, Undo, UpdateFromTarget, ZoomIn, ZoomOut,
 };
-use crate::backend::{Checkout, Worktree, short_ref};
+use crate::backend::{Branch, Checkout, Commit, Workspace, Worktree, short_ref};
 use crate::detail::{
     DiscardFile, DiscardHunk, FoldFile, NextFile, NextHunk, PreviousFile, PreviousHunk, UnfoldFile,
 };
@@ -23,17 +23,26 @@ use crate::edits::{
     NewBranchBelow, NewBranchHere, RewrapMessage, SquashAll, UnapplyStack, Unstack,
 };
 use crate::overlays::backdrop;
-use crate::state::{Notice, Selection, Store, snack};
+use crate::state::{Notice, ProjectEntry, Selection, Store, snack};
 use crate::theme::Theme;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    POPOVER_RADIUS, dp, h_flex, keycap, list_row, matched, muted, popover, shortcut_here, v_flex,
+    Icon, POPOVER_RADIUS, commit_title, dp, h_flex, keycap, list_row, matched, muted, popover,
+    shortcut_here, small_icon, v_flex,
 };
 
 actions!(
     palette,
-    [PaletteUp, PaletteDown, GoToBranch, ShowActions, CopyMore]
+    [
+        PaletteUp,
+        PaletteDown,
+        // Its name while it went only to branches, which keymaps written then still bind.
+        #[action(deprecated_aliases = ["palette::GoToBranch"])]
+        GoTo,
+        ShowActions,
+        CopyMore
+    ]
 );
 
 /// Every command, in the order they're listed before anything is typed.
@@ -111,7 +120,7 @@ pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Close window", &crate::app::CloseWindow),
     ("Open keymap file", &crate::keymap::OpenKeymap),
     ("Open default keymap", &crate::keymap::OpenDefaultKeymap),
-    ("Go to branch", &GoToBranch),
+    ("Go to anything", &GoTo),
     ("Find in diff", &crate::detail::FindInDiff),
     ("Filter files", &crate::detail::FilterFiles),
     ("Wrap long lines", &crate::detail::ToggleWrap),
@@ -158,6 +167,8 @@ type Run = Box<dyn FnOnce(&mut AppView, &str, &mut Window, &mut Context<AppView>
 /// A row of the palette: what it's called, what it says at its end (keys, or a detail like
 /// the project a branch is in), and what picking it does.
 pub struct Choice {
+    /// What kind of thing it is, before its label, where one list holds several kinds.
+    icon: Option<Icon>,
     label: SharedString,
     key: Option<SharedString>,
     detail: Option<SharedString>,
@@ -166,6 +177,10 @@ pub struct Choice {
     /// It makes something named as typed: any text but another choice's label finds it,
     /// shown after its label.
     names: bool,
+    /// A commit's full id, which finds it typed from its start, as `git log` and Copy commit ID
+    /// give it, though its detail shows less. Never by letters scattered through it, which
+    /// would find every commit.
+    id: Option<SharedString>,
     run: Run,
 }
 
@@ -175,11 +190,13 @@ impl Choice {
         run: impl FnOnce(&mut AppView, &mut Window, &mut Context<AppView>) + 'static,
     ) -> Self {
         Self {
+            icon: None,
             label: label.into(),
             key: None,
             detail: None,
             risky: false,
             names: false,
+            id: None,
             run: Box::new(move |this, _, window, cx| run(this, window, cx)),
         }
     }
@@ -200,6 +217,20 @@ impl Choice {
         self.detail = Some(detail.into());
         self
     }
+
+    /// Its detail as `parts` joined with " · ", or none when there are none.
+    fn details<'a>(self, parts: impl IntoIterator<Item = &'a str>) -> Choice {
+        let parts: Vec<&str> = parts.into_iter().collect();
+        match parts.is_empty() {
+            true => self,
+            false => self.detail(parts.join(" · ")),
+        }
+    }
+
+    fn icon(mut self, icon: Icon) -> Choice {
+        self.icon = Some(icon);
+        self
+    }
 }
 
 /// The command palette, or another list to pick from the same way.
@@ -218,6 +249,9 @@ pub struct Palette {
     pub acting_on: (Option<Selection>, Vec<crate::backend::CommitId>),
     /// Its choices hold what they act on, as a menu's do, rather than read it when run.
     pub holds_ids: bool,
+    /// Go to anything's: wider, for commit and pull request titles, with each detail cut short
+    /// before its label is.
+    wide: bool,
     _subscription: Subscription,
 }
 
@@ -278,6 +312,38 @@ fn score(label: &str, query: &str) -> Option<(i32, Vec<Range<usize>>)> {
         }
     }
     Some((0, found))
+}
+
+/// How well `query` matches a row's `detail`, as [`score`] says, but a commit's `id` only typed
+/// from its start, the short one the detail starts with too: letters scattered through it would
+/// find nearly every commit. The rest of the detail, its branch and project, matches as ever.
+fn detail_score(detail: &str, id: Option<&str>, query: &str) -> Option<(i32, Vec<Range<usize>>)> {
+    let Some(id) = id else {
+        return score(detail, query);
+    };
+    if !query.is_empty() && id_starts(id, query) {
+        return Some((2000, shared_start(detail, query).into_iter().collect()));
+    }
+    let shown = shared_start(detail, id).map_or(0, |shown| shown.end);
+    let (score, found) = score(detail.get(shown..)?, query)?;
+    let found = (found.into_iter())
+        .map(|range| range.start + shown..range.end + shown)
+        .collect();
+    Some((score, found))
+}
+
+/// Whether `query` is `id` typed from its start, in either case.
+fn id_starts(id: &str, query: &str) -> bool {
+    (id.get(..query.len())).is_some_and(|start| start.eq_ignore_ascii_case(query))
+}
+
+/// The bytes at the start of `text` that `query` starts with too, in either case: a commit's
+/// short id at the start of its detail when its full id was typed.
+fn shared_start(text: &str, query: &str) -> Option<Range<usize>> {
+    (text.char_indices().zip(query.chars()))
+        .take_while(|((_, shown), typed)| shown.eq_ignore_ascii_case(typed))
+        .last()
+        .map(|((at, shown), _)| 0..at + shown.len_utf8())
 }
 
 /// What ⇧Y offers to copy from `selection`, labelled, the first what y copies.
@@ -353,6 +419,93 @@ fn worktree_copies(worktree: &Worktree) -> [(&'static str, String); 2] {
     ]
 }
 
+/// Go to anything's row for a project, watched or not.
+fn project_choice(entry: &ProjectEntry) -> Choice {
+    let id = entry.id.clone();
+    let gone = format!("{} was removed meanwhile", entry.project.name);
+    let choice = Choice::new(entry.project.name.clone(), move |this, window, cx| {
+        if this.store.read(cx).project(&id).is_none() {
+            return snack(&this.store, gone, cx);
+        }
+        this.select(Selection::Project(id), window, cx)
+    });
+    choice.icon(Icon::Repo)
+}
+
+/// Go to anything's row for a linked worktree, the branch it has checked out beside it.
+fn worktree_choice(entry: &ProjectEntry, worktree: &Worktree, several: bool) -> Choice {
+    let (id, name) = (entry.id.clone(), worktree.name.clone());
+    let gone = format!("{name} was archived or deleted meanwhile");
+    let branch = worktree.branch.as_ref().map(short_ref);
+    let project = several.then_some(entry.project.name.as_str());
+    let choice = Choice::new(name.to_string(), move |this, window, cx| {
+        if (this.store.read(cx).workspace(&id))
+            .is_none_or(|ws| ws.find_worktree(name.as_ref()).is_none())
+        {
+            return snack(&this.store, gone, cx);
+        }
+        this.select(Selection::Worktree(id, name), window, cx)
+    });
+    let details = branch.as_deref().into_iter().chain(project);
+    choice.icon(Icon::FolderCopy).details(details)
+}
+
+/// Go to anything's row for a branch, as the navigator names it: a pull request by its title,
+/// its branch's name beside it, where typing either finds it.
+fn branch_choice(store: &Store, entry: &ProjectEntry, branch: &Branch, several: bool) -> Choice {
+    let (id, ref_name) = (entry.id.clone(), branch.ref_name.clone());
+    let label = store.label_of(&entry.id, branch).to_owned();
+    let name = (label != branch.name).then_some(branch.name.as_str());
+    let project = several.then_some(entry.project.name.as_str());
+    let gone = format!(
+        "{} was renamed or left the workspace meanwhile",
+        branch.name
+    );
+    let choice = Choice::new(label, move |this, window, cx| {
+        // Gone since the picker opened, as an agent renamed it.
+        if (this.store.read(cx).workspace(&id))
+            .is_none_or(|ws| ws.find_branch(ref_name.as_ref()).is_none())
+        {
+            return snack(&this.store, gone, cx);
+        }
+        this.select(Selection::Branch(id, ref_name), window, cx)
+    });
+    choice
+        .icon(Icon::Branch)
+        .details(name.into_iter().chain(project))
+}
+
+/// Go to anything's row for a commit, by its title, its short id and branch beside it, where
+/// typing either finds it.
+fn commit_choice(
+    store: &Store,
+    entry: &ProjectEntry,
+    branch: &Branch,
+    commit: &Commit,
+    several: bool,
+) -> Choice {
+    let (id, key) = (entry.id.clone(), commit.key.clone());
+    let short = commit.id.0.to_hex_with_len(7).to_string();
+    let gone = format!("Commit {short} left the workspace meanwhile");
+    let project = several.then_some(entry.project.name.as_str());
+    let details = [short.as_str(), store.label_of(&entry.id, branch)];
+    let choice = Choice::new(commit_title(&commit.title), move |this, window, cx| {
+        // By its change ID, so one an agent reworded or rebased since the picker opened opens.
+        let now = (this.store.read(cx).workspace(&id))
+            .and_then(|ws| ws.commits().find(|commit| commit.key == key))
+            .map(|commit| commit.id);
+        match now {
+            Some(commit) => this.select(Selection::Commit(id, commit), window, cx),
+            None => snack(&this.store, gone, cx),
+        }
+    });
+    let choice = (choice.icon(Icon::Commit)).details(details.into_iter().chain(project));
+    Choice {
+        id: Some(commit.id.0.to_string().into()),
+        ..choice
+    }
+}
+
 impl AppView {
     pub fn open_palette(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         // Commands the app handles everywhere, as the Help menu's, count too.
@@ -417,51 +570,41 @@ impl AppView {
         self.open_picker(None, "Search commands", "Run", choices, window, cx);
     }
 
-    /// Pick a branch of any loaded project by name or pull request title, and select it.
-    pub fn go_to_branch(&mut self, _: &GoToBranch, window: &mut Window, cx: &mut Context<Self>) {
+    /// Pick a project, or a linked worktree, branch or commit of a loaded one, by name, pull
+    /// request title or commit id, and select it.
+    pub fn go_to(&mut self, _: &GoTo, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
-        // Only expanded projects: a collapsed one's rows aren't drawn, or kept current.
-        let open = || {
-            (store.projects.iter())
-                .filter(|entry| entry.expanded)
-                .filter_map(|entry| Some((entry, entry.workspace.as_ref()?)))
-        };
-        let several = open().count() > 1;
-        let choices = open()
-            .flat_map(|(entry, workspace)| {
-                workspace
-                    .all_branches()
-                    .filter(|branch| branch.ref_name.is_some())
-                    .map(move |branch| {
-                        let (id, ref_name) = (entry.id.clone(), branch.ref_name.clone());
-                        // As the navigator names it: a pull request by its title, its
-                        // branch's name beside it, where typing either finds it.
-                        let label = store.label_of(&entry.id, branch).to_owned();
-                        let name = (label != branch.name).then_some(branch.name.as_str());
-                        let project = several.then_some(entry.project.name.as_str());
-                        let detail = name.into_iter().chain(project).collect::<Vec<_>>();
-                        let detail = detail.join(" · ");
-                        let gone = format!(
-                            "{} was renamed or left the workspace meanwhile",
-                            branch.name
-                        );
-                        let choice = Choice::new(label, move |this, window, cx| {
-                            // Gone since the picker opened, as an agent renamed it.
-                            if (this.store.read(cx).workspace(&id))
-                                .is_none_or(|ws| ws.find_branch(ref_name.as_ref()).is_none())
-                            {
-                                return snack(&this.store, gone, cx);
-                            }
-                            this.select(Selection::Branch(id, ref_name), window, cx)
-                        });
-                        match detail.is_empty() {
-                            true => choice,
-                            false => choice.detail(detail),
-                        }
-                    })
-            })
+        // Only expanded projects' insides: a collapsed one's rows aren't drawn, or kept current.
+        let open: Vec<(&ProjectEntry, &Workspace)> = (store.projects.iter())
+            .filter(|entry| entry.expanded)
+            .filter_map(|entry| Some((entry, entry.workspace.as_ref()?)))
             .collect();
-        self.open_picker(None, "Go to branch", "Go", choices, window, cx);
+        let several = open.len() > 1;
+        // Broadest first, which an equal match keeps: a project before a branch of its name.
+        let projects = store.projects.iter().map(project_choice);
+        let worktrees = open.iter().flat_map(|(entry, workspace)| {
+            (workspace.worktrees.iter())
+                .filter(move |wt| !store.hides_worktree(&entry.id, wt.name.as_ref()))
+                .map(move |wt| worktree_choice(entry, wt, several))
+        });
+        let branches = open.iter().flat_map(|(entry, workspace)| {
+            (workspace.all_branches())
+                .filter(|branch| branch.ref_name.is_some())
+                .map(move |branch| branch_choice(store, entry, branch, several))
+        });
+        let commits = open.iter().flat_map(|(entry, workspace)| {
+            workspace.all_branches().flat_map(move |branch| {
+                (branch.commits.iter())
+                    .filter(move |commit| !store.hides_commit(&entry.id, &commit.key))
+                    .map(move |commit| commit_choice(store, entry, branch, commit, several))
+            })
+        });
+        let choices = (projects.chain(worktrees).chain(branches).chain(commits)).collect();
+        let placeholder = "Go to a project, worktree, branch or commit";
+        self.open_picker(None, placeholder, "Go", choices, window, cx);
+        if let Some(palette) = &mut self.palette {
+            palette.wide = true;
+        }
     }
 
     /// What right-clicking the selected row offers, to pick from with the keys.
@@ -484,11 +627,13 @@ impl AppView {
         let items = items.unwrap_or_else(|| self.navigator.read(cx).menu_items(&selection, cx));
         let choices: Vec<Choice> = (items.into_iter())
             .map(|item| Choice {
+                icon: None,
                 label: item.label,
                 key: item.key,
                 detail: item.detail,
                 risky: item.danger,
                 names: false,
+                id: None,
                 run: Box::new(move |this, _, window, cx| (item.handler)(this, window, cx)),
             })
             .collect();
@@ -567,6 +712,7 @@ impl AppView {
             restore_focus,
             acting_on: self.store.read(cx).acting_on(),
             holds_ids: false,
+            wide: false,
             _subscription: subscription,
         });
         cx.notify();
@@ -605,7 +751,7 @@ impl AppView {
                 let label = score(&choice.label, &query);
                 // The label first on a tie, as a branch named as another's detail says.
                 let detail = (choice.detail.as_ref())
-                    .and_then(|detail| score(detail, &query))
+                    .and_then(|detail| detail_score(detail, choice.id.as_deref(), &query))
                     .map(|(score, found)| (score - 1, found))
                     .filter(|(score, _)| label.as_ref().is_none_or(|(label, _)| score > label));
                 let (score, found) = match (label, detail) {
@@ -695,9 +841,15 @@ impl AppView {
                 };
                 let el = list_row(("command", ix), selected, &theme)
                     .gap(dp(12.))
+                    .when_some(choice.icon, |el, icon| {
+                        el.child(small_icon(icon).text_color(theme.text_2))
+                    })
                     .child(div().flex_1().truncate().child(matched(label, found.label)))
                     .when_some(choice.detail.clone(), |el, detail| {
-                        el.child(muted(matched(detail, found.detail), &theme))
+                        let detail = muted(matched(detail, found.detail), &theme);
+                        el.child(detail.when(palette.wide, |detail| {
+                            detail.min_w_0().max_w(relative(0.4)).truncate()
+                        }))
                     })
                     .when_some(choice.key.clone(), |el, key| el.child(keycap(&key, &theme)))
                     .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
@@ -712,7 +864,11 @@ impl AppView {
             .key_context("Palette")
             .on_action(cx.listener(Self::palette_up))
             .on_action(cx.listener(Self::palette_down))
-            .w(dp(520.))
+            .w(dp(match palette.wide {
+                true => 720.,
+                false => 520.,
+            }))
+            .max_w(relative(0.92))
             .max_h(dp(440.))
             .overflow_hidden()
             .child(
@@ -790,7 +946,88 @@ impl AppView {
 
 #[cfg(test)]
 mod tests {
-    use super::{COMMANDS, RISKY, score};
+    use super::{COMMANDS, RISKY, detail_score, id_starts, score, shared_start};
+
+    const ID: &str = "3a79334c0b5e8f1d2a6b7c9e0f1a2b3c4d5e6f70";
+
+    #[test]
+    fn a_short_id_is_not_found_by_letters_scattered_through_it() {
+        assert_eq!(
+            detail_score("3a79334 · cache", Some(ID), "373"),
+            None,
+            "3, 7 and 3 appear in order in 3a79334, but that isn't an id typed"
+        );
+    }
+
+    #[test]
+    fn a_short_id_is_found_typed_from_its_start() {
+        let detail = "3a79334 · cache";
+        let found = detail_score(detail, Some(ID), "3a79").map(|(_, found)| found);
+        assert_eq!(
+            found.map(|found| found
+                .into_iter()
+                .map(|range| &detail[range])
+                .collect::<Vec<_>>()),
+            Some(Vec::from(["3a79"])),
+            "the start of the id shown is underlined"
+        );
+    }
+
+    #[test]
+    fn a_commit_is_still_found_by_its_branch() {
+        let detail = "3a79334 · cart-checkout";
+        let found = detail_score(detail, Some(ID), "checkout").map(|(_, found)| found);
+        assert_eq!(
+            found.map(|found| found
+                .into_iter()
+                .map(|range| &detail[range])
+                .collect::<Vec<_>>()),
+            Some(Vec::from(["checkout"])),
+            "past the id, the detail matches as any other, its underline where it was found"
+        );
+    }
+
+    #[test]
+    fn a_full_id_is_found_typed_from_its_start_in_either_case() {
+        assert!(
+            id_starts(ID, "3A79334C0B"),
+            "an id as `git log` abbreviates it, or pasted upper case, finds its commit"
+        );
+    }
+
+    #[test]
+    fn a_full_id_is_found_whole() {
+        assert!(
+            id_starts(ID, ID),
+            "Copy commit ID's whole id finds its commit"
+        );
+    }
+
+    #[test]
+    fn a_full_id_is_not_found_by_letters_inside_it() {
+        assert!(
+            !id_starts(ID, "c0b5e8"),
+            "only from its start, or most queries would find some commit"
+        );
+    }
+
+    #[test]
+    fn a_full_id_is_not_found_by_more_than_it_has() {
+        assert!(
+            !id_starts(ID, &format!("{ID}0")),
+            "a longer id is another commit's"
+        );
+    }
+
+    #[test]
+    fn typing_a_full_id_underlines_the_short_one_shown() {
+        let detail = "3a79334 · cart-checkout";
+        assert_eq!(
+            shared_start(detail, "3a79334c0b5e").map(|range| &detail[range]),
+            Some("3a79334"),
+            "the short id the detail starts with is why the row is there"
+        );
+    }
 
     #[test]
     fn a_name_typed_in_full_comes_before_the_longer_ones_it_starts() {

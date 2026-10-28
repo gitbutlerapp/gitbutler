@@ -541,7 +541,7 @@ mod tests {
         let shown = [
             ("app::CommandPalette", "secondary-k"),
             ("app::ToggleNavigator", "secondary-b"),
-            ("palette::GoToBranch", "secondary-p"),
+            ("palette::GoTo", "secondary-p"),
             ("navigator::RenameSelection", "r"),
             ("navigator::CopySelection", "secondary-c"),
             ("palette::CopyMore", "secondary-shift-c"),
@@ -557,6 +557,17 @@ mod tests {
                 assert_eq!(last, Some(keys), "{os}: {action} shows its last binding");
             }
         }
+    }
+
+    #[test]
+    fn go_to_branch_still_names_go_to() {
+        let go_to = gpui::generate_list_of_all_registered_actions()
+            .find(|action| action.name == "palette::GoTo")
+            .expect("go to anything is an action");
+        assert!(
+            go_to.deprecated_aliases.contains(&"palette::GoToBranch"),
+            "a keymap.json written while it went only to branches still binds it"
+        );
     }
 
     #[test]
