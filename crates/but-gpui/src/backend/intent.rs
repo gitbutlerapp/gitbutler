@@ -54,7 +54,9 @@ impl Run {
     }
 
     /// Run `work` under GitButler's lock, noting what it recorded and moved under it too, so
-    /// an agent's `but` can't land in between and be counted as this operation's.
+    /// an agent's `but` can't land in between and be counted as this operation's. Below it go
+    /// only `Transaction` methods and `_with_perm` calls: one that takes the lock again
+    /// deadlocks, and panics under `BUT_WS_LOCK_DEBUG=1` in debug builds.
     pub(super) fn locked<R>(
         &mut self,
         work: impl FnOnce(&mut but_ctx::Context, &mut RepoExclusive) -> Result<R>,
@@ -63,7 +65,8 @@ impl Run {
         self.watched(|ctx| work(ctx, guard.write_permission()))
     }
 
-    /// Run `work`, which takes GitButler's lock itself, noting what it recorded and moved.
+    /// Run `work`, noting what it recorded and moved. Called directly only for work that takes
+    /// GitButler's lock itself, which would deadlock under [`Self::locked`].
     pub(super) fn watched<R>(
         &mut self,
         work: impl FnOnce(&mut but_ctx::Context) -> Result<R>,
