@@ -6,6 +6,7 @@
 //! own, as does [`super::conflicts::resolve_markers`] through [`record_undo`].
 
 use gitbutler_repo::hooks::{ErrorData, HookResult, MessageHookResult};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -17,9 +18,12 @@ use but_core::tree::create_tree::RejectionReason;
 use but_core::{DiffSpec, DryRun};
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_workspace::commit::ChangeSource;
 
 use super::intent::Run;
-use super::{ChangeKind, CommitId, FullName, Intent, Selected, checkout, open, short_ref, stamp};
+use super::{
+    ChangeKind, Checkout, CommitId, FullName, Intent, Selected, checkout, open, short_ref, stamp,
+};
 
 /// Where a commit or a set of changes lands.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -335,21 +339,21 @@ fn refuse_unborn(ctx: &but_ctx::Context) -> Result<()> {
     Ok(())
 }
 
-/// Make the repository's first commit, of `changes`, on the branch `HEAD` names, which
-/// `destination` must be, as `git commit` does in a new repository. The caller holds
-/// exclusive worktree access.
+/// Make the repository's first commit, of `changes`, on `branch`, which must be the one `HEAD`
+/// names, as `git commit` does in a new repository. It records no oplog entry: there's nothing
+/// before it to go back to.
 fn commit_first(
     ctx: &mut but_ctx::Context,
-    destination: &Destination,
+    branch: FullName,
     changes: Vec<DiffSpec>,
     message: String,
-) -> Result<but_workspace::commit_engine::CreateCommitOutcome> {
+) -> Result<(FullName, CommitId, Rejected)> {
     let repo = ctx.repo.get()?;
-    let branch = repo.head_name()?.context("HEAD names no branch")?;
-    if !matches!(destination, Destination::Branch(name) if branch == *name) {
+    let head = repo.head_name()?.context("HEAD names no branch")?;
+    if branch != head {
         bail!(
             "The first commit goes on {}, the branch checked out.",
-            branch.shorten()
+            head.shorten()
         );
     }
     let outcome = but_workspace::commit_engine::create_commit(
@@ -362,81 +366,213 @@ fn commit_first(
         changes,
         ctx.settings.context_lines,
     )?;
-    if let Some(id) = outcome.new_commit {
-        but_workspace::init::publish_first_commit(&repo, branch.as_ref(), id)?;
-    }
+    let Some(id) = outcome.new_commit else {
+        bail!(
+            "Nothing could be committed.\n{}",
+            left_out(&outcome.rejected_specs).join("\n")
+        );
+    };
+    but_workspace::init::publish_first_commit(&repo, branch.as_ref(), id)?;
     drop(repo);
     ctx.invalidate_workspace_cache()?;
-    Ok(outcome)
+    Ok((branch, CommitId(id), outcome.rejected_specs))
 }
 
-/// Commit the `selected` uncommitted changes to `destination`. With `run_hooks`, the
-/// repository's hooks run in Git's order. pre-commit and commit-msg run first, and either
-/// refuses the commit by failing; commit-msg can also rewrite the message. post-commit runs
-/// once the commit is made, which stands even if the hook fails, and what it printed then
-/// comes back as the third value. Hooks run outside GitButler's lock, so one that runs
-/// `but` doesn't wait on it.
-pub fn commit(
-    path: &Path,
-    destination: &Destination,
-    selected: &[Selected],
-    worktree: Option<&bstr::BStr>,
-    message: &str,
-    run_hooks: bool,
-) -> Result<(CommitId, LeftOut, Option<String>)> {
-    let mut ctx = open(path)?;
-    let unborn = ctx.repo.get()?.head()?.is_unborn();
-    refuse_unfinished(&checkout(&ctx, worktree)?, worktree.is_none())?;
-    refuse_conflicted(&ctx, worktree, selected)?;
-    refuse_converted(selected)?;
-    // The hooks run in the main checkout, not where a linked worktree's changes are.
-    let run_hooks = run_hooks && worktree.is_none();
-    // No changes make an empty commit.
-    let changes = selected_specs(selected);
-    let mut message = message.to_owned();
-    if run_hooks {
-        pre_commit(&ctx, &changes)?;
-        // Ending in a line break, as Git hands it over, so what a hook appends starts a line
-        // of its own rather than running on from the title.
-        match but_api::legacy::repo::message_hook(&ctx, format!("{message}\n"))? {
-            MessageHookResult::Failure(ErrorData { error }) => {
-                bail!(
-                    "The commit-msg hook refused the commit:\n{}",
-                    hook_output(&error)
-                )
+/// The branch a commit goes on.
+pub enum CommitTo {
+    Branch(FullName),
+    /// A new one with a made-up name, placed as [`CreateBranch`] places it, and made in the
+    /// commit's own oplog entry, so one undo takes back both.
+    NewBranch,
+}
+
+/// Commit the `changes` of `checkout` to `to`. With `run_hooks`, the repository's hooks run in
+/// Git's order. pre-commit and commit-msg run first, and either refuses the commit by failing;
+/// commit-msg can also rewrite the message. post-commit runs once the commit is made, which
+/// stands even if the hook fails. Hooks run outside GitButler's lock, so one that runs `but`
+/// doesn't wait on it.
+pub struct CommitChanges {
+    pub to: CommitTo,
+    pub changes: Arc<[Selected]>,
+    pub checkout: Checkout,
+    pub message: String,
+    pub run_hooks: bool,
+}
+
+/// A commit made on `branch`, with the changes left out of it and what a failing post-commit
+/// hook printed.
+#[derive(Debug)]
+pub struct Committed {
+    pub branch: FullName,
+    pub commit: CommitId,
+    pub left_out: LeftOut,
+    pub hook_failed: Option<String>,
+}
+
+type Rejected = Vec<(RejectionReason, DiffSpec)>;
+
+impl Intent for CommitChanges {
+    type Done = Committed;
+
+    fn apply(self, run: &mut Run) -> Result<Committed> {
+        let Self {
+            to,
+            changes,
+            checkout,
+            message,
+            run_hooks,
+        } = self;
+        let worktree = checkout.linked();
+        if matches!(to, CommitTo::NewBranch) && worktree.is_some() {
+            bail!("The worktree has no branch of its own checked out");
+        }
+        // The hooks run in the main checkout, not where a linked worktree's changes are.
+        let run_hooks = run_hooks && worktree.is_none();
+        // No changes make an empty commit.
+        let specs = selected_specs(&changes);
+        run.refuse_index_locked()?;
+        let ctx = run.ctx();
+        refuse_unfinished(&super::checkout(ctx, worktree)?, worktree.is_none())?;
+        refuse_conflicted(ctx, worktree, &changes)?;
+        refuse_converted(&changes)?;
+        let message = match run_hooks {
+            true => hooks_before_commit(ctx, &specs, message)?,
+            false => message,
+        };
+        let (branch, commit, rejected) = run.locked(|ctx, perm| {
+            let unborn = ctx.repo.get()?.head()?.is_unborn();
+            let (branch, new_at) = match to {
+                CommitTo::Branch(branch) if unborn => {
+                    return commit_first(ctx, branch, specs, message);
+                }
+                CommitTo::Branch(branch) => (branch, None),
+                CommitTo::NewBranch => {
+                    refuse_unborn(ctx)?;
+                    let name = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
+                    (name, Some(new_branch_at(ctx)?))
+                }
+            };
+            let linked = (worktree.map(|name| super::checkout(ctx, Some(name)))).transpose()?;
+            let source = match (worktree, &linked) {
+                (Some(name), Some(repo)) => ChangeSource::Worktree { repo, name },
+                _ => ChangeSource::Head,
+            };
+            // Named so undo moves it back, leaving the changes uncommitted there.
+            let worktree_branch = match worktree {
+                Some(name) => ctx.worktree_head(name)?.and_then(|head| head.ref_name),
+                None => None,
+            };
+            // Named so undo deletes it again.
+            let new_branch = new_at.as_ref().map(|_| branch.as_ref());
+            let refs: Vec<&gix::refs::FullNameRef> = (new_branch.into_iter())
+                .chain(worktree_branch.as_ref().map(|name| name.as_ref()))
+                .collect();
+            let details = SnapshotDetails::new(OperationKind::CreateCommit);
+            let (commit, rejected) = recorded(ctx, perm, details, &refs, |ctx, perm| {
+                if let Some(NewBranchAt::BesideHead(head)) = &new_at {
+                    start_beside(ctx, perm, branch.as_ref(), head)?;
+                }
+                let made = commit_in_transaction(
+                    ctx,
+                    perm,
+                    &branch,
+                    new_at.as_ref(),
+                    specs,
+                    message,
+                    source,
+                );
+                if made.is_err() && matches!(new_at, Some(NewBranchAt::BesideHead(_))) {
+                    leave_beside(ctx, perm, &branch);
+                }
+                made
+            })?;
+            Ok((branch, commit, rejected))
+        })?;
+        let hook_failed = run_hooks.then(|| post_commit(run.ctx())).flatten();
+        Ok(Committed {
+            branch,
+            commit,
+            left_out: left_out(&rejected),
+            hook_failed,
+        })
+    }
+}
+
+/// Run pre-commit on what `changes` would commit, then commit-msg on `message`, returning the
+/// message it leaves. Either refuses the commit by failing.
+fn hooks_before_commit(
+    ctx: &but_ctx::Context,
+    changes: &[DiffSpec],
+    message: String,
+) -> Result<String> {
+    pre_commit(ctx, changes)?;
+    // Ending in a line break, as Git hands it over, so what a hook appends starts a line of
+    // its own rather than running on from the title.
+    match but_api::legacy::repo::message_hook(ctx, format!("{message}\n"))? {
+        MessageHookResult::Failure(ErrorData { error }) => {
+            bail!(
+                "The commit-msg hook refused the commit:\n{}",
+                hook_output(&error)
+            )
+        }
+        MessageHookResult::Message(rewritten) => Ok(rewritten.message.trim_end().to_owned()),
+        MessageHookResult::Success | MessageHookResult::NotConfigured => Ok(message),
+    }
+}
+
+/// Commit `specs` on top of `branch`, making it first where `new_at` says. A commit that takes
+/// none of them rolls back, leaving no branch made for it behind.
+fn commit_in_transaction(
+    ctx: &mut but_ctx::Context,
+    perm: &mut but_ctx::access::RepoExclusive,
+    branch: &FullName,
+    new_at: Option<&NewBranchAt>,
+    specs: Vec<DiffSpec>,
+    message: String,
+    source: ChangeSource<'_>,
+) -> Result<(CommitId, Rejected)> {
+    use but_transaction::DynamicOutcome;
+    use but_workspace::branch::create_reference::{Anchor, Position};
+    let mut meta = ctx.meta()?;
+    let (_, outcome) = but_transaction::with_transaction_with_perm_only(
+        ctx,
+        &mut meta,
+        perm,
+        DryRun::No,
+        |mut tx| {
+            match new_at {
+                Some(NewBranchAt::Workspace) => tx.create_reference(branch.as_ref(), None, None)?,
+                Some(NewBranchAt::AboveHead(head)) => {
+                    let above = Anchor::AtReference {
+                        ref_name: Cow::Borrowed(head.as_ref()),
+                        position: Position::Above,
+                    };
+                    tx.create_reference(branch.as_ref(), above, None)?;
+                }
+                Some(NewBranchAt::BesideHead(_)) | None => {}
             }
-            MessageHookResult::Message(rewritten) => {
-                message = rewritten.message.trim_end().to_owned()
-            }
-            MessageHookResult::Success | MessageHookResult::NotConfigured => {}
+            let made = tx.create_commit(
+                RelativeTo::Reference(branch.clone()),
+                InsertSide::Below,
+                specs,
+                message,
+                source,
+            )?;
+            Ok(match made.new_commit {
+                Some(commit) => DynamicOutcome::Commit((CommitId(commit.id), made.rejected_specs)),
+                None => DynamicOutcome::Rollback(made.rejected_specs),
+            })
+        },
+    )?;
+    match outcome {
+        DynamicOutcome::Commit((made, _workspace)) => Ok(made),
+        DynamicOutcome::Rollback(rejected) => {
+            bail!(
+                "Nothing could be committed.\n{}",
+                left_out(&rejected).join("\n")
+            )
         }
     }
-    let (new_commit, rejected) = {
-        let mut guard = ctx.exclusive_worktree_access();
-        if unborn {
-            let outcome = commit_first(&mut ctx, destination, changes, message)?;
-            (outcome.new_commit, outcome.rejected_specs)
-        } else {
-            let (relative_to, side) = destination.relative_to();
-            let outcome = but_api::commit::create::commit_create(
-                &mut ctx,
-                relative_to,
-                side,
-                changes,
-                changes_source(worktree),
-                message,
-                DryRun::No,
-                guard.write_permission(),
-            )?;
-            (outcome.new_commit, outcome.rejected_specs)
-        }
-    };
-    let left_out = left_out(&rejected);
-    let Some(id) = new_commit else {
-        bail!("Nothing could be committed.\n{}", left_out.join("\n"));
-    };
-    let hook_failed = run_hooks.then(|| post_commit(&ctx)).flatten();
-    Ok((CommitId(id), left_out, hook_failed))
 }
 
 /// Create a new stack, named `name` or with a made-up name, and return its full ref name.
@@ -501,23 +637,17 @@ fn new_branch_at(ctx: &but_ctx::Context) -> Result<NewBranchAt> {
     })
 }
 
-/// Make a branch, `new_ref` or with a made-up name, where `head`, the branch checked out,
-/// leaves the target, and apply it beside `head`, which brings in GitButler's workspace for the
-/// two. Returns its full name. Starting there, as `but branch new` does, the two merge without
-/// conflicts, whatever the target has done since.
-///
-/// A stopgap until `but_api::branch::branch_create` does this itself: it refuses a branch of
-/// its own outside the workspace, and the CLI's way around that lives in the CLI. The branch is
-/// applied rather than checked out, in one step to undo.
+/// Make a branch, `new_ref` or with a made-up name, and start it beside `head`, the branch
+/// checked out, in one step to undo. Returns its full name.
 fn create_beside_checkout(
     ctx: &mut but_ctx::Context,
     perm: &mut but_ctx::access::RepoExclusive,
     head: &gix::refs::FullName,
     new_ref: Option<gix::refs::FullName>,
 ) -> Result<FullName> {
-    let (new_ref, base) = {
+    let new_ref = {
         let repo = ctx.repo.get()?;
-        let new_ref = match new_ref {
+        match new_ref {
             // As `branch_create` refuses one taken locally or by a remote's branch, or nesting
             // with another.
             Some(new_ref) => {
@@ -528,33 +658,65 @@ fn create_beside_checkout(
                 new_ref
             }
             None => but_core::branch::unique_canned_refname(&repo)?,
-        };
-        let target = ctx.project_meta()?.resolve_target_commit(&repo)?;
-        let base = (repo.merge_base(repo.head_id()?, target)?)
-            .with_context(|| format!("{} shares no history with the target", head.shorten()))?;
-        (new_ref, base.detach())
+        }
     };
     // It lists the new branch, so undo deletes it again.
     let details = SnapshotDetails::new(OperationKind::CreateBranch)
         .with_trailers([Trailer::Name(new_ref.to_string())]);
     recorded(ctx, perm, details, &[new_ref.as_ref()], |ctx, perm| {
-        let previous = gix::refs::transaction::PreviousValue::MustNotExist;
-        (ctx.repo.get()?)
-            .reference(new_ref.as_ref(), base, previous, "GitButler: new branch")
-            .with_context(|| format!("Couldn't create branch {}", new_ref.shorten()))?;
-        let applied = but_api::branch::apply_only_with_perm(ctx, new_ref.as_ref(), perm);
-        if !(applied.as_ref()).is_ok_and(|outcome| outcome.status.persisted_mutation()) {
-            ctx.repo.get()?.find_reference(new_ref.as_ref())?.delete()?;
-            applied?;
-            bail!(
-                "Couldn't start {} beside {}",
-                new_ref.shorten(),
-                head.shorten()
-            );
-        }
-        Ok(())
+        start_beside(ctx, perm, new_ref.as_ref(), head)
     })?;
     Ok(new_ref)
+}
+
+/// Make `new_ref` where `head`, the branch checked out, leaves the target, and apply it beside
+/// `head`, which brings in GitButler's workspace for the two. Starting there, as `but branch
+/// new` does, the two merge without conflicts, whatever the target has done since.
+///
+/// A stopgap until `but_api::branch::branch_create` does this itself: it refuses a branch of
+/// its own outside the workspace, and the CLI's way around that lives in the CLI. This is
+/// `branch_checkout_new` with the branch applied rather than checked out.
+fn start_beside(
+    ctx: &mut but_ctx::Context,
+    perm: &mut but_ctx::access::RepoExclusive,
+    new_ref: &gix::refs::FullNameRef,
+    head: &gix::refs::FullName,
+) -> Result<()> {
+    {
+        let repo = ctx.repo.get()?;
+        let target = ctx.project_meta()?.resolve_target_commit(&repo)?;
+        let base = (repo.merge_base(repo.head_id()?, target)?)
+            .with_context(|| format!("{} shares no history with the target", head.shorten()))?;
+        let previous = gix::refs::transaction::PreviousValue::MustNotExist;
+        repo.reference(new_ref, base, previous, "GitButler: new branch")
+            .with_context(|| format!("Couldn't create branch {}", new_ref.shorten()))?;
+    }
+    let applied = but_api::branch::apply_only_with_perm(ctx, new_ref, perm);
+    if !(applied.as_ref()).is_ok_and(|outcome| outcome.status.persisted_mutation()) {
+        ctx.repo.get()?.find_reference(new_ref)?.delete()?;
+        applied?;
+        bail!(
+            "Couldn't start {} beside {}",
+            new_ref.shorten(),
+            head.shorten()
+        );
+    }
+    Ok(())
+}
+
+/// Take away `branch`, started beside the branch checked out for what then failed, which
+/// leaves that one checked out on its own again.
+fn leave_beside(
+    ctx: &mut but_ctx::Context,
+    perm: &mut but_ctx::access::RepoExclusive,
+    branch: &FullName,
+) {
+    if let Err(err) = but_api::branch::branch_remove_only_with_perm(ctx, branch.clone(), perm) {
+        tracing::warn!(
+            ?err,
+            "couldn't take away the branch started for a failed commit"
+        );
+    }
 }
 
 /// Stack a new branch with a made-up name on top of `below`.
@@ -1494,6 +1656,16 @@ pub(super) mod tests {
         String::from_utf8(out.stdout).unwrap()
     }
 
+    fn commit_to_main(changes: Vec<Selected>, message: &str, run_hooks: bool) -> CommitChanges {
+        CommitChanges {
+            to: CommitTo::Branch(full("refs/heads/main")),
+            changes: changes.into(),
+            checkout: Checkout::Main,
+            message: message.into(),
+            run_hooks,
+        }
+    }
+
     fn uncommitted(path: &Path) -> Vec<crate::backend::FileChange> {
         let shown = crate::backend::Workspace::default();
         let none = Default::default();
@@ -1995,16 +2167,9 @@ pub(super) mod tests {
 
             let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
             let first_hunk = diff[0].part(Some(vec![diff[0].hunks()[0].key]));
-            let branch = Destination::Branch(full("refs/heads/main"));
-            let err = commit(
-                path,
-                &branch,
-                std::slice::from_ref(&first_hunk),
-                None,
-                "part",
-                false,
-            )
-            .expect_err("a hunk of the converted copy isn't one of the file");
+            let part = commit_to_main(vec![first_hunk.clone()], "part", false);
+            let err = crate::backend::apply(path, part)
+                .expect_err("a hunk of the converted copy isn't one of the file");
             assert!(err.to_string().contains("textconv"), "{err}");
             discard(path, None, &[first_hunk], false).expect_err("nor is one to discard");
             assert_eq!(
@@ -2064,11 +2229,11 @@ pub(super) mod tests {
                 std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755)).unwrap();
             };
             let changes = || vec![Selected::whole(&uncommitted(path)[0])];
-            let main = Destination::Branch(full("refs/heads/main"));
             let first = git(path, &["rev-parse", "HEAD"]);
 
             hook("pre-commit", "echo 'lint failed'; exit 1");
-            let refused = commit(path, &main, &changes(), None, "Two", true).unwrap_err();
+            let refused =
+                crate::backend::apply(path, commit_to_main(changes(), "Two", true)).unwrap_err();
             assert!(
                 format!("{refused:#}").contains("lint failed"),
                 "the error is what the hook printed: {refused:#}"
@@ -2087,7 +2252,8 @@ pub(super) mod tests {
             hook("pre-commit", "exit 0");
             hook("commit-msg", "printf '\\nIssue: SHOP-12\\n' >> \"$1\"");
             hook("post-commit", "echo 'notify failed'; exit 1");
-            let (_, _, hook_failed) = commit(path, &main, &changes(), None, "Two", true).unwrap();
+            let (committed, _) =
+                crate::backend::apply(path, commit_to_main(changes(), "Two", true)).unwrap();
             assert_eq!(
                 git(path, &["log", "-1", "--format=%s|%b"]).trim(),
                 "Two|Issue: SHOP-12",
@@ -2095,7 +2261,7 @@ pub(super) mod tests {
             );
             assert!(uncommitted(path).is_empty(), "the commit stands");
             assert!(
-                hook_failed.is_some_and(|output| output.contains("notify failed")),
+                (committed.hook_failed).is_some_and(|output| output.contains("notify failed")),
                 "post-commit's failure comes back to report"
             );
         })
@@ -2106,11 +2272,11 @@ pub(super) mod tests {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
             let path = dir.path();
-            let main = Destination::Branch(full("refs/heads/main"));
             let first = git(path, &["rev-parse", "HEAD"]);
             for (state, says) in [("MERGE_HEAD", "git merge"), ("BISECT_LOG", "git bisect")] {
                 std::fs::write(path.join(".git").join(state), format!("{first}\n")).unwrap();
-                let refused = commit(path, &main, &[], None, "Two", false).unwrap_err();
+                let refused =
+                    crate::backend::apply(path, commit_to_main(vec![], "Two", false)).unwrap_err();
                 assert!(
                     format!("{refused:#}").contains(&format!("{says} isn't finished")),
                     "finishing it would go on past the commit: {refused:#}"
@@ -2130,9 +2296,8 @@ pub(super) mod tests {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
             let path = dir.path();
-            let main = Destination::Branch(full("refs/heads/main"));
             let first = git(path, &["rev-parse", "HEAD"]);
-            commit(path, &main, &[], None, "Mark it reviewed", false).unwrap();
+            crate::backend::apply(path, commit_to_main(vec![], "Mark it reviewed", false)).unwrap();
             assert_eq!(
                 git(path, &["log", "-1", "--format=%s"]).trim(),
                 "Mark it reviewed",
@@ -2147,6 +2312,119 @@ pub(super) mod tests {
                 git(path, &["diff", "--stat", "HEAD~1", "HEAD"]),
                 "",
                 "it changes nothing"
+            );
+        })
+    }
+
+    #[test]
+    fn a_commit_to_a_new_branch_is_one_undo_step_wherever_the_branch_goes() {
+        let mut said = String::new();
+        for checked_out in ["gitbutler/workspace", "main", "feature"] {
+            but_testsupport::isolated_app_data_dir(|| {
+                let dir = repo_with("one\n");
+                let path = dir.path();
+                target_origin_main(path);
+                if checked_out != "main" {
+                    git(path, &["checkout", "-q", "-b", checked_out]);
+                    git(path, &["commit", "-q", "--allow-empty", "-m", "work"]);
+                }
+                let head = |path: &Path| git(path, &["symbolic-ref", "--short", "HEAD"]);
+                std::fs::write(path.join("file"), "two\n").unwrap();
+                let before = crate::backend::history::oplog_head(&open(path).unwrap());
+
+                let commit = CommitChanges {
+                    to: CommitTo::NewBranch,
+                    ..commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], "Two", false)
+                };
+                let (committed, ran) = crate::backend::apply(path, commit).unwrap();
+                let new = short_ref(&committed.branch).into_owned();
+                let entries = entries_since(path, before);
+                let head_after = head(path).replace(&new, "<new>");
+                let undone =
+                    crate::backend::history::undo_snapshot(path, ran.recorded.unwrap(), None);
+                let undone = match undone.unwrap() {
+                    crate::backend::history::Undone::Done(operation) => operation,
+                    _ => "nothing",
+                };
+                let gone = git(path, &["branch", "--list", &new]).is_empty();
+                said += &format!(
+                    "{checked_out}: {} on {}; undid {undone}: on {}, <new> gone {gone}, {} uncommitted\n",
+                    entries.trim(),
+                    head_after.trim(),
+                    head(path).trim(),
+                    uncommitted(path).len(),
+                );
+            });
+        }
+        // Each placement records one entry naming the new branch, checked out when made on top
+        // of main, so one undo takes back the commit and the branch, leaving the change
+        // uncommitted where it was.
+        snapbox::assert_data_eq!(said, snapbox::str![[r#"
+gitbutler/workspace: CreateCommit on gitbutler/workspace; undid Created commit: on gitbutler/workspace, <new> gone true, 1 uncommitted
+main: CreateCommit on <new>; undid Created commit: on main, <new> gone true, 1 uncommitted
+feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, <new> gone true, 1 uncommitted
+
+"#]]);
+    }
+
+    #[test]
+    fn a_commit_beside_that_takes_nothing_leaves_no_branch_behind() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "feature"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "work"]);
+            // GitButler's own, as the target's, aside.
+            let branches = |path: &Path| {
+                (git(path, &["branch", "--list"]).lines())
+                    .filter(|line| !line.contains("gitbutler/"))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            };
+            let before = branches(path);
+            std::fs::write(path.join("file"), "two\n").unwrap();
+            let changed = Selected::whole(&uncommitted(path)[0]);
+            std::fs::write(path.join("file"), "one\n").unwrap();
+            let last_entry = crate::backend::history::oplog_head(&open(path).unwrap());
+
+            let commit = CommitChanges {
+                to: CommitTo::NewBranch,
+                ..commit_to_main(vec![changed], "Two", false)
+            };
+            let err = crate::backend::apply(path, commit).unwrap_err();
+            assert!(
+                err.to_string().contains("Nothing could be committed"),
+                "the file changes nothing: {err}"
+            );
+            assert_eq!(branches(path), before, "the branch started for it is gone");
+            assert_eq!(
+                git(path, &["symbolic-ref", "--short", "HEAD"]).trim(),
+                "feature",
+                "and feature is checked out on its own again"
+            );
+            assert_eq!(
+                entries_since(path, last_entry),
+                "",
+                "a failed commit records nothing"
+            );
+        })
+    }
+
+    #[test]
+    fn a_linked_worktree_commits_to_no_new_branch() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let commit = CommitChanges {
+                to: CommitTo::NewBranch,
+                checkout: Checkout::Linked("feature".into()),
+                ..commit_to_main(vec![], "Two", false)
+            };
+            let err = crate::backend::apply(dir.path(), commit).unwrap_err();
+            assert_eq!(
+                err.to_string(),
+                "The worktree has no branch of its own checked out",
+                "a new branch would be the main workspace's, not the worktree's"
             );
         })
     }

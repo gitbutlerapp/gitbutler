@@ -409,27 +409,6 @@ impl Store {
         (!showing).then_some((&step.project, said, step.done))
     }
 
-    /// Make `snapshot`, which the operation that just ran recorded on its way, a ⌘Z step of its
-    /// own taken back after that operation's, as the branch a commit was made on.
-    pub fn push_earlier_step(&mut self, snapshot: SnapshotId) {
-        let Some((project, last)) = self.last_snapshot.clone() else {
-            return;
-        };
-        let Some((at, &UndoStep { started, done, .. })) =
-            (self.undo_steps.iter().enumerate()).find(|(_, step)| step.snapshot == last)
-        else {
-            return;
-        };
-        let step = UndoStep {
-            project,
-            snapshot,
-            started,
-            done,
-            said: None,
-        };
-        self.undo_steps.insert(at, step);
-    }
-
     /// Redo what ⌘Z last took back, unless the user has done something since.
     pub fn redo_last(&mut self, cx: &mut Context<Self>) {
         if (self.working()).any(|r| matches!(r.overlay.kind, OpKind::Undo(_))) {
@@ -606,7 +585,6 @@ impl Store {
                     }
                     // Behind a newer step of the user's own: that one goes first, and this one
                     // stays.
-                    // The list is oldest first, a new branch's step just before its commit's.
                     Ok(Undone::Behind(_))
                         if (store.undo_steps.iter())
                             .skip_while(|step| step.project != again || step.snapshot != snapshot)

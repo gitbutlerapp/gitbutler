@@ -7,7 +7,9 @@ use gpui::{
     App, Context, Div, Entity, Modifiers, Pixels, Point, SharedString, Window, div, prelude::*,
 };
 
-use crate::backend::{self, Checkout, CommitId, Destination, FullName, Selected, short_ref};
+use crate::backend::{
+    self, Checkout, CommitId, CommitTo, Destination, FullName, Selected, short_ref,
+};
 use crate::state::{Cut, Label, NewAt, Overlay, ProjectId, Selection, Store, branch_moved};
 use crate::theme::Theme;
 use crate::ui::{Icon, dp, popover, small_icon};
@@ -453,19 +455,24 @@ impl Transfer {
                     files_in: worktree.clone(),
                     ..Overlay::files(files.iter())
                 };
-                store.run(
+                let commit = backend::CommitChanges {
+                    to: CommitTo::Branch(branch),
+                    changes: files,
+                    checkout: worktree,
+                    message: String::new(),
+                    run_hooks: false,
+                };
+                store.apply(
                     project,
                     label,
                     overlay,
-                    move |path| {
-                        let to = Destination::Branch(branch);
-                        backend::commit(path, &to, &files, worktree.linked(), "", false)
-                    },
-                    move |store, (id, left_out, _), cx| {
-                        store.select(Some(Selection::Commit(selected, id)), cx);
+                    commit,
+                    move |store, committed, cx| {
+                        let made = Selection::Commit(selected, committed.commit);
+                        store.select(Some(made), cx);
                         store.keep_last_snapshot(cx);
                         let done = "Committed. Double-click its title to write a message";
-                        store.report_left_out(done, &left_out, cx)
+                        store.report_left_out(done, &committed.left_out, cx)
                     },
                     cx,
                 )

@@ -32,9 +32,14 @@ pub struct Ran {
 }
 
 impl Run {
+    /// The project, for what's read before the lock is taken and after it's let go.
+    pub(super) fn ctx(&self) -> &but_ctx::Context {
+        &self.ctx
+    }
+
     /// Refuse while `.git/index.lock` exists. Left by a Git that crashed or was killed, as an
     /// agent's can be, it stops an operation partway, after it has written files.
-    fn refuse_index_locked(&self) -> Result<()> {
+    pub(super) fn refuse_index_locked(&self) -> Result<()> {
         let index_lock = self.ctx.repo.get()?.git_dir().join("index.lock");
         anyhow::ensure!(
             !index_lock.exists(),
