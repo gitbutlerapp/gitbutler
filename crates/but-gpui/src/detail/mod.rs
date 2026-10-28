@@ -27,6 +27,7 @@ pub use resolve::ResolveConflicts;
 use std::cell::Cell;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
+use std::ops::Range;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -44,6 +45,7 @@ use crate::backend::{
     self, Checkout, DiffLine, DiffSource, FileChange, FileDiff, FullName, HunkKey, Selected,
 };
 use crate::overlays::MenuItem;
+use crate::palette::score;
 use crate::state::{
     Cut, FileSort, Pane, Picks, Prefs, ProjectId, Section, Selection, Store, StoreEvent, snack,
 };
@@ -483,12 +485,18 @@ impl Detail {
                 |this, _, event, window, cx| match event {
                     InputEvent::Changed => {
                         this.rebuild_rows(cx);
-                        // So the diff's keys act on a file in view.
+                        // So the diff's keys act on a file in view: the best match, which the
+                        // list starts with, scrolled to, as the diff can have others above it.
                         let shown = this.shown_files();
-                        if let Some(&file) = shown.first()
+                        let first =
+                            (this.listed_files(cx).first().copied()).or(shown.first().copied());
+                        if let Some(file) = first
                             && !shown.contains(&this.cursor.file)
                         {
                             this.place_cursor(Cursor { file, hunk: None });
+                            if let Some(row) = this.row_of(|row| *row == DiffRow::File(file)) {
+                                this.scroll_to_row(row);
+                            }
                         }
                     }
                     InputEvent::Submit => window.focus(&this.focus, cx),
@@ -1330,13 +1338,16 @@ impl Detail {
         )
     }
 
-    /// What the open file filter keeps paths by: each term, lowercased, somewhere in them.
+    /// What the open file filter keeps paths by: each term's letters, in order, somewhere in
+    /// them.
     fn filter_terms(&self, cx: &App) -> Vec<String> {
         if !self.filtering {
             return Vec::new();
         }
+        // As typed: the matchers fold case a letter at a time, and folding the whole word first
+        // can make two letters of one, as İ becomes i and a dot.
         (self.file_filter.read(cx).text().split_whitespace())
-            .map(str::to_lowercase)
+            .map(str::to_owned)
             .collect()
     }
 
@@ -1570,31 +1581,43 @@ impl Detail {
         if shown.is_empty() {
             return None;
         }
+        // Found by place, as the filter's ranking can list the files out of the diff's order.
         // From a file that isn't shown, the next shown one counts as a step.
-        let at = shown.partition_point(|file| *file < self.cursor.file) as isize;
-        let at = if shown.contains(&self.cursor.file) || delta < 0 {
-            at
-        } else {
-            at - 1
+        let at = match shown.iter().position(|file| *file == self.cursor.file) {
+            Some(at) => at as isize,
+            None => {
+                let at = shown.partition_point(|file| *file < self.cursor.file) as isize;
+                at - isize::from(delta >= 0)
+            }
         };
         (shown.get((at + delta).clamp(0, shown.len() as isize - 1) as usize)).copied()
     }
 
     /// The files the file list shows, in its order: not those a filter or a pending
-    /// operation hides, nor, in the tree, those of a directory folded shut.
+    /// operation hides, nor, in the tree, those of a directory folded shut. While the filter
+    /// is open, the best matches first, as it ranks them.
     fn listed_files(&self, cx: &App) -> Vec<usize> {
+        self.files_in_list_order(&self.collapsed_dirs, cx)
+    }
+
+    /// The files the diff shows, in the file list's order, with the directories in
+    /// `collapsed` folded shut in a tree.
+    fn files_in_list_order(&self, collapsed: &HashSet<String>, cx: &App) -> Vec<usize> {
         let shown = self.shown_files();
-        let Some(diff) = self
-            .diff
-            .as_ref()
-            .filter(|_| !self.store.read(cx).prefs.flat_files)
-        else {
+        let Some(diff) = &self.diff else {
             return shown;
         };
-        let (shown, paths): (Vec<usize>, Vec<&str>) = (shown.into_iter())
+        let shown: Vec<(usize, &str)> = (shown.into_iter())
             .filter_map(|ix| Some((ix, diff.files.get(ix)?.file.path.as_str())))
-            .unzip();
-        (unfolded(&paths, &self.collapsed_dirs).into_iter())
+            .collect();
+        let (shown, paths): (Vec<usize>, Vec<&str>) =
+            (ranked(&self.filter_terms(cx), shown, |(_, path)| *path).into_iter())
+                .map(|(file, _)| file)
+                .unzip();
+        if self.store.read(cx).prefs.flat_files {
+            return shown;
+        }
+        (unfolded(&paths, collapsed).into_iter())
             .filter_map(|pos| shown.get(pos).copied())
             .collect()
     }
@@ -1846,12 +1869,19 @@ impl Detail {
     }
 
     /// Where the diff's cursor is, as an editor's status bar says the line: the place of the
-    /// file under it among the ones shown, and its hunk. The sticky header names the file.
-    pub fn cursor_place(&self) -> Option<String> {
+    /// file under it among the ones shown, as the file list orders them, and its hunk. The
+    /// sticky header names the file.
+    pub fn cursor_place(&self, cx: &App) -> Option<String> {
         let diff = self.shown_diff()?;
         let file = diff.files.get(self.cursor.file)?;
-        let shown = self.shown_files();
-        let at = shown.binary_search(&self.cursor.file).ok()? + 1;
+        // The list's order is worked out only while the filter ranks the files, as this is drawn
+        // with every frame: otherwise the list has them as the diff does, which loads them in
+        // its order. Folders folded shut count too, as the diff shows their files.
+        let shown = match self.filter_terms(cx).is_empty() {
+            true => self.shown_files(),
+            false => self.files_in_list_order(&HashSet::new(), cx),
+        };
+        let at = shown.iter().position(|file| *file == self.cursor.file)? + 1;
         let mut place = format!("File {at} of {}", shown.len());
         let hunks = file.hunks().len();
         if let Some(hunk) = self.cursor.hunk.filter(|hunk| *hunk < hunks) {
@@ -2423,13 +2453,76 @@ fn unfolded(paths: &[&str], collapsed: &HashSet<String>) -> Vec<usize> {
         .collect()
 }
 
-/// Whether `path` has every one of `terms` in it.
+/// Whether `path` has the letters of every one of `terms` in it, in order, as the palette
+/// matches. Without what [`score`] works out to underline, as it's asked of every file a frame.
 fn keeps_path(terms: &[String], path: &str) -> bool {
-    if terms.is_empty() {
-        return true;
+    let lower = |c: char| c.to_lowercase().next().unwrap_or(c);
+    terms.iter().all(|term| {
+        let mut letters = path.chars().map(lower);
+        term.chars()
+            .map(lower)
+            .all(|wanted| letters.any(|c| c == wanted))
+    })
+}
+
+/// How well `terms` match `path`, and the byte ranges of it they matched, to underline. A term
+/// is looked for in the file's name first, where it counts for more than in its folders, and
+/// either way ranks as [`score`] ranks the palette's choices. `None` when `path` isn't kept.
+fn path_match(terms: &[String], path: &str) -> Option<(i32, Vec<Range<usize>>)> {
+    let (name, _) = diff::split_path(path);
+    let name_at = path.len() - name.len();
+    let (mut total, mut found) = (0, Vec::new());
+    for term in terms {
+        let (points, ranges) = match score(name, term) {
+            Some((points, ranges)) => (
+                points + IN_NAME,
+                (ranges.into_iter())
+                    .map(|range| range.start + name_at..range.end + name_at)
+                    .collect(),
+            ),
+            None => score(path, term)?,
+        };
+        total += points;
+        found.extend(ranges);
     }
-    let path = path.to_lowercase();
-    terms.iter().all(|term| path.contains(term.as_str()))
+    Some((total, merged(found)))
+}
+
+/// What a term found in a file's name counts for over one found only in its folders: more than
+/// [`score`] gives any match, so a file whose name has it comes first.
+const IN_NAME: i32 = 4000;
+
+/// `items` as the open file filter lists them, each with what it found in its `path`: those it
+/// keeps, the best matches first, as [`path_match`] ranks them, and the rest in the order they
+/// came.
+fn ranked<T>(
+    terms: &[String],
+    items: Vec<T>,
+    path: impl Fn(&T) -> &str,
+) -> Vec<(T, Vec<Range<usize>>)> {
+    let mut ranked: Vec<(T, i32, Vec<Range<usize>>)> = (items.into_iter())
+        .filter_map(|item| {
+            let (points, found) = path_match(terms, path(&item))?;
+            Some((item, points, found))
+        })
+        .collect();
+    ranked.sort_by_key(|(_, points, _)| std::cmp::Reverse(*points));
+    (ranked.into_iter())
+        .map(|(item, _, found)| (item, found))
+        .collect()
+}
+
+/// `ranges` in order, those that overlap or touch joined, as [`crate::ui::matched`] takes them.
+fn merged(mut ranges: Vec<Range<usize>>) -> Vec<Range<usize>> {
+    ranges.sort_by_key(|range| range.start);
+    let mut merged: Vec<Range<usize>> = Vec::new();
+    for range in ranges {
+        match merged.last_mut() {
+            Some(last) if last.end >= range.start => last.end = last.end.max(range.end),
+            _ => merged.push(range),
+        }
+    }
+    merged
 }
 
 /// What the app shows before it has a project: what it's for and the two ways in, then the
@@ -2626,8 +2719,114 @@ fn same_files<'a>(
 mod tests {
     use std::collections::HashSet;
 
-    use super::{follow_hunk, same_files, unfolded};
+    use super::{follow_hunk, keeps_path, path_match, ranked, same_files, unfolded};
     use crate::backend::FileChange;
+
+    #[test]
+    fn the_file_filter_keeps_paths_with_each_terms_letters_in_order() {
+        let terms =
+            |text: &str| -> Vec<String> { text.split_whitespace().map(Into::into).collect() };
+        let path = "crates/but-gpui/src/settings/metrics.rs";
+        for (filter, path, kept, why) in [
+            ("", path, true, "an empty filter keeps everything"),
+            (
+                "setmet",
+                path,
+                true,
+                "letters needn't be next to each other",
+            ),
+            ("METRICS", path, true, "case doesn't matter"),
+            ("rs gpui", path, true, "terms needn't come in order"),
+            (
+                "über",
+                "docs/Über.md",
+                true,
+                "case doesn't matter beyond ASCII",
+            ),
+            ("tem", "src/mod.rs", false, "letters must come in order"),
+            ("mod xyz", "src/mod.rs", false, "every term must match"),
+        ] {
+            assert_eq!(keeps_path(&terms(filter), path), kept, "{why}");
+            assert_eq!(
+                path_match(&terms(filter), path).is_some(),
+                kept,
+                "a row the filter keeps has its letters to underline: {why}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_file_filter_underlines_each_terms_letters_once_in_order() {
+        let terms =
+            |text: &str| -> Vec<String> { text.split_whitespace().map(Into::into).collect() };
+        let underlined = |path: &'static str, filter| -> Option<Vec<&str>> {
+            let (_, found) = path_match(&terms(filter), path)?;
+            found.into_iter().map(|range| path.get(range)).collect()
+        };
+        assert_eq!(
+            underlined("src/settings/metrics.rs", "metrics"),
+            Some(vec!["metrics"]),
+            "a name typed in full underlines that name"
+        );
+        assert_eq!(
+            underlined("src/detail/mod.rs", "dmod"),
+            Some(vec!["d", "mod"]),
+            "scattered letters underline each, neighbours as one"
+        );
+        assert_eq!(
+            underlined("src/detail/mod.rs", "mod.rs mo"),
+            Some(vec!["mod.rs"]),
+            "terms finding the same letters underline them once"
+        );
+        assert_eq!(
+            underlined("src/detail/mod.rs", "rs src"),
+            Some(vec!["src", "rs"]),
+            "terms typed out of order underline in the path's order"
+        );
+        assert_eq!(
+            underlined("src/mod.rs", "xyz"),
+            None,
+            "a path not kept underlines nothing"
+        );
+        assert_eq!(
+            (path_match(&terms("mod"), "src/model/mod.rs"))
+                .and_then(|(_, found)| Some(found.first()?.start)),
+            Some(10),
+            "letters in the file's name are underlined there, not in a folder before it"
+        );
+    }
+
+    #[test]
+    fn the_file_filter_lists_files_named_for_it_first() {
+        let terms =
+            |text: &str| -> Vec<String> { text.split_whitespace().map(Into::into).collect() };
+        let paths = vec![
+            "assets/keymaps/default.json",
+            "src/main.rs",
+            "src/key_map.rs",
+            "src/keymap.rs",
+        ];
+        let listed = |filter| -> Vec<&str> {
+            (ranked(&terms(filter), paths.clone(), |path| *path).into_iter())
+                .map(|(path, _)| path)
+                .collect()
+        };
+        assert_eq!(
+            listed("keymap"),
+            [
+                "src/keymap.rs",
+                "src/key_map.rs",
+                "assets/keymaps/default.json"
+            ],
+            "a name with all of it together, then one with its letters apart, then a folder's"
+        );
+        assert_eq!(listed(""), paths, "with nothing typed, the order picked");
+        assert_eq!(
+            listed("src"),
+            ["src/main.rs", "src/key_map.rs", "src/keymap.rs"],
+            "as well matched, in the order picked"
+        );
+    }
 
     #[test]
     fn a_diff_in_tree_order_shows_the_files_status_lists_by_path() {

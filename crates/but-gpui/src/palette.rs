@@ -274,7 +274,7 @@ struct Found {
 /// How well `query` matches `label`, and the byte ranges of `label` it matched: all of it
 /// beats the start of a word, which beats the middle of one, which beats a scattered match,
 /// and earlier beats later. `None` when the letters don't appear in order.
-fn score(label: &str, query: &str) -> Option<(i32, Vec<Range<usize>>)> {
+pub(crate) fn score(label: &str, query: &str) -> Option<(i32, Vec<Range<usize>>)> {
     if query.is_empty() {
         return Some((0, Vec::new()));
     }
