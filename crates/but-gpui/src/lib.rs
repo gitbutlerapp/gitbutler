@@ -284,18 +284,30 @@ pub fn run(embedded: Option<Embedded>) {
                 ]);
             };
 
+            // A script drives a window no one sees, so its run keeps out of the Dock, the menu
+            // bar and the keys of the app in front. Its shots draw it all the same.
+            let scripted = app::scripted();
+            if scripted {
+                cx.set_activation_policy(gpui::ActivationPolicy::Accessory);
+            }
             // Before the window, which opens where the saved state says.
             let store = cx.new(state::Store::new);
             keymap::watch(store.clone(), set_menus, cx);
+            let default_size = size(fixed(1360.), fixed(860.));
             let (display_id, bounds) = match store.read(cx).window_place(cx) {
+                // Never shown (`show` below), and should anything show it anyway, off to the
+                // side, where AppKit leaves only an edge on screen.
+                _ if scripted => (
+                    None,
+                    WindowBounds::Windowed(Bounds::new(
+                        point(fixed(-10000.), fixed(-10000.)),
+                        default_size,
+                    )),
+                ),
                 Some((display, bounds)) => (Some(display), bounds),
                 None => (
                     None,
-                    WindowBounds::Windowed(Bounds::centered(
-                        None,
-                        size(fixed(1360.), fixed(860.)),
-                        cx,
-                    )),
+                    WindowBounds::Windowed(Bounds::centered(None, default_size, cx)),
                 ),
             };
             let window = cx.open_window(
@@ -308,6 +320,8 @@ pub fn run(embedded: Option<Embedded>) {
                         traffic_light_position: Some(point(fixed(14.), fixed(15.))),
                     }),
                     window_min_size: Some(size(fixed(900.), fixed(500.))),
+                    focus: !scripted,
+                    show: !scripted,
                     // macOS only. The headers drag the window and take its title bar's double
                     // click (`ui::drags_window`), so AppKit leaves the title bar to them, and
                     // doesn't hold each click there back to see whether a second one follows.
@@ -351,6 +365,8 @@ pub fn run(embedded: Option<Embedded>) {
             });
             #[cfg(feature = "dev-script")]
             dev::run_from_env(window.into(), cx);
-            cx.activate(true);
+            if !scripted {
+                cx.activate(true);
+            }
         });
 }

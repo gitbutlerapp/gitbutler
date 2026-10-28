@@ -1,5 +1,8 @@
 //! Scripted input and screenshots, for checking the UI without a person at the keyboard.
-//! Built only with `--features dev-script`; run with `GITBUTLER_GPUI_SCRIPT=<file>`.
+//! Built only with `--features dev-script`; run with `GITBUTLER_GPUI_SCRIPT=<file>`, or with
+//! `scripts/drive.sh`, which builds it and keeps the run in a sandbox. The window never shows,
+//! the app stays out of the Dock and never takes the keys from the app in front, and the run
+//! quits when the script ends.
 //!
 //! One command per line, `#` starts a comment:
 //!
@@ -23,7 +26,10 @@
 //! add /path/to/repo       # add a project, as Add a repository does with the folder picked
 //! sh but commit -m x      # run a shell command, as an agent or another app would
 //! size 900 500           # resize the window, in logical pixels
-//! shot /tmp/view.png      # render the current frame to a PNG
+//! shot /tmp/view.png      # render the current frame to a PNG, a pixel per logical pixel, so
+//!                         # a point read off it is one `click` takes
+//! shot /tmp/a.png 0 0 400 300  # only that region, in logical pixels, at the display's scale
+//! keys                    # print what typing would reach, as `KEYS Workspace > Navigator`
 //! perf next key down      # time an input until loads settle, plus one frame, and the
 //!                         # longest the UI thread was busy meanwhile (`stall`)
 //! perf startup            # time from launch until the first loads settle
@@ -83,8 +89,8 @@ pub fn mark_launch() {
     LAUNCHED.get_or_init(Instant::now);
 }
 
-/// Whether a script drives this run. Its window is off screen, which macOS reports as
-/// hidden, so the app follows the script's `hide` and `show` steps instead.
+/// Whether a script drives this run. Its window never shows, which macOS reports as hidden,
+/// so the app follows the script's `hide` and `show` steps instead.
 pub fn scripted() -> bool {
     std::env::var_os("GITBUTLER_GPUI_SCRIPT").is_some()
 }
@@ -108,7 +114,7 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
             }
         }
     });
-    // Off screen, macOS naps the app after half a minute: its timers coalesce and its
+    // Unseen, macOS naps the app after half a minute: its timers coalesce and its
     // threads lose priority, so every step slows down. Timings should be a visible window's.
     #[cfg(target_os = "macos")]
     std::mem::forget(
@@ -249,6 +255,9 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
             cx.update_window(window, |_, window, cx| frame(window, cx))
                 .ok();
         }
+        // No one sees the window, so it has nothing left to do once the script ends: at the
+        // end of the file, or when the last writer closes the pipe.
+        cx.update(|cx| cx.quit());
     })
     .detach();
 }
@@ -463,8 +472,47 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             window.resize(gpui::size(Pixels::from(width), Pixels::from(height)));
         }
         "shot" => {
+            // A path may have spaces, so a region is the last four words, when they're numbers.
+            let (path, region): (&str, Option<[f32; 4]>) =
+                match rest.rsplitn(5, ' ').collect::<Vec<_>>()[..] {
+                    [height, width, y, x, path] => {
+                        match (x.parse(), y.parse(), width.parse(), height.parse()) {
+                            (Ok(x), Ok(y), Ok(width), Ok(height)) => {
+                                (path, Some([x, y, width, height]))
+                            }
+                            _ => (rest, None),
+                        }
+                    }
+                    _ => (rest, None),
+                };
             let image = window.render_to_image()?;
-            image.save(rest).with_context(|| format!("saving {rest}"))?;
+            let scale = window.scale_factor();
+            let image = match region {
+                // At the window's own scale, so where something shows is where to click it.
+                None => image::imageops::resize(
+                    &image,
+                    (image.width() as f32 / scale).round() as u32,
+                    (image.height() as f32 / scale).round() as u32,
+                    image::imageops::FilterType::Triangle,
+                ),
+                // A closer look, so every pixel the display has.
+                Some([x, y, width, height]) => image::imageops::crop_imm(
+                    &image,
+                    (x * scale) as u32,
+                    (y * scale) as u32,
+                    (width * scale) as u32,
+                    (height * scale) as u32,
+                )
+                .to_image(),
+            };
+            image.save(path).with_context(|| format!("saving {path}"))?;
+        }
+        // The key contexts from the window down to what's focused, by their names.
+        "keys" => {
+            let contexts: Vec<String> = (window.context_stack().iter())
+                .filter_map(|context| Some(context.primary()?.key.to_string()))
+                .collect();
+            println!("KEYS {}", contexts.join(" > "));
         }
         other => bail!("unknown command {other}"),
     }
