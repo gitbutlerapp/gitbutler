@@ -2809,7 +2809,12 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 .unwrap()
                 .commits[0]
                 .id;
-            crate::backend::upstream::land(path, &full("refs/heads/feature"), tip, false).unwrap();
+            let land = crate::backend::upstream::Land {
+                branch: full("refs/heads/feature"),
+                tip,
+                whole_stack: false,
+            };
+            crate::backend::apply(path, land).unwrap();
             assert!(
                 git(path, &["log", "--format=%s", "main"])
                     .lines()

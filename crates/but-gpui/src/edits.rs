@@ -1233,11 +1233,10 @@ impl AppView {
                 project,
                 Label::new("Land", format!("Land {name}")),
                 overlay,
-                {
-                    let ref_name = ref_name.clone();
-                    backend::Legacy::new(move |path| {
-                        backend::land(path, &ref_name, tip, whole_stack)
-                    })
+                backend::upstream::Land {
+                    branch: ref_name.clone(),
+                    tip,
+                    whole_stack,
                 },
                 move |store, left: backend::Landed, cx| {
                     // Undo would bring the branch back here while the target keeps it.

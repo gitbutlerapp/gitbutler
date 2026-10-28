@@ -1082,36 +1082,44 @@ impl Intent for Fetch {
     }
 }
 
-/// Put `branch`, or with `whole_stack` it and every branch below it,
-/// straight onto the target and push the target, or with no upstream, just move it. Returns
-/// what that left for the other branches.
-pub fn land(
-    path: &Path,
-    branch: &super::FullName,
-    tip: CommitId,
-    whole_stack: bool,
-) -> Result<Landed> {
-    let mut ctx = open(path)?;
-    let info = but_api::legacy::workspace::head_info(&ctx)?;
-    // A merge commit when the branch has diverged, as `but land` makes one without its flags.
-    // Only at `tip`, the one the user was asked about: a push can't be undone, so not of
-    // commits an agent added since.
-    let landed = but_api::land::branch_land(
-        &mut ctx,
-        branch.shorten().to_string(),
-        false,
-        false,
-        whole_stack,
-        Some(tip.0),
-    )?;
-    Ok(Landed {
-        update_needed: landed.reconcile_skipped,
-        conflicted: newly_conflicted(&info, &landed.workspace.conflicted_commits),
-        marked: landed.workspace.checkout_conflict_occurred,
-    })
+/// Put `branch`, or with `whole_stack` it and every branch below it, straight onto the target
+/// and push the target, or with no upstream, just move it. Done is what that left for the
+/// other branches.
+pub struct Land {
+    pub branch: super::FullName,
+    pub tip: CommitId,
+    pub whole_stack: bool,
 }
 
-/// What [`land()`] left for the other branches.
+impl Intent for Land {
+    type Done = Landed;
+
+    fn apply(self, run: &mut Run) -> Result<Landed> {
+        // `branch_land` takes GitButler's lock itself, around its fetch and push, so it's
+        // watched rather than locked.
+        run.watched(|ctx| {
+            let info = but_api::legacy::workspace::head_info(ctx)?;
+            // A merge commit when the branch has diverged, as `but land` makes one without its
+            // flags. Only at `tip`, the one the user was asked about: a push can't be undone,
+            // so not of commits an agent added since.
+            let landed = but_api::land::branch_land(
+                ctx,
+                self.branch.shorten().to_string(),
+                false,
+                false,
+                self.whole_stack,
+                Some(self.tip.0),
+            )?;
+            Ok(Landed {
+                update_needed: landed.reconcile_skipped,
+                conflicted: newly_conflicted(&info, &landed.workspace.conflicted_commits),
+                marked: landed.workspace.checkout_conflict_occurred,
+            })
+        })
+    }
+}
+
+/// What [`Land`] left for the other branches.
 pub struct Landed {
     /// They still need an update to sit on the moved target.
     pub update_needed: bool,

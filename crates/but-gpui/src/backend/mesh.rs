@@ -519,9 +519,10 @@ impl Intent for BringHere {
         }
         // `but-mesh` takes GitButler's lock itself, so it's watched rather than locked. With the
         // commits already here, it only checks with the server, which a read's timeout bounds.
-        let out = run.watched(|path| {
+        let path = run.path().to_owned();
+        let out = run.watched(|_| {
             mesh(
-                Some(path),
+                Some(&path),
                 &["apply", &self.mesh_id, "--json"],
                 READ_TIMEOUT,
             )

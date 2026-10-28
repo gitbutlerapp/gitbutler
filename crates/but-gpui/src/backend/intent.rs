@@ -60,16 +60,14 @@ impl Run {
         work: impl FnOnce(&mut but_ctx::Context, &mut RepoExclusive) -> Result<R>,
     ) -> Result<R> {
         let mut guard = self.ctx.exclusive_worktree_access();
-        self.noting(|ctx| work(ctx, guard.write_permission()))
+        self.watched(|ctx| work(ctx, guard.write_permission()))
     }
 
     /// Run `work`, which takes GitButler's lock itself, noting what it recorded and moved.
-    pub(super) fn watched<R>(&mut self, work: impl FnOnce(&Path) -> Result<R>) -> Result<R> {
-        let path = self.path.clone();
-        self.noting(|_| work(&path))
-    }
-
-    fn noting<R>(&mut self, work: impl FnOnce(&mut but_ctx::Context) -> Result<R>) -> Result<R> {
+    pub(super) fn watched<R>(
+        &mut self,
+        work: impl FnOnce(&mut but_ctx::Context) -> Result<R>,
+    ) -> Result<R> {
         anyhow::ensure!(
             !std::mem::replace(&mut self.locked, true),
             "BUG: an operation locks its project once"
@@ -120,19 +118,6 @@ pub struct Legacy<F> {
     pub remote_only: bool,
 }
 
-impl<F, T> Legacy<F>
-where
-    F: FnOnce(&Path) -> Result<T> + Send + 'static,
-    T: Send + 'static,
-{
-    pub fn new(work: F) -> Self {
-        Self {
-            work,
-            remote_only: false,
-        }
-    }
-}
-
 impl<F, T> Intent for Legacy<F>
 where
     F: FnOnce(&Path) -> Result<T> + Send + 'static,
@@ -143,7 +128,10 @@ where
     fn apply(self, run: &mut Run) -> Result<T> {
         match self.remote_only {
             true => (self.work)(&run.path),
-            false => run.watched(self.work),
+            false => {
+                let path = run.path.clone();
+                run.watched(|_| (self.work)(&path))
+            }
         }
     }
 }
