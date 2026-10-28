@@ -170,11 +170,12 @@ unseen is what a laptop's battery pays for.
   them by the workspace's commits misses a pull's incoming ones, so `integrate_remote` returns
   their change IDs; any conflicted commit the main checkout doesn't know may be a linked
   worktree's that was conflicted already.
-- A project runs one operation at a time, until the reload after it lands, and `Store::run`
-  turns down another asked for meanwhile, so each acts on the state the user saw the one before
-  leave; nothing queues. Fetches, pushes and deleting a linked worktree (`OpKind::beside`) run
-  beside it, refusing only one of their own kind, and record no undo step, so the oplog and
-  linked worktrees' heads are compared only around the others. Operations are told apart by
+- A project runs one operation at a time, until the reload after it lands, and `Store::apply`
+  (which `Store::run` wraps a closure for) turns down another asked for meanwhile, so each acts
+  on the state the user saw the one before leave; nothing queues. Fetches, pushes and deleting a
+  linked worktree (`OpKind::beside`) run beside it, refusing only one of their own kind, and
+  record no undo step: `Store::apply` drops the oplog entry and linked-worktree moves seen
+  around them. Operations are told apart by
   `Overlay::kind` (`OpKind` in `state/mutation.rs`), never by their label, which is only what
   the user reads.
 - The oplog records the workspace and the main checkout only. Undo and History restore refuse

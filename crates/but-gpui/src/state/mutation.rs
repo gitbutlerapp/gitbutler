@@ -6,7 +6,7 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use gpui::{Context, SharedString, Task};
@@ -335,11 +335,6 @@ fn files_named(files: &[String]) -> String {
 
 const WAIT_TO_UNDO: &str = "Wait for the running operation to finish, then undo it";
 
-/// Now, in milliseconds since the Unix epoch, as file times are.
-fn now_millis() -> i64 {
-    (SystemTime::now().duration_since(UNIX_EPOCH)).map_or(0, |t| t.as_millis() as i64)
-}
-
 impl Store {
     /// Confirm an operation, or warn about the changes it had to leave out.
     pub fn report_left_out(&mut self, done: &str, left_out: &[String], cx: &mut Context<Self>) {
@@ -390,7 +385,7 @@ impl Store {
     /// Make the operation that recorded `snapshot` in `project` one ⌘Z takes back, among the
     /// others by when it started.
     fn push_undo_step(&mut self, project: ProjectId, snapshot: SnapshotId, started: Instant) {
-        let done = now_millis();
+        let done = backend::now_millis();
         (self.undo_steps).push(UndoStep {
             project,
             snapshot,
@@ -481,7 +476,7 @@ impl Store {
                 let operation = match redone {
                     Some(Undone::Done(operation)) => operation,
                     Some(Undone::Newer(files)) => {
-                        let (what, asked) = (files_named(&files), Some(now_millis()));
+                        let (what, asked) = (files_named(&files), Some(backend::now_millis()));
                         return store.error_with_retry(
                             store.card_title(&again, "Redo takes back newer changes too".into()),
                             format!(
@@ -570,7 +565,7 @@ impl Store {
         {
             // The card comes before anything else is checked, so going ahead still checks
             // from where it would have, but for pushes up to now.
-            let asked_now = Some(now_millis());
+            let asked_now = Some(backend::now_millis());
             return self.error_with_retry(
                 self.card_title(project, "Undo may take back what was pushed".into()),
                 "A push came after the operation it undoes. If the push took what the \
@@ -636,7 +631,7 @@ impl Store {
                         store.snack(store.card_title(&again, why), cx)
                     }
                     Ok(Undone::Newer(files)) => {
-                        let (what, asked) = (files_named(&files), Some(now_millis()));
+                        let (what, asked) = (files_named(&files), Some(backend::now_millis()));
                         store.error_with_retry(
                             store.card_title(&again, "Undo takes back newer changes too".into()),
                             format!(
@@ -846,7 +841,8 @@ impl Store {
 
     /// Note that `project` just pushed, so ⌘Z asks before taking back what came before.
     pub fn pushed(&mut self, project: &ProjectId) {
-        self.pushed_at.insert(project.clone(), now_millis());
+        self.pushed_at
+            .insert(project.clone(), backend::now_millis());
     }
 
     /// Push `ref_name`, and with `protect` refuse to drop commits only the remote has: the
@@ -1224,10 +1220,7 @@ impl Store {
         );
     }
 
-    /// Run `op` on `project`, then reload it, busy until the reload lands. Until then,
-    /// `overlay` hides what it takes away, and another operation on `project` is refused, so
-    /// each one acts on what the one before it did, but for those that run beside it
-    /// ([`OpKind::beside`]), each refusing only one of its own kind. `done` gets its result.
+    /// [`Self::apply`] for an operation not yet written as an intent.
     pub fn run<T: Send + 'static>(
         &mut self,
         project: &ProjectId,
@@ -1235,6 +1228,26 @@ impl Store {
         overlay: Overlay,
         op: impl FnOnce(&Path) -> Result<T> + Send + 'static,
         done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        let legacy = backend::Legacy {
+            work: op,
+            remote_only: overlay.remote_only,
+        };
+        self.apply(project, label, overlay, legacy, done, cx)
+    }
+
+    /// Apply `intent` to `project`, then reload it, busy until the reload lands. Until then,
+    /// `overlay` hides what it takes away, and another operation on `project` is refused, so
+    /// each one acts on what the one before it did, but for those that run beside it
+    /// ([`OpKind::beside`]), each refusing only one of its own kind. `done` gets its result.
+    pub fn apply<I: backend::Intent>(
+        &mut self,
+        project: &ProjectId,
+        label: impl Into<Label>,
+        overlay: Overlay,
+        intent: I,
+        done: impl FnOnce(&mut Store, I::Done, &mut Context<Store>) + 'static,
         cx: &mut Context<Self>,
     ) {
         if let Some(why) = self.refusal(project, &overlay) {
@@ -1316,41 +1329,7 @@ impl Store {
             // Asked for by the user, so it runs at full speed even if they switch away
             // meanwhile, rather than as macOS runs a hidden app's work.
             let _awake = cx.background_executor().prevent_app_nap(&reason);
-            // Which oplog entry the operation recorded, if it did, for its Undo button.
-            #[expect(
-                clippy::disallowed_methods,
-                reason = "in `backend::run`, off the UI thread"
-            )]
-            let result = backend::run(move || {
-                // Left by a Git that crashed or was killed, as an agent's can be, the lock
-                // stops an operation partway, after it has written files.
-                anyhow::ensure!(
-                    remote_only || !path.join(".git/index.lock").exists(),
-                    "Another Git process is using the repository, or one that stopped left \
-                     .git/index.lock behind. Delete it if no Git command is running."
-                );
-                // One beside the others records nothing, and what changes meanwhile is theirs.
-                let watched = (!beside).then(|| {
-                    let heads = backend::worktrees::heads(&path);
-                    (backend::history::oplog_head(&path), heads)
-                });
-                // Just the work itself: what Git logs right after it, as an agent's commit
-                // waiting on the lock does, isn't the app's.
-                let started = now_millis();
-                let value = op(&path)?;
-                let ran = (started, now_millis());
-                let (recorded, moved_worktree) = match watched {
-                    None => (None, false),
-                    Some((before, heads)) => (
-                        backend::history::oplog_head(&path).filter(|after| Some(*after) != before),
-                        // The oplog records only the main checkout: what moved a linked
-                        // worktree, even one stacked on a branch here, can't be undone.
-                        backend::worktrees::heads(&path).moved_since(&heads),
-                    ),
-                };
-                Ok((value, recorded, moved_worktree, ran))
-            })
-            .await;
+            let result = backend::run(move || backend::apply(&path, intent)).await;
             this.update(cx, |store, cx| {
                 // What was asked for while it ran too.
                 if let Some(running) = store.running.iter_mut().find(|r| r.id == id) {
@@ -1366,11 +1345,11 @@ impl Store {
                 let source = (project.clone(), label.clone());
                 let first_card = store.next_toast;
                 match result {
-                    Ok((value, recorded, moved_worktree, ran)) => {
+                    Ok((value, ran)) => {
                         // A push or fetch writes only what the remote has, which undo leaves,
                         // so what an agent did while it ran still counts.
                         if !remote_only {
-                            store.ran.entry(project.clone()).or_default().push(ran);
+                            store.ran.entry(project.clone()).or_default().push(ran.span);
                         }
                         // Set here rather than at the start, so a load the watcher started
                         // mid-operation can't use it up; not after a failure, which made
@@ -1386,8 +1365,11 @@ impl Store {
                             } => *s != source,
                             _ => true,
                         });
-                        store.last_snapshot = recorded.map(|snapshot| (project.clone(), snapshot));
-                        if moved_worktree {
+                        // One beside the others records nothing, and what changes meanwhile
+                        // is theirs.
+                        store.last_snapshot = (ran.recorded.filter(|_| !beside))
+                            .map(|snapshot| (project.clone(), snapshot));
+                        if ran.moved_worktree && !beside {
                             store.keep_last_snapshot(cx);
                         }
                         // Something new done, ⌘Z takes it back first, and what it took back

@@ -1,0 +1,91 @@
+use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use anyhow::Result;
+
+use super::{SnapshotId, history, worktrees};
+
+/// The git side of one user action, applied by [`apply`].
+pub trait Intent: Send + 'static {
+    type Done: Send + 'static;
+    fn apply(self, run: &mut Run) -> Result<Self::Done>;
+}
+
+/// One operation on one project.
+pub struct Run {
+    path: PathBuf,
+    recorded: Option<SnapshotId>,
+    moved_worktree: bool,
+}
+
+/// What an operation did beyond its own result: the oplog entry it recorded, whether it moved
+/// a linked worktree's `HEAD`, and when it ran, in milliseconds since the epoch.
+pub struct Ran {
+    pub recorded: Option<SnapshotId>,
+    pub moved_worktree: bool,
+    pub span: (i64, i64),
+}
+
+impl Run {
+    /// Run `work`, which takes GitButler's lock itself, noting what it recorded and moved.
+    fn watched<R>(&mut self, work: impl FnOnce(&Path) -> Result<R>) -> Result<R> {
+        // Left by a Git that crashed or was killed, as an agent's can be, the lock stops an
+        // operation partway, after it has written files.
+        anyhow::ensure!(
+            !self.path.join(".git/index.lock").exists(),
+            "Another Git process is using the repository, or one that stopped left \
+             .git/index.lock behind. Delete it if no Git command is running."
+        );
+        let oplog = history::oplog_head(&self.path);
+        let heads = worktrees::heads(&self.path);
+        let value = work(&self.path)?;
+        self.recorded = history::oplog_head(&self.path).filter(|after| Some(*after) != oplog);
+        // The oplog records only the main checkout: what moved a linked worktree, even one
+        // stacked on a branch here, can't be undone.
+        self.moved_worktree = worktrees::heads(&self.path).moved_since(&heads);
+        Ok(value)
+    }
+}
+
+pub fn apply<I: Intent>(path: &Path, intent: I) -> Result<(I::Done, Ran)> {
+    let mut run = Run {
+        path: path.to_owned(),
+        recorded: None,
+        moved_worktree: false,
+    };
+    let started = now_millis();
+    let done = intent.apply(&mut run)?;
+    let span = (started, now_millis());
+    let ran = Ran {
+        recorded: run.recorded,
+        moved_worktree: run.moved_worktree,
+        span,
+    };
+    Ok((done, ran))
+}
+
+/// Now, in milliseconds since the Unix epoch, as file times are.
+pub fn now_millis() -> i64 {
+    (SystemTime::now().duration_since(UNIX_EPOCH)).map_or(0, |t| t.as_millis() as i64)
+}
+
+/// An operation not yet written as an intent: a closure on the project's path.
+pub struct Legacy<F> {
+    pub work: F,
+    pub remote_only: bool,
+}
+
+impl<F, T> Intent for Legacy<F>
+where
+    F: FnOnce(&Path) -> Result<T> + Send + 'static,
+    T: Send + 'static,
+{
+    type Done = T;
+
+    fn apply(self, run: &mut Run) -> Result<T> {
+        match self.remote_only {
+            true => (self.work)(&run.path),
+            false => run.watched(self.work),
+        }
+    }
+}
