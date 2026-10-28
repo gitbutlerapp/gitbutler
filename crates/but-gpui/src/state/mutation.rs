@@ -293,12 +293,11 @@ impl Store {
     }
 
     /// Whether an operation the user would mean to undo first is still working: one started
-    /// after `after` (any, if `None`) in `project` (any, if `None`). Fetches and pull-request
-    /// merges don't count but pushes do, and undos never count.
+    /// after `after` (any, if `None`) in `project` (any, if `None`). Fetches and what only asks
+    /// the forge don't count but pushes do, and undos never count.
     fn running_after(&self, after: Option<Instant>, project: Option<&ProjectId>) -> bool {
         self.working().any(|r| {
-            let undoable = !matches!(r.kind, OpKind::Fetch | OpKind::Forge | OpKind::Undo(_));
-            undoable
+            !matches!(r.kind, OpKind::Fetch | OpKind::Forge | OpKind::Undo(_))
                 && project.is_none_or(|p| r.project == *p)
                 && after.is_none_or(|after| r.started > after)
         })
