@@ -302,7 +302,6 @@ pub(super) struct Running {
     pub(super) phase: Phase,
     /// Reloads asked for while it ran, which the reload after it reads too.
     pub(super) deferred: Reload,
-    moved: Option<Selection>,
 }
 
 /// How far a running operation has got: the reload after it, not its own end, ends it.
@@ -1236,6 +1235,7 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let beside = overlay.kind.beside();
+        let remote_only = overlay.remote_only;
         let taken = self.running_in(project).any(|r| match beside {
             true => r.overlay.kind == overlay.kind,
             false => !r.overlay.kind.beside(),
@@ -1262,7 +1262,7 @@ impl Store {
         // can leave it unable to read again: the operation would act on what's gone, and the
         // engine can make a commit it then fails to report.
         let unreadable = (self.project(project)).is_some_and(|p| p.error.is_some())
-            && !(overlay.remote_only
+            && !(remote_only
                 || matches!(
                     overlay.kind,
                     OpKind::Undo(_) | OpKind::Redo(_) | OpKind::Restore
@@ -1294,12 +1294,9 @@ impl Store {
             })
             .detach();
         }
-        // While editing there are no commits to compare with afterwards; every commit would
-        // count as the operation's own and lose its unread mark, as an agent's commit that
-        // lands during a push would: one that only talks to the remote makes none, nor does one
-        // beside the others, whose commits are theirs.
-        let remote_only = overlay.remote_only;
-        // Those only a remote has too, so pulling them keeps their read marks.
+        // Commits shown before it, so that afterwards only its own lose their unread marks; none
+        // while editing, nor for one that only talks to the remote or runs beside the others,
+        // which make none of their own.
         let before = (!editing && !remote_only && !beside).then(|| {
             let ws = self.workspace(project);
             let keys = ws.map_or_else(HashSet::new, |ws| {
@@ -1309,6 +1306,25 @@ impl Store {
             });
             (keys, ws.map(|ws| overlay.checkouts(ws)).unwrap_or_default())
         });
+        let undo = matches!(overlay.kind, OpKind::Undo(_) | OpKind::Redo(_));
+        // The reload after it reads just the uncommitted files, or just the commits and
+        // branches, if that's all it changed.
+        let mut reload = match overlay.rereads {
+            // Files taken out of a checkout leave it even when its `HEAD` stays put, as a
+            // linked worktree's committed to a branch here do.
+            Rereads::Commits if !overlay.files.is_empty() || !overlay.hunks.is_empty() => {
+                let mut reload = Reload::commits();
+                reload.merge(Reload::files(overlay.files_in.clone()));
+                reload
+            }
+            Rereads::Commits => Reload::commits(),
+            Rereads::Files => Reload::files(overlay.files_in.clone()),
+            Rereads::CommitsAndMain => {
+                let mut reload = Reload::commits();
+                reload.merge(Reload::files(Checkout::Main));
+                reload
+            }
+        };
         let (now, id) = (Instant::now(), self.ops_started);
         self.ops_started += 1;
         self.running.push(Running {
@@ -1319,7 +1335,6 @@ impl Store {
             started: now,
             phase: Phase::Working,
             deferred: Reload::default(),
-            moved,
         });
         cx.emit(StoreEvent::Pending(project.clone()));
         cx.notify();
@@ -1327,7 +1342,6 @@ impl Store {
         self.busy_ticker = Self::tick_while_busy(cx);
         let project = project.clone();
         let reason = label.to_string();
-        let began = Instant::now();
         cx.spawn(async move |this, cx| {
             // Asked for by the user, so it runs at full speed even if they switch away
             // meanwhile, rather than as macOS runs a hidden app's work.
@@ -1368,43 +1382,14 @@ impl Store {
             })
             .await;
             this.update(cx, |store, cx| {
-                // The reload after it reads just the uncommitted files, or just the commits
-                // and branches, if that's all it changed, and what was asked for while it ran.
-                let mut reload = Reload::full();
-                let mut moved = None;
-                let (mut undo, mut asked) = (false, Instant::now());
+                // What was asked for while it ran too.
                 if let Some(running) = store.running.iter_mut().find(|r| r.id == id) {
-                    let kind = &running.overlay.kind;
-                    (undo, asked) = (
-                        matches!(kind, OpKind::Undo(_) | OpKind::Redo(_)),
-                        running.started,
-                    );
                     running.phase = Phase::Finished;
-                    moved = running.moved.take();
-                    let overlay = &running.overlay;
-                    reload = match overlay.rereads {
-                        // Files taken out of a checkout leave it even when its `HEAD` stays
-                        // put, as a linked worktree's committed to a branch here do.
-                        Rereads::Commits
-                            if !overlay.files.is_empty() || !overlay.hunks.is_empty() =>
-                        {
-                            let mut reload = Reload::commits();
-                            reload.merge(Reload::files(overlay.files_in.clone()));
-                            reload
-                        }
-                        Rereads::Commits => Reload::commits(),
-                        Rereads::Files => Reload::files(overlay.files_in.clone()),
-                        Rereads::CommitsAndMain => {
-                            let mut reload = Reload::commits();
-                            reload.merge(Reload::files(Checkout::Main));
-                            reload
-                        }
-                    };
                     reload.merge(std::mem::take(&mut running.deferred));
                 }
                 backend::metrics::operation(
                     name,
-                    began.elapsed(),
+                    now.elapsed(),
                     result.as_ref().err(),
                     store.workspace(&project),
                 );
@@ -1440,7 +1425,7 @@ impl Store {
                         if let Some((project, snapshot)) =
                             store.last_snapshot.clone().filter(|_| !undo)
                         {
-                            store.push_undo_step(project, snapshot, asked);
+                            store.push_undo_step(project, snapshot, now);
                             store.redo_steps.clear();
                         }
                         // Gone on to another project meanwhile, the user stays there, picks and
