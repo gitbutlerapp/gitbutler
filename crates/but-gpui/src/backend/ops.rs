@@ -579,28 +579,28 @@ impl Intent for CreateDependentBranch {
 
 /// Make a new branch, with a made-up name, whose newest commit is `commit`, taking it and the
 /// commits below it in its branch; or with `below`, one that ends just under `commit`.
-pub fn create_branch_at_commit(path: &Path, commit: CommitId, below: bool) -> Result<FullName> {
-    let side = if below {
-        InsertSide::Below
-    } else {
-        InsertSide::Above
-    };
-    let relative_to = but_api::commit::json::RelativeTo::Commit(commit.0);
-    create_branch_at(path, relative_to, side)
+pub struct CreateBranchAtCommit {
+    pub commit: CommitId,
+    pub below: bool,
 }
 
-fn create_branch_at(
-    path: &Path,
-    relative_to: but_api::commit::json::RelativeTo,
-    side: InsertSide,
-) -> Result<FullName> {
-    let mut ctx = open(path)?;
-    let created = but_api::branch::branch_create(
-        &mut ctx,
-        None,
-        but_api::branch::json::BranchCreatePlacement::Dependent { relative_to, side },
-    )?;
-    Ok(created.new_ref)
+impl Intent for CreateBranchAtCommit {
+    type Done = FullName;
+
+    fn apply(self, run: &mut Run) -> Result<FullName> {
+        let side = match self.below {
+            true => InsertSide::Below,
+            false => InsertSide::Above,
+        };
+        let placement = but_api::branch::json::BranchCreatePlacement::Dependent {
+            relative_to: but_api::commit::json::RelativeTo::Commit(self.commit.0),
+            side,
+        };
+        run.locked(|ctx, perm| {
+            let created = but_api::branch::branch_create_with_perm(ctx, None, placement, perm)?;
+            Ok(created.new_ref)
+        })
+    }
 }
 
 /// Stack `branch` (a full ref name) on top of `onto`, with the branches above it.
@@ -3278,7 +3278,11 @@ pub(super) mod tests {
                     },
                 )
                 .unwrap();
-                create_branch_at_commit(path, api, false).unwrap();
+                let at_api = CreateBranchAtCommit {
+                    commit: api,
+                    below: false,
+                };
+                crate::backend::apply(path, at_api).unwrap();
                 tear_off_branch(path, &full("refs/heads/top")).unwrap()
             };
             assert_eq!(

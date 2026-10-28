@@ -1063,9 +1063,11 @@ impl AppView {
         };
         let branch = Selection::Branch(project.clone(), Some(ref_name));
         let checkout = self.store.read(cx).checkout_of(&branch);
-        let op =
-            backend::Legacy::new(move |path| backend::create_branch_at_commit(path, oldest, true));
-        self.new_branch_at(project, false, None, checkout, window, cx, op);
+        let create = backend::CreateBranchAtCommit {
+            commit: oldest,
+            below: true,
+        };
+        self.new_branch_at(project, false, None, checkout, window, cx, create);
     }
 
     /// Split the selected commit's branch: a new branch ending at it takes it and the
@@ -1076,9 +1078,11 @@ impl AppView {
         };
         let id = commit.id;
         let checkout = (self.store.read(cx)).checkout_of(&Selection::Commit(project.clone(), id));
-        let op =
-            backend::Legacy::new(move |path| backend::create_branch_at_commit(path, id, false));
-        self.new_branch_at(project, false, None, checkout, window, cx, op);
+        let create = backend::CreateBranchAtCommit {
+            commit: id,
+            below: false,
+        };
+        self.new_branch_at(project, false, None, checkout, window, cx, create);
     }
 
     fn unstack(&mut self, _: &Unstack, _: &mut Window, cx: &mut Context<Self>) {

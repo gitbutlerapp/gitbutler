@@ -1423,8 +1423,8 @@ mod lane_tests {
     use crate::backend::model::build::{describe, describe_chain};
     use crate::backend::ops::tests::{git, repo_with, target_origin_main};
     use crate::backend::ops::{
-        CreateBranch, CreateDependentBranch, Destination, InsertEmptyCommit,
-        create_branch_at_commit, rename_branch,
+        CreateBranch, CreateBranchAtCommit, CreateDependentBranch, Destination, InsertEmptyCommit,
+        rename_branch,
     };
     use crate::backend::{Checkout, CommitId};
 
@@ -1506,7 +1506,11 @@ mod lane_tests {
             );
             let wt_work = git(path, &["rev-parse", "wt~"]);
             let wt_work = CommitId(gix::ObjectId::from_hex(wt_work.trim().as_bytes()).unwrap());
-            create_branch_at_commit(path, wt_work, false).unwrap();
+            let at_work = CreateBranchAtCommit {
+                commit: wt_work,
+                below: false,
+            };
+            crate::backend::apply(path, at_work).unwrap();
             let wt_top = worktree("wt-top");
             let out = std::process::Command::new("git")
                 .current_dir(&wt_top.unwrap().path)
