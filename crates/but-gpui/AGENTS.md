@@ -170,8 +170,11 @@ unseen is what a laptop's battery pays for.
   worktree's that was conflicted already.
 - A project runs one operation at a time, until the reload after it lands, and `Store::run`
   turns down another asked for meanwhile, so each acts on the state the user saw the one before
-  leave; nothing queues. Operations are told apart by `Overlay::kind` (`OpKind` in
-  `state/mutation.rs`), never by their label, which is only what the user reads.
+  leave; nothing queues. Fetches, pushes and deleting a linked worktree (`OpKind::beside`) run
+  beside it, refusing only one of their own kind, and record no undo step, so the oplog and
+  linked worktrees' heads are compared only around the others. Operations are told apart by
+  `Overlay::kind` (`OpKind` in `state/mutation.rs`), never by their label, which is only what
+  the user reads.
 - The oplog records the workspace and the main checkout only. Undo and History restore refuse
   anything that touched a linked worktree, in older snapshots too. Commits in a linked worktree
   skip hooks, which would run against the main checkout's files. Branches move only within their

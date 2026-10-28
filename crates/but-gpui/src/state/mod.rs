@@ -346,7 +346,9 @@ pub struct Store {
     pub mesh: mesh::Mesh,
     /// Each project's mutation in flight. A project runs one at a time, until the reload after
     /// it lands, so the next one sees what it did; projects don't wait on each other.
-    running: HashMap<ProjectId, Running>,
+    running: Vec<Running>,
+    /// How many operations have started, which numbers the next.
+    ops_started: usize,
     /// When, in seconds since the Unix epoch, each project's mutations of the last two
     /// minutes wrote: each from its start until the file watcher has told of its writes, a
     /// second or so after it settled. What's written then isn't activity in the checkout.
@@ -474,7 +476,8 @@ impl Store {
             updating: None,
             update_put_off: None,
             mesh: mesh::Mesh::start(cx),
-            running: HashMap::new(),
+            running: Vec::new(),
+            ops_started: 0,
             own_writes: HashMap::new(),
             pushed_at: HashMap::new(),
             busy_ticker: Task::ready(()),
