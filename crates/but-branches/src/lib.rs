@@ -354,6 +354,11 @@ impl<'a> ListingContext<'a> {
                 continue;
             };
             let display_name = display_identity(ref_name.as_ref(), &self.remote_names);
+            // An ad-hoc workspace has the workspace ref itself as a stack segment,
+            // which isn't a user branch.
+            if is_technical_branch_name(display_name.as_ref()) {
+                continue;
+            }
             consumed.insert(display_name.clone());
             let (last_author, updated_at_ms) = self.tip_info(tip);
             // All enumerated remotes of the same name, like standalone branches

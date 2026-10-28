@@ -522,8 +522,8 @@ impl ProjectMeta {
 
     /// Read project metadata from the given repository-local Git configuration.
     ///
-    /// Malformed target ref names, refs that aren't local or remote-tracking branches, and
-    /// invalid target commit IDs are ignored with a warning.
+    /// Malformed target ref names, refs that aren't local or remote-tracking branches, the
+    /// workspace branch, and invalid target commit IDs are ignored with a warning.
     ///
     /// Legacy remote targets are resolved to the local branch configured to track them, as
     /// [`find_local_tracking_branch`] picks it, preserving the stored target commit ID. Returns an
@@ -549,6 +549,16 @@ impl ProjectMeta {
 
         let target_ref = if let Some(ref_name) = ref_name {
             match ref_name.category() {
+                // Target setup used to accept the workspace as its own target, which keeps the
+                // workspace from loading. Ignoring it lets the user choose a target again.
+                Some(gix::refs::Category::LocalBranch)
+                    if crate::is_workspace_ref_name(ref_name.as_ref()) =>
+                {
+                    tracing::warn!(
+                        "ignoring {PROJECT_TARGET_REF}: target ref {ref_name} is the GitButler workspace"
+                    );
+                    None
+                }
                 Some(gix::refs::Category::LocalBranch) => Some(LocalRefName::new(ref_name)?),
                 Some(gix::refs::Category::RemoteBranch) => {
                     // The target ref used to always be a remote ref but in oct 2026 we changed it

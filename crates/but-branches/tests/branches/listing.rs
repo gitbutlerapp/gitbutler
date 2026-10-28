@@ -482,6 +482,45 @@ Applied [applied-top]
 }
 
 #[test]
+fn workspace_without_stacks_or_target_hides_the_workspace_branch() -> anyhow::Result<()> {
+    let (repo, meta, mut db) = named_read_only_in_memory_scenario("branch-listing", "")?;
+    let listing = but_branches::list(&repo, &*meta, &mut db, options_without_target())?;
+    // Without stacks or a target, HEAD on `gitbutler/workspace` is an ad-hoc workspace
+    // whose only stack is that ref. Target setup picks from this listing, so the
+    // workspace branch must not show up as a choice.
+    snapbox::assert_data_eq!(
+        listing_snapshot(&listing),
+        snapbox::str![[r#"
+target: none, incomplete: false
+Standalone [remote-behind]
+  remote-behind (local+remote: refs/remotes/origin/remote-behind) bb8e41e commits=2 target(n/a)
+Standalone [remote-only]
+  remote-only (remote: refs/remotes/origin/remote-only) 10f85fd commits=1 target(n/a)
+Standalone [fork-a]
+  fork-a (local) fbd11c1 commits=1 target(n/a)
+Standalone [fork-b]
+  fork-b (local) 3b63a74 commits=1 target(n/a)
+Standalone [chain-top]
+  chain-top (local) ccdbbc8 commits=1 target(n/a)
+  chain-bottom (local) cfaafa9 commits=1 target(n/a)
+Standalone [standalone]
+  standalone (local+remote: refs/remotes/origin/standalone) 2215f76 commits=2 target(n/a)
+Standalone [standalone-alias]
+  standalone-alias (local) 2215f76 commits=2 target(n/a)
+Standalone [unapplied-top]
+  unapplied-top (local) 645e91c commits=1 target(n/a)
+  unapplied-bottom (local) 06d2867 commits=1 target(n/a)
+Applied [applied-top]
+  applied-top (local) 2febd1f commits=1 target(n/a)
+  applied-bottom (local) 9528084 commits=1 target(n/a)
+  main (local+remote: refs/remotes/origin/main) 353b35c commits=1 target(n/a)
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
 fn unborn_head_still_lists_remote_branches() -> anyhow::Result<()> {
     let (repo, meta, mut db) = named_read_only_in_memory_scenario("unborn-head-with-remotes", "")?;
     let listing = but_branches::list(&repo, &*meta, &mut db, options_without_target())?;

@@ -864,6 +864,19 @@ mod project_meta {
     }
 
     #[test]
+    fn workspace_target_ref_reads_as_none() -> anyhow::Result<()> {
+        let config = gix::config::File::try_from(
+            "[gitbutler \"project\"]\n\ttargetRef = refs/heads/gitbutler/workspace\n",
+        )?;
+        let actual = ProjectMeta::try_from_config(&config, &repo()?)?;
+        assert_eq!(
+            actual.target_ref, None,
+            "a stored workspace target is ignored so the project loads and asks for a target again"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn null_target_commit_id_reads_as_none() -> anyhow::Result<()> {
         let config = gix::config::File::try_from(
             "[gitbutler \"project\"]\n\

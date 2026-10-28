@@ -832,6 +832,34 @@ mod error {
     }
 
     #[test]
+    fn workspace_branch_rejected_without_changing_metadata() {
+        let (repo, _tmp) = scenario();
+        let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
+        repo.reference(
+            workspace_ref.as_ref(),
+            repo.head_id().unwrap(),
+            PreviousValue::MustNotExist,
+            "create workspace ref",
+        )
+        .unwrap();
+        let meta_before = stored_meta(&repo);
+
+        let err =
+            set_target_ref(&repo, &LocalRefName::new(workspace_ref).unwrap(), None).unwrap_err();
+
+        assert_eq!(
+            err.custom_context().map(|ctx| ctx.code),
+            Some(Code::PreconditionFailed),
+            "the workspace branch is a selection problem the user can fix by choosing another branch"
+        );
+        assert_eq!(
+            stored_meta(&repo),
+            meta_before,
+            "the workspace branch as target breaks every later workspace read, so it is never stored"
+        );
+    }
+
+    #[test]
     fn tag_rejected() {
         assert_eq!(
             LocalRefName::new("refs/tags/main".try_into().unwrap())
