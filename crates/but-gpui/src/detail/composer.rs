@@ -969,11 +969,12 @@ impl Detail {
     /// commit shown there isn't the newest.
     fn commit_pending(&self, project: &ProjectId, cx: &App) -> bool {
         (self.effective_target(project, cx)).is_some_and(|target| {
-            let pending = self.store.read(cx).new_commits(
-                project,
-                |at| matches!(at, NewAt::Top(branch) if *branch == target),
-            );
-            !pending.is_empty()
+            (self.store.read(cx))
+                .new_commit(
+                    project,
+                    |at| matches!(at, NewAt::Top(branch) if *branch == target),
+                )
+                .is_some()
         })
     }
 

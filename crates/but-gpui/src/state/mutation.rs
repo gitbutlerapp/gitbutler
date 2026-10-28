@@ -1653,15 +1653,7 @@ impl Store {
     }
 
     fn overlays<'a>(&'a self, project: &'a ProjectId) -> impl Iterator<Item = &'a Overlay> {
-        self.overlays_asked(project).map(|(overlay, _)| overlay)
-    }
-
-    /// [`Self::overlays`], each with when its mutation was asked for.
-    fn overlays_asked<'a>(
-        &'a self,
-        project: &'a ProjectId,
-    ) -> impl Iterator<Item = (&'a Overlay, Instant)> {
-        self.running_in(project).map(|r| (&r.overlay, r.started))
+        self.running_in(project).map(|r| &r.overlay)
     }
 
     pub fn hides_commit(&self, project: &ProjectId, key: &str) -> bool {
@@ -1792,18 +1784,17 @@ impl Store {
             .any(|o| (o.commit_files.get(commit)).is_some_and(|files| files.contains(path)))
     }
 
-    /// The titles of commits pending mutations will make where `at` says, each with whether
+    /// The title of the commit a pending operation will make where `at` says, with whether
     /// it's been on its way long enough to show it's still pending.
-    pub fn new_commits(
+    pub fn new_commit(
         &self,
         project: &ProjectId,
         at: impl Fn(&NewAt) -> bool,
-    ) -> Vec<(SharedString, bool)> {
-        self.overlays_asked(project)
-            .filter_map(|(o, asked)| Some((o.new_commit.as_ref()?, asked)))
-            .filter(|((place, _), _)| at(place))
-            .map(|((_, title), asked)| (title.clone(), asked.elapsed() >= PENDING_AFTER))
-            .collect()
+    ) -> Option<(SharedString, bool)> {
+        self.running_in(project).find_map(|r| {
+            let (place, title) = r.overlay.new_commit.as_ref()?;
+            at(place).then(|| (title.clone(), r.started.elapsed() >= PENDING_AFTER))
+        })
     }
 
     /// Where a commit going to `to` shows until it's there.

@@ -462,7 +462,7 @@ impl Navigator {
                 self.upstream_rows(store, workspace, id, Some(ref_name), rows);
             }
             let pending = |at: &dyn Fn(&NewAt) -> bool| {
-                (store.new_commits(id, at).into_iter())
+                (store.new_commit(id, at).into_iter())
                     .map(|(title, slow)| Row::Pending(title, slow))
             };
             rows.extend(pending(
