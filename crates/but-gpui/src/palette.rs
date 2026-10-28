@@ -314,6 +314,24 @@ fn score(label: &str, query: &str) -> Option<(i32, Vec<Range<usize>>)> {
     Some((0, found))
 }
 
+/// How well `query` matches a row's `detail`, as [`score`] says, but a commit's `id` only typed
+/// from its start, the short one the detail starts with too: letters scattered through it would
+/// find nearly every commit. The rest of the detail, its branch and project, matches as ever.
+fn detail_score(detail: &str, id: Option<&str>, query: &str) -> Option<(i32, Vec<Range<usize>>)> {
+    let Some(id) = id else {
+        return score(detail, query);
+    };
+    if !query.is_empty() && id_starts(id, query) {
+        return Some((2000, shared_start(detail, query).into_iter().collect()));
+    }
+    let shown = shared_start(detail, id).map_or(0, |shown| shown.end);
+    let (score, found) = score(detail.get(shown..)?, query)?;
+    let found = (found.into_iter())
+        .map(|range| range.start + shown..range.end + shown)
+        .collect();
+    Some((score, found))
+}
+
 /// Whether `query` is `id` typed from its start, in either case.
 fn id_starts(id: &str, query: &str) -> bool {
     (id.get(..query.len())).is_some_and(|start| start.eq_ignore_ascii_case(query))
@@ -733,7 +751,7 @@ impl AppView {
                 let label = score(&choice.label, &query);
                 // The label first on a tie, as a branch named as another's detail says.
                 let detail = (choice.detail.as_ref())
-                    .and_then(|detail| score(detail, &query))
+                    .and_then(|detail| detail_score(detail, choice.id.as_deref(), &query))
                     .map(|(score, found)| (score - 1, found))
                     .filter(|(score, _)| label.as_ref().is_none_or(|(label, _)| score > label));
                 let (score, found) = match (label, detail) {
@@ -753,21 +771,7 @@ impl AppView {
                             detail: Vec::new(),
                         },
                     ),
-                    // A longer id than the detail shows, the short one it starts with underlined.
-                    (None, None) => match &choice.id {
-                        Some(id) if id_starts(id, &query) => (
-                            2000,
-                            Found {
-                                ix,
-                                label: Vec::new(),
-                                detail: (choice.detail.as_ref())
-                                    .and_then(|detail| shared_start(detail, &query))
-                                    .into_iter()
-                                    .collect(),
-                            },
-                        ),
-                        _ => return None,
-                    },
+                    (None, None) => return None,
                 };
                 // One that throws work away shows for its words, not for letters scattered
                 // through it, so typing a command missing here doesn't land on it.
@@ -942,9 +946,46 @@ impl AppView {
 
 #[cfg(test)]
 mod tests {
-    use super::{COMMANDS, RISKY, id_starts, score, shared_start};
+    use super::{COMMANDS, RISKY, detail_score, id_starts, score, shared_start};
 
     const ID: &str = "3a79334c0b5e8f1d2a6b7c9e0f1a2b3c4d5e6f70";
+
+    #[test]
+    fn a_short_id_is_not_found_by_letters_scattered_through_it() {
+        assert_eq!(
+            detail_score("3a79334 · cache", Some(ID), "373"),
+            None,
+            "3, 7 and 3 appear in order in 3a79334, but that isn't an id typed"
+        );
+    }
+
+    #[test]
+    fn a_short_id_is_found_typed_from_its_start() {
+        let detail = "3a79334 · cache";
+        let found = detail_score(detail, Some(ID), "3a79").map(|(_, found)| found);
+        assert_eq!(
+            found.map(|found| found
+                .into_iter()
+                .map(|range| &detail[range])
+                .collect::<Vec<_>>()),
+            Some(Vec::from(["3a79"])),
+            "the start of the id shown is underlined"
+        );
+    }
+
+    #[test]
+    fn a_commit_is_still_found_by_its_branch() {
+        let detail = "3a79334 · cart-checkout";
+        let found = detail_score(detail, Some(ID), "checkout").map(|(_, found)| found);
+        assert_eq!(
+            found.map(|found| found
+                .into_iter()
+                .map(|range| &detail[range])
+                .collect::<Vec<_>>()),
+            Some(Vec::from(["checkout"])),
+            "past the id, the detail matches as any other, its underline where it was found"
+        );
+    }
 
     #[test]
     fn a_full_id_is_found_typed_from_its_start_in_either_case() {
