@@ -8,9 +8,9 @@ use std::time::Instant;
 
 use gpui::{
     Action, AnyElement, App, Bounds, ClickEvent, Context, CursorStyle, DispatchPhase, Div, Entity,
-    ListOffset, MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Point, ScrollHandle,
-    SharedString, Stateful, Subscription, WeakEntity, Window, anchored, canvas, deferred, div,
-    list, point, prelude::*,
+    MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Point, ScrollHandle, SharedString,
+    Stateful, Subscription, WeakEntity, Window, anchored, canvas, deferred, div, list, point,
+    prelude::*,
 };
 
 use super::blame::Blamed;
@@ -18,8 +18,8 @@ use super::file_list::At;
 use super::find::Spot;
 use super::lines::Pick;
 use super::{
-    Cursor, Detail, FILES_POPOVER_DELAY, FileLines, LoadedDiff, Stop, TextPoint, ToggleFiles,
-    TogglePlainLines, ToggleSplit, ToggleWrap,
+    Cursor, Detail, FILES_POPOVER_DELAY, FileLines, Glide, LoadedDiff, Stop, TextPoint,
+    ToggleFiles, TogglePlainLines, ToggleSplit, ToggleWrap,
 };
 use crate::backend::{
     self, Branch, ChangeKind, DiffBody, DiffLine, DiffSource, Drawing, FileDiff, HunkKey, LineKind,
@@ -168,7 +168,7 @@ impl Detail {
     /// Whether hunk `hunk` of `file` goes without a box, as when it runs on from the one
     /// above it in a scope shown whole: nothing before it is left out and the lines show
     /// every scope it's in. Not in the composer, where the box holds its checkbox.
-    fn boxless(&self, file: &FileDiff, hunk: usize) -> bool {
+    pub(super) fn boxless(&self, file: &FileDiff, hunk: usize) -> bool {
         let named = (file.hunks().get(hunk)).is_some_and(|hunk| !hunk.scope.is_empty());
         named && !self.composes() && matches!(self.hunk_title(file, hunk), (0, []))
     }
@@ -415,42 +415,37 @@ impl Detail {
         Some((area, sideways))
     }
 
-    /// Scroll a step of the way to where the keys sent the diff, as each frame draws, easing
-    /// out so it gets there quickly and settles, then exactly onto its row. Within a row it goes
-    /// by the row's height, a line's while it isn't drawn yet. Going down, it stops once the
-    /// diff's end is on screen, as no row can come higher.
+    /// Scroll a share of the way left to where the keys sent the diff, as each frame draws, by
+    /// how long since the last: it sets out quickly and eases in, however often frames come.
+    /// Going down, it stops once the diff's end is on screen, as no row can come higher.
     pub(super) fn follow_glide(&mut self, window: &mut Window, cx: &App) {
-        let Some(glide) = &self.glide else {
+        let Some(&Glide { to, last }) = self.glide.as_ref() else {
             return;
         };
+        let at = self.scrolled_to();
         let view = self.list.viewport_bounds();
-        let last = (self.diff.as_ref()).map_or(0, |diff| diff.rows.len().saturating_sub(1));
+        let end = (self.diff.as_ref()).map_or(0, |diff| diff.rows.len().saturating_sub(1));
         let end_shown =
-            (self.list.bounds_for_item(last)).is_some_and(|item| item.bottom() <= view.bottom());
-        let done = (glide.started.elapsed().as_secs_f32() / super::GLIDE.as_secs_f32()).min(1.);
-        let to = glide.to as f32;
-        if to > glide.from && end_shown {
+            (self.list.bounds_for_item(end)).is_some_and(|item| item.bottom() <= view.bottom());
+        if to > at && end_shown {
             self.glide = None;
             return;
         }
-        if done >= 1. {
-            self.list.scroll_to(ListOffset {
-                item_ix: glide.to,
-                offset_in_item: Pixels::ZERO,
-            });
-            self.glide = None;
-            return;
+        let now = Instant::now();
+        let share = 1. - (-(now - last).as_secs_f32() / super::GLIDE.as_secs_f32()).exp();
+        // Within a hundredth of a row, it's there.
+        let next = match (to - at).abs() * (1. - share) < 0.01 {
+            true => to,
+            false => at + (to - at) * share,
+        };
+        self.list.scroll_to(self.list_offset(next, cx));
+        match next == to {
+            true => self.glide = None,
+            false => {
+                self.glide = Some(Glide { to, last: now });
+                window.request_animation_frame();
+            }
         }
-        let eased = 1. - (1. - done).powi(3);
-        let at = glide.from + (to - glide.from) * eased;
-        let row = at.floor() as usize;
-        let tall = (self.list.bounds_for_item(row))
-            .map_or_else(|| super::code_line(cx), |item| item.size.height);
-        self.list.scroll_to(ListOffset {
-            item_ix: row,
-            offset_in_item: tall * (at - row as f32),
-        });
-        window.request_animation_frame();
     }
 
     /// While a drag selects text past the edge of the diff, scroll toward the pointer, the

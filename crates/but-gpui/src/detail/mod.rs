@@ -149,16 +149,16 @@ impl Stop {
     }
 }
 
-/// How long the diff takes to glide to where the keys moved its cursor.
-const GLIDE: Duration = Duration::from_millis(150);
+/// How quickly the diff glides to where the keys moved its cursor: in each such time it goes
+/// about two thirds of the way it has left, so it sets out quickly and eases in.
+const GLIDE: Duration = Duration::from_millis(40);
 
 /// The diff's way to where the keys moved its cursor, in rows, as gpui knows the heights only
-/// of rows it has drawn: from `from` at its top, the row and how far down it, to row `to`,
-/// setting out at `started`.
+/// of rows it has drawn: to place `to`, a row and how far down it by its height, a share of
+/// the way each frame by how long since the `last`.
 struct Glide {
-    from: f32,
-    to: usize,
-    started: Instant,
+    to: f32,
+    last: Instant,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1196,7 +1196,7 @@ impl Detail {
         // row is now, a match Find went to as much as the cursor's hunk.
         let glide_to = (self.glide.take())
             .filter(|_| same)
-            .and_then(|glide| self.row_in(glide.to, &rows, &files));
+            .and_then(|glide| self.row_in(glide.to as usize, &rows, &files));
         // Most rows are a line tall: rows not drawn yet count as one, so the scrollbar's thumb
         // is about the right size before they are.
         (self.list).reset_with_uniform_height(rows.len(), code_line(cx));
@@ -1585,8 +1585,8 @@ impl Detail {
             let scroll_to = self.keep_place(&rows, &diff.files);
             // A glide goes on to where its row is now, as when a file shown whole is read
             // while the keys or a click send the diff somewhere.
-            let glide_to =
-                (self.glide.take()).and_then(|glide| self.row_in(glide.to, &rows, &diff.files));
+            let glide_to = (self.glide.take())
+                .and_then(|glide| self.row_in(glide.to as usize, &rows, &diff.files));
             (self.list).reset_with_uniform_height(rows.len(), code_line(cx));
             self.list.scroll_to(scroll_to);
             if let Some(diff) = &mut self.diff {
@@ -2154,18 +2154,55 @@ impl Detail {
             };
             match glide {
                 true => {
-                    let top = self.list.logical_scroll_top();
-                    let into = (self.list.bounds_for_item(top.item_ix))
-                        .filter(|item| item.size.height > Pixels::ZERO)
-                        .map_or(0., |item| top.offset_in_item / item.size.height);
                     self.glide = Some(Glide {
-                        from: top.item_ix as f32 + into,
-                        to: row,
-                        started: Instant::now(),
+                        to: row as f32,
+                        last: Instant::now(),
                     })
                 }
                 false => self.list.scroll_to(to),
             }
+        }
+    }
+
+    /// The place the diff shows from: its top row and how far down it, by its height.
+    fn scrolled_to(&self) -> f32 {
+        let top = self.list.logical_scroll_top();
+        let into = (self.list.bounds_for_item(top.item_ix))
+            .filter(|item| item.size.height > Pixels::ZERO)
+            .map_or(0., |item| top.offset_in_item / item.size.height);
+        top.item_ix as f32 + into
+    }
+
+    /// Where the list scrolls to for place `at`, a row and how far down it by its height.
+    fn list_offset(&self, at: f32, cx: &App) -> ListOffset {
+        let row = at.floor() as usize;
+        ListOffset {
+            item_ix: row,
+            offset_in_item: self.row_height(row, cx) * at.fract(),
+        }
+    }
+
+    /// How tall diff row `ix` is: as drawn, or for one gpui hasn't drawn or doesn't say, as
+    /// above the diff's top, a guess by what it shows.
+    fn row_height(&self, ix: usize, cx: &App) -> Pixels {
+        if let Some(item) = self.list.bounds_for_item(ix) {
+            return item.size.height;
+        }
+        let theme = Theme::get(cx);
+        let Some(loaded) = &self.diff else {
+            return code_line(cx);
+        };
+        match loaded.rows.get(ix) {
+            Some(DiffRow::File(_)) => theme.scaled(diff::FILE_HEADER_HEIGHT),
+            // A box 28 tall with 6 above and below it, or nothing where the lines run on.
+            Some(&DiffRow::Hunk { file, hunk }) => {
+                match (loaded.files.get(file)).is_some_and(|file| self.boxless(file, hunk)) {
+                    true => Pixels::ZERO,
+                    false => theme.scaled(40.),
+                }
+            }
+            Some(DiffRow::Gap) => theme.scaled(10.),
+            _ => code_line(cx),
         }
     }
 
