@@ -180,7 +180,8 @@ pub fn resolve_target_commit(
 /// * store the target as [`ProjectMeta`] via [`ProjectMeta::persist()`],
 /// * set `log.excludeDecoration = refs/gitbutler` in the repository-local Git config.
 ///
-/// A stored cutoff whose object is missing is rejected without changing metadata.
+/// The workspace branch and a stored cutoff whose object is missing are rejected without
+/// changing metadata.
 /// Re-setting the same target preserves its stored cutoff. Without a stored cutoff, initialization
 /// uses the configured upstream tip, or the local tip if no upstream is configured. An unavailable
 /// upstream is an error, not a reason to use local history instead.
@@ -200,6 +201,11 @@ pub fn set_target_ref_and_init_project(
     target_ref: &LocalRefName,
     push_remote: Option<String>,
 ) -> Result<()> {
+    if but_core::is_workspace_ref_name(target_ref.as_local_full_name_ref()) {
+        bail_precondition!(
+            "GitButler manages {target_ref} itself, so it can't be the target. Choose another branch."
+        );
+    }
     let project_meta = match ProjectMeta::resolve(repo) {
         Ok(project_meta) => project_meta,
         // Choosing a target is how the user picks the local branch for a legacy remote target
