@@ -430,11 +430,11 @@ impl Transfer {
                 files,
                 worktree,
             } => store.amend(project, into, files, worktree, |_, _| {}, cx),
-            Transfer::MoveFiles { from, to, files } => store.run(
+            Transfer::MoveFiles { from, to, files } => store.apply(
                 project,
                 label,
                 Overlay::commit_files(store.key_of(project, from), files.iter()),
-                move |path| backend::move_files(path, from, to, &files),
+                backend::MoveFiles { from, to, files },
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
                     store.snack_undoable("Changes moved", cx)

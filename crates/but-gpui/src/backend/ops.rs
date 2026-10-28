@@ -1014,21 +1014,36 @@ impl Intent for UncommitFiles {
 }
 
 /// Move `files` that `from` changes into `to`.
-pub fn move_files(
-    path: &Path,
-    from: CommitId,
-    to: CommitId,
-    files: &[Selected],
-) -> Result<Rewritten> {
-    let mut ctx = open(path)?;
-    let outcome = but_api::commit::move_changes::commit_move_changes_between(
-        &mut ctx,
-        from.0,
-        to.0,
-        taken_specs(files)?,
-        DryRun::No,
-    )?;
-    Ok(rewritten(&outcome.workspace))
+pub struct MoveFiles {
+    pub from: CommitId,
+    pub to: CommitId,
+    pub files: Arc<[Selected]>,
+}
+
+impl Intent for MoveFiles {
+    type Done = Rewritten;
+
+    fn apply(self, run: &mut Run) -> Result<Rewritten> {
+        use but_oplog::legacy::{OperationKind, SnapshotDetails};
+        let Self { from, to, files } = self;
+        let changes = taken_specs(&files)?;
+        let workspace = run.locked(|ctx, perm| {
+            let mut meta = ctx.meta()?;
+            but_transaction::with_transaction_with_perm(
+                ctx,
+                &mut meta,
+                perm,
+                SnapshotDetails::new(OperationKind::MoveCommitFile),
+                &[],
+                DryRun::No,
+                |mut tx| {
+                    tx.move_committed_changes_between(from.0, to.0, changes)?;
+                    Ok(())
+                },
+            )
+        })?;
+        Ok(rewritten(&workspace))
+    }
 }
 
 /// Take `files` (or some of their hunks) out of `commit` as if it had never made them.
@@ -3497,7 +3512,12 @@ third
             let path = dir.path();
             let at = Destination::AboveCommit(commit);
             let (empty, _) = crate::backend::apply(path, InsertEmptyCommit { at }).unwrap();
-            let rewritten = move_files(path, commit, empty, &[five_b_out(&diff)]).unwrap();
+            let move_files = MoveFiles {
+                from: commit,
+                to: empty,
+                files: [five_b_out(&diff)].into(),
+            };
+            let (rewritten, _) = crate::backend::apply(path, move_files).unwrap();
             let (commit, empty) = (
                 rewritten.get(&commit).copied().unwrap_or(commit),
                 rewritten.get(&empty).copied().unwrap_or(empty),
