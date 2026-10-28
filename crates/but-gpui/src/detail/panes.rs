@@ -177,8 +177,12 @@ impl Detail {
                         crumbs.push(heading(selection));
                         let name = store.name_of(project, branch).to_owned();
                         crumbs.push((name.into(), branch_selection));
+                        // By its change ID, as y copies it, or its sha for one without.
                         let last = match store.among_picks(project, *id) {
                             true => plural(store.picked.len(), "commit"),
+                            false if commit.has_change_id() => {
+                                commit.key.get(..7).unwrap_or(&commit.key).to_owned()
+                            }
                             false => commit.id.short(),
                         };
                         crumbs.push((last.into(), None));
