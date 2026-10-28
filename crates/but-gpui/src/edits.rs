@@ -1276,11 +1276,11 @@ impl AppView {
     ) {
         let selected = project.clone();
         self.store.update(cx, |store, cx| {
-            store.run(
+            store.apply(
                 &project,
                 "Split commit",
                 Overlay::commit_files(store.key_of(&project, commit), files.iter()),
-                move |path| backend::split_off(path, commit, &files),
+                backend::SplitOff { commit, files },
                 move |store, (_, new), cx| {
                     store.select(Some(Selection::Commit(selected, new)), cx);
                     store.snack_undoable("Split into a new commit", cx)

@@ -2,12 +2,13 @@
 //! afterwards. An [`Intent`], such as [`Squash`], runs under the one lock [`Run::locked`] takes,
 //! in one `but_transaction` transaction that records one oplog entry. The rest open the project
 //! and call the matching `but-api` function, which locks and records its own oplog snapshot,
-//! except that [`discard`], [`split_off`], [`move_to_new_branch`] and [`create_beside_checkout`]
-//! record their own, as does [`super::conflicts::resolve_markers`] through [`record_undo`].
+//! except that [`discard`], [`move_to_new_branch`] and [`create_beside_checkout`] record their
+//! own, as does [`super::conflicts::resolve_markers`] through [`record_undo`].
 
 use gitbutler_repo::hooks::{ErrorData, HookResult, MessageHookResult};
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
 
 use anyhow::{Context as _, Result, bail};
 use bstr::{BStr, ByteSlice as _};
@@ -947,35 +948,40 @@ pub fn discard_from_commit(path: &Path, commit: CommitId, files: &[Selected]) ->
     Ok(rewritten(&outcome.workspace))
 }
 
-/// Move `files` (or some of their hunks) out of `commit` into a new commit right above it,
-/// in one step that one undo takes back. Returns the rewrites and the new commit.
-pub fn split_off(
-    path: &Path,
-    commit: CommitId,
-    files: &[Selected],
-) -> Result<(Rewritten, CommitId)> {
-    use but_oplog::legacy::{OperationKind, SnapshotDetails};
-    let mut ctx = open(path)?;
-    // The lock first: the metadata read before it could be written back over another
-    // process's change.
-    let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
-    let changes = taken_specs(files)?;
-    let (new, workspace) = but_transaction::with_transaction_with_perm(
-        &mut ctx,
-        &mut meta,
-        guard.write_permission(),
-        // There's no kind for a split; it makes a commit, rather than moving a file.
-        SnapshotDetails::new(OperationKind::CreateCommit),
-        &[],
-        DryRun::No,
-        |mut tx| {
-            let blank = tx.insert_blank_commit(RelativeTo::Commit(commit.0), InsertSide::Above)?;
-            let moved = tx.move_committed_changes_between(commit.0, blank.id, changes)?;
-            Ok(but_transaction::Commit(CommitId(moved.id)))
-        },
-    )?;
-    Ok((rewritten(&workspace), new))
+/// Move `files` (or some of their hunks) out of `commit` into a new commit right above it.
+/// Done is the rewrites and the new commit.
+pub struct SplitOff {
+    pub commit: CommitId,
+    pub files: Arc<[Selected]>,
+}
+
+impl Intent for SplitOff {
+    type Done = (Rewritten, CommitId);
+
+    fn apply(self, run: &mut Run) -> Result<(Rewritten, CommitId)> {
+        use but_oplog::legacy::{OperationKind, SnapshotDetails};
+        let Self { commit, files } = self;
+        let changes = taken_specs(&files)?;
+        let (new, workspace) = run.locked(|ctx, perm| {
+            let mut meta = ctx.meta()?;
+            but_transaction::with_transaction_with_perm(
+                ctx,
+                &mut meta,
+                perm,
+                // There's no kind for a split; it makes a commit, rather than moving a file.
+                SnapshotDetails::new(OperationKind::CreateCommit),
+                &[],
+                DryRun::No,
+                |mut tx| {
+                    let blank =
+                        tx.insert_blank_commit(RelativeTo::Commit(commit.0), InsertSide::Above)?;
+                    let moved = tx.move_committed_changes_between(commit.0, blank.id, changes)?;
+                    Ok(but_transaction::Commit(CommitId(moved.id)))
+                },
+            )
+        })?;
+        Ok((rewritten(&workspace), new))
+    }
 }
 
 /// Move `commits` into a new branch of their own, beside the other stacks, as one operation
@@ -3277,7 +3283,11 @@ third
         but_testsupport::isolated_app_data_dir(|| {
             let (dir, commit, diff, _) = workspace_with_an_edit();
             let path = dir.path();
-            let (rewritten, new) = split_off(path, commit, &[five_b_out(&diff)]).unwrap();
+            let split = SplitOff {
+                commit,
+                files: [five_b_out(&diff)].into(),
+            };
+            let ((rewritten, new), _) = crate::backend::apply(path, split).unwrap();
             let commit = rewritten.get(&commit).copied().unwrap_or(commit);
             let below = git(path, &["show", &format!("{}:file", commit.0)]);
             let above = git(path, &["show", &format!("{}:file", new.0)]);
