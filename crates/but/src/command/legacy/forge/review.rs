@@ -306,6 +306,7 @@ pub fn set_review_template(
 #[expect(clippy::too_many_arguments)]
 pub async fn create_review(
     ctx: &mut Context,
+    current_dir: &std::path::Path,
     branch: Option<String>,
     skip_force_push_protection: bool,
     with_force: bool,
@@ -359,6 +360,7 @@ pub async fn create_review(
 
     handle_multiple_branches_in_workspace(
         ctx,
+        current_dir,
         &review_map,
         &lanes,
         skip_force_push_protection,
@@ -478,6 +480,7 @@ fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<St
 #[expect(clippy::too_many_arguments)]
 pub async fn handle_multiple_branches_in_workspace(
     ctx: &mut Context,
+    current_dir: &std::path::Path,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     lanes: &[HeadInfoStack],
     skip_force_push_protection: bool,
@@ -550,13 +553,38 @@ pub async fn handle_multiple_branches_in_workspace(
         overall_outcome.review_sync.extend(outcome.review_sync);
     }
 
+    let is_agent = out.is_agent();
     if let Some(out) = out.for_json() {
         out.write_value(overall_outcome)?;
     } else if let Some(out) = out.for_human() {
+        let pr_created_tag = is_agent
+            .then(|| pr_created_tag_for(current_dir, &overall_outcome.published))
+            .flatten();
         display_review_publication_summary(overall_outcome, out)?;
+        if let Some(tag) = pr_created_tag {
+            writeln!(
+                out,
+                "\nClaude desktop counts this PR as opened by this session, which Auto-fix needs, when your reply contains:\n{tag}"
+            )?;
+        }
     }
 
     Ok(())
+}
+
+/// Claude desktop lets a session turn on Auto-fix only for a PR it saw the session open:
+/// one made with `gh pr create`, or one whose URL the agent's reply puts in this tag.
+/// The app accepts the tag only for the branch checked out in the session's folder, so this
+/// reads `HEAD` where `but` was invoked, not in the main worktree that `ctx` opens.
+fn pr_created_tag_for(
+    current_dir: &std::path::Path,
+    published: &[but_forge::ForgeReview],
+) -> Option<String> {
+    let head = gix::discover(current_dir).ok()?.head_name().ok()??;
+    let review = published
+        .iter()
+        .find(|review| head.shorten() == review.source_branch.as_bytes())?;
+    Some(format!("<pr-created>{}</pr-created>", review.html_url))
 }
 
 /// Prompt the user to select branches to publish.
@@ -1313,6 +1341,25 @@ mod tests {
             "a worktree review is selectable by number"
         );
         assert_eq!(select("B,W")?, [2, 3], "stack and worktree branches mix");
+        Ok(())
+    }
+
+    #[test]
+    fn pr_created_tag_follows_the_invoking_worktree_head() -> anyhow::Result<()> {
+        let (_ctx, tmp) =
+            crate::legacy::workspace::tests::context_with_worktree_on_reviewed_stack()?;
+        let published = [forge_review("W")];
+
+        assert_eq!(
+            pr_created_tag_for(&tmp.path().join("worktrees").join("W"), &published).as_deref(),
+            Some("<pr-created>https://example.com/review/1</pr-created>"),
+            "the linked worktree has W checked out, so its new PR gets the tag"
+        );
+        assert_eq!(
+            pr_created_tag_for(tmp.path(), &published),
+            None,
+            "the main worktree has another branch checked out"
+        );
         Ok(())
     }
 

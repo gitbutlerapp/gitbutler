@@ -179,6 +179,8 @@ Use a worktree when the task needs a separate checkout, for example to build or 
 
 If you do create a PR for a stacked branch, use `but pr` — not `gh pr create` (only `but pr` sets PR bases and stack metadata; `gh pr create` breaks that). To publish a whole stack: `but pr new <top-branch-name> -t`. Manage with `but pr auto-merge|set-draft|set-ready <selector>`; selectors can be a branch name, current branch/stack CLI ID, or numeric review ID. See `but skill reference` for details.
 
+When `but pr new` prints a `<pr-created>` line, copy that line into the text of your reply. It tells the app running you that this session opened the PR.
+
 ### Dependency conflict with another branch
 
 Changes that build on another branch's commits cannot land on an independent branch. `but commit` and `but amend` fail atomically ("Cannot commit: N changes could not be applied"), naming the branch and commit each rejected change depends on — nothing is committed and no `-b` branch is created.
