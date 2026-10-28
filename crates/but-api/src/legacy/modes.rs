@@ -1,7 +1,11 @@
 //! In place of commands.rs
 use anyhow::Result;
 use but_api_macros::but_api;
-use but_core::{ref_metadata::StackId, sync::RepoShared, ui::TreeChange};
+use but_core::{
+    ref_metadata::StackId,
+    sync::{RepoExclusive, RepoShared},
+    ui::TreeChange,
+};
 use but_ctx::Context;
 use gitbutler_edit_mode::ConflictEntryPresence;
 use gitbutler_operating_modes::{EditModeMetadata, OperatingMode};
@@ -94,13 +98,18 @@ pub fn enter_edit_mode(
 #[instrument(err(Debug))]
 pub fn abort_edit_and_return_to_workspace(ctx: &mut but_ctx::Context, force: bool) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
-    gitbutler_edit_mode::commands::abort_and_return_to_workspace(
-        ctx,
-        force,
-        guard.write_permission(),
-    )?;
+    abort_edit_and_return_to_workspace_with_perm(ctx, force, guard.write_permission())
+}
 
-    Ok(())
+/// Leave edit mode under caller-held exclusive access, leaving the edited commit as it was.
+///
+/// See [`abort_edit_and_return_to_workspace()`] for behavior.
+pub fn abort_edit_and_return_to_workspace_with_perm(
+    ctx: &mut but_ctx::Context,
+    force: bool,
+    perm: &mut RepoExclusive,
+) -> Result<()> {
+    gitbutler_edit_mode::commands::abort_and_return_to_workspace(ctx, force, perm)
 }
 
 // GUI-facing API that returns () for serialization compatibility
@@ -108,9 +117,18 @@ pub fn abort_edit_and_return_to_workspace(ctx: &mut but_ctx::Context, force: boo
 #[instrument(err(Debug))]
 pub fn save_edit_and_return_to_workspace(ctx: &mut but_ctx::Context) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
-    gitbutler_edit_mode::commands::save_and_return_to_workspace(ctx, guard.write_permission())?;
+    save_edit_and_return_to_workspace_with_perm(ctx, guard.write_permission())
+}
 
-    Ok(())
+/// Leave edit mode under caller-held exclusive access, committing the worktree in place of the
+/// edited commit.
+///
+/// See [`save_edit_and_return_to_workspace()`] for behavior.
+pub fn save_edit_and_return_to_workspace_with_perm(
+    ctx: &mut but_ctx::Context,
+    perm: &mut RepoExclusive,
+) -> Result<()> {
+    gitbutler_edit_mode::commands::save_and_return_to_workspace(ctx, perm)
 }
 
 #[but_api]
@@ -137,5 +155,16 @@ pub fn edit_initial_index_state(
 #[instrument(err(Debug))]
 pub fn edit_changes_from_initial(ctx: &but_ctx::Context) -> Result<Vec<TreeChange>> {
     let guard = ctx.shared_worktree_access();
-    gitbutler_edit_mode::commands::changes_from_initial(ctx, guard.read_permission())
+    edit_changes_from_initial_with_perm(ctx, guard.read_permission())
+}
+
+/// What changed in the worktree since the edited commit was checked out, under caller-held
+/// access.
+///
+/// See [`edit_changes_from_initial()`] for behavior.
+pub fn edit_changes_from_initial_with_perm(
+    ctx: &but_ctx::Context,
+    perm: &RepoShared,
+) -> Result<Vec<TreeChange>> {
+    gitbutler_edit_mode::commands::changes_from_initial(ctx, perm)
 }
