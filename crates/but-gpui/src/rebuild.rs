@@ -303,6 +303,10 @@ impl BuildOutput {
             // quitting would, before the new binary takes this process's place.
             cx.update(|cx| {
                 cx.shutdown();
+                // The Dock keeps a binary's tile, by its path, until its process quits, which
+                // this one doesn't: built in another worktree, the new binary would get a
+                // tile of its own beside it, left there for good. Out of the Dock first.
+                cx.set_activation_policy(gpui::ActivationPolicy::Accessory);
                 let err = built.restart();
                 tracing::error!("couldn't restart on the new build: {err:#}");
                 cx.quit();
