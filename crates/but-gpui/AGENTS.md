@@ -347,11 +347,14 @@ The client runs on macOS, Windows and Linux. AppKit code sits behind
 `#[cfg(target_os = "macos")]`. A Mac never compiles the `cfg(windows)` or Linux code; the
 Windows CI job lints and tests the one, the Linux lint and test jobs the other.
 
-- Keys live in `assets/keymaps/default.json`, in Zed's keymap format, written with `secondary-`,
-  which is ⌘ on macOS and Ctrl elsewhere. Keys only some platforms have, as Hide, go in a section
-  with `"os"`. Within a context the later binding wins, and the last binding for an action is the
-  key menus and tooltips show, so add the one to show last. Text fields' own editing keys stay in
-  `ui::text_input`, as their actions take arguments the file can't build.
+- Keys live in `assets/keymaps`, in Zed's keymap format, written with `secondary-`, which is ⌘ on
+  macOS and Ctrl elsewhere. `base.json` holds only the keys macOS gives every app, which no keymap
+  changes: Quit, Close window, Hide, Minimize, Settings, zoom and a dialog's Tab. Everything the
+  app gives a meaning to, even ⌘C or ⌘Z, goes in the file of each `keymap::Keymap`, which Settings ›
+  Keyboard picks and which binds before `base.json`. Keys only some platforms have, as Hide, go in
+  a section with `"os"`. Within a context the later binding wins, and the last binding for an
+  action is the key menus and tooltips show, so add the one to show last. Text fields' own editing
+  keys stay in `ui::text_input`, as their actions take arguments the file can't build.
 - Write keys in copy as macOS does (`⌘↩`) and pass the text through `ui::keys_text`, which
   shows `Ctrl+Enter` on Windows and Linux. `ui::keycap` and the status bar's hints already do.
 - Name platform things through one place: `ui::REVEAL` for the file manager,

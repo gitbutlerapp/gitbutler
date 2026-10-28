@@ -1,18 +1,50 @@
-//! The app's keys, in `assets/keymaps/default.json`, written in Zed's keymap format: a list of
-//! sections, each binding keys to actions by name in a key context. A section with `os` binds
-//! only on the platforms it names.
+//! The app's keys, written in Zed's keymap format: a list of sections, each binding keys to
+//! actions by name in a key context. A section with `os` binds only on the platforms it names.
+//! `assets/keymaps/base.json` holds the few keys every keymap shares, those macOS gives every
+//! app, as ⌘Q. Each [`Keymap`] has a file of its own for the rest, which Settings › Keyboard
+//! picks.
 
 use std::rc::Rc;
 
 use anyhow::{Context as _, Result, bail};
-use gpui::{App, KeyBinding, KeyBindingContextPredicate};
+use gpui::{App, Entity, KeyBinding, KeyBindingContextPredicate};
 use indexmap::IndexMap;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-const DEFAULT: &str = include_str!("../assets/keymaps/default.json");
+use crate::state::Store;
+
+const BASE: &str = include_str!("../assets/keymaps/base.json");
 
 /// The platforms a section can name, as `std::env::consts::OS` names them.
 const PLATFORMS: [&str; 3] = ["macos", "windows", "linux"];
+
+/// A set of keys the app binds, beside the keys every keymap shares.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Keymap {
+    /// GitButler's own, after macOS's and vim's.
+    #[default]
+    GitButler,
+}
+
+impl Keymap {
+    /// Every keymap, in the order Settings › Keyboard lists them.
+    pub const ALL: [Keymap; 1] = [Keymap::GitButler];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Keymap::GitButler => "GitButler",
+        }
+    }
+
+    /// The files it binds, in their order: its own, then the shared keys, last so it can't take
+    /// one of them.
+    fn files(self) -> [&'static str; 2] {
+        let own = match self {
+            Keymap::GitButler => include_str!("../assets/keymaps/gitbutler.json"),
+        };
+        [own, BASE]
+    }
+}
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -31,22 +63,46 @@ struct Entry {
     context: Option<String>,
 }
 
-/// Binds every key: the text fields' own, then the app's.
-pub fn bind_keys(cx: &mut App) {
+/// Binds the keys of the keymap the store's prefs pick, and again each time they pick another,
+/// then sets the menus, as the menu bar takes its keys when it's set.
+pub fn bind(store: &Entity<Store>, set_menus: impl Fn(&mut App) + 'static, cx: &mut App) {
+    let mut bound = store.read(cx).prefs.keymap;
+    bind_keys(bound, cx);
+    set_menus(cx);
+    cx.observe(store, move |store, cx| {
+        let keymap = store.read(cx).prefs.keymap;
+        if keymap != bound {
+            bound = keymap;
+            bind_keys(keymap, cx);
+            set_menus(cx);
+            // Views draw the keys they show, and the cached ones draw again only on a refresh.
+            cx.refresh_windows();
+        }
+    })
+    .detach();
+}
+
+/// Binds every key: the text fields' own, then `keymap`'s files.
+fn bind_keys(keymap: Keymap, cx: &mut App) {
+    cx.clear_key_bindings();
     crate::ui::text_input::bind_keys(cx);
-    // They ship with the app, so one that doesn't bind is a bug the tests catch; here it's
-    // logged and the rest still bind.
-    let entries = entries(DEFAULT, std::env::consts::OS)
-        .inspect_err(|err| tracing::error!("couldn't read the default keymap: {err:#}"))
-        .unwrap_or_default();
-    let bindings: Vec<KeyBinding> = (entries.iter())
-        .filter_map(|entry| {
-            binding(entry, cx)
-                .inspect_err(|err| tracing::error!("default keymap, {:?}: {err:#}", entry.keys))
-                .ok()
-        })
-        .collect();
-    cx.bind_keys(bindings);
+    for json in keymap.files() {
+        // They ship with the app, so one that doesn't bind is a bug the tests catch; here it's
+        // logged and the rest still bind.
+        let entries = entries(json, std::env::consts::OS)
+            .inspect_err(|err| tracing::error!("couldn't read the {keymap:?} keymap: {err:#}"))
+            .unwrap_or_default();
+        let bindings: Vec<KeyBinding> = (entries.iter())
+            .filter_map(|entry| {
+                binding(entry, cx)
+                    .inspect_err(|err| {
+                        tracing::error!("{keymap:?} keymap, {:?}: {err:#}", entry.keys)
+                    })
+                    .ok()
+            })
+            .collect();
+        cx.bind_keys(bindings);
+    }
 }
 
 /// The bindings `json` makes on the platform `os`, in its order.
@@ -95,29 +151,41 @@ mod tests {
 
     use gpui::{KeyBindingContextPredicate, Keystroke};
 
-    use super::{DEFAULT, PLATFORMS, entries};
+    use super::{Entry, Keymap, PLATFORMS, entries};
+
+    /// What `keymap` binds on `os`, the shared keys too, in the order it binds them.
+    fn bound(keymap: Keymap, os: &str) -> Vec<Entry> {
+        (keymap.files().into_iter())
+            .flat_map(|json| entries(json, os).expect("the keymaps parse"))
+            .collect()
+    }
 
     #[test]
-    fn defaults_bind_on_every_platform() {
+    fn keymaps_bind_on_every_platform() {
         let actions: HashSet<&str> = gpui::generate_list_of_all_registered_actions()
             .map(|action| action.name)
             .collect();
-        for os in PLATFORMS {
-            let mut bound = HashSet::new();
-            for entry in entries(DEFAULT, os).expect("the default keymap parses") {
-                let at = format!("{os}, {:?} in {:?}", entry.keys, entry.context);
-                let name = entry.action.as_str();
-                assert!(actions.contains(name), "{at}: {name:?} isn't an action");
-                if let Some(context) = &entry.context {
-                    KeyBindingContextPredicate::parse(context).expect(&at);
+        for keymap in Keymap::ALL {
+            for os in PLATFORMS {
+                let mut keys = HashSet::new();
+                for entry in bound(keymap, os) {
+                    let at = format!(
+                        "{keymap:?} on {os}, {:?} in {:?}",
+                        entry.keys, entry.context
+                    );
+                    let name = entry.action.as_str();
+                    assert!(actions.contains(name), "{at}: {name:?} isn't an action");
+                    if let Some(context) = &entry.context {
+                        KeyBindingContextPredicate::parse(context).expect(&at);
+                    }
+                    for keystroke in entry.keys.split_whitespace() {
+                        Keystroke::parse(keystroke).expect(&at);
+                    }
+                    assert!(
+                        keys.insert((entry.context, entry.keys)),
+                        "{at}: bound twice, so the first does nothing"
+                    );
                 }
-                for keystroke in entry.keys.split_whitespace() {
-                    Keystroke::parse(keystroke).expect(&at);
-                }
-                assert!(
-                    bound.insert((entry.context, entry.keys)),
-                    "{at}: bound twice, so the first does nothing"
-                );
             }
         }
     }
@@ -173,21 +241,24 @@ mod tests {
     }
 
     #[test]
-    fn defaults_leave_the_platforms_keys_alone() {
-        for os in PLATFORMS {
-            let reserved: Vec<_> = reserved(os).iter().map(|keys| normal(keys, os)).collect();
-            for entry in entries(DEFAULT, os).expect("the default keymap parses") {
-                for keystroke in entry.keys.split_whitespace() {
-                    let (modifiers, key) = normal(keystroke, os);
-                    let taken = reserved.contains(&(modifiers.clone(), key));
-                    assert!(!taken, "{os}: {keystroke} is the platform's");
-                    let kept = ["super", "win", "cmd"]
-                        .iter()
-                        .any(|m| modifiers.contains(*m));
-                    assert!(
-                        os == "macos" || !kept,
-                        "{os}: {keystroke} needs a modifier Windows and Linux keep for the system"
-                    );
+    fn keymaps_leave_the_platforms_keys_alone() {
+        for keymap in Keymap::ALL {
+            for os in PLATFORMS {
+                let reserved: Vec<_> = reserved(os).iter().map(|keys| normal(keys, os)).collect();
+                for entry in bound(keymap, os) {
+                    for keystroke in entry.keys.split_whitespace() {
+                        let at = format!("{keymap:?} on {os}: {keystroke}");
+                        let (modifiers, key) = normal(keystroke, os);
+                        let taken = reserved.contains(&(modifiers.clone(), key));
+                        assert!(!taken, "{at} is the platform's");
+                        let kept = ["super", "win", "cmd"]
+                            .iter()
+                            .any(|m| modifiers.contains(*m));
+                        assert!(
+                            os == "macos" || !kept,
+                            "{at} needs a modifier Windows and Linux keep for the system"
+                        );
+                    }
                 }
             }
         }
@@ -197,23 +268,32 @@ mod tests {
     fn the_shown_key_is_the_last_bound() {
         // Menus, tooltips and the status bar show an action's last binding, so a key added
         // after the one meant to show takes its place everywhere.
-        let shown = [
-            ("app::CommandPalette", "secondary-k"),
-            ("app::ToggleNavigator", "secondary-b"),
-            ("palette::GoTo", "secondary-p"),
-            ("navigator::RenameSelection", "r"),
-            ("navigator::CopySelection", "secondary-c"),
-            ("palette::CopyMore", "secondary-shift-c"),
-            ("diff::NextHunk", "down"),
-            ("find::FindNext", "secondary-g"),
-        ];
-        for os in PLATFORMS {
-            let entries = entries(DEFAULT, os).expect("the default keymap parses");
-            for (action, keys) in shown {
-                let last = (entries.iter().rev())
-                    .find(|entry| entry.action == action)
-                    .map(|entry| entry.keys.as_str());
-                assert_eq!(last, Some(keys), "{os}: {action} shows its last binding");
+        for keymap in Keymap::ALL {
+            let shown: &[(&str, &str)] = match keymap {
+                Keymap::GitButler => &[
+                    ("app::CommandPalette", "secondary-k"),
+                    ("app::ToggleNavigator", "secondary-b"),
+                    ("palette::GoTo", "secondary-p"),
+                    ("palette::ShowActions", "m"),
+                    ("navigator::RenameSelection", "r"),
+                    ("navigator::CopySelection", "secondary-c"),
+                    ("palette::CopyMore", "secondary-shift-c"),
+                    ("diff::NextHunk", "down"),
+                    ("find::FindNext", "secondary-g"),
+                ],
+            };
+            for os in PLATFORMS {
+                let entries = bound(keymap, os);
+                for (action, keys) in shown {
+                    let last = (entries.iter().rev())
+                        .find(|entry| entry.action == *action)
+                        .map(|entry| entry.keys.as_str());
+                    assert_eq!(
+                        last,
+                        Some(*keys),
+                        "{keymap:?} on {os}: {action} shows its last binding"
+                    );
+                }
             }
         }
     }

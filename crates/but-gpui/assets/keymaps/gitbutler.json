@@ -1,7 +1,8 @@
-// The app's keys. `secondary` is cmd on macOS and ctrl elsewhere; a section with "os" binds
-// only there. Order matters: within a context the binding added last wins, and the last binding
-// for an action is the key menus and tooltips show. Text fields' own editing keys are bound in
-// `ui::text_input` before these.
+// GitButler's own keymap, after macOS's and vim's: every key but the few `base.json` holds,
+// which macOS gives every app. `secondary` is cmd on macOS and ctrl elsewhere; a section with
+// "os" binds only there. Order matters: within a context the binding added last wins, and the
+// last binding for an action is the key menus and tooltips show. Text fields' own editing keys
+// are bound in `ui::text_input` before these.
 [
   // Windows' redo, first so menus show Ctrl+Shift+Z, as Zed's do.
   {
@@ -21,12 +22,6 @@
   },
   {
     "bindings": {
-      "secondary-q": "app::Quit",
-      // As a browser zooms, and Lite and the desktop app with it.
-      "secondary-=": "app::ZoomIn",
-      "secondary-+": "app::ZoomIn",
-      "secondary--": "app::ZoomOut",
-      "secondary-0": "app::ActualSize",
       "secondary-o": "app::AddProject",
       "secondary-shift-o": "projects::CloneRepository",
       "secondary-n": "navigator::NewBranch",
@@ -98,14 +93,6 @@
     "context": "(Navigator || Diff) && !TextInput",
     "bindings": { "shift-o": "pr::CreatePullRequest" }
   },
-  // A prompt's or a modal's fields and buttons, from its text fields too, as in a macOS sheet.
-  {
-    "context": "Dialog",
-    "bindings": {
-      "tab": "app::FocusNextPane",
-      "shift-tab": "app::FocusPreviousPane"
-    }
-  },
   // As Explorer and browsers move between panes.
   {
     "os": ["windows", "linux"],
@@ -167,16 +154,6 @@
     "bindings": {
       "ctrl-shift-backspace": "navigator::UncommitSelection",
       "delete": "navigator::DeleteSelection"
-    }
-  },
-  // Elsewhere the window's buttons do these.
-  {
-    "os": ["macos"],
-    "bindings": {
-      "cmd-w": "app::CloseWindow",
-      "cmd-h": "app::Hide",
-      "alt-cmd-h": "app::HideOthers",
-      "cmd-m": "app::Minimize"
     }
   },
   // Jumps through the tree: to either end, and between branches and projects. ⇧ with an
@@ -382,9 +359,6 @@
       "ctrl-p": "palette::PaletteUp",
       "ctrl-n": "palette::PaletteDown"
     }
-  },
-  {
-    "bindings": { "secondary-,": "settings::OpenSettings" }
   },
   // Settings' pages, from its search box too, as the palette's list is.
   {

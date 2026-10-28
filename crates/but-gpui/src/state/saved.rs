@@ -389,6 +389,8 @@ pub struct Prefs {
     pub code_size: crate::theme::CodeSize,
     /// How large the whole interface draws, as ⌘+ and ⌘− set it.
     pub ui_scale: crate::theme::UiScale,
+    /// The keys the app binds, as Settings › Keyboard picks them.
+    pub keymap: crate::keymap::Keymap,
     /// Code shows the font's ligatures, `->` as one arrow. Off unless picked, as in the
     /// desktop app.
     pub ligatures: bool,
