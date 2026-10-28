@@ -1,6 +1,5 @@
 //! The diff column: every changed file as a card, built row by row so only what's on
-//! screen is laid out. Uncommitted hunks carry a Discard button while under the cursor or
-//! the pointer, as in Zed's agent review, a linked worktree's too.
+//! screen is laid out.
 
 use std::ops::Range;
 use std::rc::Rc;
@@ -9,9 +8,9 @@ use std::time::Instant;
 
 use gpui::{
     Action, AnyElement, App, Bounds, ClickEvent, Context, CursorStyle, DispatchPhase, Div, Entity,
-    ListOffset, MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Point, ScrollHandle,
-    SharedString, Stateful, Subscription, WeakEntity, Window, anchored, canvas, deferred, div,
-    list, point, prelude::*,
+    MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Point, ScrollHandle, SharedString,
+    Stateful, Subscription, WeakEntity, Window, anchored, canvas, deferred, div, list, point,
+    prelude::*,
 };
 
 use super::blame::Blamed;
@@ -19,24 +18,22 @@ use super::file_list::At;
 use super::find::Spot;
 use super::lines::Pick;
 use super::{
-    Cursor, Detail, DiscardHunk, FILES_POPOVER_DELAY, FileLines, LoadedDiff, TextPoint,
+    Cursor, Detail, FILES_POPOVER_DELAY, FileLines, Glide, LoadedDiff, Stop, TextPoint,
     ToggleFiles, TogglePlainLines, ToggleSplit, ToggleWrap,
 };
-use crate::app::AppHandle;
 use crate::backend::{
-    self, Branch, ChangeKind, Checkout, DiffBody, DiffLine, DiffSource, Drawing, FileDiff, HunkKey,
-    LineKind, PushState, Selected, Workspace,
+    self, Branch, ChangeKind, DiffBody, DiffLine, DiffSource, Drawing, FileDiff, HunkKey, LineKind,
+    PushState, Workspace,
 };
 use crate::overlays::MenuItem;
-use crate::state::{Cut, Prefs, ProjectId, Selection};
+use crate::state::{Cut, Prefs, Selection};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::illustration::Illustration;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, button, checkbox, commit_title, count_badge, dp, empty_state,
-    fixed, h_flex, icon, icon_button, icon_toggle, segmented, shortcut, small_icon, toggle_group,
-    v_flex,
+    Icon, Tooltip, checkbox, commit_title, count_badge, dp, empty_state, fixed, h_flex, icon,
+    icon_button, icon_toggle, segmented, shortcut, small_icon, toggle_group, v_flex,
 };
 
 /// The diff, drawn by a view of its own over the space [`Detail`] leaves for it. A scrolled
@@ -171,20 +168,101 @@ impl Detail {
     /// Whether hunk `hunk` of `file` goes without a box, as when it runs on from the one
     /// above it in a scope shown whole: nothing before it is left out and the lines show
     /// every scope it's in. Not in the composer, where the box holds its checkbox.
-    fn boxless(&self, file: &FileDiff, hunk: usize) -> bool {
+    pub(super) fn boxless(&self, file: &FileDiff, hunk: usize) -> bool {
         let named = (file.hunks().get(hunk)).is_some_and(|hunk| !hunk.scope.is_empty());
         named && !self.composes() && matches!(self.hunk_title(file, hunk), (0, []))
     }
 
-    /// Whether the cursor is on hunk `hunk` of `file` with no box to show it, so its lines
-    /// carry the cursor's tab.
-    fn marks_lines(&self, file_diff: &FileDiff, file: usize, hunk: usize) -> bool {
-        self.cursor
-            == (Cursor {
+    /// The file and hunk whose changes `row` shows part of: the lines from the hunk's first
+    /// change to its last, the unchanged ones between them too, but not those around them.
+    pub(super) fn changes_at(&self, row: DiffRow) -> Option<(usize, usize)> {
+        let (file, hunk, lines) = match row {
+            DiffRow::Line { file, hunk, line } => (file, hunk, [Some(line), None]),
+            DiffRow::Pair {
                 file,
-                hunk: Some(hunk),
-            })
-            && self.boxless(file_diff, hunk)
+                hunk,
+                left,
+                right,
+            } => (file, hunk, [left, right]),
+            _ => return None,
+        };
+        let hunk_lines = &self
+            .diff
+            .as_ref()?
+            .files
+            .get(file)?
+            .hunks()
+            .get(hunk)?
+            .lines;
+        let changed = |line: &DiffLine| line.kind != LineKind::Context;
+        let changes =
+            hunk_lines.iter().position(changed)?..=hunk_lines.iter().rposition(changed)?;
+        (lines.into_iter().flatten())
+            .any(|line| changes.contains(&line))
+            .then_some((file, hunk))
+    }
+
+    /// What the cursor stops on at row `row`, showing `entry`: a file's header, the box above a
+    /// hunk where it has one, and the first row of a hunk's changes.
+    pub(super) fn stop_at(&self, row: usize, entry: DiffRow) -> Option<Stop> {
+        match entry {
+            DiffRow::File(_) => Some(Stop::File),
+            DiffRow::Hunk { file, hunk } => {
+                let file_diff = self.diff.as_ref()?.files.get(file)?;
+                (!self.boxless(file_diff, hunk)).then_some(Stop::Gap(hunk))
+            }
+            _ => {
+                let changes = self.changes_at(entry)?;
+                let above = row
+                    .checked_sub(1)
+                    .and_then(|row| self.diff.as_ref()?.rows.get(row));
+                (above.and_then(|above| self.changes_at(*above)) != Some(changes))
+                    .then_some(Stop::Hunk(changes.1))
+            }
+        }
+    }
+
+    /// The rows, first and last, that the keys bring into view with the cursor on `cursor`:
+    /// its file's card; a hunk's lines, the unchanged ones around its changes too; or the box
+    /// above a hunk with the hunk's lines under it.
+    pub(super) fn extent(&self, cursor: Cursor) -> Option<(usize, usize)> {
+        let rows = &self.diff.as_ref()?.rows;
+        let file = cursor.file;
+        let in_hunk = |hunk| {
+            move |row: &DiffRow| match *row {
+                DiffRow::Line {
+                    file: f, hunk: h, ..
+                }
+                | DiffRow::Pair {
+                    file: f, hunk: h, ..
+                } => (f, h) == (file, hunk),
+                _ => false,
+            }
+        };
+        match cursor.at {
+            Stop::File => {
+                let first = rows.iter().position(|row| *row == DiffRow::File(file))?;
+                let card = (rows.iter().skip(first)).take_while(|row| **row != DiffRow::Gap);
+                Some((first, first + card.count().saturating_sub(1)))
+            }
+            Stop::Gap(hunk) => {
+                let first = rows
+                    .iter()
+                    .position(|row| *row == DiffRow::Hunk { file, hunk })?;
+                Some((first, rows.iter().rposition(in_hunk(hunk)).unwrap_or(first)))
+            }
+            Stop::Hunk(hunk) => Some((
+                rows.iter().position(in_hunk(hunk))?,
+                rows.iter().rposition(in_hunk(hunk))?,
+            )),
+        }
+    }
+
+    /// Whether `row` shows part of the changes of the hunk the cursor is on, which carry the
+    /// cursor's tab and tint.
+    fn marks(&self, row: DiffRow) -> bool {
+        self.changes_at(row)
+            .is_some_and(|(file, hunk)| self.cursor == Cursor::on_hunk(file, hunk))
     }
 
     /// The diff line at `row`, if that row is one.
@@ -337,11 +415,8 @@ impl Detail {
         self.selecting = true;
         // The keys then act on what was pressed: its hunk, or an unchanged line's file.
         let cursor = match (self.diff.as_ref()).and_then(|diff| diff.rows.get(row)) {
-            Some(&DiffRow::Line { file, hunk, .. }) => Some(Cursor {
-                file,
-                hunk: Some(hunk),
-            }),
-            Some(&DiffRow::Context { file, .. }) => Some(Cursor { file, hunk: None }),
+            Some(&DiffRow::Line { file, hunk, .. }) => Some(Cursor::on_hunk(file, hunk)),
+            Some(&DiffRow::Context { file, .. }) => Some(Cursor::on_file(file)),
             _ => None,
         };
         if let Some(cursor) = cursor {
@@ -376,42 +451,61 @@ impl Detail {
         Some((area, sideways))
     }
 
-    /// Scroll a step of the way to where the keys sent the diff, as each frame draws, easing
-    /// out so it gets there quickly and settles, then exactly onto its row. Within a row it goes
-    /// by the row's height, a line's while it isn't drawn yet. Going down, it stops once the
-    /// diff's end is on screen, as no row can come higher.
+    /// Scroll a share of the way left to where the keys sent the diff, as each frame draws, by
+    /// how long since the last: it sets out quickly and eases in, however often frames come.
+    /// Going down, it stops once the diff's end is on screen, as no row can come higher.
+    ///
+    /// One that reveals what the cursor's on aims afresh each frame, and is done once that's in
+    /// view: the rows it passes are drawn as it goes and their heights known, where they were
+    /// only guessed at when it set out, as wrapped lines' are short.
     pub(super) fn follow_glide(&mut self, window: &mut Window, cx: &App) {
-        let Some(glide) = &self.glide else {
+        let Some(&Glide {
+            mut to,
+            last,
+            reveal,
+        }) = self.glide.as_ref()
+        else {
             return;
         };
+        let at = self.scrolled_to();
         let view = self.list.viewport_bounds();
-        let last = (self.diff.as_ref()).map_or(0, |diff| diff.rows.len().saturating_sub(1));
+        let end = (self.diff.as_ref()).map_or(0, |diff| diff.rows.len().saturating_sub(1));
         let end_shown =
-            (self.list.bounds_for_item(last)).is_some_and(|item| item.bottom() <= view.bottom());
-        let done = (glide.started.elapsed().as_secs_f32() / super::GLIDE.as_secs_f32()).min(1.);
-        let to = glide.to as f32;
-        if to > glide.from && end_shown {
+            (self.list.bounds_for_item(end)).is_some_and(|item| item.bottom() <= view.bottom());
+        if to > at && end_shown {
             self.glide = None;
             return;
         }
-        if done >= 1. {
-            self.list.scroll_to(ListOffset {
-                item_ix: glide.to,
-                offset_in_item: Pixels::ZERO,
-            });
-            self.glide = None;
-            return;
+        if reveal {
+            match self.reveal_target(cx) {
+                Some(aim) if (aim - at).abs() > 0.01 => to = aim,
+                // In view, or as near as it gets, as against the diff's top.
+                _ => {
+                    self.glide = None;
+                    return;
+                }
+            }
         }
-        let eased = 1. - (1. - done).powi(3);
-        let at = glide.from + (to - glide.from) * eased;
-        let row = at.floor() as usize;
-        let tall = (self.list.bounds_for_item(row))
-            .map_or_else(|| super::code_line(cx), |item| item.size.height);
-        self.list.scroll_to(ListOffset {
-            item_ix: row,
-            offset_in_item: tall * (at - row as f32),
-        });
-        window.request_animation_frame();
+        let now = Instant::now();
+        let share = 1. - (-(now - last).as_secs_f32() / super::GLIDE.as_secs_f32()).exp();
+        // Within a hundredth of a row, it's there.
+        let next = match (to - at).abs() * (1. - share) < 0.01 {
+            true => to,
+            false => at + (to - at) * share,
+        };
+        self.list.scroll_to(self.list_offset(next, cx));
+        // A reveal looks again once there, as the rows there are drawn then.
+        match next == to && !reveal {
+            true => self.glide = None,
+            false => {
+                self.glide = Some(Glide {
+                    to,
+                    last: now,
+                    reveal,
+                });
+                window.request_animation_frame();
+            }
+        }
     }
 
     /// While a drag selects text past the edge of the diff, scroll toward the pointer, the
@@ -895,14 +989,19 @@ impl Detail {
         let padded = div().w_full().px(dp(12.));
         match (row, file_diff) {
             (DiffRow::File(file), Some(file_diff)) => {
-                let whole = self.whole_button(ix, file, file_diff, entity.clone());
-                let drawn = self.drawing_button(ix, file, file_diff, entity.clone());
+                // Not while one of its hunks is, so one mark says what the keys act on.
+                let current = self.cursor == Cursor::on_file(file);
+                // Its controls on the solid ground it then has, as a list's selected row's.
+                let on = current && solid;
+                let whole = self.whole_button(ix, file, file_diff, on, entity.clone());
+                let drawn = self.drawing_button(ix, file, file_diff, on, entity.clone());
                 let toggle = entity.clone();
                 // What right-clicking the header offers, behind a ⋯ as well.
                 let cut = self.diff_cut(file, None, cx);
                 let open = menu(cut, file_diff, None, entity.clone());
                 let more = icon_button(("file-more", ix), Icon::Kebab)
                     .small()
+                    .inverted(on)
                     .on_click({
                         let open = open.clone();
                         move |event, _, cx| open(event.position(), cx)
@@ -916,7 +1015,10 @@ impl Detail {
                             .max_w(dp(220.))
                             .truncate()
                             .text_size(dp(11.))
-                            .text_color(theme.text_3)
+                            .text_color(match on {
+                                true => theme.muted_on_solid(),
+                                false => theme.text_3,
+                            })
                             .child(commit_title(&commit.title)),
                     )
                 });
@@ -935,8 +1037,7 @@ impl Detail {
                     theme,
                     HeaderDecor {
                         trailing: Some(trailing.into_any_element()),
-                        // Not while one of its hunks is, so one mark says what the keys act on.
-                        current: self.cursor == Cursor { file, hunk: None },
+                        current,
                         solid,
                         folded: last,
                         ..Default::default()
@@ -969,7 +1070,7 @@ impl Detail {
                 let (key, path) = (found.key, &file_diff.file.path);
                 let at = Cursor {
                     file,
-                    hunk: Some(hunk),
+                    at: Stop::Gap(hunk),
                 };
                 let current = self.cursor == at;
                 let composing = self.composes();
@@ -986,26 +1087,6 @@ impl Detail {
                         })
                         .into_any_element()
                 });
-                // What discarding this hunk means, fixed now: by the time a click lands, a
-                // reload may have moved other hunks into this row's indices.
-                // A conflicted file goes whole or not at all; see `backend::DiscardChanges`.
-                // Of a hunk with lines picked, just those, as ⌥⌘Z takes.
-                let discard = (diff.key.source.live() && !file_diff.file.conflicted).then(|| {
-                    let picked: std::collections::BTreeSet<usize> = (0..found.lines.len())
-                        .filter(|line| self.line_picked(path, key, *line))
-                        .collect();
-                    let (keys, tip) = match picked.is_empty() {
-                        true => (vec![key], "Throw this hunk away"),
-                        false => (
-                            self.part_keys(found, &picked),
-                            "Throw the picked lines away",
-                        ),
-                    };
-                    let change = file_diff.part(Some(keys));
-                    let checkout = (diff.key.project.clone(), diff.key.files_checkout());
-                    let app = self.app.clone();
-                    discard_button(ix, checkout, change, current && solid, tip, app, cx)
-                });
                 let (unmodified, named) = self.hunk_title(file_diff, hunk);
                 let header = diff::hunk_header(
                     found,
@@ -1014,7 +1095,6 @@ impl Detail {
                     theme,
                     HeaderDecor {
                         leading,
-                        trailing: discard,
                         excluded: composing && !self.checks.hunk_checked(path, key),
                         current,
                         solid,
@@ -1025,11 +1105,20 @@ impl Detail {
                 let (whole, dragged) = (entity.clone(), entity.clone());
                 padded
                     .id(("hunk", ix))
-                    .group("hunk-row")
                     .child(header)
+                    // The file's, as an unchanged line's is: the box sits between two hunks.
+                    // The cursor goes to the box, off a hunk the menu doesn't act on.
                     .on_mouse_down(MouseButton::Right, {
-                        let open = menu(carried.clone(), file_diff, Some(key), entity);
-                        move |event, _, cx| open(event.position, cx)
+                        let cut = self.diff_cut(file, None, cx);
+                        let open = menu(cut, file_diff, None, entity.clone());
+                        move |event, _, cx| {
+                            (entity.update(cx, |detail, cx| {
+                                detail.place_cursor(at);
+                                cx.notify();
+                            }))
+                            .ok();
+                            open(event.position, cx)
+                        }
                     })
                     .when(unmodified > 0, |el| {
                         el.tooltip(Tooltip::text("Show the whole file")).on_click(
@@ -1067,11 +1156,12 @@ impl Detail {
                 };
                 let layout = self.layout(file_diff, &store.prefs);
                 let element = diff::line_row(text, place, last, theme, &layout, decor);
-                let marked = self.marks_lines(file_diff, file, hunk);
                 padded
                     .relative()
                     .child(element)
-                    .when(marked, |el| el.child(line_tab(solid, theme)))
+                    .when(self.marks(row), |el| {
+                        el.children(hunk_marks(solid, last, theme))
+                    })
                     .on_mouse_down(MouseButton::Right, menu)
                     .into_any_element()
             }
@@ -1111,15 +1201,13 @@ impl Detail {
                 let layout = self.layout(file_diff, &store.prefs);
                 let pair = diff::pair_row(sides, halves, place, last, theme, &layout);
                 let menu = line_menu(ix, entity.clone());
-                let cursor = Some(Cursor {
-                    file,
-                    hunk: Some(hunk),
-                });
-                let marked = self.marks_lines(file_diff, file, hunk);
+                let cursor = Some(Cursor::on_hunk(file, hunk));
                 padded
                     .relative()
                     .child(pair)
-                    .when(marked, |el| el.child(line_tab(solid, theme)))
+                    .when(self.marks(row), |el| {
+                        el.children(hunk_marks(solid, last, theme))
+                    })
                     .on_mouse_down(MouseButton::Right, menu)
                     .on_mouse_down(MouseButton::Left, press_off(entity, cursor))
                     .into_any_element()
@@ -1171,11 +1259,13 @@ impl Detail {
     }
 
     /// On a changed file's header: show the unchanged lines around its hunks, or hide them.
+    /// `on` the header's solid selection.
     fn whole_button(
         &self,
         ix: usize,
         file: usize,
         file_diff: &FileDiff,
+        on: bool,
         entity: WeakEntity<Detail>,
     ) -> Option<AnyElement> {
         let has_context = matches!(file_diff.body, DiffBody::Hunks { .. })
@@ -1196,6 +1286,7 @@ impl Detail {
         Some(
             icon_button(("whole", ix), icon)
                 .small()
+                .inverted(on)
                 .tooltip(tip)
                 .on_click(move |_, _, cx| {
                     entity
@@ -1206,12 +1297,14 @@ impl Detail {
         )
     }
 
-    /// On an SVG's header: show its lines rather than its drawing, or the drawing again.
+    /// On an SVG's header: show its lines rather than its drawing, or the drawing again. `on`
+    /// the header's solid selection.
     fn drawing_button(
         &self,
         ix: usize,
         file: usize,
         file_diff: &FileDiff,
+        on: bool,
         entity: WeakEntity<Detail>,
     ) -> Option<AnyElement> {
         file_diff.drawing.as_ref()?;
@@ -1219,6 +1312,7 @@ impl Detail {
         Some(
             icon_button(("drawing", ix), Icon::TextCode)
                 .small()
+                .inverted(on)
                 .selected(text)
                 .tooltip(if text {
                     "Show the drawing"
@@ -1346,10 +1440,7 @@ impl Detail {
         (file, hunk, line): (usize, usize, usize),
         entity: &WeakEntity<Detail>,
     ) -> (bool, Option<diff::OnToggle>) {
-        let cursor = Cursor {
-            file,
-            hunk: Some(hunk),
-        };
+        let cursor = Cursor::on_hunk(file, hunk);
         let Some(file_diff) = diff.files.get(file) else {
             return (false, None);
         };
@@ -1505,14 +1596,32 @@ fn press_off(
     }
 }
 
-/// The cursor's tab on a line of a hunk with no header to carry it, at the card's edge past
-/// the row's padding, as a header's is. The hunk's lines' tabs meet in one.
-fn line_tab(solid: bool, theme: &Theme) -> gpui::Div {
-    (diff::cursor_tab(solid, theme))
-        .left(dp(12.))
+/// What marks a row of the changes of the hunk the cursor is on: a tab inside the card's
+/// border past the row's padding, over the bar a changed line has there, faint while the keys
+/// are elsewhere, and while the diff has them, a tint over the card, grey as a list's
+/// selection is so removals stay red. The rows' tabs and tints meet in one; the tint rounds
+/// with the card's `last` row.
+fn hunk_marks(solid: bool, last: bool, theme: &Theme) -> impl Iterator<Item = gpui::Div> {
+    let tab = div()
+        .absolute()
         .top_0()
         .bottom_0()
-        .rounded_none()
+        .left(dp(12.))
+        .ml(fixed(1.))
+        .w(dp(4.))
+        .bg(match solid {
+            true => theme.fill_gray,
+            false => theme.fill_gray.opacity(0.25),
+        });
+    let tint = div()
+        .absolute()
+        .top_0()
+        .bottom_0()
+        .left(dp(12.))
+        .right(dp(12.))
+        .bg(theme.fill_gray.opacity(0.1))
+        .when(last, |el| el.rounded_b(dp(6.)));
+    solid.then_some(tint).into_iter().chain([tab])
 }
 
 /// Right-clicking the line at row `ix`: see [`Detail::line_menu`].
@@ -1530,8 +1639,9 @@ fn line_menu(
 
 impl Detail {
     /// What right-clicking the line at `row` offers. Across selected text: copying it,
-    /// finding it when it's on one line, and opening the file at the line. Otherwise what
-    /// right-clicking its hunk's header does, or its file's for an unchanged line.
+    /// finding it when it's on one line, and opening the file at the line. Otherwise what can
+    /// be done to its hunk, which the cursor goes to, or to the picked lines when it's one of
+    /// them; to its file for an unchanged line outside the hunks.
     fn line_menu(
         &mut self,
         row: usize,
@@ -1581,8 +1691,6 @@ impl Detail {
             .filter(|(start, end)| (start.0..=end.0).contains(&row))
             .and_then(|_| self.selected_text());
         let Some(text) = selected else {
-            // A changed line's run, or the picked lines when it's one of them, as its grip
-            // takes; an unchanged one's hunk.
             let place = match diff.rows.get(row) {
                 Some(&DiffRow::Line { file, hunk, line }) => Some((file, hunk, line)),
                 _ => paired,
@@ -1590,9 +1698,12 @@ impl Detail {
             let changed = place
                 .filter(|place| line_of(*place).is_some_and(|line| line.kind != LineKind::Context));
             let key = hunk.and_then(|hunk| Some(file_diff.hunks().get(hunk)?.key));
-            let menu = match changed {
-                Some(place) => self.lines_cut(file, self.grip_takes(place), cx),
-                None => self.diff_cut(file, key.map(|key| vec![key]), cx),
+            let picked = changed.zip(key).is_some_and(|((_, _, line), key)| {
+                self.line_picked(&file_diff.file.path, key, line)
+            });
+            let menu = match picked {
+                true => self.lines_cut(file, self.picked_lines(file), cx),
+                false => self.diff_cut(file, key.map(|key| vec![key]), cx),
             };
             let added = (changed.and_then(line_of))
                 .filter(|line| line.kind == LineKind::Added)
@@ -1600,6 +1711,11 @@ impl Detail {
             let blamed = added.map(Blamed::Line).or(key.map(Blamed::Hunk));
             let at = At::File(file_diff.file.path.clone(), line);
             self.clear_text_selection(cx);
+            // So the hunk shows marked as what the menu acts on.
+            self.place_cursor(Cursor {
+                file,
+                at: hunk.map_or(Stop::File, Stop::Hunk),
+            });
             self.changes_menu(menu, at, blamed, position, cx);
             return;
         };
@@ -1655,40 +1771,6 @@ fn line_select(ix: usize, entity: WeakEntity<Detail>, follow: Option<Point<Pixel
         }),
         follow,
     }
-}
-
-/// Discard for an uncommitted hunk, of a project's main checkout or linked worktree, shown
-/// on the hunk under the cursor and on the one under the pointer: of what `change` has,
-/// which `tip` says.
-fn discard_button(
-    ix: usize,
-    (project, checkout): (ProjectId, Checkout),
-    change: Selected,
-    current: bool,
-    tip: &'static str,
-    app: AppHandle,
-    cx: &App,
-) -> AnyElement {
-    div()
-        .flex_none()
-        .font_family(Theme::get(cx).ui_font.clone())
-        .when(!current, |el| {
-            el.invisible().group_hover("hunk-row", |el| el.visible())
-        })
-        .child(
-            button(("hunk-discard", ix), "Discard")
-                .small()
-                .style(ButtonStyle::Ghost)
-                .tooltip_for(tip, &DiscardHunk)
-                .on_click(move |_, window, cx| {
-                    let (project, checkout) = (project.clone(), checkout.clone());
-                    let changes = vec![change.clone()];
-                    app.update_later(window, cx, move |app, window, cx| {
-                        app.discard(project, checkout, changes, window, cx)
-                    });
-                }),
-        )
-        .into_any_element()
 }
 
 /// The word around byte `ix` of `text`, or an empty range when `ix` isn't in one.

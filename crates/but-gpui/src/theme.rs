@@ -42,9 +42,8 @@ pub struct Theme {
     pub diff_removed_bg: Hsla,
     pub diff_added_emph: Hsla,
     pub diff_removed_emph: Hsla,
-    /// The box that stands for the unchanged lines between hunks, and its text, which an
+    /// The text of the box that stands for the unchanged lines between hunks, which an
     /// unchanged line's number shares.
-    pub diff_separator: Hsla,
     pub diff_muted: Hsla,
     /// The letter for an added, modified, deleted and renamed file: design-core's
     /// change-status colours.
@@ -226,7 +225,6 @@ impl Theme {
             diff_removed_bg: pick(0xffeeed, 0x413134),
             diff_added_emph: added.opacity(if dark { 0.2 } else { 0.15 }),
             diff_removed_emph: removed.opacity(if dark { 0.2 } else { 0.15 }),
-            diff_separator: pick(0xf3f3f3, 0x404549),
             diff_muted: pick(0x696c70, 0x999da1),
             change_status: [
                 pick(0x6fdaad, 0x1d744e),

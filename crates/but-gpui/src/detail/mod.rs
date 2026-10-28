@@ -97,19 +97,70 @@ pub const PAGE: f32 = 0.85;
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 struct Cursor {
     file: usize,
-    hunk: Option<usize>,
+    at: Stop,
 }
 
-/// How long the diff takes to glide to where the keys moved its cursor.
-const GLIDE: Duration = Duration::from_millis(150);
+/// What of its file the cursor is on.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+enum Stop {
+    /// The file's header.
+    #[default]
+    File,
+    /// The box above hunk `.0`, saying what's hidden before it: the file's, as the unchanged
+    /// lines it stands for are, not the hunk's.
+    Gap(usize),
+    /// Hunk `.0`'s lines, from its first change to its last: what the hunk keys act on.
+    Hunk(usize),
+}
+
+impl Cursor {
+    /// On file `file`'s header.
+    fn on_file(file: usize) -> Self {
+        Cursor {
+            file,
+            at: Stop::File,
+        }
+    }
+
+    /// On hunk `hunk` of file `file`.
+    fn on_hunk(file: usize, hunk: usize) -> Self {
+        Cursor {
+            file,
+            at: Stop::Hunk(hunk),
+        }
+    }
+}
+
+impl Stop {
+    /// The hunk the hunk keys act on, not one with the cursor on the box above it.
+    fn hunk(self) -> Option<usize> {
+        match self {
+            Stop::Hunk(hunk) => Some(hunk),
+            Stop::File | Stop::Gap(_) => None,
+        }
+    }
+
+    /// The hunk the cursor is on or just above.
+    fn near(self) -> Option<usize> {
+        match self {
+            Stop::Gap(hunk) | Stop::Hunk(hunk) => Some(hunk),
+            Stop::File => None,
+        }
+    }
+}
+
+/// How quickly the diff glides to where the keys moved its cursor: in each such time it goes
+/// about two thirds of the way it has left, so it sets out quickly and eases in.
+const GLIDE: Duration = Duration::from_millis(40);
 
 /// The diff's way to where the keys moved its cursor, in rows, as gpui knows the heights only
-/// of rows it has drawn: from `from` at its top, the row and how far down it, to row `to`,
-/// setting out at `started`.
+/// of rows it has drawn: to place `to`, a row and how far down it by its height, a share of
+/// the way each frame by how long since the `last`. One that `reveal`s what the cursor's on
+/// aims afresh as it goes: see [`Detail::follow_glide`].
 struct Glide {
-    from: f32,
-    to: usize,
-    started: Instant,
+    to: f32,
+    last: Instant,
+    reveal: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -507,7 +558,7 @@ impl Detail {
                         if let Some(file) = first
                             && !shown.contains(&this.cursor.file)
                         {
-                            this.place_cursor(Cursor { file, hunk: None });
+                            this.place_cursor(Cursor::on_file(file));
                             if let Some(row) = this.row_of(|row| *row == DiffRow::File(file)) {
                                 this.scroll_to_row(row, false);
                             }
@@ -1147,7 +1198,7 @@ impl Detail {
         // row is now, a match Find went to as much as the cursor's hunk.
         let glide_to = (self.glide.take())
             .filter(|_| same)
-            .and_then(|glide| self.row_in(glide.to, &rows, &files));
+            .and_then(|glide| self.row_in(glide.to as usize, &rows, &files));
         // Most rows are a line tall: rows not drawn yet count as one, so the scrollbar's thumb
         // is about the right size before they are.
         (self.list).reset_with_uniform_height(rows.len(), code_line(cx));
@@ -1205,10 +1256,7 @@ impl Detail {
                 .flat_map(|diff| diff.files.iter())
                 .position(|file| file.file.path == path)
         {
-            self.cursor = Cursor {
-                file: at,
-                hunk: None,
-            };
+            self.cursor = Cursor::on_file(at);
             self.scroll_to_file(at, false, cx);
         }
     }
@@ -1296,11 +1344,19 @@ impl Detail {
         self.pinned = true;
     }
 
-    /// The row the cursor is on, or its file's header where its hunk isn't drawn, as when folded.
+    /// The row the cursor is on: on a hunk, the first of its changes, else the box above them,
+    /// as when a pending operation takes them; its file's header where its hunk isn't drawn, as
+    /// when folded.
     fn cursor_row(&self) -> Option<usize> {
-        let Cursor { file, hunk } = self.cursor;
-        (hunk.and_then(|hunk| self.row_of(|row| *row == DiffRow::Hunk { file, hunk })))
-            .or_else(|| self.row_of(|row| *row == DiffRow::File(file)))
+        let Cursor { file, at } = self.cursor;
+        let changes = at
+            .hunk()
+            .and_then(|hunk| self.row_of(|row| self.changes_at(*row) == Some((file, hunk))));
+        let gap = || {
+            let hunk = at.near()?;
+            self.row_of(|row| *row == DiffRow::Hunk { file, hunk })
+        };
+        (changes.or_else(gap)).or_else(|| self.row_of(|row| *row == DiffRow::File(file)))
     }
 
     /// While the user scrolls the diff, the file at its top, the one its sticky header names,
@@ -1323,7 +1379,7 @@ impl Detail {
         else {
             return;
         };
-        let followed = Cursor { file, hunk: None };
+        let followed = Cursor::on_file(file);
         if self.cursor != followed {
             self.cursor = followed;
             cx.notify();
@@ -1531,8 +1587,8 @@ impl Detail {
             let scroll_to = self.keep_place(&rows, &diff.files);
             // A glide goes on to where its row is now, as when a file shown whole is read
             // while the keys or a click send the diff somewhere.
-            let glide_to =
-                (self.glide.take()).and_then(|glide| self.row_in(glide.to, &rows, &diff.files));
+            let glide_to = (self.glide.take())
+                .and_then(|glide| self.row_in(glide.to as usize, &rows, &diff.files));
             (self.list).reset_with_uniform_height(rows.len(), code_line(cx));
             self.list.scroll_to(scroll_to);
             if let Some(diff) = &mut self.diff {
@@ -1718,15 +1774,17 @@ impl Detail {
             true => view.map_or(at, |(top, last)| at.clamp(top.saturating_sub(1), last)),
             false => view.map_or(at, |(top, last)| at.clamp(top, last + 1)),
         };
-        let stop = next_stop(&diff.rows, from, forward);
-        if let Some((file, hunk, row)) = stop {
-            self.place_cursor(Cursor { file, hunk });
-            self.reveal_row(row);
+        let stop = next_stop(&diff.rows, from, forward, |row, entry| {
+            self.stop_at(row, entry)
+        });
+        if let Some((cursor, _)) = stop {
+            self.place_cursor(cursor);
+            self.reveal_cursor(cx);
             cx.notify();
         }
         // From the file list too: the diff takes the keys, so the hunk or header shows solid
         // and the keys after act on it.
-        if stop.is_some() || self.cursor.hunk.is_some() {
+        if stop.is_some() || self.cursor.at != Stop::File {
             window.focus(&self.focus, cx);
         }
     }
@@ -1746,14 +1804,16 @@ impl Detail {
         let Some((file, new)) =
             (files.iter().enumerate()).find(|(_, f)| f.file.path == old.file.path)
         else {
-            return Cursor {
-                file: self.cursor.file.min(files.len().saturating_sub(1)),
-                hunk: None,
-            };
+            return Cursor::on_file(self.cursor.file.min(files.len().saturating_sub(1)));
         };
-        let hunk =
-            (self.cursor.hunk).and_then(|ix| follow_hunk(&hunk_keys(old), ix, &hunk_keys(new)));
-        Cursor { file, hunk }
+        let near = (self.cursor.at.near())
+            .and_then(|ix| follow_hunk(&hunk_keys(old), ix, &hunk_keys(new)));
+        let at = match (self.cursor.at, near) {
+            (Stop::Gap(_), Some(hunk)) => Stop::Gap(hunk),
+            (_, Some(hunk)) => Stop::Hunk(hunk),
+            (_, None) => Stop::File,
+        };
+        Cursor { file, at }
     }
 
     /// Move the cursor off a file or hunk a pending operation just took away, onto the next
@@ -1765,7 +1825,8 @@ impl Detail {
         let Some(path) = diff.files.get(self.cursor.file).map(|f| &f.file.path) else {
             return;
         };
-        let at = (self.cursor.file, self.cursor.hunk);
+        // The box above a hunk goes with it.
+        let at = (self.cursor.file, self.cursor.at.near());
         // The files and hunks shown, in order, as the cursor can be on them.
         let places: Vec<(usize, Option<usize>)> = (diff.rows.iter())
             .filter_map(|row| match *row {
@@ -1789,7 +1850,10 @@ impl Detail {
             .filter(|(_, hunk)| hunk.is_some() == file_shown)
             .collect();
         if let Some(&(file, hunk)) = places.iter().find(|place| **place > at).or(places.last()) {
-            self.place_cursor(Cursor { file, hunk });
+            self.place_cursor(Cursor {
+                file,
+                at: hunk.map_or(Stop::File, Stop::Hunk),
+            });
         }
     }
 
@@ -1813,7 +1877,7 @@ impl Detail {
         let Some(file) = diff.files.get(self.cursor.file) else {
             return;
         };
-        let line = (self.cursor.hunk)
+        let line = (self.cursor.at.near())
             .and_then(|ix| file.hunks().get(ix))
             .map(|h| h.key.0.new_start);
         let (project, path) = (diff.key.project.clone(), file.file.path.clone());
@@ -1871,9 +1935,10 @@ impl Detail {
             && self.checks_worktree == *checkout
     }
 
-    /// Whether the diff's cursor is on a hunk, rather than a file's header, for ⌥⌘Z to discard.
+    /// Whether the diff's cursor is on a hunk, rather than a file's header or the box above a
+    /// hunk, for ⌥⌘Z to discard.
     pub fn on_hunk(&self) -> bool {
-        self.cursor.hunk.is_some()
+        self.cursor.at.hunk().is_some()
     }
 
     /// Whether there's a file shown for the diff's keys to act on, not one the filter hides.
@@ -1928,7 +1993,7 @@ impl Detail {
         let at = shown.iter().position(|file| *file == self.cursor.file)? + 1;
         let mut place = format!("File {at} of {}", shown.len());
         let hunks = file.hunks().len();
-        if let Some(hunk) = self.cursor.hunk.filter(|hunk| *hunk < hunks) {
+        if let Some(hunk) = self.cursor.at.hunk().filter(|hunk| *hunk < hunks) {
             place.push_str(&format!(" · hunk {} of {hunks}", hunk + 1));
         }
         Some(place)
@@ -1969,10 +2034,7 @@ impl Detail {
         if !self.folded.remove(&path) {
             self.folded.insert(path);
         }
-        self.place_cursor(Cursor {
-            file: file_ix,
-            hunk: None,
-        });
+        self.place_cursor(Cursor::on_file(file_ix));
         self.rebuild_rows(cx);
     }
 
@@ -1997,7 +2059,7 @@ impl Detail {
     ) {
         self.place_cursor(Cursor {
             file: file_ix,
-            hunk,
+            at: hunk.map_or(Stop::File, Stop::Hunk),
         });
         let Some(diff) = (self.diff.as_ref()).filter(|diff| diff.key.source.live()) else {
             return self.not_live(window, cx);
@@ -2005,7 +2067,7 @@ impl Detail {
         let Some(file) = diff.files.get(file_ix) else {
             return;
         };
-        // A conflicted file's hunk has no discard button either: it goes whole or not at all.
+        // A conflicted file's hunk can't be discarded alone: it goes whole or not at all.
         if !self.shown_files().contains(&file_ix) || (hunk.is_some() && file.file.conflicted) {
             return;
         }
@@ -2094,18 +2156,125 @@ impl Detail {
             };
             match glide {
                 true => {
-                    let top = self.list.logical_scroll_top();
-                    let into = (self.list.bounds_for_item(top.item_ix))
-                        .filter(|item| item.size.height > Pixels::ZERO)
-                        .map_or(0., |item| top.offset_in_item / item.size.height);
                     self.glide = Some(Glide {
-                        from: top.item_ix as f32 + into,
-                        to: row,
-                        started: Instant::now(),
+                        to: row as f32,
+                        last: Instant::now(),
+                        reveal: false,
                     })
                 }
                 false => self.list.scroll_to(to),
             }
+        }
+    }
+
+    /// Glide to bring as much into view as fits of what the cursor's on, as the TUI's details
+    /// scroll to a section. In view already, the diff stops where it is: a glide to somewhere
+    /// else, as to the next file, would take it out of view.
+    fn reveal_cursor(&mut self, cx: &App) {
+        self.glide = (self.reveal_target(cx)).map(|to| Glide {
+            to,
+            last: Instant::now(),
+            reveal: true,
+        });
+    }
+
+    /// Where the diff goes from where it is now to bring what the cursor's on into view: the
+    /// rows [`Detail::extent`] gives, scrolled as [`reveal_by`] says. None within a pixel of
+    /// there.
+    pub(super) fn reveal_target(&self, cx: &App) -> Option<f32> {
+        let (first, last) = self.extent(self.cursor)?;
+        let at = self.scrolled_to();
+        let top = self.distance(at, first as f32, cx);
+        let bottom = self.distance(at, (last + 1) as f32, cx);
+        // Under a file's header, its sticky header hides the diff's top.
+        let clear = match self.cursor.at {
+            Stop::File => Pixels::ZERO,
+            Stop::Gap(_) | Stop::Hunk(_) => Theme::get(cx).scaled(diff::FILE_HEADER_HEIGHT),
+        };
+        // A little of what follows shows below it, rather than it ending against the edge.
+        let room = code_line(cx) * 2.;
+        let by = reveal_by(
+            top,
+            bottom,
+            clear,
+            room,
+            self.list.viewport_bounds().size.height,
+        );
+        (by.abs() >= fixed(1.)).then(|| self.place_after(at, by, cx))
+    }
+
+    /// The place the diff shows from: its top row and how far down it, by its height.
+    fn scrolled_to(&self) -> f32 {
+        let top = self.list.logical_scroll_top();
+        let into = (self.list.bounds_for_item(top.item_ix))
+            .filter(|item| item.size.height > Pixels::ZERO)
+            .map_or(0., |item| top.offset_in_item / item.size.height);
+        top.item_ix as f32 + into
+    }
+
+    /// Where the list scrolls to for place `at`, a row and how far down it by its height.
+    fn list_offset(&self, at: f32, cx: &App) -> ListOffset {
+        let row = at.floor() as usize;
+        ListOffset {
+            item_ix: row,
+            offset_in_item: self.row_height(row, cx) * at.fract(),
+        }
+    }
+
+    /// How far place `to` is below place `from`, or above it when negative, each a row and
+    /// how far down it by its height.
+    fn distance(&self, from: f32, to: f32, cx: &App) -> Pixels {
+        let (upper, lower) = (from.min(to), from.max(to));
+        let (first, last) = (upper.floor() as usize, lower.floor() as usize);
+        let rows = (first..last).fold(Pixels::ZERO, |sum, ix| sum + self.row_height(ix, cx));
+        let span = rows - self.row_height(first, cx) * upper.fract()
+            + self.row_height(last, cx) * lower.fract();
+        if to < from { -span } else { span }
+    }
+
+    /// The place `by` below place `from`, or above it when negative, short of the diff's ends.
+    fn place_after(&self, from: f32, by: Pixels, cx: &App) -> f32 {
+        let last = (self.diff.as_ref()).map_or(0, |diff| diff.rows.len().saturating_sub(1));
+        let mut row = (from.floor() as usize).min(last);
+        // How far below the top of `row` the place is.
+        let mut down = by + self.row_height(row, cx) * from.fract();
+        while down < Pixels::ZERO && row > 0 {
+            row -= 1;
+            down += self.row_height(row, cx);
+        }
+        while row < last && down >= self.row_height(row, cx) {
+            down -= self.row_height(row, cx);
+            row += 1;
+        }
+        let tall = self.row_height(row, cx);
+        let into = match tall > Pixels::ZERO {
+            true => (down / tall).clamp(0., 1.),
+            false => 0.,
+        };
+        row as f32 + into
+    }
+
+    /// How tall diff row `ix` is: as drawn, or for one gpui hasn't drawn or doesn't say, as
+    /// above the diff's top, a guess by what it shows.
+    fn row_height(&self, ix: usize, cx: &App) -> Pixels {
+        if let Some(item) = self.list.bounds_for_item(ix) {
+            return item.size.height;
+        }
+        let theme = Theme::get(cx);
+        let Some(loaded) = &self.diff else {
+            return code_line(cx);
+        };
+        match loaded.rows.get(ix) {
+            Some(DiffRow::File(_)) => theme.scaled(diff::FILE_HEADER_HEIGHT),
+            // A box 28 tall with 6 above and below it, or nothing where the lines run on.
+            Some(&DiffRow::Hunk { file, hunk }) => {
+                match (loaded.files.get(file)).is_some_and(|file| self.boxless(file, hunk)) {
+                    true => Pixels::ZERO,
+                    false => theme.scaled(40.),
+                }
+            }
+            Some(DiffRow::Gap) => theme.scaled(10.),
+            _ => code_line(cx),
         }
     }
 
@@ -2115,10 +2284,7 @@ impl Detail {
     fn scroll_to_file(&mut self, file_ix: usize, glide: bool, cx: &mut Context<Self>) {
         // A file picked on a checkout's page shows its diff in place of the overview.
         self.now_open = false;
-        self.place_cursor(Cursor {
-            file: file_ix,
-            hunk: None,
-        });
+        self.place_cursor(Cursor::on_file(file_ix));
         if let Some(row) = self.row_of(|row| matches!(row, DiffRow::File(ix) if *ix == file_ix)) {
             self.scroll_to_row(row, glide);
             cx.notify();
@@ -2455,7 +2621,7 @@ impl Render for Detail {
                 }
                 if this.line_picks.is_some() {
                     this.discard_picked_lines(window, cx)
-                } else if let Some(hunk) = this.cursor.hunk.filter(|_| !this.showing_now(cx)) {
+                } else if let Some(hunk) = this.cursor.at.hunk().filter(|_| !this.showing_now(cx)) {
                     this.discard(this.cursor.file, Some(hunk), window, cx)
                 }
             }))
@@ -2717,22 +2883,42 @@ fn hunk_keys(file: &FileDiff) -> Vec<HunkKey> {
     file.hunks().iter().map(|hunk| hunk.key).collect()
 }
 
-/// Where the hunk keys go from row `from` of `rows`, `forward` or back: the next file header or
-/// hunk, as its file, its hunk on a hunk, and its row. Headers are stops too, so the keys go
-/// back up to one they left and down to the next file's rather than past it.
+/// How far to scroll the diff to bring rows running from `top` to `bottom`, down from the
+/// view's top, as far into view as they fit, as the TUI's details scroll to a section. The view
+/// is `height` tall, above `clear` the sticky header hides it, and `room` is left below them.
+/// Taller than what's left, or starting above it, they go to its top; ending below it, their
+/// end comes up to `room` above its bottom; in view already, they stay put.
+fn reveal_by(top: Pixels, bottom: Pixels, clear: Pixels, room: Pixels, height: Pixels) -> Pixels {
+    let end = height - room;
+    if bottom - top > end - clear || top < clear {
+        top - clear
+    } else if bottom > end {
+        bottom - end
+    } else {
+        Pixels::ZERO
+    }
+}
+
+/// Where the hunk keys go from row `from` of `rows`, `forward` or back: the next row `stop`
+/// says the cursor stops on, and that row. Headers are stops too, so the keys go back up to one
+/// they left and down to the next file's rather than past it.
 fn next_stop(
     rows: &[DiffRow],
     from: usize,
     forward: bool,
-) -> Option<(usize, Option<usize>, usize)> {
-    let mut stops = (rows.iter().enumerate()).filter_map(|(row, entry)| match *entry {
-        DiffRow::File(file) => Some((file, None, row)),
-        DiffRow::Hunk { file, hunk } => Some((file, Some(hunk), row)),
-        _ => None,
-    });
+    stop: impl Fn(usize, DiffRow) -> Option<Stop>,
+) -> Option<(Cursor, usize)> {
+    let at = |row: usize| {
+        let entry = *rows.get(row)?;
+        let cursor = Cursor {
+            file: entry.file()?,
+            at: stop(row, entry)?,
+        };
+        Some((cursor, row))
+    };
     match forward {
-        true => stops.find(|(.., row)| *row > from),
-        false => stops.rev().find(|(.., row)| *row < from),
+        true => (from + 1..rows.len()).find_map(at),
+        false => (0..from.min(rows.len())).rev().find_map(at),
     }
 }
 
@@ -2802,7 +2988,12 @@ fn same_files<'a>(
 mod tests {
     use std::collections::HashSet;
 
-    use super::{follow_hunk, keeps_path, next_stop, path_match, ranked, same_files, unfolded};
+    use gpui::Pixels;
+
+    use super::{
+        Cursor, Stop, follow_hunk, keeps_path, next_stop, path_match, ranked, reveal_by,
+        same_files, unfolded,
+    };
     use crate::backend::FileChange;
     use crate::ui::diff::DiffRow;
 
@@ -2990,51 +3181,112 @@ mod tests {
     }
 
     #[test]
-    fn the_hunk_keys_stop_on_file_headers_too() {
-        let line = |file, hunk| DiffRow::Line {
-            file,
-            hunk,
-            line: 0,
-        };
+    fn the_hunk_keys_stop_on_file_headers_and_hunk_boxes_too() {
+        let line = |file, hunk, line| DiffRow::Line { file, hunk, line };
         let rows = [
             DiffRow::File(0),
             DiffRow::Hunk { file: 0, hunk: 0 },
-            line(0, 0),
+            line(0, 0, 0),
+            line(0, 0, 1),
+            line(0, 0, 2),
             DiffRow::Hunk { file: 0, hunk: 1 },
-            line(0, 1),
+            line(0, 1, 1),
             DiffRow::File(1),
             DiffRow::Hunk { file: 1, hunk: 0 },
-            line(1, 0),
+            line(1, 0, 1),
         ];
+        // Each hunk's changes start at its line 1, after an unchanged one, and the second hunk
+        // of the first file has no box.
+        let stop = |_, entry| match entry {
+            DiffRow::File(_) => Some(Stop::File),
+            DiffRow::Hunk { file: 0, hunk: 1 } => None,
+            DiffRow::Hunk { hunk, .. } => Some(Stop::Gap(hunk)),
+            DiffRow::Line { hunk, line: 1, .. } => Some(Stop::Hunk(hunk)),
+            _ => None,
+        };
+        let at = |file, at, row| Some((Cursor { file, at }, row));
         assert_eq!(
-            next_stop(&rows, 0, true),
-            Some((0, Some(0), 1)),
-            "from a file's header into its first hunk"
+            next_stop(&rows, 0, true, stop),
+            at(0, Stop::Gap(0), 1),
+            "from a file's header to the box above its first hunk"
         );
         assert_eq!(
-            next_stop(&rows, 1, false),
-            Some((0, None, 0)),
-            "and back up to the header, which came before it"
+            next_stop(&rows, 1, true, stop),
+            at(0, Stop::Hunk(0), 3),
+            "from the box to the hunk's first change, past the unchanged line before it"
         );
         assert_eq!(
-            next_stop(&rows, 3, true),
-            Some((1, None, 5)),
+            next_stop(&rows, 3, true, stop),
+            at(0, Stop::Hunk(1), 6),
+            "on to the next hunk's changes, as it has no box"
+        );
+        assert_eq!(
+            next_stop(&rows, 3, false, stop),
+            at(0, Stop::Gap(0), 1),
+            "back up to the box above the hunk"
+        );
+        assert_eq!(
+            next_stop(&rows, 6, true, stop),
+            at(1, Stop::File, 7),
             "from a file's last hunk to the next file's header, not past it to its hunk"
         );
         assert_eq!(
-            next_stop(&rows, 5, false),
-            Some((0, Some(1), 3)),
+            next_stop(&rows, 7, false, stop),
+            at(0, Stop::Hunk(1), 6),
             "from a header back to the last hunk of the file before"
         );
         assert_eq!(
-            next_stop(&rows, 0, false),
+            next_stop(&rows, 0, false, stop),
             None,
             "nothing above the first header"
         );
         assert_eq!(
-            next_stop(&rows, 6, true),
+            next_stop(&rows, 9, true, stop),
             None,
             "nothing below the last hunk"
+        );
+    }
+
+    #[test]
+    fn a_stop_scrolls_as_far_into_view_as_it_fits() {
+        let px = Pixels::from;
+        // A view 500 tall, its top 40 under the sticky header, and 20 left below what shows.
+        let by = |top, bottom| reveal_by(px(top), px(bottom), px(40.), px(20.), px(500.));
+        assert_eq!(by(100., 300.), px(0.), "in view already, it stays put");
+        assert_eq!(
+            by(400., 600.),
+            px(120.),
+            "ending below the view, its end comes up to the room left at the bottom"
+        );
+        assert_eq!(
+            by(100., 490.),
+            px(10.),
+            "in view but into the room at the bottom, it comes up out of it"
+        );
+        assert_eq!(
+            by(-100., 100.),
+            px(-140.),
+            "starting above the view, its start comes down to below the sticky header"
+        );
+        assert_eq!(
+            by(20., 100.),
+            px(-20.),
+            "under the sticky header counts as above the view"
+        );
+        assert_eq!(
+            by(300., 1000.),
+            px(260.),
+            "taller than the view, its start goes to the top rather than its end to the bottom"
+        );
+        assert_eq!(
+            by(300., 750.),
+            px(260.),
+            "fitting the view but not with the room below, its start goes to the top"
+        );
+        assert_eq!(
+            reveal_by(px(0.), px(600.), px(0.), px(20.), px(500.)),
+            px(0.),
+            "a file taller than the view, its header at the top, stays put"
         );
     }
 }

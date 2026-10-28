@@ -414,7 +414,7 @@ pub struct HeaderDecor {
     pub trailing: Option<AnyElement>,
     /// Marks a hunk left out of the next commit.
     pub excluded: bool,
-    /// The hunk or file the keyboard is on.
+    /// The file, or the box above a hunk, the keyboard is on.
     pub current: bool,
     /// The diff has the keys, so they act on the current one: it's marked solid, and faint
     /// while they're elsewhere, as a list's selection is.
@@ -550,6 +550,10 @@ pub fn file_header(
     } else {
         Icon::ChevronDown
     };
+    // Under the cursor, as a list's selected row: solid with its text inverted while the diff
+    // has the keys, faint while they're elsewhere.
+    let on = decor.current && decor.solid;
+    let soft = |color| if on { theme.muted_on_solid() } else { color };
     card(h_flex(), theme)
         .id(("diff-file", ix))
         .role(Role::Heading)
@@ -562,8 +566,14 @@ pub fn file_header(
         .border_b_1()
         .rounded_t(dp(6.))
         .when(decor.folded, |el| el.rounded_b(dp(6.)))
-        .when(decor.current, |el| el.child(cursor_tab(decor.solid, theme)))
-        .child(small_icon(chevron).text_color(theme.text_2))
+        // On the card's ground, as the header's own is solid rather than over the card.
+        .when(decor.current, |el| {
+            el.bg(match decor.solid {
+                true => theme.fill_gray,
+                false => theme.bg_1.blend(theme.selected_unfocused()),
+            })
+        })
+        .child(small_icon(chevron).text_color(soft(theme.text_2)))
         .child(
             h_flex()
                 .flex_1()
@@ -574,7 +584,11 @@ pub fn file_header(
                 .child(
                     div()
                         .flex_none()
-                        .text_color(theme.text_1)
+                        .text_color(if on {
+                            theme.text_inverted
+                        } else {
+                            theme.text_1
+                        })
                         .child(name.to_owned()),
                 )
                 // Cut in the middle, as the folder's end tells two files of one name apart.
@@ -584,7 +598,7 @@ pub fn file_header(
                         .overflow_hidden()
                         .whitespace_nowrap()
                         .text_ellipsis_middle()
-                        .text_color(theme.text_3)
+                        .text_color(soft(theme.text_3))
                         .child(match &file.file.previous_path {
                             Some(previous) => format!("{dir}  ← {previous}"),
                             None => dir.to_owned(),
@@ -592,7 +606,11 @@ pub fn file_header(
                 )
                 // Here rather than under it, as it can come with changed lines too; cut off
                 // before the name is.
-                .children((file.file.mode_change()).map(|mode| faint(mode, theme).flex_none())),
+                .children((file.file.mode_change()).map(|mode| {
+                    faint(mode, theme)
+                        .flex_none()
+                        .text_color(soft(theme.text_3))
+                })),
         )
         .when(file.file.conflicted, |el| el.child(conflicted_badge(theme)))
         .child(stats(added, removed, theme))
@@ -605,7 +623,10 @@ pub fn file_header(
                     .w(fixed(1.))
                     .h(dp(20.))
                     .mx(dp(2.))
-                    .bg(theme.border_3),
+                    .bg(match on {
+                        true => theme.text_inverted.opacity(0.25),
+                        false => theme.border_3,
+                    }),
             )
         })
         .children(decor.trailing)
@@ -660,22 +681,6 @@ pub fn named_scopes(hunks: &[Hunk], ix: usize, unmodified: u32, around: bool) ->
     rest.get(..rest.len() - shown).unwrap_or_default()
 }
 
-/// The tab on a card's edge that marks the file or hunk the cursor is on, `solid` while the
-/// diff has the keys.
-pub fn cursor_tab(solid: bool, theme: &Theme) -> gpui::Div {
-    div()
-        .absolute()
-        .left_0()
-        .top(dp(5.))
-        .bottom(dp(5.))
-        .w(dp(4.))
-        .rounded_r(dp(6.))
-        .bg(match solid {
-            true => theme.fill_gray,
-            false => theme.fill_gray.opacity(0.25),
-        })
-}
-
 /// Above a hunk's lines, as @pierre/diffs parts hunks: a grey box saying how many
 /// `unmodified` lines before it aren't shown, with the scopes `named` of those it changes.
 pub fn hunk_header(
@@ -685,7 +690,11 @@ pub fn hunk_header(
     theme: &Theme,
     decor: HeaderDecor,
 ) -> AnyElement {
-    let title = match (unmodified, scopes(named, theme)) {
+    // Under the cursor, as a list's selected row: solid with its text inverted while the diff
+    // has the keys, faint while they're elsewhere.
+    let on = decor.current && decor.solid;
+    let soft = |color| if on { theme.muted_on_solid() } else { color };
+    let title = match (unmodified, scopes(named, on, theme)) {
         // Nothing hidden and no scope to name: the `@@` header says where the hunk is,
         // unless the lines around it name its scopes.
         (0, None) if hunk.scope.is_empty() => Some(
@@ -705,7 +714,7 @@ pub fn hunk_header(
                         .child(plural(n as usize, "unmodified line")),
                 )
                 .when_some(scopes, |el, scopes| {
-                    el.child(div().flex_none().text_color(theme.text_3).child("·"))
+                    el.child(div().flex_none().text_color(soft(theme.text_3)).child("·"))
                         .child(scopes)
                 })
                 .into_any_element(),
@@ -714,7 +723,6 @@ pub fn hunk_header(
     card(h_flex(), theme)
         .px(dp(8.))
         .py(dp(6.))
-        .when(decor.current, |el| el.child(cursor_tab(decor.solid, theme)))
         .child(
             h_flex()
                 .flex_1()
@@ -724,18 +732,25 @@ pub fn hunk_header(
                 .pr(dp(3.))
                 .gap(dp(8.))
                 .rounded(dp(6.))
-                .bg(if decor.current && decor.solid {
-                    theme.pop.opacity(0.1)
-                } else {
-                    theme.diff_separator
+                // The rest fainter than one under the cursor while the keys are elsewhere.
+                .bg(match (decor.current, decor.solid) {
+                    (true, true) => theme.fill_gray,
+                    (true, false) => theme.selected_unfocused(),
+                    (false, _) => theme.fill_gray.opacity(0.05),
                 })
                 .text_size(dp(12.))
-                .text_color(theme.diff_muted)
+                .text_color(soft(theme.diff_muted))
                 .overflow_hidden()
                 .whitespace_nowrap()
                 // The owner shows the hidden lines on a click.
                 .when(unmodified > 0, |el| {
-                    el.hover(|el| el.text_color(theme.text_1))
+                    el.hover(|el| {
+                        el.text_color(if on {
+                            theme.text_inverted
+                        } else {
+                            theme.text_1
+                        })
+                    })
                 })
                 .children(decor.leading)
                 .child(div().flex_1().min_w_0().overflow_hidden().children(title))
@@ -743,7 +758,7 @@ pub fn hunk_header(
                     el.child(
                         div()
                             .flex_none()
-                            .text_color(theme.text_3)
+                            .text_color(soft(theme.text_3))
                             .child("not included"),
                     )
                 })
@@ -1289,9 +1304,9 @@ fn outline_box((top, bottom): (bool, bool), theme: &Theme) -> gpui::Div {
         .when(bottom, |el| el.border_b_1())
 }
 
-/// The scopes a hunk names, as a breadcrumb that keeps the innermost one readable. None
-/// when it names none.
-fn scopes(scope: &[String], theme: &Theme) -> Option<AnyElement> {
+/// The scopes a hunk names, as a breadcrumb that keeps the innermost one readable, `on` a
+/// solid selection. None when it names none.
+fn scopes(scope: &[String], on: bool, theme: &Theme) -> Option<AnyElement> {
     let (inner, outer) = scope.split_last()?;
     let breadcrumb = h_flex()
         .flex_1()
@@ -1304,14 +1319,22 @@ fn scopes(scope: &[String], theme: &Theme) -> Option<AnyElement> {
                 .flex_shrink(1.)
                 .min_w_0()
                 .gap(dp(6.))
-                .text_color(theme.text_3)
+                .text_color(if on {
+                    theme.muted_on_solid()
+                } else {
+                    theme.text_3
+                })
                 .child(div().min_w_0().truncate().child(scope.clone()))
                 .child("›")
         }))
         .child(
             div()
                 .flex_none()
-                .text_color(theme.text_1)
+                .text_color(if on {
+                    theme.text_inverted
+                } else {
+                    theme.text_1
+                })
                 .child(inner.clone()),
         );
     Some(breadcrumb.into_any_element())
