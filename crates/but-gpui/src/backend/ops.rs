@@ -979,32 +979,45 @@ impl Intent for NameBranch {
     }
 }
 
-pub fn remove_branch(path: &Path, ref_name: &FullName, tip: Option<CommitId>) -> Result<()> {
-    let mut ctx = open(path)?;
-    let name = ref_name;
-    // Removing a ref that's gone does nothing, so say so rather than that it went, as after
-    // an agent renamed the branch while the confirmation was up. With `tip`, one that moved
-    // since stays: its new commits would go with it.
-    match super::ref_tip(&*ctx.repo.get()?, name.as_ref()) {
-        None => bail!("{} was renamed or deleted meanwhile", short_ref(ref_name)),
-        Some(at) if tip.is_some_and(|tip| tip.0 != at) => {
-            bail!(
-                "{} changed since you asked, so it wasn't deleted",
-                short_ref(ref_name)
-            )
-        }
-        Some(_) => {}
+/// Delete `branch`, keeping its commits, and its description with it. With `tip`, one whose
+/// newest commit moved since stays: its new commits would go with it.
+pub struct RemoveBranch {
+    pub branch: FullName,
+    pub tip: Option<CommitId>,
+}
+
+impl Intent for RemoveBranch {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        let Self { branch, tip } = self;
+        run.locked(|ctx, perm| {
+            // Removing a ref that's gone does nothing, so say so rather than that it went, as
+            // after an agent renamed the branch while the confirmation was up.
+            match super::ref_tip(&*ctx.repo.get()?, branch.as_ref()) {
+                None => bail!("{} was renamed or deleted meanwhile", short_ref(&branch)),
+                Some(at) if tip.is_some_and(|tip| tip.0 != at) => {
+                    bail!(
+                        "{} changed since you asked, so it wasn't deleted",
+                        short_ref(&branch)
+                    )
+                }
+                Some(_) => {}
+            }
+            but_api::branch::branch_remove_with_perm(ctx, branch.clone(), perm)?;
+            // So a branch made later under its name starts without its description.
+            let dropped =
+                super::branches::move_description(&*ctx.repo.get()?, branch.shorten(), None);
+            if let Err(err) = dropped {
+                tracing::warn!(?err, "couldn't drop the deleted branch's description");
+            }
+            Ok(())
+        })
     }
-    but_api::branch::branch_remove(&mut ctx, name.clone())?;
-    // So a branch made later under its name starts without its description.
-    if let Err(err) = super::branches::move_description(&*ctx.repo.get()?, name.shorten(), None) {
-        tracing::warn!(?err, "couldn't drop the deleted branch's description");
-    }
-    Ok(())
 }
 
 /// Delete `branch` with its commits, in one step that one undo takes back, as `but branch
-/// delete` does: for the only named branch of its stack, as [`remove_branch`] keeps the
+/// delete` does: for the only named branch of its stack, as [`RemoveBranch`] keeps the
 /// commits, which need another branch to hold them. A workspace left with one stack checks
 /// that out, as unapplying does. One whose newest commit is no longer `tip` stays: its new
 /// commits would go too.
@@ -3541,7 +3554,11 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             git(path, &["commit", "-q", "--allow-empty", "-m", "an agent's"]);
             git(path, &["branch", "-f", "side", "HEAD"]);
 
-            let refused = remove_branch(path, &full("refs/heads/side"), Some(asked)).unwrap_err();
+            let remove = RemoveBranch {
+                branch: full("refs/heads/side"),
+                tip: Some(asked),
+            };
+            let refused = crate::backend::apply(path, remove).unwrap_err();
             assert!(
                 format!("{refused:#}").contains("changed since you asked"),
                 "it says why it stays: {refused:#}"

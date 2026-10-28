@@ -786,14 +786,13 @@ impl AppView {
                     };
                     store.apply(&project, "Delete branch", overlay, delete, done, cx)
                 }
-                None => store.run(
-                    &project,
-                    "Delete branch",
-                    overlay,
-                    move |path| backend::remove_branch(path, &ref_name, None),
-                    done,
-                    cx,
-                ),
+                None => {
+                    let remove = backend::RemoveBranch {
+                        branch: ref_name,
+                        tip: None,
+                    };
+                    store.apply(&project, "Delete branch", overlay, remove, done, cx)
+                }
             })
         };
         if undoable {

@@ -1139,11 +1139,15 @@ impl Detail {
                             ..Overlay::default()
                         };
                         let (gone, listed_in) = (ref_name.clone(), project.clone());
-                        store.run(
+                        let remove = backend::RemoveBranch {
+                            branch: ref_name,
+                            tip: Some(tip),
+                        };
+                        store.apply(
                             &project,
                             "Delete branch",
                             overlay,
-                            move |path| backend::remove_branch(path, &ref_name, Some(tip)),
+                            remove,
                             // Out of the list now: reading the branches again, as their
                             // refs changed, lands after the overlay is gone.
                             move |store, (), cx| {
