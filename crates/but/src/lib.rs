@@ -1559,6 +1559,7 @@ async fn dispatch_subcommand(
                     }
                     command::legacy::forge::review::create_review(
                         &mut ctx,
+                        &args.current_dir,
                         branch,
                         skip_force_push_protection,
                         with_force,
@@ -1603,6 +1604,7 @@ async fn dispatch_subcommand(
                     // Default to `pr new` when no subcommand is provided
                     command::legacy::forge::review::create_review(
                         &mut ctx,
+                        &args.current_dir,
                         None,
                         false,
                         true,
