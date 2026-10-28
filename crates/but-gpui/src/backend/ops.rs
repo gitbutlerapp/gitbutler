@@ -860,16 +860,33 @@ impl Intent for Squash {
 }
 
 /// Turn `commits` back into uncommitted changes.
-pub fn uncommit(path: &Path, commits: &[CommitId]) -> Result<()> {
-    let mut ctx = open(path)?;
-    refuse_buried_merges(&*ctx.repo.get()?, commits)?;
-    but_api::commit::uncommit::commit_uncommit(
-        &mut ctx,
-        commits.iter().map(|id| id.0).collect(),
-        None,
-        DryRun::No,
-    )?;
-    Ok(())
+pub struct Uncommit {
+    pub commits: Vec<CommitId>,
+}
+
+impl Intent for Uncommit {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
+        let Self { commits } = self;
+        run.locked(|ctx, perm| {
+            refuse_buried_merges(&*ctx.repo.get()?, &commits)?;
+            let mut meta = ctx.meta()?;
+            but_transaction::with_transaction_with_perm(
+                ctx,
+                &mut meta,
+                perm,
+                SnapshotDetails::new(OperationKind::UndoCommit)
+                    .with_count(commits.len())
+                    .with_trailers(commits.iter().map(|id| Trailer::Sha(id.0))),
+                &[],
+                DryRun::No,
+                |mut tx| tx.uncommit_commits(commits.iter().map(|id| id.0)),
+            )?;
+            Ok(())
+        })
+    }
 }
 
 /// Refuse to take a merge commit out from under the commits above it, as an agent's

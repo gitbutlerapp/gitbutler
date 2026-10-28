@@ -1198,11 +1198,11 @@ impl Store {
             .and_then(|id| self.checkout_of(&Selection::Commit(project.clone(), *id)))
             .unwrap_or_default();
         let project = project.clone();
-        self.run(
+        self.apply(
             &project.clone(),
             label,
             Overlay::commits(keys.clone()),
-            move |path| backend::uncommit(path, &ids),
+            backend::Uncommit { commits: ids },
             move |store, (), cx| {
                 // The selected commit's changes are uncommitted now; show them there.
                 if let Some(Selection::Commit(selected, id)) = &store.selection
