@@ -170,6 +170,13 @@ unseen is what a laptop's battery pays for.
   them by the workspace's commits misses a pull's incoming ones, so `integrate_remote` returns
   their change IDs; any conflicted commit the main checkout doesn't know may be a linked
   worktree's that was conflicted already.
+- An operation is an `Intent` in `src/backend`: the ids the user acted on, applied by
+  `Store::apply`. One that writes the workspace does so in one `Run::locked` call, one
+  transaction or `_with_perm` call, so it is one oplog entry and one ⌘Z step, and the oplog and
+  linked-worktree heads are read under the same lock. `Run::watched` is only for work that takes
+  GitButler's lock itself, as Land and mesh apply do. Fetches, pushes and the forge's merges
+  call neither: they write no workspace state and record no undo step, and `but-api` locks for
+  fetching and pushing itself.
 - A project runs one operation at a time, until the reload after it lands, and `Store::apply`
   turns down another asked for meanwhile, so each acts on the state the user saw the one before
   leave; nothing queues. Fetches, pushes and deleting a linked worktree (`OpKind::beside`) run
