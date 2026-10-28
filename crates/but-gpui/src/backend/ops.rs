@@ -1560,7 +1560,7 @@ pub(super) mod tests {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
             let path = dir.path();
-            let (_outside, linked) = agent_worktree(path);
+            let (outside, linked) = agent_worktree(path);
             std::fs::write(path.join("file"), "main\n").unwrap();
             std::fs::write(linked.join("file"), "agent\n").unwrap();
 
@@ -1591,19 +1591,23 @@ pub(super) mod tests {
                 "the main checkout's change to the same path stays"
             );
 
-            std::fs::write(linked.join("added"), "x\n").unwrap();
-            git(&linked, &["add", "added"]);
-            std::fs::remove_file(linked.join("added")).unwrap();
-            let source = DiffSource::Linked("agent".into());
-            let diff = load_diff(path, source, None, None, None, None).unwrap();
-            let added = diff.iter().find(|f| f.file.path == "added").unwrap();
-            discard(
-                path,
-                Some("agent".into()),
-                &[Selected::whole(&added.file)],
-                true,
-            )
-            .expect("a whole file's base, here the index's, isn't what was shown to compare");
+            // An agent commits a new version of the file, leaving the one on disk as it was.
+            std::fs::write(linked.join("file"), "agent\n").unwrap();
+            let whole = read();
+            let committed = outside.path().join("committed");
+            std::fs::write(&committed, "committed\n").unwrap();
+            let blob = git(&linked, &["hash-object", "-w", committed.to_str().unwrap()]);
+            let entry = format!("100644,{},file", blob.trim());
+            git(&linked, &["update-index", "--cacheinfo", &entry]);
+            git(&linked, &["commit", "-q", "-m", "committed"]);
+            discard(path, Some("agent".into()), &[whole], true).expect(
+                "a whole file's base isn't what was shown to compare, only its being written to",
+            );
+            assert_eq!(
+                std::fs::read_to_string(linked.join("file")).unwrap(),
+                "committed\n",
+                "the file goes back to what its worktree's HEAD holds now"
+            );
         })
     }
 
