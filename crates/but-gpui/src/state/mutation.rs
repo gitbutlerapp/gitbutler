@@ -781,24 +781,19 @@ impl Store {
         let name = short_ref(&ref_name).into_owned();
         let kind = OpKind::Pull(ref_name.clone());
         let pulled = project.clone();
-        self.run(
+        let pull = backend::upstream::Pull {
+            branch: ref_name.clone(),
+            accepted,
+        };
+        self.apply(
             project,
             Label::new("Pull", format!("Pull {name}")),
             Overlay {
                 kind,
                 ..Overlay::default()
             },
-            {
-                let ref_name = ref_name.clone();
-                move |path| {
-                    let found = backend::pull_conflicts(path, &ref_name)?;
-                    if !found.is_empty() && accepted.as_ref() != Some(&found) {
-                        return Ok(Some(found));
-                    }
-                    backend::pull_remote(path, &ref_name, false).map(|()| None)
-                }
-            },
-            move |store, found: Option<Vec<(Option<FullName>, usize)>>, cx| {
+            pull,
+            move |store, found, cx| {
                 let Some(found) = found else {
                     return store.snack_undoable(format!("Pulled into {name}"), cx);
                 };

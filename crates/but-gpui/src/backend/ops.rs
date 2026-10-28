@@ -4035,11 +4035,19 @@ third
             git(path, &["reset", "-q", "--hard", "main"]);
             commit("uno\n", "One");
 
-            let found = crate::backend::pull_conflicts(path, &full("refs/heads/feature")).unwrap();
+            let pull = crate::backend::upstream::Pull {
+                branch: full("refs/heads/feature"),
+                accepted: None,
+            };
+            let (found, ran) = crate::backend::apply(path, pull).unwrap();
             assert_eq!(
                 found,
-                [(Some(full("refs/heads/feature")), 1)],
+                Some(vec![(Some(full("refs/heads/feature")), 1)]),
                 "the remote's commit would land conflicted"
+            );
+            assert_eq!(
+                ran.recorded, None,
+                "a pull caught before it runs records nothing"
             );
         })
     }

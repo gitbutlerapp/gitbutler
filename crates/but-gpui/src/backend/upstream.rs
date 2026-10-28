@@ -818,22 +818,55 @@ pub fn push_refusal(err: &anyhow::Error) -> Option<String> {
 }
 
 /// Bring in the commits only `branch`'s remote has: the local commits rebased on top of
-/// them, leaving out the remote's older versions of commits rewritten here; or with `theirs`
-/// the remote's version of the branch instead of the local one.
-pub fn pull_remote(path: &Path, branch: &super::FullName, theirs: bool) -> Result<()> {
-    integrate_remote(&mut open(path)?, branch, theirs, DryRun::No)?;
-    Ok(())
+/// them, leaving out the remote's older versions of commits rewritten here. A dry run goes
+/// first, and when it would leave commits conflicted that aren't now, it stops there with
+/// them, unless they're what was `accepted`: a fetch since can bring more.
+pub struct Pull {
+    pub branch: super::FullName,
+    pub accepted: Option<Vec<(Option<super::FullName>, usize)>>,
+}
+
+impl Intent for Pull {
+    type Done = Option<Vec<(Option<super::FullName>, usize)>>;
+
+    fn apply(self, run: &mut Run) -> Result<Self::Done> {
+        let Self { branch, accepted } = self;
+        run.locked(|ctx, perm| {
+            let found = pull_conflicts(ctx, perm, &branch)?;
+            if !found.is_empty() && accepted.as_ref() != Some(&found) {
+                return Ok(Some(found));
+            }
+            integrate_remote(ctx, perm, &branch, false, DryRun::No)?;
+            Ok(None)
+        })
+    }
+}
+
+/// Replace `branch` with its remote's version.
+pub struct Replace {
+    pub branch: super::FullName,
+}
+
+impl Intent for Replace {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        run.locked(|ctx, perm| {
+            integrate_remote(ctx, perm, &self.branch, true, DryRun::No)?;
+            Ok(())
+        })
+    }
 }
 
 /// A dry run of pulling into `branch`: the branches (full refs) it would leave with
 /// conflicted commits they don't have now, each with how many.
-pub fn pull_conflicts(
-    path: &Path,
+fn pull_conflicts(
+    ctx: &mut but_ctx::Context,
+    perm: &mut RepoExclusive,
     branch: &super::FullName,
 ) -> Result<Vec<(Option<super::FullName>, usize)>> {
-    let mut ctx = open(path)?;
-    let info = but_api::legacy::workspace::head_info(&ctx)?;
-    let (preview, incoming) = integrate_remote(&mut ctx, branch, false, DryRun::Yes)?;
+    let info = but_api::legacy::workspace::head_info(ctx)?;
+    let (preview, incoming) = integrate_remote(ctx, perm, branch, false, DryRun::Yes)?;
     let conflicted = &preview.workspace.conflicted_commits;
     let mut found = newly_conflicted(&info, conflicted);
     // The remote's own commits can land conflicted too, rebased onto the branch's, and they
@@ -853,19 +886,23 @@ pub fn pull_conflicts(
 
 fn integrate_remote(
     ctx: &mut but_ctx::Context,
+    perm: &mut RepoExclusive,
     branch: &super::FullName,
     theirs: bool,
     dry_run: DryRun,
 ) -> Result<(but_api::branch::IntegrateBranchResult, Vec<String>)> {
-    use but_api::branch::json::BranchIntegrationStrategy as Strategy;
-    let name = branch;
+    use but_workspace::branch::BranchIntegrationStrategy as Strategy;
     let strategy = if theirs {
         Strategy::PickRemote
     } else {
         Strategy::PullRebase
     };
-    let mut plan =
-        but_api::branch::get_initial_branch_integration(ctx, name.as_ref(), Some(strategy))?;
+    let mut plan = but_api::branch::get_initial_branch_integration_with_perm(
+        ctx,
+        branch.as_ref(),
+        strategy,
+        perm.read_permission(),
+    )?;
     // Rebasing would bring back the remote's versions of commits rewritten here, beside
     // their new ones, so they're left out, as Lite's "Combine both" does. A version is the
     // same change ID on both sides, one made without counting as the one the engine gives it
@@ -915,13 +952,12 @@ fn integrate_remote(
         ours.splice(at..at, incoming);
         plan.integration.steps = ours;
     }
-    let mut guard = ctx.exclusive_worktree_access();
     let result = but_api::branch::apply_branch_integration_with_perm(
         ctx,
-        name.as_ref(),
+        branch.as_ref(),
         plan.integration,
         dry_run,
-        guard.write_permission(),
+        perm,
     )?;
     Ok((result, incoming))
 }

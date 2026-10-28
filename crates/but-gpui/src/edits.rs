@@ -353,7 +353,7 @@ impl AppView {
                 project,
                 "Replace with the remote's version",
                 Overlay::default(),
-                backend::Legacy::new(move |path| backend::pull_remote(path, &ref_name, true)),
+                backend::upstream::Replace { branch: ref_name },
                 move |store, (), cx| {
                     store.snack_undoable(format!("{name} now matches the remote"), cx)
                 },
