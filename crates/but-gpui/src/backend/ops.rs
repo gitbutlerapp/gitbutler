@@ -1037,13 +1037,37 @@ impl Intent for MoveToNewBranch {
     }
 }
 
-pub fn reword(path: &Path, commit: CommitId, message: &str) -> Result<Rewritten> {
-    let mut ctx = open(path)?;
-    let outcome =
-        but_api::commit::reword::commit_reword(&mut ctx, commit.0, message.into(), DryRun::No)?;
-    let mut rewrites = rewritten(&outcome.workspace);
-    rewrites.insert(commit, CommitId(outcome.new_commit));
-    Ok(rewrites)
+/// Give `commit` the title and body in `message`.
+pub struct Reword {
+    pub commit: CommitId,
+    pub message: String,
+}
+
+impl Intent for Reword {
+    type Done = Rewritten;
+
+    fn apply(self, run: &mut Run) -> Result<Rewritten> {
+        use but_oplog::legacy::{OperationKind, SnapshotDetails};
+        let Self { commit, message } = self;
+        let (made, workspace) = run.locked(|ctx, perm| {
+            let mut meta = ctx.meta()?;
+            but_transaction::with_transaction_with_perm(
+                ctx,
+                &mut meta,
+                perm,
+                SnapshotDetails::new(OperationKind::UpdateCommitMessage),
+                &[],
+                DryRun::No,
+                |mut tx| {
+                    let made = tx.reword_commit(commit.0, message.as_str().into())?;
+                    Ok(but_transaction::Commit(CommitId(made.id)))
+                },
+            )
+        })?;
+        let mut rewritten = rewritten(&workspace);
+        rewritten.insert(commit, made);
+        Ok(rewritten)
+    }
 }
 
 /// Drop `commits` and everything they changed.
@@ -2359,7 +2383,11 @@ pub(super) mod tests {
             };
             let shown = load(Kept::default());
 
-            reword(path, top, "reworded").unwrap();
+            let reword = Reword {
+                commit: top,
+                message: "reworded".into(),
+            };
+            crate::backend::apply(path, reword).unwrap();
             // Written after the files were shown, so only reading them again finds it.
             std::fs::write(path.join("new"), "new\n").unwrap();
             let commits = load(Kept::from(&shown, false, &HashSet::new()));

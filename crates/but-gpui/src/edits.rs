@@ -1245,17 +1245,21 @@ impl AppView {
         let Some((project, commit)) = self.selected_commit(cx) else {
             return;
         };
-        let (id, message) = (commit.id, backend::wrapped_message(&commit.message));
+        let message = backend::wrapped_message(&commit.message);
         let overlay = Overlay {
             reworded: Some((commit.key.clone(), message.clone())),
             ..Overlay::default()
         };
+        let reword = backend::Reword {
+            commit: commit.id,
+            message,
+        };
         self.store.update(cx, |store, cx| {
-            store.run(
+            store.apply(
                 &project,
                 "Rewrap message",
                 overlay,
-                move |path| backend::reword(path, id, &message),
+                reword,
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
                     store.snack_undoable("Message rewrapped", cx)

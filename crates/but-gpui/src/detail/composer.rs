@@ -737,11 +737,15 @@ impl Detail {
                             reworded,
                             ..Overlay::default()
                         };
-                        store.run(
+                        let reword = backend::Reword {
+                            commit: id,
+                            message,
+                        };
+                        store.apply(
                             &project,
                             "Edit message",
                             overlay,
-                            move |path| backend::reword(path, id, &message),
+                            reword,
                             move |store, rewritten, cx| {
                                 store.follow(&rewritten, cx);
                                 store.snack_undoable("Message updated", cx);
