@@ -237,8 +237,8 @@ pub fn run(embedded: Option<Embedded>) {
             cx.on_action(|_: &app::HideOthers, cx| cx.hide_other_apps());
             cx.on_action(|_: &app::ShowAll, cx| cx.unhide_other_apps());
             // The standard macOS menus. AppKit fills a menu named "Window" with the window
-            // list and tiling, and "Services" with what other apps offer. Set again whenever
-            // the keys change, as the menu bar takes them when it's set.
+            // list and tiling, and "Services" with what other apps offer. Set once the keys are
+            // bound, as the menu bar takes them when it's set.
             let set_menus = move |cx: &mut App| {
                 let mut app_menu = vec![MenuItem::action("About GitButler", help::About)];
                 if has_update_feed {
@@ -276,7 +276,6 @@ pub fn run(embedded: Option<Embedded>) {
                         MenuItem::action("GitButler Docs", help::OpenDocs),
                         MenuItem::action("What's New", help::OpenReleaseNotes),
                         MenuItem::action("Keyboard Shortcuts", settings::OpenKeyboardShortcuts),
-                        MenuItem::action("Open Keymap File", keymap::OpenKeymap),
                         MenuItem::separator(),
                         MenuItem::action("Report an Issue…", help::ReportIssue),
                         MenuItem::action("Show Settings Folder", help::ShowConfigFolder),
@@ -293,7 +292,8 @@ pub fn run(embedded: Option<Embedded>) {
             }
             // Before the window, which opens where the saved state says.
             let store = cx.new(state::Store::new);
-            keymap::watch(store.clone(), set_menus, cx);
+            keymap::bind_keys(cx);
+            set_menus(cx);
             let default_size = size(fixed(1360.), fixed(860.));
             let (display_id, bounds) = match store.read(cx).window_place(cx) {
                 // Never shown (`show` below), and should anything show it anyway, off to the

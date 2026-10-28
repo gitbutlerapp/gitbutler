@@ -34,15 +34,7 @@ use crate::ui::{
 
 actions!(
     palette,
-    [
-        PaletteUp,
-        PaletteDown,
-        // Its name while it went only to branches, which keymaps written then still bind.
-        #[action(deprecated_aliases = ["palette::GoToBranch"])]
-        GoTo,
-        ShowActions,
-        CopyMore
-    ]
+    [PaletteUp, PaletteDown, GoTo, ShowActions, CopyMore]
 );
 
 /// Every command, in the order they're listed before anything is typed.
@@ -118,8 +110,6 @@ pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
         &crate::detail::SwitchTab,
     ),
     ("Close window", &crate::app::CloseWindow),
-    ("Open keymap file", &crate::keymap::OpenKeymap),
-    ("Open default keymap", &crate::keymap::OpenDefaultKeymap),
     ("Go to anything", &GoTo),
     ("Find in diff", &crate::detail::FindInDiff),
     ("Filter files", &crate::detail::FilterFiles),
