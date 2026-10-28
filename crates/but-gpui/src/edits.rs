@@ -85,18 +85,18 @@ fn discard_unrecorded(
     );
 }
 
-/// What a confirmation runs: operation `label` on `project`, as [`Store::run`] runs it.
-fn then_run<T: Send + 'static>(
+/// What a confirmation runs: operation `label` on `project`, as [`Store::apply`] runs it.
+fn then_run<I: backend::Intent>(
     project: ProjectId,
     label: impl Into<Label>,
     overlay: Overlay,
-    op: impl FnOnce(&Path) -> anyhow::Result<T> + Send + 'static,
-    done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
+    intent: I,
+    done: impl FnOnce(&mut Store, I::Done, &mut Context<Store>) + 'static,
 ) -> impl FnOnce(&mut AppView, &mut Context<AppView>) + 'static {
     let label = label.into();
     move |this, cx| {
         (this.store).update(cx, |store, cx| {
-            store.run(&project, label, overlay, op, done, cx)
+            store.apply(&project, label, overlay, intent, done, cx)
         })
     }
 }
@@ -349,7 +349,7 @@ impl AppView {
                 project,
                 "Replace with the remote's version",
                 Overlay::default(),
-                move |path| backend::pull_remote(path, &ref_name, true),
+                backend::Legacy::new(move |path| backend::pull_remote(path, &ref_name, true)),
                 move |store, (), cx| {
                     store.snack_undoable(format!("{name} now matches the remote"), cx)
                 },
@@ -772,16 +772,28 @@ impl AppView {
         };
         // What the user saw on top, so new commits made meanwhile aren't dropped unseen.
         let tip = (commits.first()).filter(|_| with_commits).map(|c| c.id);
-        let run = then_run(
-            project,
-            "Delete branch",
-            overlay,
-            move |path| match tip {
-                Some(tip) => backend::delete_branch_and_commits(path, &ref_name, tip),
-                None => backend::remove_branch(path, &ref_name, None),
-            },
-            move |store, (), cx| store.snack_after(undoable, deleted, cx),
-        );
+        let run = move |this: &mut AppView, cx: &mut Context<AppView>| {
+            let done = move |store: &mut Store, (), cx: &mut Context<Store>| {
+                store.snack_after(undoable, deleted, cx)
+            };
+            this.store.update(cx, |store, cx| match tip {
+                Some(tip) => {
+                    let delete = backend::DeleteBranchAndCommits {
+                        branch: ref_name,
+                        tip,
+                    };
+                    store.apply(&project, "Delete branch", overlay, delete, done, cx)
+                }
+                None => store.run(
+                    &project,
+                    "Delete branch",
+                    overlay,
+                    move |path| backend::remove_branch(path, &ref_name, None),
+                    done,
+                    cx,
+                ),
+            })
+        };
         if undoable {
             return run(self, cx);
         }
@@ -824,7 +836,7 @@ impl AppView {
             project,
             "Discard commit",
             overlay,
-            move |path| backend::discard_commits(path, &ids),
+            backend::Legacy::new(move |path| backend::discard_commits(path, &ids)),
             move |store, (), cx| store.snack_after(undoable, done, cx),
         );
         if undoable {
@@ -896,7 +908,9 @@ impl AppView {
             project,
             "Discard",
             overlay,
-            move |path| backend::discard(path, worktree.linked(), &changes, !undoable),
+            backend::Legacy::new(move |path| {
+                backend::discard(path, worktree.linked(), &changes, !undoable)
+            }),
             move |store, outcome, cx| match outcome {
                 None => store.snack_after(undoable, "Changes discarded", cx),
                 Some(Undiscarded::Unrecorded(why)) => store.error_with_retry(
@@ -1205,7 +1219,9 @@ impl AppView {
                 overlay,
                 {
                     let ref_name = ref_name.clone();
-                    move |path| backend::land(path, &ref_name, tip, whole_stack)
+                    backend::Legacy::new(move |path| {
+                        backend::land(path, &ref_name, tip, whole_stack)
+                    })
                 },
                 move |store, left: backend::Landed, cx| {
                     // Undo would bring the branch back here while the target keeps it.
@@ -1315,7 +1331,7 @@ impl AppView {
             project,
             "Discard from commit",
             overlay,
-            move |path| backend::discard_from_commit(path, commit, &files),
+            backend::Legacy::new(move |path| backend::discard_from_commit(path, commit, &files)),
             move |store, rewritten, cx| {
                 store.follow(&rewritten, cx);
                 store.snack_after(undoable, "Discarded from the commit", cx)

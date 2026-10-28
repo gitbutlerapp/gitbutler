@@ -24,6 +24,7 @@ pub struct Run {
 
 /// What an operation did beyond its own result: the oplog entry it recorded, whether it moved
 /// a linked worktree's `HEAD`, and when its work ran, in milliseconds since the epoch.
+#[derive(Debug)]
 pub struct Ran {
     pub recorded: Option<SnapshotId>,
     pub moved_worktree: bool,
@@ -108,6 +109,19 @@ pub fn now_millis() -> i64 {
 pub struct Legacy<F> {
     pub work: F,
     pub remote_only: bool,
+}
+
+impl<F, T> Legacy<F>
+where
+    F: FnOnce(&Path) -> Result<T> + Send + 'static,
+    T: Send + 'static,
+{
+    pub fn new(work: F) -> Self {
+        Self {
+            work,
+            remote_only: false,
+        }
+    }
 }
 
 impl<F, T> Intent for Legacy<F>

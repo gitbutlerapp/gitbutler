@@ -701,53 +701,70 @@ pub fn remove_branch(path: &Path, ref_name: &FullName, tip: Option<CommitId>) ->
     Ok(())
 }
 
-/// Delete `ref_name` with its commits, in one step that one undo takes back, as `but branch
+/// Delete `branch` with its commits, in one step that one undo takes back, as `but branch
 /// delete` does: for the only named branch of its stack, as [`remove_branch`] keeps the
 /// commits, which need another branch to hold them. A workspace left with one stack checks
 /// that out, as unapplying does. One whose newest commit is no longer `tip` stays: its new
 /// commits would go too.
-pub fn delete_branch_and_commits(path: &Path, ref_name: &FullName, tip: CommitId) -> Result<()> {
-    use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
-    let mut ctx = open(path)?;
-    let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
-    let perm = guard.write_permission();
-    let commits: Vec<gix::ObjectId> = {
-        let (_, ws, _) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
-        // Checked out on its own, HEAD would be left on nothing.
-        if !ws.kind.has_managed_ref() {
-            bail!("{} is checked out on its own", short_ref(ref_name));
-        }
-        let segment = (ws.try_find_segment_by_refname(ref_name.as_ref()))
-            .with_context(|| format!("{} isn't applied any more", short_ref(ref_name)))?;
-        segment.commits.iter().map(|commit| commit.id).collect()
-    };
-    if commits.first() != Some(&tip.0) {
-        bail!(
-            "{} changed since you asked, so it wasn't deleted",
-            short_ref(ref_name)
-        );
-    }
-    but_transaction::with_transaction_with_perm(
-        &mut ctx,
-        &mut meta,
-        perm,
-        SnapshotDetails::new(OperationKind::DeleteBranch)
-            .with_trailers([Trailer::Name(ref_name.to_string())]),
-        &[ref_name.as_ref()],
-        DryRun::No,
-        |mut tx| {
-            tx.discard_commits(commits)?;
-            tx.remove_reference(ref_name.as_ref())?;
+pub struct DeleteBranchAndCommits {
+    pub branch: FullName,
+    pub tip: CommitId,
+}
+
+impl Intent for DeleteBranchAndCommits {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
+        let Self { branch, tip } = self;
+        run.locked(|ctx, perm| {
+            let commits: Vec<gix::ObjectId> = {
+                let (_, ws, _) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+                // Checked out on its own, HEAD would be left on nothing.
+                if !ws.kind.has_managed_ref() {
+                    bail!("{} is checked out on its own", short_ref(&branch));
+                }
+                let segment = (ws.try_find_segment_by_refname(branch.as_ref()))
+                    .with_context(|| format!("{} isn't applied any more", short_ref(&branch)))?;
+                segment.commits.iter().map(|commit| commit.id).collect()
+            };
+            if commits.first() != Some(&tip.0) {
+                bail!(
+                    "{} changed since you asked, so it wasn't deleted",
+                    short_ref(&branch)
+                );
+            }
+            let mut meta = ctx.meta()?;
+            but_transaction::with_transaction_with_perm(
+                ctx,
+                &mut meta,
+                perm,
+                SnapshotDetails::new(OperationKind::DeleteBranch)
+                    .with_trailers([Trailer::Name(branch.to_string())]),
+                &[branch.as_ref()],
+                DryRun::No,
+                |mut tx| {
+                    tx.discard_commits(commits)?;
+                    tx.remove_reference(branch.as_ref())?;
+                    Ok(())
+                },
+            )?;
+            let (mut repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+            // The transaction leaves Git's `branch.<name>` section, as its upstream and
+            // description, which a branch made later under its name would take on.
+            but_workspace::branch::remove_reference::delete_local_branch(
+                &mut repo,
+                branch.as_ref(),
+            )?;
+            but_workspace::branch::dissolve_unnecessary_workspace(
+                &ws,
+                &repo,
+                &meta,
+                Default::default(),
+            )?;
             Ok(())
-        },
-    )?;
-    let (mut repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    // The transaction leaves Git's `branch.<name>` section, as its upstream and description,
-    // which a branch made later under its name would take on.
-    but_workspace::branch::remove_reference::delete_local_branch(&mut repo, ref_name.as_ref())?;
-    but_workspace::branch::dissolve_unnecessary_workspace(&ws, &repo, &meta, Default::default())?;
-    Ok(())
+        })
+    }
 }
 
 /// Add the `selected` changes of the main checkout, or of the linked `worktree`, to
@@ -2902,7 +2919,11 @@ pub(super) mod tests {
             let head_ref = |path: &Path| git(path, &["symbolic-ref", "HEAD"]).trim().to_owned();
             assert_eq!(head_ref(path), "refs/heads/gitbutler/workspace");
 
-            delete_branch_and_commits(path, &full("refs/heads/feature"), work).unwrap();
+            let delete = DeleteBranchAndCommits {
+                branch: full("refs/heads/feature"),
+                tip: work,
+            };
+            crate::backend::apply(path, delete).unwrap();
             assert!(
                 git(path, &["branch", "--list", "feature"]).is_empty(),
                 "the branch is gone"
@@ -2948,8 +2969,12 @@ pub(super) mod tests {
             git(path, &["commit", "-q", "--allow-empty", "-m", "not pushed"]);
             let tip = head(path);
 
+            let delete = DeleteBranchAndCommits {
+                branch: full("refs/heads/main"),
+                tip,
+            };
             let refused =
-                delete_branch_and_commits(path, &full("refs/heads/main"), tip).unwrap_err();
+                crate::backend::apply(path, delete).expect_err("main is checked out on its own");
             assert!(
                 format!("{refused:#}").contains("checked out on its own"),
                 "there's no workspace to leave it for: {refused:#}"
