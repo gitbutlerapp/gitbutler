@@ -791,6 +791,30 @@ Hint: run `but help` for all commands
     );
 }
 
+/// Applying from single branch mode doesn't report the checked-out branch, which was already applied.
+#[test]
+fn apply_from_single_branch_mode_reports_only_requested_branch() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    create_local_branch_with_commit(&env, "feature-branch");
+    env.but("apply feature-branch").assert().success();
+    env.but("unapply feature-branch").assert().success();
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref HEAD"),
+        "A",
+        "unapplying down to one branch checks that branch out"
+    );
+
+    env.but("apply feature-branch")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Applied branch 'feature-branch' to workspace
+
+"#]]);
+}
+
 mod utils {
     use crate::utils::Sandbox;
 

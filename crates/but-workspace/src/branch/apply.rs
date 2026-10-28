@@ -97,7 +97,7 @@ pub struct Outcome {
     ///
     /// If a remote tracking branch is given to apply, it will actually apply its local tracking branch, which is created on demand as well.
     /// Further, if there is no target or if the current branch isn't the target branch, then the current branch and the given one
-    /// will be applied, and two branches are listed here.
+    /// will be applied. The current branch is listed here too, unless workspace metadata already had it applied.
     pub applied_branches: Vec<gix::refs::FullName>,
     /// `true` if we created the given workspace ref as it didn't exist yet.
     pub workspace_ref_created: bool,
@@ -483,6 +483,11 @@ pub fn apply(
         }));
     let applied_branches = branches_to_apply
         .iter()
+        .filter(|rn| {
+            *rn == &branch
+                || !(head_branch_in_workspace
+                    && head_ref_name.as_ref().is_some_and(|head| head == *rn))
+        })
         .map(|rn| (*rn).to_owned())
         .collect();
     // Take the no-merge shortcut only when the branches to apply are already visible *and* HEAD is
