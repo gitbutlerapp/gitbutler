@@ -13,6 +13,7 @@
 	const stackService = inject(STACK_SERVICE);
 
 	let modal = $state<Modal>();
+	let removing = $state(false);
 
 	export function show() {
 		modal?.show();
@@ -25,8 +26,15 @@
 	type="warning"
 	title="Remove worktree"
 	onSubmit={async (close) => {
-		await stackService.removeWorktree({ projectId, name, force: true });
-		close();
+		// A second submit while the first is pending would fail: the worktree is gone by then.
+		if (removing) return;
+		removing = true;
+		try {
+			await stackService.removeWorktree({ projectId, name, force: true });
+			close();
+		} finally {
+			removing = false;
+		}
 	}}
 >
 	<p class="text-13 text-body">
@@ -36,6 +44,6 @@
 
 	{#snippet controls(close)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="danger" type="submit">Remove</Button>
+		<Button style="danger" type="submit" loading={removing}>Remove</Button>
 	{/snippet}
 </Modal>

@@ -12,7 +12,7 @@ import {
 import { getHunkLineSelector } from "../src/hunk.ts";
 import { openWorkspace } from "../src/setup.ts";
 import { test } from "../src/test.ts";
-import { commitRow, dragAndDropByLocator, fillByTestId } from "../src/util.ts";
+import { clickByTestId, commitRow, dragAndDropByLocator, fillByTestId } from "../src/util.ts";
 import { type Locator, type Page } from "@playwright/test";
 import { execFileSync } from "child_process";
 import { existsSync, readFileSync } from "fs";
@@ -370,6 +370,10 @@ test("discards a worktree file's hunk in that worktree", async ({ page, gitbutle
 test("removing a worktree deletes its folder and its lane", async ({ page, gitbutler }) => {
 	await gitbutler.runScript(FIXTURE);
 	const worktree = gitbutler.pathInWorkdir("worktree-W");
+	let removals = 0;
+	page.on("request", (request) => {
+		if (request.url().endsWith("/worktree_remove")) removals++;
+	});
 	await openWorkspace(page);
 
 	const worktreeLane = lane(page, "W");
@@ -378,11 +382,27 @@ test("removing a worktree deletes its folder and its lane", async ({ page, gitbu
 	await expect(page.getByRole("button", { name: /^Show in / })).toBeVisible();
 	await expect(page.getByRole("button", { name: "Copy path" })).toBeVisible();
 	await page.getByRole("button", { name: "Remove worktree…" }).click();
-	await page.getByRole("button", { name: "Remove", exact: true }).click();
+	await page.getByRole("button", { name: "Remove", exact: true }).dblclick();
 
 	await expect(worktreeLane).toHaveCount(0);
+	expect(removals, "a double-click removes the worktree once").toBe(1);
 	expect(existsSync(worktree), "the worktree's folder is deleted").toBe(false);
 	expect(git(gitbutler.pathInWorkdir("local-clone"), ["rev-parse", "--verify", "W"])).not.toBe("");
+});
+
+test("settings drop a worktree removed outside the app", async ({ page, gitbutler }) => {
+	await gitbutler.runScript(FIXTURE);
+	await openWorkspace(page);
+
+	await clickByTestId(page, "chrome-sidebar-project-settings-button");
+	const settings = page.getByTestId("project-settings-modal");
+	await settings.getByRole("button", { name: "Worktrees" }).click();
+	await expect(settings.getByRole("button", { name: "Archive", exact: true })).toBeVisible();
+
+	const worktree = gitbutler.pathInWorkdir("worktree-W");
+	git(gitbutler.pathInWorkdir("local-clone"), ["worktree", "remove", worktree]);
+
+	await expect(settings.getByText("No active worktrees.")).toBeVisible();
 });
 
 test("commits onto a detached worktree's HEAD", async ({ page, gitbutler }) => {

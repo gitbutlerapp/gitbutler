@@ -194,14 +194,16 @@
 			backend.listen(`project://${projectId}/worktree_changes`, invalidateDiffs),
 			backend.listen(`project://${projectId}/linked_worktree_changes`, invalidateDiffs),
 			// Activity that requires re-reading workspace state — emitted on
-			// remote-ref updates (push, external fetch) and on external
-			// writes to `virtual_branches.toml` (e.g. by the `but` CLI).
+			// remote-ref updates (push, external fetch), on external
+			// writes to `virtual_branches.toml` (e.g. by the `but` CLI)
+			// and when linked worktrees are added or removed.
 			backend.listen(`project://${projectId}/workspace-activity`, () => {
 				clientState.dispatch(
 					clientState.backendApi.util.invalidateTags([
 						invalidatesList(ReduxTag.Stacks),
 						invalidatesList(ReduxTag.StackDetails),
 						invalidatesList(ReduxTag.WorktreeChanges),
+						invalidatesList(ReduxTag.Worktrees),
 						invalidatesList(ReduxTag.IntegrationSteps),
 						invalidatesList(ReduxTag.BranchListing),
 					]),
