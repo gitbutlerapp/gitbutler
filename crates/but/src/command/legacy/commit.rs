@@ -430,6 +430,7 @@ pub fn run(
             meta,
             perm,
             snapshot_details,
+            &[],
             DryRun::No,
             |tx| {
                 commit_with_transaction(

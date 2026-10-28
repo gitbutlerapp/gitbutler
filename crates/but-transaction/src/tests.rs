@@ -10,7 +10,7 @@ use but_workspace::{
 };
 use gix::{ObjectId, refs::FullName};
 
-use crate::{DynamicOutcome, with_transaction};
+use crate::{DynamicOutcome, with_transaction, with_transaction_with_perm};
 
 #[track_caller]
 fn ref_target(env: &Sandbox, ref_name: &gix::refs::FullNameRef) -> Option<ObjectId> {
@@ -440,6 +440,55 @@ fn create_reference_and_checkout_are_undoable_together() {
             .expect("undo restores a symbolic HEAD"),
         original_head,
         "undo should restore the checkout from before the transaction"
+    );
+}
+
+#[test]
+fn undo_deletes_a_reference_the_snapshot_names() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+    let new_branch = FullName::try_from("refs/heads/named-in-snapshot").unwrap();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let _workspace: WorkspaceState = with_transaction_with_perm(
+        &mut ctx,
+        &mut meta,
+        guard.write_permission(),
+        SnapshotDetails::new(OperationKind::CreateBranch),
+        &[new_branch.as_ref()],
+        DryRun::No,
+        |mut tx| {
+            tx.create_reference(new_branch.as_ref(), None, None)?;
+            Ok(())
+        },
+    )
+    .unwrap();
+    drop(guard);
+    assert!(
+        ref_target(&env, new_branch.as_ref()).is_some(),
+        "the transaction creates the branch"
+    );
+
+    let snapshot = but_api::legacy::oplog::get_undo_target_snapshot(&ctx)
+        .unwrap()
+        .expect("the transaction records an undo target");
+    but_api::legacy::oplog::restore_snapshot_with_kind(
+        &mut ctx,
+        but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo,
+        snapshot.commit_id,
+    )
+    .unwrap();
+
+    assert_eq!(
+        ref_target(&env, new_branch.as_ref()),
+        None,
+        "the snapshot names the branch, which didn't exist before, so undo deletes it"
     );
 }
 

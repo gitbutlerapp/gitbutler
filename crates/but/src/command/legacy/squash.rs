@@ -1492,6 +1492,7 @@ pub fn run(
                 meta,
                 perm,
                 snapshot_details,
+                &[],
                 DryRun::No,
                 |mut tx| {
                     let new_commit = match op.clone() {
@@ -1578,6 +1579,7 @@ pub fn run(
                 meta,
                 perm,
                 snapshot_details,
+                &[],
                 DryRun::No,
                 |mut tx| {
                     match &op {

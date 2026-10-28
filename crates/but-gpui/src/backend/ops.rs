@@ -952,6 +952,7 @@ pub fn split_off(
         guard.write_permission(),
         // There's no kind for a split; it makes a commit, rather than moving a file.
         SnapshotDetails::new(OperationKind::CreateCommit),
+        &[],
         DryRun::No,
         |mut tx| {
             let blank = tx.insert_blank_commit(RelativeTo::Commit(commit.0), InsertSide::Above)?;

@@ -83,6 +83,7 @@ impl SingleBranchMode {
                 meta,
                 perm,
                 snapshot_details,
+                &[],
                 DryRun::No,
                 callback,
             );

@@ -298,6 +298,7 @@ pub fn run(
             meta,
             perm,
             snapshot_details,
+            &[],
             DryRun::No,
             |tx| pick_with_transaction(tx, commit_op, &sources, order_commits_by_parentage, None),
         )
