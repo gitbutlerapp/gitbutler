@@ -2,12 +2,18 @@
 	import ThemeSwitcher from "$lib/components/marketing/ThemeSwitcher.svelte";
 	import * as jsonLinks from "$lib/data/links.json";
 	import osIcons from "$lib/data/os-icons.json";
+	import { env } from "$env/dynamic/public";
 
 	interface Props {
 		showDownloadLinks?: boolean;
 	}
 
 	const { showDownloadLinks = true }: Props = $props();
+
+	const showJobsLink = env.PUBLIC_SHOW_JOBS_LINK === "true";
+	const resources = Object.values(jsonLinks.resources).filter(
+		(resource) => resource.id !== "jobs" || showJobsLink,
+	);
 </script>
 
 <footer class="footer">
@@ -109,7 +115,7 @@
 		<hr class="links-divider" />
 
 		<ul class="links-list">
-			{#each Object.values(jsonLinks.resources) as resource}
+			{#each resources as resource}
 				<li class="text-16 link">
 					<a href={resource.url}>
 						<span>{resource.label}</span>

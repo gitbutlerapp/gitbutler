@@ -2,6 +2,9 @@
 	import HeaderAuthSection from "$lib/components/HeaderAuthSection.svelte";
 	import linkJson from "$lib/data/links.json";
 	import { scale } from "svelte/transition";
+	import { env } from "$env/dynamic/public";
+
+	const showJobsLink = env.PUBLIC_SHOW_JOBS_LINK === "true";
 
 	let isMenuOpen = $state(false);
 
@@ -65,12 +68,14 @@
 						rel="noopener noreferrer"
 						class="mobile-link">Blog</a
 					>
-					<a
-						href={linkJson.resources.jobs.url}
-						target="_blank"
-						rel="noopener noreferrer"
-						class="mobile-link">{linkJson.resources.jobs.label}</a
-					>
+					{#if showJobsLink}
+						<a
+							href={linkJson.resources.jobs.url}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="mobile-link">{linkJson.resources.jobs.label}</a
+						>
+					{/if}
 				</nav>
 
 				<HeaderAuthSection />
