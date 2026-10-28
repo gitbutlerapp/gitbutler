@@ -41,7 +41,7 @@ pub use seen::{GLOW, Seeable};
 
 pub type ProjectId = SharedString;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Selection {
     Project(ProjectId),
     Uncommitted(ProjectId),
@@ -67,7 +67,7 @@ pub enum Selection {
 }
 
 /// A section of a project's card that folds away under its heading.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Section {
     /// The commits only a remote has: branch `String`'s (by its full ref), or with `None` the
     /// target's new ones.

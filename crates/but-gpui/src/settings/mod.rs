@@ -23,12 +23,13 @@ use crate::backend::settings::{self as backend, Program, ProjectSettings};
 use crate::overlays::MenuItem;
 use crate::state::{Prefs, ProjectEntry, ProjectId, ScopeLines, Store};
 use crate::theme::{Appearance, CodeSize, Theme, UiScale};
+use crate::ui::fold::{self, Folds};
 use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     self, ButtonStyle, Icon, Switch, button, dp, dropdown, error_summary, field, h_flex, icon,
-    muted, side_row, small_icon, switch, v_flex,
+    muted, side_row, switch, v_flex,
 };
 
 pub use cli::welcome_card;
@@ -153,6 +154,14 @@ struct Listed {
     hidden: usize,
 }
 
+/// What folds in the sidebar: a project's row over its Git page's link, or the projects not
+/// watched under the ones that are.
+#[derive(Clone, PartialEq, Eq, Hash)]
+enum SidebarFold {
+    Project(ProjectId),
+    Unwatched,
+}
+
 impl Listed {
     fn iter(&self) -> impl Iterator<Item = &ProjectId> {
         self.watched.iter().chain(&self.unwatched)
@@ -263,6 +272,8 @@ pub struct SettingsView {
     project_git_focus: FocusHandle,
     /// The sidebar lists the projects not watched too.
     more: bool,
+    /// What's opening or closing in the sidebar.
+    folds: Folds<SidebarFold>,
     pages_scroll: ScrollHandle,
     cards_scroll: ScrollHandle,
     _subscriptions: Vec<Subscription>,
@@ -342,6 +353,7 @@ impl SettingsView {
             project_focus: HashMap::new(),
             project_git_focus: cx.focus_handle().tab_stop(true),
             more: unwatched,
+            folds: Folds::default(),
             pages_scroll: ScrollHandle::new(),
             cards_scroll: ScrollHandle::new(),
             _subscriptions: subscriptions,
@@ -811,10 +823,9 @@ impl SettingsView {
         let (watched, unwatched): (Vec<_>, Vec<_>) =
             (projects.into_iter().map(|(entry, _)| entry)).partition(|entry| entry.expanded);
         let all = unwatched.len();
+        let more = self.folds.shows(&SidebarFold::Unwatched, self.more);
         let unwatched: Vec<ProjectId> = (unwatched.into_iter())
-            .filter(|entry| {
-                self.more || !query.is_empty() || self.page.project() == Some(&entry.id)
-            })
+            .filter(|entry| more || !query.is_empty() || self.page.project() == Some(&entry.id))
             .map(|entry| entry.id.clone())
             .collect();
         Listed {
@@ -1023,31 +1034,30 @@ impl SettingsView {
         let row = ui::tab_stop(row, theme)
             .mx_0()
             .track_focus(focus)
-            .child(
-                small_icon(if open {
-                    Icon::ChevronDown
-                } else {
-                    Icon::ChevronRight
-                })
-                .text_color(match selected {
+            .child(fold::chevron(
+                "fold",
+                open,
+                match selected {
                     true => theme.muted_on_solid(),
                     false => theme.text_3,
-                }),
-            )
+                },
+            ))
             .child(icon(Icon::Folder).text_color(match selected {
                 true => theme.muted_on_solid(),
                 false => theme.text_2,
             }))
             .child(div().flex_1().min_w_0().truncate().child(name))
             .on_click(cx.listener(move |this, _, _, cx| this.show_page(page.clone(), cx)));
-        let git = open.then(|| Link {
+        let fold = SidebarFold::Project(project.clone());
+        let git = self.folds.shows(&fold, open).then(|| Link {
             page: Page::Project(project.clone(), ProjectPage::Git),
             focus: self.project_git_focus.clone(),
         });
         let git = git.map(|link| {
-            div()
+            let link = div()
                 .pl(dp(20.))
-                .child(self.page_link(&link, searching, theme, cx))
+                .child(self.page_link(&link, searching, theme, cx));
+            self.folds.reveal(&fold, link)
         });
         Some(v_flex().child(row).children(git).into_any_element())
     }
@@ -1058,6 +1068,16 @@ impl SettingsView {
             self.ensure_ai(cx);
         }
         let other_project = page.project() != self.page.project();
+        if other_project {
+            // The one shown before folds its Git page's link away as this one opens to its own.
+            let folds = [(self.page.project(), false), (page.project(), true)];
+            for (project, open) in folds {
+                if let Some(project) = project {
+                    self.folds
+                        .start(SidebarFold::Project(project.clone()), open, cx);
+                }
+            }
+        }
         self.page = page;
         if other_project {
             self.forget_project(cx);
@@ -1092,6 +1112,10 @@ impl SettingsView {
 
 impl Render for SettingsView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.folds.frame();
+        if self.folds.any() {
+            window.request_animation_frame();
+        }
         let theme = Theme::get(cx).clone();
         let query = self.search.read(cx).text().trim().to_lowercase();
         let searching = !query.is_empty();
@@ -1131,9 +1155,31 @@ impl Render for SettingsView {
                         .style(ButtonStyle::Ghost)
                         .on_click(cx.listener(|this, _, _, cx| {
                             this.more ^= true;
+                            this.folds.start(SidebarFold::Unwatched, this.more, cx);
                             cx.notify();
                         })),
                 )
+            });
+            // While they open or close, the projects not watched that the sidebar lists folded,
+            // as the one shown, stay put, and the rest move as one under them.
+            let at_rest = self.folds.openness(&SidebarFold::Unwatched).is_none();
+            let kept = |project: &ProjectId| {
+                at_rest || !query.is_empty() || self.page.project() == Some(project)
+            };
+            let (kept, moving): (Vec<_>, Vec<_>) = listed
+                .unwatched
+                .iter()
+                .cloned()
+                .partition(|project| kept(project));
+            let not_watched =
+                (!listed.watched.is_empty()).then(|| heading("Not watched").pt(dp(12.)));
+            let (above, under) = match kept.is_empty() {
+                true => (None, not_watched),
+                false => (not_watched, None),
+            };
+            let moving = (!moving.is_empty()).then(|| {
+                let block = v_flex().children(under).children(entries(&moving));
+                self.folds.reveal(&SidebarFold::Unwatched, block)
             });
             v_flex()
                 .mt(dp(16.))
@@ -1143,11 +1189,9 @@ impl Render for SettingsView {
                 .border_color(theme.border_3)
                 .child(heading("Projects"))
                 .children(entries(&listed.watched))
-                .when(
-                    !listed.watched.is_empty() && !listed.unwatched.is_empty(),
-                    |el| el.child(heading("Not watched").pt(dp(12.))),
-                )
-                .children(entries(&listed.unwatched))
+                .children(above)
+                .children(entries(&kept))
+                .children(moving)
                 .children(more)
         });
         let empty = cards.is_empty();

@@ -27,7 +27,7 @@ pub type MeshBranch = (ProjectId, Arc<str>, String);
 
 /// What's selected of a checkout on another machine: it, one of its branches, or a commit,
 /// by the branch it's listed under.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum MeshPick {
     Checkout,
     Branch(String),

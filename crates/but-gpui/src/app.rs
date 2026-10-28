@@ -64,6 +64,7 @@ actions!(
         SelectNext,
         Expand,
         Collapse,
+        ToggleFold,
         Confirm,
         CutSelection,
         PasteHere,

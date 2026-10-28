@@ -12,13 +12,14 @@ use gpui::{
 
 mod shipped;
 
-use super::Detail;
 use super::panes::{
     Crumb, CrumbTo, LIST_MIN_HEIGHT, clear_button, list_heading, measured, meta_item, meta_row,
-    not_found, side_header, side_list, step_from, title_text, unfinished_banner,
+    not_found, reveal_side_row, rows_under, side_header, side_list, step_from, title_text,
+    unfinished_banner,
 };
 use super::pull_request::TABS_HEIGHT;
 use super::slots::{SlotGesture, SlotPick, ends_drag, picks_slot};
+use super::{Detail, PageFold};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, Person, TargetCommit};
 use crate::backend::{self, Checkout, CommitId, DiffSource, Forge};
 use crate::overlays::MenuItem;
@@ -534,7 +535,8 @@ impl Detail {
         let Some(upstream) = self.upstream.get_mut(project) else {
             return;
         };
-        if upstream.view.open_merges.insert(id) {
+        let open = upstream.view.open_merges.insert(id);
+        if open {
             self.store
                 .update(cx, |store, cx| store.load_merged(project, id, cx));
         } else {
@@ -543,6 +545,7 @@ impl Detail {
                 self.pick_on_page(project, Picked::Commit(id), None, cx);
             }
         }
+        self.page_folds.start(PageFold::Merge(id), open, cx);
         cx.notify();
     }
 
@@ -801,8 +804,10 @@ impl Detail {
                 }));
             }
             rows.push(Row::Commit(ix));
-            // An open merge lists the commits it brought in under it.
-            if !(commit.merge && upstream.view.open_merges.contains(&commit.id)) {
+            // An open merge lists the commits it brought in under it, till it's shut.
+            let open = upstream.view.open_merges.contains(&commit.id)
+                || self.page_folds.closing(&PageFold::Merge(commit.id));
+            if !(commit.merge && open) {
                 continue;
             }
             match (self.store.read(cx).merged.get(&commit.id)).and_then(|m| m.as_ref()) {
@@ -1053,8 +1058,7 @@ impl Detail {
 
     /// Back to the top of the history, its newest commit kept, as a filter changes.
     pub(super) fn show_newest_kept(&mut self, _cx: &mut Context<Self>) {
-        self.upstream_scroll
-            .scroll_to_item(0, gpui::ScrollStrategy::Top);
+        self.upstream_scroll.scroll_to(Default::default());
     }
 
     /// Whose commits landed on the target, the most landings first, counted on the days
@@ -1243,11 +1247,11 @@ impl Detail {
             return;
         };
         let picked = |ix: &usize| upstream.commits.get(*ix).is_some_and(|c| c.id == id);
-        let row = (self.upstream_rows(upstream, "", cx).iter())
-            .position(|row| matches!(row, Row::Commit(ix) if picked(ix)));
+        let rows = self.upstream_rows(upstream, "", cx);
+        let row = (rows.iter()).position(|row| matches!(row, Row::Commit(ix) if picked(ix)));
         if let Some(row) = row {
-            self.upstream_scroll
-                .scroll_to_item(row, gpui::ScrollStrategy::Center);
+            let theme = Theme::get(cx);
+            reveal_side_row(&self.upstream_scroll, rows.len(), row, true, theme);
         }
     }
 
@@ -1371,6 +1375,24 @@ impl Detail {
         }
     }
 
+    /// Return in the TUI's keymap: fold or unfold the picked merge's commits. One of them
+    /// stays as it is.
+    fn toggle_upstream_fold(&mut self, cx: &mut Context<Self>) {
+        let Some(project) = self.selected_project(cx) else {
+            return;
+        };
+        let Some(upstream) = self.upstream_for(&project) else {
+            return;
+        };
+        let Some(Picked::Commit(id)) = upstream.selected else {
+            return;
+        };
+        let merge = (upstream.commits.iter()).any(|commit| commit.id == id && commit.merge);
+        if upstream.merged_pick.is_none() && (merge || upstream.view.open_merges.contains(&id)) {
+            self.toggle_merge(&project, id, cx)
+        }
+    }
+
     /// Select the target commit `delta` rows from the selected one, keeping it in view.
     fn step_upstream(&mut self, delta: isize, cx: &mut Context<Self>) {
         let Some(project) = self.selected_project(cx) else {
@@ -1385,7 +1407,8 @@ impl Detail {
             Some((Picked::Commit(merge), Some(merged.0.get(m)?.id)))
         };
         // A merge's commit by the merge and it.
-        let picks: Vec<_> = (self.upstream_rows(upstream, "", cx).iter().enumerate())
+        let rows = self.upstream_rows(upstream, "", cx);
+        let picks: Vec<_> = (rows.iter().enumerate())
             .filter_map(|(row, r)| match r {
                 Row::Commit(ix) => {
                     Some((row, (Picked::Commit(upstream.commits.get(*ix)?.id), None)))
@@ -1403,8 +1426,9 @@ impl Detail {
         let Some(&(row, (picked, pick))) = step_from(&picks, at, delta) else {
             return;
         };
+        let count = rows.len();
         self.pick_on_page(&project, picked, pick, cx);
-        (self.upstream_scroll).scroll_to_item(row, gpui::ScrollStrategy::Nearest);
+        reveal_side_row(&self.upstream_scroll, count, row, false, Theme::get(cx));
     }
 
     /// How busy the target has been: a bar for each day, the last week's stronger, counting
@@ -1762,13 +1786,31 @@ impl Detail {
             Some(upstream) => {
                 let target = target.unwrap_or_else(|| "the target".into());
                 let rows = self.upstream_rows(upstream, &target, cx);
+                let merge_at =
+                    |ix: usize| upstream.commits.get(ix).filter(|c| c.merge).map(|c| c.id);
+                let (rows, places) = self.page_folds.place(
+                    rows,
+                    |row| match *row {
+                        Row::Commit(ix) => merge_at(ix).map(PageFold::Merge),
+                        _ => None,
+                    },
+                    |merge, row| match (merge, row) {
+                        (Row::Commit(ix), Row::Merged(of, _)) => ix == of,
+                        (Row::Commit(_), Row::Note(_)) => true,
+                        _ => false,
+                    },
+                    |merge| rows_under(&self.upstream_scroll, merge, theme),
+                );
                 let shown = project.clone();
                 let list = side_list(
-                    "target-commits",
                     rows.len(),
                     &self.upstream_scroll,
                     "target-scrollbar",
                     cx,
+                    move |this, ix| {
+                        this.page_folds
+                            .moved(places.get(ix).and_then(Option::as_ref))
+                    },
                     move |this, ix, theme, window, cx| {
                         let upstream = this.upstream_for(&shown)?;
                         let solid = this.side_focus.is_focused(window);
@@ -1931,12 +1973,18 @@ impl Detail {
                     },
                 );
                 // The activity over the history, which scrolls between it and the people.
-                self.list_column(Self::step_upstream, Some(Self::fold_upstream), None, cx)
-                    .child(self.filter_field(&self.target_filter, window, cx))
-                    .children(self.render_activity(project, upstream, theme, cx))
-                    .child(list.flex_1().min_h(dp(LIST_MIN_HEIGHT)))
-                    .children(self.render_people(project, upstream, window, cx))
-                    .into_any_element()
+                self.list_column(
+                    Self::step_upstream,
+                    Some(Self::fold_upstream),
+                    Some(Self::toggle_upstream_fold),
+                    None,
+                    cx,
+                )
+                .child(self.filter_field(&self.target_filter, window, cx))
+                .children(self.render_activity(project, upstream, theme, cx))
+                .child(list.flex_1().min_h(dp(LIST_MIN_HEIGHT)))
+                .children(self.render_people(project, upstream, window, cx))
+                .into_any_element()
             }
         };
         v_flex()

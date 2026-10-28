@@ -6,6 +6,7 @@ pub mod conflict;
 pub mod diff;
 pub mod emoji;
 pub mod file_icons;
+pub mod fold;
 mod format;
 pub mod illustration;
 pub mod markdown;
@@ -452,25 +453,21 @@ pub fn guide(at: f32, theme: &Theme) -> Div {
         .bg(theme.text_2.opacity(0.2))
 }
 
-/// A fold's glyph in a step as wide as a branch's chevron: a chevron, down while `open`, or
-/// with nothing to fold (`None`) a dot at half strength, as ui-react's.
-pub fn fold_glyph(open: Option<bool>, color: Hsla) -> Div {
-    let glyph = match open {
-        None => Icon::BulletDisc,
-        Some(true) => Icon::ChevronDown,
-        Some(false) => Icon::ChevronRight,
-    };
-    div()
+/// A fold's glyph in a step as wide as a branch's chevron: a chevron, down while `open` and
+/// turning as that changes (see [`fold::chevron`]), or with nothing to fold (`None`) a dot at
+/// half strength, as ui-react's.
+pub fn fold_glyph(id: impl Into<ElementId>, open: Option<bool>, color: Hsla) -> Div {
+    let step = div()
         .flex_none()
         .w(dp(14.))
         .h(dp(16.))
         .flex()
         .items_center()
-        .justify_center()
-        .child(small_icon(glyph).text_color(match open {
-            None => color.opacity(0.5),
-            Some(_) => color,
-        }))
+        .justify_center();
+    match open {
+        None => step.child(small_icon(Icon::BulletDisc).text_color(color.opacity(0.5))),
+        Some(open) => step.child(fold::chevron(id, open, color)),
+    }
 }
 
 /// A row that unfolds a list, "N more", or folds it again, "Show fewer", as ui-react's
@@ -510,7 +507,8 @@ pub fn fold_button<V: 'static>(
     cx: &Context<V>,
     toggle: impl Fn(&mut V, &mut Window, &mut Context<V>) + 'static,
 ) -> Stateful<Div> {
-    let el = div().id(id).child(fold_glyph(open, color));
+    let id = id.into();
+    let el = div().id(id.clone()).child(fold_glyph(id, open, color));
     match open {
         None => el,
         Some(_) => el

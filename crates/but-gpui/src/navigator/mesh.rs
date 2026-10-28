@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use gpui::{AnyElement, App, Context, MouseButton, Window, div, prelude::*};
 
-use super::rows::{COMMIT_INDENT, Row, Rows, found, matches};
+use super::rows::{COMMIT_INDENT, Fold, Row, Rows, found, matches};
 use super::{ClickOpened, Navigator, RowStyle, STEP, change_counts, click_opens, double_click};
 use crate::app::CopySelection;
 use crate::backend::mesh::{self, BranchStatus};
@@ -25,43 +25,46 @@ impl Navigator {
             return;
         }
         rows.rule_off();
-        rows.push(Row::Item(Selection::Section(id.clone(), Section::Mesh)));
+        let heading = Selection::Section(id.clone(), Section::Mesh);
+        rows.push(Row::Item(heading.clone()));
         let selected = match &store.selection {
             Some(Selection::Mesh(project, checkout, pick)) if project == id => {
                 Some((checkout, pick))
             }
             _ => None,
         };
-        if !store.prefs.shown_mesh.contains(id.as_ref()) && selected.is_none() {
-            return;
-        }
-        for checkout in checkouts {
-            let key: Arc<str> = checkout.id.as_str().into();
-            let at = |pick| Row::Item(Selection::Mesh(id.clone(), key.clone(), pick));
-            let pick = selected.filter(|(on, _)| **on == key).map(|(_, pick)| pick);
-            rows.push(at(MeshPick::Checkout));
-            let inside = pick.and_then(MeshPick::branch).is_some();
-            if inside || !self.folded_checkouts.contains(&(id.clone(), key.clone())) {
-                rows.open_in(STEP);
-                for branch in &checkout.branches {
-                    rows.push(at(MeshPick::Branch(branch.name.clone())));
-                    let on_commit =
-                        matches!(pick, Some(MeshPick::Commit(name, _)) if *name == branch.name);
-                    let key =
-                        ClickOpened::Elsewhere((id.clone(), key.clone(), branch.name.clone()));
-                    if on_commit || self.is_open(&key) {
-                        rows.open();
-                        rows.extend(
-                            (branch.commits.iter())
-                                .map(|commit| at(MeshPick::Commit(branch.name.clone(), commit.id))),
-                        );
-                        rows.close();
+        let open = store.prefs.shown_mesh.contains(id.as_ref()) || selected.is_some();
+        rows.fold(Fold::Under(heading), open, &self.folds, |rows| {
+            for checkout in checkouts {
+                let key: Arc<str> = checkout.id.as_str().into();
+                let at = |pick| Selection::Mesh(id.clone(), key.clone(), pick);
+                let pick = selected.filter(|(on, _)| **on == key).map(|(_, pick)| pick);
+                rows.push(Row::Item(at(MeshPick::Checkout)));
+                let inside = pick.and_then(MeshPick::branch).is_some();
+                let open = inside || !self.folded_checkouts.contains(&(id.clone(), key.clone()));
+                rows.fold(Fold::Under(at(MeshPick::Checkout)), open, &self.folds, |rows| {
+                    rows.open_in(STEP);
+                    for branch in &checkout.branches {
+                        let item = at(MeshPick::Branch(branch.name.clone()));
+                        rows.push(Row::Item(item.clone()));
+                        let on_commit =
+                            matches!(pick, Some(MeshPick::Commit(name, _)) if *name == branch.name);
+                        let key =
+                            ClickOpened::Elsewhere((id.clone(), key.clone(), branch.name.clone()));
+                        let open = on_commit || self.is_open(&key);
+                        rows.fold(Fold::Under(item), open, &self.folds, |rows| {
+                            rows.open();
+                            rows.extend((branch.commits.iter()).map(|commit| {
+                                Row::Item(at(MeshPick::Commit(branch.name.clone(), commit.id)))
+                            }));
+                            rows.close();
+                        });
                     }
-                }
-                rows.close();
+                    rows.close();
+                });
+                rows.push(Row::WorktreeDivider);
             }
-            rows.push(Row::WorktreeDivider);
-        }
+        });
     }
 
     /// [`Self::mesh_rows`] under the filter, with `held` the words found in the project's
@@ -371,6 +374,26 @@ impl Navigator {
                 window,
                 cx,
             ),
+        }
+    }
+
+    /// Return in the TUI's keymap on a mesh row that heads others, `open` or not: fold or
+    /// unfold a checkout's branches, or a branch's commits.
+    pub(super) fn toggle_mesh(
+        &mut self,
+        project: ProjectId,
+        id: Arc<str>,
+        pick: MeshPick,
+        open: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match pick {
+            MeshPick::Checkout => self.toggle_checkout((project, id), open, window, cx),
+            MeshPick::Branch(name) => {
+                self.toggle_mesh_branch((project, id, name), open, window, cx)
+            }
+            MeshPick::Commit(..) => {}
         }
     }
 
