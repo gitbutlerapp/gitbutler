@@ -117,6 +117,8 @@ const imgSrc = [
 const liteProtocolScheme = "but";
 const liteProtocolHost = "app";
 const contentRootURL = pathToFileURL(path.join(currentDirPath, "../ui"));
+// Without one, an unpackaged app serves the built UI as the packaged app does; E2E runs in CI use this.
+const devServerUrl = app.isPackaged ? undefined : process.env.VITE_DEV_SERVER_URL;
 const askpassExecutableName =
 	process.platform === "win32" ? "gitbutler-git-askpass.exe" : "gitbutler-git-askpass";
 
@@ -286,7 +288,7 @@ const registerEditingContextMenu = (window: BrowserWindow): void => {
 // Returns true if the `url` is from an origin we trust to perform privileged actions such as executing IPC commands.
 const isTrustedLocalOrigin = (url: URL | null) =>
 	url !== null &&
-	(app.isPackaged
+	(devServerUrl === undefined
 		? url.protocol === `${liteProtocolScheme}:` && url.host === liteProtocolHost
 		: url.protocol === "http:" && url.host === "127.0.0.1:5173");
 
@@ -463,7 +465,6 @@ const deepLinkTarget = (link: string): { url: string; path: string } | null => {
 	)
 		return null;
 
-	const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 	const base = new URL(devServerUrl ?? `${liteProtocolScheme}://${liteProtocolHost}/`);
 	const target = new URL(`${url.pathname}${url.search}`, base);
 
@@ -592,7 +593,6 @@ const createMainWindow = async (initialUrl?: string): Promise<void> => {
 		});
 	}
 
-	const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 	const rootUrl = `${liteProtocolScheme}://${liteProtocolHost}/`;
 	await mainWindow.loadURL(initialUrl ?? devServerUrl ?? rootUrl);
 };
@@ -636,7 +636,14 @@ export const start = async (shellEnvironment: Promise<Record<string, string>>): 
 	applyGUISettings(await readSettings());
 	configureAskpass();
 
-	if (app.isPackaged) {
+	if (!app.isPackaged && !isHeadless) {
+		await installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS]);
+
+		const dockIcon = getMacDockIcon();
+		if (dockIcon !== undefined) app.dock?.setIcon(dockIcon);
+	}
+
+	if (devServerUrl === undefined) {
 		registerLiteProtocolHandler();
 
 		// Basic non-Strict CSP based on https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html#basic-non-strict-csp-policy
@@ -664,13 +671,6 @@ export const start = async (shellEnvironment: Promise<Record<string, string>>): 
 			});
 		});
 	} else {
-		if (!isHeadless) {
-			await installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS]);
-
-			const dockIcon = getMacDockIcon();
-			if (dockIcon !== undefined) app.dock?.setIcon(dockIcon);
-		}
-
 		// Loose dev CSP to allow for hot reload and development tools. This could be tightened with
 		// nonce-based CSP instead of using unsafe-inline, but it's just not worth the hassle right now.
 		const developmentCsp =
