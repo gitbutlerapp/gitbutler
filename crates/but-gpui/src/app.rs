@@ -291,7 +291,7 @@ impl AppView {
     }
 
     /// Whether to quit right away. While an operation hasn't finished, ask instead, and quit
-    /// on a yes: quitting would stop it partway and drop the ones waiting.
+    /// on a yes: quitting would stop it partway.
     fn can_quit(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let (message, detail) = match self.store.read(cx).unfinished() {
             0 => return true,
@@ -301,7 +301,7 @@ impl AppView {
             ),
             n => (
                 format!("Quit before {n} operations finish?"),
-                "Those running may stop partway, and the rest won't run.",
+                "They may stop partway.",
             ),
         };
         self.confirm_then(None, message, detail, "Quit", window, cx, |_, cx| cx.quit());
