@@ -2,7 +2,7 @@
 //! afterwards. An [`Intent`], such as [`Squash`], runs under the one lock [`Run::locked`] takes,
 //! in one `but_transaction` transaction, one `_with_perm` call, or work wrapped in [`recorded`],
 //! recording one oplog entry. [`DiscardChanges`] records its own before it writes, as does
-//! [`super::conflicts::ResolveMarkers`] through [`record_undo`].
+//! [`super::conflicts::ResolveMarkers`].
 
 use gitbutler_repo::hooks::{ErrorData, HookResult, MessageHookResult};
 use std::borrow::Cow;
@@ -118,25 +118,6 @@ fn refuse_changed(repo: &gix::Repository, selected: &[Selected], whole: bool) ->
         );
     }
     Ok(())
-}
-
-/// Record the project as it is, so undo brings back what `kind` is about to change. One that
-/// can't be recorded only logs: the operation goes ahead, without its undo step.
-pub(super) fn record_undo(
-    ctx: &but_ctx::Context,
-    kind: OperationKind,
-    perm: &mut but_ctx::access::RepoExclusive,
-) {
-    let details = SnapshotDetails::new(kind);
-    let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
-        ctx,
-        details,
-        perm.read_permission(),
-        DryRun::No,
-    );
-    if let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(ctx, perm)) {
-        tracing::warn!(?err, ?kind, "couldn't record the operation for undo");
-    }
 }
 
 /// Record the project as it is in one oplog entry naming `refs`, once `work` succeeded. One

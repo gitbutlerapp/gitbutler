@@ -6,7 +6,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use anyhow::{Context as _, Result};
 use bstr::{BString, ByteSlice as _};
 use but_api::resolve::{self, HunkResolution, ResolutionSpec};
-use but_oplog::legacy::OperationKind;
+use but_core::DryRun;
+use but_oplog::legacy::{OperationKind, SnapshotDetails};
 
 use super::intent::Run;
 use super::ops::rewritten;
@@ -181,9 +182,19 @@ fn resolve_markers(
         }
         writes.push((file, on_disk, text, whole));
     }
-    // Recorded once the picks are found, so a refused Apply leaves nothing to undo.
+    // Recorded once the picks are found, so a refused Apply leaves nothing to undo. One that
+    // can't be recorded only logs: the files are still resolved, without an undo step.
     if !unrecorded {
-        super::ops::record_undo(ctx, OperationKind::ResolveConflicts, perm);
+        let details = SnapshotDetails::new(OperationKind::ResolveConflicts);
+        let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+            ctx,
+            details,
+            perm.read_permission(),
+            DryRun::No,
+        );
+        if let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(ctx, perm)) {
+            tracing::warn!(?err, "couldn't record resolving conflicts for undo");
+        }
     }
     let mut resolved = Vec::new();
     for (file, on_disk, text, whole) in writes {
