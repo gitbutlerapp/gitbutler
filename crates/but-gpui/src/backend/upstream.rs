@@ -962,7 +962,7 @@ fn integrate_remote(
     Ok((result, incoming))
 }
 
-/// What [`update_from_target()`] did.
+/// What [`Update`] did.
 #[derive(Debug)]
 pub enum UpdateOutcome {
     /// It would have left these conflicted that aren't now, so nothing changed.
@@ -976,45 +976,51 @@ pub enum UpdateOutcome {
     },
 }
 
-/// Rebase every stack onto the target as it is now. Doesn't fetch first; see [`fetch()`].
+/// Rebase every stack onto the target as it is now. Doesn't fetch first; see [`Fetch`].
 /// A dry run goes first, and when the rebase would leave anything conflicted that isn't now,
 /// it stops there, unless that's what was `accepted`: a fetch since can bring more.
-pub fn update_from_target(
-    path: &Path,
-    accepted: Option<&UpdateConflicts>,
-) -> Result<UpdateOutcome> {
-    let mut ctx = open(path)?;
-    // Held from reading the workspace through the update, so nothing changes it in between.
-    let mut guard = ctx.exclusive_worktree_access();
-    let info = but_api::legacy::workspace::head_info(&ctx)?;
-    let preview = integrate_upstream(&mut ctx, &info, DryRun::Yes, guard.write_permission())?;
-    let found = UpdateConflicts {
-        branches: newly_conflicted(&info, &preview.workspace_state.conflicted_commits),
-        files: (preview.worktree_conflicts.iter())
-            .map(|path| path.to_str_lossy().into_owned())
-            .collect(),
-    };
-    if (!found.branches.is_empty() || !found.files.is_empty()) && accepted != Some(&found) {
-        return Ok(UpdateOutcome::WouldConflict(found));
-    }
-    let updated = integrate_upstream(&mut ctx, &info, DryRun::No, guard.write_permission())?;
-    let after = but_api::legacy::workspace::head_info(&ctx)?;
-    let names = |info: &but_workspace::RefInfo| -> Vec<super::FullName> {
-        (info.lanes())
-            .flat_map(|lane| lane.segments)
-            .filter_map(|segment| Some(segment.ref_name()?.to_owned()))
-            .collect()
-    };
-    let remaining = names(&after);
-    Ok(UpdateOutcome::Updated {
-        conflicted: newly_conflicted(&info, &updated.workspace_state.conflicted_commits),
-        landed: (names(&info).into_iter())
-            .filter(|name| !remaining.contains(name))
-            .collect(),
-    })
+pub struct Update {
+    pub accepted: Option<UpdateConflicts>,
 }
 
-/// What [`update_from_target()`] would leave conflicted that isn't now.
+impl Intent for Update {
+    type Done = UpdateOutcome;
+
+    fn apply(self, run: &mut Run) -> Result<UpdateOutcome> {
+        run.locked(|ctx, perm| {
+            let info = but_api::legacy::workspace::head_info(ctx)?;
+            let preview = integrate_upstream(ctx, &info, DryRun::Yes, perm)?;
+            let found = UpdateConflicts {
+                branches: newly_conflicted(&info, &preview.workspace_state.conflicted_commits),
+                files: (preview.worktree_conflicts.iter())
+                    .map(|path| path.to_str_lossy().into_owned())
+                    .collect(),
+            };
+            if (!found.branches.is_empty() || !found.files.is_empty())
+                && self.accepted.as_ref() != Some(&found)
+            {
+                return Ok(UpdateOutcome::WouldConflict(found));
+            }
+            let updated = integrate_upstream(ctx, &info, DryRun::No, perm)?;
+            let after = but_api::legacy::workspace::head_info(ctx)?;
+            let names = |info: &but_workspace::RefInfo| -> Vec<super::FullName> {
+                (info.lanes())
+                    .flat_map(|lane| lane.segments)
+                    .filter_map(|segment| Some(segment.ref_name()?.to_owned()))
+                    .collect()
+            };
+            let remaining = names(&after);
+            Ok(UpdateOutcome::Updated {
+                conflicted: newly_conflicted(&info, &updated.workspace_state.conflicted_commits),
+                landed: (names(&info).into_iter())
+                    .filter(|name| !remaining.contains(name))
+                    .collect(),
+            })
+        })
+    }
+}
+
+/// What [`Update`] would leave conflicted that isn't now.
 #[derive(Debug, Clone, PartialEq)]
 pub struct UpdateConflicts {
     /// Branches (full refs), each with how many of its commits.
@@ -1119,8 +1125,7 @@ pub struct Landed {
 #[cfg(test)]
 mod tests {
     use super::{
-        ACTIVITY_DAYS, DAY, UpdateOutcome, day_of, overview, push_refusal, pushed_with,
-        update_from_target,
+        ACTIVITY_DAYS, DAY, Update, UpdateOutcome, day_of, overview, push_refusal, pushed_with,
     };
     use crate::backend::model::build::full;
 
@@ -1141,7 +1146,7 @@ mod tests {
             std::fs::write(wt.join("file"), "wt\n").unwrap();
             git(wt, &["commit", "-q", "-am", "wt edit"]);
 
-            let outcome = update_from_target(path, None).unwrap();
+            let (outcome, _) = crate::backend::apply(path, Update { accepted: None }).unwrap();
             let UpdateOutcome::WouldConflict(found) = outcome else {
                 panic!("{outcome:?}");
             };

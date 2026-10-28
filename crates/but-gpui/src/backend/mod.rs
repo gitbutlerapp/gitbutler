@@ -44,7 +44,7 @@ pub use intent::{Intent, Legacy, apply, now_millis};
 pub use model::*;
 pub use ops::*;
 pub use reviews::{refresh_checks, refresh_reviews};
-pub use upstream::{Landed, fetch, land, update_from_target};
+pub use upstream::{Landed, fetch, land};
 pub use worktrees::reload_uncommitted;
 
 /// Process-wide setup, before any other call.

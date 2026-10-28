@@ -722,14 +722,14 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let updated = project.clone();
-        self.run(
+        self.apply(
             project,
             "Update",
             Overlay {
                 kind: OpKind::Update,
                 ..Overlay::default()
             },
-            move |path| backend::update_from_target(path, accepted.as_ref()),
+            backend::upstream::Update { accepted },
             move |store, outcome, cx| {
                 let target = (store.workspace(&updated).and_then(|ws| ws.target.as_ref()))
                     .map_or_else(|| "the target".to_owned(), |target| target.name.clone());
