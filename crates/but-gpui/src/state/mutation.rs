@@ -122,9 +122,9 @@ pub enum OpKind {
 }
 
 impl OpKind {
-    /// Whether it runs beside the project's other operations rather than taking its turn: it
-    /// only talks to the remote or deletes a folder, so nothing another one does depends on it,
-    /// and it can take long enough to hold them up.
+    /// Whether it runs beside the project's other operation: it only talks to the remote or
+    /// deletes a folder, so nothing another one does depends on it, and it can take long
+    /// enough to hold them up.
     fn beside(&self) -> bool {
         matches!(self, Self::Fetch | Self::Push(_) | Self::DeleteWorktree(_))
     }
@@ -1593,7 +1593,7 @@ impl Store {
         self.working().count()
     }
 
-    /// Operations besides the longest-running one, running in other projects.
+    /// Operations running besides the longest-running one.
     pub fn others_busy(&self) -> usize {
         self.running.len().saturating_sub(1)
     }

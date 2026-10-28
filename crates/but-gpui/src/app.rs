@@ -931,7 +931,7 @@ impl AppView {
     }
 
     /// Rebase onto the target. When that would leave commits conflicted that aren't now, the
-    /// card saying so offers to go ahead. Asking again while one waits or runs does nothing.
+    /// card saying so offers to go ahead.
     pub fn update_from_target(&mut self, project: ProjectId, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         let Some(target) = store.workspace(&project).and_then(|ws| ws.target.as_ref()) else {

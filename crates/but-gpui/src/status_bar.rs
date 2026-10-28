@@ -43,7 +43,7 @@ impl AppView {
         let working = store.busy().map(|(project, busy, took)| {
             // Another project's says which, as its failure card would.
             let doing = store.card_title(project, under_way(busy));
-            // How long it's taking once that's noticeable, and what else runs or waits.
+            // How long it's taking once that's noticeable, and what else runs.
             let elapsed = match took >= SLOW {
                 true => format!(" {}", duration(took.as_secs_f32().round() as i64)),
                 false => String::new(),
