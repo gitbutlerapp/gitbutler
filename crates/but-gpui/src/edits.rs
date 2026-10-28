@@ -4,7 +4,6 @@
 //! window instead, so the branch page's button reaches it.
 
 use std::collections::HashSet;
-use std::path::Path;
 use std::sync::Arc;
 
 use gpui::{App, Context, Div, SharedString, Window, actions, prelude::*};
@@ -538,16 +537,10 @@ impl AppView {
                 // As the desktop app says: a rename doesn't reach the remote.
                 let pushed = (workspace.and_then(|ws| ws.find_branch(ref_name.as_ref())))
                     .is_some_and(|branch| branch.push != backend::PushState::NeverPushed);
-                let renaming = ref_name.clone();
                 let (store, detail) = (self.store.clone(), self.detail.downgrade());
                 let (at, selected, from) = (project.clone(), project.clone(), ref_name.clone());
                 let submit = move |name: String, cx: &mut App| {
                     let renamed = from.clone();
-                    let op = move |path: &Path, name: &str| match (&renamed, unnamed_top) {
-                        (Some(renamed), _) => backend::rename_branch(path, renamed, name),
-                        (None, Some(top)) => backend::name_branch(path, top, name),
-                        (None, None) => anyhow::bail!("The branch has no commit to name it at"),
-                    };
                     let done = move |store: &mut Store, to: FullName, cx: &mut Context<Store>| {
                         (detail.update(cx, |detail, cx| {
                             detail.branch_renamed(&selected, from.as_ref(), &to, cx)
@@ -567,8 +560,17 @@ impl AppView {
                         }
                         store.select(Some(Selection::Branch(selected, Some(to))), cx)
                     };
-                    store.update(cx, |store, cx| {
-                        run_named(store, &at, renaming, name, op, done, cx)
+                    store.update(cx, |store, cx| match (renamed, unnamed_top) {
+                        (Some(branch), _) => {
+                            let renaming = Some(branch.clone());
+                            let op = |name| backend::RenameBranch { branch, name };
+                            run_named(store, &at, renaming, name, op, done, cx)
+                        }
+                        (None, Some(top)) => {
+                            let op = |name| backend::NameBranch { top, name };
+                            run_named(store, &at, None, name, op, done, cx)
+                        }
+                        (None, None) => store.snack("The branch has no commit to name it at", cx),
                     })
                 };
                 // The name is edited in its row there.

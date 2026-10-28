@@ -926,32 +926,57 @@ impl Intent for CherryPick {
     }
 }
 
-/// Rename a branch and return its new full ref name.
-pub fn rename_branch(path: &Path, ref_name: &FullName, new_name: &str) -> Result<FullName> {
-    let mut ctx = open(path)?;
-    let from = ref_name;
-    let outcome =
-        but_api::branch::branch_rename(&mut ctx, from.clone(), new_name.trim().to_owned())?;
-    // Its description goes with it, as Git keeps it by the name.
-    let moved = super::branches::move_description(
-        &*ctx.repo.get()?,
-        from.shorten(),
-        Some(outcome.new_ref.shorten()),
-    );
-    if let Err(err) = moved {
-        tracing::warn!(?err, "couldn't move the renamed branch's description");
+/// Rename `branch` to `name`, its description going with it, and return its new full ref name.
+pub struct RenameBranch {
+    pub branch: FullName,
+    pub name: String,
+}
+
+impl Intent for RenameBranch {
+    type Done = FullName;
+
+    fn apply(self, run: &mut Run) -> Result<FullName> {
+        let Self { branch, name } = self;
+        run.locked(|ctx, perm| {
+            let outcome =
+                but_api::branch::branch_rename_with_perm(ctx, branch.clone(), name, perm)?;
+            // Its description goes with it, as Git keeps it by the name.
+            let moved = super::branches::move_description(
+                &*ctx.repo.get()?,
+                branch.shorten(),
+                Some(outcome.new_ref.shorten()),
+            );
+            if let Err(err) = moved {
+                tracing::warn!(?err, "couldn't move the renamed branch's description");
+            }
+            Ok(outcome.new_ref)
+        })
     }
-    Ok(outcome.new_ref)
 }
 
 /// Name the main checkout's unnamed branch whose newest commit is `top`, putting a `HEAD`
 /// detached there on it, and return its full ref name.
-pub fn name_branch(path: &Path, top: CommitId, name: &str) -> Result<FullName> {
-    let mut ctx = open(path)?;
-    let new_ref = branch_ref(name)?;
-    let outcome =
-        but_api::branch::branch_name_segment(&mut ctx, ChangesSource::Head, top.0, Some(new_ref))?;
-    Ok(outcome.new_ref)
+pub struct NameBranch {
+    pub top: CommitId,
+    pub name: String,
+}
+
+impl Intent for NameBranch {
+    type Done = FullName;
+
+    fn apply(self, run: &mut Run) -> Result<FullName> {
+        let new_ref = branch_ref(&self.name)?;
+        run.locked(|ctx, perm| {
+            let outcome = but_api::branch::branch_name_segment_with_perm(
+                ctx,
+                ChangesSource::Head,
+                self.top.0,
+                Some(new_ref),
+                perm,
+            )?;
+            Ok(outcome.new_ref)
+        })
+    }
 }
 
 pub fn remove_branch(path: &Path, ref_name: &FullName, tip: Option<CommitId>) -> Result<()> {
@@ -1748,6 +1773,13 @@ pub(super) mod tests {
     pub(in crate::backend) fn branch_named(name: &str) -> CreateBranch {
         CreateBranch {
             name: Some(name.into()),
+        }
+    }
+
+    fn name_at(top: CommitId, name: &str) -> NameBranch {
+        NameBranch {
+            top,
+            name: name.into(),
         }
     }
 
@@ -3050,7 +3082,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
             let started = now_millis();
-            name_branch(path, head(path), "named").unwrap();
+            crate::backend::apply(path, name_at(head(path), "named")).unwrap();
             let (named, done) = (newest_entry(path), now_millis());
             let mut ran = vec![(started, done)];
             // Git logs moves in whole seconds.
@@ -3084,7 +3116,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
             let started = now_millis();
-            name_branch(path, head(path), "named").unwrap();
+            crate::backend::apply(path, name_at(head(path), "named")).unwrap();
             let done = now_millis();
             let named = newest_entry(path);
             // Another of the app's operations ran a minute on, and an agent committed in its
@@ -3117,7 +3149,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
             let started = now_millis();
-            name_branch(path, head(path), "named").unwrap();
+            crate::backend::apply(path, name_at(head(path), "named")).unwrap();
             let done = now_millis();
             let named = newest_entry(path);
             // As core.logAllRefUpdates off leaves it.
@@ -3141,7 +3173,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
             let top = head(path);
             let started = now_millis();
-            name_branch(path, top, "named").unwrap();
+            crate::backend::apply(path, name_at(top, "named")).unwrap();
             let named = newest_entry(path);
             let done = now_millis();
             // Later than it, as an edit in an editor is.
@@ -3201,7 +3233,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             target_origin_main(path);
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
-            name_branch(path, head(path), "named").unwrap();
+            crate::backend::apply(path, name_at(head(path), "named")).unwrap();
             let named = newest_entry(path);
             let done = now_millis();
             // In a terminal, `minutes` on.
@@ -3247,7 +3279,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
             let started = now_millis();
-            name_branch(path, head(path), "named").unwrap();
+            crate::backend::apply(path, name_at(head(path), "named")).unwrap();
             let named = newest_entry(path);
             let done = now_millis();
             // A minute on, a commit put on the branch from a terminal, as `update-ref` or a
@@ -3286,7 +3318,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
             let (_outside, linked) = agent_worktree(path);
             let started = now_millis();
-            name_branch(path, head(path), "named").unwrap();
+            crate::backend::apply(path, name_at(head(path), "named")).unwrap();
             let done = now_millis();
             let named = newest_entry(path);
             // A minute on, in a terminal.
@@ -3324,7 +3356,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
             let started = now_millis();
-            name_branch(path, head(path), "named").unwrap();
+            crate::backend::apply(path, name_at(head(path), "named")).unwrap();
             let done = now_millis();
             let named = newest_entry(path);
             // "Undo anyway" a minute on, and a terminal commit 10ms after, which Git logs at
@@ -3418,7 +3450,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             std::fs::write(path.join("file"), "ours\n").unwrap();
             git(path, &["commit", "-q", "-am", "ours"]);
-            name_branch(path, head(path), "ours").unwrap();
+            crate::backend::apply(path, name_at(head(path), "ours")).unwrap();
 
             let applied = apply(path, &full("refs/heads/agent"), Some("agent".into())).unwrap();
             assert!(
@@ -3628,7 +3660,12 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             };
             assert_eq!(branch_at_top(path), Some(None), "it shows unnamed");
 
-            assert_eq!(name_branch(path, top, "named").unwrap(), "refs/heads/named");
+            assert_eq!(
+                crate::backend::apply(path, name_at(top, "named"))
+                    .unwrap()
+                    .0,
+                "refs/heads/named"
+            );
             assert_eq!(branch_at_top(path), Some(Some(full("refs/heads/named"))));
 
             let last = newest_entry(path);
