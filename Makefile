@@ -68,5 +68,5 @@ but-bench-show:
 
 .PHONY: run-but-gpui-without-xcode
 run-but-gpui-without-xcode:
-	cargo build -p but-gpui -p gitbutler-git --bins --features gpui_platform/runtime_shaders
-	cargo run -p but-gpui --features gpui_platform/runtime_shaders
+	cargo build -r -p but-gpui -p gitbutler-git --bins --features gpui_platform/runtime_shaders
+	cargo run -r -p but-gpui --features gpui_platform/runtime_shaders
