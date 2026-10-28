@@ -1645,18 +1645,6 @@ impl Store {
         (self.overlays(project)).any(|o| o.files_in == *checkout && o.files.contains(path))
     }
 
-    pub fn hides_hunk(
-        &self,
-        project: &ProjectId,
-        checkout: &Checkout,
-        path: &str,
-        hunk: HunkKey,
-    ) -> bool {
-        self.overlays(project).any(|o| {
-            o.files_in == *checkout && o.hunks.get(path).is_some_and(|hunks| hunks.contains(&hunk))
-        })
-    }
-
     pub fn hides_branch(&self, project: &ProjectId, ref_name: &FullName) -> bool {
         self.overlays(project)
             .any(|o| o.branches.contains(ref_name))

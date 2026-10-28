@@ -364,26 +364,6 @@ impl Detail {
         })
     }
 
-    /// The checked changes, less the files and hunks a pending operation already takes, as
-    /// after a quick second click.
-    fn changes_not_pending(&self, project: &ProjectId, cx: &App) -> Vec<Selected> {
-        let store = self.store.read(cx);
-        let worktree = &self.checks_worktree;
-        (self.selected_changes(cx).into_iter())
-            .filter(|s| !store.hides_file(project, worktree, &s.file.path))
-            .filter_map(|mut s| {
-                if let Some(hunks) = &mut s.hunks {
-                    hunks.retain(|hunk| !store.hides_hunk(project, worktree, &s.file.path, *hunk));
-                    // No hunks would take the whole file.
-                    if hunks.is_empty() {
-                        return None;
-                    }
-                }
-                Some(s)
-            })
-            .collect()
-    }
-
     /// The hunks of `path` in the loaded worktree diff.
     pub(super) fn worktree_file_hunks(&self, path: &str) -> &[Hunk] {
         self.loaded_file(path).map_or(&[], FileDiff::hunks)
@@ -835,7 +815,7 @@ impl Detail {
         if self.choices_loading(&project, cx) {
             return;
         }
-        let files = self.changes_not_pending(&project, cx);
+        let files = self.selected_changes(cx);
         // A checkout with no changes at all commits an empty commit.
         let nothing_changed = (self.store.read(cx).workspace(&project))
             .and_then(|ws| ws.uncommitted_in(&worktree))
@@ -847,13 +827,7 @@ impl Detail {
             return;
         }
         if files.is_empty() && !nothing_changed {
-            // Changes checked but none left are what an operation still running is taking,
-            // most likely the last commit.
-            let why = match self.selected_changes(cx).is_empty() {
-                true => "Nothing checked to commit",
-                false => "Wait for the running operation to finish",
-            };
-            snack(&self.store, why, cx);
+            snack(&self.store, "Nothing checked to commit", cx);
             return;
         }
         let target = self.effective_target(&project, cx);
@@ -1061,7 +1035,7 @@ impl Detail {
         if self.choices_loading(&project, cx) {
             return;
         }
-        let files = self.changes_not_pending(&project, cx);
+        let files = self.selected_changes(cx);
         if files.is_empty() {
             snack(&self.store, "Nothing checked to amend", cx);
             return;

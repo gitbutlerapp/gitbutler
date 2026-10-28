@@ -841,21 +841,11 @@ impl AppView {
         &mut self,
         project: ProjectId,
         worktree: Checkout,
-        mut changes: Vec<Selected>,
+        changes: Vec<Selected>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        // Not what a pending discard or commit already takes, as after a quick second press.
         let store = self.store.read(cx);
-        changes.retain(|change| {
-            let path = &change.file.path;
-            match &change.hunks {
-                None => !store.hides_file(&project, &worktree, path),
-                Some(hunks) => {
-                    !(hunks.iter()).all(|h| store.hides_hunk(&project, &worktree, path, *h))
-                }
-            }
-        });
         let lasting = match &worktree {
             Checkout::Linked(_) => Some("Changes discarded in a linked worktree can't be undone."),
             Checkout::Main if (store.workspace(&project)).is_some_and(|ws| ws.unrecorded) => Some(
