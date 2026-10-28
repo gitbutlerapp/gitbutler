@@ -265,7 +265,6 @@ impl RowStyle<'_> {
                     .min_w_0()
                     .truncate()
                     .when(quiet, |el| el.text_color(self.muted()))
-                    .when(unread, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
                     .child(commit_title(&title)),
             )
             .when(unread, |el| el.child(dot(self.meta(self.theme.pop))))
@@ -1634,7 +1633,6 @@ impl Navigator {
                         .flex_grow(1.)
                         .min_w_0()
                         .truncate()
-                        .when(expanded, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
                         .child(entry.project.name.clone()),
                 )
                 .child(
@@ -1853,7 +1851,6 @@ impl Navigator {
                     .flex_grow(1.)
                     .min_w_0()
                     .truncate()
-                    .font_weight(gpui::FontWeight::MEDIUM)
                     .tooltip(Tooltip::text(path.display().to_string()))
                     .child(label),
             )
@@ -1992,7 +1989,6 @@ impl Navigator {
                         .flex_1()
                         .min_w_0()
                         .gap(dp(6.))
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
                         .tooltip(Tooltip::text(format!("Stack: {}", names.join(" ← "))))
                         .child(count_badge(branches.len(), theme).when(style.solid, |el| {
                             el.bg(theme.text_inverted.opacity(0.15)).text_color(quiet)
@@ -2776,9 +2772,9 @@ fn unpushed<'a>(branches: impl Iterator<Item = &'a Branch>) -> usize {
         .count()
 }
 
-/// A branch as the navigator names it, in semibold as but.dev's: its pull request's title once
-/// the forge cache has one, toned by the request's state, or else `name`. Drawn from what the
-/// last load read, so no row waits on the network, and offline the cached title stays.
+/// A branch as the navigator names it: its pull request's title once the forge cache has one,
+/// toned by the request's state, or else `name`. Drawn from what the last load read, so no row
+/// waits on the network, and offline the cached title stays.
 fn branch_name(
     name: &str,
     review: Option<(&Review, ReviewState)>,
@@ -2788,10 +2784,7 @@ fn branch_name(
     let theme = style.theme;
     // Read, it's as quiet as a read commit, unless its pull request's state quiets it more.
     let quiet = !unread && !style.solid;
-    let el = div()
-        .min_w_0()
-        .truncate()
-        .font_weight(gpui::FontWeight::SEMIBOLD);
+    let el = div().min_w_0().truncate();
     match review.filter(|(review, _)| !review.title.is_empty()) {
         Some((review, state)) => el
             .text_color(match style.solid {
