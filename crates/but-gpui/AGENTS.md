@@ -172,10 +172,9 @@ unseen is what a laptop's battery pays for.
   worktree's that was conflicted already.
 - A project runs one operation at a time, until the reload after it lands, and `Store::apply`
   turns down another asked for meanwhile, so each acts on the state the user saw the one before
-  leave; nothing queues. Fetches, pushes and deleting a
-  linked worktree (`OpKind::beside`) run beside it, refusing only one of their own kind, and
-  record no undo step: `Store::apply` drops the oplog entry and linked-worktree moves seen
-  around them. Operations are told apart by
+  leave; nothing queues. Fetches, pushes and deleting a linked worktree (`OpKind::beside`) run
+  beside it, refusing only one of their own kind, and record no undo step: `Store::apply` drops
+  the oplog entry and linked-worktree moves seen around them. Operations are told apart by
   `Overlay::kind` (`OpKind` in `state/mutation.rs`), never by their label, which is only what
   the user reads.
 - The oplog records the workspace and the main checkout only. Undo and History restore refuse
@@ -190,15 +189,15 @@ unseen is what a laptop's battery pays for.
   the CLI's work. Undo and Redo are `OpKind::Undo` and `OpKind::Redo` and keep the lists
   themselves; an operation the oplog can't undo calls `keep_last_snapshot`, which drops it.
 - An oplog restore puts the whole worktree back, so `history::Undo` first checks, under the
-  restore's lock, for files written and branches moved after the operation, leaving out the spans the app's own
-  local operations ran in (`Store::ran`, as it is when the undo is asked for; pushes and fetches record none, as they write only what the remote has, and a
-  Git commit logged in a second wholly after the operation counts even inside a later one's,
-  as the app never logs "commit"; with no log of HEAD, as
-  with core.logAllRefUpdates off, undo refuses rather than guess): a move
-  Git logged then is `Undone::Behind`, a file written then `Undone::Newer` for ⌘Z to ask
-  about; `history::Redo` checks the same, under its lock, from the undo's own snapshot. A step stays on the
-  list unless it was undone, `Undone::Behind` says something came after it, or
-  `Undone::Already` says something else undid it.
+  restore's lock, for files written and branches moved after the operation, leaving out the
+  spans the app's own local operations ran in (`Store::ran`, as it is when the undo is asked
+  for; pushes and fetches record none, as they write only what the remote has, and a Git commit
+  logged in a second wholly after the operation counts even inside a later one's, as the app
+  never logs "commit"; with no log of HEAD, as with core.logAllRefUpdates off, undo refuses
+  rather than guess): a move Git logged then is `Undone::Behind`, a file written then
+  `Undone::Newer` for ⌘Z to ask about; `history::Redo` checks the same, under its lock, from
+  the undo's own snapshot. A step stays on the list unless it was undone, `Undone::Behind` says
+  something came after it, or `Undone::Already` says something else undid it.
 - An operation's `done` runs with `Store::staying` set when the user has moved to another
   project, which makes `Store::select` do nothing: what it would select, and the picks a select
   clears, stay where the user is, and `card_title` names the operation's project.
