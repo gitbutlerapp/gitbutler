@@ -1798,6 +1798,17 @@ impl Store {
         self.followed = Some((from, to));
     }
 
+    /// Select commit `made`, which an operation just made in `project`.
+    pub fn select_made(
+        &mut self,
+        project: &ProjectId,
+        made: backend::Made,
+        cx: &mut Context<Self>,
+    ) {
+        self.select(Some(Selection::Commit(project.clone(), made.id)), cx);
+        self.made = Some(made);
+    }
+
     /// Whether the selection moved from commit `from` to `to` as an operation rewrote it,
     /// rather than to another commit: it's the same one to look at.
     pub fn followed(&self, from: CommitId, to: CommitId) -> bool {

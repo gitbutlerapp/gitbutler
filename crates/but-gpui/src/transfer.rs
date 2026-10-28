@@ -468,8 +468,7 @@ impl Transfer {
                     overlay,
                     commit,
                     move |store, committed, cx| {
-                        let made = Selection::Commit(selected, committed.commit);
-                        store.select(Some(made), cx);
+                        store.select_made(&selected, committed.made, cx);
                         store.keep_last_snapshot(cx);
                         let done = "Committed. Double-click its title to write a message";
                         store.report_left_out(done, &committed.left_out, cx)

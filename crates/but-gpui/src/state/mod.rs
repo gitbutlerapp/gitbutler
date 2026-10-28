@@ -296,6 +296,9 @@ pub struct Store {
     /// The commit the selection was on and the one it moved to, when it last moved because
     /// an operation rewrote the commit.
     followed: Option<(CommitId, CommitId)>,
+    /// The new commit an operation selected, until the selection moves: a reload follows it by
+    /// change id, as the workspace before it never had the commit to follow.
+    made: Option<backend::Made>,
     /// While an operation of a project the user has left finishes, which leaves the selection,
     /// and what's picked with it, where the user is.
     staying: bool,
@@ -459,6 +462,7 @@ impl Store {
             cut: None,
             picked: Picks::default(),
             followed: None,
+            made: None,
             staying: false,
             added: None,
             asked_author: false,
@@ -781,6 +785,7 @@ impl Store {
             return;
         }
         self.followed = None;
+        self.made = None;
         if !self.picked.is_empty() {
             self.picked.clear();
             cx.notify();

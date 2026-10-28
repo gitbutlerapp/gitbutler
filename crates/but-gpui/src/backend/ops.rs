@@ -14,6 +14,7 @@ use std::sync::Arc;
 use anyhow::{Context as _, Result, bail};
 use bstr::{BStr, ByteSlice as _};
 use but_api::commit::json::ChangesSource;
+use but_core::commit::CommitIdentifiers;
 use but_core::tree::create_tree::RejectionReason;
 use but_core::{DiffSpec, DryRun};
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
@@ -347,7 +348,8 @@ fn commit_first(
     branch: FullName,
     changes: Vec<DiffSpec>,
     message: String,
-) -> Result<(FullName, CommitId, Rejected)> {
+) -> Result<(FullName, Made, Rejected)> {
+    use gix::prelude::ObjectIdExt as _;
     let repo = ctx.repo.get()?;
     let head = repo.head_name()?.context("HEAD names no branch")?;
     if branch != head {
@@ -373,9 +375,15 @@ fn commit_first(
         );
     };
     but_workspace::init::publish_first_commit(&repo, branch.as_ref(), id)?;
+    let made = Made {
+        id: CommitId(id),
+        key: but_core::Commit::from_id(id.attach(&repo))?
+            .change_id()
+            .to_string(),
+    };
     drop(repo);
     ctx.invalidate_workspace_cache()?;
-    Ok((branch, CommitId(id), outcome.rejected_specs))
+    Ok((branch, made, outcome.rejected_specs))
 }
 
 /// The branch a commit goes on.
@@ -404,9 +412,25 @@ pub struct CommitChanges {
 #[derive(Debug)]
 pub struct Committed {
     pub branch: FullName,
-    pub commit: CommitId,
+    pub made: Made,
     pub left_out: LeftOut,
     pub hook_failed: Option<String>,
+}
+
+/// A new commit, with the change id a reload finds it by once an agent rewrote it.
+#[derive(Debug)]
+pub struct Made {
+    pub id: CommitId,
+    pub key: String,
+}
+
+impl From<CommitIdentifiers> for Made {
+    fn from(made: CommitIdentifiers) -> Self {
+        Self {
+            id: CommitId(made.id),
+            key: made.change_id.to_string(),
+        }
+    }
 }
 
 type Rejected = Vec<(RejectionReason, DiffSpec)>;
@@ -439,7 +463,7 @@ impl Intent for CommitChanges {
             true => hooks_before_commit(ctx, &specs, message)?,
             false => message,
         };
-        let (branch, commit, rejected) = run.locked(|ctx, perm| {
+        let (branch, made, rejected) = run.locked(|ctx, perm| {
             let unborn = ctx.repo.get()?.head()?.is_unborn();
             let (branch, new_at) = match to {
                 CommitTo::Branch(branch) if unborn => {
@@ -468,7 +492,7 @@ impl Intent for CommitChanges {
                 .chain(worktree_branch.as_ref().map(|name| name.as_ref()))
                 .collect();
             let details = SnapshotDetails::new(OperationKind::CreateCommit);
-            let (commit, rejected) = recorded(ctx, perm, details, &refs, |ctx, perm| {
+            let (made, rejected) = recorded(ctx, perm, details, &refs, |ctx, perm| {
                 if let Some(NewBranchAt::BesideHead(head)) = &new_at {
                     start_beside(ctx, perm, branch.as_ref(), head)?;
                 }
@@ -486,12 +510,12 @@ impl Intent for CommitChanges {
                 }
                 made
             })?;
-            Ok((branch, commit, rejected))
+            Ok((branch, made, rejected))
         })?;
         let hook_failed = run_hooks.then(|| post_commit(run.ctx())).flatten();
         Ok(Committed {
             branch,
-            commit,
+            made,
             left_out: left_out(&rejected),
             hook_failed,
         })
@@ -530,7 +554,7 @@ fn commit_in_transaction(
     specs: Vec<DiffSpec>,
     message: String,
     source: ChangeSource<'_>,
-) -> Result<(CommitId, Rejected)> {
+) -> Result<(Made, Rejected)> {
     use but_transaction::DynamicOutcome;
     use but_workspace::branch::create_reference::{Anchor, Position};
     let mut meta = ctx.meta()?;
@@ -559,7 +583,7 @@ fn commit_in_transaction(
                 source,
             )?;
             Ok(match made.new_commit {
-                Some(commit) => DynamicOutcome::Commit((CommitId(commit.id), made.rejected_specs)),
+                Some(commit) => DynamicOutcome::Commit((Made::from(commit), made.rejected_specs)),
                 None => DynamicOutcome::Rollback(made.rejected_specs),
             })
         },
@@ -2381,11 +2405,19 @@ pub(super) mod tests {
             let dir = repo_with("one\n");
             let path = dir.path();
             let first = git(path, &["rev-parse", "HEAD"]);
-            crate::backend::apply(path, commit_to_main(vec![], "Mark it reviewed", false)).unwrap();
+            let (committed, _) =
+                crate::backend::apply(path, commit_to_main(vec![], "Mark it reviewed", false))
+                    .unwrap();
             assert_eq!(
                 git(path, &["log", "-1", "--format=%s"]).trim(),
                 "Mark it reviewed",
                 "the commit is made"
+            );
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            assert_eq!(
+                (workspace.find_commit(committed.made.id)).map(|(_, c)| c.key.as_str()),
+                Some(committed.made.key.as_str()),
+                "a reload finds the commit by the change id it was made with"
             );
             assert_eq!(
                 git(path, &["rev-parse", "HEAD~1"]),
