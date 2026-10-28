@@ -1242,7 +1242,7 @@ Created branch 'three'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*-. 927a35d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*-. be23232 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/ /
 |/  
 * b1540e5 (origin/main, origin/HEAD, two, three, one, main, gitbutler/target) M

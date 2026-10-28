@@ -160,18 +160,15 @@ impl SingleBranchMode {
             meta.set_workspace(&workspace)?;
         }
 
-        let (repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
         // Also apply an empty branch, which set_base_branch doesn't apply itself.
         // Non-empty branches may already have been applied by set_base_branch.
-        let outcome = but_workspace::branch::apply(
+        let outcome = but_workspace::branch::apply_stack(
             self.head_reference.as_ref(),
             ws,
             &repo,
             meta,
-            but_workspace::branch::apply::Options {
-                allow_applying_already_applied_branch_when_outside_workspace: true,
-                ..Default::default()
-            },
+            &mut db,
         )?;
         if !(outcome.status.persisted_mutation()
             || matches!(

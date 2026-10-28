@@ -16,19 +16,11 @@ pub(crate) fn apply(
     let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let (repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
+    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
     let branch = ref_name(&repo, &mutation_args.ref_name)?;
 
-    let outcome = but_workspace::branch::apply(
-        branch.as_ref(),
-        ws,
-        &repo,
-        &mut meta,
-        but_workspace::branch::apply::Options {
-            new_stack_id: None,
-            ..Default::default()
-        },
-    )?;
+    let outcome =
+        but_workspace::branch::apply_stack(branch.as_ref(), ws, &repo, &mut meta, &mut db)?;
 
     writeln!(out, "{outcome:#?}")?;
     emit_after(&outcome.workspace, &mutation_args.debug, err)

@@ -136,6 +136,63 @@ pub(crate) mod function {
 
     use crate::{WorkspaceCommit, branch::try_find_validated_ref};
     use crate::{branch::anon_stacks, ref_info::WorkspaceExt};
+    use but_error::bail_precondition;
+    use but_rebase::graph_rebase::Editor;
+
+    /// Ensure that `branch` is not a parent of the workspace commit.
+    ///
+    /// A workspace commit must exist.
+    ///
+    /// If the workspace commit would end up with no parents, it is instead rebased onto the target
+    /// commit (if it exists).
+    pub fn unapply_stack<'ws>(
+        branch: &FullNameRef,
+        workspace: &'ws but_graph::Workspace,
+        repo: &gix::Repository,
+        meta: &mut impl RefMetadata,
+        db: &mut but_db::DbHandle,
+    ) -> anyhow::Result<Outcome<'ws>> {
+        let branch_commit_id = repo
+            .find_reference(branch)
+            .with_context(|| format!("Cannot unapply non-existing branch '{}'", branch.shorten()))?
+            .peel_to_commit()?
+            .id;
+        let mut changed_workspace = workspace.clone();
+        let mut editor = Editor::create(&mut changed_workspace, meta, repo, db)?;
+        let Some(workspace_commit) = editor
+            .workspace_reference()
+            .and_then(|workspace_reference| editor.workspace_commit(workspace_reference))
+        else {
+            bail_precondition!(
+                "Cannot unapply '{}' outside of a workspace with a workspace commit",
+                branch.shorten()
+            );
+        };
+        let target = workspace
+            .target_commit
+            .as_ref()
+            .map(|target_commit| target_commit.commit_id);
+        if let Some(target) = target
+            && target == branch_commit_id
+        {
+            return Ok(Outcome::new(Cow::Borrowed(workspace)));
+        }
+
+        let workspace_commit_parents = editor.direct_parents(workspace_commit)?;
+        let only_one_parent = workspace_commit_parents.len() == 1;
+        for (parent_selector, _order) in workspace_commit_parents {
+            if editor.find_commit_target(parent_selector)?.1.id == branch_commit_id {
+                editor.remove_edges(workspace_commit, parent_selector)?;
+                if only_one_parent && let Some(target) = editor.target_selector() {
+                    editor.add_edge(workspace_commit, target, 0)?;
+                }
+                editor.rebase()?.materialize(Default::default())?;
+                return Ok(Outcome::new(Cow::Owned(changed_workspace)));
+            }
+        }
+
+        Ok(Outcome::new(Cow::Borrowed(workspace)))
+    }
 
     /// Remove `branch` from `workspace`, updating `repo` and `meta` so the resulting workspace is the inverse of applying that branch.
     ///
