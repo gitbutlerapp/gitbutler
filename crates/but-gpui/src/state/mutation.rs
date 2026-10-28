@@ -1237,46 +1237,13 @@ impl Store {
         done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
         cx: &mut Context<Self>,
     ) {
+        if let Some(why) = self.refusal(project, &overlay) {
+            return self.snack(why, cx);
+        }
         let beside = overlay.kind.beside();
         let remote_only = overlay.remote_only;
-        let taken = self.running_in(project).any(|r| match beside {
-            true => r.overlay.kind == overlay.kind,
-            false => !r.overlay.kind.beside(),
-        });
-        if taken {
-            let why = format!(
-                "Wait for the running operation{} to finish",
-                self.in_project(project)
-            );
-            return self.snack(why, cx);
-        }
         let Label { name, text: label } = label.into();
-        let editing = self
-            .workspace(project)
-            .is_some_and(|ws| ws.editing.is_some());
-        if editing && !overlay.kind.while_editing() {
-            let why = format!(
-                "Finish or cancel editing the commit{} first",
-                self.in_project(project)
-            );
-            return self.snack(why, cx);
-        }
-        // What's shown is what it last read, which an agent's `git merge` onto the workspace
-        // can leave it unable to read again: the operation would act on what's gone, and the
-        // engine can make a commit it then fails to report.
-        let unreadable = (self.project(project)).is_some_and(|p| p.error.is_some())
-            && !(remote_only
-                || matches!(
-                    overlay.kind,
-                    OpKind::Undo(_) | OpKind::Redo(_) | OpKind::Restore
-                ));
-        if unreadable {
-            let why = format!(
-                "Can't read the project{} now; fix what it says first",
-                self.in_project(project)
-            );
-            return self.snack(why, cx);
-        }
+        let editing = (self.workspace(project)).is_some_and(|ws| ws.editing.is_some());
         let Some(path) = self.path(project) else {
             return;
         };
@@ -1483,6 +1450,39 @@ impl Store {
             .ok();
         })
         .detach();
+    }
+
+    /// Why an operation with `overlay` can't start in `project` now, if it can't.
+    fn refusal(&self, project: &ProjectId, overlay: &Overlay) -> Option<String> {
+        let in_project = self.in_project(project);
+        let taken = self
+            .running_in(project)
+            .any(|r| match overlay.kind.beside() {
+                true => r.overlay.kind == overlay.kind,
+                false => !r.overlay.kind.beside(),
+            });
+        if taken {
+            return Some(format!(
+                "Wait for the running operation{in_project} to finish"
+            ));
+        }
+        let editing = (self.workspace(project)).is_some_and(|ws| ws.editing.is_some());
+        if editing && !overlay.kind.while_editing() {
+            return Some(format!(
+                "Finish or cancel editing the commit{in_project} first"
+            ));
+        }
+        // What's shown is what it last read, which an agent's `git merge` onto the workspace
+        // can leave it unable to read again: the operation would act on what's gone, and the
+        // engine can make a commit it then fails to report.
+        let unreadable = (self.project(project)).is_some_and(|p| p.error.is_some())
+            && !(overlay.remote_only
+                || matches!(
+                    overlay.kind,
+                    OpKind::Undo(_) | OpKind::Redo(_) | OpKind::Restore
+                ));
+        unreadable
+            .then(|| format!("Can't read the project{in_project} now; fix what it says first"))
     }
 
     /// Redraw while a mutation runs, so the status bar can say how long it's taking.
