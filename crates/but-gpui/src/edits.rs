@@ -1120,14 +1120,14 @@ impl AppView {
             ),
         };
         self.store.update(cx, |store, cx| {
-            store.run(
+            store.apply(
                 &project,
                 "Unapply",
                 Overlay {
                     branches: stack,
                     ..Overlay::rewriting_main()
                 },
-                move |path| backend::unapply_stack(path, &ref_name),
+                backend::UnapplyStack { branch: ref_name },
                 move |store, (), cx| store.snack_undoable(format!("Unapplied {name}"), cx),
                 cx,
             )

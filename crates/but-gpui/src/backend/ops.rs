@@ -867,16 +867,25 @@ fn move_branch(
 }
 
 /// Take the stack holding `branch` out of the workspace. Its branches stay in the repository.
-pub fn unapply_stack(path: &Path, branch: &FullName) -> Result<()> {
-    let mut ctx = open(path)?;
-    let info = but_api::legacy::workspace::head_info(&ctx)?;
-    let stack_id = info
-        .stacks
-        .iter()
-        .find(|stack| stack.segments.iter().any(|s| holds(s, branch)))
-        .and_then(|stack| stack.id)
-        .context("That branch isn't in the workspace any more")?;
-    but_api::legacy::virtual_branches::unapply_stack(&mut ctx, stack_id)
+pub struct UnapplyStack {
+    pub branch: FullName,
+}
+
+impl Intent for UnapplyStack {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        run.locked(|ctx, perm| {
+            let info = but_api::legacy::workspace::head_info(ctx)?;
+            let stack_id = info
+                .stacks
+                .iter()
+                .find(|stack| stack.segments.iter().any(|s| holds(s, &self.branch)))
+                .and_then(|stack| stack.id)
+                .context("That branch isn't in the workspace any more")?;
+            but_api::legacy::virtual_branches::unapply_stack_with_perm(ctx, stack_id, perm)
+        })
+    }
 }
 
 pub(super) fn holds(segment: &but_workspace::ref_info::Segment, branch: &FullName) -> bool {
