@@ -202,7 +202,8 @@ unseen is what a laptop's battery pays for.
   branch's ref and tip under `checkout/`, and the refs below it under `additional-refs/`. History
   reads those branches' commits from the repository, down to the snapshot's target.
 - PR and CI data come from the forge cache the workspace load already reads, and nothing calls
-  the network to render. CI checks refresh only for applied branches, so cached checks on an
+  the network to render. What the cache doesn't keep, whether a PR can merge and its
+  conversation, the store asks for as the PR tab shows, again each time the forge is asked. CI checks refresh only for applied branches, so cached checks on an
   unapplied branch are stale.
 
 ## Metrics
@@ -382,8 +383,8 @@ Windows CI job lints and tests the one, the Linux lint and test jobs the other.
   is for what's provably in range.
 - What an agent does must not move the row under the pointer: the navigator anchors it
   (`sync_list`), and its order by activity holds while the pointer is over it.
-- Dropped on purpose, so ask before adding them back: PR conversations and management beyond
-  create and merge, editing a commit in the app (the resolver and `but resolve` cover it),
+- Dropped on purpose, so ask before adding them back: writing in PR conversations (replying,
+  reacting, resolving) and managing PRs beyond create and merge, editing a commit in the app (the resolver and `but resolve` cover it),
   moving a commit one step, updating one stack, Locate for a moved project, diff zoom and the
   palette's theme toggle.
 - Format a file on its own with `rustfmt --edition 2024 <file>`: given `lib.rs` or a `mod.rs`,

@@ -9,7 +9,7 @@ use gpui::{Context, Task};
 
 use super::{ProjectId, Reload, Store};
 use crate::backend::reviews::{self, MergeStatus};
-use crate::backend::{self, Checks, Review};
+use crate::backend::{self, Checks, Remark, Review};
 
 /// How long Later puts the update card off. It comes back after, as updates shouldn't wait
 /// for good.
@@ -22,6 +22,15 @@ pub(super) struct MergeRead {
     asked_for: (Option<i64>, Option<i64>, Option<Checks>),
     /// `None` until it answers; why it couldn't, if it couldn't.
     status: Option<Result<MergeStatus, String>>,
+}
+
+/// What the forge said has been written on a pull request, and what it was asked for: when
+/// the forge was last asked about the project, and the request's last change then.
+pub(super) struct ConversationRead {
+    asked_for: (Option<i64>, Option<i64>),
+    /// `None` until it answers. A failure shows only until a read works: after that, what
+    /// was read last stays while the forge can't be asked, which the tab's banner says.
+    said: Option<Result<Vec<Remark>, String>>,
 }
 
 impl Store {
@@ -286,6 +295,65 @@ impl Store {
     ) -> Option<&Result<MergeStatus, String>> {
         (self.merge_reads.get(&(project.clone(), number)))?
             .status
+            .as_ref()
+    }
+
+    /// Ask the forge what's been written on pull request `number` of `project`, last changed
+    /// at `updated_at`, unless it was asked since the forge was last asked about the project,
+    /// with the request as it is. What it said before shows meanwhile. Not while the window is
+    /// hidden, as nobody sees the answer; the reload as it shows again comes back here.
+    pub fn read_conversation(
+        &mut self,
+        project: &ProjectId,
+        number: u64,
+        updated_at: Option<i64>,
+        cx: &mut Context<Self>,
+    ) {
+        if self.hidden {
+            return;
+        }
+        let asked_for = (self.forge_synced(project), updated_at);
+        let key = (project.clone(), number);
+        if (self.conversation_reads.get(&key)).is_some_and(|read| read.asked_for == asked_for) {
+            return;
+        }
+        let Some(path) = self.path(project) else {
+            return;
+        };
+        let said = (self.conversation_reads.remove(&key)).and_then(|read| read.said);
+        (self.conversation_reads).insert(key.clone(), ConversationRead { asked_for, said });
+        cx.spawn(async move |this, cx| {
+            let said = backend::run(move || reviews::conversation(&path, number)).await;
+            this.update(cx, |store, cx| {
+                // Not over what a newer ask found.
+                let Some(read) = (store.conversation_reads.get_mut(&key))
+                    .filter(|read| read.asked_for == asked_for)
+                else {
+                    return;
+                };
+                match said {
+                    Ok(said) => read.said = Some(Ok(said)),
+                    Err(err) if matches!(read.said, Some(Ok(_))) => {
+                        tracing::debug!(number, "couldn't read the conversation again: {err:#}");
+                        return;
+                    }
+                    Err(err) => read.said = Some(Err(format!("{err:#}"))),
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// What the forge last said has been written on pull request `number` of `project`.
+    pub fn conversation(
+        &self,
+        project: &ProjectId,
+        number: u64,
+    ) -> Option<&Result<Vec<Remark>, String>> {
+        (self.conversation_reads.get(&(project.clone(), number)))?
+            .said
             .as_ref()
     }
 

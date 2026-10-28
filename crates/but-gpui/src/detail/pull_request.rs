@@ -6,7 +6,7 @@
 
 use gpui::{
     AnyElement, App, ClickEvent, ClipboardItem, Context, Div, Hsla, MouseButton, Role,
-    ScrollHandle, SharedString, Stateful, Toggled, Window, div, prelude::*,
+    ScrollHandle, SharedString, Stateful, Toggled, Window, div, list, prelude::*,
 };
 
 use super::Detail;
@@ -25,7 +25,7 @@ use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, ago, button, count_badge, dot, dp, dropdown_button, duration,
     h_flex, icon, keep_focus_on_press, local_time, muted, now, plural, relative_time, shortcut,
-    small_icon, tab_stop, v_flex,
+    small_icon, switch_grounds, switch_spring, tab_stop, v_flex,
 };
 
 /// How tall the tabs over the diff beside a list are.
@@ -80,7 +80,7 @@ impl Detail {
     fn set_review_tab(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {
         self.review_tab = on;
         self.focus_files(window, cx);
-        self.read_merge_status(cx);
+        self.ask_forge(cx);
     }
 
     /// The selected branch and its pull request, while the tab shows it open: what the merge
@@ -101,9 +101,37 @@ impl Detail {
         applies.then_some((project, ref_name, review))
     }
 
+    /// Have the store ask the forge, when it hasn't lately, what the tab shows that the forge
+    /// cache doesn't keep: whether the pull request can merge, and what's been said on it.
+    pub(super) fn ask_forge(&self, cx: &mut Context<Self>) {
+        self.read_merge_status(cx);
+        self.read_conversation(cx);
+    }
+
+    /// Have the store ask GitHub what's been said on the pull request the tab shows. Other
+    /// forges' conversations aren't read.
+    fn read_conversation(&self, cx: &mut Context<Self>) {
+        if !self.review_tab {
+            return;
+        }
+        let review = self.selected_review(cx);
+        let (Some(project), Some((number, updated_at))) = (
+            self.selected_project(cx),
+            review.map(|review| (review.number, review.updated_at)),
+        ) else {
+            return;
+        };
+        let store = self.store.read(cx);
+        if store.workspace(&project).and_then(|ws| ws.forge) == Some(Forge::GitHub) {
+            (self.store).update(cx, |store, cx| {
+                store.read_conversation(&project, number, updated_at, cx)
+            });
+        }
+    }
+
     /// Have the store ask the forge whether the pull request the tab shows can merge, for its
     /// merge box, when it hasn't lately.
-    pub(super) fn read_merge_status(&self, cx: &mut Context<Self>) {
+    fn read_merge_status(&self, cx: &mut Context<Self>) {
         let Some((project, _, review)) = self.merge_box_review(cx) else {
             return;
         };
@@ -257,9 +285,10 @@ impl Detail {
         }
     }
 
-    /// The pull request tab, as Lite lays it out: its title, who opened it and its
-    /// description, beside a panel of where it stands, each scrolling on its own. Narrower
-    /// than [`TWO_COLUMNS`], the panel goes between the title and the description.
+    /// The pull request tab, as Lite lays it out: its title, who opened it, its description
+    /// and its conversation, beside a panel of where it stands, each scrolling on its own.
+    /// Narrower than [`TWO_COLUMNS`], the panel goes between the title and the description.
+    /// The column is a list, so a long conversation draws only what's on screen.
     pub(super) fn render_review_tab(
         &self,
         project: &ProjectId,
@@ -269,12 +298,160 @@ impl Detail {
         let Some(review) = self.selected_review(cx) else {
             return div().into_any_element();
         };
+        let two_columns = self.review_width.get() >= TWO_COLUMNS;
+        let (rows, drawn) = (
+            LEAD + self.remarks_shown(project, review.number, cx),
+            self.review_list.item_count(),
+        );
+        // New remarks arrive at the top of the conversation, newest first. A splice there moves
+        // the list's scroll position past them, so the reader stays on the remark they're on.
+        match drawn {
+            0 => self.review_list.reset(rows),
+            _ if rows > drawn => self.review_list.splice(LEAD..LEAD, rows - drawn),
+            _ if rows < drawn => self.review_list.splice(LEAD..LEAD + drawn - rows, 0),
+            _ => {}
+        }
+        let column = scrolled(
+            list(
+                self.review_list.clone(),
+                cx.processor(|this, ix, _, cx| this.review_row(ix, cx)),
+            )
+            .size_full(),
+            "review-scrollbar",
+            Scroll::List(self.review_list.clone()),
+            theme,
+        )
+        .h_full();
+        // Side by side, each scrolls on its own, so neither a long description nor a long
+        // list of checks takes the other out of sight. Narrow, the panel goes between the
+        // title and the description, so the page still opens on what the pull request is.
+        let page = match two_columns {
+            true => h_flex()
+                .size_full()
+                .max_w(dp(1000. + 2. * 24.))
+                .child(column.min_w_0())
+                .child(
+                    scrolling(
+                        "review-side",
+                        "review-side-scrollbar",
+                        self.side(project, review, theme, cx)
+                            .pl(dp(12.))
+                            .pr(dp(24.)),
+                        &self.review_side_scroll,
+                        theme,
+                    )
+                    .flex_none()
+                    .w(dp(12. + PANEL_WIDTH + 24.)),
+                ),
+            false => column,
+        };
+        let width = measured(&self.review_width, &self.app, |bounds| {
+            bounds.size.width.into()
+        });
+        (div().relative().flex_1().min_h_0().w_full())
+            .child(page)
+            .child(width)
+            .into_any_element()
+    }
+
+    /// Row `ix` of the pull request tab's column: its title, the panel when it isn't beside
+    /// the column, its description, the conversation's heading, then each of what's been said.
+    fn review_row(&self, ix: usize, cx: &Context<Self>) -> AnyElement {
+        let (Some(project), Some(review)) = (self.selected_project(cx), self.selected_review(cx))
+        else {
+            return div().into_any_element();
+        };
+        let theme = Theme::get(cx);
+        let two_columns = self.review_width.get() >= TWO_COLUMNS;
+        // Each row's content and the room above it. The list ignores a row's own margins, so
+        // the room and the column's sides go on a row of its own around the content.
+        let (above, content) = match ix {
+            0 => (16., Some(self.head(&project, review, theme, cx))),
+            1 => (
+                20.,
+                (!two_columns).then(|| self.side(&project, review, theme, cx)),
+            ),
+            2 => (
+                if two_columns { 12. } else { 20. },
+                Some(description(review, theme)),
+            ),
+            3 => (24., self.conversation(&project, review, theme, cx)),
+            _ => (
+                6.,
+                self.remark_at(&project, review.number, ix - LEAD, theme, cx),
+            ),
+        };
+        // Not the list's count: the list is borrowed while it draws its rows.
+        let last = ix + 1 == LEAD + self.remarks_shown(&project, review.number, cx);
+        let Some(content) = content else {
+            return div().when(last, |el| el.h(dp(24.))).into_any_element();
+        };
+        match two_columns {
+            true => div().pl(dp(24.)).pr(dp(12.)),
+            false => div().px(dp(24.)),
+        }
+        .pt(dp(above))
+        .when(last, |el| el.pb(dp(24.)))
+        .child(content)
+        .into_any_element()
+    }
+
+    /// The tab's title, who opened it and when it last changed, under a banner when what it
+    /// shows has aged since the forge last answered.
+    fn head(&self, project: &ProjectId, review: &Review, theme: &Theme, cx: &App) -> Div {
+        let (_, stale) = self.freshness(project, review, theme, cx);
+        let title = match review.title.as_str() {
+            "" => format!("Pull request #{}", review.number),
+            title => title.to_owned(),
+        };
+        v_flex()
+            .gap(dp(12.))
+            .children(stale)
+            .child(
+                div()
+                    .text_size(dp(18.))
+                    .line_height(dp(24.))
+                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .child(title),
+            )
+            .children(byline(review, theme))
+    }
+
+    /// The panel of where the pull request stands: its checklist over its card of facts.
+    fn side(&self, project: &ProjectId, review: &Review, theme: &Theme, cx: &Context<Self>) -> Div {
+        let store = self.store.read(cx);
+        let forge =
+            (store.workspace(project).and_then(|ws| ws.forge)).map_or("the forge", Forge::name);
+        let state = store.review_state(project, review);
+        let (fresh, _) = self.freshness(project, review, theme, cx);
+        v_flex()
+            .gap(dp(12.))
+            .children(self.checklist(project, review, state, fresh, theme, cx))
+            .child(self.side_sections(project, review, state, forge, theme, cx))
+    }
+
+    /// How fresh what the tab shows is: a button that asks the forge again, saying when it
+    /// last answered, or once a failed ask has let what shows age, a banner saying so. Neither
+    /// for a merged or closed one, which is settled.
+    fn freshness(
+        &self,
+        project: &ProjectId,
+        review: &Review,
+        theme: &Theme,
+        cx: &App,
+    ) -> (Option<crate::ui::Button>, Option<Stateful<Div>>) {
         let store = self.store.read(cx);
         let forge =
             (store.workspace(project).and_then(|ws| ws.forge)).map_or("the forge", Forge::name);
         // A refresh that changes nothing reloads nothing, so the store's time can be newer.
         let synced = store.forge_synced(project).max(review.synced_at);
         let (checking, failed) = (store.forge_checking(project), store.forge_failed(project));
+        if matches!(
+            store.review_state(project, review),
+            ReviewState::Merged | ReviewState::Closed
+        ) {
+            return (None, None);
+        }
         let ask = {
             let (store, project) = (self.store.clone(), project.clone());
             move |_: &ClickEvent, _: &mut Window, cx: &mut App| {
@@ -283,28 +460,8 @@ impl Detail {
         };
         // A failed refresh is worth a warning only once what shows has aged; until then the
         // button to check again is enough.
-        let stale = failed && synced.is_none_or(|at| now() - at > STALE_AFTER);
-        // A merged or closed one is settled, and asking again is about the open ones.
-        let state = store.review_state(project, review);
-        let settled = matches!(state, ReviewState::Merged | ReviewState::Closed);
-        let fresh = (!stale && !settled).then(|| {
-            button(
-                "review-check",
-                match synced {
-                    _ if checking => "Checking…".to_owned(),
-                    Some(at) => format!("Checked {}", ago(at)),
-                    None => format!("Check {forge}"),
-                },
-            )
-            .icon(Icon::Refresh)
-            .small()
-            .style(ButtonStyle::Ghost)
-            .tooltip(format!("Ask {forge} again"))
-            .disabled_because(checking.then_some("Asking already"))
-            .on_click(ask.clone())
-        });
-        let stale = (stale && !settled).then(|| {
-            warn_banner(
+        if failed && synced.is_none_or(|at| now() - at > STALE_AFTER) {
+            let banner = warn_banner(
                 match synced {
                     Some(at) => format!("Showing what {forge} said {}", ago(at)),
                     None => format!("Showing what {forge} said last"),
@@ -317,73 +474,24 @@ impl Detail {
                         .into_any_element(),
                 ),
                 theme,
-            )
-        });
-        let title = match review.title.as_str() {
-            "" => format!("Pull request #{}", review.number),
-            title => title.to_owned(),
-        };
-        let head = v_flex()
-            .gap(dp(12.))
-            .children(stale)
-            .child(
-                div()
-                    .text_size(dp(18.))
-                    .line_height(dp(24.))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                    .child(title),
-            )
-            .children(byline(review, theme));
-        let side = v_flex()
-            .gap(dp(12.))
-            .children(self.checklist(project, review, state, fresh, theme, cx))
-            .child(self.side_sections(project, review, state, forge, theme, cx));
-        // Side by side, each scrolls on its own, so neither a long description nor a long
-        // list of checks takes the other out of sight. Narrow, the panel goes between the
-        // title and the description, so the page still opens on what the pull request is.
-        let page = match self.review_width.get() >= TWO_COLUMNS {
-            true => h_flex()
-                .size_full()
-                .max_w(dp(1000. + 2. * 24.))
-                .child(
-                    scrolling(
-                        "review",
-                        "review-scrollbar",
-                        (head.pl(dp(24.)).pr(dp(12.))).child(description(review, theme)),
-                        &self.review_scroll,
-                        theme,
-                    )
-                    .min_w_0(),
-                )
-                .child(
-                    scrolling(
-                        "review-side",
-                        "review-side-scrollbar",
-                        side.pl(dp(12.)).pr(dp(24.)),
-                        &self.review_side_scroll,
-                        theme,
-                    )
-                    .flex_none()
-                    .w(dp(12. + PANEL_WIDTH + 24.)),
-                ),
-            false => scrolling(
-                "review",
-                "review-scrollbar",
-                (v_flex().gap(dp(20.)).px(dp(24.)))
-                    .child(head)
-                    .child(side)
-                    .child(description(review, theme)),
-                &self.review_scroll,
-                theme,
-            ),
-        };
-        let width = measured(&self.review_width, &self.app, |bounds| {
-            bounds.size.width.into()
-        });
-        (div().relative().flex_1().min_h_0().w_full())
-            .child(page)
-            .child(width)
-            .into_any_element()
+            );
+            return (None, Some(banner));
+        }
+        let fresh = button(
+            "review-check",
+            match synced {
+                _ if checking => "Checking…".to_owned(),
+                Some(at) => format!("Checked {}", ago(at)),
+                None => format!("Check {forge}"),
+            },
+        )
+        .icon(Icon::Refresh)
+        .small()
+        .style(ButtonStyle::Ghost)
+        .tooltip(format!("Ask {forge} again"))
+        .disabled_because(checking.then_some("Asking already"))
+        .on_click(ask);
+        (Some(fresh), None)
     }
 
     /// What stands between the pull request and merging, as Lite's checklist: where an open
@@ -694,6 +802,11 @@ pub(super) const TWO_COLUMNS: f32 = 720.;
 /// How wide the panel beside the description is, as Lite's.
 const PANEL_WIDTH: f32 = 315.;
 
+/// The rows of the tab's column before what's been said: the title, the panel, empty while it's
+/// beside the column so a change of layout adds or takes no row, the description and the
+/// conversation's heading.
+const LEAD: usize = 4;
+
 /// What the merge button says, merging by `method`, as Lite's.
 fn merge_label(method: Option<MergeMethod>) -> &'static str {
     match method {
@@ -729,6 +842,7 @@ fn headline(merge: &Mergeability, theme: &Theme) -> (SharedString, Hsla, Option<
 /// Auto-merge as Lite's outlined switch button: on while it merges by itself, pressable unless
 /// `why_not` says otherwise.
 fn auto_merge_switch(on: bool, why_not: Option<SharedString>, theme: &Theme) -> Stateful<Div> {
+    use gpui::AnimationExt as _;
     let offer = match on {
         true => Offer::DisableAutoMerge,
         false => Offer::EnableAutoMerge,
@@ -738,6 +852,7 @@ fn auto_merge_switch(on: bool, why_not: Option<SharedString>, theme: &Theme) -> 
         false => "Merge it by itself once its required checks and reviews pass".into(),
     });
     let enabled = why_not.is_none();
+    let [off_ground, on_ground] = switch_grounds(theme);
     let el = h_flex()
         .id("auto-merge")
         .role(Role::Switch)
@@ -759,13 +874,17 @@ fn auto_merge_switch(on: bool, why_not: Option<SharedString>, theme: &Theme) -> 
                 .h(dp(12.))
                 .p(dp(2.))
                 .rounded_full()
-                .bg(if on {
-                    theme.pop_bg
-                } else {
-                    theme.fill_gray.opacity(0.22)
-                })
-                .when(on, |el| el.justify_end())
-                .child(div().size(dp(8.)).rounded_full().bg(gpui::white())),
+                .with_spring("track", switch_spring(on), move |el, phase| {
+                    el.bg(phase.interpolate_clamped(off_ground, on_ground))
+                        .child(
+                            div()
+                                // The track's width, less its padding and the knob.
+                                .ml(phase.interpolate_clamped(dp(0.), dp(8.)))
+                                .size(dp(8.))
+                                .rounded_full()
+                                .bg(gpui::white()),
+                        )
+                }),
         )
         .child("Auto-merge")
         .tooltip(move |window, cx| {
@@ -867,8 +986,8 @@ fn scrolling(
     scrolled(column, bar, Scroll::Div(scroll.clone()), theme).h_full()
 }
 
-/// A card of the side panel, as Lite's.
-fn card(theme: &Theme) -> Div {
+/// A card of the side panel or the conversation, as Lite's.
+pub(super) fn card(theme: &Theme) -> Div {
     v_flex()
         .rounded(dp(6.))
         .border_1()
@@ -899,10 +1018,11 @@ fn side_section(heading: &'static str, action: Option<AnyElement>, theme: &Theme
         )
 }
 
-/// Its state as a tinted badge, and its number, which opens it on the forge.
-fn status_section(review: &Review, state: ReviewState, forge: &str, theme: &Theme) -> Div {
-    let (glyph, color) = ui_review::state_glyph(state, theme);
-    let badge = h_flex()
+/// A badge of a word or two on a ground tinted `color`, as Lite's: a pull request's state, a
+/// review's verdict.
+pub(super) fn tag(color: Hsla) -> Div {
+    h_flex()
+        .flex_none()
         .h(dp(20.))
         .px(dp(7.))
         .gap(dp(4.))
@@ -911,6 +1031,12 @@ fn status_section(review: &Review, state: ReviewState, forge: &str, theme: &Them
         .text_color(color)
         .text_size(dp(12.))
         .font_weight(gpui::FontWeight::SEMIBOLD)
+}
+
+/// Its state as a tinted badge, and its number, which opens it on the forge.
+fn status_section(review: &Review, state: ReviewState, forge: &str, theme: &Theme) -> Div {
+    let (glyph, color) = ui_review::state_glyph(state, theme);
+    let badge = tag(color)
         .child(small_icon(glyph).size(dp(12.)).text_color(color))
         .child(ui_review::state_label(state));
     let link = review.url.clone().map(|url| {
