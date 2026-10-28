@@ -800,7 +800,7 @@ impl Intent for StackBranch {
 
     fn apply(self, run: &mut Run) -> Result<Self::Done> {
         let onto = RelativeTo::Reference(self.onto);
-        move_branch(run, &self.branch, onto, InsertSide::Above)
+        move_branch(run, &self.branch, Some((onto, InsertSide::Above)))
     }
 }
 
@@ -816,18 +816,34 @@ impl Intent for MoveBranchBelow {
 
     fn apply(self, run: &mut Run) -> Result<Self::Done> {
         let below = RelativeTo::Commit(self.commit.0);
-        move_branch(run, &self.branch, below, InsertSide::Below)
+        move_branch(run, &self.branch, Some((below, InsertSide::Below)))
     }
 }
 
-/// Move `branch` to `side` of `relative_to`, saying which branches it left with conflicted
-/// commits they didn't have, each with how many.
+/// Take `branch` out of its stack into a stack of its own.
+pub struct TearOffBranch {
+    pub branch: FullName,
+}
+
+impl Intent for TearOffBranch {
+    type Done = Vec<(Option<FullName>, usize)>;
+
+    fn apply(self, run: &mut Run) -> Result<Self::Done> {
+        move_branch(run, &self.branch, None)
+    }
+}
+
+/// Move `branch` to `side` of `relative_to`, or into a stack of its own without a place,
+/// saying which branches it left with conflicted commits they didn't have, each with how many.
 fn move_branch(
     run: &mut Run,
     branch: &FullName,
-    relative_to: RelativeTo,
-    side: InsertSide,
+    to: Option<(RelativeTo, InsertSide)>,
 ) -> Result<Vec<(Option<FullName>, usize)>> {
+    let kind = match to {
+        Some(_) => OperationKind::MoveBranch,
+        None => OperationKind::TearOffBranch,
+    };
     run.locked(|ctx, perm| {
         let before = but_api::legacy::workspace::head_info(ctx)?;
         let mut meta = ctx.meta()?;
@@ -835,39 +851,19 @@ fn move_branch(
             ctx,
             &mut meta,
             perm,
-            SnapshotDetails::new(OperationKind::MoveBranch),
+            SnapshotDetails::new(kind),
             &[],
             DryRun::No,
-            |mut tx| tx.move_branch(branch.as_ref(), relative_to, side),
+            |mut tx| match to {
+                Some((relative_to, side)) => tx.move_branch(branch.as_ref(), relative_to, side),
+                None => tx.tear_off_branch(branch.as_ref()),
+            },
         )?;
         Ok(super::upstream::newly_conflicted(
             &before,
             &moved.conflicted_commits,
         ))
     })
-}
-
-/// Take `branch` out of its stack into a stack of its own.
-pub fn tear_off_branch(path: &Path, branch: &FullName) -> Result<Vec<(Option<FullName>, usize)>> {
-    move_branch_with(path, |ctx| {
-        but_api::branch::tear_off_branch(ctx, branch.as_ref(), DryRun::No)
-    })
-}
-
-/// Move a branch with `op`, saying which branches (full refs, `None` for an unnamed one) it
-/// left with conflicted commits they didn't have, each with how many: a branch's commits
-/// rebased onto others' can conflict.
-fn move_branch_with(
-    path: &Path,
-    op: impl FnOnce(&mut but_ctx::Context) -> Result<but_api::branch::MoveBranchResult>,
-) -> Result<Vec<(Option<FullName>, usize)>> {
-    let mut ctx = open(path)?;
-    let before = but_api::legacy::workspace::head_info(&ctx)?;
-    let moved = op(&mut ctx)?;
-    Ok(super::upstream::newly_conflicted(
-        &before,
-        &moved.workspace.conflicted_commits,
-    ))
 }
 
 /// Take the stack holding `branch` out of the workspace. Its branches stay in the repository.
@@ -3736,7 +3732,10 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                     below: false,
                 };
                 crate::backend::apply(path, at_api).unwrap();
-                tear_off_branch(path, &full("refs/heads/top")).unwrap()
+                let top = full("refs/heads/top");
+                crate::backend::apply(path, TearOffBranch { branch: top })
+                    .unwrap()
+                    .0
             };
             assert_eq!(
                 unstacked("api.txt"),

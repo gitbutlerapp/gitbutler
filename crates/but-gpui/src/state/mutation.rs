@@ -1064,11 +1064,11 @@ impl Store {
 
     /// Take `branch` out of the stack it shares into a stack of its own.
     pub fn unstack(&mut self, project: &ProjectId, branch: FullName, cx: &mut Context<Self>) {
-        self.run(
+        self.apply(
             project,
             "Unstack",
             Overlay::default(),
-            move |path| backend::tear_off_branch(path, &branch),
+            backend::TearOffBranch { branch },
             |store, conflicted, cx| {
                 store.snack_undoable(branch_moved("Moved to its own stack", &conflicted), cx)
             },
