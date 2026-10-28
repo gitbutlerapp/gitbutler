@@ -3817,7 +3817,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     }
 
     #[test]
-    fn a_hunk_discard_queued_behind_another_in_its_file_asks_to_try_again() {
+    fn a_hunk_discard_read_before_another_in_its_file_asks_to_try_again() {
         but_testsupport::isolated_app_data_dir(|| {
             let lines: Vec<String> = twenty_lines();
             let dir = repo_with(&lines.concat());
