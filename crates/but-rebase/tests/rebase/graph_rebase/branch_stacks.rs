@@ -2,7 +2,7 @@ use anyhow::Result;
 use but_core::{RefMetadata as _, RepositoryExt as _, ref_metadata::ProjectMeta};
 use but_graph::Graph;
 use but_meta::{BranchOrderMetadata, VirtualBranchesTomlMetadata};
-use but_rebase::graph_rebase::{Editor, Step, mutate::InsertSide, testing::Testing as _};
+use but_rebase::graph_rebase::{Editor, Pick, Step, mutate::InsertSide, testing::Testing as _};
 use but_testsupport::{StackState, graph_tree, invoke_bash};
 use gix::prelude::ObjectIdExt as _;
 
@@ -600,7 +600,7 @@ fn materializing_rebuilds_the_workspace_stacks() -> Result<()> {
         .meta
         .workspace("refs/heads/gitbutler/workspace".try_into()?)?;
     // `stack-b` keeps its id, `stack-a` is new to the metadata and precedes it as the first parent
-    // of the workspace commit, and what isn't a parent of the workspace commit is gone.
+    // of the workspace commit, and what isn't a parent of the workspace commit stays outside of it.
     snapbox::assert_data_eq!(
         format!("{:#?}", workspace.stacks),
         snapbox::str![[r#"
@@ -624,6 +624,20 @@ fn materializing_rebuilds_the_workspace_stacks() -> Result<()> {
             },
         ],
         workspacecommit_relation: Merged,
+    },
+    WorkspaceStack {
+        id: 00000000-0000-0000-0000-000000000001,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/unapplied",
+                archived: false,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/below",
+                archived: false,
+            },
+        ],
+        workspacecommit_relation: Outside,
     },
 ]
 "#]]

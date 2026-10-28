@@ -54,7 +54,7 @@ impl BranchStacks {
         let workspace_ref: FullName = WORKSPACE_REF_NAME.try_into()?;
         let mut workspace = meta.workspace(workspace_ref.as_ref())?;
         let mut kept_ids = HashSet::new();
-        workspace.stacks = stacks
+        let lanes: Vec<WorkspaceStack> = stacks
             .iter()
             .map(|branches| WorkspaceStack {
                 id: branches
@@ -79,6 +79,33 @@ impl BranchStacks {
                 workspacecommit_relation: WorkspaceCommitRelation::Merged,
             })
             .collect();
+        let held: HashSet<&FullName> = lanes
+            .iter()
+            .flat_map(|stack| stack.branches.iter().map(|branch| &branch.ref_name))
+            .chain(self.ad_hoc.iter().flatten())
+            .collect();
+        let outside: Vec<WorkspaceStack> = workspace
+            .stacks
+            .iter()
+            .filter(|stack| !kept_ids.contains(&stack.id))
+            .filter_map(|stack| {
+                let branches: Vec<WorkspaceStackBranch> = stack
+                    .branches
+                    .iter()
+                    .filter(|branch| {
+                        !held.contains(&branch.ref_name)
+                            && !self.removed_references.contains(&branch.ref_name)
+                    })
+                    .cloned()
+                    .collect();
+                (!branches.is_empty()).then(|| WorkspaceStack {
+                    id: stack.id,
+                    branches,
+                    workspacecommit_relation: WorkspaceCommitRelation::Outside,
+                })
+            })
+            .collect();
+        workspace.stacks = lanes.into_iter().chain(outside).collect();
         Ok(Some(workspace))
     }
 
