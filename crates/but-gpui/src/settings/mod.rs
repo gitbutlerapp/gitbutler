@@ -51,10 +51,11 @@ enum AppPage {
     Git,
     Integrations,
     Experimental,
+    Developer,
 }
 
 impl AppPage {
-    const ALL: [AppPage; 7] = [
+    const ALL: [AppPage; 8] = [
         AppPage::General,
         AppPage::Appearance,
         AppPage::Keyboard,
@@ -62,7 +63,15 @@ impl AppPage {
         AppPage::Git,
         AppPage::Integrations,
         AppPage::Experimental,
+        AppPage::Developer,
     ];
+
+    /// The pages this build has: Developer only in a build of its own, not a nightly or a
+    /// release.
+    fn shown() -> impl Iterator<Item = AppPage> {
+        let dev = backend::dev_build();
+        (AppPage::ALL.into_iter()).filter(move |page| dev || *page != AppPage::Developer)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -99,6 +108,7 @@ impl Page {
             Page::App(AppPage::Git) | Page::Project(_, ProjectPage::Git) => "Git",
             Page::App(AppPage::Integrations) => "Integrations",
             Page::App(AppPage::Experimental) => "Experimental",
+            Page::App(AppPage::Developer) => "Developer",
             Page::Project(_, ProjectPage::Project) => "Project",
         }
     }
@@ -112,6 +122,7 @@ impl Page {
             Page::App(AppPage::Git) | Page::Project(_, ProjectPage::Git) => Icon::Pr,
             Page::App(AppPage::Integrations) => Icon::Plug,
             Page::App(AppPage::Experimental) => Icon::Lab,
+            Page::App(AppPage::Developer) => Icon::TextCode,
             Page::Project(_, ProjectPage::Project) => Icon::Mixer,
         }
     }
@@ -246,7 +257,7 @@ pub struct SettingsView {
     /// its own results show.
     _credentials_test: Task<()>,
     recording: Option<keyboard::Recording>,
-    app_links: [Link; AppPage::ALL.len()],
+    app_links: Vec<Link>,
     /// Each listed project's row, and its Project page's link while it's shown.
     project_focus: HashMap<ProjectId, FocusHandle>,
     /// The shown project's Git page's link.
@@ -328,7 +339,9 @@ impl SettingsView {
             credentials: None,
             _credentials_test: Task::ready(()),
             recording: None,
-            app_links: AppPage::ALL.map(|page| Link::new(Page::App(page), cx)),
+            app_links: (AppPage::shown())
+                .map(|page| Link::new(Page::App(page), cx))
+                .collect(),
             project_focus: HashMap::new(),
             project_git_focus: cx.focus_handle().tab_stop(true),
             more: unwatched,
@@ -736,6 +749,19 @@ impl SettingsView {
         ))
     }
 
+    fn fps_row(&self, cx: &Context<Self>) -> Row {
+        let on = self.store.read(cx).prefs.show_fps;
+        Row::new(
+            "Show FPS",
+            "The frames drawn in the last second, in the window's top right corner. When a \
+             frame of the last three seconds was much slower, its pace shows beside them in \
+             amber. While it shows, the window draws every frame it can, so a slow view brings \
+             them down.",
+            self.pref_switch("show-fps", on, |p| p.show_fps ^= true, cx),
+        )
+        .with_keywords("frames per second performance")
+    }
+
     /// Escape in a field puts it back and goes to the search box, where Escape closes.
     fn back_to_search(&self, window: &mut Window, cx: &mut Context<Self>) {
         window.focus(&self.search.focus_handle(cx), cx);
@@ -767,6 +793,7 @@ impl SettingsView {
                     .flatten();
                 vec![Card::new(None, start.into_iter().collect())]
             }
+            Page::App(AppPage::Developer) => vec![Card::new(None, vec![self.fps_row(cx)])],
             Page::Project(project, page) => self.project_cards(project, *page, window, cx),
         };
         // Nothing for a card with no rows yet, as before what it shows has loaded.
@@ -823,11 +850,7 @@ impl SettingsView {
         let project = (self.page.project().cloned())
             .into_iter()
             .flat_map(|project| ProjectPage::ALL.map(|page| Page::Project(project.clone(), page)));
-        AppPage::ALL
-            .map(Page::App)
-            .into_iter()
-            .chain(project)
-            .collect()
+        AppPage::shown().map(Page::App).chain(project).collect()
     }
 
     /// What a page is called where it isn't under its group's heading: a project's by the

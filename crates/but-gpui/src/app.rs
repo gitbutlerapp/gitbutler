@@ -102,6 +102,8 @@ pub struct AppView {
     pub(crate) rebuild: Option<backend::rebuild::Rebuild>,
     /// The build under way or last ended, and what shows it when it fails out of sight.
     pub(crate) building: Option<(Entity<crate::rebuild::BuildOutput>, Subscription)>,
+    /// The frames drawn each second, drawn over everything while `Prefs::show_fps` is on.
+    fps: Entity<crate::fps::Fps>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -255,6 +257,7 @@ impl AppView {
             recent_commands: Vec::new(),
             rebuild: backend::rebuild::Rebuild::detect(),
             building: None,
+            fps: cx.new(|_| crate::fps::Fps::default()),
             _subscriptions: subscriptions,
         }
     }
@@ -996,6 +999,7 @@ impl Render for AppView {
         crate::ui::Covered::note(self.covered(), window, cx);
         let theme = Theme::get(cx).clone();
         let ligatures = self.store.read(cx).prefs.ligatures;
+        let show_fps = self.store.read(cx).prefs.show_fps;
         let has_update_feed = cx
             .try_global::<crate::Embedded>()
             .is_some_and(|e| e.update_feed.is_some());
@@ -1244,7 +1248,9 @@ impl Render for AppView {
             // Last, so the window can be closed while a modal or menu is open.
             .when(crate::ui::draws_window_controls(window), |el| {
                 el.child(crate::ui::window_controls::window_controls(window, cx))
-            });
+            })
+            // Over everything, and it takes no clicks, as it has no hitbox.
+            .when(show_fps, |el| el.child(self.fps.clone()));
         crate::ui::window_frame::window_frame(root, window, cx)
     }
 }
