@@ -501,14 +501,14 @@ impl Store {
             .get(project)
             .cloned()
             .unwrap_or_default();
-        self.run(
+        self.apply(
             project,
             "Restore",
             Overlay {
                 kind: OpKind::Restore,
                 ..Overlay::rewriting_main()
             },
-            move |path| backend::history::restore(path, snapshot, &kept),
+            backend::history::Restore { snapshot, kept },
             |store, (), cx| store.snack_undoable("Restored", cx),
             cx,
         );

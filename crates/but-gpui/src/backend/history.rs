@@ -515,21 +515,35 @@ fn compare(before: &Branches, after: &Branches) -> Vec<Change> {
 const UNRECORDED: &str = "GitButler's history records only the workspace and the main \
     checkout, not linked worktrees or branches outside it. Change it back by hand instead.";
 
-/// Put the project back to how it was before the operation `id` was taken for, refusing
+/// Put the project back to how it was before the operation `snapshot` was taken for, refusing
 /// when that takes back one of `kept`, as undo does. The restore is itself recorded, so it
 /// can be undone.
-pub fn restore(path: &Path, id: SnapshotId, kept: &HashSet<SnapshotId>) -> Result<()> {
-    let mut ctx = open(path)?;
-    super::ops::refuse_unfinished(&*ctx.repo.get()?, false)?;
-    // Each snapshot is made on the one before, so one taken since `id` has it as its base.
-    let repo = ctx.repo.get()?;
-    let since =
-        |snapshot: &SnapshotId| super::is_ancestor(&repo, id.0, snapshot.0).unwrap_or(false);
-    if kept.iter().any(since) {
-        bail!(UNRECORDED);
+pub struct Restore {
+    pub snapshot: SnapshotId,
+    pub kept: HashSet<SnapshotId>,
+}
+
+impl Intent for Restore {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        let Self { snapshot, kept } = self;
+        run.locked(|ctx, perm| {
+            let repo = ctx.repo.get()?;
+            super::ops::refuse_unfinished(&repo, false)?;
+            // Each snapshot is made on the one before, so one taken since `snapshot` has it as
+            // its base.
+            let since = |later: &SnapshotId| {
+                super::is_ancestor(&repo, snapshot.0, later.0).unwrap_or(false)
+            };
+            if kept.iter().any(since) {
+                bail!(UNRECORDED);
+            }
+            drop(repo);
+            let kind = RestoreKind::ExplicitRestoreFromSnapshot;
+            oplog::restore_snapshot_with_kind_with_perm(ctx, kind, snapshot.0, perm)
+        })
     }
-    drop(repo);
-    oplog::restore_snapshot_with_kind(&mut ctx, RestoreKind::ExplicitRestoreFromSnapshot, id.0)
 }
 
 /// Record the project as it is now, with what it's for when `message` says.
