@@ -97,6 +97,8 @@ where
 ///
 /// The snapshot also preserves `snapshot_refs`, so undo restores each or, if it did not exist
 /// yet, deletes it. See [`but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm`].
+/// Recording it is best-effort: a transaction that landed succeeds even when its oplog entry
+/// can't be written, so it can't be undone.
 pub fn with_transaction_with_perm<M, F, T>(
     ctx: &mut Context,
     meta: &mut M,
@@ -121,8 +123,11 @@ where
 
     let (should_rollback, outcome) = with_transaction_with_perm_only(ctx, meta, perm, dry_run, f)?;
 
-    if !should_rollback && let Some(snapshot) = maybe_oplog_entry {
-        snapshot.commit(ctx, perm)?;
+    if !should_rollback
+        && let Some(snapshot) = maybe_oplog_entry
+        && let Err(err) = snapshot.commit(ctx, perm)
+    {
+        tracing::warn!(?err, "couldn't record the transaction in the oplog");
     }
 
     Ok(outcome)

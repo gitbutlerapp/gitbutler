@@ -21,6 +21,7 @@ but-graph.workspace = true
 gix.workspace = true
 anyhow.workspace = true
 bstr.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 but-api = { workspace = true, features = ["legacy"] }
