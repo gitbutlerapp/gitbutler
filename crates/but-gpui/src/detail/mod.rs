@@ -2005,7 +2005,7 @@ impl Detail {
         let Some(file) = diff.files.get(file_ix) else {
             return;
         };
-        // A conflicted file's hunk has no discard button either: it goes whole or not at all.
+        // A conflicted file's hunk can't be discarded alone: it goes whole or not at all.
         if !self.shown_files().contains(&file_ix) || (hunk.is_some() && file.file.conflicted) {
             return;
         }

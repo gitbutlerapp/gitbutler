@@ -1,6 +1,5 @@
 //! The diff column: every changed file as a card, built row by row so only what's on
-//! screen is laid out. Uncommitted hunks carry a Discard button while under the cursor or
-//! the pointer, as in Zed's agent review, a linked worktree's too.
+//! screen is laid out.
 
 use std::ops::Range;
 use std::rc::Rc;
@@ -19,24 +18,22 @@ use super::file_list::At;
 use super::find::Spot;
 use super::lines::Pick;
 use super::{
-    Cursor, Detail, DiscardHunk, FILES_POPOVER_DELAY, FileLines, LoadedDiff, TextPoint,
-    ToggleFiles, TogglePlainLines, ToggleSplit, ToggleWrap,
+    Cursor, Detail, FILES_POPOVER_DELAY, FileLines, LoadedDiff, TextPoint, ToggleFiles,
+    TogglePlainLines, ToggleSplit, ToggleWrap,
 };
-use crate::app::AppHandle;
 use crate::backend::{
-    self, Branch, ChangeKind, Checkout, DiffBody, DiffLine, DiffSource, Drawing, FileDiff, HunkKey,
-    LineKind, PushState, Selected, Workspace,
+    self, Branch, ChangeKind, DiffBody, DiffLine, DiffSource, Drawing, FileDiff, HunkKey, LineKind,
+    PushState, Workspace,
 };
 use crate::overlays::MenuItem;
-use crate::state::{Cut, Prefs, ProjectId, Selection};
+use crate::state::{Cut, Prefs, Selection};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::illustration::Illustration;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, button, checkbox, commit_title, count_badge, dp, empty_state,
-    fixed, h_flex, icon, icon_button, icon_toggle, segmented, shortcut, small_icon, toggle_group,
-    v_flex,
+    Icon, Tooltip, checkbox, commit_title, count_badge, dp, empty_state, fixed, h_flex, icon,
+    icon_button, icon_toggle, segmented, shortcut, small_icon, toggle_group, v_flex,
 };
 
 /// The diff, drawn by a view of its own over the space [`Detail`] leaves for it. A scrolled
@@ -986,26 +983,6 @@ impl Detail {
                         })
                         .into_any_element()
                 });
-                // What discarding this hunk means, fixed now: by the time a click lands, a
-                // reload may have moved other hunks into this row's indices.
-                // A conflicted file goes whole or not at all; see `backend::DiscardChanges`.
-                // Of a hunk with lines picked, just those, as ⌥⌘Z takes.
-                let discard = (diff.key.source.live() && !file_diff.file.conflicted).then(|| {
-                    let picked: std::collections::BTreeSet<usize> = (0..found.lines.len())
-                        .filter(|line| self.line_picked(path, key, *line))
-                        .collect();
-                    let (keys, tip) = match picked.is_empty() {
-                        true => (vec![key], "Throw this hunk away"),
-                        false => (
-                            self.part_keys(found, &picked),
-                            "Throw the picked lines away",
-                        ),
-                    };
-                    let change = file_diff.part(Some(keys));
-                    let checkout = (diff.key.project.clone(), diff.key.files_checkout());
-                    let app = self.app.clone();
-                    discard_button(ix, checkout, change, current && solid, tip, app, cx)
-                });
                 let (unmodified, named) = self.hunk_title(file_diff, hunk);
                 let header = diff::hunk_header(
                     found,
@@ -1014,7 +991,6 @@ impl Detail {
                     theme,
                     HeaderDecor {
                         leading,
-                        trailing: discard,
                         excluded: composing && !self.checks.hunk_checked(path, key),
                         current,
                         solid,
@@ -1025,7 +1001,6 @@ impl Detail {
                 let (whole, dragged) = (entity.clone(), entity.clone());
                 padded
                     .id(("hunk", ix))
-                    .group("hunk-row")
                     .child(header)
                     .on_mouse_down(MouseButton::Right, {
                         let open = menu(carried.clone(), file_diff, Some(key), entity);
@@ -1655,40 +1630,6 @@ fn line_select(ix: usize, entity: WeakEntity<Detail>, follow: Option<Point<Pixel
         }),
         follow,
     }
-}
-
-/// Discard for an uncommitted hunk, of a project's main checkout or linked worktree, shown
-/// on the hunk under the cursor and on the one under the pointer: of what `change` has,
-/// which `tip` says.
-fn discard_button(
-    ix: usize,
-    (project, checkout): (ProjectId, Checkout),
-    change: Selected,
-    current: bool,
-    tip: &'static str,
-    app: AppHandle,
-    cx: &App,
-) -> AnyElement {
-    div()
-        .flex_none()
-        .font_family(Theme::get(cx).ui_font.clone())
-        .when(!current, |el| {
-            el.invisible().group_hover("hunk-row", |el| el.visible())
-        })
-        .child(
-            button(("hunk-discard", ix), "Discard")
-                .small()
-                .style(ButtonStyle::Ghost)
-                .tooltip_for(tip, &DiscardHunk)
-                .on_click(move |_, window, cx| {
-                    let (project, checkout) = (project.clone(), checkout.clone());
-                    let changes = vec![change.clone()];
-                    app.update_later(window, cx, move |app, window, cx| {
-                        app.discard(project, checkout, changes, window, cx)
-                    });
-                }),
-        )
-        .into_any_element()
 }
 
 /// The word around byte `ix` of `text`, or an empty range when `ix` isn't in one.
