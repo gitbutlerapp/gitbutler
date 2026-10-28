@@ -416,11 +416,11 @@ impl Transfer {
                 },
                 cx,
             ),
-            Transfer::BranchBelow { branch, commit } => store.run(
+            Transfer::BranchBelow { branch, commit } => store.apply(
                 project,
                 label,
                 Overlay::default(),
-                move |path| backend::move_branch_below(path, &branch, commit),
+                backend::MoveBranchBelow { branch, commit },
                 move |store, conflicted, cx| {
                     store.snack_undoable(branch_moved("Branch moved", &conflicted), cx)
                 },

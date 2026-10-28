@@ -789,8 +789,7 @@ impl Intent for CreateBranchAtCommit {
     }
 }
 
-/// Stack `branch` on top of `onto`, with the branches above it, saying which branches it left
-/// with conflicted commits they didn't have, each with how many.
+/// Stack `branch` on top of `onto`, with the branches above it.
 pub struct StackBranch {
     pub branch: FullName,
     pub onto: FullName,
@@ -800,48 +799,51 @@ impl Intent for StackBranch {
     type Done = Vec<(Option<FullName>, usize)>;
 
     fn apply(self, run: &mut Run) -> Result<Self::Done> {
-        let Self { branch, onto } = self;
-        run.locked(|ctx, perm| {
-            let before = but_api::legacy::workspace::head_info(ctx)?;
-            let mut meta = ctx.meta()?;
-            let moved = but_transaction::with_transaction_with_perm(
-                ctx,
-                &mut meta,
-                perm,
-                SnapshotDetails::new(OperationKind::MoveBranch),
-                &[],
-                DryRun::No,
-                |mut tx| {
-                    tx.move_branch(
-                        branch.as_ref(),
-                        RelativeTo::Reference(onto),
-                        InsertSide::Above,
-                    )
-                },
-            )?;
-            Ok(super::upstream::newly_conflicted(
-                &before,
-                &moved.conflicted_commits,
-            ))
-        })
+        let onto = RelativeTo::Reference(self.onto);
+        move_branch(run, &self.branch, onto, InsertSide::Above)
     }
 }
 
 /// Move `branch` right below `commit`, the last commit of the branch it then sits under.
 /// Below that branch's reference instead, `branch` would take over its commits.
-pub fn move_branch_below(
-    path: &Path,
+pub struct MoveBranchBelow {
+    pub branch: FullName,
+    pub commit: CommitId,
+}
+
+impl Intent for MoveBranchBelow {
+    type Done = Vec<(Option<FullName>, usize)>;
+
+    fn apply(self, run: &mut Run) -> Result<Self::Done> {
+        let below = RelativeTo::Commit(self.commit.0);
+        move_branch(run, &self.branch, below, InsertSide::Below)
+    }
+}
+
+/// Move `branch` to `side` of `relative_to`, saying which branches it left with conflicted
+/// commits they didn't have, each with how many.
+fn move_branch(
+    run: &mut Run,
     branch: &FullName,
-    commit: CommitId,
+    relative_to: RelativeTo,
+    side: InsertSide,
 ) -> Result<Vec<(Option<FullName>, usize)>> {
-    move_branch_with(path, |ctx| {
-        but_api::branch::move_branch(
+    run.locked(|ctx, perm| {
+        let before = but_api::legacy::workspace::head_info(ctx)?;
+        let mut meta = ctx.meta()?;
+        let moved = but_transaction::with_transaction_with_perm(
             ctx,
-            branch.as_ref(),
-            RelativeTo::Commit(commit.0),
-            InsertSide::Below,
+            &mut meta,
+            perm,
+            SnapshotDetails::new(OperationKind::MoveBranch),
+            &[],
             DryRun::No,
-        )
+            |mut tx| tx.move_branch(branch.as_ref(), relative_to, side),
+        )?;
+        Ok(super::upstream::newly_conflicted(
+            &before,
+            &moved.conflicted_commits,
+        ))
     })
 }
 
