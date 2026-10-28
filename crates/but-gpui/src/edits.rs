@@ -1023,7 +1023,7 @@ impl AppView {
         let Some(into) = into.filter(|id| store.picked.contains(id)).or(oldest) else {
             return;
         };
-        let rest: Vec<_> = picked.into_iter().filter(|id| *id != into).collect();
+        let rest: Arc<[_]> = picked.into_iter().filter(|id| *id != into).collect();
         if rest.is_empty() {
             return;
         }

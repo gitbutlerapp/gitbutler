@@ -1147,7 +1147,7 @@ impl Store {
     pub fn squash(
         &mut self,
         project: &ProjectId,
-        ids: Vec<CommitId>,
+        ids: Arc<[CommitId]>,
         into: CommitId,
         cx: &mut Context<Self>,
     ) {

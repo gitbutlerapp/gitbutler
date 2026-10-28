@@ -865,7 +865,7 @@ impl Intent for MoveCommits {
 
 /// Squash `commits`, newest first as picked, into `into`, keeping every message.
 pub struct Squash {
-    pub commits: Vec<CommitId>,
+    pub commits: Arc<[CommitId]>,
     pub into: CommitId,
 }
 
@@ -3348,7 +3348,7 @@ pub(super) mod tests {
             let before = crate::backend::history::oplog_head(&open(path).unwrap());
 
             let squash = Squash {
-                commits: vec![third, second],
+                commits: [third, second].into(),
                 into: edit,
             };
             let (rewritten, ran) = crate::backend::apply(path, squash).unwrap();

@@ -424,7 +424,7 @@ impl Transfer {
                 },
                 cx,
             ),
-            Transfer::Squash { ids, into } => store.squash(project, ids.to_vec(), into, cx),
+            Transfer::Squash { ids, into } => store.squash(project, ids, into, cx),
             Transfer::Amend {
                 into,
                 files,
