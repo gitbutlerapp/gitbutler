@@ -3,9 +3,8 @@
 The visual language of every GitButler app built on `@gitbutler/ui-react`,
 desktop or web: enough to make an on-brand choice without opening Figma. The
 rules hold for any app; the examples are GitButler's own surfaces. What one app
-decides for itself lives in its own design notes (Lite's are
-`apps/lite/DESIGN.md`); the tooling that enforces the rules lives in
-`AGENTS.md` beside this file.
+decides for itself lives in its own design notes; the tooling that enforces
+the rules lives in `AGENTS.md` beside this file.
 
 The Figma library is ⚛️ Core, the library for every app. 💎 Core is a
 different library, for the Svelte desktop app.

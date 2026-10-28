@@ -36,7 +36,6 @@ jobs:
               - '!deny.toml'
               - '!scripts/**'
               - '!apps/web/**'
-              - '!apps/lite/**'
               - '!crates/but/**'
               - '!crates/but-clap/**'
               - '!crates/but-debugging/**'

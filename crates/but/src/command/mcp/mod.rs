@@ -1289,7 +1289,7 @@ mod tests {
         assert!(
             WORKSPACE_HTML.contains("font-family:Inter")
                 && WORKSPACE_HTML.contains("font-family:Geist Mono"),
-            "Lite's UI fonts are embedded in the app"
+            "the UI fonts are embedded in the app"
         );
     }
 
@@ -1399,7 +1399,7 @@ mod tests {
         assert!(
             REVIEW_HTML.contains("font-family:Inter")
                 && REVIEW_HTML.contains("font-family:Geist Mono"),
-            "Lite's UI fonts are embedded in the app"
+            "the UI fonts are embedded in the app"
         );
     }
 

@@ -1,7 +1,7 @@
 name: UI Review Request
 
 # Asks the design system's maintainer to look at a pull request that touches
-# the component libraries or Lite's design rules. It requests a review and
+# the component libraries or their design rules. It requests a review and
 # nothing more: it blocks no merge and fails no check.
 #
 # CODEOWNERS would do the asking too, but with this repository's ruleset an

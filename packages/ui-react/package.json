@@ -1,6 +1,6 @@
 {
 	"name": "@gitbutler/ui-react",
-	"description": "GitButler's React component library: the components, icons and base styles shared by Lite, `but panel` and the MCP app.",
+	"description": "GitButler's React component library: the components, icons and base styles but.dev builds with. The GPUI app compiles in its icons and illustrations.",
 	"private": true,
 	"version": "0.0.0-dev",
 	"type": "module",
@@ -13,11 +13,17 @@
 		"#storybook/*": "./.storybook/*.ts"
 	},
 	"scripts": {
-		"check": "tsgo -p tsconfig.json --noEmit && pnpm lint:css && pnpm check:stories",
+		"check": "tsgo -p tsconfig.json --noEmit && pnpm lint:css && pnpm check:stories && pnpm check:tokens",
 		"check:stories": "node scripts/check-stories.mjs",
+		"check:tokens": "node scripts/check-tokens.mjs",
 		"lint:css": "stylelint \"src/**/*.css\"",
 		"optimize-icons": "node scripts/optimize-icons.mjs",
-		"test": "vitest run"
+		"test": "vitest run && pnpm test:stories",
+		"test:stories": "vitest run --config vitest.storybook.config.ts",
+		"playwright:install:unit": "playwright install chromium",
+		"demos": "storybook dev --no-open -p 6007",
+		"build-storybook": "storybook build",
+		"chromatic": "chromatic --build-script-name build-storybook --only-changed --exit-zero-on-changes --auto-accept-changes master --exit-once-uploaded"
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.6.0",
@@ -33,14 +39,23 @@
 	},
 	"devDependencies": {
 		"@gitbutler/design-core": "10.0.1",
+		"@playwright/test": "catalog:",
+		"@storybook/addon-a11y": "^10.6.0",
+		"@storybook/addon-designs": "^11.1.4",
 		"@storybook/addon-docs": "^10.6.0",
+		"@storybook/addon-mcp": "^10.6.0",
+		"@storybook/addon-vitest": "^10.6.0",
 		"@storybook/react-vite": "^10.6.0",
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.2.3",
 		"@typescript/native-preview": "7.0.0-dev.20260707.2",
+		"@vitest/browser": "catalog:",
+		"chromatic": "18.9.4",
+		"eslint-plugin-react-you-might-not-need-an-effect": "^1.0.0",
 		"jsdom": "28.1.0",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4",
+		"storybook": "^10.6.0",
 		"stylelint": "^17.15.0",
 		"vite": "catalog:",
 		"vitest": "catalog:"

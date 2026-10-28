@@ -385,8 +385,8 @@ Windows CI job lints and tests the one, the Linux lint and test jobs the other.
 
 ## Conventions
 
-- Match Lite's wording and structure and the rules in `packages/ui-react/design/`. Adapt Lite,
-  Tauri and but.dev rather than copy them, and leave out what GPUI has no data for.
+- Match the rules in `packages/ui-react/design/`. Adapt Tauri and but.dev rather than copy
+  them, and leave out what GPUI has no data for.
 - Conflicts are `warn`, never danger red. One accent button per surface. Controls keep the
   arrow cursor, as the desktop does, and a focused field rings in gray (`focus_border`), not
   pop. A disabled control says why in its tooltip. Tooltips are a few words, with the shortcut in its key slot, and a right-click item that a key also does shows it, built with `MenuItem::keyed` or `MenuItem::action`. Snackbars are
