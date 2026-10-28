@@ -761,7 +761,7 @@ impl Detail {
                             &project,
                             "Edit message",
                             overlay,
-                            move |path, remap| backend::reword(path, remap.get(id)?, &message),
+                            move |path| backend::reword(path, id, &message),
                             move |store, rewritten, cx| {
                                 store.follow(&rewritten, cx);
                                 store.snack_undoable("Message updated", cx);
@@ -882,7 +882,7 @@ impl Detail {
                 &project,
                 "Commit",
                 overlay,
-                move |path, _| {
+                move |path| {
                     let (branch, created) = match target {
                         Some(branch) => (branch, false),
                         None if linked => {
@@ -1442,7 +1442,7 @@ impl Detail {
                 store.snack_undoable(message, cx)
             };
             this.store.update(cx, |store, cx| {
-                let create = move |path: &_, _: &_| backend::create_branch(path, name.as_deref());
+                let create = move |path: &_| backend::create_branch(path, name.as_deref());
                 store.run(
                     &project,
                     "Create branch",

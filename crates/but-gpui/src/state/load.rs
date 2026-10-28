@@ -106,7 +106,7 @@ impl Store {
                     for (id, git, checkout, paths) in events {
                         // What the app's own operations write isn't activity in the checkout,
                         // nor is what a repository cloned inside it writes to its own .git.
-                        let own = store.running.contains_key(&id) || store.own_write(&id, now);
+                        let own = store.busy_in(&id) || store.own_write(&id, now);
                         let saved = (paths.iter())
                             .filter(|path| !path.split('/').any(|part| part == ".git"))
                             .count();
@@ -120,10 +120,8 @@ impl Store {
                         reloads.entry(id).or_default().add(git, checkout);
                     }
                     for (id, reload) in reloads {
-                        // An operation under way reads these with its own reload, which the
-                        // operations queued after it find their commits by, hidden or not.
-                        let busy = (store.running.get(&id))
-                            .is_some_and(|r| !r.settling && !r.overlay.remote_only);
+                        // An operation under way reads these with its own reload, hidden or not.
+                        let busy = store.loads_wait_on(&id).is_some();
                         match store.hidden && !busy {
                             true => store.unseen.entry(id).or_default().merge(reload),
                             false => store.load(&id, reload, cx),
@@ -572,13 +570,12 @@ impl Store {
     pub(super) fn load(&mut self, id: &ProjectId, reload: Reload, cx: &mut Context<Self>) {
         // While an operation changes `id`, the reload after it reads this too, and loading
         // now would only queue in front of that one.
-        if let Some(running) =
-            (self.running.get_mut(id)).filter(|r| !r.settling && !r.overlay.remote_only)
-        {
+        if let Some(running) = self.loads_wait_on(id) {
             running.deferred.merge(reload);
             return;
         }
         let Some(entry) = self.project_mut(id) else {
+            self.reloads_finished(id);
             self.settled(id, cx);
             return;
         };
@@ -603,7 +600,7 @@ impl Store {
         let path = entry.project.path.clone();
         let id = id.clone();
         // Started after the mutation finished, so it sees what the mutation did.
-        let settles = self.settles(&id);
+        let settles = self.reloads_finished(&id);
         cx.spawn(async move |this, cx| {
             let folder = path.clone();
             let result = backend::run(move || match shown {
@@ -617,7 +614,7 @@ impl Store {
             this.update(cx, |store, cx| {
                 // One that started before the project's operation finished, landing in front
                 // of the reload after it, doesn't show what the operation did yet.
-                let fresh = settles || !store.settles(&id);
+                let fresh = settles || !store.awaits_reload(&id);
                 let Some(entry) = store.project_mut(&id) else {
                     store.settled(&id, cx);
                     return;

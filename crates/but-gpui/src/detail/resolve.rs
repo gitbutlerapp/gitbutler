@@ -561,7 +561,7 @@ impl Detail {
                         },
                         {
                             let worktree = worktree.clone();
-                            move |path, _| conflicts::resolve_markers(path, worktree.linked(), keep)
+                            move |path| conflicts::resolve_markers(path, worktree.linked(), keep)
                         },
                         move |store, files, cx| {
                             forget(cx);
@@ -602,15 +602,7 @@ impl Detail {
                     kind: OpKind::Resolve,
                     ..Overlay::default()
                 },
-                move |path, remap| {
-                    // The picks are by each conflict's place in the commit as it was shown.
-                    let now = remap.get(commit)?;
-                    anyhow::ensure!(
-                        now == commit,
-                        "The commit changed since its conflicts were shown. Pick again."
-                    );
-                    conflicts::resolve(path, now, keep)
-                },
+                move |path| conflicts::resolve(path, commit, keep),
                 move |store, (rewritten, outcome), cx| {
                     forget(cx);
                     // The commits above it were rebuilt on it, conflicted now or not

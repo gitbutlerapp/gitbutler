@@ -1175,7 +1175,7 @@ impl Detail {
                                         files_in: worktree.clone(),
                                         ..Overlay::default()
                                     },
-                                    move |path, _| {
+                                    move |path| {
                                         backend::mark_resolved(path, worktree.linked(), files)
                                     },
                                     move |store, (), cx| {

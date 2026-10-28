@@ -1,14 +1,13 @@
 //! App state shared by every view: the projects with their loaded workspaces, the
 //! selection, what's been cut, and each project's operation in flight.
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
 use futures::channel::mpsc;
 use gpui::{App, Context, Entity, EventEmitter, SharedString, Subscription, Task};
-use parking_lot::Mutex;
 
 use crate::backend::upstream::TargetCommit;
 use crate::backend::watch::Watcher;
@@ -32,10 +31,8 @@ mod seen;
 pub use activity::{Activity, QUARTER, SeenCommit};
 use load::{Change, Reload};
 pub use mesh::{MeshBranch, MeshPick, MeshState};
-pub use mutation::{
-    Label, NewAt, OpKind, Overlay, Remap, Rereads, SLOW, branch_moved, conflicted_parts,
-};
-use mutation::{Queued, Running};
+use mutation::Running;
+pub use mutation::{Label, NewAt, OpKind, Overlay, Rereads, SLOW, branch_moved, conflicted_parts};
 pub use picks::Picks;
 pub use saved::{BranchStatus, FileSort, Pane, Prefs, ScopeLines, WatchedOrder};
 use saved::{Restored, Saved};
@@ -203,7 +200,7 @@ pub enum StoreEvent {
     Renamed(ProjectId, Option<FullName>, FullName),
     /// What the user's other machines have of a project was read again, and changed.
     MeshRead(ProjectId),
-    /// An operation on a project was queued, started or finished, which hides or shows
+    /// An operation on a project started or finished, which hides or shows
     /// what it takes away.
     Pending(ProjectId),
     /// Git has no author to record commits with in a project: ask for the user's name and
@@ -344,10 +341,11 @@ pub struct Store {
     /// The user's other machines, and what they have of the watched projects. Everything the
     /// mesh does lives in `state/mesh.rs`; see the crate's AGENTS.md for its rules.
     pub mesh: mesh::Mesh,
-    /// Each project's mutation in flight. A project's mutations run one at a time, each
-    /// until the reload after it lands, so the next one sees what it did; projects don't
-    /// wait on each other.
-    running: HashMap<ProjectId, Running>,
+    /// Each project's mutation in flight. A project runs one at a time, until the reload after
+    /// it lands, so the next one sees what it did; projects don't wait on each other.
+    running: Vec<Running>,
+    /// How many operations have started, which numbers the next.
+    ops_started: usize,
     /// When, in seconds since the Unix epoch, each project's mutations of the last two
     /// minutes wrote: each from its start until the file watcher has told of its writes, a
     /// second or so after it settled. What's written then isn't activity in the checkout.
@@ -356,8 +354,6 @@ pub struct Store {
     /// came before rewrites what the remote has.
     pushed_at: HashMap<ProjectId, i64>,
     busy_ticker: Task<()>,
-    /// Mutations waiting for their project's running one, in order.
-    queue: VecDeque<Queued>,
     /// The oplog entry the last mutation recorded, which the Undo offered for it restores.
     last_snapshot: Option<(ProjectId, SnapshotId)>,
     /// What ⌘Z takes back, newest last: the oplog entries the user's operations recorded, in
@@ -369,14 +365,11 @@ pub struct Store {
     redo_steps: Vec<(ProjectId, SnapshotId)>,
     /// When, in milliseconds since the Unix epoch, the app's operations ran, ⌘Z and ⌘⇧Z
     /// included but not pushes and fetches, by project: the files they wrote and the branches
-    /// they moved aren't changes a later ⌘Z asks about. Shared as `kept_snapshots` is, so a queued undo sees the spans of
-    /// those before it.
-    ran: Arc<Mutex<Spans>>,
+    /// they moved aren't changes a later ⌘Z asks about.
+    ran: Spans,
     /// Oplog entries of mutations that changed more than the oplog snapshots (a linked
     /// worktree, a branch outside the workspace), which ⌘Z doesn't take back, by project.
-    /// Shared with a queued undo, which reads it once it runs, after what ran before it is
-    /// kept.
-    kept_snapshots: Arc<Mutex<HashMap<ProjectId, HashSet<SnapshotId>>>>,
+    kept_snapshots: HashMap<ProjectId, HashSet<SnapshotId>>,
     next_toast: usize,
     seen: Seen,
     /// When each commit an agent made showed up, while its rows still glow: see
@@ -447,8 +440,7 @@ pub fn snack(store: &Entity<Store>, message: impl Into<SharedString>, cx: &mut A
 
 impl Store {
     /// Projects listed and nothing loading or mutating, for the dev script's timings.
-    /// Nothing waits without something running: queued mutations wait on a running one,
-    /// and queued loads on a load in flight.
+    /// Nothing waits without something running: queued loads wait on a load in flight.
     #[cfg(feature = "dev-script")]
     pub fn is_settled(&self) -> bool {
         self.projects_loaded && self.running.is_empty() && self.projects.iter().all(|p| !p.loading)
@@ -479,26 +471,24 @@ impl Store {
             updating: None,
             update_put_off: None,
             mesh: mesh::Mesh::start(cx),
-            running: HashMap::new(),
+            running: Vec::new(),
+            ops_started: 0,
             own_writes: HashMap::new(),
             pushed_at: HashMap::new(),
             busy_ticker: Task::ready(()),
-            queue: VecDeque::new(),
             last_snapshot: None,
             undo_steps: Vec::new(),
             redo_steps: Vec::new(),
-            ran: Arc::default(),
-            kept_snapshots: Arc::new(Mutex::new(
-                (saved.kept_by_project.into_iter())
-                    .map(|(project, ids)| {
-                        let ids = (ids.iter())
-                            .filter_map(|id| gix::ObjectId::from_hex(id.as_bytes()).ok())
-                            .map(SnapshotId)
-                            .collect();
-                        (ProjectId::from(project), ids)
-                    })
-                    .collect(),
-            )),
+            ran: HashMap::new(),
+            kept_snapshots: (saved.kept_by_project.into_iter())
+                .map(|(project, ids)| {
+                    let ids = (ids.iter())
+                        .filter_map(|id| gix::ObjectId::from_hex(id.as_bytes()).ok())
+                        .map(SnapshotId)
+                        .collect();
+                    (ProjectId::from(project), ids)
+                })
+                .collect(),
             next_toast: 0,
             seen: saved.seen,
             arrived: HashMap::new(),
@@ -962,7 +952,7 @@ impl Store {
     /// changed what the oplog can't bring back, as a linked worktree.
     pub fn keep_last_snapshot(&mut self, cx: &mut Context<Self>) {
         if let Some((project, snapshot)) = self.drop_last_step() {
-            (self.kept_snapshots.lock())
+            (self.kept_snapshots)
                 .entry(project)
                 .or_default()
                 .insert(snapshot);

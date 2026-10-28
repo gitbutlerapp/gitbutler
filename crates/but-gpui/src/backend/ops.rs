@@ -3321,10 +3321,30 @@ pub(super) mod tests {
         let (_outside, linked) = agent_worktree(path);
         let before = crate::backend::worktrees::heads(path);
         git(&linked, &["checkout", "-q", "-b", "agent-next"]);
-        assert_ne!(
-            crate::backend::worktrees::heads(path),
-            before,
+        assert!(
+            crate::backend::worktrees::heads(path).moved_since(&before),
             "same commit, but the oplog can't put the branch it has checked out back"
+        );
+    }
+
+    #[test]
+    fn a_linked_worktree_removed_meanwhile_didnt_move() {
+        let dir = repo_with(
+            "base
+",
+        );
+        let path = dir.path();
+        let (_outside, linked) = agent_worktree(path);
+        let before = crate::backend::worktrees::heads(path);
+        git(
+            path,
+            &["worktree", "remove", "--force", linked.to_str().unwrap()],
+        );
+        let after = crate::backend::worktrees::heads(path);
+        assert_ne!(after, before, "it's gone from the heads");
+        assert!(
+            !after.moved_since(&before),
+            "but a worktree deleted beside an operation isn't one the operation moved"
         );
     }
 }

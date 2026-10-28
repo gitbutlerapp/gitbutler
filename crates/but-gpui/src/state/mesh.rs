@@ -417,9 +417,9 @@ impl Store {
     }
 
     /// Bring `branch`, by the mesh's id, from another machine and apply it to `project`'s
-    /// workspace. Its commits come over first, outside the project's queue, so a slow network
-    /// holds up only this; applying them then takes a turn in the queue, and the CLI records it
-    /// in the oplog, as `but apply` does.
+    /// workspace. Its commits come over first, outside the project's operations, so a slow
+    /// network holds up only this; applying them is then the project's operation, and the CLI
+    /// records it in the oplog, as `but apply` does.
     pub fn mesh_apply(
         &mut self,
         project: &ProjectId,
@@ -440,7 +440,7 @@ impl Store {
                     &project,
                     Label::new("Bring here", format!("Bring {branch} here")),
                     Overlay::rewriting_main(),
-                    move |path, _| backend::mesh::apply(path, &mesh_id),
+                    move |path| backend::mesh::apply(path, &mesh_id),
                     move |store, applied_as, cx| store.snack(format!("Applied {applied_as}"), cx),
                     cx,
                 ),
