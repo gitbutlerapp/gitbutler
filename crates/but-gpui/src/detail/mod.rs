@@ -5,6 +5,7 @@
 mod blame;
 mod branches;
 mod composer;
+mod conversation;
 mod diff_view;
 mod file_list;
 mod file_tree;
@@ -290,7 +291,10 @@ pub struct Detail {
     opening: Option<(Selection, crate::state::SeenCommit)>,
     /// Whether the pull request's checks that passed are listed, not just counted.
     passed_checks_open: bool,
-    review_scroll: ScrollHandle,
+    /// The pull request threads shown open while resolved, or folded while not, by id.
+    threads_flipped: HashSet<String>,
+    /// The pull request tab's column: its title, description and conversation.
+    review_list: ListState,
     /// The pull request's side panel, which scrolls apart from its description beside it.
     review_side_scroll: ScrollHandle,
     /// How wide the pull request tab was drawn, for whether its side panel fits beside it.
@@ -549,7 +553,7 @@ impl Detail {
                 {
                     this.refresh_diff(false, cx);
                 }
-                this.read_merge_status(cx);
+                this.ask_forge(cx);
                 cx.notify()
             }),
         ];
@@ -611,7 +615,8 @@ impl Detail {
             pending_file: None,
             opening: None,
             passed_checks_open: false,
-            review_scroll: ScrollHandle::new(),
+            threads_flipped: HashSet::new(),
+            review_list: ListState::new(0, ListAlignment::Top, fixed(200.)),
             review_side_scroll: ScrollHandle::new(),
             review_width: Rc::new(Cell::new(pull_request::TWO_COLUMNS)),
             target_message_height: Rc::new(Cell::new(0.)),
@@ -782,7 +787,7 @@ impl Detail {
         self.line_picks = None;
         self.cursor = Cursor::default();
         self.folded.clear();
-        self.review_scroll.set_offset(Default::default());
+        self.review_list.reset(0);
         self.review_side_scroll.set_offset(Default::default());
     }
 
@@ -790,6 +795,8 @@ impl Detail {
     fn show_picked(&mut self, cx: &mut Context<Self>) {
         self.reset_view();
         self.refresh_diff(true, cx);
+        // A pick on the page changes no selection, which the store's observer would ask on.
+        self.ask_forge(cx);
         cx.notify();
     }
 
@@ -1534,6 +1541,7 @@ impl Detail {
         let count = self.diff.as_ref().map_or(0, |diff| diff.rows.len());
         (self.list).reset_with_uniform_height(count, code_line(cx));
         self.list.scroll_to(top);
+        self.review_list.remeasure();
         cx.notify();
     }
 

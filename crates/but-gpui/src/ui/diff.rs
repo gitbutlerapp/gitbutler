@@ -973,6 +973,43 @@ pub(super) fn line_card(
         .overflow_hidden()
 }
 
+/// A few lines of a diff quoted where they're talked about, as a pull request's thread quotes
+/// them: numbered and tinted as the diff draws them, long ones wrapping.
+pub fn excerpt(lines: &[DiffLine], theme: &Theme) -> gpui::Div {
+    let widest = (lines.iter())
+        .filter_map(|line| line.new.or(line.old))
+        .max();
+    let digits = widest.map_or(1, |n| n.to_string().len());
+    v_flex()
+        .rounded(dp(6.))
+        .border_1()
+        .border_color(theme.border_3)
+        .overflow_hidden()
+        .font_family(theme.mono_font.clone())
+        .text_size(dp(theme.code_text))
+        .line_height(dp(theme.code_line))
+        .children(lines.iter().map(|line| {
+            let look = look(line.kind, false, theme);
+            let number = match line.kind {
+                LineKind::Removed => line.old,
+                LineKind::Added | LineKind::Context => line.new,
+            };
+            h_flex()
+                .items_stretch()
+                .min_h(dp(theme.code_line))
+                .when_some(look.bg, |el, bg| el.bg(bg))
+                .child(number_cell(number, digits, &look, None, None, theme))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .px(dp(8.))
+                        .text_color(theme.text_1)
+                        .child(line_text(line, look.emph, Vec::new(), None, theme)),
+                )
+        }))
+}
+
 /// A line of the diff inside its file's card, numbered on the old side for a removal and the
 /// new for the rest. `place` is the line's file, hunk and index in the hunk, which tell rows
 /// apart.

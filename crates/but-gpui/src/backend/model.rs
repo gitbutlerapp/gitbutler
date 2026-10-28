@@ -367,6 +367,52 @@ pub struct CheckRun {
     pub completed_at: Option<i64>,
 }
 
+/// One part of what's been said on a pull request, as its conversation shows it.
+#[derive(Debug, Clone)]
+pub enum Remark {
+    /// A comment on the pull request itself.
+    Comment(Note),
+    /// A review: its verdict and what it said. The threads it started on the diff follow it.
+    Review {
+        verdict: crate::backend::reviews::Verdict,
+        note: Note,
+    },
+    /// A thread on the diff, `in_review` when it follows the review that started it.
+    Thread { thread: Thread, in_review: bool },
+}
+
+/// Something someone wrote on a pull request, its words ready to draw.
+#[derive(Debug, Clone)]
+pub struct Note {
+    pub author: Option<ForgeUser>,
+    /// Written by a bot, as an agent's review is.
+    pub bot: bool,
+    pub body: Vec<crate::ui::markdown::Block>,
+    /// When it was written, in seconds since the epoch.
+    pub at: Option<i64>,
+    /// Changed since it was written.
+    pub edited: bool,
+    /// Where it shows on the forge.
+    pub url: String,
+}
+
+/// A conversation on lines of a pull request's diff.
+#[derive(Debug, Clone)]
+pub struct Thread {
+    /// The forge's id for it.
+    pub id: String,
+    pub path: String,
+    /// The first and last lines it was left on, the same for one line, as `excerpt` numbers
+    /// them.
+    pub lines: Option<(i64, i64)>,
+    pub resolved: bool,
+    /// The lines it was left on have changed since.
+    pub outdated: bool,
+    /// The diff's last lines up to where it was left, as GitHub quotes them.
+    pub excerpt: Vec<DiffLine>,
+    pub comments: Vec<Note>,
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum ReviewState {
     #[default]
