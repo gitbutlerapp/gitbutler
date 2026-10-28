@@ -387,14 +387,14 @@ impl Transfer {
                 },
                 cx,
             ),
-            Transfer::CherryPick { ids, to } => store.run(
+            Transfer::CherryPick { ids, to } => store.apply(
                 project,
                 label,
                 Overlay {
                     new_commit: store.arriving(project, &ids, &to),
                     ..Overlay::default()
                 },
-                move |path| backend::cherry_pick(path, &ids, &to),
+                backend::CherryPick { commits: ids, to },
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
                     store.snack_undoable("Cherry-picked", cx)

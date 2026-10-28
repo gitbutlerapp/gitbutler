@@ -653,17 +653,36 @@ impl Intent for InsertEmptyCommit {
 
 /// Put copies of `commits`, listed newest first, at `to` in one go, keeping the originals
 /// where they are. The oldest goes in first and each newer one on top, as in their history.
-pub fn cherry_pick(path: &Path, commits: &[CommitId], to: &Destination) -> Result<Rewritten> {
-    let mut ctx = open(path)?;
-    let (relative_to, side) = to.relative_to()?;
-    let outcome = but_api::commit::cherry_pick::commit_cherry_pick(
-        &mut ctx,
-        commits.iter().rev().map(|commit| commit.0).collect(),
-        relative_to,
-        side,
-        DryRun::No,
-    )?;
-    Ok(rewritten(&outcome.workspace))
+pub struct CherryPick {
+    pub commits: Arc<[CommitId]>,
+    pub to: Destination,
+}
+
+impl Intent for CherryPick {
+    type Done = Rewritten;
+
+    fn apply(self, run: &mut Run) -> Result<Rewritten> {
+        use but_oplog::legacy::{OperationKind, SnapshotDetails};
+        let Self { commits, to } = self;
+        let (relative_to, side) = to.relative_to()?;
+        let workspace = run.locked(|ctx, perm| {
+            let mut meta = ctx.meta()?;
+            but_transaction::with_transaction_with_perm(
+                ctx,
+                &mut meta,
+                perm,
+                SnapshotDetails::new(OperationKind::CherryPick).with_count(commits.len()),
+                &[],
+                DryRun::No,
+                |mut tx| {
+                    let oldest_first = commits.iter().rev().map(|id| id.0);
+                    tx.cherry_pick_commits(oldest_first, relative_to, side, false)?;
+                    Ok(())
+                },
+            )
+        })?;
+        Ok(rewritten(&workspace))
+    }
 }
 
 /// Rename a branch and return its new full ref name.
