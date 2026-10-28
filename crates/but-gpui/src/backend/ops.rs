@@ -3030,7 +3030,8 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
-            crate::backend::history::take_snapshot(path, Some("Before".into())).unwrap();
+            let message = Some("Before".into());
+            crate::backend::apply(path, crate::backend::history::TakeSnapshot { message }).unwrap();
 
             use crate::backend::history;
             let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
@@ -3058,13 +3059,17 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             git(path, &["checkout", "-q", "-b", "feature"]);
             let commit =
                 |message: &str| git(path, &["commit", "-q", "--allow-empty", "-m", message]);
+            let take_snapshot = || {
+                let snapshot = crate::backend::history::TakeSnapshot { message: None };
+                crate::backend::apply(path, snapshot).unwrap();
+            };
             commit("Lower");
             // A branch stacked under the checked-out one.
             git(path, &["branch", "lower"]);
             commit("First");
-            crate::backend::history::take_snapshot(path, None).unwrap();
+            take_snapshot();
             commit("Second");
-            crate::backend::history::take_snapshot(path, None).unwrap();
+            take_snapshot();
             commit("Third");
 
             use crate::backend::history::{self, Change};
@@ -3267,7 +3272,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     #[test]
     fn undo_and_redo_stop_for_what_came_after_and_for_files_written_since() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{Undone, redo_snapshot, take_snapshot, undo_snapshot};
+            use crate::backend::history::{TakeSnapshot, Undone, redo_snapshot, undo_snapshot};
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
@@ -3287,7 +3292,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 "a file written after the operation is one undoing it puts back"
             );
 
-            take_snapshot(path, None).unwrap();
+            crate::backend::apply(path, TakeSnapshot { message: None }).unwrap();
             let snapshot = newest_entry(path);
             assert!(
                 matches!(undo_snapshot(path, named, None).unwrap(), Undone::Behind(_)),

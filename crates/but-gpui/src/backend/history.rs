@@ -13,7 +13,8 @@ use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use gix::bstr::ByteSlice as _;
 use serde::Deserialize;
 
-use super::{CommitId, SnapshotId, open, short_ref, short_text};
+use super::intent::Run;
+use super::{CommitId, Intent, SnapshotId, open, short_ref, short_text};
 use but_core::WORKSPACE_REF_NAME;
 
 /// One operation in the log.
@@ -532,10 +533,25 @@ pub fn restore(path: &Path, id: SnapshotId, kept: &HashSet<SnapshotId>) -> Resul
 }
 
 /// Record the project as it is now, with what it's for when `message` says.
-pub fn take_snapshot(path: &Path, message: Option<String>) -> Result<()> {
-    let mut ctx = open(path)?;
-    oplog::create_snapshot(&mut ctx, message)?;
-    Ok(())
+pub struct TakeSnapshot {
+    pub message: Option<String>,
+}
+
+impl Intent for TakeSnapshot {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        let mut details = SnapshotDetails::new(OperationKind::OnDemandSnapshot);
+        details.body = self.message;
+        run.locked(|ctx, perm| {
+            but_oplog::UnmaterializedOplogSnapshot::prepare_checkpoint(
+                ctx,
+                details,
+                perm.read_permission(),
+            )?
+            .commit(ctx, perm)
+        })
+    }
 }
 
 /// Redo what the undo that recorded `undo` took back, while that's still the last undo and
