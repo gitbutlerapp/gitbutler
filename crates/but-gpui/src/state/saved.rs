@@ -376,8 +376,8 @@ pub struct Prefs {
     pub editor: Option<String>,
     /// The terminal the project opens in, by id.
     pub terminal: Option<String>,
-    /// File lists show their files flat rather than as a tree of folders.
-    pub flat_files: bool,
+    /// File lists show their files as a tree of folders rather than flat.
+    pub file_tree: bool,
     /// The order file lists show files in.
     pub file_sort: FileSort,
     /// Long diff lines wrap instead of running off the edge.
