@@ -789,21 +789,42 @@ impl Intent for CreateBranchAtCommit {
     }
 }
 
-/// Stack `branch` (a full ref name) on top of `onto`, with the branches above it.
-pub fn stack_branch(
-    path: &Path,
-    branch: &FullName,
-    onto: &FullName,
-) -> Result<Vec<(Option<FullName>, usize)>> {
-    move_branch_with(path, |ctx| {
-        but_api::branch::move_branch(
-            ctx,
-            branch.as_ref(),
-            RelativeTo::Reference(onto.clone()),
-            InsertSide::Above,
-            DryRun::No,
-        )
-    })
+/// Stack `branch` on top of `onto`, with the branches above it, saying which branches it left
+/// with conflicted commits they didn't have, each with how many.
+pub struct StackBranch {
+    pub branch: FullName,
+    pub onto: FullName,
+}
+
+impl Intent for StackBranch {
+    type Done = Vec<(Option<FullName>, usize)>;
+
+    fn apply(self, run: &mut Run) -> Result<Self::Done> {
+        let Self { branch, onto } = self;
+        run.locked(|ctx, perm| {
+            let before = but_api::legacy::workspace::head_info(ctx)?;
+            let mut meta = ctx.meta()?;
+            let moved = but_transaction::with_transaction_with_perm(
+                ctx,
+                &mut meta,
+                perm,
+                SnapshotDetails::new(OperationKind::MoveBranch),
+                &[],
+                DryRun::No,
+                |mut tx| {
+                    tx.move_branch(
+                        branch.as_ref(),
+                        RelativeTo::Reference(onto),
+                        InsertSide::Above,
+                    )
+                },
+            )?;
+            Ok(super::upstream::newly_conflicted(
+                &before,
+                &moved.conflicted_commits,
+            ))
+        })
+    }
 }
 
 /// Move `branch` right below `commit`, the last commit of the branch it then sits under.

@@ -406,11 +406,11 @@ impl Transfer {
                 },
                 cx,
             ),
-            Transfer::StackBranch { branch, onto } => store.run(
+            Transfer::StackBranch { branch, onto } => store.apply(
                 project,
                 label,
                 Overlay::default(),
-                move |path| backend::stack_branch(path, &branch, &onto),
+                backend::StackBranch { branch, onto },
                 move |store, conflicted, cx| {
                     store.snack_undoable(branch_moved("Branch moved", &conflicted), cx)
                 },
