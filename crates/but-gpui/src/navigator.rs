@@ -239,9 +239,8 @@ impl RowStyle<'_> {
             .child(relative_time(at))
     }
 
-    /// A commit's row, `indent` in: `glyph`, its title, and a dot while it's unread. The title
-    /// is quieter once read, so branch names and unread commits stand out, but in full on a
-    /// solid selection.
+    /// A commit's row, `indent` in: `glyph`, its title, and a dot while it's unread. The dot
+    /// alone says it's unread; only a missing title is quieter.
     fn commit_line(
         &self,
         id: String,
@@ -250,7 +249,6 @@ impl RowStyle<'_> {
         title: SharedString,
         unread: bool,
     ) -> Stateful<Div> {
-        let quiet = title.is_empty() || !(unread || self.solid);
         self.row(id, indent)
             .gap(dp(10.))
             .aria_label(title.clone())
@@ -264,7 +262,7 @@ impl RowStyle<'_> {
                     .flex_1()
                     .min_w_0()
                     .truncate()
-                    .when(quiet, |el| el.text_color(self.muted()))
+                    .when(title.is_empty(), |el| el.text_color(self.muted()))
                     .child(commit_title(&title)),
             )
             .when(unread, |el| el.child(dot(self.meta(self.theme.pop))))
@@ -2128,7 +2126,7 @@ impl Navigator {
                 })
                 .child(match self.rename_field(id, ref_name, theme) {
                     Some(field) => field,
-                    None => branch_name(name, review, unread, &style)
+                    None => branch_name(name, review, &style)
                         .id(ElementId::Name(format!("name-{id}-{row_id}").into()))
                         .flex_1()
                         .tooltip(Tooltip::text(tip))
@@ -2258,8 +2256,8 @@ impl Navigator {
     }
 
     /// A commit only a remote has, among its branch's commits or under the project: a ↓
-    /// where a commit has its dot, and its title quieter unless it's unread, as only a
-    /// branch's are. It isn't dragged or edited here.
+    /// where a commit has its glyph, and a dot while it's unread, as only a branch's get.
+    /// It isn't dragged or edited here.
     fn upstream_row(
         &self,
         item: &Selection,
@@ -2775,28 +2773,18 @@ fn unpushed<'a>(branches: impl Iterator<Item = &'a Branch>) -> usize {
 /// A branch as the navigator names it: its pull request's title once the forge cache has one,
 /// toned by the request's state, or else `name`. Drawn from what the last load read, so no row
 /// waits on the network, and offline the cached title stays.
-fn branch_name(
-    name: &str,
-    review: Option<(&Review, ReviewState)>,
-    unread: bool,
-    style: &RowStyle,
-) -> Div {
+fn branch_name(name: &str, review: Option<(&Review, ReviewState)>, style: &RowStyle) -> Div {
     let theme = style.theme;
-    // Read, it's as quiet as a read commit, unless its pull request's state quiets it more.
-    let quiet = !unread && !style.solid;
     let el = div().min_w_0().truncate();
     match review.filter(|(review, _)| !review.title.is_empty()) {
         Some((review, state)) => el
             .text_color(match style.solid {
                 true if state == ReviewState::Open => style.meta(theme.text_1),
                 true => style.muted(),
-                false if quiet && state == ReviewState::Open => style.muted(),
                 false => review::title_color(state, theme),
             })
             .child(review.title.clone()),
-        None => el
-            .when(quiet, |el| el.text_color(style.muted()))
-            .child(name.to_owned()),
+        None => el.child(name.to_owned()),
     }
 }
 
