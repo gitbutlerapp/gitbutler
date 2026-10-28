@@ -2044,9 +2044,15 @@ pub(crate) struct ReviewTargetFlattening {
 /// desired stacked targets.
 pub(crate) async fn flatten_review_targets_before_push(
     ctx: ThreadSafeContext,
-    trunk: String,
     reviews: &[(but_forge::ForgeReviewTargetUpdate, Option<String>)],
 ) -> Result<Option<ReviewTargetFlattening>> {
+    if reviews.is_empty() {
+        return Ok(None);
+    }
+    let trunk = {
+        let ctx = ctx.clone().into_thread_local();
+        remote_target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?
+    };
     let Some(reviews_to_flatten) = review_target_flattening_plan(reviews, &trunk) else {
         return Ok(None);
     };
@@ -2397,6 +2403,14 @@ pub(crate) fn review_target_updates_for_branch(
     let info = crate::legacy::workspace::head_info(ctx)?;
     let chain = lane_chain_for_branch(&info, branch)?;
     let open_reviews = open_review_numbers(ctx)?;
+    // Only reviews need the target's upstream, so an unreviewed chain must push without one.
+    if !chain
+        .iter()
+        .flat_map(|(lane, _)| lane.segments)
+        .any(|segment| review_number(segment, &open_reviews).is_some())
+    {
+        return Ok(Vec::new());
+    }
     let base_branch = remote_target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
     let updates = chain
         .iter()

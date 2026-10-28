@@ -8,6 +8,14 @@ pub fn writable_scenario(name: &str) -> (gix::Repository, TempDir) {
     but_testsupport::writable_scenario(name)
 }
 
+/// [`but_askpass::disable()`] must be called at most once per process, but several tests
+/// in this binary push.
+#[cfg(feature = "legacy")]
+pub fn disable_askpass() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(but_askpass::disable);
+}
+
 /// Build a minimal ad-hoc repository: `main` with two commits, a `feature` branch at the first
 /// commit, and a `refs/remotes/origin/main` remote-tracking ref, with `HEAD` on `main`.
 pub fn repo_with_feature_branch() -> anyhow::Result<(gix::Repository, tempfile::TempDir)> {

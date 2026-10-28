@@ -152,7 +152,7 @@ fn incompatible_cache_rows_do_not_break_head_info() -> anyhow::Result<()> {
 
 #[test]
 fn feature_push_to_fork_is_visible_to_review_creation() -> anyhow::Result<()> {
-    but_askpass::disable();
+    crate::support::disable_askpass();
     let (repo, tmp) = crate::support::writable_scenario("checkout-head-info");
     let root = repo.workdir().expect("fixture has a workdir").to_owned();
     let fork_path = tmp.path().join("fork.git");
