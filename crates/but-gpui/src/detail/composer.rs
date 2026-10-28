@@ -866,7 +866,10 @@ impl Detail {
                         None if linked => {
                             anyhow::bail!("The worktree has no branch of its own checked out")
                         }
-                        None => (backend::create_branch(path, None)?, true),
+                        None => {
+                            let create = backend::CreateBranch { name: None };
+                            (backend::apply(path, create)?.0, true)
+                        }
                     };
                     // Undone apart from the commit, so a second ⌘Z takes the branch away.
                     let made = created
@@ -1421,8 +1424,8 @@ impl Detail {
                 store.snack_undoable(message, cx)
             };
             this.store.update(cx, |store, cx| {
-                let create = move |path: &_| backend::create_branch(path, name.as_deref());
-                store.run(
+                let create = backend::CreateBranch { name };
+                store.apply(
                     &project,
                     "Create branch",
                     Overlay::default(),

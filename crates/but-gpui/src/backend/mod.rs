@@ -1423,7 +1423,7 @@ mod lane_tests {
     use crate::backend::model::build::{describe, describe_chain};
     use crate::backend::ops::tests::{git, repo_with, target_origin_main};
     use crate::backend::ops::{
-        Destination, InsertEmptyCommit, create_branch, create_branch_at_commit,
+        CreateBranch, Destination, InsertEmptyCommit, create_branch_at_commit,
         create_dependent_branch, rename_branch,
     };
     use crate::backend::{Checkout, CommitId};
@@ -1436,7 +1436,14 @@ mod lane_tests {
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
-            let mut below = create_branch(path, Some("bottom")).unwrap();
+            let mut below = crate::backend::apply(
+                path,
+                CreateBranch {
+                    name: Some("bottom".into()),
+                },
+            )
+            .unwrap()
+            .0;
             let at = Destination::Branch(below.clone());
             crate::backend::apply(path, InsertEmptyCommit { at }).unwrap();
             for name in ["middle", "top"] {
@@ -1445,7 +1452,13 @@ mod lane_tests {
                 let at = Destination::Branch(below.clone());
                 crate::backend::apply(path, InsertEmptyCommit { at }).unwrap();
             }
-            create_branch(path, Some("beside")).unwrap();
+            crate::backend::apply(
+                path,
+                CreateBranch {
+                    name: Some("beside".into()),
+                },
+            )
+            .unwrap();
 
             let ctx = super::open(path).unwrap();
             (ctx.db.get_cache_mut().unwrap())
@@ -1571,7 +1584,13 @@ history: [agent2, agent1~2]
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
-            create_branch(path, Some("beside")).unwrap();
+            crate::backend::apply(
+                path,
+                CreateBranch {
+                    name: Some("beside".into()),
+                },
+            )
+            .unwrap();
             let ctx = super::open(path).unwrap();
             (ctx.db.get_cache_mut().unwrap())
                 .worktree_meta_mut()

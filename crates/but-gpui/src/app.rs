@@ -367,9 +367,8 @@ impl AppView {
         }) else {
             return;
         };
-        self.new_branch_at(project, true, None, None, window, cx, |path| {
-            backend::create_branch(path, None)
-        });
+        let create = backend::CreateBranch { name: None };
+        self.new_branch_at(project, true, None, None, window, cx, create);
     }
 
     /// Ask the desktop app's update feed now: show the update card for the newer version it

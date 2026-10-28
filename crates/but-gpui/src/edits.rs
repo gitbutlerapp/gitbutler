@@ -608,7 +608,7 @@ impl AppView {
             .map(|w| w.name.clone());
         let here = worktree.is_none();
         let checkout = store.checkout_of(&Selection::Branch(project.clone(), Some(below.clone())));
-        let op = move |path: &Path| backend::create_dependent_branch(path, &below);
+        let op = backend::Legacy::new(move |path| backend::create_dependent_branch(path, &below));
         self.new_branch_at(project, here, checked_out_in, checkout, window, cx, op);
     }
 
@@ -625,7 +625,7 @@ impl AppView {
         checkout: Option<Checkout>,
         window: &mut Window,
         cx: &mut Context<Self>,
-        op: impl FnOnce(&Path) -> anyhow::Result<FullName> + Send + 'static,
+        op: impl backend::Intent<Done = FullName>,
     ) {
         let (selected, detail) = (project.clone(), self.detail.downgrade());
         let undoable = self.store.read(cx).undoable(&project, checkout);
@@ -648,7 +648,7 @@ impl AppView {
         // The navigator, where it's selected, takes the keys, as r to rename it.
         self.focus_navigator(&FocusNavigator, window, cx);
         self.store.update(cx, |store, cx| {
-            store.run(&project, "Create branch", Overlay::default(), op, done, cx)
+            store.apply(&project, "Create branch", Overlay::default(), op, done, cx)
         });
     }
 
@@ -1063,7 +1063,8 @@ impl AppView {
         };
         let branch = Selection::Branch(project.clone(), Some(ref_name));
         let checkout = self.store.read(cx).checkout_of(&branch);
-        let op = move |path: &Path| backend::create_branch_at_commit(path, oldest, true);
+        let op =
+            backend::Legacy::new(move |path| backend::create_branch_at_commit(path, oldest, true));
         self.new_branch_at(project, false, None, checkout, window, cx, op);
     }
 
@@ -1075,7 +1076,8 @@ impl AppView {
         };
         let id = commit.id;
         let checkout = (self.store.read(cx)).checkout_of(&Selection::Commit(project.clone(), id));
-        let op = move |path: &Path| backend::create_branch_at_commit(path, id, false);
+        let op =
+            backend::Legacy::new(move |path| backend::create_branch_at_commit(path, id, false));
         self.new_branch_at(project, false, None, checkout, window, cx, op);
     }
 

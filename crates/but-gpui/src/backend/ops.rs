@@ -1,9 +1,9 @@
 //! Mutations of commits, branches and uncommitted changes; the UI reloads the workspace
 //! afterwards. An [`Intent`], such as [`Squash`], runs under the one lock [`Run::locked`] takes,
-//! in one `but_transaction` transaction or one `_with_perm` call, recording one oplog entry. The
-//! rest open the project and call the matching `but-api` function, which locks and records its
-//! own oplog snapshot, except that [`discard`] and [`create_beside_checkout`] record their own,
-//! as does [`super::conflicts::resolve_markers`] through [`record_undo`].
+//! in one `but_transaction` transaction, one `_with_perm` call, or work wrapped in [`recorded`],
+//! recording one oplog entry. The rest open the project and call the matching `but-api`
+//! function, which locks and records its own oplog snapshot, except that [`discard`] records its
+//! own, as does [`super::conflicts::resolve_markers`] through [`record_undo`].
 
 use gitbutler_repo::hooks::{ErrorData, HookResult, MessageHookResult};
 use std::collections::HashMap;
@@ -443,26 +443,35 @@ pub fn commit(
 /// With the default branch checked out on its own, the new branch goes on top of it and is
 /// checked out, as `git checkout -b` would. Beside another branch, both go in GitButler's
 /// workspace, as `but branch new` does.
-pub fn create_branch(path: &Path, name: Option<&str>) -> Result<FullName> {
-    use but_api::branch::json::BranchCreatePlacement as Placement;
-    let new_ref = name.map(branch_ref).transpose()?;
-    let mut ctx = open(path)?;
-    refuse_unborn(&ctx)?;
-    // A branch made here and checked out couldn't be undone: the oplog takes a detached
-    // HEAD for the workspace and would restore that instead.
-    refuse_unfinished(&*ctx.repo.get()?, true)?;
-    let placement = match new_branch_at(&ctx)? {
-        NewBranchAt::Workspace => Placement::Independent { order: None },
-        NewBranchAt::AboveHead(head) => Placement::Dependent {
-            relative_to: but_api::commit::json::RelativeTo::Reference(head),
-            side: InsertSide::Above,
-        },
-        NewBranchAt::BesideHead(head) => {
-            return create_beside_checkout(&mut ctx, &head, new_ref);
-        }
-    };
-    let created = but_api::branch::branch_create(&mut ctx, new_ref, placement)?;
-    Ok(created.new_ref)
+pub struct CreateBranch {
+    pub name: Option<String>,
+}
+
+impl Intent for CreateBranch {
+    type Done = FullName;
+
+    fn apply(self, run: &mut Run) -> Result<FullName> {
+        use but_api::branch::json::BranchCreatePlacement as Placement;
+        let new_ref = self.name.as_deref().map(branch_ref).transpose()?;
+        run.locked(|ctx, perm| {
+            refuse_unborn(ctx)?;
+            // A branch made here and checked out couldn't be undone: the oplog takes a detached
+            // HEAD for the workspace and would restore that instead.
+            refuse_unfinished(&*ctx.repo.get()?, true)?;
+            let placement = match new_branch_at(ctx)? {
+                NewBranchAt::Workspace => Placement::Independent { order: None },
+                NewBranchAt::AboveHead(head) => Placement::Dependent {
+                    relative_to: but_api::commit::json::RelativeTo::Reference(head),
+                    side: InsertSide::Above,
+                },
+                NewBranchAt::BesideHead(head) => {
+                    return create_beside_checkout(ctx, perm, &head, new_ref);
+                }
+            };
+            let created = but_api::branch::branch_create_with_perm(ctx, new_ref, placement, perm)?;
+            Ok(created.new_ref)
+        })
+    }
 }
 
 /// Where a new branch goes, given what is checked out.
@@ -502,11 +511,10 @@ fn new_branch_at(ctx: &but_ctx::Context) -> Result<NewBranchAt> {
 /// applied rather than checked out, in one step to undo.
 fn create_beside_checkout(
     ctx: &mut but_ctx::Context,
+    perm: &mut but_ctx::access::RepoExclusive,
     head: &gix::refs::FullName,
     new_ref: Option<gix::refs::FullName>,
 ) -> Result<FullName> {
-    let mut guard = ctx.exclusive_worktree_access();
-    let perm = guard.write_permission();
     let (new_ref, base) = {
         let repo = ctx.repo.get()?;
         let new_ref = match new_ref {
@@ -2136,7 +2144,14 @@ pub(super) mod tests {
             let path = dir.path();
             target_origin_main(path);
 
-            let new = create_branch(path, Some("my feature")).unwrap();
+            let new = crate::backend::apply(
+                path,
+                CreateBranch {
+                    name: Some("my feature".into()),
+                },
+            )
+            .unwrap()
+            .0;
             assert_eq!(
                 new, "refs/heads/my-feature",
                 "named as typed, as Git allows"
@@ -2258,7 +2273,7 @@ pub(super) mod tests {
             git(path, &["checkout", "-q", "--detach"]);
 
             let before = git(path, &["branch", "--list"]);
-            let err = create_branch(path, None).unwrap_err();
+            let err = crate::backend::apply(path, CreateBranch { name: None }).unwrap_err();
             assert!(err.to_string().contains("detached"), "{err}");
             assert_eq!(git(path, &["branch", "--list"]), before, "nothing is made");
         })
@@ -2289,12 +2304,24 @@ pub(super) mod tests {
             // A teammate's branch on the remote, which a branch of that name would take as
             // its own.
             git(path, &["update-ref", "refs/remotes/origin/fix", "HEAD"]);
-            let taken = create_branch(path, Some("fix"));
+            let taken = crate::backend::apply(
+                path,
+                CreateBranch {
+                    name: Some("fix".into()),
+                },
+            );
             assert!(
                 taken.is_err() && !lanes(path).0,
                 "fix is taken, so nothing changes"
             );
-            let new = create_branch(path, Some("second")).unwrap();
+            let new = crate::backend::apply(
+                path,
+                CreateBranch {
+                    name: Some("second".into()),
+                },
+            )
+            .unwrap()
+            .0;
             let second = short_ref(&new).into_owned();
             let mut both = vec![vec!["feature".to_owned()], vec![second.clone()]];
             both.sort();
@@ -2371,7 +2398,9 @@ pub(super) mod tests {
             git(path, &["checkout", "-q", "feature"]);
             let fork = git(path, &["merge-base", "feature", "main"]);
 
-            let new = create_branch(path, None).unwrap();
+            let new = crate::backend::apply(path, CreateBranch { name: None })
+                .unwrap()
+                .0;
             assert_eq!(
                 git(path, &["rev-parse", &new.to_string()]),
                 fork,
@@ -2410,7 +2439,9 @@ pub(super) mod tests {
                 "main is listed while it has a commit origin doesn't"
             );
 
-            let new = create_branch(path, None).unwrap();
+            let new = crate::backend::apply(path, CreateBranch { name: None })
+                .unwrap()
+                .0;
             let name = short_ref(&new).into_owned();
             assert_eq!(
                 branches(path),
@@ -3105,7 +3136,13 @@ pub(super) mod tests {
                 &["config", "branch.feature.merge", "refs/heads/feature"],
             );
             git(path, &["config", "branch.feature.description", "Why"]);
-            create_branch(path, Some("second")).unwrap();
+            crate::backend::apply(
+                path,
+                CreateBranch {
+                    name: Some("second".into()),
+                },
+            )
+            .unwrap();
             let head_ref = |path: &Path| git(path, &["symbolic-ref", "HEAD"]).trim().to_owned();
             assert_eq!(head_ref(path), "refs/heads/gitbutler/workspace");
 
@@ -3220,7 +3257,13 @@ pub(super) mod tests {
                 std::fs::write(path.join(file), "list\npage\n").unwrap();
                 git(path, &["add", file]);
                 git(path, &["commit", "-q", "-m", "Page"]);
-                create_branch(path, Some("beside")).unwrap();
+                crate::backend::apply(
+                    path,
+                    CreateBranch {
+                        name: Some("beside".into()),
+                    },
+                )
+                .unwrap();
                 create_branch_at_commit(path, api, false).unwrap();
                 tear_off_branch(path, &full("refs/heads/top")).unwrap()
             };
