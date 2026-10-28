@@ -1745,6 +1745,12 @@ pub(super) mod tests {
         }
     }
 
+    pub(in crate::backend) fn branch_named(name: &str) -> CreateBranch {
+        CreateBranch {
+            name: Some(name.into()),
+        }
+    }
+
     fn amend_main(into: CommitId, changes: Vec<Selected>) -> Amend {
         Amend {
             into,
@@ -2555,14 +2561,9 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let path = dir.path();
             target_origin_main(path);
 
-            let new = crate::backend::apply(
-                path,
-                CreateBranch {
-                    name: Some("my feature".into()),
-                },
-            )
-            .unwrap()
-            .0;
+            let new = crate::backend::apply(path, branch_named("my feature"))
+                .unwrap()
+                .0;
             assert_eq!(
                 new, "refs/heads/my-feature",
                 "named as typed, as Git allows"
@@ -2715,24 +2716,14 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             // A teammate's branch on the remote, which a branch of that name would take as
             // its own.
             git(path, &["update-ref", "refs/remotes/origin/fix", "HEAD"]);
-            let taken = crate::backend::apply(
-                path,
-                CreateBranch {
-                    name: Some("fix".into()),
-                },
-            );
+            let taken = crate::backend::apply(path, branch_named("fix"));
             assert!(
                 taken.is_err() && !lanes(path).0,
                 "fix is taken, so nothing changes"
             );
-            let new = crate::backend::apply(
-                path,
-                CreateBranch {
-                    name: Some("second".into()),
-                },
-            )
-            .unwrap()
-            .0;
+            let new = crate::backend::apply(path, branch_named("second"))
+                .unwrap()
+                .0;
             let second = short_ref(&new).into_owned();
             let mut both = vec![vec!["feature".to_owned()], vec![second.clone()]];
             both.sort();
@@ -3547,13 +3538,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 &["config", "branch.feature.merge", "refs/heads/feature"],
             );
             git(path, &["config", "branch.feature.description", "Why"]);
-            crate::backend::apply(
-                path,
-                CreateBranch {
-                    name: Some("second".into()),
-                },
-            )
-            .unwrap();
+            crate::backend::apply(path, branch_named("second")).unwrap();
             let head_ref = |path: &Path| git(path, &["symbolic-ref", "HEAD"]).trim().to_owned();
             assert_eq!(head_ref(path), "refs/heads/gitbutler/workspace");
 
@@ -3668,13 +3653,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 std::fs::write(path.join(file), "list\npage\n").unwrap();
                 git(path, &["add", file]);
                 git(path, &["commit", "-q", "-m", "Page"]);
-                crate::backend::apply(
-                    path,
-                    CreateBranch {
-                        name: Some("beside".into()),
-                    },
-                )
-                .unwrap();
+                crate::backend::apply(path, branch_named("beside")).unwrap();
                 let at_api = CreateBranchAtCommit {
                     commit: api,
                     below: false,

@@ -1421,10 +1421,9 @@ mod lane_tests {
     use std::path::Path;
 
     use crate::backend::model::build::{describe, describe_chain};
-    use crate::backend::ops::tests::{git, repo_with, target_origin_main};
+    use crate::backend::ops::tests::{branch_named, git, repo_with, target_origin_main};
     use crate::backend::ops::{
-        CreateBranch, CreateBranchAtCommit, CreateDependentBranch, Destination, InsertEmptyCommit,
-        rename_branch,
+        CreateBranchAtCommit, CreateDependentBranch, Destination, InsertEmptyCommit, rename_branch,
     };
     use crate::backend::{Checkout, CommitId};
 
@@ -1436,14 +1435,9 @@ mod lane_tests {
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
-            let mut below = crate::backend::apply(
-                path,
-                CreateBranch {
-                    name: Some("bottom".into()),
-                },
-            )
-            .unwrap()
-            .0;
+            let mut below = crate::backend::apply(path, branch_named("bottom"))
+                .unwrap()
+                .0;
             let at = Destination::Branch(below.clone());
             crate::backend::apply(path, InsertEmptyCommit { at }).unwrap();
             for name in ["middle", "top"] {
@@ -1454,13 +1448,7 @@ mod lane_tests {
                 let at = Destination::Branch(below.clone());
                 crate::backend::apply(path, InsertEmptyCommit { at }).unwrap();
             }
-            crate::backend::apply(
-                path,
-                CreateBranch {
-                    name: Some("beside".into()),
-                },
-            )
-            .unwrap();
+            crate::backend::apply(path, branch_named("beside")).unwrap();
 
             let ctx = super::open(path).unwrap();
             (ctx.db.get_cache_mut().unwrap())
@@ -1590,13 +1578,7 @@ history: [agent2, agent1~2]
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
-            crate::backend::apply(
-                path,
-                CreateBranch {
-                    name: Some("beside".into()),
-                },
-            )
-            .unwrap();
+            crate::backend::apply(path, branch_named("beside")).unwrap();
             let ctx = super::open(path).unwrap();
             (ctx.db.get_cache_mut().unwrap())
                 .worktree_meta_mut()
