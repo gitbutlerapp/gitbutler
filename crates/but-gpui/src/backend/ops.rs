@@ -1596,14 +1596,10 @@ pub(super) mod tests {
             std::fs::remove_file(linked.join("added")).unwrap();
             let source = DiffSource::Linked("agent".into());
             let diff = load_diff(path, source, None, None, None, None).unwrap();
-            let added = diff.iter().find(|f| f.file.path == "added").unwrap();
-            discard(
-                path,
-                Some("agent".into()),
-                &[Selected::whole(&added.file)],
-                true,
-            )
-            .expect("a whole file's base, here the index's, isn't what was shown to compare");
+            assert!(
+                diff.is_empty(),
+                "a staged addition deleted from the worktree has no change against HEAD to discard"
+            );
         })
     }
 
