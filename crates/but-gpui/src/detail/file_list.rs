@@ -275,7 +275,7 @@ impl Detail {
     /// screen: an agent can leave thousands of files. Also how many rows it has.
     fn file_list(&self, id: &'static str, source: FileSource, cx: &Context<Self>) -> (Div, usize) {
         let store = self.store.read(cx);
-        let tree = !store.prefs.flat_files;
+        let tree = store.prefs.file_tree;
         let terms = self.filter_terms(cx);
         // Each shown file's position in its source, as files a pending operation takes away
         // aren't shown.
@@ -796,11 +796,11 @@ impl Detail {
     /// the last written first. Files with no write time, as a commit's, go by name either way.
     fn view_items(&self, cx: &App) -> Vec<MenuItem> {
         let prefs = &self.store.read(cx).prefs;
-        let (tree, sort) = (!prefs.flat_files, prefs.file_sort);
+        let (tree, sort) = (prefs.file_tree, prefs.file_sort);
         let show = |label: &str, as_tree: bool| {
             MenuItem::new(label.to_owned(), move |this, _, cx| {
                 (this.store).update(cx, |store, cx| {
-                    store.set_prefs(|prefs| prefs.flat_files = !as_tree, cx)
+                    store.set_prefs(|prefs| prefs.file_tree = as_tree, cx)
                 })
             })
             .ticked(tree == as_tree)

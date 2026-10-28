@@ -537,7 +537,7 @@ impl Detail {
                     .collect();
                 this.forget(gone, cx);
                 let prefs = &store.read(cx).prefs;
-                let order = (!prefs.flat_files, prefs.file_sort);
+                let order = (prefs.file_tree, prefs.file_sort);
                 if let Some(diff) =
                     (this.diff.as_ref()).filter(|diff| (diff.tree, diff.sort) != order)
                 {
@@ -1104,7 +1104,7 @@ impl Detail {
         // The keys step through the files as the list shows them: in the order picked, and
         // in a tree, folder by folder. Copied only when that's not how they came.
         let prefs = &self.store.read(cx).prefs;
-        let (tree, sort) = (!prefs.flat_files, prefs.file_sort);
+        let (tree, sort) = (prefs.file_tree, prefs.file_sort);
         let order = |a: &FileDiff, b: &FileDiff| {
             let folders = match tree {
                 true => file_tree::folder_order(&a.file.path, &b.file.path),
@@ -1614,7 +1614,7 @@ impl Detail {
             (ranked(&self.filter_terms(cx), shown, |(_, path)| *path).into_iter())
                 .map(|(file, _)| file)
                 .unzip();
-        if self.store.read(cx).prefs.flat_files {
+        if !self.store.read(cx).prefs.file_tree {
             return shown;
         }
         (unfolded(&paths, collapsed).into_iter())
