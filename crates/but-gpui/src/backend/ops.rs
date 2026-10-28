@@ -21,7 +21,7 @@ use but_workspace::commit::ChangeSource;
 
 use super::intent::Run;
 use super::{
-    ChangeKind, Checkout, CommitId, FullName, Intent, Selected, checkout, short_ref, stamp,
+    ChangeKind, Checkout, CommitId, FullName, Intent, OpKind, Selected, checkout, short_ref, stamp,
 };
 
 /// Where a commit or a set of changes lands.
@@ -1758,6 +1758,10 @@ impl Intent for MarkResolved {
                 but_api::workspace::resolve_worktree_conflicts_with_perm(ctx, self.paths, perm)
             }
         })
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::MarkResolved
     }
 }
 

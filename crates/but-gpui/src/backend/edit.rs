@@ -7,7 +7,7 @@ use but_ctx::Context;
 use gitbutler_operating_modes::OperatingMode;
 
 use super::intent::Run;
-use super::{CommitId, Intent, title};
+use super::{CommitId, Intent, OpKind, title};
 
 /// The commit being edited.
 #[derive(Debug, Clone)]
@@ -39,6 +39,10 @@ impl Intent for Finish {
     fn apply(self, run: &mut Run) -> Result<()> {
         run.locked(modes::save_edit_and_return_to_workspace_with_perm)
     }
+
+    fn kind(&self) -> OpKind {
+        OpKind::FinishEditing
+    }
 }
 
 /// Go back to the workspace, leaving the commit as it was. Unless `force`, only when nothing
@@ -61,5 +65,9 @@ impl Intent for Cancel {
             modes::abort_edit_and_return_to_workspace_with_perm(ctx, true, perm)?;
             Ok(true)
         })
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::CancelEditing
     }
 }

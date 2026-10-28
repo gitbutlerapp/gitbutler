@@ -14,9 +14,7 @@ use gpui::{
 use super::{Detail, DiffSource};
 use crate::app::AppView;
 use crate::backend::conflicts::{self, Keep};
-use crate::backend::{
-    self, Branch, Checkout, Commit, CommitId, Conflict, FullName, OpKind, Workspace, ai,
-};
+use crate::backend::{self, Branch, Checkout, Commit, CommitId, Conflict, FullName, Workspace, ai};
 use crate::state::{Overlay, ProjectId, Rereads, Selection, snack};
 use crate::theme::Theme;
 use crate::ui::conflict::{self, Actions, Kept, Name, Part, Pick};
@@ -560,7 +558,6 @@ impl Detail {
                         &project,
                         "Resolve",
                         Overlay {
-                            kind: OpKind::Resolve,
                             rereads: Rereads::Files,
                             files_in: worktree.clone(),
                             ..Overlay::default()
@@ -601,10 +598,7 @@ impl Detail {
             store.apply(
                 &project,
                 "Resolve",
-                Overlay {
-                    kind: OpKind::Resolve,
-                    ..Overlay::default()
-                },
+                Overlay::default(),
                 conflicts::ResolveCommit { commit, keep },
                 move |store, (rewritten, outcome), cx| {
                     forget(cx);

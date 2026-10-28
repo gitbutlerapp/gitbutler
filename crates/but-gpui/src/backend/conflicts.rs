@@ -11,7 +11,7 @@ use but_oplog::legacy::{OperationKind, SnapshotDetails};
 
 use super::intent::Run;
 use super::ops::rewritten;
-use super::{Checkout, CommitId, Intent, Rewritten, checkout, markers};
+use super::{Checkout, CommitId, Intent, OpKind, Rewritten, checkout, markers};
 
 /// What a conflict keeps.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -44,6 +44,10 @@ impl Intent for ResolveCommit {
 
     fn apply(self, run: &mut Run) -> Result<(Rewritten, Resolved)> {
         run.locked(|ctx, perm| resolve_commit(ctx, perm, self.commit, self.keep))
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Resolve
     }
 }
 
@@ -121,6 +125,10 @@ impl Intent for ResolveMarkers {
         let worktree = self.checkout.linked();
         let unrecorded = worktree.is_some() || super::edit::editing(run.ctx())?.is_some();
         run.locked(|ctx, perm| resolve_markers(ctx, perm, worktree, unrecorded, self.keep))
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Resolve
     }
 }
 

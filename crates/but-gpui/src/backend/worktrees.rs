@@ -10,8 +10,8 @@ use but_ctx::Context;
 
 use super::intent::Run;
 use super::{
-    FileChange, Intent, KeptWorktree, Workspace, Worktree, checkout, git_operation, head_tree,
-    open, worktree_files,
+    FileChange, Intent, KeptWorktree, OpKind, Workspace, Worktree, checkout, git_operation,
+    head_tree, open, worktree_files,
 };
 
 /// The active linked worktrees with their uncommitted changes, and the names of the
@@ -249,6 +249,10 @@ impl Intent for DeleteWorktree {
                 perm,
             )
         })
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::DeleteWorktree(self.name.clone())
     }
 }
 

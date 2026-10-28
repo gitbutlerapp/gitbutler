@@ -14,7 +14,7 @@ use gix::bstr::ByteSlice as _;
 use serde::Deserialize;
 
 use super::intent::Run;
-use super::{CommitId, Intent, SnapshotId, open, short_ref, short_text};
+use super::{CommitId, Intent, OpKind, SnapshotId, open, short_ref, short_text};
 use but_core::WORKSPACE_REF_NAME;
 
 /// One operation in the log.
@@ -544,6 +544,10 @@ impl Intent for Restore {
             oplog::restore_snapshot_with_kind_with_perm(ctx, kind, snapshot.0, perm)
         })
     }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Restore
+    }
 }
 
 /// Record the project as it is now, with what it's for when `message` says.
@@ -606,6 +610,10 @@ impl Intent for Redo {
                 .map(|op| Some(Undone::Done(op)))
         })
     }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Redo(self.undo)
+    }
 }
 
 /// The newest entry in the project's operation log.
@@ -643,6 +651,10 @@ impl Intent for Undo {
     fn apply(self, run: &mut Run) -> Result<Result<Undone>> {
         let newer_than = (self.newer_than.as_ref()).map(|(at, spans)| (*at, spans.as_slice()));
         run.locked(|ctx, perm| Ok(undo_snapshot(ctx, perm, self.snapshot, newer_than)))
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Undo(self.snapshot)
     }
 }
 

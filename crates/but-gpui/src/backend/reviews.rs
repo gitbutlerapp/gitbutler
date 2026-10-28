@@ -14,7 +14,7 @@ use super::intent::Run;
 use super::ops::holds;
 use super::upstream::{push, sync_failure};
 use super::{
-    CheckRun, Checks, DiffLine, Forge, ForgeUser, Intent, Note, PushState, Remark, Review,
+    CheckRun, Checks, DiffLine, Forge, ForgeUser, Intent, Note, OpKind, PushState, Remark, Review,
     ReviewLabel, ReviewState, Thread, open, runtime, short_ref,
 };
 
@@ -317,6 +317,10 @@ impl Intent for Publish {
 
     fn apply(self, run: &mut Run) -> Result<Result<Published>> {
         Ok(self.publish(run.path()))
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Push(self.ref_name.clone())
     }
 }
 

@@ -65,8 +65,6 @@ pub struct Overlay {
     /// It only talks to the remote or the forge and moves refs, leaving the worktree and
     /// the commits alone, so reloads the watcher starts meanwhile go ahead.
     pub remote_only: bool,
-    /// Which operation it is, where it's treated apart from the rest.
-    pub kind: OpKind,
 }
 
 /// What an operation is called: `text` is what the user reads, which may name a branch or a
@@ -149,15 +147,6 @@ impl Overlay {
             .flatten()
             .chain([self.files_in.clone()])
             .collect()
-    }
-
-    pub fn push(ref_name: &FullName, publishes: bool) -> Self {
-        Self {
-            kind: OpKind::Push(ref_name.to_owned()),
-            publishes,
-            remote_only: true,
-            ..Self::default()
-        }
     }
 
     /// For an operation that only talks to the remote or the forge.
@@ -247,6 +236,7 @@ pub(super) struct Running {
     id: usize,
     label: SharedString,
     pub(super) overlay: Overlay,
+    kind: OpKind,
     started: Instant,
     pub(super) phase: Phase,
     /// Reloads asked for while it ran, which the reload after it reads too.
@@ -318,8 +308,8 @@ impl Store {
     /// pushes do, and undos never count.
     fn running_after(&self, after: Option<Instant>, project: Option<&ProjectId>) -> bool {
         self.working().any(|r| {
-            let undoable = (!r.overlay.remote_only || matches!(r.overlay.kind, OpKind::Push(_)))
-                && !matches!(r.overlay.kind, OpKind::Undo(_));
+            let undoable = (!r.overlay.remote_only || matches!(r.kind, OpKind::Push(_)))
+                && !matches!(r.kind, OpKind::Undo(_));
             undoable
                 && project.is_none_or(|p| r.project == *p)
                 && after.is_none_or(|after| r.started > after)
@@ -360,7 +350,7 @@ impl Store {
 
     /// Redo what ⌘Z last took back, unless the user has done something since.
     pub fn redo_last(&mut self, cx: &mut Context<Self>) {
-        if (self.working()).any(|r| matches!(r.overlay.kind, OpKind::Undo(_))) {
+        if (self.working()).any(|r| matches!(r.kind, OpKind::Undo(_))) {
             return self.snack("Wait for the undo to finish, then redo it", cx);
         }
         // The newest not being redone already.
@@ -395,10 +385,7 @@ impl Store {
         self.apply(
             &project,
             "Redo",
-            Overlay {
-                kind: OpKind::Redo(undo),
-                ..Overlay::rewriting_main()
-            },
+            Overlay::rewriting_main(),
             backend::history::Redo {
                 undo,
                 kept,
@@ -453,10 +440,7 @@ impl Store {
         self.apply(
             project,
             "Restore",
-            Overlay {
-                kind: OpKind::Restore,
-                ..Overlay::rewriting_main()
-            },
+            Overlay::rewriting_main(),
             backend::history::Restore { snapshot, kept },
             |store, (), cx| store.snack_undoable("Restored", cx),
             cx,
@@ -517,10 +501,7 @@ impl Store {
         self.apply(
             project,
             "Undo",
-            Overlay {
-                kind: OpKind::Undo(snapshot),
-                ..Overlay::rewriting_main()
-            },
+            Overlay::rewriting_main(),
             backend::history::Undo {
                 snapshot,
                 newer_than: newer_than.map(|at| (at, ran)),
@@ -589,10 +570,7 @@ impl Store {
         self.apply(
             project,
             "Finish editing",
-            Overlay {
-                kind: OpKind::FinishEditing,
-                ..Overlay::rewriting_main()
-            },
+            Overlay::rewriting_main(),
             backend::edit::Finish,
             |store, (), cx| store.snack("Finished editing", cx),
             cx,
@@ -606,10 +584,7 @@ impl Store {
         self.apply(
             project,
             "Cancel editing",
-            Overlay {
-                kind: OpKind::CancelEditing,
-                ..Overlay::rewriting_main()
-            },
+            Overlay::rewriting_main(),
             backend::edit::Cancel { force },
             move |store, left, cx| match left {
                 true => store.snack("Stopped editing, the commit is as it was", cx),
@@ -637,10 +612,7 @@ impl Store {
         self.apply(
             project,
             "Fetch",
-            Overlay {
-                kind: OpKind::Fetch,
-                ..Overlay::remote()
-            },
+            Overlay::remote(),
             backend::upstream::Fetch,
             move |store, fetched_or_not, cx| match fetched_or_not {
                 Ok(any_remote) => {
@@ -674,10 +646,7 @@ impl Store {
         self.apply(
             project,
             "Update",
-            Overlay {
-                kind: OpKind::Update,
-                ..Overlay::default()
-            },
+            Overlay::default(),
             backend::upstream::Update { accepted },
             move |store, outcome, cx| {
                 let target = (store.workspace(&updated).and_then(|ws| ws.target.as_ref()))
@@ -728,7 +697,6 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let name = short_ref(&ref_name).into_owned();
-        let kind = OpKind::Pull(ref_name.clone());
         let pulled = project.clone();
         let pull = backend::upstream::Pull {
             branch: ref_name.clone(),
@@ -737,10 +705,7 @@ impl Store {
         self.apply(
             project,
             Label::new("Pull", format!("Pull {name}")),
-            Overlay {
-                kind,
-                ..Overlay::default()
-            },
+            Overlay::default(),
             pull,
             move |store, found, cx| {
                 let Some(found) = found else {
@@ -806,7 +771,7 @@ impl Store {
         self.apply(
             project,
             Label::new("Push", format!("Push {name}")),
-            Overlay::push(&ref_name, false),
+            Overlay::remote(),
             backend::upstream::Push {
                 ref_name: ref_name.clone(),
                 protect,
@@ -884,7 +849,10 @@ impl Store {
         self.apply(
             project,
             "Create pull request",
-            Overlay::push(&ref_name, true),
+            Overlay {
+                publishes: true,
+                ..Overlay::remote()
+            },
             backend::reviews::Publish {
                 ref_name,
                 title,
@@ -965,7 +933,6 @@ impl Store {
     ) {
         let done = format!("Deleted {name}");
         let overlay = Overlay {
-            kind: OpKind::DeleteWorktree(name.clone()),
             worktrees: HashSet::from([name.clone()]),
             ..Overlay::default()
         };
@@ -1151,10 +1118,11 @@ impl Store {
         done: impl FnOnce(&mut Store, I::Done, &mut Context<Store>) + 'static,
         cx: &mut Context<Self>,
     ) {
-        if let Some(why) = self.refusal(project, &overlay) {
+        let kind = intent.kind();
+        if let Some(why) = self.refusal(project, &kind, overlay.remote_only) {
             return self.snack(why, cx);
         }
-        let beside = overlay.kind.beside();
+        let beside = kind.beside();
         let remote_only = overlay.remote_only;
         let Label { name, text: label } = label.into();
         let editing = (self.workspace(project)).is_some_and(|ws| ws.editing.is_some());
@@ -1190,7 +1158,7 @@ impl Store {
             });
             (keys, ws.map(|ws| overlay.checkouts(ws)).unwrap_or_default())
         });
-        let undo = matches!(overlay.kind, OpKind::Undo(_) | OpKind::Redo(_));
+        let undo = matches!(kind, OpKind::Undo(_) | OpKind::Redo(_));
         // The reload after it reads just the uncommitted files, or just the commits and
         // branches, if that's all it changed.
         let mut reload = match overlay.rereads {
@@ -1216,6 +1184,7 @@ impl Store {
             id,
             label: label.clone(),
             overlay,
+            kind,
             started: now,
             phase: Phase::Working,
             deferred: Reload::default(),
@@ -1335,22 +1304,20 @@ impl Store {
         .detach();
     }
 
-    /// Why an operation with `overlay` can't start in `project` now, if it can't.
-    fn refusal(&self, project: &ProjectId, overlay: &Overlay) -> Option<String> {
+    /// Why an operation of `kind` can't start in `project` now, if it can't.
+    fn refusal(&self, project: &ProjectId, kind: &OpKind, remote_only: bool) -> Option<String> {
         let in_project = self.in_project(project);
-        let taken = self
-            .running_in(project)
-            .any(|r| match overlay.kind.beside() {
-                true => r.overlay.kind == overlay.kind,
-                false => !r.overlay.kind.beside(),
-            });
+        let taken = self.running_in(project).any(|r| match kind.beside() {
+            true => r.kind == *kind,
+            false => !r.kind.beside(),
+        });
         if taken {
             return Some(format!(
                 "Wait for the running operation{in_project} to finish"
             ));
         }
         let editing = (self.workspace(project)).is_some_and(|ws| ws.editing.is_some());
-        if editing && !overlay.kind.while_editing() {
+        if editing && !kind.while_editing() {
             return Some(format!(
                 "Finish or cancel editing the commit{in_project} first"
             ));
@@ -1359,11 +1326,8 @@ impl Store {
         // can leave it unable to read again: the operation would act on what's gone, and the
         // engine can make a commit it then fails to report.
         let unreadable = (self.project(project)).is_some_and(|p| p.error.is_some())
-            && !(overlay.remote_only
-                || matches!(
-                    overlay.kind,
-                    OpKind::Undo(_) | OpKind::Redo(_) | OpKind::Restore
-                ));
+            && !(remote_only
+                || matches!(kind, OpKind::Undo(_) | OpKind::Redo(_) | OpKind::Restore));
         unreadable
             .then(|| format!("Can't read the project{in_project} now; fix what it says first"))
     }
@@ -1415,7 +1379,7 @@ impl Store {
         self.running.iter_mut().find(|r| {
             r.project == *project
                 && r.phase == Phase::Working
-                && !r.overlay.kind.beside()
+                && !r.kind.beside()
                 && !r.overlay.remote_only
         })
     }
@@ -1480,7 +1444,7 @@ impl Store {
     ) -> bool {
         (self.running_in(project))
             .filter(|r| settling || r.phase == Phase::Working)
-            .any(|r| kind.is_none_or(|kind| r.overlay.kind == *kind))
+            .any(|r| kind.is_none_or(|kind| r.kind == *kind))
     }
 
     /// Whether conflicts are being resolved in `project`, whose picks are numbered anew once
@@ -1689,13 +1653,13 @@ impl Store {
 
     /// Whether a pending operation pushes `ref_name`, on its own or to open its pull request.
     pub fn pushing(&self, project: &ProjectId, ref_name: &FullName) -> bool {
-        (self.overlays(project)).any(|o| matches!(&o.kind, OpKind::Push(r) if r == ref_name))
+        (self.running_in(project)).any(|r| matches!(&r.kind, OpKind::Push(to) if to == ref_name))
     }
 
     /// Whether a pending operation opens `ref_name`'s pull request.
     pub fn publishing(&self, project: &ProjectId, ref_name: &FullName) -> bool {
-        (self.overlays(project))
-            .any(|o| o.publishes && matches!(&o.kind, OpKind::Push(r) if r == ref_name))
+        (self.running_in(project))
+            .any(|r| r.overlay.publishes && matches!(&r.kind, OpKind::Push(to) if to == ref_name))
     }
 
     /// Keep the selection on commits an operation rewrote.

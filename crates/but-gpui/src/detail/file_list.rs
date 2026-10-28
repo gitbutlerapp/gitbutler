@@ -14,7 +14,7 @@ use super::file_tree::{self, TreeRow};
 use super::panes::side_list;
 use super::{Detail, FilterFiles, LoadedDiff, keeps_path, merged, ranked};
 use crate::app::AppView;
-use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, OpKind, Selected};
+use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::MenuItem;
 use crate::state::{Cut, FileSort, Overlay, ProjectId, Rereads, Selection};
 use crate::theme::Theme;
@@ -1204,7 +1204,6 @@ impl Detail {
                                     &project,
                                     "Mark resolved",
                                     Overlay {
-                                        kind: OpKind::MarkResolved,
                                         rereads: Rereads::Files,
                                         files_in: worktree.clone(),
                                         ..Overlay::default()

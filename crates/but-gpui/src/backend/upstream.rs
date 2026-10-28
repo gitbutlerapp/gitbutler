@@ -14,7 +14,7 @@ use but_core::sync::RepoExclusive;
 use super::intent::Run;
 use super::reviews::{cached_reviews, from_cache};
 use super::{
-    Agent, CommitId, Intent, RemoteCommit, Review, ReviewState, open, present_first_parent,
+    Agent, CommitId, Intent, OpKind, RemoteCommit, Review, ReviewState, open, present_first_parent,
     runtime, short_ref, title,
 };
 
@@ -757,6 +757,10 @@ impl Intent for Push {
             Err(err) => push_refusal(&err).map(Err).ok_or(err),
         }
     }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Push(self.ref_name.clone())
+    }
 }
 
 /// Why updating the stack's pull requests failed, if it did.
@@ -1018,6 +1022,10 @@ impl Intent for Update {
             })
         })
     }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Update
+    }
 }
 
 /// What [`Update`] would leave conflicted that isn't now.
@@ -1079,6 +1087,10 @@ impl Intent for Fetch {
 
     fn apply(self, run: &mut Run) -> Result<Result<bool>> {
         Ok(fetch(run.path()))
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Fetch
     }
 }
 

@@ -182,7 +182,7 @@ unseen is what a laptop's battery pays for.
   leave; nothing queues. Fetches, pushes and deleting a linked worktree (`OpKind::beside`) run
   beside it, refusing only one of their own kind, and record no undo step: `Store::apply` drops
   the oplog entry and linked-worktree moves seen around them. Operations are told apart by
-  `Overlay::kind` (`OpKind` in `backend/intent.rs`), never by their label, which is only what
+  `Intent::kind` (`OpKind` in `backend/intent.rs`), never by their label, which is only what
   the user reads.
 - The oplog records the workspace and the main checkout only. Undo and History restore refuse
   anything that touched a linked worktree, in older snapshots too. Commits in a linked worktree

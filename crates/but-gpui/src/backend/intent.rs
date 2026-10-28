@@ -10,12 +10,15 @@ use super::{FullName, SnapshotId, history, open, worktrees};
 pub trait Intent: Send + 'static {
     type Done: Send + 'static;
     fn apply(self, run: &mut Run) -> Result<Self::Done>;
+
+    fn kind(&self) -> OpKind {
+        OpKind::Other
+    }
 }
 
 /// The operations treated apart from the rest. Labels are only what the user reads.
-#[derive(Default, Clone, PartialEq)]
+#[derive(PartialEq)]
 pub enum OpKind {
-    #[default]
     Other,
     Fetch,
     /// A push of the branch with this full ref, with the ones below it, on its own or to open
@@ -25,8 +28,6 @@ pub enum OpKind {
     DeleteWorktree(bstr::BString),
     /// An update from the target.
     Update,
-    /// A pull into the branch with this full ref.
-    Pull(FullName),
     /// Resolving conflicts, which are numbered anew once it's done.
     Resolve,
     MarkResolved,
