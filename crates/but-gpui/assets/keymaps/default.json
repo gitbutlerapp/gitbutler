@@ -365,10 +365,10 @@
   },
   {
     "context": "Workspace && !TextInput",
-    "bindings": { "t": "palette::GoToBranch" }
+    "bindings": { "t": "palette::GoTo" }
   },
   {
-    "bindings": { "secondary-p": "palette::GoToBranch" }
+    "bindings": { "secondary-p": "palette::GoTo" }
   },
   {
     "context": "Workspace && !TextInput",

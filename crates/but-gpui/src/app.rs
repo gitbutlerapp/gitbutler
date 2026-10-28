@@ -1033,7 +1033,7 @@ impl Render for AppView {
             // Here rather than around the navigator, so the details pane's buttons reach them.
             .map(|el| self.pr_actions(el, cx))
             .map(|el| self.resolve_actions(el, cx))
-            .on_action(cx.listener(Self::go_to_branch))
+            .on_action(cx.listener(Self::go_to))
             .on_action(cx.listener(Self::show_actions))
             .on_action(cx.listener(Self::copy_more))
             .on_action(cx.listener(Self::open_selected_in_terminal))
