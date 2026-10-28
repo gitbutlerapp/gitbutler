@@ -451,27 +451,45 @@ pub fn create_branch(path: &Path, name: Option<&str>) -> Result<FullName> {
     // A branch made here and checked out couldn't be undone: the oplog takes a detached
     // HEAD for the workspace and would restore that instead.
     refuse_unfinished(&*ctx.repo.get()?, true)?;
+    let placement = match new_branch_at(&ctx)? {
+        NewBranchAt::Workspace => Placement::Independent { order: None },
+        NewBranchAt::AboveHead(head) => Placement::Dependent {
+            relative_to: but_api::commit::json::RelativeTo::Reference(head),
+            side: InsertSide::Above,
+        },
+        NewBranchAt::BesideHead(head) => {
+            return create_beside_checkout(&mut ctx, &head, new_ref);
+        }
+    };
+    let created = but_api::branch::branch_create(&mut ctx, new_ref, placement)?;
+    Ok(created.new_ref)
+}
+
+/// Where a new branch goes, given what is checked out.
+enum NewBranchAt {
+    /// In GitButler's workspace, when it or no local branch is checked out.
+    Workspace,
+    /// On top of the branch checked out alone, the target's or any without a target.
+    AboveHead(FullName),
+    /// Beside the branch checked out alone, which isn't the target's.
+    BesideHead(FullName),
+}
+
+fn new_branch_at(ctx: &but_ctx::Context) -> Result<NewBranchAt> {
     let head = ctx.repo.get()?.head_name()?;
     let checked_out = head.filter(|head| {
         head.as_bstr() != but_core::WORKSPACE_REF_NAME
             && head.as_ref().category() == Some(gix::refs::Category::LocalBranch)
     });
-    let target = ctx.project_meta()?.target_ref;
-    let placement = match checked_out {
-        Some(head)
-            if (target.as_ref())
-                .is_some_and(|target| target.as_local_full_name_ref() != head.as_ref()) =>
-        {
-            return create_beside_checkout(&mut ctx, &head, new_ref);
-        }
-        Some(head) => Placement::Dependent {
-            relative_to: but_api::commit::json::RelativeTo::Reference(head),
-            side: InsertSide::Above,
-        },
-        None => Placement::Independent { order: None },
+    let Some(head) = checked_out else {
+        return Ok(NewBranchAt::Workspace);
     };
-    let created = but_api::branch::branch_create(&mut ctx, new_ref, placement)?;
-    Ok(created.new_ref)
+    let target = ctx.project_meta()?.target_ref;
+    let beside = target.is_some_and(|target| target.as_local_full_name_ref() != head.as_ref());
+    Ok(match beside {
+        true => NewBranchAt::BesideHead(head),
+        false => NewBranchAt::AboveHead(head),
+    })
 }
 
 /// Make a branch, `new_ref` or with a made-up name, where `head`, the branch checked out,
