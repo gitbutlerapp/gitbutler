@@ -1004,11 +1004,11 @@ impl Store {
             worktrees: archived.then(|| name.clone()).into_iter().collect(),
             ..Overlay::default()
         };
-        self.run(
+        self.apply(
             project,
             label,
             overlay,
-            move |path| backend::worktrees::set_archived(path, name.as_ref(), archived),
+            backend::worktrees::SetArchived { name, archived },
             move |store, (), cx| store.snack(done, cx),
             cx,
         );

@@ -243,15 +243,24 @@ pub fn remove(path: &Path, name: &BStr, lost: &[(String, Option<i64>, Option<u64
 
 /// Hide worktree `name` from the workspace, or with `archived` false show it again. It
 /// stays on disk either way.
-pub fn set_archived(path: &Path, name: &BStr, archived: bool) -> Result<()> {
-    let ctx = open(path)?;
-    let guard = ctx.shared_worktree_access();
-    but_api::worktrees::worktree_set_archived_with_perm(
-        &ctx,
-        name,
-        archived,
-        guard.read_permission(),
-    )
+pub struct SetArchived {
+    pub name: BString,
+    pub archived: bool,
+}
+
+impl Intent for SetArchived {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        run.locked(|ctx, perm| {
+            but_api::worktrees::worktree_set_archived_with_perm(
+                ctx,
+                self.name.as_ref(),
+                self.archived,
+                perm.read_permission(),
+            )
+        })
+    }
 }
 
 #[cfg(test)]
