@@ -29,7 +29,7 @@ use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     self, ButtonStyle, Icon, button, dp, dropdown, error_summary, field, h_flex, icon, muted,
-    side_row, switch, v_flex,
+    side_row, small_icon, switch, v_flex,
 };
 
 pub use cli::welcome_card;
@@ -972,8 +972,8 @@ impl SettingsView {
         .on_click(cx.listener(move |this, _, _, cx| this.show_page(page.clone(), cx)))
     }
 
-    /// A listed project in the sidebar: the shown one under its name with its pages, another
-    /// as a row that shows its Project page.
+    /// A listed project in the sidebar as a folder: its row shows its Project page and opens
+    /// it to its Git page under it.
     fn project_entry(
         &self,
         project: &ProjectId,
@@ -983,41 +983,45 @@ impl SettingsView {
     ) -> Option<AnyElement> {
         let name = self.store.read(cx).project(project)?.project.name.clone();
         let focus = self.project_focus.get(project)?;
-        let name = div().flex_1().min_w_0().truncate().child(name);
-        let folder = icon(Icon::Folder).text_color(theme.text_2);
-        if self.page.project() != Some(project) {
-            let page = Page::Project(project.clone(), ProjectPage::Project);
-            let row = side_row(SharedString::from(format!("{page:?}")), false, true, theme);
-            let row = ui::tab_stop(row, theme)
-                .mx_0()
-                .track_focus(focus)
-                .child(folder)
-                .child(name)
-                .on_click(cx.listener(move |this, _, _, cx| this.show_page(page.clone(), cx)));
-            return Some(row.into_any_element());
-        }
-        let links = [
-            (ProjectPage::Project, focus),
-            (ProjectPage::Git, &self.project_git_focus),
-        ]
-        .map(|(page, focus)| Link {
-            page: Page::Project(project.clone(), page),
-            focus: focus.clone(),
+        let open = self.page.project() == Some(project);
+        let page = Page::Project(project.clone(), ProjectPage::Project);
+        let selected = !searching && self.page == page;
+        let row = side_row(
+            SharedString::from(format!("{page:?}")),
+            selected,
+            true,
+            theme,
+        );
+        let row = ui::tab_stop(row, theme)
+            .mx_0()
+            .track_focus(focus)
+            .child(
+                small_icon(if open {
+                    Icon::ChevronDown
+                } else {
+                    Icon::ChevronRight
+                })
+                .text_color(match selected {
+                    true => theme.muted_on_solid(),
+                    false => theme.text_3,
+                }),
+            )
+            .child(icon(Icon::Folder).text_color(match selected {
+                true => theme.muted_on_solid(),
+                false => theme.text_2,
+            }))
+            .child(div().flex_1().min_w_0().truncate().child(name))
+            .on_click(cx.listener(move |this, _, _, cx| this.show_page(page.clone(), cx)));
+        let git = open.then(|| Link {
+            page: Page::Project(project.clone(), ProjectPage::Git),
+            focus: self.project_git_focus.clone(),
         });
-        let heading = h_flex()
-            .px(dp(8.))
-            .py(dp(6.))
-            .gap(dp(8.))
-            .text_size(dp(13.))
-            .font_weight(gpui::FontWeight::SEMIBOLD)
-            .text_color(theme.text_1)
-            .child(folder)
-            .child(name);
-        let links = (links.iter()).map(|link| self.page_link(link, searching, theme, cx));
-        let entry = v_flex()
-            .child(heading)
-            .child(v_flex().pl(dp(16.)).children(links));
-        Some(entry.into_any_element())
+        let git = git.map(|link| {
+            div()
+                .pl(dp(20.))
+                .child(self.page_link(&link, searching, theme, cx))
+        });
+        Some(v_flex().child(row).children(git).into_any_element())
     }
 
     fn show_page(&mut self, page: Page, cx: &mut Context<Self>) {
