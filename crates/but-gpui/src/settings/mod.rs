@@ -228,11 +228,13 @@ pub struct SettingsView {
     editors: Vec<Program>,
     terminals: Vec<Program>,
     fetch_interval: Option<u64>,
-    /// The desktop app opens this client at start: GitButler's `featureFlags.gpui`.
-    open_at_start: bool,
+    /// The desktop app opens this client at start: GitButler's `featureFlags.gpui`. `None`
+    /// while first read, as the metrics are, and their switches aren't drawn until then: one
+    /// drawn off first would slide over to what's read.
+    open_at_start: Option<bool>,
     /// GitButler's apps send usage metrics, and error reports.
-    usage_metrics: bool,
-    error_reporting: bool,
+    usage_metrics: Option<bool>,
+    error_reporting: Option<bool>,
     accounts: accounts::Accounts,
     ai: ai::Ai,
     /// How the last signing test went, while it applies to the project shown.
@@ -317,9 +319,9 @@ impl SettingsView {
             editors: Vec::new(),
             terminals: Vec::new(),
             fetch_interval: None,
-            open_at_start: false,
-            usage_metrics: false,
-            error_reporting: false,
+            open_at_start: None,
+            usage_metrics: None,
+            error_reporting: None,
             accounts: Default::default(),
             ai,
             signing: None,
@@ -357,13 +359,15 @@ impl SettingsView {
                 ))
             })
             .await;
-            if let Ok((editors, terminals, fetch_interval, open_at_start, metrics)) = loaded {
+            if let Ok((editors, terminals, fetch_interval, open_at_start, (usage, errors))) = loaded
+            {
                 this.update(cx, |this, cx| {
                     this.editors = editors;
                     this.terminals = terminals;
                     this.fetch_interval = fetch_interval;
-                    this.open_at_start = open_at_start;
-                    (this.usage_metrics, this.error_reporting) = metrics;
+                    this.open_at_start = Some(open_at_start);
+                    this.usage_metrics = Some(usage);
+                    this.error_reporting = Some(errors);
                     cx.notify();
                 })
                 .ok();
@@ -693,40 +697,43 @@ impl SettingsView {
         }))
     }
 
-    /// A switch's click for one of GitButler's settings, which this view holds in `value`: it
-    /// shows the change at once, saves it with `save`, then `reload`s what was saved.
+    /// A switch's click for one of GitButler's settings, which this view holds in `value` once
+    /// read: it shows the change at once, saves it with `save`, then `reload`s what was saved.
     fn toggle_saved(
-        value: fn(&mut Self) -> &mut bool,
+        value: fn(&mut Self) -> Option<&mut bool>,
         failed: &'static str,
         save: fn(bool) -> anyhow::Result<()>,
         reload: fn(&mut Self, &mut Context<Self>),
         cx: &Context<Self>,
     ) -> impl Fn(&ClickEvent, &mut Window, &mut App) + 'static {
         cx.listener(move |this, _, _, cx| {
-            let on = !*value(this);
-            *value(this) = on;
+            // Its switch is drawn only once it's read.
+            let Some(value) = value(this) else { return };
+            *value ^= true;
+            let on = *value;
             cx.notify();
             this.apply(failed, move || save(on), reload, cx);
         })
     }
 
-    fn start_row(&self, cx: &Context<Self>) -> Row {
-        let start = switch("open-at-start", self.open_at_start, Theme::get(cx)).on_click(
+    /// Nothing until it's read.
+    fn start_row(&self, cx: &Context<Self>) -> Option<Row> {
+        let start = switch("open-at-start", self.open_at_start?, Theme::get(cx)).on_click(
             Self::toggle_saved(
-                |this| &mut this.open_at_start,
+                |this| this.open_at_start.as_mut(),
                 "Couldn't change what opens at start",
                 backend::set_opens_at_start,
                 Self::load_app_settings,
                 cx,
             ),
         );
-        Row::new(
+        Some(Row::new(
             "Open this app at start",
             "GitButler opens this app rather than its web app when it starts, as \
              featureFlags.gpui in its settings.json says. Starting it with --gpui opens this app \
              either way.",
             start,
-        )
+        ))
     }
 
     /// Escape in a field puts it back and goes to the search box, where Escape closes.
@@ -756,7 +763,8 @@ impl SettingsView {
                 // Only where the desktop app's binary has this client built in.
                 let start = cx
                     .has_global::<crate::Embedded>()
-                    .then(|| self.start_row(cx));
+                    .then(|| self.start_row(cx))
+                    .flatten();
                 vec![Card::new(None, start.into_iter().collect())]
             }
             Page::Project(project, page) => self.project_cards(project, *page, window, cx),
