@@ -8,9 +8,10 @@ use anyhow::Result;
 use bstr::{BStr, BString, ByteSlice as _};
 use but_ctx::Context;
 
+use super::intent::Run;
 use super::{
-    FileChange, KeptWorktree, Workspace, Worktree, checkout, git_operation, head_tree, open,
-    worktree_files,
+    FileChange, Intent, KeptWorktree, Workspace, Worktree, checkout, git_operation, head_tree,
+    open, worktree_files,
 };
 
 /// The active linked worktrees with their uncommitted changes, and the names of the
@@ -194,12 +195,21 @@ pub fn heads(repo: &gix::Repository) -> Heads {
 }
 
 /// Make a linked worktree on new branch `name`, at the workspace's base, as `but worktree new`
-/// does. Returns the worktree's name.
-pub fn create(path: &Path, name: &str) -> Result<BString> {
-    let mut ctx = open(path)?;
-    let ref_name = super::ops::branch_ref(name)?;
-    let created = but_api::worktrees::worktree_new(&mut ctx, Some(ref_name))?;
-    Ok(created.name)
+/// does. Done is the worktree's name.
+pub struct CreateWorktree {
+    pub name: String,
+}
+
+impl Intent for CreateWorktree {
+    type Done = BString;
+
+    fn apply(self, run: &mut Run) -> Result<BString> {
+        let ref_name = super::ops::branch_ref(&self.name)?;
+        let created = run.locked(|ctx, perm| {
+            but_api::worktrees::worktree_new_with_perm(ctx, Some(ref_name), perm)
+        })?;
+        Ok(created.name)
+    }
 }
 
 /// Remove worktree `name` from disk as `git worktree remove` does, with the uncommitted

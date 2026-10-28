@@ -8,7 +8,7 @@ use crate::app::{
     NewBranchOnTop, OpenPullRequest, Push, RenameSelection, StartCommit, ToggleRead,
     UncommitSelection, UpdateFromTarget,
 };
-use crate::backend::{Checkout, CommitId, Legacy, short_ref, worktrees};
+use crate::backend::{Checkout, CommitId, short_ref, worktrees};
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, BranchEdits, CherryPick, CommitEdits, CopyChangeId,
     CopyMessage, MoveToNewBranch, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage,
@@ -63,7 +63,7 @@ fn new_branch_items(store: &Store, project: &ProjectId, cx: &App) -> Vec<MenuIte
                 "New worktree",
                 window,
                 cx,
-                |name| Legacy::new(move |path| worktrees::create(path, &name)),
+                |name| worktrees::CreateWorktree { name },
                 move |store, name, cx| store.select(Some(Selection::Worktree(selected, name)), cx),
             )
         }));
