@@ -615,25 +615,10 @@ fn load_file(
         }
         for hunk in hunks.iter_mut() {
             annotate::emphasize(hunk);
-            // One per side, so a removed line's state, as a string it opens, doesn't run
-            // on into the added lines: unchanged lines go through both.
-            let for_path = || highlight::Highlighter::for_path(&file.path);
-            let (Some(mut old), Some(mut new)) = (for_path(), for_path()) else {
-                continue;
-            };
             let Hunk {
                 lead, lines, tail, ..
             } = hunk;
-            for line in lead.iter_mut().chain(lines).chain(tail) {
-                line.spans = match line.kind {
-                    LineKind::Removed => old.line(&line.text),
-                    LineKind::Added => new.line(&line.text),
-                    LineKind::Context => {
-                        old.line(&line.text);
-                        new.line(&line.text)
-                    }
-                };
-            }
+            highlight_lines(&file.path, lead.iter_mut().chain(lines).chain(tail));
         }
     }
     // Only lines and images are filled in later, a file the first files' limit left plain
@@ -1044,7 +1029,27 @@ fn cut_starts(lines: &[(LineKind, String)]) -> Vec<usize> {
     starts
 }
 
-fn parse_hunk(hunk: &but_core::unified_diff::DiffHunk) -> Hunk {
+/// Highlight `lines`, consecutive lines of a hunk of `path`.
+pub(super) fn highlight_lines<'a>(path: &str, lines: impl Iterator<Item = &'a mut DiffLine>) {
+    // One per side, so a removed line's state, as a string it opens, doesn't run on into
+    // the added lines: unchanged lines go through both.
+    let for_path = || highlight::Highlighter::for_path(path);
+    let (Some(mut old), Some(mut new)) = (for_path(), for_path()) else {
+        return;
+    };
+    for line in lines {
+        line.spans = match line.kind {
+            LineKind::Removed => old.line(&line.text),
+            LineKind::Added => new.line(&line.text),
+            LineKind::Context => {
+                old.line(&line.text);
+                new.line(&line.text)
+            }
+        };
+    }
+}
+
+pub(super) fn parse_hunk(hunk: &but_core::unified_diff::DiffHunk) -> Hunk {
     let mut old = hunk.old_start;
     let mut new = hunk.new_start;
     let mut lines = Vec::new();

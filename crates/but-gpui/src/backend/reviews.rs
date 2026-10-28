@@ -2,7 +2,7 @@
 //! say, publishing it, and merging one. Calls to the forge go over the network, so these
 //! run off the UI thread like the rest.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use anyhow::Result;
@@ -13,8 +13,8 @@ use but_forge::ForgeName;
 use super::ops::holds;
 use super::upstream::sync_failure;
 use super::{
-    CheckRun, Checks, Forge, ForgeUser, PushState, Review, ReviewLabel, ReviewState, open, push,
-    runtime, short_ref,
+    CheckRun, Checks, DiffLine, Forge, ForgeUser, Note, PushState, Remark, Review, ReviewLabel,
+    ReviewState, Thread, open, push, runtime, short_ref,
 };
 
 /// Which forge hosts the project: the one its target's remote, or a forge account with a
@@ -397,4 +397,343 @@ pub fn set_auto_merge(path: &Path, number: u64, on: bool) -> Result<()> {
         );
     }
     Ok(())
+}
+
+/// A review's verdict, as the forge gives it.
+pub use but_forge::ForgeReviewSubmissionState as Verdict;
+
+/// How many of the diff's lines a thread quotes at least, as GitHub does.
+const EXCERPT_LINES: usize = 4;
+
+/// What's been said on pull request `number`, newest first. Only GitHub's is read; other
+/// forges' reads as nothing.
+pub fn conversation(path: &Path, number: u64) -> Result<Vec<Remark>> {
+    let started = std::time::Instant::now();
+    let ctx = open(path)?.into_sync();
+    let (comments, reviews, threads) = runtime().handle().block_on(async {
+        futures::try_join!(
+            forge::list_review_comments(ctx.clone(), number as usize),
+            forge::list_review_submissions(ctx.clone(), number as usize),
+            forge::list_review_threads(ctx, number as usize),
+        )
+    })?;
+    tracing::debug!(elapsed = ?started.elapsed(), number, "read the conversation");
+    Ok(remarks(comments, reviews, threads))
+}
+
+/// `comments`, `reviews` and `threads` as the conversation shows them, newest first, as Lite's,
+/// those without a time last: each review followed by the threads it started, each a remark of
+/// its own so a long review draws only what's on screen, and nothing that says nothing, as a
+/// comment of only HTML comments, or the empty review GitHub makes of an answer in a thread,
+/// which shows in the thread.
+fn remarks(
+    comments: Vec<but_forge::ForgeReviewComment>,
+    reviews: Vec<but_forge::ForgeReviewSubmission>,
+    threads: Vec<but_forge::ForgeReviewThread>,
+) -> Vec<Remark> {
+    let listed: HashSet<i64> = reviews.iter().map(|review| review.id).collect();
+    let mut started: HashMap<i64, Vec<Thread>> = HashMap::new();
+    // Each remark with those that follow it, by when it was written.
+    let mut dated: Vec<(Option<i64>, Vec<Remark>)> = Vec::new();
+    for thread in threads {
+        let first = thread.comments.first();
+        let at = first.and_then(|comment| timestamp(comment.created_at.as_deref()));
+        let review = (first.and_then(|comment| comment.review_id)).filter(|id| listed.contains(id));
+        match review {
+            Some(id) => started.entry(id).or_default().push(thread_of(thread)),
+            None => dated.push((
+                at,
+                vec![Remark::Thread {
+                    thread: thread_of(thread),
+                    in_review: false,
+                }],
+            )),
+        }
+    }
+    for comment in comments {
+        let note = note(
+            comment.author.as_ref(),
+            &comment.body,
+            comment.created_at.as_deref(),
+            comment.modified_at.as_deref(),
+            comment.html_url,
+        );
+        if !note.body.is_empty() {
+            dated.push((note.at, vec![Remark::Comment(note)]));
+        }
+    }
+    for review in reviews {
+        let threads = started.remove(&review.id).unwrap_or_default();
+        let body = review.body.as_deref().unwrap_or_default();
+        let note = note(
+            review.author.as_ref(),
+            body,
+            review.submitted_at.as_deref(),
+            None,
+            review.html_url,
+        );
+        if review.state == Verdict::Commented && note.body.is_empty() && threads.is_empty() {
+            continue;
+        }
+        let (at, verdict) = (note.at, review.state);
+        let followed = (threads.into_iter()).map(|thread| Remark::Thread {
+            thread,
+            in_review: true,
+        });
+        dated.push((
+            at,
+            std::iter::once(Remark::Review { verdict, note })
+                .chain(followed)
+                .collect(),
+        ));
+    }
+    dated.sort_by_key(|(at, _)| std::cmp::Reverse(*at));
+    dated.into_iter().flat_map(|(_, remarks)| remarks).collect()
+}
+
+fn note(
+    author: Option<&but_forge::ForgeReviewUser>,
+    body: &str,
+    at: Option<&str>,
+    edited_at: Option<&str>,
+    url: String,
+) -> Note {
+    let at = timestamp(at);
+    // GitHub's REST names a bot "name[bot]", its GraphQL "name"; the tag says it either way.
+    let bot = author.is_some_and(|user| user.is_bot || user.login.ends_with("[bot]"));
+    Note {
+        author: author.map(|user| ForgeUser {
+            login: (user.login.strip_suffix("[bot]"))
+                .unwrap_or(&user.login)
+                .to_owned(),
+            avatar_url: user.avatar_url.clone(),
+        }),
+        bot,
+        body: crate::ui::markdown::parse(body),
+        at,
+        edited: (timestamp(edited_at).zip(at)).is_some_and(|(edited, at)| edited > at),
+        url,
+    }
+}
+
+fn thread_of(thread: but_forge::ForgeReviewThread) -> Thread {
+    // Where it was left, as the excerpt numbers it: the forge's current lines move with later
+    // pushes, and an outdated thread has none.
+    let span = (thread.line.zip(thread.start_line)).map_or(0, |(end, start)| (end - start).max(0));
+    let lines = (thread.original_line.or(thread.line)).map(|end| ((end - span).max(1), end));
+    let quoted = lines.map_or(1, |(start, end)| (end - start + 1) as usize);
+    let excerpt = (thread.comments.first())
+        .and_then(|comment| comment.diff_hunk.as_deref())
+        .map(|hunk| excerpt(&thread.path, hunk, quoted))
+        .unwrap_or_default();
+    Thread {
+        id: thread.id,
+        lines,
+        resolved: thread.is_resolved,
+        outdated: thread.is_outdated,
+        excerpt,
+        comments: (thread.comments.into_iter())
+            .map(|comment| {
+                note(
+                    comment.author.as_ref(),
+                    &comment.body,
+                    comment.created_at.as_deref(),
+                    comment.modified_at.as_deref(),
+                    comment.html_url,
+                )
+            })
+            .collect(),
+        path: thread.path,
+    }
+}
+
+/// The last `count` lines of `hunk`, a hunk of `path` as GitHub quotes one up to where a
+/// thread was left, and at least [`EXCERPT_LINES`] of them, numbered and highlighted.
+fn excerpt(path: &str, hunk: &str, count: usize) -> Vec<DiffLine> {
+    let Some((old_start, new_start)) = hunk.lines().next().and_then(hunk_starts) else {
+        return Vec::new();
+    };
+    let mut lines = super::diff::parse_hunk(&but_core::unified_diff::DiffHunk {
+        old_start,
+        old_lines: 0,
+        new_start,
+        new_lines: 0,
+        diff: hunk.into(),
+    })
+    .lines;
+    super::diff::highlight_lines(path, lines.iter_mut());
+    lines.split_off(lines.len().saturating_sub(count.max(EXCERPT_LINES)))
+}
+
+/// Where a hunk header, as "@@ -12,5 +12,6 @@", starts on the old side and the new.
+fn hunk_starts(header: &str) -> Option<(u32, u32)> {
+    let (old, new) = header.strip_prefix("@@ -")?.split_once(" +")?;
+    let start = |range: &str| range.split([',', ' ']).next()?.parse().ok();
+    Some((start(old)?, start(new)?))
+}
+
+#[cfg(test)]
+mod tests {
+    use but_forge::{
+        ForgeReviewComment, ForgeReviewSubmission, ForgeReviewThread, ForgeReviewThreadComment,
+        ForgeReviewThreadSide, ForgeReviewUser,
+    };
+
+    use super::{Remark, Verdict, excerpt, remarks};
+    use crate::backend::{LineKind, Note};
+
+    fn user(login: &str, is_bot: bool) -> Option<ForgeReviewUser> {
+        Some(ForgeReviewUser {
+            id: 1,
+            login: login.into(),
+            name: None,
+            email: None,
+            avatar_url: None,
+            is_bot,
+        })
+    }
+
+    fn at(minute: u32) -> Option<String> {
+        Some(format!("2026-10-27T10:{minute:02}:00Z"))
+    }
+
+    fn comment(id: i64, login: &str, body: &str, minute: Option<u32>) -> ForgeReviewComment {
+        ForgeReviewComment {
+            id,
+            body: body.into(),
+            author: user(login, false),
+            created_at: minute.and_then(at),
+            modified_at: minute.and_then(at),
+            html_url: format!("https://github.com/o/r/pull/1#issuecomment-{id}"),
+            reactions: Vec::new(),
+        }
+    }
+
+    fn review(
+        id: i64,
+        login: &str,
+        state: Verdict,
+        body: &str,
+        minute: u32,
+    ) -> ForgeReviewSubmission {
+        ForgeReviewSubmission {
+            id,
+            author: user(login, login.ends_with("[bot]")),
+            state,
+            body: (!body.is_empty()).then(|| body.into()),
+            submitted_at: at(minute),
+            html_url: format!("https://github.com/o/r/pull/1#pullrequestreview-{id}"),
+            reactions: Vec::new(),
+        }
+    }
+
+    /// A thread on `path`, its comments each by a login, in the review given, at a minute.
+    fn thread(path: &str, comments: &[(&str, i64, u32)]) -> ForgeReviewThread {
+        ForgeReviewThread {
+            id: format!("thread-{path}"),
+            path: path.into(),
+            line: Some(3),
+            start_line: Some(3),
+            original_line: Some(3),
+            side: ForgeReviewThreadSide::New,
+            is_resolved: false,
+            is_outdated: false,
+            comments: (comments.iter())
+                .map(|(login, review, minute)| ForgeReviewThreadComment {
+                    id: i64::from(*minute),
+                    body: format!("{login} on {path}"),
+                    author: user(login, false),
+                    created_at: at(*minute),
+                    modified_at: at(*minute),
+                    html_url: format!("https://github.com/o/r/pull/1#discussion_r{minute}"),
+                    diff_hunk: None,
+                    review_id: Some(*review),
+                })
+                .collect(),
+        }
+    }
+
+    fn describe(remarks: &[Remark]) -> String {
+        let note = |note: &Note| {
+            let who = note.author.as_ref().map_or("?", |author| &author.login);
+            let tag = if note.bot { " (bot)" } else { "" };
+            let words: Vec<_> = note.body.iter().map(|block| block.text.as_str()).collect();
+            format!("{who}{tag}: {:?}", words.join(" / "))
+        };
+        let thread = |thread: &super::Thread| {
+            let said: Vec<_> = thread.comments.iter().map(note).collect();
+            format!("  thread {} [{}]", thread.path, said.join(", "))
+        };
+        let mut out = Vec::new();
+        for remark in remarks {
+            match remark {
+                Remark::Comment(said) => out.push(format!("comment {}", note(said))),
+                Remark::Review {
+                    verdict,
+                    note: said,
+                } => out.push(format!("review {verdict:?} {}", note(said))),
+                Remark::Thread {
+                    thread: said,
+                    in_review,
+                } => out.push(match in_review {
+                    true => thread(said),
+                    false => thread(said).trim_start().into(),
+                }),
+            }
+        }
+        out.join("\n")
+    }
+
+    #[test]
+    fn a_conversation_files_threads_under_their_review_newest_first() {
+        let comments = vec![
+            comment(1, "alice", "First!", Some(1)),
+            comment(2, "linear[bot]", "<!-- linear-linkback -->", Some(2)),
+            comment(3, "bob", "Undated", None),
+            comment(4, "carol", "Latest", Some(9)),
+        ];
+        let reviews = vec![
+            review(10, "codex[bot]", Verdict::Commented, "Some suggestions", 3),
+            // GitHub's review for alice's answer in the thread, which says nothing itself.
+            review(11, "alice", Verdict::Commented, "", 5),
+            review(12, "dave", Verdict::Approved, "", 7),
+        ];
+        let threads = vec![
+            thread("src/a.rs", &[("codex", 10, 3), ("alice", 11, 5)]),
+            // Its review isn't listed, so it stands on its own.
+            thread("src/b.rs", &[("erin", 99, 4)]),
+        ];
+        // Threads sit under the review that started them, and an answer's empty review and
+        // a comment of only HTML comments are left out. Undated, bob's comes last.
+        snapbox::assert_data_eq!(
+            describe(&remarks(comments, reviews, threads)),
+            snapbox::str![[r#"
+comment carol: "Latest"
+review Approved dave: ""
+thread src/b.rs [erin: "erin on src/b.rs"]
+review Commented codex (bot): "Some suggestions"
+  thread src/a.rs [codex: "codex on src/a.rs", alice: "alice on src/a.rs"]
+comment alice: "First!"
+comment bob: "Undated"
+"#]]
+        );
+    }
+
+    #[test]
+    fn an_excerpt_is_the_hunk_s_last_lines_numbered_from_its_header() {
+        let hunk = "@@ -10,6 +10,7 @@ fn main() {\n a\n b\n-c\n+C\n+D\n d\n e";
+        let lines: Vec<_> = (excerpt("main.rs", hunk, 1).iter())
+            .map(|line| (line.kind, line.old, line.new, line.text.to_string()))
+            .collect();
+        assert_eq!(
+            lines,
+            [
+                (LineKind::Added, None, Some(12), "C".into()),
+                (LineKind::Added, None, Some(13), "D".into()),
+                (LineKind::Context, Some(13), Some(14), "d".into()),
+                (LineKind::Context, Some(14), Some(15), "e".into()),
+            ],
+            "a one-line thread quotes four lines, numbered on from the header's starts"
+        );
+    }
 }

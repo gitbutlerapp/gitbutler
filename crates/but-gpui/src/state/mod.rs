@@ -431,6 +431,9 @@ pub struct Store {
     /// What the forge said about whether pull requests can merge, by project and number: see
     /// [`Store::read_merge_status`].
     merge_reads: HashMap<(ProjectId, u64), background::MergeRead>,
+    /// What the forge said has been written on pull requests, by project and number: see
+    /// [`Store::read_conversation`].
+    conversation_reads: HashMap<(ProjectId, u64), background::ConversationRead>,
     /// What the file watcher saw written in each checkout lately.
     pub activity: HashMap<(ProjectId, Checkout), Activity>,
 }
@@ -531,6 +534,7 @@ impl Store {
             forge_synced: HashMap::new(),
             _forge_worker: Self::forge_worker(requested, cx),
             merge_reads: HashMap::new(),
+            conversation_reads: HashMap::new(),
             activity: (saved.activity.into_iter())
                 .map(|saved| {
                     let checkout = (saved.worktree)
