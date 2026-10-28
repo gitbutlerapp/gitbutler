@@ -357,23 +357,13 @@ pub async fn workspace_branch_and_ancestors_push(
 ) -> Result<WorkspaceBranchAndAncestorsPushOutcome> {
     let branch: gix::refs::FullName = branch.try_into()?;
     let sync_ctx = ctx.clone();
-    let (trunk, review_targets) = {
+    let review_targets = {
         let ctx = ctx.clone().into_thread_local();
-        let trunk = crate::legacy::forge::remote_target_short_name(
-            &ctx.project_meta()?,
-            &*ctx.repo.get()?,
-        )?;
-        (
-            trunk,
-            crate::legacy::forge::review_target_updates_for_branch(&ctx, branch.as_ref())?,
-        )
+        crate::legacy::forge::review_target_updates_for_branch(&ctx, branch.as_ref())?
     };
-    let flattened_review_targets = crate::legacy::forge::flatten_review_targets_before_push(
-        sync_ctx.clone(),
-        trunk,
-        &review_targets,
-    )
-    .await?;
+    let flattened_review_targets =
+        crate::legacy::forge::flatten_review_targets_before_push(sync_ctx.clone(), &review_targets)
+            .await?;
     let push_branch = branch.clone();
     // This API also awaits forge synchronization, but the Git push remains synchronous and may
     // perform network I/O, hooks, and credential handling. Keep it off Tokio's async worker pool.
