@@ -360,7 +360,7 @@ impl Transfer {
             store.picked.clear();
         }
         match self {
-            Transfer::Uncommit(ids) => store.uncommit(project, ids.to_vec(), cx),
+            Transfer::Uncommit(ids) => store.uncommit(project, ids, cx),
             Transfer::UncommitFiles { from, files } => store.apply(
                 project,
                 label,

@@ -1167,7 +1167,7 @@ impl Store {
         );
     }
 
-    pub fn uncommit(&mut self, project: &ProjectId, ids: Vec<CommitId>, cx: &mut Context<Self>) {
+    pub fn uncommit(&mut self, project: &ProjectId, ids: Arc<[CommitId]>, cx: &mut Context<Self>) {
         // A conflicted commit's files are one side's, so uncommitting it would bring back
         // nothing and lose the change it carries.
         let conflicted = (ids.iter())

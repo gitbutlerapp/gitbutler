@@ -662,7 +662,7 @@ impl AppView {
     ) {
         match self.selection(cx) {
             Some(Selection::Commit(project, id)) => self.store.update(cx, |store, cx| {
-                let ids = store.with_picks(&project, id).to_vec();
+                let ids = store.with_picks(&project, id);
                 store.uncommit(&project, ids, cx)
             }),
             Some(Selection::Branch(..)) => self.unapply_stack(&UnapplyStack, window, cx),

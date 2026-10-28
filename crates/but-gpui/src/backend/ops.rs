@@ -909,7 +909,7 @@ impl Intent for Squash {
 
 /// Turn `commits` back into uncommitted changes.
 pub struct Uncommit {
-    pub commits: Vec<CommitId>,
+    pub commits: Arc<[CommitId]>,
 }
 
 impl Intent for Uncommit {
