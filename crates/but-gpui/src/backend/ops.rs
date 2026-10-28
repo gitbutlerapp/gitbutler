@@ -1,9 +1,8 @@
 //! Mutations of commits, branches and uncommitted changes; the UI reloads the workspace
 //! afterwards. An [`Intent`], such as [`Squash`], runs under the one lock [`Run::locked`] takes,
 //! in one `but_transaction` transaction, one `_with_perm` call, or work wrapped in [`recorded`],
-//! recording one oplog entry. The rest open the project and call the matching `but-api`
-//! function, which locks and records its own oplog snapshot. [`DiscardChanges`] records its own
-//! before it writes, as does [`super::conflicts::resolve_markers`] through [`record_undo`].
+//! recording one oplog entry. [`DiscardChanges`] records its own before it writes, as does
+//! [`super::conflicts::ResolveMarkers`] through [`record_undo`].
 
 use gitbutler_repo::hooks::{ErrorData, HookResult, MessageHookResult};
 use std::borrow::Cow;

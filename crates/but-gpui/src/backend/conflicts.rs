@@ -7,9 +7,11 @@ use std::path::Path;
 use anyhow::{Context as _, Result};
 use bstr::{BString, ByteSlice as _};
 use but_api::resolve::{self, HunkResolution, ResolutionSpec};
+use but_oplog::legacy::OperationKind;
 
+use super::intent::Run;
 use super::ops::rewritten;
-use super::{CommitId, Rewritten, checkout, markers, open};
+use super::{Checkout, CommitId, Intent, Rewritten, checkout, markers, open};
 
 /// What a conflict keeps.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -90,23 +92,33 @@ pub fn resolve(
     ))
 }
 
-/// Resolve conflicts a merge left in uncommitted files of the checkout `worktree` names, or
-/// the main one, each by its file and id: what's kept replaces the conflict's markers, and a
-/// file with none left is marked resolved. Returns how many files were. Recorded for undo
-/// first in the main checkout, as discarding is; the oplog can't restore a linked worktree,
-/// nor a commit checked out for editing.
-pub fn resolve_markers(
-    path: &Path,
+/// Resolve conflicts a merge left in uncommitted files of `checkout`, each by its file and id:
+/// what's kept replaces the conflict's markers, and a file with none left is marked resolved.
+/// Done says how many files were. Recorded for undo first in the main checkout, as discarding
+/// is; the oplog can't restore a linked worktree, nor a commit checked out for editing.
+pub struct ResolveMarkers {
+    pub keep: Vec<(BString, String, Keep)>,
+    pub checkout: Checkout,
+}
+
+impl Intent for ResolveMarkers {
+    type Done = usize;
+
+    fn apply(self, run: &mut Run) -> Result<usize> {
+        let worktree = self.checkout.linked();
+        let unrecorded = worktree.is_some() || super::edit::editing(run.ctx())?.is_some();
+        run.locked(|ctx, perm| resolve_markers(ctx, perm, worktree, unrecorded, self.keep))
+    }
+}
+
+fn resolve_markers(
+    ctx: &but_ctx::Context,
+    perm: &mut but_ctx::access::RepoExclusive,
     worktree: Option<&bstr::BStr>,
+    unrecorded: bool,
     keep: Vec<(BString, String, Keep)>,
 ) -> Result<usize> {
-    use but_oplog::legacy::OperationKind;
-    let mut ctx = open(path)?;
-    // Asked before taking the worktree, as asking takes it too.
-    let editing = super::edit::editing(&ctx)?.is_some();
-    let mut guard = ctx.exclusive_worktree_access();
-    let perm = guard.write_permission();
-    let repo = checkout(&ctx, worktree)?;
+    let repo = checkout(ctx, worktree)?;
     let workdir = repo
         .workdir()
         .context("The checkout has no files")?
@@ -158,8 +170,8 @@ pub fn resolve_markers(
         writes.push((file, on_disk, text, whole));
     }
     // Recorded once the picks are found, so a refused Apply leaves nothing to undo.
-    if worktree.is_none() && !editing {
-        super::ops::record_undo(&ctx, OperationKind::ResolveConflicts, perm);
+    if !unrecorded {
+        super::ops::record_undo(ctx, OperationKind::ResolveConflicts, perm);
     }
     let mut resolved = Vec::new();
     for (file, on_disk, text, whole) in writes {
@@ -179,7 +191,7 @@ pub fn resolve_markers(
 mod tests {
     use std::process::Command;
 
-    use super::{Keep, markers, resolve_markers};
+    use super::{Checkout, Keep, ResolveMarkers, markers};
     use crate::backend::ops::tests::{git, repo_with};
 
     #[test]
@@ -211,21 +223,21 @@ mod tests {
             let id = markers::ids(&lines, &blocks)[0].clone();
             let mut both = markers::text(&lines, blocks[0].ours.clone());
             both.extend_from_slice(&markers::text(&lines, blocks[0].theirs.clone()));
-            let err = resolve_markers(
-                path,
-                None,
-                vec![("cell.json".into(), id.clone(), Keep::Text(both))],
-            )
-            .expect_err("two array items with no comma between them");
+            let resolve = |keep| {
+                let keep = vec![("cell.json".into(), id.clone(), keep)];
+                let checkout = Checkout::Main;
+                crate::backend::apply(path, ResolveMarkers { keep, checkout }).map(|(n, _)| n)
+            };
+            let err =
+                resolve(Keep::Text(both)).expect_err("two array items with no comma between them");
             assert!(err.to_string().contains("not valid JSON"), "{err}");
             assert_eq!(
                 std::fs::read(path.join("cell.json")).unwrap(),
                 text,
                 "nothing is written"
             );
-            let kept = resolve_markers(path, None, vec![("cell.json".into(), id, Keep::NewBase)]);
             assert_eq!(
-                kept.unwrap(),
+                resolve(Keep::NewBase).unwrap(),
                 1,
                 "one side parses, and the file is resolved"
             );

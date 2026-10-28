@@ -549,8 +549,12 @@ impl Detail {
                     .map(|(file, c, keep)| (file.change.path.clone(), c.id.clone(), keep))
                     .collect();
                 let project_done = project.clone();
+                let resolve = conflicts::ResolveMarkers {
+                    keep,
+                    checkout: worktree.clone(),
+                };
                 self.store.update(cx, |store, cx| {
-                    store.run(
+                    store.apply(
                         &project,
                         "Resolve",
                         Overlay {
@@ -559,10 +563,7 @@ impl Detail {
                             files_in: worktree.clone(),
                             ..Overlay::default()
                         },
-                        {
-                            let worktree = worktree.clone();
-                            move |path| conflicts::resolve_markers(path, worktree.linked(), keep)
-                        },
+                        resolve,
                         move |store, files, cx| {
                             forget(cx);
                             if finish {
