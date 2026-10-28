@@ -33,14 +33,14 @@ pub enum Destination {
 }
 
 impl Destination {
-    fn relative_to(&self) -> Result<(RelativeTo, InsertSide)> {
-        Ok(match self {
+    fn relative_to(&self) -> (RelativeTo, InsertSide) {
+        match self {
             Destination::Branch(ref_name) => {
                 (RelativeTo::Reference(ref_name.clone()), InsertSide::Below)
             }
             Destination::AboveCommit(id) => (RelativeTo::Commit(id.0), InsertSide::Above),
             Destination::BelowCommit(id) => (RelativeTo::Commit(id.0), InsertSide::Below),
-        })
+        }
     }
 }
 
@@ -394,7 +394,7 @@ pub fn commit(
             let outcome = commit_first(&mut ctx, destination, changes, message)?;
             (outcome.new_commit, outcome.rejected_specs)
         } else {
-            let (relative_to, side) = destination.relative_to()?;
+            let (relative_to, side) = destination.relative_to();
             let outcome = but_api::commit::create::commit_create(
                 &mut ctx,
                 relative_to,
@@ -630,7 +630,7 @@ impl Intent for InsertEmptyCommit {
     type Done = CommitId;
 
     fn apply(self, run: &mut Run) -> Result<CommitId> {
-        let (relative_to, side) = self.at.relative_to()?;
+        let (relative_to, side) = self.at.relative_to();
         let (made, _workspace) = run.locked(|ctx, perm| {
             let mut meta = ctx.meta()?;
             but_transaction::with_transaction_with_perm(
@@ -662,7 +662,7 @@ impl Intent for CherryPick {
 
     fn apply(self, run: &mut Run) -> Result<Rewritten> {
         let Self { commits, to } = self;
-        let (relative_to, side) = to.relative_to()?;
+        let (relative_to, side) = to.relative_to();
         let workspace = run.locked(|ctx, perm| {
             let mut meta = ctx.meta()?;
             but_transaction::with_transaction_with_perm(
@@ -846,7 +846,7 @@ impl Intent for MoveCommits {
 
     fn apply(self, run: &mut Run) -> Result<Rewritten> {
         let Self { commits, to } = self;
-        let (relative_to, side) = to.relative_to()?;
+        let (relative_to, side) = to.relative_to();
         let workspace = run.locked(|ctx, perm| {
             let mut meta = ctx.meta()?;
             but_transaction::with_transaction_with_perm(
