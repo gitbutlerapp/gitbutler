@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
 
-use super::{SnapshotId, history, worktrees};
+use super::{SnapshotId, history, open, worktrees};
 
 /// The git side of one user action, applied by [`apply`].
 pub trait Intent: Send + 'static {
@@ -14,6 +14,7 @@ pub trait Intent: Send + 'static {
 /// One operation on one project.
 pub struct Run {
     path: PathBuf,
+    ctx: but_ctx::Context,
     recorded: Option<SnapshotId>,
     moved_worktree: bool,
 }
@@ -36,13 +37,13 @@ impl Run {
             "Another Git process is using the repository, or one that stopped left \
              .git/index.lock behind. Delete it if no Git command is running."
         );
-        let oplog = history::oplog_head(&self.path);
-        let heads = worktrees::heads(&self.path);
+        let oplog = history::oplog_head(&self.ctx);
+        let heads = worktrees::heads(&*self.ctx.repo.get()?);
         let value = work(&self.path)?;
-        self.recorded = history::oplog_head(&self.path).filter(|after| Some(*after) != oplog);
+        self.recorded = history::oplog_head(&self.ctx).filter(|after| Some(*after) != oplog);
         // The oplog records only the main checkout: what moved a linked worktree, even one
         // stacked on a branch here, can't be undone.
-        self.moved_worktree = worktrees::heads(&self.path).moved_since(&heads);
+        self.moved_worktree = worktrees::heads(&*self.ctx.repo.get()?).moved_since(&heads);
         Ok(value)
     }
 }
@@ -50,6 +51,7 @@ impl Run {
 pub fn apply<I: Intent>(path: &Path, intent: I) -> Result<(I::Done, Ran)> {
     let mut run = Run {
         path: path.to_owned(),
+        ctx: open(path)?,
         recorded: None,
         moved_worktree: false,
     };

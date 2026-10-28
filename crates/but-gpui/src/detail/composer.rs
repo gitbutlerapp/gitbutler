@@ -866,7 +866,7 @@ impl Detail {
                     };
                     // Undone apart from the commit, so a second ⌘Z takes the branch away.
                     let made = created
-                        .then(|| backend::history::oplog_head(path))
+                        .then(|| backend::history::oplog_head(&backend::open(path).ok()?))
                         .flatten();
                     let committed = backend::commit(
                         path,

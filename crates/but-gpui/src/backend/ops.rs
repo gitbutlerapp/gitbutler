@@ -1214,6 +1214,10 @@ pub(super) mod tests {
         CommitId(gix::ObjectId::from_hex(id.trim().as_bytes()).unwrap())
     }
 
+    fn newest_entry(path: &Path) -> crate::backend::SnapshotId {
+        crate::backend::history::oplog_head(&open(path).unwrap()).unwrap()
+    }
+
     /// "line 1" to "line 20", a line each.
     fn twenty_lines() -> Vec<String> {
         (1..=20).map(|n| format!("line {n}\n")).collect()
@@ -2063,7 +2067,7 @@ pub(super) mod tests {
                 "the uncommitted change comes along"
             );
 
-            let last = crate::backend::history::oplog_head(path).unwrap();
+            let last = newest_entry(path);
             crate::backend::history::undo_snapshot(path, last, None).unwrap();
             assert_eq!(
                 head(path),
@@ -2336,11 +2340,11 @@ pub(super) mod tests {
     #[test]
     fn undoing_a_move_to_a_new_branch_takes_the_branch_away_too() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{Undone, oplog_head, undo_snapshot};
+            use crate::backend::history::{Undone, undo_snapshot};
             let (dir, commit, ..) = workspace_with_an_edit();
             let path = dir.path();
             let (_, name) = move_to_new_branch(path, &[commit]).unwrap();
-            let moved = oplog_head(path).unwrap();
+            let moved = newest_entry(path);
             assert!(matches!(
                 undo_snapshot(path, moved, None).unwrap(),
                 Undone::Done(_)
@@ -2356,7 +2360,7 @@ pub(super) mod tests {
     #[test]
     fn the_apps_own_operations_dont_stop_undoing_the_one_before() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{Undone, oplog_head, undo_snapshot};
+            use crate::backend::history::{Undone, undo_snapshot};
             let now = || {
                 let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
                 since.unwrap().as_millis() as i64
@@ -2368,14 +2372,14 @@ pub(super) mod tests {
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
             let started = now();
             name_branch(path, head(path), "named").unwrap();
-            let (named, done) = (oplog_head(path).unwrap(), now());
+            let (named, done) = (newest_entry(path), now());
             let mut ran = vec![(started, done)];
             // Git logs moves in whole seconds.
             std::thread::sleep(std::time::Duration::from_millis(1100));
             let started = now();
             insert_empty_commit(path, &Destination::Branch(full("refs/heads/named"))).unwrap();
             ran.push((started, now()));
-            let inserted = oplog_head(path).unwrap();
+            let inserted = newest_entry(path);
             let started = now();
             let undone = undo_snapshot(path, inserted, Some((ran[1].1, &ran))).unwrap();
             assert!(matches!(undone, Undone::Done(_)), "the newest undoes");
@@ -2393,7 +2397,7 @@ pub(super) mod tests {
     #[test]
     fn undo_stops_for_a_commit_in_the_second_of_a_later_operation() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{Undone, oplog_head, undo_snapshot};
+            use crate::backend::history::{Undone, undo_snapshot};
             let now = || {
                 let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
                 since.unwrap().as_millis() as i64
@@ -2406,7 +2410,7 @@ pub(super) mod tests {
             let started = now();
             name_branch(path, head(path), "named").unwrap();
             let done = now();
-            let named = oplog_head(path).unwrap();
+            let named = newest_entry(path);
             // Another of the app's operations ran a minute on, and an agent committed in its
             // second.
             let later = (done + 60_000, done + 60_500);
@@ -2430,7 +2434,7 @@ pub(super) mod tests {
     #[test]
     fn undo_refuses_without_a_log_of_head() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{oplog_head, undo_snapshot};
+            use crate::backend::history::undo_snapshot;
             let now = || {
                 let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
                 since.unwrap().as_millis() as i64
@@ -2443,7 +2447,7 @@ pub(super) mod tests {
             let started = now();
             name_branch(path, head(path), "named").unwrap();
             let done = now();
-            let named = oplog_head(path).unwrap();
+            let named = newest_entry(path);
             // As core.logAllRefUpdates off leaves it.
             std::fs::remove_file(path.join(".git/logs/HEAD")).unwrap();
             let undone = undo_snapshot(path, named, Some((done, &[(started, done)])));
@@ -2457,9 +2461,7 @@ pub(super) mod tests {
     #[test]
     fn undo_and_redo_stop_for_what_came_after_and_for_files_written_since() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{
-                Undone, oplog_head, redo_snapshot, take_snapshot, undo_snapshot,
-            };
+            use crate::backend::history::{Undone, redo_snapshot, take_snapshot, undo_snapshot};
             let now = || {
                 let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
                 since.unwrap().as_millis() as i64
@@ -2472,7 +2474,7 @@ pub(super) mod tests {
             let top = head(path);
             let started = now();
             name_branch(path, top, "named").unwrap();
-            let named = oplog_head(path).unwrap();
+            let named = newest_entry(path);
             let done = now();
             // Later than it, as an edit in an editor is.
             std::thread::sleep(std::time::Duration::from_millis(5));
@@ -2484,7 +2486,7 @@ pub(super) mod tests {
             );
 
             take_snapshot(path, None).unwrap();
-            let snapshot = oplog_head(path).unwrap();
+            let snapshot = newest_entry(path);
             assert!(
                 matches!(undo_snapshot(path, named, None).unwrap(), Undone::Behind(_)),
                 "the snapshot came after it, and undoing it would take that back too"
@@ -2510,7 +2512,7 @@ pub(super) mod tests {
             );
             let undone = now();
 
-            let undo = oplog_head(path).unwrap();
+            let undo = newest_entry(path);
             std::thread::sleep(std::time::Duration::from_millis(5));
             std::fs::write(path.join("file"), "three\n").unwrap();
             let spans = [(undoing, undone)];
@@ -2525,14 +2527,14 @@ pub(super) mod tests {
     #[test]
     fn undo_and_redo_stop_for_a_commit_made_outside_the_app_since() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{Undone, oplog_head, redo_snapshot, undo_snapshot};
+            use crate::backend::history::{Undone, redo_snapshot, undo_snapshot};
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
             name_branch(path, head(path), "named").unwrap();
-            let named = oplog_head(path).unwrap();
+            let named = newest_entry(path);
             let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
             let done = since.unwrap().as_millis() as i64;
             // In a terminal, `minutes` on.
@@ -2557,7 +2559,7 @@ pub(super) mod tests {
                 matches!(undo_snapshot(path, named, None).unwrap(), Undone::Done(_)),
                 "undone anyway"
             );
-            let undo = oplog_head(path).unwrap();
+            let undo = newest_entry(path);
             commit_later(2, "more terminal work");
             assert!(
                 redo_snapshot(path, undo, &Default::default(), &[], None)
@@ -2571,7 +2573,7 @@ pub(super) mod tests {
     #[test]
     fn undo_stops_for_an_applied_branch_moved_outside_the_app_since() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{Undone, oplog_head, undo_snapshot};
+            use crate::backend::history::{Undone, undo_snapshot};
             let dir = repo_with("one\n");
             let path = dir.path();
             target_origin_main(path);
@@ -2583,7 +2585,7 @@ pub(super) mod tests {
             };
             let started = now();
             name_branch(path, head(path), "named").unwrap();
-            let named = oplog_head(path).unwrap();
+            let named = newest_entry(path);
             let done = now();
             // A minute on, a commit put on the branch from a terminal, as `update-ref` or a
             // cherry-pick in another checkout does, with HEAD left where it is.
@@ -2613,7 +2615,7 @@ pub(super) mod tests {
     #[test]
     fn undo_goes_on_past_what_git_logged_that_a_restore_leaves() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{Undone, oplog_head, undo_snapshot};
+            use crate::backend::history::{Undone, undo_snapshot};
             let now = || {
                 let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
                 since.unwrap().as_millis() as i64
@@ -2627,7 +2629,7 @@ pub(super) mod tests {
             let started = now();
             name_branch(path, head(path), "named").unwrap();
             let done = now();
-            let named = oplog_head(path).unwrap();
+            let named = newest_entry(path);
             // A minute on, in a terminal.
             let later = format!("{} +0000", done / 1000 + 60);
             let in_terminal = |dir: &Path, args: &[&str]| {
@@ -2656,7 +2658,7 @@ pub(super) mod tests {
     #[test]
     fn undo_stops_for_a_commit_in_the_same_second_it_was_asked_after() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::history::{Undone, oplog_head, undo_snapshot};
+            use crate::backend::history::{Undone, undo_snapshot};
             let now = || {
                 let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
                 since.unwrap().as_millis() as i64
@@ -2669,7 +2671,7 @@ pub(super) mod tests {
             let started = now();
             name_branch(path, head(path), "named").unwrap();
             let done = now();
-            let named = oplog_head(path).unwrap();
+            let named = newest_entry(path);
             // "Undo anyway" a minute on, and a terminal commit 10ms after, which Git logs at
             // the start of that second.
             let accepted = done + 60_000 + 500;
@@ -2910,7 +2912,7 @@ pub(super) mod tests {
                 "the one branch left is checked out, as after unapplying"
             );
 
-            let last = crate::backend::history::oplog_head(path).unwrap();
+            let last = newest_entry(path);
             crate::backend::history::undo_snapshot(path, last, None).unwrap();
             assert_eq!(
                 git(path, &["rev-parse", "feature"]).trim(),
@@ -2966,7 +2968,7 @@ pub(super) mod tests {
             assert_eq!(name_branch(path, top, "named").unwrap(), "refs/heads/named");
             assert_eq!(branch_at_top(path), Some(Some(full("refs/heads/named"))));
 
-            let last = crate::backend::history::oplog_head(path).unwrap();
+            let last = newest_entry(path);
             crate::backend::history::undo_snapshot(path, last, None).unwrap();
             assert_eq!(branch_at_top(path), Some(None), "undo takes the name away");
         })
@@ -3300,10 +3302,11 @@ pub(super) mod tests {
         let dir = repo_with("base\n");
         let path = dir.path();
         let (_outside, linked) = agent_worktree(path);
-        let before = crate::backend::worktrees::heads(path);
+        let repo = gix::open(path).unwrap();
+        let before = crate::backend::worktrees::heads(&repo);
         git(&linked, &["checkout", "-q", "-b", "agent-next"]);
         assert!(
-            crate::backend::worktrees::heads(path).moved_since(&before),
+            crate::backend::worktrees::heads(&repo).moved_since(&before),
             "same commit, but the oplog can't put the branch it has checked out back"
         );
     }
@@ -3316,12 +3319,13 @@ pub(super) mod tests {
         );
         let path = dir.path();
         let (_outside, linked) = agent_worktree(path);
-        let before = crate::backend::worktrees::heads(path);
+        let repo = gix::open(path).unwrap();
+        let before = crate::backend::worktrees::heads(&repo);
         git(
             path,
             &["worktree", "remove", "--force", linked.to_str().unwrap()],
         );
-        let after = crate::backend::worktrees::heads(path);
+        let after = crate::backend::worktrees::heads(&repo);
         assert_ne!(after, before, "it's gone from the heads");
         assert!(
             !after.moved_since(&before),

@@ -181,10 +181,7 @@ impl Heads {
     }
 }
 
-pub fn heads(path: &Path) -> Heads {
-    let Ok(repo) = gix::open(path) else {
-        return Heads(HashMap::new());
-    };
+pub fn heads(repo: &gix::Repository) -> Heads {
     let heads = (repo.worktrees().into_iter().flatten()).filter_map(|wt| {
         let id = wt.id().ok()?.to_owned();
         let head = (|| {

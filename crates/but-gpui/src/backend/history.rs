@@ -573,9 +573,8 @@ pub fn redo_snapshot(
 }
 
 /// The newest entry in the project's operation log.
-pub fn oplog_head(path: &Path) -> Option<SnapshotId> {
-    let ctx = open(path).ok()?;
-    let newest = oplog::list_snapshots(&ctx, 1, None, None, None).ok()?;
+pub fn oplog_head(ctx: &but_ctx::Context) -> Option<SnapshotId> {
+    let newest = oplog::list_snapshots(ctx, 1, None, None, None).ok()?;
     newest
         .first()
         .map(|snapshot| SnapshotId(snapshot.commit_id))
