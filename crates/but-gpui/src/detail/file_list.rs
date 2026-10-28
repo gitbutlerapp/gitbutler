@@ -1195,9 +1195,12 @@ impl Detail {
                     items.insert(
                         0,
                         MenuItem::new("Mark resolved", move |this, _, cx| {
-                            let (files, worktree) = (conflicted.clone(), worktree.clone());
+                            let resolved = backend::MarkResolved {
+                                paths: conflicted.clone(),
+                                checkout: worktree.clone(),
+                            };
                             this.store.update(cx, |store, cx| {
-                                store.run(
+                                store.apply(
                                     &project,
                                     "Mark resolved",
                                     Overlay {
@@ -1206,9 +1209,7 @@ impl Detail {
                                         files_in: worktree.clone(),
                                         ..Overlay::default()
                                     },
-                                    move |path| {
-                                        backend::mark_resolved(path, worktree.linked(), files)
-                                    },
+                                    resolved,
                                     move |store, (), cx| {
                                         store.snack_after(undoable, "Marked resolved", cx)
                                     },

@@ -8,7 +8,6 @@
 use gitbutler_repo::hooks::{ErrorData, HookResult, MessageHookResult};
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{Context as _, Result, bail};
@@ -23,7 +22,7 @@ use but_workspace::commit::ChangeSource;
 
 use super::intent::Run;
 use super::{
-    ChangeKind, Checkout, CommitId, FullName, Intent, Selected, checkout, open, short_ref, stamp,
+    ChangeKind, Checkout, CommitId, FullName, Intent, Selected, checkout, short_ref, stamp,
 };
 
 /// Where a commit or a set of changes lands.
@@ -1761,32 +1760,41 @@ fn current_hunks(
     Ok(current)
 }
 
-/// Take the conflicted uncommitted `files` as they are on disk, markers or not.
-pub fn mark_resolved(
-    path: &Path,
-    worktree: Option<&bstr::BStr>,
-    paths: Vec<bstr::BString>,
-) -> Result<()> {
-    let mut ctx = open(path)?;
-    // Undo can't restore a linked worktree, or a commit checked out for editing, so neither
-    // is recorded.
-    if worktree.is_some() || super::edit::editing(&ctx)?.is_some() {
-        let _guard = ctx.exclusive_worktree_access();
-        return but_workspace::resolve_worktree_conflicts(&checkout(&ctx, worktree)?, paths);
+/// Take the conflicted uncommitted `paths` of `checkout` as they are on disk, markers or not.
+pub struct MarkResolved {
+    pub paths: Vec<bstr::BString>,
+    pub checkout: Checkout,
+}
+
+impl Intent for MarkResolved {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        let worktree = self.checkout.linked();
+        // Undo can't restore a linked worktree, or a commit checked out for editing, so neither
+        // is recorded.
+        let unrecorded = worktree.is_some() || super::edit::editing(run.ctx())?.is_some();
+        run.locked(|ctx, perm| match unrecorded {
+            true => {
+                but_workspace::resolve_worktree_conflicts(&checkout(ctx, worktree)?, self.paths)
+            }
+            false => {
+                but_api::workspace::resolve_worktree_conflicts_with_perm(ctx, self.paths, perm)
+            }
+        })
     }
-    but_api::workspace::resolve_worktree_conflicts(&mut ctx, paths)
 }
 
 #[cfg(test)]
 pub(super) mod tests {
     use crate::backend::model::build::full;
     use std::collections::HashSet;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::process::Command;
 
     use super::*;
     use crate::backend::{
-        Checkout, DiffBody, DiffSource, FileDiff, Kept, Workspace, load_diff, now_millis,
+        Checkout, DiffBody, DiffSource, FileDiff, Kept, Workspace, load_diff, now_millis, open,
     };
 
     /// A linked worktree of `path` on a new branch `agent`, in a directory of its own. Dropping
@@ -2044,7 +2052,11 @@ pub(super) mod tests {
                 "the markers would go in: {refused:#}"
             );
 
-            mark_resolved(path, None, vec!["file".into()]).unwrap();
+            let resolved = MarkResolved {
+                paths: vec!["file".into()],
+                checkout: Checkout::Main,
+            };
+            crate::backend::apply(path, resolved).unwrap();
             let files = uncommitted(path);
             assert_eq!(files.len(), 1, "the markers are still a change: {files:?}");
             assert!(!files[0].conflicted, "the index takes the file as it is");
@@ -2323,7 +2335,11 @@ pub(super) mod tests {
                 3,
                 "with no snapshot to undo from, the conflict is still there to resolve"
             );
-            mark_resolved(path, Some("agent".into()), vec!["file".into()]).unwrap();
+            let resolved = MarkResolved {
+                paths: vec!["file".into()],
+                checkout: Checkout::Linked("agent".into()),
+            };
+            crate::backend::apply(path, resolved).unwrap();
             assert!(
                 git(&linked, &["ls-files", "-u"]).is_empty(),
                 "marked resolved in the worktree's own index, not the main checkout's"
