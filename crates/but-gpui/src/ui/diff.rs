@@ -11,7 +11,7 @@ use gpui::{
 
 use super::conflict::{self, Part};
 use super::file_icons::file_icon;
-use super::{Icon, dp, faint, fixed, h_flex, plural, small_icon, v_flex};
+use super::{Icon, blink_once, dp, faint, fixed, h_flex, plural, small_icon, v_flex};
 use crate::backend::{
     ChangeKind, Conflict, DiffBody, DiffLine, FileDiff, Hunk, LineKind, Picture, scope_name,
 };
@@ -421,6 +421,8 @@ pub struct HeaderDecor {
     pub solid: bool,
     /// The file shows only its header.
     pub folded: bool,
+    /// The current one was just copied, by which blink it is: see [`super::blink_once`].
+    pub blink: Option<usize>,
 }
 
 /// What the diff's owner adds to a line.
@@ -572,6 +574,11 @@ pub fn file_header(
                 true => theme.fill_gray,
                 false => theme.bg_1.blend(theme.selected_unfocused()),
             })
+        })
+        .when_some(decor.blink, |el, n| {
+            let shape = (div().absolute().inset_0().rounded_t(dp(6.)))
+                .when(decor.folded, |el| el.rounded_b(dp(6.)));
+            el.relative().child(blink_once(("blink", n), shape, theme))
         })
         .child(small_icon(chevron).text_color(soft(theme.text_2)))
         .child(
@@ -742,6 +749,10 @@ pub fn hunk_header(
                 .text_color(soft(theme.diff_muted))
                 .overflow_hidden()
                 .whitespace_nowrap()
+                .when_some(decor.blink, |el, n| {
+                    let shape = div().absolute().inset_0().rounded(dp(6.));
+                    el.relative().child(blink_once(("blink", n), shape, theme))
+                })
                 // The owner shows the hidden lines on a click.
                 .when(unmodified > 0, |el| {
                     el.hover(|el| {

@@ -18,7 +18,7 @@ use super::file_list::At;
 use super::find::Spot;
 use super::lines::Pick;
 use super::{
-    Cursor, Detail, FILES_POPOVER_DELAY, FileLines, Glide, LoadedDiff, Stop, TextPoint,
+    Copied, Cursor, Detail, FILES_POPOVER_DELAY, FileLines, Glide, LoadedDiff, Stop, TextPoint,
     ToggleFiles, TogglePlainLines, ToggleSplit, ToggleWrap,
 };
 use crate::backend::{
@@ -32,8 +32,8 @@ use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::illustration::Illustration;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
-    Icon, Tooltip, checkbox, commit_title, count_badge, dp, empty_state, fixed, h_flex, icon,
-    icon_button, icon_toggle, segmented, shortcut, small_icon, toggle_group, v_flex,
+    Icon, Tooltip, blink_once, checkbox, commit_title, count_badge, dp, empty_state, fixed, h_flex,
+    icon, icon_button, icon_toggle, segmented, shortcut, small_icon, toggle_group, v_flex,
 };
 
 /// The diff, drawn by a view of its own over the space [`Detail`] leaves for it. A scrolled
@@ -263,6 +263,16 @@ impl Detail {
     fn marks(&self, row: DiffRow) -> bool {
         self.changes_at(row)
             .is_some_and(|(file, hunk)| self.cursor == Cursor::on_hunk(file, hunk))
+    }
+
+    /// Which blink row `ix`, showing `row`, is in while what y copied blinks: the selected
+    /// text's rows, or while the diff has the keys, the changes of the hunk the cursor is on.
+    fn blinks_at(&self, ix: usize, row: DiffRow, solid: bool) -> Option<usize> {
+        let text = self
+            .selected_in_row(ix)
+            .and_then(|_| self.blink(Copied::Text));
+        let hunk = || (solid && self.marks(row)).then(|| self.blink(Copied::Cursor));
+        text.or_else(|| hunk().flatten())
     }
 
     /// The diff line at `row`, if that row is one.
@@ -1040,6 +1050,9 @@ impl Detail {
                         current,
                         solid,
                         folded: last,
+                        blink: (current && solid)
+                            .then(|| self.blink(Copied::Cursor))
+                            .flatten(),
                         ..Default::default()
                     },
                     cx,
@@ -1098,6 +1111,9 @@ impl Detail {
                         excluded: composing && !self.checks.hunk_checked(path, key),
                         current,
                         solid,
+                        blink: (current && solid)
+                            .then(|| self.blink(Copied::Cursor))
+                            .flatten(),
                         ..Default::default()
                     },
                 );
@@ -1156,12 +1172,14 @@ impl Detail {
                 };
                 let layout = self.layout(file_diff, &store.prefs);
                 let element = diff::line_row(text, place, last, theme, &layout, decor);
+                let blink = self.blinks_at(ix, row, solid);
                 padded
                     .relative()
                     .child(element)
                     .when(self.marks(row), |el| {
                         el.children(hunk_marks(solid, last, theme))
                     })
+                    .children(blink.map(|n| row_blink(n, last, theme)))
                     .on_mouse_down(MouseButton::Right, menu)
                     .into_any_element()
             }
@@ -1202,12 +1220,14 @@ impl Detail {
                 let pair = diff::pair_row(sides, halves, place, last, theme, &layout);
                 let menu = line_menu(ix, entity.clone());
                 let cursor = Some(Cursor::on_hunk(file, hunk));
+                let blink = self.blinks_at(ix, row, solid);
                 padded
                     .relative()
                     .child(pair)
                     .when(self.marks(row), |el| {
                         el.children(hunk_marks(solid, last, theme))
                     })
+                    .children(blink.map(|n| row_blink(n, last, theme)))
                     .on_mouse_down(MouseButton::Right, menu)
                     .on_mouse_down(MouseButton::Left, press_off(entity, cursor))
                     .into_any_element()
@@ -1226,8 +1246,11 @@ impl Detail {
                 let layout = self.layout(file_diff, &store.prefs);
                 let element =
                     diff::context_row(line, file, (old, new), last, theme, &layout, decor);
+                let blink = self.blinks_at(ix, row, solid);
                 padded
+                    .relative()
                     .child(element)
+                    .children(blink.map(|n| row_blink(n, last, theme)))
                     .on_mouse_down(MouseButton::Right, menu)
                     .into_any_element()
             }
@@ -1622,6 +1645,16 @@ fn hunk_marks(solid: bool, last: bool, theme: &Theme) -> impl Iterator<Item = gp
         .bg(theme.fill_gray.opacity(0.1))
         .when(last, |el| el.rounded_b(dp(6.)));
     solid.then_some(tint).into_iter().chain([tab])
+}
+
+/// The blink `n` over a row of the diff's card, where the hunk's tint lies, but over the
+/// line's own ground: see [`crate::ui::blink_once`].
+fn row_blink(n: usize, last: bool, theme: &Theme) -> impl IntoElement {
+    let shape = (div().absolute().top_0().bottom_0())
+        .left(dp(12.))
+        .right(dp(12.))
+        .when(last, |el| el.rounded_b(dp(6.)));
+    blink_once(("blink", n), shape, theme)
 }
 
 /// Right-clicking the line at row `ix`: see [`Detail::line_menu`].

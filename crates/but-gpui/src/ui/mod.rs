@@ -1390,6 +1390,23 @@ pub fn glow_once(id: impl Into<ElementId>, theme: &Theme) -> impl IntoElement {
     )
 }
 
+/// How long a row blinks once: see [`blink_once`].
+pub const BLINK: std::time::Duration = std::time::Duration::from_millis(300);
+
+/// A pop wash over what y copied that holds a moment and goes, as the TUI highlights it:
+/// `shape`, an absolute div over the selected row or box, shaped as its ground is. Its first
+/// child, as [`glow_once`] is, where it has a ground of its own for the text to draw over. Give
+/// each blink an `id` of its own, so one right after another starts again.
+pub fn blink_once(id: impl Into<ElementId>, shape: Div, theme: &Theme) -> impl IntoElement {
+    use gpui::{Animation, AnimationExt as _};
+    let wash = theme.pop;
+    shape.with_animation(
+        id,
+        Animation::new(BLINK).with_easing(gpui::quadratic),
+        move |el, delta| el.bg(wash.opacity(0.5 * (1. - delta))),
+    )
+}
+
 /// A surface with nothing in it, as ui-react's EmptyState: a drawing picked by what the state
 /// means, a title naming it, and a line saying what happens next, each left out when there's
 /// none. Its foot is padded so the block sits a little above the middle, where it reads as

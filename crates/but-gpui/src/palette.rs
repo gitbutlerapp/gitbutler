@@ -57,7 +57,7 @@ pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Update from target", &UpdateFromTarget),
     ("New branch", &NewBranch),
     ("New branch on top", &NewBranchOnTop),
-    ("Rename branch or edit message", &RenameSelection),
+    ("Reword", &RenameSelection),
     ("Uncommit", &UncommitSelection),
     ("Cherry-pick commit", &CherryPick),
     ("Add empty commit above", &AddEmptyCommitAbove),
@@ -81,9 +81,9 @@ pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Rewrap commit message", &RewrapMessage),
     ("Copy change ID", &CopyChangeId),
     ("Copy commit message", &CopyMessage),
-    ("Discard or delete selection", &DeleteSelection),
+    ("Discard", &DeleteSelection),
     ("Copy", &CopySelection),
-    ("Copy…", &CopyMore),
+    ("Copy more", &CopyMore),
     ("Cut", &CutSelection),
     ("Paste here", &PasteHere),
     ("Toggle navigator", &ToggleNavigator),
@@ -140,7 +140,7 @@ pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
 const RISKY: &[&str] = &[
     "Discard hunk",
     "Discard file",
-    "Discard or delete selection",
+    "Discard",
     "Uncommit",
     "Squash all commits",
     "Squash the picked commits",
@@ -647,7 +647,7 @@ impl AppView {
         };
         let file = self.detail.read(cx).focused_file_paths(window, cx);
         let copies = match file {
-            Some((path, full)) => vec![("File path", path), ("Full path", full)],
+            Some((path, full)) => vec![("Relative path", path), ("Absolute path", full)],
             None => copies(store, &selection),
         };
         if copies.is_empty() {

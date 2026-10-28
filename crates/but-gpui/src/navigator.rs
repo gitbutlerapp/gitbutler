@@ -3,6 +3,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::time::Instant;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, CursorStyle, Div, DragMoveEvent, ElementId, EmptyView,
@@ -29,10 +30,10 @@ use crate::ui::emoji::{Colour, ProjectIcon};
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, above_drag, ago, button, commit_title,
-    count_badge, dot, dp, faint, field, fixed, fold_button, fold_glyph, fold_row, glow_once, guide,
-    h_flex, icon, icon_button, list_row, meta_count, plural, pulsing, relative_time, resize_handle,
-    review, section_label, small_icon, v_flex,
+    BLINK, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, above_drag, ago, blink_once,
+    button, commit_title, count_badge, dot, dp, faint, field, fixed, fold_button, fold_glyph,
+    fold_row, glow_once, guide, h_flex, icon, icon_button, list_row, meta_count, plural, pulsing,
+    relative_time, resize_handle, review, section_label, small_icon, v_flex,
 };
 
 mod account;
@@ -113,6 +114,8 @@ struct RowStyle<'a> {
     joined: (bool, bool),
     /// A commit that just showed up, not selected: see [`crate::ui::glow_once`].
     glow: bool,
+    /// The selection just copied, by which blink it is: see [`crate::ui::blink_once`].
+    blink: Option<usize>,
 }
 
 /// How far a remote's commits sit in: the target's as a branch's commits do, a branch's a
@@ -174,6 +177,10 @@ impl RowStyle<'_> {
     fn row(&self, id: String, indent: f32) -> Stateful<Div> {
         let theme = self.theme;
         list_row(ElementId::Name(id.into()), self.selected, theme)
+            .when_some(self.blink, |el, n| {
+                let shape = div().absolute().inset_0().rounded(dp(4.));
+                el.relative().child(blink_once(("blink", n), shape, theme))
+            })
             .mx(dp(3.))
             .pl(dp(8. + indent + self.inset))
             .when(self.solid, |el| {
@@ -345,6 +352,8 @@ pub struct Navigator {
     edge_scrolling: Option<Task<()>>,
     /// The branch whose name is being edited in its row.
     renaming: Option<rename::Renaming>,
+    /// How many times the selection's row has blinked, and when it last did.
+    blinked: (usize, Option<Instant>),
     _subscriptions: Vec<Subscription>,
 }
 
@@ -470,6 +479,7 @@ impl Navigator {
             edge_scroll: 0.,
             edge_scrolling: None,
             renaming: None,
+            blinked: (0, None),
             _subscriptions: subscriptions,
         }
     }
@@ -519,6 +529,12 @@ impl Navigator {
     /// Give the rows the keys, the selection drawn solid again.
     fn focus_list(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         window.focus(&self.focus, cx);
+        cx.notify();
+    }
+
+    /// Blink the selection's row once, as it was just copied.
+    pub(crate) fn blink_selection(&mut self, cx: &mut Context<Self>) {
+        self.blinked = (self.blinked.0 + 1, Some(Instant::now()));
         cx.notify();
     }
 
@@ -1236,6 +1252,10 @@ impl Navigator {
             inset,
             joined,
             glow: !selected && matches!(item, Selection::Commit(_, commit) if store.glows(*commit)),
+            // The selection alone, which is what's copied, not the commits picked with it.
+            blink: (self.blinked.1.is_some_and(|at| at.elapsed() < BLINK)
+                && store.selection.as_ref() == Some(item))
+            .then_some(self.blinked.0),
         };
         let el = match item {
             Selection::Project(id) => self.project_row(item, id, style, cx),

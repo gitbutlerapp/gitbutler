@@ -236,7 +236,7 @@ impl AppView {
     ) {
         let project = at.project().clone();
         let place = self.store.read(cx).place(&at);
-        let input = cx.new(|cx| TextInput::new("Branch name", false, cx));
+        let input = cx.new(|cx| TextInput::new("Branch name", false, cx).spaces_as_dashes());
         let checked = project.clone();
         let check = move |this: &AppView, name: &str, cx: &App| {
             branch_name(this.store.read(cx), &checked, name, "").err()

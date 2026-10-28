@@ -1,12 +1,13 @@
-// A keymap like the `but` TUI's. So far only its keys for moving around, and the keys the app's
-// lists and overlays need, as GitButler's keymap has them. `base.json`, which macOS gives every
-// app, binds after these. `secondary` is cmd on macOS and ctrl elsewhere; a section with "os"
-// binds only there. Order matters: within a context the binding added last wins, and the last
-// binding for an action is the key menus and tooltips show, so the TUI's letters come after the
-// arrows.
+// A keymap like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming
+// and adding an empty commit, and the keys the app's lists and overlays need, as GitButler's
+// keymap has them. `base.json`, which macOS gives every app, binds after these. `secondary` is cmd on macOS
+// and ctrl elsewhere; a section with "os" binds only there. Order matters: within a context the
+// binding added last wins, and the last binding for an action is the key menus and tooltips
+// show, so the TUI's letters come after the arrows.
 [
-  // : for the TUI's command line, ? for its help, / for its jump and Esc to go back. ← and →, or
-  // h and l, go to the pane on that side, as l focuses the TUI's details and h its status.
+  // : for the TUI's command line, ? for its help, / for its jump and Esc to go back. y copies the
+  // selection and ⇧Y picks what else of it to copy. u undoes and ⇧U redoes. ← and →, or h and l,
+  // go to the pane on that side, as l focuses the TUI's details and h its status.
   {
     "context": "Workspace && !TextInput",
     "bindings": {
@@ -14,13 +15,19 @@
       "?": "settings::OpenKeyboardShortcuts",
       "/": "palette::GoTo",
       "escape": "app::Cancel",
+      "y": "navigator::CopySelection",
+      "shift-y": "palette::CopyMore",
+      "u": "app::Undo",
+      "shift-u": "app::Redo",
       "right": "app::FocusPaneRight",
       "l": "app::FocusPaneRight",
       "left": "app::FocusPaneLeft",
       "h": "app::FocusPaneLeft"
     }
   },
-  // The TUI's status list: up and down, ⇧J and ⇧K between sections, g and ⇧G to either end.
+  // The TUI's status list: up and down, ⇧J and ⇧K between sections, g and ⇧G to either end. r
+  // renames, where the TUI's squashes, and n adds an empty commit above the selected one, or on
+  // top of the selected branch.
   {
     "context": "Navigator && !TextInput",
     "bindings": {
@@ -31,7 +38,9 @@
       "shift-k": "navigator::PreviousSection",
       "shift-j": "navigator::NextSection",
       "g": "navigator::SelectFirst",
-      "shift-g": "navigator::SelectLast"
+      "shift-g": "navigator::SelectLast",
+      "r": "navigator::RenameSelection",
+      "n": "edits::AddEmptyCommitAbove"
     }
   },
   // The TUI's details: j and k between hunks, ⌃D and ⌃U half a page, g and ⇧G to the first and

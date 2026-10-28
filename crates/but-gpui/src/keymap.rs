@@ -24,7 +24,8 @@ pub enum Keymap {
     /// GitButler's own, after macOS's and vim's.
     #[default]
     GitButler,
-    /// Like the `but` TUI's. So far only its keys for moving around.
+    /// Like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming and
+    /// adding an empty commit.
     Tui,
 }
 
