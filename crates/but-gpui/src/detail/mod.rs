@@ -97,7 +97,56 @@ pub const PAGE: f32 = 0.85;
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 struct Cursor {
     file: usize,
-    hunk: Option<usize>,
+    at: Stop,
+}
+
+/// What of its file the cursor is on.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+enum Stop {
+    /// The file's header.
+    #[default]
+    File,
+    /// The box above hunk `.0`, saying what's hidden before it: the file's, as the unchanged
+    /// lines it stands for are, not the hunk's.
+    Gap(usize),
+    /// Hunk `.0`'s lines, from its first change to its last: what the hunk keys act on.
+    Hunk(usize),
+}
+
+impl Cursor {
+    /// On file `file`'s header.
+    fn on_file(file: usize) -> Self {
+        Cursor {
+            file,
+            at: Stop::File,
+        }
+    }
+
+    /// On hunk `hunk` of file `file`.
+    fn on_hunk(file: usize, hunk: usize) -> Self {
+        Cursor {
+            file,
+            at: Stop::Hunk(hunk),
+        }
+    }
+}
+
+impl Stop {
+    /// The hunk the hunk keys act on, not one with the cursor on the box above it.
+    fn hunk(self) -> Option<usize> {
+        match self {
+            Stop::Hunk(hunk) => Some(hunk),
+            Stop::File | Stop::Gap(_) => None,
+        }
+    }
+
+    /// The hunk the cursor is on or just above.
+    fn near(self) -> Option<usize> {
+        match self {
+            Stop::Gap(hunk) | Stop::Hunk(hunk) => Some(hunk),
+            Stop::File => None,
+        }
+    }
 }
 
 /// How long the diff takes to glide to where the keys moved its cursor.
@@ -507,7 +556,7 @@ impl Detail {
                         if let Some(file) = first
                             && !shown.contains(&this.cursor.file)
                         {
-                            this.place_cursor(Cursor { file, hunk: None });
+                            this.place_cursor(Cursor::on_file(file));
                             if let Some(row) = this.row_of(|row| *row == DiffRow::File(file)) {
                                 this.scroll_to_row(row, false);
                             }
@@ -1205,10 +1254,7 @@ impl Detail {
                 .flat_map(|diff| diff.files.iter())
                 .position(|file| file.file.path == path)
         {
-            self.cursor = Cursor {
-                file: at,
-                hunk: None,
-            };
+            self.cursor = Cursor::on_file(at);
             self.scroll_to_file(at, false, cx);
         }
     }
@@ -1296,11 +1342,19 @@ impl Detail {
         self.pinned = true;
     }
 
-    /// The row the cursor is on, or its file's header where its hunk isn't drawn, as when folded.
+    /// The row the cursor is on: on a hunk, the first of its changes, else the box above them,
+    /// as when a pending operation takes them; its file's header where its hunk isn't drawn, as
+    /// when folded.
     fn cursor_row(&self) -> Option<usize> {
-        let Cursor { file, hunk } = self.cursor;
-        (hunk.and_then(|hunk| self.row_of(|row| *row == DiffRow::Hunk { file, hunk })))
-            .or_else(|| self.row_of(|row| *row == DiffRow::File(file)))
+        let Cursor { file, at } = self.cursor;
+        let changes = at
+            .hunk()
+            .and_then(|hunk| self.row_of(|row| self.changes_at(*row) == Some((file, hunk))));
+        let gap = || {
+            let hunk = at.near()?;
+            self.row_of(|row| *row == DiffRow::Hunk { file, hunk })
+        };
+        (changes.or_else(gap)).or_else(|| self.row_of(|row| *row == DiffRow::File(file)))
     }
 
     /// While the user scrolls the diff, the file at its top, the one its sticky header names,
@@ -1323,7 +1377,7 @@ impl Detail {
         else {
             return;
         };
-        let followed = Cursor { file, hunk: None };
+        let followed = Cursor::on_file(file);
         if self.cursor != followed {
             self.cursor = followed;
             cx.notify();
@@ -1718,15 +1772,17 @@ impl Detail {
             true => view.map_or(at, |(top, last)| at.clamp(top.saturating_sub(1), last)),
             false => view.map_or(at, |(top, last)| at.clamp(top, last + 1)),
         };
-        let stop = next_stop(&diff.rows, from, forward);
-        if let Some((file, hunk, row)) = stop {
-            self.place_cursor(Cursor { file, hunk });
+        let stop = next_stop(&diff.rows, from, forward, |row, entry| {
+            self.stop_at(row, entry)
+        });
+        if let Some((cursor, row)) = stop {
+            self.place_cursor(cursor);
             self.reveal_row(row);
             cx.notify();
         }
         // From the file list too: the diff takes the keys, so the hunk or header shows solid
         // and the keys after act on it.
-        if stop.is_some() || self.cursor.hunk.is_some() {
+        if stop.is_some() || self.cursor.at != Stop::File {
             window.focus(&self.focus, cx);
         }
     }
@@ -1746,14 +1802,16 @@ impl Detail {
         let Some((file, new)) =
             (files.iter().enumerate()).find(|(_, f)| f.file.path == old.file.path)
         else {
-            return Cursor {
-                file: self.cursor.file.min(files.len().saturating_sub(1)),
-                hunk: None,
-            };
+            return Cursor::on_file(self.cursor.file.min(files.len().saturating_sub(1)));
         };
-        let hunk =
-            (self.cursor.hunk).and_then(|ix| follow_hunk(&hunk_keys(old), ix, &hunk_keys(new)));
-        Cursor { file, hunk }
+        let near = (self.cursor.at.near())
+            .and_then(|ix| follow_hunk(&hunk_keys(old), ix, &hunk_keys(new)));
+        let at = match (self.cursor.at, near) {
+            (Stop::Gap(_), Some(hunk)) => Stop::Gap(hunk),
+            (_, Some(hunk)) => Stop::Hunk(hunk),
+            (_, None) => Stop::File,
+        };
+        Cursor { file, at }
     }
 
     /// Move the cursor off a file or hunk a pending operation just took away, onto the next
@@ -1765,7 +1823,8 @@ impl Detail {
         let Some(path) = diff.files.get(self.cursor.file).map(|f| &f.file.path) else {
             return;
         };
-        let at = (self.cursor.file, self.cursor.hunk);
+        // The box above a hunk goes with it.
+        let at = (self.cursor.file, self.cursor.at.near());
         // The files and hunks shown, in order, as the cursor can be on them.
         let places: Vec<(usize, Option<usize>)> = (diff.rows.iter())
             .filter_map(|row| match *row {
@@ -1789,7 +1848,10 @@ impl Detail {
             .filter(|(_, hunk)| hunk.is_some() == file_shown)
             .collect();
         if let Some(&(file, hunk)) = places.iter().find(|place| **place > at).or(places.last()) {
-            self.place_cursor(Cursor { file, hunk });
+            self.place_cursor(Cursor {
+                file,
+                at: hunk.map_or(Stop::File, Stop::Hunk),
+            });
         }
     }
 
@@ -1813,7 +1875,7 @@ impl Detail {
         let Some(file) = diff.files.get(self.cursor.file) else {
             return;
         };
-        let line = (self.cursor.hunk)
+        let line = (self.cursor.at.near())
             .and_then(|ix| file.hunks().get(ix))
             .map(|h| h.key.0.new_start);
         let (project, path) = (diff.key.project.clone(), file.file.path.clone());
@@ -1871,9 +1933,10 @@ impl Detail {
             && self.checks_worktree == *checkout
     }
 
-    /// Whether the diff's cursor is on a hunk, rather than a file's header, for ⌥⌘Z to discard.
+    /// Whether the diff's cursor is on a hunk, rather than a file's header or the box above a
+    /// hunk, for ⌥⌘Z to discard.
     pub fn on_hunk(&self) -> bool {
-        self.cursor.hunk.is_some()
+        self.cursor.at.hunk().is_some()
     }
 
     /// Whether there's a file shown for the diff's keys to act on, not one the filter hides.
@@ -1928,7 +1991,7 @@ impl Detail {
         let at = shown.iter().position(|file| *file == self.cursor.file)? + 1;
         let mut place = format!("File {at} of {}", shown.len());
         let hunks = file.hunks().len();
-        if let Some(hunk) = self.cursor.hunk.filter(|hunk| *hunk < hunks) {
+        if let Some(hunk) = self.cursor.at.hunk().filter(|hunk| *hunk < hunks) {
             place.push_str(&format!(" · hunk {} of {hunks}", hunk + 1));
         }
         Some(place)
@@ -1969,10 +2032,7 @@ impl Detail {
         if !self.folded.remove(&path) {
             self.folded.insert(path);
         }
-        self.place_cursor(Cursor {
-            file: file_ix,
-            hunk: None,
-        });
+        self.place_cursor(Cursor::on_file(file_ix));
         self.rebuild_rows(cx);
     }
 
@@ -1997,7 +2057,7 @@ impl Detail {
     ) {
         self.place_cursor(Cursor {
             file: file_ix,
-            hunk,
+            at: hunk.map_or(Stop::File, Stop::Hunk),
         });
         let Some(diff) = (self.diff.as_ref()).filter(|diff| diff.key.source.live()) else {
             return self.not_live(window, cx);
@@ -2115,10 +2175,7 @@ impl Detail {
     fn scroll_to_file(&mut self, file_ix: usize, glide: bool, cx: &mut Context<Self>) {
         // A file picked on a checkout's page shows its diff in place of the overview.
         self.now_open = false;
-        self.place_cursor(Cursor {
-            file: file_ix,
-            hunk: None,
-        });
+        self.place_cursor(Cursor::on_file(file_ix));
         if let Some(row) = self.row_of(|row| matches!(row, DiffRow::File(ix) if *ix == file_ix)) {
             self.scroll_to_row(row, glide);
             cx.notify();
@@ -2455,7 +2512,7 @@ impl Render for Detail {
                 }
                 if this.line_picks.is_some() {
                     this.discard_picked_lines(window, cx)
-                } else if let Some(hunk) = this.cursor.hunk.filter(|_| !this.showing_now(cx)) {
+                } else if let Some(hunk) = this.cursor.at.hunk().filter(|_| !this.showing_now(cx)) {
                     this.discard(this.cursor.file, Some(hunk), window, cx)
                 }
             }))
@@ -2717,22 +2774,26 @@ fn hunk_keys(file: &FileDiff) -> Vec<HunkKey> {
     file.hunks().iter().map(|hunk| hunk.key).collect()
 }
 
-/// Where the hunk keys go from row `from` of `rows`, `forward` or back: the next file header or
-/// hunk, as its file, its hunk on a hunk, and its row. Headers are stops too, so the keys go
-/// back up to one they left and down to the next file's rather than past it.
+/// Where the hunk keys go from row `from` of `rows`, `forward` or back: the next row `stop`
+/// says the cursor stops on, and that row. Headers are stops too, so the keys go back up to one
+/// they left and down to the next file's rather than past it.
 fn next_stop(
     rows: &[DiffRow],
     from: usize,
     forward: bool,
-) -> Option<(usize, Option<usize>, usize)> {
-    let mut stops = (rows.iter().enumerate()).filter_map(|(row, entry)| match *entry {
-        DiffRow::File(file) => Some((file, None, row)),
-        DiffRow::Hunk { file, hunk } => Some((file, Some(hunk), row)),
-        _ => None,
-    });
+    stop: impl Fn(usize, DiffRow) -> Option<Stop>,
+) -> Option<(Cursor, usize)> {
+    let at = |row: usize| {
+        let entry = *rows.get(row)?;
+        let cursor = Cursor {
+            file: entry.file()?,
+            at: stop(row, entry)?,
+        };
+        Some((cursor, row))
+    };
     match forward {
-        true => stops.find(|(.., row)| *row > from),
-        false => stops.rev().find(|(.., row)| *row < from),
+        true => (from + 1..rows.len()).find_map(at),
+        false => (0..from.min(rows.len())).rev().find_map(at),
     }
 }
 
@@ -2802,7 +2863,9 @@ fn same_files<'a>(
 mod tests {
     use std::collections::HashSet;
 
-    use super::{follow_hunk, keeps_path, next_stop, path_match, ranked, same_files, unfolded};
+    use super::{
+        Cursor, Stop, follow_hunk, keeps_path, next_stop, path_match, ranked, same_files, unfolded,
+    };
     use crate::backend::FileChange;
     use crate::ui::diff::DiffRow;
 
@@ -2990,49 +3053,67 @@ mod tests {
     }
 
     #[test]
-    fn the_hunk_keys_stop_on_file_headers_too() {
-        let line = |file, hunk| DiffRow::Line {
-            file,
-            hunk,
-            line: 0,
-        };
+    fn the_hunk_keys_stop_on_file_headers_and_hunk_boxes_too() {
+        let line = |file, hunk, line| DiffRow::Line { file, hunk, line };
         let rows = [
             DiffRow::File(0),
             DiffRow::Hunk { file: 0, hunk: 0 },
-            line(0, 0),
+            line(0, 0, 0),
+            line(0, 0, 1),
+            line(0, 0, 2),
             DiffRow::Hunk { file: 0, hunk: 1 },
-            line(0, 1),
+            line(0, 1, 1),
             DiffRow::File(1),
             DiffRow::Hunk { file: 1, hunk: 0 },
-            line(1, 0),
+            line(1, 0, 1),
         ];
+        // Each hunk's changes start at its line 1, after an unchanged one, and the second hunk
+        // of the first file has no box.
+        let stop = |_, entry| match entry {
+            DiffRow::File(_) => Some(Stop::File),
+            DiffRow::Hunk { file: 0, hunk: 1 } => None,
+            DiffRow::Hunk { hunk, .. } => Some(Stop::Gap(hunk)),
+            DiffRow::Line { hunk, line: 1, .. } => Some(Stop::Hunk(hunk)),
+            _ => None,
+        };
+        let at = |file, at, row| Some((Cursor { file, at }, row));
         assert_eq!(
-            next_stop(&rows, 0, true),
-            Some((0, Some(0), 1)),
-            "from a file's header into its first hunk"
+            next_stop(&rows, 0, true, stop),
+            at(0, Stop::Gap(0), 1),
+            "from a file's header to the box above its first hunk"
         );
         assert_eq!(
-            next_stop(&rows, 1, false),
-            Some((0, None, 0)),
-            "and back up to the header, which came before it"
+            next_stop(&rows, 1, true, stop),
+            at(0, Stop::Hunk(0), 3),
+            "from the box to the hunk's first change, past the unchanged line before it"
         );
         assert_eq!(
-            next_stop(&rows, 3, true),
-            Some((1, None, 5)),
+            next_stop(&rows, 3, true, stop),
+            at(0, Stop::Hunk(1), 6),
+            "on to the next hunk's changes, as it has no box"
+        );
+        assert_eq!(
+            next_stop(&rows, 3, false, stop),
+            at(0, Stop::Gap(0), 1),
+            "back up to the box above the hunk"
+        );
+        assert_eq!(
+            next_stop(&rows, 6, true, stop),
+            at(1, Stop::File, 7),
             "from a file's last hunk to the next file's header, not past it to its hunk"
         );
         assert_eq!(
-            next_stop(&rows, 5, false),
-            Some((0, Some(1), 3)),
+            next_stop(&rows, 7, false, stop),
+            at(0, Stop::Hunk(1), 6),
             "from a header back to the last hunk of the file before"
         );
         assert_eq!(
-            next_stop(&rows, 0, false),
+            next_stop(&rows, 0, false, stop),
             None,
             "nothing above the first header"
         );
         assert_eq!(
-            next_stop(&rows, 6, true),
+            next_stop(&rows, 9, true, stop),
             None,
             "nothing below the last hunk"
         );

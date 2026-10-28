@@ -71,10 +71,7 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         // The hunk keys act where the lines are picked.
-        let cursor = super::Cursor {
-            file,
-            hunk: Some(hunk),
-        };
+        let cursor = super::Cursor::on_hunk(file, hunk);
         let Some(file) = self.diff.as_ref().and_then(|diff| diff.files.get(file)) else {
             return;
         };

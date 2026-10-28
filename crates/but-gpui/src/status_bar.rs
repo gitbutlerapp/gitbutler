@@ -186,7 +186,7 @@ impl AppView {
             vec![(&NextFile, "next file")]
         } else if detail_focused && uncommitted {
             // ⌘X takes what's picked, or the hunk or file under the cursor; ⌥⌘Z the picked lines,
-            // or the hunk, and on a file's header there's no hunk for it.
+            // or the hunk, and on a file's header or the box above a hunk there's no hunk for it.
             let discard = match detail.picked_line_count() {
                 0 => detail.on_hunk().then_some("discard hunk"),
                 _ => Some("discard lines"),

@@ -414,7 +414,7 @@ pub struct HeaderDecor {
     pub trailing: Option<AnyElement>,
     /// Marks a hunk left out of the next commit.
     pub excluded: bool,
-    /// The hunk or file the keyboard is on.
+    /// The file, or the box above a hunk, the keyboard is on.
     pub current: bool,
     /// The diff has the keys, so they act on the current one: it's marked solid, and faint
     /// while they're elsewhere, as a list's selection is.

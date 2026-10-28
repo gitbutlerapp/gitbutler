@@ -510,7 +510,7 @@ impl Detail {
             return None;
         }
         let file = self.diff.as_ref()?.files.get(self.cursor.file)?;
-        let hunk = (self.cursor.hunk).and_then(|hunk| Some(file.hunks().get(hunk)?.key));
+        let hunk = (self.cursor.at.hunk()).and_then(|hunk| Some(file.hunks().get(hunk)?.key));
         self.diff_cut(self.cursor.file, hunk.map(|key| vec![key]), cx)
     }
 

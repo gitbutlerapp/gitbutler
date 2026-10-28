@@ -399,7 +399,7 @@ impl Detail {
             return;
         };
         let path = file.file.path.clone();
-        let hunk = (self.cursor.hunk)
+        let hunk = (self.cursor.at.near())
             .filter(|_| !self.files_focus.is_focused(window))
             .and_then(|hunk| Some(file.hunks().get(hunk)?.key));
         match hunk {
