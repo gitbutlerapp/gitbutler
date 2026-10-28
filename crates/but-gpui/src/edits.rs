@@ -1335,7 +1335,7 @@ impl AppView {
             project,
             "Discard from commit",
             overlay,
-            backend::Legacy::new(move |path| backend::discard_from_commit(path, commit, &files)),
+            backend::DiscardFromCommit { commit, files },
             move |store, rewritten, cx| {
                 store.follow(&rewritten, cx);
                 store.snack_after(undoable, "Discarded from the commit", cx)

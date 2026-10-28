@@ -1047,15 +1047,36 @@ impl Intent for MoveFiles {
 }
 
 /// Take `files` (or some of their hunks) out of `commit` as if it had never made them.
-pub fn discard_from_commit(path: &Path, commit: CommitId, files: &[Selected]) -> Result<Rewritten> {
-    let mut ctx = open(path)?;
-    let outcome = but_api::commit::discard_commit::commit_discard_changes(
-        &mut ctx,
-        commit.0,
-        taken_specs(files)?,
-        DryRun::No,
-    )?;
-    Ok(rewritten(&outcome.workspace))
+pub struct DiscardFromCommit {
+    pub commit: CommitId,
+    pub files: Arc<[Selected]>,
+}
+
+impl Intent for DiscardFromCommit {
+    type Done = Rewritten;
+
+    fn apply(self, run: &mut Run) -> Result<Rewritten> {
+        use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
+        let Self { commit, files } = self;
+        let changes = taken_specs(&files)?;
+        let workspace = run.locked(|ctx, perm| {
+            let mut meta = ctx.meta()?;
+            but_transaction::with_transaction_with_perm(
+                ctx,
+                &mut meta,
+                perm,
+                SnapshotDetails::new(OperationKind::DiscardChanges)
+                    .with_trailers([Trailer::Sha(commit.0)]),
+                &[],
+                DryRun::No,
+                |mut tx| {
+                    tx.discard_changes_from_commit(commit.0, changes)?;
+                    Ok(())
+                },
+            )
+        })?;
+        Ok(rewritten(&workspace))
+    }
 }
 
 /// Move `files` (or some of their hunks) out of `commit` into a new commit right above it.
@@ -3493,7 +3514,11 @@ third
         but_testsupport::isolated_app_data_dir(|| {
             let (dir, commit, diff, _) = workspace_with_an_edit();
             let path = dir.path();
-            let rewritten = discard_from_commit(path, commit, &[five_b_out(&diff)]).unwrap();
+            let discard = DiscardFromCommit {
+                commit,
+                files: [five_b_out(&diff)].into(),
+            };
+            let (rewritten, _) = crate::backend::apply(path, discard).unwrap();
             let commit = rewritten.get(&commit).copied().unwrap_or(commit);
             let committed = git(path, &["show", &format!("{}:file", commit.0)]);
             assert!(
