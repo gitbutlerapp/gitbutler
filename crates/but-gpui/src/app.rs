@@ -1025,9 +1025,9 @@ impl AppView {
         }
     }
 
-    /// Show or hide the navigator, sliding it there. When it goes, focus moves off it, and it
-    /// comes back with it, as hiding it took it away. Out over the detail already, it shows
-    /// beside it at once rather than sliding in again.
+    /// Show or hide the navigator, sliding it there. The keys stay where they are, but for
+    /// moving off it when it goes. Out over the detail already, it shows beside it at once
+    /// rather than sliding in again.
     pub(crate) fn set_navigator(
         &mut self,
         navigator_open: bool,
@@ -1045,9 +1045,7 @@ impl AppView {
             self.navigator_slide.start(navigator_open, cx);
         }
         self.navigator_open = navigator_open;
-        if navigator_open {
-            window.focus(&self.navigator.focus_handle(cx), cx);
-        } else if self.navigator.focus_handle(cx).contains_focused(window, cx) {
+        if !navigator_open && self.navigator.focus_handle(cx).contains_focused(window, cx) {
             self.focus_main(window, cx);
         }
         cx.notify();
