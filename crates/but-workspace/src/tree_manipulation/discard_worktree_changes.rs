@@ -264,26 +264,34 @@ mod file {
             }
             EntryKind::Commit => {
                 if let RestoreMode::Update = mode {
-                    // TODO(gix): actual checkout/reset functionality - it will be fine to support that fully.
-                    // Since `git2` doesn't support filters, it will save us some trouble to just use Git for that.
-                    let submodule_repo_dir = &file_path;
-                    let out = std::process::Command::try_from(
-                        gix::command::prepare(format!(
-                            "git reset --hard {id} && git clean -fxd",
-                            id = state.id
-                        ))
-                        .with_shell(),
-                    )?
-                    .current_dir(submodule_repo_dir)
-                    .output()?;
-                    if !out.status.success() {
-                        bail!(
-                            "Could not reset submodule at '{sm_dir}' to commit {id}: {err}",
-                            sm_dir = submodule_repo_dir.display(),
-                            id = state.id,
-                            err = out.stderr.as_bstr()
-                        );
-                    }
+                    let submodule = gix::open_opts(
+                        file_path.as_ref(),
+                        repo.open_options().clone().for_subrepository(),
+                    )
+                    .with_context(|| format!("Could not open submodule at '{rela_path}'"))?;
+                    submodule
+                        .reset_hard(
+                            state.id,
+                            gix::progress::Discard,
+                            &gix::interrupt::IS_INTERRUPTED,
+                        )
+                        .with_context(|| {
+                            format!(
+                                "Could not reset submodule at '{rela_path}' to commit {}",
+                                state.id
+                            )
+                        })?;
+                    submodule
+                        .clean_worktree(
+                            std::iter::empty::<&BStr>(),
+                            &gix::interrupt::IS_INTERRUPTED,
+                            gix::worktree::clean::Options {
+                                dry_run: false,
+                                ignored: true,
+                                directories: true,
+                            },
+                        )
+                        .with_context(|| format!("Could not clean submodule at '{rela_path}'"))?;
                 } else {
                     let sm_repo = repo
                         .submodules()?
