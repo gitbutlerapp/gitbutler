@@ -1,8 +1,8 @@
 //! A replayable repository archive backed by a Git bundle.
 
-use std::{fmt::Write as _, io, path::Path, process::Command};
+use std::{fmt::Write as _, io, path::Path};
 
-use anyhow::{Context as _, Result, bail, ensure};
+use anyhow::{Context as _, Result, ensure};
 use but_core::RepositoryExt as _;
 use gix::bstr::ByteSlice as _;
 
@@ -70,7 +70,7 @@ pub(super) fn run(
     let bundle_dir = tempfile::tempdir().context("Could not create temporary bundle directory")?;
     let bundle_path = bundle_dir.path().join("repository.bundle");
     writeln!(out, "Creating repository delta bundle")?;
-    create_bundle(workdir, &bundle_path)?;
+    create_bundle(&repo, &bundle_path)?;
     let script = installer_script(&base, &clone_remote, &head_oid, head_ref.as_deref());
 
     let progress = DumpProgress::new()?;
@@ -181,19 +181,45 @@ fn head(repo: &gix::Repository) -> Result<(String, Option<String>)> {
     Ok((oid, reference))
 }
 
-fn create_bundle(workdir: &Path, bundle_path: &Path) -> Result<()> {
-    let output = git_command(workdir)?
-        .args(["bundle", "create", "--quiet"])
-        .arg(bundle_path)
-        .args(["--all", "HEAD", "--not", "--remotes"])
-        .output()
-        .context("Could not start git bundle creation")?;
-    if !output.status.success() {
-        bail!(
-            "Could not create repository bundle: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        );
+fn create_bundle(repo: &gix::Repository, bundle_path: &Path) -> Result<()> {
+    // Release the reference iterator's packed-ref lock before following symbolic refs.
+    let references = repo.references()?.all()?.collect::<gix::Result<Vec<_>>>()?;
+    let mut selected = Vec::with_capacity(references.len() + 1);
+    let mut excluded = Vec::new();
+    for mut reference in references {
+        let name = reference.name().to_owned();
+        let object_id = match reference.follow_to_object() {
+            Ok(id) => id.detach(),
+            Err(err)
+                if err
+                    .downcast_any_ref::<gix::refs::file::find::NotFound>()
+                    .is_some() =>
+            {
+                continue;
+            }
+            Err(err) => return Err(err.into()),
+        };
+        if name.as_bstr().starts_with(b"refs/remotes/") {
+            excluded.push(object_id);
+        }
+        selected.push((name, object_id));
     }
+    selected.push((
+        "HEAD".try_into()?,
+        repo.find_reference("HEAD")?.follow_to_object()?.detach(),
+    ));
+    let mut output = io::BufWriter::new(
+        std::fs::File::create(bundle_path).context("Could not create repository bundle file")?,
+    );
+    repo.write_bundle(
+        selected,
+        excluded,
+        &mut output,
+        gix::progress::Discard,
+        &gix::interrupt::IS_INTERRUPTED,
+    )
+    .context("Could not create repository bundle")?;
+    io::Write::flush(&mut output).context("Could not finish repository bundle")?;
     Ok(())
 }
 
@@ -309,30 +335,6 @@ fn is_storage_path_key(key: &[u8]) -> bool {
     ]
     .iter()
     .any(|candidate| key.eq_ignore_ascii_case(candidate))
-}
-
-fn git_command(workdir: &Path) -> Result<Command> {
-    let output = Command::new("git")
-        .args(["rev-parse", "--local-env-vars"])
-        .output()
-        .context("Could not list repository-local Git environment variables")?;
-    if !output.status.success() {
-        bail!(
-            "Could not list repository-local Git environment variables: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        );
-    }
-
-    let mut command = Command::new("git");
-    for name in output.stdout.split(|byte| *byte == b'\n') {
-        if !name.is_empty() {
-            command.env_remove(
-                std::str::from_utf8(name).context("Git environment variable name is not UTF-8")?,
-            );
-        }
-    }
-    command.arg("-C").arg(workdir);
-    Ok(command)
 }
 
 fn ref_manifests(repo: &gix::Repository) -> Result<(Vec<u8>, Vec<u8>)> {
@@ -529,6 +531,22 @@ mod tests {
     use but_testsupport::gix_testtools;
 
     use super::*;
+
+    #[test]
+    fn bundle_creation_does_not_execute_git() -> gix_testtools::TestResult {
+        if gix_testtools::run_in_isolated_process()? {
+            return Ok(());
+        }
+        let fixture =
+            gix_testtools::scripted_fixture_read_only("dump-repo-installer.sh")?.canonicalize()?;
+        let no_programs = tempfile::tempdir()?;
+        let output = tempfile::tempdir()?;
+        let _environment =
+            gix_testtools::Env::new().set("PATH", no_programs.path().display().to_string());
+        let repo = gix::open_opts(fixture.join("gitbutler"), gix::open::Options::isolated())?;
+        create_bundle(&repo, &output.path().join("repository.bundle"))?;
+        Ok(())
+    }
 
     #[test]
     fn selected_config_matches_git_without_executing_git() -> gix_testtools::TestResult {
