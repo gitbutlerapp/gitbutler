@@ -416,17 +416,9 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let mut order = self.expanded_ids();
-        let Some(from) = order.iter().position(|other| other == id) else {
-            return;
-        };
-        if before == Some(id) {
+        if !move_before(&mut order, id, before) {
             return;
         }
-        let id = order.remove(from);
-        let at = before
-            .and_then(|before| order.iter().position(|other| other == before))
-            .unwrap_or(order.len());
-        order.insert(at, id);
         self.order_projects(&order);
         self.save_soon(cx);
         cx.notify();
@@ -905,6 +897,22 @@ fn watch(
             .unbounded_send((id.clone(), git, checkout, paths))
             .ok();
     })
+}
+
+/// Move `item` in `order` before `before`, or last, and whether it was there to move.
+fn move_before<T: PartialEq>(order: &mut Vec<T>, item: &T, before: Option<&T>) -> bool {
+    let Some(from) = order.iter().position(|other| other == item) else {
+        return false;
+    };
+    if before == Some(item) {
+        return false;
+    }
+    let item = order.remove(from);
+    let at = before
+        .and_then(|before| order.iter().position(|other| other == before))
+        .unwrap_or(order.len());
+    order.insert(at, item);
+    true
 }
 
 #[cfg(test)]
