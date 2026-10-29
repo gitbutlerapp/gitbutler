@@ -1,7 +1,8 @@
 //! Folds that open and close over a moment rather than at once, as ui-react's sections fold
 //! in `--transition-medium`: what a fold holds grows down from its heading as one curtain, or
 //! shrinks back up into it, its chevron turning as it goes. What's closing stays drawn till
-//! it's shut, taking no clicks. Under reduced motion, folds open and close at once.
+//! it's shut, taking no clicks. Panes beside the others slide open and shut over the same
+//! moment ([`Slide`]). Under reduced motion, folds and slides open and close at once.
 
 use std::cell::Cell;
 use std::collections::HashMap;
@@ -15,7 +16,7 @@ use gpui::{
     SpringAnimationElement, Svg, Transformation, div, prelude::*, radians,
 };
 
-use super::{Icon, small_icon, switch_spring};
+use super::{Icon, fixed, small_icon, switch_spring};
 
 /// How long a fold takes to open or close: design-core's `--transition-medium`.
 pub const FOLD: Duration = Duration::from_millis(150);
@@ -73,12 +74,7 @@ impl<K: Eq + Hash> Folds<K> {
             false => 1.,
         };
         let at = (self.moving.get(&key)).map_or(shut, |m| m.openness(now));
-        // How far along its way there a move that's at `at` now is.
-        let along = match open {
-            true => unease(at),
-            false => unease(1. - at),
-        };
-        let since = (now.checked_sub(FOLD.mul_f32(along))).unwrap_or(now);
+        let since = set_out(open, at, now);
         let height = (self.moving.remove(&key)).map_or_else(Rc::default, |m| m.height);
         self.moving.insert(
             key,
@@ -247,12 +243,88 @@ impl Moved {
 
 impl Move {
     fn openness(&self, now: Instant) -> f32 {
-        let along = now.saturating_duration_since(self.since).as_secs_f32() / FOLD.as_secs_f32();
-        let eased = ease(along.clamp(0., 1.));
-        match self.open {
-            true => eased,
-            false => 1. - eased,
+        openness(self.open, self.since, now)
+    }
+}
+
+/// A pane sliding open or shut beside the others, as the navigator and the file list do, over
+/// [`FOLD`] as a fold moves. It keeps its width and its place as it goes, and the edge of the
+/// pane beside it moves across it, so neither lays out its rows again at every width. One
+/// turned back partway goes back from where it is. Under reduced motion, it opens and closes
+/// at once.
+#[derive(Default)]
+pub struct Slide(Option<Sliding>);
+
+#[derive(Clone, Copy)]
+struct Sliding {
+    open: bool,
+    since: Instant,
+}
+
+impl Slide {
+    /// The pane just opened, or shut: it moves there from where it is.
+    pub fn start(&mut self, open: bool, cx: &App) {
+        match cx.reduce_motion() {
+            true => self.0 = None,
+            false => self.start_at(open, Instant::now()),
         }
+    }
+
+    fn start_at(&mut self, open: bool, now: Instant) {
+        let shut = match open {
+            true => 0.,
+            false => 1.,
+        };
+        let at = self.openness(now).unwrap_or(shut);
+        let since = set_out(open, at, now);
+        self.0 = Some(Sliding { open, since });
+    }
+
+    /// How far open the pane is at `now`, from 0 shut to 1 open, while it moves; `None` at rest.
+    pub fn openness(&self, now: Instant) -> Option<f32> {
+        let Sliding { open, since } = self.0?;
+        (now.saturating_duration_since(since) < FOLD).then(|| openness(open, since, now))
+    }
+
+    /// Whether the pane is closing at `now`, so it's still drawn.
+    pub fn closing(&self, now: Instant) -> bool {
+        self.openness(now).is_some() && self.0.is_some_and(|s| !s.open)
+    }
+
+    /// How much of the pane shows at `now`, from 0 to 1: as far as it's open while it moves,
+    /// else all of it while it's `open`.
+    pub fn share(&self, open: bool, now: Instant) -> f32 {
+        match (self.openness(now), open) {
+            (Some(at), _) => at,
+            (None, true) => 1.,
+            (None, false) => 0.,
+        }
+    }
+}
+
+/// A hairline along the edge of a pane sliding over another, as the border the other has at
+/// rest: placed at the edge by the caller.
+pub fn edge(color: Hsla) -> Div {
+    div().absolute().top_0().bottom_0().w(fixed(1.)).bg(color)
+}
+
+/// When a move toward `open` that's `at` open by `now` set out, so it goes on from there.
+fn set_out(open: bool, at: f32, now: Instant) -> Instant {
+    // How far along its way there a move that's at `at` now is.
+    let along = match open {
+        true => unease(at),
+        false => unease(1. - at),
+    };
+    (now.checked_sub(FOLD.mul_f32(along))).unwrap_or(now)
+}
+
+/// How far open a move toward `open` that set out at `since` is at `now`, from 0 to 1.
+fn openness(open: bool, since: Instant, now: Instant) -> f32 {
+    let along = now.saturating_duration_since(since).as_secs_f32() / FOLD.as_secs_f32();
+    let eased = ease(along.clamp(0., 1.));
+    match open {
+        true => eased,
+        false => 1. - eased,
     }
 }
 
@@ -441,6 +513,50 @@ mod tests {
             folds.openness(&1).is_some_and(|now| now < open),
             "and goes on closing from there"
         );
+    }
+
+    #[test]
+    fn a_slide_turned_back_partway_goes_back_from_where_it_is() {
+        let mut slide = Slide::default();
+        let start = Instant::now();
+        slide.start_at(false, start);
+        let at = start + FOLD / 3;
+        let open = slide.share(false, at);
+        assert!(
+            open > 0.1 && open < 0.9 && slide.closing(at),
+            "a third of the way, it's partly shut and still drawn"
+        );
+        slide.start_at(true, at);
+        assert!(
+            (slide.share(true, at) - open).abs() < 1e-3,
+            "it opens from as far shut as it got"
+        );
+        assert!(!slide.closing(at), "and is no longer on its way out");
+    }
+
+    #[test]
+    fn a_slide_rests_once_it_gets_there() {
+        let mut slide = Slide::default();
+        assert_eq!(
+            (
+                slide.share(true, Instant::now()),
+                slide.share(false, Instant::now())
+            ),
+            (1., 0.),
+            "one that never moved shows as it is"
+        );
+        let start = Instant::now();
+        slide.start_at(false, start);
+        assert!(
+            slide.openness(start + FOLD / 2).is_some(),
+            "halfway, it's moving"
+        );
+        let there = start + FOLD;
+        assert!(
+            slide.openness(there).is_none() && !slide.closing(there),
+            "there, it rests"
+        );
+        assert_eq!(slide.share(false, there), 0., "and is drawn shut");
     }
 
     #[test]

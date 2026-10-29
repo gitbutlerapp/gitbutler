@@ -52,7 +52,7 @@ use crate::state::{
 };
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
-use crate::ui::fold::Folds;
+use crate::ui::fold::{FOLD, Folds, Slide, edge, inert};
 use crate::ui::illustration::{Illustration, illustration};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -461,11 +461,16 @@ pub struct Detail {
     history_hidden: HashSet<history::Group>,
     history_scroll: ListState,
     _history_load: Task<()>,
-    /// The file list beside the diff is hidden, for more room.
+    /// The file list beside the diff is hidden, for more room, and its slide there.
     files_hidden: bool,
+    files_slide: Slide,
     /// The files between a list page's list and the diff are hidden, as they are at first: the
-    /// page's own list already takes the room the file list has elsewhere.
+    /// page's own list already takes the room the file list has elsewhere. And their slide.
     beside_files_hidden: bool,
+    beside_slide: Slide,
+    /// Draws the files once they've slid where they're going, as the diff slides over them
+    /// without drawing the detail again.
+    _slid: Task<()>,
     /// Since when the pointer is on the files button over the diff, and whether it's on the
     /// popover of the files the button opens, [`FILES_POPOVER_DELAY`] on, while they aren't
     /// beside the diff.
@@ -473,8 +478,9 @@ pub struct Detail {
     /// Whether that popover was drawn last: back on the button from it, it stays open.
     files_popover_shown: Cell<bool>,
     _files_popover_delay: Task<()>,
-    /// The header starts where the window's traffic lights are.
-    pub beside_traffic_lights: bool,
+    /// How much of the navigator shows beside the detail, from 0 to 1, as the app last drew
+    /// it. Its sliding changes the detail's width, so the detail draws again as it changes.
+    pub navigator_shown: Cell<f32>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -774,11 +780,14 @@ impl Detail {
             history_scroll: panes::side_list_state(),
             _history_load: Task::ready(()),
             files_hidden: false,
+            files_slide: Slide::default(),
             beside_files_hidden: true,
+            beside_slide: Slide::default(),
+            _slid: Task::ready(()),
             files_hover: (None, false),
             files_popover_shown: Cell::new(false),
             _files_popover_delay: Task::ready(()),
-            beside_traffic_lights: false,
+            navigator_shown: Cell::new(1.),
             _subscriptions: subscriptions,
         };
         // A wheel scroll is the user's, after which the cursor follows the diff again, and the
@@ -1538,7 +1547,7 @@ impl Detail {
         }
         self.filtering = true;
         // Its field heads the file list, so a hidden list comes back with it.
-        self.files_hidden = false;
+        self.hide_files(false, false, cx);
         self.file_filter
             .update(cx, |input, cx| input.select_all_text(cx));
         window.focus(&self.file_filter.focus_handle(cx), cx);
@@ -2060,10 +2069,20 @@ impl Detail {
         }
     }
 
-    /// How wide the file list is drawn while it's shown.
+    /// How wide the file list is drawn while it's shown, beside the navigator as much as that
+    /// shows.
     pub(crate) fn files_width(&self, window: &Window, cx: &App) -> f32 {
         let window = f32::from(window.viewport_size().width) / Theme::get(cx).scale;
-        (self.store.read(cx)).fitted_width(Pane::Files, window, !self.beside_traffic_lights, true)
+        let navigator = self.navigator_shown.get();
+        (self.store.read(cx)).fitted_width(Pane::Files, window, navigator, 1.)
+    }
+
+    /// How wide the navigator is drawn while it's open, beside the file list as much as that
+    /// shows at `now`.
+    pub(crate) fn navigator_width(&self, now: Instant, window: &Window, cx: &App) -> f32 {
+        let window = f32::from(window.viewport_size().width) / Theme::get(cx).scale;
+        let files = self.files_share(now, cx);
+        (self.store.read(cx)).fitted_width(Pane::Navigator, window, 1., files)
     }
 
     /// Where the diff's cursor is, as an editor's status bar says the line: the place of the
@@ -2499,6 +2518,37 @@ impl Detail {
         !self.overview_only(cx) && (self.list_page(cx) || !self.files_hidden)
     }
 
+    /// How much of the column beside the diff shows at `now`, from 0 to 1, as `f` slides the
+    /// file list. A list page's list always shows.
+    pub fn files_share(&self, now: Instant, cx: &App) -> f32 {
+        match (self.overview_only(cx), self.list_page(cx)) {
+            (true, _) => 0.,
+            (false, true) => 1.,
+            (false, false) => self.files_slide.share(!self.files_hidden, now),
+        }
+    }
+
+    /// Whether the column beside the diff is drawn at `now`: shown, or still sliding shut.
+    fn files_drawn(&self, now: Instant, cx: &App) -> bool {
+        self.files_shown(cx) || (!self.overview_only(cx) && self.files_slide.closing(now))
+    }
+
+    /// How far right of the detail's left edge the diff starts at `now`: past the column beside
+    /// it and a list page's files beside its list, each as much as it shows as it slides.
+    pub fn diff_left(&self, now: Instant, window: &Window, cx: &App) -> f32 {
+        let files = self.files_width(window, cx) * self.files_share(now, cx);
+        let beside = (self.has_files_beside(cx)).then(|| {
+            let shown = self.beside_slide.share(!self.beside_files_hidden, now);
+            self.beside_files_width(cx) * shown
+        });
+        files + beside.unwrap_or(0.)
+    }
+
+    /// Whether the file list, or the files beside a list page's list, slide at `now`.
+    pub fn sliding(&self, now: Instant) -> bool {
+        self.files_slide.openness(now).is_some() || self.beside_slide.openness(now).is_some()
+    }
+
     /// Whether the page is an overview with no column beside it: Inactive and Network
     /// worktrees', as the navigator lists what they sum up.
     pub fn overview_only(&self, cx: &App) -> bool {
@@ -2516,18 +2566,36 @@ impl Detail {
             return;
         }
         let hidden = match list_page {
-            true => &mut self.beside_files_hidden,
-            false => &mut self.files_hidden,
+            true => !self.beside_files_hidden,
+            false => !self.files_hidden,
         };
-        *hidden = !*hidden;
+        self.hide_files(list_page, hidden, cx);
         // Keys go on to the diff once the list they went to is gone, and its filter goes with
         // it, so no file stays out of the diff unseen.
-        if *hidden {
+        if hidden {
             if self.files_focus.is_focused(window) {
                 window.focus(&self.focus, cx);
             }
             self.close_open_filter(window, cx);
         }
+    }
+
+    /// Hide or show the file list beside the diff, or with `beside` the files beside a list
+    /// page's list, sliding them there.
+    pub(super) fn hide_files(&mut self, beside: bool, hidden: bool, cx: &mut Context<Self>) {
+        let (flag, slide) = match beside {
+            true => (&mut self.beside_files_hidden, &mut self.beside_slide),
+            false => (&mut self.files_hidden, &mut self.files_slide),
+        };
+        if *flag == hidden {
+            return;
+        }
+        *flag = hidden;
+        slide.start(!hidden, cx);
+        self._slid = cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(FOLD).await;
+            this.update(cx, |_, cx| cx.notify()).ok();
+        });
         cx.notify();
     }
 
@@ -2699,6 +2767,14 @@ impl Render for Detail {
                     let focus = self.focus.clone();
                     window.defer(cx, move |window, cx| window.focus(&focus, cx));
                 }
+                // The file list sliding beside an overview is cut to as much as shows, drawn again
+                // as it goes. Under the diff it stays as it is, and the diff slides over it.
+                let now = Instant::now();
+                let cut =
+                    (self.files_slide.openness(now)).filter(|_| !list_page && self.diff_hidden(cx));
+                if cut.is_some() {
+                    window.request_animation_frame();
+                }
                 let panes = match selection {
                     Selection::Branch(project, _) | Selection::Upstream(project, ..)
                         if self.showing_review(cx) =>
@@ -2711,28 +2787,38 @@ impl Render for Detail {
                         .min_h_0()
                         .items_start()
                         .on_drag_move(resize_pane(Pane::Files, self.store.clone()))
-                        .when(files_shown, |el| {
-                            el.child(
-                                v_flex()
-                                    .w(dp(width))
+                        .when(self.files_drawn(now, cx), |el| {
+                            let column = v_flex()
+                                .w(dp(width))
+                                .flex_none()
+                                .relative()
+                                .h_full()
+                                .border_r_1()
+                                .border_color(theme.border_3)
+                                // A list page's list takes the arrows itself, and the files
+                                // beside it hold their focus there.
+                                .when(!list_page, |el| {
+                                    el.track_focus(&self.files_focus).key_context(
+                                        match self.composing {
+                                            true => "Files Composer",
+                                            false => "Files",
+                                        },
+                                    )
+                                })
+                                .child(side)
+                                .child(resize_handle(Pane::Files, self.store.clone(), &theme));
+                            let column = inert(column, !files_shown);
+                            el.child(match cut {
+                                Some(open) => div()
                                     .flex_none()
                                     .relative()
                                     .h_full()
-                                    .border_r_1()
-                                    .border_color(theme.border_3)
-                                    // A list page's list takes the arrows itself, and the files
-                                    // beside it hold their focus there.
-                                    .when(!list_page, |el| {
-                                        el.track_focus(&self.files_focus).key_context(
-                                            match self.composing {
-                                                true => "Files Composer",
-                                                false => "Files",
-                                            },
-                                        )
-                                    })
-                                    .child(side)
-                                    .child(resize_handle(Pane::Files, self.store.clone(), &theme)),
-                            )
+                                    .w(dp(width * open))
+                                    .overflow_hidden()
+                                    .child(column)
+                                    .child(edge(theme.border_3).right_0()),
+                                None => column,
+                            })
                         })
                         // `DiffPane` draws the diff over this space.
                         .child(beside.unwrap_or_else(|| div().flex_1().into_any_element()))

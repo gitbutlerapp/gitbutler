@@ -1,6 +1,8 @@
 //! The window's root: the project navigator on the left, details on the right, the keys,
 //! and the actions that work anywhere in the window. `overlays.rs` draws what opens above.
 
+use std::time::Instant;
+
 use gpui::{
     AnyView, App, ClipboardItem, Context, Entity, FocusHandle, Focusable, FontFeatures, Pixels,
     Point, PromptLevel, Role, StyleRefinement, Subscription, WeakEntity, Window, actions, div,
@@ -17,7 +19,8 @@ use crate::projects::pick_folder;
 use crate::state::{Cut, MeshPick, Pane, ProjectId, Selection, Store, StoreEvent, snack};
 use crate::theme::{Theme, UiScale};
 use crate::transfer::{Place, Transfer};
-use crate::ui::{HEADER_HEIGHT, dp, resize_pane};
+use crate::ui::fold::{Slide, edge, inert};
+use crate::ui::{HEADER_HEIGHT, dp, fixed, resize_pane};
 
 // Named in the keymap as area::Action, by where they act.
 actions!(
@@ -96,6 +99,8 @@ pub struct AppView {
     /// The emoji picker open on a project's icon.
     pub icon_picker: Option<crate::projects::IconPicker>,
     pub navigator_open: bool,
+    /// The navigator sliding open or shut.
+    navigator_slide: Slide,
     pub palette: Option<Palette>,
     /// The modal on screen, if any, what takes its keys, its card's own, which Tab keeps
     /// to, the subscription that closes it, and what had the keys before it opened, to give
@@ -160,15 +165,13 @@ impl AppHandle {
 }
 
 impl AppView {
-    /// Where the diff starts beside the detail's file list, when the selection has a diff.
-    fn diff_left(&self, window: &Window, cx: &App) -> Option<f32> {
+    /// Where the diff starts beside the detail's file list at `now`, when the selection has a
+    /// diff.
+    fn diff_left(&self, now: Instant, window: &Window, cx: &App) -> Option<f32> {
         let store = self.store.read(cx);
         let detail = self.detail.read(cx);
         let has_diff = store.selection.is_some() && !detail.diff_hidden(cx);
-        has_diff.then(|| match detail.files_shown(cx) {
-            false => 0.,
-            true => detail.files_width(window, cx) + detail.beside_offset(cx),
-        })
+        has_diff.then(|| detail.diff_left(now, window, cx))
     }
 
     pub fn new(store: Entity<Store>, window: &mut Window, cx: &mut Context<Self>) -> Self {
@@ -263,6 +266,7 @@ impl AppView {
             prompt: None,
             icon_picker: None,
             navigator_open: true,
+            navigator_slide: Slide::default(),
             palette: None,
             modal: None,
             recent_commands: Vec::new(),
@@ -978,20 +982,18 @@ impl AppView {
         }
     }
 
-    /// Show or hide the navigator. The details pane draws its own header, so it's told
-    /// what's around it. When the navigator goes, focus moves off it, and it comes back with
-    /// it, as hiding it took it away.
+    /// Show or hide the navigator, sliding it there. When it goes, focus moves off it, and it
+    /// comes back with it, as hiding it took it away.
     pub(crate) fn set_navigator(
         &mut self,
         navigator_open: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if navigator_open != self.navigator_open {
+            self.navigator_slide.start(navigator_open, cx);
+        }
         self.navigator_open = navigator_open;
-        self.detail.update(cx, |detail, cx| {
-            detail.beside_traffic_lights = !navigator_open;
-            cx.notify();
-        });
         if navigator_open {
             window.focus(&self.navigator.focus_handle(cx), cx);
         } else if self.navigator.focus_handle(cx).contains_focused(window, cx) {
@@ -1015,6 +1017,17 @@ impl Render for AppView {
         let theme = Theme::get(cx).clone();
         let ligatures = self.store.read(cx).prefs.ligatures;
         let show_fps = self.store.read(cx).prefs.show_fps;
+        // The detail lays out its header and its file list beside as much of the navigator as
+        // shows, so it's told before it draws in this frame.
+        let now = Instant::now();
+        let navigator_share = self.navigator_slide.share(self.navigator_open, now);
+        let navigator_sliding = self.navigator_slide.openness(now).is_some();
+        let detail = self.detail.read(cx);
+        detail.navigator_shown.set(navigator_share);
+        let files_sliding = detail.sliding(now);
+        if navigator_sliding || files_sliding {
+            window.request_animation_frame();
+        }
         let has_update_feed = cx
             .try_global::<crate::Embedded>()
             .is_some_and(|e| e.update_feed.is_some());
@@ -1209,39 +1222,41 @@ impl Render for AppView {
                     // the selection.
                     .map(|el| self.edit_actions(el, cx))
                     .on_drag_move(resize_pane(Pane::Navigator, self.store.clone()))
-                    .when(self.navigator_open, |el| {
-                        let files = self.detail.read(cx).files_shown(cx);
-                        let width = self.store.read(cx).fitted_width(
-                            Pane::Navigator,
-                            f32::from(window.viewport_size().width) / theme.scale,
-                            true,
-                            files,
-                        );
-                        el.child(
-                            div()
-                                .w(dp(width))
-                                .flex_none()
-                                .h_full()
-                                // Drawn again only when it changes, not when the diff does.
-                                .child(
-                                    self.navigator
-                                        .clone()
-                                        .cached(StyleRefinement::default().size_full()),
-                                ),
-                        )
-                    })
+                    .when(
+                        self.navigator_open || self.navigator_slide.closing(now),
+                        |el| {
+                            let width = self.detail.read(cx).navigator_width(now, window, cx);
+                            // Sliding, it keeps its width and its place, so it's drawn again
+                            // only when it changes, not as it slides or the diff changes: the
+                            // detail beside it moves its edge across it.
+                            let navigator = div().w(dp(width)).h_full().child(
+                                self.navigator
+                                    .clone()
+                                    .cached(StyleRefinement::default().size_full()),
+                            );
+                            el.child(
+                                div()
+                                    .w(dp(width * navigator_share))
+                                    .flex_none()
+                                    .h_full()
+                                    .child(inert(navigator, !self.navigator_open)),
+                            )
+                        },
+                    )
                     .child(
                         div()
                             .flex_1()
                             .min_w_0()
                             .h_full()
                             .relative()
+                            // Over the navigator as it slides, taking the pointer from it.
+                            .when(navigator_sliding, |el| el.bg(theme.bg_1).occlude())
                             .child(
                                 self.detail
                                     .clone()
                                     .cached(StyleRefinement::default().size_full()),
                             )
-                            .when_some(self.diff_left(window, cx), |el, left| {
+                            .when_some(self.diff_left(now, window, cx), |el, left| {
                                 el.child(
                                     div()
                                         .absolute()
@@ -1250,12 +1265,21 @@ impl Render for AppView {
                                         .bottom_0()
                                         .right_0()
                                         .left(dp(left))
+                                        // Over the files as they slide, edged as they are.
+                                        .when(files_sliding, |el| {
+                                            el.bg(theme.bg_1)
+                                                .occlude()
+                                                .child(edge(theme.border_3).left(fixed(-1.)))
+                                        })
                                         .child(
                                             self.diff
                                                 .clone()
                                                 .cached(StyleRefinement::default().size_full()),
                                         ),
                                 )
+                            })
+                            .when(navigator_sliding, |el| {
+                                el.child(edge(theme.border_3).left(fixed(-1.)))
                             }),
                     ),
             )

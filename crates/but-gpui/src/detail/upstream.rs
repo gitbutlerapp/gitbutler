@@ -26,6 +26,7 @@ use crate::overlays::MenuItem;
 use crate::state::{Cut, Pane, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::emoji::ProjectIcon;
+use crate::ui::fold::inert;
 use crate::ui::markdown;
 use crate::ui::person::{byline, byline_avatar};
 use crate::ui::{
@@ -498,16 +499,18 @@ impl Detail {
         shows && !self.showing_review(cx)
     }
 
-    /// How far right of a list page's list the diff starts: past the files when they're shown,
-    /// as wide as dragged, narrowed to leave the diff its room down to their narrowest; 0 when
-    /// they're hidden, as they are at first, or there are none.
-    pub fn beside_offset(&self, cx: &gpui::App) -> f32 {
+    /// Whether a list page shows the files beside its list: it has some, and they aren't
+    /// hidden, as they are at first.
+    pub(super) fn beside_files_shown(&self, cx: &gpui::App) -> bool {
+        self.has_files_beside(cx) && !self.beside_files_hidden
+    }
+
+    /// How wide the files beside a list page's list are while they show: as wide as dragged,
+    /// narrowed to leave the diff its room down to their narrowest.
+    pub(super) fn beside_files_width(&self, cx: &gpui::App) -> f32 {
         let room = self.beside_width.get() - MIN_DIFF;
         let width = self.store.read(cx).width(Pane::BesideFiles).min(room);
-        match self.has_files_beside(cx) && !self.beside_files_hidden {
-            true => width.max(Pane::BesideFiles.limits().0),
-            false => 0.,
-        }
+        width.max(Pane::BesideFiles.limits().0)
     }
 
     /// Read the selected commit's merged commits, if it's a merge.
@@ -582,18 +585,21 @@ impl Detail {
     }
 
     /// Under a list page's tabs: the files unless they're hidden, beside the diff, which the
-    /// window draws over the rest.
+    /// window draws over the rest. Sliding, they stay as they are, the diff sliding over them,
+    /// and shutting, they're drawn till it's over them.
     fn render_files_beside(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
-        let offset = self.beside_offset(cx);
+        let shown = self.beside_files_shown(cx);
+        let drawn =
+            shown || (self.has_files_beside(cx) && self.beside_slide.closing(Instant::now()));
         h_flex()
             .flex_1()
             .min_h_0()
             .items_start()
             .on_drag_move(resize_pane(Pane::BesideFiles, self.store.clone()))
-            .when(offset > 0., |el| {
-                el.child(
+            .when(drawn, |el| {
+                el.child(inert(
                     v_flex()
-                        .w(dp(offset))
+                        .w(dp(self.beside_files_width(cx)))
                         .flex_none()
                         .relative()
                         .h_full()
@@ -605,7 +611,8 @@ impl Detail {
                         .key_context("Files")
                         .child(self.render_diff_file_list(theme, cx))
                         .child(resize_handle(Pane::BesideFiles, self.store.clone(), theme)),
-                )
+                    !shown,
+                ))
             })
             .into_any_element()
     }

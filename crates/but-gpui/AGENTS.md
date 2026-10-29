@@ -108,8 +108,9 @@ unseen is what a laptop's battery pays for.
   takes the keys from a list page. Hand focus back, and never to an element that isn't drawn;
   if a focused one goes anyway, keys reach nothing, so `on_focus_lost` sends them to the navigator,
   or to the diff while a message is being written, as fewer letters act there (not r or b). A
-  modal keeps what had the keys and gives them back. Whether the file list is drawn is
-  `Detail::files_shown(cx)`, which list pages and overviews decide too, not `files_hidden` alone.
+  modal keeps what had the keys and gives them back. Whether the file list shows is
+  `Detail::files_shown(cx)`, which list pages and overviews decide too, not `files_hidden` alone;
+  one sliding shut is still drawn till it's covered, taking no clicks.
 - A drag's payload stays as the drag began. Drop targets read `Store::dragging`, which reloads
   follow as they follow the cut.
 - A cached view redraws only on its own notify. `window.focus` doesn't notify it, and a drag let
@@ -138,6 +139,12 @@ unseen is what a laptop's battery pays for.
   `Detail::view_header_height`. Anything that changes the height above the file list, like tabs
   or a banner, must be counted there, or the diff covers it and takes its clicks. Side-column
   content wider than the column slides under the diff the same way.
+- A cached view draws again when its bounds or its clip change, and a `list` measures every row
+  again when its width does. So the navigator and the file list slide (`ui::fold::Slide`)
+  keeping their width and place, uncut, while the pane beside them moves its edge across,
+  opaque and taking the pointer: the detail over the navigator, the diff over the file list at
+  `Detail::diff_left`. The detail's header and its file list's fitted width follow the
+  navigator's share, `Detail::navigator_shown`, which the app sets before the detail draws.
 - `InteractiveText` maps a click on centered text (`text_center`) as if each line were
   left-aligned, so its links miss. Let the parent center a block that fits its text instead.
 
