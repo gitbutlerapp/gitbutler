@@ -200,7 +200,7 @@ export const BranchWithButtons = meta.story({
 });
 
 /**
- * Lite in full-window mode: the window's controls lead the title's line, after the room the
+ * A desktop window in full-window mode: the window's controls lead the title's line, after the room the
  * traffic lights take. The meta line and the toolbar still start at the header's edge.
  */
 export const BranchFullWindow = meta.story({

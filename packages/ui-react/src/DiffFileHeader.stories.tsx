@@ -76,7 +76,7 @@ export const Conflicted = meta.story({
 /** A deep path gives way before the name does. */
 export const LongPath = meta.story({
 	args: {
-		path: "apps/lite/ui/src/routes/project/$id/workspace/WorkspaceLists/UncommittedChangesRow.tsx",
+		path: "apps/desktop/src/components/test/edit-mode-conflict-states/ConflictStatesHarness.svelte.test.ts",
 		added: 1204,
 		removed: 3,
 	},

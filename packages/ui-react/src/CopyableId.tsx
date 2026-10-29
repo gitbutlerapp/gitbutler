@@ -9,8 +9,8 @@ import { useRef, useState, type FC } from "react";
  * short form and copies the whole one, and says "Copied!" in its place for a moment. It takes its
  * line's colour, so it reads as one of the line's parts.
  *
- * The copying is the host's, through `onCopy`, since the library doesn't know the clipboard: Lite
- * hands the value to Electron, a web page to `navigator.clipboard`.
+ * The copying is the host's, through `onCopy`, since the library doesn't know the clipboard: a
+ * native app hands the value to its own clipboard, a web page to `navigator.clipboard`.
  * @import import { CopyableId } from "@gitbutler/ui-react/CopyableId.tsx";
  */
 export const CopyableId: FC<{

@@ -24,8 +24,7 @@ export type WorkspaceLanes = {
 
 /**
  * Lay out the workspace's lanes. Each worktree goes next to the stack that
- * holds the commit it rests on, the way Lite draws a worktree off that
- * commit, and moves with it; the rest stand on their own after the stacks.
+ * holds the commit it rests on, drawn off that commit, and moves with it; the rest stand on their own after the stacks.
  */
 export function workspaceLanes(stacks: Stack[], worktrees: Worktree[]): WorkspaceLanes {
 	const groups = stacks.map((stack) => {

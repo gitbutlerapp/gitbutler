@@ -25,7 +25,7 @@ export const Colorless = meta.story({ args: { name: "needs review", color: null 
 export const EdgeColours = meta.story({
 	render: (args) => (
 		<div style={{ display: "flex", gap: 6 }}>
-			<Tag {...args} name="@gitbutler/lite" color="#ffffff" />
+			<Tag {...args} name="@gitbutler/web" color="#ffffff" />
 			<Tag {...args} name="wontfix" color="000000" />
 		</div>
 	),
@@ -41,7 +41,7 @@ export const Row = meta.story({
 					["UX", "4FB3D1"],
 					["dependencies", "0366d6"],
 					["@gitbutler/desktop", "76AF01"],
-					["@gitbutler/lite", "ededed"],
+					["@gitbutler/no-cross-domain-imports", "ededed"],
 					["@gitbutler/ui-react", "f79614"],
 					["javascript", "168700"],
 					["@gitbutler/butler-bot", "5319e7"],
