@@ -1,5 +1,0 @@
-error: Only one `invalidates` list may be specified
- --> tests/ui/fail/base_invalidates_duplicated.rs:8:36
-  |
-8 | #[but_api(invalidates = [Reviews], invalidates = [Checks])]
-  |                                    ^^^^^^^^^^^

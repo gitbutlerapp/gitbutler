@@ -1382,6 +1382,7 @@ dependencies = [
  "but-api-macros",
  "but-ctx",
  "but-error",
+ "but-project-handle",
  "futures",
  "gix",
  "serde",

@@ -5,9 +5,7 @@ use std::{
 };
 
 use anyhow::{Context as _, Result, anyhow};
-use but_project_handle::{
-    INVALIDATION_SENTINEL_PATH, ProjectHandleOrLegacyProjectId, REFRESH_SENTINEL_PATH,
-};
+use but_project_handle::{ProjectHandleOrLegacyProjectId, REFRESH_SENTINEL_PATH};
 use gitbutler_notify_debouncer::{Debouncer, NoCache, new_debouncer};
 use gix::bstr::ByteSlice as _;
 use notify::{RecommendedWatcher, Watcher};
@@ -258,7 +256,7 @@ fn setup_legacy_watch(
 /// Use `watch_mode` to control how exactly the directory is watched.
 /// `linked_worktrees` lists the linked worktrees to watch besides the main one, whose changes are
 /// reported under their own [`Checkout`]. The list is obtained again whenever a linked worktree is
-/// registered, moved or removed, or when the invalidation sentinel is written, and is left as it
+/// registered, moved or removed, or when the refresh sentinel is written, and is left as it
 /// was if that fails.
 ///
 /// ### Why is this not an iterator?
@@ -775,7 +773,7 @@ impl Changes {
         self.git.iter().any(|path| {
             path.starts_with(LINKED_WORKTREES_DIR)
                 || path == Path::new(LINKED_WORKTREE_GITDIR)
-                || path == Path::new(INVALIDATION_SENTINEL_PATH)
+                || path == Path::new(REFRESH_SENTINEL_PATH)
         })
     }
 }
@@ -905,7 +903,6 @@ fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
             || check_file_path == Path::new(GB_FLUSH)
             || check_file_path == Path::new(INDEX)
             || check_file_path == Path::new(REFRESH_SENTINEL_PATH)
-            || check_file_path == Path::new(INVALIDATION_SENTINEL_PATH)
             || check_file_path == Path::new(LINKED_WORKTREE_GITDIR)
             || check_file_path.starts_with(LOCAL_REFS_DIR)
             || check_file_path.starts_with(REMOTE_REFS_DIR)
@@ -1009,14 +1006,6 @@ mod tests {
     fn classify_refresh_sentinel() {
         assert_eq!(
             classify_file(git_dir(), Path::new("/repo/.git/gitbutler/REFRESH")),
-            FileKind::Git
-        );
-    }
-
-    #[test]
-    fn classify_invalidation_sentinel() {
-        assert_eq!(
-            classify_file(git_dir(), Path::new("/repo/.git/gitbutler/INVALIDATE")),
             FileKind::Git
         );
     }

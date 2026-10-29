@@ -1276,7 +1276,7 @@ pub fn new_review_target(ctx: &Context, branch: String) -> Result<String> {
     }
 }
 
-#[but_api(invalidates = [Reviews, Branches, Workspace])]
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub async fn publish_review(
     ctx: ThreadSafeContext,
@@ -1380,8 +1380,8 @@ pub async fn publish_review_only(
             let _guard = ctx.exclusive_worktree_access();
             persist_review_association(&ctx, local_branch.as_ref(), review_number).ok();
         }
-        // Not an endpoint, so the batch path signals what `publish_review` declares.
-        crate::tags::signal_invalidation(&ctx.project_data_dir, PUBLISH_REVIEW_INVALIDATES);
+        // Not an endpoint, so the batch path refreshes as `publish_review` declares.
+        but_project_handle::write_refresh_sentinel(&ctx.project_data_dir);
     }
 
     Ok(review)
@@ -1415,7 +1415,7 @@ fn persist_review_association(
 }
 
 /// Merge a review on the forge.
-#[but_api(invalidates = [Reviews, MergeStatus, Checks, Branches])]
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub async fn merge_review(
     ctx: ThreadSafeContext,
@@ -1435,7 +1435,7 @@ pub async fn merge_review(
 }
 
 /// Enable or disable a review's auto-merge.
-#[but_api(invalidates = [Reviews])]
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub async fn set_review_auto_merge(
     ctx: ThreadSafeContext,
@@ -1455,7 +1455,7 @@ pub async fn set_review_auto_merge(
 }
 
 /// Set a review to draft or ready-for-review
-#[but_api(invalidates = [Reviews, MergeStatus])]
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub async fn set_review_draftiness(
     ctx: ThreadSafeContext,
@@ -1490,7 +1490,7 @@ pub async fn set_review_draftiness(
 
 /// Update arbitrary fields of a single review (title, body, state, target base).
 /// Each `None` leaves that field unchanged on the forge.
-#[but_api(invalidates = [Reviews])]
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub async fn update_review(
     ctx: ThreadSafeContext,

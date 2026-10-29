@@ -68,13 +68,6 @@ pub mod open;
 
 pub mod panic_capture;
 
-/// The types for watcher events
-#[cfg(feature = "export-schema")]
-pub mod watcher;
-
-/// The tag vocabulary clients cache API results under.
-pub mod tags;
-
 /// App-level AI configuration.
 pub mod ai;
 
@@ -104,4 +97,40 @@ pub struct WorkspaceState {
     /// True if a checkout occurred, and a conflict occurred during that
     /// checkout.
     pub checkout_conflict_occurred: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use but_api_macros::but_api;
+    use but_testsupport::{CommandExt, git_at_dir, open_repo};
+
+    #[but_api(refreshes)]
+    pub fn probe(_ctx: &but_ctx::Context, succeed: bool) -> anyhow::Result<()> {
+        if succeed {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("the mutation failed"))
+        }
+    }
+
+    #[test]
+    fn a_refreshing_mutation_writes_the_sentinel_only_on_success() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        git_at_dir(tmp.path()).args(["init"]).run();
+        let ctx = but_ctx::Context::from_repo_for_testing(open_repo(tmp.path())?)?;
+        let sentinel = ctx.project_data_dir.join("REFRESH");
+        // A project in use has its storage directory; a fresh repository doesn't yet.
+        std::fs::create_dir_all(&ctx.project_data_dir)?;
+
+        probe(&ctx, false).unwrap_err();
+        assert!(!sentinel.exists(), "a failed mutation changed nothing");
+
+        probe(&ctx, true)?;
+        assert_eq!(
+            std::fs::read_to_string(&sentinel)?,
+            but_project_handle::process_sentinel_token(),
+            "the writer signs the sentinel so its own watcher can skip it"
+        );
+        Ok(())
+    }
 }

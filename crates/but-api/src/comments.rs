@@ -21,7 +21,7 @@ fn now_ms() -> i64 {
 /// The comments file is invisible to the desktop file monitor, so out-of-process mutations
 /// (notably agents running the CLI) must touch the refresh sentinel for the GUI to pick them up.
 fn notify_desktop_watcher(ctx: &Context) {
-    but_project_handle::write_refresh_sentinel(&ctx.project_data_dir().join("comments.json"));
+    but_project_handle::write_refresh_sentinel(&ctx.project_data_dir());
 }
 
 /// Create a new comment anchored to a line in a diff, under caller-held shared worktree access.

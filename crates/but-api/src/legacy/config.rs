@@ -13,7 +13,7 @@ pub fn get_gb_config(ctx: &but_ctx::Context) -> Result<GitConfigSettings> {
     repo.git_settings().map(Into::into)
 }
 
-#[but_api(invalidates = [GbConfig, SigningSettings])]
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub fn set_gb_config(ctx: &but_ctx::Context, config: GitConfigSettings) -> Result<()> {
     ctx.repo.get()?.set_git_settings(&config.try_into()?)

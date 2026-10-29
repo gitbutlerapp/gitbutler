@@ -205,7 +205,7 @@ pub fn get_ai_configuration() -> Result<AiConfiguration> {
 }
 
 /// Validate and save one complete application-global AI configuration.
-#[but_api(invalidates = [AiConfiguration])]
+#[but_api]
 pub fn update_ai_configuration(update: AiConfigurationUpdate) -> Result<AiConfiguration> {
     let openai_has_key = has_secret(AI_OPENAI_SECRET_HANDLE, secret::Namespace::Global)?;
     let anthropic_has_key = has_secret(AI_ANTHROPIC_SECRET_HANDLE, secret::Namespace::Global)?;

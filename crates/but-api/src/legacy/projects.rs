@@ -30,7 +30,7 @@ pub struct ProjectSettingsUpdate {
 but_schemars::register_sdk_type!(ProjectSettingsUpdate);
 
 /// Change the stored settings of a project, leaving absent fields as they were.
-#[but_api(invalidates = [Projects])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn update_project_settings(
     project_id: ProjectHandleOrLegacyProjectId,
@@ -48,7 +48,7 @@ pub fn update_project_settings(
 
 /// Adds an existing git repository as a GitButler project.
 /// `path` is the Git repository to remember as project.
-#[but_api(json::AddProjectOutcome, invalidates = [Projects])]
+#[but_api(json::AddProjectOutcome)]
 #[instrument(err(Debug))]
 pub fn add_project(path: String) -> Result<gitbutler_project::AddProjectOutcome> {
     gitbutler_project::add(&path)
@@ -161,7 +161,7 @@ pub fn list_projects(
     })
 }
 
-#[but_api(invalidates = [Projects])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn delete_project(project_id: ProjectHandleOrLegacyProjectId) -> Result<()> {
     delete_project_at_app_data_dir(but_path::app_data_dir()?, project_id)

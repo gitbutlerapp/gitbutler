@@ -78,7 +78,7 @@ pub fn head_sha(ctx: &but_ctx::Context) -> Result<HeadSha, Error> {
 // so these three declare their invalidation instead of relying on the
 // `gitHead` event alone; the event still covers transitions made outside
 // the app (e.g. `but resolve`).
-#[but_api(invalidates = [OperatingMode])]
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub fn enter_edit_mode(
     ctx: &mut but_ctx::Context,
@@ -94,7 +94,7 @@ pub fn enter_edit_mode(
     )
 }
 
-#[but_api(invalidates = [OperatingMode])]
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub fn abort_edit_and_return_to_workspace(ctx: &mut but_ctx::Context, force: bool) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
@@ -113,7 +113,7 @@ pub fn abort_edit_and_return_to_workspace_with_perm(
 }
 
 // GUI-facing API that returns () for serialization compatibility
-#[but_api(invalidates = [OperatingMode])]
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub fn save_edit_and_return_to_workspace(ctx: &mut but_ctx::Context) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();

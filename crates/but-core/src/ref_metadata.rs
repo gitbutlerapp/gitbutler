@@ -681,7 +681,7 @@ impl ProjectMeta {
 
 fn notify_legacy_storage(repo: &gix::Repository, changed: bool) {
     if changed && let Ok(storage_path) = but_project_handle::gitbutler_storage_path(repo) {
-        but_project_handle::write_refresh_sentinel(&storage_path.join("virtual_branches.toml"));
+        but_project_handle::write_refresh_sentinel(&storage_path);
     }
 }
 
