@@ -1385,6 +1385,12 @@ impl Detail {
         cx.notify();
     }
 
+    /// Focus the files between a list page's list and the diff.
+    pub fn focus_beside_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        window.focus(&self.files_focus, cx);
+        cx.notify();
+    }
+
     /// Whether `handle` is one of the detail's own, the diff's or a list's, rather than a
     /// text field's.
     pub fn owns_focus(&self, handle: &FocusHandle) -> bool {
@@ -2599,7 +2605,7 @@ impl Detail {
         cx.notify();
     }
 
-    pub(super) fn list_page(&self, cx: &App) -> bool {
+    pub(crate) fn list_page(&self, cx: &App) -> bool {
         matches!(
             self.selection(cx),
             Some(Selection::Branches(_) | Selection::History(_) | Selection::Project(_))

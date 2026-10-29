@@ -714,10 +714,9 @@ impl AppView {
         }
     }
 
-    /// The file list, or the diff while the list is hidden; a Branches, Operations history or
-    /// project page's list.
-    /// Tab, or ⇧Tab going back: the next of the navigator, the file list and the diff that show,
-    /// round again. Without `wrap`, as → and ← go, only the panes on that side.
+    /// Tab, or ⇧Tab going back: the next of the navigator, a Branches, Operations history or
+    /// project page's list, the file list, or the files beside that list, and the diff that
+    /// show, round again. Without `wrap`, as → and ← go, only the panes on that side.
     fn focus_pane(
         &mut self,
         forward: bool,
@@ -731,25 +730,36 @@ impl AppView {
         let detail = self.detail.read(cx);
         let at = if self.navigator.focus_handle(cx).contains_focused(window, cx) {
             0
-        } else if detail.files_focused(window) || detail.side_list_focused(window) {
+        } else if detail.side_list_focused(window) {
             1
-        } else {
+        } else if detail.files_focused(window) {
             2
+        } else {
+            3
         };
         // A page that's an overview alone has no pane past the navigator to take the keys.
+        let list_page = detail.list_page(cx);
         let shown = [
             self.navigator_open,
-            detail.files_shown(cx),
+            list_page,
+            match list_page {
+                true => detail.beside_files_shown(cx),
+                false => detail.files_shown(cx),
+            },
             !detail.overview_only(cx),
         ];
-        let next = |n: usize| (at + if forward { n } else { 3 - n }) % 3;
-        match (1..3)
+        let next = |n: usize| (at + if forward { n } else { shown.len() - n }) % shown.len();
+        match (1..shown.len())
             .map(next)
             .filter(|&pane| wrap || (pane > at) == forward)
             .find(|&pane| shown.get(pane) == Some(&true))
         {
             Some(0) => window.focus(&self.navigator.focus_handle(cx), cx),
-            Some(1) => (self.detail).update(cx, |detail, cx| detail.focus_files(window, cx)),
+            Some(2) if list_page => {
+                (self.detail).update(cx, |detail, cx| detail.focus_beside_files(window, cx))
+            }
+            // A list page's list, or the file list.
+            Some(1 | 2) => (self.detail).update(cx, |detail, cx| detail.focus_files(window, cx)),
             Some(_) => (self.detail).update(cx, |detail, cx| detail.focus(window, cx)),
             None => {}
         }
