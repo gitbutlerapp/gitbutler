@@ -182,15 +182,23 @@ impl Terminal {
     fn key_down(&mut self, event: &KeyDownEvent, _: &mut Window, cx: &mut Context<Self>) {
         let keystroke = &event.keystroke;
         let modifiers = keystroke.modifiers;
-        // ⌘ chords stay the app's, but for pasting.
+        // ⌘ chords stay the app's, but for pasting and, as Ghostty sends them on macOS, deleting
+        // to the line's start and going to either end.
         if modifiers.platform {
-            if keystroke.key == "v" {
-                if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
-                    let bytes = self.vt.paste(&text);
-                    self.input(&bytes, cx);
-                }
-                cx.stop_propagation();
+            let alone = !(modifiers.shift || modifiers.alt || modifiers.control);
+            let bytes = match keystroke.key.as_str() {
+                "v" => (cx.read_from_clipboard())
+                    .and_then(|item| item.text())
+                    .map(|text| self.vt.paste(&text)),
+                "backspace" if alone => Some(b"\x15".to_vec()),
+                "left" if alone => Some(b"\x01".to_vec()),
+                "right" if alone => Some(b"\x05".to_vec()),
+                _ => return,
+            };
+            if let Some(bytes) = bytes {
+                self.input(&bytes, cx);
             }
+            cx.stop_propagation();
             return;
         }
         let mut mods = Mods::empty();
