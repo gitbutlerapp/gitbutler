@@ -165,14 +165,27 @@ fn from_builtin_editor(
 
 /// Get the user's preferred editor command, if one is configured.
 ///
-/// Runs `git var GIT_EDITOR`, which lets git do its resolution of the editor command.
-/// This typically uses the git config value for `core.editor`, and env vars like `GIT_EDITOR` or `EDITOR`.
+/// Reads `core.editor` through gitoxide, honoring repository and global configuration,
+/// along with the `GIT_EDITOR`, `VISUAL`, and `EDITOR` environment variables.
 ///
 /// Returns `None` when no editor is configured, signalling that the built-in editor should be used.
 ///
 /// Note: Because git config parsing is used, the current directory matters for potential local git config overrides.
 pub fn get_editor_command() -> Option<String> {
-    get_editor_command_impl(std::env::vars_os())
+    let read_editor = |config: &gix::config::File| {
+        config.string_filter("core.editor", |meta| {
+            // GIT_EDITOR is checked separately, including our fallback for an empty value.
+            meta.source != gix::config::Source::EnvOverride
+                && gix::config::section::is_trusted(meta)
+        })
+    };
+    let core_editor = match gix::discover_with_environment_overrides(".") {
+        Ok(repo) => read_editor(repo.config_snapshot().plumbing()),
+        Err(_) => gix::config(None, &gix::open::Options::default())
+            .ok()
+            .and_then(|config| read_editor(&config)),
+    };
+    get_editor_command_impl(std::env::vars_os(), core_editor)
 }
 
 /// Internal implementation that can be tested with the controlled environment `env`.
@@ -187,6 +200,7 @@ pub fn get_editor_command() -> Option<String> {
 /// is configured — it returns `None` so the caller can use the built-in editor.
 fn get_editor_command_impl<AsOsStr: AsRef<OsStr>>(
     env: impl IntoIterator<Item = (AsOsStr, AsOsStr)>,
+    core_editor: Option<BString>,
 ) -> Option<String> {
     let env: Vec<(String, String)> = env
         .into_iter()
@@ -211,20 +225,10 @@ fn get_editor_command_impl<AsOsStr: AsRef<OsStr>>(
     }
 
     // 2. core.editor from git config
-    {
-        let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());
-        let res = cmd
-            .args(["config", "core.editor"])
-            .env_clear()
-            .envs(env.iter().map(|(k, v)| (k.as_str(), v.as_str())))
-            .output();
-        if let Ok(output) = res
-            && output.status.success()
-        {
-            let editor = output.stdout.as_bstr().trim().as_bstr().to_string();
-            if !editor.is_empty() {
-                return Some(editor);
-            }
+    if let Some(editor) = core_editor {
+        let editor = editor.trim().as_bstr().to_string();
+        if !editor.is_empty() {
+            return Some(editor);
         }
     }
 
@@ -275,34 +279,107 @@ mod tests {
     use super::*;
 
     #[test]
+    fn configured_editor_does_not_require_git() -> but_testsupport::gix_testtools::TestResult {
+        use but_testsupport::gix_testtools;
+
+        if gix_testtools::run_in_isolated_process()? {
+            return Ok(());
+        }
+        let dir = tempfile::tempdir()?;
+        let global_config = dir.path().join("global-config");
+        std::fs::write(&global_config, "[core]\neditor = global-editor\n")?;
+        let _cwd = gix_testtools::set_current_dir(dir.path())?;
+        let _env = gix_testtools::Env::new()
+            .set("PATH", dir.path().to_string_lossy())
+            .set("GIT_CONFIG_GLOBAL", global_config.to_string_lossy())
+            .unset("GIT_EDITOR")
+            .unset("VISUAL")
+            .unset("EDITOR");
+        assert_eq!(
+            get_editor_command().as_deref(),
+            Some("global-editor"),
+            "global configuration works outside a repository without Git in PATH"
+        );
+
+        let repo = gix::init(dir.path().join("repo"))?;
+        std::fs::write(
+            repo.git_dir().join("editor-config"),
+            "[core]\neditor = local-editor --wait\n",
+        )?;
+        let mut config = std::fs::OpenOptions::new()
+            .append(true)
+            .open(repo.git_dir().join("config"))?;
+        writeln!(config, "[include]\npath = editor-config")?;
+        let _repo_cwd =
+            gix_testtools::set_current_dir(repo.workdir().expect("non-bare repository"))?;
+        assert_eq!(
+            get_editor_command().as_deref(),
+            Some("local-editor --wait"),
+            "repository includes override global configuration"
+        );
+        let _env = gix_testtools::Env::new().set("GIT_EDITOR", "");
+        assert_eq!(
+            get_editor_command().as_deref(),
+            Some("local-editor --wait"),
+            "an empty GIT_EDITOR preserves the configured editor"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn git_editor_takes_precedence() {
         let env = vec![
             ("GIT_EDITOR", "from-GIT_EDITOR"),
             ("VISUAL", "from-VISUAL"),
             ("EDITOR", "from-EDITOR"),
         ];
-        let actual = get_editor_command_impl(env);
-        assert_eq!(actual.as_deref(), Some("from-GIT_EDITOR"));
+        let actual = get_editor_command_impl(env, Some("from-core.editor".into()));
+        assert_eq!(
+            actual.as_deref(),
+            Some("from-GIT_EDITOR"),
+            "GIT_EDITOR overrides config and the other environment variables"
+        );
+    }
+
+    #[test]
+    fn configured_editor_precedes_environment_fallbacks() {
+        let actual = get_editor_command_impl(
+            [("VISUAL", "from-VISUAL"), ("EDITOR", "from-EDITOR")],
+            Some("  configured-editor --wait  ".into()),
+        );
+        assert_eq!(
+            actual.as_deref(),
+            Some("configured-editor --wait"),
+            "core.editor takes precedence and retains its arguments"
+        );
     }
 
     #[test]
     fn visual_used_when_no_git_editor() {
         let env = vec![("VISUAL", "from-VISUAL"), ("EDITOR", "from-EDITOR")];
-        let actual = get_editor_command_impl(env);
-        assert_eq!(actual.as_deref(), Some("from-VISUAL"));
+        let actual = get_editor_command_impl(env, Some(" ".into()));
+        assert_eq!(
+            actual.as_deref(),
+            Some("from-VISUAL"),
+            "an empty configured editor falls back to VISUAL"
+        );
     }
 
     #[test]
     fn editor_used_as_last_env_fallback() {
         let env = vec![("EDITOR", "from-EDITOR")];
-        let actual = get_editor_command_impl(env);
-        assert_eq!(actual.as_deref(), Some("from-EDITOR"));
+        let actual = get_editor_command_impl(env, None);
+        assert_eq!(
+            actual.as_deref(),
+            Some("from-EDITOR"),
+            "EDITOR is the last configured fallback"
+        );
     }
 
     #[test]
     fn falls_back_to_builtin_when_nothing_set() {
         let no_env = None::<(String, String)>;
-        let actual = get_editor_command_impl(no_env);
+        let actual = get_editor_command_impl(no_env, None);
         assert!(
             actual.is_none(),
             "Should return None when no editor is configured, got: {actual:?}"
