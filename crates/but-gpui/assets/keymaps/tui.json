@@ -1,6 +1,7 @@
 // A keymap like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming
-// and adding an empty commit, Return to fold and unfold, f and ⇧F to show and hide the files and
-// the navigator, and the keys the app's lists and overlays need, as GitButler's keymap has them.
+// and adding an empty commit, Return to fold and unfold, f, ⇧F and ⌃F to show and hide the files,
+// the navigator and the details, and the keys the app's lists and overlays need, as GitButler's
+// keymap has them.
 // `base.json`, which macOS gives every app, binds after these. `secondary` is cmd on macOS and
 // ctrl elsewhere; a section with "os" binds only there. Order matters: within a context the
 // binding added last wins, and the last binding for an action is the key menus and tooltips
@@ -9,7 +10,7 @@
   // : for the TUI's command line, ? for its help, / for its jump and Esc to go back. y copies the
   // selection and ⇧Y picks what else of it to copy. u undoes and ⇧U redoes. ← and →, or h and l,
   // go to the pane on that side, as l focuses the TUI's details and h its status. ⇧F shows or
-  // hides the navigator.
+  // hides the navigator, and ⌃F the details.
   {
     "context": "Workspace && !TextInput",
     "bindings": {
@@ -22,6 +23,7 @@
       "u": "app::Undo",
       "shift-u": "app::Redo",
       "shift-f": "app::ToggleNavigator",
+      "ctrl-f": "app::ToggleDetail",
       "right": "app::FocusPaneRight",
       "l": "app::FocusPaneRight",
       "left": "app::FocusPaneLeft",

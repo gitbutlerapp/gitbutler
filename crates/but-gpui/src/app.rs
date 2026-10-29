@@ -4,9 +4,9 @@
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnyView, App, ClipboardItem, Context, DispatchPhase, Entity, FocusHandle, Focusable,
+    AnyView, App, ClipboardItem, Context, DispatchPhase, Div, Entity, FocusHandle, Focusable,
     FontFeatures, MouseMoveEvent, Pixels, Point, PromptLevel, Role, StyleRefinement, Subscription,
-    Task, WeakEntity, Window, actions, div, prelude::*,
+    Task, WeakEntity, Window, actions, div, prelude::*, relative,
 };
 
 use crate::backend::upstream::UpdateScope;
@@ -49,6 +49,7 @@ actions!(
         FocusPaneRight,
         StartCommit,
         ToggleNavigator,
+        ToggleDetail,
         CommandPalette,
         CheckForUpdates,
         BuildAndRestart,
@@ -101,6 +102,17 @@ pub struct AppView {
     pub navigator_open: bool,
     /// The navigator sliding open or shut.
     navigator_slide: Slide,
+    /// Whether the detail shows beside the navigator. Hidden, the navigator takes the window;
+    /// the two are never both hidden.
+    detail_open: bool,
+    /// The detail sliding in from the window's right edge or back off it.
+    detail_slide: Slide,
+    /// The window narrowed to the navigator while the detail is hidden, or narrowing to it or
+    /// widening back as the detail slides, where the window can be resized for it.
+    narrowing: Option<Narrowing>,
+    /// Resizes the window a step at a time as it narrows or widens, by
+    /// [`AppView::step_narrowing`].
+    resizing: Option<Task<()>>,
     /// The navigator out over the detail while it's closed.
     peek: Peek,
     /// macOS's traffic lights are out of the way of the navigator out over the detail.
@@ -150,6 +162,27 @@ struct Peek {
     /// Sends it back once the pointer has strayed from it for [`PEEK_GRACE`].
     leaving: Option<Task<()>>,
 }
+
+/// The window narrowing to the navigator as the detail slides in under it, or widening back as
+/// it slides out, in unscaled pixels.
+#[derive(Clone, Copy)]
+struct Narrowing {
+    /// The window's width with the detail, which the panes are laid out for meanwhile, so
+    /// they aren't laid out again at every width.
+    wide: f32,
+    /// The navigator's, which it keeps meanwhile, and the window's once narrowed.
+    navigator: f32,
+    /// Resized to where the slide ended, after which its width is the user's.
+    settled: bool,
+    /// How many steps the window has been asked for where the slide ended.
+    asked: u8,
+}
+
+/// How often the window is resized as it narrows or widens: about a frame at 120Hz.
+const RESIZE_STEP: Duration = Duration::from_millis(8);
+/// How many steps the window is asked for its width where the detail's slide ended, until it
+/// has it: a resize that never lands, as one the screen holds back, leaves it as it is.
+const LAST_RESIZE_TRIES: u8 = 30;
 
 /// The app, as the views it owns reach it: only once the update running now is over. Reached
 /// at once, the app could update or read the view that asked, which is being updated, and that
@@ -245,9 +278,10 @@ impl AppView {
             cx.observe_global_in::<Theme>(window, |this, window, cx| {
                 place_traffic_lights(this.lights_away, window, cx)
             }),
-            // A scripted window opens off screen, which isn't where the user left theirs.
+            // A scripted window opens off screen, which isn't where the user left theirs, and
+            // one narrowed to the navigator opens again with the detail.
             cx.observe_window_bounds(window, |this, window, cx| {
-                if !scripted() {
+                if !scripted() && this.narrowing.is_none() {
                     this.store
                         .update(cx, |store, cx| store.save_window_place(window, cx));
                 }
@@ -297,6 +331,10 @@ impl AppView {
             icon_picker: None,
             navigator_open: true,
             navigator_slide: Slide::default(),
+            detail_open: true,
+            detail_slide: Slide::default(),
+            narrowing: None,
+            resizing: None,
             peek: Peek::default(),
             #[cfg(target_os = "macos")]
             lights_away: false,
@@ -740,7 +778,7 @@ impl AppView {
             // A message being written whose box left the screen, as when an operation selects
             // something else, hands its keys to the diff rather than to the navigator, where
             // single letters rename and start branches. ⇧P still pushes from either.
-            None if self.detail.read(cx).composing() => self
+            None if self.detail_open && self.detail.read(cx).composing() => self
                 .detail
                 .update(cx, |detail, cx| detail.focus(window, cx)),
             None => self.focus_main(window, cx),
@@ -758,7 +796,8 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.covered() {
+        // With the detail hidden, the navigator is the only pane.
+        if self.covered() || !self.detail_open {
             return;
         }
         let detail = self.detail.read(cx);
@@ -868,6 +907,8 @@ impl AppView {
         if self.covered() {
             return;
         }
+        // Asking for what's in the detail brings it back.
+        self.set_detail(true, window, cx);
         self.detail
             .update(cx, |detail, cx| detail.focus_files(window, cx));
     }
@@ -876,6 +917,7 @@ impl AppView {
         if self.covered() {
             return;
         }
+        self.set_detail(true, window, cx);
         self.detail
             .update(cx, |detail, cx| detail.focus(window, cx));
     }
@@ -884,6 +926,8 @@ impl AppView {
         let Some(selection) = self.selection(cx) else {
             return;
         };
+        // The message is written in the detail.
+        self.set_detail(true, window, cx);
         // Only what's on screen gets committed: from another page, ⌘↩ shows the changes
         // first, a linked worktree's from its branches and commits.
         let project = selection.project().clone();
@@ -1066,6 +1110,10 @@ impl AppView {
         self.set_navigator(!self.navigator_open, window, cx);
     }
 
+    fn toggle_detail(&mut self, _: &ToggleDetail, window: &mut Window, cx: &mut Context<Self>) {
+        self.set_detail(!self.detail_open, window, cx);
+    }
+
     fn command_palette(&mut self, _: &CommandPalette, window: &mut Window, cx: &mut Context<Self>) {
         if self.palette.is_some() {
             self.close_palette(window, cx);
@@ -1077,13 +1125,16 @@ impl AppView {
     /// Show or hide the navigator, sliding it there. The keys stay where they are, but for
     /// moving off it when it goes, and onto it when it comes back while they're on a diff with
     /// nothing for them. Out over the detail already, it shows beside it at once rather than
-    /// sliding in again.
+    /// sliding in again. Hidden while the detail is, the detail comes back in its place.
     pub(crate) fn set_navigator(
         &mut self,
         navigator_open: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if !navigator_open {
+            self.set_detail(true, window, cx);
+        }
         let peeking = self.peek.open || self.peek.slide.closing(Instant::now());
         if navigator_open {
             self.peek = Peek::default();
@@ -1101,6 +1152,122 @@ impl AppView {
             window.focus(&self.navigator.focus_handle(cx), cx);
         }
         cx.notify();
+    }
+
+    /// Show or hide the detail. Hiding it narrows the window to the navigator as the detail
+    /// slides in under it, and showing it widens the window back, as [`AppView::narrow_window`]
+    /// can; otherwise the detail slides off the window's right edge, the navigator's edge
+    /// following it to take the window. Hidden while the navigator is, the navigator comes back
+    /// in its place. The keys it takes with it go to the navigator.
+    pub(crate) fn set_detail(
+        &mut self,
+        detail_open: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if detail_open == self.detail_open {
+            return;
+        }
+        if !detail_open {
+            self.set_navigator(true, window, cx);
+        }
+        self.narrow_window(detail_open, window, cx);
+        self.detail_slide.start(detail_open, cx);
+        self.detail_open = detail_open;
+        let navigator = self.navigator.focus_handle(cx);
+        if !detail_open && !self.covered() && !navigator.contains_focused(window, cx) {
+            window.focus(&navigator, cx);
+        }
+        cx.notify();
+    }
+
+    /// Have the window narrow to the navigator as the detail goes, or widen back by as much as
+    /// that took as it comes back, the navigator keeping the width it has. Only on macOS, where
+    /// the window's least width can be lowered for it, and out of full screen.
+    fn narrow_window(&mut self, detail_open: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let scale = Theme::get(cx).scale;
+        let width = f32::from(window.viewport_size().width) / scale;
+        let resizes = cfg!(target_os = "macos") && !window.is_fullscreen();
+        self.narrowing = match self.narrowing {
+            _ if !resizes => None,
+            // Turned back partway, it goes back from where it is.
+            Some(narrowing) if !narrowing.settled => Some(Narrowing {
+                asked: 0,
+                ..narrowing
+            }),
+            Some(narrowing) => Some(Narrowing {
+                wide: width + narrowing.wide - narrowing.navigator,
+                navigator: width,
+                settled: false,
+                asked: 0,
+            }),
+            None if detail_open => None,
+            None => Some(Narrowing {
+                wide: width,
+                navigator: (self.detail.read(cx)).navigator_width(Instant::now(), window, cx),
+                settled: false,
+                asked: 0,
+            }),
+        };
+        let least = match self.narrowing {
+            Some(_) => Pane::Navigator.limits().0 * scale,
+            None => crate::LEAST_WINDOW_WIDTH,
+        };
+        set_least_width(least, window);
+        // From a task rather than as frames are drawn: each resize has AppKit draw the window
+        // at once, in step with its new width, where a frame drawn on the display's beat for the
+        // width before can land after it and be stretched to the new one.
+        self.resizing = self.narrowing.is_some().then(|| {
+            cx.spawn_in(window, async move |this, cx| {
+                loop {
+                    cx.background_executor().timer(RESIZE_STEP).await;
+                    let step = |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
+                        this.step_narrowing(window, cx)
+                    };
+                    if !this.update_in(cx, step).unwrap_or(false) {
+                        break;
+                    }
+                }
+            })
+        });
+    }
+
+    /// Resize the window to as much of the detail as shows while it narrows to the navigator or
+    /// widens back, then to where the slide ended until it's there, after which its width is
+    /// the user's. Widened back, the panes lay out for the window again, and it can't be made
+    /// as narrow as the navigator. Whether there's another step.
+    fn step_narrowing(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(mut narrowing) = self.narrowing.filter(|narrowing| !narrowing.settled) else {
+            return false;
+        };
+        let now = Instant::now();
+        let shown = self.detail_slide.share(self.detail_open, now);
+        let width = narrowing.navigator + (narrowing.wide - narrowing.navigator) * shown;
+        let width = Theme::get(cx).scaled(width).round();
+        let viewport = window.viewport_size();
+        let sliding = self.detail_slide.openness(now).is_some();
+        // A resize lands a step or more later, so the last is asked for again until the window
+        // has it, for a while.
+        let there = (viewport.width - width).abs() < fixed(0.5);
+        if sliding || (!there && narrowing.asked < LAST_RESIZE_TRIES) {
+            window.resize(gpui::size(width, viewport.height));
+            if !sliding {
+                narrowing.asked += 1;
+            }
+            self.narrowing = Some(narrowing);
+            return true;
+        }
+        if self.detail_open {
+            self.narrowing = None;
+            set_least_width(crate::LEAST_WINDOW_WIDTH, window);
+        } else {
+            self.narrowing = Some(Narrowing {
+                settled: true,
+                ..narrowing
+            });
+        }
+        cx.notify();
+        false
     }
 
     /// Bring the closed navigator out over the detail as the pointer, `at` from the panes' top
@@ -1186,6 +1353,150 @@ impl AppView {
         .inset_0()
     }
 
+    /// The detail, and the diff beside its file list, for the caller to place.
+    fn render_detail(
+        &self,
+        now: Instant,
+        navigator_sliding: bool,
+        files_sliding: bool,
+        window: &Window,
+        cx: &App,
+    ) -> Div {
+        let theme = Theme::get(cx);
+        div()
+            .relative()
+            // Over the navigator as it slides, taking the pointer from it.
+            .when(navigator_sliding, |el| el.bg(theme.bg_1).occlude())
+            .child(
+                self.detail
+                    .clone()
+                    .cached(StyleRefinement::default().size_full()),
+            )
+            .when_some(self.diff_left(now, window, cx), |el, left| {
+                el.child(
+                    div()
+                        .absolute()
+                        .top(dp(
+                            HEADER_HEIGHT + self.detail.read(cx).view_header_height(cx)
+                        ))
+                        .bottom_0()
+                        .right_0()
+                        .left(dp(left))
+                        // Over the files as they slide, edged as they are.
+                        .when(files_sliding, |el| {
+                            el.bg(theme.bg_1)
+                                .occlude()
+                                .child(edge(theme.border_3).left(fixed(-1.)))
+                        })
+                        .child(
+                            self.diff
+                                .clone()
+                                .cached(StyleRefinement::default().size_full()),
+                        ),
+                )
+            })
+            .when(navigator_sliding, |el| {
+                el.child(edge(theme.border_3).left(fixed(-1.)))
+            })
+    }
+
+    /// The navigator and the detail while the detail slides in from the window's right edge or
+    /// back off it, `shown` of it on screen, or is hidden. The detail keeps the width it has
+    /// beside as much of the navigator as shows, `navigator_share` of it, and moves, so it's
+    /// not laid out again as it goes, and the navigator reaches its edge, taking the window
+    /// once it's gone. As the window narrows to the navigator or widens back, the detail
+    /// slides under the navigator instead, along with the window's right edge.
+    fn render_detail_aside(
+        &self,
+        now: Instant,
+        shown: f32,
+        navigator_share: f32,
+        files_sliding: bool,
+        window: &Window,
+        cx: &App,
+    ) -> Div {
+        let navigator_sliding = self.navigator_slide.openness(now).is_some();
+        let sliding = self.detail_slide.openness(now).is_some();
+        if let Some(narrowing) = self.narrowing.filter(|narrowing| !narrowing.settled) {
+            let theme = Theme::get(cx);
+            let beside = narrowing.navigator * navigator_share;
+            let navigator = div().w(dp(narrowing.navigator)).h_full().child(
+                self.navigator
+                    .clone()
+                    .cached(StyleRefinement::default().size_full()),
+            );
+            return div()
+                .absolute()
+                .inset_0()
+                .when(self.detail_open || sliding, |el| {
+                    el.child(
+                        self.render_detail(now, false, files_sliding, window, cx)
+                            .absolute()
+                            .top_0()
+                            .bottom_0()
+                            .right_0()
+                            .w(dp(narrowing.wide - beside)),
+                    )
+                })
+                // Over the detail, as much of it as shows while it slides open or shut, edged
+                // as it is.
+                .when(beside > 0., |el| {
+                    el.child(
+                        div()
+                            .absolute()
+                            .top_0()
+                            .bottom_0()
+                            .left_0()
+                            .w(dp(beside))
+                            .overflow_hidden()
+                            .occlude()
+                            .child(inert(navigator, !self.navigator_open))
+                            .when(navigator_sliding, |el| {
+                                el.child(edge(theme.border_3).right_0())
+                            }),
+                    )
+                });
+        }
+        let beside = navigator_share * self.detail.read(cx).navigator_width(now, window, cx);
+        // From where the detail's left edge is when it shows to the window's right edge, so
+        // its width, and how far along it is, are shares of this one's.
+        div()
+            .absolute()
+            .top_0()
+            .bottom_0()
+            .left(dp(beside))
+            .right_0()
+            .when(
+                self.navigator_open || self.navigator_slide.closing(now) || sliding,
+                |el| {
+                    let navigator = div().size_full().child(
+                        self.navigator
+                            .clone()
+                            .cached(StyleRefinement::default().size_full()),
+                    );
+                    el.child(
+                        div()
+                            .absolute()
+                            .top_0()
+                            .bottom_0()
+                            .left(dp(-beside))
+                            .right(relative(shown))
+                            .child(inert(navigator, !self.navigator_open)),
+                    )
+                },
+            )
+            .when(self.detail_open || sliding, |el| {
+                el.child(
+                    self.render_detail(now, navigator_sliding, files_sliding, window, cx)
+                        .absolute()
+                        .top_0()
+                        .bottom_0()
+                        .left(relative(1. - shown))
+                        .w_full(),
+                )
+            })
+    }
+
     /// The navigator out over the detail: a card sliding in from past the window's edge,
     /// shadow and all, keeping its width as it goes.
     fn render_peek(&self, now: Instant, window: &Window, cx: &App) -> impl IntoElement {
@@ -1232,9 +1543,20 @@ impl Render for AppView {
         let navigator_sliding = self.navigator_slide.openness(now).is_some();
         let detail = self.detail.read(cx);
         detail.navigator_shown.set(navigator_share);
+        detail
+            .window_width
+            .set(self.narrowing.map(|narrowing| narrowing.wide));
         let files_sliding = detail.sliding(now);
         let peek_sliding = self.peek.slide.openness(now).is_some();
-        if navigator_sliding || files_sliding || peek_sliding {
+        // Likewise the navigator, beside as much of the detail as shows.
+        let detail_share = self.detail_slide.share(self.detail_open, now);
+        let detail_sliding = self.detail_slide.openness(now).is_some();
+        self.navigator.read(cx).detail_shown.set(detail_share);
+        // As the window narrows or widens, each resize draws it, and a frame drawn on the
+        // display's beat would be for the width before.
+        let resizing = self.narrowing.is_some_and(|narrowing| !narrowing.settled);
+        let sliding = navigator_sliding || files_sliding || peek_sliding || detail_sliding;
+        if sliding && !resizing {
             window.request_animation_frame();
         }
         // The navigator out over the detail goes over where macOS's traffic lights are, and
@@ -1351,6 +1673,7 @@ impl Render for AppView {
                 this.update_selected_project(UpdateScope::Worktrees, cx)
             }))
             .on_action(cx.listener(Self::toggle_navigator))
+            .on_action(cx.listener(Self::toggle_detail))
             .on_action(cx.listener(Self::command_palette))
             // The composer's keys, pressed with the focus elsewhere, like the navigator.
             .on_action(
@@ -1448,66 +1771,51 @@ impl Render for AppView {
                     // the selection.
                     .map(|el| self.edit_actions(el, cx))
                     .on_drag_move(resize_pane(Pane::Navigator, self.store.clone()))
-                    .when(
-                        self.navigator_open || self.navigator_slide.closing(now),
-                        |el| {
-                            let width = self.detail.read(cx).navigator_width(now, window, cx);
-                            // Sliding, it keeps its width and its place, so it's drawn again
-                            // only when it changes, not as it slides or the diff changes: the
-                            // detail beside it moves its edge across it.
-                            let navigator = div().w(dp(width)).h_full().child(
-                                self.navigator
-                                    .clone()
-                                    .cached(StyleRefinement::default().size_full()),
-                            );
-                            el.child(
-                                div()
-                                    .w(dp(width * navigator_share))
-                                    .flex_none()
-                                    .h_full()
-                                    .child(inert(navigator, !self.navigator_open)),
+                    .map(|el| match detail_share < 1. {
+                        true => el.overflow_hidden().child(self.render_detail_aside(
+                            now,
+                            detail_share,
+                            navigator_share,
+                            files_sliding,
+                            window,
+                            cx,
+                        )),
+                        false => el
+                            .when(
+                                self.navigator_open || self.navigator_slide.closing(now),
+                                |el| {
+                                    let width =
+                                        self.detail.read(cx).navigator_width(now, window, cx);
+                                    // Sliding, it keeps its width and its place, so it's drawn
+                                    // again only when it changes, not as it slides or the diff
+                                    // changes: the detail beside it moves its edge across it.
+                                    let navigator = div().w(dp(width)).h_full().child(
+                                        self.navigator
+                                            .clone()
+                                            .cached(StyleRefinement::default().size_full()),
+                                    );
+                                    el.child(
+                                        div()
+                                            .w(dp(width * navigator_share))
+                                            .flex_none()
+                                            .h_full()
+                                            .child(inert(navigator, !self.navigator_open)),
+                                    )
+                                },
                             )
-                        },
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .h_full()
-                            .relative()
-                            // Over the navigator as it slides, taking the pointer from it.
-                            .when(navigator_sliding, |el| el.bg(theme.bg_1).occlude())
                             .child(
-                                self.detail
-                                    .clone()
-                                    .cached(StyleRefinement::default().size_full()),
-                            )
-                            .when_some(self.diff_left(now, window, cx), |el, left| {
-                                el.child(
-                                    div()
-                                        .absolute()
-                                        .top(dp(HEADER_HEIGHT
-                                            + self.detail.read(cx).view_header_height(cx)))
-                                        .bottom_0()
-                                        .right_0()
-                                        .left(dp(left))
-                                        // Over the files as they slide, edged as they are.
-                                        .when(files_sliding, |el| {
-                                            el.bg(theme.bg_1)
-                                                .occlude()
-                                                .child(edge(theme.border_3).left(fixed(-1.)))
-                                        })
-                                        .child(
-                                            self.diff
-                                                .clone()
-                                                .cached(StyleRefinement::default().size_full()),
-                                        ),
+                                self.render_detail(
+                                    now,
+                                    navigator_sliding,
+                                    files_sliding,
+                                    window,
+                                    cx,
                                 )
-                            })
-                            .when(navigator_sliding, |el| {
-                                el.child(edge(theme.border_3).left(fixed(-1.)))
-                            }),
-                    )
+                                .flex_1()
+                                .min_w_0()
+                                .h_full(),
+                            ),
+                    })
                     // Closed, the navigator comes out over the detail as the pointer reaches
                     // the window's left edge, as Arc's sidebar does.
                     .when(!self.navigator_open, |el| el.child(self.watch_pointer(cx)))
@@ -1593,6 +1901,35 @@ fn show_cursor_again(window: &Window) {
         }
     }
 }
+
+/// Let the window be made as narrow as `width`, in logical pixels, as GPUI only sets how small
+/// it can be made as it opens it.
+#[cfg(target_os = "macos")]
+fn set_least_width(width: f32, window: &Window) {
+    use objc2::{msg_send, runtime::AnyObject};
+    use objc2_foundation::NSSize;
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+    let Ok(handle) = HasWindowHandle::window_handle(window) else {
+        return;
+    };
+    let RawWindowHandle::AppKit(handle) = handle.as_raw() else {
+        return;
+    };
+    let view = handle.ns_view.as_ptr().cast::<AnyObject>();
+    let least = NSSize::new(width.into(), crate::LEAST_WINDOW_HEIGHT.into());
+    // SAFETY: `view` is the window's live NSView, used on the main thread, and
+    // `setContentMinSize:` only changes how small the window can be made.
+    unsafe {
+        let ns_window: *mut AnyObject = msg_send![view, window];
+        if !ns_window.is_null() {
+            let _: () = msg_send![ns_window, setContentMinSize: least];
+        }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn set_least_width(_: f32, _: &Window) {}
 
 /// Whether a dev script drives the window, which then says when it's hidden.
 pub(crate) fn scripted() -> bool {

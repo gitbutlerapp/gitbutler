@@ -224,6 +224,8 @@ icons! {
     own: FolderFill => "folder-fill",
     // ui-svelte's keyboard, which ui-react doesn't have.
     Keyboard => "keyboard",
+    // ui-react's sidebar, mirrored, for the detail on the window's right.
+    SidebarRight => "sidebar-right",
     // ui-react's eye, struck through, for a project not watched.
     EyeOff => "eye-off",
     // ui-react's folders with their top right corner cut away, for a dot there while a

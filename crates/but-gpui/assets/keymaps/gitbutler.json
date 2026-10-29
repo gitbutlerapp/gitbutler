@@ -35,6 +35,8 @@
       "secondary-3": "app::FocusDiff",
       // As VS Code, Cursor and Zed hide their sidebar.
       "secondary-b": "app::ToggleNavigator",
+      // As VS Code hides its secondary side bar.
+      "secondary-alt-b": "app::ToggleDetail",
       // The desktop app's key for it.
       "secondary-shift-h": "app::OperationsHistory"
     }

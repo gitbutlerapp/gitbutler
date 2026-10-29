@@ -87,6 +87,11 @@ pub const WEB_APP_ONCE: &str = "GITBUTLER_WEB_APP_ONCE";
 /// has downloaded, in percent, a line each time it changes.
 pub const INSTALL_UPDATE: &str = "GITBUTLER_INSTALL_UPDATE";
 
+/// How small the window can be made, in logical pixels, but for its width while it's narrowed
+/// to the navigator.
+const LEAST_WINDOW_WIDTH: f32 = 900.;
+const LEAST_WINDOW_HEIGHT: f32 = 500.;
+
 /// The desktop app's binary, to start again. On Linux an AppImage's own file: this one is
 /// inside it, from a mount that goes once this process ends.
 fn this_app() -> std::io::Result<std::path::PathBuf> {
@@ -319,7 +324,10 @@ pub fn run(embedded: Option<Embedded>) {
                         appears_transparent: true,
                         traffic_light_position: Some(point(fixed(14.), fixed(15.))),
                     }),
-                    window_min_size: Some(size(fixed(900.), fixed(500.))),
+                    window_min_size: Some(size(
+                        fixed(LEAST_WINDOW_WIDTH),
+                        fixed(LEAST_WINDOW_HEIGHT),
+                    )),
                     focus: !scripted,
                     show: !scripted,
                     // macOS only. The headers drag the window and take its title bar's double
