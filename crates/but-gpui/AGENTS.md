@@ -1,7 +1,8 @@
 # GPUI client instructions
 
-These apply to `crates/but-gpui`, on top of `crates/AGENTS.md`. The README is the feature doc,
-so update it, shortcuts table included, with every change in behaviour.
+These apply to `crates/but-gpui`, on top of `crates/AGENTS.md`. The README is for people
+running and developing the app, and stays short: don't describe behaviour, key bindings or the
+code's layout in it, and leave it alone when behaviour changes.
 
 ## Fonts
 
