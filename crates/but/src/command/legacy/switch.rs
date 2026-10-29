@@ -131,11 +131,7 @@ pub fn run(
         // Checkout is already complete: hook failure must not roll it back.
         let hook_result = {
             let repo = ctx.repo.get()?;
-            but_core::hooks::post_checkout(
-                repo.workdir().context("Checkout requires a worktree")?,
-                old_head,
-                repo.head_id()?.detach(),
-            )
+            but_core::hooks::post_checkout(&repo, old_head, repo.head_id()?.detach())
         };
         // Hooks can modify repository state, including when they fail.
         ctx.reload_repo_and_invalidate_workspace(perm)?;

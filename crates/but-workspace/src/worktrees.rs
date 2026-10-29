@@ -247,7 +247,11 @@ pub fn add(
         };
     }
     // Git's post-checkout hook runs after registration succeeds, and failure retains the worktree.
-    but_core::hooks::post_checkout(path, repo.object_hash().null(), created.head_id()?.detach())?;
+    but_core::hooks::post_checkout(
+        &created,
+        repo.object_hash().null(),
+        created.head_id()?.detach(),
+    )?;
     if let Err(err) = handle_worktreeinclude(repo, &created) {
         // This is most likely not a fatal issue, the worktree checkout is almost certainly still
         // usable. So we only log the error.
