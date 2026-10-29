@@ -176,12 +176,17 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
         updates,
         &[],
         SignCommit::IfSignCommitsEnabled,
+        true,
     )
 }
 
 /// Like [`integrate_upstream()`], but accepts merged-review-derived integration
 /// anchors to classify additional integrated history, and signs the rebased
 /// commits according to `sign_commit`.
+///
+/// With `follow_checked_out_target`, the target's own local branch, checked out with no
+/// commits of its own, moves to the target too, which no update in `updates` can do as it's
+/// in no stack. Without it, the branch stays where it is, as when only linked worktrees update.
 #[allow(clippy::too_many_arguments)]
 pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     workspace: &'ws mut but_graph::Workspace,
@@ -192,6 +197,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     updates: Vec<BottomUpdate>,
     review_hints: &[ReviewIntegrationHint],
     sign_commit: SignCommit,
+    follow_checked_out_target: bool,
 ) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
     if matches!(workspace.kind, but_graph::workspace::WorkspaceKind::AdHoc)
         && workspace.ref_name().is_none()
@@ -239,7 +245,8 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     // rebased by reference, it moves to the target and stays checked out.
     // Without an upstream the local target is the target itself, so there is nothing to follow.
     let mut updates = updates;
-    if head_is_integrated
+    if follow_checked_out_target
+        && head_is_integrated
         && target_ref.as_ref() != local_target
         && let Some(head) = direct_checkout_head_ref_name.as_ref()
         && local_target_ref.as_ref() == Some(head)

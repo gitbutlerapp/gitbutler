@@ -222,10 +222,18 @@ fn check_failed(check: &but_forge::CiCheck) -> Option<bool> {
     }
 }
 
+/// What [`refresh_reviews`] found.
+pub struct RefreshedReviews {
+    /// Whether the cache changed.
+    pub changed: bool,
+    /// When the last pull request the cache has merged, in seconds since the epoch.
+    pub last_merged: Option<i64>,
+}
+
 /// Ask the forge about the project's pull requests, refreshing the cache that
-/// [`load_workspace`](super::load_workspace) reads, and say whether that changed it. Fails
-/// when the project has no forge or no account for it.
-pub fn refresh_reviews(path: &Path) -> Result<bool> {
+/// [`load_workspace`](super::load_workspace) reads, and say whether that changed it and when
+/// the last of them merged. Fails when the project has no forge or no account for it.
+pub fn refresh_reviews(path: &Path) -> Result<RefreshedReviews> {
     let started = std::time::Instant::now();
     tracing::debug!(path = %path.display(), "refreshing reviews");
     let ctx = open(path)?;
@@ -238,12 +246,20 @@ pub fn refresh_reviews(path: &Path) -> Result<bool> {
             })
             .collect();
         reviews.sort_by_key(|review| review.number);
-        serde_json::to_string(&reviews).unwrap_or_default()
+        reviews
     };
-    let before = cached();
+    let json =
+        |reviews: &[but_forge::ForgeReview]| serde_json::to_string(reviews).unwrap_or_default();
+    let before = json(&cached());
     forge::list_reviews(&ctx, Some(but_forge::CacheConfig::NoCache))?;
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "refreshed reviews");
-    Ok(cached() != before)
+    let after = cached();
+    Ok(RefreshedReviews {
+        changed: json(&after) != before,
+        last_merged: (after.iter())
+            .filter_map(|review| timestamp(review.merged_at.as_deref()))
+            .max(),
+    })
 }
 
 /// Ask the forge about the CI of each branch with a pull request, a request per branch, and

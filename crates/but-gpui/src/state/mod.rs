@@ -404,6 +404,13 @@ pub struct Store {
     /// down or being offline, or found no remote; it waits a while before asking again,
     /// unless a fetch the user asks for works.
     fetch_failed: HashMap<ProjectId, SystemTime>,
+    /// When the last pull request each project's forge has reported merged, in seconds since
+    /// the epoch, once it has reported at all.
+    last_merged: HashMap<ProjectId, Option<i64>>,
+    /// Projects whose forge reported a pull request merged since they were last fetched. The
+    /// target has its commits only once fetched, so the next background fetch takes them
+    /// whatever the interval.
+    fetch_soon: HashSet<ProjectId>,
     _auto_fetch: Task<()>,
     _update_check: Task<()>,
     forge_requests: mpsc::UnboundedSender<ProjectId>,
@@ -540,6 +547,8 @@ impl Store {
             _forge_poll: Self::poll_forge(cx),
             fetched: HashMap::new(),
             fetch_failed: HashMap::new(),
+            last_merged: HashMap::new(),
+            fetch_soon: HashSet::new(),
             _auto_fetch: Self::fetch_in_background(cx),
             _update_check: Self::check_for_updates(cx),
         };

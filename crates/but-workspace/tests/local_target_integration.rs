@@ -246,6 +246,7 @@ fn integration_applies_a_local_target_without_an_upstream() -> Result<()> {
         Vec::new(),
         &[],
         but_core::commit::SignCommit::IfSignCommitsEnabled,
+        true,
     )?;
     assert_eq!(
         outcome.project_meta.target_commit_id,
@@ -307,6 +308,7 @@ fn integration_applies_upstream_when_local_target_lags() -> Result<()> {
         Vec::new(),
         &[],
         but_core::commit::SignCommit::IfSignCommitsEnabled,
+        true,
     )?;
     assert_eq!(
         outcome.project_meta.target_commit_id,

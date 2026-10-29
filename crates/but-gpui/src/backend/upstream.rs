@@ -981,25 +981,7 @@ pub enum UpdateOutcome {
 }
 
 /// What an [`Update`] rebases, as `but pull --update` picks it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum UpdateScope {
-    /// The workspace and the worktrees, as `but pull` does.
-    All,
-    /// The stacks, with the linked worktrees resting on them, as they move with them.
-    Workspace,
-    /// The linked worktrees on the target's history with work of their own.
-    Worktrees,
-}
-
-impl UpdateScope {
-    pub fn workspace(self) -> bool {
-        matches!(self, UpdateScope::All | UpdateScope::Workspace)
-    }
-
-    pub fn worktrees(self) -> bool {
-        matches!(self, UpdateScope::All | UpdateScope::Worktrees)
-    }
-}
+pub use but_api::workspace::UpdateScope;
 
 /// Rebase what `scope` picks onto the target as it is now. Doesn't fetch first; see
 /// [`Fetch`]. A dry run goes first, and when the rebase would leave anything conflicted that
@@ -1015,7 +997,13 @@ impl Intent for Update {
     fn apply(self, run: &mut Run) -> Result<UpdateOutcome> {
         run.locked(|ctx, perm| {
             let info = but_api::legacy::workspace::head_info(ctx)?;
-            let preview = integrate_upstream(ctx, &info, self.scope, DryRun::Yes, perm)?;
+            let preview = but_api::workspace::workspace_integrate_upstream_scoped_with_perm(
+                ctx,
+                &info,
+                self.scope,
+                DryRun::Yes,
+                perm,
+            )?;
             let found = UpdateConflicts {
                 branches: newly_conflicted(&info, &preview.workspace_state.conflicted_commits),
                 files: (preview.worktree_conflicts.iter())
@@ -1027,7 +1015,13 @@ impl Intent for Update {
             {
                 return Ok(UpdateOutcome::WouldConflict(found));
             }
-            let updated = integrate_upstream(ctx, &info, self.scope, DryRun::No, perm)?;
+            let updated = but_api::workspace::workspace_integrate_upstream_scoped_with_perm(
+                ctx,
+                &info,
+                self.scope,
+                DryRun::No,
+                perm,
+            )?;
             let after = but_api::legacy::workspace::head_info(ctx)?;
             let names = |info: &but_workspace::RefInfo| -> Vec<super::FullName> {
                 (info.lanes())
@@ -1078,26 +1072,6 @@ pub(super) fn newly_conflicted(
             (count > 0).then_some((name, count))
         })
         .collect()
-}
-
-fn integrate_upstream(
-    ctx: &mut but_ctx::Context,
-    info: &but_workspace::RefInfo,
-    scope: UpdateScope,
-    dry_run: DryRun,
-    perm: &mut RepoExclusive,
-) -> Result<but_api::workspace::WorkspaceIntegrateUpstreamOutcome> {
-    // The linked worktrees resting on a stack go with it, and those on the target's history
-    // with work of their own go on their own, as `but pull` takes them.
-    let stacks = (info.stacks.iter())
-        .filter(|_| scope.workspace())
-        .map(|s| s.lane());
-    let worktrees = (info.worktrees.iter())
-        .filter(|worktree| scope.worktrees() && worktree.rebasable_base().is_some())
-        .map(but_workspace::worktrees::WorktreeInfo::lane);
-    let lanes = stacks.chain(worktrees);
-    let updates = but_api::workspace::rebase_lane_bottoms(lanes);
-    but_api::workspace::workspace_integrate_upstream_with_perm(ctx, updates, dry_run, perm)
 }
 
 /// Fetch from the project's remotes. `false` when it has none to fetch from.
@@ -1311,6 +1285,37 @@ mod tests {
                 "the stacks followed, agent where it was"
             );
             assert_eq!(behind(), (false, false), "nothing is left to update");
+        })
+    }
+
+    #[test]
+    fn updating_the_worktrees_leaves_a_checked_out_target_branch_alone() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = crate::backend::ops::tests::repo_with("one\n");
+            let path = dir.path();
+            crate::backend::ops::tests::target_origin_main(path);
+            let ctx = crate::backend::open(path).unwrap();
+            (ctx.db.get_cache_mut().unwrap())
+                .worktree_meta_mut()
+                .mark_adopted()
+                .unwrap();
+            drop(ctx);
+            let _agent = agent_worktree(path, "main");
+            let old = git(path, &["rev-parse", "main"]);
+            new_on_target(path, "new on target");
+            let new = git(path, &["rev-parse", "origin/main"]);
+
+            update(path, UpdateScope::Worktrees);
+            assert_eq!(
+                git(path, &["rev-parse", "agent~"]),
+                new,
+                "agent's work went onto the new commit"
+            );
+            assert_eq!(
+                git(path, &["rev-parse", "HEAD"]),
+                old,
+                "main, checked out here, is the workspace's to update"
+            );
         })
     }
 
