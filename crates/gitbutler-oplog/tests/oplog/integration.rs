@@ -1,7 +1,4 @@
-use std::{fs, path::Path};
-
-#[cfg(unix)]
-use std::os::unix::ffi::OsStrExt as _;
+use std::fs;
 
 use anyhow::Context as _;
 use but_core::{GitConfigSettings, RepositoryExt as _};
@@ -433,30 +430,8 @@ fn restore_snapshot_reverts_the_target() -> anyhow::Result<()> {
 }
 
 #[test]
-#[expect(deprecated, reason = "libgit2 index compatibility boundary")]
 fn snapshot_creation_works_with_unmerged_index() -> anyhow::Result<()> {
-    fn conflict_index_entry(
-        path: impl AsRef<[u8]>,
-        stage: u16,
-        blob: git2::Oid,
-    ) -> git2::IndexEntry {
-        let path = path.as_ref();
-        let path_len = path.len().min(0x0fff) as u16;
-        git2::IndexEntry {
-            ctime: git2::IndexTime::new(0, 0),
-            mtime: git2::IndexTime::new(0, 0),
-            dev: 0,
-            ino: 0,
-            mode: 0o100644,
-            uid: 0,
-            gid: 0,
-            file_size: 0,
-            id: blob,
-            flags: stage << 12 | path_len,
-            flags_extended: 0,
-            path: path.into(),
-        }
-    }
+    use gix::index::entry::{Flags, Mode, Stage};
 
     let Test { repo, ctx, .. } = &mut Test::default();
     configure_default_target(ctx)?;
@@ -465,27 +440,44 @@ fn snapshot_creation_works_with_unmerged_index() -> anyhow::Result<()> {
     // conflicts: conflict markers in the worktree and unmerged entries in the index.
     // `deleted.txt` has no 'ours' stage, as when the local side deleted the file.
     let (base_blob, ours_blob, theirs_blob) = {
-        let git2_repo = ctx.git2_repo.get()?;
-        let ours_blob = git2_repo.blob(b"ours\n")?;
-        let base_blob = git2_repo.blob(b"base\n")?;
-        let theirs_blob = git2_repo.blob(b"theirs\n")?;
-        let mut index = git2_repo.index()?;
+        let repo = ctx.repo.get()?;
+        let ours_blob = repo.write_blob(b"ours\n")?.detach();
+        let base_blob = repo.write_blob(b"base\n")?.detach();
+        let theirs_blob = repo.write_blob(b"theirs\n")?.detach();
+        let mut index = repo.open_index()?;
         for (path, stage, blob) in [
-            ("conflicted.txt", 1, base_blob),
-            ("conflicted.txt", 2, ours_blob),
-            ("conflicted.txt", 3, theirs_blob),
-            ("deleted.txt", 1, base_blob),
-            ("deleted.txt", 3, theirs_blob),
-            ("df", 2, ours_blob),
-            ("df/child", 3, theirs_blob),
+            ("conflicted.txt", Stage::Base, base_blob),
+            ("conflicted.txt", Stage::Ours, ours_blob),
+            ("conflicted.txt", Stage::Theirs, theirs_blob),
+            ("deleted.txt", Stage::Base, base_blob),
+            ("deleted.txt", Stage::Theirs, theirs_blob),
+            ("df", Stage::Ours, ours_blob),
+            ("df/child", Stage::Theirs, theirs_blob),
         ] {
-            index.add(&conflict_index_entry(path, stage, blob))?;
+            index.dangerously_push_entry(
+                Default::default(),
+                blob,
+                Flags::from_stage(stage),
+                Mode::FILE,
+                path.into(),
+            );
         }
         #[cfg(unix)]
-        for (stage, blob) in [(1, base_blob), (2, ours_blob), (3, theirs_blob)] {
-            index.add(&conflict_index_entry(b"invalid-\xff.txt", stage, blob))?;
+        for (stage, blob) in [
+            (Stage::Base, base_blob),
+            (Stage::Ours, ours_blob),
+            (Stage::Theirs, theirs_blob),
+        ] {
+            index.dangerously_push_entry(
+                Default::default(),
+                blob,
+                Flags::from_stage(stage),
+                Mode::FILE,
+                b"invalid-\xff.txt".as_bstr(),
+            );
         }
-        index.write()?;
+        index.sort_entries();
+        index.write(Default::default())?;
         (base_blob, ours_blob, theirs_blob)
     };
     fs::write(
@@ -507,12 +499,12 @@ fn snapshot_creation_works_with_unmerged_index() -> anyhow::Result<()> {
     )?;
 
     {
-        let git2_repo = ctx.git2_repo.get()?;
-        let mut index = git2_repo.index()?;
-        index.clear()?;
-        index.write()?;
+        let repo = ctx.repo.get()?;
+        let mut index = repo.open_index()?;
+        index.remove_entries(|_, _, _| true);
+        index.write(Default::default())?;
         assert!(
-            !index.has_conflicts(),
+            index.entries().is_empty(),
             "the conflict is cleared before restore"
         );
     }
@@ -522,36 +514,43 @@ fn snapshot_creation_works_with_unmerged_index() -> anyhow::Result<()> {
         guard.write_permission(),
     )?;
 
-    let index = ctx.git2_repo.get()?.index()?;
+    let index = ctx.repo.get()?.open_index()?;
     for (path, stage, expected) in [
-        ("conflicted.txt", 1, base_blob),
-        ("conflicted.txt", 2, ours_blob),
-        ("conflicted.txt", 3, theirs_blob),
-        ("deleted.txt", 1, base_blob),
-        ("deleted.txt", 3, theirs_blob),
-        ("df", 2, ours_blob),
-        ("df/child", 3, theirs_blob),
+        ("conflicted.txt", Stage::Base, base_blob),
+        ("conflicted.txt", Stage::Ours, ours_blob),
+        ("conflicted.txt", Stage::Theirs, theirs_blob),
+        ("deleted.txt", Stage::Base, base_blob),
+        ("deleted.txt", Stage::Theirs, theirs_blob),
+        ("df", Stage::Ours, ours_blob),
+        ("df/child", Stage::Theirs, theirs_blob),
     ] {
         assert_eq!(
-            index.get_path(Path::new(path), stage).map(|entry| entry.id),
+            index
+                .entry_by_path_and_stage(path.into(), stage)
+                .map(|entry| entry.id),
             Some(expected),
-            "restore preserves stage {stage} for {path}"
+            "restore preserves stage {stage:?} for {path}"
         );
     }
     assert!(
-        index.get_path(Path::new("deleted.txt"), 2).is_none(),
+        index
+            .entry_by_path_and_stage("deleted.txt".into(), Stage::Ours)
+            .is_none(),
         "restore preserves the missing ours stage for a local deletion"
     );
     #[cfg(unix)]
-    {
-        let path = Path::new(std::ffi::OsStr::from_bytes(b"invalid-\xff.txt"));
-        for (stage, expected) in [(1, base_blob), (2, ours_blob), (3, theirs_blob)] {
-            assert_eq!(
-                index.get_path(path, stage).map(|entry| entry.id),
-                Some(expected),
-                "restore preserves non-UTF-8 conflict paths at stage {stage}"
-            );
-        }
+    for (stage, expected) in [
+        (Stage::Base, base_blob),
+        (Stage::Ours, ours_blob),
+        (Stage::Theirs, theirs_blob),
+    ] {
+        assert_eq!(
+            index
+                .entry_by_path_and_stage(b"invalid-\xff.txt".as_bstr(), stage)
+                .map(|entry| entry.id),
+            Some(expected),
+            "restore preserves non-UTF-8 conflict paths at stage {stage:?}"
+        );
     }
     Ok(())
 }

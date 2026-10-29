@@ -35,7 +35,6 @@ schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 but-testsupport = { workspace = true, features = ["sandbox"] }
-git2.workspace = true
 pretty_assertions = "1.4"
 snapbox.workspace = true
 tempfile.workspace = true

@@ -4909,7 +4909,6 @@ dependencies = [
  "but-serde",
  "but-testsupport",
  "but-utils",
- "git2",
  "gitbutler-repo",
  "gix",
  "itertools",
