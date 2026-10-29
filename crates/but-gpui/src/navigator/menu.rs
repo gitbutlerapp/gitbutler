@@ -55,9 +55,11 @@ fn read_marks<'a, C: Seeable + 'a>(
 /// top of the default branch when that's checked out on its own; or one in a new linked
 /// worktree, as `but worktree new` makes, with a made-up name or one asked for.
 fn new_branch_items(store: &Store, project: &ProjectId, cx: &App) -> Vec<MenuItem> {
-    let managed = store.workspace(project).is_some_and(|ws| ws.managed);
+    let based = store
+        .workspace(project)
+        .is_some_and(|ws| ws.target.is_some());
     let mut items = vec![MenuItem::action("New branch", &NewBranch, cx)];
-    if managed {
+    if based {
         let (created, named) = (project.clone(), project.clone());
         items.push(MenuItem::new("Create worktree", move |app, _, cx| {
             let project = created.clone();
