@@ -119,8 +119,8 @@ mod tests {
         git_at_dir(tmp.path()).args(["init"]).run();
         let ctx = but_ctx::Context::from_repo_for_testing(open_repo(tmp.path())?)?;
         let sentinel = ctx.project_data_dir.join("REFRESH");
-        // Setting up the context writes metadata, which refreshes too.
-        std::fs::remove_file(&sentinel).ok();
+        // A project in use has its storage directory; a fresh repository doesn't yet.
+        std::fs::create_dir_all(&ctx.project_data_dir)?;
 
         probe(&ctx, false).unwrap_err();
         assert!(!sentinel.exists(), "a failed mutation changed nothing");

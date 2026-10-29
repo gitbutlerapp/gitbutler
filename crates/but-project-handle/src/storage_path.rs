@@ -138,9 +138,7 @@ pub fn write_refresh_sentinel(storage_dir: &Path) {
         return;
     };
     let sentinel = storage_dir.join(filename);
-    let written = std::fs::create_dir_all(storage_dir)
-        .and_then(|()| std::fs::write(&sentinel, process_sentinel_token()));
-    if let Err(err) = written {
+    if let Err(err) = std::fs::write(&sentinel, process_sentinel_token()) {
         tracing::warn!(?sentinel, %err, "failed to touch refresh sentinel");
     }
 }
