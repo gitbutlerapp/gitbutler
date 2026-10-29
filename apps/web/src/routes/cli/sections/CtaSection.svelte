@@ -28,7 +28,7 @@
 		padding: 58px 32px;
 		overflow: hidden;
 		border-radius: var(--radius-xl);
-		background-color: var(--clr-theme-pop-element);
+		background-color: var(--fill-pop-bg);
 	}
 
 	.cta-section__content {
@@ -41,14 +41,14 @@
 		display: inline-block;
 		padding: 8px 12px;
 		border-radius: 100px;
-		background: var(--clr-theme-pop-on-element);
-		color: var(--clr-core-pop-40);
+		background: var(--fill-pop-fg);
+		color: var(--clr-pop-40);
 	}
 
 	.cta-section__header {
 		max-width: 600px;
 		margin-top: 16px;
-		color: var(--clr-theme-pop-on-element);
+		color: var(--fill-pop-fg);
 		font-size: 82px;
 		line-height: 1;
 		font-family: var(--font-accent);
@@ -57,7 +57,7 @@
 	.cta-section__description {
 		max-width: 600px;
 		margin-top: 16px;
-		color: var(--clr-theme-pop-on-element);
+		color: var(--fill-pop-fg);
 		opacity: 0.8;
 	}
 

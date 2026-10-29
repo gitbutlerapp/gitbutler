@@ -67,7 +67,7 @@
 		grid-column: narrow-start / narrow-end;
 		flex-direction: column;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-xl);
 		font-family: var(--font-mono);
 	}
@@ -93,7 +93,7 @@
 			left: 0;
 			width: 100%;
 			height: 60px;
-			background: linear-gradient(to top, var(--clr-bg-3) 40%, transparent);
+			background: linear-gradient(to top, var(--bg-3) 40%, transparent);
 			content: "";
 			pointer-events: none;
 		}

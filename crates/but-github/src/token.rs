@@ -21,12 +21,20 @@ pub fn delete_gh_access_token(
     account_id: &GithubAccountIdentifier,
     storage: &but_forge_storage::Controller,
 ) -> Result<()> {
-    let account = find_github_account(account_id, storage)?;
-    if let Some(account) = account {
-        delete_github_account(&account, storage)
-    } else {
-        Ok(())
-    }
+    // The token itself may be unreadable here (stored by another build kind, or a keychain
+    // that refuses the read); the account entry has to go regardless.
+    let Some(account) = storage
+        .github_accounts()?
+        .into_iter()
+        .find(|account| GithubAccountIdentifier::from(account) == *account_id)
+    else {
+        return Ok(());
+    };
+    storage.remove_github_account(&account)?;
+
+    static FAIR_QUEUE: Mutex<()> = Mutex::new(());
+    let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
+    secret::delete(account.access_token_key(), secret::Namespace::BuildKind)
 }
 
 /// Retrieve a GitHub account access token for a given username.
@@ -54,10 +62,8 @@ pub fn clear_all_github_accounts(storage: &but_forge_storage::Controller) -> Res
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase", tag = "type", content = "info")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./github/token.ts"))]
 pub enum GithubAccountIdentifier {
     OAuthUsername { username: String },
     PatUsername { username: String },
@@ -89,6 +95,21 @@ impl GithubAccountIdentifier {
             GithubAccountIdentifier::OAuthUsername { username } => username,
             GithubAccountIdentifier::PatUsername { username } => username,
             GithubAccountIdentifier::Enterprise { username, .. } => username,
+        }
+    }
+
+    /// The key used to store and look up the cached profile for this account.
+    pub fn cache_key(&self) -> String {
+        match self {
+            GithubAccountIdentifier::OAuthUsername { username } => {
+                format!("github_oauth_{username}")
+            }
+            GithubAccountIdentifier::PatUsername { username } => {
+                format!("github_pat_{username}")
+            }
+            GithubAccountIdentifier::Enterprise { host, .. } => {
+                format!("github_enterprise_{host}")
+            }
         }
     }
 
@@ -211,9 +232,15 @@ impl GitHubAccount {
 
     fn secret_key(&self) -> String {
         match self {
-            GitHubAccount::OAuth { username, .. } => format!("github_oauth_{username}"),
-            GitHubAccount::Pat { username, .. } => format!("github_pat_{username}"),
-            GitHubAccount::Enterprise { host, .. } => format!("github_enterprise_{host}"),
+            GitHubAccount::OAuth { username, .. } => {
+                GithubAccountIdentifier::oauth(username).cache_key()
+            }
+            GitHubAccount::Pat { username, .. } => {
+                GithubAccountIdentifier::pat(username).cache_key()
+            }
+            GitHubAccount::Enterprise { host, username, .. } => {
+                GithubAccountIdentifier::enterprise(username, host).cache_key()
+            }
         }
     }
 
@@ -250,18 +277,6 @@ fn persist_github_account(
         &account.secret_value()?,
         secret::Namespace::BuildKind,
     )
-}
-
-fn delete_github_account(
-    account: &GitHubAccount,
-    storage: &but_forge_storage::Controller,
-) -> Result<()> {
-    let secret_key = account.secret_key();
-    storage.remove_github_account(&account.into())?;
-
-    static FAIR_QUEUE: Mutex<()> = Mutex::new(());
-    let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
-    secret::delete(&secret_key, secret::Namespace::BuildKind)
 }
 
 fn delete_all_github_accounts(storage: &but_forge_storage::Controller) -> Result<()> {

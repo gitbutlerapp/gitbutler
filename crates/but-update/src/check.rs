@@ -163,6 +163,7 @@ pub fn check_status_with_url(
                 release_notes: status.release_notes.clone(),
                 url: status.url.clone(),
                 signature: status.signature.clone(),
+                valid_for_version: Some(option_env!("VERSION").unwrap_or("0.0.0").to_string()),
             },
             suppressed_at,
             suppress_duration_hours,

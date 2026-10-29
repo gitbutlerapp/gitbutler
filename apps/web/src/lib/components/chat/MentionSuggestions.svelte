@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import type { MentionSuggestion } from "@gitbutler/ui";
+	import type { MentionSuggestion } from "@gitbutler/ui-svelte";
 
 	export interface Props {
 		isLoading: boolean;
@@ -10,8 +10,8 @@
 
 <script lang="ts">
 	import MentionSuggestionItem from "$lib/components/chat/MentionSuggestionItem.svelte";
-	import { tooltip } from "@gitbutler/ui/utils/tooltipPosition";
-	import { flyScale } from "@gitbutler/ui/utils/transitions";
+	import { tooltip } from "@gitbutler/ui-svelte/utils/tooltipPosition";
+	import { flyScale } from "@gitbutler/ui-svelte/utils/transitions";
 
 	const { suggestions, selectSuggestion, isLoading }: Props = $props();
 
@@ -143,10 +143,10 @@
 		padding: 8px 7px;
 		overflow: scroll;
 		gap: 2px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 
 		border-radius: var(--radius-ml);
-		background: var(--clr-bg-1);
+		background: var(--bg-1);
 
 		box-shadow: 0px 4px 14px 0px rgba(0, 0, 0, 0.06);
 		list-style: none;
@@ -174,7 +174,7 @@
 
 		&.selected {
 			border-radius: var(--radius-m);
-			background: var(--clr-bg-muted);
+			background: var(--bg-mute);
 		}
 	}
 

@@ -1,17 +1,22 @@
+mod cherry_pick;
 mod commit_amend;
 mod commit_create;
+mod discard_commit;
 mod insert_blank_commit;
 mod move_changes;
 mod move_commit;
 mod reword;
+mod squash_commits;
 mod uncommit_changes;
 
 mod from_new_merge_with_metadata {
     use bstr::ByteSlice;
+    use but_core::ref_metadata::WorkspaceCommitRelation::Outside;
     use but_graph::init::{Options, Overlay};
     use but_testsupport::{visualize_commit_graph_all, visualize_tree};
-    use but_workspace::WorkspaceCommit;
+    use but_workspace::{WorkspaceCommit, commit::merge::Tip};
     use gix::{prelude::ObjectIdExt, refs::Target};
+    use snapbox::prelude::*;
 
     use crate::ref_info::with_workspace_commit::utils::{
         named_read_only_in_memory_scenario, named_writable_scenario_with_description_and_graph,
@@ -19,22 +24,32 @@ mod from_new_merge_with_metadata {
 
     #[test]
     fn without_conflict_journey() -> anyhow::Result<()> {
-        let (repo, mut meta) =
+        let (repo, mut meta, mut db) =
             named_read_only_in_memory_scenario("various-heads-for-clean-merge", "")?;
-        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-        * d3cce74 (add-A) add A
-        | * 115e41b (add-B) add B
-        |/  
-        | * 34c4591 (add-C) add C
-        |/  
-        | * 27ab782 (HEAD -> add-D) add D
-        |/  
-        * 85efbe4 (main, gitbutler/workspace) M
-        ");
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            snapbox::str![[r#"
+* d3cce74 (add-A) add A
+| * 115e41b (add-B) add B
+|/  
+| * 34c4591 (add-C) add C
+|/  
+| * 27ab782 (HEAD -> add-D) add D
+|/  
+* 85efbe4 (main, gitbutler/workspace) M
+
+"#]]
+        );
 
         let stacks = ["add-A"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &*meta,
+            but_core::ref_metadata::ProjectMeta::default(),
+            &mut db,
+            Options::limited(),
+        )?;
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
@@ -44,47 +59,66 @@ mod from_new_merge_with_metadata {
         )?;
         let commit = out.workspace_commit_id.attach(&repo).object()?;
         // This commit is never signed.
-        insta::assert_snapshot!(commit.data.as_bstr(), @"
-        tree f53c91092dbda83f3565e78c285f3e2ab0cfd968
-        parent d3cce74a69ee3b0e1cbea65b53908d602d6bda26
-        author GitButler <gitbutler@gitbutler.com> 946771200 +0000
-        committer GitButler <gitbutler@gitbutler.com> 946771200 +0000
-        encoding UTF-8
+        snapbox::assert_data_eq!(
+            commit.data.as_bstr().to_string(),
+            snapbox::str![[r#"
+tree f53c91092dbda83f3565e78c285f3e2ab0cfd968
+parent d3cce74a69ee3b0e1cbea65b53908d602d6bda26
+author GitButler <gitbutler@gitbutler.com> 946771200 +0000
+committer GitButler <gitbutler@gitbutler.com> 946771200 +0000
+encoding UTF-8
 
-        GitButler Workspace Commit
+GitButler Workspace Commit
 
-        This is a merge commit of the virtual branches in your workspace.
+This is a merge commit of the virtual branches in your workspace.
 
-        Due to GitButler managing multiple virtual branches, you cannot switch back and
-        forth between git branches and virtual branches easily. 
+Due to GitButler managing multiple virtual branches, you cannot switch back and
+forth between git branches and virtual branches easily. 
 
-        If you switch to another branch, GitButler will need to be reinitialized.
-        If you commit on this branch, GitButler will throw it away.
+If you switch to another branch, GitButler will need to be reinitialized.
+If you commit on this branch, GitButler will throw it away.
 
-        Here are the branches that are currently applied:
-         - add-A
-           branch head: d3cce74a69ee3b0e1cbea65b53908d602d6bda26
-        For more information about what we're doing here, check out our docs:
-        https://docs.gitbutler.com/features/branch-management/integration-branch
-        ");
-        insta::assert_debug_snapshot!(out, @r#"
-        Outcome {
-            workspace_commit_id: Sha1(31f3d99d4b12a57c1c21053ab3ae5da160247044),
-            stacks: [
-                Stack { tip: d3cce74, name: "add-A" },
-            ],
-            missing_stacks: [],
-            conflicting_stacks: [],
-        }
-        "#);
-        insta::assert_snapshot!(visualize_tree(commit.peel_to_tree()?.id()), @r#"
-        f53c910
-        └── A:100644:f70f10e "A\n"
-        "#);
+Here are the branches that are currently applied:
+ - add-A
+   branch head: d3cce74a69ee3b0e1cbea65b53908d602d6bda26
+For more information about what we're doing here, check out our docs:
+https://docs.gitbutler.com/features/branch-management/integration-branch
+
+"#]]
+        );
+        snapbox::assert_data_eq!(
+            out.to_debug(),
+            snapbox::str![[r#"
+Outcome {
+    workspace_commit_id: Sha1(31f3d99d4b12a57c1c21053ab3ae5da160247044),
+    stacks: [
+        Stack { tip: d3cce74, name: "add-A" },
+    ],
+    missing_stacks: [],
+    conflicting_stacks: [],
+}
+
+"#]]
+        );
+        snapbox::assert_data_eq!(
+            visualize_tree(commit.peel_to_tree()?.id()).to_string(),
+            snapbox::str![[r#"
+f53c910
+└── A:100644:f70f10e "A\n"
+
+"#]]
+            .raw()
+        );
 
         let stacks = ["add-D", "add-A", "add-C", "add-B"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &*meta,
+            but_core::ref_metadata::ProjectMeta::default(),
+            &mut db,
+            Options::limited(),
+        )?;
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
@@ -93,83 +127,171 @@ mod from_new_merge_with_metadata {
             Some("refs/heads/has-no-effect-outside-conflicts".try_into()?),
         )?;
         // It retains order.
-        insta::assert_debug_snapshot!(out, @r#"
-        Outcome {
-            workspace_commit_id: Sha1(391a453230c141ac5f81d7203ac90c7e66ea9acf),
-            stacks: [
-                Stack { tip: 27ab782, name: "add-D" },
-                Stack { tip: d3cce74, name: "add-A" },
-                Stack { tip: 34c4591, name: "add-C" },
-                Stack { tip: 115e41b, name: "add-B" },
-            ],
-            missing_stacks: [],
-            conflicting_stacks: [],
-        }
-        "#);
+        snapbox::assert_data_eq!(
+            out.to_debug(),
+            snapbox::str![[r#"
+Outcome {
+    workspace_commit_id: Sha1(391a453230c141ac5f81d7203ac90c7e66ea9acf),
+    stacks: [
+        Stack { tip: 27ab782, name: "add-D" },
+        Stack { tip: d3cce74, name: "add-A" },
+        Stack { tip: 34c4591, name: "add-C" },
+        Stack { tip: 115e41b, name: "add-B" },
+    ],
+    missing_stacks: [],
+    conflicting_stacks: [],
+}
+
+"#]]
+        );
         let commit = out.workspace_commit_id.attach(&repo).object()?;
         // This commit is never signed.
-        insta::assert_snapshot!(commit.data.as_bstr(), @"
-        tree 94e1f0c26d5b13dc3a95a88e64d82155373b5780
-        parent 27ab782831b1145249092d54c520a15bb6425cda
-        parent d3cce74a69ee3b0e1cbea65b53908d602d6bda26
-        parent 34c4591eac5ade7cdf094c4fc48dea798ab73bbb
-        parent 115e41b0ffb7fcb56f91a9fb64cf4a7b786c1bea
-        author GitButler <gitbutler@gitbutler.com> 946771200 +0000
-        committer GitButler <gitbutler@gitbutler.com> 946771200 +0000
-        encoding UTF-8
+        snapbox::assert_data_eq!(
+            commit.data.as_bstr().to_string(),
+            snapbox::str![[r#"
+tree 94e1f0c26d5b13dc3a95a88e64d82155373b5780
+parent 27ab782831b1145249092d54c520a15bb6425cda
+parent d3cce74a69ee3b0e1cbea65b53908d602d6bda26
+parent 34c4591eac5ade7cdf094c4fc48dea798ab73bbb
+parent 115e41b0ffb7fcb56f91a9fb64cf4a7b786c1bea
+author GitButler <gitbutler@gitbutler.com> 946771200 +0000
+committer GitButler <gitbutler@gitbutler.com> 946771200 +0000
+encoding UTF-8
 
-        GitButler Workspace Commit
+GitButler Workspace Commit
 
-        This is a merge commit of the virtual branches in your workspace.
+This is a merge commit of the virtual branches in your workspace.
 
-        Due to GitButler managing multiple virtual branches, you cannot switch back and
-        forth between git branches and virtual branches easily. 
+Due to GitButler managing multiple virtual branches, you cannot switch back and
+forth between git branches and virtual branches easily. 
 
-        If you switch to another branch, GitButler will need to be reinitialized.
-        If you commit on this branch, GitButler will throw it away.
+If you switch to another branch, GitButler will need to be reinitialized.
+If you commit on this branch, GitButler will throw it away.
 
-        Here are the branches that are currently applied:
-         - add-D
-           branch head: 27ab782831b1145249092d54c520a15bb6425cda
-         - add-A
-           branch head: d3cce74a69ee3b0e1cbea65b53908d602d6bda26
-         - add-C
-           branch head: 34c4591eac5ade7cdf094c4fc48dea798ab73bbb
-         - add-B
-           branch head: 115e41b0ffb7fcb56f91a9fb64cf4a7b786c1bea
-        For more information about what we're doing here, check out our docs:
-        https://docs.gitbutler.com/features/branch-management/integration-branch
-        ");
+Here are the branches that are currently applied:
+ - add-D
+   branch head: 27ab782831b1145249092d54c520a15bb6425cda
+ - add-A
+   branch head: d3cce74a69ee3b0e1cbea65b53908d602d6bda26
+ - add-C
+   branch head: 34c4591eac5ade7cdf094c4fc48dea798ab73bbb
+ - add-B
+   branch head: 115e41b0ffb7fcb56f91a9fb64cf4a7b786c1bea
+For more information about what we're doing here, check out our docs:
+https://docs.gitbutler.com/features/branch-management/integration-branch
+
+"#]]
+        );
         // Order isn't visible in the merged tree.
-        insta::assert_snapshot!(visualize_tree(commit.peel_to_tree()?.id()), @r#"
-        94e1f0c
-        ├── A:100644:f70f10e "A\n"
-        ├── B:100644:223b783 "B\n"
-        ├── C:100644:3cc58df "C\n"
-        └── D:100644:1784810 "D\n"
-        "#);
+        snapbox::assert_data_eq!(
+            visualize_tree(commit.peel_to_tree()?.id()).to_string(),
+            snapbox::str![[r#"
+94e1f0c
+├── A:100644:f70f10e "A\n"
+├── B:100644:223b783 "B\n"
+├── C:100644:3cc58df "C\n"
+└── D:100644:1784810 "D\n"
+
+"#]]
+            .raw()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn anonymous_tip_after_removed_parent_slot() -> anyhow::Result<()> {
+        let (repo, mut meta, mut db) =
+            named_read_only_in_memory_scenario("various-heads-for-clean-merge", "")?;
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            snapbox::str![[r#"
+* d3cce74 (add-A) add A
+| * 115e41b (add-B) add B
+|/  
+| * 34c4591 (add-C) add C
+|/  
+| * 27ab782 (HEAD -> add-D) add D
+|/  
+* 85efbe4 (main, gitbutler/workspace) M
+
+"#]]
+        );
+        add_stacks(&mut meta, ["add-A", "add-B", "add-C"]);
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &*meta,
+            but_core::ref_metadata::ProjectMeta::default(),
+            &mut db,
+            Options::limited(),
+        )?;
+
+        let add_c_ref = "refs/heads/add-C".try_into()?;
+        let (segment, commit) = graph
+            .segment_and_commit_by_ref_name(add_c_ref)
+            .expect("add-C is visible in the graph");
+        let anon_c_tip = Tip {
+            name: None,
+            commit_id: commit.id,
+            segment_idx: segment.id,
+        };
+
+        let mut stacks = to_stacks(["add-A", "add-D", "add-B"]);
+        stacks
+            .get_mut(1)
+            .expect("add-D is the skipped metadata slot")
+            .workspacecommit_relation = Outside;
+
+        let out = WorkspaceCommit::from_new_merge_with_metadata(
+            &stacks,
+            [(2, anon_c_tip)],
+            &graph,
+            &repo,
+            None,
+        )?;
+
+        // anonymous stacks preserve order after filtered named parents
+        snapbox::assert_data_eq!(
+            out.to_debug(),
+            snapbox::str![[r#"
+Outcome {
+    workspace_commit_id: Sha1(24731387ff4bfbd9c803b388d8f65ca64a9d87b3),
+    stacks: [
+        Stack { tip: d3cce74, name: "add-A" },
+        Stack { tip: 34c4591, name: None },
+        Stack { tip: 115e41b, name: "add-B" },
+    ],
+    missing_stacks: [],
+    conflicting_stacks: [],
+}
+
+"#]]
+        );
         Ok(())
     }
 
     #[test]
     fn with_multi_line_conflict_journey() -> anyhow::Result<()> {
-        let (repo, mut meta) =
+        let (repo, mut meta, mut db) =
             named_read_only_in_memory_scenario("various-heads-for-multi-line-merge-conflict", "")?;
-        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-        * d3cce74 (clean-A) add A
-        | * 115e41b (clean-B) add B
-        |/  
-        | * 34c4591 (clean-C) add C
-        |/  
-        | * bf09eae (conflict-F1) add F1
-        |/  
-        | * f2ce66d (conflict-F2) add F2
-        |/  
-        | * 4bbb93c (HEAD -> conflict-hero) add conflicting-F2
-        | * 98519e9 add conflicting-F1
-        |/  
-        * 85efbe4 (main, gitbutler/workspace) M
-        ");
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            snapbox::str![[r#"
+* d3cce74 (clean-A) add A
+| * 115e41b (clean-B) add B
+|/  
+| * 34c4591 (clean-C) add C
+|/  
+| * bf09eae (conflict-F1) add F1
+|/  
+| * f2ce66d (conflict-F2) add F2
+|/  
+| * 4bbb93c (HEAD -> conflict-hero) add conflicting-F2
+| * 98519e9 add conflicting-F1
+|/  
+* 85efbe4 (main, gitbutler/workspace) M
+
+"#]]
+        );
 
         let stacks = [
             "clean-A",
@@ -181,7 +303,13 @@ mod from_new_merge_with_metadata {
             "clean-A",
         ];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &*meta,
+            but_core::ref_metadata::ProjectMeta::default(),
+            &mut db,
+            Options::limited(),
+        )?;
 
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
@@ -190,42 +318,51 @@ mod from_new_merge_with_metadata {
             &repo,
             Some("refs/heads/conflict-hero".try_into()?),
         )?;
-        insta::assert_debug_snapshot!(out, @r#"
-        Outcome {
-            workspace_commit_id: Sha1(b8ba7bd37ac1a1f9a0e7f29ddf83acc249d7b866),
-            stacks: [
-                Stack { tip: d3cce74, name: "clean-A" },
-                Stack { tip: 115e41b, name: "clean-B" },
-                Stack { tip: 34c4591, name: "clean-C" },
-                Stack { tip: 4bbb93c, name: "conflict-hero" },
-                Stack { tip: d3cce74, name: "clean-A" },
-            ],
-            missing_stacks: [],
-            conflicting_stacks: [
-                ConflictingStack {
-                    tip: Sha1(bf09eaee36b845f0ee6af0b4e19731498b6a017b),
-                    ref_name: FullName(
-                        "refs/heads/conflict-F1",
-                    ),
-                },
-                ConflictingStack {
-                    tip: Sha1(f2ce66d01ec4227683e16ad679def2ee6aa0d282),
-                    ref_name: FullName(
-                        "refs/heads/conflict-F2",
-                    ),
-                },
-            ],
-        }
-        "#);
+        snapbox::assert_data_eq!(
+            out.to_debug(),
+            snapbox::str![[r#"
+Outcome {
+    workspace_commit_id: Sha1(b8ba7bd37ac1a1f9a0e7f29ddf83acc249d7b866),
+    stacks: [
+        Stack { tip: d3cce74, name: "clean-A" },
+        Stack { tip: 115e41b, name: "clean-B" },
+        Stack { tip: 34c4591, name: "clean-C" },
+        Stack { tip: 4bbb93c, name: "conflict-hero" },
+        Stack { tip: d3cce74, name: "clean-A" },
+    ],
+    missing_stacks: [],
+    conflicting_stacks: [
+        ConflictingStack {
+            tip: Sha1(bf09eaee36b845f0ee6af0b4e19731498b6a017b),
+            ref_name: FullName(
+                "refs/heads/conflict-F1",
+            ),
+        },
+        ConflictingStack {
+            tip: Sha1(f2ce66d01ec4227683e16ad679def2ee6aa0d282),
+            ref_name: FullName(
+                "refs/heads/conflict-F2",
+            ),
+        },
+    ],
+}
+
+"#]]
+        );
         let commit = out.workspace_commit_id.attach(&repo).object()?;
-        insta::assert_snapshot!(visualize_tree(commit.peel_to_tree()?.id()), @r#"
-        45db176
-        ├── A:100644:f70f10e "A\n"
-        ├── B:100644:223b783 "B\n"
-        ├── C:100644:3cc58df "C\n"
-        ├── F1:100644:2fc7694 "conflicting-F1\n"
-        └── F2:100644:ade95f4 "conflicting-F2\n"
-        "#);
+        snapbox::assert_data_eq!(
+            visualize_tree(commit.peel_to_tree()?.id()).to_string(),
+            snapbox::str![[r#"
+45db176
+├── A:100644:f70f10e "A\n"
+├── B:100644:223b783 "B\n"
+├── C:100644:3cc58df "C\n"
+├── F1:100644:2fc7694 "conflicting-F1\n"
+└── F2:100644:ade95f4 "conflicting-F2\n"
+
+"#]]
+            .raw()
+        );
 
         // Just for show, see what happens if there is no hero.
         let out = WorkspaceCommit::from_new_merge_with_metadata(
@@ -235,39 +372,47 @@ mod from_new_merge_with_metadata {
             &repo,
             None,
         )?;
-        insta::assert_debug_snapshot!(out, @r#"
-        Outcome {
-            workspace_commit_id: Sha1(e444bfa38570217271f5df56c3fe26ed57a7e023),
-            stacks: [
-                Stack { tip: d3cce74, name: "clean-A" },
-                Stack { tip: bf09eae, name: "conflict-F1" },
-                Stack { tip: 115e41b, name: "clean-B" },
-                Stack { tip: f2ce66d, name: "conflict-F2" },
-                Stack { tip: 34c4591, name: "clean-C" },
-                Stack { tip: d3cce74, name: "clean-A" },
-            ],
-            missing_stacks: [],
-            conflicting_stacks: [
-                ConflictingStack {
-                    tip: Sha1(4bbb93c2e76f7ae0fe61183ac3774943284ba9af),
-                    ref_name: FullName(
-                        "refs/heads/conflict-hero",
-                    ),
-                },
-            ],
-        }
-        "#);
+        snapbox::assert_data_eq!(
+            out.to_debug(),
+            snapbox::str![[r#"
+Outcome {
+    workspace_commit_id: Sha1(e444bfa38570217271f5df56c3fe26ed57a7e023),
+    stacks: [
+        Stack { tip: d3cce74, name: "clean-A" },
+        Stack { tip: bf09eae, name: "conflict-F1" },
+        Stack { tip: 115e41b, name: "clean-B" },
+        Stack { tip: f2ce66d, name: "conflict-F2" },
+        Stack { tip: 34c4591, name: "clean-C" },
+        Stack { tip: d3cce74, name: "clean-A" },
+    ],
+    missing_stacks: [],
+    conflicting_stacks: [
+        ConflictingStack {
+            tip: Sha1(4bbb93c2e76f7ae0fe61183ac3774943284ba9af),
+            ref_name: FullName(
+                "refs/heads/conflict-hero",
+            ),
+        },
+    ],
+}
+
+"#]]
+        );
         Ok(())
     }
 
     #[test]
     fn with_conflict_commits() -> anyhow::Result<()> {
-        let (_tmp, mut graph, repo, mut meta, _description) =
+        let (_tmp, mut graph, repo, mut meta, _description, _db) =
             named_writable_scenario_with_description_and_graph("with-conflict", |_| {})?;
-        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-        * 8450331 (HEAD -> main, tag: conflicted) GitButler WIP Commit
-        * a047f81 (tag: normal) init
-        ");
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            snapbox::str![[r#"
+* 8450331 (HEAD -> main, tag: conflicted) GitButler WIP Commit
+* a047f81 (tag: normal) init
+
+"#]]
+        );
         but_testsupport::invoke_bash(
             r#"
             git branch tip-conflicted
@@ -277,12 +422,16 @@ mod from_new_merge_with_metadata {
             "#,
             &repo,
         );
-        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-        * 8450331 (tag: conflicted, tip-conflicted) GitButler WIP Commit
-        | * 8ab1c4d (HEAD -> unrelated) unrelated
-        |/  
-        * a047f81 (tag: normal, main) init
-        ");
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            snapbox::str![[r#"
+* 8450331 (tag: conflicted, tip-conflicted) GitButler WIP Commit
+| * 8ab1c4d (HEAD -> unrelated) unrelated
+|/  
+* a047f81 (tag: normal, main) init
+
+"#]]
+        );
 
         let stacks = ["tip-conflicted", "unrelated"];
         add_stacks(&mut meta, stacks);
@@ -309,49 +458,72 @@ mod from_new_merge_with_metadata {
             &repo,
             None,
         )?;
-        insta::assert_debug_snapshot!(out, @r#"
-        Outcome {
-            workspace_commit_id: Sha1(e25b36b3a4192701e5e91a00d1c2fe07b9888338),
-            stacks: [
-                Stack { tip: 8450331, name: "tip-conflicted" },
-                Stack { tip: 8ab1c4d, name: "unrelated" },
-            ],
-            missing_stacks: [],
-            conflicting_stacks: [],
-        }
-        "#);
+        snapbox::assert_data_eq!(
+            out.to_debug(),
+            snapbox::str![[r#"
+Outcome {
+    workspace_commit_id: Sha1(e25b36b3a4192701e5e91a00d1c2fe07b9888338),
+    stacks: [
+        Stack { tip: 8450331, name: "tip-conflicted" },
+        Stack { tip: 8ab1c4d, name: "unrelated" },
+    ],
+    missing_stacks: [],
+    conflicting_stacks: [],
+}
+
+"#]]
+        );
 
         // There it auto-resolves the commit to not merge the actual tree structure.
-        insta::assert_snapshot!(visualize_tree(
-            out.workspace_commit_id.attach(&repo).object()?.into_commit().tree_id()?
-        ), @r#"
-        8882acc
-        ├── file:100644:e69de29 ""
-        └── unrelated-file:100644:e69de29 ""
-        "#);
+        snapbox::assert_data_eq!(
+            visualize_tree(
+                out.workspace_commit_id
+                    .attach(&repo)
+                    .object()?
+                    .into_commit()
+                    .tree_id()?
+            )
+            .to_string(),
+            snapbox::str![[r#"
+8882acc
+├── file:100644:e69de29 ""
+└── unrelated-file:100644:e69de29 ""
+
+"#]]
+        );
 
         Ok(())
     }
 
     #[test]
     fn with_conflict_journey() -> anyhow::Result<()> {
-        let (repo, mut meta) =
+        let (repo, mut meta, mut db) =
             named_read_only_in_memory_scenario("various-heads-for-merge-conflict", "")?;
-        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-        * d3cce74 (clean-A) add A
-        | * 115e41b (clean-B) add B
-        |/  
-        | * 6777bd8 (conflict-C1) add C1
-        |/  
-        | * f8392d2 (HEAD -> conflict-C2) add C2
-        |/  
-        * 85efbe4 (main, gitbutler/workspace) M
-        ");
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            snapbox::str![[r#"
+* d3cce74 (clean-A) add A
+| * 115e41b (clean-B) add B
+|/  
+| * 6777bd8 (conflict-C1) add C1
+|/  
+| * f8392d2 (HEAD -> conflict-C2) add C2
+|/  
+* 85efbe4 (main, gitbutler/workspace) M
+
+"#]]
+        );
 
         // NOTE: the caller would be expected to have prepared a graph that contains these branches.
         let stacks = ["clean-A", "conflict-C1", "clean-B", "conflict-C2"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &*meta,
+            but_core::ref_metadata::ProjectMeta::default(),
+            &mut db,
+            Options::limited(),
+        )?;
 
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
@@ -360,62 +532,75 @@ mod from_new_merge_with_metadata {
             &repo,
             None,
         )?;
-        insta::assert_debug_snapshot!(out, @r#"
-        Outcome {
-            workspace_commit_id: Sha1(4aede0de89327f3afde3db1ed9f83f368f67d501),
-            stacks: [
-                Stack { tip: d3cce74, name: "clean-A" },
-                Stack { tip: 6777bd8, name: "conflict-C1" },
-                Stack { tip: 115e41b, name: "clean-B" },
-            ],
-            missing_stacks: [],
-            conflicting_stacks: [
-                ConflictingStack {
-                    tip: Sha1(f8392d239500de94b23f42c8ab5508dae1b3b657),
-                    ref_name: FullName(
-                        "refs/heads/conflict-C2",
-                    ),
-                },
-            ],
-        }
-        "#);
+        snapbox::assert_data_eq!(
+            out.to_debug(),
+            snapbox::str![[r#"
+Outcome {
+    workspace_commit_id: Sha1(4aede0de89327f3afde3db1ed9f83f368f67d501),
+    stacks: [
+        Stack { tip: d3cce74, name: "clean-A" },
+        Stack { tip: 6777bd8, name: "conflict-C1" },
+        Stack { tip: 115e41b, name: "clean-B" },
+    ],
+    missing_stacks: [],
+    conflicting_stacks: [
+        ConflictingStack {
+            tip: Sha1(f8392d239500de94b23f42c8ab5508dae1b3b657),
+            ref_name: FullName(
+                "refs/heads/conflict-C2",
+            ),
+        },
+    ],
+}
+
+"#]]
+        );
         let commit = out.workspace_commit_id.attach(&repo).object()?;
         // In absence of a hero stack, the conflicting stack is simply not assigned.
-        insta::assert_snapshot!(commit.data.as_bstr(), @"
-        tree fc2bf71918ed072ec412bdebb04ec7322f2cfb72
-        parent d3cce74a69ee3b0e1cbea65b53908d602d6bda26
-        parent 6777bd8aff28a87a07739e2f309d3699d93685f9
-        parent 115e41b0ffb7fcb56f91a9fb64cf4a7b786c1bea
-        author GitButler <gitbutler@gitbutler.com> 946771200 +0000
-        committer GitButler <gitbutler@gitbutler.com> 946771200 +0000
-        encoding UTF-8
+        snapbox::assert_data_eq!(
+            commit.data.as_bstr().to_string(),
+            snapbox::str![[r#"
+tree fc2bf71918ed072ec412bdebb04ec7322f2cfb72
+parent d3cce74a69ee3b0e1cbea65b53908d602d6bda26
+parent 6777bd8aff28a87a07739e2f309d3699d93685f9
+parent 115e41b0ffb7fcb56f91a9fb64cf4a7b786c1bea
+author GitButler <gitbutler@gitbutler.com> 946771200 +0000
+committer GitButler <gitbutler@gitbutler.com> 946771200 +0000
+encoding UTF-8
 
-        GitButler Workspace Commit
+GitButler Workspace Commit
 
-        This is a merge commit of the virtual branches in your workspace.
+This is a merge commit of the virtual branches in your workspace.
 
-        Due to GitButler managing multiple virtual branches, you cannot switch back and
-        forth between git branches and virtual branches easily. 
+Due to GitButler managing multiple virtual branches, you cannot switch back and
+forth between git branches and virtual branches easily. 
 
-        If you switch to another branch, GitButler will need to be reinitialized.
-        If you commit on this branch, GitButler will throw it away.
+If you switch to another branch, GitButler will need to be reinitialized.
+If you commit on this branch, GitButler will throw it away.
 
-        Here are the branches that are currently applied:
-         - clean-A
-           branch head: d3cce74a69ee3b0e1cbea65b53908d602d6bda26
-         - conflict-C1
-           branch head: 6777bd8aff28a87a07739e2f309d3699d93685f9
-         - clean-B
-           branch head: 115e41b0ffb7fcb56f91a9fb64cf4a7b786c1bea
-        For more information about what we're doing here, check out our docs:
-        https://docs.gitbutler.com/features/branch-management/integration-branch
-        ");
-        insta::assert_snapshot!(visualize_tree(commit.peel_to_tree()?.id()), @r#"
-        fc2bf71
-        ├── A:100644:f70f10e "A\n"
-        ├── B:100644:223b783 "B\n"
-        └── C:100644:e2cf5e7 "C1\n"
-        "#);
+Here are the branches that are currently applied:
+ - clean-A
+   branch head: d3cce74a69ee3b0e1cbea65b53908d602d6bda26
+ - conflict-C1
+   branch head: 6777bd8aff28a87a07739e2f309d3699d93685f9
+ - clean-B
+   branch head: 115e41b0ffb7fcb56f91a9fb64cf4a7b786c1bea
+For more information about what we're doing here, check out our docs:
+https://docs.gitbutler.com/features/branch-management/integration-branch
+
+"#]]
+        );
+        snapbox::assert_data_eq!(
+            visualize_tree(commit.peel_to_tree()?.id()).to_string(),
+            snapbox::str![[r#"
+fc2bf71
+├── A:100644:f70f10e "A\n"
+├── B:100644:223b783 "B\n"
+└── C:100644:e2cf5e7 "C1\n"
+
+"#]]
+            .raw()
+        );
 
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
@@ -425,61 +610,74 @@ mod from_new_merge_with_metadata {
             Some("refs/heads/conflict-C2".try_into()?),
         )?;
         // TODO: make clean-B show up!
-        insta::assert_debug_snapshot!(out, @r#"
-        Outcome {
-            workspace_commit_id: Sha1(fd9723d257cd09656a2f8bb24d3dd2138f88b343),
-            stacks: [
-                Stack { tip: d3cce74, name: "clean-A" },
-                Stack { tip: 115e41b, name: "clean-B" },
-                Stack { tip: f8392d2, name: "conflict-C2" },
-            ],
-            missing_stacks: [],
-            conflicting_stacks: [
-                ConflictingStack {
-                    tip: Sha1(6777bd8aff28a87a07739e2f309d3699d93685f9),
-                    ref_name: FullName(
-                        "refs/heads/conflict-C1",
-                    ),
-                },
-            ],
-        }
-        "#);
+        snapbox::assert_data_eq!(
+            out.to_debug(),
+            snapbox::str![[r#"
+Outcome {
+    workspace_commit_id: Sha1(fd9723d257cd09656a2f8bb24d3dd2138f88b343),
+    stacks: [
+        Stack { tip: d3cce74, name: "clean-A" },
+        Stack { tip: 115e41b, name: "clean-B" },
+        Stack { tip: f8392d2, name: "conflict-C2" },
+    ],
+    missing_stacks: [],
+    conflicting_stacks: [
+        ConflictingStack {
+            tip: Sha1(6777bd8aff28a87a07739e2f309d3699d93685f9),
+            ref_name: FullName(
+                "refs/heads/conflict-C1",
+            ),
+        },
+    ],
+}
+
+"#]]
+        );
         let commit = out.workspace_commit_id.attach(&repo).object()?;
-        insta::assert_snapshot!(commit.data.as_bstr(), @"
-        tree 39ba52245958cf3a0544caf68c75665b9ad6ea4f
-        parent d3cce74a69ee3b0e1cbea65b53908d602d6bda26
-        parent 115e41b0ffb7fcb56f91a9fb64cf4a7b786c1bea
-        parent f8392d239500de94b23f42c8ab5508dae1b3b657
-        author GitButler <gitbutler@gitbutler.com> 946771200 +0000
-        committer GitButler <gitbutler@gitbutler.com> 946771200 +0000
-        encoding UTF-8
+        snapbox::assert_data_eq!(
+            commit.data.as_bstr().to_string(),
+            snapbox::str![[r#"
+tree 39ba52245958cf3a0544caf68c75665b9ad6ea4f
+parent d3cce74a69ee3b0e1cbea65b53908d602d6bda26
+parent 115e41b0ffb7fcb56f91a9fb64cf4a7b786c1bea
+parent f8392d239500de94b23f42c8ab5508dae1b3b657
+author GitButler <gitbutler@gitbutler.com> 946771200 +0000
+committer GitButler <gitbutler@gitbutler.com> 946771200 +0000
+encoding UTF-8
 
-        GitButler Workspace Commit
+GitButler Workspace Commit
 
-        This is a merge commit of the virtual branches in your workspace.
+This is a merge commit of the virtual branches in your workspace.
 
-        Due to GitButler managing multiple virtual branches, you cannot switch back and
-        forth between git branches and virtual branches easily. 
+Due to GitButler managing multiple virtual branches, you cannot switch back and
+forth between git branches and virtual branches easily. 
 
-        If you switch to another branch, GitButler will need to be reinitialized.
-        If you commit on this branch, GitButler will throw it away.
+If you switch to another branch, GitButler will need to be reinitialized.
+If you commit on this branch, GitButler will throw it away.
 
-        Here are the branches that are currently applied:
-         - clean-A
-           branch head: d3cce74a69ee3b0e1cbea65b53908d602d6bda26
-         - clean-B
-           branch head: 115e41b0ffb7fcb56f91a9fb64cf4a7b786c1bea
-         - conflict-C2
-           branch head: f8392d239500de94b23f42c8ab5508dae1b3b657
-        For more information about what we're doing here, check out our docs:
-        https://docs.gitbutler.com/features/branch-management/integration-branch
-        ");
-        insta::assert_snapshot!(visualize_tree(commit.peel_to_tree()?.id()), @r#"
-        39ba522
-        ├── A:100644:f70f10e "A\n"
-        ├── B:100644:223b783 "B\n"
-        └── C:100644:c4b2d41 "C2\n"
-        "#);
+Here are the branches that are currently applied:
+ - clean-A
+   branch head: d3cce74a69ee3b0e1cbea65b53908d602d6bda26
+ - clean-B
+   branch head: 115e41b0ffb7fcb56f91a9fb64cf4a7b786c1bea
+ - conflict-C2
+   branch head: f8392d239500de94b23f42c8ab5508dae1b3b657
+For more information about what we're doing here, check out our docs:
+https://docs.gitbutler.com/features/branch-management/integration-branch
+
+"#]]
+        );
+        snapbox::assert_data_eq!(
+            visualize_tree(commit.peel_to_tree()?.id()).to_string(),
+            snapbox::str![[r#"
+39ba522
+├── A:100644:f70f10e "A\n"
+├── B:100644:223b783 "B\n"
+└── C:100644:c4b2d41 "C2\n"
+
+"#]]
+            .raw()
+        );
 
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(["conflict-C2", "conflict-C2", "conflict-C1", "clean-A"]),
@@ -488,37 +686,46 @@ mod from_new_merge_with_metadata {
             &repo,
             Some("refs/heads/conflict-C1".try_into()?),
         )?;
-        insta::assert_debug_snapshot!(out, @r#"
-        Outcome {
-            workspace_commit_id: Sha1(e297aee321879eb991bb5360859cbddb5891a316),
-            stacks: [
-                Stack { tip: 6777bd8, name: "conflict-C1" },
-                Stack { tip: d3cce74, name: "clean-A" },
-            ],
-            missing_stacks: [],
-            conflicting_stacks: [
-                ConflictingStack {
-                    tip: Sha1(f8392d239500de94b23f42c8ab5508dae1b3b657),
-                    ref_name: FullName(
-                        "refs/heads/conflict-C2",
-                    ),
-                },
-                ConflictingStack {
-                    tip: Sha1(f8392d239500de94b23f42c8ab5508dae1b3b657),
-                    ref_name: FullName(
-                        "refs/heads/conflict-C2",
-                    ),
-                },
-            ],
-        }
-        "#);
+        snapbox::assert_data_eq!(
+            out.to_debug(),
+            snapbox::str![[r#"
+Outcome {
+    workspace_commit_id: Sha1(e297aee321879eb991bb5360859cbddb5891a316),
+    stacks: [
+        Stack { tip: 6777bd8, name: "conflict-C1" },
+        Stack { tip: d3cce74, name: "clean-A" },
+    ],
+    missing_stacks: [],
+    conflicting_stacks: [
+        ConflictingStack {
+            tip: Sha1(f8392d239500de94b23f42c8ab5508dae1b3b657),
+            ref_name: FullName(
+                "refs/heads/conflict-C2",
+            ),
+        },
+        ConflictingStack {
+            tip: Sha1(f8392d239500de94b23f42c8ab5508dae1b3b657),
+            ref_name: FullName(
+                "refs/heads/conflict-C2",
+            ),
+        },
+    ],
+}
+
+"#]]
+        );
 
         let commit = out.workspace_commit_id.attach(&repo).object()?;
-        insta::assert_snapshot!(visualize_tree(commit.peel_to_tree()?.id()), @r#"
-        5c730c4
-        ├── A:100644:f70f10e "A\n"
-        └── C:100644:e2cf5e7 "C1\n"
-        "#);
+        snapbox::assert_data_eq!(
+            visualize_tree(commit.peel_to_tree()?.id()).to_string(),
+            snapbox::str![[r#"
+5c730c4
+├── A:100644:f70f10e "A\n"
+└── C:100644:e2cf5e7 "C1\n"
+
+"#]]
+            .raw()
+        );
 
         Ok(())
     }

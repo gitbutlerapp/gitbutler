@@ -5,12 +5,22 @@ use serde::Serialize;
 
 use crate::commit_engine::RejectionReason;
 
+/// A rejected change with its reason and path.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RejectedChange {
+    /// The reason for the rejection.
+    pub reason: RejectionReason,
+    /// The path of the rejected change.
+    pub path: BStringForFrontend,
+}
+
 /// The JSON serializable type of [super::CreateCommitOutcome].
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateCommitOutcome {
-    /// Paths that contained at least one rejected hunk, for instance, a change that didn't apply, along with the reason for the rejection.
-    pub paths_to_rejected_changes: Vec<(RejectionReason, BStringForFrontend)>,
+    /// Changes that were rejected, for instance because a hunk didn't apply, along with the reason for the rejection.
+    pub rejected_changes: Vec<RejectedChange>,
     /// The newly created commit, if there was one. It maybe that a couple of paths were rejected, but the commit was created anyway.
     #[serde(with = "but_serde::object_id_opt")]
     pub new_commit: Option<gix::ObjectId>,
@@ -39,9 +49,12 @@ impl From<super::CreateCommitOutcome> for CreateCommitOutcome {
             Vec::new()
         };
         CreateCommitOutcome {
-            paths_to_rejected_changes: rejected_specs
+            rejected_changes: rejected_specs
                 .into_iter()
-                .map(|(reason, spec)| (reason, spec.path.into()))
+                .map(|(reason, spec)| RejectedChange {
+                    reason,
+                    path: spec.path.into(),
+                })
                 .collect(),
             new_commit,
             commit_mapping,

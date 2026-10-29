@@ -11,6 +11,7 @@ pub mod create_tree {
 
     /// Provide a description of why a [`crate::DiffSpec`] was rejected for application to the tree of a commit.
     #[derive(Default, Debug, Copy, Clone, PartialEq, serde::Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
     #[serde(rename_all = "camelCase")]
     pub enum RejectionReason {
         /// All changes were applied, but they didn't end up effectively change the tree to something differing from the target tree.
@@ -46,6 +47,9 @@ pub mod create_tree {
         /// However, at least one hunk was not fully contained.
         MissingDiffSpecAssociation,
     }
+
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(RejectionReason);
 }
 use create_tree::RejectionReason;
 
@@ -187,6 +191,25 @@ pub fn apply_worktree_changes<'repo>(
     let base_tree = actual_base_tree.attach(repo).object()?.peel_to_tree()?;
     let mut base_tree_editor = base_tree.edit()?;
     let (mut pipeline, index) = repo.filter_pipeline(None)?;
+    let trust_executable_bit = repo.filesystem_options()?.executable_bit;
+    let entry_kind = |path: &bstr::BStr, disk_kind: EntryKind| {
+        if !trust_executable_bit && matches!(disk_kind, EntryKind::Blob | EntryKind::BlobExecutable)
+        {
+            // On filesystems without executable bits, Git keeps the index mode,
+            // as it can be manipulated in a platform independent way.
+            index
+                .entry_by_path(path)
+                // If ours is absent, prefer the base over theirs, like Git.
+                .or_else(|| index.entry_by_path_and_stage(path, gix::index::entry::Stage::Base))
+                .or_else(|| index.entry_by_path_and_stage(path, gix::index::entry::Stage::Theirs))
+                .and_then(|entry| entry.mode.to_tree_entry_mode())
+                .map(|mode| mode.kind())
+                .filter(|kind| matches!(kind, EntryKind::Blob | EntryKind::BlobExecutable))
+                .unwrap_or(EntryKind::Blob)
+        } else {
+            disk_kind
+        }
+    };
     let has_changes_with_hunks = changes
         .iter()
         .filter_map(|c| c.as_ref().ok())
@@ -197,29 +220,34 @@ pub fn apply_worktree_changes<'repo>(
     let mut current_worktree = Vec::new();
 
     let work_dir = repo.workdir().expect("non-bare repo");
+    for possible_change in changes.iter() {
+        let change_request = match possible_change {
+            Ok(change) => change,
+            Err(_) => continue,
+        };
+        if let Some(previous_path) = change_request.previous_path.as_ref().map(|p| p.as_bstr()) {
+            base_tree_editor.remove_leaf(previous_path)?;
+        }
+    }
     'each_change: for possible_change in changes.iter_mut() {
         let change_request = match possible_change {
             Ok(change) => change,
             Err(_) => continue,
         };
-        let path = work_dir.join(gix::path::from_bstr(change_request.path.as_bstr()));
+        let path = work_dir.join(gix::path::from_bstr(change_request.path.as_bstr())?);
         let md = match gix::index::fs::Metadata::from_path_no_follow(&path) {
             Ok(md) => md,
             Err(err) if gix::fs::io_err::is_not_found(err.kind(), err.raw_os_error()) => {
-                base_tree_editor.remove(change_request.path.as_bstr())?;
+                base_tree_editor.remove_leaf(change_request.path.as_bstr())?;
                 continue;
             }
             Err(err) => return Err(err.into()),
         };
-        // NOTE: See copy below!
-        if let Some(previous_path) = change_request.previous_path.as_ref().map(|p| p.as_bstr()) {
-            base_tree_editor.remove(previous_path)?;
-        }
         if change_request.hunk_headers.is_empty() {
             let rela_path = change_request.path.as_bstr();
             match pipeline.worktree_file_to_object(rela_path, &index)? {
                 Some((id, kind, _fs_metadata)) => {
-                    base_tree_editor.upsert(rela_path, kind, id)?;
+                    base_tree_editor.upsert(rela_path, entry_kind(rela_path, kind), id)?;
                 }
                 None => into_err_spec(
                     possible_change,
@@ -333,7 +361,7 @@ pub fn apply_worktree_changes<'repo>(
             let blob_with_selected_patches = repo.write_blob(base_with_patches.as_slice())?;
             base_tree_editor.upsert(
                 change_request.path.as_bstr(),
-                current_entry_kind,
+                entry_kind(change_request.path.as_bstr(), current_entry_kind),
                 blob_with_selected_patches,
             )?;
         } else {

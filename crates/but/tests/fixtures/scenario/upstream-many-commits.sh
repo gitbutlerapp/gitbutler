@@ -7,6 +7,7 @@ source "${BASH_SOURCE[0]%/*}/shared.sh"
 git-init-frozen
 commit-file M
 setup_target_to_match_main
+git update-ref refs/heads/base HEAD
 
 git checkout -b A
 commit-file A

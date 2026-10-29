@@ -1,18 +1,18 @@
 use std::{path::Path, sync::Mutex};
 
-use anyhow::{Result, bail};
+use anyhow::{Result, anyhow, bail};
 use base64::engine::Engine as _;
+use bstr::ByteSlice as _;
+use but_core::git_config::{edit_repo_config, ensure_config_value};
 use but_ctx::Context;
-use but_oxidize::ObjectIdExt as _;
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
-use git2::Oid;
 use ignore::WalkBuilder;
 use infer::MatcherType;
 use itertools::Itertools;
 use serde::Serialize;
 use tracing::warn;
 
-use crate::{RepositoryExt, remote::GitRemote};
+use crate::remote::GitRemote;
 
 #[derive(Default, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -31,9 +31,23 @@ pub struct FileInfo {
     pub mime_type: Option<String>,
 }
 
+/// Lifecycle
 impl FileInfo {
     pub fn deleted() -> Self {
         Self::default()
+    }
+
+    /// A placeholder for a path that points at a directory rather than a
+    /// regular file (typically a git submodule surfacing as a real
+    /// directory in the worktree). Returns empty text content so existing
+    /// text-rendering consumers can display it without error.
+    pub fn directory(path_in_worktree: &Path) -> Self {
+        FileInfo {
+            content: Some(String::new()),
+            file_name: Self::file_name_str(path_in_worktree),
+            size: Some(0),
+            mime_type: None,
+        }
     }
 
     pub fn from_content(path_in_worktree: &Path, content: &[u8]) -> Self {
@@ -100,6 +114,18 @@ impl FileInfo {
     }
 }
 
+/// Utilities
+impl FileInfo {
+    /// Returns true when a file is represented as UTF-8 text content.
+    ///
+    /// `FileInfo` stores valid text in `content` with no `mime_type`. Binary files either have no
+    /// content, or have base64-encoded content plus a MIME type when the content can be displayed,
+    /// such as images. Missing or deleted files also have no content and are not valid text.
+    pub fn is_valid_utf8(&self) -> bool {
+        self.content.is_some() && self.mime_type.is_none()
+    }
+}
+
 /// Computes a match score for a file path against a search pattern.
 ///
 /// Returns `None` if the file doesn't match the pattern or if the pattern is empty.
@@ -157,7 +183,7 @@ pub trait RepoCommands {
     ///
     /// Bails when given an absolute path since that would suggest we are looking for a file in
     /// the workspace. Returns `FileInfo::default()` if file could not be found.
-    fn read_file_from_commit(&self, commit_id: Oid, path: &Path) -> Result<FileInfo>;
+    fn read_file_from_commit(&self, commit_id: gix::ObjectId, path: &Path) -> Result<FileInfo>;
 
     /// Read `path` in the following order:
     ///
@@ -170,6 +196,11 @@ pub trait RepoCommands {
     ///
     /// `path` can be a repository-relative path, or a path that is within the
     /// worktree of the current repository.
+    ///
+    /// Fails if `path` names Git metadata (a `.git` component in any spelling) or
+    /// a Git-ignored file that isn't tracked, so a compromised renderer can't read
+    /// secrets like `.env`. Directories are exempt: their `FileInfo` placeholder
+    /// carries no content.
     ///
     /// Returns `FileInfo::default()` if file could not be found.
     fn read_file_from_workspace(&self, path: &Path) -> Result<FileInfo>;
@@ -184,28 +215,37 @@ pub trait RepoCommands {
 
 impl RepoCommands for Context {
     fn check_signing_settings(&self) -> Result<bool> {
-        let signed = self.git2_repo.get()?.sign_buffer(b"test");
-        match signed {
+        let repo = self.repo.get()?;
+        let opts = repo.commit_signing_options()?;
+        let null = repo.object_hash().null();
+        let res = gix::objs::Tag {
+            target: null,
+            target_kind: gix::objs::Kind::Commit,
+            name: "test".into(),
+            tagger: None,
+            message: "test message".into(),
+            signature: None,
+        }
+        .sign(opts);
+        match res {
             Ok(_) => Ok(true),
-            Err(e) => Err(e),
+            Err(e) => Err(e.into()),
         }
     }
 
     fn remotes(&self) -> anyhow::Result<Vec<GitRemote>> {
-        let repo = self.git2_repo.get()?;
-        let remotes = repo
-            .remotes_as_string()?
+        let repo = self.repo.get()?;
+        repo.remote_names()
             .iter()
-            .map(|name| repo.find_remote(name))
-            .collect::<Result<Vec<_>, _>>()?
-            .into_iter()
-            .map(|remote| remote.into())
-            .collect_vec();
-        Ok(remotes)
+            .map(|name| -> Result<_> {
+                let remote = repo.find_remote(name)?;
+                Ok(GitRemote::from_gix(name.to_string(), &remote))
+            })
+            .collect()
     }
 
     fn add_remote(&self, name: &str, url: &str) -> Result<()> {
-        let repo = self.git2_repo.get()?;
+        let repo = self.open_isolated_repo()?;
 
         // Bail if remote with given name already exists.
         if repo.find_remote(name).is_ok() {
@@ -213,101 +253,52 @@ impl RepoCommands for Context {
         }
 
         // Bail if remote with given url already exists.
-        if repo
-            .remotes_as_string()?
+        if let Some(remote_name) = repo
+            .remote_names()
             .iter()
-            .map(|name| repo.find_remote(name))
-            .any(|result| result.is_ok_and(|remote| remote.url() == Some(url)))
+            .filter_map(|name| repo.find_remote(name).ok())
+            .find_map(|remote| {
+                remote
+                    .url(gix::remote::Direction::Fetch)
+                    .and_then(|remote_url| {
+                        if remote_url.to_bstring() == url {
+                            remote
+                                .name()
+                                .and_then(|n| n.as_symbol().map(ToOwned::to_owned))
+                        } else {
+                            None
+                        }
+                    })
+            })
         {
-            bail!("Remote with url '{url}' already exists");
+            bail!("Remote with url '{url}' already exists at '{remote_name}'");
         }
 
-        repo.remote(name, url)?;
+        edit_repo_config(&repo, gix::config::Source::Local, |config| {
+            let mut section = config.section_mut_or_create_new("remote", Some(name.into()))?;
+            section.push("url", Some(url.as_bytes().as_bstr()))?;
+            ensure_config_value(
+                config,
+                &format!("remote.{name}.fetch"),
+                &format!("+refs/heads/*:refs/remotes/{name}/*"),
+            )?;
+            Ok(())
+        })?;
         Ok(())
     }
 
-    fn read_file_from_commit(&self, commit_id: Oid, relative_path: &Path) -> Result<FileInfo> {
-        if !relative_path.is_relative() {
-            bail!(
-                "Refusing to read '{relative_path:?}' from commit {commit_id:?} as it's not relative to the worktree"
-            );
-        }
-
-        let repo = self.git2_repo.get()?;
-        let tree = repo.find_commit(commit_id)?.tree()?;
-
-        Ok(match tree.get_path(relative_path) {
-            Ok(entry) => {
-                let blob = repo.find_blob(entry.id())?;
-                FileInfo::from_content(relative_path, blob.content())
-            }
-            Err(e) if e.code() == git2::ErrorCode::NotFound => FileInfo::deleted(),
-            Err(e) => return Err(e.into()),
-        })
+    fn read_file_from_commit(
+        &self,
+        commit_id: gix::ObjectId,
+        relative_path: &Path,
+    ) -> Result<FileInfo> {
+        let repo = self.repo.get()?;
+        read_commit_file(&repo, commit_id, relative_path)
     }
 
-    /// Note that `path` can be relative or absolute, and we must validate that it's in the worktree.
     fn read_file_from_workspace(&self, path: &Path) -> Result<FileInfo> {
-        let workdir = self.workdir_or_fail()?;
-        let canonical_workdir = gix::path::realpath(&workdir)?;
-        let path = gix::path::realpath(canonical_workdir.join(path))?;
-        // Double-check that the path is still in the worktree - this might not be the case
-        // if it was aboslute to begin with, or leads through symlinks.
-        let relative_path = match path.strip_prefix(&canonical_workdir) {
-            Ok(relative_path) => relative_path.to_owned(),
-            Err(_) => {
-                bail!(
-                    "Path to read from at '{}' isn't in the worktree directory '{}'",
-                    path.display(),
-                    canonical_workdir.display()
-                );
-            }
-        };
-
-        let out = match path.symlink_metadata() {
-            Ok(md) => {
-                if md.is_file() {
-                    let content = std::fs::read(&path)?;
-                    FileInfo::from_content(&relative_path, &content)
-                } else if md.is_symlink() {
-                    let content = std::fs::read_link(&path)?;
-                    FileInfo::utf8_text_or_binary(&relative_path, &gix::path::into_bstr(content))
-                } else if md.is_dir() {
-                    bail!(
-                        "Path to read from at '{}' is a directory",
-                        relative_path.display(),
-                    );
-                } else {
-                    warn!(
-                        ?relative_path,
-                        "Path can't be read as its type isn't supported, default to binary",
-                    );
-                    FileInfo::binary(&relative_path, md.len())
-                }
-            }
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                let repo = self.repo.get()?;
-                let relative_path_bstr = gix::path::to_unix_separators_on_windows(
-                    gix::path::into_bstr(relative_path.clone()),
-                );
-                let index = repo.index_or_empty()?;
-                match index.entry_by_path(relative_path_bstr.as_ref()) {
-                    // Read file that has been deleted and not staged for commit.
-                    Some(entry) => {
-                        let blob = repo.find_blob(entry.id)?;
-                        FileInfo::from_content(&relative_path, blob.data.as_ref())
-                    }
-                    // Read file that has been deleted and staged for commit. Note that file not
-                    // found returns FileInfo::default() rather than an error.
-                    None => self.read_file_from_commit(
-                        repo.head_id()?.detach().to_git2(),
-                        &relative_path,
-                    )?,
-                }
-            }
-            Err(err) => return Err(err.into()),
-        };
-        Ok(out)
+        let repo = self.repo.get()?;
+        read_worktree_file(&repo, path)
     }
 
     fn find_files(&self, query: &str, limit: usize) -> Result<Vec<String>> {
@@ -338,4 +329,161 @@ impl RepoCommands for Context {
 
         Ok(scored_files)
     }
+}
+
+/// Read `relative_path` from the tree of `commit_id` in `repo`, see
+/// [`RepoCommands::read_file_from_commit()`].
+fn read_commit_file(
+    repo: &gix::Repository,
+    commit_id: gix::ObjectId,
+    relative_path: &Path,
+) -> Result<FileInfo> {
+    if !relative_path.is_relative() {
+        bail!(
+            "Refusing to read '{relative_path:?}' from commit {commit_id:?} as it's not relative to the worktree"
+        );
+    }
+
+    let tree = repo.find_commit(commit_id)?.tree()?;
+
+    Ok(match tree.lookup_entry_by_path(relative_path)? {
+        Some(entry) => {
+            let blob = repo.find_blob(entry.id())?;
+            FileInfo::from_content(relative_path, &blob.data)
+        }
+        None => FileInfo::deleted(),
+    })
+}
+
+/// Read `path` from the checkout of `repo`, see [`RepoCommands::read_file_from_workspace()`].
+/// `path` can be relative or absolute, and is validated to be inside the worktree.
+/// A linked worktree opened from disk reads the same way as the main worktree.
+pub fn read_worktree_file(repo: &gix::Repository, path: &Path) -> Result<FileInfo> {
+    let workdir = repo
+        .workdir()
+        .ok_or_else(|| anyhow!("Cannot currently work in repositories without a worktree"))?;
+    let canonical_workdir = gix::path::realpath(workdir)?;
+    let path = gix::path::realpath(canonical_workdir.join(path))?;
+    // Double-check that the path is still in the worktree - this might not be the case
+    // if it was absolute to begin with, or leads through symlinks.
+    let relative_path = match path.strip_prefix(&canonical_workdir) {
+        Ok(relative_path) => relative_path.to_owned(),
+        Err(_) => {
+            bail!(
+                "Path to read from at '{}' isn't in the worktree directory '{}'",
+                path.display(),
+                canonical_workdir.display()
+            );
+        }
+    };
+
+    // Refuse `.git` in every spelling an OS can map onto it (`.GIT`,
+    // `GIT~1`, `.git.`). Runs before the stat: `.git` can be a file
+    // (linked worktrees) and must be refused all the same.
+    if relative_path.components().any(|component| {
+        matches!(
+            gix::validate::path::component(
+                component.as_os_str().as_encoded_bytes().as_bstr(),
+                None,
+                Default::default(),
+            ),
+            Err(gix::validate::path::component::Error::DotGitDir)
+        )
+    }) {
+        bail!(
+            "Refusing to read Git metadata path '{}'",
+            relative_path.display()
+        );
+    }
+
+    let out = match path.symlink_metadata() {
+        Ok(md) => {
+            // Directories are exempt: their `FileInfo` placeholder carries no
+            // content, and callers rely on getting it rather than an error.
+            if !md.is_dir() {
+                ensure_not_ignored(repo, &relative_path)?;
+            }
+
+            if md.is_file() {
+                let content = std::fs::read(&path)?;
+                FileInfo::from_content(&relative_path, &content)
+            } else if md.is_symlink() {
+                let content = std::fs::read_link(&path)?;
+                FileInfo::utf8_text_or_binary(&relative_path, &gix::path::into_bstr(content)?)
+            } else if md.is_dir() {
+                // Directories on disk (notably git submodules, which appear
+                // as real directories in the worktree but are represented
+                // as commit entries in the tree) have no readable file
+                // content. Return a placeholder FileInfo so callers —
+                // conflict checks, diff viewers — can handle the case
+                // gracefully, rather than surfacing an opaque "is a
+                // directory" toast. Note that the placeholder is shaped
+                // identically to a real zero-byte text file.
+                FileInfo::directory(&relative_path)
+            } else {
+                warn!(
+                    ?relative_path,
+                    "Path can't be read as its type isn't supported, default to binary",
+                );
+                FileInfo::binary(&relative_path, md.len())
+            }
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            let relative_path_bstr = gix::path::to_unix_separators_on_windows(
+                gix::path::into_bstr(relative_path.as_path())?,
+            );
+            let index = repo.index_or_empty()?;
+            match index.entry_by_path(relative_path_bstr.as_ref()) {
+                // Read file that has been deleted and not staged for commit.
+                Some(entry) => {
+                    let blob = repo.find_blob(entry.id)?;
+                    FileInfo::from_content(&relative_path, blob.data.as_ref())
+                }
+                // Read file that has been deleted and staged for commit. Note that file not
+                // found returns FileInfo::default() rather than an error.
+                None => read_commit_file(repo, repo.head_id()?.detach(), &relative_path)?,
+            }
+        }
+        Err(err) => return Err(err.into()),
+    };
+    Ok(out)
+}
+
+/// Refuse to read `relative_path` when Git ignores it. Tracked files stay
+/// readable even when an ignore rule matches them (`git add -f`): their
+/// content is in Git already.
+///
+/// The caller resolves symlinks first, so the check applies to the file whose
+/// content would actually be returned — a link to an ignored file is refused
+/// no matter what the link is called.
+fn ensure_not_ignored(repo: &gix::Repository, relative_path: &Path) -> Result<()> {
+    let relative_path_bstr =
+        gix::path::to_unix_separators_on_windows(gix::path::into_bstr(relative_path)?);
+    let index = repo.index_or_empty()?;
+    if index.entry_by_path(relative_path_bstr.as_ref()).is_some() {
+        return Ok(());
+    }
+    let mut excludes = repo.excludes(
+        &index,
+        None,
+        gix::worktree::stack::state::ignore::Source::WorktreeThenIdMappingIfNotSkipped,
+    )?;
+    if !excludes.at_path(relative_path, None)?.is_excluded() {
+        return Ok(());
+    }
+    // On a case-insensitive filesystem `Tracked` names the tracked file
+    // `tracked`; retry the index lookup case-insensitively before refusing.
+    if repo.filesystem_options()?.ignore_case {
+        let icase_accelerator = index.prepare_icase_backing();
+        if index
+            .entry_by_path_icase(relative_path_bstr.as_ref(), true, &icase_accelerator)
+            .is_some()
+        {
+            return Ok(());
+        }
+    }
+    bail!(
+        "Refusing to read Git-ignored path '{}'",
+        relative_path.display()
+    );
 }

@@ -7,9 +7,9 @@ use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 
 use crate::{
+    AI_OPENAI_SECRET_HANDLE, GITBUTLER_ACCESS_TOKEN_HANDLE,
     chat::ChatMessage,
     client::LLMClient,
-    key::CredentialsKeyOption,
     openai_utils::{
         OpenAIClientProvider, response_blocking, stream_response_blocking,
         structured_output_blocking, tool_calling_loop, tool_calling_loop_stream,
@@ -18,26 +18,11 @@ use crate::{
 
 pub const GB_OPENAI_API_BASE: &str = "https://app.gitbutler.com/api/proxy/openai";
 
-const OPEN_AI_KEY_OPTION: &str = "gitbutler.aiOpenAIKeyOption";
-const OPEN_AI_MODEL_NAME: &str = "gitbutler.aiOpenAIModelName";
-const OPEN_AI_CUSTOM_ENDPOINT: &str = "gitbutler.aiOpenAICustomEndpoint";
-
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, strum::Display)]
 pub enum CredentialsKind {
     EnvVarOpenAiKey,
     OwnOpenAiKey,
     GitButlerProxied,
-}
-
-impl CredentialsKind {
-    fn from_git_config(config: &gix::config::File<'static>) -> Option<Self> {
-        let key_option_str = config.string(OPEN_AI_KEY_OPTION).map(|v| v.to_string())?;
-        let key_option = CredentialsKeyOption::from_str(&key_option_str)?;
-        match key_option {
-            CredentialsKeyOption::BringYourOwn => Some(CredentialsKind::OwnOpenAiKey),
-            CredentialsKeyOption::ButlerApi => Some(CredentialsKind::GitButlerProxied),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -95,7 +80,7 @@ impl OpenAiProvider {
     }
 
     fn gitbutler_proxied_creds() -> Result<(CredentialsKind, Sensitive<String>)> {
-        let creds = secret::retrieve("gitbutler_access_token", secret::Namespace::BuildKind)?
+        let creds = secret::retrieve(GITBUTLER_ACCESS_TOKEN_HANDLE, secret::Namespace::BuildKind)?
             .ok_or(anyhow::anyhow!(
                 "No GitButler token available. Log-in to use the GitButler OpenAI provider"
             ))?;
@@ -103,10 +88,11 @@ impl OpenAiProvider {
     }
 
     fn openai_own_key_creds() -> Result<(CredentialsKind, Sensitive<String>)> {
-        let creds =
-            secret::retrieve("aiOpenAIKey", secret::Namespace::Global)?.ok_or(anyhow::anyhow!(
+        let creds = secret::retrieve(AI_OPENAI_SECRET_HANDLE, secret::Namespace::Global)?.ok_or(
+            anyhow::anyhow!(
                 "No OpenAI own key configured. Add this through the GitButler settings"
-            ))?;
+            ),
+        )?;
         Ok((CredentialsKind::OwnOpenAiKey, creds))
     }
 
@@ -157,19 +143,6 @@ impl OpenAIClientProvider for OpenAiProvider {
 }
 
 impl LLMClient for OpenAiProvider {
-    fn from_git_config(config: &gix::config::File<'static>) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        let credentials_kind = CredentialsKind::from_git_config(config)?;
-        let model = config.string(OPEN_AI_MODEL_NAME).map(|v| v.to_string());
-        let custom_endpoint = config
-            .string(OPEN_AI_CUSTOM_ENDPOINT)
-            .map(|v| v.to_string());
-
-        OpenAiProvider::with(Some(credentials_kind), model, custom_endpoint)
-    }
-
     fn model(&self) -> Option<String> {
         self.model.clone()
     }

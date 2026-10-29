@@ -1,40 +1,70 @@
 mod anthropic;
 mod chat;
 mod client;
+mod config;
 mod key;
 mod lmstudio;
 mod ollama;
 mod openai;
 mod openai_utils;
+mod openrouter;
 
 use std::sync::Arc;
 
 pub use chat::{ChatMessage, StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent};
+pub use config::*;
+pub use key::CredentialsKeyOption;
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 
 use crate::client::LLMClient;
 
-const MODEL_PROVIDER: &str = "gitbutler.aiModelProvider";
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LLMProviderKind {
     OpenAi,
     Anthropic,
     Ollama,
     LMStudio,
+    OpenRouter,
 }
 
 impl LLMProviderKind {
-    fn from_str(s: &str) -> Option<Self> {
+    pub fn from_git_config_value(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "openai" => Some(LLMProviderKind::OpenAi),
             "anthropic" => Some(LLMProviderKind::Anthropic),
             "ollama" => Some(LLMProviderKind::Ollama),
             "lmstudio" => Some(LLMProviderKind::LMStudio),
+            "openrouter" => Some(LLMProviderKind::OpenRouter),
             _ => None,
         }
+    }
+
+    pub fn as_git_config_value(self) -> &'static str {
+        match self {
+            LLMProviderKind::OpenAi => "openai",
+            LLMProviderKind::Anthropic => "anthropic",
+            LLMProviderKind::Ollama => "ollama",
+            LLMProviderKind::LMStudio => "lmstudio",
+            LLMProviderKind::OpenRouter => "openrouter",
+        }
+    }
+
+    pub fn display_name(self) -> &'static str {
+        match self {
+            LLMProviderKind::OpenAi => "OpenAI",
+            LLMProviderKind::Anthropic => "Anthropic",
+            LLMProviderKind::Ollama => "Ollama",
+            LLMProviderKind::LMStudio => "LM Studio",
+            LLMProviderKind::OpenRouter => "OpenRouter",
+        }
+    }
+}
+
+impl From<LLMProviderKind> for String {
+    fn from(value: LLMProviderKind) -> Self {
+        value.display_name().to_string()
     }
 }
 
@@ -44,6 +74,7 @@ pub enum LLMProviderConfig {
     Anthropic(Option<anthropic::CredentialsKind>),
     Ollama(Option<ollama::OllamaConfig>),
     LMStudio(Option<lmstudio::LMStudioConfig>),
+    OpenRouter(Option<openrouter::OpenRouterConfig>),
 }
 
 #[derive(Debug, Clone)]
@@ -52,6 +83,7 @@ pub enum LLMClientType {
     Anthropic(Arc<anthropic::AnthropicProvider>),
     Ollama(Arc<ollama::OllamaProvider>),
     LMStudio(Arc<lmstudio::LMStudioProvider>),
+    OpenRouter(Arc<openrouter::OpenRouterProvider>),
 }
 
 #[derive(Debug, Clone)]
@@ -95,6 +127,10 @@ impl LLMProvider {
             }
             LLMProviderConfig::LMStudio(config) => lmstudio::LMStudioProvider::with(config, None)
                 .map(|p| LLMClientType::LMStudio(Arc::new(p)))?,
+            LLMProviderConfig::OpenRouter(config) => {
+                openrouter::OpenRouterProvider::with(config, None)
+                    .map(|p| LLMClientType::OpenRouter(Arc::new(p)))?
+            }
         };
         Some(Self { client })
     }
@@ -123,35 +159,76 @@ impl LLMProvider {
     /// - The `gitbutler.aiModelProvider` setting is not present
     /// - The configured provider is not supported
     /// - Provider-specific initialization fails (e.g., missing credentials)
-    pub fn from_git_config(config: &gix::config::File<'static>) -> Option<Self> {
-        let provider_str = config.string(MODEL_PROVIDER).map(|v| v.to_string())?;
-        let provider = LLMProviderKind::from_str(&provider_str);
-        match provider {
-            Some(LLMProviderKind::OpenAi) => {
-                let client = openai::OpenAiProvider::from_git_config(config)?;
+    pub fn from_git_config(config: &gix::config::File) -> Option<Self> {
+        let configuration = AiConfiguration::from_git_config(config).ok()?;
+        configuration.validate_active().ok()?;
+        match configuration.provider {
+            LLMProviderKind::OpenAi => {
+                let credentials = match configuration.openai.key_option {
+                    CredentialsKeyOption::BringYourOwn => openai::CredentialsKind::OwnOpenAiKey,
+                    CredentialsKeyOption::ButlerApi => openai::CredentialsKind::GitButlerProxied,
+                };
+                let client = openai::OpenAiProvider::with(
+                    Some(credentials),
+                    Some(configuration.openai.model),
+                    configuration.openai.custom_endpoint,
+                )?;
                 Some(Self {
                     client: LLMClientType::OpenAi(Arc::new(client)),
                 })
             }
-            Some(LLMProviderKind::Anthropic) => {
-                let client = anthropic::AnthropicProvider::from_git_config(config)?;
+            LLMProviderKind::Anthropic => {
+                let credentials = match configuration.anthropic.key_option {
+                    CredentialsKeyOption::BringYourOwn => {
+                        anthropic::CredentialsKind::OwnAnthropicKey
+                    }
+                    CredentialsKeyOption::ButlerApi => anthropic::CredentialsKind::GitButlerProxied,
+                };
+                let client = anthropic::AnthropicProvider::with(
+                    Some(credentials),
+                    Some(configuration.anthropic.model),
+                )?;
                 Some(Self {
                     client: LLMClientType::Anthropic(Arc::new(client)),
                 })
             }
-            Some(LLMProviderKind::Ollama) => {
-                let client = ollama::OllamaProvider::from_git_config(config)?;
+            LLMProviderKind::Ollama => {
+                let host_config = ollama::OllamaHostConfig::from(configuration.ollama.endpoint);
+                let client = ollama::OllamaProvider::new(
+                    ollama::OllamaConfig {
+                        host_config: Some(host_config),
+                    },
+                    Some(configuration.ollama.model),
+                );
                 Some(Self {
                     client: LLMClientType::Ollama(Arc::new(client)),
                 })
             }
-            Some(LLMProviderKind::LMStudio) => {
-                let client = lmstudio::LMStudioProvider::from_git_config(config)?;
+            LLMProviderKind::LMStudio => {
+                let client = lmstudio::LMStudioProvider::with(
+                    Some(lmstudio::LMStudioConfig {
+                        api_base: configuration.lmstudio.endpoint,
+                    }),
+                    Some(configuration.lmstudio.model),
+                )?;
                 Some(Self {
                     client: LLMClientType::LMStudio(Arc::new(client)),
                 })
             }
-            None => None,
+            LLMProviderKind::OpenRouter => {
+                let provider_config = config.string(AI_OPENROUTER_ENDPOINT_KEY).map(|api_base| {
+                    openrouter::OpenRouterConfig {
+                        api_base: api_base.to_string(),
+                    }
+                });
+                let model = config
+                    .string(AI_OPENROUTER_MODEL_NAME_KEY)
+                    .map(|model| model.to_string());
+                let client = openrouter::OpenRouterProvider::with(provider_config, model)?;
+                Some(Self {
+                    client: LLMClientType::OpenRouter(Arc::new(client)),
+                })
+            }
         }
     }
 
@@ -175,7 +252,28 @@ impl LLMProvider {
             LLMClientType::Anthropic(client) => client.model(),
             LLMClientType::Ollama(client) => client.model(),
             LLMClientType::LMStudio(client) => client.model(),
+            LLMClientType::OpenRouter(client) => client.model(),
         }
+    }
+
+    /// Returns the configured model, or a per-provider default when none is set.
+    ///
+    /// Callers that need a concrete model name (e.g. structured output) must not
+    /// hardcode a provider-specific model, as it would 404 against other providers.
+    /// This returns the configured model when available, otherwise a sensible
+    /// default for the active provider.
+    pub fn model_or_default(&self) -> String {
+        if let Some(model) = self.model() {
+            return model;
+        }
+        match &self.client {
+            LLMClientType::OpenAi(_) => DEFAULT_OPENAI_MODEL,
+            LLMClientType::Anthropic(_) => DEFAULT_ANTHROPIC_MODEL,
+            LLMClientType::Ollama(_) => DEFAULT_OLLAMA_MODEL,
+            LLMClientType::LMStudio(_) => DEFAULT_LMSTUDIO_MODEL,
+            LLMClientType::OpenRouter(_) => DEFAULT_OPENROUTER_MODEL,
+        }
+        .to_string()
     }
 
     /// Creates a default OpenAI LLM provider using environment-based credentials.
@@ -291,6 +389,13 @@ impl LLMProvider {
                 model,
                 on_token,
             ),
+            LLMClientType::OpenRouter(client) => client.tool_calling_loop_stream(
+                system_message,
+                chat_messages,
+                tool_set,
+                model,
+                on_token,
+            ),
         }
     }
 
@@ -338,6 +443,9 @@ impl LLMProvider {
             LLMClientType::LMStudio(client) => {
                 client.tool_calling_loop(system_message, chat_messages, tool_set, model)
             }
+            LLMClientType::OpenRouter(client) => {
+                client.tool_calling_loop(system_message, chat_messages, tool_set, model)
+            }
         }
     }
 
@@ -377,6 +485,9 @@ impl LLMProvider {
                 client.stream_response(system_message, chat_messages, model, on_token)
             }
             LLMClientType::LMStudio(client) => {
+                client.stream_response(system_message, chat_messages, model, on_token)
+            }
+            LLMClientType::OpenRouter(client) => {
                 client.stream_response(system_message, chat_messages, model, on_token)
             }
         }
@@ -428,6 +539,9 @@ impl LLMProvider {
             LLMClientType::LMStudio(client) => {
                 client.structured_output::<T>(system_message, chat_messages, model)
             }
+            LLMClientType::OpenRouter(client) => {
+                client.structured_output::<T>(system_message, chat_messages, model)
+            }
         }
     }
 
@@ -461,6 +575,9 @@ impl LLMProvider {
             }
             LLMClientType::Ollama(client) => client.response(system_message, chat_messages, model),
             LLMClientType::LMStudio(client) => {
+                client.response(system_message, chat_messages, model)
+            }
+            LLMClientType::OpenRouter(client) => {
                 client.response(system_message, chat_messages, model)
             }
         }

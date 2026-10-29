@@ -1,9 +1,9 @@
-import { isReduxError } from "$lib/state/reduxError";
+import { IpcError, isNormalizedError } from "$lib/error/normalizedError";
 import { getName, getVersion, getVersion as tauriGetVersion } from "@tauri-apps/api/app";
 import { invoke as invokeTauri } from "@tauri-apps/api/core";
 import { documentDir as documentDirTauri } from "@tauri-apps/api/path";
 import { join as joinPathTauri } from "@tauri-apps/api/path";
-import { getCurrentWindow, Window } from "@tauri-apps/api/window";
+import { getCurrentWindow, type Window } from "@tauri-apps/api/window";
 import {
 	writeText as tauriWriteText,
 	readText as tauriReadText,
@@ -37,15 +37,18 @@ export default class Tauri implements IBackend {
 		});
 	});
 
-	async initDeepLinking(handlers: DeepLinkHandlers): Promise<void> {
-		// Check if app was launched via deep link
-		const urls = (await getCurrent()) ?? [];
-		if (urls.length > 0) {
-			handleDeepLinkUrls(urls, handlers);
+	async getColdStartDeepLinkUrls(): Promise<string[]> {
+		return (await getCurrent()) ?? [];
+	}
+
+	async initDeepLinking(handlers: DeepLinkHandlers, coldStartUrls: string[]) {
+		// Process cold-start URLs that were resolved before rendering began.
+		if (coldStartUrls.length > 0) {
+			handleDeepLinkUrls(coldStartUrls, handlers);
 		}
 
 		// Listen for new deep links while app is running
-		await onOpenUrl((urls) => {
+		return await onOpenUrl((urls) => {
 			handleDeepLinkUrls(urls, handlers);
 		});
 	}
@@ -92,76 +95,17 @@ export default class Tauri implements IBackend {
 	}
 }
 
-const LAST_PROCESSED_DEEP_LINK_URL_KEY = "lastProcessedDeepLinkUrl";
-const STORAGE_LOGIN_PREFIX = "login|";
-
-function alreadyProcessedDeepLinkUrl(
-	topLevel: DeepLinkTopLevelPath,
-	url: string,
-	timestamp: string,
-): boolean {
-	switch (topLevel) {
-		case "open": {
-			const lastProcessedUrl = localStorage.getItem(LAST_PROCESSED_DEEP_LINK_URL_KEY);
-			return lastProcessedUrl === url;
-		}
-		case "login": {
-			const value = localStorage.getItem(LAST_PROCESSED_DEEP_LINK_URL_KEY);
-			if (!value) return false;
-			if (!value.startsWith(STORAGE_LOGIN_PREFIX)) return false;
-			const storedTimestamp = value.replace(STORAGE_LOGIN_PREFIX, "").trim();
-			return storedTimestamp === timestamp;
-		}
-	}
-}
-
-function markDeepLinkUrlAsProcessed(
-	topLevel: DeepLinkTopLevelPath,
-	url: string,
-	timestamp: string,
-): true {
-	switch (topLevel) {
-		case "open":
-			localStorage.setItem(LAST_PROCESSED_DEEP_LINK_URL_KEY, url);
-			return true;
-		case "login": {
-			const value = `${STORAGE_LOGIN_PREFIX}${timestamp}`;
-			localStorage.setItem(LAST_PROCESSED_DEEP_LINK_URL_KEY, value);
-			return true;
-		}
-	}
-}
-
 function handleDeepLinkUrls(urls: string[], handlers: DeepLinkHandlers) {
 	// We don't care about the previous URLs, only the last one.
 	const url = urls[urls.length - 1];
 	if (!url) return;
-	if (!isValidDeepLinkUrl(url)) {
+	const result = parseDeepLinkUrl(url);
+	if (!result) {
 		console.warn("Received invalid deep link URL:", url);
 		return;
 	}
 
-	const result = parseDeepLinkUrl(url);
-	if (!result) {
-		console.warn("Failed to parse deep link URL:", url);
-		return;
-	}
-
 	const [topLevel, params] = result;
-	const timestamp = params.get("t");
-	if (!timestamp) {
-		// All deeplinks mus t have a timestamp to avoid processing duplicates.
-		console.warn("Deep link URL missing timestamp parameter:", url);
-		return;
-	}
-
-	if (alreadyProcessedDeepLinkUrl(topLevel, url, timestamp)) {
-		// Already processed this URL.
-		return;
-	}
-
-	markDeepLinkUrlAsProcessed(topLevel, url, timestamp);
-
 	handleTopLevel(topLevel, params, handlers);
 }
 
@@ -176,7 +120,7 @@ function handleTopLevel(
 		case "open": {
 			const filePath = params.get("path");
 			if (filePath) {
-				handlers.open(filePath);
+				handlers.open(filePath, params.get("new_window") === "1");
 			}
 			return true;
 		}
@@ -200,41 +144,34 @@ function handleTopLevel(
 	}
 }
 
-const DEEP_LINK_SCHMES = ["but", "but-dev", "but-nightly"] as const;
-type DeepLinkScheme = (typeof DEEP_LINK_SCHMES)[number];
+const DEEP_LINK_SCHEMES = ["but", "but-dev", "but-nightly"] as const;
 
 const DEEP_LINK_TOP_LEVEL_PATHS = ["open", "login"] as const;
 type DeepLinkTopLevelPath = (typeof DEEP_LINK_TOP_LEVEL_PATHS)[number];
-
-type DeepLinkUrl = `${DeepLinkScheme}://${DeepLinkTopLevelPath}${string}`;
 
 function isValidDeepLinkTopLevelPath(path: string): path is DeepLinkTopLevelPath {
 	return DEEP_LINK_TOP_LEVEL_PATHS.includes(path as DeepLinkTopLevelPath);
 }
 
-export function isValidDeepLinkUrl(url: string): url is DeepLinkUrl {
-	const correctScheme = DEEP_LINK_SCHMES.some((scheme) => url.startsWith(`${scheme}://`));
-	if (!correctScheme) return false;
-	const pathPart = url.split("://")[1];
-	if (!pathPart) return false;
-	const correctPath = DEEP_LINK_TOP_LEVEL_PATHS.some((path) => pathPart.startsWith(path));
-	if (!correctPath) return false;
-	return true;
+export function isValidDeepLinkUrl(url: string): boolean {
+	return parseDeepLinkUrl(url) !== null;
 }
 
-export function parseDeepLinkUrl(url: DeepLinkUrl): [DeepLinkTopLevelPath, URLSearchParams] | null {
-	const pathPart = url.split("://")[1];
-	if (!pathPart) return null;
-	const [path, queryString] = pathPart.split("?");
-	if (!path) return null;
-	if (!isValidDeepLinkTopLevelPath(path)) return null;
-	const searchParams = parseSearchParams(queryString ?? "");
+export function parseDeepLinkUrl(url: string): [DeepLinkTopLevelPath, URLSearchParams] | null {
+	let parsedUrl: URL;
+	try {
+		parsedUrl = new URL(url);
+	} catch {
+		return null;
+	}
 
-	return [path, searchParams];
-}
+	const scheme = parsedUrl.protocol.slice(0, -1);
+	if (!DEEP_LINK_SCHEMES.some((validScheme) => validScheme === scheme)) return null;
+	if (!isValidDeepLinkTopLevelPath(parsedUrl.hostname)) return null;
+	if (parsedUrl.pathname !== "" && parsedUrl.pathname !== "/") return null;
+	if (parsedUrl.username || parsedUrl.password || parsedUrl.port || parsedUrl.hash) return null;
 
-function parseSearchParams(queryString: string): URLSearchParams {
-	return new URLSearchParams(queryString);
+	return [parsedUrl.hostname, parsedUrl.searchParams];
 }
 class TauriDiskStore implements DiskStore {
 	constructor(private store: Store) {}
@@ -288,8 +225,12 @@ async function tauriInvoke<T>(command: string, params: Record<string, unknown> =
 	try {
 		return await invokeTauri<T>(command, params);
 	} catch (error: unknown) {
-		if (isReduxError(error)) {
+		if (isNormalizedError(error)) {
 			console.error(`ipc->${command}: ${JSON.stringify(params)}`, error);
+			// Re-throw as a proper Error subclass so the stack points at the
+			// caller and Sentry can fingerprint by name + message instead of
+			// bucketing every raw `{name, message, code}` rejection together.
+			throw new IpcError(error, command);
 		}
 		throw error;
 	}

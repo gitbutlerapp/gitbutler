@@ -11,7 +11,7 @@ fn non_existing_commit() -> gix::ObjectId {
 
 #[test]
 fn base_non_existing() -> anyhow::Result<()> {
-    let (repo, _) = fixture("four-commits")?;
+    let (repo, _, _db) = fixture("four-commits")?;
     let result = Rebase::new(&repo, non_existing_commit(), None);
     assert_eq!(
         result.unwrap_err().to_string(),
@@ -28,9 +28,12 @@ fn non_existing_commit_in_pick_step() -> anyhow::Result<()> {
         commit_id: non_existing_commit(),
         new_message: None,
     }]);
-    assert_eq!(
+    // Keep the missing-object diagnostic exact, ignoring optional source locations.
+    snapbox::assert_data_eq!(
         result.unwrap_err().to_string(),
-        "An object with id eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee could not be found"
+        snapbox::str![
+            "An object with id eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee could not be found[..]"
+        ]
     );
     Ok(())
 }
@@ -43,9 +46,12 @@ fn non_existing_commit_in_fixup_step() -> anyhow::Result<()> {
         commit_id: non_existing_commit(),
         new_message: None,
     }]);
-    assert_eq!(
+    // Keep the missing-object diagnostic exact, ignoring optional source locations.
+    snapbox::assert_data_eq!(
         result.unwrap_err().to_string(),
-        "An object with id eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee could not be found"
+        snapbox::str![
+            "An object with id eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee could not be found[..]"
+        ]
     );
     Ok(())
 }

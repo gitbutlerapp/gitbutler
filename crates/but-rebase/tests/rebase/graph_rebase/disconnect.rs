@@ -1,28 +1,41 @@
 //! These tests exercise the disconnect operation.
+use snapbox::IntoData;
 use std::collections::HashSet;
 
 use anyhow::{Context, Result};
 use but_graph::Graph;
-use but_rebase::graph_rebase::{GraphExt, Step, mutate};
-use but_testsupport::{git_status, visualize_commit_graph_all};
+use but_rebase::graph_rebase::{Editor, mutate};
+use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all};
 use gix::prelude::ObjectIdExt;
 
 use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-	* 120e3a9 (HEAD -> main) c
-	* a96434e b
-	* d591dfe a
-	* 35b8235 base
-	");
-    insta::assert_snapshot!(git_status(&repo)?, @"");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 120e3a9 (HEAD -> main) c
+* a96434e b
+* d591dfe a
+* 35b8235 base
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+"#]]
+    );
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
     let b_selector = editor
@@ -40,35 +53,64 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
         mutate::SelectorSet::All,
         false,
     )?;
-    editor.replace(b_selector, Step::None)?;
+    editor.replace_with_none(b_selector)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    snapbox::assert_data_eq!(
+        &overlayed,
+        snapbox::str![[r#"
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-	* 4de0144 (HEAD -> main) c
-	* d591dfe a
-	* 35b8235 base
-	");
-    insta::assert_snapshot!(git_status(&repo)?, @"");
+└── 👉►:0[0]:main[🌳]
+    ├── ·b4fd8ee (⌂)
+    ├── ·d591dfe (⌂)
+    └── 🏁·35b8235 (⌂)
+
+"#]]
+    );
+    let outcome = outcome.materialize(Default::default())?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* b4fd8ee (HEAD -> main) c
+* d591dfe a
+* 35b8235 base
+
+"#]]
+    );
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
     Ok(())
 }
 
 #[test]
 fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-	* 120e3a9 (HEAD -> main) c
-	* a96434e b
-	* d591dfe a
-	* 35b8235 base
-	");
-    insta::assert_snapshot!(git_status(&repo)?, @"");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 120e3a9 (HEAD -> main) c
+* a96434e b
+* d591dfe a
+* 35b8235 base
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+"#]]
+    );
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
     let b_selector = editor
@@ -90,38 +132,67 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
         mutate::SelectorSet::All,
         false,
     )?;
-    editor.replace(b_selector, Step::None)?;
-    editor.replace(a_selector, Step::None)?;
+    editor.replace_with_none(b_selector)?;
+    editor.replace_with_none(a_selector)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    snapbox::assert_data_eq!(
+        &overlayed,
+        snapbox::str![[r#"
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * f55e07c (HEAD -> main) c
-    * 35b8235 base
-    ");
-    insta::assert_snapshot!(git_status(&repo)?, @"");
+└── 👉►:0[0]:main[🌳]
+    ├── ·19f8134 (⌂)
+    └── 🏁·35b8235 (⌂)
+
+"#]]
+    );
+    let outcome = outcome.materialize(Default::default())?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 19f8134 (HEAD -> main) c
+* 35b8235 base
+
+"#]]
+    );
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
     Ok(())
 }
 
 #[test]
 fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-in-the-middle")?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
-    *   2fc288c Merge branch 'B' into with-inner-merge
-    |\  
-    | * 984fd1c (B) C: new file with 10 lines
-    * | add59d2 (A) A: 10 lines on top
-    |/  
-    * 8f0d338 (tag: base, main) base
-    ");
-    insta::assert_snapshot!(git_status(&repo)?, @"");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* e8ee978 (HEAD -> with-inner-merge) on top of inner merge
+*   2fc288c Merge branch 'B' into with-inner-merge
+|\  
+| * 984fd1c (B) C: new file with 10 lines
+* | add59d2 (A) A: 10 lines on top
+|/  
+* 8f0d338 (tag: base, main) base
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+"#]]
+        .raw()
+    );
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -139,49 +210,135 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
         mutate::SelectorSet::All,
         false,
     )?;
-    editor.replace(a_selector, Step::None)?;
+    editor.replace_with_none(a_selector)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    snapbox::assert_data_eq!(
+        &overlayed,
+        snapbox::str![[r#"
+
+└── 👉►:0[0]:with-inner-merge[🌳]
+    └── ·4023659 (⌂)
+        └── ►:1[1]:anon:
+            └── ·01c4df0 (⌂)
+                ├── ►:2[3]:anon:
+                │   └── 🏁·8f0d338 (⌂) ►A, ►main, ►tags/base
+                └── ►:3[2]:B
+                    └── ·984fd1c (⌂)
+                        └── →:2:
+
+"#]]
+    );
+    let outcome = outcome.materialize(Default::default())?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let a_now = repo.rev_parse_single("A")?.detach();
     let base = repo.rev_parse_single("base")?.detach();
     assert_eq!(a_now, base, "A should now point to base after disconnect");
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * dde6cc8 (HEAD -> with-inner-merge) on top of inner merge
-    *   5f962e2 Merge branch 'B' into with-inner-merge
-    |\  
-    | * 984fd1c (B) C: new file with 10 lines
-    |/  
-    * 8f0d338 (tag: base, main, A) base
-    ");
-    insta::assert_snapshot!(git_status(&repo)?, @"");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 4023659 (HEAD -> with-inner-merge) on top of inner merge
+*   01c4df0 Merge branch 'B' into with-inner-merge
+|\  
+| * 984fd1c (B) C: new file with 10 lines
+|/  
+* 8f0d338 (tag: base, main, A) base
+
+"#]]
+        .raw()
+    );
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
+
+    Ok(())
+}
+
+#[test]
+fn disconnect_and_remove_second_parent_of_merge_keeps_parent_order() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-in-the-middle")?;
+
+    let a = repo.rev_parse_single("A")?.detach();
+    let b = repo.rev_parse_single("B")?.detach();
+    let base = repo.rev_parse_single("base")?.detach();
+    // Without its branch, `b` is a direct parent of the merge rather than of a reference.
+    repo.find_reference("refs/heads/B")?.delete()?;
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    let b_selector = editor
+        .select_commit(b)
+        .context("Failed to find commit b in editor graph")?;
+
+    editor.disconnect_segment_from(
+        mutate::SegmentDelimiter {
+            child: b_selector,
+            parent: b_selector,
+        },
+        mutate::SelectorSet::All,
+        mutate::SelectorSet::All,
+        false,
+    )?;
+    editor.replace_with_none(b_selector)?;
+    editor.rebase()?.materialize(Default::default())?;
+
+    let merge = repo
+        .rev_parse_single("with-inner-merge~1")?
+        .object()?
+        .into_commit();
+    assert_eq!(
+        merge.parent_ids().map(|id| id.detach()).collect::<Vec<_>>(),
+        [a, base],
+        "the bypass edge takes the slot of the removed second parent"
+    );
 
     Ok(())
 }
 
 #[test]
 fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-with-two-children")?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   d1cc4c7 (HEAD -> with-two-children) tip
-    |\  
-    | * ce6aca9 (C2) C2: second child
-    * | f94f259 (C1) C1: first child
-    |/  
-    *   c5d1178 (M) M: merge two parents
-    |\  
-    | * 392a8f8 (P2) P2: second merge parent
-    * | bc0e772 (P1) P1: first merge parent
-    |/  
-    * 7674a5e (tag: base, main) base
-    ");
-    insta::assert_snapshot!(git_status(&repo)?, @"");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   d1cc4c7 (HEAD -> with-two-children) tip
+|\  
+| * ce6aca9 (C2) C2: second child
+* | f94f259 (C1) C1: first child
+|/  
+*   c5d1178 (M) M: merge two parents
+|\  
+| * 392a8f8 (P2) P2: second merge parent
+* | bc0e772 (P1) P1: first merge parent
+|/  
+* 7674a5e (tag: base, main) base
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+"#]]
+        .raw()
+    );
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let merge_selector = editor
@@ -199,10 +356,34 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
         mutate::SelectorSet::All,
         false,
     )?;
-    editor.replace(merge_selector, Step::None)?;
+    editor.replace_with_none(merge_selector)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    snapbox::assert_data_eq!(
+        &overlayed,
+        snapbox::str![[r#"
+
+└── 👉►:0[0]:with-two-children[🌳]
+    └── ·87269f1 (⌂)
+        ├── ►:1[1]:C1
+        │   └── ·3e50be4 (⌂)
+        │       ├── ►:3[2]:anon:
+        │       │   └── ·bc0e772 (⌂) ►M, ►P1
+        │       │       └── ►:5[3]:main
+        │       │           └── 🏁·7674a5e (⌂) ►tags/base
+        │       └── ►:4[2]:P2
+        │           └── ·392a8f8 (⌂)
+        │               └── →:5: (main)
+        └── ►:2[1]:C2
+            └── ·c291781 (⌂)
+                ├── →:3:
+                └── →:4: (P2)
+
+"#]]
+    );
+    let outcome = outcome.materialize(Default::default())?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let p1 = repo.rev_parse_single("P1")?.detach();
     let p2 = repo.rev_parse_single("P2")?.detach();
@@ -234,47 +415,65 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
         "C2 should have both merge parents after removing M"
     );
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   f914957 (HEAD -> with-two-children) tip
-    |\  
-    | *   72b8072 (C2) C2: second child
-    | |\  
-    * | \   d8cc9ec (C1) C1: first child
-    |\ \ \  
-    | |/ /  
-    |/| /   
-    | |/    
-    | * 392a8f8 (P2) P2: second merge parent
-    * | bc0e772 (P1, M) P1: first merge parent
-    |/  
-    * 7674a5e (tag: base, main) base
-    ");
-    insta::assert_snapshot!(git_status(&repo)?, @"");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   87269f1 (HEAD -> with-two-children) tip
+|\  
+| *   c291781 (C2) C2: second child
+| |\  
+* | \   3e50be4 (C1) C1: first child
+|\ \ \  
+| |/ /  
+|/| /   
+| |/    
+| * 392a8f8 (P2) P2: second merge parent
+* | bc0e772 (P1, M) P1: first merge parent
+|/  
+* 7674a5e (tag: base, main) base
+
+"#]]
+        .raw()
+    );
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
     Ok(())
 }
 
 #[test]
 fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-with-two-children")?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   d1cc4c7 (HEAD -> with-two-children) tip
-    |\  
-    | * ce6aca9 (C2) C2: second child
-    * | f94f259 (C1) C1: first child
-    |/  
-    *   c5d1178 (M) M: merge two parents
-    |\  
-    | * 392a8f8 (P2) P2: second merge parent
-    * | bc0e772 (P1) P1: first merge parent
-    |/  
-    * 7674a5e (tag: base, main) base
-    ");
-    insta::assert_snapshot!(git_status(&repo)?, @"");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   d1cc4c7 (HEAD -> with-two-children) tip
+|\  
+| * ce6aca9 (C2) C2: second child
+* | f94f259 (C1) C1: first child
+|/  
+*   c5d1178 (M) M: merge two parents
+|\  
+| * 392a8f8 (P2) P2: second merge parent
+* | bc0e772 (P1) P1: first merge parent
+|/  
+* 7674a5e (tag: base, main) base
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+"#]]
+        .raw()
+    );
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -306,7 +505,31 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
     )?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    snapbox::assert_data_eq!(
+        &overlayed,
+        snapbox::str![[r#"
+
+└── 👉►:0[0]:with-two-children[🌳]
+    └── ·9de031b (⌂)
+        ├── ►:1[1]:C1
+        │   └── ·54d0b0d (⌂)
+        │       └── ►:3[2]:P1
+        │           └── ·bc0e772 (⌂)
+        │               └── ►:5[4]:main
+        │                   └── 🏁·7674a5e (⌂) ►tags/base
+        └── ►:2[1]:C2
+            └── ·41cb528 (⌂)
+                └── ►:4[2]:M
+                    └── ·9f6b11a (⌂)
+                        └── ►:6[3]:P2
+                            └── ·392a8f8 (⌂)
+                                └── →:5: (main)
+
+"#]]
+    );
+    let outcome = outcome.materialize(Default::default())?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let p1 = repo.rev_parse_single("P1")?.detach();
     let m = repo.rev_parse_single("M")?.detach();
@@ -339,42 +562,60 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
         "C2 should have both merge parents after removing M"
     );
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   3305e26 (HEAD -> with-two-children) tip
-    |\  
-    | * 0e87cd3 (C2) C2: second child
-    | * 3089592 (M) M: merge two parents
-    | * 392a8f8 (P2) P2: second merge parent
-    * | f928700 (C1) C1: first child
-    * | bc0e772 (P1) P1: first merge parent
-    |/  
-    * 7674a5e (tag: base, main) base
-    ");
-    insta::assert_snapshot!(git_status(&repo)?, @"");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   9de031b (HEAD -> with-two-children) tip
+|\  
+| * 41cb528 (C2) C2: second child
+| * 9f6b11a (M) M: merge two parents
+| * 392a8f8 (P2) P2: second merge parent
+* | 54d0b0d (C1) C1: first child
+* | bc0e772 (P1) P1: first merge parent
+|/  
+* 7674a5e (tag: base, main) base
+
+"#]]
+        .raw()
+    );
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
     Ok(())
 }
 #[test]
 fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-with-two-children")?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   d1cc4c7 (HEAD -> with-two-children) tip
-    |\  
-    | * ce6aca9 (C2) C2: second child
-    * | f94f259 (C1) C1: first child
-    |/  
-    *   c5d1178 (M) M: merge two parents
-    |\  
-    | * 392a8f8 (P2) P2: second merge parent
-    * | bc0e772 (P1) P1: first merge parent
-    |/  
-    * 7674a5e (tag: base, main) base
-    ");
-    insta::assert_snapshot!(git_status(&repo)?, @"");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   d1cc4c7 (HEAD -> with-two-children) tip
+|\  
+| * ce6aca9 (C2) C2: second child
+* | f94f259 (C1) C1: first child
+|/  
+*   c5d1178 (M) M: merge two parents
+|\  
+| * 392a8f8 (P2) P2: second merge parent
+* | bc0e772 (P1) P1: first merge parent
+|/  
+* 7674a5e (tag: base, main) base
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+"#]]
+        .raw()
+    );
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -402,7 +643,29 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
     )?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    snapbox::assert_data_eq!(
+        &overlayed,
+        snapbox::str![[r#"
+
+└── 👉►:0[0]:with-two-children[🌳]
+    └── ·b87b6c9 (⌂)
+        ├── ►:1[1]:C1
+        │   └── ·76ecfed (⌂)
+        │       └── ►:3[2]:M
+        │           └── ·9f6b11a (⌂)
+        │               └── ►:4[3]:P2
+        │                   └── ·392a8f8 (⌂)
+        │                       └── ►:5[4]:main
+        │                           └── 🏁·7674a5e (⌂) ►tags/base
+        └── ►:2[1]:C2
+            └── ·41cb528 (⌂)
+                └── →:3: (M)
+
+"#]]
+    );
+    let outcome = outcome.materialize(Default::default())?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let p1 = repo.rev_parse_single("P1")?.detach();
     let p2 = repo.rev_parse_single("P2")?.detach();
@@ -459,31 +722,44 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
         );
     }
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * bc0e772 (P1) P1: first merge parent
-    | *   2eac185 (HEAD -> with-two-children) tip
-    | |\  
-    | | * 0e87cd3 (C2) C2: second child
-    | * | 76e6d3c (C1) C1: first child
-    | |/  
-    | * 3089592 (M) M: merge two parents
-    | * 392a8f8 (P2) P2: second merge parent
-    |/  
-    * 7674a5e (tag: base, main) base
-    ");
-    insta::assert_snapshot!(git_status(&repo)?, @"");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* bc0e772 (P1) P1: first merge parent
+| *   b87b6c9 (HEAD -> with-two-children) tip
+| |\  
+| | * 41cb528 (C2) C2: second child
+| * | 76ecfed (C1) C1: first child
+| |/  
+| * 9f6b11a (M) M: merge two parents
+| * 392a8f8 (P2) P2: second merge parent
+|/  
+* 7674a5e (tag: base, main) base
+
+"#]]
+        .raw()
+    );
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
     Ok(())
 }
 
 #[test]
 fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-with-two-children")?;
 
     let before = visualize_commit_graph_all(&repo)?;
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -518,7 +794,32 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
     );
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    snapbox::assert_data_eq!(
+        &overlayed,
+        snapbox::str![[r#"
+
+└── 👉►:0[0]:with-two-children[🌳]
+    └── ·d1cc4c7 (⌂)
+        ├── ►:1[1]:C1
+        │   └── ·f94f259 (⌂)
+        │       └── ►:3[2]:M
+        │           └── ·c5d1178 (⌂)
+        │               ├── ►:4[3]:P1
+        │               │   └── ·bc0e772 (⌂)
+        │               │       └── ►:6[4]:main
+        │               │           └── 🏁·7674a5e (⌂) ►tags/base
+        │               └── ►:5[3]:P2
+        │                   └── ·392a8f8 (⌂)
+        │                       └── →:6: (main)
+        └── ►:2[1]:C2
+            └── ·ce6aca9 (⌂)
+                └── →:3: (M)
+
+"#]]
+    );
+    let outcome = outcome.materialize(Default::default())?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let after = visualize_commit_graph_all(&repo)?;
     assert_eq!(before, after, "graph should remain unchanged on failure");
@@ -528,12 +829,20 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
 
 #[test]
 fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-with-two-children")?;
 
     let before = visualize_commit_graph_all(&repo)?;
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -568,7 +877,32 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
     );
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    snapbox::assert_data_eq!(
+        &overlayed,
+        snapbox::str![[r#"
+
+└── 👉►:0[0]:with-two-children[🌳]
+    └── ·d1cc4c7 (⌂)
+        ├── ►:1[1]:C1
+        │   └── ·f94f259 (⌂)
+        │       └── ►:3[2]:M
+        │           └── ·c5d1178 (⌂)
+        │               ├── ►:4[3]:P1
+        │               │   └── ·bc0e772 (⌂)
+        │               │       └── ►:6[4]:main
+        │               │           └── 🏁·7674a5e (⌂) ►tags/base
+        │               └── ►:5[3]:P2
+        │                   └── ·392a8f8 (⌂)
+        │                       └── →:6: (main)
+        └── ►:2[1]:C2
+            └── ·ce6aca9 (⌂)
+                └── →:3: (M)
+
+"#]]
+    );
+    let outcome = outcome.materialize(Default::default())?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let after = visualize_commit_graph_all(&repo)?;
     assert_eq!(before, after, "graph should remain unchanged on failure");
@@ -578,12 +912,20 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
 
 #[test]
 fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-with-two-children")?;
 
     let before = visualize_commit_graph_all(&repo)?;
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -618,7 +960,32 @@ fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<
     );
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    snapbox::assert_data_eq!(
+        &overlayed,
+        snapbox::str![[r#"
+
+└── 👉►:0[0]:with-two-children[🌳]
+    └── ·d1cc4c7 (⌂)
+        ├── ►:1[1]:C1
+        │   └── ·f94f259 (⌂)
+        │       └── ►:3[2]:M
+        │           └── ·c5d1178 (⌂)
+        │               ├── ►:4[3]:P1
+        │               │   └── ·bc0e772 (⌂)
+        │               │       └── ►:6[4]:main
+        │               │           └── 🏁·7674a5e (⌂) ►tags/base
+        │               └── ►:5[3]:P2
+        │                   └── ·392a8f8 (⌂)
+        │                       └── →:6: (main)
+        └── ►:2[1]:C2
+            └── ·ce6aca9 (⌂)
+                └── →:3: (M)
+
+"#]]
+    );
+    let outcome = outcome.materialize(Default::default())?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let after = visualize_commit_graph_all(&repo)?;
     assert_eq!(before, after, "graph should remain unchanged on failure");

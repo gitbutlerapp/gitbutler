@@ -1,0 +1,134 @@
+/* Takes its place in the layout that holds it and scrolls within it rather than growing it. A
+   column, so the viewport can shrink to a height the area is capped at. */
+.root {
+	display: flex;
+	position: relative;
+	flex-direction: column;
+	min-height: 0;
+}
+
+/* Keeps a scroll that reaches the end from carrying on into the page, on each axis only while
+   that axis overflows: a code block that scrolls sideways still hands a vertical wheel on. */
+.viewport {
+	flex: 1 1 auto;
+	min-height: 0;
+
+	&[data-has-overflow-x] {
+		overscroll-behavior-x: contain;
+	}
+
+	&[data-has-overflow-y] {
+		overscroll-behavior-y: contain;
+	}
+}
+
+/* Lays the children out as the viewport's class says, as though they sat in the viewport itself,
+   so `viewportClassName` keeps meaning what it did before this wrapper. It fills a flex viewport,
+   so centring has the viewport's whole height to work in. */
+.content {
+	display: inherit;
+	flex: 1 0 auto;
+	flex-direction: inherit;
+	flex-wrap: inherit;
+	align-items: inherit;
+	align-self: stretch;
+	justify-content: inherit;
+	gap: inherit;
+}
+
+/* Drawn over the content, so nothing is set aside for it and content that fits and content that
+   scrolls take the same width. 14px to grab, the thumb 2px in from the edge: 5px at rest, and 7px
+   under the pointer or while dragged, so it is easier to see and hold. Hovered, it reaches 9px in,
+   short of content inset 10px or more (a card's border, a list's rows), so it lies beside them
+   rather than across their edge. */
+.scrollbar {
+	--thumb-size: 5px;
+
+	display: flex;
+	position: absolute;
+	align-items: flex-start;
+	/* The thumb hugs the outer edge; the bar positions it along its length. */
+	justify-content: flex-end;
+	padding: 2px;
+	opacity: 0;
+	transition: opacity var(--transition-medium);
+
+	&:hover,
+	&:has(.thumb:active) {
+		--thumb-size: 7px;
+	}
+
+	&[data-orientation="vertical"] {
+		width: 14px;
+		inset-block: 0;
+		inset-inline-end: 0;
+	}
+
+	&[data-orientation="horizontal"] {
+		flex-direction: column;
+		height: 14px;
+		inset-block-end: 0;
+		inset-inline: 0;
+	}
+
+	/* Hovering is the pointer over the area, not just the bar. The bar itself counts too, for
+	   ScrollBars, whose bars sit beside the scroller rather than in it. */
+	&[data-hovering],
+	&[data-scrolling],
+	&:hover,
+	&:has(.thumb:active) {
+		opacity: 1;
+	}
+}
+
+.thumb {
+	border-radius: var(--radius-full);
+	background-color: color-mix(in srgb, var(--text-1) 15%, transparent);
+
+	&[data-orientation="vertical"] {
+		width: var(--thumb-size);
+		height: var(--scroll-area-thumb-height);
+		transition: width var(--transition-fast) ease-out;
+	}
+
+	&[data-orientation="horizontal"] {
+		width: var(--scroll-area-thumb-width);
+		height: var(--thumb-size);
+		transition: height var(--transition-fast) ease-out;
+	}
+
+	&:hover,
+	&:active {
+		background-color: color-mix(in srgb, var(--text-1) 25%, transparent);
+	}
+}
+
+/* A hairline across the top while the content is scrolled down, so rows passing under a sticky
+   header read as passing under it. */
+.separator::before {
+	z-index: 1;
+	position: absolute;
+	inset-inline: 0;
+	top: 0;
+	border-top: 1px solid var(--border-section);
+	content: "";
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity var(--transition-fast);
+}
+
+.separator[data-overflow-y-start]::before {
+	opacity: 1;
+}
+
+/* ScrollBars' layer over a scroller it doesn't own: the scroller's own box, letting everything
+   through but the bars. */
+.bars {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+
+	& > .scrollbar {
+		pointer-events: auto;
+	}
+}

@@ -47,6 +47,9 @@ fn in_memory_cache() -> AppCacheHandle {
 
 fn sample_status(up_to_date: bool) -> CheckUpdateStatus {
     CheckUpdateStatus {
+        // Note: The default for VERSION in `available_update` is 0.0.0. The test relies on this
+        // for correctness. This is fragile but not easily circumvented at this time.
+        valid_for_version: Some("0.0.0".to_string()),
         up_to_date,
         latest_version: "1.2.3".to_string(),
         release_notes: Some("Bug fixes and improvements".to_string()),

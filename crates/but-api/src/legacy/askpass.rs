@@ -1,6 +1,6 @@
 //! In place of commands.rs
 use anyhow::anyhow;
-use gitbutler_repo_actions::askpass::{self, AskpassRequestId};
+use but_askpass::{self as askpass, AskpassRequestId};
 use serde::Deserialize;
 
 #[derive(Deserialize)]

@@ -4,11 +4,151 @@ use but_testsupport::gix_testtools;
 fn is_conflicted() -> anyhow::Result<()> {
     let repo = conflict_repo("normal-and-artificial")?;
     let normal = but_core::Commit::from_id(repo.rev_parse_single("normal")?)?;
-    assert!(!normal.is_conflicted());
+    assert!(
+        !normal.is_conflicted(),
+        "an ordinary commit is not conflicted"
+    );
 
     let conflicted = but_core::Commit::from_id(repo.rev_parse_single("conflicted")?)?;
-    assert!(conflicted.is_conflicted());
+    assert!(
+        conflicted.is_conflicted(),
+        "a legacy synthetic conflict remains conflicted"
+    );
+
+    let marked_conflict = but_core::Commit::from_id(repo.rev_parse_single("marked-conflict")?)?;
+    assert!(
+        marked_conflict.is_conflicted(),
+        "a marked synthetic conflict remains conflicted"
+    );
+
+    let marked_ordinary = but_core::Commit::from_id(repo.rev_parse_single("marked-ordinary")?)?;
+    assert!(
+        !marked_ordinary.is_conflicted(),
+        "conflict metadata alone does not make an ordinary tree conflicted"
+    );
+    assert_eq!(
+        marked_ordinary.tree_id_or_auto_resolution()?,
+        marked_ordinary.tree,
+        "an ordinary tree is used even if the commit retained conflict metadata"
+    );
+    assert_eq!(
+        marked_ordinary.conflict_entries()?,
+        None,
+        "ordinary commits do not project conflict details"
+    );
+    assert_eq!(
+        but_core::diff::CommitDetails::from_commit_id(marked_ordinary.id, false)?.conflict_entries,
+        None,
+        "commit details do not project a stale conflict trailer as conflict state"
+    );
+
+    let partial = but_core::Commit::from_id(repo.rev_parse_single("partial-conflict")?)?;
+    assert!(
+        partial.is_conflicted(),
+        "a partial synthetic layout is still recognized as a conflict"
+    );
+    let error = partial
+        .tree_id_or_auto_resolution()
+        .expect_err("the auto-resolution tree is missing");
+    assert!(
+        error
+            .to_string()
+            .contains("Unexpected tree in conflicting commit"),
+        "a partial synthetic layout must report a malformed conflict: {error}"
+    );
+
+    let high_index_partial =
+        but_core::Commit::from_id(repo.rev_parse_single("high-index-partial-conflict")?)?;
+    assert!(
+        high_index_partial.is_conflicted(),
+        "a numbered synthetic entry is recognized without lower-numbered entries"
+    );
+    assert!(
+        high_index_partial.tree_id_or_auto_resolution().is_err(),
+        "a high-index-only partial layout remains an explicit error"
+    );
     Ok(())
+}
+
+mod padding {
+    use bstr::ByteSlice as _;
+    use but_core::commit::padding;
+
+    use super::conflict_repo;
+
+    #[test]
+    fn create_on_conflicted_commit() -> anyhow::Result<()> {
+        let repo = conflict_repo("normal-and-artificial")?.with_object_memory();
+        for tag in ["conflicted", "marked-conflict"] {
+            let conflicted = but_core::Commit::from_id(repo.rev_parse_single(tag)?)?;
+
+            let padding_id = padding::create(&conflicted)?;
+            assert_eq!(
+                padding::create(&conflicted)?,
+                padding_id,
+                "{tag}: a padding commit is a pure function of its conflicted commit"
+            );
+            let padding = repo.find_commit(padding_id)?;
+            assert_eq!(
+                padding.tree_id()?,
+                repo.rev_parse_single(format!("{tag}:.auto-resolution").as_str())?,
+                "{tag}: the padding commit makes the auto-resolution checkout-able"
+            );
+            assert!(
+                !but_core::Commit::from_id(padding.id())?.is_conflicted(),
+                "{tag}: a padding commit carries no conflict"
+            );
+        }
+
+        let conflicted = but_core::Commit::from_id(repo.rev_parse_single("conflicted")?)?;
+        let padding = repo.find_commit(padding::create(&conflicted)?)?;
+        // The conflicted commit is the only parent, its author and committer are kept, and there are no extra headers.
+        snapbox::assert_data_eq!(
+            padding.data.to_str_lossy().into_owned(),
+            snapbox::str![[r#"
+tree df2b8fc99e1c1d4dbc0a854d9f72157f1d6ea078
+parent 84503317a1e1464381fcff65ece14bc1f4315b7c
+author GitButler <gitbutler@gitbutler.com> 1730625617 +0100
+committer Sebastian Thiel <sebastian.thiel@icloud.com> 1736343261 +0100
+
+GitButler Padding Commit
+
+Hi! I'm a stand-in for the conflicted commit below me, so your editor shows its
+auto-resolved changes instead of conflict markers.
+
+There's nothing to do with me. GitButler takes me out again once you resolve the
+conflict, and anything you commit on top of me moves onto the conflicted commit.
+
+"#]]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn create_on_unconflicted_commit_fails() -> anyhow::Result<()> {
+        let repo = conflict_repo("normal-and-artificial")?.with_object_memory();
+        let normal = but_core::Commit::from_id(repo.rev_parse_single("normal")?)?;
+        let error = padding::create(&normal).expect_err("there is no auto-resolution to pad");
+        assert!(
+            error.to_string().contains("is not conflicted"),
+            "an ordinary commit is refused instead of padding its own tree: {error}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn create_on_malformed_conflict_fails() -> anyhow::Result<()> {
+        let repo = conflict_repo("normal-and-artificial")?.with_object_memory();
+        let partial = but_core::Commit::from_id(repo.rev_parse_single("partial-conflict")?)?;
+        let error = padding::create(&partial).expect_err("the auto-resolution tree is missing");
+        assert!(
+            error
+                .to_string()
+                .contains("Unexpected tree in conflicting commit"),
+            "a malformed conflict has no auto-resolution to pad: {error}"
+        );
+        Ok(())
+    }
 }
 
 pub fn conflict_repo(name: &str) -> anyhow::Result<gix::Repository> {
@@ -21,9 +161,70 @@ pub fn conflict_repo(name: &str) -> anyhow::Result<gix::Repository> {
 }
 
 mod headers {
+    mod ensure_change_id {
+        use but_core::commit::Headers;
+
+        #[test]
+        fn sets_change_id_from_commit_id_if_missing() {
+            let commit_id = gix::ObjectId::from_hex(b"0123456789abcdef0123456789abcdef01234567")
+                .expect("valid sha1 object id");
+
+            let headers = Headers::default().ensure_change_id(commit_id);
+
+            assert_eq!(
+                headers.change_id.map(|id| id.to_string()),
+                Some("ltpxnvrzksowmuqyltpxnvrzksowmuqy".to_owned())
+            );
+            assert_eq!(headers.conflicted, None);
+        }
+
+        #[test]
+        fn keeps_existing_change_id() {
+            let commit_id = gix::ObjectId::from_hex(b"0123456789abcdef0123456789abcdef01234567")
+                .expect("valid sha1 object id");
+
+            let headers = Headers {
+                change_id: Some(but_core::ChangeId::from_number_for_testing(42)),
+                conflicted: Some(3),
+            }
+            .ensure_change_id(commit_id);
+
+            assert_eq!(
+                headers.change_id.map(|id| id.to_string()),
+                Some("42".to_owned())
+            );
+            assert_eq!(headers.conflicted, Some(3));
+        }
+
+        #[test]
+        fn generates_random_change_id_if_commit_id_is_unknown() {
+            let headers = Headers::default().ensure_change_id(None);
+
+            let change_id = headers.change_id.expect("change-id should be generated");
+            assert_eq!(change_id.len(), 32);
+            assert_eq!(headers.conflicted, None);
+        }
+    }
+
+    mod synthetic_change_id_from_commit_id {
+        use but_core::commit::Headers;
+
+        #[test]
+        fn supports_sha1_commit_ids() {
+            let commit_id = gix::ObjectId::from_hex(b"0123456789abcdef0123456789abcdef01234567")
+                .expect("valid sha1 object id");
+
+            assert_eq!(
+                Headers::synthetic_change_id_from_commit_id(commit_id).to_string(),
+                "ltpxnvrzksowmuqyltpxnvrzksowmuqy"
+            );
+        }
+    }
+
     mod try_from_commit {
         use but_core::commit::Headers;
         use gix::actor::Signature;
+        use snapbox::prelude::*;
 
         #[test]
         fn without_any_header_information() {
@@ -37,40 +238,58 @@ mod headers {
                 "gitbutler-change-id",
                 "96420be4-a3ed-4bea-b534-ff2160cbb848",
             )]);
-            insta::assert_debug_snapshot!(Headers::try_from_commit(&commit).expect("old change ids parse for compatibility"), @r#"
-            Headers {
-                change_id: Some(
-                    "96420be4-a3ed-4bea-b534-ff2160cbb848",
-                ),
-                conflicted: None,
-            }
-            "#);
+            snapbox::assert_data_eq!(
+                Headers::try_from_commit(&commit)
+                    .expect("old change ids parse for compatibility")
+                    .to_debug(),
+                snapbox::str![[r#"
+Headers {
+    change_id: Some(
+        "96420be4-a3ed-4bea-b534-ff2160cbb848",
+    ),
+    conflicted: None,
+}
+
+"#]]
+            );
         }
 
         #[test]
         fn with_reverse_hex_change_id() {
             let commit = commit_with_header([("change-id", "zxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzx")]);
-            insta::assert_debug_snapshot!(Headers::try_from_commit(&commit).expect("reverse hex is parsed as well"), @r#"
-            Headers {
-                change_id: Some(
-                    "zxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzx",
-                ),
-                conflicted: None,
-            }
-            "#);
+            snapbox::assert_data_eq!(
+                Headers::try_from_commit(&commit)
+                    .expect("reverse hex is parsed as well")
+                    .to_debug(),
+                snapbox::str![[r#"
+Headers {
+    change_id: Some(
+        "zxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzx",
+    ),
+    conflicted: None,
+}
+
+"#]]
+            );
         }
 
         #[test]
         fn with_conflict_header() {
             let commit = commit_with_header([("gitbutler-conflicted", "128")]);
-            insta::assert_debug_snapshot!(Headers::try_from_commit(&commit).expect("a single conflict header is enough to parse as header"), @"
-            Headers {
-                change_id: None,
-                conflicted: Some(
-                    128,
-                ),
-            }
-            ");
+            snapbox::assert_data_eq!(
+                Headers::try_from_commit(&commit)
+                    .expect("a single conflict header is enough to parse as header")
+                    .to_debug(),
+                snapbox::str![[r#"
+Headers {
+    change_id: None,
+    conflicted: Some(
+        128,
+    ),
+}
+
+"#]]
+            );
         }
 
         #[test]
@@ -79,30 +298,42 @@ mod headers {
                 ("change-id", "zxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzx"),
                 ("gitbutler-conflicted", "128"),
             ]);
-            insta::assert_debug_snapshot!(Headers::try_from_commit(&commit).expect("both fields are parsed"), @r#"
-            Headers {
-                change_id: Some(
-                    "zxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzx",
-                ),
-                conflicted: Some(
-                    128,
-                ),
-            }
-            "#);
+            snapbox::assert_data_eq!(
+                Headers::try_from_commit(&commit)
+                    .expect("both fields are parsed")
+                    .to_debug(),
+                snapbox::str![[r#"
+Headers {
+    change_id: Some(
+        "zxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzx",
+    ),
+    conflicted: Some(
+        128,
+    ),
+}
+
+"#]]
+            );
         }
 
         #[test]
         fn with_arbitrary_change_id_in_new_change_id_field() {
             let commit =
                 commit_with_header([("change-id", "something-special-that-we-dont-produce")]);
-            insta::assert_debug_snapshot!(Headers::try_from_commit(&commit).expect("the arbitrary change id is kept in the new field"), @r#"
-            Headers {
-                change_id: Some(
-                    "something-special-that-we-dont-produce",
-                ),
-                conflicted: None,
-            }
-            "#);
+            snapbox::assert_data_eq!(
+                Headers::try_from_commit(&commit)
+                    .expect("the arbitrary change id is kept in the new field")
+                    .to_debug(),
+                snapbox::str![[r#"
+Headers {
+    change_id: Some(
+        "something-special-that-we-dont-produce",
+    ),
+    conflicted: None,
+}
+
+"#]]
+            );
         }
 
         #[test]
@@ -111,14 +342,20 @@ mod headers {
                 "gitbutler-change-id",
                 "something-special-that-we-dont-produce",
             )]);
-            insta::assert_debug_snapshot!(Headers::try_from_commit(&commit).expect("the arbitrary change id is kept in the old field"), @r#"
-            Headers {
-                change_id: Some(
-                    "something-special-that-we-dont-produce",
-                ),
-                conflicted: None,
-            }
-            "#);
+            snapbox::assert_data_eq!(
+                Headers::try_from_commit(&commit)
+                    .expect("the arbitrary change id is kept in the old field")
+                    .to_debug(),
+                snapbox::str![[r#"
+Headers {
+    change_id: Some(
+        "something-special-that-we-dont-produce",
+    ),
+    conflicted: None,
+}
+
+"#]]
+            );
         }
 
         #[test]
@@ -130,14 +367,20 @@ mod headers {
                     "this one isn't used and it's fine that it's invalid",
                 ),
             ]);
-            insta::assert_debug_snapshot!(Headers::try_from_commit(&commit).expect("the new change-id field takes precedence"), @r#"
-            Headers {
-                change_id: Some(
-                    "the new change-id takes precedence",
-                ),
-                conflicted: None,
-            }
-            "#);
+            snapbox::assert_data_eq!(
+                Headers::try_from_commit(&commit)
+                    .expect("the new change-id field takes precedence")
+                    .to_debug(),
+                snapbox::str![[r#"
+Headers {
+    change_id: Some(
+        "the new change-id takes precedence",
+    ),
+    conflicted: None,
+}
+
+"#]]
+            );
         }
 
         fn commit_with_header(
@@ -156,5 +399,259 @@ mod headers {
                     .collect(),
             }
         }
+    }
+}
+
+mod create {
+    use anyhow::Context as _;
+    use bstr::ByteSlice;
+    use but_core::commit::{self, Headers, SignCommit};
+    use but_error::Code;
+    use but_testsupport::{writable_scenario, writable_scenario_with_ssh_key};
+    use gix::{
+        objs::{WriteTo as _, commit::SIGNATURE_FIELD_NAME},
+        refs,
+    };
+
+    #[test]
+    fn content_hash_change_id_is_derived_from_commit_without_its_change_id_header()
+    -> anyhow::Result<()> {
+        let (mut repo, _tmp) = writable_scenario("single-unsigned");
+        repo.config_snapshot_mut()
+            .set_raw_value("gitbutler.testing.changeId", "content-hash")?;
+        let mut new_commit = commit_from_head(&repo, "content-derived change ID")?;
+        Headers::from_config(&repo.config_snapshot()).set_in_commit(&mut new_commit);
+
+        let oid = commit::create(&repo, new_commit, None, SignCommit::No)?;
+        let commit = repo.find_commit(oid)?.decode()?.to_owned()?;
+        let actual_change_id = Headers::try_from_commit(&commit)
+            .and_then(|headers| headers.change_id)
+            .context("created commit should have a change ID")?;
+
+        let mut commit_without_change_id = commit;
+        let change_id_pos = commit_without_change_id
+            .extra_headers()
+            .find_pos("change-id")
+            .context("created commit should have a change-id header")?;
+        commit_without_change_id.extra_headers.remove(change_id_pos);
+        let mut buf = Vec::new();
+        commit_without_change_id.write_to(&mut buf)?;
+        let content_id =
+            gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Commit, &buf)?;
+        let expected_change_id = Headers::synthetic_change_id_from_commit_id(content_id);
+
+        assert_eq!(
+            actual_change_id, expected_change_id,
+            "change ID should represent final commit content without the change-id header"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn content_hash_mode_keeps_an_existing_change_id() -> anyhow::Result<()> {
+        let (mut repo, _tmp) = writable_scenario("single-unsigned");
+        repo.config_snapshot_mut()
+            .set_raw_value("gitbutler.testing.changeId", "content-hash")?;
+        let mut new_commit = commit_from_head(&repo, "preserve change ID")?;
+        let expected_change_id = but_core::ChangeId::from_number_for_testing(42);
+        Headers::from_change_id(expected_change_id.clone()).set_in_commit(&mut new_commit);
+
+        let oid = commit::create(&repo, new_commit, None, SignCommit::No)?;
+        let commit = repo.find_commit(oid)?.decode()?.to_owned()?;
+        let actual_change_id = Headers::try_from_commit(&commit)
+            .and_then(|headers| headers.change_id)
+            .context("created commit should retain its change ID")?;
+
+        assert_eq!(
+            actual_change_id, expected_change_id,
+            "content-hash mode should only replace its reserved placeholder"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn signs_commits_when_enabled() -> anyhow::Result<()> {
+        let (repo, _tmp) = writable_scenario_with_ssh_key("single-signed");
+
+        let oid = commit::create(
+            &repo,
+            commit_from_head(&repo, "signed again")?,
+            None,
+            SignCommit::IfSignCommitsEnabled,
+        )?;
+        let commit = repo.find_commit(oid)?;
+        let commit = commit.decode()?;
+
+        assert!(
+            commit.extra_headers().find(SIGNATURE_FIELD_NAME).is_some(),
+            "a new signature should be written, the new commit needs to be signed"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn sign_commit_yes_forcefully_signs_commit() -> anyhow::Result<()> {
+        let (mut repo, _tmp) = writable_scenario_with_ssh_key("single-signed");
+        repo.config_snapshot_mut()
+            .set_raw_value("gitbutler.signCommits", "false")?;
+        repo.config_snapshot_mut()
+            .set_raw_value("commit.gpgSign", "false")?;
+
+        let oid = commit::create(
+            &repo,
+            commit_from_head(&repo, "should sign")?,
+            None,
+            SignCommit::Yes,
+        )?;
+        let commit = repo.find_commit(oid)?;
+        let commit = commit.decode()?;
+
+        assert!(
+            commit.extra_headers().pgp_signature().is_some(),
+            "despite the settings saying everything is disabled, it still signs the commit"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn sign_commit_yes_without_signing_key_errors() -> anyhow::Result<()> {
+        let (mut repo, _tmp) = writable_scenario("single-unsigned");
+
+        let err = commit::create(
+            &repo,
+            commit_from_head(&repo, "should not sign")?,
+            None,
+            SignCommit::Yes,
+        )
+        .expect_err("commit creation should fail as there is no signing key configured");
+
+        let error_code: Option<&Code> = err.downcast_ref();
+        assert_eq!(error_code, Some(&Code::CommitSigningFailed));
+
+        repo.reload()?;
+        assert_eq!(
+            repo.config_snapshot().boolean("gitbutler.signCommits"),
+            None,
+            "we do not touch this setting in this mode"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn sign_commit_if_enabled_without_signing_key_errors_and_sets_config() -> anyhow::Result<()> {
+        let (mut repo, _tmp) = writable_scenario_with_ssh_key("single-signed");
+        repo.config_snapshot_mut()
+            .set_raw_value("user.signingKey", "BAD-key")?;
+
+        let err = commit::create(
+            &repo,
+            commit_from_head(&repo, "should not sign")?,
+            None,
+            SignCommit::IfSignCommitsEnabled,
+        )
+        .expect_err("commit creation should fail as there is no signing key configured");
+
+        let error_code: Option<&Code> = err.downcast_ref();
+        assert_eq!(error_code, Some(&Code::CommitSigningFailed));
+
+        repo.reload()?;
+        assert_eq!(
+            repo.config_snapshot().boolean("gitbutler.signCommits"),
+            Some(false),
+            "prevent future failures by disabling signing for gitbutler"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn removes_existing_signature_when_not_signing() -> anyhow::Result<()> {
+        let (repo, _tmp) = writable_scenario_with_ssh_key("single-signed");
+        assert!(
+            repo.head_commit()?
+                .decode()?
+                .extra_headers()
+                .find(SIGNATURE_FIELD_NAME)
+                .is_some(),
+            "the fixture starts with a signed commit"
+        );
+
+        let oid = commit::create(
+            &repo,
+            commit_from_head(&repo, "unsigned")?,
+            None,
+            SignCommit::No,
+        )?;
+        let commit = repo.find_commit(oid)?;
+        let commit = commit.decode()?;
+
+        assert!(
+            commit.extra_headers().find(SIGNATURE_FIELD_NAME).is_none(),
+            "old signatures should be stripped when signing is disabled, as they would be invalid otherwise"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn updates_the_requested_reference() -> anyhow::Result<()> {
+        let (repo, _tmp) = writable_scenario_with_ssh_key("single-signed");
+        let update_ref =
+            refs::Category::LocalBranch.to_full_name("created-by-helper".as_bytes().as_bstr())?;
+
+        let oid = commit::create(
+            &repo,
+            commit_from_head(&repo, "updates ref")?,
+            Some(update_ref.as_ref()),
+            SignCommit::No,
+        )?;
+        let reference = repo.find_reference(update_ref.as_ref())?;
+
+        assert_eq!(
+            reference
+                .try_id()
+                .context("newly created direct reference")?,
+            oid
+        );
+        let previous = repo.find_reference("refs/heads/main")?.id();
+        assert_ne!(previous, oid, "the helper should not rewrite other refs");
+        Ok(())
+    }
+
+    #[test]
+    fn keeps_existing_headers_and_encoding() -> anyhow::Result<()> {
+        let (repo, _tmp) = writable_scenario_with_ssh_key("single-signed");
+        let mut new_commit = commit_from_head(&repo, "preserves metadata")?;
+        new_commit.encoding = Some("ISO-8859-1".into());
+        new_commit
+            .extra_headers
+            .push(("x-test-header".into(), "kept".into()));
+
+        let oid = commit::create(&repo, new_commit, None, SignCommit::No)?;
+        let commit = repo.find_commit(oid)?;
+        let commit = commit.decode()?;
+
+        assert_eq!(commit.encoding, Some("ISO-8859-1".as_bytes().as_bstr()));
+        assert_eq!(
+            commit.extra_headers().find("x-test-header"),
+            Some("kept".as_bytes().as_bstr())
+        );
+        assert!(
+            commit.extra_headers().find(SIGNATURE_FIELD_NAME).is_none(),
+            "the inherited signature should still be removed"
+        );
+        Ok(())
+    }
+
+    fn commit_from_head(
+        repo: &gix::Repository,
+        message: &str,
+    ) -> anyhow::Result<gix::objs::Commit> {
+        let head = repo.head_commit()?;
+        let mut commit = head.decode()?.to_owned()?;
+        commit.tree = head.tree_id()?.detach();
+        commit.parents = [head.id].into();
+        commit.message = message.into();
+        Ok(commit)
     }
 }

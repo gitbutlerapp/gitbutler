@@ -1,75 +1,77 @@
 import { goto } from "$app/navigation";
-import { showError } from "$lib/notifications/toasts";
-import {
-	handleAddProjectOutcome,
-	type AddProjectOutcome,
-	type Project,
-} from "$lib/project/project";
+import { showToast } from "$lib/notifications/toasts";
+import { handleAddProjectOutcome } from "$lib/project/project";
 import { projectPath } from "$lib/routes/routes.svelte";
-import { invalidatesList, providesItem, providesList, ReduxTag } from "$lib/state/tags";
 import { getCookie } from "$lib/utils/cookies";
 import { InjectionToken } from "@gitbutler/core/context";
 import { persisted } from "@gitbutler/shared/persisted";
-import { chipToasts } from "@gitbutler/ui";
+import { chipToasts } from "@gitbutler/ui-svelte";
 import { get } from "svelte/store";
 import type { IBackend } from "$lib/backend";
-import type { BackendApi } from "$lib/state/clientState.svelte";
-import type { ForgeUser } from "@gitbutler/core/api";
-
-export type ProjectInfo = {
-	is_exclusive: boolean;
-	db_error?: string;
-	headsup?: string;
-};
+import type { ProjectInfo, ProjectUpdate } from "$lib/project/projectEndpoints";
+import type { BackendApi } from "$lib/state/backendApi";
+import type { ForgeUser } from "@gitbutler/but-sdk";
 
 export const PROJECTS_SERVICE = new InjectionToken<ProjectsService>("ProjectsService");
 
+const MAX_RECENT_PROJECTS = 5;
+
 export class ProjectsService {
-	private api: ReturnType<typeof injectEndpoints>;
 	private persistedId = persisted<string | undefined>(undefined, "lastProject");
+	readonly recentProjectIds = persisted<string[]>([], "recentlyOpenedProjects");
 
 	constructor(
-		api: BackendApi,
+		private backendApi: BackendApi,
 		private homeDir: string | undefined,
 		private backend: IBackend,
-	) {
-		this.api = injectEndpoints(api);
-	}
+	) {}
 
 	projects() {
-		return this.api.endpoints.listProjects.useQuery();
+		return this.backendApi.endpoints.listProjects.useQuery();
+	}
+
+	async fetchProjects() {
+		return await this.backendApi.endpoints.listProjects.fetch();
+	}
+
+	/**
+	 * Capabilities that vary by how the backend was launched (local Tauri app
+	 * vs. but-server running behind a tunnel). Used to hide UI entry points
+	 * that require the user to be on the same machine as the backend.
+	 */
+	serverCapabilities() {
+		return this.backendApi.endpoints.serverCapabilities.useQuery();
 	}
 
 	getProject(projectId: string, noValidation?: boolean) {
-		return this.api.endpoints.project.useQuery({ projectId, noValidation });
+		return this.backendApi.endpoints.project.useQuery({ projectId, noValidation });
 	}
 
 	async fetchProject(projectId: string, noValidation?: boolean) {
-		return await this.api.endpoints.project.fetch({ projectId, noValidation });
+		return await this.backendApi.endpoints.project.fetch({ projectId, noValidation });
 	}
 
 	async setActiveProject(projectId: string): Promise<ProjectInfo | null> {
-		return await this.api.endpoints.setProjectActive.mutate({ id: projectId });
+		return await this.backendApi.endpoints.setProjectActive.mutate({ id: projectId });
 	}
 
-	async updateProject(project: Project & { unset_bool?: boolean; unset_forge_override?: boolean }) {
-		await this.api.endpoints.updateProject.mutate({ project });
+	async updateProject(project: ProjectUpdate) {
+		await this.backendApi.endpoints.updateProject.mutate({ project });
 	}
 
 	async updatePreferredForgeUser(projectId: string, preferredForgeUser: ForgeUser | null) {
-		const project = await this.fetchProject(projectId, true);
-
 		await this.updateProject({
-			...project,
+			id: projectId,
 			preferred_forge_user: preferredForgeUser,
 		});
 	}
 
 	async deleteProject(projectId: string) {
-		const response = await this.api.endpoints.deleteProject.mutate({ projectId });
+		const response = await this.backendApi.endpoints.deleteProject.mutate({ projectId });
 		if (this.getLastOpenedProject() === projectId) {
 			this.unsetLastOpenedProject();
 		}
+		this.recentProjectIds.set(get(this.recentProjectIds).filter((id) => id !== projectId));
 		return response;
 	}
 
@@ -83,7 +85,7 @@ export class ProjectsService {
 	 * @see {areYouGerritKiddingMe} for checking for signals of Gerrit usage.
 	 */
 	isGerritProject(projectId: string) {
-		return this.api.endpoints.project.useQuery(
+		return this.backendApi.endpoints.project.useQuery(
 			{ projectId, noValidation: true },
 			{ transform: (data) => data.gerrit_mode },
 		);
@@ -104,40 +106,48 @@ export class ProjectsService {
 		}
 	}
 
-	// TODO: Reinstate the ability to open a project in a new window.
 	async openProjectInNewWindow(projectId: string) {
-		await this.api.endpoints.openProjectInWindow.mutate({ id: projectId });
+		await this.backendApi.endpoints.openProjectInWindow.mutate({ id: projectId });
 	}
 
 	async relocateProject(projectId: string): Promise<void> {
 		const path = await this.getValidPath();
 		if (!path) return;
 
-		try {
-			const project = await this.fetchProject(projectId, true);
-			await this.updateProject({ ...project, path });
-			chipToasts.success(`Project ${project.title} relocated`);
-			window.location.reload();
-		} catch (error: any) {
-			showError("Failed to relocate project:", error.message);
-		}
+		const project = await this.fetchProject(projectId, true);
+		await this.updateProject({ id: project.id, path });
+		chipToasts.success(`Project ${project.title} relocated`);
+		window.location.reload();
 	}
 
 	async addProject(path?: string) {
+		const capabilities = await this.backendApi.endpoints.serverCapabilities.fetch();
+		if (!capabilities?.canAddProjects) {
+			showToast({
+				style: "info",
+				title: "Adding projects is disabled",
+				message: "Projects can only be added when GitButler runs on your local machine.",
+			});
+			return;
+		}
 		if (!path) {
 			path = await this.getValidPath();
 			if (!path) return;
 		}
-		return await this.api.endpoints.addProject.mutate({ path });
+		return await this.backendApi.endpoints.addProject.mutate({ path });
 	}
 
-	async handleDeepLinkOpen(path: string) {
-		const outcome = await this.api.endpoints.addProjectWithBestEffort.mutate({ path });
+	async handleDeepLinkOpen(path: string, newWindow = false) {
+		const outcome = await this.backendApi.endpoints.addProjectWithBestEffort.mutate({ path });
 		if (outcome) {
 			switch (outcome.type) {
 				case "added":
 				case "alreadyExists":
-					goto(projectPath(outcome.subject.id));
+					if (newWindow) {
+						await this.openProjectInNewWindow(outcome.subject.id);
+					} else {
+						goto(projectPath(outcome.subject.id));
+					}
 					break;
 				default:
 					handleAddProjectOutcome(outcome);
@@ -153,22 +163,34 @@ export class ProjectsService {
 	}
 
 	validateProjectPath(path: string) {
+		// These two paths represent unsupported-configuration guidance, not
+		// runtime errors. Surface them as info toasts so they don't pollute
+		// error telemetry — they previously accounted for 53 + many events
+		// of noisy toast:show_error captures.
 		if (/^\\\\wsl.localhost/i.test(path)) {
-			const errorMsg =
-				"For WSL2 projects, install the Linux version of GitButler inside of your WSL2 distro";
-			console.error(errorMsg);
-			showError("Use the Linux version of GitButler", errorMsg);
+			const message =
+				"For WSL2 projects, install the Linux version of GitButler inside of your WSL2 distro.";
+			console.warn(message);
+			showToast({
+				style: "info",
+				title: "Use the Linux version of GitButler",
+				message,
+			});
 
 			return false;
 		}
 
 		if (/^\\\\/i.test(path)) {
-			const errorMsg =
+			const message =
 				"Using git across a network is not recommended. Either clone " +
 				"the repo locally, or use the NET USE command to map a " +
-				"network drive";
-			console.error(errorMsg);
-			showError("UNC Paths are not directly supported", errorMsg);
+				"network drive.";
+			console.warn(message);
+			showToast({
+				style: "info",
+				title: "UNC paths are not directly supported",
+				message,
+			});
 
 			return false;
 		}
@@ -182,6 +204,11 @@ export class ProjectsService {
 
 	setLastOpenedProject(projectId: string) {
 		this.persistedId.set(projectId);
+		const recentIds = get(this.recentProjectIds);
+		// Keep the order stable for projects already in the recents list.
+		if (!recentIds.includes(projectId)) {
+			this.recentProjectIds.set([projectId, ...recentIds].slice(0, MAX_RECENT_PROJECTS));
+		}
 	}
 
 	unsetLastOpenedProject() {
@@ -197,60 +224,6 @@ export class ProjectsService {
 	 * @see {isGerritProject} for checking the actual config value.
 	 */
 	areYouGerritKiddingMe(projectId: string) {
-		return this.api.endpoints.areYouGerritKiddingMe.useQuery({ projectId });
+		return this.backendApi.endpoints.areYouGerritKiddingMe.useQuery({ projectId });
 	}
-}
-
-function injectEndpoints(api: BackendApi) {
-	return api.injectEndpoints({
-		endpoints: (build) => ({
-			listProjects: build.query<Project[], void>({
-				extraOptions: { command: "list_projects" },
-				query: () => undefined,
-				providesTags: [providesList(ReduxTag.Project)],
-			}),
-			project: build.query<Project, { projectId: string; noValidation?: boolean }>({
-				extraOptions: { command: "get_project" },
-				query: (args) => args,
-				providesTags: (_result, _error, args) => providesItem(ReduxTag.Project, args.projectId),
-			}),
-			addProject: build.mutation<AddProjectOutcome, { path: string }>({
-				extraOptions: { command: "add_project" },
-				query: (args) => args,
-				invalidatesTags: () => [invalidatesList(ReduxTag.Project)],
-			}),
-			addProjectWithBestEffort: build.mutation<AddProjectOutcome, { path: string }>({
-				extraOptions: { command: "add_project_best_effort" },
-				query: (args) => args,
-				invalidatesTags: () => [invalidatesList(ReduxTag.Project)],
-			}),
-			deleteProject: build.mutation<Project[], { projectId: string }>({
-				extraOptions: { command: "delete_project" },
-				query: (args) => args,
-				invalidatesTags: () => [invalidatesList(ReduxTag.Project)],
-			}),
-			setProjectActive: build.mutation<ProjectInfo | null, { id: string }>({
-				extraOptions: { command: "set_project_active" },
-				query: (args) => args,
-			}),
-			updateProject: build.mutation<
-				void,
-				{ project: Project & { unset_bool?: boolean; unset_forge_override?: boolean } }
-			>({
-				extraOptions: { command: "update_project" },
-				query: (args) => args,
-				invalidatesTags: (_result, _error, args) => providesItem(ReduxTag.Project, args.project.id),
-			}),
-			openProjectInWindow: build.mutation<void, { id: string }>({
-				extraOptions: { command: "open_project_in_window" },
-				query: (args) => args,
-			}),
-			areYouGerritKiddingMe: build.query<boolean, { projectId: string }>({
-				extraOptions: { command: "is_gerrit" },
-				query: (args) => args,
-				providesTags: (_result, _error, args) =>
-					providesItem(ReduxTag.ProjectGerrit, args.projectId),
-			}),
-		}),
-	});
 }

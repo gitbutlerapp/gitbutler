@@ -8,6 +8,10 @@ This directory serves the GitButler CLI installation script at `https://gitbutle
 - **Alias**: Uses the `$scripts` alias (defined in `svelte.config.js`) to avoid brittle relative paths
 - **Import method**: Uses Vite's `?raw` suffix to import the script as a plain string at build time
 - **Deployment**: Works in Vercel's serverless environment since the script is bundled at build time
+- **Fetch counting**: On the production host, each request also sends an `install_script_fetched`
+  event to PostHog before responding (best-effort, short timeout, failures only logged). This is
+  why the route must keep running per-request — do not add ISR or CDN caching, or the counting
+  silently stops.
 
 ## Usage
 
@@ -26,6 +30,9 @@ Located in `install.test.ts`, verifies:
 - Script can be imported via the `$scripts` alias
 - Script contains critical installation steps
 - Script has proper bash structure and error handling
+- The GET handler serves the script even when the PostHog capture fails, sends the expected
+  event payload on the production host only, and derives the client IP safely from
+  forwarding headers
 
 Run with:
 

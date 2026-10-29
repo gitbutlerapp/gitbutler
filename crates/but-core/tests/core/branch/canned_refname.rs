@@ -78,8 +78,8 @@ fn no_author_configured() -> anyhow::Result<()> {
     let mut repo = read_only_in_memory_scenario("unborn-empty")?;
     {
         let mut config = repo.config_snapshot_mut();
-        config.raw_values_mut(&"author.name")?.delete_all();
-        config.raw_values_mut(&"author.email")?.delete_all();
+        config.raw_values_mut("author.name")?.delete_all();
+        config.raw_values_mut("author.email")?.delete_all();
     }
 
     assert_eq!(
@@ -92,6 +92,6 @@ fn no_author_configured() -> anyhow::Result<()> {
 
 fn set_author(repo: &mut gix::Repository, name: &str) -> anyhow::Result<()> {
     let mut config = repo.config_snapshot_mut();
-    config.set_raw_value(&"author.name", name)?;
+    config.set_raw_value("author.name", name)?;
     Ok(())
 }

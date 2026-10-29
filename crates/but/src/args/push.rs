@@ -1,16 +1,20 @@
 #[derive(Debug, clap::Parser)]
 pub struct Command {
-    /// Branch name or CLI ID to push. If not specified, will list all branches and prompt for selection in interactive mode
+    /// Branch name or CLI ID to push; the branches below it in its stack are pushed with it.
+    /// If omitted, a terminal prompts for a selection and a non-interactive run pushes every
+    /// stack with unpushed commits.
+    #[clap(value_name = "BRANCH")]
     pub branch_id: Option<String>,
-    /// Force push even if it's not fast-forward
-    #[clap(long, short = 'f', default_value_t = true)]
+    /// Force push even if it's not fast-forward. Always on; the flag is kept for
+    /// compatibility.
+    #[clap(long, short = 'f', default_value_t = true, hide = true)]
     pub with_force: bool,
     /// Skip force push protection checks
     #[clap(long, short = 's')]
     pub skip_force_push_protection: bool,
-    /// Run pre-push hooks
-    #[clap(long, short = 'r', default_value_t = true)]
-    pub run_hooks: bool,
+    /// Bypass pre-push hooks
+    #[clap(long = "no-hooks", visible_alias = "no-verify")]
+    pub no_hooks: bool,
     /// Mark change as work-in-progress (Gerrit). Mutually exclusive with --ready.
     #[clap(long, short = 'w', conflicts_with = "ready", hide = true)]
     pub wip: bool,
@@ -43,4 +47,7 @@ pub struct Command {
     /// Show what would be pushed without actually pushing
     #[clap(long, short = 'd')]
     pub dry_run: bool,
+
+    #[clap(flatten)]
+    pub allow_merged: crate::args::atoms::AllowMergedArg,
 }

@@ -7,7 +7,6 @@
 	import Navigation from "$lib/components/Navigation.svelte";
 	import { OwnerService, OWNER_SERVICE } from "$lib/owner/ownerService";
 	import { WebState, WEB_STATE } from "$lib/redux/store.svelte";
-	import { SshKeyService, SSH_KEY_SERVICE } from "$lib/sshKeyService";
 	import { UserService, USER_SERVICE } from "$lib/user/userService";
 	import { provide } from "@gitbutler/core/context";
 	import { BranchService, BRANCH_SERVICE } from "@gitbutler/shared/branches/branchService";
@@ -54,11 +53,11 @@
 		UserService as NewUserService,
 		USER_SERVICE as NEW_USER_SERVICE,
 	} from "@gitbutler/shared/users/userService";
-	import { ChipToastContainer } from "@gitbutler/ui";
+	import { ChipToastContainer } from "@gitbutler/ui-svelte";
 	import {
 		EXTERNAL_LINK_SERVICE,
 		type ExternalLinkService,
-	} from "@gitbutler/ui/utils/externalLinkService";
+	} from "@gitbutler/ui-svelte/utils/externalLinkService";
 	import { type Snippet } from "svelte";
 	import { readable } from "svelte/store";
 	import { env } from "$env/dynamic/public";
@@ -134,12 +133,10 @@
 	provide(NOTIFICATION_SETTINGS_SERVICE, notificationSettingsService);
 	provide(EXTERNAL_LINK_SERVICE, {
 		open: (href) => {
-			location.href = href;
+			window.open(href, "_blank", "noopener,noreferrer");
 		},
 	} satisfies ExternalLinkService);
 
-	const sshKeyService = new SshKeyService(httpClient);
-	provide(SSH_KEY_SERVICE, sshKeyService);
 	const uploadsService = new UploadsService(httpClient);
 	provide(UPLOADS_SERVICE, uploadsService);
 

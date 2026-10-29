@@ -2,7 +2,6 @@ import {
 	persisted,
 	getBooleanStorageItem,
 	setStorageItem,
-	persistWithExpiration,
 	type Persisted,
 } from "@gitbutler/shared/persisted";
 
@@ -42,8 +41,13 @@ export function projectRunCommitHooks(projectId: string): Persisted<boolean> {
 	return persisted(false, key + projectId);
 }
 
-export function projectDisableCodegen(projectId: string): Persisted<boolean> {
-	const key = "projectDisableCodegen";
+/**
+ * When enabled, the branch's "Create PR" button is replaced with a "Land"
+ * button that integrates the branch straight into the target branch. This is a
+ * frontend-only preference and does not require a forge integration.
+ */
+export function projectLandDirectly(projectId: string): Persisted<boolean> {
+	const key = "projectLandDirectly_";
 	return persisted(false, key + projectId);
 }
 
@@ -66,5 +70,5 @@ export function getSwallowGitHubOrgAuthErrors(): boolean {
 
 export function persistedDismissedForgeIntegrationPrompt(projectId: string): Persisted<boolean> {
 	const key = "dismissedForgeIntegrationPrompt_";
-	return persistWithExpiration(false, key + projectId, 48 * 60); // 48 hours
+	return persisted<boolean>(false, key + projectId);
 }

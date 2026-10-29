@@ -20,6 +20,7 @@ fn deferred() -> anyhow::Result<()> {
         path: "ha1".into(),
         path_bytes: vec![],
         stack_id: None,
+        branch_ref_bytes: None,
     }];
     ha1.set_all(assignments.clone())
         .expect("first transaction gets the lock");
@@ -74,14 +75,13 @@ fn savepoint_read_snapshot_stays_consistent_across_tables_with_interleaved_write
     but_db::migration::run(&mut db2, but_db::migration::ours())?;
 
     db1.execute(
-        "INSERT INTO hunk_assignments (id, hunk_header, path, path_bytes, stack_id)
-         VALUES (?1, ?2, ?3, ?4, ?5)",
+        "INSERT INTO hunk_assignments (id, hunk_header, path, path_bytes)
+         VALUES (?1, ?2, ?3, ?4)",
         rusqlite::params![
             "id-1",
             "@@ -1,1 +1,1 @@",
             "path/to/file",
             b"path/to/file".to_vec(),
-            Option::<String>::None,
         ],
     )?;
 
@@ -96,20 +96,13 @@ fn savepoint_read_snapshot_stays_consistent_across_tables_with_interleaved_write
     );
 
     db2.execute(
-        "INSERT INTO workspace_rules (id, created_at, enabled, trigger, filters, action)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        rusqlite::params![
-            "rule-1",
-            "2024-01-01 00:00:00",
-            true,
-            "on_change",
-            "{}",
-            "{}",
-        ],
+        "INSERT INTO file_write_locks (path, created_at, owner)
+         VALUES (?1, ?2, ?3)",
+        rusqlite::params!["path/to/lock", "2024-01-01 00:00:00", "owner-1",],
     )?;
 
     let count = sp1
-        .query_row("SELECT COUNT(*) FROM workspace_rules", [], |row| {
+        .query_row("SELECT COUNT(*) FROM file_write_locks", [], |row| {
             row.get::<_, i64>(0)
         })
         .expect("no database error, we see the pre-write state");
@@ -120,8 +113,9 @@ fn savepoint_read_snapshot_stays_consistent_across_tables_with_interleaved_write
 
     sp1.commit()?;
 
-    let latest_count: i64 =
-        db1.query_row("SELECT COUNT(*) FROM workspace_rules", [], |row| row.get(0))?;
+    let latest_count: i64 = db1.query_row("SELECT COUNT(*) FROM file_write_locks", [], |row| {
+        row.get(0)
+    })?;
     assert_eq!(
         latest_count, 1,
         "after savepoint ends, new writes are visible"
@@ -161,6 +155,7 @@ fn deferred_savepoint_write_after_concurrent_commit_returns_busy_snapshot() -> a
         path: "from_t1".into(),
         path_bytes: vec![],
         stack_id: None,
+        branch_ref_bytes: None,
     }];
     t1.hunk_assignments_mut()?.set_all(assignments.clone())?;
     t1.commit()?;

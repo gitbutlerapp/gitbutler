@@ -6,7 +6,7 @@ mod trailer {
 
     #[test]
     fn display() {
-        let trailer = Trailer {
+        let trailer = Trailer::Other {
             key: "foo".to_string(),
             value: "bar".to_string(),
         };
@@ -17,8 +17,13 @@ mod trailer {
     fn from_str() {
         let s = "foo: bar";
         let trailer = Trailer::from_str(s).unwrap();
-        assert_eq!(trailer.key, "foo");
-        assert_eq!(trailer.value, "bar");
+        assert_eq!(
+            trailer,
+            Trailer::Other {
+                key: "foo".to_owned(),
+                value: "bar".to_owned()
+            }
+        );
     }
 
     #[test]
@@ -37,25 +42,25 @@ mod version {
     #[test]
     fn from_trailer() {
         let s = "Version: 3";
-        let trailer = Trailer::from_str(s).unwrap();
-        let version = Version::from_str(&trailer.value).unwrap();
+        let Trailer::Version(version) = Trailer::from_str(s).unwrap() else {
+            panic!();
+        };
         assert_eq!(version, Version::default());
     }
 
     #[test]
     fn non_default() {
         let s = "Version: 1";
-        let trailer = Trailer::from_str(s).unwrap();
-        let version = Version::from_str(&trailer.value).unwrap();
-        assert_eq!(version, Version::from_str("1").unwrap());
+        let Trailer::Version(version) = Trailer::from_str(s).unwrap() else {
+            panic!();
+        };
+        assert_eq!(version, Version(1));
     }
 
     #[test]
     fn invalid() {
         let s = "Version: -1";
-        let trailer = Trailer::from_str(s).unwrap();
-        let version = Version::from_str(&trailer.value);
-        assert!(version.is_err());
+        assert!(Trailer::from_str(s).is_err());
     }
 }
 
@@ -67,8 +72,9 @@ mod operation_kind {
     #[test]
     fn from_trailer() {
         let s = "Operation: CreateCommit";
-        let trailer = Trailer::from_str(s).unwrap();
-        let operation = OperationKind::from_str(&trailer.value).unwrap();
+        let Trailer::Operation(operation) = Trailer::from_str(s).unwrap() else {
+            panic!();
+        };
         assert_eq!(operation, OperationKind::CreateCommit);
     }
 
@@ -85,7 +91,7 @@ mod operation_kind {
         );
         assert_eq!(
             details.trailers,
-            vec![Trailer {
+            vec![Trailer::Other {
                 key: "Foo".to_string(),
                 value: "Bar".to_string(),
             }]
@@ -105,7 +111,7 @@ mod snapshot_details {
             "Create a new snapshot\n\nBody text 1\nBody text2\n\nBody text 3\n\nVersion: 3\nOperation: CreateCommit\nFoo: Bar\n".to_string();
         let timezone_offset_does_not_matter = 1234;
         let created_at = gix::date::Time::new(1234567890, timezone_offset_does_not_matter * 60);
-        let details = SnapshotDetails::from_str(&commit_message.clone()).unwrap();
+        let details = SnapshotDetails::from_str(&commit_message).unwrap();
         let snapshot = Snapshot {
             commit_id: commit_sha,
             created_at,
@@ -123,7 +129,7 @@ mod snapshot_details {
         );
         assert_eq!(
             details.trailers,
-            vec![Trailer {
+            vec![Trailer::Other {
                 key: "Foo".to_string(),
                 value: "Bar".to_string(),
             }]
@@ -133,7 +139,7 @@ mod snapshot_details {
 
     #[test]
     fn new_with_newline_in_trailer() {
-        let snapshot_details = new_details(Trailer {
+        let snapshot_details = new_details(Trailer::Other {
             key: "Message".to_string(),
             value: "Header\n\nBody".to_string(),
         });
@@ -148,13 +154,16 @@ mod snapshot_details {
     #[test]
     fn new_with_space_in_trailer_key() {
         for value in ["trailing-space ", " leading-space"] {
-            let trailer = Trailer {
+            let trailer = Trailer::Other {
                 key: value.to_string(),
                 value: "anything".to_string(),
             };
             let mut snapshot_details = new_details(trailer);
-            let trailer = &mut snapshot_details.trailers[0];
-            trailer.key = trailer.key.trim().to_string();
+            if let Trailer::Other { key, .. } = &mut snapshot_details.trailers[0] {
+                *key = key.trim().to_string();
+            } else {
+                panic!()
+            }
 
             let serialized = snapshot_details.to_string();
             let deserialized = SnapshotDetails::from_str(&serialized).unwrap();
@@ -172,3 +181,43 @@ mod snapshot_details {
         }
     }
 }
+
+mod prepare_snapshot {
+    use but_meta::virtual_branches_legacy_types::VirtualBranches;
+    use but_testsupport::Sandbox;
+    use gitbutler_oplog::OplogExt;
+
+    #[test]
+    fn metadata_free_workspace_marks_legacy_stacks_outside() -> anyhow::Result<()> {
+        let env =
+            Sandbox::init_scenario_with_target_and_default_settings("metadata-free-workspace");
+        let [stack_id] = *env.setup_metadata(&["A"]) else {
+            unreachable!("one branch creates one stack")
+        };
+        env.invoke_git("checkout main");
+
+        let ctx = but_ctx::Context::from_repo_for_testing(env.open_repo())?;
+        let guard = ctx.shared_worktree_access();
+        let snapshot_tree_id = ctx.prepare_snapshot(guard.read_permission())?;
+        let repo = ctx.repo.get()?;
+        let snapshot_tree = repo.find_tree(snapshot_tree_id)?;
+        let metadata_blob = snapshot_tree
+            .lookup_entry_by_path("virtual_branches.toml")?
+            .expect("snapshot contains legacy metadata")
+            .object()?
+            .into_blob();
+        let metadata: VirtualBranches = toml::from_str(std::str::from_utf8(&metadata_blob.data)?)?;
+
+        assert!(
+            !metadata
+                .branches
+                .get(&stack_id)
+                .expect("legacy stack is retained")
+                .in_workspace,
+            "metadata-free projections must mark legacy stacks outside the workspace"
+        );
+        Ok(())
+    }
+}
+
+mod integration;

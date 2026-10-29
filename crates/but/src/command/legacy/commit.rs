@@ -1,800 +1,1319 @@
-use std::{collections::BTreeMap, fmt::Write as _};
+use std::path::Path;
 
-use anyhow::{Context, Result, bail};
-use bstr::{BString, ByteSlice};
+use anyhow::Context as _;
 use but_api::{
-    commit::{commit_create, commit_insert_blank},
-    legacy::{diff, repo, workspace},
+    WorkspaceState,
+    json::{ChangeIdString, HexHash},
 };
-use but_core::{DiffSpec, ui::TreeChange};
-use but_rebase::graph_rebase::mutate::InsertSide;
-use colored::Colorize;
-use gitbutler_repo::hooks;
+use but_core::{
+    DiffSpec, DryRun, RefMetadata,
+    sync::{RepoExclusive, RepoExclusiveGuard},
+};
+use but_ctx::Context;
+use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_transaction::{IntermediateCommitCreateResult, Transaction};
+use but_workspace::{RefInfo, commit::ChangeSource};
+use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
+use gix::refs::FullName;
+use nonempty::NonEmpty;
+use serde::Serialize;
 
-use super::{ShowDiffInEditor, estimate_diff_blob_size};
 use crate::{
-    CliId, IdMap,
-    command::legacy::status::assignment::{CLIHunkAssignment, FileAssignment},
-    tui,
-    utils::{InputOutputChannel, OutputChannel, shorten_object_id},
+    CliError, CliId, CliResult, CliResultExt, IdMap,
+    args::{
+        atoms::{BranchArg, BranchOrCommit, CliIdArg, Purpose, ResolvedCliIdArg},
+        commit::Platform,
+    },
+    bad_input,
+    command::legacy::{
+        reword2::CommitMessageSource,
+        status::{Selectable, TuiOutcome, TuiRunOptions, tui_with_options},
+    },
+    error::BadInput,
+    id::{CommitId, UncommittedHunkOrFile},
+    theme::{self, Theme},
+    utils::{
+        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
+        change_source::{ChangeSourceId, ChangeSourceRepo, InvokedFrom, UncommittedSelection},
+        diff_specs::DiffSpecBuilder,
+        merged_upstream::MergedUpstream,
+        rejection,
+        single_branch_mode::{
+            HowToCreateStackedReference, HowToCreateUnstackedReference, SingleBranchMode,
+        },
+        targeting::Side,
+        worktrees::{worktree_branch, worktree_tip_target},
+    },
 };
 
-pub(crate) fn insert_blank_commit(
-    ctx: &mut but_ctx::Context,
-    out: &mut OutputChannel,
-    target: &str,
-    insert_side: InsertSide,
-) -> Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+#[derive(Debug, Clone)]
+#[must_use]
+pub struct CommitOutcome {
+    pub new_commit: CommitId,
+    pub branch_name: Option<BranchNameTarget>,
+    pub(crate) changed_path_count: usize,
+}
 
-    // Resolve the target ID
-    let cli_ids = id_map.parse_using_context(target, ctx)?;
+/// `--json` should only include newly created things. So if the branch already existed it
+/// wont be included in the JSON output.
+#[derive(Debug, Clone)]
+pub enum BranchNameTarget {
+    Existing(FullName),
+    New(FullName),
+}
 
-    if cli_ids.is_empty() {
-        bail!("Target '{target}' not found");
+impl CliOutputHuman for CommitOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        _theme: &Theme,
+    ) -> anyhow::Result<()> {
+        let Self {
+            new_commit,
+            branch_name,
+            changed_path_count: _,
+        } = self;
+
+        match branch_name {
+            Some(BranchNameTarget::New(branch_name)) => writeln!(
+                out,
+                "Created commit {} on new branch {}",
+                theme::Commit(new_commit),
+                theme::Branch(branch_name),
+            )?,
+            Some(BranchNameTarget::Existing(branch_name)) => writeln!(
+                out,
+                "Created commit {} on branch {}",
+                theme::Commit(new_commit),
+                theme::Branch(branch_name),
+            )?,
+            None => writeln!(out, "Created commit {}", theme::Commit(new_commit))?,
+        }
+
+        Ok(())
     }
+}
 
-    if cli_ids.len() > 1 {
-        bail!(
-            "Target '{}' is ambiguous. Found {} matches",
-            target,
-            cli_ids.len()
-        );
+impl CliOutput for CommitOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Output {
+            commit_id: HexHash,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            change_id: Option<ChangeIdString>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            branch: Option<String>,
+        }
+
+        let Self {
+            new_commit,
+            branch_name,
+            changed_path_count: _,
+        } = self;
+
+        let branch_name = match branch_name {
+            Some(BranchNameTarget::New(branch_name)) => Some(branch_name.shorten().to_string()),
+            _ => None,
+        };
+
+        Output {
+            commit_id: new_commit.commit_id.into(),
+            change_id: new_commit.change_id.map(Into::into),
+            branch: branch_name,
+        }
     }
+}
 
-    let cli_id = &cli_ids[0];
+pub fn commit(
+    ctx: &mut Context,
+    mut out: IntermediateChannel<'_>,
+    args: Platform,
+    invoked_from: &InvokedFrom,
+    current_dir: &Path,
+) -> CliResult<(CommitOutcome, WorkspaceState)> {
+    let guard = ctx.exclusive_worktree_access();
+    let mut meta = ctx.meta()?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission(), Some(invoked_from))?;
 
-    // Determine the position description for the success message
-    // Note: InsertSide::Above inserts as a child (after in time),
-    // InsertSide::Below inserts as a parent (before in time)
-    let position_desc = match insert_side {
-        InsertSide::Above => "after",
-        InsertSide::Below => "before",
+    let (mut guard, commit_op, commit_selection, reword_op) = {
+        let head_info = but_api::legacy::workspace::head_info(ctx)?;
+        resolve(
+            guard,
+            ctx,
+            args,
+            &mut out,
+            &head_info,
+            &id_map,
+            invoked_from,
+            current_dir,
+        )?
+    };
+    Ok(run(
+        ctx,
+        &mut meta,
+        guard.write_permission(),
+        commit_op,
+        commit_selection,
+        reword_op,
+    )?)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn resolve(
+    guard: RepoExclusiveGuard,
+    ctx: &mut Context,
+    args: Platform,
+    out: &mut IntermediateChannel<'_>,
+    head_info: &RefInfo,
+    id_map: &IdMap,
+    invoked_from: &InvokedFrom,
+    current_dir: &Path,
+) -> CliResult<(
+    RepoExclusiveGuard,
+    CommitOperation,
+    CommitSelection,
+    CommitMessageSource,
+)> {
+    let Platform {
+        no_message,
+        message,
+        file,
+        branch,
+        empty,
+        above,
+        below,
+        interactive,
+        changes,
+        allow_merged,
+        switch,
+    } = args;
+
+    let merged = MergedUpstream::new(
+        &*ctx.repo.get()?,
+        &ctx.project_meta()?,
+        head_info,
+        allow_merged,
+    );
+
+    let target_ish = CommitOperationTargetIsh::resolve(branch, above, below)?;
+
+    let (guard, commit_selection) = if !changes.is_empty() {
+        let changes = changes
+            .into_iter()
+            .map(|change| {
+                let repo = ctx.repo.get()?;
+                match change.try_resolve_uncommitted(&repo, id_map)? {
+                    Some(resolved) => Ok(resolved),
+                    None => Err(unresolved_change_error(&change, &repo, id_map)),
+                }
+            })
+            .collect::<CliResult<Vec<Vec<UncommittedHunkOrFile>>>>()?;
+        let changes = changes.into_iter().flatten().collect();
+        let Some(changes) = NonEmpty::from_vec(changes) else {
+            return Err(bad_input("No changes to commit")
+                .hint("Run `but status` to show applicable targets")
+                .into());
+        };
+        (
+            guard,
+            CommitSelection::Changes(Box::new(UncommittedSelection::new(changes)?)),
+        )
+    } else if interactive {
+        let Some(mut inout) = out.prepare_for_terminal_input() else {
+            return Err(bad_input("Terminal doesn't support interactivity").into());
+        };
+        let (guard, outcome) = tui_with_options(
+            ctx,
+            guard,
+            &mut inout,
+            TuiRunOptions::PickChanges,
+            invoked_from,
+        )?;
+        let ids = match outcome {
+            TuiOutcome::Selection(ids) => ids,
+            TuiOutcome::None => {
+                return Err(bad_input("No changes to commit")
+                    .hint("Pick changes by pressing space. Confirm with enter.")
+                    .into());
+            }
+        };
+        let changes = ids
+            .into_iter()
+            .map(|change| {
+                match change {
+                    Selectable::UncommittedHunkOrFile(id) => Ok(id),
+                    _ => {
+                        Err(anyhow::anyhow!("BUG: tui should only return uncommitted changes in PickChanges mode but got {change:?}"))
+                    }
+                }
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let Some(changes) = NonEmpty::from_vec(changes) else {
+            return Err(bad_input("No changes to commit")
+                .hint("Pick changes by pressing space. Confirm with enter.")
+                .into());
+        };
+        (
+            guard,
+            CommitSelection::Changes(Box::new(UncommittedSelection::new(changes)?)),
+        )
+    } else if empty {
+        (guard, CommitSelection::Nothing)
+    } else {
+        (
+            guard,
+            CommitSelection::AllChanges(invoked_from.managed_source(id_map)?),
+        )
     };
 
-    // Determine target commit ID and use provided insert_side
-    let success_message = match cli_id {
-        CliId::Commit { commit_id: oid, .. } => {
-            let short_oid = {
-                let repo = ctx.repo.get()?;
-                shorten_object_id(&repo, *oid)
-            };
-            commit_insert_blank(
-                ctx,
-                but_api::commit::ui::RelativeTo::Commit(*oid),
-                insert_side,
-            )?;
-            format!("Created blank commit {position_desc} commit {short_oid}")
+    let commit_op = {
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        let default_lane = || match &commit_selection {
+            CommitSelection::AllChanges(_) | CommitSelection::Changes(_) => {
+                Ok(commit_selection.source())
+            }
+            CommitSelection::Nothing => invoked_from.managed_source(id_map),
+        };
+        route_commit_operation(
+            &repo,
+            &ws,
+            head_info,
+            out,
+            id_map,
+            target_ish,
+            default_lane,
+            &merged,
+            switch,
+        )
+        .map_err(|err| match err {
+            RouteCommitOperationError::NoStackToCommitTo => {
+                bad_input("Found no stack that could be committed to").into()
+            }
+            RouteCommitOperationError::UnclearTargetCantPrompt => {
+                bad_input("Unclear where to commit. Found more than one stack")
+                    .hint("You can specify where to commit with `--branch [<BRANCH>]`")
+                    .into()
+            }
+            RouteCommitOperationError::Other(cli_error) => cli_error,
+        })?
+    };
+    if let InvokedFrom::LinkedWorktree(worktree) = invoked_from
+        && commit_op.will_create_unstacked_reference()
+    {
+        let checked_out = worktree_branch(&*ctx.repo.get()?, worktree.as_ref())
+            .map_or_else(|_| "<branch>".into(), |name| name.shorten().to_string());
+        return Err(bad_input(format!(
+            "Cannot commit to an unstacked branch from worktree {worktree}"
+        ))
+        .hint(format!(
+            "Omit `-b` to commit to {checked_out}, the branch this worktree has checked out"
+        ))
+        .into());
+    }
+
+    {
+        let repo = ctx.repo.get()?;
+        if repo.head()?.is_unborn() {
+            validate_branch_target_in_unborn_repo(&repo, &commit_op)?;
         }
-        CliId::Branch { name, .. } => {
-            let reference = {
-                let repo = ctx.repo.get()?;
-                repo.find_reference(name)?.detach()
-            };
-            commit_insert_blank(
-                ctx,
-                but_api::commit::ui::RelativeTo::Reference(reference.name),
-                insert_side,
-            )?;
-            match insert_side {
-                InsertSide::Above => format!("Created blank commit at the top of stack '{name}'"),
-                InsertSide::Below => {
-                    format!("Created blank commit at the bottom of stack '{name}'")
+    }
+
+    let reword_op = CommitMessageSource::from_args(
+        no_message,
+        message,
+        file.as_ref(),
+        current_dir,
+        out.format(),
+    )?;
+
+    Ok((guard, commit_op, commit_selection, reword_op))
+}
+
+/// The retired syntax put the target branch in positional position
+/// (`but commit <branch> -m "message"`), which the modern grammar reads as a
+/// change. When a change fails to resolve but names an applied branch,
+/// suggest `-b` targeting instead of the generic missing-change hint.
+fn unresolved_change_error(change: &CliIdArg, repo: &gix::Repository, id_map: &IdMap) -> CliError {
+    let names_branch = change
+        .parse(repo, id_map)
+        .ok()
+        .into_iter()
+        .flatten()
+        .any(|id| matches!(id, CliId::Branch(..)));
+    let err = bad_input(format!("Could not find uncommitted change: '{change}'"));
+    if names_branch {
+        err.hint(format!(
+            "'{change}' is a branch. To commit onto it, run `but commit -b {change} -m \"message\" [<change>...]`"
+        ))
+        .into()
+    } else {
+        err.hint(CliIdArg::CHANGE_MISSING_HINT).into()
+    }
+}
+
+pub fn run(
+    ctx: &mut Context,
+    meta: &mut impl RefMetadata,
+    perm: &mut RepoExclusive,
+    commit_op: CommitOperation,
+    commit_selection: CommitSelection,
+    reword_op: CommitMessageSource,
+) -> anyhow::Result<(CommitOutcome, WorkspaceState)> {
+    // Owned for the whole operation: the `ChangeSource` handed to the transaction
+    // below borrows from it.
+    let source_repo = ChangeSourceRepo::open(ctx, &commit_selection.source())?;
+
+    let changes = {
+        let context_lines = ctx.settings.context_lines;
+        let repo = ctx.repo.get()?;
+
+        // One repo per builder, which is also what keeps `reconcile_worktree_diff_specs`
+        // from seeing a spec whose path is not among that checkout's changes.
+        let mut builder = DiffSpecBuilder::for_change_source(&source_repo, &repo, context_lines);
+
+        match commit_selection {
+            CommitSelection::AllChanges(_) => {
+                builder.push_changes_from_uncommitted_area()?;
+            }
+            CommitSelection::Changes(selection) => {
+                for change in selection.into_changes() {
+                    builder.push_changes_from_uncommitted(&change)?;
+                }
+
+                builder.reconcile_worktree_diff_specs()?;
+            }
+            CommitSelection::Nothing => {}
+        }
+
+        builder.into_diff_specs()
+    };
+
+    {
+        let repo = ctx.repo.get()?;
+        if repo.head()?.is_unborn() {
+            drop(repo);
+            return run_in_unborn_repo(ctx, meta, perm, commit_op, changes, reword_op);
+        }
+    }
+
+    let sbm = (commit_op.will_create_reference() || commit_op.switch())
+        .then(|| SingleBranchMode::new(ctx, perm.read_permission(), commit_op.switch()))
+        .transpose()?;
+
+    let changed_path_count = changes.len();
+    let rejection_target = commit_op.rejection_target();
+    let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
+
+    let ((new_commit, branch_name), ws) = if let Some(sbm) = sbm {
+        sbm.transaction_with_workspace_setup(
+            ctx,
+            meta,
+            snapshot_details,
+            perm,
+            commit_op.will_create_unstacked_reference(),
+            |tx| {
+                commit_with_transaction(
+                    tx,
+                    commit_op,
+                    changes,
+                    source_repo.as_change_source(),
+                    Some(&sbm),
+                    reword_op,
+                )
+            },
+        )
+    } else {
+        but_transaction::with_transaction_with_perm(
+            ctx,
+            meta,
+            perm,
+            snapshot_details,
+            &[],
+            DryRun::No,
+            |tx| {
+                commit_with_transaction(
+                    tx,
+                    commit_op,
+                    changes,
+                    source_repo.as_change_source(),
+                    sbm.as_ref(),
+                    reword_op,
+                )
+            },
+        )
+    }
+    .map_err(|err| rejection::explain_after_rollback(ctx, perm, "commit", rejection_target, err))?;
+
+    let outcome = CommitOutcome {
+        new_commit,
+        branch_name,
+        changed_path_count,
+    };
+
+    Ok((outcome, ws))
+}
+
+fn commit_with_transaction(
+    mut tx: Transaction<'_, '_, impl RefMetadata>,
+    commit_op: CommitOperation,
+    changes: Vec<DiffSpec>,
+    source: ChangeSource<'_>,
+    sbm: Option<&SingleBranchMode>,
+    reword_op: CommitMessageSource,
+) -> anyhow::Result<but_transaction::Commit<(CommitId, Option<BranchNameTarget>)>> {
+    let (
+        IntermediateCommitCreateResult {
+            new_commit,
+            rejected_specs,
+        },
+        branch_name,
+    ) = commit_op.execute(&mut tx, changes, source, sbm)?;
+
+    if !rejected_specs.is_empty() {
+        return Err(rejection::RejectedChanges(rejected_specs).into());
+    }
+
+    let new_commit =
+        new_commit.context("BUG: rejected_specs is empty yet nothing was committed")?;
+
+    let reworded_commit = reword_op.execute(new_commit.into(), &mut tx)?;
+
+    Ok(but_transaction::Commit((reworded_commit, branch_name)))
+}
+
+/// Targeting modes for committing.
+pub enum CommitOperationTargetIsh {
+    /// Target the branch if it exists, or create it at the newest base if it does not.
+    Branch(CliIdArg),
+    /// Target newest base with a new canned branch name.
+    UnstackedCannedBranch,
+    /// Targets above the [`CliIdArg`], which must denote either a commit or a branch.
+    Above {
+        target: CliIdArg,
+        /// If target is a branch, this specifies the name of the new branch to create.
+        new_branch_name: Option<Option<CliIdArg>>,
+    },
+    /// Targets below the [`CliIdArg`], which must denote either a commit or a branch. For commits,
+    /// this is directly below. For branches, this is below the segment.
+    Below {
+        target: CliIdArg,
+        /// If target is a branch, this specifies the name of the new branch to create.
+        new_branch_name: Option<Option<CliIdArg>>,
+    },
+    /// The default target, makes a sensible choice about where to put the commit, creating a branch
+    /// if necessary. This should be used if there is no input from the user about where to put the
+    /// commit.
+    Default,
+}
+
+impl CommitOperationTargetIsh {
+    pub fn resolve(
+        branch: Option<Option<CliIdArg>>,
+        above: Option<CliIdArg>,
+        below: Option<CliIdArg>,
+    ) -> CliResult<Self> {
+        Ok(match (branch, above, below) {
+            (Some(Some(branch)), None, None) => CommitOperationTargetIsh::Branch(branch),
+            (Some(None), None, None) => CommitOperationTargetIsh::UnstackedCannedBranch,
+            (branch, Some(cli_id), None) => CommitOperationTargetIsh::Above {
+                target: cli_id,
+                new_branch_name: branch,
+            },
+            (branch, None, Some(cli_id)) => CommitOperationTargetIsh::Below {
+                target: cli_id,
+                new_branch_name: branch,
+            },
+            (None, None, None) => CommitOperationTargetIsh::Default,
+            _ => {
+                return Err(anyhow::anyhow!(
+                    "BUG: Should not be able to supply more than one of above, below or branch"
+                )
+                .into());
+            }
+        })
+    }
+}
+
+/// `default_lane` names the checkout whose lane a commit without a target goes to. It is only
+/// asked for then, so a checkout that can't be named fails just the commits relying on it.
+#[expect(clippy::too_many_arguments)]
+pub fn route_commit_operation(
+    repo: &gix::Repository,
+    ws: &but_graph::Workspace,
+    head_info: &RefInfo,
+    out: &mut IntermediateChannel<'_>,
+    id_map: &IdMap,
+    target: CommitOperationTargetIsh,
+    default_lane: impl FnOnce() -> CliResult<ChangeSourceId>,
+    merged: &MergedUpstream,
+    switch: bool,
+) -> Result<CommitOperation, RouteCommitOperationError> {
+    match target {
+        CommitOperationTargetIsh::Above {
+            target,
+            new_branch_name,
+        } => {
+            let side = Side::Above;
+            Ok(route_commit_above_or_below(
+                repo,
+                ws,
+                id_map,
+                target,
+                side,
+                merged,
+                new_branch_name,
+                switch,
+            )?)
+        }
+        CommitOperationTargetIsh::Below {
+            target,
+            new_branch_name,
+        } => {
+            let side = Side::Below;
+            Ok(route_commit_above_or_below(
+                repo,
+                ws,
+                id_map,
+                target,
+                side,
+                merged,
+                new_branch_name,
+                switch,
+            )?)
+        }
+        CommitOperationTargetIsh::Branch(cli_id) => {
+            if let Some(branch) = cli_id.try_resolve_branch(repo, id_map)? {
+                let segment = branch.resolve_segment(head_info)?;
+                let ref_info = segment.ref_info.with_context(|| {
+                    format!("BUG: Segment resolved from branch name {branch} has no ref info")
+                })?;
+                merged.ensure_branch_not_merged(ref_info.ref_name.as_ref())?;
+
+                let target = CommitRelativeToTarget::BranchTip {
+                    name: ref_info.ref_name,
+                    switch,
+                };
+
+                Ok(CommitOperation::CommitAt(CommitAtOperation { target }))
+            } else {
+                reject_workspace_target(repo, ws, &cli_id, "to")?;
+                let branch = BranchArg(cli_id.0);
+                let branch_name = branch
+                    .resolve_for_creation(repo, ws)
+                    .with_hint(|| format!("Run `but apply {branch}` to apply the branch first"))?;
+                Ok(CommitOperation::CommitToNewBranch(
+                    CommitToNewBranchOperation {
+                        branch_name: Some(branch_name),
+                        switch,
+                    },
+                ))
+            }
+        }
+        CommitOperationTargetIsh::UnstackedCannedBranch => Ok(CommitOperation::CommitToNewBranch(
+            CommitToNewBranchOperation {
+                branch_name: None,
+                switch,
+            },
+        )),
+        CommitOperationTargetIsh::Default => {
+            // A worktree's lane defaults to where the TUI's heading gesture puts changes:
+            // the tip of the branch checked out there, not a workspace stack.
+            if let ChangeSourceId::Worktree(name) = default_lane()? {
+                // The user didn't pick this target, but a detached or otherwise
+                // branchless worktree is still their input to fix.
+                let name = worktree_branch(repo, name.as_ref())
+                    .map_err(|err| CliError::from(bad_input(err.to_string())))?;
+                merged.ensure_branch_not_merged(name.as_ref())?;
+                return Ok(CommitOperation::CommitAt(CommitAtOperation {
+                    target: CommitRelativeToTarget::BranchTip { name, switch },
+                }));
+            }
+            // Branches that have landed upstream are not sensible default targets;
+            // skip them so new work goes to a live branch or a fresh one.
+            let stacks = head_info
+                .stacks
+                .iter()
+                .filter(|stack| {
+                    !stack
+                        .segments
+                        .first()
+                        .is_some_and(|segment| merged.contains_segment(segment))
+                })
+                .collect::<Vec<_>>();
+
+            match &stacks[..] {
+                [] => Ok(CommitOperation::CommitToNewBranch(
+                    CommitToNewBranchOperation {
+                        branch_name: None,
+                        switch,
+                    },
+                )),
+                [stack] => {
+                    let ref_info = stack
+                        .segments
+                        .first()
+                        .and_then(|segment| segment.ref_info.as_ref())
+                        .context("Head stack has no ref")?;
+                    Ok(CommitOperation::CommitAt(CommitAtOperation {
+                        target: CommitRelativeToTarget::BranchTip {
+                            name: ref_info.ref_name.clone(),
+                            switch,
+                        },
+                    }))
+                }
+                stacks => {
+                    let stack_heads = stacks
+                        .iter()
+                        .flat_map(|stack| &stack.segments)
+                        .filter_map(|segment| segment.ref_info.as_ref())
+                        .filter(|ref_info| {
+                            merged
+                                .ensure_branch_not_merged(ref_info.ref_name.as_ref())
+                                .is_ok()
+                        })
+                        .map(|ref_info| (ref_info.ref_name.shorten(), &ref_info.ref_name))
+                        .collect::<Vec<_>>();
+
+                    let Some(stack_heads) = NonEmpty::from_vec(stack_heads) else {
+                        return Err(RouteCommitOperationError::NoStackToCommitTo);
+                    };
+
+                    let Some(mut input) = out.prepare_for_terminal_input() else {
+                        return Err(RouteCommitOperationError::UnclearTargetCantPrompt);
+                    };
+
+                    let mut stack_heads =
+                        stack_heads.map(|(name, branch)| (name, PickerItem::Branch(branch)));
+                    stack_heads.push(("Create new stack".into(), PickerItem::NewStack));
+
+                    let Some(selection) = input.prompt_select(
+                        "Multiple stacks found. Choose one to commit to",
+                        &stack_heads,
+                    )?
+                    else {
+                        return Err(bad_input("No stack picked").into());
+                    };
+
+                    match selection {
+                        PickerItem::Branch(full_name) => {
+                            Ok(CommitOperation::CommitAt(CommitAtOperation {
+                                target: CommitRelativeToTarget::BranchTip {
+                                    name: (*full_name).clone(),
+                                    switch,
+                                },
+                            }))
+                        }
+                        PickerItem::NewStack => Ok(CommitOperation::CommitToNewBranch(
+                            CommitToNewBranchOperation {
+                                branch_name: None,
+                                switch,
+                            },
+                        )),
+                    }
                 }
             }
         }
-        _ => {
-            bail!(
-                "Target must be a commit ID or branch name, not {}",
-                cli_id.kind_for_humans()
-            );
-        }
-    };
+    }
+}
 
-    if let Some(out) = out.for_human() {
-        writeln!(out, "{success_message}")?;
+#[derive(Debug)]
+pub enum RouteCommitOperationError {
+    NoStackToCommitTo,
+    UnclearTargetCantPrompt,
+    Other(CliError),
+}
+
+impl From<anyhow::Error> for RouteCommitOperationError {
+    fn from(err: anyhow::Error) -> Self {
+        Self::Other(err.into())
+    }
+}
+
+impl From<CliError> for RouteCommitOperationError {
+    fn from(value: CliError) -> Self {
+        Self::Other(value)
+    }
+}
+
+impl From<BadInput> for RouteCommitOperationError {
+    fn from(value: BadInput) -> Self {
+        Self::Other(value.into())
+    }
+}
+
+fn reject_workspace_target(
+    repo: &gix::Repository,
+    ws: &but_graph::Workspace,
+    target: &CliIdArg,
+    position: &str,
+) -> CliResult<()> {
+    // Only replace the normal resolution error when this names the workspace target.
+    if let Ok(Some(reference)) = repo.try_find_reference(target.0.as_str())
+        && ws.is_target_or_upstream(reference.name(), repo)?
+    {
+        return Err(bad_input(format!(
+            "Cannot commit {position} '{target}': it is the workspace target branch."
+        ))
+        .hint("Commit to a feature branch instead: `but commit -b <branch>` and merge with `but merge <branch>`.")
+        .into());
     }
     Ok(())
 }
 
-/// Generate a unified diff string from files to be committed
-fn generate_unified_diff(
-    ctx: &mut but_ctx::Context,
-    files_to_commit: &[FileAssignment],
-    changes: &[TreeChange],
-) -> anyhow::Result<String> {
-    let mut diff_output = String::new();
-    let repo = ctx.repo.get()?;
-
-    for fa in files_to_commit {
-        // Find the corresponding TreeChange for this file
-        if let Some(change) = changes.iter().find(|c| c.path_bytes == fa.path) {
-            // Convert to but_core::TreeChange and get unified patch
-            let core_change: but_core::TreeChange = change.clone().into();
-
-            // Propagate errors from unified_patch, only skip when it returns Ok(None)
-            match core_change.unified_patch(&repo, ctx.settings.context_lines)? {
-                Some(patch) => {
-                    // Add file header
-                    writeln!(
-                        &mut diff_output,
-                        "diff --git a/{} b/{}",
-                        fa.path.to_str_lossy(),
-                        fa.path.to_str_lossy()
-                    )?;
-
-                    // Add patch content based on type
-                    match patch {
-                        but_core::UnifiedPatch::Binary => {
-                            writeln!(&mut diff_output, "Binary files differ")?;
-                        }
-                        but_core::UnifiedPatch::TooLarge { size_in_bytes } => {
-                            writeln!(&mut diff_output, "File too large ({size_in_bytes} bytes)")?;
-                        }
-                        but_core::UnifiedPatch::Patch { hunks, .. } => {
-                            for hunk in hunks {
-                                // Add hunk header
-                                writeln!(
-                                    &mut diff_output,
-                                    "@@ -{},{} +{},{} @@",
-                                    hunk.old_start, hunk.old_lines, hunk.new_start, hunk.new_lines
-                                )?;
-                                // Add hunk content (already includes +/- prefixes)
-                                diff_output.push_str(hunk.diff.to_str_lossy().as_ref());
-                            }
-                        }
-                    }
-                }
-                None => {
-                    // Ok(None) means the file can't produce a diff (e.g., submodules, type changes)
-                    // This is expected and we skip the file silently
-                }
-            }
-        }
-    }
-
-    Ok(diff_output)
-}
-
-fn build_diff_specs(files_to_commit: &[FileAssignment], changes: &[TreeChange]) -> Vec<DiffSpec> {
-    files_to_commit
-        .iter()
-        .map(|fa| {
-            // Collect hunk headers from all assignments for this file
-            let hunk_headers: Vec<but_core::HunkHeader> = fa
-                .assignments
-                .iter()
-                .filter_map(|assignment| assignment.inner.hunk_header)
-                .collect();
-
-            let previous_path = changes
-                .iter()
-                .find(|change| change.path_bytes == fa.path)
-                .and_then(|change| match &change.status {
-                    but_core::ui::TreeStatus::Rename {
-                        previous_path_bytes,
-                        ..
-                    } => Some(previous_path_bytes.clone()),
-                    _ => None,
-                });
-
-            DiffSpec {
-                previous_path,
-                path: fa.path.clone(),
-                hunk_headers,
-            }
-        })
-        .collect()
-}
-
-/// Resolves file CliIDs to their corresponding FileAssignments.
-/// Returns an error if any ID is invalid, ambiguous, or assigned to a different stack.
-/// Deduplicates by file path to handle cases where the same file is passed multiple times.
-fn resolve_file_ids(
-    id_map: &IdMap,
-    ctx: &mut but_ctx::Context,
-    file_ids: &[String],
-    target_stack_id: Option<but_core::ref_metadata::StackId>,
-) -> anyhow::Result<Vec<FileAssignment>> {
-    let mut resolved_files: BTreeMap<BString, FileAssignment> = BTreeMap::new();
-    let mut errors = Vec::new();
-
-    for file_id in file_ids {
-        let cli_ids = match id_map.parse_using_context(file_id, ctx) {
-            Ok(ids) => ids,
-            Err(e) => {
-                errors.push(format!("'{file_id}': {e}"));
-                continue;
-            }
-        };
-
-        if cli_ids.is_empty() {
-            errors.push(format!(
-                "'{file_id}' not found. Run 'but status' to see available file IDs."
-            ));
-            continue;
-        }
-
-        if cli_ids.len() > 1 {
-            errors.push(format!(
-                "'{}' is ambiguous - matches {} entities. Use more characters to disambiguate.",
-                file_id,
-                cli_ids.len()
-            ));
-            continue;
-        }
-
-        match &cli_ids[0] {
-            CliId::Uncommitted(uncommitted) => {
-                // Validate stack assignment for ALL hunks - each must be unassigned OR assigned to target stack
-                for hunk in &uncommitted.hunk_assignments {
-                    if hunk.stack_id.is_some() && hunk.stack_id != target_stack_id {
-                        errors.push(format!(
-                            "'{file_id}' is assigned to a different stack. Use 'but rub {file_id} zz' to unassign it first."
-                        ));
-                        break;
-                    }
-                }
-                if errors
-                    .iter()
-                    .any(|e| e.starts_with(&format!("'{file_id}'")))
-                {
-                    continue;
-                }
-
-                // Convert UncommittedCliId to FileAssignment and merge with existing entry if present
-                let path = uncommitted.hunk_assignments.first().path_bytes.clone();
-                let new_assignments: Vec<CLIHunkAssignment> = uncommitted
-                    .hunk_assignments
-                    .iter()
-                    .map(|ha| CLIHunkAssignment {
-                        inner: ha.clone(),
-                        cli_id: file_id.to_owned(),
-                    })
-                    .collect();
-
-                // Merge with existing entry for same path, or insert new
-                if let Some(existing) = resolved_files.get_mut(&path) {
-                    existing.assignments.extend(new_assignments);
-                } else {
-                    resolved_files.insert(
-                        path.clone(),
-                        FileAssignment {
-                            path,
-                            assignments: new_assignments,
-                        },
-                    );
-                }
-            }
-            other => {
-                errors.push(format!(
-                    "'{}' is {} but must be an uncommitted file or hunk",
-                    file_id,
-                    other.kind_for_humans()
-                ));
-            }
-        }
-    }
-
-    if !errors.is_empty() {
-        bail!("Invalid file ID(s):\n  {}", errors.join("\n  "));
-    }
-
-    Ok(resolved_files.into_values().collect())
+enum PickerItem<'a> {
+    Branch(&'a FullName),
+    NewStack,
 }
 
 #[expect(clippy::too_many_arguments)]
-pub(crate) fn commit(
-    ctx: &mut but_ctx::Context,
-    out: &mut OutputChannel,
-    message: Option<&str>,
-    branch_hint: Option<&str>,
-    file_ids: &[String],
-    only: bool,
-    create_branch: bool,
-    no_hooks: bool,
-    generate_message: Option<Option<String>>,
-    show_diff_in_editor: ShowDiffInEditor,
-) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
-
-    // Get all stacks using but-api
-    let stack_entries = workspace::stacks(ctx, None)?;
-    let stacks: Vec<(
-        but_core::ref_metadata::StackId,
-        but_workspace::ui::StackDetails,
-    )> = stack_entries
-        .iter()
-        .filter_map(|s| {
-            s.id.and_then(|id| {
-                workspace::stack_details(ctx, Some(id))
-                    .ok()
-                    .map(|details| (id, details))
-            })
-        })
-        .collect();
-
-    // In JSON mode with multiple branches, require branch specification
-    if out.for_json().is_some() && stacks.len() > 1 && branch_hint.is_none() {
-        bail!("Multiple branches found. Specify a branch to commit to using the branch argument");
-    }
-
-    let (target_stack_id, target_stack) =
-        select_stack(&id_map, ctx, &stacks, branch_hint, create_branch, out)?;
-
-    // Get changes and assignments using but-api
-    let worktree_changes = diff::changes_in_worktree(ctx)?;
-    let changes = worktree_changes.worktree_changes.changes;
-
-    // Get files to commit - either specific files by ID or all eligible files
-    let files_to_commit = if !file_ids.is_empty() {
-        // User specified specific file IDs - resolve them
-        resolve_file_ids(&id_map, ctx, file_ids, Some(target_stack_id))?
-    } else {
-        // Default behavior: unassigned files + files assigned to target stack
-        let assignments_by_file: BTreeMap<BString, FileAssignment> =
-            FileAssignment::get_assignments_by_file(&id_map);
-
-        let mut files = Vec::new();
-
-        if !only {
-            // Add unassigned files (unless --only flag is used)
-            let unassigned = crate::command::legacy::status::assignment::filter_by_stack_id(
-                assignments_by_file.values(),
-                &None,
-            );
-            files.extend(unassigned);
-        }
-
-        // Add files assigned to target stack
-        let stack_assigned = crate::command::legacy::status::assignment::filter_by_stack_id(
-            assignments_by_file.values(),
-            &Some(target_stack_id),
-        );
-        files.extend(stack_assigned);
-
-        files
-    };
-
-    if files_to_commit.is_empty() {
-        bail!("No changes to commit.")
-    }
-
-    // Convert files to DiffSpec early so we can run pre-commit hooks before prompting for message
-    let diff_specs = build_diff_specs(&files_to_commit, &changes);
-
-    // Run pre-commit hook unless --no-hooks was specified
-    // This runs BEFORE getting the commit message so the user doesn't waste time writing a message
-    // for a commit that will fail the hook
-    if !no_hooks {
-        let hook_result = repo::pre_commit_hook_diffspecs(ctx, diff_specs.clone())?;
-        match hook_result {
-            hooks::HookResult::Success | hooks::HookResult::NotConfigured => {
-                // Hook passed or not configured, proceed with commit
-            }
-            hooks::HookResult::Failure(error_data) => {
-                bail!(
-                    "pre-commit hook failed:\n{}\n\nTo bypass the hook, run: but commit --no-hooks",
-                    error_data.error
-                );
-            }
-        }
-    }
-
-    // Get commit message
-    let commit_message = if let Some(user_summary) = generate_message {
-        let diff = generate_unified_diff(ctx, &files_to_commit, &changes)?;
-        super::ai::generate_commit_message(out, &diff, user_summary)?
-    } else if let Some(msg) = message {
-        msg.to_string()
-    } else {
-        // In JSON mode, we should have already validated that a message was provided
-        // This is a safeguard in case the validation was missed
-        if out.for_json().is_some() {
-            bail!(
-                "In JSON mode, a commit message must be provided via --message (-m), --message-file, or --ai (-i)"
-            );
-        }
-        get_commit_message_from_editor(ctx, &files_to_commit, &changes, show_diff_in_editor)?
-    };
-
-    if commit_message.trim().is_empty() {
-        bail!("Aborting commit due to empty commit message.");
-    }
-
-    // Run commit-msg hook unless --no-hooks was specified
-    // This hook can validate and optionally modify the commit message
-    let final_commit_message = if !no_hooks {
-        let hook_result = repo::message_hook(ctx, commit_message.clone())?;
-        match hook_result {
-            gitbutler_repo::hooks::MessageHookResult::Success => {
-                // Hook passed without modification
-                commit_message
-            }
-            gitbutler_repo::hooks::MessageHookResult::Message(message_data) => {
-                // Hook passed and modified the message, use the new message
-                message_data.message
-            }
-            gitbutler_repo::hooks::MessageHookResult::NotConfigured => {
-                // No hook configured
-                commit_message
-            }
-            gitbutler_repo::hooks::MessageHookResult::Failure(error_data) => {
-                bail!(
-                    "commit-msg hook failed:\n{}\n\nTo bypass the hook, run: but commit --no-hooks",
-                    error_data.error
-                );
-            }
-        }
-    } else {
-        commit_message
-    };
-
-    // If a branch hint was provided, find that specific branch; otherwise use first branch
-    let target_branch = if let Some(hint) = branch_hint {
-        // First try exact name match
-        target_stack
-            .branch_details
-            .iter()
-            .find(|branch| branch.name == hint)
-            .or_else(|| {
-                // If no exact match, try to parse as CLI ID and match
-                if let Ok(cli_ids) = id_map.parse_using_context(hint, ctx) {
-                    for cli_id in cli_ids {
-                        if let CliId::Branch { name, .. } = cli_id
-                            && let Some(branch) =
-                                target_stack.branch_details.iter().find(|b| b.name == name)
-                        {
-                            return Some(branch);
-                        }
-                    }
-                }
-                None
-            })
-            .ok_or_else(|| anyhow::anyhow!("Branch '{hint}' not found in target stack"))?
-    } else {
-        // No branch hint, use first branch (HEAD of stack)
-        target_stack
-            .branch_details
-            .first()
-            .ok_or_else(|| anyhow::anyhow!("No branches found in target stack"))?
-    };
-
-    // Insert relative to the branch reference itself so only that branch tip is advanced.
-    let outcome = commit_create(
-        ctx,
-        but_api::commit::ui::RelativeTo::Reference(target_branch.reference.clone()),
-        InsertSide::Below,
-        diff_specs,
-        final_commit_message,
-    )?;
-
-    if !outcome.rejected_specs.is_empty() {
-        tracing::warn!(
-            ?outcome.rejected_specs,
-            "Failed to commit at least one selected change"
-        );
-        if let Some(out) = out.for_human() {
-            writeln!(
-                out,
-                "{}",
-                "Warning: Some selected changes could not be committed.".yellow()
-            )?;
-        }
-    }
-
-    if let Some(out) = out.for_human() {
-        let commit_short = match outcome.new_commit {
-            Some(id) => id.to_hex_with_len(7).to_string(),
-            None => "unknown".to_string(),
-        };
-        writeln!(
-            out,
-            "{} {} {} {}",
-            "✓ Created commit".green(),
-            commit_short.magenta(),
-            "on branch".green(),
-            target_branch.name.to_str_lossy().yellow()
-        )?;
-    } else if let Some(json_out) = out.for_json() {
-        let commit_data = serde_json::json!({
-            "commit_id": outcome.new_commit.map(|id| id.to_string()),
-            "branch": target_branch.name.to_str_lossy(),
-            "branch_tip": outcome.new_commit.map(|id| id.to_string()),
-        });
-        json_out.write_value(commit_data)?;
-    }
-
-    // Run post-commit hook unless --no-hooks was specified
-    // Note: post-commit hooks run after the commit is created, so failures don't prevent the commit
-    if !no_hooks {
-        let hook_result = repo::post_commit_hook(ctx)?;
-        match hook_result {
-            hooks::HookResult::Success | hooks::HookResult::NotConfigured => {
-                // Hook passed or not configured, nothing to do
-            }
-            hooks::HookResult::Failure(error_data) => {
-                // Warn the user but don't fail since the commit is already created
-                if let Some(out) = out.for_human() {
-                    writeln!(out, "\n{}", "Warning: post-commit hook failed:".yellow())?;
-                    writeln!(out, "{}", error_data.error)?;
-                }
-            }
-        }
-    }
-
-    Ok(())
-}
-
-fn create_independent_branch(
-    branch_name: &str,
-    ctx: &mut but_ctx::Context,
-    out: &mut OutputChannel,
-) -> anyhow::Result<(
-    but_core::ref_metadata::StackId,
-    but_workspace::ui::StackDetails,
-)> {
-    // Create a new independent stack with the given branch name
-    let (new_stack_id_opt, _new_ref) = but_api::legacy::stack::create_reference(
-        ctx,
-        but_api::legacy::stack::create_reference::Request {
-            new_name: branch_name.to_string(),
-            anchor: None,
-        },
-    )?;
-
-    if let Some(new_stack_id) = new_stack_id_opt {
-        if let Some(out) = out.for_human() {
-            writeln!(out, "Created new independent branch '{branch_name}'")?;
-        }
-        Ok((
-            new_stack_id,
-            workspace::stack_details(ctx, Some(new_stack_id))?,
-        ))
-    } else {
-        bail!("Failed to create new branch '{branch_name}'");
-    }
-}
-
-fn select_stack(
+fn route_commit_above_or_below(
+    repo: &gix::Repository,
+    ws: &but_graph::Workspace,
     id_map: &IdMap,
-    ctx: &mut but_ctx::Context,
-    stacks: &[(
-        but_core::ref_metadata::StackId,
-        but_workspace::ui::StackDetails,
-    )],
-    branch_hint: Option<&str>,
-    create_branch: bool,
-    out: &mut OutputChannel,
-) -> anyhow::Result<(
-    but_core::ref_metadata::StackId,
-    but_workspace::ui::StackDetails,
-)> {
-    // Handle empty stacks case - automatically create a branch
-    if stacks.is_empty() {
-        let branch_name = match branch_hint {
-            Some(hint) => String::from(hint),
-            None => but_api::legacy::workspace::canned_branch_name(ctx)?,
-        };
-        return create_independent_branch(&branch_name, ctx, out);
-    }
-
-    match branch_hint {
-        Some(hint) => {
-            // Try to find stack by branch hint
-            if let Some(stack) = find_stack_by_hint(id_map, stacks, hint) {
-                return Ok(stack);
-            }
-
-            // Branch not found - create if flag is set, otherwise error
-            if create_branch {
-                create_independent_branch(hint, ctx, out)
-            } else {
-                bail!("Branch '{hint}' not found")
-            }
+    target: CliIdArg,
+    side: Side,
+    merged: &MergedUpstream,
+    new_branch_name: Option<Option<CliIdArg>>,
+    switch: bool,
+) -> CliResult<CommitOperation> {
+    if let Some(name) = target.try_resolve_worktree(repo, id_map)? {
+        let name = worktree_tip_target(repo, name.as_ref(), side, &target)?;
+        merged.ensure_branch_not_merged(name.as_ref())?;
+        if new_branch_name.is_some() {
+            return Err(bad_input(
+                "Cannot use `-b/--branch` when committing relative to worktrees",
+            )
+            .into());
         }
-        None if create_branch => {
-            // Create with canned name
-            let branch_name = but_api::legacy::workspace::canned_branch_name(ctx)?;
-            create_independent_branch(&branch_name, ctx, out)
-        }
-        None if stacks.len() == 1 => {
-            // Only one stack - use it
-            Ok(stacks[0].clone())
-        }
-        None => {
-            // Prompt user to select
-            if let Some(inout) = out.prepare_for_terminal_input() {
-                prompt_for_stack_selection(stacks, inout)
-            } else {
-                bail!("Multiple candidate stacks found")
-            }
-        }
+        return Ok(CommitOperation::CommitAt(CommitAtOperation {
+            target: CommitRelativeToTarget::BranchTip { name, switch },
+        }));
     }
-}
-
-fn find_stack_by_hint(
-    id_map: &IdMap,
-    stacks: &[(
-        but_core::ref_metadata::StackId,
-        but_workspace::ui::StackDetails,
-    )],
-    hint: &str,
-) -> Option<(
-    but_core::ref_metadata::StackId,
-    but_workspace::ui::StackDetails,
-)> {
-    // Try exact branch name match
-    for (stack_id, stack_details) in stacks {
-        if stack_details.branch_details.iter().any(|b| b.name == hint) {
-            return Some((*stack_id, stack_details.clone()));
-        }
-    }
-
-    // Try CLI ID parsing
-    let cli_ids = id_map
-        .parse(hint, Box::new(move |_, _| Ok(Vec::new())))
-        .ok()?;
-    for cli_id in cli_ids {
-        if let CliId::Branch { name, .. } = cli_id {
-            for (stack_id, stack_details) in stacks {
-                if stack_details.branch_details.iter().any(|b| b.name == name) {
-                    return Some((*stack_id, stack_details.clone()));
-                }
-            }
-        }
-    }
-
-    None
-}
-
-fn prompt_for_stack_selection(
-    stacks: &[(
-        but_core::ref_metadata::StackId,
-        but_workspace::ui::StackDetails,
-    )],
-    mut inout: InputOutputChannel,
-) -> Result<(
-    but_core::ref_metadata::StackId,
-    but_workspace::ui::StackDetails,
-)> {
-    use std::fmt::Write;
-    writeln!(inout, "Multiple stacks found. Choose one to commit to:")?;
-
-    for (i, (_stack_id, stack_details)) in stacks.iter().enumerate() {
-        writeln!(inout, "  {}. {}", i + 1, stack_details.derived_name.green())?;
-    }
-
-    let selection: usize = inout
-        .prompt(format!("Enter selection (1-{}): ", stacks.len()))?
-        .context("Missing selection")?
-        .parse()
-        .map_err(|_| anyhow::anyhow!("Invalid selection"))?;
-
-    anyhow::ensure!(
-        (1..=stacks.len()).contains(&selection),
-        "Selection out of range"
-    );
-
-    Ok(stacks[selection - 1].clone())
-}
-
-fn get_commit_message_from_editor(
-    ctx: &mut but_ctx::Context,
-    files_to_commit: &[FileAssignment],
-    changes: &[TreeChange],
-    show_diff_in_editor: ShowDiffInEditor,
-) -> anyhow::Result<String> {
-    // Generate commit message template
-    let mut template = String::new();
-    template.push_str("\n# Please enter the commit message for your changes. Lines starting\n");
-    template.push_str("# with '#' will be ignored, and an empty message aborts the commit.\n");
-    template.push_str("#\n");
-    template.push_str("# Changes to be committed:\n");
-
-    for fa in files_to_commit {
-        let status_char = get_status_char(&fa.path, changes);
-        template.push_str(&format!("#\t{}  {}\n", status_char, fa.path.to_str_lossy()));
-    }
-    template.push_str("#\n");
-
-    // Compute diff for the editor if requested
-    let should_show_diff = show_diff_in_editor.should_show_diff(|| {
-        // Convert ui::TreeChange to core::TreeChange for blob size estimation
-        let core_changes: Vec<but_core::TreeChange> = changes
-            .iter()
-            .filter(|c| files_to_commit.iter().any(|f| f.path == c.path_bytes))
-            .cloned()
-            .map(but_core::TreeChange::from)
-            .collect();
-        estimate_diff_blob_size(&core_changes, ctx)
-    })?;
-
-    let diff_text = if should_show_diff {
-        let diff = generate_unified_diff(ctx, files_to_commit, changes)?;
-        if diff.is_empty() { None } else { Some(diff) }
-    } else {
-        None
-    };
-
-    // Read the result from the editor and strip comments
-    let lossy_message = tui::get_text::from_editor_no_comments_as_patch(
-        "commit_msg",
-        &template,
-        diff_text.as_deref(),
-    )?
-    .to_string();
-    Ok(lossy_message)
-}
-
-fn get_status_char(path: &BString, changes: &[TreeChange]) -> &'static str {
-    for change in changes {
-        if change.path_bytes == *path {
-            return match change.status {
-                but_core::ui::TreeStatus::Addition { .. } => "new file:",
-                but_core::ui::TreeStatus::Modification { .. } => "modified:",
-                but_core::ui::TreeStatus::Deletion { .. } => "deleted:",
-                but_core::ui::TreeStatus::Rename { .. } => "renamed:",
+    let resolved = target
+        .resolve_in_workspace(repo, id_map, Purpose::Target, None)
+        .hint(
+            "Target must be an applied branch or commit. Run `but status` for applicable targets.",
+        )
+        .or_else(|err| {
+            let position = match side {
+                Side::Above => "above",
+                Side::Below => "below",
             };
+            reject_workspace_target(repo, ws, &target, position)?;
+            Err(err)
+        })?;
+    let target = match resolved {
+        ResolvedCliIdArg::AnonymousSegment(segment) => {
+            return Err(crate::args::atoms::anonymous_segment_error(&segment.id));
         }
-    }
-    "modified:" // fallback
+        resolved => match resolved
+            .into_branch_or_commit()
+            .hint("Run `but status` to show applicable targets")?
+        {
+            BranchOrCommit::Commit(commit) => {
+                merged.ensure_commit_not_merged(commit.commit_id)?;
+
+                if new_branch_name.is_some() {
+                    return Err(bad_input(
+                        "Cannot use `-b/--branch` when committing relative to commits",
+                    )
+                    .into());
+                }
+
+                CommitRelativeToTarget::Commit { commit, side }
+            }
+            BranchOrCommit::Branch(arg) => {
+                let name = arg.resolve_local_branch_name()?;
+
+                let new_branch_name = new_branch_name
+                    .flatten()
+                    .map(|branch| BranchArg(branch.0).resolve_for_creation(repo, ws))
+                    .transpose()?;
+
+                merged.ensure_branch_not_merged(name.as_ref())?;
+                CommitRelativeToTarget::BranchBucket {
+                    name,
+                    side,
+                    new_branch_name,
+                    switch,
+                }
+            }
+        },
+    };
+    Ok(CommitOperation::CommitAt(CommitAtOperation { target }))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::str::FromStr;
+pub enum CommitSelection {
+    /// Every uncommitted change of the named checkout, which is what a bare `but commit` and a
+    /// worktree's own uncommitted area both mean.
+    AllChanges(ChangeSourceId),
+    Changes(Box<UncommittedSelection>),
+    Nothing,
+}
 
-    fn dummy_file_assignment(path: &str) -> FileAssignment {
-        FileAssignment {
-            path: path.into(),
-            assignments: vec![CLIHunkAssignment {
-                inner: but_hunk_assignment::HunkAssignment {
-                    id: None,
-                    hunk_header: None,
-                    path: path.to_owned(),
-                    path_bytes: path.as_bytes().into(),
-                    stack_id: None,
-                    hunk_locks: None,
-                    line_nums_added: None,
-                    line_nums_removed: None,
-                    diff: None,
-                },
-                cli_id: path.to_owned(),
-            }],
+impl CommitSelection {
+    /// The checkout these changes are read from, validated to be a single one
+    /// at construction, see [`UncommittedSelection`].
+    fn source(&self) -> ChangeSourceId {
+        match self {
+            CommitSelection::AllChanges(source) => source.clone(),
+            // An empty commit reads no changes at all, so the main worktree stands in.
+            CommitSelection::Nothing => ChangeSourceId::Head,
+            CommitSelection::Changes(selection) => selection.source().clone(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum CommitOperation {
+    CommitToNewBranch(CommitToNewBranchOperation),
+    CommitAt(CommitAtOperation),
+}
+
+impl CommitOperation {
+    pub fn will_create_reference(&self) -> bool {
+        match self {
+            CommitOperation::CommitToNewBranch(op) => op.will_create_reference(),
+            CommitOperation::CommitAt(op) => op.will_create_reference(),
         }
     }
 
-    fn dummy_state() -> but_core::ui::ChangeState {
-        but_core::ui::ChangeState {
-            id: gix::ObjectId::from_str("0000000000000000000000000000000000000000").unwrap(),
-            kind: gix::object::tree::EntryKind::Blob,
+    pub fn will_create_unstacked_reference(&self) -> bool {
+        match self {
+            CommitOperation::CommitToNewBranch(op) => op.will_create_unstacked_reference(),
+            CommitOperation::CommitAt(op) => op.will_create_unstacked_reference(),
         }
     }
 
-    fn dummy_rename_change(path: &str, previous_path: &str) -> TreeChange {
-        TreeChange {
-            path: path.into(),
-            path_bytes: path.as_bytes().into(),
-            status: but_core::ui::TreeStatus::Rename {
-                previous_path: previous_path.into(),
-                previous_path_bytes: previous_path.as_bytes().into(),
-                previous_state: dummy_state(),
-                state: dummy_state(),
-                flags: None,
+    pub fn switch(&self) -> bool {
+        match self {
+            CommitOperation::CommitToNewBranch(op) => op.switch,
+            CommitOperation::CommitAt(op) => op.switch(),
+        }
+    }
+
+    /// What the operation targets, for explaining rejected changes after a
+    /// rollback.
+    fn rejection_target(&self) -> rejection::Target {
+        match self {
+            CommitOperation::CommitToNewBranch(op) => rejection::Target::NewBranch(
+                op.branch_name
+                    .as_ref()
+                    .map(|name| name.shorten().to_string()),
+            ),
+            CommitOperation::CommitAt(op) => match &op.target {
+                CommitRelativeToTarget::Commit { commit, .. } => {
+                    rejection::Target::Commit(commit.clone())
+                }
+                CommitRelativeToTarget::BranchTip { name, switch: _ } => {
+                    rejection::Target::Branch(name.shorten().to_string())
+                }
+                CommitRelativeToTarget::BranchBucket {
+                    name: _,
+                    new_branch_name,
+                    side: _,
+                    switch: _,
+                } => rejection::Target::NewBranch(
+                    new_branch_name
+                        .as_ref()
+                        .map(|name| name.shorten().to_string()),
+                ),
             },
         }
     }
 
-    #[test]
-    fn build_diff_specs_copies_previous_path_for_rename() {
-        let files_to_commit = vec![dummy_file_assignment("new.txt")];
-        let changes = vec![dummy_rename_change("new.txt", "old.txt")];
-
-        let diff_specs = build_diff_specs(&files_to_commit, &changes);
-
-        assert_eq!(diff_specs.len(), 1);
-        assert_eq!(diff_specs[0].previous_path, Some("old.txt".into()));
+    fn execute(
+        self,
+        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        changes: Vec<DiffSpec>,
+        source: ChangeSource<'_>,
+        sbm: Option<&SingleBranchMode>,
+    ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
+        match self {
+            CommitOperation::CommitToNewBranch(op) => op.execute(tx, changes, source, sbm),
+            CommitOperation::CommitAt(op) => op.execute(tx, changes, source, sbm),
+        }
     }
+}
+
+#[derive(Debug)]
+pub struct CommitToNewBranchOperation {
+    pub branch_name: Option<FullName>,
+    pub switch: bool,
+}
+
+impl CommitToNewBranchOperation {
+    pub fn will_create_reference(&self) -> bool {
+        true
+    }
+
+    pub fn will_create_unstacked_reference(&self) -> bool {
+        true
+    }
+
+    fn execute(
+        self,
+        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        changes: Vec<DiffSpec>,
+        source: ChangeSource<'_>,
+        sbm: Option<&SingleBranchMode>,
+    ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
+        let branch_name = self.create_reference(tx, sbm)?;
+
+        let commit_create_result = tx
+            .create_commit(
+                RelativeTo::Reference(branch_name.clone()),
+                InsertSide::Below,
+                changes,
+                String::new(),
+                source,
+            )
+            .context("failed to create commit")?;
+
+        Ok((
+            commit_create_result,
+            Some(BranchNameTarget::New(branch_name)),
+        ))
+    }
+
+    pub(crate) fn create_reference(
+        self,
+        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        sbm: Option<&SingleBranchMode>,
+    ) -> anyhow::Result<FullName> {
+        let Self {
+            branch_name,
+            switch: _,
+        } = self;
+
+        let new_ref = if let Some(branch_name) = branch_name {
+            branch_name
+        } else {
+            but_core::branch::unique_canned_refname(tx.repo())?
+        };
+
+        match sbm
+            .context("BUG: sbm must always be set when committing to a new unstacked branch")?
+            .how_to_create_unstacked_reference()
+        {
+            HowToCreateUnstackedReference::Normally => {
+                tx.create_reference(new_ref.as_ref(), None, Some(0))?;
+            }
+            HowToCreateUnstackedReference::CreateRefAtAnchorThenCheckout(anchor) => {
+                tx.create_reference(new_ref.as_ref(), anchor, Some(0))?;
+                tx.checkout(new_ref.as_ref())?;
+            }
+            HowToCreateUnstackedReference::CreateRefAtCommitThenCheckout { target_commit_id } => {
+                tx.create_reference_at_commit(new_ref.as_ref(), target_commit_id)?;
+
+                tx.checkout(new_ref.as_ref())?;
+            }
+        }
+
+        Ok(new_ref)
+    }
+}
+
+#[derive(Debug)]
+pub struct CommitAtOperation {
+    pub target: CommitRelativeToTarget,
+}
+
+impl CommitAtOperation {
+    fn execute(
+        self,
+        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        changes: Vec<DiffSpec>,
+        source: ChangeSource<'_>,
+        sbm: Option<&SingleBranchMode>,
+    ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
+        let (relative_to, side, branch_name_target) = self.create_target(tx, sbm)?;
+
+        let commit_create_result =
+            tx.create_commit(relative_to, side, changes, String::new(), source)?;
+
+        Ok((commit_create_result, branch_name_target))
+    }
+
+    pub fn will_create_reference(&self) -> bool {
+        match &self.target {
+            CommitRelativeToTarget::Commit { .. } | CommitRelativeToTarget::BranchTip { .. } => {
+                false
+            }
+            CommitRelativeToTarget::BranchBucket { .. } => true,
+        }
+    }
+
+    pub fn will_create_unstacked_reference(&self) -> bool {
+        match &self.target {
+            CommitRelativeToTarget::Commit { .. }
+            | CommitRelativeToTarget::BranchTip { .. }
+            | CommitRelativeToTarget::BranchBucket { .. } => false,
+        }
+    }
+
+    pub fn switch(&self) -> bool {
+        match &self.target {
+            CommitRelativeToTarget::Commit { .. } => false,
+            CommitRelativeToTarget::BranchTip { switch, .. }
+            | CommitRelativeToTarget::BranchBucket { switch, .. } => *switch,
+        }
+    }
+
+    pub fn create_target(
+        &self,
+        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        sbm: Option<&SingleBranchMode>,
+    ) -> anyhow::Result<(RelativeTo, InsertSide, Option<BranchNameTarget>)> {
+        Ok(match &self.target {
+            CommitRelativeToTarget::Commit { commit, side } => {
+                (RelativeTo::Commit(commit.commit_id), (*side).into(), None)
+            }
+            CommitRelativeToTarget::BranchBucket {
+                name,
+                side,
+                new_branch_name,
+                switch: _,
+            } => {
+                let new_branch_name = if let Some(new_branch_name) = new_branch_name {
+                    new_branch_name.clone()
+                } else {
+                    but_core::branch::unique_canned_refname(tx.repo())?
+                };
+
+                match sbm
+                    .context("BUG: sbm must always be set when committing to a new stacked branch")?
+                    .how_to_create_stacked_reference(name.as_ref(), *side)
+                {
+                    HowToCreateStackedReference::Normally(anchor) => {
+                        tx.create_reference(new_branch_name.as_ref(), Some(anchor), Some(0))?;
+                    }
+                    HowToCreateStackedReference::CreateRefAtAnchorThenCheckout(anchor) => {
+                        tx.create_reference(new_branch_name.as_ref(), Some(anchor), Some(0))?;
+                        tx.checkout(new_branch_name.as_ref())?;
+                    }
+                }
+
+                let where_to_create_commit = InsertSide::Below;
+                (
+                    RelativeTo::Reference(new_branch_name.clone()),
+                    where_to_create_commit,
+                    Some(BranchNameTarget::New(new_branch_name)),
+                )
+            }
+            CommitRelativeToTarget::BranchTip { name, switch } => {
+                if *switch {
+                    tx.checkout(name.as_ref())?;
+                }
+
+                let where_to_create_commit = InsertSide::Below;
+                (
+                    RelativeTo::Reference(name.clone()),
+                    where_to_create_commit,
+                    Some(BranchNameTarget::Existing(name.clone())),
+                )
+            }
+        })
+    }
+}
+
+/// Place a commit relative to something in the workspace.
+#[derive(Clone, Debug)]
+pub enum CommitRelativeToTarget {
+    /// Place the commit relative to this commit, within the same branch.
+    Commit { commit: CommitId, side: Side },
+    /// Place the commit at the tip of the branch denoted by this reference, moving the reference to
+    /// the new commit. This is effectively the same as committing to a branch.
+    BranchTip { name: FullName, switch: bool },
+    /// Place the commit relative to this branch, treating the branch as a bucket.
+    ///
+    /// The commit is always inserted on a new branch. If `new_branch_name` is `None` a canned name
+    /// will be generated.
+    BranchBucket {
+        name: FullName,
+        new_branch_name: Option<FullName>,
+        side: Side,
+        switch: bool,
+    },
+}
+
+fn validate_branch_target_in_unborn_repo(
+    repo: &gix::Repository,
+    commit_op: &CommitOperation,
+) -> CliResult<()> {
+    let head = repo.head()?;
+    let Some(head_ref) = head.referent_name() else {
+        return Ok(());
+    };
+    match commit_op {
+        CommitOperation::CommitToNewBranch(CommitToNewBranchOperation {
+            branch_name,
+            switch: _,
+        }) => {
+            if branch_name
+                .as_ref()
+                .is_none_or(|branch_name| head_ref == branch_name.as_ref())
+            {
+                return Ok(());
+            }
+        }
+        CommitOperation::CommitAt(CommitAtOperation { target }) => match target {
+            CommitRelativeToTarget::BranchTip { name, switch: _ } => {
+                if head_ref == name.as_ref() {
+                    return Ok(());
+                }
+            }
+            CommitRelativeToTarget::Commit { .. } => {
+                return Err(bad_input(
+                    "Creating the first commit relative to another commit is not supported",
+                )
+                .hint("Run `but commit` without a branch target to commit on the current branch.")
+                .into());
+            }
+            CommitRelativeToTarget::BranchBucket { .. } => {
+                return Err(bad_input(
+                    "Creating the first commit relative to another branch is not supported",
+                )
+                .hint("Run `but commit` without a branch target to commit on the current branch.")
+                .into());
+            }
+        },
+    }
+
+    Err(
+        bad_input("Creating the first commit on a different branch is not supported")
+            .hint("Run `but commit` without a branch target to commit on the current branch.")
+            .into(),
+    )
+}
+
+pub fn run_in_unborn_repo(
+    ctx: &mut Context,
+    meta: &mut impl RefMetadata,
+    perm: &mut RepoExclusive,
+    commit_op: CommitOperation,
+    changes: Vec<DiffSpec>,
+    reword_op: CommitMessageSource,
+) -> anyhow::Result<(CommitOutcome, WorkspaceState)> {
+    let name = match commit_op {
+        CommitOperation::CommitToNewBranch(CommitToNewBranchOperation {
+            branch_name,
+            switch: _,
+        }) => {
+            let repo = ctx.repo.get()?;
+            let head = repo.head()?;
+            let head_ref = head
+                .referent_name()
+                .context("BUG: unborn HEAD must name a branch")?;
+            match branch_name {
+                None => head_ref.to_owned(),
+                Some(branch_name) if head_ref == branch_name.as_ref() => branch_name,
+                Some(_) => anyhow::bail!(
+                    "BUG: creating the first commit on a different branch is not supported \
+                    should have been caught during resolution"
+                ),
+            }
+        }
+        CommitOperation::CommitAt(CommitAtOperation { target }) => match target {
+            CommitRelativeToTarget::BranchTip { name, switch: _ } => name,
+            CommitRelativeToTarget::Commit { .. } => {
+                anyhow::bail!(
+                    "BUG: CommitRelativeToTarget::Commit isn't valid in unborn repos, \
+                    should have been caught during resolution"
+                )
+            }
+            CommitRelativeToTarget::BranchBucket { .. } => {
+                anyhow::bail!(
+                    "BUG: CommitRelativeToTarget::BranchBucket isn't valid in unborn repos, \
+                    should have been caught during resolution"
+                )
+            }
+        },
+    };
+
+    let repo = ctx.repo.get()?;
+    let context_lines = ctx.settings.context_lines;
+    let changed_path_count = changes.len();
+
+    let message = match &reword_op {
+        CommitMessageSource::Keep
+        | CommitMessageSource::Empty
+        | CommitMessageSource::Editor { .. } => String::new(),
+        CommitMessageSource::Provided(message) => message.clone(),
+    };
+
+    let but_workspace::commit_engine::CreateCommitOutcome {
+        new_commit,
+        rejected_specs,
+        changed_tree_pre_cherry_pick: _,
+        references: _,
+        rebase_output: _,
+        index: _,
+    } = but_workspace::commit_engine::create_commit(
+        &repo,
+        but_workspace::commit_engine::Destination::NewCommit {
+            parent_commit_id: None,
+            stack_segment: None,
+            message,
+        },
+        changes,
+        context_lines,
+    )?;
+
+    if !rejected_specs.is_empty() {
+        return Err(rejection::RejectedChanges(rejected_specs).into());
+    }
+
+    let mut new_commit = new_commit.context("BUG: nothing was committed")?;
+
+    if let CommitMessageSource::Editor { initial } = reword_op {
+        let commit_details = but_core::diff::CommitDetails::from_commit_id(
+            repo.find_commit(new_commit)?.id(),
+            but_api::diff::ComputeLineStats::No.into(),
+        )?;
+        let message = crate::command::legacy::reword2::edit_commit_message(
+            &repo,
+            context_lines,
+            commit_details,
+            initial.as_deref().unwrap_or_default(),
+            "",
+        )?;
+        if let Some(message) = message {
+            let mut commit = but_core::Commit::from_id(repo.find_commit(new_commit)?.id())?;
+            commit.inner.message = message.into();
+            new_commit = but_rebase::commit::create(
+                &repo,
+                commit.inner,
+                but_rebase::commit::DateMode::CommitterKeepAuthorKeep,
+                but_core::commit::SignCommit::IfSignCommitsEnabled,
+                None,
+            )?;
+        }
+    }
+
+    but_workspace::init::publish_first_commit(&repo, name.as_ref(), new_commit)?;
+
+    drop(repo);
+    ctx.invalidate_workspace_cache()?;
+
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+    let ws = WorkspaceState::from_workspace_with_db(
+        &ws,
+        meta,
+        &repo,
+        Default::default(),
+        Vec::new(),
+        &mut db,
+    )?;
+
+    Ok((
+        CommitOutcome {
+            new_commit: CommitId::try_from_commit_id(new_commit, &repo)?,
+            branch_name: Some(BranchNameTarget::Existing(name)),
+            changed_path_count,
+        },
+        ws,
+    ))
 }

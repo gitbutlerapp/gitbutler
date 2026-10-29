@@ -65,16 +65,6 @@ CREATE INDEX `idx_vb_stack_heads_stack_id` ON `vb_stack_heads`(`stack_id`);
 /// One-row state table for virtual branches metadata (`vb_state`).
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct VbState {
-    /// Remote name of the default/base target (for example `origin`).
-    pub default_target_remote_name: Option<String>,
-    /// Branch name of the default/base target (for example `main`).
-    pub default_target_branch_name: Option<String>,
-    /// Remote URL of the default/base target.
-    pub default_target_remote_url: Option<String>,
-    /// Object id (hex) associated with the default/base target.
-    pub default_target_sha: Option<String>,
-    /// Optional remote name used for pushes of the default/base target.
-    pub default_target_push_remote_name: Option<String>,
     /// Last pushed base object id (hex), mirrored from `VirtualBranches::last_pushed_base`.
     pub last_pushed_base_sha: Option<String>,
 
@@ -140,23 +130,6 @@ pub struct VbStackHead {
     pub review_id: Option<String>,
 }
 
-/// Per-stack target row from `vb_branch_targets`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct VbBranchTarget {
-    /// Parent stack id this target belongs to.
-    pub stack_id: String,
-    /// Remote name of the branch target.
-    pub remote_name: String,
-    /// Branch name of the branch target.
-    pub branch_name: String,
-    /// Remote URL backing the target.
-    pub remote_url: String,
-    /// Target object id (hex).
-    pub sha: String,
-    /// Optional remote name used for push operations.
-    pub push_remote_name: Option<String>,
-}
-
 /// Canonical normalized VB payload read from / written to the database.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct VirtualBranchesSnapshot {
@@ -166,8 +139,6 @@ pub struct VirtualBranchesSnapshot {
     pub stacks: Vec<VbStack>,
     /// All stack heads ordered by `stack_id, position` when read.
     pub heads: Vec<VbStackHead>,
-    /// All stack-specific branch targets ordered by `stack_id` when read.
-    pub branch_targets: Vec<VbBranchTarget>,
 }
 
 impl DbHandle {
@@ -237,11 +208,6 @@ impl VirtualBranchesHandle<'_> {
             let state = {
                 let mut stmt = self.conn.prepare(
                     "SELECT initialized,
-                            default_target_remote_name,
-                            default_target_branch_name,
-                            default_target_remote_url,
-                            default_target_sha,
-                            default_target_push_remote_name,
                             last_pushed_base_sha,
                             toml_last_seen_mtime_ns,
                             toml_last_seen_sha256
@@ -254,14 +220,9 @@ impl VirtualBranchesHandle<'_> {
                 };
                 VbState {
                     initialized: row.get(0)?,
-                    default_target_remote_name: row.get(1)?,
-                    default_target_branch_name: row.get(2)?,
-                    default_target_remote_url: row.get(3)?,
-                    default_target_sha: row.get(4)?,
-                    default_target_push_remote_name: row.get(5)?,
-                    last_pushed_base_sha: row.get(6)?,
-                    toml_last_seen_mtime_ns: row.get(7)?,
-                    toml_last_seen_sha256: row.get(8)?,
+                    last_pushed_base_sha: row.get(1)?,
+                    toml_last_seen_mtime_ns: row.get(2)?,
+                    toml_last_seen_sha256: row.get(3)?,
                 }
             };
 
@@ -327,30 +288,10 @@ impl VirtualBranchesHandle<'_> {
                 rows.collect::<Result<Vec<_>, _>>()?
             };
 
-            let branch_targets = {
-                let mut stmt = self.conn.prepare(
-                    "SELECT stack_id, remote_name, branch_name, remote_url, sha, push_remote_name
-                     FROM vb_branch_targets
-                     ORDER BY stack_id",
-                )?;
-                let rows = stmt.query_map([], |row| {
-                    Ok(VbBranchTarget {
-                        stack_id: row.get(0)?,
-                        remote_name: row.get(1)?,
-                        branch_name: row.get(2)?,
-                        remote_url: row.get(3)?,
-                        sha: row.get(4)?,
-                        push_remote_name: row.get(5)?,
-                    })
-                })?;
-                rows.collect::<Result<Vec<_>, _>>()?
-            };
-
             Ok(Some(VirtualBranchesSnapshot {
                 state,
                 stacks,
                 heads,
-                branch_targets,
             }))
         })();
 
@@ -378,34 +319,19 @@ impl VirtualBranchesHandleMut<'_> {
             "INSERT INTO vb_state (
                 id,
                 initialized,
-                default_target_remote_name,
-                default_target_branch_name,
-                default_target_remote_url,
-                default_target_sha,
-                default_target_push_remote_name,
                 last_pushed_base_sha,
                 toml_last_seen_mtime_ns,
                 toml_last_seen_sha256
              ) VALUES (
-                1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9
+                1, ?1, ?2, ?3, ?4
              )
              ON CONFLICT(id) DO UPDATE SET
                 initialized = excluded.initialized,
-                default_target_remote_name = excluded.default_target_remote_name,
-                default_target_branch_name = excluded.default_target_branch_name,
-                default_target_remote_url = excluded.default_target_remote_url,
-                default_target_sha = excluded.default_target_sha,
-                default_target_push_remote_name = excluded.default_target_push_remote_name,
                 last_pushed_base_sha = excluded.last_pushed_base_sha,
                 toml_last_seen_mtime_ns = excluded.toml_last_seen_mtime_ns,
                 toml_last_seen_sha256 = excluded.toml_last_seen_sha256",
             rusqlite::params![
                 state.initialized,
-                state.default_target_remote_name,
-                state.default_target_branch_name,
-                state.default_target_remote_url,
-                state.default_target_sha,
-                state.default_target_push_remote_name,
                 state.last_pushed_base_sha,
                 state.toml_last_seen_mtime_ns,
                 state.toml_last_seen_sha256,
@@ -490,24 +416,6 @@ impl VirtualBranchesHandleMut<'_> {
                     head.pr_number,
                     head.archived,
                     head.review_id,
-                ])?;
-            }
-        }
-
-        {
-            let mut insert_target = self.sp.prepare(
-                "INSERT INTO vb_branch_targets (
-                    stack_id, remote_name, branch_name, remote_url, sha, push_remote_name
-                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            )?;
-            for target in &snapshot.branch_targets {
-                insert_target.execute(rusqlite::params![
-                    target.stack_id,
-                    target.remote_name,
-                    target.branch_name,
-                    target.remote_url,
-                    target.sha,
-                    target.push_remote_name,
                 ])?;
             }
         }

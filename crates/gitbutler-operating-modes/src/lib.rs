@@ -1,14 +1,14 @@
 use std::{fs, path::PathBuf};
 
-use anyhow::{Context as _, Result, bail};
+use anyhow::{Context as _, Result, anyhow, bail};
 use bstr::BString;
-use but_core::{ref_metadata::StackId, sync::RepoShared};
+use but_core::{WORKSPACE_REF_NAME, ref_metadata::StackId, sync::RepoShared};
 use but_ctx::Context;
 use but_serde::BStringForFrontend;
 use serde::{Deserialize, Serialize};
 
 /// The reference the app will checkout when the workspace is open
-pub const WORKSPACE_BRANCH_REF: &str = "refs/heads/gitbutler/workspace";
+pub const WORKSPACE_BRANCH_REF: &str = WORKSPACE_REF_NAME;
 
 /// Previous workspace reference, delete after transition.
 pub const INTEGRATION_BRANCH_REF: &str = "refs/heads/gitbutler/integration";
@@ -18,10 +18,18 @@ pub const INTEGRATION_BRANCH_REF: &str = "refs/heads/gitbutler/integration";
 /// name we need some transition period during which both are accepted.
 /// The new branch will be checked out as soon as any modification is made
 /// that triggers `update_workspace_commit`.
-pub const OPEN_WORKSPACE_REFS: [&str; 2] = [INTEGRATION_BRANCH_REF, WORKSPACE_BRANCH_REF];
+const OPEN_WORKSPACE_REFS: [&str; 2] = [WORKSPACE_BRANCH_REF, INTEGRATION_BRANCH_REF];
 
 /// The reference the app will checkout when in edit mode
 pub const EDIT_BRANCH_REF: &str = "refs/heads/gitbutler/edit";
+
+/// Return `true` if `ref_name` is one of the well-known refs used for open workspace mode
+/// as identified by [`WORKSPACE_BRANCH_REF`] or [`INTEGRATION_BRANCH_REF`]
+pub fn is_well_known_workspace_ref(ref_name: &gix::refs::FullNameRef) -> bool {
+    OPEN_WORKSPACE_REFS
+        .iter()
+        .any(|workspace_ref| ref_name == *workspace_ref)
+}
 
 fn edit_mode_metadata_path(ctx: &Context) -> PathBuf {
     ctx.project_data_dir().join("edit_mode_metadata.toml")
@@ -42,13 +50,23 @@ pub fn write_edit_mode_metadata(
 ) -> Result<()> {
     let serialized_edit_mode_metadata =
         toml::to_string(edit_mode_metadata).context("Failed to serialize edit mode metadata")?;
-    but_fs::write(
+    but_utils::write(
         edit_mode_metadata_path(ctx).as_path(),
         serialized_edit_mode_metadata,
     )
     .context("Failed to write edit mode metadata")?;
 
     Ok(())
+}
+
+#[doc(hidden)]
+pub fn delete_edit_mode_metadata(ctx: &Context) -> Result<()> {
+    match fs::remove_file(edit_mode_metadata_path(ctx).as_path()) {
+        Ok(()) => Ok(()),
+        // Already gone - nothing to clean up.
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(err).context("Failed to delete edit mode metadata"),
+    }
 }
 
 /// Holds relevant state required to switch to and from edit mode
@@ -99,20 +117,19 @@ pub enum OperatingMode {
 but_schemars::register_sdk_type!(OperatingMode);
 
 pub fn operating_mode(ctx: &Context, perm: &RepoShared) -> Result<OperatingMode> {
-    let repo = ctx.git2_repo.get()?;
+    let repo = ctx.repo.get()?;
     let Ok(head_ref) = repo.head() else {
         return Ok(OperatingMode::OutsideWorkspace(
             outside_workspace_metadata(ctx, perm).unwrap_or_default(),
         ));
     };
 
-    let Some(head_ref_name) = head_ref.name() else {
+    let Some(head_ref_name) = head_ref.referent_name() else {
         return Ok(OperatingMode::OutsideWorkspace(
             outside_workspace_metadata(ctx, perm).unwrap_or_default(),
         ));
     };
-
-    if OPEN_WORKSPACE_REFS.contains(&head_ref_name) {
+    if is_well_known_workspace_ref(head_ref_name) {
         Ok(OperatingMode::OpenWorkspace)
     } else if head_ref_name == EDIT_BRANCH_REF {
         let edit_mode_metadata = read_edit_mode_metadata(ctx);
@@ -148,28 +165,40 @@ fn outside_workspace_metadata(
         .referent_name()
         .map(|r| r.as_partial_name().as_bstr().to_owned());
 
-    let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
-    if ws.target_ref.is_none() || ws.stacks.is_empty() {
-        // Nothing to conflict
-        return Ok(OutsideWorkspaceMetadata {
-            branch_name,
-            worktree_conflicts: vec![],
+    // A failed conflict computation must not degrade the metadata to an empty
+    // default - the branch name is what the UI needs to describe HEAD, e.g. in
+    // single-branch mode without a target or a workspace commit.
+    let worktree_conflicts = worktree_conflicts_with_workspace(ctx, perm, &gix_repo)
+        .unwrap_or_else(|err| {
+            tracing::warn!("Failed to compute worktree conflicts with the workspace: {err}");
+            vec![]
         });
-    }
-
-    let (outcome, conflict_kind) =
-        but_workspace::legacy::merge_worktree_with_workspace(ctx, &gix_repo)?;
-    let worktree_conflicts = outcome
-        .conflicts
-        .iter()
-        .filter(|c| c.is_unresolved(conflict_kind))
-        .map(|c| c.ours.location().into())
-        .collect::<Vec<BStringForFrontend>>();
 
     Ok(OutsideWorkspaceMetadata {
         branch_name,
         worktree_conflicts,
     })
+}
+
+fn worktree_conflicts_with_workspace(
+    ctx: &Context,
+    perm: &RepoShared,
+    gix_repo: &gix::Repository,
+) -> Result<Vec<BStringForFrontend>> {
+    let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
+    if ws.target_commit.is_none() || ws.stacks.is_empty() {
+        // No cutoff to reconstruct the workspace, or no stacks to merge.
+        return Ok(vec![]);
+    }
+
+    let (outcome, conflict_kind) =
+        but_workspace::legacy::merge_worktree_with_workspace(ctx, gix_repo, &ws)?;
+    Ok(outcome
+        .conflicts
+        .iter()
+        .filter(|c| c.is_unresolved(conflict_kind))
+        .map(|c| c.ours.location().into())
+        .collect())
 }
 
 pub fn in_open_workspace_mode(ctx: &Context, perm: &RepoShared) -> Result<bool> {
@@ -191,7 +220,7 @@ pub fn in_edit_mode(ctx: &Context, perm: &RepoShared) -> Result<bool> {
 pub fn ensure_edit_mode(ctx: &Context, perm: &RepoShared) -> Result<EditModeMetadata> {
     match operating_mode(ctx, perm)? {
         OperatingMode::Edit(edit_mode_metadata) => Ok(edit_mode_metadata),
-        _ => bail!("Expected to be in edit mode"),
+        _ => Err(anyhow!("Expected to be in edit mode")),
     }
 }
 
@@ -200,12 +229,4 @@ pub fn in_outside_workspace_mode(ctx: &Context, perm: &RepoShared) -> Result<boo
         operating_mode(ctx, perm)?,
         OperatingMode::OutsideWorkspace(_)
     ))
-}
-
-pub fn ensure_outside_workspace_mode(ctx: &Context, perm: &RepoShared) -> Result<()> {
-    if in_outside_workspace_mode(ctx, perm)? {
-        Ok(())
-    } else {
-        bail!("Expected to be in outside workspace mode")
-    }
 }

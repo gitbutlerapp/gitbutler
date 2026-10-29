@@ -57,48 +57,48 @@ git clone remote empty-workspace-with-branch-below
 git clone remote target-ahead-remote-rewritten
 (cd target-ahead-remote-rewritten
   git checkout -b origin/main
-  git commit -m "target ahead" --allow-empty
+  commit "target ahead"
 
   git checkout -b A main
-  git commit --allow-empty -m "shared local/remote"
+  commit "shared local/remote"
 
   (git checkout -b new-origin
     # a remote commit that looks like a local commit by message
-    git commit --allow-empty -m "shared by name"
-    git commit --allow-empty -m "unique remote"
+    commit "shared by name"
+    commit "unique remote"
     setup_remote_tracking new-origin A 'move'
   )
   git checkout A
 
-  git commit --allow-empty -m "unique local"
+  commit "unique local"
   # a local commit that looks like a remote commit by message
-  git commit --allow-empty -m "shared by name"
-  git commit --allow-empty -m "unique local tip"
+  commit "shared by name"
+  commit "unique local tip"
 
   create_workspace_commit_once A
 )
 
 git init disjoint
 (cd disjoint
-  git commit -m "init" --allow-empty
+  commit "init"
   setup_target_to_match_main
 
   git checkout --orphan disjoint
-  git commit -m "disjoint init" --allow-empty
+  commit "disjoint init"
 )
 
 git init two-branches-one-advanced-one-parent-ws-commit
 (cd two-branches-one-advanced-one-parent-ws-commit
-  git commit -m "init" --allow-empty
+  commit "init"
   setup_target_to_match_main
   git checkout -b lane main
 
   git branch advanced-lane-2
   git checkout -b advanced-lane
-  git commit -m "change" --allow-empty
+  commit "change"
 
   git checkout advanced-lane-2
-  git commit -m "change 2" --allow-empty
+  commit "change 2"
 
   create_workspace_commit_once advanced-lane-2 advanced-lane
 )
@@ -106,11 +106,12 @@ git init two-branches-one-advanced-one-parent-ws-commit
 # TTB = target-tracking-branch
 git init two-branches-one-advanced-two-parent-ws-commit-diverged-ttb
 (cd two-branches-one-advanced-two-parent-ws-commit-diverged-ttb
-  git commit -m "init" --allow-empty
+  commit "init"
+  setup_target_to_match_main
   git checkout -b lane main
 
   git checkout -b advanced-lane
-  git commit -m "change" --allow-empty
+  commit "change"
 
   create_workspace_commit_aggressively advanced-lane lane
   # swap trees - Git puts 'lane' first for some reason, but we really need the other way to reproduce a bug!
@@ -118,7 +119,7 @@ git init two-branches-one-advanced-two-parent-ws-commit-diverged-ttb
   echo "${commit_swapped_parents}" >.git/refs/heads/gitbutler/workspace
 
   git checkout --orphan disjoint-target-tracking
-  git commit -m "disjoint remote target" --allow-empty
+  commit "disjoint remote target"
 
   mkdir -p .git/refs/remotes/origin
   setup_remote_tracking disjoint-target-tracking main 'move'
@@ -128,12 +129,12 @@ git init two-branches-one-advanced-two-parent-ws-commit-diverged-ttb
 
 git init two-branches-one-advanced-two-parent-ws-commit
 (cd two-branches-one-advanced-two-parent-ws-commit
-  git commit -m "init" --allow-empty
+  commit "init"
   setup_target_to_match_main
   git checkout -b lane main
 
   git checkout -b advanced-lane
-  git commit -m "change" --allow-empty
+  commit "change"
 
   create_workspace_commit_aggressively lane advanced-lane
 )
@@ -151,12 +152,12 @@ cp -R two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed two-b
 
 git init three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent
 (cd three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent
-  git commit -m "init" --allow-empty
+  commit "init"
   setup_target_to_match_main
   git checkout -b lane main
 
   git checkout -b advanced-lane
-  git commit -m "change" --allow-empty
+  commit "change"
   # This works without an official remote setup as we go by name as fallback.
   remote_tracking_caught_up advanced-lane
   git branch dependent
@@ -167,7 +168,7 @@ git init three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-depen
 
 git init two-dependent-branches-first-merge-no-ff
 (cd two-dependent-branches-first-merge-no-ff
-  git commit -m "init" --allow-empty
+  commit "init"
   setup_target_to_match_main
 
   git checkout -b A
@@ -189,7 +190,7 @@ git init two-dependent-branches-first-merge-no-ff
 
 git init two-dependent-branches-first-merge-no-ff-second-merge-into-first-on-remote
 (cd two-dependent-branches-first-merge-no-ff-second-merge-into-first-on-remote
-  git commit -m "init" --allow-empty
+  commit "init"
   setup_target_to_match_main
 
   git checkout -b A
@@ -217,27 +218,27 @@ git init two-dependent-branches-first-merge-no-ff-second-merge-into-first-on-rem
 
 git init two-dependent-branches-rebased-with-remotes
 (cd two-dependent-branches-rebased-with-remotes
-  git commit -m "init" --allow-empty
+  commit "init"
   setup_target_to_match_main
   git branch A
   git checkout A
-  git commit -m "change in A" --allow-empty
+  commit "change in A"
   git branch future-remote-A
 
   # create remotes with the same structure as the branches before,
   # just as if the local branches were rebased.
   # This is the state that was pushed, i.e. just two commits.
   git checkout -b future-remote-B
-  git commit -m "change in B" --allow-empty
+  commit "change in B"
 
   # this emulates someone adding another commit in the lower level
   # of a stack after push.
   # The tick makes it more realistic, indicating that the rebased commits are newer.
   git checkout A && tick_committer
-  git commit -m "change after push" --allow-empty
+  commit "change after push"
 
   git checkout -b B-on-A
-  git commit -m "change in B" --allow-empty
+  commit "change in B"
 
   create_workspace_commit_once B-on-A
 
@@ -251,29 +252,45 @@ cp -R two-dependent-branches-rebased-with-remotes two-dependent-branches-rebased
   git branch base-of-A origin/A
 )
 
+git init stacked-bottom-remote-still-points-at-now-split-top
+(cd stacked-bottom-remote-still-points-at-now-split-top
+  commit "init"
+  setup_target_to_match_main
+  git checkout -b bottom
+  commit "B"
+  git checkout -b top
+  commit "T"
+  # origin/bottom previously pointed at the combined push (T), but the
+  # branches were since split locally so that bottom now contains only B
+  # and top contains T on top of bottom. Force-push is required to clear
+  # T from origin/bottom.
+  setup_remote_tracking top bottom 'cp'
+  create_workspace_commit_once top
+)
+
 git init two-branches-one-advanced-ws-commit-on-top-of-stack
 (cd two-branches-one-advanced-ws-commit-on-top-of-stack
-  git commit -m "init" --allow-empty
+  commit "init"
   setup_target_to_match_main
   git checkout -b lane main
 
   git checkout -b advanced-lane
-  git commit -m "change" --allow-empty
+  commit "change"
 
   create_workspace_commit_once lane advanced-lane
 )
 
 git init two-dependent-branches-with-one-commit-with-remotes
 (cd two-dependent-branches-with-one-commit-with-remotes
-  git commit -m "init" --allow-empty
+  commit "init"
   setup_target_to_match_main
 
   git checkout -b lane
-  git commit -m "change" --allow-empty
+  commit "change"
   remote_tracking_caught_up lane
 
   git checkout -b on-top-of-lane
-  git commit -m "change on top" --allow-empty
+  commit "change on top"
   remote_tracking_caught_up on-top-of-lane
 
   create_workspace_commit_once on-top-of-lane
@@ -281,7 +298,7 @@ git init two-dependent-branches-with-one-commit-with-remotes
 
 git init multiple-dependent-branches-per-stack-without-commit
 (cd multiple-dependent-branches-per-stack-without-commit
-  git commit -m "init" --allow-empty
+  commit "init"
   setup_target_to_match_main
 
   git branch lane-segment-01
@@ -292,29 +309,29 @@ git init multiple-dependent-branches-per-stack-without-commit
   git branch lane-2-segment-02
 
   git checkout -b lane
-  git commit -m "change" --allow-empty
+  commit "change"
 
   create_workspace_commit_once lane lane-2
 )
 
 git init two-dependent-branches-with-interesting-remote-setup
 (cd two-dependent-branches-with-interesting-remote-setup
-  git commit -m "init" --allow-empty
+  commit "init"
   setup_target_to_match_main
 
   git checkout -b integrated
-  git commit -m "integrated in target" --allow-empty
-  git commit -m "other integrated" --allow-empty
+  commit "integrated in target"
+  commit "other integrated"
 
   git checkout -b soon-A-remote
-  git commit -m "shared by name" --allow-empty
+  commit "shared by name"
   setup_remote_tracking soon-A-remote A "move"
 
   git checkout -b soon-main-remote integrated
-  git commit -m "another unrelated" --allow-empty
+  commit "another unrelated"
 
   git checkout -b A
-  git commit -m "shared by name" --allow-empty
+  commit "shared by name"
 
   setup_remote_tracking soon-main-remote main "move"
   create_workspace_commit_once A

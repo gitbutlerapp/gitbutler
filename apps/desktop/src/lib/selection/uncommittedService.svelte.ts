@@ -1,31 +1,31 @@
 import { sortLikeFileTree } from "$lib/files/filetreeV3";
-import { isSubmoduleStatus, type TreeChange } from "$lib/hunks/change";
+import { isSubmoduleStatus } from "$lib/hunks/change";
 import {
 	diffToHunkHeaders,
 	hunkHeaderEquals,
 	lineIdsToHunkHeaders,
 	orderHeaders,
-	type DiffHunk,
-	type DiffSpec,
-	type HunkAssignment,
-	type HunkHeader,
 } from "$lib/hunks/hunk";
+import { showToast } from "$lib/notifications/toasts";
 import { compositeKey, partialKey, type HunkSelection } from "$lib/selection/entityAdapters";
 import {
+	createUncommittedSlice,
 	uncommittedSelectors,
 	uncommittedSlice,
 	type CheckboxStatus,
-	uncommittedActions,
 } from "$lib/selection/uncommitted";
 import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { type Reactive } from "@gitbutler/shared/storeUtils";
-import { isDefined } from "@gitbutler/ui/utils/typeguards";
+import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 import type { UnifiedDiff } from "$lib/hunks/diff";
 import type { ChangeDiff, DiffService } from "$lib/hunks/diffService.svelte";
 import type { AppDispatch, ClientState } from "$lib/state/clientState.svelte";
 import type { WorktreeService } from "$lib/worktree/worktreeService.svelte";
-import type { LineId } from "@gitbutler/ui/utils/diffParsing";
+import type { DiffSpec, HunkAssignment, HunkHeader } from "@gitbutler/but-sdk";
+import type { DiffHunk } from "@gitbutler/but-sdk";
+import type { TreeChange } from "@gitbutler/but-sdk";
+import type { LineId } from "@gitbutler/ui-svelte/utils/diffParsing";
 
 export const UNCOMMITTED_SERVICE = new InjectionToken<UncommittedService>("UncommittedService");
 
@@ -48,41 +48,72 @@ interface PartialPreprocessedHunkHeader extends BasePreprocessedHunkHeader {
 
 type PreprocessedHunkHeader = CompletePreprocessedHunkHeader | PartialPreprocessedHunkHeader;
 
+/**
+ * The uncommitted changes of one checkout: the main one, or the linked
+ * `worktree`. A linked worktree's hunks are all unassigned.
+ */
 export class UncommittedService {
 	/** The change selection slice of the full redux state. */
-	private state = $state.raw(uncommittedSlice.getInitialState());
+	private state = $derived.by(() => this.getSlice() ?? uncommittedSlice.getInitialState());
 	private dispatch: AppDispatch;
+	private slice: ReturnType<typeof createUncommittedSlice>;
+	private getSlice: () => ReturnType<typeof uncommittedSlice.getInitialState> | undefined;
 
 	constructor(
-		clientState: ClientState,
+		private clientState: ClientState,
 		private worktreeService: WorktreeService,
 		private diffService: DiffService,
+		readonly worktree?: string,
+		/** Each checkout's service, shared with the ones `at()` makes. */
+		private services = new Map<string | undefined, UncommittedService>(),
 	) {
 		this.dispatch = clientState.dispatch;
-		const getSlice = clientState.injectPersistedSlice(uncommittedSlice);
+		services.set(worktree, this);
+		if (worktree === undefined) {
+			this.slice = uncommittedSlice;
+			this.getSlice = clientState.injectPersistedSlice(uncommittedSlice);
+		} else {
+			// Kept for the session only: a stored slice would outlive its worktree.
+			this.slice = createUncommittedSlice(`uncommitted:${worktree}`);
+			this.getSlice = clientState.injectSlice(this.slice);
+		}
+	}
 
-		$effect(() => {
-			this.state = getSlice() ?? uncommittedSlice.getInitialState();
-		});
+	/** This service for the linked `worktree`'s files, or the main checkout's. */
+	at(worktree: string | undefined): UncommittedService {
+		return (
+			this.services.get(worktree) ??
+			new UncommittedService(
+				this.clientState,
+				this.worktreeService,
+				this.diffService,
+				worktree,
+				this.services,
+			)
+		);
 	}
 
 	updateData(args: { assignments: HunkAssignment[]; changes: TreeChange[] }) {
-		this.dispatch(uncommittedActions.update(args));
+		this.dispatch(this.slice.actions.update(args));
 	}
 
 	clearHunkSelection(stackId?: string) {
-		this.dispatch(uncommittedActions.clearHunkSelection({ stackId: stackId || null }));
+		this.dispatch(this.slice.actions.clearHunkSelection({ stackId: stackId || null }));
 	}
 
-	async getUnifiedDiff(projectId: string, change: TreeChange): Promise<UnifiedDiff> {
-		const changeDiff = await this.diffService.fetchDiff(projectId, change);
-		if (!changeDiff) {
-			throw new Error("Failed to fetch diff");
-		}
-		return changeDiff;
+	async getUnifiedDiff(projectId: string, change: TreeChange): Promise<UnifiedDiff | null> {
+		// Real IPC / query failures now surface via RTK `unwrap()` in the
+		// underlying fetch path, so they throw and propagate as structured
+		// errors. A `null` result just means no patch data is available
+		// (e.g. binary content or an edge-case rename) — what callers do
+		// with that varies: hunk selection treats it as "no hunks to
+		// match" and may skip the path, while whole-file commits happen
+		// only when no hunks were requested or a caller explicitly falls
+		// back to that.
+		return await this.diffService.fetchDiff(projectId, change, this.worktree);
 	}
 
-	findHunkDiff(changeDiff: UnifiedDiff, hunk: HunkHeader): DiffHunk | undefined {
+	findHunkDiff(changeDiff: UnifiedDiff | null, hunk: HunkHeader): DiffHunk | undefined {
 		if (changeDiff?.type !== "Patch") return undefined;
 
 		const hunkDiff = changeDiff.subject.hunks.find(
@@ -98,7 +129,7 @@ export class UncommittedService {
 	/**
 	 * Check whether the given hunks represent a completely selected file.
 	 */
-	isCompletelySelectedFile(changeDiff: UnifiedDiff, hunkHeaders: HunkHeader[]): boolean {
+	isCompletelySelectedFile(changeDiff: UnifiedDiff | null, hunkHeaders: HunkHeader[]): boolean {
 		if (changeDiff?.type !== "Patch") return false;
 		const fileHunks = changeDiff.subject.hunks;
 
@@ -124,7 +155,7 @@ export class UncommittedService {
 	}
 
 	processHunkHeaders(
-		changeDiff: UnifiedDiff,
+		changeDiff: UnifiedDiff | null,
 		preprocessedHeaders: PreprocessedHunkHeader[],
 	): HunkHeader[] {
 		const finalHunkHeaders: HunkHeader[] = [];
@@ -194,6 +225,7 @@ export class UncommittedService {
 		}, {});
 
 		const worktreeChanges: DiffSpec[] = [];
+		const skippedStalePaths: string[] = [];
 		for (const [path, selection] of Object.entries(pathGroups)) {
 			const preprocessedHeaders: PreprocessedHunkHeader[] = [];
 			const change = uncommittedSelectors.treeChanges.selectById(state.treeChanges, path)!;
@@ -221,6 +253,7 @@ export class UncommittedService {
 			}
 
 			const changeDiff = await this.getUnifiedDiff(projectId, change);
+			let staleSkipped = 0;
 			for (const { lines, assignmentId } of selection) {
 				// We want to use `null` to commit from unassigned changes if new stack was created.
 				const assignment = uncommittedSelectors.hunkAssignments.selectById(
@@ -231,7 +264,13 @@ export class UncommittedService {
 				if (assignment.hunkHeader !== null) {
 					const hunkDiff = this.findHunkDiff(changeDiff, assignment.hunkHeader);
 					if (!hunkDiff) {
-						throw new Error("Hunk not found while commiting");
+						// The diff has shifted since the hunk was selected (file was
+						// edited, saved, or a refresh raced the commit). Skip this
+						// stale selection rather than failing the whole commit — any
+						// still-matching hunks in the same file commit normally.
+						console.warn("Skipping stale hunk selection while committing", assignment.hunkHeader);
+						staleSkipped++;
+						continue;
 					}
 
 					if (lines.length === 0) {
@@ -255,10 +294,29 @@ export class UncommittedService {
 				}
 			}
 
+			// If the user had specific hunk selections but every one of them
+			// was stale, do NOT fall through to "commit the whole file" — that
+			// would silently commit more than the user asked for. Skip the
+			// file entirely and surface a notice so they can reselect.
+			if (preprocessedHeaders.length === 0 && staleSkipped > 0) {
+				skippedStalePaths.push(path);
+				continue;
+			}
+
 			worktreeChanges.push({
 				pathBytes: change.pathBytes,
 				previousPathBytes,
 				hunkHeaders: await this.processHunkHeaders(changeDiff, preprocessedHeaders),
+			});
+		}
+
+		if (skippedStalePaths.length > 0) {
+			const label =
+				skippedStalePaths.length === 1 ? skippedStalePaths[0] : `${skippedStalePaths.length} files`;
+			showToast({
+				style: "info",
+				title: "Some selections skipped",
+				message: `The diff for ${label} shifted since you selected it. Please reselect to commit those changes.`,
 			});
 		}
 
@@ -494,7 +552,7 @@ export class UncommittedService {
 	}
 
 	checkLine(stackId: string | null, path: string, hunkHeader: HunkHeader, line: LineId) {
-		this.dispatch(uncommittedActions.checkLine({ stackId, path, hunkHeader, line }));
+		this.dispatch(this.slice.actions.checkLine({ stackId, path, hunkHeader, line }));
 	}
 
 	uncheckLine(
@@ -505,43 +563,55 @@ export class UncommittedService {
 		allLinesInHunk: LineId[],
 	) {
 		this.dispatch(
-			uncommittedActions.uncheckLine({ stackId, path, hunkHeader: header, line, allLinesInHunk }),
+			this.slice.actions.uncheckLine({
+				stackId,
+				path,
+				hunkHeader: header,
+				line,
+				allLinesInHunk,
+			}),
 		);
 	}
 
 	checkHunk(stackId: string | null, path: string, header: HunkHeader) {
-		this.dispatch(uncommittedActions.checkHunk({ stackId, path, hunkHeader: header }));
+		this.dispatch(this.slice.actions.checkHunk({ stackId, path, hunkHeader: header }));
 	}
 
 	uncheckHunk(stackId: string | null, path: string, header: HunkHeader) {
-		this.dispatch(uncommittedActions.uncheckHunk({ stackId, path, hunkHeader: header }));
+		this.dispatch(
+			this.slice.actions.uncheckHunk({
+				stackId,
+				path,
+				hunkHeader: header,
+			}),
+		);
 	}
 
 	checkFile(stackId: string | null, path: string) {
-		this.dispatch(uncommittedActions.checkFile({ stackId, path }));
+		this.dispatch(this.slice.actions.checkFile({ stackId, path }));
 	}
 
 	checkFiles(stackId: string | null, paths: string[]) {
-		this.dispatch(uncommittedActions.checkFiles({ stackId, paths }));
+		this.dispatch(this.slice.actions.checkFiles({ stackId, paths }));
 	}
 
 	uncheckFile(stackId: string | null, path: string) {
-		this.dispatch(uncommittedActions.uncheckFile({ stackId, path }));
+		this.dispatch(this.slice.actions.uncheckFile({ stackId, path }));
 	}
 
 	checkDir(stackId: string | null, path: string) {
-		this.dispatch(uncommittedActions.checkDir({ stackId, path }));
+		this.dispatch(this.slice.actions.checkDir({ stackId, path }));
 	}
 
 	uncheckDir(stackId: string | null, path: string) {
-		this.dispatch(uncommittedActions.uncheckDir({ stackId, path }));
+		this.dispatch(this.slice.actions.uncheckDir({ stackId, path }));
 	}
 
 	checkAll(stackId: string | null) {
-		this.dispatch(uncommittedActions.checkStack({ stackId }));
+		this.dispatch(this.slice.actions.checkStack({ stackId }));
 	}
 
 	uncheckAll(stackId: string | null) {
-		this.dispatch(uncommittedActions.uncheckStack({ stackId }));
+		this.dispatch(this.slice.actions.uncheckStack({ stackId }));
 	}
 }

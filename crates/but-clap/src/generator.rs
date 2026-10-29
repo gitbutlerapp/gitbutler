@@ -92,6 +92,54 @@ pub fn generate_command_mdx(cmd: &Command) -> String {
         output.push('\n');
     }
 
+    replace_rustdoc_hyperlinks(&output)
+}
+
+pub fn generate_topic_mdx(cmd: &Command, path: &[&str]) -> String {
+    let mut output = String::new();
+    let command_path = path.join(" ");
+    let title = format!("`but {command_path}`");
+    let (description, remaining_body) = get_description_and_body(cmd);
+
+    output.push_str("---\n");
+    output.push_str(&format!("title: \"{title}\"\n"));
+    output.push_str(&format!("description: \"{description}\"\n"));
+    output.push_str("---\n\n");
+
+    if let Some(body) = remaining_body {
+        output.push_str(&format!("{body}\n\n"));
+    }
+
+    output.push_str(&format!("**Usage:** `but {command_path}`\n\n"));
+
+    replace_rustdoc_hyperlinks(&output)
+}
+
+fn replace_rustdoc_hyperlinks(input: &str) -> String {
+    let mut output = String::with_capacity(input.len());
+    let mut remaining = input;
+
+    while let Some(start) = remaining.find("<http") {
+        output.push_str(&remaining[..start]);
+        let candidate = &remaining[start + 1..];
+        let Some(end) = candidate.find('>') else {
+            output.push_str(&remaining[start..]);
+            return output;
+        };
+
+        let url = &candidate[..end];
+        if (url.starts_with("https://") || url.starts_with("http://"))
+            && !url.contains(char::is_whitespace)
+        {
+            output.push_str(&format!("[{url}]({url})"));
+            remaining = &candidate[end + 1..];
+        } else {
+            output.push_str(&remaining[start..start + 1]);
+            remaining = candidate;
+        }
+    }
+
+    output.push_str(remaining);
     output
 }
 
@@ -179,10 +227,7 @@ fn generate_argument_doc(arg: &Arg) -> String {
 
     doc.push_str(&format!("* `<{arg_name}>` "));
 
-    // Add help text, preferring long_help
-    if let Some(long_help) = arg.get_long_help() {
-        doc.push_str(&format!("— {long_help}"));
-    } else if let Some(help) = arg.get_help() {
+    if let Some(help) = mdx_help(arg) {
         doc.push_str(&format!("— {help}"));
     }
 
@@ -224,10 +269,7 @@ fn generate_option_doc(opt: &Arg) -> String {
 
     doc.push_str(&format!("* {sig} "));
 
-    // Add help text, preferring long_help
-    if let Some(long_help) = opt.get_long_help() {
-        doc.push_str(&format!("— {long_help}"));
-    } else if let Some(help) = opt.get_help() {
+    if let Some(help) = mdx_help(opt) {
         doc.push_str(&format!("— {help}"));
     }
 
@@ -245,4 +287,12 @@ fn generate_option_doc(opt: &Arg) -> String {
 
     doc.push('\n');
     doc
+}
+
+fn mdx_help(arg: &Arg) -> Option<String> {
+    arg.get_long_help().or_else(|| arg.get_help()).map(|help| {
+        replace_rustdoc_hyperlinks(&help.to_string())
+            .replace('<', "&lt;")
+            .replace('>', "&gt;")
+    })
 }

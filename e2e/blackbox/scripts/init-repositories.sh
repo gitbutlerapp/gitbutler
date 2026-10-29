@@ -48,6 +48,6 @@ git clone remote one-vbranch-on-integration
 # already exists.
 # (
 #   cd one-vbranch-on-integration
-#   $CLI project add --switch-to-integration "$(git rev-parse --symbolic-full-name "@{u}")"
-#   $CLI branch create virtual
+#   $CLI setup
+#   $CLI branch new virtual
 # )

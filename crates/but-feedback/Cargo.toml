@@ -15,8 +15,7 @@ but-graph.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
 
 anyhow.workspace = true
-# Version must match the one in `tauri plugin updater` to avoid duplication.
-zip = { version = "4", default-features = false, features = ["bzip2"] }
+zip.workspace = true
 walkdir = "2.5.0"
 chrono.workspace = true
 

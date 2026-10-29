@@ -1,13 +1,29 @@
-use but_rebase::graph_rebase::{GraphExt, mutate::InsertSide};
+use bstr::ByteSlice;
+use but_rebase::graph_rebase::{
+    Editor,
+    mutate::{InsertSide, RelativeTo},
+};
 use but_testsupport::{graph_workspace, visualize_commit_graph_all};
+use snapbox::IntoData;
 
 use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack_with_segments, named_writable_scenario_with_description_and_graph,
 };
 
+fn parent_subjects(repo: &gix::Repository, rev: &str) -> anyhow::Result<Vec<String>> {
+    let commit = repo.find_commit(repo.rev_parse_single(rev)?)?;
+    commit
+        .parent_ids()
+        .map(|parent_id| {
+            let parent = repo.find_commit(parent_id)?;
+            Ok(parent.message_raw()?.trim_end().to_str_lossy().to_string())
+        })
+        .collect()
+}
+
 #[test]
 fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -15,49 +31,55 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
                 add_stack_with_segments(meta, 2, "C", StackState::InWorkspace, &["B"]);
             },
         )?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
-    | * 09d8e52 (A) A
-    * | 09bc93e (C) C
-    * | c813d8d (B) B
-    |/  
-    * 85efbe4 (origin/main, main) M
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 09d8e52 (A) A
+* | 09bc93e (C) C
+* | c813d8d (B) B
+|/  
+* 85efbe4 (origin/main, main) M
+
+"#]]
+        .raw()
+    );
 
     let mut ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:C on 85efbe4 {2}
-    │   ├── 📙:4:C
-    │   │   └── ·09bc93e (🏘️)
-    │   └── 📙:5:B
-    │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
-            └── ·09d8e52 (🏘️)
-    ");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+│       └── ·09d8e52 (🏘️)
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
+    │   └── ·09bc93e (🏘️)
+    └── 📙:B
+        └── ·c813d8d (🏘️)
 
-    let editor = ws.graph.to_editor(&repo)?;
+"#]]
+    );
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
-    let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
     let c_commit = repo.rev_parse_single("C")?.detach();
-    let c_commit_selector = editor.select_commit(c_commit)?;
 
     // Put C commit at the top of A
-    let rebase = but_workspace::commit::move_commit(
+    let rebase = but_workspace::commit::move_commits(
         editor,
-        &ws,
-        c_commit_selector,
-        a_commit_selector,
+        [c_commit],
+        RelativeTo::Commit(a_commit),
         InsertSide::Above,
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
+    let materialization = rebase.materialize(Default::default())?;
     let commit_mapping = materialization.history.commit_mappings();
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let new_c_commit = commit_mapping.get(&c_commit);
     let tip_of_a_branch = repo.rev_parse_single("A")?.detach();
@@ -74,34 +96,43 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
         "The tip of C should be the B commit"
     );
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   26fdd46 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
-    | * c813d8d (C, B) B
-    * | 3db8c14 (A) C
-    * | 09d8e52 A
-    |/  
-    * 85efbe4 (origin/main, main) M
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   bdcbf64 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * c813d8d (C, B) B
+* | f2cc60d (A) C
+* | 09d8e52 A
+|/  
+* 85efbe4 (origin/main, main) M
 
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:5:C on 85efbe4 {2}
-    │   ├── 📙:5:C
-    │   └── 📙:6:B
-    │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
-            ├── ·3db8c14 (🏘️)
-            └── ·09d8e52 (🏘️)
-    ");
+"#]]
+        .raw()
+    );
+
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+│       ├── ·f2cc60d (🏘️)
+│       └── ·09d8e52 (🏘️)
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
+    └── 📙:B
+        └── ·c813d8d (🏘️)
+
+"#]]
+    );
 
     Ok(())
 }
 
 #[test]
 fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -109,49 +140,55 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
                 add_stack_with_segments(meta, 2, "C", StackState::InWorkspace, &["B"]);
             },
         )?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
-    | * 09d8e52 (A) A
-    * | 09bc93e (C) C
-    * | c813d8d (B) B
-    |/  
-    * 85efbe4 (origin/main, main) M
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 09d8e52 (A) A
+* | 09bc93e (C) C
+* | c813d8d (B) B
+|/  
+* 85efbe4 (origin/main, main) M
+
+"#]]
+        .raw()
+    );
 
     let mut ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:C on 85efbe4 {2}
-    │   ├── 📙:4:C
-    │   │   └── ·09bc93e (🏘️)
-    │   └── 📙:5:B
-    │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
-            └── ·09d8e52 (🏘️)
-    ");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+│       └── ·09d8e52 (🏘️)
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
+    │   └── ·09bc93e (🏘️)
+    └── 📙:B
+        └── ·c813d8d (🏘️)
 
-    let editor = ws.graph.to_editor(&repo)?;
+"#]]
+    );
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
-    let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
-    let b_commit_selector = editor.select_commit(b_commit)?;
     let c_commit = repo.rev_parse_single("C")?.detach();
 
     // Put B commit at the top of A
-    let rebase = but_workspace::commit::move_commit(
+    let rebase = but_workspace::commit::move_commits(
         editor,
-        &ws,
-        b_commit_selector,
-        a_commit_selector,
+        [b_commit],
+        RelativeTo::Commit(a_commit),
         InsertSide::Above,
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
+    let materialization = rebase.materialize(Default::default())?;
     let commit_mapping = materialization.history.commit_mappings();
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let new_b_commit = commit_mapping.get(&b_commit);
     let new_c_commit = commit_mapping.get(&c_commit);
@@ -170,34 +207,43 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
         "The tip of C should be the the rebased C commit"
     );
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   ac869ab (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
-    | * 9f14615 (C) C
-    * | 698ccd3 (A) B
-    * | 09d8e52 A
-    |/  
-    * 85efbe4 (origin/main, main, B) M
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   1229630 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 8e00332 (C) C
+* | f9061ed (A) B
+* | 09d8e52 A
+|/  
+* 85efbe4 (origin/main, main, B) M
 
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:C on 85efbe4 {2}
-    │   ├── 📙:4:C
-    │   │   └── ·9f14615 (🏘️)
-    │   └── 📙:5:B
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
-            ├── ·698ccd3 (🏘️)
-            └── ·09d8e52 (🏘️)
-    ");
+"#]]
+        .raw()
+    );
+
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+│       ├── ·f9061ed (🏘️)
+│       └── ·09d8e52 (🏘️)
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
+    │   └── ·8e00332 (🏘️)
+    └── 📙:B
+
+"#]]
+    );
 
     Ok(())
 }
 
 #[test]
 fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -205,49 +251,55 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
                 add_stack_with_segments(meta, 2, "C", StackState::InWorkspace, &["B"]);
             },
         )?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
-    | * 09d8e52 (A) A
-    * | 09bc93e (C) C
-    * | c813d8d (B) B
-    |/  
-    * 85efbe4 (origin/main, main) M
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 09d8e52 (A) A
+* | 09bc93e (C) C
+* | c813d8d (B) B
+|/  
+* 85efbe4 (origin/main, main) M
+
+"#]]
+        .raw()
+    );
 
     let mut ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:C on 85efbe4 {2}
-    │   ├── 📙:4:C
-    │   │   └── ·09bc93e (🏘️)
-    │   └── 📙:5:B
-    │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
-            └── ·09d8e52 (🏘️)
-    ");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+│       └── ·09d8e52 (🏘️)
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
+    │   └── ·09bc93e (🏘️)
+    └── 📙:B
+        └── ·c813d8d (🏘️)
 
-    let editor = ws.graph.to_editor(&repo)?;
+"#]]
+    );
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
-    let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
     let c_commit = repo.rev_parse_single("C")?.detach();
-    let c_commit_selector = editor.select_commit(c_commit)?;
 
     // Put C commit below the A commit
-    let rebase = but_workspace::commit::move_commit(
+    let rebase = but_workspace::commit::move_commits(
         editor,
-        &ws,
-        c_commit_selector,
-        a_commit_selector,
+        [c_commit],
+        RelativeTo::Commit(a_commit),
         InsertSide::Below,
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
+    let materialization = rebase.materialize(Default::default())?;
     let commit_mapping = materialization.history.commit_mappings();
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let new_a_commit = commit_mapping.get(&a_commit);
     let tip_of_a_branch = repo.rev_parse_single("A")?.detach();
@@ -264,34 +316,43 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
         "The tip of C should be the B commit"
     );
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   45976fd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
-    | * c813d8d (C, B) B
-    * | 9bb60db (A) A
-    * | 9f14615 C
-    |/  
-    * 85efbe4 (origin/main, main) M
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   b197178 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * c813d8d (C, B) B
+* | 2506923 (A) A
+* | 8e00332 C
+|/  
+* 85efbe4 (origin/main, main) M
 
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:5:C on 85efbe4 {2}
-    │   ├── 📙:5:C
-    │   └── 📙:6:B
-    │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
-            ├── ·9bb60db (🏘️)
-            └── ·9f14615 (🏘️)
-    ");
+"#]]
+        .raw()
+    );
+
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+│       ├── ·2506923 (🏘️)
+│       └── ·8e00332 (🏘️)
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
+    └── 📙:B
+        └── ·c813d8d (🏘️)
+
+"#]]
+    );
 
     Ok(())
 }
 
 #[test]
 fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -299,49 +360,55 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
                 add_stack_with_segments(meta, 2, "C", StackState::InWorkspace, &["B"]);
             },
         )?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
-    | * 09d8e52 (A) A
-    * | 09bc93e (C) C
-    * | c813d8d (B) B
-    |/  
-    * 85efbe4 (origin/main, main) M
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 09d8e52 (A) A
+* | 09bc93e (C) C
+* | c813d8d (B) B
+|/  
+* 85efbe4 (origin/main, main) M
+
+"#]]
+        .raw()
+    );
 
     let mut ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:C on 85efbe4 {2}
-    │   ├── 📙:4:C
-    │   │   └── ·09bc93e (🏘️)
-    │   └── 📙:5:B
-    │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
-            └── ·09d8e52 (🏘️)
-    ");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+│       └── ·09d8e52 (🏘️)
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
+    │   └── ·09bc93e (🏘️)
+    └── 📙:B
+        └── ·c813d8d (🏘️)
 
-    let editor = ws.graph.to_editor(&repo)?;
+"#]]
+    );
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
-    let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
-    let b_commit_selector = editor.select_commit(b_commit)?;
     let c_commit = repo.rev_parse_single("C")?.detach();
 
     // Put B commit below the A commit
-    let rebase = but_workspace::commit::move_commit(
+    let rebase = but_workspace::commit::move_commits(
         editor,
-        &ws,
-        b_commit_selector,
-        a_commit_selector,
+        [b_commit],
+        RelativeTo::Commit(a_commit),
         InsertSide::Below,
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
+    let materialization = rebase.materialize(Default::default())?;
     let commit_mapping = materialization.history.commit_mappings();
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let new_a_commit = commit_mapping.get(&a_commit);
     let new_c_commit = commit_mapping.get(&c_commit);
@@ -360,34 +427,43 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
         "The tip of C should be the the rebased C commit"
     );
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   dbabd50 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
-    | * 9f14615 (C) C
-    * | 3df48f1 (A) A
-    * | c813d8d B
-    |/  
-    * 85efbe4 (origin/main, main, B) M
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   0cd9d1e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 8e00332 (C) C
+* | 4dfe841 (A) A
+* | c813d8d B
+|/  
+* 85efbe4 (origin/main, main, B) M
 
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:C on 85efbe4 {2}
-    │   ├── 📙:4:C
-    │   │   └── ·9f14615 (🏘️)
-    │   └── 📙:5:B
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
-            ├── ·3df48f1 (🏘️)
-            └── ·c813d8d (🏘️)
-    ");
+"#]]
+        .raw()
+    );
+
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+│       ├── ·4dfe841 (🏘️)
+│       └── ·c813d8d (🏘️)
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
+    │   └── ·8e00332 (🏘️)
+    └── 📙:B
+
+"#]]
+    );
 
     Ok(())
 }
 
 #[test]
 fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -395,48 +471,54 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
                 add_stack_with_segments(meta, 2, "C", StackState::InWorkspace, &["B"]);
             },
         )?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
-    | * 09d8e52 (A) A
-    * | 09bc93e (C) C
-    * | c813d8d (B) B
-    |/  
-    * 85efbe4 (origin/main, main) M
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 09d8e52 (A) A
+* | 09bc93e (C) C
+* | c813d8d (B) B
+|/  
+* 85efbe4 (origin/main, main) M
+
+"#]]
+        .raw()
+    );
 
     let mut ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:C on 85efbe4 {2}
-    │   ├── 📙:4:C
-    │   │   └── ·09bc93e (🏘️)
-    │   └── 📙:5:B
-    │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
-            └── ·09d8e52 (🏘️)
-    ");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+│       └── ·09d8e52 (🏘️)
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
+    │   └── ·09bc93e (🏘️)
+    └── 📙:B
+        └── ·c813d8d (🏘️)
 
-    let editor = ws.graph.to_editor(&repo)?;
+"#]]
+    );
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
-    let a_commit_selector = editor.select_commit(a_commit)?;
     let c_commit = repo.rev_parse_single("C")?.detach();
-    let c_commit_selector = editor.select_commit(c_commit)?;
 
     // Put A commit at the top of the branch C
-    let rebase = but_workspace::commit::move_commit(
+    let rebase = but_workspace::commit::move_commits(
         editor,
-        &ws,
-        a_commit_selector,
-        c_commit_selector,
+        [a_commit],
+        RelativeTo::Commit(c_commit),
         InsertSide::Above,
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
+    let materialization = rebase.materialize(Default::default())?;
     let commit_mapping = materialization.history.commit_mappings();
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let new_a_commit = commit_mapping.get(&a_commit);
     let tip_of_c_branch = repo.rev_parse_single("C")?.detach();
@@ -447,34 +529,43 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
         "The tip of C should be the rebased A commit"
     );
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   9b0c3a5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
-    | * 8dbfefa (C) A
-    | * 09bc93e C
-    | * c813d8d (B) B
-    |/  
-    * 85efbe4 (origin/main, main, A) M
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   ce2d156 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 148f8f3 (C) A
+| * 09bc93e C
+| * c813d8d (B) B
+|/  
+* 85efbe4 (origin/main, main, A) M
 
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:C on 85efbe4 {2}
-    │   ├── 📙:3:C
-    │   │   ├── ·8dbfefa (🏘️)
-    │   │   └── ·09bc93e (🏘️)
-    │   └── 📙:4:B
-    │       └── ·c813d8d (🏘️)
-    └── ≡📙:5:A on 85efbe4 {1}
-        └── 📙:5:A
-    ");
+"#]]
+        .raw()
+    );
+
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
+    │   ├── ·148f8f3 (🏘️)
+    │   └── ·09bc93e (🏘️)
+    └── 📙:B
+        └── ·c813d8d (🏘️)
+
+"#]]
+    );
 
     Ok(())
 }
 
 #[test]
 fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -482,49 +573,55 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
                 add_stack_with_segments(meta, 2, "C", StackState::InWorkspace, &["B"]);
             },
         )?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
-    | * 09d8e52 (A) A
-    * | 09bc93e (C) C
-    * | c813d8d (B) B
-    |/  
-    * 85efbe4 (origin/main, main) M
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 09d8e52 (A) A
+* | 09bc93e (C) C
+* | c813d8d (B) B
+|/  
+* 85efbe4 (origin/main, main) M
+
+"#]]
+        .raw()
+    );
 
     let mut ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:C on 85efbe4 {2}
-    │   ├── 📙:4:C
-    │   │   └── ·09bc93e (🏘️)
-    │   └── 📙:5:B
-    │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
-            └── ·09d8e52 (🏘️)
-    ");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+│       └── ·09d8e52 (🏘️)
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
+    │   └── ·09bc93e (🏘️)
+    └── 📙:B
+        └── ·c813d8d (🏘️)
 
-    let editor = ws.graph.to_editor(&repo)?;
+"#]]
+    );
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
-    let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
-    let b_commit_selector = editor.select_commit(b_commit)?;
     let c_commit = repo.rev_parse_single("C")?.detach();
 
     // Put A commit below the B commit
-    let rebase = but_workspace::commit::move_commit(
+    let rebase = but_workspace::commit::move_commits(
         editor,
-        &ws,
-        a_commit_selector,
-        b_commit_selector,
+        [a_commit],
+        RelativeTo::Commit(b_commit),
         InsertSide::Below,
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
+    let materialization = rebase.materialize(Default::default())?;
     let commit_mapping = materialization.history.commit_mappings();
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let new_b_commit = commit_mapping.get(&b_commit);
     let new_c_commit = commit_mapping.get(&c_commit);
@@ -543,74 +640,88 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
         "The tip of C should be the rebased C commit"
     );
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   202b05f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
-    | * f603807 (C) C
-    | * 698ccd3 (B) B
-    | * 09d8e52 A
-    |/  
-    * 85efbe4 (origin/main, main, A) M
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   dda25f3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * ad476a8 (C) C
+| * f9061ed (B) B
+| * 09d8e52 A
+|/  
+* 85efbe4 (origin/main, main, A) M
 
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:C on 85efbe4 {2}
-    │   ├── 📙:3:C
-    │   │   └── ·f603807 (🏘️)
-    │   └── 📙:4:B
-    │       ├── ·698ccd3 (🏘️)
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:5:A on 85efbe4 {1}
-        └── 📙:5:A
-    ");
+"#]]
+        .raw()
+    );
+
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
+    │   └── ·ad476a8 (🏘️)
+    └── 📙:B
+        ├── ·f9061ed (🏘️)
+        └── ·09d8e52 (🏘️)
+
+"#]]
+    );
 
     Ok(())
 }
 
 #[test]
 fn move_commit_to_empty_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph("ws-with-empty-stack", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &["B"]);
         })?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   6d5c23e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
-    | * 09d8e52 (A) A
-    |/  
-    * 85efbe4 (origin/main, main, B) M
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   6d5c23e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 09d8e52 (A) A
+|/  
+* 85efbe4 (origin/main, main, B) M
+
+"#]]
+        .raw()
+    );
 
     let mut ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:B on 85efbe4 {2}
-    │   └── 📙:4:B
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
-            └── ·09d8e52 (🏘️)
-    ");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+│       └── ·09d8e52 (🏘️)
+└── ≡📙:B on 85efbe4 {2}
+    └── 📙:B
 
-    let editor = ws.graph.to_editor(&repo)?;
+"#]]
+    );
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
-    let a_commit_selector = editor.select_commit(a_commit)?;
-    let b_ref_name = "refs/heads/B".try_into()?;
-    let b_ref_selector = editor.select_reference(b_ref_name)?;
 
     // Put A commit in branch B
-    let rebase = but_workspace::commit::move_commit(
+    let rebase = but_workspace::commit::move_commits(
         editor,
-        &ws,
-        a_commit_selector,
-        b_ref_selector,
+        [a_commit],
+        RelativeTo::Reference("refs/heads/B".try_into()?),
         InsertSide::Below,
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
-    ws.refresh_from_head(&repo, &meta)?;
+    rebase.materialize(Default::default())?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let tip_of_b_branch = repo.rev_parse_single("B")?.detach();
 
@@ -619,67 +730,80 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
         "The tip of B should be the rebased A commit"
     );
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   6d5c23e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
-    | * 09d8e52 (B) A
-    |/  
-    * 85efbe4 (origin/main, main, A) M
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   6d5c23e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 09d8e52 (B) A
+|/  
+* 85efbe4 (origin/main, main, A) M
 
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:B on 85efbe4 {2}
-    │   └── 📙:3:B
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:A on 85efbe4 {1}
-        └── 📙:4:A
-    ");
+"#]]
+        .raw()
+    );
+
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+└── ≡📙:B on 85efbe4 {2}
+    └── 📙:B
+        └── ·09d8e52 (🏘️)
+
+"#]]
+    );
 
     Ok(())
 }
 
 #[test]
 fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph("reword-three-commits", |_| {})?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * c9f444c (HEAD -> three) commit three
-    * 16fd221 (origin/two, two) commit two
-    * 8b426d0 (one) commit one
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* c9f444c (HEAD -> three) commit three
+* 16fd221 (origin/two, two) commit two
+* 8b426d0 (one) commit one
+
+"#]]
+    );
 
     let mut ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    ⌂:0:three[🌳] <> ✓!
-    └── ≡:0:three[🌳] {1}
-        ├── :0:three[🌳]
-        │   └── ·c9f444c
-        ├── :1:two <> origin/two →:2:
-        │   └── ❄️16fd221
-        └── :3:one
-            └── ❄8b426d0
-    ");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+⌂:three[🌳] <> ✓!
+└── ≡:three[🌳] {1}
+    ├── :three[🌳]
+    │   └── ·c9f444c
+    ├── :two <> origin/two
+    │   └── ❄️16fd221
+    └── :one
+        └── ❄8b426d0
 
-    let editor = ws.graph.to_editor(&repo)?;
+"#]]
+    );
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let three_commit = repo.rev_parse_single("three")?.detach();
-    let three_commit_selector = editor.select_commit(three_commit)?;
-    let two_ref_name = "refs/heads/two".try_into()?;
-    let two_ref_selector = editor.select_reference(two_ref_name)?;
 
     // Put commit three at the top of branch two
-    let rebase = but_workspace::commit::move_commit(
+    let rebase = but_workspace::commit::move_commits(
         editor,
-        &ws,
-        three_commit_selector,
-        two_ref_selector,
+        [three_commit],
+        RelativeTo::Reference("refs/heads/two".try_into()?),
         InsertSide::Below,
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
-    ws.refresh_from_head(&repo, &meta)?;
+    rebase.materialize(Default::default())?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let tip_of_three_branch = repo.rev_parse_single("three")?.detach();
     let tip_of_two_branch = repo.rev_parse_single("two")?.detach();
@@ -694,67 +818,245 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
         "The tip of 'two' should be the three commit"
     );
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * c9f444c (HEAD -> three, two) commit three
-    * 16fd221 (origin/two) commit two
-    * 8b426d0 (one) commit one
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* c9f444c (HEAD -> three, two) commit three
+* 16fd221 (origin/two) commit two
+* 8b426d0 (one) commit one
 
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    ⌂:0:three[🌳] <> ✓!
-    └── ≡:0:three[🌳] {1}
-        ├── :0:three[🌳]
-        │   ├── ·c9f444c ►two
-        │   └── ·16fd221
-        └── :3:one
-            └── ·8b426d0
-    ");
+"#]]
+    );
+
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+⌂:three[🌳] <> ✓!
+└── ≡:three[🌳] {1}
+    ├── :three[🌳]
+    │   ├── ·c9f444c ►two
+    │   └── ·16fd221
+    └── :one
+        └── ·8b426d0
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn reorder_merge_commit_above_keeps_child_commits_visible() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
+        named_writable_scenario_with_description_and_graph("gb-1525-reorder-merge-commit", |_| {})?;
+
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 32c8bda (HEAD -> child-stack, C2) C2: add other.txt
+* 64dace5 (C1) C1: add child-1.txt
+*   197bdf1 (M) M: merge feature-parent
+|\  
+| * b54108c (feature-parent) update parent.txt (2)
+| * 1b1a64f update parent.txt (1)
+| * 40bcd70 add parent.txt
+* | aa67ae0 (origin/main, main-advanced, main) update main.txt (1)
+|/  
+* 7674a5e (tag: base) base
+
+"#]]
+        .raw()
+    );
+
+    let mut ws = graph.into_workspace()?;
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+⌂:child-stack[🌳] <> ✓refs/heads/main on aa67ae0
+└── ≡:child-stack[🌳] on aa67ae0 {1}
+    ├── :child-stack[🌳]
+    │   └── ·32c8bda ►C2
+    ├── :C1
+    │   └── ·64dace5
+    └── :M
+        └── ·197bdf1
+
+"#]]
+    );
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let merge_commit = repo.rev_parse_single("M")?.detach();
+    let c1_commit = repo.rev_parse_single("C1")?.detach();
+
+    let rebase = but_workspace::commit::move_commits(
+        editor,
+        [merge_commit],
+        RelativeTo::Commit(c1_commit),
+        InsertSide::Above,
+    )?;
+
+    rebase.materialize(Default::default())?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+
+    let post_move_graph = visualize_commit_graph_all(&repo)?;
+    assert_eq!(
+        parent_subjects(&repo, "C1")?,
+        vec![
+            "C1: add child-1.txt".to_string(),
+            "update parent.txt (2)".to_string()
+        ],
+        "moving the merge commit above C1 should preserve the visible first-parent lane"
+    );
+    snapbox::assert_data_eq!(
+        post_move_graph,
+        snapbox::str![[r#"
+* 1fa67f9 (HEAD -> child-stack, C2) C2: add other.txt
+*   88f8bb5 (C1) M: merge feature-parent
+|\  
+| * b54108c (feature-parent) update parent.txt (2)
+| * 1b1a64f update parent.txt (1)
+| * 40bcd70 add parent.txt
+* | 40eca7d C1: add child-1.txt
+* | aa67ae0 (origin/main, main-advanced, main, M) update main.txt (1)
+|/  
+* 7674a5e (tag: base) base
+
+"#]]
+        .raw()
+    );
+
+    Ok(())
+}
+
+#[test]
+fn reorder_merge_commit_below_keeps_child_commits_visible() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
+        named_writable_scenario_with_description_and_graph("gb-1525-reorder-merge-commit", |_| {})?;
+
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 32c8bda (HEAD -> child-stack, C2) C2: add other.txt
+* 64dace5 (C1) C1: add child-1.txt
+*   197bdf1 (M) M: merge feature-parent
+|\  
+| * b54108c (feature-parent) update parent.txt (2)
+| * 1b1a64f update parent.txt (1)
+| * 40bcd70 add parent.txt
+* | aa67ae0 (origin/main, main-advanced, main) update main.txt (1)
+|/  
+* 7674a5e (tag: base) base
+
+"#]]
+        .raw()
+    );
+
+    let mut ws = graph.into_workspace()?;
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+⌂:child-stack[🌳] <> ✓refs/heads/main on aa67ae0
+└── ≡:child-stack[🌳] on aa67ae0 {1}
+    ├── :child-stack[🌳]
+    │   └── ·32c8bda ►C2
+    ├── :C1
+    │   └── ·64dace5
+    └── :M
+        └── ·197bdf1
+
+"#]]
+    );
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let merge_commit = repo.rev_parse_single("M")?.detach();
+    let main_commit = repo.rev_parse_single("main")?.detach();
+
+    let rebase = but_workspace::commit::move_commits(
+        editor,
+        [merge_commit],
+        RelativeTo::Commit(main_commit),
+        InsertSide::Below,
+    )?;
+
+    rebase.materialize(Default::default())?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+
+    let post_move_graph = visualize_commit_graph_all(&repo)?;
+    assert_eq!(
+        parent_subjects(&repo, "HEAD~3")?,
+        vec!["base".to_string(), "update parent.txt (2)".to_string()],
+        "moving the merge commit below main should make main's first parent the merge commit's first parent"
+    );
+    snapbox::assert_data_eq!(
+        post_move_graph,
+        snapbox::str![[r#"
+* 3cf4ba4 (HEAD -> child-stack, C2) C2: add other.txt
+* 7673ad4 (C1) C1: add child-1.txt
+* 8a192c0 (main-advanced, main, M) update main.txt (1)
+*   ed12786 M: merge feature-parent
+|\  
+| * b54108c (feature-parent) update parent.txt (2)
+| * 1b1a64f update parent.txt (1)
+| * 40bcd70 add parent.txt
+|/  
+| * aa67ae0 (origin/main) update main.txt (1)
+|/  
+* 7674a5e (tag: base) base
+
+"#]]
+        .raw()
+    );
 
     Ok(())
 }
 
 #[test]
 fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph("reword-three-commits", |_| {})?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * c9f444c (HEAD -> three) commit three
-    * 16fd221 (origin/two, two) commit two
-    * 8b426d0 (one) commit one
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* c9f444c (HEAD -> three) commit three
+* 16fd221 (origin/two, two) commit two
+* 8b426d0 (one) commit one
+
+"#]]
+    );
 
     let mut ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    ⌂:0:three[🌳] <> ✓!
-    └── ≡:0:three[🌳] {1}
-        ├── :0:three[🌳]
-        │   └── ·c9f444c
-        ├── :1:two <> origin/two →:2:
-        │   └── ❄️16fd221
-        └── :3:one
-            └── ❄8b426d0
-    ");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+⌂:three[🌳] <> ✓!
+└── ≡:three[🌳] {1}
+    ├── :three[🌳]
+    │   └── ·c9f444c
+    ├── :two <> origin/two
+    │   └── ❄️16fd221
+    └── :one
+        └── ❄8b426d0
 
-    let editor = ws.graph.to_editor(&repo)?;
+"#]]
+    );
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let three_commit = repo.rev_parse_single("three")?.detach();
-    let three_commit_selector = editor.select_commit(three_commit)?;
     let two_commit = repo.rev_parse_single("two")?.detach();
-    let two_commit_selector = editor.select_commit(two_commit)?;
 
     // Put commit three below commit two
-    let rebase = but_workspace::commit::move_commit(
+    let rebase = but_workspace::commit::move_commits(
         editor,
-        &ws,
-        three_commit_selector,
-        two_commit_selector,
+        [three_commit],
+        RelativeTo::Commit(two_commit),
         InsertSide::Below,
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
+    let materialization = rebase.materialize(Default::default())?;
     let commit_mappings = materialization.history.commit_mappings();
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let new_commit_two = commit_mappings.get(&two_commit);
     let tip_of_three_branch = repo.rev_parse_single("three")?.detach();
@@ -775,23 +1077,129 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     // Branches 'three' and 'two' now point to the updated 'two' commit,
     // which is now a child of three.
     // The origin two branch has not been yet updated and still points to the original 'two' commit.
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * b8c85c3 (HEAD -> three, two) commit two
-    * fc5e5e6 commit three
-    | * 16fd221 (origin/two) commit two
-    |/  
-    * 8b426d0 (one) commit one
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 09ad3ca (HEAD -> three, two) commit two
+* 0c38dd9 commit three
+| * 16fd221 (origin/two) commit two
+|/  
+* 8b426d0 (one) commit one
 
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    ⌂:0:three[🌳] <> ✓!
-    └── ≡:0:three[🌳] {1}
-        ├── :0:three[🌳]
-        │   ├── ·b8c85c3 ►two
-        │   └── ·fc5e5e6
-        └── :2:one
-            └── ·8b426d0
-    ");
+"#]]
+    );
 
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+⌂:three[🌳] <> ✓!
+└── ≡:three[🌳] {1}
+    ├── :three[🌳]
+    │   ├── ·09ad3ca ►two
+    │   └── ·0c38dd9
+    └── :one
+        └── ·8b426d0
+
+"#]]
+    );
+
+    Ok(())
+}
+#[test]
+fn move_mixed_main_and_worktree_commits_to_another_worktree() -> anyhow::Result<()> {
+    use but_graph::Graph;
+    use but_meta::VirtualBranchesTomlMetadata;
+    use but_testsupport::git_status_at_dir;
+
+    let (repo, _tmp) = crate::utils::writable_scenario_slow("worktree-move-mixed");
+    let mut meta = std::mem::ManuallyDrop::new(VirtualBranchesTomlMetadata::from_path(
+        repo.path().join("should-never-be-written.toml"),
+    )?);
+    // Adoption already ran, so both linked worktrees are discovered as active tips.
+    let mut db = but_testsupport::project_db(&repo)?;
+    db.worktree_meta_mut().mark_adopted()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut db,
+        but_graph::init::Options {
+            worktrees: true,
+            ..but_graph::init::Options::limited()
+        },
+    )?
+    .validated()?;
+
+    // `main` stacks two commits above `stack-base`; `feat` is a linked worktree with one
+    // commit; `other`, `stable` and `target` are all co-located at the base commit.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 57d0038 (feat) worktree source
+| * baa5a4c (HEAD -> main) workspace source
+| * 4119f49 (stack-base) stack base
+|/  
+* 35b8235 (target, stable, other) base
+
+"#]]
+        .raw()
+    );
+
+    let main = repo.rev_parse_single("main")?.detach();
+    let feat = repo.rev_parse_single("feat")?.detach();
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    but_workspace::commit::move_commits(
+        editor,
+        [main, feat],
+        RelativeTo::Reference("refs/heads/other".try_into()?),
+        InsertSide::Below,
+    )?
+    .materialize(Default::default())?;
+
+    // Both moved commits land on `other`, and only on `other`: worktree-checked-out
+    // branches fork directly into the commit they point at, so inserting below `other`
+    // neither rebases `main`/`stack-base` nor drags `feat` along. The placeholder left
+    // where `feat`'s commit sat resolves through to the commit below, so `feat` falls
+    // back onto the base it donated its commit from; `stable` and `target` stay on the
+    // base commit as well.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 4119f49 (HEAD -> main, stack-base) stack base
+| * 9a81bea (other) worktree source
+| * 6f6bfe8 workspace source
+|/  
+* 35b8235 (target, stable, feat) base
+
+"#]]
+        .raw()
+    );
+
+    let workdir = repo.workdir().expect("non-bare repo");
+    assert_eq!(
+        git_status_at_dir(workdir.join("wt"))?,
+        "",
+        "the source linked checkout follows its moved-out ref cleanly"
+    );
+    assert_eq!(
+        git_status_at_dir(workdir.join("other"))?,
+        "",
+        "the destination linked checkout follows its rewritten ref"
+    );
+    assert!(
+        !workdir.join("wt/wt-file").exists(),
+        "`feat` stays behind on the base, so its checkout no longer contains the moved-away commit's file"
+    );
+    assert_eq!(
+        std::fs::read_to_string(workdir.join("other/ws-file"))?,
+        "workspace\n",
+        "the destination checkout contains the main source"
+    );
+    assert_eq!(
+        std::fs::read_to_string(workdir.join("other/wt-file"))?,
+        "worktree\n",
+        "the destination checkout contains the worktree source"
+    );
     Ok(())
 }

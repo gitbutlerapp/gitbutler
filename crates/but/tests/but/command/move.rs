@@ -1,329 +1,6280 @@
-use snapbox::str;
+use snapbox::IntoData as _;
 
 use crate::{
-    command::util::commit_two_files_as_two_hunks_each,
-    utils::{CommandExt, Sandbox},
+    command::util::{
+        branch_commit_cli_ids, commit_two_files_as_two_hunks_each,
+        status_json_with_files as status_json,
+    },
+    utils::{CommandExt as _, Sandbox},
 };
 
 #[test]
-fn move_commit_before_another_commit() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-
-    env.setup_metadata(&["A"])?;
-
-    // Create three commits
-    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
-    commit_two_files_as_two_hunks_each(&env, "A", "c.txt", "d.txt", "second commit");
-    commit_two_files_as_two_hunks_each(&env, "A", "e.txt", "f.txt", "third commit");
-
-    // Get commit IDs from status
-    let status_output = env.but("--json status").allow_json().output()?;
-    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
-    let commits = &status_json["stacks"][0]["branches"][0]["commits"];
-
-    // Commits are ordered newest first, so:
-    // commits[0] = "third commit"
-    // commits[1] = "second commit"
-    // commits[2] = "first commit"
-    // commits[3] = initial "add A" commit
-
-    let third_commit_id = commits[0]["cliId"].as_str().unwrap();
-    let first_commit_id = commits[2]["cliId"].as_str().unwrap();
-
-    // Move "third commit" before "first commit" (making it the oldest)
-    env.but(format!("move {third_commit_id} {first_commit_id}"))
+fn implicit_move_onto_a_conflicted_tip_checks_out_its_padding_commit() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("file", "x\n");
+    env.but("commit -b source -m base").assert().success();
+    env.file("file", "y\n");
+    env.but("commit -m first").assert().success();
+    env.file("file", "x\n");
+    env.but("commit -m revert").assert().success();
+    env.file("file", "z\n");
+    env.but("commit -m last").assert().success();
+    env.but("status -f")
         .assert()
         .success()
-        .stdout_eq(str![[r#"
-Moved 23e1bf8 → before fce8ecc
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ so [source] [HEAD]
+┊●   nlu last
+┊│     nlu:q M file
+┊●   uwm revert
+┊│     uwm:q M file
+┊●   suw first
+┊│     suw:q M file
+┊●   vml base
+┊│     vml:q A file
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
 
 "#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* baa8b36 (HEAD -> source) last
+* 5f3b211 revert
+* 10fc7e8 first
+* 491196b base
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
 
-    // Verify the move was successful by checking that we still have the right number of commits
-    // (The actual reordering is tested in unit tests, here we just verify the command executed)
-    let status_output = env.but("--json status").allow_json().output()?;
-    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
-    let commits_after = &status_json["stacks"][0]["branches"][0]["commits"];
+"#]]
+    );
+    env.but("move suw --above source -b moved")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved suw to new branch 'moved' above branch 'source'
 
-    // Should still have 4 commits (3 we created + initial "add A")
-    assert_eq!(commits_after.as_array().unwrap().len(), 4);
+⚠ This operation left a commit conflicted:
+  ● suw [conflict] first
+Resolve with but resolve, or back out with but undo.
 
-    Ok(())
+"#]]);
+    // The moved commit conflicts on top of `last`, so the checked out `moved` rests on a padding commit over it.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* e80083a (HEAD -> moved) GitButler Padding Commit
+* cf2bcd3 [conflict] first
+* ae5714b (source) last
+* e5528a4 revert
+* 491196b base
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved] [HEAD]
+┊●   suw first (no changes) {conflicted}
+┊│
+┊├┄ so [source]
+┊●   nlu last
+┊│     nlu:q M file
+┊●   uwm revert (no changes)
+┊●   vml base
+┊│     vml:q A file
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
 }
 
 #[test]
-fn move_commit_after_another_commit() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-
-    env.setup_metadata(&["A"])?;
-
-    // Create three commits
-    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
-    commit_two_files_as_two_hunks_each(&env, "A", "c.txt", "d.txt", "second commit");
-    commit_two_files_as_two_hunks_each(&env, "A", "e.txt", "f.txt", "third commit");
-
-    // Get commit IDs
-    let status_output = env.but("--json status").allow_json().output()?;
-    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
-    let commits = &status_json["stacks"][0]["branches"][0]["commits"];
-
-    let first_commit_id = commits[2]["cliId"].as_str().unwrap();
-    let third_commit_id = commits[0]["cliId"].as_str().unwrap();
-
-    // Move "first commit" after "third commit" (making it the newest)
-    env.but(format!("move {first_commit_id} {third_commit_id} --after"))
+fn implicit_branch_move_onto_a_conflicted_tip_checks_out_its_padding_commit() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("file", "x\n");
+    env.but("commit -b source -m base").assert().success();
+    env.but("branch new first --above source")
+        .assert()
+        .success();
+    env.file("file", "y\n");
+    env.but("commit -m first").assert().success();
+    env.but("branch new top --above first").assert().success();
+    env.file("file", "x\n");
+    env.but("commit -m revert").assert().success();
+    env.file("file", "z\n");
+    env.but("commit -m last").assert().success();
+    env.but("status -f")
         .assert()
         .success()
-        .stdout_eq(str![[r#"
-Moved fce8ecc → after 23e1bf8
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD]
+┊●   nlu last
+┊│     nlu:q M file
+┊●   uwm revert
+┊│     uwm:q M file
+┊│
+┊├┄ fi [first]
+┊●   suw first
+┊│     suw:q M file
+┊│
+┊├┄ so [source]
+┊●   vml base
+┊│     vml:q A file
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
 
 "#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* baa8b36 (HEAD -> top) last
+* 5f3b211 revert
+* 10fc7e8 (first) first
+* 491196b (source) base
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
 
-    // Verify the move was successful by checking that we still have the right number of commits
-    let status_output = env.but("--json status").allow_json().output()?;
-    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
-    let commits_after = &status_json["stacks"][0]["branches"][0]["commits"];
+"#]]
+    );
+    env.but("move first --above top")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Stacked branch 'first' on top of branch 'top'
 
-    // Should still have 4 commits (3 we created + initial "add A")
-    assert_eq!(commits_after.as_array().unwrap().len(), 4);
+⚠ This operation left a commit conflicted:
+  ● suw [conflict] first
+Resolve with but resolve, or back out with but undo.
 
-    Ok(())
+"#]]);
+    // `first` conflicts on top of `top` and is checked out, so it rests on a padding commit over it.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* e80083a (HEAD -> first) GitButler Padding Commit
+* cf2bcd3 [conflict] first
+* ae5714b (top) last
+* e5528a4 revert
+* 491196b (source) base
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ fi [first] [HEAD]
+┊●   suw first (no changes) {conflicted}
+┊│
+┊├┄ to [top]
+┊●   nlu last
+┊│     nlu:q M file
+┊●   uwm revert (no changes)
+┊│
+┊├┄ so [source]
+┊●   vml base
+┊│     vml:q A file
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
 }
 
 #[test]
-fn move_commit_to_branch() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-
-    env.setup_metadata(&["A", "B"])?;
-
-    // Create a commit on branch A
-    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "commit on A");
-
-    // Get commit ID
-    let status_output = env.but("--json status").allow_json().output()?;
-    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
-    let commit_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
-        .as_str()
-        .unwrap();
-
-    // Move commit to branch B
-    env.but(format!("move {commit_id} B"))
+fn single_branch_move_commit_to_independent_branch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move myy -b independent").assert().success();
+    env.but("status")
         .assert()
         .success()
-        .stdout_eq(str![[r#"
-Moved [..] → [B]
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ in [independent]
+┊●   myy add B
+├╯
+┊
+┊╭┄ g0 [C]
+┊●   vuw add C
+┊│
+┊├┄ h0 [B] (no commits)
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
 
 "#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   3f3b2ac (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * a3830b6 (C) add C
+| * 549c6bf (B, A) add A
+* | e76feb9 (independent) add B
+|/  
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
 
-    // Verify commit is now on branch B
-    let status_output = env.but("--json status").allow_json().output()?;
-    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
-
-    // Branch A should have no commits (except the initial one)
-    let branch_a_commits = &status_json["stacks"][0]["branches"][0]["commits"];
-    assert_eq!(branch_a_commits.as_array().unwrap().len(), 1); // Only initial commit
-
-    // Branch B should now have 2 commits (the moved one + initial "add B")
-    let branch_b_commits = &status_json["stacks"][1]["branches"][0]["commits"];
-    assert_eq!(branch_b_commits.as_array().unwrap().len(), 2);
-
-    Ok(())
+"#]]
+    );
 }
 
 #[test]
-fn move_commit_with_invalid_source() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+fn single_branch_move_commit_above_checkout() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move myy --above C -b moved").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved] [HEAD]
+┊●   myy add B
+┊│
+┊├┄ g0 [C]
+┊●   vuw add C
+┊│
+┊├┄ h0 [B] (no commits)
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
-    env.setup_metadata(&["A"])?;
+Hint: run `but help` for all commands
 
-    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 68bafd4 (HEAD -> moved) add B
+* a3830b6 (C) add C
+* 549c6bf (B, A) add A
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
 
-    env.but("move nonexistent A")
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_move_commit_and_switch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C] [HEAD]
+┊●   vuw add C
+┊│
+┊├┄ h0 [B]
+┊●   myy add B
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 6233e7e (HEAD -> C) add C
+* e06c9f0 (B) add B
+* 549c6bf (A) add A
+* 3712f84 (origin/main, origin/HEAD, main) add M
+* e31e6ca add init
+
+"#]]
+    );
+    env.but("move myy -b independent --switch")
+        .assert()
+        .success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ in [independent] [HEAD]
+┊●   myy add B
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* a3830b6 (C) add C
+* 549c6bf (B, A) add A
+| * e76feb9 (HEAD -> independent) add B
+|/  
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_move_changes_and_switch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move myy:B -b independent --switch -m extracted")
+        .assert()
+        .success();
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ in [independent] [HEAD]
+┊●   qkw extracted
+┊│     qkw:p A B
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* c753d5e (C) add C
+* ff3d67f (B) add B
+* 549c6bf (A) add A
+| * ca8842d (HEAD -> independent) extracted
+|/  
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_move_changes_above_checkout() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move myy:B --above C -b moved -m extracted")
+        .assert()
+        .success();
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved] [HEAD]
+┊●   qkw extracted
+┊│     qkw:p A B
+┊│
+┊├┄ g0 [C]
+┊●   vuw add C
+┊│     vuw:w A C
+┊│
+┊├┄ h0 [B]
+┊●   myy add B (no changes)
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+┊│     nmq:t A A
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 86dab15 (HEAD -> moved) extracted
+* c753d5e (C) add C
+* ff3d67f (B) add B
+* 549c6bf (A) add A
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_move_changes_to_independent_branch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move myy:B --unstack -b moved -m extracted")
+        .assert()
+        .success();
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved]
+┊●   qkw extracted
+┊│     qkw:p A B
+├╯
+┊
+┊╭┄ g0 [C]
+┊●   vuw add C
+┊│     vuw:w A C
+┊│
+┊├┄ h0 [B]
+┊●   myy add B (no changes)
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+┊│     nmq:t A A
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   01440ff (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * c753d5e (C) add C
+| * ff3d67f (B) add B
+| * 549c6bf (A) add A
+* | ca8842d (moved) extracted
+|/  
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_move_above_lower_branch_preserves_checkout() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move vuw --above A -b moved").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C] [HEAD] (no commits)
+┊│
+┊├┄ h0 [B]
+┊●   myy add B
+┊│
+┊├┄ mo [moved]
+┊●   vuw add C
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 68bafd4 (HEAD -> C, B) add B
+* a3830b6 (moved) add C
+* 549c6bf (A) add A
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_move_below_branch_preserves_checkout() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move vuw --below B -b moved").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C] [HEAD] (no commits)
+┊│
+┊├┄ h0 [B]
+┊●   myy add B
+┊│
+┊├┄ mo [moved]
+┊●   vuw add C
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 68bafd4 (HEAD -> C, B) add B
+* a3830b6 (moved) add C
+* 549c6bf (A) add A
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_unstack_branch_enters_workspace() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move B --unstack").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   vuw add C
+┊│
+┊├┄ h0 [A]
+┊●   nmq add A
+├╯
+┊
+┊╭┄ i0 [B]
+┊●   myy add B
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   6664315 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * e76feb9 (B) add B
+* | a3830b6 (C) add C
+* | 549c6bf (A) add A
+|/  
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_unstack_branch_and_switch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move B --unstack --switch").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B] [HEAD]
+┊●   myy add B
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* e76feb9 (HEAD -> B) add B
+| * a3830b6 (C) add C
+| * 549c6bf (A) add A
+|/  
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_move_all_commits_retains_empty_source() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("branch new source").assert().success();
+    env.file("first", "first\n");
+    env.but("commit -m first").assert().success();
+    env.file("second", "second\n");
+    env.but("commit -m second").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ so [source] [HEAD]
+┊●   ukz second
+┊●   zpr first
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 8ff6b34 (HEAD -> source) second
+* ff24da1 first
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+    env.but("move ukz zpr --above source -b moved")
+        .assert()
+        .success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved] [HEAD]
+┊●   ukz second
+┊●   zpr first
+┊│
+┊├┄ so [source] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 8ff6b34 (HEAD -> moved) second
+* ff24da1 first
+* b1540e5 (origin/main, origin/HEAD, source, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_move_from_target_checks_out_new_branch() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("first", "first\n");
+    env.invoke_git("add first");
+    env.invoke_git("commit -m first");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ ma [main] [HEAD]
+┊●   nyl first
+├╯
+┊
+┴ b1540e5 (common base, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 7a6c10f (HEAD -> main) first
+* b1540e5 (origin/main, origin/HEAD) M
+* e31e6ca add init
+
+"#]]
+    );
+    env.but("move nyl -b moved").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved] [HEAD]
+┊●   nyl first
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 7a6c10f (HEAD -> moved) first
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_move_to_existing_branch_and_switch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move myy -b A --switch").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] [HEAD]
+┊●   myy add B
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 6233e7e (C) add C
+* e06c9f0 (HEAD -> A, B) add B
+* 549c6bf add A
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn workspace_move_to_new_branch_and_switch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("move d3e2ba3 -b moved --switch").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved] [HEAD]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   372e55d (gitbutler/workspace) GitButler Workspace Commit
+|/  
+* | 9477ae7 (A) add A
+|/  
+| * d3e2ba3 (HEAD -> moved) add B
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, B) add M
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_stack_branch_and_switch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move C -b A --switch").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C] [HEAD]
+┊●   vuw add C
+┊│
+┊├┄ h0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 68bafd4 (B) add B
+* a3830b6 (HEAD -> C) add C
+* 549c6bf (A) add A
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_unstack_checked_out_branch_and_switch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move C --unstack --switch").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C] [HEAD]
+┊●   vuw add C
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* e06c9f0 (B) add B
+* 549c6bf (A) add A
+| * eea8652 (HEAD -> C) add C
+|/  
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_unstack_empty_branch_and_switch() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("branch new bottom").assert().success();
+    env.file("first", "first\n");
+    env.but("commit -m first").assert().success();
+    env.but("branch new empty --above bottom")
+        .assert()
+        .success();
+    env.but("branch new top --above empty").assert().success();
+    env.file("second", "second\n");
+    env.but("commit -m second").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD]
+┊●   ukz second
+┊│
+┊├┄ em [empty] (no commits)
+┊│
+┊├┄ bo [bottom]
+┊●   zpr first
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 8ff6b34 (HEAD -> top) second
+* ff24da1 (empty, bottom) first
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+    env.but("move empty --unstack --switch").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ em [empty] [HEAD] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 8ff6b34 (top) second
+* ff24da1 (bottom) first
+* b1540e5 (HEAD -> empty, origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+    env.but("switch top").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD]
+┊●   ukz second
+┊│
+┊├┄ bo [bottom]
+┊●   zpr first
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn single_branch_move_hunk_above_checkout() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    let content = "one\ntwo\nthree\nfour\nfive\nsix\nseven\n";
+    env.file("file", content);
+    env.but("commit -b source -m 'Add file'").assert().success();
+    env.file("file", format!("beginning\n{content}end"));
+    env.but("commit -m 'Update file'").assert().success();
+    env.but("move wrz:file:3 --above source -b moved -m extracted")
+        .assert()
+        .success();
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved] [HEAD]
+┊●   qkw extracted
+┊│     qkw:q M file
+┊│
+┊├┄ so [source]
+┊●   wrz Update file
+┊│     wrz:q M file
+┊●   yvn Add file
+┊│     yvn:q A file
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 3d8bb31 (HEAD -> moved) extracted
+* f081cd6 (source) Update file
+* 372d68b Add file
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+    env.but("diff wrz")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────╮
+ w:q:8 M file │
+──────────────╯
+
+@@ -5,3 +5,4 @@
+───────────────
+5 ┊ 5 │  five
+6 ┊ 6 │  six
+7 ┊ 7 │  seven
+  ┊ 8 │ +end
+
+"#]]);
+}
+
+#[test]
+fn move_switch_conflicts_with_relative_targets() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move myy --above C --switch")
         .assert()
         .failure()
-        .stderr_eq(str![[r#"
-Failed to move commit. Source 'nonexistent' not found. If you just performed a Git operation, try running 'but status' to refresh.
-
+        .stderr_eq(snapbox::str![[r#"
+error: the argument '--above <BRANCH_OR_COMMIT>' cannot be used with '--switch'
+...
 "#]]);
-
-    Ok(())
-}
-
-#[test]
-fn move_commit_with_after_flag_and_branch_target() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-
-    env.setup_metadata(&["A", "B"])?;
-
-    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "commit on A");
-
-    // Get commit ID
-    let status_output = env.but("--json status").allow_json().output()?;
-    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
-    let commit_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
-        .as_str()
-        .unwrap();
-
-    // Try to move commit to branch with --after flag (should error)
-    env.but(format!("move {commit_id} B --after"))
+    env.but("move myy --below C --switch")
         .assert()
         .failure()
-        .stderr_eq(str![[r#"
-Failed to move commit. The --after flag only makes sense when moving a commit to another commit.
-When moving to a branch, the commit is placed at the top of the stack by default.
-
+        .stderr_eq(snapbox::str![[r#"
+error: the argument '--below <BRANCH_OR_COMMIT>' cannot be used with '--switch'
+...
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn move_same_commit_to_itself() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+fn rejects_unnamed_segment_as_source_or_target() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
+    env.setup_metadata(&["A"]);
 
-    env.setup_metadata(&["A"])?;
+    for command in ["move g0 -A tpm", "move tpm -A g0", "move tpm -B g0"] {
+        env.but(command)
+            .assert()
+            .failure()
+            .stdout_eq(snapbox::str![])
+            .stderr_eq(snapbox::str![[r#"
+Error: Cannot operate on anonymous branch 'g0'
 
-    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+Hint: Name it with `but reword g0` first! Note that the short ID is likely to change when the branch is named.
 
-    // Get commit ID
-    let status_output = env.but("--json status").allow_json().output()?;
-    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
-    let commit_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
-        .as_str()
-        .unwrap();
+"#]]);
+    }
+}
 
-    // Move commit to itself (should be no-op)
-    env.but(format!("move {commit_id} {commit_id}"))
+#[test]
+fn move_commits_outputs_json() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("--json move zll --above ywx")
+        .allow_json()
         .assert()
         .success()
-        .stdout_eq(str![[r#"
-Source and target are the same commit. Nothing to do.
+        .stdout_eq(snapbox::str![[r#"
+{
+  "type": "commits",
+  "commits": [
+    {
+      "sourceCommitId": "fe12bcd55e12fe5d43e54f44550d4c201f0ec770",
+      "sourceChangeId": "zllwszkrzvwxozppxxkxpsnxopskvrsp",
+      "newCommitId": "c6224e6e0af1ac247027c8f61ed6ef4037c2c230",
+      "newChangeId": "zllwszkrzvwxozppxxkxpsnxopskvrsp"
+    }
+  ]
+}
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn move_commit_with_invalid_target() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+fn move_committed_changes_outputs_json() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
-    env.setup_metadata(&["A"])?;
+    env.but("--json move ywx:wu --branch new-branch")
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "type": "changes",
+  "sourceCommitId": "9ac4652535fde457cb4cb3b36f0d9a64135de4c8",
+  "sourceChangeId": "ywxsopnrxtuqozktnmnmwxmwlpxsokpn",
+  "numChanges": 1,
+  "newCommitId": "d4d87dbb2dac7a9f650922bae9be1f9d1e427994",
+  "newChangeId": "qkwnvqwsnrxqqxpznwlutzvwtmpxmxky",
+  "branch": "new-branch"
+}
 
-    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+"#]]);
+}
 
-    // Get commit ID
-    let status_output = env.but("--json status").allow_json().output()?;
-    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
-    let commit_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
-        .as_str()
-        .unwrap();
+#[test]
+fn stack_branch_outputs_json() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
-    env.but(format!("move {commit_id} nonexistent"))
+    env.but("--json move B --above A")
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "type": "stackBranch",
+  "sourceBranch": "B",
+  "targetBranch": "A"
+}
+
+"#]]);
+}
+
+#[test]
+fn unstack_branch_outputs_json() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+
+    env.but("--json move C --unstack")
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "type": "unstackBranch",
+  "sourceBranch": "C"
+}
+
+"#]]);
+}
+
+#[test]
+fn move_commit_above_other_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move zll --above ywx")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved zll above commit ywx
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   zll add first
+┊●   ywx add second
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_commit_below_other_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx --below zll")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved ywx below commit zll
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   zll add first
+┊●   ywx add second
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_multiple_consecutive_commits_relative_to_other_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("commits-with-same-prefix");
+    env.setup_metadata(&["A"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   usn add A13
+┊●   opy add A12
+┊●   opk add A11
+┊●   vvl add A10
+┊●   mzz add A9
+┊●   vmw add A8
+┊●   tpw add A7
+┊●   lyq add A6
+┊●   pyq add A5
+┊●   mvv add A4
+┊●   tvm add A3
+┊●   sxq add A2
+┊●   zpl add A1
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    for (operator, target_cli_id) in [("--above", "lyq"), ("--below", "tpw")] {
+        env.but("move vvl mzz")
+            .arg(operator)
+            .arg(target_cli_id)
+            .assert()
+            .success()
+            .stdout_eq(snapbox::str![[r#"
+Moved vvl, mzz [..] commit [..]
+
+"#]]);
+
+        env.but("status")
+            .assert()
+            .success()
+            .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   usn add A13
+┊●   opy add A12
+┊●   opk add A11
+┊●   vmw add A8
+┊●   tpw add A7
+┊●   vvl add A10
+┊●   mzz add A9
+┊●   lyq add A6
+┊●   pyq add A5
+┊●   mvv add A4
+┊●   tvm add A3
+┊●   sxq add A2
+┊●   zpl add A1
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+        env.but("undo").assert().success();
+    }
+}
+
+#[test]
+fn move_multiple_non_consecutive_commits_in_arbitrary_order_relative_to_other_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("commits-with-same-prefix");
+    env.setup_metadata(&["A"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   usn add A13
+┊●   opy add A12
+┊●   opk add A11
+┊●   vvl add A10
+┊●   mzz add A9
+┊●   vmw add A8
+┊●   tpw add A7
+┊●   lyq add A6
+┊●   pyq add A5
+┊●   mvv add A4
+┊●   tvm add A3
+┊●   sxq add A2
+┊●   zpl add A1
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    for (operator, target_cli_id) in [("--above", "vmw"), ("--below", "mzz")] {
+        // We pick the source commits in an "incorrect" order, but they should later be sorted correctly
+        // via topological sort.
+        //
+        // Order as picked is: A7 A1 A5 --above A8, but we expect the commits to be applied from oldest
+        // to newest, i.e. (A8) <- A1 <- A5 <- A7
+        env.but("move tpw zpl pyq")
+            .arg(operator)
+            .arg(target_cli_id)
+            .assert()
+            .success()
+            .stdout_eq(snapbox::str![["
+Moved tpw, zpl, pyq [..] commit [..]
+
+"]]);
+
+        env.but("status")
+            .assert()
+            .success()
+            .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   usn add A13
+┊●   opy add A12
+┊●   opk add A11
+┊●   vvl add A10
+┊●   mzz add A9
+┊●   tpw add A7
+┊●   pyq add A5
+┊●   zpl add A1
+┊●   vmw add A8
+┊●   lyq add A6
+┊●   mvv add A4
+┊●   tvm add A3
+┊●   sxq add A2
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+        env.but("undo").assert().success();
+    }
+}
+
+#[test]
+fn moving_commits_above_branch_creates_branch_above() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move zll --above g0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved zll to new branch 'a-branch-1' above branch 'A'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   zll add first
+┊│
+┊├┄ g0 [A]
+┊●   ywx add second
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn moving_commits_above_branch_without_changing_relative_order_only_creates_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx --above g0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved ywx to new branch 'a-branch-1' above branch 'A'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   ywx add second
+┊│
+┊├┄ g0 [A]
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn moving_commits_below_branch_creates_branch_below() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx --below g0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved ywx to new branch 'a-branch-1' below branch 'A'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   zll add first
+┊│
+┊├┄ br [a-branch-1]
+┊●   ywx add second
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn moving_commits_below_branch_without_changing_relative_order_only_creates_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move zll --below g0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved zll to new branch 'a-branch-1' below branch 'A'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊│
+┊├┄ br [a-branch-1]
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn moving_all_commits_above_branch_retains_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx zll --above g0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved ywx, zll to new branch 'a-branch-1' above branch 'A'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   ywx add second
+┊●   zll add first
+┊│
+┊├┄ g0 [A] (no commits)
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn moving_all_commits_below_branch_retains_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx zll --below g0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved ywx, zll to new branch 'a-branch-1' below branch 'A'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] (no commits)
+┊│
+┊├┄ br [a-branch-1]
+┊●   ywx add second
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_commit_above_empty_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-one-empty");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move tpm --above h0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved tpm to new branch 'a-branch-1' above branch 'B'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] (no commits)
+├╯
+┊
+┊╭┄ br [a-branch-1]
+┊●   tpm add A
+┊│
+┊├┄ h0 [B] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_commit_below_empty_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-one-empty");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move tpm --below h0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved tpm to new branch 'a-branch-1' below branch 'B'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] (no commits)
+├╯
+┊
+┊╭┄ h0 [B] (no commits)
+┊│
+┊├┄ br [a-branch-1]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn above_or_below_unapplied_or_non_existing_branch_errors() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-one-empty");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    env.but("unapply B").assert().success();
+
+    env.but("move tpm --above B")
         .assert()
         .failure()
-        .stderr_eq(str![[r#"
-Failed to move commit. Target 'nonexistent' not found. If you just performed a Git operation, try running 'but status' to refresh.
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find anchor: 'B'
+
+Hint: Run `but status` for applicable targets.
 
 "#]]);
 
-    Ok(())
+    env.but("move tpm --below B")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find anchor: 'B'
+
+Hint: Run `but status` for applicable targets.
+
+"#]]);
+
+    env.but("move tpm --above no-such-branch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find anchor: 'no-such-branch'
+
+Hint: Run `but status` for applicable targets.
+
+"#]]);
+
+    env.but("move tpm --below no-such-branch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find anchor: 'no-such-branch'
+
+Hint: Run `but status` for applicable targets.
+
+"#]]);
 }
 
 #[test]
-fn move_cross_stack_works_yay() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+fn move_to_tip_of_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
-    env.setup_metadata(&["A", "B"])?;
-
-    // Create commits on both branches
-    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "commit on A");
-    commit_two_files_as_two_hunks_each(&env, "B", "c.txt", "d.txt", "commit on B");
-
-    // Get commit IDs
-    let status_output = env.but("--json status").allow_json().output()?;
-    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
-
-    let commit_a_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
-        .as_str()
-        .unwrap();
-    let commit_b_id = status_json["stacks"][1]["branches"][0]["commits"][0]["cliId"]
-        .as_str()
-        .unwrap();
-
-    // Try to move commit from A to specific position in B (should work amazingly)
-    env.but(format!("move {commit_a_id} {commit_b_id}"))
+    env.but("status")
         .assert()
         .success()
-        .stdout_eq(str![[r#"
-Moved c629281 → before ae3978a
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
 
 "#]]);
 
-    Ok(())
+    env.but("move tpm -b B")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved tpm to the tip of branch 'B'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] (no commits)
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   tpm add A
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
 }
 
 #[test]
-fn move_committed_file_to_another_commit() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+fn move_to_tip_of_empty_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-one-empty");
+    env.setup_metadata(&["A", "B"]);
 
-    env.setup_metadata(&["A"])?;
-
-    // Create two commits with different files
-    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
-    commit_two_files_as_two_hunks_each(&env, "A", "c.txt", "d.txt", "second commit");
-
-    // Get commit IDs and file IDs from status with files (-f flag)
-    let status_output = env.but("--json status -f").allow_json().output()?;
-    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
-    let commits = &status_json["stacks"][0]["branches"][0]["commits"];
-
-    // commits[0] = "second commit" with c.txt and d.txt
-    // commits[1] = "first commit" with a.txt and b.txt
-    let first_commit_id = commits[1]["cliId"].as_str().unwrap();
-
-    // Get the file ID for c.txt in the second commit
-    // Files are under the "changes" array in the commit
-    let c_txt_file_id = commits[0]["changes"]
-        .as_array()
-        .and_then(|changes| {
-            changes
-                .iter()
-                .find(|change| change["filePath"].as_str() == Some("c.txt"))
-        })
-        .and_then(|change| change["cliId"].as_str())
-        .expect("Could not find c.txt file ID in status output");
-
-    // Move c.txt from second commit to first commit
-    env.but(format!("move {c_txt_file_id} {first_commit_id}"))
+    env.but("status")
         .assert()
         .success()
-        .stdout_eq(str![[r#"
-Moved files between commits!
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
 
 "#]]);
 
-    // Verify the file was moved by checking status again
-    let status_output = env.but("--json status -f").allow_json().output()?;
-    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
-    let commits = &status_json["stacks"][0]["branches"][0]["commits"];
+    env.but("move tpm -b B")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved tpm to the tip of branch 'B'
 
-    // After the move:
-    // - The second commit should now only have d.txt
-    // - The first commit should now have a.txt, b.txt, and c.txt
-    let second_commit_changes = commits[0]["changes"].as_array().unwrap();
-    let first_commit_changes = commits[1]["changes"].as_array().unwrap();
+"#]]);
 
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] (no commits)
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_to_tip_of_new_unstacked_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx --branch new-branch")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved ywx to new branch 'new-branch'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ ne [new-branch]
+┊●   ywx add second
+├╯
+┊
+┊╭┄ g0 [A]
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_to_tip_of_new_unstacked_branch_with_canned_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx --branch")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved ywx to new branch 'a-branch-1'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   ywx add second
+├╯
+┊
+┊╭┄ g0 [A]
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_file_below_commit_creates_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊│     ywx:w A second
+┊●   zll add first
+┊│     zll:l A first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx:wu --below zll")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 change from ywx to new commit qkw below commit zll
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second (no changes)
+┊●   zll add first
+┊│     zll:l A first
+┊●   qkw (no commit message)
+┊│     qkw:w A second
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_file_above_commit_creates_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊│     ywx:w A second
+┊●   zll add first
+┊│     zll:l A first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move zll:lz --above ywx")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 change from zll to new commit qkw above commit ywx
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   qkw (no commit message)
+┊│     qkw:l A first
+┊●   ywx add second
+┊│     ywx:w A second
+┊●   zll add first (no changes)
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_file_below_branch_creates_branch_and_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊│     ywx:w A second
+┊●   zll add first
+┊│     zll:l A first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx:wu --below A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 change from ywx to new commit qkw on new branch 'a-branch-1' below branch 'A'
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second (no changes)
+┊●   zll add first
+┊│     zll:l A first
+┊│
+┊├┄ br [a-branch-1]
+┊●   qkw (no commit message)
+┊│     qkw:w A second
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_file_above_branch_creates_branch_and_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊│     ywx:w A second
+┊●   zll add first
+┊│     zll:l A first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move zll:lz --above A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 change from zll to new commit qkw on new branch 'a-branch-1' above branch 'A'
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   qkw (no commit message)
+┊│     qkw:l A first
+┊│
+┊├┄ g0 [A]
+┊●   ywx add second
+┊│     ywx:w A second
+┊●   zll add first (no changes)
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_file_to_branch_tip_creates_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move lrm:pl --branch A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 change from lrm to new commit qkw to the tip of branch 'A'
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   qkw (no commit message)
+┊│     qkw:p A B
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B (no changes)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_file_to_non_existing_branch_tip_creates_unstacked_branch_and_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊│     ywx:w A second
+┊●   zll add first
+┊│     zll:l A first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx:wu --branch new-branch")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 change from ywx to new commit qkw on new branch 'new-branch'
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ ne [new-branch]
+┊●   qkw (no commit message)
+┊│     qkw:w A second
+├╯
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second (no changes)
+┊●   zll add first
+┊│     zll:l A first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_file_branch_without_argument_creates_unstacked_branch_with_canned_name_and_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊│     ywx:w A second
+┊●   zll add first
+┊│     zll:l A first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx:wu --branch")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 change from ywx to new commit qkw on new branch 'a-branch-1'
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   qkw (no commit message)
+┊│     qkw:w A second
+├╯
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second (no changes)
+┊●   zll add first
+┊│     zll:l A first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_committed_hunk_above_commit_creates_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+
+    let content = "one
+two
+three
+four
+five
+six
+seven
+";
+
+    env.file("file", content);
+    env.but("commit -m 'Add file'").assert().success();
+
+    env.file("file", format!("beginning\n{content}end"));
+    env.but("commit -m 'Update file'").assert().success();
+
+    env.but("diff szk")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────╮
+ s:q:3 M file │
+──────────────╯
+
+@@ -1,3 +1,4 @@
+───────────────
+  ┊ 1 │ +beginning
+1 ┊ 2 │  one
+2 ┊ 3 │  two
+3 ┊ 4 │  three
+
+──────────────╮
+ s:q:8 M file │
+──────────────╯
+
+@@ -5,3 +6,4 @@
+───────────────
+5 ┊  6 │  five
+6 ┊  7 │  six
+7 ┊  8 │  seven
+  ┊  9 │ +end
+
+"#]]);
+
+    env.but("move szk:q:3 --above knw")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 change from szk to new commit qkw above commit knw
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   szk Update file
+┊│     szk:q M file
+┊●   qkw (no commit message)
+┊│     qkw:q M file
+┊●   knw Add file
+┊│     knw:q A file
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // Source commit retains only hunk that was not moved.
+    env.but("diff szk")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────╮
+ s:q:8 M file │
+──────────────╯
+
+@@ -6,3 +6,4 @@
+───────────────
+6 ┊  6 │  five
+7 ┊  7 │  six
+8 ┊  8 │  seven
+  ┊  9 │ +end
+
+"#]]);
+
+    // New commit contains only selected hunk.
+    env.but("diff qkw")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────╮
+ q:q:3 M file │
+──────────────╯
+
+@@ -1,3 +1,4 @@
+───────────────
+  ┊ 1 │ +beginning
+1 ┊ 2 │  one
+2 ┊ 3 │  two
+3 ┊ 4 │  three
+
+"#]]);
+}
+
+#[test]
+fn move_committed_hunks_in_different_ways_yields_same_result() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+
+    let content = "one
+two
+three
+four
+five
+six
+seven
+";
+
+    env.file("file", content);
+    env.but("commit -m 'Add file'").assert().success();
+
+    env.file("file", format!("beginning\n{content}end"));
+    env.but("commit -m 'Update file'").assert().success();
+
+    let commit_trees = |env: &Sandbox| {
+        status_json(env)["stacks"][0]["branches"][0]["commits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|commit| {
+                let commit_id = commit["commitId"].as_str().unwrap();
+                env.invoke_git(&format!("rev-parse {commit_id}^{{tree}}"))
+            })
+            .collect::<Vec<_>>()
+    };
+
+    // Entire file is baseline.
+    env.but("move szk:q --above szk").assert().success();
+    let trees_entire_file = commit_trees(&env);
+
+    // Hunk order.
+    env.but("undo").assert().success();
+    env.but("move szk:q:3 szk:q:8 --above szk")
+        .assert()
+        .success();
     assert_eq!(
-        second_commit_changes.len(),
-        1,
-        "Second commit should have 1 file change after moving c.txt"
+        commit_trees(&env),
+        trees_entire_file,
+        "outcome should be the same regardless of hunk order"
+    );
+
+    // Reverse hunk order.
+    env.but("undo").assert().success();
+    env.but("move szk:q:8 szk:q:3 --above szk")
+        .assert()
+        .success();
+    assert_eq!(
+        commit_trees(&env),
+        trees_entire_file,
+        "outcome should be the same regardless of hunk order"
+    );
+
+    // Repeated hunks.
+    env.but("undo").assert().success();
+    env.but("move szk:q:8 szk:q:3 szk:q:8 --above szk")
+        .assert()
+        .success();
+    assert_eq!(
+        commit_trees(&env),
+        trees_entire_file,
+        "repeated hunks are deduplicated"
+    );
+
+    // Hunk then file.
+    env.but("undo").assert().success();
+    env.but("move szk:q:8 szk:q --above szk").assert().success();
+    assert_eq!(
+        commit_trees(&env),
+        trees_entire_file,
+        "file overlapping with hunks is deduplicated",
+    );
+
+    // File then hunk.
+    env.but("undo").assert().success();
+    env.but("move szk:q szk:q:8 --above szk").assert().success();
+    assert_eq!(
+        commit_trees(&env),
+        trees_entire_file,
+        "hunks overlapping with a file are deduplicated",
+    );
+}
+
+#[test]
+fn move_file_should_be_order_independent() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("new", "Some data");
+    env.but("commit -m 'Add new file'").assert().success();
+    std::fs::rename(
+        env.projects_root().join("new"),
+        env.projects_root().join("moved"),
+    )
+    .unwrap();
+    env.file("new/file", "Stuff");
+    env.file("unrelated", "This should stay here :)");
+    env.but("commit -m 'Prepare for moves!'").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   nlk Prepare for moves!
+┊│     nlk:u R moved
+┊│     nlk:p A new/file
+┊│     nlk:t A unrelated
+┊●   zqr Add new file
+┊│     zqr:n A new
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move nlk:u nlk:p --above nlk")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 2 changes from nlk to new commit qkw above commit nlk
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   qkw (no commit message)
+┊│     qkw:u R moved
+┊│     qkw:p A new/file
+┊●   nlk Prepare for moves!
+┊│     nlk:t A unrelated
+┊●   zqr Add new file
+┊│     zqr:n A new
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("undo").assert().success();
+
+    env.but("move nlk:p nlk:u --above nlk")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 2 changes from nlk to new commit qkw above commit nlk
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   qkw (no commit message)
+┊│     qkw:u R moved
+┊│     qkw:p A new/file
+┊●   nlk Prepare for moves!
+┊│     nlk:t A unrelated
+┊●   zqr Add new file
+┊│     zqr:n A new
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_file_from_multiple_source_commits_is_not_allowed() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move tpm:tm lrm:pl -b")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot move changes from multiple commits
+
+Hint: Move changes from a single commit at first, then squash additional changes into the new commit
+
+"#]]);
+}
+
+#[test]
+fn move_branch_above_within_same_stack() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   wlx add C
+┊│
+┊├┄ h0 [B]
+┊●   wwm add B
+┊│
+┊├┄ i0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move B --above C")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Stacked branch 'B' on top of branch 'C'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   wwm add B
+┊│
+┊├┄ h0 [C]
+┊●   wlx add C
+┊│
+┊├┄ i0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+#[ignore = "We can't move branches below other branches right now :( https://linear.app/gitbutler/issue/GB-1735/support-all-permutations-of-moving-branches-and-commits"]
+fn move_branch_below_within_same_stack() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄@ [uncommitted] (no changes)
+┊
+┊╭┄g0 [C]
+┊●   aebb090 add C
+┊│
+┊├┄h0 [B]
+┊●   582f37b add B
+┊│
+┊├┄i0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move C --below B")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved branch 'C' below branch 'B'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄@ [uncommitted] (no changes)
+┊
+┊╭┄g0 [B]
+┊●   223f14d add B
+┊│
+┊├┄h0 [C]
+┊●   983f317 add C
+┊│
+┊├┄i0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_branch_above_to_other_stack() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move B --above A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Stacked branch 'B' on top of branch 'A'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   lrm add B
+┊│
+┊├┄ h0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_empty_branch_above_other_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-one-empty");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move B --above A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Stacked branch 'B' on top of branch 'A'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B] (no commits)
+┊│
+┊├┄ h0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+fn assert_status(env: &Sandbox, expected: impl snapbox::IntoData) {
+    env.but("status").assert().success().stdout_eq(expected);
+}
+
+fn assert_head(env: &Sandbox, expected: &str) {
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        expected,
+        "HEAD should point to the top projected branch"
+    );
+}
+
+#[test]
+fn move_empty_branch_above_checked_out_branch_checks_it_out() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("branch new top").assert().success();
+    env.but("branch new moved --below top").assert().success();
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD] (no commits)
+┊│
+┊├┄ mo [moved] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+
+    env.but("move moved --above top").assert().success();
+
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved] [HEAD] (no commits)
+┊│
+┊├┄ to [top] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+    assert_head(&env, "moved");
+}
+
+#[test]
+fn move_empty_branch_below_the_tip_preserves_checkout() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("branch new empty-low").assert().success();
+    env.but("branch new empty-mid --above empty-low")
+        .assert()
+        .success();
+    env.but("branch new empty-top --above empty-mid")
+        .assert()
+        .success();
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ em [empty-top] [HEAD] (no commits)
+┊│
+┊├┄ mp [empty-mid] (no commits)
+┊│
+┊├┄ pt [empty-low] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+
+    env.but("move empty-low --above empty-mid")
+        .assert()
+        .success();
+
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ em [empty-top] [HEAD] (no commits)
+┊│
+┊├┄ mp [empty-low] (no commits)
+┊│
+┊├┄ pt [empty-mid] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+    assert_head(&env, "empty-top");
+}
+
+#[test]
+fn move_empty_branch_above_tip_then_switching_to_workspace() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("branch new top").assert().success();
+    env.but("branch new moved --below top").assert().success();
+    env.but("move moved --above top").assert().success();
+    assert_head(&env, "moved");
+
+    let expected = snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved] [HEAD] (no commits)
+┊│
+┊├┄ to [top] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]];
+    assert_status(&env, expected);
+
+    env.but("switch --workspace").assert().success();
+    assert_head(&env, "gitbutler/workspace");
+    // Switching modes preserves the stack but removes the checked-out branch marker.
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved] (no commits)
+┊│
+┊├┄ to [top] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+}
+
+#[test]
+fn move_empty_branch_below_tip_then_switching_to_workspace() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("branch new empty-low").assert().success();
+    env.but("branch new empty-mid --above empty-low")
+        .assert()
+        .success();
+    env.but("branch new empty-top --above empty-mid")
+        .assert()
+        .success();
+    env.but("move empty-low --above empty-mid")
+        .assert()
+        .success();
+    assert_head(&env, "empty-top");
+
+    let expected = snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ em [empty-top] [HEAD] (no commits)
+┊│
+┊├┄ mp [empty-low] (no commits)
+┊│
+┊├┄ pt [empty-mid] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]];
+    assert_status(&env, expected);
+
+    env.but("switch --workspace").assert().success();
+    assert_head(&env, "gitbutler/workspace");
+    // Switching modes preserves the reordered branches but removes the HEAD marker.
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ em [empty-top] (no commits)
+┊│
+┊├┄ mp [empty-low] (no commits)
+┊│
+┊├┄ pt [empty-mid] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+}
+
+#[test]
+fn move_commit_branch_above_empty_dependents_keeps_them_empty() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("branch new commit-branch").assert().success();
+    env.file("commit-branch", "content");
+    env.but("commit -b commit-branch -m 'commit branch'")
+        .assert()
+        .success();
+    env.but("branch new empty-low --above commit-branch")
+        .assert()
+        .success();
+    env.but("branch new empty-top --above empty-low")
+        .assert()
+        .success();
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ em [empty-top] [HEAD] (no commits)
+┊│
+┊├┄ mp [empty-low] (no commits)
+┊│
+┊├┄ co [commit-branch]
+┊●   nwz commit branch
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+
+    env.but("move commit-branch --above empty-top")
+        .assert()
+        .success();
+
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ co [commit-branch] [HEAD]
+┊●   nwz commit branch
+┊│
+┊├┄ em [empty-top] (no commits)
+┊│
+┊├┄ mp [empty-low] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+    assert_head(&env, "commit-branch");
+    let main_tip = env.invoke_git("rev-parse main");
+    assert_eq!(
+        env.invoke_git("rev-parse empty-top"),
+        main_tip,
+        "the top empty branch should remain empty"
     );
     assert_eq!(
-        first_commit_changes.len(),
-        3,
-        "First commit should have 3 file changes after receiving c.txt"
+        env.invoke_git("rev-parse empty-low"),
+        main_tip,
+        "the lower empty branch should remain empty"
+    );
+}
+
+#[test]
+fn move_middle_non_empty_branch_above_checked_out_branch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C] [HEAD]
+┊●   vuw add C
+┊│
+┊├┄ h0 [B]
+┊●   myy add B
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
     );
 
-    Ok(())
+    env.but("move B --above C").assert().success();
+
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B] [HEAD]
+┊●   myy add B
+┊│
+┊├┄ h0 [C]
+┊●   vuw add C
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+    assert_head(&env, "B");
+    assert_eq!(
+        env.invoke_git("log --format=%s origin/main..HEAD"),
+        "add B\nadd C\nadd A",
+        "moving B should preserve the rewritten commit order"
+    );
+}
+
+#[test]
+fn move_bottom_non_empty_branch_above_checked_out_branch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C] [HEAD]
+┊●   vuw add C
+┊│
+┊├┄ h0 [B]
+┊●   myy add B
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+
+    env.but("move A --above C").assert().success();
+
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] [HEAD]
+┊●   nmq add A
+┊│
+┊├┄ h0 [C]
+┊●   vuw add C
+┊│
+┊├┄ i0 [B]
+┊●   myy add B
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+    assert_head(&env, "A");
+    assert_eq!(
+        env.invoke_git("log --format=%s origin/main..HEAD"),
+        "add A\nadd C\nadd B",
+        "moving A should preserve the rewritten commit order"
+    );
+}
+
+#[test]
+fn move_checked_out_branch_down_checks_out_new_tip() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C] [HEAD]
+┊●   vuw add C
+┊│
+┊├┄ h0 [B]
+┊●   myy add B
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+
+    env.but("move C --above A").assert().success();
+
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B] [HEAD]
+┊●   myy add B
+┊│
+┊├┄ h0 [C]
+┊●   vuw add C
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+    assert_head(&env, "B");
+    assert_eq!(
+        env.invoke_git("log --format=%s origin/main..HEAD"),
+        "add B\nadd C\nadd A",
+        "moving C down should preserve the rewritten commit order"
+    );
+}
+
+#[test]
+fn move_empty_checked_out_branch_down_keeps_it_empty() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.invoke_git("checkout B");
+    env.invoke_git("branch -D C");
+    env.but("branch new C --above B").assert().success();
+    let b_tip = env.invoke_git("rev-parse B");
+    let a_tip = env.invoke_git("rev-parse A");
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C] [HEAD] (no commits)
+┊│
+┊├┄ h0 [B]
+┊●   myy add B
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+
+    env.but("move C --above A").assert().success();
+
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B] [HEAD]
+┊●   myy add B
+┊│
+┊├┄ h0 [C] (no commits)
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+    assert_head(&env, "B");
+    assert_eq!(
+        env.invoke_git("rev-parse B"),
+        b_tip,
+        "B should keep its commit"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse C"),
+        a_tip,
+        "C should remain empty at its new position"
+    );
+}
+
+#[test]
+fn move_bottom_branch_above_checked_out_middle_leaves_hidden_tip_unchanged() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    let hidden_tip = env.invoke_git("rev-parse C");
+    env.invoke_git("checkout B");
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B] [HEAD]
+┊●   myy add B
+┊│
+┊├┄ h0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+
+    env.but("move A --above B").assert().success();
+
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] [HEAD]
+┊●   nmq add A
+┊│
+┊├┄ h0 [B]
+┊●   myy add B
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+    assert_head(&env, "A");
+    assert_eq!(
+        env.invoke_git("rev-parse C"),
+        hidden_tip,
+        "the branch hidden above the old checkout should remain unchanged"
+    );
+    assert_eq!(
+        env.invoke_git("log --format=%s origin/main..HEAD"),
+        "add A\nadd B",
+        "only the projected stack should be rewritten"
+    );
+}
+
+#[test]
+#[ignore = "We can't move branches below other branches right now :( https://linear.app/gitbutler/issue/GB-1735/support-all-permutations-of-moving-branches-and-commits"]
+fn move_branch_below_to_other_stack() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄@ [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move A --below B")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved branch 'A' below branch 'B'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄@ [uncommitted] (no changes)
+┊
+┊╭┄g0 [B]
+┊●   e776549 add B
+┊│
+┊├┄h0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn unstack_tip_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   wlx add C
+┊│
+┊├┄ h0 [B]
+┊●   wwm add B
+┊│
+┊├┄ i0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move C --unstack")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Unstacked branch 'C'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   wwm add B
+┊│
+┊├┄ h0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ i0 [C]
+┊●   wlx add C
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn unstack_middle_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   wlx add C
+┊│
+┊├┄ h0 [B]
+┊●   wwm add B
+┊│
+┊├┄ i0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move B --unstack")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Unstacked branch 'B'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   wlx add C
+┊│
+┊├┄ h0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ i0 [B]
+┊●   wwm add B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn unstack_bottom_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   wlx add C
+┊│
+┊├┄ h0 [B]
+┊●   wwm add B
+┊│
+┊├┄ i0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move A --unstack")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Unstacked branch 'A'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   wlx add C
+┊│
+┊├┄ h0 [B]
+┊●   wwm add B
+├╯
+┊
+┊╭┄ i0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn unstack_empty_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.but("branch new bottom").assert().success();
+    env.but("branch new -A bottom top").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] (no commits)
+┊│
+┊├┄ bo [bottom] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move --unstack top")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Unstacked branch 'top'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ bo [bottom] (no commits)
+├╯
+┊
+┊╭┄ to [top] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn unstack_branch_using_branch_arg() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   wlx add C
+┊│
+┊├┄ h0 [B]
+┊●   wwm add B
+┊│
+┊├┄ i0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // `--branch` used synonumously with `--unstack`
+    env.but("move A --branch")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Unstacked branch 'A'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   wlx add C
+┊│
+┊├┄ h0 [B]
+┊●   wwm add B
+├╯
+┊
+┊╭┄ i0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn unstack_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊│     ywx:w A second
+┊●   zll add first
+┊│     zll:l A first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move zll --unstack")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved zll to new branch 'a-branch-1'
+
+"#]]);
+}
+
+#[test]
+fn unstack_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊│     ywx:w A second
+┊●   zll add first
+┊│     zll:l A first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move zll:lz --unstack")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 change from zll to new commit qkw on new branch 'a-branch-1'
+
+"#]]);
+}
+
+#[test]
+fn cannot_unstack_multiple_branches() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+
+    env.but("move A B --unstack")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input for '<SOURCES>'
+
+Branches can only be moved one at a time
+
+"#]]);
+}
+
+/// This is an API limitation and not a desirable behavior, but moving multiple branches at the same
+/// time is so fringe that it's not worth investing time into right now.
+#[test]
+fn cannot_move_multiple_branches_at_once() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   wlx add C
+┊│
+┊├┄ h0 [B]
+┊●   wwm add B
+┊│
+┊├┄ i0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move A B --above C")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input for '<SOURCES>'
+
+Branches can only be moved one at a time
+
+"#]]);
+}
+
+#[test]
+fn cannot_move_branch_below() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   wlx add C
+┊│
+┊├┄ h0 [B]
+┊●   wwm add B
+┊│
+┊├┄ i0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move C --below B")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'B' for '--below'
+
+Invalid target for branch source
+
+Hint: Branches can only be moved with `--above <branch>` or `--branch <branch>` to stack or `--unstack` to unstack
+
+"#]]);
+}
+
+#[test]
+fn cannot_mix_sources() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move tpm lrm:pl -b")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input for '<SOURCES>'
+
+Mixing source types is not allowed
+
+Hint: You can only move one kind of source (e.g. commits) at a time
+
+"#]]);
+
+    env.but("move lrm B --above A")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input for '<SOURCES>'
+
+Mixing source types is not allowed
+
+Hint: You can only move one kind of source (e.g. commits) at a time
+
+"#]]);
+
+    env.but("move lrm:pl B --above A")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input for '<SOURCES>'
+
+Mixing source types is not allowed
+
+Hint: You can only move one kind of source (e.g. commits) at a time
+
+"#]]);
+}
+
+#[test]
+fn targeting_unapplied_branch_errors() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-one-empty");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    env.but("unapply B").assert().success();
+
+    env.but("move tpm --branch B")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: A branch named 'B' exists but is not applied
+
+"#]]);
+}
+
+#[test]
+fn cannot_combine_targets() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx --below zll --above zll")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the argument '--below <BRANCH_OR_COMMIT>' cannot be used with '--above <BRANCH_OR_COMMIT>'
+
+Usage: but move <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]|--unstack> <SOURCES>...
+
+For more information, try '--help'.
+
+Examples:
+  but move <child-branch> --above <parent-branch>   # stack a branch on top of another
+  but move <commit> --below <other-commit>          # reorder commits
+  but move <commit> --branch <branch>               # move a commit onto a branch
+  but move <branch> --unstack                       # tear a branch off its stack
+
+"#]]);
+}
+
+#[test]
+fn must_specify_target() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.but("move dontcare")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the following required arguments were not provided:
+  <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]|--unstack>
+
+Usage: but move <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]|--unstack> <SOURCES>...
+
+For more information, try '--help'.
+
+Examples:
+  but move <child-branch> --above <parent-branch>   # stack a branch on top of another
+  but move <commit> --below <other-commit>          # reorder commits
+  but move <commit> --branch <branch>               # move a commit onto a branch
+  but move <branch> --unstack                       # tear a branch off its stack
+
+"#]]);
+}
+
+#[test]
+fn must_specify_source() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.but("move -b")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the following required arguments were not provided:
+  <SOURCES>...
+
+Usage: but move <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]|--unstack> <SOURCES>...
+
+For more information, try '--help'.
+
+Examples:
+  but move <child-branch> --above <parent-branch>   # stack a branch on top of another
+  but move <commit> --below <other-commit>          # reorder commits
+  but move <commit> --branch <branch>               # move a commit onto a branch
+  but move <branch> --unstack                       # tear a branch off its stack
+
+"#]]);
+}
+
+#[test]
+fn source_cannot_be_target() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("move ywx --above ywx")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'ywx' for '--above'
+
+Source cannot also be target
+
+Hint: Trying to move items above 'ywx'? Remove 'ywx' from '<SOURCES>' and try again!
+
+"#]]);
+
+    env.but("move ywx --below ywx")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'ywx' for '--below'
+
+Source cannot also be target
+
+Hint: Trying to move items below 'ywx'? Remove 'ywx' from '<SOURCES>' and try again!
+
+"#]]);
+
+    env.but("move A --above A")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'A' for '--above'
+
+Source cannot also be target
+
+"#]]);
+
+    env.but("move A --branch A")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'A' for '--branch'
+
+Source cannot also be target
+
+"#]]);
+}
+
+#[test]
+fn cannot_move_from_uncommitted() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("file", "some text");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   qs A file
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+
+    env.but("move qs -b A")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'qs' for '<SOURCES>'
+
+Cannot pass uncommitted file or hunk as source
+
+Hint: A source must be a commit, committed change or branch
+
+"#]]);
+    env.but("move @ -b A")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input '@' for '<SOURCES>'
+
+Cannot pass uncommitted changes as source
+
+Hint: A source must be a commit, committed change or branch
+
+"#]]);
+}
+
+#[test]
+fn cannot_move_to_uncommitted() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move tpm --below @")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Expected a commit or a branch, got uncommitted changes
+
+"#]]);
+}
+
+#[test]
+fn move_commit_to_branch_smoke() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+
+    let before = status_json(&env);
+    let branch_a_commits_before = branch_commit_cli_ids(&before, "A");
+    let source_cli_id = branch_a_commits_before[0].clone();
+    let branch_b_count_before = branch_commit_cli_ids(&before, "B").len();
+
+    env.but(format!("move {source_cli_id} --branch B"))
+        .assert()
+        .success();
+
+    let after = status_json(&env);
+    let branch_a_commits_after = branch_commit_cli_ids(&after, "A");
+    let branch_b_commits_after = branch_commit_cli_ids(&after, "B");
+    assert_eq!(
+        branch_a_commits_after.len() + 1,
+        branch_a_commits_before.len(),
+        "moving one commit should decrease branch A's commit count by one"
+    );
+    assert_eq!(
+        branch_b_commits_after.len(),
+        branch_b_count_before + 1,
+        "moving one commit should increase branch B's commit count by one"
+    );
+    assert!(
+        !branch_a_commits_after.contains(&source_cli_id),
+        "moved commit should no longer be present on branch A"
+    );
+    assert!(
+        branch_b_commits_after.contains(&source_cli_id),
+        "moved commit should be present on branch B"
+    );
+}
+
+#[test]
+fn move_multiple_commits_to_branch_tip_preserves_order() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    commit_two_files_as_two_hunks_each(&env, "A", "a1.txt", "a2.txt", "first");
+    commit_two_files_as_two_hunks_each(&env, "A", "a3.txt", "a4.txt", "second");
+
+    let before = status_json(&env);
+    let branch_a = branch_commit_cli_ids(&before, "A");
+    let newer = branch_a[0].clone();
+    let older = branch_a[1].clone();
+
+    env.but(format!("move {older} {newer} -b B"))
+        .assert()
+        .success();
+
+    let after = status_json(&env);
+    let branch_b = branch_commit_cli_ids(&after, "B");
+    assert_eq!(
+        &branch_b[..2],
+        &[newer, older],
+        "moving a block to a branch tip should preserve its history order"
+    );
+}
+
+#[test]
+fn move_that_conflicts_warns_about_newly_conflicted_commits() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-dependent-commits");
+    env.setup_metadata(&["A"]);
+
+    let status = status_json(&env);
+    let commits = branch_commit_cli_ids(&status, "A");
+    let (top, bottom) = (&commits[0], &commits[1]);
+
+    // Swapping two commits that edit the same line leaves the rebased commit
+    // conflicted; the command output must say so.
+    env.but(format!("move {bottom} --above {top}"))
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved [..] above commit [..]
+
+⚠ This operation left a commit conflicted:
+  ● [..] [conflict] set two
+Resolve with but resolve, or back out with but undo.
+
+"#]]);
+}
+
+#[test]
+fn move_without_conflicts_prints_no_conflict_warning() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    // The commits touch different files, so the swap rebases cleanly.
+    env.but("move zll --above ywx")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved [..] above commit [..]
+
+"#]]);
+}
+
+#[test]
+fn move_rejects_merged_upstream_commits() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
+
+    // `nyq` is branch A's landed commit, `kyl` is branch B's live commit.
+    // Landed history is rejected both as move source and as target branch.
+    env.but("move nyq --branch B")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Commit 756ee31 is merged upstream
+
+Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
+
+"#]]);
+
+    env.but("move kyl --branch A")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch 'A' is merged upstream
+
+Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
+
+"#]]);
+}
+
+#[test]
+fn retired_syntax_gets_a_teaching_hint() {
+    let env = Sandbox::empty();
+
+    // The pre-revamp `but move <source> <target>` form placed the source
+    // below the target; the hint suggests the flagged modern equivalent.
+    env.but("move ab cd")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+
+note: this invocation used retired `but move` syntax. The modern equivalent is:
+
+    but move ab --below cd     if cd is a commit
+    but move ab --branch cd    if cd is a branch
+    but move ab --above cd     to stack a branch onto branch cd
+
+See `but move --help` for details.
+error: the following required arguments were not provided:
+  <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]|--unstack>
+
+Usage: but move <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]|--unstack> <SOURCES>...
+
+For more information, try '--help'.
+
+"#]]);
+}
+
+#[test]
+fn move_onto_branch_with_dash_dash_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move B --branch A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Stacked branch 'B' on top of branch 'A'
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+┊│
+┊├┄ h0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn cannot_move_onto_new_branch_with_dash_dash_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move A --branch new-branch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch 'new-branch' not found
+
+Hint: `--branch` can only move branches onto existing branches
+
+"#]]);
+}
+
+/// A commit owned by a linked worktree is a move source like any workspace commit: moving it
+/// onto another stack's branch takes it out of the worktree's history, and the worktree's
+/// checkout follows so the moved change does not linger there.
+#[test]
+fn move_a_commit_out_of_a_linked_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = super::util::add_worktree_with_commit(&env, "wt-feature", "A");
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+* | d3e2ba3 (B) add B
+| | * 580bef0 (wt-feature) add W
+| |/  
+| * 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+    );
+
+    env.but("move 580bef0 -b B")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Moved nsn to the tip of branch 'B'
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   bfc5668 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * f379d52 (B) add W
+| * d3e2ba3 add B
+* | 9477ae7 (wt-feature, A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+    // The worktree kept only its base history, and its checkout dropped the moved file.
+    assert!(
+        !wt_dir.join("wt-file.txt").exists(),
+        "the moved commit's file left the worktree checkout"
+    );
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
+        snapbox::str![[r#"
+*   bfc5668 (gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * f379d52 (B) add W
+| * d3e2ba3 add B
+* | 9477ae7 (HEAD -> wt-feature, A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+/// Worktrees fork from the commit they were created at, not from the branch that names it.
+/// A commit moved onto that branch therefore goes under neither of them: the worktree it came
+/// from gives it up, and the other worktree stays where it was.
+#[test]
+fn move_a_worktree_commit_onto_the_branch_worktrees_fork_from() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("status").assert().success();
+    let wt = env.app_data_dir().join("worktrees");
+    but_testsupport::invoke_bash_at_dir(
+        &format!(
+            r#"
+        git checkout -q -b feature
+        git worktree add -q -b wt-one "{wt}/wt-one" feature
+        (cd "{wt}/wt-one" && echo one >one.txt && git add one.txt && git commit -q -m "add W1")
+        git worktree add -q -b wt-two "{wt}/wt-two" feature
+        (cd "{wt}/wt-two" && echo two >two.txt && git add two.txt && git commit -q -m "add W2")
+        "#,
+            wt = wt.display()
+        ),
+        env.projects_root(),
+    );
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 41a4583 (wt-one) add W1
+| * 9880b01 (wt-two) add W2
+|/  
+* b1540e5 (HEAD -> feature, origin/main, origin/HEAD, main) M
+* e31e6ca add init
+
+"#]]
+        .raw()
+    );
+
+    env.but("move 41a4583 -b feature")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Moved zqt to the tip of branch 'feature'
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 41a4583 (HEAD -> feature) add W1
+| * 9880b01 (wt-two) add W2
+|/  
+* b1540e5 (origin/main, origin/HEAD, wt-one, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+        .raw()
+    );
+}
+
+/// `--below` a worktree heading moves the commit to the tip of the branch that worktree has
+/// checked out, taking it out of the workspace.
+#[test]
+fn move_commit_below_a_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    // The first read archives every worktree already on disk, so the one under test has to
+    // be created after it.
+    env.but("status").assert().success();
+    crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
+
+    env.but("move lrm --below wt")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Moved lrm to the tip of branch 'wt-inside'
+
+"#]]);
+
+    // "add B" left its stack for the tip of the worktree's branch.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   372e55d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| | * 4ce1279 (wt-inside) add B
+| | * 580bef0 add W
+| |/  
+|/|   
+* | 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, B) add M
+
+"#]]
+        .raw()
+    );
+}
+
+/// Above a worktree heading is its uncommitted area, which cannot hold a commit.
+#[test]
+fn move_commit_above_a_worktree_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
+
+    env.but("move lrm --above wt")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'wt' for '--above'
+
+Cannot place a commit above a worktree
+
+Hint: Use `--below` to target the tip of the worktree's branch
+
+"#]]);
+}
+
+/// `--branch` accepts a worktree's branch by name, moving the commit onto that lane's tip
+/// instead of misreading the name as a branch to create.
+#[test]
+fn move_a_commit_to_a_worktrees_branch_by_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
+
+    env.but("move lrm -b wt-inside")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Moved lrm to the tip of branch 'wt-inside'
+
+"#]]);
+
+    // "add B" left its stack for the tip of the worktree's branch, exactly like `--below po`.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   372e55d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| | * 4ce1279 (wt-inside) add B
+| | * 580bef0 add W
+| |/  
+|/|   
+* | 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, B) add M
+
+"#]]
+        .raw()
+    );
+}
+
+/// A branch stacked onto the branch a worktree has checked out leaves the workspace and becomes
+/// what that worktree has checked out.
+#[test]
+fn move_a_branch_onto_a_worktrees_checked_out_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
+
+    env.but("move B --above wt-inside")
+        .assert()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Stacked branch 'B' on top of branch 'wt-inside'
+
+"#]]);
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ h0:@ [uncommitted] {wt-inside} (no changes)
+┊┊├┄ h0 [B]
+┊┊●   lrm add B
+┊┊│
+┊┊├┄ wt [wt-inside]
+┊┊●   nsn add W
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
+        snapbox::str![[r#"
+* 4ce1279 (HEAD -> B) add B
+* 580bef0 (wt-inside) add W
+| * b66c23e (gitbutler/workspace) GitButler Workspace Commit
+|/  
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+    assert!(
+        wt_dir.join("B").exists(),
+        "the moved branch's file reached the worktree's checkout"
+    );
+}
+
+/// A branch below a worktree's checkout that tracks the target is still the worktree's own branch,
+/// so the worktree is left on it when its checked-out branch moves out.
+#[test]
+fn move_a_worktrees_checked_out_branch_off_a_branch_tracking_the_target() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "main");
+    env.invoke_git("branch --set-upstream-to origin/main wt-lower");
+
+    env.but("move wt-inside -b B").assert().success();
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
+        snapbox::str![[r#"
+*   6507a15 (gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * c019586 (wt-inside) add W2
+| * d3e2ba3 (B) add B
+* | 9477ae7 (A) add A
+|/  
+| * a483238 (HEAD -> wt-lower) add W
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+/// An empty branch ordered below a worktree's checkout stays the worktree's branch even when it
+/// tracks the target and points at it, so the worktree is left on it.
+#[test]
+fn move_a_worktrees_checked_out_branch_off_an_empty_branch_tracking_the_target() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = crate::command::util::add_worktree_with_commit(&env, "wt-inside", "main");
+    env.but("branch new wt-lower --below wt-inside")
+        .assert()
+        .success();
+    env.invoke_git("branch --set-upstream-to origin/main wt-lower");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┊╭┄ wt:@ [uncommitted] {wt-inside} (no changes)
+┊├┄ wt [wt-inside]
+┊●   swk add W
+┊│
+┊├┄ lo [wt-lower] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move wt-inside -b B").assert().success();
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
+        snapbox::str![[r#"
+*   b15e646 (gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 1038d1a (wt-inside) add W
+| * d3e2ba3 (B) add B
+* | 9477ae7 (A) add A
+|/  
+* 0dc3733 (HEAD -> wt-lower, origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+#[test]
+fn moving_changes_to_new_branch_with_message() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("move tpm:t --above g0 --message 'new commit'")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   qkw new commit
+┊│     qkw:t A A
+┊│
+┊├┄ g0 [A]
+┊●   tpm add A (no changes)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn moving_changes_to_new_commit_with_message() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("move tpm:t --above tpm --message 'new commit'")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   qkw new commit
+┊│     qkw:t A A
+┊●   tpm add A (no changes)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn when_message_isnt_allowed() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move tpm --above g0 --message 'not allowed'")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: `-m/--message` and `-F/--file` can only be used when moving committed changes
+
+"#]]);
+
+    env.but("move B --above A --message 'not allowed'")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: `-m/--message` and `-F/--file` can only be used when moving committed changes
+
+"#]]);
+}
+
+#[test]
+fn moving_commit_to_named_branch_above_or_below() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx --above A -b top")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved ywx to new branch 'top' above branch 'A'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top]
+┊●   ywx add second
+┊│
+┊├┄ g0 [A]
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx --below A -b bottom")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved ywx to new branch 'bottom' below branch 'A'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] (no commits)
+┊│
+┊├┄ g0 [A]
+┊●   zll add first
+┊│
+┊├┄ bo [bottom]
+┊●   ywx add second
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn moving_committed_hunk_to_named_branch_above_or_below() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("diff ywx")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+────────────────╮
+ y:w:3 A second │
+────────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +second
+
+"#]]);
+
+    env.but("move y:w:3 --above A -b top")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 change from ywx to new commit qkw on new branch 'top' above branch 'A'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top]
+┊●   qkw (no commit message)
+┊│
+┊├┄ g0 [A]
+┊●   ywx add second (no changes)
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn cannot_rename_branches_when_stacking() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    for command in [
+        "move A --above B -b B2",
+        "move A --above B -b",
+        "move A --above B --branch",
+    ] {
+        env.but(command)
+            .assert()
+            .failure()
+            .stderr_eq(snapbox::str![[r#"
+Error: Cannot use `-b/--branch` when stacking branches.
+
+"#]]);
+    }
+}
+
+#[test]
+fn naming_branches_when_unstacking_commits() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move tpm --unstack -b new-branch")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ ne [new-branch]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ g0 [A] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn naming_branches_when_unstacking_committed_changes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("diff tpm")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+───────────╮
+ t:t:6 A A │
+───────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +A
+
+"#]]);
+
+    env.but("move t:t:6 --unstack -b new-branch")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ ne [new-branch]
+┊●   qkw (no commit message)
+├╯
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A (no changes)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn cannot_name_branches_when_unstacking_branches() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-dependent-branches");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   wwm add B
+┊│
+┊├┄ h0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move B --unstack -b new-branch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot use `-b/--branch` when unstacking branches
+
+"#]]);
+}
+
+#[test]
+fn cannot_name_branches_when_moving_commits_relative_to_commits() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx --below zll -b new-branch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot use `-b/--branch` when moving relative to commits
+
+"#]]);
+}
+
+#[test]
+fn cannot_name_branches_when_moving_commits_relative_to_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("wt new").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊●   zll add first
+├╯
+┊
+┊╭┄ br:@ [uncommitted] {a-branch-1} (no changes)
+┊├┄ br [a-branch-1] (no commits)
+├╯
+┊
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx --below br -b new-branch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot use `-b/--branch` when moving relative to worktrees
+
+"#]]);
+}
+
+/// A branch below a worktree's checkout is a `--branch` target of its own.
+#[test]
+fn move_a_commit_to_a_lower_worktree_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
+
+    env.but("move lrm -b wt-lower")
+        .assert()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Moved lrm to the tip of branch 'wt-lower'
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   372e55d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| | * 9f6b492 (wt-inside) add W2
+| | * 4ce1279 (wt-lower) add B
+| | * 580bef0 add W
+| |/  
+|/|   
+* | 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, B) add M
+
+"#]]
+        .raw()
+    );
+}
+
+/// Below a lower worktree branch means a new branch there, ordered within the worktree's lane.
+#[test]
+fn move_commit_below_a_lower_worktree_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
+
+    env.but("move lrm --below wt-lower")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Moved lrm to new branch 'a-branch-1' below branch 'wt-lower'
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   372e55d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| | * d4f76d7 (wt-inside) add W2
+| | * 60eaa7b (wt-lower) add W
+| | * e776549 (a-branch-1) add B
+| |/  
+|/|   
+* | 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, B) add M
+
+"#]]
+        .raw()
+    );
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-inside} (no changes)
+┊┊├┄ wt [wt-inside]
+┊┊●   ntk add W2
+┊┊│
+┊┊├┄ lo [wt-lower]
+┊┊●   nsn add W
+┊┊│
+┊┊├┄ br [a-branch-1]
+┊┊●   lrm add B
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+/// A branch below a worktree's checkout is a stacking target like any workspace branch: the
+/// moved branch leaves the workspace for the worktree, whose checkout follows.
+#[test]
+fn move_a_branch_onto_a_lower_worktree_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
+
+    env.but("move B -b wt-lower")
+        .assert()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Stacked branch 'B' on top of branch 'wt-lower'
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* b66c23e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| * 9f6b492 (wt-inside) add W2
+| * 4ce1279 (B) add B
+| * 580bef0 (wt-lower) add W
+|/  
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-inside} (no changes)
+┊┊├┄ wt [wt-inside]
+┊┊●   ntk add W2
+┊┊│
+┊┊├┄ h0 [B]
+┊┊●   lrm add B
+┊┊│
+┊┊├┄ lo [wt-lower]
+┊┊●   nsn add W
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    assert!(
+        wt_dir.join("B").exists(),
+        "the moved branch's file reached the worktree's checkout"
+    );
+}
+
+/// A branch below a worktree's checkout is a move source like any workspace branch: it leaves
+/// the worktree for the workspace, and the worktree's checkout follows.
+#[test]
+fn move_a_lower_worktree_branch_onto_a_workspace_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
+
+    env.but("move wt-lower -b B")
+        .assert()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Stacked branch 'wt-lower' on top of branch 'B'
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   bfc5668 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * f379d52 (wt-lower) add W
+| * d3e2ba3 (B) add B
+| | * 109d075 (wt-inside) add W2
+| |/  
+|/|   
+* | 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ in:@ [uncommitted] {wt-inside} (no changes)
+┊┊├┄ in [wt-inside]
+┊┊●   ntk add W2
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┊╭┄ wt [wt-lower]
+┊●   nsn add W
+┊│
+┊├┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    assert!(
+        !wt_dir.join("wt-file.txt").exists(),
+        "the moved branch's file left the worktree's checkout"
+    );
+}
+
+/// The branch a worktree has checked out is a move source too: it leaves for the workspace,
+/// and the worktree is left on the branch that was below it.
+#[test]
+fn move_a_worktrees_checked_out_branch_onto_a_workspace_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
+
+    env.but("move wt-inside -b B")
+        .assert()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Stacked branch 'wt-inside' on top of branch 'B'
+
+"#]]);
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ lo:@ [uncommitted] {wt-inside} (no changes)
+┊┊├┄ lo [wt-lower]
+┊┊●   nsn add W
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┊╭┄ wt [wt-inside]
+┊●   ntk add W2
+┊│
+┊├┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
+        snapbox::str![[r#"
+*   d31f03a (gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * db0b242 (wt-inside) add W2
+| * d3e2ba3 (B) add B
+| | * 580bef0 (HEAD -> wt-lower) add W
+| |/  
+|/|   
+* | 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+    assert!(
+        !wt_dir.join("wt-top.txt").exists() && wt_dir.join("wt-file.txt").exists(),
+        "only the moved branch's file left the worktree's checkout"
+    );
+}
+
+/// Without an order naming it, an empty branch at a worktree's base merely rests on the target:
+/// it is no branch of the worktree's or any stack's, so the worktree is left detached.
+#[test]
+fn move_a_worktrees_checked_out_branch_off_an_unordered_empty_branch_at_the_target() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt = env.app_data_dir().join("worktrees").join("wt-inside");
+    env.invoke_bash(format!(
+        r#"git worktree add -q -b wt-base "{wt}" main
+        cd "{wt}" && git checkout -q -b wt-inside && echo change >wt-file.txt && git add wt-file.txt && git commit -q -m "add W""#,
+        wt = wt.display()
+    ));
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┊╭┄ wt:@ [uncommitted] {wt-inside} (no changes)
+┊├┄ wt [wt-inside]
+┊●   swk add W
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move wt-inside -b B")
+        .assert()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Stacked branch 'wt-inside' on top of branch 'B'
+
+"#]]);
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ wt [wt-inside]
+┊●   swk add W
+┊│
+┊├┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┊╭┄ i0:@ [uncommitted] {wt-inside} (no changes)
+┊├┄ i0 (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt).unwrap(),
+        snapbox::str![[r#"
+*   b15e646 (gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 1038d1a (wt-inside) add W
+| * d3e2ba3 (B) add B
+* | 9477ae7 (A) add A
+|/  
+* 0dc3733 (HEAD, origin/main, origin/HEAD, wt-base, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+}
+
+/// With nothing below it in its worktree, the checked-out branch leaves the worktree detached
+/// on the commit it was based on.
+#[test]
+fn move_a_worktrees_only_branch_onto_a_workspace_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
+
+    env.but("move wt-inside -b B")
+        .assert()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Stacked branch 'wt-inside' on top of branch 'B'
+
+"#]]);
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ i0:@ [uncommitted] {wt-inside} (no changes)
+┊┊├┄ i0 (no commits)
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┊╭┄ wt [wt-inside]
+┊●   nsn add W
+┊│
+┊├┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
+        snapbox::str![[r#"
+*   bfc5668 (gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * f379d52 (wt-inside) add W
+| * d3e2ba3 (B) add B
+* | 9477ae7 (HEAD, A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+    assert!(
+        !wt_dir.join("wt-file.txt").exists(),
+        "the moved branch's file left the worktree's checkout"
+    );
+}
+
+#[test]
+fn moving_commit_to_branch_below_then_switching_to_workspace() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.but("commit -b top --above bottom -m 'on top'")
+        .assert()
+        .success();
+
+    env.but("status").assert().stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD]
+┊●   ylm on top (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ylm --above bottom -b middle")
+        .assert()
+        .success();
+
+    env.but("status").assert().stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD] (no commits)
+┊│
+┊├┄ mi [middle]
+┊●   ylm on top (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch --workspace").assert().success();
+
+    env.but("status").assert().stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] (no commits)
+┊│
+┊├┄ mi [middle]
+┊●   ylm on top (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* e0dcfe0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 41e32b0 (top, middle) on top
+* ff665ad (bottom) on bottom
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+        .raw()
+    );
+}
+
+#[test]
+fn move_cannot_create_and_switch_to_conflicted_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+
+    env.file("file", "content");
+    env.but("commit -b A -m 'add file'").assert().success();
+
+    env.file("file", "new content");
+    env.but("commit -b A -m 'change file'").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   oxm change file
+┊●   oln add file
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move oxm -b B --switch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot check out a conflicted commit.
+
+Hint: Run `but switch --workspace` and start conflict resolution with `but resolve`
+
+"#]]);
+
+    assert!(
+        env.open_repo()
+            .try_find_reference("refs/heads/B")
+            .unwrap()
+            .is_none(),
+        "the failed move rolls back creation of the destination branch"
+    );
+
+    // The failed checkout rolls back the move, preserving A's history.
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   oxm change file
+┊●   oln add file
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn moving_commits_around_causing_conflicts_in_sbm() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+
+    env.file("file", "content");
+    env.but("commit -b A -m 'add file' --switch")
+        .assert()
+        .success();
+
+    env.file("file", "new content");
+    env.but("commit -b A -m 'change file'").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] [HEAD]
+┊●   oxm change file
+┊●   oln add file
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move oln --above oxm").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] [HEAD]
+┊●   oln add file
+┊●   oxm change file (no changes) {conflicted}
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    let head_ref_before = env.invoke_git("symbolic-ref HEAD");
+
+    env.but("discard oln")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded commit oln
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref HEAD"),
+        head_ref_before,
+        "the discard keeps the same branch checked out"
+    );
+    // The conflicted `change file` is now the tip, so the branch rests on a padding commit over it.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 29eafac (HEAD -> A) GitButler Padding Commit
+* 2cf78ad [conflict] change file
+| * ff4136d (gitbutler/workspace) GitButler Workspace Commit
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+#[test]
+fn moving_changes_to_new_commit_with_message_from_stdin() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("move tpm:t --above tpm -F -")
+        .stdin("new commit\n\nfrom stdin\n")
+        .assert()
+        .success();
+
+    assert_eq!(
+        env.invoke_git("log -1 --format=[%B] refs/heads/A --"),
+        "[new commit\n\nfrom stdin]",
+        "the new commit takes the trimmed message read from stdin"
+    );
+}
+
+#[test]
+fn message_file_isnt_allowed_when_moving_commits() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    // Like `-m`, `-F` only names a new commit, which moving a whole commit doesn't create.
+    env.but("move tpm --above g0 -F -")
+        .stdin("not allowed\n")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: `-m/--message` and `-F/--file` can only be used when moving committed changes
+
+"#]]);
+}
+
+/// A branch merely resting on the target is no stack's branch, so rewriting the stacks above it
+/// leaves it out of them.
+#[test]
+fn move_a_branch_above_a_branch_resting_on_the_target() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    env.invoke_git("branch stray main");
+    env.but("move B -b A").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   lrm add B
+┊│
+┊├┄ h0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
 }

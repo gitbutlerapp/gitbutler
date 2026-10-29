@@ -1,0 +1,7 @@
+.top {
+	stop-color: color-mix(in srgb, var(--clr-pop-50), var(--clr-gray-100) 60%);
+}
+
+.bottom {
+	stop-color: color-mix(in srgb, var(--clr-pop-50), var(--clr-gray-100) 20%);
+}

@@ -22,16 +22,17 @@ jobs:
     outputs:
       node: ${{ steps.filter.outputs.node }}
       rust: ${{ steps.filter.outputs.rust }}
+      rust_core: ${{ steps.filter.outputs.rust_core }}
       ui: ${{ steps.filter.outputs.ui }}
       but_sdk: ${{ steps.filter.outputs.but_sdk }}
       docs: ${{ steps.filter.outputs.docs }}
       but_installer: ${{ steps.filter.outputs.but_installer }}
       install_script: ${{ steps.filter.outputs.install_script }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           filters: |
@@ -44,12 +45,13 @@ jobs:
               - *workflows
               - 'apps/**'
               - 'packages/**'
+              - 'e2e/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
             ui:
-              - 'packages/ui/**'
+              - 'packages/ui-svelte/**'
             but_sdk:
-              - 'crates/**'
+              - 'crates/!(but-gpui)/**'
               - *workflows
               - 'Cargo.lock'
               - 'Cargo.toml'
@@ -63,6 +65,12 @@ jobs:
             rust: &any-rust
               - *rust
               - 'crates/**'
+            # Only gitbutler-tauri's `builtin-gpui` feature links the GPUI client, and only
+            # test-rust-windows builds with it. A change to just the GPUI client can't affect
+            # any other crate, so jobs that never build it can skip it.
+            rust_core:
+              - *rust
+              - 'crates/!(but-gpui)/**'
             but_installer:
               - 'Cargo.lock'
               - 'Cargo.toml'
@@ -85,39 +93,18 @@ jobs:
     if: ${{ needs.changes.outputs.node == 'true' || needs.changes.outputs.docs == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/init-env-node
       - run: pnpm prettier
-
-  generate-ts-definitions:
-    needs: changes
-    if: ${{ needs.changes.outputs.node == 'true' || needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
-    env:
-      CARGO_TERM_COLOR: always
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
-        with:
-          shared-key: ts-def-gen
-          save-if: ${{ github.ref == 'refs/heads/master' }}
-      # Node is needed for the formatting of typescript files.
-      - uses: ./.github/actions/init-env-node
-      - name: Dependencies for 'keyring'
-        run: sudo ./scripts/install-minimal-debian-dependencies.sh
-      - run: ./scripts/generate-ts-definitions-from-rust.sh
 
   lint-node:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/init-env-node
@@ -128,7 +115,7 @@ jobs:
     if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/init-env-node
@@ -139,14 +126,17 @@ jobs:
     if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/init-env-node
       - id: get_playwright_version
-        uses: eviden-actions/get-playwright-version@4ab3bd9361d018d7931275b5106f2290fa54cfb6 # v1
+        shell: bash
+        run: |
+          version=$(pnpm --filter @gitbutler/ui-svelte --fail-if-no-match exec node -p 'require("playwright/package.json").version')
+          echo "playwright-version=v$version" >> "$GITHUB_OUTPUT"
       - name: Cache playwright binaries
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
         id: playwright-cache
         with:
           path: |
@@ -155,6 +145,14 @@ jobs:
       - run: pnpm ui:playwright:install:unit
         if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
       - run: pnpm test
+        env:
+          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_VITEST }}
+          BUILDKITE_ANALYTICS_BASE_URL: https://tests.but.dev/v1/uploads
+          # Normalized run identity, matching what the curl-based uploads send, so
+          # every suite reports the same key/branch/sha for one CI run.
+          BUILDKITE_ANALYTICS_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
+          BUILDKITE_ANALYTICS_BRANCH: ${{ github.head_ref || github.ref_name }}
+          BUILDKITE_ANALYTICS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
   but-sdk-build-check:
     needs: changes
@@ -163,11 +161,11 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Cache apt archives
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
         with:
           path: .apt-cache
           key: ${{ runner.os }}-apt-but-sdk-${{ hashFiles('scripts/install-minimal-debian-dependencies.sh') }}
@@ -177,12 +175,14 @@ jobs:
           sudo chown -R "$(id -u)":"$(id -g)" "$PWD/.apt-cache"
       - uses: ./.github/actions/init-env-node
       - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: but-sdk-build-check
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Build but-sdk
         run: pnpm --filter @gitbutler/but-sdk build
+      - name: Verify generated types are up-to-date
+        run: ./scripts/generate-sdk-types.sh
       - name: Check but-sdk
         run: pnpm --filter @gitbutler/but-sdk check
 
@@ -198,11 +198,11 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: lint
           save-if: ${{ github.ref == 'refs/heads/master' }}
@@ -220,6 +220,10 @@ jobs:
           cargo check -p but-workspace --all-targets
           cargo check -p but-api --all-targets
           cargo check -p but --all-targets
+          # both workspace-projection flavors must keep compiling
+          cargo check -p but-api --all-targets --features graph-workspace
+          cargo check -p but --all-targets --features graph-workspace
+          make check-modern-but
         name: Special `cargo check` runs
         env:
           RUSTFLAGS: "--deny warnings"
@@ -227,6 +231,8 @@ jobs:
         run: |
           rustup component add clippy
           cargo clippy --workspace --all-targets -- -D warnings
+          cargo clippy --workspace --all-targets --no-default-features -- -D warnings
+          cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   # Find unused cargo dependencies
   cargo-machete:
@@ -237,7 +243,7 @@ jobs:
       contents: read
       packages: read
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install cargo-machete
@@ -250,10 +256,10 @@ jobs:
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: EmbarkStudios/cargo-deny-action@3fd3802e88374d3fe9159b834c7714ec57d6c979 # v2.0.15
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
         with:
           command: check bans licenses sources
 
@@ -265,57 +271,155 @@ jobs:
       CARGO_TERM_COLOR: always
       RUSTDOCFLAGS: -D warnings
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: cargo-doc
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Dependencies for 'keyring'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
+      # fontconfig's build script looks it up with pkg-config.
+      - name: Dependencies for the GPUI client
+        run: sudo apt-get install -y --no-install-recommends libxcb1-dev libxkbcommon-x11-dev libfontconfig-dev
       - name: Check documentation
-        run: cargo doc --workspace --no-deps --exclude gitbutler-tauri --exclude but-api-macros-tests
+        run: cargo doc --workspace --no-deps --exclude gitbutler-tauri --exclude but-api-macros-tests --features but/nightly
 
   rust-test:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest, macos-15]
+    runs-on: ${{ matrix.platform }}
     env:
       CARGO_TERM_COLOR: always
       GITBUTLER_TESTS_NO_CLEANUP: "1"
+      # These six tests fail on macOS CI for unclear reasons. Keep running them locally.
+      NEXTEST_FILTER: >-
+        ${{ matrix.platform == 'macos-15' && 'not (
+          test(=tests::reconciliation_reuses_filter_process) |
+          test(=tests::core_hunks_reuse_filter_process) |
+          test(=tests::assign_reuses_filter_process) |
+          test(=tests::reused_filter_recovers_after_file_failure) |
+          test(=locked_index_rejects_enter_edit_mode_without_changes) |
+          test(=locked_symlinked_index_rejects_enter_edit_mode_without_changes)
+        )' || 'all()' }}
+      # Redirect the app-data dir so any test that loads user-level settings writes here.
+      # The final step asserts nothing did - see 'Assert test hermeticity'.
+      # (a literal path - the `runner` context is not available in job-level `env`)
+      E2E_TEST_APP_DATA_DIR: /tmp/hermeticity-guard
+      # A change to just the GPUI client only needs its own tests.
+      PACKAGES: ${{ needs.changes.outputs.rust_core == 'true' && '--workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --features but/nightly' || '-p but-gpui' }}
     defaults:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          shared-key: cargo-test-no-tauri
+          shared-key: cargo-test-no-tauri-${{ runner.os }}
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Dependencies for 'keyring'
+        if: runner.os == 'Linux'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
-      - run: cargo test --workspace --exclude gitbutler-tauri --exclude but-server --exclude but-api-macros-tests
+      # The libraries GPUI links to on Linux, for its windows and its font lookup.
+      - name: Dependencies for the GPUI client
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y --no-install-recommends libxcb1-dev libxkbcommon-x11-dev libfontconfig-dev
+      - name: Install cargo-nextest (Linux)
+        if: runner.os == 'Linux'
+        run: |
+
+          # To update the version of cargo-nextest, replace the version specifier in the `curl` command and update the
+          # checksum.
+          #
+          # Checksums are available as artifacts on GitHub Release (https://github.com/nextest-rs/nextest/releases),
+          # should be called "cargo-nextest-<VERSION>-x86_64-unknown-linux-gnu.sha256"
+          curl -LsSf https://get.nexte.st/0.9.143/linux -o cargo-nextest.tar.gz
+          echo "66786b9abe23920d022a182d1416b1bbc8130dd4872a9553d76985a1708dcd1e  cargo-nextest.tar.gz" | sha256sum -c -
+          tar -xzf cargo-nextest.tar.gz -C ${CARGO_HOME:-~/.cargo}/bin
+          rm cargo-nextest.tar.gz
+      - name: Install cargo-nextest (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          # Keep the version in sync with Linux above. Checksum from the release's
+          # cargo-nextest-<VERSION>-universal-apple-darwin.sha256 artifact.
+          curl -LsSf https://get.nexte.st/0.9.143/mac -o cargo-nextest.tar.gz
+          echo "4830d430411148d17602a75cc880bfb4dc8dac153dea59a48a2ef4cc93577f07  cargo-nextest.tar.gz" | shasum -a 256 -c -
+          tar -xzf cargo-nextest.tar.gz -C ${CARGO_HOME:-~/.cargo}/bin
+          rm cargo-nextest.tar.gz
+      - name: Run workspace tests
+        run: cargo nextest run $PACKAGES --profile ci -E "$NEXTEST_FILTER"
+      - name: Run doctests
+        run: cargo test --doc $PACKAGES
+      - name: Upload results to tests.but.dev
+        if: ${{ always() && !cancelled() && runner.os == 'Linux' }}
+        continue-on-error: true
+        env:
+          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_CARGO }}
+          RUN_BRANCH: ${{ github.head_ref || github.ref_name }}
+          RUN_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          RUN_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          curl --fail-with-body -X POST \
+            -H "Authorization: Token $BUILDKITE_ANALYTICS_TOKEN" \
+            -F "data=@target/nextest/ci/junit.xml" \
+            -F "format=junit" \
+            -F "run_env[CI]=github_actions" \
+            -F "run_env[key]=$RUN_KEY" \
+            -F "run_env[number]=$RUN_NUMBER" \
+            -F "run_env[branch]=$RUN_BRANCH" \
+            -F "run_env[commit_sha]=$RUN_COMMIT_SHA" \
+            -F "run_env[url]=$RUN_URL" \
+            -F "tags[framework]=nextest" \
+            -F "tags[language]=rust" \
+            -F "tags[type]=unit" \
+            https://tests.but.dev/v1/uploads
+      - name: Run workspace tests without nightly
+        if: github.ref == 'refs/heads/master'
+        run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci -E "$NEXTEST_FILTER"
       # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
-      - run: cargo test -p but
-      - run: cargo test -p but-server
+      - run: make test-modern-but
+        if: needs.changes.outputs.rust_core == 'true'
       - name: test vendored
+        if: needs.changes.outputs.rust_core == 'true'
         run: |
           set -x
           (cd crates/gitbutler-filemonitor/vendor/debouncer && cargo test)
-          (cd crates/but/vendor/cli-prompts && cargo test)
+      - name: Assert test hermeticity
+        run: |
+          if [ -e "$E2E_TEST_APP_DATA_DIR" ]; then
+            echo "::error::Tests wrote to the user-level app-data dir. Use Context::from_repo_for_testing or but_testsupport::isolated_app_data_dir instead of settings-loading constructors:"
+            find "$E2E_TEST_APP_DATA_DIR"
+            exit 1
+          fi
 
   rust-test-but-api-macros:
     needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
+    if: ${{ needs.changes.outputs.rust_core == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - features: ""
+            cache_suffix: default
+          - features: "--features legacy"
+            cache_suffix: legacy
+          - features: "--features tauri"
+            cache_suffix: tauri
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image@sha256:3eaeae1b07072796a53dc1e7585cdc1f462d0b11d10ecd3685c6fa8082d647dd
     env:
@@ -324,20 +428,20 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          shared-key: cargo-test-but-api-macros
+          shared-key: cargo-test-but-api-macros-${{ matrix.cache_suffix }}
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - name: Test but-api-macros feature matrix
-        run: make test-but-api-macros
+      - name: Test but-api-macros ${{ matrix.features || '(default)' }}
+        run: cargo test -p but-api-macros-tests ${{ matrix.features }}
 
   rust-test-tauri:
     needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
+    if: ${{ needs.changes.outputs.rust_core == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -350,11 +454,11 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: cargo-test-tauri
           save-if: ${{ github.ref == 'refs/heads/master' }}
@@ -373,16 +477,43 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          shared-key: cargo-test
+          shared-key: cargo-check-windows
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: "cargo check"
         run: cargo check --workspace --all-targets --features windows
+      # The GPUI client's Windows code: the lint job runs on Linux, which builds it as a stub.
+      - name: "cargo clippy -p but-gpui"
+        run: cargo clippy -p but-gpui --all-targets -- -D warnings
+
+  # Separate from check-rust-windows so the two run side by side: these steps build code,
+  # those only check it, so they share little of their work or their cache.
+  test-rust-windows:
+    needs: changes
+    runs-on: windows-latest
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: cargo-test
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: "cargo test -p but-gpui"
+        run: cargo test -p but-gpui
+      # The desktop app with the native client, as Windows builds ship it: GPUI's and Tauri's
+      # resources only clash when the executable links.
+      - name: "cargo build -p gitbutler-tauri --features windows,builtin-gpui"
+        run: cargo build -p gitbutler-tauri --features windows,builtin-gpui
 
   build-installer:
     needs: changes
@@ -411,7 +542,7 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Set Cargo build target to ${{ matrix.target }}
@@ -421,7 +552,7 @@ jobs:
           echo "CARGO_BUILD_TARGET=${{ matrix.target }}" >> $GITHUB_ENV
           rustup target add ${{ matrix.target }}
       - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: installer
           save-if: ${{ github.ref == 'refs/heads/master' }}
@@ -432,7 +563,7 @@ jobs:
           test -x target/${{matrix.target}}/release/but-installer
           file target/${{matrix.target}}/release/but-installer
       - name: Upload Artifacts
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: "but-installer-${{ matrix.artifact_id }}-${{ github.run_number }}"
           path: target/${{matrix.target}}/release/but-installer
@@ -473,7 +604,7 @@ jobs:
           - platform: ubuntu-22.04-arm # [linux, ARM64]
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install release
@@ -509,7 +640,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Download ${{ matrix.artifact_id }} installer
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: "but-installer-${{ matrix.artifact_id }}-${{ github.run_number }}"
           path: .
@@ -530,26 +661,26 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Download macOS x86_64 installer
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: "but-installer-macos-15-x86_64-${{ github.run_number }}"
           path: s3-upload/macos/x86_64
       - name: Download macOS aarch64 installer
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: "but-installer-macos-15-aarch64-${{ github.run_number }}"
           path: s3-upload/macos/aarch64
       - name: Download Linux x86_64 installer
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: "but-installer-linux-x86_64-${{ github.run_number }}"
           path: s3-upload/linux/x86_64
       - name: Download Linux aarch64 installer
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: "but-installer-linux-aarch64-${{ github.run_number }}"
           path: s3-upload/linux/aarch64
@@ -574,10 +705,15 @@ jobs:
           destination_dir: "installers/latest"
 
   check-rust:
-    if: always()
+    # Skip the aggregator when the run itself is cancelled: a concurrency-
+    # cancelled twin run has `cancelled` needs, which alls-green scores as
+    # failure — a phantom red required check on the same commit as the live
+    # (green) run.
+    if: ${{ !cancelled() }}
     needs:
       - changes
       - check-rust-windows
+      - test-rust-windows
       - rust-test
       - rust-test-but-api-macros
       - rust-test-tauri
@@ -604,7 +740,7 @@ jobs:
       GLOB: .github/workflows/*.@(yaml|yml)
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           sparse-checkout: ".github/workflows"
@@ -636,14 +772,17 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/init-env-node
       - id: get_playwright_version
-        uses: eviden-actions/get-playwright-version@4ab3bd9361d018d7931275b5106f2290fa54cfb6 # v1
+        shell: bash
+        run: |
+          version=$(pnpm --filter @gitbutler/ui-svelte --fail-if-no-match exec node -p 'require("playwright/package.json").version')
+          echo "playwright-version=v$version" >> "$GITHUB_OUTPUT"
       - name: cache playwright binaries
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
         id: playwright-cache
         with:
           path: |
@@ -653,12 +792,19 @@ jobs:
         if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
       - name: run playwright tests
         run: pnpm test:ct
-        if: ${{ github.ref != 'refs/heads/master' }}
-      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        env:
+          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_PLAYWRIGHT_CT }}
+          BUILDKITE_ANALYTICS_BASE_URL: https://tests.but.dev/v1/uploads
+          # Normalized run identity, matching what the curl-based uploads send, so
+          # every suite reports the same key/branch/sha for one CI run.
+          BUILDKITE_ANALYTICS_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
+          BUILDKITE_ANALYTICS_BRANCH: ${{ github.head_ref || github.ref_name }}
+          BUILDKITE_ANALYTICS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
           path: |
-            ./packages/ui/playwright-report/
-            ./packages/ui/test-results/
+            ./packages/ui-svelte/playwright-report/
+            ./packages/ui-svelte/test-results/
           retention-days: 30

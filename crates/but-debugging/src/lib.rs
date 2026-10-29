@@ -1,6 +1,8 @@
-/// But Debugging contains utilities that aid in debugging gitbutler.
-/// Utilities defined inside of but-debugging should not be relied upon in
-/// tests or used in production code.
+//! But Debugging contains utilities that aid in debugging gitbutler.
+//!
+//! Utilities defined inside of but-debugging should not be relied upon in
+//! tests or used in production code.
+
 use std::{path::Path, process::Command};
 
 /// Options passed to `git log`

@@ -4,8 +4,8 @@
 	import FullscreenUtilityCard from "$lib/components/service/FullscreenUtilityCard.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { LOGIN_SERVICE } from "@gitbutler/shared/login/loginService";
-	import { AsyncButton, Button, chipToasts } from "@gitbutler/ui";
-	import { copyToClipboard } from "@gitbutler/ui/utils/clipboard";
+	import { AsyncButton, Button, chipToasts } from "@gitbutler/ui-svelte";
+	import { copyToClipboard } from "@gitbutler/ui-svelte/utils/clipboard";
 
 	const loginService = inject(LOGIN_SERVICE);
 	const BUILD_TYPE_PARAM = "bt";

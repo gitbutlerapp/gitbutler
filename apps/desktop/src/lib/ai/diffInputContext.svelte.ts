@@ -1,11 +1,11 @@
 import { isLockfile } from "@gitbutler/shared/lockfiles";
 import type { DiffInput } from "$lib/ai/service";
-import type { TreeChange } from "$lib/hunks/change";
 import type { ChangeDiff, DiffService } from "$lib/hunks/diffService.svelte";
 import type { SelectedFile } from "$lib/selection/key";
 import type { UncommittedService } from "$lib/selection/uncommittedService.svelte";
 import type { StackService } from "$lib/stacks/stackService.svelte";
 import type { WorktreeService } from "$lib/worktree/worktreeService.svelte";
+import type { TreeChange } from "@gitbutler/but-sdk";
 
 export type DiffInputContextType = "commit" | "change-selection" | "file-selection";
 
@@ -106,11 +106,17 @@ export default class DiffInputContext {
 		return this.args.uncommittedService.filterDiffsBasedOnSelection(diffs, this.args.stackId);
 	}
 
+	/** The linked worktree uncommitted changes are read from, if any. */
+	private get worktree(): string | undefined {
+		if (this.args.type !== "change-selection") return undefined;
+		return this.args.uncommittedService.worktree;
+	}
+
 	private async diffs(): Promise<ChangeDiff[] | undefined> {
 		const changes = await this.changes();
 		if (!changes) return undefined;
 
-		const diffs = await this.diffService.fetchChanges(this.args.projectId, changes);
+		const diffs = await this.diffService.fetchChanges(this.args.projectId, changes, this.worktree);
 		return this.filterIrrelevantHunks(diffs);
 	}
 

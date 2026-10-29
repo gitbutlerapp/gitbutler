@@ -15,11 +15,13 @@ legacy = ["dep:gitbutler-oplog"]
 
 [dependencies]
 but-ctx.workspace = true
+but-core.workspace = true
 
 gitbutler-oplog = { workspace = true, optional = true }
 
 gix.workspace = true
 anyhow.workspace = true
+tracing.workspace = true
 
 [lints]
 workspace = true

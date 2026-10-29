@@ -50,6 +50,7 @@ use std::{
     path::PathBuf,
 };
 
+use boolean_enums::gen_boolean_enum;
 use bstr::{BString, ByteSlice};
 use gix::{
     object::tree::EntryKind, refs::FullNameRef,
@@ -61,13 +62,20 @@ use serde::Serialize;
 pub mod diff;
 /// Fundamental data types for reuse
 mod diff_types;
+pub mod index;
 pub use diff_types::{DiffSpec, HunkHeader, ModeFlags};
 
 mod hunks;
-pub use hunks::{HunkRange, apply_hunks};
+pub use hunks::{
+    HunkRange, SingleHunk, apply_hunks, changes_with_hunks, diff_spec_with_changes,
+    diff_specs_with_changes, hunks_from_changes, worktree_hunks,
+};
 
 /// Commit related utility types.
 pub mod commit;
+
+/// The generic changeset-similarity engine, used to detect when two commits represent the same change.
+pub mod changeset;
 
 /// Utilities related to branches
 pub mod branch;
@@ -91,9 +99,13 @@ pub mod unified_diff;
 /// utilities for command-invocation.
 pub mod cmd;
 
+/// Utilities for running Git hooks.
+pub mod hooks;
+
 /// Various settings
 pub mod settings;
 pub use settings::git::types::GitConfigSettings;
+pub use settings::git::ui::{GitHubStackingMode, ReviewStackingDescription};
 
 pub mod snapshot;
 
@@ -114,7 +126,10 @@ mod ext;
 pub use ext::ObjectStorageExt;
 
 mod repo_ext;
-pub use repo_ext::RepositoryExt;
+pub use repo_ext::{RepositoryExt, update_head_reference};
+
+/// The legacy single-workspace reference used by GitButler.
+pub const WORKSPACE_REF_NAME: &str = "refs/heads/gitbutler/workspace";
 
 /// Return `true` if `ref_name` looks like the standard GitButler workspace.
 ///
@@ -122,9 +137,10 @@ pub use repo_ext::RepositoryExt;
 /// check for the presence of workspace ref-metadata.
 ///
 /// TODO: no special handling by branch-name should be needed, it's all in the ref-metadata.
+///
+/// `but_db::worktrees` keeps a hand-copy of this to stay off but-core; change both.
 pub fn is_workspace_ref_name(ref_name: &FullNameRef) -> bool {
-    ref_name.as_bstr() == "refs/heads/gitbutler/workspace"
-        || ref_name.as_bstr() == "refs/heads/gitbutler/integration"
+    ref_name == WORKSPACE_REF_NAME || ref_name == "refs/heads/gitbutler/integration"
 }
 
 /// A utility to extract the name of the remote from a remote tracking ref with `ref_name`,
@@ -135,7 +151,7 @@ pub fn is_workspace_ref_name(ref_name: &FullNameRef) -> bool {
 /// and as such are sorted in ascending order by length.
 pub fn extract_remote_name_and_short_name(
     ref_name: &gix::refs::FullNameRef,
-    remote_names: &gix::remote::Names<'_>,
+    remote_names: &gix::remote::Names,
 ) -> Option<(String, BString)> {
     let (category, shorthand_name) = ref_name.category_and_short_name()?;
     if !matches!(category, gix::refs::Category::RemoteBranch) {
@@ -176,9 +192,7 @@ pub trait RefMetadata {
     ///
     /// If not, they are dangling, and can then be downcast to their actual type to deal with them in some way,
     /// either by [removing](Self::remove) them, or by re-associating them with an existing reference.
-    fn iter(
-        &self,
-    ) -> impl Iterator<Item = anyhow::Result<(gix::refs::FullName, Box<dyn Any>)>> + '_;
+    fn iter(&self) -> impl Iterator<Item = anyhow::Result<(gix::refs::FullName, Box<dyn Any>)>>;
 
     /// Retrieve workspace metadata for `ref_name` or create it if it wasn't present yet.
     fn workspace(
@@ -229,10 +243,77 @@ pub trait RefMetadata {
     /// Set branch metadata to match `value`.
     fn set_branch(&mut self, value: &Self::Handle<ref_metadata::Branch>) -> anyhow::Result<()>;
 
+    /// Return the ordered local branch refs in the same stack as `ref_name`, from tip to base.
+    ///
+    /// Implementations that don't persist branch stack order can return `Ok(None)`.
+    ///
+    /// This is best-effort: the returned refs may include entries for branches that no longer
+    /// exist if pruning hasn't run since they were deleted (see
+    /// [`Self::remove_missing_branch_stack_order_references`]). Callers must treat the result as a
+    /// hint and validate each ref against the repository, ignoring any that don't resolve, rather
+    /// than assuming every entry is live.
+    fn branch_stack_order(
+        &self,
+        _ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Option<Vec<gix::refs::FullName>>> {
+        Ok(None)
+    }
+
+    /// Persist the ordered local branch refs for an ad-hoc/single-branch stack, from tip to base.
+    ///
+    /// Implementations that don't persist branch stack order should return an error.
+    fn set_branch_stack_order(&mut self, _branches: &[gix::refs::FullName]) -> anyhow::Result<()> {
+        anyhow::bail!("This metadata backend doesn't support branch stack order")
+    }
+
+    /// Return `true` if this backend can persist ad-hoc/single-branch stack order.
+    fn can_persist_branch_stack_order(&self) -> bool {
+        false
+    }
+
+    /// Rename a local branch ref in persisted ad-hoc/single-branch stack order metadata.
+    ///
+    /// Implementations that don't persist branch stack order can ignore this.
+    fn rename_branch_stack_order_reference(
+        &mut self,
+        _old_ref_name: &gix::refs::FullNameRef,
+        _new_ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    /// Remove persisted ad-hoc/single-branch stack order entries for refs that no longer exist.
+    ///
+    /// `existing_ref_names` must contain the complete set of existing local branch refs.
+    /// Implementations that don't persist branch stack order can ignore this.
+    fn remove_missing_branch_stack_order_references(
+        &mut self,
+        _existing_ref_names: &[gix::refs::FullName],
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
     /// Delete the metadata associated with the given `ref_name` and return `true` if it existed, or `false` otherwise.
     ///
     /// It is OK to delete something that doesn't exist.
     fn remove(&mut self, ref_name: &gix::refs::FullNameRef) -> anyhow::Result<bool>;
+
+    /// Move all metadata associated with `old_ref_name` over to `new_ref_name`.
+    ///
+    /// This carries over any per-branch metadata blob and renames the persisted branch-stack-order
+    /// entry (see [`rename_branch_stack_order_reference`](Self::rename_branch_stack_order_reference)).
+    ///
+    /// It is OK to rename a `ref_name` that has no metadata, and renaming onto itself is a no-op.
+    ///
+    /// There is deliberately no default implementation: a generic one built from `branch` +
+    /// `set_branch` + `remove` would copy per-branch metadata into a *new* standalone stack and tear
+    /// the branch out of its existing one, fragmenting managed stacks. Each backend must move its
+    /// metadata in place instead.
+    fn rename(
+        &mut self,
+        old_ref_name: &gix::refs::FullNameRef,
+        new_ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<()>;
 }
 
 /// A decoded commit object with easy access to additional GitButler information.
@@ -297,10 +378,10 @@ pub enum Reference {
 impl std::fmt::Display for Reference {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Reference::Git(r) => {
-                let s = r.to_string();
-                s.strip_prefix("refs/heads/").unwrap_or_default().fmt(f)
-            }
+            Reference::Git(r) => match r.category_and_short_name() {
+                Some((gix::refs::Category::LocalBranch, short_name)) => short_name.fmt(f),
+                _ => "".fmt(f),
+            },
             Reference::Virtual(r) => r.fmt(f),
         }
     }
@@ -407,7 +488,7 @@ pub struct ChangeState {
 }
 
 /// The status we can't handle, which always originated in the worktree.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub enum IgnoredWorktreeTreeChangeStatus {
     /// A conflicting entry in the index. The worktree state of the entry is unclear.
@@ -422,7 +503,7 @@ pub enum IgnoredWorktreeTreeChangeStatus {
 but_schemars::register_sdk_type!(IgnoredWorktreeTreeChangeStatus);
 
 /// A way to indicate that a path in the index isn't suitable for committing and needs to be dealt with.
-#[derive(Clone, Serialize)]
+#[derive(Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub struct IgnoredWorktreeChange {
     /// The worktree-relative path to the change.
@@ -450,3 +531,7 @@ pub struct WorktreeChanges {
     /// The conflicting index entries, along with their relative path `(rela_path, [Entries(base, ours, theirs)])`.
     pub index_conflicts: Vec<(BString, Box<[Option<ConflictIndexEntry>; 3]>)>,
 }
+
+// Represents whether an operation should be materialized on disk or remain in
+// memory.
+gen_boolean_enum!(pub serde DryRun);

@@ -15,11 +15,14 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph},
 };
 
+use crate::tui::TerminalGuard as _;
+
 // ── Hard wrap utility for commit messages ───────────────────────────────────
 
 /// Hard wraps commit message text at 72 characters.
-/// First line is preserved as-is (the summary line), subsequent lines are wrapped.
-fn hard_wrap_commit_message(text: &str) -> String {
+/// First line is preserved as-is (the summary line), subsequent lines are wrapped,
+/// except for comment lines starting with `comment_prefix`.
+pub(super) fn hard_wrap_commit_message(text: &str, comment_prefix: &str) -> String {
     let lines: Vec<&str> = text.lines().collect();
     if lines.is_empty() {
         return String::new();
@@ -35,7 +38,7 @@ fn hard_wrap_commit_message(text: &str) -> String {
     // Process remaining lines
     for line in lines.iter().skip(1) {
         // Empty lines and comment lines are preserved
-        if line.trim().is_empty() || line.trim_start().starts_with('#') {
+        if line.trim().is_empty() || line.starts_with(comment_prefix) {
             result.push(line.to_string());
             continue;
         }
@@ -224,13 +227,7 @@ impl EditorApp {
     }
 
     fn content(&self) -> String {
-        let text = self.lines.join("\n");
-        // Apply hard wrap for commit messages
-        if self.mode == EditorMode::CommitMessage {
-            hard_wrap_commit_message(&text)
-        } else {
-            text
-        }
+        self.lines.join("\n")
     }
 
     // ── Cursor helpers ───────────────────────────────────────────────────
@@ -581,10 +578,8 @@ impl EditorApp {
         match ev {
             Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
                 KeyCode::Esc => self.active_menu = None,
-                KeyCode::Up => {
-                    if self.menu_item_index > 0 {
-                        self.menu_item_index -= 1;
-                    }
+                KeyCode::Up if self.menu_item_index > 0 => {
+                    self.menu_item_index -= 1;
                 }
                 KeyCode::Down => {
                     if let Some(mi) = self.active_menu {
@@ -1074,7 +1069,7 @@ pub fn run_builtin_editor(
     initial_content: &str,
     mode: EditorMode,
 ) -> anyhow::Result<Option<String>> {
-    let mut guard = super::TerminalGuard::new(true)?;
+    let mut guard = super::CrosstermTerminalGuard::alt_screen(true)?;
     let mut app = EditorApp::new(filename, initial_content, mode);
 
     loop {
@@ -1117,4 +1112,27 @@ pub fn edit_file(path: &std::path::Path) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::hard_wrap_commit_message;
+
+    #[test]
+    fn hard_wrap_keeps_comment_lines_with_custom_prefix_intact() {
+        let comment = format!("; {}", "word ".repeat(20));
+        let body = "word ".repeat(20);
+        let wrapped = hard_wrap_commit_message(&format!("summary\n\n{body}\n{comment}"), ";");
+
+        assert!(
+            wrapped.ends_with(&format!("\n{comment}")),
+            "the long ';' comment line is kept whole: {wrapped}"
+        );
+        assert!(
+            wrapped
+                .lines()
+                .all(|line| line.len() <= 72 || line == comment),
+            "non-comment lines are wrapped at 72 columns"
+        );
+    }
 }

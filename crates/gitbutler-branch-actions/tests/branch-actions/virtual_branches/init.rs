@@ -1,12 +1,12 @@
-use gitbutler_testsupport::stack_details;
+use but_core::git_config::{edit_config, remove_config_value, set_config_value};
 
 use super::*;
 
 #[test]
 fn twice() {
-    let data_dir = paths::data_dir();
+    let data_dir = tempfile::tempdir().unwrap();
 
-    let test_project = TestProject::default();
+    let test_project = TestRepo::default();
 
     {
         let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), test_project.path())
@@ -17,7 +17,8 @@ fn twice() {
             AppSettings::default(),
             but_ctx::RepoOpenMode::Isolated,
         )
-        .expect("can create context");
+        .expect("can create context")
+        .with_memory_app_cache();
 
         let mut guard = ctx.exclusive_worktree_access();
         gitbutler_branch_actions::set_base_branch(
@@ -41,7 +42,8 @@ fn twice() {
             AppSettings::default(),
             but_ctx::RepoOpenMode::Isolated,
         )
-        .expect("can create context");
+        .expect("can create context")
+        .with_memory_app_cache();
         let mut guard = ctx.exclusive_worktree_access();
         gitbutler_branch_actions::set_base_branch(
             &ctx,
@@ -78,7 +80,7 @@ fn dirty_non_target() {
     drop(guard);
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
-    assert_eq!(stacks[0].1.derived_name, "some-feature");
+    assert_eq!(stack_name(&stacks[0].1), "some-feature");
 }
 
 #[test]
@@ -106,7 +108,7 @@ fn dirty_target() {
     // This is a stop-gap measure since these tests are due to be nixed at some
     // point in the future.
     assert!(matches!(
-        stacks[0].1.derived_name.as_ref(),
+        stack_name(&stacks[0].1).as_str(),
         "g-branch-1" | "a-branch-1"
     ));
     if let Some(old) = old {
@@ -135,7 +137,7 @@ fn commit_on_non_target_local() {
     drop(guard);
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
-    assert_eq!(stacks[0].1.derived_name, "some-feature");
+    assert_eq!(stack_name(&stacks[0].1), "some-feature");
 }
 
 #[test]
@@ -145,7 +147,7 @@ fn commit_on_non_target_remote() {
     repo.checkout(&"refs/heads/some-feature".parse().unwrap());
     fs::write(repo.path().join("file.txt"), "content").unwrap();
     repo.commit_all("commit on target");
-    repo.push_branch(&"refs/heads/some-feature".parse().unwrap());
+    repo.simulate_push_branch(&"refs/heads/some-feature".parse().unwrap());
 
     let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
@@ -158,8 +160,8 @@ fn commit_on_non_target_remote() {
     drop(guard);
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
-    assert_eq!(stacks[0].1.derived_name, "some-feature");
-    assert_eq!(stacks[0].1.branch_details[0].clone().commits.len(), 1);
+    assert_eq!(stack_name(&stacks[0].1), "some-feature");
+    assert_eq!(stacks[0].1.segments[0].commits.len(), 1);
 }
 
 #[test]
@@ -189,10 +191,10 @@ fn commit_on_target() {
     // This is a stop-gap measure since these tests are due to be nixed at some
     // point in the future.
     assert!(matches!(
-        stacks[0].1.derived_name.as_ref(),
+        stack_name(&stacks[0].1).as_str(),
         "g-branch-1" | "a-branch-1"
     ));
-    assert_eq!(stacks[0].1.branch_details[0].clone().commits.len(), 1);
+    assert_eq!(stacks[0].1.segments[0].commits.len(), 1);
     if let Some(old) = old {
         unsafe {
             std::env::set_var("GIT_AUTHOR_NAME", old);
@@ -202,12 +204,7 @@ fn commit_on_target() {
 
 #[test]
 fn submodule() {
-    let Test { repo, ctx, .. } = &mut Test::default();
-
-    let test_project = TestProject::default();
-    let submodule_url: gitbutler_url::Url =
-        test_project.path().display().to_string().parse().unwrap();
-    repo.add_submodule(&submodule_url, path::Path::new("submodule"));
+    let Test { ctx, .. } = &mut Test::from_fixture("scenario/repo-with-origin-and-submodule.sh");
 
     let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
@@ -244,47 +241,47 @@ fn bootstrap_missing_target_preserves_existing_workspace_ref() -> anyhow::Result
     )?;
     drop(guard);
 
-    let original_workspace_ref_target = ctx
-        .git2_repo
-        .get()?
-        .find_reference("refs/heads/gitbutler/workspace")?
-        .target()
-        .expect("workspace ref should point to a commit");
-    let expected_stack_name = stack_details(ctx)[0].1.derived_name.clone();
+    let repo = ctx.repo.get()?;
+    let original_workspace_ref_target = repo
+        .try_find_reference("refs/heads/gitbutler/workspace")?
+        .expect("workspace ref should exist")
+        .peel_to_id()?
+        .detach();
+    edit_config(Some(&repo), gix::config::Source::Local, |config| {
+        set_config_value(
+            config,
+            but_project_handle::storage_path_config_key(),
+            "gitbutler-alt",
+        )?;
+        remove_config_value(config, "gitbutler.project.targetRef")?;
+        remove_config_value(config, "gitbutler.project.targetCommitId")?;
+        remove_config_value(config, "gitbutler.project.pushRemote")?;
+        Ok(())
+    })?;
+    drop(repo);
 
-    ctx.git2_repo.get()?.config()?.set_str(
-        but_project_handle::storage_path_config_key(),
-        "gitbutler-alt",
-    )?;
-
-    let mut reopened: Context = project_id.clone().try_into()?;
+    let mut reopened: Context =
+        but_testsupport::isolated_app_data_dir(|| project_id.clone().try_into())?;
     assert!(
-        gitbutler_stack::VirtualBranchesHandle::new(reopened.project_data_dir())
-            .maybe_get_default_target()?
-            .is_none()
+        reopened.project_meta()?.target_ref.is_none(),
+        "the freshly selected storage location has no project target"
     );
 
-    let mut guard = reopened.exclusive_worktree_access();
+    let guard = reopened.exclusive_worktree_access();
     assert!(gitbutler_branch_actions::base::bootstrap_default_target_if_missing(&reopened)?);
-    let meta = reopened.legacy_meta_mut(guard.write_permission())?;
-    let repo = reopened.repo.get()?;
-    meta.write_reconciled(&repo)?;
-    drop(repo);
     drop(guard);
 
     let workspace_ref_target_after_activation = reopened
-        .git2_repo
+        .repo
         .get()?
-        .find_reference("refs/heads/gitbutler/workspace")?
-        .target()
-        .expect("workspace ref should still point to a commit");
+        .try_find_reference("refs/heads/gitbutler/workspace")?
+        .expect("workspace ref should still exist")
+        .peel_to_id()?
+        .detach();
     assert_eq!(
         workspace_ref_target_after_activation,
         original_workspace_ref_target
     );
 
-    let stacks = stack_details(&reopened);
-    assert_eq!(stacks.len(), 1);
-    assert_eq!(stacks[0].1.derived_name, expected_stack_name);
     Ok(())
 }

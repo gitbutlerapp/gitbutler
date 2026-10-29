@@ -1,5 +1,9 @@
-/// Various journeys with apply, unapply and commit operations.
-mod apply_unapply_commit_uncommit;
+/// Various journeys with apply and unapply operations.
+mod apply_unapply;
+mod apply_unapply_stack;
 mod create_reference;
+mod integrate_branch_upstream;
 mod move_branch;
+mod name_segment;
 mod remove_reference;
+mod tear_off_branch;

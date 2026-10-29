@@ -1,0 +1,668 @@
+use std::{
+    collections::{BTreeMap, BTreeSet, HashSet},
+    path::Path,
+};
+
+use anyhow::{Context as _, Result, bail};
+use chrono::{DateTime, Utc};
+use git_meta_lib::{MetaValue, SessionTargetHandle};
+use serde::Deserialize;
+use serde_json::Value;
+
+use crate::environment::{is_public_repo_path, path_fingerprint};
+
+use super::{
+    IndexHit, PublicationStatus, SESSION_PREFIX, SessionListEntry, StoredBranchSnapshot,
+    StoredCommitSnapshot, StoredEnvironmentSnapshot, StoredObservedTargets,
+    read_support::{
+        read_optional_turn_detail, read_transcript_entries, read_turn_detail, read_turn_summaries,
+        transcript_records_by_hash, with_project_target,
+    },
+    session_outline::{RelatedSession, related_session_outline},
+    session_storage_prefix, status_index_key,
+};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RelatedTarget<'a> {
+    Branch(&'a str),
+    Review(&'a str),
+    Change(&'a str),
+}
+
+impl<'a> RelatedTarget<'a> {
+    fn index_kind(self) -> &'static str {
+        match self {
+            RelatedTarget::Branch(_) => "branch",
+            RelatedTarget::Review(_) => "review",
+            RelatedTarget::Change(_) => "change",
+        }
+    }
+
+    fn key(self) -> &'a str {
+        match self {
+            RelatedTarget::Branch(key)
+            | RelatedTarget::Review(key)
+            | RelatedTarget::Change(key) => key,
+        }
+    }
+}
+
+fn session_list_entry(
+    handle: &SessionTargetHandle<'_>,
+    status: PublicationStatus,
+    session_key: String,
+) -> Result<SessionListEntry> {
+    let session_prefix = session_storage_prefix(status, &session_key);
+    let updated_at_key = format!("{session_prefix}:updated-at");
+    let updated_at = match handle
+        .get_value(&updated_at_key)
+        .with_context(|| format!("failed to read GitMeta key '{updated_at_key}'"))?
+    {
+        None => bail!("existing session '{session_key}' is missing updated-at"),
+        Some(MetaValue::String(updated_at)) => updated_at,
+        Some(_) => bail!("existing GitMeta key '{updated_at_key}' is not a string"),
+    };
+    let sort_updated_at = DateTime::parse_from_rfc3339(&updated_at)
+        .with_context(|| format!("existing GitMeta key '{updated_at_key}' has invalid timestamp"))?
+        .with_timezone(&Utc);
+    Ok(SessionListEntry {
+        session_key,
+        status,
+        updated_at,
+        sort_updated_at,
+    })
+}
+
+pub(crate) fn find_related_sessions_limited(
+    repo_path: &Path,
+    target: RelatedTarget<'_>,
+    max_sessions: Option<usize>,
+) -> Result<Vec<RelatedSession>> {
+    find_related_sessions_limited_by_statuses(
+        repo_path,
+        target,
+        max_sessions,
+        &[PublicationStatus::Published],
+    )
+}
+
+pub(crate) fn find_related_sessions_limited_by_statuses(
+    repo_path: &Path,
+    target: RelatedTarget<'_>,
+    max_sessions: Option<usize>,
+    statuses: &[PublicationStatus],
+) -> Result<Vec<RelatedSession>> {
+    with_project_target(repo_path, |handle| {
+        let mut matches = Vec::new();
+        for &status in statuses {
+            for (session_key, related_turn_keys) in
+                verified_related_turns_by_session(handle, target, status)?
+            {
+                let entry = session_list_entry(handle, status, session_key)?;
+                matches.push((entry, related_turn_keys));
+            }
+        }
+        matches.sort_by(|(lhs, _), (rhs, _)| {
+            rhs.sort_updated_at
+                .cmp(&lhs.sort_updated_at)
+                .then_with(|| lhs.status.as_str().cmp(rhs.status.as_str()))
+                .then_with(|| lhs.session_key.cmp(&rhs.session_key))
+        });
+        if let Some(max_sessions) = max_sessions {
+            matches.truncate(max_sessions);
+        }
+        matches
+            .into_iter()
+            .map(|(entry, related_turn_keys)| {
+                related_session_outline(handle, entry, related_turn_keys)
+            })
+            .collect()
+    })
+}
+
+pub(crate) fn find_session_status(
+    repo_path: &Path,
+    session_key: &str,
+) -> Result<Option<PublicationStatus>> {
+    with_project_target(repo_path, |handle| {
+        for status in [PublicationStatus::Published, PublicationStatus::LocalOnly] {
+            let schema_key = status.storage_key(&format!("{SESSION_PREFIX}:{session_key}:schema"));
+            if handle
+                .get_value(&schema_key)
+                .with_context(|| format!("failed to read GitMeta key '{schema_key}'"))?
+                .is_some()
+            {
+                return Ok(Some(status));
+            }
+        }
+        Ok(None)
+    })
+}
+
+fn verified_related_turns_by_session(
+    handle: &SessionTargetHandle<'_>,
+    target: RelatedTarget<'_>,
+    status: PublicationStatus,
+) -> Result<BTreeMap<String, Vec<String>>> {
+    let mut indexed_turns = BTreeMap::<String, HashSet<String>>::new();
+    let mut session_activity_matches = BTreeMap::<String, bool>::new();
+    for hit in target_index_hits(handle, target, status)? {
+        let Ok(hit) = serde_json::from_str::<IndexHit>(&hit) else {
+            continue;
+        };
+        if turn_detail_observes_target(handle, &hit, target, status, &mut session_activity_matches)?
+        {
+            indexed_turns
+                .entry(hit.session_key)
+                .or_default()
+                .insert(hit.turn_key);
+        }
+    }
+
+    let mut by_session = BTreeMap::new();
+    for (session_key, turn_keys) in indexed_turns {
+        let ordered_turn_keys =
+            ordered_existing_turn_keys(handle, &session_key, status, &turn_keys)?;
+        if !ordered_turn_keys.is_empty() {
+            by_session.insert(session_key, ordered_turn_keys);
+        }
+    }
+    Ok(by_session)
+}
+
+fn ordered_existing_turn_keys(
+    handle: &SessionTargetHandle<'_>,
+    session_key: &str,
+    status: PublicationStatus,
+    turn_keys: &HashSet<String>,
+) -> Result<Vec<String>> {
+    let turns_key = format!("{}:turns", session_storage_prefix(status, session_key));
+    Ok(read_turn_summaries(handle, &turns_key)?
+        .into_iter()
+        .filter_map(|summary| {
+            if turn_keys.contains(&summary.turn_key) {
+                Some(summary.turn_key)
+            } else {
+                None
+            }
+        })
+        .collect())
+}
+
+fn target_index_hits(
+    handle: &SessionTargetHandle<'_>,
+    target: RelatedTarget<'_>,
+    status: PublicationStatus,
+) -> Result<BTreeSet<String>> {
+    let index_key = status_index_key(status, target.index_kind(), target.key());
+    let Some(value) = handle
+        .get_value(&index_key)
+        .with_context(|| format!("failed to read GitMeta key '{index_key}'"))?
+    else {
+        return Ok(BTreeSet::new());
+    };
+    let MetaValue::Set(index_hits) = value else {
+        bail!("existing GitMeta key '{index_key}' is not a set");
+    };
+    Ok(index_hits)
+}
+
+fn turn_detail_observes_target(
+    handle: &SessionTargetHandle<'_>,
+    hit: &IndexHit,
+    target: RelatedTarget<'_>,
+    status: PublicationStatus,
+    session_activity_matches: &mut BTreeMap<String, bool>,
+) -> Result<bool> {
+    let detail_key = format!(
+        "{}:turn:{}",
+        session_storage_prefix(status, &hit.session_key),
+        hit.turn_key
+    );
+    let Some(detail) = read_optional_turn_detail(handle, &detail_key)? else {
+        return Ok(false);
+    };
+    if !observed_targets_observe(&detail.observed_targets, target)
+        && !session_associations_observe_target(handle, &hit.session_key, status, target)?
+    {
+        return Ok(false);
+    }
+    if let Some(matches) = session_activity_matches.get(&hit.session_key) {
+        return Ok(*matches);
+    }
+    let matches = session_has_target_activity(handle, &hit.session_key, status, target)?;
+    session_activity_matches.insert(hit.session_key.clone(), matches);
+    Ok(matches)
+}
+
+fn observed_targets_observe(targets: &StoredObservedTargets, target: RelatedTarget<'_>) -> bool {
+    match target {
+        RelatedTarget::Branch(key) => targets.branches.iter().any(|target| target.key == key),
+        RelatedTarget::Review(key) => targets.reviews.iter().any(|target| target.key == key),
+        RelatedTarget::Change(key) => targets.changes.iter().any(|target| target.key == key),
+    }
+}
+
+fn session_associations_observe_target(
+    handle: &SessionTargetHandle<'_>,
+    session_key: &str,
+    status: PublicationStatus,
+    target: RelatedTarget<'_>,
+) -> Result<bool> {
+    let associated_targets_key = format!(
+        "{}:associated-targets",
+        session_storage_prefix(status, session_key)
+    );
+    let Some(value) = handle
+        .get_value(&associated_targets_key)
+        .with_context(|| format!("failed to read GitMeta key '{associated_targets_key}'"))?
+    else {
+        return Ok(false);
+    };
+    let MetaValue::String(value) = value else {
+        bail!("existing GitMeta key '{associated_targets_key}' is not a string");
+    };
+    let targets: StoredSessionAssociations = serde_json::from_str(&value).with_context(|| {
+        format!("existing GitMeta key '{associated_targets_key}' has invalid JSON")
+    })?;
+    Ok(targets.observes(target))
+}
+
+#[derive(Deserialize)]
+struct StoredSessionAssociations {
+    #[serde(default)]
+    branches: BTreeSet<String>,
+    #[serde(default)]
+    reviews: BTreeSet<String>,
+    #[serde(default)]
+    changes: BTreeSet<String>,
+}
+
+impl StoredSessionAssociations {
+    fn observes(&self, target: RelatedTarget<'_>) -> bool {
+        match target {
+            RelatedTarget::Branch(key) => self.branches.contains(key),
+            RelatedTarget::Review(key) => self.reviews.contains(key),
+            RelatedTarget::Change(key) => self.changes.contains(key),
+        }
+    }
+}
+
+fn session_has_target_activity(
+    handle: &SessionTargetHandle<'_>,
+    session_key: &str,
+    status: PublicationStatus,
+    target: RelatedTarget<'_>,
+) -> Result<bool> {
+    let session_prefix = session_storage_prefix(status, session_key);
+    let summaries = read_turn_summaries(handle, &format!("{session_prefix}:turns"))?;
+    let turns = read_session_turn_details(handle, &session_prefix, &summaries)?;
+    let file_edit_hashes_by_turn =
+        session_file_edit_hashes_by_turn(handle, &session_prefix, &turns)?;
+    session_has_target_activity_from_turns(target, &turns, &file_edit_hashes_by_turn)
+}
+
+struct SessionTurnDetail {
+    turn_key: String,
+    detail: super::StoredTurnDetail,
+}
+
+fn read_session_turn_details(
+    handle: &SessionTargetHandle<'_>,
+    session_prefix: &str,
+    summaries: &[super::StoredTurnSummary],
+) -> Result<Vec<SessionTurnDetail>> {
+    summaries
+        .iter()
+        .map(|summary| {
+            let detail_key = format!("{session_prefix}:turn:{}", summary.turn_key);
+            Ok(SessionTurnDetail {
+                turn_key: summary.turn_key.clone(),
+                detail: read_turn_detail(handle, &detail_key)?,
+            })
+        })
+        .collect()
+}
+
+fn session_has_target_activity_from_turns(
+    target: RelatedTarget<'_>,
+    turns: &[SessionTurnDetail],
+    file_edit_hashes_by_turn: &BTreeMap<String, BTreeSet<String>>,
+) -> Result<bool> {
+    if let RelatedTarget::Review(review_key) = target
+        && let Some(branch_key) = pull_request_review_branch_key(review_key)
+        && session_has_target_activity_from_turns(
+            RelatedTarget::Branch(branch_key),
+            turns,
+            file_edit_hashes_by_turn,
+        )?
+    {
+        return Ok(true);
+    }
+
+    let mut saw_turn_before_target = false;
+    let mut previous_detail: Option<&super::StoredTurnDetail> = None;
+    let mut session_file_edit_hashes = BTreeSet::new();
+    for turn in turns {
+        let detail = &turn.detail;
+        if previous_detail.as_ref().is_some_and(|previous| {
+            environment_promotes_worktree_to_target(
+                &previous.environment,
+                &detail.environment,
+                target,
+                &session_file_edit_hashes,
+            )
+        }) {
+            return Ok(true);
+        }
+        if let Some(file_edit_hashes) = file_edit_hashes_by_turn.get(&turn.turn_key) {
+            session_file_edit_hashes.extend(file_edit_hashes.iter().cloned());
+        }
+        if observed_targets_observe(&detail.observed_targets, target) {
+            if saw_turn_before_target
+                && target_appearance_is_specific(&detail.observed_targets, target)
+            {
+                return Ok(true);
+            }
+        } else {
+            saw_turn_before_target = true;
+        }
+        previous_detail = Some(detail);
+    }
+    Ok(false)
+}
+
+fn pull_request_review_branch_key(review_key: &str) -> Option<&str> {
+    review_key
+        .strip_prefix("pull-request:")
+        .and_then(|review| review.rsplit_once('#').map(|(branch_key, _)| branch_key))
+}
+
+#[derive(Deserialize)]
+struct StoredTranscriptActivityRecord {
+    record_hash: String,
+    #[serde(default)]
+    tool_name: Option<String>,
+    #[serde(default)]
+    tool_kind: Option<String>,
+    #[serde(default)]
+    file_path_hashes: BTreeSet<String>,
+    #[serde(default)]
+    tool_input: Option<Value>,
+}
+
+impl StoredTranscriptActivityRecord {
+    fn is_file_edit(&self) -> bool {
+        self.tool_kind.as_deref() == Some("file_edit")
+            || matches!(
+                self.tool_name.as_deref(),
+                Some(
+                    "apply_patch"
+                        | "edit_file"
+                        | "write_file"
+                        | "str_replace"
+                        | "Edit"
+                        | "MultiEdit"
+                        | "Write"
+                )
+            )
+    }
+}
+
+fn session_file_edit_hashes_by_turn(
+    handle: &SessionTargetHandle<'_>,
+    session_prefix: &str,
+    turns: &[SessionTurnDetail],
+) -> Result<BTreeMap<String, BTreeSet<String>>> {
+    let mut needed_hashes = HashSet::new();
+    let mut turn_record_hashes = Vec::new();
+    for turn in turns {
+        let record_hashes = turn
+            .detail
+            .records
+            .iter()
+            .map(|record| record.record_hash.clone())
+            .collect::<Vec<_>>();
+        needed_hashes.extend(record_hashes.iter().cloned());
+        turn_record_hashes.push((turn.turn_key.clone(), record_hashes));
+    }
+    if needed_hashes.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+
+    let transcript_key = format!("{session_prefix}:transcript");
+    let records = transcript_records_by_hash(
+        read_transcript_entries(handle, &transcript_key)?,
+        &needed_hashes,
+        parse_activity_record,
+    );
+
+    let mut file_edit_hashes_by_turn = BTreeMap::new();
+    for (turn_key, record_hashes) in turn_record_hashes {
+        let mut file_edit_hashes = BTreeSet::new();
+        for record_hash in record_hashes {
+            let Some(record) = records.get(&record_hash) else {
+                continue;
+            };
+            if record.is_file_edit() {
+                file_edit_hashes.extend(record.file_path_hashes.iter().cloned());
+                file_edit_hashes.extend(file_edit_path_hashes(record.tool_input.as_ref()));
+            }
+        }
+        if !file_edit_hashes.is_empty() {
+            file_edit_hashes_by_turn.insert(turn_key, file_edit_hashes);
+        }
+    }
+    Ok(file_edit_hashes_by_turn)
+}
+
+fn parse_activity_record(raw: &str) -> Option<(String, StoredTranscriptActivityRecord)> {
+    let record = serde_json::from_str::<StoredTranscriptActivityRecord>(raw).ok()?;
+    Some((record.record_hash.clone(), record))
+}
+
+fn file_edit_path_hashes(input: Option<&Value>) -> BTreeSet<String> {
+    let mut hashes = BTreeSet::new();
+    let Some(input) = input else {
+        return hashes;
+    };
+
+    for field in ["path", "file_path", "filename"] {
+        if let Some(path) = input.get(field).and_then(Value::as_str) {
+            insert_public_path_hash(&mut hashes, path);
+        }
+    }
+
+    let patch = input
+        .get("patch")
+        .or_else(|| input.get("input"))
+        .or_else(|| input.get("content"))
+        .and_then(Value::as_str)
+        .or_else(|| input.as_str())
+        .unwrap_or_default();
+    for line in patch.lines().map(str::trim) {
+        for marker in [
+            "*** Update File: ",
+            "*** Add File: ",
+            "*** Delete File: ",
+            "*** Move to: ",
+        ] {
+            if let Some(path) = line.strip_prefix(marker) {
+                insert_public_path_hash(&mut hashes, path);
+            }
+        }
+    }
+
+    hashes
+}
+
+fn insert_public_path_hash(hashes: &mut BTreeSet<String>, path: &str) {
+    let path = path.trim();
+    if is_public_repo_path(path) {
+        hashes.insert(path_fingerprint(path));
+    }
+}
+
+fn target_appearance_is_specific(
+    targets: &StoredObservedTargets,
+    target: RelatedTarget<'_>,
+) -> bool {
+    match target {
+        RelatedTarget::Branch(_) => targets.branches.len() == 1,
+        RelatedTarget::Review(_) => targets.branches.len() <= 1,
+        RelatedTarget::Change(_) => targets.changes.len() == 1,
+    }
+}
+
+fn environment_promotes_worktree_to_target(
+    previous: &StoredEnvironmentSnapshot,
+    current: &StoredEnvironmentSnapshot,
+    target: RelatedTarget<'_>,
+    session_file_edit_hashes: &BTreeSet<String>,
+) -> bool {
+    // Strong association: files dirty in one turn show up in a new commit on the
+    // target in the next turn. In multi-branch workspaces, the dirty file must
+    // also have been edited by this session; otherwise shared worktree dirtiness
+    // can be credited to the wrong concurrent session.
+    if !environment_is_complete(previous) || !environment_is_complete(current) {
+        return false;
+    }
+    let Some(previous_worktree) = previous.worktree.as_ref() else {
+        return false;
+    };
+    let previous_worktree_files = previous_worktree
+        .files
+        .iter()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>();
+    if previous_worktree_files.is_empty() {
+        return false;
+    }
+    let previous_worktree_file_hashes = previous_worktree_files
+        .iter()
+        .map(|file| path_fingerprint(file))
+        .collect::<BTreeSet<_>>();
+    let requires_session_file_edit = environment_branches(current).count() > 1;
+
+    environment_branches(current).any(|branch| {
+        let previous_branch = match previous_branch_snapshot(previous, &branch.key) {
+            PreviousBranchSnapshot::Absent => KnownPreviousBranch::default(),
+            PreviousBranchSnapshot::Known(snapshot) => snapshot,
+            PreviousBranchSnapshot::Unknown => return false,
+        };
+        branch_matches_target(branch, target)
+            && branch.commits.iter().any(|commit| {
+                commit_matches_target(commit, target)
+                    && !previous_branch.commit_ids.contains(&commit.id)
+                    && commit_contains_worktree_file(
+                        commit,
+                        &previous_worktree_files,
+                        &previous_worktree_file_hashes,
+                        &previous_branch,
+                        session_file_edit_hashes,
+                        requires_session_file_edit,
+                    )
+            })
+    })
+}
+
+fn environment_is_complete(environment: &StoredEnvironmentSnapshot) -> bool {
+    environment.snapshot_status.as_deref() == Some("complete") && environment.error_kind.is_none()
+}
+
+enum PreviousBranchSnapshot {
+    Absent,
+    Known(KnownPreviousBranch),
+    Unknown,
+}
+
+#[derive(Default)]
+struct KnownPreviousBranch {
+    commit_ids: BTreeSet<String>,
+    file_hashes: BTreeSet<String>,
+    files: BTreeSet<String>,
+}
+
+fn commit_contains_worktree_file(
+    commit: &StoredCommitSnapshot,
+    previous_worktree_files: &BTreeSet<&str>,
+    previous_worktree_file_hashes: &BTreeSet<String>,
+    previous_branch: &KnownPreviousBranch,
+    session_file_edit_hashes: &BTreeSet<String>,
+    requires_session_file_edit: bool,
+) -> bool {
+    commit.file_hashes.iter().any(|hash| {
+        previous_worktree_file_hashes.contains(hash)
+            && !previous_branch.file_hashes.contains(hash)
+            && (!requires_session_file_edit || session_file_edit_hashes.contains(hash))
+    }) || commit.files.iter().any(|file| {
+        let path_fingerprint = path_fingerprint(file);
+        previous_worktree_files.contains(file.as_str())
+            && !previous_branch.files.contains(file)
+            && !previous_branch.file_hashes.contains(&path_fingerprint)
+            && (!requires_session_file_edit || session_file_edit_hashes.contains(&path_fingerprint))
+    })
+}
+
+fn environment_branches(
+    environment: &StoredEnvironmentSnapshot,
+) -> impl Iterator<Item = &StoredBranchSnapshot> {
+    environment
+        .stacks
+        .iter()
+        .flat_map(|stack| stack.branches.iter())
+}
+
+fn previous_branch_snapshot(
+    environment: &StoredEnvironmentSnapshot,
+    branch_key: &str,
+) -> PreviousBranchSnapshot {
+    let mut branch_exists = false;
+    let mut snapshot = KnownPreviousBranch::default();
+    for branch in environment_branches(environment).filter(|branch| branch.key == branch_key) {
+        branch_exists = true;
+        for commit in &branch.commits {
+            snapshot.commit_ids.insert(commit.id.clone());
+            snapshot
+                .file_hashes
+                .extend(commit.file_hashes.iter().cloned());
+            snapshot
+                .file_hashes
+                .extend(commit.files.iter().map(|file| path_fingerprint(file)));
+            snapshot.files.extend(commit.files.iter().cloned());
+        }
+    }
+    if !branch_exists {
+        PreviousBranchSnapshot::Absent
+    } else if snapshot.commit_ids.is_empty() {
+        PreviousBranchSnapshot::Unknown
+    } else {
+        PreviousBranchSnapshot::Known(snapshot)
+    }
+}
+
+fn branch_matches_target(branch: &StoredBranchSnapshot, target: RelatedTarget<'_>) -> bool {
+    match target {
+        RelatedTarget::Branch(key) => branch.key == key,
+        RelatedTarget::Review(key) => branch_reviews(branch).any(|review_key| review_key == key),
+        RelatedTarget::Change(_) => true,
+    }
+}
+
+fn branch_reviews(branch: &StoredBranchSnapshot) -> impl Iterator<Item = &str> {
+    branch
+        .legacy_review
+        .iter()
+        .chain(branch.reviews.iter())
+        .map(|review| review.key.as_str())
+}
+
+fn commit_matches_target(commit: &StoredCommitSnapshot, target: RelatedTarget<'_>) -> bool {
+    match target {
+        RelatedTarget::Branch(_) | RelatedTarget::Review(_) => true,
+        RelatedTarget::Change(key) => commit
+            .change
+            .as_ref()
+            .is_some_and(|change| change.key == key),
+    }
+}

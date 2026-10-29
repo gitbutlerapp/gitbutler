@@ -168,6 +168,24 @@ fn test_simple_command_mdx_generation() {
 }
 
 #[test]
+fn test_escapes_mdx_angle_brackets_in_argument_help() {
+    let cmd = Command::new("move").arg(
+        Arg::new("sources")
+            .help("Place <SOURCES> above <TARGET>. See <https://example.com>.")
+            .required(true),
+    );
+    let mdx = but_clap::generator::generate_command_mdx(&cmd);
+
+    assert!(
+        mdx.contains(
+            "Place &lt;SOURCES&gt; above &lt;TARGET&gt;. See \
+             [https://example.com](https://example.com)."
+        ),
+        "argument help must escape placeholders without breaking Rustdoc autolinks"
+    );
+}
+
+#[test]
 fn test_command_with_subcommands_mdx_generation() {
     let cmd = create_command_with_subcommands();
     let mdx = but_clap::generator::generate_command_mdx(&cmd);
@@ -315,4 +333,61 @@ fn test_frontmatter_only_first_line() {
 
     // But full description should be in the body
     assert!(mdx.contains("Second line of description\nThird line"));
+}
+
+#[test]
+fn test_replaces_rustdoc_hyperlink_in_long_about_with_mdx_compatible_link() {
+    let cmd = Command::new("hyperlink").long_about("Rustdoc hyperlink <https://example.com>");
+    let mdx = but_clap::generator::generate_command_mdx(&cmd);
+    assert!(
+        mdx.contains("[https://example.com](https://example.com)"),
+        "Rustdoc (raw markdown) hyperlink replaced with MDX compatible link"
+    );
+}
+
+#[test]
+fn test_help_topic_mdx_generation() {
+    use clap::CommandFactory;
+
+    let cmd = but::args::Args::command();
+    let help = cmd
+        .get_subcommands()
+        .find(|subcommand| subcommand.get_name() == "help")
+        .expect("help command exists");
+    let topic = help
+        .get_subcommands()
+        .find(|subcommand| subcommand.get_name() == "cli-ids")
+        .expect("CLI IDs topic command exists");
+    let mdx = but_clap::generator::generate_topic_mdx(topic, &[help.get_name(), topic.get_name()]);
+
+    assert!(mdx.contains("title: \"`but help cli-ids`\""));
+    assert!(mdx.contains("description: \"Smart IDs to reference commits, branches and more"));
+    assert!(mdx.contains("Most but not all commands accept CLI IDs"));
+    assert!(mdx.contains("**Usage:** `but help cli-ids`"));
+}
+
+#[test]
+fn test_help_topic_doc_filenames_are_unique() {
+    use std::collections::HashSet;
+
+    use clap::CommandFactory;
+
+    let cmd = but::args::Args::command();
+    let help = cmd
+        .get_subcommands()
+        .find(|subcommand| subcommand.get_name() == "help")
+        .expect("help command exists");
+
+    let mut filenames = HashSet::new();
+    for topic in help.get_subcommands() {
+        let filename = format!("but-help-{}.mdx", topic.get_name());
+        assert!(
+            !filename.is_empty(),
+            "topic doc filename should not be empty"
+        );
+        assert!(
+            filenames.insert(filename),
+            "topic doc filenames should be unique"
+        );
+    }
 }

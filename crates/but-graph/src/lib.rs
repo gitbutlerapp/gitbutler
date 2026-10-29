@@ -32,7 +32,7 @@
 //! Besides that, operating on a graph, despite its own complexities, is finally aligning the mental model of the programmer
 //! with what's actually there, for algorithms suitable to perform the job correctly.
 //!
-//! All this makes the Graph the **new core data-structure** that is the world of GitButler and upon which visualisations and
+//! All this makes the Graph the **new core data-structure** that is the world of GitButler and upon which visualizations and
 //! mutation operations are based.
 //!
 //! ### New Workspace Concepts
@@ -67,7 +67,7 @@
 //!
 //! #### Managed Workspaces, and unmanaged ones
 //!
-//! A Workspace is considered managed if it [has workspace metadata](projection::Workspace::metadata). This is typically
+//! A Workspace is considered managed if it [has workspace metadata](Workspace::metadata). This is typically
 //! only the case for workspaces that have been created by GitButler.
 //!
 //! Workspaces without such metadata can be anything, and are usually just made up to allow GitButler to work with it based
@@ -90,7 +90,7 @@
 //! contained within it. Thus, [segment flags](Segment::non_empty_flags_of_first_commit()) are equivalent to the flags of
 //! their first commit.
 //!
-//! The same is *not* true for [stack segments](projection::StackSegment), i.e. segments within a [workspace projection](projection::Workspace).
+//! The same is *not* true for [stack segments](workspace::StackSegment), i.e. segments within a [workspace projection](Workspace).
 //! The reason for this is that they are first-parent aggregations of one *or more* [graph segments](Segment), and thus have multiple
 //! sets of flags, possibly one per [segment](Segment).
 //!
@@ -154,7 +154,7 @@
 //! first commit in `gitbutler/workspace` effectively. The other references aren't participating in the traversal.
 //!
 //! The tip that finds the commit first is dependent on various factors, and it could also happen that `origin/main` finds
-//! it first. In any case, this needs to be adjusted after traversal in the process called *reconiliation*, so the graph
+//! it first. In any case, this needs to be adjusted after traversal in the process called *reconciliation*, so the graph
 //! matches what our [workspace metadata](but_core::ref_metadata::Workspace::stacks) says it should be.
 //!
 //! After reconciling, the graph would become this:
@@ -201,12 +201,21 @@
 mod segment;
 /// Use this for basic types like [`petgraph::Direction`], and graph algorithms.
 pub use petgraph;
-pub use segment::{Commit, CommitFlags, RefInfo, Segment, SegmentFlags, SegmentMetadata, Worktree};
+pub use segment::{
+    Commit, CommitFlags, RefInfo, Segment, SegmentFlags, SegmentMetadata, StopCondition, Worktree,
+    WorktreeKind,
+};
 
 mod api;
+pub use api::FirstParent;
 /// Produce a graph from a Git repository.
 pub mod init;
-pub mod projection;
+
+#[path = "projection/mod.rs"]
+pub mod workspace;
+pub use workspace::workspace::Workspace;
+
+mod utils;
 
 mod statistics;
 pub use statistics::Statistics;
@@ -224,21 +233,72 @@ pub struct Graph {
     inner: init::PetGraph,
     /// From where the graph was created. This is useful if one wants to focus on a subset of the graph.
     ///
-    /// The [`CommitIndex`] is empty if the entry point is an empty segment, to indicate that the traversal
-    /// tip isn't contained in it.
-    entrypoint: Option<(SegmentIndex, Option<CommitIndex>)>,
+    /// This is `None` only for a freshly default-initialized graph, or while a graph is being assembled before
+    /// the first segment is inserted. Graphs returned by the traversal constructors are expected to have an
+    /// entrypoint, even for unborn refs; in that case the segment is present and the commit is
+    /// [`EntryPointCommit::Unborn`].
+    ///
+    /// The second value is the traversal tip, if there is one.
+    ///
+    /// Post-processing may move the entrypoint to an empty synthetic segment, for example a named workspace ref
+    /// without a workspace commit. The segment still marks the ref's place in the graph, but it has no local
+    /// commit slot that can hold the ref target. In that case the commit id is kept here so
+    /// [`Graph::redo_traversal_with_overlay()`] can keep using the original traversal tip if the ref can no
+    /// longer be resolved in the overlay/repository.
+    entrypoint: Option<(SegmentIndex, EntryPointCommit)>,
     /// The ref_name used when starting the graph traversal. It is set to help assure that the entrypoint stays
     /// on the correctly named segment, knowing that the post-process may alter segments quite substantially
     /// when crating independent and dependent branches.
     entrypoint_ref: Option<gix::refs::FullName>,
-    /// The segment index of the extra target as provided for traversal.
-    extra_target: Option<SegmentIndex>,
+    /// Effective initial traversal tips, in segment creation order.
+    ///
+    /// These are the caller-provided tips plus option-derived tips after
+    /// validation, deduplication, and queue-order normalization. Segment ids are
+    /// intentionally not stored here: post-processing can split, delete, and
+    /// reconnect segments, so consumers re-resolve each tip by commit id against
+    /// the final graph shape and filter for the roles they need.
+    traversal_tips: Vec<init::Tip>,
+    /// Ad-hoc/single-branch local branch orders read from metadata while post-processing.
+    ///
+    /// These are kept on the graph so projection can tell the difference between
+    /// an ordinary ad-hoc lower-bound branch and the bottom branch of a
+    /// GitButler-created dependent branch chain.
+    ad_hoc_branch_stack_orders: Vec<Vec<gix::refs::FullName>>,
+    /// The persisted local branch orders of linked worktrees, each from the checked-out branch down.
+    worktree_branch_stack_orders: Vec<Vec<gix::refs::FullName>>,
     /// It's `true` only if we have stopped the traversal due to a hard limit.
     hard_limit_hit: bool,
     /// The options used to create the graph, which allows it to regenerate itself after something
     /// possibly changed. This can also be used to simulate changes by injecting would-be information.
     /// Public to be able to change it before calling [Graph::redo_traversal_with_overlay()].
     pub options: init::Options,
+    /// The linked-worktree `HEAD`s discovered when this graph was built, seeded as extra
+    /// reachable traversal tips.
+    ///
+    /// Tips with a ref name are re-resolved through the (possibly overlaid) ref store on
+    /// every traversal, so [redone traversals](Graph::redo_traversal_with_overlay()) see
+    /// moved refs; the recorded commit id is only a fallback for detached worktrees. A ref
+    /// that no longer resolves is skipped entirely - its stale tip is never resurrected.
+    /// These tips queue after all other initial work and are skipped if another tip
+    /// already seeds their commit.
+    ///
+    /// This is a snapshot: redone traversals reuse it instead of re-discovering, and
+    /// callers previewing worktree changes may replace it before redoing. They are
+    /// ignored by [`Graph::from_head()`] when `HEAD` is unborn, as no traversal
+    /// happens there.
+    ///
+    /// Post-processing represents each branch listed here as an empty segment
+    /// forking directly onto the commit it points at, so it never owns commits,
+    /// no lane routes through it, and rewrites relative to it stay local.
+    /// Exempt is the subject of the graph's view - the branch this repository
+    /// itself has checked out, and the entrypoint ref - as well as refs the
+    /// traversal could not place.
+    pub worktree_tips: Vec<init::WorktreeTip>,
+    /// Project-wide metadata used for target ref, target commit, and push remote resolution.
+    pub project_meta: but_core::ref_metadata::ProjectMeta,
+    /// Configured target upstream, derived during traversal even if its ref or segment is absent.
+    /// Refreshed when traversal is redone; projection must not infer it from segment links.
+    target_upstream_ref: Option<gix::refs::FullName>,
     /// All remote names that aren't URLs and that were retrieved during the traversal.
     ///
     /// They are useful to extract remote names from remote tracking refs like `refs/remotes/origin/master`,
@@ -246,21 +306,89 @@ pub struct Graph {
     pub symbolic_remote_names: Vec<String>,
 }
 
-/// A resolved entry point into the graph for easy access to the segment, commit,
-/// and the respective indices for later traversal.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum EntryPointCommit {
+    /// The traversal tip is known.
+    ///
+    /// This is an object id rather than a synthetic index because an empty entrypoint segment has no commit slot
+    /// to index into, nor is it reliably reachable by traversing the graph. If the commit is present in the
+    /// entrypoint segment, its [`CommitIndex`] can be derived from the segment and this id.
+    /// This happens when a workspace reference doesn't have an (unneeded) workspace merge commit,
+    /// and is connected to one or more named empty segments which themselves only point to the workspace base.
+    /// Then from Git's point of view, all involved refs point to the workspace base, but for use it's
+    /// already a graph, and one that isn't representable even with symbolic refs as the workspace ref segment
+    /// can easily point to multiple refs at the same time.
+    AtCommit(gix::ObjectId),
+    /// The traversal started from an unborn ref and has no tip commit.
+    Unborn,
+}
+
+impl EntryPointCommit {
+    fn index_in(self, segment: &Segment) -> Option<CommitIndex> {
+        match self {
+            EntryPointCommit::AtCommit(id) => segment.commit_index_of(id),
+            EntryPointCommit::Unborn => None,
+        }
+    }
+
+    pub(crate) fn object_id(self) -> Option<gix::ObjectId> {
+        match self {
+            EntryPointCommit::AtCommit(id) => Some(id),
+            EntryPointCommit::Unborn => None,
+        }
+    }
+}
+
+impl Graph {
+    /// Return the entrypoint as a segment plus the optional position of its tip commit in that segment.
+    ///
+    /// The graph stores the tip as an object id so it survives post-processing that moves the entrypoint to
+    /// an empty or otherwise synthetic segment. Some graph-local consumers, like debug rendering and
+    /// statistics, still need the segment-relative commit position to mark where the entrypoint appears in
+    /// the current graph shape, so it is derived here instead of being stored as mutable state.
+    fn entrypoint_location(&self) -> Option<(SegmentIndex, Option<CommitIndex>)> {
+        let (segment_index, commit) = self.entrypoint?;
+        let segment = self.inner.node_weight(segment_index)?;
+        Some((segment_index, commit.index_in(segment)))
+    }
+}
+
+/// A resolved entry point into the graph for easy access to the entrypoint segment and,
+/// if present, the commit that started traversal along with the segment that owns it.
 #[derive(Debug, Copy, Clone)]
 pub struct EntryPoint<'graph> {
-    /// The index to the segment that served starting point for the traversal into this graph.
-    pub segment_index: SegmentIndex,
-    /// If present, the index of the commit that started the traversal in the segment denoted by `segment_index`.
-    pub commit_index: Option<CommitIndex>,
     /// The segment that served starting point for the traversal into this graph.
     pub segment: &'graph Segment,
-    /// If present, the commit that started the traversal in the `segment`.
+    /// If present, the commit that started traversal and the segment that owns it.
     ///
-    /// It's usually the first commit of the segment due to the way we split segments, and even though
-    /// downstream code relies on this properly, the graph itself does not.
-    pub commit: Option<&'graph Commit>,
+    /// This can differ from [`Self::segment`] when post-processing moved the entrypoint to an
+    /// empty synthetic segment, such as a virtual workspace tip segment.
+    ///
+    /// May be `None` if the entrypoint was a reference in a newly born repository,
+    /// which doesn't have any commits.
+    pub commit_and_owner: Option<(&'graph Commit, &'graph Segment)>,
+}
+
+impl<'graph> EntryPoint<'graph> {
+    /// The commit that started traversal, if the entrypoint is not unborn.
+    pub fn commit(&self) -> Option<&'graph Commit> {
+        self.commit_and_owner.map(|(c, _)| c)
+    }
+}
+
+/// Relationship of one segment to another in terms of graph ancestry.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum SegmentRelation {
+    /// Both segment indices point to the same segment.
+    Identity,
+    /// The first segment is an ancestor of the second segment.
+    Ancestor,
+    /// The first segment is a descendant of the second segment.
+    Descendant,
+    /// Segments share history, but neither is ancestor of the other.
+    Diverged,
+    /// Segments do not share any history.
+    Disjoint,
 }
 
 /// This structure is used as data associated with each edge and is mainly for collecting
@@ -278,9 +406,47 @@ pub struct Edge {
     dst: Option<CommitIndex>,
     /// The commit id at `dst` in the segment commit list.
     dst_id: Option<gix::ObjectId>,
+    /// The position of this edge's destination among the source commit's parents.
+    /// For a merge commit with parents `[A, B]`, the edge to `A` has `parent_order = 0`
+    /// and the edge to `B` has `parent_order = 1`.
+    /// Deliberately not `usize`: `Edge` is stored in every petgraph edge slot,
+    /// and widening this field pushes hot edge storage over an important size boundary.
+    ///
+    /// This limit would only be reached if there is a merge with 4.3 billion commits.
+    pub(crate) parent_order: u32,
+    /// The position of the stack this edge leads to among the stacks of its workspace,
+    /// in the order the workspace metadata lists them.
+    ///
+    /// This is `None` unless the edge leaves a workspace segment that has metadata.
+    pub(crate) workspace_parent_order: Option<u32>,
 }
 
 impl Edge {
+    /// Return the 0-based position of the stack this edge leads to among the stacks of its
+    /// workspace, in the order the workspace metadata lists them.
+    ///
+    /// This is `None` unless the edge leaves a workspace segment that has metadata.
+    pub fn workspace_parent_order(&self) -> Option<u32> {
+        self.workspace_parent_order
+    }
+
+    /// Place the stack this edge leads to at the 0-based `position` among the stacks of its workspace.
+    pub(crate) fn with_workspace_parent_order(mut self, position: u32) -> anyhow::Result<Self> {
+        self.workspace_parent_order = Some(position);
+        Ok(self)
+    }
+
+    /// Return the 0-based position of this edge's destination among the source commit's parents.
+    /// For instance, if the source is a merge commit and this edge represents the connection
+    /// to the second parent, the output will be `Some(1)`.
+    ///
+    /// This is `None` when the edge does not point at a concrete destination commit.
+    /// That happens for synthetic graph structure such as empty virtual segments,
+    /// where there is no Git commit parent for this edge to identify.
+    pub fn parent_order(&self) -> Option<u32> {
+        self.dst_id.map(|_| self.parent_order)
+    }
+
     /// Useful when reusing an edge to assure it doesn't list commits that don't exist in `src_idx` and `dst_idx` anymore.
     pub(crate) fn adjusted_for(
         mut self,

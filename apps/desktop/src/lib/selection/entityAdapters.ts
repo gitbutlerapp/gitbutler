@@ -1,8 +1,8 @@
 import { platformPathSeparator } from "$lib/backend";
 import { createEntityAdapter } from "@reduxjs/toolkit";
-import type { TreeChange } from "$lib/hunks/change";
-import type { HunkAssignment, HunkHeader } from "$lib/hunks/hunk";
-import type { LineId } from "@gitbutler/ui/utils/diffParsing";
+import type { HunkAssignment, HunkHeader } from "@gitbutler/but-sdk";
+import type { TreeChange } from "@gitbutler/but-sdk";
+import type { LineId } from "@gitbutler/ui-svelte/utils/diffParsing";
 
 // ASCII Unit Separator, used to separate data units within a record or field.
 const UNIT_SEP = "\u001F";

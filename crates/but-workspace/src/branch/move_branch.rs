@@ -1,134 +1,145 @@
-use anyhow::{Context, bail};
-use but_graph::projection::{Stack, StackSegment};
-use but_rebase::graph_rebase::{
-    Editor, Selector, SuccessfulRebase,
-    mutate::{SegmentDelimiter, SelectorSet, SomeSelectors},
-};
-
-/// Outcome of moving branches between stacks.
-///
-/// Returned by [function::move_branch()].
-#[derive(Debug)]
-pub struct Outcome {
-    /// A successful rebase result for continuing operations.
-    pub rebase: SuccessfulRebase,
-    /// The updated workspace metadata that accompanies the move operation.
-    /// It should replace the actual workspace metadata to configure moved 'virtual' branches segments, if `Some()`.
-    pub ws_meta: Option<but_core::ref_metadata::Workspace>,
-}
-
 pub(super) mod function {
 
-    use super::get_disconnect_parameters;
+    use but_core::RefMetadata;
+    use but_rebase::graph_rebase::mutate::SomeSelectors;
 
-    use super::Outcome;
+    use crate::graph_manipulation::DisconnectParameters;
+    use crate::graph_manipulation::get_disconnect_parameters;
+    use crate::graph_manipulation::traverse_nodes;
+
     use anyhow::Context;
     use anyhow::bail;
-    use but_graph::projection::WorkspaceKind;
+    use but_graph::workspace::{Lane, StackSegment, WorkspaceKind};
     use but_rebase::graph_rebase::Editor;
+    use but_rebase::graph_rebase::SuccessfulRebase;
+    use but_rebase::graph_rebase::ToSelector;
+    use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
     use gix::refs::FullNameRef;
 
-    /// Move a branch between stacks in the `workspace`.
+    /// Remove a branch out of a stack, creating a new stack out of it, in memory.
     ///
     /// `editor` is assumed to have been generated from the given `workspace`
     /// and therefore aligned.
     ///
-    /// `workspace` - Used for getting the surrounding context of the commit being moved.
+    /// `workspace` - Used for getting the surrounding context of the branch being torn off.
     ///     In the future, we should not rely on the projection and do it fully on the graph.
     ///
-    /// `subject_branch_name` is the full reference name of the branch to move.
+    /// `subject_branch_name` - The branch to take out of a stack.
     ///
-    /// `target_branch_name` is the full reference name of the branch to move the subject
-    /// branch on top of.
-    ///
-    /// Returns:
-    /// - Successful rebase
-    pub fn move_branch(
-        mut editor: Editor,
-        workspace: &but_graph::projection::Workspace,
+    /// Returns the in memory rebase that can then used for materialisation.
+    pub fn tear_off_branch<'ws, 'meta, M: RefMetadata>(
+        editor: Editor<'ws, 'meta, M>,
         subject_branch_name: &FullNameRef,
-        target_branch_name: &FullNameRef,
-    ) -> anyhow::Result<Outcome> {
-        let (source, destination) =
-            retrieve_branches_and_containers(workspace, subject_branch_name, target_branch_name)?;
-
-        let Some(workspace_head) = workspace.tip_commit().map(|commit| commit.id) else {
-            bail!("Couldn't find workspace head.")
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+        let successful_rebase = editor.rebase()?;
+        let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
+        let mut editor = successful_rebase.into_editor();
+        let Some(source) = workspace.find_segment_and_stack_by_refname(subject_branch_name) else {
+            bail!(
+                "Couldn't find branch to move in workspace with reference name: {subject_branch_name}"
+            );
         };
 
-        // We're currently stopping the move branch operations imperatively at this stage, in order to
-        // reduce the scope of this first iteration of moving the branches.
-        // TODO: Enable and test that we can move branches in any kind of workspace.
-        match &workspace.kind {
-            WorkspaceKind::Managed { .. } => {}
+        let managed = match &workspace.kind {
+            WorkspaceKind::Managed { .. } => true,
             WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => {
                 bail!("Moving branches currently need a workspace commit")
             }
-            WorkspaceKind::AdHoc => {
-                bail!("Moving branches in non-managed workspaces is not supported");
-            }
+            WorkspaceKind::AdHoc => false,
         };
 
-        let mut ws_meta = workspace.metadata.clone();
-
         let (source_stack, subject_segment) = source;
-        let (_, target_segment) = destination;
-        let target_segment_ref_name = target_segment
-            .ref_name()
-            .context("Target segment doesn't have a ref")?;
-        let target_selector = editor
-            .select_reference(target_segment_ref_name)
-            .context("Failed to find target reference in graph.")?;
 
-        let (subject_delimiter, children_to_disconnect, parents_to_disconnect) =
-            get_disconnect_parameters(
-                workspace,
-                &editor,
-                source_stack,
-                subject_segment,
-                workspace_head,
-            )?;
+        if source_stack.segments.len() == 1 {
+            // There's only one branch in the source stack. Nothing to do.
+            return editor.rebase();
+        }
 
-        let skip_reconnect_step = source_stack.segments.len() == 1;
+        let workspace_head = if managed {
+            Some(
+                workspace
+                    .tip_commit()
+                    .context("Couldn't find workspace head.")?
+                    .id,
+            )
+        } else {
+            None
+        };
+        let target_selector = if managed {
+            let lower_bound_ref = workspace
+                .lower_bound_segment_id
+                .map(|segment_id| &workspace.graph[segment_id])
+                .and_then(|segment| segment.ref_name())
+                .context("Tearing off a branch requires a workspace common base")?;
+            editor
+                .select_reference(lower_bound_ref)
+                .context("Failed to find target reference in graph.")?
+        } else {
+            let target = workspace
+                .target_commit
+                .as_ref()
+                .context("Tearing off a branch requires a workspace cutoff")?;
+            editor.select_commit(target.commit_id)?
+        };
+
+        let DisconnectParameters {
+            delimiter: subject_delimiter,
+            children_to_disconnect,
+            parents_to_disconnect,
+        } = get_disconnect_parameters(
+            &editor,
+            &source_stack.segments,
+            subject_segment,
+            workspace_head,
+        )?;
+
         editor.disconnect_segment_from(
             subject_delimiter.clone(),
             children_to_disconnect,
             parents_to_disconnect,
-            skip_reconnect_step,
-        )?;
-        editor.insert_segment(
-            target_selector,
-            subject_delimiter,
-            but_rebase::graph_rebase::mutate::InsertSide::Above,
+            false,
         )?;
 
-        // Update the workspace meta if any of the branches we're handling is empty.
-        // This is needed in order to disambiguate the intended operation.
-        if let Some(ws_meta) = ws_meta.as_mut()
-            && (subject_segment.commits.is_empty() || target_segment.commits.is_empty())
-        {
-            ws_meta.remove_segment(subject_branch_name);
-            ws_meta.insert_new_segment_above_anchor_if_not_present(
-                subject_branch_name,
-                target_branch_name,
-            );
-        };
+        if let Some(workspace_head) = workspace_head {
+            let head_selector = editor.select_commit(workspace_head)?;
+            let selectors = SomeSelectors::new(Vec::from([head_selector]))?;
+            editor.insert_segment_into(
+                target_selector,
+                subject_delimiter,
+                but_rebase::graph_rebase::mutate::InsertSide::Above,
+                Some(selectors),
+                but_rebase::graph_rebase::mutate::ParentReparentingOrder::Prepend,
+            )?;
+        } else {
+            // There is no workspace commit to connect to the torn-off branch. Attach only
+            // its first parent at the target, leaving the remaining stack independent.
+            editor.add_edge(subject_delimiter.parent, target_selector, 0)?;
+        }
 
-        Ok(Outcome {
-            rebase: editor.rebase()?,
-            ws_meta,
-        })
+        editor.rebase()
     }
 
-    /// A segment and its container stack.
-    type WorkspaceSegmentContext<'a> = (
-        &'a but_graph::projection::Stack,
-        &'a but_graph::projection::StackSegment,
-    );
-
-    /// Determine the surrounding context of the subject and target branches.
+    /// Move a branch to `side` of `relative_to`, within its lane or into another one.
     ///
-    /// Currently, this looks into the workspace projection in order to determine **where to take the branch from and to**.
+    /// A lane is a stack of the workspace or the history a linked worktree owns.
+    ///
+    /// `editor` is assumed to have been generated from the workspace the branch lives in.
+    ///
+    /// `subject_branch_name` is the full reference name of the branch to move.
+    ///
+    /// `relative_to` and `side` name where it goes, as they do for commits:
+    /// - above a reference, the branch sits directly on top of that branch.
+    /// - below a reference, it takes over the commits of that branch, which stays as empty
+    ///   branch on top of it.
+    /// - above or below a commit, it splits the branch owning that commit there, taking over
+    ///   everything beneath it.
+    ///
+    /// Moving the branch a linked worktree has checked out leaves that worktree on what the
+    /// branch was based on: the branch below it, or else that commit with a detached `HEAD`.
+    /// A branch placed directly above what a linked worktree has checked out, be it a branch or
+    /// the commit of a detached `HEAD`, becomes what that worktree has checked out.
+    ///
+    /// Currently, this looks into the workspace projection in order to determine **where to take the branch from**.
     ///
     /// ### The issue
     /// It's impossible to know for sure what is the exact intention of 'moving a branch' inside a complex git graph.
@@ -141,7 +152,7 @@ pub(super) mod function {
     ///
     /// ### The GitButler assumption
     /// In the context of a GitButler workspace (as of this writing), we want to disconnect the branch (segment) from
-    /// the stack, and insert it on top of another. In graph terms, this means that we:
+    /// its lane, and insert it into another. In graph terms, this means that we:
     /// - Disconnect the reference node from the base segment (the branch under the subject or the target base)
     /// - Disconnect the last commit node of the child segment (the branch over the subject or the workspace commit)
     /// - Nothing else. Other parentage and children are kept, since this is what we care about in a GB workspace world.
@@ -150,149 +161,240 @@ pub(super) mod function {
     /// In the future, where we're not afraid of complex graphs, we've figured out UX and data wrangling,
     /// the concept of a segment might not hold, and hence we'll have to figure out a better way of determining
     /// what to cut (e.g. letting the clients decide what to cut).
-    fn retrieve_branches_and_containers<'a>(
-        workspace: &'a but_graph::projection::Workspace,
+    ///
+    /// Returns the in memory rebase for potential materialisation.
+    pub fn move_branch<'ws, 'meta, M: RefMetadata>(
+        editor: Editor<'ws, 'meta, M>,
         subject_branch_name: &FullNameRef,
-        target_branch_name: &FullNameRef,
-    ) -> anyhow::Result<(WorkspaceSegmentContext<'a>, WorkspaceSegmentContext<'a>)> {
-        let Some(source) = workspace.find_segment_and_stack_by_refname(subject_branch_name) else {
+        relative_to: RelativeTo,
+        side: InsertSide,
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+        let successful_rebase = editor.rebase()?;
+        let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
+
+        let Some(source) = workspace.find_segment_and_lane_by_refname(subject_branch_name) else {
             bail!(
                 "Couldn't find branch to move in workspace with reference name: {subject_branch_name}"
             );
         };
+        let anchor = Anchor::resolve(&workspace, &relative_to)?;
+        if anchor.segment.id == source.1.id {
+            bail!("Cannot move branch {subject_branch_name} onto itself");
+        }
 
-        let Some(destination) = workspace.find_segment_and_stack_by_refname(target_branch_name)
+        // Each kind of workspace has a very different notion of what "moving a branch" means, so we
+        // dispatch into a dedicated handler for each one.
+        match &workspace.kind {
+            WorkspaceKind::AdHoc => move_branch_in_single_branch_mode(
+                successful_rebase,
+                source,
+                anchor,
+                subject_branch_name,
+                relative_to,
+                side,
+            ),
+            WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => {
+                bail!("Moving branches currently need a workspace commit")
+            }
+            WorkspaceKind::Managed { .. } => move_branch_in_managed_workspace(
+                successful_rebase,
+                &workspace,
+                source,
+                subject_branch_name,
+                relative_to,
+                side,
+            ),
+        }
+    }
+
+    /// Move a branch in a single-branch (ad-hoc) workspace, where `HEAD` is on a plain local branch.
+    ///
+    /// `HEAD` follows the top of the reordered stack, so the whole stack stays projected.
+    fn move_branch_in_single_branch_mode<'ws, 'meta, M: RefMetadata>(
+        mut successful_rebase: SuccessfulRebase<'ws, 'meta, M>,
+        source: SegmentInLane<'_>,
+        anchor: Anchor<'_>,
+        subject_branch_name: &FullNameRef,
+        relative_to: RelativeTo,
+        side: InsertSide,
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+        let ((Lane::Stack(source_stack), subject_segment), Lane::Stack(destination_stack)) =
+            (source, anchor.lane)
         else {
             bail!(
-                "Couldn't find target branch to move in workspace with reference name: {target_branch_name}"
+                "Moving a branch between a worktree and the workspace in single-branch mode is not yet supported"
             );
         };
-        Ok((source, destination))
-    }
-}
-
-/// Get the right disconnect parameters for the given subject segment and source stack.
-///
-/// This function determines which are the right parents and children to disconnect,
-/// as well as the right segment delimiter to move.
-fn get_disconnect_parameters(
-    workspace: &but_graph::projection::Workspace,
-    editor: &Editor,
-    source_stack: &Stack,
-    subject_segment: &StackSegment,
-    workspace_head: gix::ObjectId,
-) -> anyhow::Result<(
-    SegmentDelimiter<Selector, Selector>,
-    SelectorSet,
-    SelectorSet,
-)> {
-    let index_of_segment = source_stack
-        .segments
-        .iter()
-        .position(|segment| segment.id == subject_segment.id)
-        .context("BUG: Unable to find subject segment on source stack.")?;
-
-    let subject_segment_ref_name = subject_segment
-        .ref_name()
-        .context("Subject segment doesn't have a ref name.")?;
-    let delimiter_child = editor
-        .select_reference(subject_segment_ref_name)
-        .context("Failed to find subject reference in graph.")?;
-    let delimiter_parent = match subject_segment.commits.last() {
-        Some(last_commit) => editor
-            .select_commit(last_commit.id)
-            .context("Failed to find last commit in subject segment in graph.")?,
-        None => {
-            // Subject segment is empty, move only the reference
-            delimiter_child
+        // A branch that owns commits can only be reordered within its current stack in
+        // single-branch mode. Moving it across stacks would change commit ownership and needs a
+        // real rebase.
+        if !subject_segment.commits.is_empty() && !same_stack(source_stack, destination_stack) {
+            bail!("Moving a non-empty branch in single-branch mode is not yet supported");
         }
-    };
+        let (_repo, meta) = successful_rebase.repo_and_meta_mut();
+        if !meta.can_persist_branch_stack_order() {
+            bail!(
+                "Cannot reorder '{subject_branch_name}' in single-branch mode without branch order metadata"
+            );
+        }
 
-    // The delimiter for the segment we want to move, is the reference selector
-    // as the child, and the last commit inside the branch as the parent.
-    // If the branch is empty, we take the reference selector as the parent as well.
-    let delimiter = SegmentDelimiter {
-        child: delimiter_child,
-        parent: delimiter_parent,
-    };
+        let mut editor = successful_rebase.into_editor();
+        let target_selector = relative_to
+            .to_selector(&editor)
+            .context("Failed to find target in graph.")?;
 
-    // The parent segment in the stack if any.
-    // This will be `None` if the branch we want to move is at the bottom of the stack.
-    let stack_base_segment = subject_segment.base_segment_id.and_then(|base_segment_id| {
-        source_stack
-            .segments
-            .iter()
-            .find(|segment| segment.id == base_segment_id)
-    });
+        let DisconnectParameters {
+            delimiter: subject_delimiter,
+            children_to_disconnect,
+            parents_to_disconnect,
+        } = get_disconnect_parameters(&editor, &source_stack.segments, subject_segment, None)?;
 
-    // The parent segment in the graph.
-    // If the `stack_base_segment` is `None` but there's a `base_segment_id` defined, it means we'll find it in the
-    // graph data, and it's probably the target branch, which is not included in the workspace.
-    let graph_base_segment = subject_segment
-        .base_segment_id
-        .map(|segment_idx| &workspace.graph[segment_idx]);
+        editor.disconnect_segment_from(
+            subject_delimiter.clone(),
+            children_to_disconnect,
+            parents_to_disconnect,
+            false,
+        )?;
+        if is_tip_of(Lane::Stack(source_stack), subject_segment)
+            && let Some(branch_below) = source_stack
+                .segments
+                .get(1)
+                .and_then(|below| below.ref_name())
+        {
+            let branch_below = editor.select_reference(branch_below)?;
+            editor.set_head_checkout(branch_below)?;
+        }
+        editor.insert_segment(target_selector, subject_delimiter, side)?;
 
-    let parents_to_disconnect = if let Some(stack_base_segment) = stack_base_segment {
-        // Base segment is part of the source stack.
-        let base_segment_ref_name = stack_base_segment
-            .ref_name()
-            .context("Base segment doesn't have a ref name.")?;
-        let reference_selector = editor.select_reference(base_segment_ref_name)?;
-        let selectors = SomeSelectors::new(vec![reference_selector])?;
-        SelectorSet::Some(selectors)
-    } else if let Some(graph_base_segment) = graph_base_segment {
-        // Base segment is outside of workspace (probably target branch).
-        let ref_name = graph_base_segment
-            .ref_name()
-            .context("Graph base segment doesn't have a ref name.")?;
-        let reference_selector = editor.select_reference(ref_name)?;
-        let selectors = SomeSelectors::new(vec![reference_selector])?;
-        SelectorSet::Some(selectors)
-    } else if subject_segment.base_segment_id.is_some() {
-        // Base segment could not be found, but there is an ID defined. Error out.
-        bail!(
-            "Failed to find the base segment of the subject we want to move, even if it seems to be defined"
-        );
-    } else {
-        // Nothing found. Remove all parents.
-        SelectorSet::All
-    };
-
-    if index_of_segment == 0 {
-        // This is the top-most segment in the stack, so the parent is the workspace commit.
-        let workspace_head_selector = editor
-            .select_commit(workspace_head)
-            .context("Failed to find workspace head in graph.")?;
-        let selectors = SomeSelectors::new(vec![workspace_head_selector])?;
-        let children_to_disconnect = SelectorSet::Some(selectors);
-
-        return Ok((delimiter, children_to_disconnect, parents_to_disconnect));
+        editor.rebase()
     }
 
-    // Segment on top of the subject segment in the stack.
-    let child_segment = source_stack.segments.get(index_of_segment - 1).context(
-        "BUG: Unable to find child segment of subject segment but expected it to exist.",
-    )?;
+    /// Move a branch within a managed workspace (one backed by a workspace commit).
+    fn move_branch_in_managed_workspace<'ws, 'meta, M: RefMetadata>(
+        successful_rebase: SuccessfulRebase<'ws, 'meta, M>,
+        workspace: &but_graph::Workspace,
+        source: SegmentInLane<'_>,
+        subject_branch_name: &FullNameRef,
+        relative_to: RelativeTo,
+        side: InsertSide,
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+        let Some(workspace_head) = workspace.tip_commit().map(|commit| commit.id) else {
+            bail!("Couldn't find workspace head.")
+        };
 
-    // If branch stacked on top of the branch we want to move is empty, we only need to disconnect
-    // the reference from it.
-    // Otherwise, disconnect the last commit on the segment.
-    let child_selector = match child_segment.commits.last() {
-        Some(last_commit) => editor
-            .select_commit(last_commit.id)
-            .context("Failed to find last commit of child segment in graph."),
-        None => {
-            // The segment on top of the subject segment is empty. Select the reference.
-            let child_segment_ref_name = child_segment
-                .ref_name()
-                .context("Child segment doesn't have a ref name.")?;
-            editor
-                .select_reference(child_segment_ref_name)
-                .context("Failed to find child segment reference in graph.")
+        let (source_lane, subject_segment) = source;
+
+        let mut editor = successful_rebase.into_editor();
+        let target_selector = relative_to
+            .to_selector(&editor)
+            .context("Failed to find target in graph.")?;
+
+        let DisconnectParameters {
+            delimiter: subject_delimiter,
+            children_to_disconnect,
+            parents_to_disconnect,
+        } = get_disconnect_parameters(
+            &editor,
+            source_lane.segments(),
+            subject_segment,
+            match source_lane {
+                Lane::Stack(_) => Some(workspace_head),
+                Lane::Worktree(_) => None,
+            },
+        )?;
+
+        let skip_reconnect_step = source_lane.segments().len() == 1;
+        editor.disconnect_segment_from(
+            subject_delimiter.clone(),
+            children_to_disconnect,
+            parents_to_disconnect,
+            skip_reconnect_step,
+        )?;
+        if let Lane::Worktree(worktree) = source_lane
+            && is_tip_of(source_lane, subject_segment)
+        {
+            let based_on = match worktree.segments.get(1).and_then(|below| below.ref_name()) {
+                Some(branch_below) => editor.select_reference(branch_below)?,
+                None => editor.select_commit(subject_segment.base.with_context(|| {
+                    format!(
+                        "Cannot move '{}': worktree '{}' would have nothing left to check out",
+                        subject_branch_name.shorten(),
+                        worktree.name
+                    )
+                })?)?,
+            };
+            editor.set_worktree_checkout(gix::bstr::BStr::new(&worktree.name), based_on)?;
         }
-    }?;
-    let selectors = SomeSelectors::new(vec![child_selector])?;
-    let children_to_disconnect = SelectorSet::Some(selectors);
+        if traverse_nodes(&editor, target_selector)?.contains(&subject_delimiter.parent) {
+            bail!(
+                "Cannot move '{}' {}, which builds on it",
+                subject_branch_name.shorten(),
+                Location(&relative_to, side),
+            );
+        }
+        editor.insert_segment(target_selector, subject_delimiter, side)?;
 
-    Ok((delimiter, children_to_disconnect, parents_to_disconnect))
+        editor.rebase()
+    }
+
+    /// A segment and the lane holding it.
+    type SegmentInLane<'a> = (Lane<'a>, &'a StackSegment);
+
+    fn is_tip_of(lane: Lane<'_>, segment: &StackSegment) -> bool {
+        lane.segments()
+            .first()
+            .is_some_and(|tip| tip.id == segment.id)
+    }
+
+    /// The segment a moved branch is placed next to, and the lane holding it.
+    struct Anchor<'a> {
+        lane: Lane<'a>,
+        segment: &'a StackSegment,
+    }
+
+    impl<'a> Anchor<'a> {
+        fn resolve(
+            workspace: &'a but_graph::Workspace,
+            relative_to: &RelativeTo,
+        ) -> anyhow::Result<Self> {
+            let (lane, segment) = match relative_to {
+                RelativeTo::Reference(name) => workspace
+                    .find_segment_and_lane_by_refname(name.as_ref())
+                    .with_context(|| {
+                        format!(
+                            "Couldn't find target branch to move in workspace with reference name: {name}"
+                        )
+                    })?,
+                RelativeTo::Commit(id) => workspace
+                    .find_segment_and_lane_by_commit_id(*id)
+                    .with_context(|| format!("Commit {id} isn't part of the workspace"))?,
+            };
+            Ok(Anchor { lane, segment })
+        }
+    }
+
+    /// A `side` of `relative_to`, for showing to the user.
+    struct Location<'a>(&'a RelativeTo, InsertSide);
+
+    impl std::fmt::Display for Location<'_> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let side = match self.1 {
+                InsertSide::Above => "above",
+                InsertSide::Below => "below",
+            };
+            match self.0 {
+                RelativeTo::Reference(name) => write!(f, "{side} '{}'", name.shorten()),
+                RelativeTo::Commit(id) => write!(f, "{side} commit {}", id.to_hex_with_len(7)),
+            }
+        }
+    }
+
+    fn same_stack(left: &but_graph::workspace::Stack, right: &but_graph::workspace::Stack) -> bool {
+        left.segments.len() == right.segments.len()
+            && left
+                .segments
+                .iter()
+                .zip(&right.segments)
+                .all(|(left, right)| left.id == right.id)
+    }
 }

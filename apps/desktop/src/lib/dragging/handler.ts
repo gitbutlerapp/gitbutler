@@ -1,3 +1,5 @@
+import type { DropResult } from "$lib/dragging/dropResult";
+
 /**
  * Interface for handlers that can be passed to the `Dropzone` component.
  *
@@ -13,5 +15,5 @@
  */
 export interface DropzoneHandler {
 	accepts(data: unknown): boolean;
-	ondrop(data: unknown): void;
+	ondrop(data: unknown): Promise<DropResult | void> | void;
 }

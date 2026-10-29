@@ -6,16 +6,20 @@ use bstr::ByteSlice;
 
 pub mod absorb;
 pub mod actions;
-pub mod ai;
+pub mod amend;
+pub mod apply;
 pub mod branch;
+pub mod clean;
 pub mod commit;
+pub mod commit_message_prep;
+pub(crate) mod conflict_notice;
 pub mod diff;
 pub mod discard;
 pub mod forge;
-pub mod mark;
-pub mod mcp;
-pub mod mcp_internal;
+pub mod init;
 pub mod merge;
+pub mod r#move;
+pub mod open;
 pub mod oplog;
 pub mod pick;
 pub mod pull;
@@ -23,13 +27,18 @@ pub mod push;
 pub mod refresh;
 pub mod resolve;
 pub mod reword;
-pub mod rub;
-pub mod setup;
+pub mod reword2;
 pub mod show;
+pub mod split;
+pub mod squash;
 pub mod status;
+pub mod switch;
 pub mod teardown;
 pub mod unapply;
-pub mod worktree;
+pub mod uncommit;
+pub mod undo_redo;
+pub(crate) mod upstream;
+pub(crate) mod workspace_target;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum ShowDiffInEditor {
@@ -83,21 +92,17 @@ pub(crate) const MAX_DIFF_BLOB_SIZE_FOR_EDITOR_IF_UNSPECIFIED: u64 = 900_000;
 /// For modifications/renames, uses the larger of the two sides as an upper bound.
 pub(crate) fn estimate_diff_blob_size(
     changes: &[but_core::TreeChange],
-    ctx: &but_ctx::Context,
+    repo: &gix::Repository,
 ) -> Result<u64> {
     fn blob_size(repo: &gix::Repository, id: gix::ObjectId) -> u64 {
         repo.find_header(id).map(|h| h.size()).unwrap_or(0)
     }
 
-    let repo = ctx.repo.get()?;
-
     Ok(changes
         .iter()
         .map(|change| match &change.status {
-            but_core::TreeStatus::Addition { state, .. } => blob_size(&repo, state.id),
-            but_core::TreeStatus::Deletion { previous_state } => {
-                blob_size(&repo, previous_state.id)
-            }
+            but_core::TreeStatus::Addition { state, .. } => blob_size(repo, state.id),
+            but_core::TreeStatus::Deletion { previous_state } => blob_size(repo, previous_state.id),
             but_core::TreeStatus::Modification {
                 previous_state,
                 state,
@@ -108,8 +113,8 @@ pub(crate) fn estimate_diff_blob_size(
                 state,
                 ..
             } => {
-                let a = blob_size(&repo, previous_state.id);
-                let b = blob_size(&repo, state.id);
+                let a = blob_size(repo, previous_state.id);
+                let b = blob_size(repo, state.id);
                 a.max(b)
             }
         })

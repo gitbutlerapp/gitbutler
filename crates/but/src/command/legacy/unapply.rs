@@ -1,160 +1,186 @@
 //! Implementation of the `but unapply` command.
 
-use anyhow::{Context as _, bail};
-use but_core::ref_metadata::StackId;
+use anyhow::Context as _;
+use but_core::{ref_metadata::StackId, sync::RepoExclusive};
+use but_ctx::Context;
+use but_workspace::RefInfo;
+use gix::refs::FullName;
+use itertools::Itertools as _;
+use serde::Serialize;
 
 use crate::{
-    CliId, IdMap,
-    utils::{Confirm, ConfirmDefault, OutputChannel},
+    CliResult, IdMap,
+    args::{
+        atoms::{BranchOrStack, CliIdArg, Priority, Purpose},
+        unapply::Platform,
+    },
+    bad_input,
+    theme::{self, Theme},
+    utils::{CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils},
 };
 
-/// Handle the unapply command.
-///
-/// The identifier can be:
-/// - A CLI ID pointing to a stack
-/// - A CLI ID pointing to a branch
-/// - A branch name
-///
-/// If a branch is specified, the entire stack containing that branch will be unapplied.
-pub fn handle(
-    ctx: &mut but_ctx::Context,
-    out: &mut OutputChannel,
-    identifier: &str,
-    force: bool,
-) -> anyhow::Result<()> {
-    // Fetch stacks once at the start
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
-
-    let id_map = IdMap::new_from_context(ctx, None)?;
-    let parsed_ids = id_map.parse_using_context(identifier, ctx)?;
-
-    // Try to find the stack to unapply
-    let (stack_id, branches) = if parsed_ids.is_empty() {
-        // No CLI ID match, try to find by branch name directly
-        find_stack_by_branch_name(&stacks, identifier)?
-    } else if parsed_ids.len() == 1 {
-        match &parsed_ids[0] {
-            CliId::Stack { stack_id, .. } => {
-                // Direct stack ID - get the branches for display
-                get_stack_branches(&stacks, *stack_id, identifier)?
-            }
-            CliId::Branch { name, stack_id, .. } => {
-                // Branch ID - use the associated stack
-                if let Some(stack_id) = stack_id {
-                    get_stack_branches(&stacks, *stack_id, name)?
-                } else {
-                    bail!("Branch '{name}' does not have an associated stack");
-                }
-            }
-            CliId::Commit { .. } => {
-                bail!("Cannot unapply a commit. Please specify a branch or stack identifier.");
-            }
-            CliId::Uncommitted(_) | CliId::CommittedFile { .. } | CliId::PathPrefix { .. } => {
-                bail!("Cannot unapply a file. Please specify a branch or stack identifier.");
-            }
-            CliId::Unassigned { .. } => {
-                bail!(
-                    "Cannot unapply the unassigned area. Please specify a branch or stack identifier."
-                );
-            }
-        }
-    } else {
-        bail!(
-            "Ambiguous identifier '{}', matches {} items. Please be more specific.",
-            identifier,
-            parsed_ids.len()
-        );
-    };
-
-    confirm_and_unapply_stack(ctx, stack_id, &branches, force, out)
+pub struct UnapplyOutcome {
+    pub branches_in_stack: Vec<FullName>,
 }
 
-/// Get branches for a stack by ID, validating the stack exists.
-fn get_stack_branches(
-    stacks: &[but_workspace::legacy::ui::StackEntry],
-    stack_id: StackId,
-    identifier: &str,
-) -> anyhow::Result<(StackId, Vec<String>)> {
-    let stack = stacks
-        .iter()
-        .find(|s| s.id == Some(stack_id))
-        .with_context(|| format!("Stack for '{identifier}' not found in workspace"))?;
+impl CliOutputHuman for UnapplyOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        _theme: &'static Theme,
+    ) -> anyhow::Result<()> {
+        let Self { branches_in_stack } = self;
 
-    let branches: Vec<String> = stack.heads.iter().map(|h| h.name.to_string()).collect();
+        let branches_in_stack = branches_in_stack.iter().map(theme::Branch).join(", ");
 
-    if branches.is_empty() {
-        bail!("Stack for '{identifier}' has no branches");
-    }
-
-    Ok((stack_id, branches))
-}
-
-/// Find a stack by branch name and return the stack ID and branches.
-fn find_stack_by_branch_name(
-    stacks: &[but_workspace::legacy::ui::StackEntry],
-    branch_name: &str,
-) -> anyhow::Result<(StackId, Vec<String>)> {
-    for stack_entry in stacks {
-        if stack_entry.heads.iter().any(|b| b.name == branch_name)
-            && let Some(sid) = stack_entry.id
-        {
-            let branches: Vec<String> = stack_entry
-                .heads
-                .iter()
-                .map(|h| h.name.to_string())
-                .collect();
-            return Ok((sid, branches));
-        }
-    }
-
-    bail!("Branch '{branch_name}' not found in any applied stack");
-}
-
-/// Confirm with the user and unapply the stack.
-fn confirm_and_unapply_stack(
-    ctx: &mut but_ctx::Context,
-    sid: StackId,
-    branches: &[String],
-    force: bool,
-    out: &mut OutputChannel,
-) -> anyhow::Result<()> {
-    let branches_display = branches.join(", ");
-
-    if !force
-        && let Some(mut inout) = out.prepare_for_terminal_input()
-        && inout.confirm(
-            format!("Are you sure you want to unapply stack with branches '{branches_display}'?"),
-            ConfirmDefault::No,
-        )? == Confirm::No
-    {
-        bail!("Aborted unapply operation.");
-    }
-
-    but_api::legacy::virtual_branches::unapply_stack(ctx, sid)?;
-
-    if let Some(out) = out.for_human() {
         writeln!(
             out,
-            "Unapplied stack with branches '{branches_display}' from workspace"
+            "Unapplied stack with {branches_in_stack} from workspace"
         )?;
-    }
 
-    if let Some(out) = out.for_shell() {
-        // Shell output: one branch per line
-        for branch in branches {
-            writeln!(out, "{branch}")?;
+        Ok(())
+    }
+}
+
+impl CliOutput for UnapplyOutcome {
+    fn on_json(self) -> impl Serialize {
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Output {
+            branches: Vec<String>,
         }
-    }
 
-    if let Some(out) = out.for_json() {
-        out.write_value(serde_json::json!({
-            "unapplied": true,
-            "branches": branches
-        }))?;
-    }
+        let Self { branches_in_stack } = self;
 
-    Ok(())
+        let branches = branches_in_stack
+            .iter()
+            .map(|branch| branch.shorten().to_string())
+            .collect();
+
+        Output { branches }
+    }
+}
+
+pub fn unapply(
+    ctx: &mut Context,
+    _out: IntermediateChannel<'_>,
+    args: Platform,
+) -> CliResult<UnapplyOutcome> {
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission(), None)?;
+    let head_info = but_api::legacy::workspace::head_info(ctx)?;
+
+    let operation = {
+        let repo = ctx.repo.get()?;
+        resolve(args, &id_map, &repo, &head_info)?
+    };
+
+    Ok(run(ctx, guard.write_permission(), &head_info, operation)?)
+}
+
+fn resolve(
+    args: Platform,
+    id_map: &IdMap,
+    repo: &gix::Repository,
+    head_info: &RefInfo,
+) -> CliResult<UnapplyOperation> {
+    let Platform { target } = args;
+
+    let stack = match target
+        .resolve_in_workspace(repo, id_map, Purpose::Source, Some(Priority::Branch))?
+        .into_branch_or_stack()?
+    {
+        BranchOrStack::Branch(branch_arg) => {
+            if branch_arg.0.is_empty() {
+                return Err(bad_input(format!(
+                    "Cannot unapply segment '{target}' because it has no branch reference"
+                ))
+                .hint("Run `but branch new <name> --above <commit-id>` with the segment's top commit ID from `but status`, then run `but unapply <name>`.")
+                .into());
+            }
+            let branch = branch_arg.resolve_local_branch_name()?;
+
+            let stack = head_info.stacks.iter().find(|stack| {
+                stack.segments.iter().any(|segment| {
+                    segment
+                        .ref_info
+                        .as_ref()
+                        .is_some_and(|ref_info| ref_info.ref_name == branch)
+                })
+            });
+
+            let Some(stack) = stack else {
+                if let Some(worktree) = head_info.worktrees.iter().find(|worktree| {
+                    worktree
+                        .segments
+                        .iter()
+                        .any(|segment| segment.ref_name() == Some(branch.as_ref()))
+                }) {
+                    return Err(bad_input(format!(
+                        "Branch {} belongs to worktree {}, which cannot be unapplied",
+                        branch.shorten(),
+                        worktree.name
+                    ))
+                    .hint(format!(
+                        "Use `but worktree remove {}` to remove the worktree",
+                        worktree.name
+                    ))
+                    .into());
+                }
+                return Err(bad_input(format!("Branch {} not found", branch.shorten()))
+                    .hint(CliIdArg::TARGET_MISSING_HINT)
+                    .into());
+            };
+
+            stack
+        }
+        BranchOrStack::Stack { stack_id, id } => {
+            let stack = head_info
+                .stacks
+                .iter()
+                .find(|stack| stack.id.is_some_and(|id| id == stack_id));
+
+            let Some(stack) = stack else {
+                return Err(bad_input(format!("Stack {id} not found"))
+                    .hint(CliIdArg::TARGET_MISSING_HINT)
+                    .into());
+            };
+
+            stack
+        }
+    };
+
+    let stack_id = stack.id.context("BUG: stack has no id")?;
+
+    Ok(UnapplyOperation { stack_id })
+}
+
+pub fn run(
+    ctx: &mut Context,
+    perm: &mut RepoExclusive,
+    head_info: &RefInfo,
+    operation: UnapplyOperation,
+) -> anyhow::Result<UnapplyOutcome> {
+    let UnapplyOperation { stack_id } = operation;
+
+    let stack = head_info
+        .stacks
+        .iter()
+        .find(|stack| stack.id.is_some_and(|id| id == stack_id))
+        .context("BUG: stack not found")?;
+
+    let branches_in_stack = stack
+        .segments
+        .iter()
+        .filter_map(|segment| Some(segment.ref_info.as_ref()?.ref_name.clone()))
+        .collect::<Vec<_>>();
+
+    but_api::legacy::virtual_branches::unapply_stack_with_perm(ctx, stack_id, perm)?;
+
+    Ok(UnapplyOutcome { branches_in_stack })
+}
+
+pub struct UnapplyOperation {
+    pub stack_id: StackId,
 }

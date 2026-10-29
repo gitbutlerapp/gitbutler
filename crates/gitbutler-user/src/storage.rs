@@ -8,13 +8,13 @@ const USER_FILE: &str = "user.json";
 
 #[derive(Debug, Clone)]
 pub(crate) struct Storage {
-    inner: but_fs::Storage,
+    inner: but_utils::Storage,
 }
 
 impl Storage {
     pub fn from_path(path: impl Into<PathBuf>) -> Storage {
         Storage {
-            inner: but_fs::Storage::new(path),
+            inner: but_utils::Storage::new(path),
         }
     }
 

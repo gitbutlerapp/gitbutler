@@ -1,11 +1,9 @@
 //! Functions relate to the GitButler workspace head
-use anyhow::{Context as _, Result};
+
+use anyhow::{Context as _, Result, bail};
 use but_core::RepositoryExt;
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
-use gitbutler_cherry_pick::RepositoryExt as _;
-use gitbutler_repo::{RepositoryExt as _, SignaturePurpose};
-use gitbutler_stack::{Stack, VirtualBranchesHandle};
+use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_gix};
 use gix::merge::tree::TreatAsUnresolved;
 use tracing::instrument;
 
@@ -15,15 +13,17 @@ const WORKSPACE_HEAD: &str = "Workspace Head";
 pub fn merge_worktree_with_workspace<'a>(
     ctx: &Context,
     gix_repo: &'a gix::Repository,
+    ws: &but_graph::Workspace,
 ) -> Result<(gix::merge::tree::Outcome<'a>, TreatAsUnresolved)> {
     let mut head = gix_repo.head()?;
 
     // The uncommitted changes
-    let workdir_tree = ctx.git2_repo.get()?.create_wd_tree(0)?.id().to_gix();
+    #[expect(deprecated)]
+    let workdir_tree = gix_repo.create_wd_tree(0)?;
 
     // The tree of where the gitbutler workspace is at
     let workspace_tree = gix_repo
-        .find_commit(super::remerged_workspace_commit_v2(ctx)?)?
+        .find_commit(super::remerged_workspace_commit_v2(ctx, ws)?)?
         .tree_id()?
         .detach();
 
@@ -41,53 +41,69 @@ pub fn merge_worktree_with_workspace<'a>(
     Ok((outcome, conflict_kind))
 }
 
-/// Merge all currently stored stacks together into a new tree and return `(merged_tree, stacks, target_commit)` id accordingly.
+/// Merge the projected workspace stacks into a new tree and return
+/// `(merged_tree, stack_heads, target_commit)`.
 /// `gix_repo` should be optimised for merging.
 pub fn remerged_workspace_tree_v2(
-    ctx: &Context,
     repo: &gix::Repository,
-) -> Result<(gix::ObjectId, Vec<Stack>, gix::ObjectId)> {
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    let target = vb_state
-        .get_default_target()
-        .context("failed to get target")?;
-    let git2_repo = &*ctx.git2_repo.get()?;
-    let mut stacks: Vec<Stack> = vb_state.list_stacks_in_workspace()?;
-
-    let target_commit = git2_repo.find_commit(target.sha.to_git2())?;
-    let workspace_tree = git2_repo.find_real_tree(&target_commit, Default::default())?;
-    let mut workspace_tree_id = workspace_tree.id().to_gix();
-
-    let (merge_options_fail_fast, conflict_kind) = repo.merge_options_fail_fast()?;
-    let merge_tree_id = git2_repo
-        .find_commit(target.sha.to_git2())?
-        .tree_id()
-        .to_gix();
-    for stack in stacks.iter_mut() {
-        let branch_head = git2_repo.find_commit(stack.head_oid(ctx)?.to_git2())?;
-        let branch_tree_id = git2_repo
-            .find_real_tree(&branch_head, Default::default())?
-            .id()
-            .to_gix();
-
-        let mut merge = repo.merge_trees(
-            merge_tree_id,
-            workspace_tree_id,
-            branch_tree_id,
-            repo.default_merge_labels(),
-            merge_options_fail_fast.clone(),
+    ws: &but_graph::Workspace,
+) -> Result<(gix::ObjectId, Vec<gix::ObjectId>, gix::ObjectId)> {
+    let target_base_oid = ws
+        .target_commit
+        .as_ref()
+        .map(|target| target.commit_id)
+        .context("failed to get target base oid")?;
+    let heads = ws
+        .stacks
+        .iter()
+        .map(|stack| stack.tip_skip_empty().unwrap_or(target_base_oid))
+        .collect::<Vec<_>>();
+    let workspace_tree_id = if heads.is_empty() {
+        but_core::Commit::try_from(repo.find_commit(target_base_oid)?)?
+            .tree_id_or_auto_resolution()?
+            .detach()
+    } else if heads.len() == 1 {
+        let commit = but_core::Commit::try_from(
+            repo.find_commit(*heads.first().expect("Heads is length 1"))?,
         )?;
+        commit.tree_id_or_auto_resolution()?.detach()
+    } else {
+        let base_tree_id = but_core::Commit::try_from(
+            repo.find_commit(
+                repo.merge_base_octopus(heads.iter().copied())?
+                    .context("Could not find a merge-base for the workspace heads")?,
+            )?,
+        )?
+        .tree_id_or_auto_resolution()?
+        .detach();
+        let mut workspace_tree_id = base_tree_id;
 
-        if !merge.has_unresolved_conflicts(conflict_kind) {
-            workspace_tree_id = merge.tree.write()?.detach();
-        } else {
-            // This branch should have already been unapplied during the "update" command but for some reason that failed
-            tracing::warn!("Merge conflict between base and {:?}", stack.name());
-            stack.in_workspace = false;
-            vb_state.set_stack(stack.clone())?;
+        let (merge_options_fail_fast, conflict_kind) = repo.merge_options_fail_fast()?;
+        for head in &heads {
+            let stack_head = but_core::Commit::try_from(repo.find_commit(*head)?)?;
+            let branch_tree_id = stack_head.tree_id_or_auto_resolution()?.detach();
+
+            let mut merge = repo.merge_trees(
+                base_tree_id,
+                workspace_tree_id,
+                branch_tree_id,
+                repo.default_merge_labels(),
+                merge_options_fail_fast.clone(),
+            )?;
+
+            if !merge.has_unresolved_conflicts(conflict_kind) {
+                workspace_tree_id = merge.tree.write()?.detach();
+            } else {
+                bail!(
+                    "BUG: Merge conflict between projected workspace stacks: This branch should have already been unapplied during the 'update' command but for some reason that failed"
+                );
+            }
         }
-    }
-    Ok((workspace_tree_id, stacks, target.sha))
+
+        workspace_tree_id
+    };
+
+    Ok((workspace_tree_id, heads, target_base_oid))
 }
 
 /// Creates and returns a merge commit of all active branch heads.
@@ -98,36 +114,29 @@ pub fn remerged_workspace_tree_v2(
 /// This should be used to update the `gitbutler/workspace` ref with, which is usually
 /// done from `update_workspace_commit()`, after any of its input changes.
 /// This is namely the conflicting state, or any head of the virtual branches.
-#[instrument(level = "debug", skip(ctx))]
-pub fn remerged_workspace_commit_v2(ctx: &Context) -> Result<gix::ObjectId> {
-    let git2_repo = &*ctx.git2_repo.get()?;
+#[instrument(level = "debug", skip(ctx, ws))]
+pub fn remerged_workspace_commit_v2(
+    ctx: &Context,
+    ws: &but_graph::Workspace,
+) -> Result<gix::ObjectId> {
     let repo = ctx.clone_repo_for_merging()?;
-    let (workspace_tree_id, stacks, target_commit) = remerged_workspace_tree_v2(ctx, &repo)?;
-    let workspace_tree = git2_repo.find_tree(workspace_tree_id.to_git2())?;
+    let (workspace_tree_id, mut heads, target_commit) = remerged_workspace_tree_v2(&repo, ws)?;
 
-    let committer = gitbutler_repo::signature(SignaturePurpose::Committer)?;
-    let author = gitbutler_repo::signature(SignaturePurpose::Author)?;
-    let mut heads = stacks
-        .iter()
-        .filter_map(|stack| stack.head_oid(ctx).ok())
-        .filter_map(|h| git2_repo.find_commit(h.to_git2()).ok())
-        .collect::<Vec<_>>();
-
+    let committer = signature_gix(SignaturePurpose::Committer);
+    let author = signature_gix(SignaturePurpose::Author);
     if heads.is_empty() {
-        heads = vec![git2_repo.find_commit(target_commit.to_git2())?]
+        heads = vec![target_commit]
     }
 
-    // TODO: Why does commit only accept a slice of commits? Feels like we
-    //       could make use of AsRef with the right traits.
-    let head_refs: Vec<_> = heads.iter().collect();
-
-    let workspace_head_id = git2_repo.commit(
+    let workspace_head_id = commit_without_signature_gix(
+        &repo,
         None,
-        &author,
-        &committer,
-        WORKSPACE_HEAD,
-        &workspace_tree,
-        head_refs.as_slice(),
+        author,
+        committer,
+        WORKSPACE_HEAD.into(),
+        workspace_tree_id,
+        &heads,
+        None,
     )?;
-    Ok(workspace_head_id.to_gix())
+    Ok(workspace_head_id)
 }

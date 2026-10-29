@@ -46,21 +46,46 @@ impl Controller {
             .iter()
             .map(|account| account.access_token_key().to_string())
             .collect::<Vec<String>>();
+        for key in &access_tokens_to_delete {
+            settings.cached_profiles.remove(key);
+        }
         settings.github.known_accounts.clear();
         self.save_settings(&settings)?;
 
         Ok(access_tokens_to_delete)
     }
 
-    /// Remove a GitHub account.
+    /// Get the cached profile for an account by its `access_token_key`.
+    pub fn cached_profile(
+        &self,
+        key: &str,
+    ) -> anyhow::Result<Option<crate::settings::CachedProfile>> {
+        let settings = self.read_settings()?;
+        Ok(settings.cached_profiles.get(key).cloned())
+    }
+
+    /// Set or clear the cached profile for an account by its `access_token_key`.
+    pub fn set_cached_profile(
+        &self,
+        key: &str,
+        profile: Option<crate::settings::CachedProfile>,
+    ) -> anyhow::Result<()> {
+        let mut settings = self.read_settings()?;
+        match profile {
+            Some(p) => settings.cached_profiles.insert(key.to_owned(), p),
+            None => settings.cached_profiles.remove(key),
+        };
+        self.save_settings(&settings)
+    }
+
+    /// Remove a GitHub account and its cached profile.
     pub fn remove_github_account(
         &self,
         account: &crate::settings::GitHubAccount,
     ) -> anyhow::Result<()> {
         let mut settings = self.read_settings()?;
-
+        settings.cached_profiles.remove(account.access_token_key());
         settings.github.known_accounts.retain(|a| a != account);
-
         self.save_settings(&settings)
     }
 
@@ -95,21 +120,79 @@ impl Controller {
             .iter()
             .map(|account| account.access_token_key().to_string())
             .collect::<Vec<String>>();
+        for key in &access_tokens_to_delete {
+            settings.cached_profiles.remove(key);
+        }
         settings.gitlab.known_accounts.clear();
         self.save_settings(&settings)?;
 
         Ok(access_tokens_to_delete)
     }
 
-    /// Remove a GitLab account.
+    /// Remove a GitLab account and its cached profile.
     pub fn remove_gitlab_account(
         &self,
         account: &crate::settings::GitLabAccount,
     ) -> anyhow::Result<()> {
         let mut settings = self.read_settings()?;
-
+        settings.cached_profiles.remove(account.access_token_key());
         settings.gitlab.known_accounts.retain(|a| a != account);
+        self.save_settings(&settings)
+    }
 
+    /// Get all known Bitbucket accounts.
+    pub fn bitbucket_accounts(&self) -> anyhow::Result<Vec<crate::settings::BitbucketAccount>> {
+        let settings = self.read_settings()?;
+        Ok(settings.bitbucket.known_accounts)
+    }
+
+    /// Add a Bitbucket account if it does not already exist.
+    pub fn add_bitbucket_account(
+        &self,
+        account: &crate::settings::BitbucketAccount,
+    ) -> anyhow::Result<()> {
+        let mut settings = self.read_settings()?;
+
+        if settings
+            .bitbucket
+            .known_accounts
+            .iter()
+            .any(|a| a == account)
+        {
+            return Ok(());
+        }
+
+        settings.bitbucket.known_accounts.push(account.to_owned());
+        self.save_settings(&settings)
+    }
+
+    /// Clear all Bitbucket accounts.
+    /// Returns the list of access token keys that should be deleted.
+    pub fn clear_all_bitbucket_accounts(&self) -> anyhow::Result<Vec<String>> {
+        let mut settings = self.read_settings()?;
+        let access_tokens_to_delete = settings
+            .bitbucket
+            .known_accounts
+            .iter()
+            .map(|account| account.access_token_key().to_string())
+            .collect::<Vec<String>>();
+        for key in &access_tokens_to_delete {
+            settings.cached_profiles.remove(key);
+        }
+        settings.bitbucket.known_accounts.clear();
+        self.save_settings(&settings)?;
+
+        Ok(access_tokens_to_delete)
+    }
+
+    /// Remove a Bitbucket account and its cached profile.
+    pub fn remove_bitbucket_account(
+        &self,
+        account: &crate::settings::BitbucketAccount,
+    ) -> anyhow::Result<()> {
+        let mut settings = self.read_settings()?;
+        settings.cached_profiles.remove(account.access_token_key());
+        settings.bitbucket.known_accounts.retain(|a| a != account);
         self.save_settings(&settings)
     }
 
@@ -119,5 +202,144 @@ impl Controller {
 
     fn save_settings(&self, settings: &crate::settings::ForgeSettings) -> anyhow::Result<()> {
         self.settings_storage.save(settings)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::settings::{BitbucketAccount, CachedProfile, GitHubAccount, GitLabAccount};
+
+    fn test_controller() -> (Controller, tempfile::TempDir) {
+        let dir = tempfile::tempdir().unwrap();
+        let controller = Controller::from_path(dir.path());
+        (controller, dir)
+    }
+
+    #[test]
+    fn remove_github_account_clears_cached_profile() {
+        let (controller, _dir) = test_controller();
+        let account = GitHubAccount::Pat {
+            username: "testuser".into(),
+            access_token_key: "github_pat_testuser".into(),
+        };
+        controller.add_github_account(&account).unwrap();
+        controller
+            .set_cached_profile(
+                "github_pat_testuser",
+                Some(CachedProfile {
+                    name: Some("Test".into()),
+                    ..Default::default()
+                }),
+            )
+            .unwrap();
+
+        assert!(
+            controller
+                .cached_profile("github_pat_testuser")
+                .unwrap()
+                .is_some()
+        );
+        controller.remove_github_account(&account).unwrap();
+        assert!(
+            controller
+                .cached_profile("github_pat_testuser")
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn clear_all_github_accounts_clears_cached_profiles() {
+        let (controller, _dir) = test_controller();
+        let account = GitHubAccount::OAuth {
+            username: "user1".into(),
+            access_token_key: "github_oauth_user1".into(),
+        };
+        controller.add_github_account(&account).unwrap();
+        controller
+            .set_cached_profile(
+                "github_oauth_user1",
+                Some(CachedProfile {
+                    name: Some("User 1".into()),
+                    ..Default::default()
+                }),
+            )
+            .unwrap();
+
+        let keys = controller.clear_all_github_accounts().unwrap();
+        assert_eq!(keys, vec!["github_oauth_user1"]);
+        assert!(
+            controller
+                .cached_profile("github_oauth_user1")
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn remove_gitlab_account_clears_cached_profile() {
+        let (controller, _dir) = test_controller();
+        let account = GitLabAccount::Pat {
+            username: "gluser".into(),
+            access_token_key: "gitlab_pat_gluser".into(),
+        };
+        controller.add_gitlab_account(&account).unwrap();
+        controller
+            .set_cached_profile(
+                "gitlab_pat_gluser",
+                Some(CachedProfile {
+                    email: Some("gl@test.com".into()),
+                    ..Default::default()
+                }),
+            )
+            .unwrap();
+
+        assert!(
+            controller
+                .cached_profile("gitlab_pat_gluser")
+                .unwrap()
+                .is_some()
+        );
+        controller.remove_gitlab_account(&account).unwrap();
+        assert!(
+            controller
+                .cached_profile("gitlab_pat_gluser")
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn remove_bitbucket_account_clears_cached_profile() {
+        let (controller, _dir) = test_controller();
+        let account = BitbucketAccount::ApiToken {
+            email: "bb@test.com".into(),
+            access_token_key: "bitbucket_apitoken_bb@test.com".into(),
+        };
+        controller.add_bitbucket_account(&account).unwrap();
+        controller
+            .set_cached_profile(
+                "bitbucket_apitoken_bb@test.com",
+                Some(CachedProfile {
+                    email: Some("bb@test.com".into()),
+                    ..Default::default()
+                }),
+            )
+            .unwrap();
+
+        assert!(
+            controller
+                .cached_profile("bitbucket_apitoken_bb@test.com")
+                .unwrap()
+                .is_some()
+        );
+        controller.remove_bitbucket_account(&account).unwrap();
+        assert!(
+            controller
+                .cached_profile("bitbucket_apitoken_bb@test.com")
+                .unwrap()
+                .is_none()
+        );
     }
 }

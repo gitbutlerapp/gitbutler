@@ -9,6 +9,7 @@ git-init-frozen
 echo base > file.txt
 git add file.txt
 git commit -m "base"
+git update-ref refs/heads/base HEAD
 
 git checkout -b A
 

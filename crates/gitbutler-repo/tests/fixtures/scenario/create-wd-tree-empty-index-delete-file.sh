@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -eu -o pipefail
+
+git init -b master
+printf "content1" >file1.txt
+printf "content2" >file2.txt
+git add file1.txt file2.txt
+git commit -m "initial commit"
+git rm --cached file1.txt file2.txt
+rm file1.txt

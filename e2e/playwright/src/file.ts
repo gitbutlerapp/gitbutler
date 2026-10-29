@@ -1,5 +1,6 @@
+import { expect } from "./expect.ts";
 import { clickByTestId, getByTestId, waitForTestId } from "./util.ts";
-import { expect, Page } from "@playwright/test";
+import { Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -30,8 +31,7 @@ export function writeFiles(files: Record<string, string>): void {
 }
 
 export async function assertFileContent(filePath: string, expectedContent: string): Promise<void> {
-	const actualContent = fs.readFileSync(filePath, "utf-8");
-	await expect.poll(() => actualContent).toBe(expectedContent);
+	await expect.poll(() => fs.readFileSync(filePath, "utf-8")).toBe(expectedContent);
 }
 
 /**

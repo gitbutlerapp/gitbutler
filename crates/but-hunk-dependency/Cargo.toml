@@ -18,6 +18,7 @@ but-serde.workspace = true
 but-ctx = { workspace = true }
 but-graph.workspace = true
 
+tracing.workspace = true
 anyhow.workspace = true
 itertools.workspace = true
 serde.workspace = true
@@ -28,8 +29,8 @@ but-schemars = { workspace = true, optional = true }
 [dev-dependencies]
 but-testsupport.workspace = true
 
-insta.workspace = true
 serde_json.workspace = true
+snapbox.workspace = true
 
 [lints]
 workspace = true

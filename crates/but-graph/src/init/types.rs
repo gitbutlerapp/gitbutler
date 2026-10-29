@@ -81,12 +81,17 @@ impl Limit {
         {
             return false;
         }
-        // Do not let *any* non-goal tip consume gas as long as there is still anything with a goal in the queue
-        // that need to meet their local branches.
-        // This is effectively only affecting the entrypoint tips, which isn't setup with a goal.
-        // TODO(perf): could we remember that we are a tip and look for our specific counterpart by matching the goal?
-        //             That way unrelated tips wouldn't cause us to keep traversing.
-        if self.goal_unset() && next.iter().any(|(_, _, _, limit)| !limit.goal_reached()) {
+        // Keep entrypoints alive while other tips seek them. A tip that reached its own goals
+        // must also keep going when an unconnected tip still needs its ancestry, so a target
+        // cannot stop before an older worktree fork connects to its history. Tips already in
+        // the workspace or integrated history don't need this extension.
+        if next.iter().any(|(_, pending_flags, _, limit)| {
+            !limit.goal_reached()
+                && (self.goal_unset()
+                    || (!pending_flags
+                        .intersects(CommitFlags::InWorkspace | CommitFlags::Integrated)
+                        && flags.intersects(limit.goal_flags())))
+        }) {
             return false;
         }
         if self.inner.is_some_and(|l| l == 0) {
@@ -165,6 +170,9 @@ impl Queue {
             inner: Default::default(),
             count: 0,
             max: limit,
+            hard_limit_hit: false,
+            exhausted: false,
+            sorted: false,
         }
     }
 }
@@ -177,6 +185,12 @@ pub struct Queue {
     count: usize,
     /// The maximum number of queuing operations, each representing one commit.
     max: Option<usize>,
+    /// Whether the hard limit stopped further queuing at least once.
+    hard_limit_hit: bool,
+    /// Whether no more items should be queued for reasons other than the hard limit.
+    exhausted: bool,
+    /// Whether new items must maintain `inner` in traversal order.
+    sorted: bool,
 }
 
 /// Counted queuing
@@ -190,29 +204,75 @@ impl Queue {
     /// propagation bottleneck. This is true Particularly if a commit-graph exists which typically is the case
     /// where this starts to matter, as it speeds up traversal by factor 8 easily.
     pub fn sort(&mut self) {
-        self.inner
-            .make_contiguous()
-            .sort_by(|a, b| a.0.gen_then_time.cmp(&b.0.gen_then_time));
+        if !self.sorted {
+            self.inner
+                .make_contiguous()
+                .sort_by(|a, b| a.0.gen_then_time.cmp(&b.0.gen_then_time));
+            self.sorted = true;
+        }
     }
     #[must_use]
     pub fn push_back_exhausted(&mut self, item: QueueItem) -> bool {
-        self.inner.push_back(item);
+        if self.exhausted || self.record_hard_limit_if_exhausted() {
+            return true;
+        }
+        self.push_back_even_if_exhausted(item)
+    }
+
+    pub(crate) fn push_back_even_if_exhausted(&mut self, item: QueueItem) -> bool {
+        if self.sorted {
+            self.insert_sorted(item);
+        } else {
+            self.inner.push_back(item);
+        }
         self.is_exhausted_after_increment()
     }
     #[must_use]
     pub fn push_front_exhausted(&mut self, item: QueueItem) -> bool {
-        self.inner.push_front(item);
+        if self.exhausted || self.record_hard_limit_if_exhausted() {
+            return true;
+        }
+        if self.sorted {
+            self.insert_sorted(item);
+        } else {
+            self.inner.push_front(item);
+        }
         self.is_exhausted_after_increment()
+    }
+
+    fn insert_sorted(&mut self, item: QueueItem) {
+        let index = self
+            .inner
+            .partition_point(|existing| existing.0.gen_then_time <= item.0.gen_then_time);
+        self.inner.insert(index, item);
     }
 
     fn is_exhausted_after_increment(&mut self) -> bool {
         self.count += 1;
+        self.exhausted || self.record_hard_limit_if_exhausted()
+    }
+
+    pub fn is_exhausted(&self) -> bool {
+        self.exhausted || self.is_hard_limit_exhausted()
+    }
+
+    pub(crate) fn is_hard_limit_exhausted(&self) -> bool {
         self.max.is_some_and(|l| self.count >= l)
     }
 
-    /// Return `true` if `id` is on the queue.
-    pub fn is_queued(&self, id: gix::ObjectId) -> bool {
-        self.inner.iter().any(|(info, _, _, _)| info.id == id)
+    pub(crate) fn hard_limit_hit(&self) -> bool {
+        self.hard_limit_hit
+    }
+
+    fn record_hard_limit_if_exhausted(&mut self) -> bool {
+        let hard_limit_exhausted = self.is_hard_limit_exhausted();
+        self.hard_limit_hit |= hard_limit_exhausted;
+        hard_limit_exhausted
+    }
+
+    /// Stop accepting new items while leaving already queued items to drain.
+    pub(crate) fn exhaust(&mut self) {
+        self.exhausted = true;
     }
 
     /// Add `goal` as additional goal to `id` or panic if `id` was not found.
@@ -276,7 +336,16 @@ pub enum Instruction {
     /// at the last commit (at the time) via `at_commit`.
     ConnectNewSegment {
         parent_above: SegmentIndex,
-        at_commit: CommitIndex,
+        /// Deliberately not [`CommitIndex`]/`usize`: this instruction is stored in
+        /// the traversal queue, and widening it increases the hot `QueueItem` size.
+        ///
+        /// This limit should never be reached either unless there is a repository with a trunk of 4.3 billion commits.
+        at_commit: u32,
+        /// The position of this parent among the source commit's parents (0-based).
+        /// Deliberately not `usize` for the same traversal-queue layout reason as `at_commit`.
+        ///
+        /// This limit would only be reached if there is a merge with 4.3 billion commits.
+        parent_order: u32,
     },
 }
 
@@ -295,9 +364,11 @@ impl Instruction {
             Instruction::ConnectNewSegment {
                 parent_above: _,
                 at_commit,
+                parent_order,
             } => Instruction::ConnectNewSegment {
                 parent_above: sidx,
                 at_commit,
+                parent_order,
             },
         }
     }
@@ -498,5 +569,41 @@ impl TopoWalk {
                 Some(range)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Queue;
+
+    #[test]
+    fn explicit_exhaustion_does_not_count_as_hard_limit_hit() {
+        let mut queue = Queue::new_with_limit(Some(1));
+
+        queue.exhaust();
+
+        assert!(queue.is_exhausted(), "explicit exhaustion stops queueing");
+        assert!(
+            !queue.record_hard_limit_if_exhausted(),
+            "hard-limit state stays separate from explicit exhaustion"
+        );
+        assert!(
+            !queue.hard_limit_hit(),
+            "explicit exhaustion must not mark the hard limit as hit"
+        );
+    }
+
+    #[test]
+    fn hard_limit_exhaustion_records_hard_limit_hit() {
+        let mut queue = Queue::new_with_limit(Some(0));
+
+        assert!(
+            queue.record_hard_limit_if_exhausted(),
+            "a depleted hard limit stops queueing"
+        );
+        assert!(
+            queue.hard_limit_hit(),
+            "the queue records when the hard limit stopped queueing"
+        );
     }
 }

@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashSet},
 };
 
 use anyhow::bail;
@@ -8,7 +8,7 @@ use but_core::{RefMetadata, ref_metadata};
 use gix::{prelude::ReferenceExt, refs::Target};
 
 use crate::{
-    Worktree,
+    Worktree, WorktreeKind,
     init::{
         Entrypoint, Overlay,
         walk::{RefsById, WorktreeByBranch},
@@ -33,6 +33,22 @@ impl Overlay {
         self
     }
 
+    /// A list of references that should not be picked up anymore in the
+    /// re-traversal.
+    ///
+    /// For example, if the `but_rebase::graph_rebase::Editor` converts a
+    /// `Reference` step to a `None` step which is the equivalent of running
+    /// `git update-ref -d`, it should no longer be part of the
+    /// [`crate::Graph`], so we would list the particular reference as a dropped
+    /// reference.
+    pub fn with_dropped_references(
+        mut self,
+        refs: impl IntoIterator<Item = gix::refs::FullName>,
+    ) -> Self {
+        self.dropped_references.extend(refs);
+        self
+    }
+
     /// Override the starting position of the traversal by setting it to `id`,
     /// and optionally, by providing the `ref_name` that points to `id`.
     pub fn with_entrypoint(
@@ -40,6 +56,11 @@ impl Overlay {
         id: gix::ObjectId,
         ref_name: Option<gix::refs::FullName>,
     ) -> Self {
+        if let Some((_id, ref_name)) = self.entrypoint {
+            self.overriding_references
+                .retain(|r| Some(&r.name) != ref_name.as_ref())
+        }
+
         if let Some(ref_name) = &ref_name {
             self.overriding_references.push(gix::refs::Reference {
                 name: ref_name.to_owned(),
@@ -70,6 +91,16 @@ impl Overlay {
         self.workspace = metadata;
         self
     }
+
+    /// Serve the given ad-hoc branch stack order from memory.
+    pub fn with_branch_stack_order_override(
+        mut self,
+        branches: impl IntoIterator<Item = gix::refs::FullName>,
+    ) -> Self {
+        self.branch_stack_orders
+            .push(branches.into_iter().collect());
+        self
+    }
 }
 
 impl Overlay {
@@ -84,25 +115,37 @@ impl Overlay {
         let Overlay {
             nonoverriding_references,
             overriding_references,
+            dropped_references,
             meta_branches,
+            branch_stack_orders,
             workspace,
             entrypoint,
         } = self;
+        // Construct BTreeMaps with a deterministic order from left to right.
+        let mut or = BTreeMap::new();
+        for reference in overriding_references {
+            if !or.contains_key(&reference.name) {
+                or.insert(reference.name.clone(), reference);
+            }
+        }
+        let mut nor = BTreeMap::new();
+        for reference in nonoverriding_references {
+            if !nor.contains_key(&reference.name) {
+                nor.insert(reference.name.clone(), reference);
+            }
+        }
+
         (
             OverlayRepo {
-                nonoverriding_references: nonoverriding_references
-                    .into_iter()
-                    .map(|r| (r.name.clone(), r))
-                    .collect(),
-                overriding_references: overriding_references
-                    .into_iter()
-                    .map(|r| (r.name.clone(), r))
-                    .collect(),
+                nonoverriding_references: nor,
+                overriding_references: or,
+                dropped_references: dropped_references.into_iter().collect(),
                 inner: repo,
             },
             OverlayMetadata {
                 inner: meta,
                 meta_branches,
+                branch_stack_orders,
                 workspace,
             },
             entrypoint,
@@ -116,6 +159,7 @@ pub(crate) struct OverlayRepo<'repo> {
     inner: &'repo gix::Repository,
     nonoverriding_references: NameToReference,
     overriding_references: NameToReference,
+    dropped_references: BTreeSet<gix::refs::FullName>,
 }
 
 /// Note that functions with `'repo` in their return value technically leak the bare repo, and it's
@@ -125,11 +169,17 @@ impl<'repo> OverlayRepo<'repo> {
         Ok(self.inner.commit_graph_if_enabled()?)
     }
 
+    pub fn shallow_commits(&self) -> gix::Result<Option<gix::shallow::Commits>> {
+        self.inner.shallow_commits()
+    }
+
     pub fn try_find_reference(
         &self,
         ref_name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<Option<gix::Reference<'repo>>> {
-        if let Some(r) = self.overriding_references.get(ref_name) {
+        if self.dropped_references.contains(ref_name) {
+            Ok(None)
+        } else if let Some(r) = self.overriding_references.get(ref_name) {
             Ok(Some(r.clone().attach(self.inner)))
         } else if let Some(rn) = self.inner.try_find_reference(ref_name)? {
             Ok(Some(rn))
@@ -144,22 +194,23 @@ impl<'repo> OverlayRepo<'repo> {
         &self,
         ref_name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<gix::Reference<'repo>> {
+        if self.dropped_references.contains(ref_name) {
+            bail!(
+                "Failed to find reference {ref_name} due to it being dropped in the traversal overlay"
+            );
+        }
         if let Some(r) = self.overriding_references.get(ref_name) {
             return Ok(r.clone().attach(self.inner));
         }
-        Ok(self
-            .inner
-            .find_reference(ref_name)
-            .or_else(|err| match err {
-                gix::reference::find::existing::Error::Find(_) => Err(err),
-                gix::reference::find::existing::Error::NotFound { .. } => {
-                    if let Some(r) = self.nonoverriding_references.get(ref_name) {
-                        Ok(r.clone().attach(self.inner))
-                    } else {
-                        Err(err)
-                    }
-                }
-            })?)
+        Ok(self.inner.find_reference(ref_name).or_else(|err| {
+            if err.is_not_found()
+                && let Some(r) = self.nonoverriding_references.get(ref_name)
+            {
+                Ok(r.clone().attach(self.inner))
+            } else {
+                Err(err)
+            }
+        })?)
     }
 
     pub fn config_snapshot(&self) -> gix::config::Snapshot<'repo> {
@@ -170,13 +221,10 @@ impl<'repo> OverlayRepo<'repo> {
         &self,
         name: &gix::refs::FullNameRef,
         direction: gix::remote::Direction,
-    ) -> Option<
-        Result<
-            Cow<'_, gix::refs::FullNameRef>,
-            gix::repository::branch_remote_tracking_ref_name::Error,
-        >,
-    > {
-        self.inner.branch_remote_tracking_ref_name(name, direction)
+    ) -> Option<gix::Result<Cow<'_, gix::refs::FullNameRef>>> {
+        self.inner
+            .branch_remote_tracking_ref_name(name, direction)
+            .map(|result| result.map(Cow::Owned))
     }
 
     pub fn find_commit(&self, id: gix::ObjectId) -> anyhow::Result<gix::Commit<'repo>> {
@@ -191,7 +239,7 @@ impl<'repo> OverlayRepo<'repo> {
         self.inner
     }
 
-    pub fn remote_names(&self) -> gix::remote::Names<'repo> {
+    pub fn remote_names(&self) -> gix::remote::Names {
         self.inner.remote_names()
     }
 
@@ -211,9 +259,13 @@ impl<'repo> OverlayRepo<'repo> {
         prefixes: impl Iterator<Item = &'a str>,
         workspace_ref_names: &[&gix::refs::FullNameRef],
     ) -> anyhow::Result<RefsById> {
-        let mut seen = (!self.nonoverriding_references.is_empty()).then(BTreeSet::new);
+        let mut seen = HashSet::new();
         let mut ref_filter =
             |r: gix::Reference<'_>| -> Option<(gix::ObjectId, gix::refs::FullName)> {
+                if self.dropped_references.contains(r.name()) {
+                    return None;
+                }
+
                 if workspace_ref_names.contains(&r.name()) {
                     return None;
                 }
@@ -226,11 +278,7 @@ impl<'repo> OverlayRepo<'repo> {
                         (id.detach(), r.inner.name)
                     };
                 // This is only for overrides.
-                if let Some(seen) = seen.as_mut() {
-                    seen.insert(name.clone()).then_some((id, name))
-                } else {
-                    Some((id, name))
-                }
+                seen.insert(name.clone()).then_some((id, name))
             };
         let mut all_refs_by_id = gix::hashtable::HashMap::<_, Vec<_>>::default();
         for prefix in prefixes {
@@ -296,19 +344,20 @@ impl<'repo> OverlayRepo<'repo> {
             main_head_referent: Option<&gix::refs::FullNameRef>,
             overriding: &NameToReference,
             out: &mut WorktreeByBranch,
+            owned_by_repo: bool,
         ) -> anyhow::Result<()> {
-            let Some((head, wd)) = head.and_then(|head| {
-                head.repo.worktree().map(|wt| {
-                    (
-                        head,
-                        match wt.id() {
-                            None => Worktree::Main,
-                            Some(id) => Worktree::LinkedId(id.to_owned()),
-                        },
-                    )
-                })
-            }) else {
+            let Some(head) = head else {
                 return Ok(());
+            };
+            let Some(wt) = head.repo.worktree() else {
+                return Ok(());
+            };
+            let wd = Worktree {
+                kind: match wt.id()? {
+                    None => WorktreeKind::Main,
+                    Some(id) => WorktreeKind::LinkedId(id.to_owned()),
+                },
+                owned_by_repo,
             };
 
             out.entry("HEAD".try_into().expect("valid"))
@@ -349,14 +398,42 @@ impl<'repo> OverlayRepo<'repo> {
             main_head_referent,
             &self.overriding_references,
             &mut map,
+            true,
+        )?;
+
+        let mut repo_is_linked = false;
+        let current_dir = std::env::current_dir()?;
+        let repo_real_path = gix::path::realpath_opts(
+            self.inner.path(),
+            &current_dir,
+            gix::path::realpath::MAX_SYMLINKS,
         )?;
         for proxy in self.inner.worktrees()? {
             let repo = proxy.into_repo_with_possibly_inaccessible_worktree()?;
+            let linked_repo_real_path = gix::path::realpath_opts(
+                repo.path(),
+                &current_dir,
+                gix::path::realpath::MAX_SYMLINKS,
+            )?;
+            if linked_repo_real_path == repo_real_path {
+                repo_is_linked = true;
+                continue;
+            }
             maybe_insert_head(
                 repo.head().ok(),
                 None,
                 &self.overriding_references,
                 &mut map,
+                false,
+            )?;
+        }
+        if repo_is_linked && let Ok(main_repo) = self.inner.main_repo() {
+            maybe_insert_head(
+                main_repo.head().ok(),
+                None,
+                &self.overriding_references,
+                &mut map,
+                false,
             )?;
         }
         Ok(map)
@@ -366,6 +443,7 @@ impl<'repo> OverlayRepo<'repo> {
 pub(crate) struct OverlayMetadata<'meta, T> {
     inner: &'meta T,
     meta_branches: Vec<(gix::refs::FullName, ref_metadata::Branch)>,
+    branch_stack_orders: Vec<Vec<gix::refs::FullName>>,
     workspace: Option<(gix::refs::FullName, ref_metadata::Workspace)>,
 }
 
@@ -425,5 +503,19 @@ where
         }
         let opt = self.inner.branch_opt(ref_name)?;
         Ok(opt.map(|data| data.clone()))
+    }
+
+    pub fn branch_stack_order(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Option<Vec<gix::refs::FullName>>> {
+        if let Some(branches) = self
+            .branch_stack_orders
+            .iter()
+            .find(|branches| branches.iter().any(|branch| branch.as_ref() == ref_name))
+        {
+            return Ok(Some(branches.clone()));
+        }
+        self.inner.branch_stack_order(ref_name)
     }
 }

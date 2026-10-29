@@ -1,0 +1,114 @@
+[package]
+name = "but-gpui"
+version = "0.0.0"
+edition.workspace = true
+repository.workspace = true
+authors.workspace = true
+license-file = "../../LICENSE.md"
+description = "An experimental native GitButler client built on GPUI"
+publish = false
+# GPUI follows Zed's toolchain.
+rust-version = "1.98"
+
+[[bin]]
+name = "gitbutler-gpui"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[features]
+## Scripted input and frame screenshots for development, see `src/dev.rs`.
+dev-script = ["gpui/test-support", "gpui_platform/test-support"]
+
+[target.'cfg(unix)'.dependencies]
+# Build and restart's Cancel stops the build's whole process group.
+libc.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# Text drawn as the web apps draw it and the Dock icon (see `run`), scripted runs kept out of
+# App Nap, and the cursor shown again when the window becomes key.
+objc2 = "0.6.4"
+raw-window-handle = "0.6.2"
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSData", "NSDictionary", "NSObject", "NSProcessInfo", "NSString", "NSUserDefaults", "NSValue"] }
+
+[dependencies]
+anyhow.workspace = true
+futures.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+# The log files, in the desktop app's log folder.
+tracing-appender = "0.2.5"
+unicode-segmentation.workspace = true
+bstr.workspace = true
+# The forge cache's timestamps.
+chrono = { workspace = true, features = ["clock"] }
+gix = { workspace = true, features = ["sha1", "blame", "mailmap"] }
+reqwest.workspace = true
+md5.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+# Locks that can't be poisoned, so taking one can't fail.
+parking_lot.workspace = true
+# Metrics, and the stacks of panics and crashes they report.
+posthog-rs.workspace = true
+uuid = { workspace = true, features = ["v7"] }
+backtrace = "0.3.76"
+# What the app remembers between launches.
+rusqlite.workspace = true
+# The keymap, in Zed's format: JSON with comments, bindings kept in the file's order.
+serde_json_lenient.workspace = true
+indexmap = { workspace = true, features = ["serde"] }
+
+# GitButler, consumed only from `src/backend`.
+but-action.workspace = true
+but-api = { workspace = true, features = ["legacy"] }
+but-branches.workspace = true
+but-askpass.workspace = true
+but-bitbucket.workspace = true
+but-core.workspace = true
+but-error.workspace = true
+but-forge.workspace = true
+but-forge-storage.workspace = true
+but-github.workspace = true
+but-gitlab.workspace = true
+but-llm.workspace = true
+but-ctx = { workspace = true, features = ["legacy"] }
+but-path.workspace = true
+but-oplog.workspace = true
+but-rebase.workspace = true
+but-secret.workspace = true
+but-settings.workspace = true
+but-transaction.workspace = true
+but-workspace = { workspace = true, features = ["legacy"] }
+gitbutler-operating-modes.workspace = true
+gitbutler-project.workspace = true
+gitbutler-repo.workspace = true
+gitbutler-filemonitor.workspace = true
+
+gpui = { git = "https://github.com/zed-industries/zed", rev = "28d0a3547f16b9609b301b48ab363bfca649c864" }
+# On Linux, windows on Wayland or X11, whichever the session runs.
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "28d0a3547f16b9609b301b48ab363bfca649c864", features = ["font-kit", "wayland", "x11"] }
+# Only the parsing and the dumps two-face embeds: no YAML or plist loading.
+syntect = { version = "5.3.0", default-features = false, features = ["parsing", "dump-load", "regex-fancy"] }
+# bat's syntaxes on top of syntect's, for TypeScript, Svelte, TOML and the like, as the CLI's.
+two-face = { version = "0.5.2", default-features = false, features = ["syntect-fancy"] }
+# Decodes diffs' and descriptions' images, shrunk to the size they're shown at.
+image = { version = "0.25.1", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
+# Word-level emphasis and tree-sitter scope breadcrumbs for diffs. Release 0.17.0.
+deltoids = { git = "https://github.com/juanibiapina/deltoids", rev = "b797d011ecc6b733025461cc98fae6f9f8719429" }
+# Pull request descriptions as formatted text. Only its parser: none of its HTML output.
+pulldown-cmark = { version = "0.13.4", default-features = false }
+
+[build-dependencies]
+# The Windows executable's icon; it adds nothing to builds for elsewhere.
+embed-resource = "3.0.9"
+
+[dev-dependencies]
+tempfile.workspace = true
+# Tests that open a repository get their own app-data dir, not the user's.
+but-testsupport.workspace = true
+snapbox.workspace = true
+

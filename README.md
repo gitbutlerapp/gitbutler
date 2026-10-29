@@ -75,7 +75,7 @@ Why use GitButler instead of vanilla Git? What a great question.
 - **First Class Conflicts** ([gui](https://docs.gitbutler.com/overview#conflicting-branches), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/conflict-resolution))
   - Rebases always succeed. Commits can be marked as conflicted and resolved at any time, in any order.
 - **Forge Integration** ([gui](https://docs.gitbutler.com/features/forge-integration/github-integration), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/forges))
-  - Authenticate to GitHub or GitLab to easily open and update Pull Requests, list branches, get CI statuses and more. No other tools required.
+  - Authenticate to GitHub, GitLab, or Bitbucket to easily open and update Pull Requests, list branches, get CI statuses and more. No other tools required.
 - **AI Tooling** ([gui](https://docs.gitbutler.com/features/ai-integration/ai-overview), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/ai-stuff))
   - Use built-in AI handlers to help create commit messages, branch names, PR descriptions and more.
   - Easily install hooks or skills for all modern agent systems to level up their Git management.

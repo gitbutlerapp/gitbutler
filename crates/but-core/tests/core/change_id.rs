@@ -38,7 +38,7 @@ mod decode_reverse_hex_bytes {
     #[test]
     fn decode_reverse_hex_bytes_rejects_non_reverse_hex_characters() {
         let mut change_id = ChangeId::from_bytes(&[0xaa; 16]);
-        change_id.prefix_with(b"not-reverse-hex-".iter().copied());
+        change_id = change_id.prefixed_with(b"not-reverse-hex-".iter().copied());
 
         assert_eq!(change_id.decode_reverse_hex_bytes(), None);
     }

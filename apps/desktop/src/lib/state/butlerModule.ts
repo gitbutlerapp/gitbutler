@@ -19,6 +19,7 @@ import {
 	type ApiModules,
 	type QueryActionCreatorResult,
 	type StartQueryActionCreatorOptions,
+	type SubscriptionOptions,
 } from "@reduxjs/toolkit/query";
 import type { TauriBaseQueryFn } from "$lib/state/backendQuery";
 import type { HookContext } from "$lib/state/context";
@@ -183,6 +184,15 @@ export type ReactiveQuery<
 	readonly result: CustomResult<CustomQuery<T>> & Extensions;
 	readonly response: T | undefined;
 };
+
+/**
+ * A `useQuery` result: reading it subscribes. Change the subscription's options
+ * here rather than by re-creating the query: a fresh subscription re-runs a
+ * query that has never fulfilled, which for a failing poll defeats its backoff.
+ */
+export type SubscribedQuery<T> = ReactiveQuery<T, QueryExtensions> & {
+	updateSubscriptionOptions: (options: SubscriptionOptions) => void;
+};
 export type AsyncResult<T> = Promise<CustomResult<CustomQuery<T>>>;
 
 /**
@@ -242,7 +252,7 @@ type QueryHooks<D extends CustomQuery<unknown>> = {
 	useQuery: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
 		args: QueryArgFrom<D>,
 		options?: { transform?: T } & StartQueryActionCreatorOptions,
-	) => ReactiveQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>, QueryExtensions>;
+	) => SubscribedQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>;
 	/** Execute query on existing state. */
 	useQueryState: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
 		args: QueryArgFrom<D>,

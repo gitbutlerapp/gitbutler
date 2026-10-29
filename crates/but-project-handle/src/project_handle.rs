@@ -17,6 +17,11 @@ pub struct ProjectHandle(String);
 ///
 /// This accepts a [`ProjectHandle`] in all builds, and also accepts a legacy [`LegacyProjectId`]
 /// when the `legacy` feature is enabled.
+///
+/// Its serialized form is a plain string — see the `Serialize`/`Deserialize` impls below —
+/// so it describes itself to schemars as one, and API consumers pass an ordinary string.
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "export-schema", schemars(with = "String"))]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ProjectHandleOrLegacyProjectId {
     /// Self-describing project handle.
@@ -25,10 +30,15 @@ pub enum ProjectHandleOrLegacyProjectId {
     #[cfg(feature = "legacy")]
     LegacyProjectId(LegacyProjectId),
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ProjectHandleOrLegacyProjectId);
 
 /// Lifecycle
 impl ProjectHandle {
     /// Create a project handle from `path`.
+    /// Note that this *should* be the git-dir as it's the most stable, and also
+    /// allows to quickly check for duplication if this convention is followed.
+    /// This is also needed to support bare repositories properly.
     pub fn from_path(path: impl AsRef<Path>) -> anyhow::Result<Self> {
         let path = gix::path::realpath(path)?;
         path_to_string(&path).map(Self)
@@ -93,7 +103,7 @@ impl TryFrom<ProjectHandle> for PathBuf {
 
 fn encoded_str_to_path(encoded: &str) -> anyhow::Result<PathBuf> {
     let bytes = decode(encoded)?;
-    let path = gix::path::try_from_byte_slice(&bytes)
+    let path = gix::path::from_byte_slice(&bytes)
         .map_err(anyhow::Error::from)
         .with_context(|| {
             format!("Encoded ProjectHandle payload is not a valid filesystem path: '{encoded}'")

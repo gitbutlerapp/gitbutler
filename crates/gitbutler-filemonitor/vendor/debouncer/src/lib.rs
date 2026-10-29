@@ -64,7 +64,7 @@ use parking_lot::{MappedMutexGuard, Mutex, MutexGuard};
 ///
 /// # Example implementation
 ///
-/// ```rust,no_run
+/// ```rust,ignore
 /// # use notify::{Event, Result, EventHandler};
 /// # use notify_debouncer_full::{DebounceEventHandler, DebounceEventResult};
 ///
@@ -152,6 +152,8 @@ pub(crate) struct DebounceDataInner<T> {
     rescan_event: Option<DebouncedEvent>,
     errors: Vec<Error>,
     timeout: Duration,
+    /// An event `flush_on` picked arrived, so the events wait no longer than the quiet window.
+    hurried: bool,
 }
 
 impl<T: FileIdCache> DebounceDataInner<T> {
@@ -163,6 +165,7 @@ impl<T: FileIdCache> DebounceDataInner<T> {
             rescan_event: None,
             errors: Vec::new(),
             timeout,
+            hurried: false,
         }
     }
 
@@ -522,10 +525,13 @@ impl<T: Watcher, C: FileIdCache> Drop for Debouncer<T, C> {
 /// Timeout is the amount of time after which a debounced event is emitted.
 ///
 /// If tick_rate is None, notify will select a tick rate that is 1/4 of the provided timeout.
+///
+/// An event `flush_on` picks has all events emitted `flush_after` ticks later, quiet or not.
 pub fn new_debouncer_opt<F: DebounceEventHandler, T: Watcher, C: FileIdCache + Send + 'static>(
     timeout: Duration,
     tick_rate: Option<Duration>,
     flush_after: Option<u32>,
+    flush_on: impl Fn(&Event) -> bool + Send + 'static,
     mut event_handler: F,
     file_id_cache: C,
     config: notify::Config,
@@ -558,6 +564,7 @@ pub fn new_debouncer_opt<F: DebounceEventHandler, T: Watcher, C: FileIdCache + S
             let stop = stop.clone();
             let flush = flush.clone();
             let mut idle_count = 0;
+            let mut hurried_count = 0;
             let mut prev_queue_count = 0;
             move || loop {
                 if stop.load(Ordering::Acquire) {
@@ -580,7 +587,13 @@ pub fn new_debouncer_opt<F: DebounceEventHandler, T: Watcher, C: FileIdCache + S
                         prev_queue_count = queue_count
                     }
 
-                    if flush_after.is_some_and(|threshold| idle_count >= threshold) {
+                    if lock.hurried {
+                        hurried_count += 1;
+                    }
+
+                    if flush_after.is_some_and(|threshold| {
+                        idle_count >= threshold || hurried_count >= threshold
+                    }) {
                         idle_count = 0;
                         prev_queue_count = 0;
                         should_flush = true;
@@ -589,6 +602,8 @@ pub fn new_debouncer_opt<F: DebounceEventHandler, T: Watcher, C: FileIdCache + S
                     send_data = lock.debounced_events(should_flush);
                     if should_flush {
                         flush.store(false, Ordering::Release);
+                        lock.hurried = false;
+                        hurried_count = 0;
                     }
 
                     errors = lock.errors();
@@ -612,7 +627,10 @@ pub fn new_debouncer_opt<F: DebounceEventHandler, T: Watcher, C: FileIdCache + S
             let mut lock = data_c.lock();
 
             match e {
-                Ok(e) => lock.add_event(e),
+                Ok(e) => {
+                    lock.hurried |= flush_on(&e);
+                    lock.add_event(e)
+                }
                 // can't have multiple TX, so we need to pipe that through our debouncer
                 Err(e) => lock.add_error(e),
             }
@@ -638,12 +656,14 @@ pub fn new_debouncer<F: DebounceEventHandler>(
     timeout: Duration,
     tick_rate: Option<Duration>,
     flush_after: Option<u32>,
+    flush_on: impl Fn(&Event) -> bool + Send + 'static,
     event_handler: F,
 ) -> Result<Debouncer<RecommendedWatcher, NoCache>, Error> {
     new_debouncer_opt::<F, RecommendedWatcher, NoCache>(
         timeout,
         tick_rate,
         flush_after,
+        flush_on,
         event_handler,
         NoCache,
         notify::Config::default(),

@@ -5,7 +5,7 @@
 	import { inject } from "@gitbutler/core/context";
 	import { LOGIN_SERVICE } from "@gitbutler/shared/login/loginService";
 	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
-	import { Button, EmailTextbox, Textbox, InfoMessage } from "@gitbutler/ui";
+	import { Button, EmailTextbox, Textbox, InfoMessage } from "@gitbutler/ui-svelte";
 	import { env } from "$env/dynamic/public";
 
 	let email = $state<string>();
@@ -189,13 +189,13 @@
 	.password-reset {
 		display: flex;
 		justify-content: flex-end;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 
 		a {
 			text-decoration: none;
 
 			&:hover {
-				color: var(--clr-text-1);
+				color: var(--text-1);
 				text-decoration: underline;
 			}
 		}

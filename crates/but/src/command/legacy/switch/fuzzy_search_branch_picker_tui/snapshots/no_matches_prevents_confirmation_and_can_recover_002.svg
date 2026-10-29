@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="92" viewBox="0 0 420 92">
+  <rect x="0" y="0" width="420" height="92" fill="#000000" />
+  <rect x="50" y="10" width="8" height="18" fill="#CCCCCC" />
+  <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
+    <text x="10" y="24" style="fill:#CCCCCC;">&gt;</text>
+    <text x="26 34 42" y="24" style="fill:#CCCCCC;">zzz</text>
+  </g>
+</svg>

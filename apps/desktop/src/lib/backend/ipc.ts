@@ -1,4 +1,4 @@
-import { Code } from "$lib/error/knownErrors";
+import type { Code } from "@gitbutler/but-sdk";
 
 export class UserError extends Error {
 	code!: Code;
@@ -12,7 +12,15 @@ export class UserError extends Error {
 
 	static fromError(error: any): UserError {
 		const cause = error instanceof Error ? error : undefined;
-		const code = error.code ?? Code.Unknown;
+		// `error` is `any`, so `error.code` could be anything at runtime
+		// (or missing entirely). Anything other than a non-empty string
+		// gets bucketed as "Unknown"; a known string is trusted to be a
+		// `Code` variant — the wire format is the source of truth and a
+		// future backend may legitimately emit codes this build hasn't
+		// seen yet.
+		const rawCode: unknown = error?.code;
+		const code: Code =
+			typeof rawCode === "string" && rawCode.length > 0 ? (rawCode as Code) : "Unknown";
 		const message = error.message ?? error;
 		return new UserError(message, code, cause);
 	}

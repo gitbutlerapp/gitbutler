@@ -107,6 +107,24 @@ pub fn open_repo(path: &Path) -> anyhow::Result<gix::Repository> {
     Ok(repo)
 }
 
+/// An empty in-memory database standing in for the repository's own project database.
+///
+/// Only for repositories from *shared read-only* fixtures: writing a real database
+/// into the shared extraction would leak state across tests and runs. Fixtures the
+/// test owns should use [`project_db()`] instead.
+pub fn in_memory_db() -> but_db::DbHandle {
+    but_db::DbHandle::new_at_path(":memory:").expect("in-memory database always opens")
+}
+
+/// The project database of `repo`, at the same location GitButler itself stores it.
+///
+/// Only for writable fixtures, whose storage lives and dies with the fixture's
+/// temporary directory; shared read-only fixtures use [`in_memory_db()`].
+pub fn project_db(repo: &gix::Repository) -> anyhow::Result<but_db::DbHandle> {
+    use but_core::RepositoryExt as _;
+    but_db::DbHandle::new_in_directory(repo.gitbutler_storage_path()?)
+}
+
 /// Return isolated configuration with a basic setup to run read-only and read-write tests.
 /// This includes the author configuration in particular.
 pub fn open_repo_config() -> anyhow::Result<gix::open::Options> {
@@ -124,7 +142,7 @@ pub fn open_repo_config() -> anyhow::Result<gix::open::Options> {
                 .validated_assignment("2000-01-01 00:00:00 +0000".into())?,
             gix::config::tree::gitoxide::Commit::COMMITTER_DATE
                 .validated_assignment("2000-01-02 00:00:00 +0000".into())?,
-            "gitbutler.testing.changeId=1".to_owned().into(),
+            "gitbutler.testing.changeId=content-hash".to_owned().into(),
         ]);
     Ok(config)
 }
@@ -158,6 +176,17 @@ pub fn deprecated_stable_env_vars() {
     _ = std::mem::ManuallyDrop::new(env);
 }
 
+/// Run `f` with `E2E_TEST_APP_DATA_DIR` pointing at a temporary directory, so code that
+/// resolves application-wide directories via `but_path` cannot read or write user-level files.
+///
+/// Use this when testing code that loads `AppSettings` from the default location.
+/// Calls are serialized process-wide via `temp_env`'s global mutex, so concurrent
+/// use from parallel tests is safe.
+pub fn isolated_app_data_dir<R>(f: impl FnOnce() -> R) -> R {
+    let tmp = gix_testtools::tempfile::TempDir::new().unwrap();
+    temp_env::with_var("E2E_TEST_APP_DATA_DIR", Some(tmp.path()), f)
+}
+
 /// Utilities for the [`git()`] command.
 pub trait CommandExt {
     /// Run the command successfully or print panic with all available command output.
@@ -176,17 +205,32 @@ impl CommandExt for std::process::Command {
     }
 }
 
+fn uncolored_graph(log: std::process::Output) -> String {
+    assert!(log.status.success());
+    let graph = log.stdout.to_str().expect("no illformed UTF-8");
+    regex::Regex::new(r"\x1b\[[0-9;]*m")
+        .unwrap()
+        .replace_all(graph, "")
+        .into_owned()
+}
+
 /// Produce a graph of all commits reachable from `refspec`.
 pub fn visualize_commit_graph(
     repo: &gix::Repository,
     refspec: impl ToString,
 ) -> std::io::Result<String> {
     let log = git(repo)
-        .args(["log", "--oneline", "--graph", "--decorate"])
+        .args([
+            "-c",
+            "log.graphIndent=false",
+            "log",
+            "--oneline",
+            "--graph",
+            "--decorate",
+        ])
         .arg(refspec.to_string())
         .output()?;
-    assert!(log.status.success());
-    Ok(log.stdout.to_str().expect("no illformed UTF-8").to_string())
+    Ok(uncolored_graph(log))
 }
 
 /// Produce a graph of all commits reachable from all refs.
@@ -198,10 +242,17 @@ pub fn visualize_commit_graph_all(repo: &gix::Repository) -> std::io::Result<Str
 /// of a valid Git repository.
 pub fn visualize_commit_graph_all_from_dir(dir: impl AsRef<Path>) -> std::io::Result<String> {
     let log = git_at_dir(dir)
-        .args(["log", "--oneline", "--graph", "--decorate", "--all"])
+        .args([
+            "-c",
+            "log.graphIndent=false",
+            "log",
+            "--oneline",
+            "--graph",
+            "--decorate",
+            "--all",
+        ])
         .output()?;
-    assert!(log.status.success());
-    Ok(log.stdout.to_str().expect("no illformed UTF-8").to_string())
+    Ok(uncolored_graph(log))
 }
 
 /// Run a condensed status on `repo`.
@@ -232,7 +283,7 @@ pub fn visualize_index(index: &gix::index::State) -> String {
         writeln!(
             &mut buf,
             "{mode:o}:{id} {path}{stage}",
-            id = &entry.id.to_hex_with_len(7),
+            id = entry.id.to_hex_with_len(7),
             mode = entry.mode.bits(),
             stage = {
                 let stage = entry.flags.stage();
@@ -257,7 +308,7 @@ pub fn visualize_index_with_content(repo: &gix::Repository, index: &gix::index::
         writeln!(
             &mut buf,
             "{mode:o}:{id} {path} {content:?}",
-            id = &entry.id.to_hex_with_len(7),
+            id = entry.id.to_hex_with_len(7),
             mode = entry.mode.bits(),
             content = repo
                 .find_blob(entry.id)
@@ -335,6 +386,23 @@ pub fn visualize_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
 ///   are encountered.
 #[cfg(unix)]
 pub fn visualize_disk_tree_skip_dot_git(root: &Path) -> anyhow::Result<termtree::Tree<String>> {
+    visualize_disk_tree_skip_dot_git_with_optional_hashes(root, false)
+}
+
+/// Just like [`visualize_disk_tree_skip_dot_git()`], but also show SHA-1 blob hashes for files.
+/// For convenience, skip `.git` and don't display the root.
+#[cfg(unix)]
+pub fn visualize_disk_tree_with_hashes_skip_dot_git(
+    root: &Path,
+) -> anyhow::Result<termtree::Tree<String>> {
+    visualize_disk_tree_skip_dot_git_with_optional_hashes(root, true)
+}
+
+#[cfg(unix)]
+fn visualize_disk_tree_skip_dot_git_with_optional_hashes(
+    root: &Path,
+    show_hashes: bool,
+) -> anyhow::Result<termtree::Tree<String>> {
     use std::os::unix::fs::MetadataExt;
     fn normalize_mode(mode: u32) -> u32 {
         let filetype_bits = 0o170000 & mode;
@@ -344,35 +412,45 @@ pub fn visualize_disk_tree_skip_dot_git(root: &Path) -> anyhow::Result<termtree:
         filetype_bits | normalized_permission_bits
     }
 
-    fn label(p: &Path, md: &std::fs::Metadata) -> String {
-        format!(
+    fn label(p: &Path, md: &std::fs::Metadata, show_hash: bool) -> anyhow::Result<String> {
+        let mut label = format!(
             "{name}:{mode:o}",
             name = p.file_name().unwrap().to_str().unwrap(),
             mode = normalize_mode(md.mode()),
-        )
+        );
+        if show_hash && let Ok(contents) = std::fs::read(p) {
+            let id =
+                gix::objs::compute_hash(gix::hash::Kind::Sha1, gix::object::Kind::Blob, &contents)?;
+            label.push_str(&format!(":{id}"));
+        }
+        Ok(label)
     }
 
-    fn tree(p: &Path, show_label: bool) -> std::io::Result<termtree::Tree<String>> {
+    fn tree(
+        p: &Path,
+        show_label: bool,
+        show_hashes: bool,
+    ) -> anyhow::Result<termtree::Tree<String>> {
         let mut cur = termtree::Tree::new(if show_label {
-            label(p, &p.symlink_metadata()?)
+            label(p, &p.symlink_metadata()?, show_hashes)?
         } else {
             ".".into()
         });
 
         let mut entries: Vec<_> = std::fs::read_dir(p)?.filter_map(|e| e.ok()).collect();
-        entries.sort_by_key(|e| e.file_name());
+        entries.sort_by_cached_key(|e| e.file_name());
         for entry in entries {
             let md = entry.metadata()?;
             if md.is_dir() && entry.file_name() != ".git" {
-                cur.push(tree(&entry.path(), true)?);
+                cur.push(tree(&entry.path(), true, show_hashes)?);
             } else {
-                cur.push(termtree::Tree::new(label(&entry.path(), &md)));
+                cur.push(termtree::Tree::new(label(&entry.path(), &md, show_hashes)?));
             }
         }
         Ok(cur)
     }
 
-    Ok(tree(root, false)?)
+    tree(root, false, show_hashes)
 }
 
 /// Write a `sequence` of numbers into `repo`.workdir / `filename`, where `sequences` can be `Some((1, 5))`,
@@ -494,8 +572,10 @@ pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile:
 
     repo.config_snapshot_mut()
         .set_raw_value(
-            &"user.signingKey",
-            gix::path::into_bstr(signing_key_path).as_ref(),
+            "user.signingKey",
+            gix::path::into_bstr(signing_key_path)
+                .expect("fixture key path is representable")
+                .as_ref(),
         )
         .expect("in-memory values can always be set");
     (repo, tmp)
@@ -582,6 +662,14 @@ pub fn visualize_disk_tree_skip_dot_git(_root: &Path) -> anyhow::Result<termtree
     anyhow::bail!("BUG: must not run on Windows - results won't be desirable");
 }
 
+/// Windows dummy
+#[cfg(not(unix))]
+pub fn visualize_disk_tree_with_hashes_skip_dot_git(
+    _root: &Path,
+) -> anyhow::Result<termtree::Tree<String>> {
+    anyhow::bail!("BUG: must not run on Windows - results won't be desirable");
+}
+
 /// Produce the id at the reference with `name` (short-name is fine), and also return the full name
 /// of the reference.
 pub fn id_at<'repo>(
@@ -654,6 +742,6 @@ mod graph;
 pub use graph::{graph_tree, graph_workspace, graph_workspace_determinisitcally};
 
 mod prepare_cmd_env;
-pub use prepare_cmd_env::isolate_env_std_cmd;
+pub use prepare_cmd_env::{isolate_env_std_cmd, isolate_env_std_cmd_with_additional_removals};
 #[cfg(feature = "snapbox")]
-pub use prepare_cmd_env::isolate_snapbox_cmd;
+pub use prepare_cmd_env::{isolate_snapbox_cmd, isolate_snapbox_cmd_with_additional_removals};

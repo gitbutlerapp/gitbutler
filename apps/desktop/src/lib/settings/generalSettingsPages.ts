@@ -1,4 +1,4 @@
-import { type IconName } from "@gitbutler/ui";
+import { type IconName } from "@gitbutler/ui-svelte";
 
 interface SettingsPage {
 	id: string;
@@ -57,4 +57,3 @@ export const generalSettingsPages = [
 ] as const satisfies readonly SettingsPage[];
 
 export type GeneralSettingsPage = (typeof generalSettingsPages)[number];
-export type GeneralSettingsPageId = GeneralSettingsPage["id"];

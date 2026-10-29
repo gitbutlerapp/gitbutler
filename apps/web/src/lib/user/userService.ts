@@ -1,3 +1,4 @@
+import { resetPostHogUser, setPostHogUser } from "$lib/analytics/posthog";
 import { setSentryUser } from "$lib/analytics/sentry";
 import { InjectionToken } from "@gitbutler/core/context";
 import { apiToBranch } from "@gitbutler/shared/branches/types";
@@ -72,6 +73,7 @@ export class UserService {
 	private async fetchUser() {
 		const user = await this.httpClient.get<User>("/api/user");
 		setSentryUser(user);
+		setPostHogUser(user);
 
 		return user;
 	}
@@ -88,6 +90,7 @@ export class UserService {
 
 	clearUser() {
 		this.user.set(undefined);
+		resetPostHogUser();
 	}
 
 	async deleteAccount(): Promise<void> {

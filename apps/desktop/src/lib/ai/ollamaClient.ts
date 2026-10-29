@@ -4,7 +4,7 @@ import {
 	SHORT_DEFAULT_PR_TEMPLATE,
 } from "$lib/ai/prompts";
 import { type PromptMessage, type AIClient, type Prompt } from "$lib/ai/types";
-import { isNonEmptyObject } from "@gitbutler/ui/utils/typeguards";
+import { isNonEmptyObject } from "@gitbutler/ui-svelte/utils/typeguards";
 import { Ollama } from "ollama/browser";
 
 export const DEFAULT_OLLAMA_ENDPOINT = "http://127.0.0.1:11434";

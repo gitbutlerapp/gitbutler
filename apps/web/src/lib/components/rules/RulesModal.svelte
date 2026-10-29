@@ -4,7 +4,7 @@
 	import { inject } from "@gitbutler/core/context";
 
 	import { RULES_SERVICE } from "@gitbutler/shared/rules/rulesService";
-	import { Button, Modal, ScrollableContainer, Textarea } from "@gitbutler/ui";
+	import { Button, Modal, ScrollableContainer, Textarea } from "@gitbutler/ui-svelte";
 	import { tick } from "svelte";
 	import type { ChatMessage } from "@gitbutler/shared/chat/types";
 	import type { CreateRuleParams } from "@gitbutler/shared/rules/types";

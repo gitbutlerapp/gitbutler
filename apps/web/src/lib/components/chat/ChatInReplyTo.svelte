@@ -7,7 +7,7 @@
 </script>
 
 <script lang="ts">
-	import { Button } from "@gitbutler/ui";
+	import { Button } from "@gitbutler/ui-svelte";
 	import type { UserSimple } from "@gitbutler/shared/users/types";
 
 	const UNKNOWN_AUTHOR = "Unknown author";
@@ -49,7 +49,7 @@
 		overflow: hidden;
 
 		border-radius: var(--radius-m);
-		background: var(--clr-bg-2);
+		background: var(--bg-2);
 
 		&.clickable:hover {
 			background: var(--hover-bg-2);
@@ -62,7 +62,7 @@
 		padding: 8px;
 		overflow: hidden;
 		gap: 8px;
-		border-left: 4px solid var(--clr-border-2);
+		border-left: 4px solid var(--border-2);
 	}
 
 	.reply__text {

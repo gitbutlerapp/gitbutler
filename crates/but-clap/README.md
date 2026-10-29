@@ -6,10 +6,14 @@ like documentation as well.
 
 Running this command:
 
-`cargo run --bin but-clap`
+`cargo run -p but-clap --features raw-clap-docs`
 
 will create a new directory called `cli-docs` that is Git-ignored and populates
 it with one mdx file for each command.
+
+The `raw-clap-docs` feature is required for website docs generation. It keeps
+Clap doc comments as raw Markdown for MDX output. Normal CLI builds should not
+enable it, so `but --help` uses Clap's formatted help output.
 
 We use the long-about docstrings to do everything. It can take markdown (we use
 the `unstable-markdown` feature in clap to parse correctly) and has some special

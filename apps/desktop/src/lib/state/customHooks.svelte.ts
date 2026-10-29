@@ -1,8 +1,9 @@
 import { emitQueryError, parseQueryError, SilentError } from "$lib/error/error";
-import { isReduxError, type ReduxError } from "$lib/state/reduxError";
+import { classify } from "$lib/error/errorClassification";
+import { isNormalizedError, type NormalizedError } from "$lib/error/normalizedError";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { type Reactive } from "@gitbutler/shared/storeUtils";
-import { isErrorlike } from "@gitbutler/ui/utils/typeguards";
+import { isErrorlike } from "@gitbutler/ui-svelte/utils/typeguards";
 import {
 	type Api,
 	type ApiEndpointMutation,
@@ -15,6 +16,7 @@ import {
 	type QueryArgFrom,
 	type ResultTypeFrom,
 	type StartQueryActionCreatorOptions,
+	type SubscriptionOptions,
 } from "@reduxjs/toolkit/query";
 import { createSubscriber } from "svelte/reactivity";
 import type {
@@ -22,14 +24,16 @@ import type {
 	Transformer,
 	CustomResult,
 	ExtensionDefinitions,
-	QueryExtensions,
 	ReactiveQuery,
+	SubscribedQuery,
 } from "$lib/state/butlerModule";
 import type { HookContext } from "$lib/state/context";
 import type { Prettify } from "@gitbutler/shared/utils/typeUtils";
 
 /** Extra properties included for event tracking. */
-export type EventProperties = { [key: string]: string | number | boolean | undefined };
+export type EventProperties = {
+	[key: string]: string | number | boolean | string[] | undefined;
+};
 
 /** A callback function for getting extra properties for event tracking. */
 export type PropertiesFn = () => EventProperties;
@@ -78,48 +82,51 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 		queryArg: unknown,
 		options?: { transform?: T; forceRefetch?: boolean },
 	) {
-		// const startTime = Date.now();
 		const dispatch = getDispatch();
-		const result = await dispatch(
+		const result = dispatch(
 			initiate(queryArg, {
 				subscribe: false,
 				forceRefetch: options?.forceRefetch,
 			}),
 		);
-		const { data, error } = result;
-		if (result.error) {
-			// track({ failure: true, startTime, error });
-			throw error;
-		}
-		// track({ failure: false, startTime });
+		const data = await result.unwrap();
 		if (options?.transform && data) {
 			return options.transform(data, queryArg);
 		}
-		return result.data;
+		return data;
 	}
 
 	function useQuery<T extends TransformerFn>(
 		queryArg: unknown,
 		options?: { transform?: T } & StartQueryActionCreatorOptions,
-	): ReactiveQuery<T extends Transformer<ReturnType<T>> ? ReturnType<T> : T, QueryExtensions> {
+	): SubscribedQuery<T extends Transformer<ReturnType<T>> ? ReturnType<T> : T> {
 		// const startTime = Date.now();
 		const dispatch = getDispatch();
 		let query: QueryActionCreatorResult<any> | undefined;
+		// Kept current by `updateSubscriptionOptions`, so a later resubscribe
+		// starts from the latest options rather than the ones passed at creation.
+		let subscriptionOptions = options?.subscriptionOptions;
 		const subscribe = createSubscriber(() => {
 			query = dispatch(
 				initiate(queryArg, {
 					subscribe: options?.subscribe,
-					subscriptionOptions: options?.subscriptionOptions,
+					subscriptionOptions,
 					forceRefetch: options?.forceRefetch,
 				}),
 			);
 			return () => {
 				query?.unsubscribe();
+				query = undefined;
 			};
 		});
 
 		async function refetch() {
 			await query?.refetch();
+		}
+
+		function updateSubscriptionOptions(update: SubscriptionOptions) {
+			subscriptionOptions = { ...subscriptionOptions, ...update };
+			query?.updateSubscriptionOptions(subscriptionOptions);
 		}
 
 		const selector = $derived(select(queryArg));
@@ -133,7 +140,13 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 			if (result.error) {
 				const error = result.error;
 				// track({ failure: true, startTime, error });
-				emitQueryError(error);
+				const classified = classify(error);
+				emitQueryError(posthog, error, {
+					command,
+					actionName,
+					severity: classified.severity,
+					terminal: classified.terminal,
+				});
 			}
 			if (options?.transform && data) {
 				data = options.transform(data, queryArg);
@@ -154,6 +167,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 				subscribe();
 				return output.data;
 			},
+			updateSubscriptionOptions,
 		};
 	}
 
@@ -258,7 +272,7 @@ export type UseMutationHookParams<Definition extends MutationDefinition<any, any
 	 *
 	 * This does not stop the error from being thrown, but allows you to add a side effect depending on the error.
 	 */
-	onError?: (error: ReduxError, queryArgs: QueryArgFrom<Definition>) => void;
+	onError?: (error: NormalizedError, queryArgs: QueryArgFrom<Definition>) => void;
 	/**
 	 * If true, wraps the error in a `SilentError`. This is useful if you are
 	 * providing error messages through `onError` and don't want the global
@@ -379,15 +393,17 @@ export function buildMutationHook<
 		});
 
 		/** TODO: How long do we need to send these duplicates? */
-		const legacyName = args.failure ? `${actionName} Failed` : `${actionName} Successful`;
-		posthog?.capture(legacyName, {
-			...args.properties,
-			actionName,
-			command,
-			durationMs,
-			failure: args.failure,
-			error: args.error,
-		});
+		if (actionName !== undefined) {
+			const legacyName = args.failure ? `${actionName} Failed` : `${actionName} Successful`;
+			posthog?.capture(legacyName, {
+				...args.properties,
+				actionName,
+				command,
+				durationMs,
+				failure: args.failure,
+				error: args.error,
+			});
+		}
 	}
 
 	/**
@@ -411,7 +427,7 @@ export function buildMutationHook<
 			return result;
 		} catch (error: unknown) {
 			track({ failure: true, properties: options.properties, startTime, error });
-			if (options.onError && isReduxError(error)) {
+			if (options.onError && isNormalizedError(error)) {
 				options.onError(error, queryArg);
 			}
 			throwError(error, options.throwSilentError ?? false);

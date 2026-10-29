@@ -68,7 +68,7 @@
 //!
 //!
 //! assert_eq!(format!("{:#}", a().unwrap_err()),
-//!            "errors.unknown: whatever comes before a `Code` context shows in frontend, so THIS: this didn't work",
+//!            "Unknown: whatever comes before a `Code` context shows in frontend, so THIS: this didn't work",
 //!            "however, that Code also shows up in the error chain in logs - context is just like an Error for anyhow");
 //!
 //! ```
@@ -109,6 +109,26 @@
 //! By default, `thiserror` instances have no context.
 use std::{borrow::Cow, fmt::Debug};
 
+/// Like [`anyhow::bail!`], but tags the error with [`Code::PreconditionFailed`].
+///
+/// Use this when the operation is rejected because the current state doesn't
+/// allow it — not because something broke.
+///
+/// ```rust
+/// # use anyhow::Result;
+/// fn example() -> Result<()> {
+///     but_error::bail_precondition!("branch is already checked out: {}", "main");
+/// }
+/// ```
+#[macro_export]
+macro_rules! bail_precondition {
+    ($($arg:tt)*) => {
+        return Err(::anyhow::anyhow!(
+            $crate::Context::new(format!($($arg)*)).with_code($crate::Code::PreconditionFailed)
+        ))
+    };
+}
+
 /// A unique code that consumers of the API may rely on to identify errors.
 ///
 /// ### Important
@@ -118,6 +138,7 @@ use std::{borrow::Cow, fmt::Debug};
 ///
 /// In practice, it should match its [frontend counterpart](https://github.com/gitbutlerapp/gitbutler/blob/fa973fd8f1ae8807621f47601803d98b8a9cf348/app/src/lib/backend/ipc.ts#L5).
 #[derive(Debug, Default, Copy, Clone, PartialOrd, PartialEq)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub enum Code {
     /// Much like a catch-all error code. It shouldn't be attached explicitly unless
     /// a message is provided as well as part of a [`Context`].
@@ -129,38 +150,96 @@ pub enum Code {
     DefaultTargetNotFound,
     CommitSigningFailed,
     CommitMergeConflictFailure,
+    ConflictedCommitCheckout,
     ProjectMissing,
     AuthorMissing,
     BranchNotFound,
     SecretKeychainNotFound,
     MissingLoginKeychain,
     GitForcePushProtection,
+    /// A push (or local target ref update) was rejected because the target moved and the update
+    /// would not be a fast-forward. Recoverable by re-fetching and retrying.
+    GitNonFastForward,
     NetworkError,
     ProjectDatabaseIncompatible,
     DefaultTerminalNotFound,
+    /// The user dismissed the macOS admin-privileges prompt when installing
+    /// the `but` CLI. Not a real failure — the frontend swaps it for a
+    /// neutral info toast.
+    CliInstallCancelled,
+    /// The GitHub access token was rejected. Currently only synthesized by
+    /// the frontend when an Octokit response message starts with
+    /// "Not Found -" — kept here so the wire-level `Code` enum is the
+    /// single source of truth for codes the desktop app may surface.
+    GitHubTokenExpired,
+    /// GitLab returned HTTP 401 while validating a personal access token.
+    GitLabUnauthorized,
+    /// GitLab returned HTTP 403 while validating a personal access token.
+    GitLabForbidden,
+    /// GitLab returned HTTP 404 while listing a project's open merge requests.
+    GitLabProjectNotFound,
+    /// The self-hosted GitLab host is not an absolute URL, so no request could be built.
+    GitLabInvalidHost,
+    /// A GitHub organization has enabled OAuth App access restrictions and
+    /// blocked the GitButler OAuth app. Terminal until the org approves the
+    /// app or the user switches credentials — retrying won't help.
+    GitHubOrgOAuthRestricted,
+    /// A GitHub organization requires SAML SSO authorization for the
+    /// current OAuth or personal access token. Terminal until the user
+    /// authorizes the credential for the organization.
+    GitHubOrgSamlRestricted,
+    /// GitHub returned 403 "Resource not accessible by personal access
+    /// token" — the token works but lacks a read permission such as Checks.
+    /// Terminal until the user grants the permission or reconnects with
+    /// other credentials.
+    GitHubInsufficientPermissions,
+    /// GitHub refused the request because the API rate limit (primary or
+    /// secondary) was exceeded. Retrying before the limit resets only
+    /// deepens the block, so pollers stop until a later probe succeeds.
+    GitHubRateLimited,
+    /// A GitHub organization refused a personal access token whose lifetime
+    /// exceeds the organization's policy. Terminal until the user connects a
+    /// token with a shorter expiration; retrying the same token won't help.
+    GitHubTokenLifetimeRestricted,
+    /// No credentials are stored for the forge integration — the user never
+    /// authenticated or logged out. Cached forge data stays valid; retrying
+    /// without re-authenticating won't help.
+    ForgeNotAuthenticated,
+    /// The GitHub device-flow code expired before the user authorized it.
+    /// Terminal for that code; starting the flow again issues a new one.
+    GitHubDeviceCodeExpired,
+    /// The user denied the GitHub device-flow authorization request.
+    /// Terminal for that code; starting the flow again is the only recovery.
+    GitHubDeviceAccessDenied,
+    /// GitHub refused the device-flow request for any other terminal reason
+    /// (bad client credentials or device code, unsupported grant type, the
+    /// device flow being disabled for the app). Retrying the same code won't help.
+    GitHubDeviceFlowRejected,
+    /// The target remote maps to no supported forge, so there is nothing to
+    /// list reviews from. Terminal until the target or remote changes.
+    ForgeUnrecognized,
+    /// The operation was rejected because the current state doesn't allow it.
+    /// Not a bug — the user's request simply can't be fulfilled right now.
+    /// The frontend should present this as a warning rather than an error.
+    PreconditionFailed,
+    /// Used when we run an external editor, for example to write a commit message, and that editor
+    /// exists with a non-zero status code. Allows callers to detect that and show a different
+    /// error message.
+    EditorExitedWithNonZeroStatus,
+    /// The project's target is a remote branch, as an older GitButler stored it, and no single
+    /// local branch tracks it. Choosing a local target branch replaces it; the message says why
+    /// it didn't resolve.
+    UnresolvedLegacyTarget,
 }
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(Code);
 
 impl std::fmt::Display for Code {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let code = match self {
-            Code::Unknown => "errors.unknown",
-            Code::RepoOwnership => "errors.repo_ownership",
-            Code::Validation => "errors.validation",
-            Code::ProjectGitAuth => "errors.projects.git.auth",
-            Code::DefaultTargetNotFound => "errors.projects.default_target.not_found",
-            Code::CommitSigningFailed => "errors.commit.signing_failed",
-            Code::CommitMergeConflictFailure => "errors.commit.merge_conflict_failure",
-            Code::AuthorMissing => "errors.git.author_missing",
-            Code::ProjectMissing => "errors.projects.missing",
-            Code::BranchNotFound => "errors.branch.notfound",
-            Code::SecretKeychainNotFound => "errors.secret.keychain_notfound",
-            Code::MissingLoginKeychain => "errors.secret.missing_login_keychain",
-            Code::GitForcePushProtection => "errors.git.force_push_protection",
-            Code::NetworkError => "errors.network",
-            Code::ProjectDatabaseIncompatible => "errors.projectdb.migration",
-            Code::DefaultTerminalNotFound => "errors.terminal.not_found",
-        };
-        f.write_str(code)
+        // `Debug` on a unit variant prints just the variant name, which is
+        // the wire-level identifier shared with the frontend.
+        std::fmt::Debug::fmt(self, f)
     }
 }
 

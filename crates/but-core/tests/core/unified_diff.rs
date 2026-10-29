@@ -1,5 +1,6 @@
 use but_core::{ChangeState, UnifiedPatch, unified_diff};
 use gix::object::tree::EntryKind;
+use snapbox::prelude::*;
 
 #[test]
 fn file_added_in_worktree() -> anyhow::Result<()> {
@@ -16,13 +17,17 @@ fn file_added_in_worktree() -> anyhow::Result<()> {
         3,
     )?);
 
-    insta::assert_debug_snapshot!(actual, @r#"
-    [
-        DiffHunk("@@ -1,0 +1,1 @@
-        +change
-        "),
-    ]
-    "#);
+    snapbox::assert_data_eq!(
+        actual.to_debug(),
+        snapbox::str![[r#"
+[
+    DiffHunk("@@ -1,0 +1,1 @@
+    +change
+    "),
+]
+
+"#]]
+    );
     Ok(())
 }
 
@@ -45,6 +50,51 @@ fn binary_text_failure() -> anyhow::Result<()> {
         actual.is_none(),
         "any kind of filter failure is ignored for resiliency"
     );
+
+    let mut filter = repo.diff_resource_cache(
+        UnifiedPatch::CONVERSION_MODE,
+        gix::diff::blob::pipeline::WorktreeRoots {
+            old_root: repo.workdir().map(ToOwned::to_owned),
+            new_root: None,
+        },
+    )?;
+    let actual = UnifiedPatch::compute_with_filter(
+        &repo,
+        "file.binary".into(),
+        None,
+        None,
+        ChangeState {
+            id: repo.object_hash().null(),
+            kind: EntryKind::Blob,
+        },
+        3,
+        &mut filter,
+    )?;
+    assert!(
+        actual.is_none(),
+        "filter failures on the previous file are also ignored"
+    );
+    Ok(())
+}
+
+#[test]
+fn file_disappeared_before_diffing() -> anyhow::Result<()> {
+    let repo = crate::diff::worktree_changes::repo("added-modified-in-worktree")?;
+    let actual = UnifiedPatch::compute(
+        &repo,
+        "no-longer-exists".into(),
+        None,
+        ChangeState {
+            id: repo.object_hash().null(),
+            kind: EntryKind::Blob,
+        },
+        None,
+        3,
+    )?;
+    assert!(
+        actual.is_none(),
+        "a file absent from both sides has no diff"
+    );
     Ok(())
 }
 
@@ -63,13 +113,17 @@ fn binary_text_in_unborn() -> anyhow::Result<()> {
         3,
     )?);
 
-    insta::assert_debug_snapshot!(actual, @r#"
-    [
-        DiffHunk("@@ -1,0 +1,1 @@
-        +hi
-        "),
-    ]
-    "#);
+    snapbox::assert_data_eq!(
+        actual.to_debug(),
+        snapbox::str![[r#"
+[
+    DiffHunk("@@ -1,0 +1,1 @@
+    +hi
+    "),
+]
+
+"#]]
+    );
     Ok(())
 }
 
@@ -92,14 +146,18 @@ fn binary_text_renamed_unborn() -> anyhow::Result<()> {
         3,
     )?);
 
-    insta::assert_debug_snapshot!(actual, @r#"
-    [
-        DiffHunk("@@ -1,1 +1,1 @@
-        -hi
-        +ho
-        "),
-    ]
-    "#);
+    snapbox::assert_data_eq!(
+        actual.to_debug(),
+        snapbox::str![[r#"
+[
+    DiffHunk("@@ -1,1 +1,1 @@
+    -hi
+    +ho
+    "),
+]
+
+"#]]
+    );
     Ok(())
 }
 
@@ -121,13 +179,17 @@ fn file_deleted_in_worktree() -> anyhow::Result<()> {
         3,
     )?);
 
-    insta::assert_debug_snapshot!(actual, @r#"
-    [
-        DiffHunk("@@ -1,1 +1,0 @@
-        -something
-        "),
-    ]
-    "#);
+    snapbox::assert_data_eq!(
+        actual.to_debug(),
+        snapbox::str![[r#"
+[
+    DiffHunk("@@ -1,1 +1,0 @@
+    -something
+    "),
+]
+
+"#]]
+    );
     Ok(())
 }
 
@@ -207,14 +269,18 @@ fn symlink_modified_in_worktree() -> anyhow::Result<()> {
         3,
     )?);
 
-    insta::assert_debug_snapshot!(actual, @r#"
-    [
-        DiffHunk("@@ -1,1 +1,1 @@
-        -target-to-be-changed
-        +changed-target
-        "),
-    ]
-    "#);
+    snapbox::assert_data_eq!(
+        actual.to_debug(),
+        snapbox::str![[r#"
+[
+    DiffHunk("@@ -1,1 +1,1 @@
+    -target-to-be-changed
+    +changed-target
+    "),
+]
+
+"#]]
+    );
     Ok(())
 }
 
@@ -222,33 +288,55 @@ fn symlink_modified_in_worktree() -> anyhow::Result<()> {
 fn submodule_added() -> anyhow::Result<()> {
     let repo = crate::diff::worktree_changes::repo("submodule-added-unborn")?;
     let changes = but_core::diff::worktree_changes(&repo)?.changes;
-    insta::assert_debug_snapshot!(&changes, @r#"
-    [
-        TreeChange {
-            path: ".gitmodules",
-            status: Addition {
-                state: ChangeState {
-                    id: Sha1(46f8c8b821d79a888a1ea0b30ec9f5d7e90821b0),
-                    kind: Blob,
-                },
-                is_untracked: false,
+    snapbox::assert_data_eq!(
+        changes.to_debug(),
+        snapbox::str![[r#"
+[
+    TreeChange {
+        path: ".gitmodules",
+        status: Addition {
+            state: ChangeState {
+                id: Sha1(46f8c8b821d79a888a1ea0b30ec9f5d7e90821b0),
+                kind: Blob,
             },
+            is_untracked: false,
         },
-        TreeChange {
-            path: "submodule",
-            status: Addition {
-                state: ChangeState {
-                    id: Sha1(e95516bd2f49a83a6cdb98cfec40b2717fbc2c1b),
-                    kind: Commit,
-                },
-                is_untracked: false,
+    },
+    TreeChange {
+        path: "submodule",
+        status: Addition {
+            state: ChangeState {
+                id: Sha1(e95516bd2f49a83a6cdb98cfec40b2717fbc2c1b),
+                kind: Commit,
             },
+            is_untracked: false,
         },
-    ]
-    "#);
+    },
+]
+
+"#]]
+    );
     assert!(
         changes[1].unified_patch(&repo, 3)?.is_none(),
         "submodules produce no diffs"
+    );
+    assert!(
+        UnifiedPatch::compute(
+            &repo,
+            "submodule".into(),
+            None,
+            ChangeState {
+                id: repo.rev_parse_single(":.gitmodules")?.detach(),
+                kind: EntryKind::Blob,
+            },
+            ChangeState {
+                id: repo.rev_parse_single(":submodule")?.detach(),
+                kind: EntryKind::Commit,
+            },
+            3,
+        )?
+        .is_none(),
+        "a submodule in the previous state also prevents diffing a type change"
     );
     Ok(())
 }

@@ -1,6 +1,9 @@
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Context as _, Result, anyhow, bail};
 use bstr::{BString, ByteSlice};
-use but_core::{RepositoryExt, commit::TreeKind};
+use but_core::{
+    RepositoryExt,
+    commit::{SignCommit, TreeKind},
+};
 use gix::prelude::ObjectIdExt;
 
 use crate::commit::DateMode;
@@ -24,7 +27,7 @@ use crate::commit::DateMode;
 /// remain unsigned.
 /// However, if we re-merge a commit that was signed before it's likely a user-commit that should be treated accordingly.
 /// Thanks to this logic, the caller shouldn't have to steer signing.
-pub fn octopus(
+pub(crate) fn octopus(
     repo: &gix::Repository,
     mut target_merge_commit: gix::objs::Commit,
     graph: &mut gix::revwalk::Graph<
@@ -38,7 +41,8 @@ pub fn octopus(
     }
     let parents_to_merge = target_merge_commit.parents.iter().copied();
     let merge_base = but_core::Commit::from_id(
-        repo.merge_base_octopus_with_graph(parents_to_merge.clone(), graph)?,
+        repo.merge_base_octopus_with_graph(parents_to_merge.clone(), graph)?
+            .context("Could not find a merge-base for the merge commit's parents")?,
     )?
     .tree_id_or_kind(TreeKind::Base)?
     .detach();
@@ -83,8 +87,8 @@ pub fn octopus(
     }
     target_merge_commit.tree = ours;
     if but_core::commit::Headers::try_from_commit(&target_merge_commit).is_none() {
-        but_core::commit::Headers::from_config(&repo.config_snapshot())
-            .set_in_commit(&mut target_merge_commit);
+        let headers = but_core::commit::Headers::from_config(&repo.config_snapshot());
+        headers.set_in_commit(&mut target_merge_commit);
     }
     if target_merge_commit
         .extra_headers()
@@ -95,11 +99,12 @@ pub fn octopus(
             repo,
             target_merge_commit,
             DateMode::CommitterUpdateAuthorKeep,
-            true,
+            SignCommit::IfSignCommitsEnabled,
+            None,
         )
     } else {
         crate::commit::update_committer(repo, &mut target_merge_commit)?;
-        Ok(repo.write_object(target_merge_commit)?.detach())
+        but_core::commit::create(repo, target_merge_commit, None, SignCommit::No)
     }
 }
 

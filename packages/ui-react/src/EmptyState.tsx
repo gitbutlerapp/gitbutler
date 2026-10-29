@@ -1,0 +1,100 @@
+import styles from "./EmptyState.module.css";
+import { classes } from "./classes.ts";
+import { Illustration } from "./Illustration.tsx";
+import type { IllustrationName } from "./illustrations.ts";
+import type { ComponentProps, FC, ReactNode } from "react";
+
+type Props = {
+	/** Omit on a surface too short to hold one; the title and actions carry it. */
+	illustration?: IllustrationName;
+	/**
+	 * One short line naming the state. Sentence case, no full stop. Wraps
+	 * balanced, so write it as a sentence and let the lines fall where they may.
+	 *
+	 * Omit where the body line says it all — a picker that found nothing
+	 * reports the miss in one line, and a heading over it would only repeat it.
+	 */
+	title?: string;
+	/**
+	 * 1–2 short sentences, around 10–25 words. Say what happens next, or report
+	 * the live answer — a count, a name, a time — rather than restating the title.
+	 */
+	description?: ReactNode;
+	/** The actions slot: at most two buttons, and never `pop`. In `tidy`, the buttons are `small`. */
+	children?: ReactNode;
+	/**
+	 * `tidy` where the block stands in for a popup's rows — a search in a picker
+	 * or the command palette that found nothing: usually just the line and a
+	 * `small` "Clear search", closed up and with no counterweight.
+	 */
+	variant?: "default" | "tidy";
+	/**
+	 * `start` for an empty section in a list that reads from the left edge, as a sidebar's stack of
+	 * cards does: flush with the rows it stands in for rather than centred in the panel.
+	 */
+	align?: "center" | "start";
+} & Omit<ComponentProps<"div">, "children" | "title">;
+
+/**
+ * A surface at rest with nothing in it — the "Empty state" component in
+ * ⚛️ Core, whose description carries the rules for what to put in it.
+ *
+ * For a surface that is empty, not one still loading: that says so in a line
+ * where the list would be. A filter that matched nothing takes the block in a
+ * panel with room for it, and a line in a short strip; see
+ * `packages/ui-react/design/patterns/empty-states.md`.
+ * @import import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
+ */
+export const EmptyState: FC<Props> = ({
+	illustration,
+	title,
+	description,
+	children,
+	align = "center",
+	variant = "default",
+	...props
+}) => (
+	<div
+		{...props}
+		className={classes(
+			props.className,
+			styles.empty,
+			variant === "tidy" && styles.tidy,
+			align === "start" && styles.start,
+		)}
+	>
+		{illustration !== undefined && <Illustration name={illustration} />}
+
+		<div className={styles.body}>
+			<div className={styles.lines}>
+				{title !== undefined && (
+					<p
+						className={classes(
+							"text-14",
+							"text-semibold",
+							"text-body",
+							"text-balance",
+							styles.title,
+						)}
+					>
+						{title}
+					</p>
+				)}
+				{description !== undefined && (
+					<p className={classes("text-13", "text-body", "text-balance", styles.description)}>
+						{description}
+					</p>
+				)}
+			</div>
+
+			{
+				/* Spelled out rather than a truthiness check: `{cond && <Button/>}`
+			    passes `false`, and an actions row with nothing in it would still
+			    spend its gap. */
+				children !== undefined && children !== null && children !== false && (
+					<div className={styles.actions}>{children}</div>
+				)
+			}
+		</div>
+	</div>
+);

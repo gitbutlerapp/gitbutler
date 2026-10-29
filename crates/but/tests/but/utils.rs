@@ -1,9 +1,13 @@
 use std::{
     env,
     ops::{Deref, DerefMut},
+    path::{Path, PathBuf},
 };
 
-use but_testsupport::isolate_snapbox_cmd;
+use but_testsupport::isolate_snapbox_cmd_with_additional_removals;
+
+mod ignored_tests_have_linear_ticket;
+pub use ignored_tests_have_linear_ticket::assert_ignored_tests_have_linear_ticket;
 
 /// A wrapper around [but_testsupport::Sandbox] to add `but` invocation support, which can only come from the crate that
 /// defines the binary.
@@ -28,69 +32,48 @@ impl DerefMut for Sandbox {
 /// Lifecycle
 impl Sandbox {
     /// Create a new instance with empty everything.
-    pub fn empty() -> anyhow::Result<Sandbox> {
-        Ok(Sandbox {
-            inner: but_testsupport::Sandbox::empty()?,
-        })
-    }
-
-    /// A utility to init a scenario if the legacy feature is set, or open a repo otherwise.
-    pub fn open_or_init_scenario_with_target_and_default_settings(
-        name: &str,
-    ) -> anyhow::Result<Sandbox> {
-        let inner =
-            but_testsupport::Sandbox::open_or_init_scenario_with_target_and_default_settings(name)?;
-        let this = Sandbox { inner };
-        this.run_but_init_if_needed();
-        Ok(this)
-    }
-
-    fn run_but_init_if_needed(&self) {
-        // New code does everything lazily and can open any repository without extra step, so no need for `but setup`.
-        if cfg!(feature = "legacy") {
-            // Needs setup, as it's not single-branch compatible, must have legacy project added so legacy commands can find it.
-            // This isn't needed at all when modernisation is complete.
-            self.but("setup").assert().success();
+    pub fn empty() -> Sandbox {
+        Sandbox {
+            inner: but_testsupport::Sandbox::empty(),
         }
     }
 
-    /// Open a repository without any additional setup and default application settings.
-    pub fn open_with_default_settings(name: &str) -> anyhow::Result<Sandbox> {
-        Ok(Sandbox {
-            inner: but_testsupport::Sandbox::open_with_default_settings(name)?,
-        })
+    /// A utility to init a scenario if the legacy feature is set, or open a repo otherwise.
+    pub fn open_or_init_scenario_with_target_and_default_settings(name: &str) -> Sandbox {
+        let inner =
+            but_testsupport::Sandbox::open_or_init_scenario_with_target_and_default_settings(name);
+        Sandbox { inner }
     }
 
-    /// Provide a scenario with `name` for writing, and `but setup` already invoked to add the project,
-    /// with a target added.
+    /// Open a repository without any additional setup and default application settings.
+    pub fn open_with_default_settings(name: &str) -> Sandbox {
+        Sandbox {
+            inner: but_testsupport::Sandbox::open_with_default_settings(name),
+        }
+    }
+
+    /// Provide a scenario with `name` for writing, with a target added.
     ///
     /// Prefer to use [`Self::open_scenario_with_target_and_default_settings()`] instead for less side-effects
-    /// TODO: we shouldn't have to add the project for interaction - it's only useful for listing.
     /// TODO: there should be no need for the target.
-    pub fn init_scenario_with_target_and_default_settings(name: &str) -> anyhow::Result<Sandbox> {
-        let inner = but_testsupport::Sandbox::init_scenario_with_target_and_default_settings(name)?;
-        let this = Sandbox { inner };
-        this.run_but_init_if_needed();
-        Ok(this)
+    pub fn init_scenario_with_target_and_default_settings(name: &str) -> Sandbox {
+        let inner = but_testsupport::Sandbox::init_scenario_with_target_and_default_settings(name);
+        Sandbox { inner }
     }
 
     /// Provide a scenario with `name` for writing, with target added.
-    pub fn open_scenario_with_target_and_default_settings(name: &str) -> anyhow::Result<Sandbox> {
-        Ok(Sandbox {
-            inner: but_testsupport::Sandbox::open_scenario_with_target_and_default_settings(name)?,
-        })
+    pub fn open_scenario_with_target_and_default_settings(name: &str) -> Sandbox {
+        Sandbox {
+            inner: but_testsupport::Sandbox::open_scenario_with_target_and_default_settings(name),
+        }
     }
 
     /// Like [`Self::init_scenario_with_target_and_default_settings`], Execute the script at `name` instead of
     /// copying it - necessary if Git places absolute paths.
-    pub fn init_scenario_with_target_and_default_settings_slow(
-        name: &str,
-    ) -> anyhow::Result<Sandbox> {
+    pub fn init_scenario_with_target_and_default_settings_slow(name: &str) -> Sandbox {
         let inner =
-            but_testsupport::Sandbox::init_scenario_with_target_and_default_settings_slow(name)?;
-        let this = Sandbox { inner };
-        this.run_but_init_if_needed();
-        Ok(this)
+            but_testsupport::Sandbox::init_scenario_with_target_and_default_settings_slow(name);
+        Sandbox { inner }
     }
 }
 
@@ -100,6 +83,52 @@ impl Sandbox {
     pub fn debug(self) -> ! {
         self.inner.debug();
     }
+
+    /// Create stack metadata for `branch_names`, then pin the workspace target to `target_spec`.
+    pub fn setup_metadata_at_target(
+        &self,
+        branch_names: &[&str],
+        target_spec: &str,
+    ) -> Vec<but_core::ref_metadata::StackId> {
+        let stack_ids = self.inner.setup_metadata(branch_names);
+        self.inner.set_target_sha(target_spec);
+        stack_ids
+    }
+
+    /// Create metadata for a single stack holding all of `branch_names`
+    /// (topmost first), then pin the workspace target to `target_spec`.
+    pub fn setup_single_stack_metadata_at_target(&self, branch_names: &[&str], target_spec: &str) {
+        use but_core::{
+            RefMetadata, WORKSPACE_REF_NAME,
+            ref_metadata::{
+                ProjectMeta, StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
+            },
+        };
+
+        fn r(name: &str) -> &gix::refs::FullNameRef {
+            name.try_into().expect("statically known valid ref-name")
+        }
+
+        let mut meta = self.meta();
+        let mut ws = meta.workspace(r(WORKSPACE_REF_NAME)).unwrap();
+        let repo = self.open_repo();
+        let ws_data = ws.deref_mut();
+        ws_data.stacks = vec![WorkspaceStack {
+            id: StackId::from_number_for_testing(0),
+            branches: branch_names
+                .iter()
+                .map(|branch_name| WorkspaceStackBranch {
+                    ref_name: r(&format!("refs/heads/{branch_name}")).to_owned(),
+                    archived: false,
+                })
+                .collect(),
+            workspacecommit_relation: WorkspaceCommitRelation::Merged,
+        }];
+        let mut project_meta = ProjectMeta::resolve(&repo).unwrap();
+        project_meta.target_commit_id = Some(repo.rev_parse_single(target_spec).unwrap().detach());
+        meta.set_workspace(&ws).unwrap();
+        project_meta.persist(&repo).unwrap();
+    }
 }
 
 /// Invocations
@@ -107,6 +136,7 @@ impl Sandbox {
     /// Create a command suitable for testing the output of the invocation with `args`. If `args` is empty,
     /// no arguments are provided.
     /// Note that more arguments can be added to the returned [snapbox::cmd::Command] later as well.
+    #[must_use]
     pub fn but(&self, args: impl AsRef<str>) -> snapbox::cmd::Command {
         let args = args.as_ref();
         let mut cmd = snapbox::cmd::Command::new(snapbox::cmd::cargo_bin!("but"));
@@ -116,14 +146,28 @@ impl Sandbox {
         }
         self.with_updated_env(cmd)
             .env("GITBUTLER_CHANGE_ID", "42")
-            .env("BUT_OUTPUT_FORMAT", "human")
             .env("NOPAGER", "1")
     }
 
     fn with_updated_env(&self, cmd: snapbox::cmd::Command) -> snapbox::cmd::Command {
-        isolate_snapbox_cmd(cmd)
+        isolate_snapbox_cmd_with_additional_removals(cmd, but::AGENT_ENVIRONMENT_VARIABLES)
             .env("E2E_TEST_APP_DATA_DIR", self.app_data_dir())
             .current_dir(self.projects_root())
+    }
+
+    /// The sandboxed home directory `but` resolves under `E2E_TEST_APP_DATA_DIR`
+    /// (see `but_path::home_dir`), for tests that inspect or seed user-level
+    /// files like skill installations.
+    pub fn home_dir(&self) -> PathBuf {
+        self.app_data_dir().join("home")
+    }
+
+    /// The working directory of a linked worktree.
+    pub fn linked_worktree_root(&self, worktree_name: &str) -> PathBuf {
+        self.home_dir()
+            .join(".gitbutler-worktrees")
+            .join(self.projects_root().file_name().unwrap())
+            .join(worktree_name)
     }
 }
 
@@ -132,16 +176,33 @@ pub trait CommandExt {
     /// asserting with [snapbox::cmd::OutputAssert::stdout_eq] against an SVG
     /// file.
     fn with_color_for_svg(self) -> Self;
+
     /// Change the environment to allow passing `--json`.
     fn allow_json(self) -> Self;
+
+    /// Run this command as if an agent had run it.
+    #[expect(clippy::wrong_self_convention)]
+    fn as_agent(self) -> Self;
 }
 
 impl CommandExt for snapbox::cmd::Command {
     fn with_color_for_svg(self) -> snapbox::cmd::Command {
         self.env("CLICOLOR_FORCE", "1")
+            .env("COLORTERM", "truecolor")
     }
 
     fn allow_json(self) -> Self {
         self.env_remove("BUT_OUTPUT_FORMAT")
     }
+
+    fn as_agent(self) -> Self {
+        self.env("AI_AGENT", "codex")
+    }
+}
+
+pub fn make_absolute(path: impl AsRef<Path>) -> PathBuf {
+    let cargo_manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+    let mut cargo_manifest_dir = Path::new(&cargo_manifest_dir);
+    cargo_manifest_dir = cargo_manifest_dir.parent().unwrap().parent().unwrap();
+    cargo_manifest_dir.join(path)
 }

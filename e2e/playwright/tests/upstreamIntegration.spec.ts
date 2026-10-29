@@ -1,273 +1,346 @@
 import { createNewBranch } from "../src/branch.ts";
-import { getBaseURL, type GitButler, startGitButler } from "../src/setup.ts";
-import { clickByTestId, getByTestId, waitForTestId, waitForTestIdToNotExist } from "../src/util.ts";
-import { expect, test } from "@playwright/test";
+import { expect } from "../src/expect.ts";
+import { applyUpstream, openWorkspace } from "../src/setup.ts";
+import { test } from "../src/test.ts";
+import {
+	clickByTestId,
+	commitRow,
+	getByTestId,
+	stack,
+	waitForTestId,
+	waitForTestIdToNotExist,
+} from "../src/util.ts";
+import { type Page } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 
-let gitbutler: GitButler;
+async function syncAndIntegrate(page: Page) {
+	await clickByTestId(page, "sync-button");
+	await clickByTestId(page, "integrate-upstream-commits-button");
+	await clickByTestId(page, "integrate-upstream-action-button");
+}
 
-test.use({
-	baseURL: getBaseURL(),
-});
+async function expectWorkspaceCommitParentToBeOriginMaster(pathToRepo: string) {
+	await expect
+		.poll(() => git(pathToRepo, ["rev-parse", "gitbutler/workspace^"]), {
+			message: "Expected the workspace commit to be parented to origin/master",
+			intervals: [100, 200, 500, 1000],
+		})
+		.toBe(git(pathToRepo, ["rev-parse", "origin/master"]));
+}
 
-test.afterEach(async () => {
-	await gitbutler?.destroy();
-});
+async function expectWorkspaceCommitToStayParentedToRemainingStack(pathToRepo: string) {
+	await expect
+		.poll(() => git(pathToRepo, ["rev-parse", "gitbutler/workspace^@"]).split("\n").length, {
+			message: "Expected the workspace commit to have only the remaining stack as parent",
+			intervals: [100, 200, 500, 1000],
+		})
+		.toBe(1);
+
+	await expect
+		.poll(
+			() =>
+				git(pathToRepo, ["rev-parse", "gitbutler/workspace^"]) ===
+				git(pathToRepo, ["rev-parse", "origin/master"]),
+			{
+				message: "Expected the workspace commit not to be reparented to origin/master",
+				intervals: [100, 200, 500, 1000],
+			},
+		)
+		.toBe(false);
+}
+
+function git(pathToRepo: string, args: string[]): string {
+	return execFileSync("git", args, {
+		cwd: pathToRepo,
+		encoding: "utf8",
+	}).trim();
+}
 
 test("should handle the update of workspace with one conflicting branch gracefully", async ({
 	page,
-	context,
-}, testInfo) => {
-	const workdir = testInfo.outputPath("workdir");
-	const configdir = testInfo.outputPath("config");
-	gitbutler = await startGitButler(workdir, configdir, context);
-
+	gitbutler,
+}) => {
 	await gitbutler.runScript("project-with-remote-branches.sh");
-	// Apply branch1
-	await gitbutler.runScript("apply-upstream-branch.sh", ["branch1", "local-clone"]);
+	await applyUpstream(gitbutler, "branch1");
+	await openWorkspace(page);
 
-	await page.goto("/");
-
-	// Should load the workspace
-	await waitForTestId(page, "workspace-view");
-
-	// There are remote changes in the base branch
 	await gitbutler.runScript("project-with-remote-branches__add-commit-to-base.sh");
+	await syncAndIntegrate(page);
 
-	// Click the sync button
+	await expect(stack(page)).toHaveCount(1);
+});
+
+test("should show incoming conflicts with uncommitted files", async ({ page, gitbutler }) => {
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await applyUpstream(gitbutler, "branch3");
+	await openWorkspace(page);
+
+	await gitbutler.runScript(
+		"project-with-remote-branches__add-conflicting-base-and-dirty-worktree.sh",
+	);
 	await clickByTestId(page, "sync-button");
-
-	// Update the workspace
 	await clickByTestId(page, "integrate-upstream-commits-button");
-	await clickByTestId(page, "integrate-upstream-action-button");
 
-	// There should be one stack
-	const stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(1);
+	const worktreeConflicts = await waitForTestId(page, "integrate-upstream-worktree-conflicts");
+	await expect(worktreeConflicts).toContainText("a_file");
+});
+
+test("should show incoming conflicts with uncommitted files in an empty workspace", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await openWorkspace(page);
+
+	await expect(stack(page)).toHaveCount(0);
+
+	await gitbutler.runScript(
+		"project-with-remote-branches__add-conflicting-base-and-dirty-worktree.sh",
+	);
+	await clickByTestId(page, "sync-button");
+	await clickByTestId(page, "integrate-upstream-commits-button");
+
+	const worktreeConflicts = await waitForTestId(page, "integrate-upstream-worktree-conflicts");
+	await expect(worktreeConflicts).toContainText("a_file");
 });
 
 test("should handle the update of workspace with integrated branch gracefully", async ({
 	page,
-	context,
-}, testInfo) => {
-	const workdir = testInfo.outputPath("workdir");
-	const configdir = testInfo.outputPath("config");
-	gitbutler = await startGitButler(workdir, configdir, context);
+	gitbutler,
+}) => {
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await applyUpstream(gitbutler, "branch1");
+	await openWorkspace(page);
+
+	await expect(stack(page)).toHaveCount(1);
+
+	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
+	await syncAndIntegrate(page);
+
+	await waitForTestIdToNotExist(page, "stack");
+});
+
+test("should reparent workspace commit to advanced target after integrating all stacks", async ({
+	page,
+	gitbutler,
+}) => {
+	const localClone = gitbutler.pathInWorkdir("local-clone");
 
 	await gitbutler.runScript("project-with-remote-branches.sh");
-	// Apply branch1
-	await gitbutler.runScript("apply-upstream-branch.sh", ["branch1", "local-clone"]);
+	await applyUpstream(gitbutler, "branch1");
+	await openWorkspace(page);
 
-	await page.goto("/");
+	await expect(stack(page)).toHaveCount(1);
 
-	// Should load the workspace
-	await waitForTestId(page, "workspace-view");
+	await gitbutler.runScript(
+		"project-with-remote-branches__fast-forward-base-through-branch1-and-add-commit.sh",
+	);
+	await syncAndIntegrate(page);
 
-	// There should be one stack applied
-	const stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(1);
-
-	// Branch one was merged in the forge
-	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
-
-	// Click the sync button
-	await clickByTestId(page, "sync-button");
-
-	// Update the workspace
-	await clickByTestId(page, "integrate-upstream-commits-button");
-	await clickByTestId(page, "integrate-upstream-action-button");
-
-	// There should be no stacks
 	await waitForTestIdToNotExist(page, "stack");
+	await expectWorkspaceCommitParentToBeOriginMaster(localClone);
+	expect(git(localClone, ["rev-parse", "master"])).toBe(
+		git(localClone, ["rev-parse", "origin/master"]),
+	);
+});
+
+test("should preserve a diverged local target branch during upstream integration", async ({
+	page,
+	gitbutler,
+}) => {
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await applyUpstream(gitbutler, "branch1");
+	await openWorkspace(page);
+
+	const oldMaster = git(localClone, ["rev-parse", "master"]);
+	const localMaster = git(localClone, [
+		"-c",
+		"user.name=GitButler",
+		"-c",
+		"user.email=gitbutler@example.com",
+		"commit-tree",
+		"master^{tree}",
+		"-p",
+		oldMaster,
+		"-m",
+		"local master",
+	]);
+	git(localClone, ["update-ref", "refs/heads/master", localMaster]);
+
+	await gitbutler.runScript(
+		"project-with-remote-branches__fast-forward-base-through-branch1-and-add-commit.sh",
+	);
+	await syncAndIntegrate(page);
+
+	await waitForTestIdToNotExist(page, "stack");
+	expect(git(localClone, ["rev-parse", "master"])).toBe(localMaster);
+	expect(git(localClone, ["rev-parse", "origin/master"])).not.toBe(localMaster);
+});
+
+test("should reparent workspace commit to advanced merge target after integrating all stacks", async ({
+	page,
+	gitbutler,
+}) => {
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await applyUpstream(gitbutler, "branch1");
+	await openWorkspace(page);
+
+	await expect(stack(page)).toHaveCount(1);
+
+	await gitbutler.runScript(
+		"project-with-remote-branches__merge-branch1-to-base-and-add-commit.sh",
+	);
+	await syncAndIntegrate(page);
+
+	await waitForTestIdToNotExist(page, "stack");
+	await expectWorkspaceCommitParentToBeOriginMaster(localClone);
 });
 
 test("should handle the update of workspace with integrated parent branch in stack gracefully", async ({
 	page,
-	context,
-}, testInfo) => {
-	const workdir = testInfo.outputPath("workdir");
-	const configdir = testInfo.outputPath("config");
-	gitbutler = await startGitButler(workdir, configdir, context);
-
+	gitbutler,
+}) => {
 	await gitbutler.runScript("project-with-remote-branches.sh");
-	// Apply branch1
-	await gitbutler.runScript("apply-upstream-branch.sh", ["branch1", "local-clone"]);
-	await gitbutler.runScript("apply-upstream-branch.sh", ["branch3", "local-clone"]);
+	await applyUpstream(gitbutler, "branch1", "branch3");
 	await gitbutler.runScript("move-branch.sh", ["branch3", "branch1", "local-clone"]);
+	await openWorkspace(page);
 
-	await page.goto("/");
+	await expect(stack(page)).toHaveCount(1);
+	await expect(getByTestId(page, "branch-card")).toHaveCount(2);
 
-	// Should load the workspace
-	await waitForTestId(page, "workspace-view");
-
-	// There should be one stack applied
-	let stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(1);
-	let branchCards = getByTestId(page, "branch-card");
-	await expect(branchCards).toHaveCount(2);
-
-	// Branch one was merged in the forge
 	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
-
-	// Click the sync button
 	await clickByTestId(page, "sync-button");
-
-	// Update the workspace
 	await clickByTestId(page, "integrate-upstream-commits-button");
 
-	// The status of the branch1 should be "Integrated"
-	const branch1Status = page.locator('[data-integration-row-branch-name="branch1"]').first();
-	await branch1Status.waitFor();
-	const statusBadge = branch1Status.getByTestId("integrate-upstream-series-row-status-badge");
-	await statusBadge.waitFor();
+	const branch1Row = page.locator('[data-integration-row-branch-name="branch1"]').first();
+	const statusBadge = branch1Row.getByTestId("integrate-upstream-series-row-status-badge");
 	await expect(statusBadge).toHaveText("Integrated");
 
 	await clickByTestId(page, "integrate-upstream-action-button");
 
-	// There should be one stack left with one branch
-	stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(1);
-	branchCards = getByTestId(page, "branch-card");
-	await expect(branchCards).toHaveCount(1);
+	await expect(stack(page)).toHaveCount(1);
+	await expect(getByTestId(page, "branch-card")).toHaveCount(1);
 });
 
 test("should handle the update of the workspace with multiple stacks gracefully", async ({
 	page,
-	context,
-}, testInfo) => {
-	const workdir = testInfo.outputPath("workdir");
-	const configdir = testInfo.outputPath("config");
-	gitbutler = await startGitButler(workdir, configdir, context);
-
+	gitbutler,
+}) => {
 	await gitbutler.runScript("project-with-stacks.sh");
-	await gitbutler.runScript("apply-upstream-branch.sh", ["branch1", "local-clone"]);
-	await gitbutler.runScript("apply-upstream-branch.sh", ["branch2", "local-clone"]);
+	await applyUpstream(gitbutler, "branch1", "branch2");
+	await openWorkspace(page);
 
-	await page.goto("/");
+	await expect(stack(page)).toHaveCount(2);
 
-	// Should load the workspace
-	await waitForTestId(page, "workspace-view");
-
-	// There should be one stack applied
-	let stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(2);
-
-	// Branch one was merged in the forge
 	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
+	await syncAndIntegrate(page);
 
-	// Click the sync button
-	await clickByTestId(page, "sync-button");
-
-	// Update the workspace
-	await clickByTestId(page, "integrate-upstream-commits-button");
-	await clickByTestId(page, "integrate-upstream-action-button");
-
-	// There should be one stack left
-	stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(1);
+	await expect(stack(page)).toHaveCount(1);
 });
 
-test("should handle the update of an empty branch gracefully", async ({
+test("should keep the remaining stack when only one of two stacks is integrated", async ({
 	page,
-	context,
-}, testInfo) => {
-	const workdir = testInfo.outputPath("workdir");
-	const configdir = testInfo.outputPath("config");
-	gitbutler = await startGitButler(workdir, configdir, context);
+	gitbutler,
+}) => {
+	const localClone = gitbutler.pathInWorkdir("local-clone");
 
 	await gitbutler.runScript("project-with-stacks.sh");
+	await applyUpstream(gitbutler, "branch1", "branch2");
+	await openWorkspace(page);
 
-	await page.goto("/");
+	await expect(stack(page)).toHaveCount(2);
 
-	// Should load the workspace
-	await waitForTestId(page, "workspace-view");
+	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
+	await syncAndIntegrate(page);
 
-	// There should be no stacks
-	let stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(0);
+	await expect(stack(page)).toHaveCount(1);
+	await expect(getByTestId(page, "branch-card")).toHaveCount(1);
+	await expect(getByTestId(page, "branch-card")).toContainText("branch2");
+	await expectWorkspaceCommitToStayParentedToRemainingStack(localClone);
+});
 
-	// Create a new branch
+test("should leave no applied stacks when both stacks are integrated", async ({
+	page,
+	gitbutler,
+}) => {
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+
+	await gitbutler.runScript("project-with-stacks.sh");
+	await applyUpstream(gitbutler, "branch1", "branch2");
+	await openWorkspace(page);
+
+	await expect(stack(page)).toHaveCount(2);
+
+	expect(git(localClone, ["symbolic-ref", "--short", "HEAD"])).toBe("gitbutler/workspace");
+
+	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
+	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch2"]);
+	await syncAndIntegrate(page);
+
+	await expect(stack(page)).toHaveCount(0);
+});
+
+test("should update an empty workspace when the target ref advances", async ({
+	page,
+	gitbutler,
+}) => {
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+
+	await gitbutler.runScript("project-with-stacks.sh");
+	await openWorkspace(page);
+
+	await expect(stack(page)).toHaveCount(0);
+
+	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
+	await syncAndIntegrate(page);
+
+	await expect(stack(page)).toHaveCount(0);
+	await expectWorkspaceCommitParentToBeOriginMaster(localClone);
+	await waitForTestIdToNotExist(page, "integrate-upstream-commits-button");
+});
+
+test("should handle the update of an empty branch gracefully", async ({ page, gitbutler }) => {
+	await gitbutler.runScript("project-with-stacks.sh");
+	await openWorkspace(page);
+
+	await expect(stack(page)).toHaveCount(0);
 	await createNewBranch(page, "new-branch");
+	await expect(stack(page)).toHaveCount(1);
 
-	// There should be no stacks
-	stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(1);
-
-	// Branch one was merged in the forge
 	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
+	await syncAndIntegrate(page);
 
-	// Click the sync button
-	await clickByTestId(page, "sync-button");
-
-	// Update the workspace
-	await clickByTestId(page, "integrate-upstream-commits-button");
-	await clickByTestId(page, "integrate-upstream-action-button");
-
-	// There should be one stack left
-	stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(1);
+	await expect(stack(page)).toHaveCount(1);
 });
 
-test("should handle the update of a branch with an empty commit", async ({
-	page,
-	context,
-}, testInfo) => {
-	const workdir = testInfo.outputPath("workdir");
-	const configdir = testInfo.outputPath("config");
-	gitbutler = await startGitButler(workdir, configdir, context);
-
+test("should handle the update of a branch with an empty commit", async ({ page, gitbutler }) => {
 	await gitbutler.runScript("project-with-stacks.sh");
+	await openWorkspace(page);
 
-	await page.goto("/");
-
-	// Should load the workspace
-	await waitForTestId(page, "workspace-view");
-
-	// There should be no stacks
-	let stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(0);
+	await expect(stack(page)).toHaveCount(0);
 
 	// Create a new branch
 	await clickByTestId(page, "chrome-header-create-branch-button");
 	const modal = await waitForTestId(page, "create-new-branch-modal");
-
-	const input = modal.locator("#new-branch-name-input");
-	await input.fill("new-branch");
+	await modal.locator("#new-branch-name-input").fill("new-branch");
 	await clickByTestId(page, "confirm-submit");
+	await expect(stack(page)).toHaveCount(1);
 
-	// There should be one stack
-	stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(1);
-
+	// Add an empty commit via the branch context menu.
 	const branchCard = getByTestId(page, "branch-card");
-	await branchCard.isVisible();
-	await branchCard.click({
-		button: "right",
-	});
-
-	// Add an empty commit
+	await branchCard.click({ button: "right" });
 	await waitForTestId(page, "branch-header-context-menu");
 	await clickByTestId(page, "branch-header-context-menu-add-empty-commit");
+	await expect(commitRow(page)).toHaveCount(1);
 
-	// There should be one commit
-	let commits = getByTestId(page, "commit-row");
-	await expect(commits).toHaveCount(1);
-
-	// Branch one was merged in the forge
 	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
-
-	// Click the sync button
-	await clickByTestId(page, "sync-button");
-
-	// Update the workspace
-	await clickByTestId(page, "integrate-upstream-commits-button");
-	await clickByTestId(page, "integrate-upstream-action-button");
-
+	await syncAndIntegrate(page);
 	await waitForTestIdToNotExist(page, "integrate-upstream-action-button");
 
-	// There should be one stack left
-	stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(1);
-	// There should be one commit
-	commits = getByTestId(page, "commit-row");
-	await expect(commits).toHaveCount(1);
+	await expect(stack(page)).toHaveCount(1);
+	await expect(commitRow(page)).toHaveCount(1);
 });

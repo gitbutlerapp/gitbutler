@@ -3,11 +3,14 @@ use anyhow::{Result, bail};
 use bstr::ByteSlice;
 use but_ctx::Context;
 use but_ctx::access::RepoShared;
-use colored::Colorize;
 
 use crate::{
     CLI_DATE, CliId, IdMap,
-    utils::{OutputChannel, shorten_object_id, time::format_relative_time},
+    id::CommitId,
+    theme::{self, Paint},
+    utils::{
+        OutputChannel, get_change_id_for_commit, shorten_object_id, time::format_relative_time,
+    },
 };
 
 pub(crate) fn show_commit(
@@ -16,40 +19,37 @@ pub(crate) fn show_commit(
     commit_id_str: &str,
     verbose: bool,
 ) -> Result<()> {
+    let t = theme::get();
+    let id_map = IdMap::legacy_new_from_context(ctx)?;
+
     // First check if this is a branch by trying to find it in the branch list
     let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
     let branch_match = branches.iter().find(|b| {
-        b.name.to_string() == commit_id_str
-            || b.name.to_string().to_lowercase() == commit_id_str.to_lowercase()
+        b.name.as_bytes() == commit_id_str.as_bytes()
+            || b.name.to_str_lossy().to_lowercase() == commit_id_str.to_lowercase()
     });
 
     if let Some(branch) = branch_match {
         // This is a branch, display branch name and list of commits
-        return show_branch(ctx, out, &branch.name.to_string(), verbose);
+        return show_branch(ctx, out, &branch.name.to_string(), verbose, &id_map);
     }
 
     // Also check stacks to find branches within stacks
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
 
     for stack in &stacks {
-        for head in &stack.heads {
-            let head_name = head.name.to_str_lossy().to_string();
+        for branch in &stack.branches {
+            let head_name = branch.name.clone();
             if head_name == commit_id_str
                 || head_name.to_lowercase() == commit_id_str.to_lowercase()
             {
                 // Found the branch in a stack
-                return show_branch(ctx, out, &head_name, verbose);
+                return show_branch(ctx, out, &head_name, verbose, &id_map);
             }
         }
     }
 
-    // Not a branch, proceed with commit logic
-    // Try to resolve the commit ID through the IdMap
-    let id_map = IdMap::new_from_context(ctx, None)?;
-
+    // Not a branch, resolve the commit ID through the IdMap
     let cli_ids = id_map.parse_using_context(commit_id_str, ctx)?;
 
     let commit_id = if cli_ids.is_empty() {
@@ -71,10 +71,13 @@ pub(crate) fn show_commit(
         );
     } else {
         match &cli_ids[0] {
-            CliId::Commit { commit_id, .. } => *commit_id,
-            CliId::Branch { name, .. } => {
+            CliId::Commit {
+                commit: CommitId { commit_id, .. },
+                id: _,
+            } => *commit_id,
+            CliId::Branch(branch) => {
                 // This is a branch identified by CLI ID, show the branch
-                return show_branch(ctx, out, &name.to_string(), verbose);
+                return show_branch(ctx, out, &branch.name, verbose, &id_map);
             }
             _ => {
                 bail!(
@@ -107,13 +110,13 @@ pub(crate) fn show_commit(
         writeln!(
             out,
             "{} {}",
-            "Commit:   ".yellow().bold(),
-            commit_id.to_string().yellow()
+            t.important.paint("Commit:   "),
+            t.commit_id.paint(commit_id.to_string()),
         )?;
 
         // Change ID (if present)
         if let Some(ref change_id) = change_id {
-            writeln!(out, "{} {}", "Change-ID:".bold(), change_id)?;
+            writeln!(out, "{} {}", t.important.paint("Change-ID:"), change_id)?;
         }
 
         // Author
@@ -121,9 +124,9 @@ pub(crate) fn show_commit(
         writeln!(
             out,
             "{} {} <{}>",
-            "Author:   ".bold(),
-            author_sig.name.to_str_lossy().cyan(),
-            author_sig.email.to_str_lossy().cyan()
+            t.important.paint("Author:   "),
+            t.user.paint(author_sig.name.to_str_lossy()),
+            t.user.paint(author_sig.email.to_str_lossy())
         )?;
 
         // Date with relative time
@@ -133,9 +136,9 @@ pub(crate) fn show_commit(
         writeln!(
             out,
             "{}  {} {}",
-            "Date:    ".bold(),
-            date_str.green(),
-            format!("({relative})").dimmed()
+            t.important.paint("Date:    "),
+            t.time.paint(date_str),
+            t.hint.paint(format!("({relative})"))
         )?;
 
         // Committer (only if different from author)
@@ -144,9 +147,9 @@ pub(crate) fn show_commit(
             writeln!(
                 out,
                 "{} {} <{}>",
-                "Committer:".bold(),
-                committer_sig.name.to_str_lossy().cyan(),
-                committer_sig.email.to_str_lossy().cyan()
+                t.important.paint("Committer:"),
+                t.user.paint(committer_sig.name.to_str_lossy()),
+                t.user.paint(committer_sig.email.to_str_lossy())
             )?;
         }
 
@@ -156,7 +159,7 @@ pub(crate) fn show_commit(
         let message = decoded.message.to_str_lossy();
         let mut lines = message.lines();
         if let Some(first_line) = lines.next() {
-            writeln!(out, "{}", first_line.bold())?;
+            writeln!(out, "{}", t.important.paint(first_line))?;
             // Print remaining lines without indentation
             for line in lines {
                 writeln!(out, "{line}")?;
@@ -168,19 +171,19 @@ pub(crate) fn show_commit(
         // File list
         let changes = tree_changes.into_tree_changes();
         if !changes.is_empty() {
-            writeln!(out, "{}", "Files changed:".bold())?;
+            writeln!(out, "{}", t.important.paint("Files changed:"))?;
             for change in &changes {
                 let (status_char, status_color) = match &change.status {
-                    but_core::TreeStatus::Addition { .. } => ("A", "green"),
-                    but_core::TreeStatus::Deletion { .. } => ("D", "red"),
-                    but_core::TreeStatus::Modification { .. } => ("M", "yellow"),
-                    but_core::TreeStatus::Rename { .. } => ("R", "cyan"),
+                    but_core::TreeStatus::Addition { .. } => ("A", t.addition),
+                    but_core::TreeStatus::Deletion { .. } => ("D", t.deletion),
+                    but_core::TreeStatus::Modification { .. } => ("M", t.modification),
+                    but_core::TreeStatus::Rename { .. } => ("R", t.renaming),
                 };
 
                 writeln!(
                     out,
                     "  {} {}",
-                    status_char.color(status_color),
+                    status_color.paint(status_char),
                     change.path.to_str_lossy()
                 )?;
             }
@@ -238,24 +241,33 @@ fn show_branch(
     out: &mut OutputChannel,
     branch_name: &str,
     verbose: bool,
+    id_map: &IdMap,
 ) -> Result<()> {
+    let t = theme::get();
+
     // In JSON mode, always include file info (verbose) so agents and tools
     // get complete data without needing to pass extra flags.
     let effective_verbose = verbose || out.is_json();
-    let (commits, base_commit_info) = get_branch_commits(ctx, branch_name, effective_verbose)?;
+    let (commits, base_commit_info) =
+        get_branch_commits(ctx, branch_name, effective_verbose, id_map)?;
 
     // Get the stack chain (branches this branch is stacked on)
     let stack_chain = get_stack_chain(ctx, branch_name)?;
 
     // Display branch information
     if let Some(out) = out.for_human() {
-        writeln!(out, "{} {}", "Branch:".yellow().bold(), branch_name.green())?;
+        writeln!(
+            out,
+            "{} {}",
+            t.important.paint("Branch:"),
+            t.local_branch.paint(branch_name)
+        )?;
         writeln!(out)?;
 
         if commits.is_empty() {
             writeln!(out, "No commits on this branch.")?;
         } else {
-            writeln!(out, "{}", "Commits:".bold())?;
+            writeln!(out, "{}", t.important.paint("Commits:"))?;
             for (idx, commit) in commits.iter().enumerate() {
                 if verbose {
                     let now_t = std::time::SystemTime::now();
@@ -263,17 +275,17 @@ fn show_branch(
                     writeln!(
                         out,
                         "{} {} {}",
-                        "●".cyan(),
-                        commit.short_sha.blue(),
-                        commit.message.blue().bold()
+                        t.info.paint("●"),
+                        commit.display_ref(),
+                        t.important.paint(&commit.message),
                     )?;
                     writeln!(
                         out,
                         "{} {}, {} by {}",
-                        "│".dimmed(),
-                        format_timestamp(commit.timestamp).dimmed(),
-                        format_relative_time(now_t, commit.timestamp).dimmed(),
-                        commit.author_name.dimmed()
+                        t.border.paint("│"),
+                        t.time.paint(format_timestamp(commit.timestamp)),
+                        t.hint.paint(format_relative_time(now_t, commit.timestamp)),
+                        t.user.paint(&commit.author_name)
                     )?;
 
                     // Show full message if available
@@ -282,9 +294,9 @@ fn show_branch(
                         if lines.len() > 1 {
                             for line in lines.iter().skip(1) {
                                 if !line.is_empty() {
-                                    writeln!(out, "{} {}", "│".dimmed(), line)?;
+                                    writeln!(out, "{} {}", t.border.paint("│"), line)?;
                                 } else {
-                                    writeln!(out, "{}", "│".dimmed())?;
+                                    writeln!(out, "{}", t.border.paint("│"))?;
                                 }
                             }
                         }
@@ -294,22 +306,27 @@ fn show_branch(
                     if let Some(files) = &commit.files
                         && !files.is_empty()
                     {
-                        writeln!(out, "{}", "│".dimmed())?;
-                        writeln!(out, "{} {}:", "│".dimmed(), "Files changed".dimmed())?;
+                        writeln!(out, "{}", t.border.paint("│"))?;
+                        writeln!(
+                            out,
+                            "{} {}:",
+                            t.border.paint("│"),
+                            t.hint.paint("Files changed")
+                        )?;
                         for file in files {
                             let status_str = match file.status.as_str() {
-                                "added" => format!("A {}", file.path.green()),
-                                "deleted" => format!("D {}", file.path.red()),
-                                "modified" => format!("M {}", file.path.yellow()),
+                                "added" => format!("A {}", t.addition.paint(&file.path)),
+                                "deleted" => format!("D {}", t.deletion.paint(&file.path)),
+                                "modified" => format!("M {}", t.modification.paint(&file.path)),
                                 _ => format!("  {}", file.path),
                             };
                             writeln!(
                                 out,
                                 "{} {}  ({}, {})",
-                                "│".dimmed(),
+                                t.border.paint("│"),
                                 status_str,
-                                format!("+{}", file.insertions).green(),
-                                format!("-{}", file.deletions).red()
+                                t.addition.paint(format!("+{}", file.insertions)),
+                                t.deletion.paint(format!("-{}", file.deletions))
                             )?;
                         }
                     }
@@ -317,11 +334,11 @@ fn show_branch(
                     if let (Some(files_changed), Some(insertions), Some(deletions)) =
                         (commit.files_changed, commit.insertions, commit.deletions)
                     {
-                        writeln!(out, "{}", "│".dimmed())?;
+                        writeln!(out, "{}", t.border.paint("│"))?;
                         writeln!(
                             out,
                             "{} {} file{} changed, {} insertion{}, {} deletion{}",
-                            "│".dimmed(),
+                            t.border.paint("│"),
                             files_changed,
                             if files_changed == 1 { "" } else { "s" },
                             insertions,
@@ -333,16 +350,16 @@ fn show_branch(
 
                     // Add vertical line separator between commits (but not after the last one)
                     if idx < commits.len() - 1 {
-                        writeln!(out, "{}", "│".dimmed())?;
+                        writeln!(out, "{}", t.border.paint("│"))?;
                     }
                 } else {
                     // Normal mode: compact display
-                    writeln!(out, "  {} {}", commit.short_sha.yellow(), commit.message)?;
+                    writeln!(out, "  {} {}", commit.display_ref(), commit.message)?;
                     writeln!(
                         out,
                         "    {} by {}",
-                        format_timestamp(commit.timestamp).dimmed(),
-                        commit.author_name.dimmed()
+                        t.time.paint(format_timestamp(commit.timestamp)),
+                        t.user.paint(&commit.author_name)
                     )?;
                 }
             }
@@ -351,21 +368,22 @@ fn show_branch(
             if verbose {
                 if let Some(base_commit) = &base_commit_info {
                     let now_t = std::time::SystemTime::now();
-                    writeln!(out, "{}", "│".dimmed())?;
+                    writeln!(out, "{}", t.border.paint("│"))?;
                     writeln!(
                         out,
                         "{} {} {} {}",
-                        "┴".dimmed(),
-                        base_commit.short_sha.yellow(),
-                        base_commit.message.dimmed(),
-                        "(base)".dimmed()
+                        t.border.paint("┴"),
+                        base_commit.display_ref(),
+                        t.hint.paint(&base_commit.message),
+                        t.hint.paint("(base)")
                     )?;
                     writeln!(
                         out,
                         "  {}, {} by {}",
-                        format_timestamp(base_commit.timestamp).dimmed(),
-                        format_relative_time(now_t, base_commit.timestamp).dimmed(),
-                        base_commit.author_name.dimmed()
+                        t.time.paint(format_timestamp(base_commit.timestamp)),
+                        t.hint
+                            .paint(format_relative_time(now_t, base_commit.timestamp)),
+                        t.user.paint(&base_commit.author_name)
                     )?;
                 }
 
@@ -377,7 +395,7 @@ fn show_branch(
         // Display stack chain if this branch is stacked on others
         if !stack_chain.is_empty() {
             writeln!(out)?;
-            writeln!(out, "{}", "Stacked on:".bold())?;
+            writeln!(out, "{}", t.important.paint("Stacked on:"))?;
             for (i, chain_branch) in stack_chain.iter().enumerate() {
                 let connector = if i == stack_chain.len() - 1 {
                     "└─"
@@ -388,8 +406,8 @@ fn show_branch(
                     out,
                     "  {} {} ({})",
                     connector,
-                    chain_branch.name.cyan(),
-                    format!(
+                    t.local_branch.paint(&chain_branch.name),
+                    t.hint.paint(format!(
                         "{} commit{}",
                         chain_branch.commit_count,
                         if chain_branch.commit_count == 1 {
@@ -397,8 +415,7 @@ fn show_branch(
                         } else {
                             "s"
                         }
-                    )
-                    .dimmed()
+                    ))
                 )?;
             }
         }
@@ -417,8 +434,15 @@ fn show_branch(
 
 #[derive(Debug, serde::Serialize)]
 struct BranchCommitInfo {
+    #[serde(skip)]
+    #[expect(dead_code)]
+    object_id: gix::ObjectId,
+    #[serde(skip)]
+    change_id: but_core::ChangeId,
     sha: String,
     short_sha: String,
+    /// The stable change-ID ref shown by `but status`, when the commit has one.
+    cli_id: Option<String>,
     message: String,
     full_message: Option<String>,
     author_name: String,
@@ -428,6 +452,14 @@ struct BranchCommitInfo {
     insertions: Option<usize>,
     deletions: Option<usize>,
     files: Option<Vec<FileChange>>,
+}
+
+impl BranchCommitInfo {
+    /// The commit ref for display: the stable change-ID ref when the commit
+    /// has one, its short sha otherwise.
+    fn display_ref(&self) -> String {
+        theme::Commit(self.change_id.clone()).to_string()
+    }
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -440,20 +472,20 @@ struct StackChainBranch {
 fn find_branch_oid(ctx: &Context, branch_name: &str) -> Result<gix::ObjectId> {
     // First check list_branches
     let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
-    if let Some(branch) = branches.iter().find(|b| b.name.to_string() == branch_name) {
+    if let Some(branch) = branches
+        .iter()
+        .find(|b| b.name.as_bytes() == branch_name.as_bytes())
+    {
         return Ok(branch.head);
     }
 
     // Not found in list_branches, check stacks
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
 
     for stack in &stacks {
-        for head in &stack.heads {
-            if head.name.to_str_lossy() == branch_name {
-                return Ok(head.tip);
+        for branch in &stack.branches {
+            if branch.name == branch_name {
+                return Ok(branch.tip);
             }
         }
     }
@@ -465,6 +497,7 @@ fn get_branch_commits(
     ctx: &Context,
     branch_name: &str,
     verbose: bool,
+    id_map: &IdMap,
 ) -> Result<(Vec<BranchCommitInfo>, Option<BranchCommitInfo>)> {
     use gix::prelude::ObjectIdExt as _;
 
@@ -473,10 +506,22 @@ fn get_branch_commits(
     // Find the branch by name
     let branch_oid = find_branch_oid(ctx, branch_name)?;
 
-    // Find merge base
+    let branch_base = crate::legacy::workspace::applied_stacks(ctx)?
+        .iter()
+        .find_map(|stack| stack.branch(branch_name))
+        .map(|branch| branch.base_commit);
+
+    // Workspace branches are buckets, not the entire history back to the target.
     let guard = ctx.shared_worktree_access();
-    let Some(merge_base) = merge_base_with_target_branch(ctx, guard.read_permission(), branch_oid)?
-    else {
+    let cli_id_for = |oid: gix::ObjectId| {
+        id_map
+            .change_id_ref(oid)
+            .map(|change_id| change_id.padded_short_id())
+    };
+    let Some(merge_base) = (match branch_base {
+        Some(base) => Some(base),
+        None => merge_base_with_target_commit(ctx, guard.read_permission(), branch_oid)?,
+    }) else {
         tracing::warn!(
             branch_name,
             "Could not find merge base with target branch, which is unexpected"
@@ -522,8 +567,14 @@ fn get_branch_commits(
         };
 
         commits.push(BranchCommitInfo {
+            object_id: info.id,
+            change_id: match id_map.change_id_ref(info.id).map(|c| c.change_id.clone()) {
+                Some(id) => id,
+                None => get_change_id_for_commit(&repo, info.id)?,
+            },
             sha: info.id.to_string(),
             short_sha: shorten_object_id(&repo, info.id),
+            cli_id: cli_id_for(info.id),
             message,
             full_message,
             author_name: author.name.to_str_lossy().to_string(),
@@ -544,8 +595,11 @@ fn get_branch_commits(
         let base_message = super::commit_summary(&base_commit);
 
         Some(BranchCommitInfo {
+            object_id: merge_base,
+            change_id: crate::utils::get_change_id_for_commit(&repo, merge_base)?,
             sha: merge_base.to_string(),
             short_sha: shorten_object_id(&repo, merge_base),
+            cli_id: None,
             message: base_message,
             full_message: None,
             author_name: base_author.name.to_str_lossy().to_string(),
@@ -563,14 +617,14 @@ fn get_branch_commits(
     Ok((commits, base_commit_info))
 }
 
-fn merge_base_with_target_branch(
+fn merge_base_with_target_commit(
     ctx: &Context,
     perm: &RepoShared,
     branch_oid: gix::ObjectId,
 ) -> Result<Option<gix::ObjectId>> {
     let (_, workspace, _) = ctx.workspace_and_db_with_perm(perm)?;
     Ok(workspace
-        .merge_base_with_target_branch(branch_oid)
+        .merge_base_with_target_commit(branch_oid)
         .map(|t| t.0))
 }
 
@@ -586,11 +640,12 @@ fn format_timestamp(timestamp: i64) -> String {
 
 fn show_branch_summary(out: &mut dyn std::fmt::Write, commits: &[BranchCommitInfo]) -> Result<()> {
     use std::collections::HashMap;
+    let t = theme::get();
 
     writeln!(out)?;
-    writeln!(out, "{}", "─".repeat(50).dimmed())?;
+    writeln!(out, "{}", t.border.paint("─".repeat(50)))?;
     writeln!(out)?;
-    writeln!(out, "{}", "Branch Summary:".green().bold())?;
+    writeln!(out, "{}", t.important.paint("Branch Summary:"))?;
 
     // Count total commits
     writeln!(
@@ -639,17 +694,17 @@ fn show_branch_summary(out: &mut dyn std::fmt::Write, commits: &[BranchCommitInf
 
         // Show top changed files
         let mut files_vec: Vec<_> = file_changes.iter().collect();
-        files_vec.sort_by(|a, b| (b.1.0 + b.1.1).cmp(&(a.1.0 + a.1.1)));
+        files_vec.sort_by_key(|file| std::cmp::Reverse(file.1.0 + file.1.1));
 
         writeln!(out)?;
-        writeln!(out, "  {}:", "Files changed".dimmed())?;
+        writeln!(out, "  {}:", t.hint.paint("Files changed"))?;
         for (path, (insertions, deletions)) in files_vec.iter().take(10) {
             writeln!(
                 out,
                 "    {} ({}, {})",
                 path,
-                format!("+{insertions}").green(),
-                format!("-{deletions}").red()
+                t.addition.paint(format!("+{insertions}")),
+                t.deletion.paint(format!("-{deletions}"))
             )?;
         }
 
@@ -668,15 +723,12 @@ fn show_branch_summary(out: &mut dyn std::fmt::Write, commits: &[BranchCommitInf
 
 fn get_stack_chain(ctx: &Context, branch_name: &str) -> Result<Vec<StackChainBranch>> {
     // Get all stacks
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
 
     // Find the stack containing this branch
     let stack = stacks
         .iter()
-        .find(|s| s.heads.iter().any(|h| h.name.to_str_lossy() == branch_name));
+        .find(|stack| stack.contains_branch(branch_name));
 
     let Some(stack) = stack else {
         // Branch not in a stack or is the only branch
@@ -685,62 +737,22 @@ fn get_stack_chain(ctx: &Context, branch_name: &str) -> Result<Vec<StackChainBra
 
     // Find the position of this branch in the stack
     let branch_index = stack
-        .heads
+        .branches
         .iter()
-        .position(|h| h.name.to_str_lossy() == branch_name);
+        .position(|branch| branch.name == branch_name);
 
     let Some(branch_index) = branch_index else {
         return Ok(vec![]);
     };
 
-    // If this is the first branch (index 0), it's not stacked on anything
-    if branch_index == 0 {
-        return Ok(vec![]);
-    }
-
-    // Get all branches this branch is stacked on (branches with index < branch_index)
+    // Branches are ordered tip-to-base, so dependencies follow this branch.
     let mut chain = Vec::new();
-
-    // Iterate from the branch above this one (branch_index - 1) down to 0
-    for i in (0..branch_index).rev() {
-        let head = &stack.heads[i];
-        let head_name = head.name.to_str_lossy().to_string();
-
-        // Count commits for this branch
-        let commit_count = get_branch_commit_count(ctx, &head_name)?;
-
+    for branch in &stack.branches[branch_index + 1..] {
         chain.push(StackChainBranch {
-            name: head_name,
-            commit_count,
+            name: branch.name.clone(),
+            commit_count: branch.commits.len(),
         });
     }
 
     Ok(chain)
-}
-
-fn get_branch_commit_count(ctx: &Context, branch_name: &str) -> Result<usize> {
-    use gix::prelude::ObjectIdExt as _;
-
-    let repo = ctx.repo.get()?;
-
-    // Find the branch OID
-    let branch_oid = find_branch_oid(ctx, branch_name)?;
-    let guard = ctx.shared_worktree_access();
-    let Some(merge_base) = merge_base_with_target_branch(ctx, guard.read_permission(), branch_oid)?
-    else {
-        tracing::warn!(
-            branch_name,
-            "Could not find merge base with target branch, which is unexpected"
-        );
-        return Ok(0);
-    };
-
-    // Count commits
-    let traversal = branch_oid
-        .attach(&repo)
-        .ancestors()
-        .with_hidden(Some(merge_base))
-        .all()?;
-
-    Ok(traversal.filter_map(Result::ok).count())
 }

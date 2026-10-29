@@ -17,16 +17,12 @@
     clippy::too_many_lines
 )]
 
-pub mod claude;
-
 pub mod logs;
 pub mod menu;
 pub mod window;
 pub use window::state::{WindowState, event::ChangeForFrontend};
 
-pub mod action;
 pub mod askpass;
-pub mod bot;
 pub mod debug;
 pub mod projects;
 

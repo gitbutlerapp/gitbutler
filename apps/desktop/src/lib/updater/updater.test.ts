@@ -1,7 +1,7 @@
-import { EventContext } from "$lib/analytics/eventContext";
-import { PostHogWrapper } from "$lib/analytics/posthog";
 import { type Update } from "$lib/backend";
 import { ShortcutService } from "$lib/shortcuts/shortcutService";
+import { EventContext } from "$lib/telemetry/eventContext";
+import { PostHogWrapper } from "$lib/telemetry/posthog";
 import { mockCreateBackend } from "$lib/testing/mockBackend";
 import { getSettingsdServiceMock } from "$lib/testing/mockSettingsdService";
 import { UpdaterService } from "$lib/updater/updater";
@@ -71,6 +71,30 @@ describe("Updater", () => {
 		const update2 = get(updater.update);
 		expect(update2).toHaveProperty("version", "2");
 		expect(update2).toHaveProperty("releaseNotes", body);
+	});
+
+	test("should prompt again on manual check after dismiss", async () => {
+		const version = "1";
+		const body = "release notes";
+
+		vi.spyOn(backend, "checkUpdate").mockReturnValue(
+			mockUpdate({
+				version,
+				body,
+			}),
+		);
+		await updater.checkForUpdate();
+		expect(get(updater.update)).toHaveProperty("version", version);
+
+		updater.dismiss();
+		expect(get(updater.update)).toMatchObject({});
+
+		await updater.checkForUpdate();
+		expect(get(updater.update)).toMatchObject({});
+
+		await updater.checkForUpdate(true);
+		expect(get(updater.update)).toHaveProperty("version", version);
+		expect(get(updater.update)).toHaveProperty("releaseNotes", body);
 	});
 
 	test("should not prompt download for seen version", async () => {

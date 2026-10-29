@@ -1,194 +1,60 @@
 //! Move a commit within or across branches and stacks.
 
-pub(crate) mod function {
-    use anyhow::{Context, bail};
-    use but_rebase::graph_rebase::{
-        Editor, SuccessfulRebase, ToCommitSelector, ToSelector,
-        mutate::{InsertSide, SegmentDelimiter, SelectorSet, SomeSelectors},
-    };
+use anyhow::bail;
+use but_core::RefMetadata;
+use but_rebase::graph_rebase::{
+    Editor, SuccessfulRebase,
+    mutate::{InsertSide, RelativeTo},
+};
 
-    /// Move a commit.
-    ///
-    /// `editor` is assumed to have been generated from the given `workspace`
-    /// and therefore aligned.
-    ///
-    /// `workspace` - Used for getting the surrounding context of the commit being moved.
-    ///     In the future, we should not rely on the projection and do it fully on the graph.
-    ///
-    /// `subject_commit` - The commit to be moved.
-    ///
-    /// `anchor` - A git graph node selector to move the subject commit relative to.
-    ///
-    /// `side` - The side relative to the anchor at which to insert the subject commit.
-    ///
-    /// The subject commit will be detached from the source segment, and inserted relative
-    /// to a given anchor (branch or commit).
-    pub fn move_commit(
-        mut editor: Editor,
-        workspace: &but_graph::projection::Workspace,
-        subject_commit: impl ToCommitSelector,
-        anchor: impl ToSelector,
-        side: InsertSide,
-    ) -> anyhow::Result<SuccessfulRebase> {
-        let (subject_commit_selector, subject_commit) =
-            editor.find_selectable_commit(subject_commit)?;
-
-        let subject = retrieve_commit_and_containers(workspace, &subject_commit)?;
-
-        let (source_stack, source_segment, _) = subject;
-
-        let commit_delimiter = SegmentDelimiter {
-            child: subject_commit_selector,
-            parent: subject_commit_selector,
-        };
-
-        // Step 1: Determine the parents and children to disconnect.
-        let index_of_subject_commit = source_segment
-            .commits
-            .iter()
-            .position(|commit| commit.id == subject_commit.id)
-            .context("BUG: Subject commit is not in the source segment.")?;
-
-        let child_to_disconnect =
-            determine_child_selector(&editor, source_segment, index_of_subject_commit)?;
-
-        let parent_to_disconnect = determine_parent_selector(
-            workspace,
-            &editor,
-            source_stack,
-            source_segment,
-            index_of_subject_commit,
-        )?;
-
-        // Step 2: Disconnect
-        editor.disconnect_segment_from(
-            commit_delimiter.clone(),
-            child_to_disconnect,
-            parent_to_disconnect,
-            false,
-        )?;
-
-        // Step 3: Insert
-        editor.insert_segment(anchor, commit_delimiter, side)?;
-        editor.rebase()
+/// Move multiple commits.
+///
+/// The commits are ordered by parentage before moving so callers do not need to
+/// provide them in graph order.
+///
+/// Each subject is plucked from its old slot
+/// and inserted relative to `relative_to`. Leaving a placeholder behind means the source
+/// topology is never rewritten, so every reference anchored in it keeps its position and
+/// resolves through the placeholder to the commit below, which is exactly what a branch
+/// a commit was moved out of should do.
+pub fn move_commits<'ws, 'meta, M: RefMetadata>(
+    editor: Editor<'ws, 'meta, M>,
+    subject_commit_ids: impl IntoIterator<Item = gix::ObjectId>,
+    relative_to: RelativeTo,
+    side: InsertSide,
+) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+    let subject_commit_ids = subject_commit_ids.into_iter().collect::<Vec<_>>();
+    if subject_commit_ids.is_empty() {
+        bail!("No commits were provided to move")
     }
 
-    /// Determine the surrounding context of the commit to be moved
-    ///
-    /// Currently, this looks into the workspace projection in order to determine **where to take the commit from**.
-    ///
-    /// ### The issue
-    /// It's impossible to know for sure what is the exact intention of 'moving a commit' inside a complex git graph.
-    /// A commit, can have N children and M parents. 'Moving' it somewhere else can imply:
-    /// - Disconnecting all parents and children, and inserting it somewhere else.
-    /// - Disconnecting the first parent and all children, and then inserting.
-    /// - Disconnecting *some* parents and *some* children, and then inserting it.
-    ///
-    /// ### The GitButler assumption
-    /// In the context of a GitButler workspace (as of this writing), we want to disconnect the commit from the linear
-    /// segments and move them to another position in the same or other segment. That way, any other parents and
-    /// children that are not part of the source segment are kept.
-    ///
-    /// ### What the future holds
-    /// In the future, where we're not afraid of complex graphs, we've figured out UX and data wrangling,
-    /// the concept of a segment might not hold, and hence we'll have to figure out a better way of determining
-    /// what to cut (e.g. letting the clients decide what to cut).
-    fn retrieve_commit_and_containers<'a>(
-        workspace: &'a but_graph::projection::Workspace,
-        subject_commit: &but_core::CommitOwned,
-    ) -> anyhow::Result<(
-        &'a but_graph::projection::Stack,
-        &'a but_graph::projection::StackSegment,
-        &'a but_graph::projection::StackCommit,
-    )> {
-        let Some(subject) = workspace.find_commit_and_containers(subject_commit.id) else {
-            bail!("Failed to find the commit to move in the workspace.");
-        };
-        Ok(subject)
+    let mut ordered_selectors = editor.order_commit_selectors_by_parentage(subject_commit_ids)?;
+    // Every insert lands adjacent to the anchor, so consecutive inserts stack away from
+    // it. Parentage order already reads base-first, which is what inserting below wants;
+    // inserting above walks the other way.
+    if matches!(side, InsertSide::Above) {
+        ordered_selectors.reverse();
     }
 
-    /// Determine which children to disconnect, based on the position of the subject commit in the segment.
-    fn determine_child_selector(
-        editor: &Editor,
-        source_segment: &but_graph::projection::StackSegment,
-        index_of_subject_commit: usize,
-    ) -> Result<SelectorSet, anyhow::Error> {
-        let child_to_disconnect = if index_of_subject_commit == 0 {
-            // The commit is at the top of the branch.
-            // We just need to disconnect the ref from it.
-            let ref_name = source_segment
-                .ref_name()
-                .context("Source segment doesn't have a reference name.")?;
-            let reference_selector = editor.select_reference(ref_name)?;
-            let selectors = SomeSelectors::new(vec![reference_selector])?;
-            SelectorSet::Some(selectors)
-        } else if let Some(child_of_subject) =
-            source_segment.commits.get(index_of_subject_commit - 1)
-        {
-            let child_commit_selector = editor.select_commit(child_of_subject.id)?;
-            let selectors = SomeSelectors::new(vec![child_commit_selector])?;
-            SelectorSet::Some(selectors)
-        } else {
-            bail!(
-                "BUG: Subject commit is not the first child in segment but also can't find its child."
-            );
-        };
-        Ok(child_to_disconnect)
+    let mut editor = editor;
+    let mut plucked = Vec::with_capacity(ordered_selectors.len());
+    for selector in ordered_selectors {
+        // The first-parent edge is the slot the commit sat in and stays with the
+        // placeholder; a merge commit's remaining parents are part of the commit itself
+        // and travel with it.
+        let mut parents = editor.direct_parents(selector)?;
+        parents.sort_by_key(|(_, order)| *order);
+        let merge_parents = parents.split_off(1.min(parents.len()));
+        let step = editor.replace_with_none(selector)?;
+        plucked.push((step, selector, merge_parents));
+    }
+    for (step, placeholder, merge_parents) in plucked {
+        let inserted = editor.insert(relative_to.clone(), step, side)?;
+        for (parent, order) in merge_parents {
+            editor.remove_edges(placeholder, parent)?;
+            editor.add_edge(inserted, parent, order)?;
+        }
     }
 
-    /// Determine which parents to disconnect, based on the position of the subject commit in the segment
-    /// and the position of the source segment in the source stack.
-    fn determine_parent_selector(
-        workspace: &but_graph::projection::Workspace,
-        editor: &Editor,
-        source_stack: &but_graph::projection::Stack,
-        source_segment: &but_graph::projection::StackSegment,
-        index_of_subject_commit: usize,
-    ) -> Result<SelectorSet, anyhow::Error> {
-        let parent_to_disconnect = if index_of_subject_commit == source_segment.commits.len() - 1 {
-            // Subject commit is the last one, then we need to disconnect the parent ref.
-            // If this is `None` but the `base_segment_id` is defined, it means that the parent segment lives
-            // outside the workspace and it's probably the target branch.
-            let stack_base_segment_ref_name =
-                source_segment.base_segment_id.and_then(|base_segment_id| {
-                    source_stack.segments.iter().find_map(|segment| {
-                        if segment.id == base_segment_id {
-                            segment.ref_name()
-                        } else {
-                            None
-                        }
-                    })
-                });
-
-            // Look for the base segment in the graph data, as a fallback if there's no stack segment found.
-            let graph_base_segment_ref_name = source_segment
-                .base_segment_id
-                .map(|base_segment_id| &workspace.graph[base_segment_id])
-                .and_then(|segment| segment.ref_name());
-
-            match stack_base_segment_ref_name.or(graph_base_segment_ref_name) {
-                Some(ref_name) => {
-                    let reference_selector = editor.select_reference(ref_name)?;
-                    let selectors = SomeSelectors::new(vec![reference_selector])?;
-                    SelectorSet::Some(selectors)
-                }
-                None => {
-                    // No explicit base segment/ref available (e.g., root commit or traversal stopped early).
-                    // Fall back to disconnecting from all parents; downstream code can handle this.
-                    SelectorSet::All
-                }
-            }
-        } else if let Some(parent_of_subject) =
-            source_segment.commits.get(index_of_subject_commit + 1)
-        {
-            let parent_commit_selector = editor.select_commit(parent_of_subject.id)?;
-            let selectors = SomeSelectors::new(vec![parent_commit_selector])?;
-            SelectorSet::Some(selectors)
-        } else {
-            bail!(
-                "BUG: Subject commit is not the last commit in the segment but can't find its parent either."
-            )
-        };
-        Ok(parent_to_disconnect)
-    }
+    editor.rebase()
 }

@@ -1,0 +1,73 @@
+use crate::args::atoms::{BranchArg, CliIdArg};
+
+/// Manage worktrees.
+///
+/// Without a subcommand, lists the worktrees.
+#[derive(Debug, clap::Parser)]
+#[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+pub struct Platform {
+    #[clap(subcommand)]
+    pub cmd: Option<Subcommands>,
+}
+
+#[derive(Debug, clap::Subcommand)]
+pub enum Subcommands {
+    /// List worktrees, most recently updated first.
+    ///
+    /// By default this lists every active worktree and the three most recently updated
+    /// archived ones. A worktree is shown by its name, followed by the branch it has checked
+    /// out when that differs from the name, and its path.
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    List {
+        /// List all archived worktrees.
+        #[clap(long)]
+        archived: bool,
+        /// List all active worktrees.
+        #[clap(long)]
+        active: bool,
+    },
+    /// Create a worktree on a new branch at the workspace base or above a commit, or on an
+    /// existing branch that isn't in the workspace.
+    ///
+    /// By default, a new branch starts at the child-most commit any applied stack rests on, and is
+    /// checked out under `~/.gitbutler-worktrees/<repo-dir-basename>/` in a directory
+    /// named by a slug of the branch name (or `wt` if the slug is empty). If that
+    /// directory is taken, retries up to five times with a random ASCII suffix.
+    ///
+    /// Worktree creation supports simple `.worktreeinclude` files with paths to files or
+    /// directories. Untracked files are copied if any prefix of their path is in the
+    /// `.worktreeinclude` file and they are also gitignored.
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    New {
+        /// Start the new branch at COMMIT instead of the workspace base.
+        ///
+        /// Accepts a commit SHA or CLI ID, not a branch. Conflicted commits are refused.
+        #[clap(short = 'A', long, value_name = "COMMIT")]
+        above: Option<CliIdArg>,
+        /// The branch to check out, created if it doesn't exist, or a generated one.
+        name: Option<BranchArg>,
+    },
+    /// Hide a worktree from the workspace.
+    Archive {
+        /// The worktree, by CLI ID (see `but wt list`) or name.
+        worktree: CliIdArg,
+    },
+    /// Show an archived worktree in the workspace again.
+    Unarchive {
+        /// The worktree, by CLI ID (see `but wt list`) or name.
+        worktree: CliIdArg,
+    },
+    /// Remove a worktree from disk, like `git worktree remove`.
+    ///
+    /// This works on archived and locked worktrees too, and keeps the branch the worktree had
+    /// checked out.
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[clap(visible_alias = "rm")]
+    Remove {
+        /// Remove the worktree even if it has uncommitted changes.
+        #[clap(short, long)]
+        force: bool,
+        /// The worktree, by CLI ID (see `but wt list`) or name.
+        worktree: CliIdArg,
+    },
+}

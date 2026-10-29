@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::Result;
-use but_fs::read_toml_file_or_default;
+use but_utils::read_toml_file_or_default;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use super::OPLOG_FILE_NAME;
@@ -84,6 +84,6 @@ impl OplogHandle {
 
     fn write_file(&self, mut oplog: Oplog) -> Result<()> {
         oplog.modified_at = SystemTime::now();
-        but_fs::write(&self.file_path, toml::to_string(&oplog)?)
+        but_utils::write(&self.file_path, toml::to_string(&oplog)?)
     }
 }

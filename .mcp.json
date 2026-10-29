@@ -1,0 +1,8 @@
+{
+	"mcpServers": {
+		"gitbutler-storybook-published": {
+			"type": "http",
+			"url": "https://master--6ab536f5f40e41db628ccf1b.chromatic.com/mcp"
+		}
+	}
+}

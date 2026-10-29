@@ -1,29 +1,14 @@
 {
 	"name": "@gitbutler/but-sdk",
 	"version": "0.0.1",
-	"description": "GitButler JS but SDK",
+	"description": "TypeScript types for GitButler's Rust API",
 	"type": "module",
-	"main": "./src/generated/index.js",
-	"types": "./src/generated/index.d.ts",
+	"types": "./src/generated/linear/index.d.ts",
 	"scripts": {
-		"artifacts": "napi artifacts",
-		"build:types": "cargo run -p but-ts -- --output ./src/generated/index.d.ts",
-		"build:napi": "napi build --platform --release --esm --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir ./src/generated/.",
-		"build": "pnpm build:napi && pnpm build:types",
-		"build:debug": "napi build --platform --esm --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir . --verbose",
-		"check": "tsc -p tsconfig.generated.json --noEmit",
-		"prepublishOnly": "napi prepublish -t npm",
-		"testTypes": "ts-node ./src/test.ts",
-		"universal": "napi universal"
-	},
-	"napi": {
-		"binaryName": "gitbutler-sdk",
-		"targets": [
-			"x86_64-apple-darwin",
-			"aarch64-apple-darwin",
-			"x86_64-unknown-linux-gnu",
-			"x86_64-pc-windows-msvc"
-		]
+		"build:types": "cargo run -p but-ts -- --output ./src/generated/linear/index.d.ts",
+		"build:types:graph": "cargo run -p but-ts --features graph-workspace -- --output ./src/generated/graph/index.d.ts",
+		"build": "pnpm build:types && pnpm build:types:graph",
+		"check": "tsc -p tsconfig.generated.json --noEmit"
 	},
 	"repository": {
 		"type": "git",
@@ -34,34 +19,23 @@
 		"git",
 		"gitbutler",
 		"version-control",
-		"napi-rs",
-		"native"
+		"typescript"
 	],
 	"author": "GitButler <gitbutler@gitbutler.com>",
 	"license": "FSL-1.1-MIT",
-	"engines": {
-		"node": ">= 18"
-	},
-	"devDependencies": {
-		"@napi-rs/cli": "^3.5.1",
-		"@types/node": "^22.19.11",
-		"ts-node": "^10.9.2"
-	},
 	"files": [
-		"./src/generated/index.js",
-		"./src/generated/index.d.ts",
-		"./src/generated/*.node"
+		"./src/generated/linear/index.d.ts",
+		"./src/generated/graph/index.d.ts"
 	],
 	"exports": {
 		".": {
-			"import": {
-				"types": "./src/generated/index.d.ts",
-				"default": "./src/generated/index.js"
-			},
-			"require": {
-				"types": "./src/generated/index.d.ts",
-				"default": "./src/generated/index.js"
-			}
+			"types": "./src/generated/linear/index.d.ts"
+		},
+		"./linear": {
+			"types": "./src/generated/linear/index.d.ts"
+		},
+		"./graph": {
+			"types": "./src/generated/graph/index.d.ts"
 		}
 	}
 }

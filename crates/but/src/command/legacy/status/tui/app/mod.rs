@@ -1,0 +1,2448 @@
+use std::{
+    borrow::Cow,
+    cell::{Cell, RefCell},
+    sync::{Arc, mpsc::Receiver},
+    time::{Duration, Instant},
+};
+
+use ansi_to_tui::IntoText as _;
+use bstr::{BStr, BString, ByteSlice};
+use but_api::open::program::ProgramSpec;
+use but_ctx::Context;
+use crossterm::event::Event;
+use gix::refs::{Category, FullName};
+use nonempty::NonEmpty;
+use ratatui::prelude::*;
+
+use crate::{
+    ChangeSourceId, CliId, CliResult,
+    args::atoms::ResolvedCliIdArg,
+    command::{
+        legacy::{
+            commit::{
+                self, CommitAtOperation, CommitOperation, CommitRelativeToTarget, CommitSelection,
+            },
+            reword2::CommitMessageSource,
+            status::{
+                FilesStatusFlag, StatusFlags, StatusOutputLine, TuiLaunchOptions, TuiOutcome,
+                TuiRunOptions,
+                output::StatusOutputLineData,
+                tui::{
+                    Selectable, Tui, count_allocations, dedup_mutation_messages,
+                    details::Details,
+                    event_to_messages,
+                    remember_selection::{self, save_selection_to_disk},
+                    render::render_app,
+                },
+            },
+            switch::SwitchBranchItem,
+        },
+        open::{self, Openable},
+    },
+    id::{AnonymousSegmentId, BranchId, CommitId, CommittedFileId},
+    theme::Theme,
+    tui::{Clipboard, TerminalGuard, event_polling::EventPolling},
+    utils::{in_single_branch_mode, targeting::Side},
+};
+
+use super::{
+    BackstackEntry, DETAILS_SIZE_ADJUSTMENT_PERCENTAGE, DetailsLayoutMessage, FilesMessage,
+    Message, ReloadCause, SelectAfterReload, TuiInputOutputChannel,
+    backstack::{Backstack, RememberToUpdateBackstack},
+    confirm::Confirm,
+    copy_selection_picker::{self, CopySelectionItem},
+    cursor::{self, Cursor, is_selectable_in_mode},
+    file_browser::FileBrowser,
+    fps::FpsCounter,
+    fuzzy_picker::{Col, FuzzyPicker, FuzzyPickerItem, FuzzyPickerMessage, SearchableToken},
+    help::{Help, HelpMessage},
+    highlight::Highlights,
+    key_bind::{
+        KeyBinds, confirm_key_binds, default_key_binds, fuzzy_picker_key_binds, help_key_binds,
+        normal_with_marks_key_binds,
+    },
+    mode::{DetailsMode, DetailsReturnMode, Mode},
+    operations,
+    toast::{ToastKind, Toasts},
+};
+
+mod details_layout;
+mod discard;
+pub(super) use discard::{committed_discard_operation, run_discard};
+
+pub mod mark;
+mod undo_redo;
+
+mod cherry_pick_mode;
+pub use cherry_pick_mode::*;
+
+mod command_mode;
+pub use command_mode::*;
+
+mod commit_mode;
+pub use commit_mode::*;
+
+mod reword;
+pub use reword::*;
+
+mod jump_mode;
+pub use jump_mode::*;
+
+mod move_mode;
+pub use move_mode::*;
+
+mod normal_mode;
+pub use normal_mode::*;
+
+mod pick_changes_mode;
+pub use pick_changes_mode::*;
+
+mod stack_mode;
+pub use stack_mode::*;
+
+mod squash_mode;
+pub use squash_mode::*;
+
+mod branch_mode;
+pub use branch_mode::*;
+
+mod worktree_mode;
+pub use worktree_mode::*;
+
+#[derive(Debug)]
+pub struct App {
+    pub status_lines: Vec<StatusOutputLine>,
+    pub flags: StatusFlags,
+    pub outcome: Option<TuiOutcome>,
+    pub should_render: bool,
+    pub cursor: Cursor,
+    pub status_scroll: StatusScroll,
+    /// Screen areas of status items in the last rendered frame, excluding preview rows.
+    pub status_line_areas: RefCell<Vec<(Rect, usize)>>,
+    pub debug_scroll: DebugScroll,
+    pub mode: RememberToUpdateBackstack<Mode>,
+    pub toasts: Toasts,
+    pub renders: u64,
+    pub updates: u64,
+    pub app_key_binds: AppKeyBinds,
+    pub highlight: Highlights<CliId>,
+    pub modal: Option<Modal>,
+    pub details: Details,
+    pub is_details_visible: bool,
+    pub launch_options: TuiLaunchOptions,
+    pub incoming_out_of_band_messages: Vec<Receiver<Message>>,
+    pub fps: FpsCounter,
+    pub to_be_discarded: Vec<Selectable>,
+    pub status_width_percentage: u16,
+    pub theme: &'static Theme,
+    pub has_focus: bool,
+    pub backstack: Backstack,
+    pub file_browser: Option<FileBrowser>,
+    pub head_sha: String,
+    pub clipboard: Clipboard,
+    pub in_single_branch_mode: bool,
+}
+
+pub(super) fn changed_paths_affect_uncommitted_details<'a>(
+    changed_paths: &[std::path::PathBuf],
+    previous_uncommitted_paths: impl IntoIterator<Item = &'a BStr>,
+    current_uncommitted_paths: impl IntoIterator<Item = &'a BStr>,
+) -> bool {
+    if changed_paths.is_empty() {
+        // An empty path list means the index changed, so there is no path-level signal to use.
+        return true;
+    }
+
+    previous_uncommitted_paths
+        .into_iter()
+        .chain(current_uncommitted_paths)
+        .any(|status_path| {
+            status_path.to_path().map_or(true, |status_path| {
+                changed_paths
+                    .iter()
+                    .any(|changed_path| status_path.starts_with(changed_path))
+            })
+        })
+}
+
+pub struct UpdateContext<'a> {
+    pub messages: Vec<Message>,
+    pub other_messages: Vec<Message>,
+    pub ctx: &'a mut Context,
+}
+
+impl<'a> From<&'a mut Context> for UpdateContext<'a> {
+    fn from(ctx: &'a mut Context) -> Self {
+        Self {
+            messages: Default::default(),
+            other_messages: Default::default(),
+            ctx,
+        }
+    }
+}
+
+impl Tui for App {
+    type UpdateContext<'a> = UpdateContext<'a>;
+
+    fn update<T, E>(
+        &mut self,
+        terminal_guard: &mut T,
+        event_polling: E,
+        events: &mut Vec<crossterm::event::Event>,
+        out: &mut dyn TuiInputOutputChannel,
+        update_ctx: &mut Self::UpdateContext<'_>,
+    ) -> anyhow::Result<()>
+    where
+        T: TerminalGuard,
+        anyhow::Error: From<<T::Backend as Backend>::Error>,
+        E: EventPolling,
+    {
+        let UpdateContext {
+            messages,
+            other_messages,
+            ctx,
+        } = update_ctx;
+
+        self.updates += 1;
+
+        let ignore_user_inputs = self.modal.as_ref().is_some_and(|modal| match modal {
+            Modal::Confirm { confirm } => confirm.waiting_on_callback(),
+            _ => false,
+        });
+
+        if ignore_user_inputs {
+            self.should_render = true;
+        }
+
+        // update at full speed while we're rendering the diff
+        let event_poll_timeout = if self.details.is_polling_thread() {
+            Duration::from_millis(0)
+        } else {
+            Duration::from_millis(30)
+        };
+        // poll terminal events
+        events.clear();
+        event_polling.poll_into(event_poll_timeout, events)?;
+        for event in events.drain(..) {
+            let terminal_area: Rect = terminal_guard.terminal_mut().size()?.into();
+            event_to_messages(event, self, terminal_area, messages, ignore_user_inputs);
+        }
+        dedup_mutation_messages(messages, other_messages);
+
+        // check for any out of band messages
+        self.incoming_out_of_band_messages
+            .retain(|rx| match rx.try_recv() {
+                Ok(msg) => {
+                    messages.push(msg);
+                    true
+                }
+                Err(err) => match err {
+                    std::sync::mpsc::TryRecvError::Empty => true,
+                    std::sync::mpsc::TryRecvError::Disconnected => false,
+                },
+            });
+
+        // handle messages
+        let mut did_reload = false;
+        loop {
+            if messages.is_empty() {
+                break;
+            }
+            for msg in messages.drain(..) {
+                // Fatal startup errors must bypass recoverable message error handling.
+                if let Message::FatalError(err) = msg {
+                    return Err(err);
+                }
+                if matches!(msg, Message::Reload(..)) {
+                    if did_reload && cfg!(feature = "tui-profiling") && !cfg!(test) {
+                        self.toasts
+                            .insert(ToastKind::Error, "Double reload".to_owned());
+                    } else {
+                        did_reload = true;
+                    }
+                }
+                self.handle_message(ctx, out, terminal_guard, other_messages, msg);
+            }
+            std::mem::swap(messages, other_messages);
+        }
+
+        if self.toasts.update() {
+            self.should_render = true;
+        }
+
+        if self.highlight.update() {
+            self.should_render = true;
+        }
+
+        if self.details.update_highlights() {
+            self.should_render = true;
+        }
+
+        let selection = self
+            .cursor
+            .selected_line(&self.status_lines)
+            .and_then(|line| line.data.cli_id())
+            .map(|id| &**id);
+
+        if self
+            .details
+            .update(ctx, selection, self.is_details_visible)?
+        {
+            self.should_render = true;
+        }
+
+        if let Some(file_browser) = &mut self.file_browser
+            && let Mode::Details(details_mode) = &*self.mode
+            && file_browser.needs_update(self.is_details_visible && details_mode.full_screen)
+        {
+            match file_browser.update(ctx, selection) {
+                Ok(true) => {
+                    self.should_render = true;
+                }
+                Ok(false) => {}
+                Err(err) => {
+                    messages.push(Message::ShowError(err));
+                }
+            }
+        }
+
+        if self.fps.update() {
+            self.should_render = true;
+        }
+
+        if self.outcome.is_some() && self.launch_options.remember_selection {
+            _ = save_selection_to_disk(ctx, self);
+        }
+
+        Ok(())
+    }
+
+    fn render<T>(&mut self, terminal_guard: &mut T) -> anyhow::Result<()>
+    where
+        T: TerminalGuard,
+        anyhow::Error: From<<T::Backend as Backend>::Error>,
+    {
+        if std::mem::take(&mut self.should_render) {
+            let _span = tracing::trace_span!("render").entered();
+            terminal_guard.terminal_mut().draw(|frame| {
+                self.renders += 1;
+                count_allocations("render", || render_app(self, frame));
+            })?;
+        }
+
+        Ok(())
+    }
+}
+
+impl App {
+    pub fn new(
+        ctx: &Context,
+        status_lines: Vec<StatusOutputLine>,
+        flags: StatusFlags,
+        launch_options: TuiLaunchOptions,
+        initial_target: Option<ResolvedCliIdArg>,
+        run_options: TuiRunOptions,
+        show_file_browser: bool,
+        mut incoming_out_of_band_messages: Vec<Receiver<Message>>,
+        head_sha: String,
+        clipboard: Clipboard,
+    ) -> CliResult<Self> {
+        let initial_hunk = initial_target.as_ref().and_then(|target| match target {
+            ResolvedCliIdArg::UncommittedHunkOrFile(hunk) if !hunk.is_entire_file => {
+                Some(CliId::UncommittedHunkOrFile((**hunk).clone()))
+            }
+            ResolvedCliIdArg::AnonymousSegment(..)
+            | ResolvedCliIdArg::Commit(..)
+            | ResolvedCliIdArg::Branch(..)
+            | ResolvedCliIdArg::UncommittedHunkOrFile(..)
+            | ResolvedCliIdArg::CommittedFile(..)
+            | ResolvedCliIdArg::CommittedHunk(..)
+            | ResolvedCliIdArg::Uncommitted(..)
+            | ResolvedCliIdArg::PathPrefix { .. }
+            | ResolvedCliIdArg::Stack { .. } => None,
+        });
+        let initial_committed_file = matches!(
+            initial_target.as_ref(),
+            Some(ResolvedCliIdArg::CommittedFile(..))
+        );
+
+        let cursor = if let Some(target) = initial_target {
+            Cursor::select_resolved_target(target, &status_lines)?
+                .unwrap_or_else(|| Cursor::new(&status_lines))
+        } else if launch_options.remember_selection
+            && let Some(cursor) = remember_selection::restore_selection(ctx, &status_lines)
+        {
+            cursor
+        } else {
+            Cursor::new(&status_lines)
+        };
+
+        let theme = crate::theme::get();
+
+        let (details_tx, details_rx) = std::sync::mpsc::channel::<Message>();
+        incoming_out_of_band_messages.push(details_rx);
+
+        let mut details = Details::new(theme, details_tx, clipboard.clone());
+        if let Some(hunk) = initial_hunk.clone() {
+            details.select_cli_id_when_available(hunk);
+        }
+        let is_details_visible = launch_options.show_diff || initial_hunk.is_some();
+
+        let app_key_binds = AppKeyBinds {
+            key_binds: default_key_binds(),
+            normal_with_marks_key_binds: normal_with_marks_key_binds(),
+            confirm_key_binds: confirm_key_binds(),
+        };
+
+        let mode = RememberToUpdateBackstack::new(match (run_options, initial_hunk.is_some()) {
+            (TuiRunOptions::Normal, false) => Mode::default(),
+            (TuiRunOptions::Normal, true) => Mode::Details(DetailsMode {
+                full_screen: false,
+                return_mode: DetailsReturnMode::Normal(Default::default()),
+            }),
+            (TuiRunOptions::PickChanges, false) => Mode::PickChanges(Default::default()),
+            (TuiRunOptions::PickChanges, true) => Mode::Details(DetailsMode {
+                full_screen: false,
+                return_mode: DetailsReturnMode::PickChanges(Default::default()),
+            }),
+        });
+
+        let mut backstack = Backstack::default();
+        if initial_committed_file {
+            backstack.push_show_file_list();
+        }
+        if initial_hunk.is_some() {
+            if !launch_options.show_diff {
+                backstack.push_open_details_view(false);
+            }
+            backstack.push_leave_normal_mode();
+        }
+
+        let file_browser = show_file_browser.then(FileBrowser::default);
+
+        let mut app = Self {
+            status_lines,
+            flags,
+            cursor,
+            status_scroll: StatusScroll::default(),
+            status_line_areas: RefCell::default(),
+            debug_scroll: DebugScroll::default(),
+            outcome: None,
+            should_render: true,
+            mode,
+            toasts: Default::default(),
+            renders: 0,
+            updates: 0,
+            app_key_binds,
+            highlight: Default::default(),
+            incoming_out_of_band_messages,
+            to_be_discarded: Default::default(),
+            modal: Default::default(),
+            backstack,
+            fps: FpsCounter::new(),
+            details,
+            is_details_visible,
+            launch_options,
+            status_width_percentage: 50,
+            theme,
+            has_focus: true,
+            file_browser,
+            head_sha,
+            clipboard,
+            in_single_branch_mode: false,
+        };
+
+        app.reload_in_single_branch_mode(ctx)?;
+
+        Ok(app)
+    }
+
+    pub fn active_key_binds(&self) -> &KeyBinds {
+        match &self.modal {
+            Some(Modal::Confirm { .. }) => &self.app_key_binds.confirm_key_binds,
+            Some(Modal::GotoBranchPicker { key_binds, .. })
+            | Some(Modal::ApplyStackPicker { key_binds, .. })
+            | Some(Modal::UnarchiveWorktreePicker { key_binds, .. })
+            | Some(Modal::SwitchBranchPicker { key_binds, .. })
+            | Some(Modal::CopySelectionPicker { key_binds, .. })
+            | Some(Modal::ProgramPicker { key_binds, .. })
+            | Some(Modal::Help { key_binds, .. }) => key_binds,
+            None => {
+                if let Mode::Normal(NormalMode { marks }) = &*self.mode
+                    && !marks.is_empty()
+                {
+                    &self.app_key_binds.normal_with_marks_key_binds
+                } else {
+                    &self.app_key_binds.key_binds
+                }
+            }
+        }
+    }
+
+    pub fn handle_message<T>(
+        &mut self,
+        ctx: &mut Context,
+        out: &mut dyn TuiInputOutputChannel,
+        terminal_guard: &mut T,
+        messages: &mut Vec<Message>,
+        msg: Message,
+    ) where
+        T: TerminalGuard,
+        anyhow::Error: From<<T::Backend as Backend>::Error>,
+    {
+        let start = Instant::now();
+        let m = format!("{msg:?}");
+        if let Err(err) = self.try_handle_message(ctx, out, terminal_guard, messages, msg) {
+            messages.push(Message::ShowError(err));
+        }
+        tracing::debug!("try_handle_message ({}): {:?}", m, start.elapsed());
+    }
+
+    fn try_handle_message<T>(
+        &mut self,
+        ctx: &mut Context,
+        out: &mut dyn TuiInputOutputChannel,
+        terminal_guard: &mut T,
+        messages: &mut Vec<Message>,
+        msg: Message,
+    ) -> anyhow::Result<()>
+    where
+        T: TerminalGuard,
+        anyhow::Error: From<<T::Backend as Backend>::Error>,
+    {
+        self.should_render = true;
+
+        match msg {
+            Message::Quit => {
+                self.handle_quit();
+            }
+            Message::ConfirmAndQuit => {
+                self.handle_confirm_and_quit();
+            }
+            Message::Crash => {
+                panic!("Intentional crash caused by Message::Crash");
+            }
+            Message::JustRender => {}
+            Message::StatusClick(position) => {
+                self.handle_status_click(position);
+                return Ok(());
+            }
+            Message::StatusScroll(delta) => {
+                return self.handle_status_scroll(delta, terminal_guard);
+            }
+            Message::DebugScrollUp(count) => self.debug_scroll.up(count),
+            Message::DebugScrollDown(count) => self.debug_scroll.down(count),
+            Message::MoveCursorUp(count) => {
+                for _ in 0..count {
+                    if let Some(new_cursor) =
+                        self.cursor
+                            .move_up(&self.status_lines, &self.mode, self.flags.show_files)
+                    {
+                        self.cursor = new_cursor;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            Message::MoveCursorDown(count) => {
+                for _ in 0..count {
+                    if let Some(new_cursor) =
+                        self.cursor
+                            .move_down(&self.status_lines, &self.mode, self.flags.show_files)
+                    {
+                        self.cursor = new_cursor;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            Message::MoveCursorPreviousSection => {
+                if let Some(new_cursor) = self.cursor.move_previous_section(
+                    &self.status_lines,
+                    &self.mode,
+                    self.flags.show_files,
+                ) {
+                    self.cursor = new_cursor;
+                }
+            }
+            Message::MoveCursorNextSection => {
+                if let Some(new_cursor) = self.cursor.move_next_section(
+                    &self.status_lines,
+                    &self.mode,
+                    self.flags.show_files,
+                ) {
+                    self.cursor = new_cursor;
+                }
+            }
+            Message::SelectBranch(branch_name) => {
+                if let Some(new_cursor) =
+                    Cursor::select_branch(&branch_name.shorten().to_str_lossy(), &self.status_lines)
+                {
+                    self.cursor = new_cursor;
+                }
+            }
+            Message::SelectWorktree(name) => {
+                if let Some(new_cursor) = Cursor::select_worktree(name.as_ref(), &self.status_lines)
+                {
+                    self.cursor = new_cursor;
+                }
+            }
+            Message::GotoTop => match self.flags.show_files {
+                FilesStatusFlag::None | FilesStatusFlag::All => {
+                    let new_cursor = Cursor::new(&self.status_lines);
+                    if let Some(uncommitted_line) = new_cursor.selected_line(&self.status_lines)
+                        && cursor::is_selectable_in_mode(
+                            uncommitted_line,
+                            self.mode.as_ref(),
+                            self.flags.show_files,
+                        )
+                    {
+                        self.cursor = new_cursor;
+                    }
+                }
+                FilesStatusFlag::Commit(..) => {
+                    if let Some(new_cursor) =
+                        Cursor::select_first(&self.status_lines, &self.mode, self.flags.show_files)
+                    {
+                        self.cursor = new_cursor;
+                    }
+                }
+            },
+            Message::GotoBottom => match self.flags.show_files {
+                FilesStatusFlag::None | FilesStatusFlag::All => {
+                    let Some(new_cursor) = Cursor::select_merge_base(&self.status_lines) else {
+                        return Ok(());
+                    };
+                    if let Some(merge_base_line) = new_cursor.selected_line(&self.status_lines)
+                        && cursor::is_selectable_in_mode(
+                            merge_base_line,
+                            self.mode.as_ref(),
+                            self.flags.show_files,
+                        )
+                    {
+                        self.cursor = new_cursor;
+                    }
+                }
+                FilesStatusFlag::Commit(..) => {
+                    if let Some(new_cursor) =
+                        Cursor::select_last(&self.status_lines, &self.mode, self.flags.show_files)
+                    {
+                        self.cursor = new_cursor;
+                    }
+                }
+            },
+            Message::Squash(squash_message) => {
+                self.handle_squash(squash_message, ctx, terminal_guard, messages)?
+            }
+            Message::Back => {
+                self.handle_back(messages);
+            }
+            Message::UnfocusDetails => {
+                self.handle_unfocus_details(messages);
+            }
+            Message::EnterNormalModeAfterConfirmingOperation => {
+                self.handle_enter_normal_mode_after_confirming_operation(messages);
+            }
+            Message::CloseCommitFileListAfterConfirmingOperation => {
+                self.handle_close_commit_file_list_after_confirming_operation();
+            }
+            Message::DetailsLayout(details_layout_message) => match details_layout_message {
+                DetailsLayoutMessage::Focus { full_screen } => {
+                    self.handle_focus_details(full_screen, messages);
+                }
+                DetailsLayoutMessage::ToggleFullScreen => {
+                    self.handle_toggle_details_full_screen(messages);
+                }
+                DetailsLayoutMessage::SwitchToSplit => {
+                    self.handle_switch_details_to_split();
+                }
+                DetailsLayoutMessage::ToggleVisibility => {
+                    self.handle_toggle_details_visibility(messages);
+                }
+                DetailsLayoutMessage::Dismiss => {
+                    self.handle_dismiss_details(messages);
+                }
+            },
+            Message::Files(files_message) => match files_message {
+                FilesMessage::ToggleGlobalFilesList => {
+                    self.handle_files_toggle_global_files_list(messages)
+                }
+                FilesMessage::ToggleFilesForSelectedCommit => {
+                    self.handle_files_toggle_files_for_selected_commit(ctx, messages)?
+                }
+            },
+            Message::Reload(select_after_reload, cause) => {
+                self.handle_reload(ctx, out, select_after_reload, cause)?
+            }
+            Message::FatalError(err) => messages.push(Message::FatalError(err)),
+            Message::ShowError(err) => self.handle_show_error(err, messages),
+            Message::Commit(commit_message) => {
+                self.handle_commit(commit_message, ctx, terminal_guard, messages)?
+            }
+            Message::Reword(reword_message) => {
+                self.handle_reword(reword_message, ctx, terminal_guard, messages)?
+            }
+            Message::Command(command_message) => {
+                self.handle_command(command_message, ctx, terminal_guard, out, messages)?
+            }
+            Message::Move(move_message) => self.handle_move(move_message, ctx, messages)?,
+            Message::CherryPick(cherry_pick_message) => {
+                self.handle_cherry_pick(cherry_pick_message, ctx, messages)?
+            }
+            Message::Branch(branch_message) => self.handle_branch(branch_message, ctx, messages)?,
+            Message::Worktree(worktree_message) => {
+                self.handle_worktree(worktree_message, ctx, messages)?
+            }
+            Message::CopySelection => {
+                self.handle_copy_selection()?;
+            }
+            Message::CopySelectionPicker => {
+                self.handle_copy_selection_picker()?;
+            }
+            Message::CopyToClipboard(text) => {
+                self.clipboard.set_text(text)?;
+            }
+            Message::PickProgramThenOpen => self.handle_pick_program_then_open(ctx)?,
+            Message::OpenInDefaultProgram => {
+                self.handle_open_in_default_program(ctx, messages)?;
+            }
+            Message::OpenInProgram(program, to_open) => {
+                self.handle_open_in_program(&program, to_open, terminal_guard, messages)?;
+            }
+            Message::ShowToast { kind, text } => {
+                self.toasts.insert(kind, text);
+            }
+            Message::Confirm(confirm_message) => match self.modal.take() {
+                Some(Modal::Confirm { confirm }) => {
+                    self.modal = confirm
+                        .handle_message(confirm_message, ctx, messages)?
+                        .map(|confirm| Modal::Confirm { confirm });
+                }
+                modal => self.modal = modal,
+            },
+            Message::FuzzyPicker(fuzzy_picker_message) => {
+                if let Some(modal) = self.modal.take() {
+                    match modal {
+                        Modal::GotoBranchPicker { picker, key_binds } => {
+                            self.modal = picker
+                                .handle_message(fuzzy_picker_message, ctx, messages)?
+                                .map(|picker| Modal::GotoBranchPicker {
+                                    picker: Box::new(picker),
+                                    key_binds,
+                                });
+                        }
+                        Modal::ApplyStackPicker { picker, key_binds } => {
+                            self.modal = picker
+                                .handle_message(fuzzy_picker_message, ctx, messages)?
+                                .map(|picker| Modal::ApplyStackPicker {
+                                    picker: Box::new(picker),
+                                    key_binds,
+                                });
+                        }
+                        Modal::UnarchiveWorktreePicker { picker, key_binds } => {
+                            self.modal = picker
+                                .handle_message(fuzzy_picker_message, ctx, messages)?
+                                .map(|picker| Modal::UnarchiveWorktreePicker {
+                                    picker: Box::new(picker),
+                                    key_binds,
+                                });
+                        }
+                        Modal::SwitchBranchPicker { picker, key_binds } => {
+                            self.modal = picker
+                                .handle_message(fuzzy_picker_message, ctx, messages)?
+                                .map(|picker| Modal::SwitchBranchPicker {
+                                    picker: Box::new(picker),
+                                    key_binds,
+                                });
+                        }
+                        Modal::CopySelectionPicker { picker, key_binds } => {
+                            self.modal = picker
+                                .handle_message(fuzzy_picker_message, ctx, messages)?
+                                .map(|picker| Modal::CopySelectionPicker {
+                                    picker: Box::new(picker),
+                                    key_binds,
+                                });
+                        }
+                        Modal::Confirm { .. } | Modal::Help { .. } => {
+                            self.modal = Some(modal);
+                        }
+                        Modal::ProgramPicker { picker, key_binds } => {
+                            self.modal = picker
+                                .handle_message(fuzzy_picker_message, ctx, messages)?
+                                .map(|picker| Modal::ProgramPicker {
+                                    picker: Box::new(picker),
+                                    key_binds,
+                                });
+                        }
+                    }
+                }
+            }
+            Message::Help(help_message) => match self.modal.take() {
+                Some(Modal::Help { help, key_binds }) => {
+                    let terminal_area = Rect::from(terminal_guard.terminal_mut().size()?);
+                    self.modal = help
+                        .handle_message(help_message, terminal_area)?
+                        .map(|help| Modal::Help {
+                            help: Box::new(help),
+                            key_binds,
+                        });
+                }
+                modal => self.modal = modal,
+            },
+            Message::Details(details_message) => {
+                let marks = if let Mode::Details(details_mode) = self
+                    .mode
+                    .get_mut_and_i_promise_not_to_switch_to_a_different_state()
+                {
+                    Some(details_mode.return_mode.marks_mut())
+                } else {
+                    None
+                };
+                self.details.try_handle_message(
+                    details_message,
+                    messages,
+                    marks,
+                    &mut self.backstack,
+                )?;
+            }
+            Message::RegisterOutOfBandMessage(rx) => {
+                self.incoming_out_of_band_messages.push(rx);
+            }
+            Message::Discard => {
+                self.handle_discard(ctx, messages)?;
+            }
+            Message::DropToBeDiscarded => {
+                self.to_be_discarded.clear();
+            }
+            Message::AndThen { lhs, rhs } => {
+                self.try_handle_message(ctx, out, terminal_guard, messages, *lhs)?;
+
+                // Push `rhs` to the end of the queue. That way any messages enqueued by `lhs` will
+                // be handled first.
+                messages.push(*rhs);
+            }
+            Message::Debug(text) => {
+                messages.push(Message::ShowToast {
+                    kind: ToastKind::Debug,
+                    text: text.to_owned().into(),
+                });
+            }
+            Message::GrowDetails => {
+                self.update_status_width_percentage(
+                    self.status_width_percentage
+                        .saturating_sub(DETAILS_SIZE_ADJUSTMENT_PERCENTAGE),
+                );
+            }
+            Message::ShrinkDetails => {
+                self.update_status_width_percentage(
+                    self.status_width_percentage
+                        .saturating_add(DETAILS_SIZE_ADJUSTMENT_PERCENTAGE),
+                );
+            }
+            Message::PickAndGotoBranch => {
+                self.handle_pick_and_goto_branch(ctx)?;
+            }
+            Message::ToggleHelp => {
+                self.handle_toggle_help();
+            }
+            Message::Mark => {
+                self.handle_mark()?;
+            }
+            Message::ClearMarks => {
+                self.handle_clear_marks();
+            }
+            Message::SetHasFocus(has_focus) => {
+                self.handle_set_focus(has_focus);
+            }
+            Message::Undo => {
+                self.handle_undo(ctx, messages)?;
+            }
+            Message::Redo => {
+                self.handle_redo(ctx, messages)?;
+            }
+            Message::Stack(stack_message) => self.handle_stack(stack_message, ctx, messages)?,
+            Message::Jump(jump_message) => self.handle_jump(jump_message, messages),
+            Message::ShowModal(modal) => {
+                self.modal = Some(modal);
+            }
+            Message::WatcherEvent(change) => {
+                self.handle_watcher_event(change, messages);
+            }
+        }
+
+        self.status_scroll.to_cursor();
+
+        Ok(())
+    }
+
+    fn handle_status_click(&mut self, position: Position) {
+        if self.modal.is_some()
+            || matches!(
+                &*self.mode,
+                Mode::InlineReword(..) | Mode::Command(..) | Mode::Jump(..)
+            )
+        {
+            return;
+        }
+        let Some(index) = self
+            .status_line_areas
+            .borrow()
+            .iter()
+            .find_map(|(area, index)| area.contains(position).then_some(*index))
+        else {
+            return;
+        };
+        if let Some(cursor) =
+            Cursor::select_at_index(index, &self.status_lines, &self.mode, self.flags.show_files)
+        {
+            self.cursor = cursor;
+            // Clicking a visible row must not pull it away from the mouse to restore context.
+            self.status_scroll.take_pending_cursor();
+        }
+    }
+
+    fn handle_status_scroll<T>(
+        &mut self,
+        delta: isize,
+        terminal_guard: &mut T,
+    ) -> anyhow::Result<()>
+    where
+        T: TerminalGuard,
+        anyhow::Error: From<<T::Backend as Backend>::Error>,
+    {
+        if matches!(&*self.mode, Mode::InlineReword(..)) {
+            return Ok(());
+        }
+        let terminal_area = terminal_guard.terminal_mut().size()?.into();
+        if let Some(area) = super::render::status_area_for_app(self, terminal_area) {
+            self.scroll_status(delta, usize::from(area.height));
+        }
+        Ok(())
+    }
+
+    fn scroll_status(&mut self, delta: isize, height: usize) {
+        if height == 0 {
+            return;
+        }
+        let old_top = self.status_scroll.top();
+        let top = old_top
+            .saturating_add_signed(delta)
+            .min(self.status_lines.len().saturating_sub(height));
+        if top == old_top {
+            return;
+        }
+        let context = super::CURSOR_CONTEXT_ROWS.min(height.saturating_sub(1) / 2);
+        let start = top + context;
+        let end = top + height - context - 1;
+        // Walk only when the viewport has pushed the selection into a context margin.
+        // Reuse mode-aware navigation so wheel scrolling cannot select disabled rows.
+        if self.cursor.index() < start {
+            while self.cursor.index() < start {
+                let Some(cursor) =
+                    self.cursor
+                        .move_down(&self.status_lines, &self.mode, self.flags.show_files)
+                else {
+                    break;
+                };
+                self.cursor = cursor;
+            }
+        } else if self.cursor.index() > end {
+            while self.cursor.index() > end {
+                let Some(cursor) =
+                    self.cursor
+                        .move_up(&self.status_lines, &self.mode, self.flags.show_files)
+                else {
+                    break;
+                };
+                self.cursor = cursor;
+            }
+        }
+        // Sparse/restricted selections may require stopping short of the requested scroll.
+        self.status_scroll
+            .set_top(self.cursor.scroll_top_for_viewport(
+                top,
+                self.status_lines.len(),
+                height,
+                super::CURSOR_CONTEXT_ROWS,
+            ));
+        self.status_scroll.take_pending_cursor();
+    }
+
+    fn handle_quit(&mut self) {
+        self.outcome = Some(TuiOutcome::None);
+    }
+
+    fn handle_confirm_and_quit(&mut self) {
+        self.outcome = Some(TuiOutcome::Selection(
+            match &*self.mode {
+                Mode::Normal(..)
+                | Mode::Squash(..)
+                | Mode::InlineReword(..)
+                | Mode::Command(..)
+                | Mode::Commit(..)
+                | Mode::Move(..)
+                | Mode::Stack(..)
+                | Mode::Jump(..)
+                | Mode::Branch(..)
+                | Mode::CherryPick(..)
+                | Mode::Worktree(..)
+                | Mode::MoveStack(..) => return,
+                Mode::Details(details_mode) => match &details_mode.return_mode {
+                    DetailsReturnMode::PickChanges(PickChangesMode { marks }) => {
+                        if !details_mode.return_mode.marks().is_empty() {
+                            details_mode.return_mode.marks()
+                        } else {
+                            marks.as_ref()
+                        }
+                    }
+                    DetailsReturnMode::Normal(..) => return,
+                },
+                Mode::PickChanges(PickChangesMode { marks }) => marks.as_ref(),
+            }
+            .iter()
+            .filter_map(|mark| mark.to_owned().into_selectable())
+            .collect(),
+        ));
+    }
+
+    fn handle_enter_normal_mode_after_confirming_operation(&mut self, messages: &mut Vec<Message>) {
+        let mut entries_to_handle = Vec::new();
+        self.mode.update(&mut self.backstack, |backstack, mode| {
+            backstack.retain(|entry| match entry {
+                BackstackEntry::ShowFileList => {
+                    // this keeps the global file list open after performing operations such as
+                    // committing or squashing
+                    true
+                }
+                BackstackEntry::LeaveNormalMode | BackstackEntry::Mark => {
+                    entries_to_handle.push(entry);
+                    false
+                }
+                BackstackEntry::LeaveCommandMode => false,
+                BackstackEntry::OpenSplitDetailsView => true,
+                BackstackEntry::OpenFullScreenDetailsView => {
+                    entries_to_handle.push(entry);
+                    false
+                }
+            });
+
+            *mode = Mode::Normal(NormalMode::default());
+        });
+
+        for entry in entries_to_handle {
+            self.handle_backstack_entry(entry, messages);
+        }
+
+        if !self.maybe_move_cursor_into_file_list() {
+            // the cursor didn't move back into a file list but thats fine since all lines are
+            // selectable in normal mode. So we don't need to worry about the cursor being in an
+            // invalid position
+        }
+    }
+
+    fn handle_close_commit_file_list_after_confirming_operation(&mut self) {
+        match self.flags.show_files {
+            FilesStatusFlag::Commit(..) => {
+                self.backstack.remove_show_file_list();
+                self.flags.show_files = FilesStatusFlag::None;
+            }
+            FilesStatusFlag::None | FilesStatusFlag::All => {}
+        }
+    }
+
+    fn handle_back(&mut self, messages: &mut Vec<Message>) {
+        if let Some(entry) = self.backstack.pop() {
+            self.handle_backstack_entry(entry, messages);
+        }
+    }
+
+    fn handle_backstack_entry(&mut self, entry: BackstackEntry, messages: &mut Vec<Message>) {
+        match entry {
+            BackstackEntry::LeaveCommandMode => {
+                if !self.restore_mode_before_command() {
+                    self.mode.update(&mut self.backstack, |backstack, mode| {
+                        let _ = backstack;
+                        *mode = Mode::Normal(NormalMode::default());
+                    });
+                }
+            }
+            BackstackEntry::LeaveNormalMode => {
+                // Cancelling jump restores the mode, backstack, and cursor from before jumping.
+                if self.restore_mode_before_jump() {
+                    return;
+                }
+                if !self.restore_mode_before_details(messages)
+                    && !self.restore_cursor_before_move_stack(messages)
+                {
+                    let marks = self.marks_ref().to_owned();
+                    self.mode.update(&mut self.backstack, |backstack, mode| {
+                        let _ = backstack;
+                        *mode = Mode::Normal(NormalMode { marks });
+                    });
+                }
+                if !self.maybe_move_cursor_into_file_list() {
+                    self.ensure_cursor_is_on_selectable_line(MoveCursorDiration::Down);
+                }
+            }
+            BackstackEntry::ShowFileList => {
+                self.flags.show_files = FilesStatusFlag::None;
+                messages.push(Message::Reload(None, ReloadCause::ViewOnly));
+            }
+            BackstackEntry::Mark => match self
+                .mode
+                .get_mut_and_i_promise_not_to_switch_to_a_different_state()
+            {
+                Mode::Normal(normal_mode) => {
+                    normal_mode.marks.clear();
+                }
+                Mode::PickChanges(pick_uncommitted_mode) => {
+                    pick_uncommitted_mode.marks.clear();
+                }
+                Mode::Details(details_mode) => {
+                    details_mode.return_mode.marks_mut().clear();
+                }
+                Mode::Branch(branch_mode) => {
+                    branch_mode.marks.clear();
+                }
+                Mode::InlineReword(..)
+                | Mode::Squash(..)
+                | Mode::Command(..)
+                | Mode::Commit(..)
+                | Mode::Move(..)
+                | Mode::Stack(..)
+                | Mode::MoveStack(..)
+                | Mode::CherryPick(..)
+                | Mode::Worktree(..)
+                | Mode::Jump(..) => {}
+            },
+            BackstackEntry::OpenSplitDetailsView | BackstackEntry::OpenFullScreenDetailsView => {
+                messages.push(Message::DetailsLayout(
+                    DetailsLayoutMessage::ToggleVisibility,
+                ));
+            }
+        }
+    }
+
+    #[must_use]
+    fn maybe_move_cursor_into_file_list(&mut self) -> bool {
+        match self.flags.show_files {
+            FilesStatusFlag::Commit(object_id) => {
+                // When viewing files in a commit cursor movement is constrained to only those
+                // files. However you can start a squash which then enables moving outside the file
+                // list, while keeping the file list visible. Thus when entering normal mode
+                // (perhaps from cancelling the squash) we need to potentially move the cursor back
+                // to the file list.
+                let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+                    return false;
+                };
+
+                if let Some(cli_id) = selection.data.cli_id()
+                    && let CliId::CommittedFile {
+                        committed_file: CommittedFileId { commit_id, .. },
+                        id: _,
+                    } = &**cli_id
+                    && *commit_id == object_id
+                {
+                    // cursor is already within the file list
+                    true
+                } else {
+                    self.cursor =
+                        Cursor::select_first_file_in_commit(object_id, &self.status_lines)
+                            .unwrap_or(self.cursor);
+                    true
+                }
+            }
+            FilesStatusFlag::None | FilesStatusFlag::All => false,
+        }
+    }
+
+    fn ensure_cursor_is_on_selectable_line(&mut self, direction: MoveCursorDiration) {
+        let Some(line) = self.cursor.selected_line(&self.status_lines) else {
+            return;
+        };
+
+        if !is_selectable_in_mode(line, self.mode.as_ref(), self.flags.show_files) {
+            let directions = match direction {
+                MoveCursorDiration::Up => [MoveCursorDiration::Up, MoveCursorDiration::Down],
+                MoveCursorDiration::Down => [MoveCursorDiration::Down, MoveCursorDiration::Up],
+            };
+
+            for d in directions {
+                match d {
+                    MoveCursorDiration::Up => {
+                        if let Some(new_cursor) = self.cursor.move_up(
+                            &self.status_lines,
+                            &self.mode,
+                            self.flags.show_files,
+                        ) {
+                            self.cursor = new_cursor;
+                            break;
+                        }
+                    }
+                    MoveCursorDiration::Down => {
+                        if let Some(new_cursor) = self.cursor.move_down(
+                            &self.status_lines,
+                            &self.mode,
+                            self.flags.show_files,
+                        ) {
+                            self.cursor = new_cursor;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn handle_files_toggle_global_files_list(&mut self, messages: &mut Vec<Message>) {
+        match self.flags.show_files {
+            FilesStatusFlag::None => {
+                self.flags.show_files = FilesStatusFlag::All;
+                self.backstack.push_show_file_list();
+            }
+            FilesStatusFlag::All | FilesStatusFlag::Commit(_) => self.close_file_list(),
+        }
+        messages.push(Message::Reload(None, ReloadCause::ViewOnly));
+    }
+
+    fn close_file_list(&mut self) {
+        let should_clear_marks = matches!(
+            self.marks_ref(),
+            mark::MarksRef::Committed { head: _, tail: _ }
+        );
+
+        self.flags.show_files = FilesStatusFlag::None;
+        self.backstack.remove_show_file_list();
+        if should_clear_marks {
+            self.handle_clear_marks();
+        }
+    }
+
+    fn handle_files_toggle_files_for_selected_commit(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        if let Mode::Normal(normal_mode) = &*self.mode
+            && normal_mode.marks.as_commits().is_some()
+        {
+            match self.flags.show_files {
+                FilesStatusFlag::None => {
+                    return Ok(());
+                }
+                FilesStatusFlag::Commit(_) => {}
+                FilesStatusFlag::All => {
+                    self.close_file_list();
+                    messages.push(Message::Reload(None, ReloadCause::ViewOnly));
+                    return Ok(());
+                }
+            }
+        }
+
+        if let Some(selection) = self.cursor.selected_line(&self.status_lines)
+            && let Some(cli_id) = selection.data.cli_id()
+            && let CliId::Commit {
+                commit: CommitId { commit_id, .. },
+                id: _,
+            } = &**cli_id
+        {
+            let commit_id = *commit_id;
+            if !operations::commit_is_empty(ctx, commit_id)? {
+                let select_after_reload = match self.flags.show_files {
+                    FilesStatusFlag::None => {
+                        self.flags.show_files = FilesStatusFlag::Commit(commit_id);
+                        self.backstack.push_show_file_list();
+                        Some(SelectAfterReload::FirstFileInCommit(commit_id))
+                    }
+                    FilesStatusFlag::All | FilesStatusFlag::Commit(_) => {
+                        self.close_file_list();
+                        Some(SelectAfterReload::Commit(commit_id))
+                    }
+                };
+                messages.push(Message::Reload(select_after_reload, ReloadCause::ViewOnly));
+            }
+        } else {
+            self.close_file_list();
+            messages.push(Message::Reload(None, ReloadCause::ViewOnly));
+        };
+
+        Ok(())
+    }
+
+    fn handle_watcher_event(
+        &mut self,
+        change: gitbutler_watcher::Change,
+        messages: &mut Vec<Message>,
+    ) {
+        tracing::debug!("watcher event: {change:?}");
+
+        match change {
+            gitbutler_watcher::Change::GitHead { .. } | gitbutler_watcher::Change::GitFetch(..) => {
+                messages.push(Message::Reload(
+                    None,
+                    ReloadCause::Watcher {
+                        details_selection_changed: false,
+                    },
+                ));
+            }
+            gitbutler_watcher::Change::GitActivity { head_sha, .. } => {
+                if head_sha != self.head_sha {
+                    messages.push(Message::Reload(
+                        None,
+                        ReloadCause::Watcher {
+                            details_selection_changed: false,
+                        },
+                    ));
+                }
+            }
+            gitbutler_watcher::Change::WorktreeChanges {
+                changes,
+                changed_paths,
+                ..
+            } => {
+                if self.is_details_visible
+                    && let Some(selection) = self.details.selection()
+                {
+                    match selection {
+                        CliId::UncommittedHunkOrFile(hunk) => {
+                            let details_selection_changed =
+                                changed_paths.iter().any(|changed_path| {
+                                    hunk.hunks
+                                        .head
+                                        .hunk
+                                        .path
+                                        .to_path()
+                                        .is_ok_and(|path| path == changed_path)
+                                });
+                            messages.push(Message::Reload(
+                                None,
+                                ReloadCause::Watcher {
+                                    details_selection_changed,
+                                },
+                            ));
+                        }
+                        CliId::UncommittedArea {
+                            source: ChangeSourceId::Head,
+                            ..
+                        } => {
+                            let previous_uncommitted_paths = self
+                                .status_lines
+                                .iter()
+                                .filter_map(|line| match &line.data {
+                                    StatusOutputLineData::UncommittedFile { cli_id } => {
+                                        match &**cli_id {
+                                            CliId::UncommittedHunkOrFile(uncommitted) => {
+                                                Some(&uncommitted.hunks)
+                                            }
+                                            CliId::AnonymousSegment(..)
+                                            | CliId::PathPrefix { .. }
+                                            | CliId::CommittedFile { .. }
+                                            | CliId::CommittedHunk { .. }
+                                            | CliId::Branch(..)
+                                            | CliId::Commit { .. }
+                                            | CliId::Stack { .. }
+                                            | CliId::UncommittedArea { .. } => None,
+                                        }
+                                    }
+                                    StatusOutputLineData::UpdateNotice
+                                    | StatusOutputLineData::Connector
+                                    | StatusOutputLineData::BetweenStacks
+                                    | StatusOutputLineData::StagedChanges { .. }
+                                    | StatusOutputLineData::StagedFile { .. }
+                                    | StatusOutputLineData::UncommittedChanges { .. }
+                                    | StatusOutputLineData::WorktreeUncommitted { .. }
+                                    | StatusOutputLineData::Branch { .. }
+                                    | StatusOutputLineData::Commit { .. }
+                                    | StatusOutputLineData::CommitMessage
+                                    | StatusOutputLineData::EmptyCommitMessage
+                                    | StatusOutputLineData::File { .. }
+                                    | StatusOutputLineData::MergeBase
+                                    | StatusOutputLineData::UpstreamChanges
+                                    | StatusOutputLineData::Warning
+                                    | StatusOutputLineData::Hint
+                                    | StatusOutputLineData::NoAssignmentsUnstaged => None,
+                                })
+                                .flat_map(|hunks| hunks.iter())
+                                .map(|id_and_hunk| id_and_hunk.hunk.path.as_ref());
+                            let current_uncommitted_paths = changes
+                                .worktree_changes
+                                .changes
+                                .iter()
+                                .map(|change| change.path_bytes.as_ref());
+                            let details_selection_changed =
+                                changed_paths_affect_uncommitted_details(
+                                    &changed_paths,
+                                    previous_uncommitted_paths,
+                                    current_uncommitted_paths,
+                                );
+                            messages.push(Message::Reload(
+                                None,
+                                ReloadCause::Watcher {
+                                    details_selection_changed,
+                                },
+                            ));
+                        }
+                        CliId::AnonymousSegment(..)
+                        | CliId::PathPrefix { .. }
+                        | CliId::CommittedFile { .. }
+                        | CliId::CommittedHunk { .. }
+                        | CliId::Branch(..)
+                        | CliId::Commit { .. }
+                        | CliId::UncommittedArea {
+                            source: ChangeSourceId::Worktree(_),
+                            ..
+                        }
+                        | CliId::Stack { .. } => {
+                            messages.push(Message::Reload(
+                                None,
+                                ReloadCause::Watcher {
+                                    details_selection_changed: false,
+                                },
+                            ));
+                        }
+                    }
+                } else {
+                    messages.push(Message::Reload(
+                        None,
+                        ReloadCause::Watcher {
+                            details_selection_changed: false,
+                        },
+                    ));
+                }
+            }
+            gitbutler_watcher::Change::LinkedWorktreeChanges { worktree, .. } => {
+                let details_selection_changed = self.is_details_visible
+                    && self.details.selection().is_some_and(|selection| {
+                        let source = match selection {
+                            CliId::UncommittedHunkOrFile(uncommitted) => &uncommitted.source,
+                            CliId::UncommittedArea { source, .. } => source,
+                            CliId::AnonymousSegment(..)
+                            | CliId::PathPrefix { .. }
+                            | CliId::CommittedFile { .. }
+                            | CliId::CommittedHunk { .. }
+                            | CliId::Branch(..)
+                            | CliId::Commit { .. }
+                            | CliId::Stack { .. } => return false,
+                        };
+                        source
+                            .worktree_name()
+                            .is_some_and(|name| name == worktree.as_str())
+                    });
+                messages.push(Message::Reload(
+                    None,
+                    ReloadCause::Watcher {
+                        details_selection_changed,
+                    },
+                ));
+            }
+            gitbutler_watcher::Change::WorkspaceActivity { .. } => {
+                // TODO: We currently dont have a good way of detecting changes made by external
+                // processes and only then reloading. Always reloading here would result in double
+                // reloads when the TUI performs a mutation.
+                if !self.has_focus {
+                    messages.push(Message::Reload(
+                        None,
+                        ReloadCause::Watcher {
+                            details_selection_changed: false,
+                        },
+                    ));
+                }
+            }
+        }
+    }
+
+    /// Handles reloading status output and restoring selection.
+    fn handle_reload(
+        &mut self,
+        ctx: &mut Context,
+        out: &mut dyn TuiInputOutputChannel,
+        select_after_reload: Option<SelectAfterReload>,
+        cause: ReloadCause,
+    ) -> anyhow::Result<()> {
+        tracing::debug!("handle_reload");
+
+        let close_empty_global_file_list_after_reload = matches!(
+            (&self.flags.show_files, &select_after_reload),
+            (FilesStatusFlag::All, Some(SelectAfterReload::Commit(_)))
+        );
+        let selection_before_reload = self
+            .cursor
+            .selected_line(&self.status_lines)
+            .and_then(|line| line.data.cli_id())
+            .cloned();
+
+        let details_selection_before_reload =
+            self.details.selected_section_cli_id().map(Arc::clone);
+
+        let mut select_details_section_after_reload = select_after_reload.as_ref().and_then(
+            |select_after_reload| match select_after_reload {
+                SelectAfterReload::UncommittedDetailsSection { index, direction } => {
+                    Some((*index, *direction))
+                }
+                SelectAfterReload::RewrittenCommit {
+                    details_section, ..
+                } => *details_section,
+                SelectAfterReload::Commit(_)
+                | SelectAfterReload::FirstFileInCommit(_)
+                | SelectAfterReload::UncommittedFile { .. }
+                | SelectAfterReload::Branch(_)
+                | SelectAfterReload::CliId(_)
+                | SelectAfterReload::Worktree(_)
+                | SelectAfterReload::Uncommitted => None,
+            },
+        );
+
+        if let Some(select_after_reload) = &select_after_reload {
+            match select_after_reload {
+                SelectAfterReload::FirstFileInCommit(commit_to_select) => {
+                    if let FilesStatusFlag::Commit(commit_shown) = self.flags.show_files
+                        && *commit_to_select != commit_shown
+                    {
+                        self.flags.show_files = FilesStatusFlag::Commit(*commit_to_select);
+                    }
+                }
+                SelectAfterReload::Commit(commit_to_select) => {
+                    if matches!(self.flags.show_files, FilesStatusFlag::Commit(_))
+                        && operations::commit_is_empty(ctx, *commit_to_select)?
+                    {
+                        self.flags.show_files = FilesStatusFlag::None;
+                        self.backstack.remove_show_file_list();
+                    }
+                }
+                SelectAfterReload::RewrittenCommit {
+                    source,
+                    new_commit,
+                    details_section: _,
+                } => {
+                    // The file list belongs to the rewritten commit, so move it to the new one.
+                    if let FilesStatusFlag::Commit(commit_shown) = self.flags.show_files
+                        && commit_shown == *source
+                    {
+                        if operations::commit_is_empty(ctx, *new_commit)? {
+                            self.flags.show_files = FilesStatusFlag::None;
+                            self.backstack.remove_show_file_list();
+                        } else {
+                            self.flags.show_files = FilesStatusFlag::Commit(*new_commit);
+                        }
+                    }
+                }
+                SelectAfterReload::Branch(_)
+                | SelectAfterReload::Worktree(_)
+                | SelectAfterReload::Uncommitted
+                | SelectAfterReload::UncommittedFile { .. }
+                | SelectAfterReload::UncommittedDetailsSection { .. }
+                | SelectAfterReload::CliId(_) => {}
+            }
+        }
+
+        let new_lines =
+            operations::reload_legacy(ctx, out, self.flags, self.launch_options.clone())?;
+        self.head_sha = operations::head_sha(ctx)?;
+
+        self.cursor = match select_after_reload {
+            None | Some(SelectAfterReload::UncommittedDetailsSection { .. }) => {
+                let restored_cursor = self.cursor.restore_after_reload(
+                    &self.status_lines,
+                    &new_lines,
+                    self.flags.show_files,
+                );
+
+                if select_details_section_after_reload.is_some() {
+                    restored_cursor.or_else(|| Cursor::select_uncommitted(&new_lines))
+                } else {
+                    restored_cursor
+                }
+            }
+            Some(SelectAfterReload::Commit(commit_id)) => {
+                Cursor::select_commit(commit_id, &new_lines)
+            }
+            Some(SelectAfterReload::RewrittenCommit {
+                source,
+                new_commit,
+                details_section: _,
+            }) => {
+                // Select the same file in the new commit. If the file no longer has changes, select
+                // the first file in the new commit like discarding a whole file does, or the new
+                // commit if that has no files either.
+                let file_cursor = match selection_before_reload.as_deref() {
+                    Some(CliId::CommittedFile {
+                        committed_file:
+                            CommittedFileId {
+                                commit_id, path, ..
+                            },
+                        id: _,
+                    }) if *commit_id == source => {
+                        let cursor =
+                            Cursor::select_committed_file(new_commit, path.as_ref(), &new_lines);
+                        if cursor.is_none() {
+                            // The details now show something else, so the section no longer
+                            // applies.
+                            select_details_section_after_reload = None;
+                        }
+                        cursor
+                            .or_else(|| Cursor::select_first_file_in_commit(new_commit, &new_lines))
+                    }
+                    _ => None,
+                };
+                file_cursor.or_else(|| Cursor::select_commit(new_commit, &new_lines))
+            }
+            Some(SelectAfterReload::Branch(branch)) => Cursor::select_branch(&branch, &new_lines),
+            Some(SelectAfterReload::Worktree(worktree)) => {
+                Cursor::select_worktree(worktree.as_ref(), &new_lines)
+            }
+            Some(SelectAfterReload::Uncommitted) => Cursor::select_uncommitted(&new_lines),
+            Some(SelectAfterReload::UncommittedFile { path }) => {
+                Cursor::select_uncommitted_file(path.as_ref(), &new_lines)
+            }
+            Some(SelectAfterReload::FirstFileInCommit(commit_id)) => {
+                Cursor::select_first_file_in_commit(commit_id, &new_lines)
+            }
+            Some(SelectAfterReload::CliId(cli_id)) => Cursor::restore(&cli_id, &new_lines),
+        }
+        .unwrap_or_else(|| Cursor::new(&new_lines));
+
+        // Cancelling jump returns to where it started, so that line has to be found again too.
+        if let Mode::Jump(jump_mode) = self
+            .mode
+            .get_mut_and_i_promise_not_to_switch_to_a_different_state()
+        {
+            jump_mode.return_cursor = jump_mode
+                .return_cursor
+                .restore_after_reload(&self.status_lines, &new_lines, self.flags.show_files)
+                .unwrap_or_else(|| Cursor::new(&new_lines));
+        }
+
+        if close_empty_global_file_list_after_reload
+            && !new_lines.iter().any(|line| {
+                matches!(
+                    &line.data,
+                    StatusOutputLineData::File { cli_id }
+                        if matches!(&**cli_id, CliId::CommittedFile { .. })
+                )
+            })
+        {
+            self.flags.show_files = FilesStatusFlag::None;
+            self.backstack.remove_show_file_list();
+        }
+
+        self.status_lines = new_lines;
+        self.ensure_cursor_is_on_selectable_line(MoveCursorDiration::Down);
+
+        let selection_after_reload = self
+            .cursor
+            .selected_line(&self.status_lines)
+            .and_then(|line| line.data.cli_id());
+        let status_selection_changed = match (
+            selection_before_reload.as_deref(),
+            selection_after_reload.map(|cli_id| &**cli_id),
+        ) {
+            (Some(previous), Some(current)) => !cursor::same_entity_for_reload(previous, current),
+            (None, None) => false,
+            (Some(_), None) | (None, Some(_)) => true,
+        };
+
+        let mut reload_details_view = status_selection_changed;
+        if self.is_details_visible {
+            match cause {
+                ReloadCause::Watcher {
+                    details_selection_changed: details_selection_changed_from_event,
+                } => {
+                    reload_details_view |= details_selection_changed_from_event;
+                }
+                ReloadCause::Mutation | ReloadCause::Manual => {
+                    reload_details_view = true;
+                }
+                ReloadCause::ViewOnly => {}
+            }
+        }
+        if reload_details_view {
+            let details_focused = matches!(&*self.mode, Mode::Details(..));
+            self.details.clear_selection_for_reload(details_focused);
+            if let Some((index, direction)) = select_details_section_after_reload {
+                self.details.select_section_when_available(index, direction);
+            } else if details_focused
+                && let Some(details_selection_before_reload) = details_selection_before_reload
+            {
+                self.details
+                    .select_cli_id_when_available(Arc::unwrap_or_clone(
+                        details_selection_before_reload,
+                    ));
+            }
+        }
+
+        self.reload_in_single_branch_mode(ctx)?;
+
+        Ok(())
+    }
+
+    fn reload_in_single_branch_mode(&mut self, ctx: &Context) -> anyhow::Result<()> {
+        self.in_single_branch_mode = in_single_branch_mode(ctx)?;
+        Ok(())
+    }
+
+    fn handle_show_error(&mut self, err: anyhow::Error, messages: &mut Vec<Message>) {
+        self.push_transient_error(err);
+
+        // ensure we always enter normal mode when something does wrong
+        // so we don't get stuck in whatever mode we were in previously
+        messages.push(Message::EnterNormalModeAfterConfirmingOperation);
+    }
+
+    fn push_transient_error(&mut self, err: anyhow::Error) {
+        let text = format_error_for_tui(&err);
+        match text.into_text() {
+            Ok(text) => {
+                self.toasts.insert(ToastKind::Error, text);
+            }
+            Err(_) => {
+                self.toasts.insert(ToastKind::Error, text);
+            }
+        }
+    }
+
+    /// Handles creating an empty commit relative to the current selection.
+    fn handle_commit_create_empty(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+            return Ok(());
+        };
+
+        match &selection.data {
+            StatusOutputLineData::Branch { cli_id, .. } => {
+                let CliId::Branch(branch) = &**cli_id else {
+                    return Ok(());
+                };
+
+                let mut guard = ctx.exclusive_worktree_access();
+                let mut meta = ctx.meta()?;
+
+                let (outcome, _ws) = commit::run(
+                    ctx,
+                    &mut meta,
+                    guard.write_permission(),
+                    CommitOperation::CommitAt(CommitAtOperation {
+                        target: CommitRelativeToTarget::BranchTip {
+                            name: Category::LocalBranch.to_full_name(&*branch.name)?,
+                            switch: false,
+                        },
+                    }),
+                    CommitSelection::Nothing,
+                    CommitMessageSource::Empty,
+                )?;
+
+                messages.push(Message::Reload(
+                    Some(SelectAfterReload::Commit(outcome.new_commit.commit_id)),
+                    ReloadCause::Mutation,
+                ));
+            }
+            StatusOutputLineData::Commit { cli_id, .. } => {
+                let CliId::Commit { commit, id: _ } = &**cli_id else {
+                    return Ok(());
+                };
+
+                let mut guard = ctx.exclusive_worktree_access();
+                let mut meta = ctx.meta()?;
+
+                let (outcome, _ws) = commit::run(
+                    ctx,
+                    &mut meta,
+                    guard.write_permission(),
+                    CommitOperation::CommitAt(CommitAtOperation {
+                        target: CommitRelativeToTarget::Commit {
+                            commit: commit.clone(),
+                            side: Side::Above,
+                        },
+                    }),
+                    CommitSelection::Nothing,
+                    CommitMessageSource::Empty,
+                )?;
+
+                messages.push(Message::Reload(
+                    Some(SelectAfterReload::Commit(outcome.new_commit.commit_id)),
+                    ReloadCause::Mutation,
+                ));
+            }
+            StatusOutputLineData::WorktreeUncommitted { .. } => return Ok(()),
+            StatusOutputLineData::UpdateNotice
+            | StatusOutputLineData::UncommittedChanges { .. }
+            | StatusOutputLineData::Connector
+            | StatusOutputLineData::BetweenStacks
+            | StatusOutputLineData::StagedChanges { .. }
+            | StatusOutputLineData::StagedFile { .. }
+            | StatusOutputLineData::UncommittedFile { .. }
+            | StatusOutputLineData::CommitMessage
+            | StatusOutputLineData::EmptyCommitMessage
+            | StatusOutputLineData::File { .. }
+            | StatusOutputLineData::MergeBase
+            | StatusOutputLineData::UpstreamChanges
+            | StatusOutputLineData::Warning
+            | StatusOutputLineData::Hint
+            | StatusOutputLineData::NoAssignmentsUnstaged => {}
+        }
+
+        Ok(())
+    }
+
+    fn handle_copy_selection(&mut self) -> anyhow::Result<()> {
+        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+            return Ok(());
+        };
+        let Some(cli_id) = selection.data.cli_id() else {
+            return Ok(());
+        };
+
+        let what_to_copy = match &**cli_id {
+            CliId::Branch(branch) => Cow::Borrowed(branch.name.as_str()),
+            CliId::Commit {
+                commit:
+                    CommitId {
+                        commit_id,
+                        change_id,
+                        ..
+                    },
+                id: _,
+            } => Cow::Owned(commit_identifier_to_copy(*commit_id, change_id.as_ref())),
+            CliId::CommittedFile {
+                committed_file: CommittedFileId { path, .. },
+                id: _,
+            } => path.to_str_lossy(),
+            CliId::UncommittedHunkOrFile(uncommitted) => {
+                uncommitted.hunks.first().hunk.path.to_str_lossy()
+            }
+            CliId::AnonymousSegment(..)
+            | CliId::CommittedHunk(..)
+            | CliId::PathPrefix { .. }
+            | CliId::UncommittedArea { .. }
+            | CliId::Stack { .. } => return Ok(()),
+        };
+
+        self.clipboard.set_text(what_to_copy)?;
+
+        self.highlight
+            .insert(Arc::unwrap_or_clone(Arc::clone(cli_id)));
+
+        Ok(())
+    }
+
+    fn handle_copy_selection_picker(&mut self) -> anyhow::Result<()> {
+        let selection = if matches!(&*self.mode, Mode::Details(..)) {
+            self.details.selected_section_cli_id()
+        } else {
+            self.cursor
+                .selected_line(&self.status_lines)
+                .and_then(|selection| selection.data.cli_id())
+        };
+        let Some(selection) = selection else {
+            return Ok(());
+        };
+
+        let picker = match &**selection {
+            CliId::Commit {
+                commit: CommitId { commit_id, .. },
+                id: _,
+            } => {
+                let commit_id = *commit_id;
+                copy_selection_picker::commit_picker(commit_id, self.theme)
+            }
+            CliId::Branch(BranchId { name, id, lane }) => {
+                let branch = Category::LocalBranch.to_full_name(name.as_str())?;
+                copy_selection_picker::branch_picker(branch, id.to_owned(), lane, self.theme)
+            }
+            CliId::AnonymousSegment(AnonymousSegmentId { id, lane, .. }) => {
+                copy_selection_picker::anonymous_segment_picker(id.to_owned(), lane, self.theme)
+            }
+            CliId::UncommittedHunkOrFile(hunk) => {
+                if matches!(&*self.mode, Mode::Details(..)) {
+                    let Some(text) = self.details.selected_hunk_text() else {
+                        return Ok(());
+                    };
+                    copy_selection_picker::details_hunk_picker(
+                        hunk.id.clone(),
+                        hunk.hunks.head.hunk.path.as_ref(),
+                        text,
+                        self.theme,
+                    )
+                } else {
+                    copy_selection_picker::uncommitted_hunk_picker(hunk.clone(), self.theme)
+                }
+            }
+            CliId::CommittedFile {
+                committed_file:
+                    CommittedFileId {
+                        path,
+                        commit_id: _,
+                        change_id: _,
+                    },
+                id,
+            } => copy_selection_picker::committed_file_picker(
+                path.to_owned(),
+                id.to_owned(),
+                self.theme,
+            ),
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Worktree(name),
+                ..
+            } => copy_selection_picker::worktree_picker(name.as_ref(), self.theme),
+            CliId::CommittedHunk(hunk) => {
+                let Some(text) = self.details.selected_hunk_text() else {
+                    return Ok(());
+                };
+                copy_selection_picker::details_hunk_picker(
+                    hunk.id.clone(),
+                    hunk.hunk.path.as_ref(),
+                    text,
+                    self.theme,
+                )
+            }
+            CliId::PathPrefix { .. }
+            | CliId::UncommittedArea {
+                source: ChangeSourceId::Head,
+                ..
+            }
+            | CliId::Stack { .. } => return Ok(()),
+        };
+        self.modal = Some(Modal::CopySelectionPicker {
+            picker: Box::new(picker),
+            key_binds: fuzzy_picker_key_binds(),
+        });
+
+        Ok(())
+    }
+
+    fn selected_openable(&self, ctx: &Context) -> anyhow::Result<Option<Openable>> {
+        match self.marks_ref() {
+            mark::MarksRef::Empty => {
+                let selection = if matches!(&*self.mode, Mode::Details(..)) {
+                    self.details.selected_section_cli_id()
+                } else {
+                    self.cursor
+                        .selected_line(&self.status_lines)
+                        .and_then(|selection| selection.data.cli_id())
+                };
+
+                let Some(selection) = selection else {
+                    return Ok(None);
+                };
+
+                match &**selection {
+                    CliId::UncommittedHunkOrFile(uncommitted) => {
+                        Openable::try_from_uncommitted(&*ctx.repo.get()?, uncommitted).map(Some)
+                    }
+                    CliId::CommittedFile {
+                        committed_file: CommittedFileId { path, .. },
+                        id: _,
+                    } => Openable::try_from_relpath(&*ctx.repo.get()?, path.as_bstr()).map(Some),
+                    CliId::AnonymousSegment(..)
+                    | CliId::CommittedHunk(..)
+                    | CliId::Commit { .. }
+                    | CliId::Branch(_)
+                    | CliId::PathPrefix { .. }
+                    | CliId::UncommittedArea { .. }
+                    | CliId::Stack { .. } => Ok(None),
+                }
+            }
+            mark::MarksRef::Hunks { head, tail } => openable_from_paths(
+                ctx,
+                std::iter::once(head)
+                    .chain(tail)
+                    .map(|hunk| hunk.hunks.head.hunk.path.as_bstr()),
+            ),
+            mark::MarksRef::Committed { head, tail } => openable_from_paths(
+                ctx,
+                std::iter::once(head)
+                    .chain(tail)
+                    .map(|mark| mark.committed_file().path.as_bstr()),
+            ),
+            mark::MarksRef::Commits { .. } | mark::MarksRef::Branches { .. } => Ok(None),
+        }
+    }
+
+    fn handle_pick_program_then_open(&mut self, ctx: &Context) -> anyhow::Result<()> {
+        let Some(to_open) = self.selected_openable(ctx)? else {
+            return Ok(());
+        };
+
+        let Some(program_specs) =
+            NonEmpty::from_vec(open::list_program_specs_for_openable(&to_open))
+        else {
+            return Ok(());
+        };
+
+        self.modal = Some(Modal::ProgramPicker {
+            picker: Box::new(FuzzyPicker::new(
+                program_specs,
+                self.theme,
+                |item, _ctx, messages| {
+                    messages.push(Message::OpenInProgram(item, to_open));
+                    Ok(())
+                },
+            )),
+            key_binds: fuzzy_picker_key_binds(),
+        });
+
+        Ok(())
+    }
+
+    fn handle_open_in_default_program(
+        &mut self,
+        ctx: &Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        let Some(to_open) = self.selected_openable(ctx)? else {
+            return Ok(());
+        };
+
+        let mut program_specs = open::list_program_specs_for_openable(&to_open).into_iter();
+        let Some(first_program) = program_specs.next() else {
+            return Ok(());
+        };
+        messages.push(Message::OpenInProgram(first_program, to_open));
+
+        Ok(())
+    }
+
+    fn handle_open_in_program<T>(
+        &mut self,
+        program: &ProgramSpec,
+        to_open: Openable,
+        terminal_guard: &mut T,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()>
+    where
+        T: TerminalGuard,
+    {
+        let _suspend_guard = if program.requires_terminal() {
+            Some(terminal_guard.suspend()?)
+        } else {
+            None
+        };
+
+        open::run(program, to_open)?;
+
+        if !program.requires_terminal() {
+            messages.push(Message::ShowToast {
+                kind: ToastKind::Info,
+                text: format!("File opened in {} in the background", program.name).into(),
+            });
+        }
+
+        Ok(())
+    }
+
+    /// Returns the currently selected commit id when the selected line is a commit.
+    fn selected_commit_id(&self) -> Option<CommitId> {
+        let selection = self.cursor.selected_line(&self.status_lines)?;
+
+        let StatusOutputLineData::Commit { cli_id, .. } = &selection.data else {
+            return None;
+        };
+
+        let CliId::Commit { commit, id: _ } = &**cli_id else {
+            return None;
+        };
+
+        Some(commit.clone())
+    }
+
+    fn handle_pick_and_goto_branch(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
+        match self.flags.show_files {
+            FilesStatusFlag::None | FilesStatusFlag::All => {}
+            FilesStatusFlag::Commit(_) => return Ok(()),
+        }
+
+        let head_info = {
+            let meta = ctx.meta()?;
+            let mut db = ctx.db.get_cache_mut()?;
+            but_workspace::head_info(
+                &*ctx.repo.get()?,
+                &meta,
+                &mut db,
+                but_workspace::ref_info::Options {
+                    project_meta: ctx.project_meta()?,
+                    traversal: but_graph::init::Options {
+                        worktrees: true,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            )?
+        };
+
+        let mut picker_items = head_info
+            .stacks
+            .iter()
+            .flat_map(|stack| &stack.segments)
+            .filter_map(|segment| {
+                let ref_info = segment.ref_info.as_ref()?;
+                Some(&ref_info.ref_name)
+            })
+            .filter(|name| {
+                // not all branches are selectable all the time, for example if we're committing
+                // changes assigned to a stack then we cannot select branches outside the stack
+                self.status_lines
+                    .iter()
+                    .find(|line| {
+                        if let Some(id) = line.data.cli_id()
+                            && let CliId::Branch(branch) = &**id
+                            && branch.name == name.shorten()
+                        {
+                            true
+                        } else {
+                            false
+                        }
+                    })
+                    .is_none_or(|line| {
+                        is_selectable_in_mode(line, self.mode.as_ref(), self.flags.show_files)
+                    })
+            })
+            .map(|name| GotoBranchItem::Branch(name.to_owned()))
+            .collect::<Vec<_>>();
+
+        for worktree in head_info.worktrees {
+            let selectable = Cursor::select_worktree(worktree.name.as_ref(), &self.status_lines)
+                .and_then(|cursor| cursor.selected_line(&self.status_lines))
+                .is_some_and(|line| {
+                    is_selectable_in_mode(line, self.mode.as_ref(), self.flags.show_files)
+                });
+            if selectable {
+                picker_items.push(GotoBranchItem::Worktree {
+                    name: worktree.name,
+                    ref_name: worktree.ref_name,
+                });
+            }
+        }
+
+        if let Some(picker_items) = NonEmpty::from_vec(picker_items) {
+            let include_uncommitted = Cursor::select_uncommitted(&self.status_lines)
+                .and_then(|cursor| cursor.selected_line(&self.status_lines))
+                .is_some_and(|uncommitted| {
+                    is_selectable_in_mode(uncommitted, self.mode.as_ref(), self.flags.show_files)
+                });
+
+            let picker_items = if include_uncommitted {
+                let mut mapped_items = NonEmpty::new(GotoBranchItem::Uncommitted);
+                mapped_items.extend(picker_items);
+                mapped_items
+            } else {
+                picker_items
+            };
+
+            self.modal = Some(Modal::GotoBranchPicker {
+                picker: Box::new(FuzzyPicker::new(
+                    picker_items,
+                    self.theme,
+                    |item, _ctx, messages| {
+                        match item {
+                            GotoBranchItem::Branch(branch_name) => {
+                                messages.push(Message::SelectBranch(branch_name));
+                            }
+                            GotoBranchItem::Worktree { name, .. } => {
+                                messages.push(Message::SelectWorktree(name));
+                            }
+                            GotoBranchItem::Uncommitted => {
+                                messages.push(Message::GotoTop);
+                            }
+                        }
+                        Ok(())
+                    },
+                )),
+                key_binds: fuzzy_picker_key_binds(),
+            });
+        }
+
+        Ok(())
+    }
+
+    fn handle_toggle_help(&mut self) {
+        if matches!(self.modal, Some(Modal::Help { .. })) {
+            self.modal = None;
+        } else {
+            self.modal = Some(Modal::Help {
+                help: Box::new(Help::new([&self.app_key_binds.key_binds], self.theme)),
+                key_binds: help_key_binds(),
+            });
+        }
+    }
+
+    pub fn details_focused(&self) -> bool {
+        matches!(&*self.mode, Mode::Details(..))
+    }
+
+    pub fn selection_highlight_color(&self) -> Style {
+        if self.details_focused() {
+            self.theme.discrete_selection_highlight
+        } else {
+            self.theme.selection_highlight
+        }
+    }
+
+    pub fn handle_set_focus(&mut self, has_focus: bool) {
+        self.has_focus = has_focus;
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct DebugScroll {
+    top: Cell<usize>,
+}
+
+impl DebugScroll {
+    pub fn top(&self) -> usize {
+        self.top.get()
+    }
+
+    pub fn set_top(&self, top: usize) {
+        self.top.set(top);
+    }
+
+    pub fn up(&self, n: usize) {
+        self.top.set(self.top.get().saturating_sub(n));
+    }
+
+    pub fn down(&self, n: usize) {
+        self.top.set(self.top.get().saturating_add(n));
+    }
+}
+
+#[derive(Debug)]
+pub struct StatusScroll {
+    top: Cell<usize>,
+    pending_cursor: Cell<bool>,
+}
+
+impl Default for StatusScroll {
+    fn default() -> Self {
+        Self {
+            top: Cell::new(0),
+            pending_cursor: Cell::new(true),
+        }
+    }
+}
+
+impl StatusScroll {
+    pub fn top(&self) -> usize {
+        self.top.get()
+    }
+
+    pub fn set_top(&self, top: usize) {
+        self.top.set(top);
+    }
+
+    pub fn to_cursor(&self) {
+        self.pending_cursor.set(true);
+    }
+
+    pub fn take_pending_cursor(&self) -> bool {
+        let pending = self.pending_cursor.get();
+        self.pending_cursor.set(false);
+        pending
+    }
+}
+
+#[derive(Debug)]
+pub struct AppKeyBinds {
+    key_binds: KeyBinds,
+    normal_with_marks_key_binds: KeyBinds,
+    confirm_key_binds: KeyBinds,
+}
+
+#[derive(Debug)]
+pub enum Modal {
+    Confirm {
+        confirm: Confirm,
+    },
+    CopySelectionPicker {
+        picker: Box<FuzzyPicker<CopySelectionItem>>,
+        key_binds: KeyBinds,
+    },
+    GotoBranchPicker {
+        picker: Box<FuzzyPicker<GotoBranchItem>>,
+        key_binds: KeyBinds,
+    },
+    ApplyStackPicker {
+        picker: Box<FuzzyPicker<ApplyBranchItem>>,
+        key_binds: KeyBinds,
+    },
+    UnarchiveWorktreePicker {
+        picker: Box<FuzzyPicker<UnarchiveWorktreeItem>>,
+        key_binds: KeyBinds,
+    },
+    SwitchBranchPicker {
+        picker: Box<FuzzyPicker<SwitchBranchItem>>,
+        key_binds: KeyBinds,
+    },
+    ProgramPicker {
+        picker: Box<FuzzyPicker<ProgramSpec>>,
+        key_binds: KeyBinds,
+    },
+    Help {
+        help: Box<Help>,
+        key_binds: KeyBinds,
+    },
+}
+
+impl Modal {
+    pub fn input_message(&self, event: Event) -> Option<Message> {
+        match self {
+            Modal::CopySelectionPicker { .. }
+            | Modal::GotoBranchPicker { .. }
+            | Modal::ApplyStackPicker { .. }
+            | Modal::UnarchiveWorktreePicker { .. }
+            | Modal::SwitchBranchPicker { .. }
+            | Modal::ProgramPicker { .. } => {
+                Some(Message::FuzzyPicker(FuzzyPickerMessage::Input(event)))
+            }
+            Modal::Help { help, .. } if help.is_search_focused() => {
+                Some(Message::Help(HelpMessage::Input(event)))
+            }
+            Modal::Confirm { .. } | Modal::Help { .. } => None,
+        }
+    }
+}
+
+/// Formats an error for display in the terminal UI without including backtraces.
+///
+/// The output always starts with the top-level error message and, when available,
+/// appends a `Caused by:` section containing every error in the cause chain.
+pub fn format_error_for_tui(err: &anyhow::Error) -> String {
+    let mut causes = err.chain();
+
+    let Some(top_level) = causes.next() else {
+        return "unknown error".to_owned();
+    };
+
+    let cause_lines: Vec<String> = causes.map(|cause| cause.to_string()).collect();
+    if cause_lines.is_empty() {
+        return top_level.to_string();
+    }
+
+    let mut output = top_level.to_string();
+    output.push_str("\n\nCaused by:\n");
+
+    for (idx, cause) in cause_lines.iter().enumerate() {
+        output.push_str(&format!("    {idx}: {cause}"));
+        if idx + 1 < cause_lines.len() {
+            output.push('\n');
+        }
+    }
+
+    output
+}
+
+fn commit_identifier_to_copy(
+    commit_id: gix::ObjectId,
+    change_id: Option<&but_core::ChangeId>,
+) -> String {
+    change_id.map_or_else(
+        || commit_id.to_hex_with_len(7).to_string(),
+        |change_id| change_id.to_string().chars().take(8).collect(),
+    )
+}
+
+#[derive(Debug, Clone)]
+pub enum GotoBranchItem {
+    Branch(FullName),
+    Worktree {
+        name: BString,
+        ref_name: Option<FullName>,
+    },
+    Uncommitted,
+}
+
+impl FuzzyPickerItem for GotoBranchItem {
+    fn columns(&self, searchable: SearchableToken) -> impl IntoIterator<Item = Col<'_>> {
+        match self {
+            Self::Branch(full_name) => [Col {
+                text: full_name.shorten().to_str_lossy(),
+                searchable: Some(searchable),
+            }],
+            GotoBranchItem::Worktree { name, ref_name } => [Col {
+                text: ref_name
+                    .as_ref()
+                    .map_or_else(|| name.to_str_lossy(), |name| name.shorten().to_str_lossy()),
+                searchable: Some(searchable),
+            }],
+            Self::Uncommitted => [Col {
+                text: "uncommitted".into(),
+                searchable: Some(searchable),
+            }],
+        }
+    }
+
+    fn style(&self, theme: &Theme) -> Style {
+        match self {
+            GotoBranchItem::Branch(..) | GotoBranchItem::Worktree { .. } => theme.local_branch,
+            Self::Uncommitted => theme.info,
+        }
+    }
+}
+
+impl FuzzyPickerItem for ProgramSpec {
+    fn columns(&self, searchable: SearchableToken) -> impl IntoIterator<Item = Col<'_>> {
+        [
+            Col {
+                text: self.id.clone().into(),
+                searchable: None,
+            },
+            Col {
+                text: self.name.clone().into(),
+                searchable: Some(searchable),
+            },
+        ]
+    }
+
+    fn style(&self, theme: &Theme) -> Style {
+        theme.info
+    }
+}
+
+enum MoveCursorDiration {
+    Up,
+    Down,
+}
+
+fn openable_from_paths<'a>(
+    ctx: &Context,
+    paths: impl IntoIterator<Item = &'a BStr>,
+) -> anyhow::Result<Option<Openable>> {
+    let mut paths = paths.into_iter().collect::<Vec<_>>();
+    paths.sort();
+    paths.dedup();
+    let Some(paths) = NonEmpty::from_vec(paths) else {
+        return Ok(None);
+    };
+    Openable::try_from_relpaths(&*ctx.repo.get()?, paths).map(Some)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::commit_identifier_to_copy;
+
+    #[test]
+    fn commit_copy_identifier_prefers_eight_characters_of_the_change_id() {
+        let commit_id = gix::ObjectId::from_hex(b"1111111111111111111111111111111111111111")
+            .expect("test commit ID is valid");
+        let change_id = but_core::ChangeId::from_number_for_testing(12345678901234567890);
+
+        assert_eq!(
+            commit_identifier_to_copy(commit_id, Some(&change_id)),
+            "12345678",
+            "the first eight change ID characters should be copied"
+        );
+    }
+
+    #[test]
+    fn commit_copy_identifier_falls_back_to_the_short_commit_id() {
+        let commit_id = gix::ObjectId::from_hex(b"1111111222222222222222222222222222222222")
+            .expect("test commit ID is valid");
+
+        assert_eq!(
+            commit_identifier_to_copy(commit_id, None),
+            "1111111",
+            "commits without change IDs should retain the existing fallback"
+        );
+    }
+}

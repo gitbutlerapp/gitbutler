@@ -2,7 +2,6 @@ import { showToast } from "$lib/notifications/toasts";
 import { InjectionToken } from "@gitbutler/core/context";
 import { persisted } from "@gitbutler/shared/persisted";
 import { get, writable } from "svelte/store";
-import type { PostHogWrapper } from "$lib/analytics/posthog";
 import type {
 	DownloadEvent,
 	DownloadEventName,
@@ -12,6 +11,7 @@ import type {
 	Update,
 } from "$lib/backend";
 import type { ShortcutService } from "$lib/shortcuts/shortcutService";
+import type { PostHogWrapper } from "$lib/telemetry/posthog";
 
 export const UPDATER_SERVICE = new InjectionToken<UpdaterService>("UpdaterService");
 
@@ -107,6 +107,7 @@ export class UpdaterService {
 			handleError(err, manual);
 		} finally {
 			this.loading.set(false);
+			this.manualCheck = false;
 		}
 	}
 
@@ -121,8 +122,9 @@ export class UpdaterService {
 			return;
 		}
 
+		const isUnseenVersion = update.version !== this.seenVersion;
 		if (
-			update.version !== this.seenVersion &&
+			(isUnseenVersion || this.manualCheck) &&
 			update.currentVersion !== "0.0.0" // DEV mode.
 		) {
 			this.backendDownload = async (onEvent) => await update.download(onEvent);
@@ -202,9 +204,58 @@ function isOffline(err: any): boolean {
 	);
 }
 
+// Patterns that identify an immutable install location where the
+// auto-updater physically cannot write. We match a few concrete forms
+// rather than anything permission-flavored — "Permission denied" alone
+// is too broad and would swallow real errors.
+//
+// - "read-only file system" / "readonly filesystem": POSIX EROFS text,
+//   surfaces on Linux, macOS, and a mounted DMG.
+// - "erofs" / "os error 30": the errno symbol and its Linux numeric form.
+// - "os error 6032": a Windows ERROR_WRITE_PROTECT surface that appears in
+//   std::io::Error Debug output. We deliberately don't match the bare
+//   Windows error code 19 — on Linux errno 19 is ENODEV ("No such device"),
+//   and a bare "os error 19" match would conflate the two.
+// - "write[- ]protected": Windows "The media is write protected", plus
+//   a few translated variants that route through the same phrase.
+const READ_ONLY_FS_PATTERNS = [
+	/read-only file system/i,
+	/readonly file ?system/i,
+	/\berofs\b/i,
+	/\bos error 30\b/i,
+	/\bos error 6032\b/i,
+	/write[- ]protected/i,
+];
+
+function isReadOnlyFilesystem(err: any): boolean {
+	const message =
+		typeof err === "string"
+			? err
+			: err && typeof err === "object" && "message" in err
+				? String((err as { message: unknown }).message)
+				: "";
+	return READ_ONLY_FS_PATTERNS.some((p) => p.test(message));
+}
+
 function handleError(err: any, manual: boolean) {
 	if (!manual && isOffline(err)) return;
 	console.error(err);
+	if (isReadOnlyFilesystem(err)) {
+		// Installed into an immutable location (Homebrew Cask, Flatpak, AppImage,
+		// an un-extracted DMG). Surface as a neutral guidance toast — there's no
+		// in-app remediation, the user needs to reinstall manually.
+		showToast({
+			style: "info",
+			title: "Can't update in place",
+			message: `
+                GitButler appears to be installed in a read-only location, so
+                the auto-updater can't replace it. Please reinstall or update
+                via your package manager, or download the latest release from
+                our [downloads](https://app.gitbutler.com/downloads) page.
+            `,
+		});
+		return;
+	}
 	showToast({
 		title: "App update failed",
 		message: `

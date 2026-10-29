@@ -1,0 +1,53 @@
+<script lang="ts">
+	import Button from "$components/Button.svelte";
+	import { type IconName } from "$lib/icons/names";
+
+	interface Props {
+		icon: IconName;
+		activated?: boolean;
+		tooltip: string;
+		onclick: (e: MouseEvent) => void;
+		disabled?: boolean;
+		loading?: boolean;
+		size?: "tag" | "button";
+	}
+
+	const { icon, activated, tooltip, onclick, disabled, loading, size = "button" }: Props = $props();
+</script>
+
+<div class="formatting-button" class:formatting-button--activated={activated}>
+	<Button
+		type="button"
+		style="gray"
+		kind="ghost"
+		{size}
+		{icon}
+		{activated}
+		{disabled}
+		{onclick}
+		{tooltip}
+		tooltipDelay={500}
+		tooltipPosition="bottom"
+		{loading}
+	/>
+</div>
+
+<style lang="postcss">
+	.formatting-button {
+		display: flex;
+		position: relative;
+
+		&.formatting-button--activated {
+			&::after {
+				position: absolute;
+				top: 1px;
+				right: 1px;
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background-color: var(--fill-pop-bg);
+				content: "";
+			}
+		}
+	}
+</style>

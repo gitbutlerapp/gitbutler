@@ -1,5 +1,5 @@
 import { InjectionToken } from "@gitbutler/core/context";
-import { chipToasts } from "@gitbutler/ui";
+import { chipToasts } from "@gitbutler/ui-svelte";
 import type { IBackend } from "$lib/backend/backend";
 
 export const CLIPBOARD_SERVICE = new InjectionToken<ClipboardService>("ClipboardService");

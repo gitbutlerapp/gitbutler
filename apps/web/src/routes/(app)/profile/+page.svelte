@@ -2,10 +2,8 @@
 	import ExperimentalSettings from "./components/ExperimentalSettings.svelte";
 	import NotificationSettings from "./components/NotificationSettings.svelte";
 	import ProfileHeader from "./components/ProfileHeader.svelte";
-	import SshKeysSection from "./components/SshKeysSection.svelte";
 	import SupporterCard from "./components/SupporterCard.svelte";
 	import linksJson from "$lib/data/links.json";
-	import { SSH_KEY_SERVICE } from "$lib/sshKeyService";
 	import { USER_SERVICE } from "$lib/user/userService";
 	import { getOS } from "$lib/utils/getOS";
 	import { inject } from "@gitbutler/core/context";
@@ -15,14 +13,13 @@
 	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
 	import { NOTIFICATION_SETTINGS_SERVICE } from "@gitbutler/shared/settings/notificationSettingsService";
 	import { getNotificationSettingsInterest } from "@gitbutler/shared/settings/notificationSetttingsPreview.svelte";
-	import { Button, CardGroup, chipToasts, Icon, Modal, Spacer } from "@gitbutler/ui";
-	import { copyToClipboard } from "@gitbutler/ui/utils/clipboard";
+	import { Button, CardGroup, chipToasts, Icon, Modal, Spacer } from "@gitbutler/ui-svelte";
+	import { copyToClipboard } from "@gitbutler/ui-svelte/utils/clipboard";
 	import { env } from "$env/dynamic/public";
 
 	const userService = inject(USER_SERVICE);
 	const appState = inject(APP_STATE);
 	const notificationSettingsService = inject(NOTIFICATION_SETTINGS_SERVICE);
-	const sshKeyService = inject(SSH_KEY_SERVICE);
 	const recentProjects = getRecentlyPushedProjects();
 	const loginService = inject(LOGIN_SERVICE);
 
@@ -99,8 +96,6 @@
 			<ProfileHeader user={$user} {userService} />
 
 			{#if recentProjects.current.length > 0}
-				<SshKeysSection {sshKeyService} {userService} />
-
 				<Loading loadable={notificationSettings.current}>
 					{#snippet children(notificationSettings)}
 						<NotificationSettings {notificationSettings} {notificationSettingsService} />
@@ -223,7 +218,7 @@
 					rel="noopener noreferrer"
 				>
 					<div class="tip-link__title">
-						<Icon name="docs" color="var(--clr-text-2)" />
+						<Icon name="docs" color="var(--text-2)" />
 						<h3 class="text-14 text-semibold">Get Started</h3>
 					</div>
 					<p class="text-12 text-body clr-text-2">
@@ -239,7 +234,7 @@
 					rel="noopener noreferrer"
 				>
 					<div class="tip-link__title">
-						<Icon name="discord" color="var(--clr-text-2)" />
+						<Icon name="discord" color="var(--text-2)" />
 						<h3 class="text-14 text-semibold">Join the Community</h3>
 					</div>
 					<p class="text-12 text-body clr-text-2">Join our Discord for help and discussion.</p>
@@ -248,7 +243,7 @@
 				</a>
 				<a class="tip-link" href={linksJson.other.support.url}>
 					<div class="tip-link__title">
-						<Icon name="chat" color="var(--clr-text-2)" />
+						<Icon name="chat" color="var(--text-2)" />
 						<h3 class="text-14 text-semibold">Need Help?</h3>
 					</div>
 					<p class="text-12 text-body clr-text-2">
@@ -317,7 +312,7 @@
 		flex-direction: column;
 		width: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
 	}
 
@@ -327,8 +322,8 @@
 		flex-direction: column;
 		padding: 16px;
 		gap: 6px;
-		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-1);
+		border-bottom: 1px solid var(--border-2);
+		background-color: var(--bg-1);
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast);
@@ -359,7 +354,7 @@
 		top: 8px;
 		right: 10px;
 		transform: translateX(-2px);
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 16px;
 		opacity: 0;
 		transition:
@@ -382,9 +377,9 @@
 		flex-direction: column;
 		padding: 16px;
 		gap: 16px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.download-card__header {
@@ -399,11 +394,11 @@
 		width: 38px;
 		height: 38px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-theme-pop-bg);
+		background-color: var(--bg-pop);
 	}
 
 	.download-card__other-text {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		text-align: center;
 		transition: color var(--transition-fast);
 
@@ -411,8 +406,8 @@
 			text-decoration: underline;
 
 			&:hover {
-				color: var(--clr-text-1);
-				text-decoration: underline wavy var(--clr-theme-pop-element);
+				color: var(--text-1);
+				text-decoration: underline wavy var(--fill-pop-bg);
 			}
 		}
 	}
@@ -423,8 +418,8 @@
 		border: none;
 		background: repeating-linear-gradient(
 			to right,
-			var(--clr-border-2),
-			var(--clr-border-2) 2px,
+			var(--border-2),
+			var(--border-2) 2px,
 			transparent 2px,
 			transparent 4px
 		);

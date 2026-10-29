@@ -1,43 +1,15 @@
+#[cfg(target_os = "macos")]
 use anyhow::Context as _;
-use but_api::json::Error;
-use but_error::Code;
-use but_settings::AppSettingsWithDiskSync;
 #[cfg(target_os = "macos")]
 use tauri::menu::AboutMetadata;
 use tauri::{
-    AppHandle, Emitter, EventTarget, Manager, Runtime, WebviewWindow,
+    AppHandle, Emitter, EventTarget, Runtime, WebviewWindow,
     menu::{Menu, MenuEvent, MenuItemBuilder, PredefinedMenuItem, Submenu, SubmenuBuilder},
 };
-use tracing::instrument;
 
 static SHORTCUT_EVENT: &str = "menu://shortcut";
 
-#[tauri::command(async)]
-#[instrument(skip(handle), err(Debug))]
-pub fn menu_item_set_enabled(handle: AppHandle, id: &str, enabled: bool) -> Result<(), Error> {
-    let window = handle
-        .get_window("main")
-        .expect("main window always present");
-
-    let menu_item = window
-        .menu()
-        .context("menu not found")?
-        .get(id)
-        .with_context(|| but_error::Context::new(format!("menu item not found: {id}")))?;
-
-    menu_item
-        .as_menuitem()
-        .context(Code::Unknown)?
-        .set_enabled(enabled)
-        .context(Code::Unknown)?;
-
-    Ok(())
-}
-
-pub fn build<R: Runtime>(
-    handle: &AppHandle<R>,
-    #[cfg_attr(target_os = "linux", allow(unused_variables))] settings: &AppSettingsWithDiskSync,
-) -> tauri::Result<Menu<R>> {
+pub fn build<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     #[cfg(not(feature = "disable-auto-updates"))]
     let check_for_updates =
         MenuItemBuilder::with_id("global/update", "Check for updates…").build(handle)?;
@@ -107,20 +79,6 @@ pub fn build<R: Runtime>(
 
     #[cfg(not(target_os = "linux"))]
     let edit_menu = &Submenu::new(handle, "Edit", true)?;
-
-    // For now, only on MacOS. Once mainstream, we'd have to set the accelerators correctly and test it more.
-    #[cfg(not(target_os = "linux"))]
-    if settings.get()?.feature_flags.undo && cfg!(target_os = "macos") {
-        edit_menu.append_items(&[
-            &MenuItemBuilder::with_id("edit/undo", "Undo")
-                .accelerator("CmdOrCtrl+Z")
-                .build(handle)?,
-            &MenuItemBuilder::with_id("edit/redo", "Redo")
-                .accelerator("CmdOrCtrl+Shift+Z")
-                .build(handle)?,
-            &PredefinedMenuItem::separator(handle)?,
-        ])?;
-    }
 
     #[cfg(not(target_os = "linux"))]
     {
@@ -254,14 +212,6 @@ pub fn build<R: Runtime>(
 }
 
 pub fn handle_event(webview: &WebviewWindow, event: &MenuEvent) {
-    if event.id() == "edit/undo" {
-        eprintln!("use app undo queue to undo.");
-        return;
-    }
-    if event.id() == "edit/redo" {
-        eprintln!("use app undo queue to redo.");
-        return;
-    }
     if event.id() == "file/add-local-repo" {
         emit(webview, "menu://shortcut", "add-local-repo");
         return;

@@ -8,12 +8,16 @@
 #![allow(async_fn_in_trait)]
 #![allow(unknown_lints)]
 
+#[cfg(feature = "tokio")]
+mod context;
 mod error;
 /// utilities to execute a command
 pub mod executor;
 mod refspec;
 mod repository;
 
+#[cfg(feature = "tokio")]
+pub use self::context::{GitContextExt, PushResult, fetch_with_askpass, push_with_askpass};
 #[cfg(feature = "tokio")]
 pub use self::executor::tokio;
 pub use self::{

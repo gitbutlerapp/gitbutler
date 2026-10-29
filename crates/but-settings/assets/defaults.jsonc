@@ -3,13 +3,13 @@
 	"contextLines": 3,
 	// Whether the user has passed the onboarding flow.
 	"onboardingComplete": false,
+	// Whether the CLI shows agent skill installation and freshness notices.
+	"agentSkillNotices": true,
 	"telemetry": {
 		// Whether the anonymous metrics are enabled.
 		"appMetricsEnabled": true,
 		// Whether anonymous error reporting is enabled.
 		"appErrorReportingEnabled": true,
-		// Whether non-anonymous metrics are enabled.
-		"appNonAnonMetricsEnabled": false,
 		/// Distinct ID, if reporting is enabled.
 		"appDistinctId": null,
 		// Whether settings have been migrated from the legacy Tauri store.
@@ -21,21 +21,14 @@
 		"oauthClientId": "cd51880daa675d9e6452"
 	},
 	"featureFlags": {
-		/// Use the V3 version of apply and unapply.
-		"apply3": false,
-		// Enables the v3 safe checkout.
-		"cv3": false,
-		/// Enable the usage of V3 workspace APIs.
-		"ws3": true,
-		/// Enable undo/redo support.
-		"undo": false,
-		/// Enable processing of workspace rules.
-		"rules": false,
-		/// Enable single branch mode.
-		"singleBranch": false,
 		/// Control how the filesystem watch should be established.
 		/// Possible values: "auto", "legacy", "modern".
-		"watchMode": "auto"
+		"watchMode": "auto",
+		"writeCommitEvolution": false,
+		"tuiFileBrowser": false,
+		/// Open the experimental native client (GPUI) instead of the web app when GitButler starts,
+		/// on macOS builds that include it.
+		"gpui": false
 	},
 	// Allows for additional "connect-src" hosts to be included. Requires app restart.
 	"extraCsp": {
@@ -73,6 +66,8 @@
 	"ui": {
 		// Whether to use the native system title bar.
 		"useNativeTitleBar": false,
+		// When true, skip the macOS window drop shadow for app windows (requires restart).
+		"noShadow": false,
 		// Whether the `but` CLI is managed by a package manager.
 		// When true, the UI should show a specific message instead of installation options.
 		"cliIsManagedByPackageManager": false,

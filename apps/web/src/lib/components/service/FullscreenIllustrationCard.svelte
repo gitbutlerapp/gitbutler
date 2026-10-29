@@ -59,7 +59,7 @@
 		justify-content: center;
 		width: 100%;
 		padding: 50px 80px 30px;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.instruction-content__inner {
@@ -72,13 +72,13 @@
 
 	.instruction-content__footer {
 		margin-top: 30px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 
 		:global(a) {
 			text-decoration: underline;
 
 			&:hover {
-				color: var(--clr-text-1);
+				color: var(--text-1);
 			}
 		}
 	}
@@ -90,7 +90,7 @@
 		align-items: center;
 		justify-content: center;
 		padding: 32px;
-		background-color: var(--clr-art-scene-bg);
+		background-color: var(--art-scene-bg);
 
 		:global(svg) {
 			max-width: 400px;

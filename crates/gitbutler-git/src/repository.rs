@@ -1,4 +1,7 @@
-use std::{collections::HashMap, path::Path, time::Duration};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use futures::{FutureExt, select};
 use gix::bstr::ByteSlice;
@@ -22,12 +25,12 @@ pub enum RepositoryError<
 > {
     #[error("failed to execute git command: {0}")]
     Exec(Eexec),
-    #[error("failed to create askpass server: {0}")]
+    #[error("failed to accept connection to askpass server: {0}")]
     AskpassServer(Easkpass),
     #[error("i/o error communicating with askpass utility: {0}")]
     AskpassIo(Esocket),
     #[error(
-        "git command exited with non-zero exit code {status}: {args:?}\n\nSTDOUT:\n{stdout}\n\nSTDERR:\n{stderr}"
+        "git command exited with non-zero exit code {status}:\n\nARGS:\n{args:?}\n\nSTDOUT:\n{stdout}\n\nSTDERR:\n{stderr}"
     )]
     Failed {
         status: usize,
@@ -54,6 +57,24 @@ pub enum RepositoryError<
     AskpassExecutableMismatch,
     #[error("Run `{prefix}cargo build -p gitbutler-git` to get the askpass binary at '{path}'")]
     AskpassExecutableNotFound { path: String, prefix: String },
+    /// The remote configuration could not be read.
+    #[error("failed to read configuration for remote `{remote}`: {source}")]
+    RemoteConfiguration {
+        /// The remote whose configuration could not be read.
+        remote: String,
+        /// The configuration lookup error.
+        #[source]
+        source: gix::Error,
+    },
+    /// The repository could not be opened.
+    #[error("failed to open repository at `{}`: {source}", path.display())]
+    RepositoryOpen {
+        /// The repository path that could not be opened.
+        path: PathBuf,
+        /// The repository open error.
+        #[source]
+        source: gix::Error,
+    },
 }
 
 /// Higher level errors that can occur when interacting with the CLI.
@@ -75,7 +96,6 @@ async fn execute_with_auth_harness<P, F, Fut, E>(
     harness_env: HarnessEnv<P>,
     executor: &E,
     args: &[&str],
-    envs: Option<HashMap<String, String>>,
     on_prompt: Option<F>,
 ) -> Result<(usize, String, String), Error<E>>
 where
@@ -84,20 +104,62 @@ where
     F: FnMut(String) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
 {
+    let envs = new_env_with_git_ssh_configured(&harness_env);
+    let stall_limits = http_stall_limit_args(&harness_env);
+    let args: Vec<&str> = stall_limits
+        .iter()
+        .map(String::as_str)
+        .chain(args.iter().copied())
+        .collect();
+
     if let Some(on_prompt) = on_prompt {
-        execute_with_indirect_askpass(harness_env, executor, args, envs, on_prompt).await
+        execute_with_indirect_askpass(harness_env, executor, &args, envs, on_prompt).await
     } else {
-        execute_direct(harness_env, executor, args, envs).await
+        execute_direct(harness_env, executor, &args, envs).await
     }
 }
 
+/// Git's HTTP transport has no timeout, so a remote that accepts the connection and then goes
+/// silent hangs the operation forever. These settings abort a transfer that moves less than
+/// 1 byte per second for 60 seconds, while slow transfers that still make progress keep going.
+const HTTP_STALL_LIMITS: [(&str, &str); 2] =
+    [("http.lowSpeedLimit", "1"), ("http.lowSpeedTime", "60")];
+
+/// Returns `-c` arguments for each of [`HTTP_STALL_LIMITS`] the user hasn't configured.
+fn http_stall_limit_args<P>(harness_env: &HarnessEnv<P>) -> Vec<String>
+where
+    P: AsRef<Path>,
+{
+    let config = match harness_env {
+        HarnessEnv::Repo(repo_path) => gix::open(repo_path.as_ref())
+            .ok()
+            .map(|repo| repo.config_snapshot().plumbing().clone()),
+        HarnessEnv::Global(_) => gix::config::File::from_globals().ok().map(|mut config| {
+            // Git applies `GIT_CONFIG_*` overrides on top; a repository's config has them already.
+            if let Ok(overrides) = gix::config::File::from_environment_overrides() {
+                config.append(overrides).ok();
+            }
+            config
+        }),
+    };
+    HTTP_STALL_LIMITS
+        .into_iter()
+        .filter(|(key, _)| {
+            config
+                .as_ref()
+                .is_none_or(|config| config.raw_value(*key).is_err())
+        })
+        .flat_map(|(key, value)| ["-c".to_owned(), format!("{key}={value}")])
+        .collect()
+}
+
 /// Askpass-aware execution of Git commands, allowing the GUI to communicate with the askpass
-/// process over a pipe.
+/// process over a pipe or socket.
 async fn execute_with_indirect_askpass<P, F, Fut, E>(
     harness_env: HarnessEnv<P>,
     executor: &E,
     args: &[&str],
-    envs: Option<HashMap<String, String>>,
+    mut envs: HashMap<String, String>,
     mut on_prompt: F,
 ) -> Result<(usize, String, String), Error<E>>
 where
@@ -170,7 +232,6 @@ where
         .map(char::from)
         .collect::<String>();
 
-    let mut envs = envs.unwrap_or_default();
     envs.insert("GITBUTLER_ASKPASS_PIPE".into(), sock_server.to_string());
     envs.insert("GITBUTLER_ASKPASS_SECRET".into(), secret.clone());
 
@@ -195,9 +256,6 @@ where
     envs.insert("SSH_ASKPASS".into(), askpath_path.display().to_string());
     envs.insert("SSH_ASKPASS_REQUIRE".into(), "force".into());
 
-    let git_ssh_command = resolve_git_ssh_command(&harness_env, &envs);
-    envs.insert("GIT_SSH_COMMAND".into(), git_ssh_command);
-
     let cwd = match harness_env {
         HarnessEnv::Repo(p) | HarnessEnv::Global(p) => p,
     };
@@ -215,7 +273,7 @@ where
             res = child_process => {
                 return res;
             },
-            res = sock_server.accept(Some(Duration::from_secs(120))).fuse() => {
+            res = sock_server.accept().fuse() => {
                 let mut sock = res.map_err(Error::<E>::AskpassServer)?;
 
                 // get the PID of the peer
@@ -243,7 +301,7 @@ where
 
                 let valid_executable = if peer_stat.ino == askpath_stat.ino {
                     if peer_stat.dev != askpath_stat.dev {
-                        return Err(Error::<E>::AskpassDeviceMismatch)?;
+                        Err(Error::<E>::AskpassDeviceMismatch)?;
                     }
 
                     true
@@ -252,7 +310,7 @@ where
                 };
 
                 if !valid_executable {
-                    return Err(Error::<E>::AskpassExecutableMismatch)?;
+                    Err(Error::<E>::AskpassExecutableMismatch)?;
                 }
 
                 // await for peer to send secret
@@ -260,7 +318,7 @@ where
 
                 // check the secret
                 if peer_secret.trim() != secret {
-                    return Err(Error::<E>::AskpassSecretMismatch)?;
+                    Err(Error::<E>::AskpassSecretMismatch)?;
                 }
 
                 // get the prompt
@@ -282,24 +340,17 @@ where
 /// for the CLI, as the child process simply inherits stdin from the parent process and therefore
 /// doesn't need the askpass mechanism.
 ///
-/// It's doubly useful in the sense that the CLI then does not need the askpass and setsid
-/// binaries.
+/// It's doubly useful in the sense that the CLI then does not need the askpass binary.
 async fn execute_direct<P, E>(
     harness_env: HarnessEnv<P>,
     executor: &E,
     args: &[&str],
-    envs: Option<HashMap<String, String>>,
+    envs: HashMap<String, String>,
 ) -> Result<(usize, String, String), Error<E>>
 where
     P: AsRef<Path>,
     E: GitExecutor,
 {
-    let mut envs = envs.unwrap_or_default();
-    envs.insert(
-        "GIT_SSH_COMMAND".into(),
-        resolve_git_ssh_command(&harness_env, &envs),
-    );
-
     let cwd = match harness_env {
         HarnessEnv::Repo(p) | HarnessEnv::Global(p) => p,
     };
@@ -310,24 +361,41 @@ where
         .map_err(Error::<E>::Exec)
 }
 
-fn resolve_git_ssh_command<P>(harness_env: &HarnessEnv<P>, envs: &HashMap<String, String>) -> String
+/// Create an environment variable mapping that is guaranteed to have the Git SSH command configured
+/// in either GIT_SSH_COMMAND or GIT_SSH.
+///
+/// Resolution order reflects Git: GIT_SSH_COMMAND -> core.sshCommand -> GIT_SSH
+/// See https://github.com/git/git/blob/60f07c4f5c5f81c8a994d9e06b31a4a3a1679864/connect.c#L1382-L1397
+///
+/// If no configuration is encountered in any of these locations, we set our own default
+/// configuration for `ssh` in GIT_SSH_COMMAND. This should be the case hit by the vast majority of
+/// users, and it is tuned for what we believe is a good balance between security and convenience.
+///
+/// Note that we never add any options to existing configuration. If the user has made explicit
+/// choices about how SSH should behave, we respect those choices and leave it to the user to deal
+/// with the consequences.
+fn new_env_with_git_ssh_configured<P>(harness_env: &HarnessEnv<P>) -> HashMap<String, String>
 where
     P: AsRef<Path>,
 {
-    let base_ssh_command = match envs
-        .get("GIT_SSH_COMMAND")
-        .cloned()
-        .or_else(|| envs.get("GIT_SSH").cloned())
-        .or_else(|| std::env::var("GIT_SSH_COMMAND").ok())
-        .or_else(|| std::env::var("GIT_SSH").ok())
-    {
-        Some(v) => v,
-        None => get_core_sshcommand(harness_env)
-            .ok()
-            .flatten()
-            .unwrap_or_else(|| "ssh".into()),
-    };
+    let mut envs = HashMap::new();
 
+    // Minor correctness issue: Neither GIT_SSH_COMMAND nor GIT_SSH are required to be unicode.
+    // It's entirely possible to have non-unicode byte sequences in paths, for example. This should
+    // be rewritten to use `std::env::var_os()` and the executor should be tweaked to let `envs`
+    // contain raw binary strings. This is however exceedingly unlikely to be a problem in practice
+    // so we'll keep it like this for now.
+    if let Ok(Some(git_ssh_command)) = get_git_ssh_command(harness_env) {
+        envs.insert("GIT_SSH_COMMAND".into(), git_ssh_command);
+        return envs;
+    }
+
+    if let Ok(git_ssh) = std::env::var("GIT_SSH") {
+        envs.insert("GIT_SSH".into(), git_ssh);
+        return envs;
+    }
+
+    // There is nothing preconfigured - we apply our own defaults.
     let additional_options = {
         // In test environments, we don't want to pollute the user's known hosts file.
         // So, we just use /dev/null instead.
@@ -341,28 +409,36 @@ where
         }
     };
 
-    format!(
-        "{base_ssh_command} -o StrictHostKeyChecking=accept-new -o KbdInteractiveAuthentication=no{additional_options}"
-    )
+    // Keepalives close the connection once the server hasn't answered for 60 seconds
+    // (4 probes, 15 seconds apart); without them a half-open connection hangs forever.
+    let git_ssh_command = format!(
+        "ssh -o StrictHostKeyChecking=accept-new -o KbdInteractiveAuthentication=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4{additional_options}"
+    );
+    envs.insert("GIT_SSH_COMMAND".into(), git_ssh_command);
+    envs
 }
 
-fn get_core_sshcommand<P>(harness_env: &HarnessEnv<P>) -> anyhow::Result<Option<String>>
+/// Gets GIT_SSH_COMMAND from env first, config second.
+///
+/// Correctness issue: If the command is not valid UTF8, this function returns Ok(None). When the
+/// executor is updated to be able to handle binary strings for envs, this should be rewritten
+/// accordingly.
+fn get_git_ssh_command<P>(harness_env: &HarnessEnv<P>) -> anyhow::Result<Option<String>>
 where
     P: AsRef<Path>,
 {
     match harness_env {
         HarnessEnv::Repo(repo_path) => Ok(gix::open(repo_path.as_ref())?
             .config_snapshot()
-            .trusted_program(&gix::config::tree::Core::SSH_COMMAND)
-            .map(|program| program.to_string_lossy().into_owned())),
+            .trusted_program(gix::config::tree::Core::SSH_COMMAND)?
+            .and_then(|program| program.to_str().map(String::from))),
         HarnessEnv::Global(_) => Ok(gix::config::File::from_globals()?
             .string(gix::config::tree::Core::SSH_COMMAND)
-            .map(|program| program.to_str_lossy().into_owned())),
+            .and_then(|program| program.to_str().ok().map(String::from))),
     }
 }
 
-/// Fetches the given refspec from the given remote in the repository
-/// at the given path.
+/// Fetches from the given remote in the repository using its configured fetch refspecs.
 ///
 /// If `on_prompt` is provided, we override SSH_ASKPASS to point to our custom askpass client to
 /// ferry prompts and responses between the SSH process and this process. This should be used
@@ -372,7 +448,6 @@ pub async fn fetch<P, F, Fut, E>(
     repo_path: P,
     executor: E,
     remote: &str,
-    refspec: RefSpec,
     on_prompt: Option<F>,
 ) -> Result<(), crate::Error<Error<E>>>
 where
@@ -381,21 +456,30 @@ where
     F: FnMut(String) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
 {
-    let mut args = vec!["fetch", "--quiet", "--prune"];
-
-    let refspec = refspec.to_string();
+    let repo_path = repo_path.as_ref();
+    let repo = gix::open(repo_path).map_err(|source| Error::<E>::RepositoryOpen {
+        path: repo_path.to_owned(),
+        source,
+    })?;
+    let refspecs = fetch_refspecs(&repo, remote).map_err(|source| {
+        let remote_not_found = source.is_not_found();
+        let source = Error::<E>::RemoteConfiguration {
+            remote: remote.to_owned(),
+            source,
+        };
+        if remote_not_found {
+            crate::Error::NoSuchRemote(remote.to_owned(), source)
+        } else {
+            source.into()
+        }
+    })?;
+    let mut args = vec!["fetch", "--quiet"];
 
     args.push(remote);
-    args.push(&refspec);
+    args.extend(refspecs.iter().map(String::as_str));
 
-    let (status, stdout, stderr) = execute_with_auth_harness(
-        HarnessEnv::Repo(repo_path),
-        &executor,
-        &args,
-        None,
-        on_prompt,
-    )
-    .await?;
+    let (status, stdout, stderr) =
+        execute_with_auth_harness(HarnessEnv::Repo(repo_path), &executor, &args, on_prompt).await?;
 
     if status == 0 {
         Ok(())
@@ -425,6 +509,21 @@ where
     }
 }
 
+fn fetch_refspecs(repo: &gix::Repository, remote: &str) -> gix::Result<Vec<String>> {
+    let refspecs: Vec<_> = repo
+        .find_remote(remote)?
+        .refspecs(gix::remote::Direction::Fetch)
+        .iter()
+        .map(|spec| spec.to_ref().to_bstring().to_string())
+        .collect();
+
+    Ok(if refspecs.is_empty() {
+        vec![format!("+refs/heads/*:refs/remotes/{remote}/*")]
+    } else {
+        refspecs
+    })
+}
+
 /// Pushes a refspec to the given remote in the repository at the given path.
 ///
 /// If `on_prompt` is provided, we override SSH_ASKPASS to point to our custom askpass client to
@@ -450,6 +549,7 @@ where
 {
     let mut args = vec!["push", "--quiet", "--no-verify"];
 
+    let is_deletion = refspec.source.is_none();
     let refspec = refspec.to_string();
 
     args.push(remote);
@@ -458,7 +558,12 @@ where
     if force {
         if force_push_protection {
             args.push("--force-with-lease");
-            args.push("--force-if-includes");
+            // `--force-if-includes` verifies the remote tip was integrated into the local branch
+            // being pushed; a deletion has no local side, so the check can never pass there and
+            // the lease alone provides the compare-and-swap against our remote-tracking ref.
+            if !is_deletion {
+                args.push("--force-if-includes");
+            }
         } else {
             args.push("--force");
         }
@@ -469,14 +574,8 @@ where
         args.push(opt.as_str());
     }
 
-    let (status, stdout, stderr) = execute_with_auth_harness(
-        HarnessEnv::Repo(repo_path),
-        &executor,
-        &args,
-        None,
-        on_prompt,
-    )
-    .await?;
+    let (status, stdout, stderr) =
+        execute_with_auth_harness(HarnessEnv::Repo(repo_path), &executor, &args, on_prompt).await?;
 
     if status == 0 {
         return Ok(stderr);
@@ -508,6 +607,16 @@ where
 
     if stderr.to_lowercase().contains("(no new changes)") {
         return Err(crate::Error::GerritNoNewChanges(base_error));
+    }
+
+    // Detected last so the more specific typed cases above always win. A non-fast-forward
+    // rejection is recoverable: the caller can re-fetch and retry.
+    let lowercased_stderr = stderr.to_lowercase();
+    if lowercased_stderr.contains("! [rejected]")
+        || lowercased_stderr.contains("(non-fast-forward)")
+        || lowercased_stderr.contains("(fetch first)")
+    {
+        return Err(crate::Error::NonFastForward(base_error));
     }
 
     Err(base_error.into())
@@ -542,14 +651,9 @@ where
     let target_dir_str = target_dir.to_string_lossy();
     let args = vec!["clone", "--", repository_url, &target_dir_str];
 
-    let (status, stdout, stderr) = execute_with_auth_harness(
-        HarnessEnv::Global(work_dir),
-        &executor,
-        &args,
-        None,
-        on_prompt,
-    )
-    .await?;
+    let (status, stdout, stderr) =
+        execute_with_auth_harness(HarnessEnv::Global(work_dir), &executor, &args, on_prompt)
+            .await?;
 
     if status == 0 {
         Ok(())
@@ -580,5 +684,43 @@ where
             stdout,
             stderr,
         })?
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[tokio::test]
+    async fn fetch_distinguishes_missing_remotes_from_invalid_configuration() -> anyhow::Result<()>
+    {
+        let tmp = but_testsupport::gix_testtools::tempfile::tempdir()?;
+        let repo = gix::init(tmp.path())?;
+        let on_prompt = None::<fn(String) -> std::future::Ready<Option<String>>>;
+        let err = super::fetch(tmp.path(), crate::tokio::TokioExecutor, "origin", on_prompt)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(err, crate::Error::NoSuchRemote(..)),
+            "a missing remote retains its public error variant"
+        );
+
+        but_core::git_config::edit_repo_config(&repo, gix::config::Source::Local, |config| {
+            config.set_raw_value("remote.origin.url", "https://example.com/repo")?;
+            config.set_raw_value(
+                "remote.origin.fetch",
+                "refs/heads/*:refs/remotes/origin/*:extra",
+            )?;
+            Ok(())
+        })?;
+        let err = super::fetch(tmp.path(), crate::tokio::TokioExecutor, "origin", on_prompt)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(
+                err,
+                crate::Error::Backend(super::RepositoryError::RemoteConfiguration { .. })
+            ),
+            "an existing remote with an invalid refspec remains a configuration error"
+        );
+        Ok(())
     }
 }

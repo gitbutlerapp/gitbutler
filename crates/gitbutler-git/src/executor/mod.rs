@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path, time::Duration};
+use std::{collections::HashMap, path::Path};
 
 #[cfg(any(test, feature = "tokio"))]
 pub mod tokio;
@@ -95,7 +95,7 @@ pub unsafe trait GitExecutor {
     ///
     /// ## Unix
     ///
-    /// On Unix-like systems (including MacOS), this is a unix
+    /// On Unix-like systems (including macOS), this is a unix
     /// domain socket. The path of the socket is returned as
     /// a handle type that is format-able as a string which is
     /// passed to the askpass utility as `GITBUTLER_ASKPASS_SOCKET`.
@@ -179,7 +179,10 @@ pub trait AskpassServer: core::fmt::Display {
     type SocketHandle: Socket + Send + Sync + 'static;
 
     /// Waits for a connection to the server to be established.
-    async fn accept(&self, timeout: Option<Duration>) -> Result<Self::SocketHandle, Self::Error>;
+    ///
+    /// Waits indefinitely; callers that need a deadline should wrap the
+    /// future themselves (e.g. with `tokio::time::timeout`).
+    async fn accept(&self) -> Result<Self::SocketHandle, Self::Error>;
 }
 
 #[cfg(unix)]

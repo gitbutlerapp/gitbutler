@@ -1,0 +1,1749 @@
+use std::{borrow::Cow, collections::HashMap};
+
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use strum::IntoEnumIterator;
+
+use crate::{
+    ChangeSourceId, CliId,
+    command::legacy::status::tui::{
+        CommandMessage, ConfirmMessage, DetailsLayoutMessage, FuzzyPickerMessage, JumpMessage,
+        Message, StackMessage,
+        app::{
+            BranchMessage, CherryPickMessage, CommitMessageComposer, RewordMessage, SquashMessage,
+            WorktreeMessage,
+        },
+        details::DetailsMessage,
+        help::HelpMessage,
+        mode::{Mode, ModeDiscriminant},
+    },
+};
+
+use super::{
+    CommandModeKind, CommitMessage, FilesMessage, MoveMessage, ReloadCause, mode::DetailsReturnMode,
+};
+
+#[cfg(test)]
+mod tests;
+
+pub fn default_key_binds() -> KeyBinds {
+    let mut key_binds = KeyBinds::new();
+
+    for mode in ModeDiscriminant::iter() {
+        let mut builder = key_binds.for_modes([mode]);
+        match mode {
+            ModeDiscriminant::Normal => {
+                register_normal_mode_key_binds(&mut builder, true);
+            }
+            ModeDiscriminant::PickChanges => {
+                builder.mark().register();
+                builder.confirm_and_quit().register();
+                register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::Yes);
+            }
+            ModeDiscriminant::Squash => {
+                builder.squash_confirm().register();
+                builder.squash_use_target_message().register();
+                builder.switch_to_commit_mode().register();
+                builder.switch_to_move_mode().register();
+                register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
+            }
+            ModeDiscriminant::Commit => {
+                builder.commit_confirm().register();
+                builder.commit_empty_message().register();
+                builder.commit_reword_inline().register();
+                builder.commit_toggle_insert_side().register();
+                builder.commit_to_new_branch().register();
+                builder.switch_to_squash_mode().register();
+                register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
+            }
+            ModeDiscriminant::Move => {
+                builder.move_confirm().register();
+                builder.move_toggle_insert_side().register();
+                builder.move_to_new_branch().register();
+                builder.switch_to_squash_mode().register();
+                register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
+            }
+            ModeDiscriminant::Stack => {
+                builder.apply().register();
+                builder.unapply().register();
+                builder.reorder().register();
+                register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
+            }
+            ModeDiscriminant::MoveStack => {
+                builder.reorder_confirm().register();
+                register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
+            }
+            ModeDiscriminant::CherryPick => {
+                builder.cherry_pick_confirm().register();
+                builder.cherry_pick_toggle_insert_side().register();
+                builder.cherry_pick_to_new_branch().register();
+                register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
+            }
+            ModeDiscriminant::Branch => {
+                builder.branch_new().register();
+                builder.branch_new_and_switch().register();
+                builder.branch_pick_and_switch().register();
+                builder.branch_switch_to_selection().register();
+                builder.branch_toggle_insert_side().register();
+                builder.discard().register();
+                builder.mark().register();
+                register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
+            }
+            ModeDiscriminant::Worktree => {
+                builder.worktree_new().register();
+                builder.worktree_archive().register();
+                builder.worktree_unarchive().register();
+                builder
+                    .discard()
+                    .long_description("Discard worktree")
+                    .register();
+                register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
+            }
+            ModeDiscriminant::Details => {
+                builder
+                    .confirm_and_quit()
+                    .condition(KeyBindCondition::DetailsReturnModeIsPickChanges)
+                    .show_only_in_normal_mode_help_section()
+                    .register();
+
+                builder.details_next_hunk().register();
+                builder.details_prev_hunk().register();
+
+                builder.details_scroll_up().register();
+                builder.details_scroll_down().register();
+
+                builder
+                    .commit()
+                    .condition(KeyBindCondition::SelectionIsUncommitted.and(
+                        &KeyBindCondition::Not(&KeyBindCondition::DetailsReturnModeIsPickChanges),
+                    ))
+                    .register();
+                builder
+                    .squash()
+                    .condition(
+                        KeyBindCondition::SelectionHasHunks.and(&KeyBindCondition::Not(
+                            &KeyBindCondition::DetailsReturnModeIsPickChanges,
+                        )),
+                    )
+                    .register();
+                builder
+                    .move_mode()
+                    .condition(
+                        KeyBindCondition::SelectionIsCommitted.and(&KeyBindCondition::Not(
+                            &KeyBindCondition::DetailsReturnModeIsPickChanges,
+                        )),
+                    )
+                    .register();
+                builder.details_discard().register();
+
+                builder.details_mark().register();
+
+                builder.details_jump_up().register();
+                builder.details_jump_down().register();
+
+                builder.details_copy().register();
+                builder.copy_picker().register();
+                builder.details_top().register();
+                builder.details_bottom().register();
+                builder.toggle_full_screen_details().register();
+                builder.open_in_program().register();
+                builder.open_in_program_picker().register();
+
+                builder
+                    .key_bind("hide details", press().code(KeyCode::Char('d')), || {
+                        Message::DetailsLayout(DetailsLayoutMessage::Dismiss)
+                    })
+                    .register();
+                builder.grow_details().register();
+                builder.shrink_details().register();
+                builder.details_focus_status().register();
+
+                builder.undo().register();
+
+                builder.command().register();
+                builder.shell_command().register();
+
+                builder.help().register();
+                builder.quit().register();
+
+                builder.normal_mode().register();
+                builder.back().register();
+
+                builder.reload().register();
+            }
+            ModeDiscriminant::InlineReword => {
+                builder.reword_confirm().register();
+                builder.reword_open_editor().register();
+
+                builder.normal_mode().register();
+                builder.back().register();
+            }
+            ModeDiscriminant::Command => {
+                builder.command_confirm().register();
+
+                builder.normal_mode().register();
+                builder.back().register();
+            }
+            ModeDiscriminant::Jump => {
+                builder.jump_confirm().register();
+                builder.jump_previous().register();
+                builder.jump_next().register();
+                builder.normal_mode().register();
+                builder.back().register();
+            }
+        }
+    }
+
+    key_binds
+}
+
+pub fn confirm_key_binds() -> KeyBinds {
+    let mut key_binds = KeyBinds::new();
+
+    let mut builder = key_binds.for_all_modes();
+
+    builder
+        .key_bind("select", press().code(KeyCode::Enter), || {
+            Message::Confirm(ConfirmMessage::Confirm)
+        })
+        .register();
+
+    builder
+        .key_bind("yes", press().code(KeyCode::Char('y')), || {
+            Message::Confirm(ConfirmMessage::Yes)
+        })
+        .register();
+
+    builder
+        .key_bind(
+            "no",
+            press().code(KeyCode::Char('n')).alt_code(KeyCode::Esc),
+            || Message::Confirm(ConfirmMessage::Close),
+        )
+        .register();
+
+    builder
+        .key_bind(
+            "left",
+            press().code(KeyCode::Char('h')).alt_code(KeyCode::Left),
+            || Message::Confirm(ConfirmMessage::Left),
+        )
+        .register();
+
+    builder
+        .key_bind(
+            "right",
+            press().code(KeyCode::Char('l')).alt_code(KeyCode::Right),
+            || Message::Confirm(ConfirmMessage::Right),
+        )
+        .register();
+
+    builder.quit().register();
+
+    key_binds
+}
+
+pub fn fuzzy_picker_key_binds() -> KeyBinds {
+    let mut key_binds = KeyBinds::new();
+
+    let mut builder = key_binds.for_all_modes();
+
+    builder
+        .key_bind("up", press().alt_code(KeyCode::Up), || {
+            Message::FuzzyPicker(FuzzyPickerMessage::MoveCursorUp)
+        })
+        .register();
+
+    builder
+        .key_bind("down", press().alt_code(KeyCode::Down), || {
+            Message::FuzzyPicker(FuzzyPickerMessage::MoveCursorDown)
+        })
+        .register();
+
+    builder
+        .key_bind("up", press().control().code(KeyCode::Char('p')), || {
+            Message::FuzzyPicker(FuzzyPickerMessage::MoveCursorUp)
+        })
+        .register();
+
+    builder
+        .key_bind("down", press().control().code(KeyCode::Char('n')), || {
+            Message::FuzzyPicker(FuzzyPickerMessage::MoveCursorDown)
+        })
+        .register();
+
+    builder
+        .key_bind("confirm", press().code(KeyCode::Enter), || {
+            Message::FuzzyPicker(FuzzyPickerMessage::Confirm)
+        })
+        .register();
+
+    builder
+        .key_bind("back", press().code(KeyCode::Esc), || {
+            Message::FuzzyPicker(FuzzyPickerMessage::Close)
+        })
+        .register();
+
+    builder
+        .key_bind("back", press().control().code(KeyCode::Char('[')), || {
+            Message::FuzzyPicker(FuzzyPickerMessage::Close)
+        })
+        .hide_from_hotbar()
+        .register();
+
+    key_binds
+}
+
+pub fn help_key_binds() -> KeyBinds {
+    let mut key_binds = KeyBinds::new();
+
+    let mut builder = key_binds.for_all_modes();
+
+    builder
+        .up_with(|| Message::Help(HelpMessage::ScrollUp(1)))
+        .register();
+
+    builder
+        .down_with(|| Message::Help(HelpMessage::ScrollDown(1)))
+        .register();
+
+    builder
+        .key_bind(
+            "jump up",
+            press().control().code(KeyCode::Char('u')),
+            || Message::Help(HelpMessage::ScrollUp(KeyBindsBuilder::JUMP_DISTANCE)),
+        )
+        .register();
+
+    builder
+        .key_bind(
+            "jump down",
+            press().control().code(KeyCode::Char('d')),
+            || Message::Help(HelpMessage::ScrollDown(KeyBindsBuilder::JUMP_DISTANCE)),
+        )
+        .register();
+
+    builder
+        .key_bind("search", press().code(KeyCode::Char('/')), || {
+            Message::Help(HelpMessage::ToggleSearch)
+        })
+        .register();
+
+    builder
+        .key_bind("back", press().code(KeyCode::Esc), || {
+            Message::Help(HelpMessage::Escape)
+        })
+        .register();
+
+    builder
+        .key_bind("back", press().code(KeyCode::Char('?')), || {
+            Message::Help(HelpMessage::Close)
+        })
+        .hide_from_hotbar()
+        .register();
+
+    builder
+        .key_bind("back", press().control().code(KeyCode::Char('[')), || {
+            Message::Help(HelpMessage::Close)
+        })
+        .hide_from_hotbar()
+        .register();
+
+    builder.quit().register();
+
+    key_binds
+}
+
+pub fn normal_with_marks_key_binds() -> KeyBinds {
+    let mut key_binds = KeyBinds::new();
+
+    let mut builder = key_binds.for_modes(Vec::from([ModeDiscriminant::Normal]));
+
+    register_normal_mode_key_binds(&mut builder, false);
+
+    key_binds
+}
+
+#[derive(Clone, Copy, Debug)]
+struct KeyBindId(usize);
+
+#[derive(Debug)]
+pub struct KeyBinds {
+    /// All registered key binds.
+    all_key_binds: Vec<KeyBind>,
+    /// Which key binds are available in which modes?
+    mode_to_key_binds: HashMap<ModeDiscriminant, Vec<KeyBindId>>,
+}
+
+impl KeyBinds {
+    fn new() -> Self {
+        KeyBinds {
+            mode_to_key_binds: Default::default(),
+            all_key_binds: Default::default(),
+        }
+    }
+
+    fn for_modes(
+        &mut self,
+        modes: impl IntoIterator<Item = ModeDiscriminant>,
+    ) -> KeyBindsBuilder<'_> {
+        KeyBindsBuilder {
+            key_binds: self,
+            modes: modes.into_iter().collect(),
+        }
+    }
+
+    fn for_all_modes(&mut self) -> KeyBindsBuilder<'_> {
+        self.for_modes(ModeDiscriminant::iter())
+    }
+
+    fn register(&mut self, key_bind: KeyBind) -> KeyBindId {
+        let id = KeyBindId(self.all_key_binds.len());
+
+        for mode in ModeDiscriminant::iter() {
+            if key_bind.available_in_mode(mode) {
+                self.mode_to_key_binds.entry(mode).or_default().push(id);
+            }
+        }
+
+        self.all_key_binds.push(key_bind);
+
+        id
+    }
+
+    pub fn iter_key_binds_available_in_mode(
+        &self,
+        mode: &Mode,
+        selection: Option<&CliId>,
+    ) -> impl Iterator<Item = &KeyBind> {
+        self.mode_to_key_binds
+            .get(&ModeDiscriminant::from(mode))
+            .into_iter()
+            .flatten()
+            .copied()
+            .map(|KeyBindId(idx)| &self.all_key_binds[idx])
+            .filter(move |key_bind| {
+                key_bind
+                    .condition
+                    .is_none_or(|condition| condition.matches(selection, mode))
+            })
+    }
+
+    pub fn iter_key_binds_available_in_mode_regardless_of_conditions(
+        &self,
+        mode: ModeDiscriminant,
+    ) -> impl Iterator<Item = &KeyBind> {
+        self.mode_to_key_binds
+            .get(&mode)
+            .into_iter()
+            .flatten()
+            .copied()
+            .map(|KeyBindId(idx)| &self.all_key_binds[idx])
+    }
+}
+
+#[derive(Debug)]
+struct KeyBindsBuilder<'a> {
+    key_binds: &'a mut KeyBinds,
+    modes: Vec<ModeDiscriminant>,
+}
+
+impl KeyBindsBuilder<'_> {
+    fn key_bind(
+        &mut self,
+        short_description: &'static str,
+        key_matcher: KeyMatcher,
+        make_message: MakeMessage,
+    ) -> KeyBindsInModesBuilder<'_> {
+        KeyBindsInModesBuilder {
+            key_binds: self.key_binds,
+            short_description,
+            long_description: None,
+            key_matcher,
+            modes: self.modes.clone(),
+            make_message,
+            hide_from_hotbar: false,
+            hide_from_help: false,
+            show_only_in_normal_mode_help_section: false,
+            always_show_in_hot_bar: false,
+            condition: None,
+        }
+    }
+
+    fn down(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.down_with(|| Message::MoveCursorDown(1))
+            .show_only_in_normal_mode_help_section()
+    }
+
+    fn down_with(&mut self, msg: MakeMessage) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "down",
+            press().code(KeyCode::Char('j')).alt_code(KeyCode::Down),
+            msg,
+        )
+    }
+
+    fn up(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.up_with(|| Message::MoveCursorUp(1))
+            .show_only_in_normal_mode_help_section()
+    }
+
+    fn up_with(&mut self, msg: MakeMessage) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "up",
+            press().code(KeyCode::Char('k')).alt_code(KeyCode::Up),
+            msg,
+        )
+    }
+
+    fn next_section(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "next section",
+            press()
+                .shift()
+                .code(KeyCode::Char('J'))
+                .alt_code(KeyCode::Down),
+            || Message::MoveCursorNextSection,
+        )
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+    }
+
+    fn prev_section(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "prev section",
+            press()
+                .shift()
+                .code(KeyCode::Char('K'))
+                .alt_code(KeyCode::Up),
+            || Message::MoveCursorPreviousSection,
+        )
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+    }
+
+    fn scroll_status_down(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "scroll down",
+            press().control().code(KeyCode::Char('e')),
+            || Message::StatusScroll(1),
+        )
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+        .long_description("Scroll status viewport down one line")
+    }
+
+    fn scroll_status_up(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "scroll up",
+            press().control().code(KeyCode::Char('y')),
+            || Message::StatusScroll(-1),
+        )
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+        .long_description("Scroll status viewport up one line")
+    }
+
+    const JUMP_DISTANCE: usize = 10;
+
+    fn jump_up(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "jump up",
+            press().control().code(KeyCode::Char('u')),
+            || Message::MoveCursorUp(Self::JUMP_DISTANCE),
+        )
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+    }
+
+    fn jump_down(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "jump down",
+            press().control().code(KeyCode::Char('d')),
+            || Message::MoveCursorDown(Self::JUMP_DISTANCE),
+        )
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+    }
+
+    fn jump_enter(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("jump", press().code(KeyCode::Char('/')), || {
+            Message::Jump(JumpMessage::Enter)
+        })
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+        .long_description("Jump to a line by its ID, name, message, or path")
+    }
+
+    fn jump_previous(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "previous",
+            press().control().code(KeyCode::Char('p')),
+            || Message::Jump(JumpMessage::Previous),
+        )
+    }
+
+    fn jump_next(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("next", press().control().code(KeyCode::Char('n')), || {
+            Message::Jump(JumpMessage::Next)
+        })
+    }
+
+    fn jump_confirm(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("confirm", press().code(KeyCode::Enter), || {
+            Message::Jump(JumpMessage::Confirm)
+        })
+        .hide_from_help()
+    }
+
+    fn toggle_details(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("details", press().code(KeyCode::Char('d')), || {
+            Message::DetailsLayout(DetailsLayoutMessage::ToggleVisibility)
+        })
+        .long_description("Toggle the details view")
+        .show_only_in_normal_mode_help_section()
+    }
+
+    fn toggle_full_screen_details(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "full screen details",
+            press().shift().code(KeyCode::Char('D')),
+            || Message::DetailsLayout(DetailsLayoutMessage::ToggleFullScreen),
+        )
+        .hide_from_hotbar()
+        .long_description("Toggle the full screen details view")
+        .show_only_in_normal_mode_help_section()
+    }
+
+    fn normal_mode(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "normal mode",
+            press().control().code(KeyCode::Char('[')),
+            || Message::Back,
+        )
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+    }
+
+    fn grow_details(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("grow details", press().code(KeyCode::Char('+')), || {
+            Message::GrowDetails
+        })
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+    }
+
+    fn shrink_details(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("shrink details", press().code(KeyCode::Char('-')), || {
+            Message::ShrinkDetails
+        })
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+    }
+
+    fn undo(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("undo", press().code(KeyCode::Char('u')), || Message::Undo)
+            .show_only_in_normal_mode_help_section()
+            .long_description("Undo the last operation")
+    }
+
+    fn redo(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("redo", press().shift().code(KeyCode::Char('U')), || {
+            Message::Redo
+        })
+        .show_only_in_normal_mode_help_section()
+        .hide_from_hotbar()
+        .long_description("Redo the last undo")
+    }
+
+    fn mark(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("mark", press().code(KeyCode::Char(' ')), || Message::Mark)
+            .show_only_in_normal_mode_help_section()
+            .long_description("Mark multiple items")
+    }
+
+    fn quit(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("quit", press().code(KeyCode::Char('q')), || Message::Quit)
+            .show_only_in_normal_mode_help_section()
+            .always_show_in_hot_bar()
+    }
+
+    fn help(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("help", press().code(KeyCode::Char('?')), || {
+            Message::ToggleHelp
+        })
+        .show_only_in_normal_mode_help_section()
+        .long_description("Show this help menu")
+        .always_show_in_hot_bar()
+    }
+
+    fn uncommitted_area(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("goto top", press().code(KeyCode::Char('g')), || {
+            Message::GotoTop
+        })
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+    }
+
+    fn merge_base(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "goto bottom",
+            press().shift().code(KeyCode::Char('G')),
+            || Message::GotoBottom,
+        )
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+    }
+
+    fn branch_picker(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("pick branch", press().code(KeyCode::Char('t')), || {
+            Message::PickAndGotoBranch
+        })
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+        .long_description("Fuzzy search for branches")
+    }
+
+    fn squash(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("squash", press().code(KeyCode::Char('r')), || {
+            Message::Squash(SquashMessage::Start)
+        })
+        .long_description("Squash, amend, or undo commits")
+    }
+
+    fn reverse_squash(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "reverse squash",
+            press().shift().code(KeyCode::Char('R')),
+            || Message::Squash(SquashMessage::StartReverse),
+        )
+        .long_description("Squash into selection")
+        .hide_from_hotbar()
+    }
+
+    fn squash_use_target_message(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "use target message",
+            press().code(KeyCode::Char('u')),
+            || Message::Squash(SquashMessage::UseTargetMessage),
+        )
+        .long_description("When squashing use target message and discard source message")
+    }
+
+    fn squash_confirm(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("confirm", press().code(KeyCode::Enter), || {
+            Message::Squash(SquashMessage::Confirm)
+        })
+        .hide_from_help()
+    }
+
+    fn commit(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("commit", press().code(KeyCode::Char('c')), || {
+            Message::Commit(CommitMessage::Start)
+        })
+        .long_description("Create a new commit")
+    }
+
+    fn new_commit(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("empty commit", press().code(KeyCode::Char('n')), || {
+            Message::Commit(CommitMessage::CreateEmpty)
+        })
+        .long_description("Insert empty commit")
+        .hide_from_hotbar()
+    }
+
+    fn move_mode(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("move", press().code(KeyCode::Char('m')), || {
+            Message::Move(MoveMessage::Start)
+        })
+        .long_description("Move selection somewhere else")
+    }
+
+    fn move_toggle_insert_side(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("above/below", press().code(KeyCode::Char('a')), || {
+            Message::Move(MoveMessage::ToggleInsertSide)
+        })
+        .long_description("Toggle moving above or below")
+    }
+
+    fn move_to_new_branch(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "move to new branch",
+            press().code(KeyCode::Char('b')),
+            || Message::Move(MoveMessage::MoveToNewBranch),
+        )
+        .long_description("Move to a new branch above")
+    }
+
+    fn branch(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("branch", press().code(KeyCode::Char('b')), || {
+            Message::Branch(BranchMessage::Start)
+        })
+        .long_description("Enter branch mode")
+    }
+
+    fn stack(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("stack", press().code(KeyCode::Char('s')), || {
+            Message::Stack(StackMessage::Start)
+        })
+        .long_description("Enter stack mode")
+    }
+
+    fn worktree(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("worktree", press().code(KeyCode::Char('w')), || {
+            Message::Worktree(WorktreeMessage::Start)
+        })
+        .long_description("Enter worktree mode")
+    }
+
+    fn worktree_new(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("new", press().code(KeyCode::Char('n')), || {
+            Message::Worktree(WorktreeMessage::New)
+        })
+        .long_description("Create new worktree")
+    }
+
+    fn worktree_archive(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("archive", press().code(KeyCode::Char('a')), || {
+            Message::Worktree(WorktreeMessage::Archive)
+        })
+        .long_description("Archive worktree")
+    }
+
+    fn worktree_unarchive(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("unarchive", press().code(KeyCode::Char('u')), || {
+            Message::Worktree(WorktreeMessage::ShowUnarchivePicker)
+        })
+        .long_description("Unarchive worktree")
+    }
+
+    fn focus_details(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "focus details",
+            press().code(KeyCode::Char('l')).alt_code(KeyCode::Right),
+            || Message::DetailsLayout(DetailsLayoutMessage::Focus { full_screen: false }),
+        )
+    }
+
+    fn reword_inline(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("reword", press().code(KeyCode::Enter), || {
+            Message::Reword(RewordMessage::InlineStart)
+        })
+        .long_description("Reword commit or branch inline")
+    }
+
+    fn reword_editor(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "reword with editor",
+            press().shift().code(KeyCode::Char('M')),
+            || Message::Reword(RewordMessage::WithEditor),
+        )
+        .long_description("Reword commit with the configured editor")
+        .hide_from_hotbar()
+    }
+
+    fn files(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("files", press().code(KeyCode::Char('f')), || {
+            Message::Files(FilesMessage::ToggleFilesForSelectedCommit)
+        })
+        .long_description("Show files in commit")
+    }
+
+    fn all_files(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "show all files",
+            press().shift().code(KeyCode::Char('F')),
+            || Message::Files(FilesMessage::ToggleGlobalFilesList),
+        )
+        .long_description("Show files in all commits")
+        .hide_from_hotbar()
+    }
+
+    fn discard(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("discard", press().code(KeyCode::Char('x')), || {
+            Message::Discard
+        })
+        .long_description("Discard the selection")
+    }
+
+    fn command(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("but command", press().code(KeyCode::Char(':')), || {
+            Message::Command(CommandMessage::Start(CommandModeKind::But))
+        })
+        .long_description("Run a `but` command")
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+    }
+
+    fn shell_command(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("shell command", press().code(KeyCode::Char('!')), || {
+            Message::Command(CommandMessage::Start(CommandModeKind::Shell))
+        })
+        .long_description("Run any shell command")
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+    }
+
+    fn reload(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("reload", press().control().code(KeyCode::Char('r')), || {
+            Message::Reload(None, ReloadCause::Manual)
+        })
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+    }
+
+    fn copy(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("copy", press().code(KeyCode::Char('y')), || {
+            Message::CopySelection
+        })
+        .hide_from_hotbar()
+        .long_description("Copy selection")
+    }
+
+    fn copy_picker(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "copy more",
+            press().shift().code(KeyCode::Char('Y')),
+            || Message::CopySelectionPicker,
+        )
+        .hide_from_hotbar()
+        .long_description("Copy selection picker")
+    }
+
+    fn open_in_program(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("open", press().code(KeyCode::Char('o')), || {
+            Message::OpenInDefaultProgram
+        })
+        .long_description("Open selection in default program")
+        .hide_from_hotbar()
+    }
+
+    fn open_in_program_picker(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "open with picker",
+            press().shift().code(KeyCode::Char('O')),
+            || Message::PickProgramThenOpen,
+        )
+        .long_description("Select which program to open in")
+        .hide_from_hotbar()
+    }
+
+    fn back(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("back", press().code(KeyCode::Esc), || Message::Back)
+            .hide_from_hotbar()
+            .show_only_in_normal_mode_help_section()
+    }
+
+    fn confirm_and_quit(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "confirm",
+            press().code(KeyCode::Enter).alt_code(KeyCode::Char('c')),
+            || Message::ConfirmAndQuit,
+        )
+    }
+
+    fn reword_open_editor(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "open editor",
+            press().alt().code(KeyCode::Char('e')),
+            || Message::Reword(RewordMessage::OpenEditor),
+        )
+    }
+
+    fn reword_confirm(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("confirm", press().code(KeyCode::Enter), || {
+            Message::Reword(RewordMessage::InlineConfirm)
+        })
+        .hide_from_help()
+    }
+
+    fn command_confirm(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("run command", press().code(KeyCode::Enter), || {
+            Message::Command(CommandMessage::Confirm)
+        })
+        .hide_from_help()
+    }
+
+    fn commit_confirm(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("confirm", press().code(KeyCode::Enter), || {
+            Message::Commit(CommitMessage::Confirm)
+        })
+        .hide_from_help()
+    }
+
+    fn commit_toggle_insert_side(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("above/below", press().code(KeyCode::Char('a')), || {
+            Message::Commit(CommitMessage::ToggleInsertSide)
+        })
+        .long_description("Toggle committing above or below")
+    }
+
+    fn commit_empty_message(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("empty message", press().code(KeyCode::Char('e')), || {
+            Message::Commit(CommitMessage::ToggleMessageComposer(
+                CommitMessageComposer::Empty,
+            ))
+        })
+        .long_description("When creating commit, leave message empty")
+    }
+
+    fn commit_reword_inline(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("reword inline", press().code(KeyCode::Char('i')), || {
+            Message::Commit(CommitMessage::ToggleMessageComposer(
+                CommitMessageComposer::Inline,
+            ))
+        })
+        .long_description("When creating commit, reword it inline")
+    }
+
+    fn commit_to_new_branch(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "commit to new branch",
+            press().code(KeyCode::Char('b')),
+            || Message::Commit(CommitMessage::CommitToNewBranch),
+        )
+        .long_description("Create a new branch, then commit to it")
+    }
+
+    fn move_confirm(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("confirm", press().code(KeyCode::Enter), || {
+            Message::Move(MoveMessage::Confirm)
+        })
+        .hide_from_help()
+    }
+
+    fn apply(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("apply", press().code(KeyCode::Char('a')), || {
+            Message::Stack(StackMessage::ShowApplyPicker)
+        })
+        .long_description("Apply stack")
+    }
+
+    fn unapply(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("unapply", press().code(KeyCode::Char('u')), || {
+            Message::Stack(StackMessage::Unapply)
+        })
+        .long_description("Unapply stack")
+    }
+
+    fn reorder(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("move", press().code(KeyCode::Char('m')), || {
+            Message::Stack(StackMessage::MoveStart)
+        })
+        .long_description("Move stack")
+    }
+
+    fn reorder_confirm(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("confirm", press().code(KeyCode::Enter), || {
+            Message::Stack(StackMessage::MoveConfirm)
+        })
+        .hide_from_help()
+    }
+
+    fn cherry_pick(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("cherry pick", press().code(KeyCode::Char('p')), || {
+            Message::CherryPick(CherryPickMessage::Start)
+        })
+        .hide_from_hotbar()
+    }
+
+    fn cherry_pick_confirm(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("confirm", press().code(KeyCode::Enter), || {
+            Message::CherryPick(CherryPickMessage::Confirm)
+        })
+        .hide_from_help()
+    }
+
+    fn cherry_pick_toggle_insert_side(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("above/below", press().code(KeyCode::Char('a')), || {
+            Message::CherryPick(CherryPickMessage::ToggleInsertSide)
+        })
+        .long_description("Toggle picking above or below")
+    }
+
+    fn cherry_pick_to_new_branch(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "pick to new branch",
+            press().code(KeyCode::Char('b')),
+            || Message::CherryPick(CherryPickMessage::CherryPickToNewBranch),
+        )
+        .long_description("Create a new branch, then pick to it")
+    }
+
+    fn branch_pick_and_switch(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("switch", press().code(KeyCode::Char('s')), || {
+            Message::Branch(BranchMessage::PickAndSwitch)
+        })
+        .long_description("Pick and switch to branch")
+    }
+
+    fn branch_switch_to_selection(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "switch to selection",
+            press().shift().code(KeyCode::Char('S')),
+            || Message::Branch(BranchMessage::Switch),
+        )
+        .hide_from_hotbar()
+        .long_description("Switch to the selected branch")
+    }
+
+    fn branch_new(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("new", press().code(KeyCode::Char('n')), || {
+            Message::Branch(BranchMessage::New { switch: false })
+        })
+        .long_description("Create a new branch")
+    }
+
+    fn branch_new_and_switch(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "new+switch",
+            press().shift().code(KeyCode::Char('N')),
+            || Message::Branch(BranchMessage::New { switch: true }),
+        )
+        .long_description("Create a new branch and switch to it")
+    }
+
+    fn branch_toggle_insert_side(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("above/below", press().code(KeyCode::Char('a')), || {
+            Message::Branch(BranchMessage::ToggleInsertSide)
+        })
+        .long_description("Toggle creating branch above or below")
+    }
+
+    fn details_next_hunk(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "next hunk",
+            press().code(KeyCode::Char('j')).alt_code(KeyCode::Down),
+            || Message::Details(DetailsMessage::SelectNextSection),
+        )
+    }
+
+    fn details_prev_hunk(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "prev hunk",
+            press().code(KeyCode::Char('k')).alt_code(KeyCode::Up),
+            || Message::Details(DetailsMessage::SelectPrevSection),
+        )
+    }
+
+    fn details_scroll_up(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "scroll up",
+            press()
+                .shift()
+                .code(KeyCode::Char('K'))
+                .alt_code(KeyCode::Up),
+            || Message::Details(DetailsMessage::ScrollUp(1)),
+        )
+    }
+
+    fn details_scroll_down(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "scroll down",
+            press()
+                .shift()
+                .code(KeyCode::Char('J'))
+                .alt_code(KeyCode::Down),
+            || Message::Details(DetailsMessage::ScrollDown(1)),
+        )
+    }
+
+    fn details_mark(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("mark", press().code(KeyCode::Char(' ')), || {
+            Message::Details(DetailsMessage::Mark)
+        })
+        .condition(KeyBindCondition::SelectionHasHunks)
+    }
+
+    fn details_discard(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("discard", press().code(KeyCode::Char('x')), || {
+            Message::Details(DetailsMessage::Discard)
+        })
+        .condition(
+            KeyBindCondition::SelectionHasHunks.and(&KeyBindCondition::Not(
+                &KeyBindCondition::DetailsReturnModeIsPickChanges,
+            )),
+        )
+    }
+
+    fn details_jump_up(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "jump up",
+            press().control().code(KeyCode::Char('u')),
+            || Message::Details(DetailsMessage::ScrollUp(Self::JUMP_DISTANCE)),
+        )
+    }
+
+    fn details_jump_down(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "jump down",
+            press().control().code(KeyCode::Char('d')),
+            || Message::Details(DetailsMessage::ScrollDown(Self::JUMP_DISTANCE)),
+        )
+    }
+
+    fn details_copy(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("copy hunk", press().code(KeyCode::Char('y')), || {
+            Message::Details(DetailsMessage::CopyCurrentHunk)
+        })
+        .hide_from_hotbar()
+        .long_description("Copy current hunk to clipboard")
+    }
+
+    fn details_focus_status(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "focus status",
+            press().code(KeyCode::Char('h')).alt_code(KeyCode::Left),
+            || Message::UnfocusDetails,
+        )
+    }
+
+    fn details_top(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("goto top", press().code(KeyCode::Char('g')), || {
+            Message::Details(DetailsMessage::GotoTop)
+        })
+    }
+
+    fn details_bottom(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "goto bottom",
+            press().shift().code(KeyCode::Char('G')),
+            || Message::Details(DetailsMessage::GotoBottom),
+        )
+    }
+
+    fn switch_to_commit_mode(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.commit().hide_from_help().hide_from_hotbar()
+    }
+
+    fn switch_to_move_mode(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.move_mode().hide_from_help().hide_from_hotbar()
+    }
+
+    fn switch_to_squash_mode(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.squash().hide_from_help().hide_from_hotbar()
+    }
+}
+
+fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_marks: bool) {
+    builder.up().register();
+    builder.down().register();
+    builder.next_section().register();
+    builder.prev_section().register();
+    builder.jump_up().register();
+    builder.jump_down().register();
+    builder.scroll_status_down().register();
+    builder.scroll_status_up().register();
+
+    builder.commit().register();
+
+    builder.squash().register();
+
+    if without_marks {
+        builder.reverse_squash().register();
+    }
+
+    if without_marks {
+        builder.new_commit().register();
+    }
+
+    builder.move_mode().register();
+
+    builder.branch().register();
+    if without_marks {
+        builder.stack().register();
+        builder.worktree().register();
+    }
+
+    builder.cherry_pick().register();
+
+    builder.toggle_details().register();
+    builder.toggle_full_screen_details().register();
+    builder.focus_details().register();
+    builder.grow_details().register();
+    builder.shrink_details().register();
+
+    if without_marks {
+        builder.reword_inline().register();
+        builder.reword_editor().register();
+    }
+
+    builder.files().register();
+    builder.all_files().register();
+
+    builder.discard().register();
+
+    builder.mark().register();
+
+    builder.undo().register();
+    builder.redo().register();
+
+    builder.jump_enter().register();
+    builder.branch_picker().register();
+    builder.uncommitted_area().register();
+    builder.merge_base().register();
+    builder.command().register();
+    builder.shell_command().register();
+
+    if without_marks {
+        builder.copy().register();
+        builder.copy_picker().register();
+    }
+
+    builder.open_in_program().register();
+    builder.open_in_program_picker().register();
+
+    builder.reload().register();
+    builder.back().hide_from_hotbar().register();
+    builder.help().register();
+    builder.quit().register();
+}
+
+enum WithFocusDetails {
+    Yes,
+    No,
+}
+
+fn register_non_mode_specific_key_binds(
+    builder: &mut KeyBindsBuilder<'_>,
+    with_focus_details: WithFocusDetails,
+) {
+    builder.up().register();
+    builder.down().register();
+    builder.next_section().register();
+    builder.prev_section().register();
+    builder.jump_up().register();
+    builder.jump_down().register();
+    builder.scroll_status_down().register();
+    builder.scroll_status_up().register();
+    builder.toggle_details().register();
+    builder.toggle_full_screen_details().register();
+
+    if matches!(with_focus_details, WithFocusDetails::Yes) {
+        builder.focus_details().register();
+    }
+
+    builder.grow_details().register();
+    builder.shrink_details().register();
+    builder.jump_enter().register();
+    builder.branch_picker().register();
+    builder.uncommitted_area().register();
+    builder.merge_base().register();
+    builder.help().register();
+    builder.quit().register();
+    builder.normal_mode().register();
+    builder.back().register();
+}
+
+type MakeMessage = fn() -> Message;
+
+#[derive(Debug)]
+#[must_use]
+struct KeyBindsInModesBuilder<'a> {
+    key_binds: &'a mut KeyBinds,
+    short_description: &'static str,
+    long_description: Option<&'static str>,
+    key_matcher: KeyMatcher,
+    modes: Vec<ModeDiscriminant>,
+    make_message: MakeMessage,
+    hide_from_hotbar: bool,
+    hide_from_help: bool,
+    show_only_in_normal_mode_help_section: bool,
+    always_show_in_hot_bar: bool,
+    condition: Option<KeyBindCondition>,
+}
+
+impl KeyBindsInModesBuilder<'_> {
+    fn hide_from_hotbar(mut self) -> Self {
+        self.hide_from_hotbar = true;
+        self
+    }
+
+    fn hide_from_help(mut self) -> Self {
+        self.hide_from_help = true;
+        self
+    }
+
+    fn always_show_in_hot_bar(mut self) -> Self {
+        self.always_show_in_hot_bar = true;
+        self
+    }
+
+    /// Normally `?` shows key binds in all the methods they're available in. However that results
+    /// in a lot of noise since many key binds (such as moving the cursor) are available in all
+    /// modes.
+    ///
+    /// This methods is used to hide such key binds from non-normal modes to reduce that noise.
+    ///
+    /// The intention is that shared key binds are shown in normal mode so other modes can only
+    /// show key binds specific to them.
+    fn show_only_in_normal_mode_help_section(mut self) -> Self {
+        self.show_only_in_normal_mode_help_section = true;
+        self
+    }
+
+    #[expect(dead_code)]
+    fn short_description(mut self, short_description: &'static str) -> Self {
+        self.short_description = short_description;
+        self
+    }
+
+    fn long_description(mut self, long_description: &'static str) -> Self {
+        self.long_description = Some(long_description);
+        self
+    }
+
+    fn condition(mut self, condition: KeyBindCondition) -> Self {
+        self.condition = Some(condition);
+        self
+    }
+
+    fn register(self) -> KeyBindId {
+        let KeyBindsInModesBuilder {
+            key_binds,
+            short_description,
+            long_description,
+            key_matcher,
+            modes,
+            make_message,
+            hide_from_hotbar,
+            hide_from_help,
+            show_only_in_normal_mode_help_section,
+            always_show_in_hot_bar,
+            condition,
+        } = self;
+
+        key_binds.register(KeyBind {
+            short_description,
+            long_description,
+            chord_display: key_matcher.chord_display(),
+            key_matcher,
+            modes,
+            make_message,
+            hide_from_hotbar,
+            hide_from_help,
+            show_only_in_normal_mode_help_section,
+            always_show_in_hot_bar,
+            condition,
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct KeyBind {
+    short_description: &'static str,
+    long_description: Option<&'static str>,
+    chord_display: Cow<'static, str>,
+    key_matcher: KeyMatcher,
+    modes: Vec<ModeDiscriminant>,
+    make_message: MakeMessage,
+    hide_from_hotbar: bool,
+    hide_from_help: bool,
+    show_only_in_normal_mode_help_section: bool,
+    always_show_in_hot_bar: bool,
+    condition: Option<KeyBindCondition>,
+}
+
+impl KeyBind {
+    pub fn short_description(&self) -> &str {
+        self.short_description
+    }
+
+    pub fn long_description(&self) -> Option<&str> {
+        self.long_description
+    }
+
+    pub fn chord_display(&self) -> &str {
+        &self.chord_display
+    }
+
+    pub fn available_in_mode(&self, mode: ModeDiscriminant) -> bool {
+        self.modes.contains(&mode)
+    }
+
+    pub fn matches(&self, ev: &KeyEvent) -> bool {
+        self.key_matcher.matches(ev)
+    }
+
+    pub fn message(&self) -> Message {
+        (self.make_message)()
+    }
+
+    pub fn hide_from_hotbar(&self) -> bool {
+        self.hide_from_hotbar
+    }
+
+    pub fn hide_from_help(&self) -> bool {
+        self.hide_from_help
+    }
+
+    pub fn always_show_in_hot_bar(&self) -> bool {
+        self.always_show_in_hot_bar
+    }
+
+    pub fn show_only_in_normal_mode_help_section(&self) -> bool {
+        self.show_only_in_normal_mode_help_section
+    }
+}
+
+#[inline]
+fn press() -> KeyMatcher {
+    KeyMatcher {
+        kind: KeyEventKind::Press,
+        modifiers: KeyModifiers::NONE,
+        codes: [None, None],
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+struct KeyMatcher {
+    kind: KeyEventKind,
+    modifiers: KeyModifiers,
+    codes: [Option<KeyCode>; 2],
+}
+
+impl KeyMatcher {
+    #[inline]
+    fn alt(self) -> Self {
+        self.modifiers(KeyModifiers::ALT)
+    }
+
+    #[inline]
+    fn shift(self) -> Self {
+        self.modifiers(KeyModifiers::SHIFT)
+    }
+
+    #[inline]
+    fn control(self) -> Self {
+        self.modifiers(KeyModifiers::CONTROL)
+    }
+
+    #[inline]
+    fn modifiers(mut self, modifiers: KeyModifiers) -> Self {
+        self.modifiers = modifiers;
+        self
+    }
+
+    #[inline]
+    fn code(mut self, code: KeyCode) -> Self {
+        self.codes[0] = Some(code);
+        self
+    }
+
+    #[inline]
+    fn alt_code(mut self, code: KeyCode) -> Self {
+        self.codes[1] = Some(code);
+        self
+    }
+
+    /// Render this matcher into the hotbar chord display format.
+    fn chord_display(&self) -> Cow<'static, str> {
+        let mut codes = self.codes.into_iter().flatten().collect::<Vec<_>>();
+        codes.sort_by_key(|code| self.display_sort_key(*code));
+
+        let displays = codes
+            .into_iter()
+            .map(|code| format_key_code(code, self.modifiers.contains(KeyModifiers::SHIFT)))
+            .collect::<Vec<_>>();
+        let chord = displays.join("/");
+        let prefixes = self.modifier_prefixes();
+
+        Cow::Owned(if prefixes.is_empty() {
+            chord
+        } else {
+            format!("{}+{chord}", prefixes.join("+"))
+        })
+    }
+
+    /// Return the sort key used to produce a stable, user-facing display order.
+    fn display_sort_key(&self, code: KeyCode) -> u8 {
+        match code {
+            KeyCode::Char(_) => 1,
+            _ => 0,
+        }
+    }
+
+    /// Return modifier prefixes in the order used for chord display.
+    fn modifier_prefixes(&self) -> Vec<&'static str> {
+        let mut prefixes = Vec::new();
+        if self.modifiers.contains(KeyModifiers::CONTROL) {
+            prefixes.push("ctrl");
+        }
+        if self.modifiers.contains(KeyModifiers::ALT) {
+            prefixes.push("alt");
+        }
+        if self.modifiers.contains(KeyModifiers::SHIFT) {
+            prefixes.push("shift");
+        }
+        prefixes
+    }
+
+    #[inline]
+    fn matches(self, ev: &KeyEvent) -> bool {
+        if self.kind != ev.kind {
+            return false;
+        }
+
+        // Shifted symbols like `?` or `:` already encode shift in the character, but some
+        // platforms (e.g. Windows) still report the SHIFT modifier while others don't.
+        let mut ev_modifiers = ev.modifiers;
+        if let KeyCode::Char(c) = ev.code
+            && !c.is_lowercase()
+            && !c.is_uppercase()
+        {
+            ev_modifiers.remove(KeyModifiers::SHIFT);
+        }
+
+        if self.modifiers != ev_modifiers {
+            return false;
+        }
+
+        self.codes
+            .into_iter()
+            .flatten()
+            .any(|key_code| key_code == ev.code)
+    }
+}
+
+/// Format a key code into the hotbar display representation.
+fn format_key_code(code: KeyCode, shifted: bool) -> String {
+    match code {
+        KeyCode::Backspace => "backspace".to_owned(),
+        KeyCode::Enter => "enter".to_owned(),
+        KeyCode::Left => "←".to_owned(),
+        KeyCode::Right => "→".to_owned(),
+        KeyCode::Up => "↑".to_owned(),
+        KeyCode::Down => "↓".to_owned(),
+        KeyCode::Home => "home".to_owned(),
+        KeyCode::End => "end".to_owned(),
+        KeyCode::PageUp => "pageup".to_owned(),
+        KeyCode::PageDown => "pagedown".to_owned(),
+        KeyCode::Tab => "tab".to_owned(),
+        KeyCode::BackTab => "backtab".to_owned(),
+        KeyCode::Delete => "del".to_owned(),
+        KeyCode::Insert => "ins".to_owned(),
+        KeyCode::Esc => "esc".to_owned(),
+        KeyCode::Char(' ') => "space".to_owned(),
+        KeyCode::Char(ch) => normalize_char_for_display(ch, shifted).to_string(),
+        KeyCode::Null => "null".to_owned(),
+        KeyCode::CapsLock => "capslock".to_owned(),
+        KeyCode::ScrollLock => "scrolllock".to_owned(),
+        KeyCode::NumLock => "numlock".to_owned(),
+        KeyCode::PrintScreen => "printscreen".to_owned(),
+        KeyCode::Pause => "pause".to_owned(),
+        KeyCode::Menu => "menu".to_owned(),
+        KeyCode::KeypadBegin => "keypadbegin".to_owned(),
+        KeyCode::Media(_) => "media".to_owned(),
+        KeyCode::Modifier(_) => "modifier".to_owned(),
+        KeyCode::F(number) => format!("f{number}"),
+    }
+}
+
+/// Normalize a character for chord display rendering.
+fn normalize_char_for_display(ch: char, shifted: bool) -> char {
+    if shifted && ch.is_ascii_alphabetic() {
+        ch.to_ascii_lowercase()
+    } else {
+        ch
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum KeyBindCondition {
+    SelectionIsUncommitted,
+    /// The selection shows hunks that can be marked, discarded and squashed.
+    SelectionHasHunks,
+    /// The selection shows committed hunks, which can also be moved.
+    SelectionIsCommitted,
+    DetailsReturnModeIsPickChanges,
+    And {
+        lhs: &'static Self,
+        rhs: &'static Self,
+    },
+    Not(&'static Self),
+}
+
+impl KeyBindCondition {
+    fn and(&'static self, rhs: &'static Self) -> Self {
+        Self::And { lhs: self, rhs }
+    }
+
+    fn matches(self, selection: Option<&CliId>, mode: &Mode) -> bool {
+        match self {
+            KeyBindCondition::And { lhs, rhs } => {
+                lhs.matches(selection, mode) && rhs.matches(selection, mode)
+            }
+            KeyBindCondition::Not(condition) => !condition.matches(selection, mode),
+            KeyBindCondition::SelectionIsUncommitted => {
+                let Some(selection) = selection else {
+                    return false;
+                };
+                match selection {
+                    CliId::UncommittedHunkOrFile(..)
+                    | CliId::UncommittedArea {
+                        source: ChangeSourceId::Head,
+                        ..
+                    } => true,
+                    CliId::AnonymousSegment(..)
+                    | CliId::PathPrefix { .. }
+                    | CliId::CommittedFile { .. }
+                    | CliId::CommittedHunk { .. }
+                    | CliId::Branch(..)
+                    | CliId::Commit { .. }
+                    | CliId::UncommittedArea {
+                        source: ChangeSourceId::Worktree(_),
+                        ..
+                    }
+                    | CliId::Stack { .. } => false,
+                }
+            }
+            KeyBindCondition::SelectionHasHunks => {
+                let Some(selection) = selection else {
+                    return false;
+                };
+                match selection {
+                    CliId::UncommittedHunkOrFile(..)
+                    | CliId::UncommittedArea {
+                        source: ChangeSourceId::Head,
+                        ..
+                    }
+                    | CliId::CommittedFile { .. }
+                    | CliId::Commit { .. } => true,
+                    CliId::AnonymousSegment(..)
+                    | CliId::PathPrefix { .. }
+                    | CliId::CommittedHunk { .. }
+                    | CliId::Branch(..)
+                    | CliId::UncommittedArea {
+                        source: ChangeSourceId::Worktree(_),
+                        ..
+                    }
+                    | CliId::Stack { .. } => false,
+                }
+            }
+            KeyBindCondition::SelectionIsCommitted => {
+                let Some(selection) = selection else {
+                    return false;
+                };
+                match selection {
+                    CliId::CommittedFile { .. } | CliId::Commit { .. } => true,
+                    CliId::UncommittedHunkOrFile(..)
+                    | CliId::UncommittedArea { .. }
+                    | CliId::AnonymousSegment(..)
+                    | CliId::PathPrefix { .. }
+                    | CliId::CommittedHunk { .. }
+                    | CliId::Branch(..)
+                    | CliId::Stack { .. } => false,
+                }
+            }
+            KeyBindCondition::DetailsReturnModeIsPickChanges => {
+                if let Mode::Details(details_mode) = mode {
+                    match details_mode.return_mode {
+                        DetailsReturnMode::Normal(..) => false,
+                        DetailsReturnMode::PickChanges(..) => true,
+                    }
+                } else {
+                    false
+                }
+            }
+        }
+    }
+}

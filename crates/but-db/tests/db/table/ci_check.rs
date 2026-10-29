@@ -42,7 +42,7 @@ fn set_replaces_existing_with_outer_transaction() -> anyhow::Result<()> {
     // Insert initial checks
     trans
         .ci_checks_mut()?
-        .set_for_reference("refs/heads/main", vec![check1.clone(), check2.clone()])?;
+        .set_for_reference("refs/heads/main", vec![check1, check2])?;
 
     // Replace with different checks
     trans
@@ -71,7 +71,7 @@ fn set_replaces_existing() -> anyhow::Result<()> {
 
     // Insert initial checks
     db.ci_checks_mut()?
-        .set_for_reference("refs/heads/main", vec![check1.clone(), check2.clone()])?;
+        .set_for_reference("refs/heads/main", vec![check1, check2])?;
 
     // Replace with different checks
     db.ci_checks_mut()?

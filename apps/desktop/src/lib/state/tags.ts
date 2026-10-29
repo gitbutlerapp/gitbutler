@@ -6,6 +6,7 @@ export enum ReduxTag {
 	Stacks = "Stacks",
 	StackDetails = "StackDetails",
 	WorktreeChanges = "WorktreeChanges",
+	Worktrees = "Worktrees",
 	CommitChanges = "CommitChanges",
 	/**
 	 * Use stack id when invalidating this tag since invalidating just one
@@ -16,29 +17,33 @@ export enum ReduxTag {
 	ForgeUser = "ForgeUser",
 	GitHubUserList = "GitHubUserList",
 	GitLabUserList = "GitLabUserList",
+	BitbucketUserList = "BitbucketUserList",
 	PullRequests = "PullRequests",
-	GitlabMRs = "GitlabMRs",
 	Checks = "Checks",
 	RepoInfo = "RepoInfo",
 	BaseBranchData = "BaseBranchData",
+	WorkspaceFetchStatus = "WorkspaceFetchStatus",
 	ForgeProvider = "ForgeProvider",
-	UpstreamIntegrationStatus = "UpstreamIntegrationStatus",
 	BranchListing = "BranchListing",
 	BranchDetails = "BranchDetails",
 	SnapshotDiff = "SnapshotDiff",
-	WorkspaceRules = "WorkspaceRules",
 	Project = "Project",
 	ProjectGerrit = "ProjectGerrit",
-	ClaudeCodeTranscript = "ClaudeCodeTranscript",
-	ClaudePermissionRequests = "ClaudePermissionPrompts",
-	ClaudeSessionDetails = "ClaudeSessionDetails",
-	ClaudeStackActive = "ClaudeStackActive",
 	InitalEditListing = "InitialEditListing",
 	EditChangesSinceInitial = "EditChangesSinceInitial",
 	AuthorInfo = "AuthorInfo",
+	/**
+	 * The upstream integration plan (`get_initial_branch_integration`). The query
+	 * is only subscribed while the integration modal is open and refetches on each
+	 * open, so staleness between opens is a non-issue. The single invalidation is
+	 * the `workspace-activity` listener, which refreshes an open modal when the
+	 * workspace changes underneath it (e.g. an external fetch or `but` CLI write).
+	 */
 	IntegrationSteps = "IntegrationSteps",
 	GitConfigProperty = "GitConfigProperty",
 	GitButlerConfig = "GitButlerConfig",
+	User = "User",
+	UserProfile = "UserProfile",
 }
 
 type Tag<T extends string | number> = {

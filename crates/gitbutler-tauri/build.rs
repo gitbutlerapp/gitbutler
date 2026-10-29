@@ -32,5 +32,23 @@ fn main() {
     };
     println!("cargo:rustc-env=IDENTIFIER={identifier}");
 
-    tauri_build::build();
+    // The native client brings GPUI, which links its own manifest into every binary, one with all
+    // Tauri's has, and a binary may have only one. Its window takes the icon in resource 1, where
+    // Tauri puts its own at 32512, and its UI runs on the main thread, which Windows gives 1 MB of
+    // stack where macOS gives 8.
+    if std::env::var_os("CARGO_FEATURE_BUILTIN_GPUI").is_some()
+        && std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows")
+    {
+        let channel = identifier
+            .strip_prefix("com.gitbutler.app.")
+            .unwrap_or("release");
+        let icon = manifest_dir.join("icons").join(channel).join("icon.ico");
+        let windows = tauri_build::WindowsAttributes::new_without_app_manifest()
+            .append_rc_content(format!("1 ICON {:?}", icon.display().to_string()));
+        println!("cargo:rustc-link-arg-bins=/STACK:8388608");
+        tauri_build::try_build(tauri_build::Attributes::new().windows_attributes(windows))
+            .unwrap_or_else(|err| panic!("{err:#}"));
+    } else {
+        tauri_build::build();
+    }
 }

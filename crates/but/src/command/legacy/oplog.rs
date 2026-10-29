@@ -1,9 +1,12 @@
+use but_api::legacy::oplog::RestoreKind;
 use but_core::RepositoryExt;
-use colored::Colorize;
-use gitbutler_oplog::entry::{OperationKind, Snapshot};
+use gitbutler_oplog::entry::{OperationKind, Snapshot, Trailer};
 use gix::{date::time::CustomFormat, prelude::ObjectIdExt};
 
-use crate::utils::{Confirm, ConfirmDefault, OutputChannel, shorten_object_id};
+use crate::{
+    theme::{self, Paint},
+    utils::{OutputChannel, shorten_object_id},
+};
 
 pub const ISO8601_NO_TZ: CustomFormat = CustomFormat::new("%Y-%m-%d %H:%M:%S");
 
@@ -43,7 +46,9 @@ pub(crate) fn show_oplog(
         None
     };
 
-    let snapshots = but_api::legacy::oplog::list_snapshots(ctx, 20, since_sha, None, include_kind)?;
+    let snapshots = but_api::legacy::oplog::snapshots_iter(ctx, since_sha, None, include_kind)?
+        .take(20)
+        .collect::<anyhow::Result<Vec<_>>>()?;
 
     if snapshots.is_empty() {
         if let Some(out) = out.for_json() {
@@ -58,8 +63,9 @@ pub(crate) fn show_oplog(
         out.write_value(&snapshots)?;
     } else if let Some(out) = out.for_human() {
         let repo = ctx.repo.get()?.clone().for_commit_shortening();
-        writeln!(out, "{}", "Operations History".blue().bold())?;
-        writeln!(out, "{}", "─".repeat(50).dimmed())?;
+        let t = theme::get();
+        writeln!(out, "{}", t.important.paint("Operations History"))?;
+        writeln!(out, "{}", t.hint.paint("─".repeat(50)))?;
         // Find the longest short ID length to keep all lines aligned.
         let longest_short_id_len = snapshots
             .iter()
@@ -74,84 +80,193 @@ pub(crate) fn show_oplog(
             let time_string = snapshot_time_string(&snapshot);
             let short = snapshot.commit_id;
             let short = short.to_hex_with_len(longest_short_id_len);
-            let commit_id = short.to_string().blue().bold();
+            let commit_id = t.cli_id.paint(short.to_string());
 
             let (operation_type, title) = if let Some(details) = &snapshot.details {
-                let op_type = match details.operation {
-                    OperationKind::CreateCommit => "CREATE",
-                    OperationKind::CreateBranch => "BRANCH",
-                    OperationKind::AmendCommit => "AMEND",
-                    OperationKind::Absorb => "ABSORB",
-                    OperationKind::AutoCommit => "AUTO_COMMIT",
-                    OperationKind::UndoCommit => "UNDO",
-                    OperationKind::SquashCommit => "SQUASH",
-                    OperationKind::UpdateCommitMessage => "REWORD",
-                    OperationKind::MoveCommit => "MOVE",
-                    OperationKind::RestoreFromSnapshot => "RESTORE",
-                    OperationKind::ReorderCommit => "REORDER",
-                    OperationKind::InsertBlankCommit => "INSERT",
-                    OperationKind::MoveHunk => "MOVE_HUNK",
-                    OperationKind::ReorderBranches => "REORDER_BRANCH",
-                    OperationKind::UpdateWorkspaceBase => "UPDATE_BASE",
-                    OperationKind::UpdateBranchName => "RENAME",
-                    OperationKind::GenericBranchUpdate => "BRANCH_UPDATE",
-                    OperationKind::ApplyBranch => "APPLY",
-                    OperationKind::UnapplyBranch => "UNAPPLY",
-                    OperationKind::DeleteBranch => "DELETE",
-                    OperationKind::DiscardChanges => "DISCARD",
-                    OperationKind::Discard => "DISCARD",
-                    OperationKind::OnDemandSnapshot => "SNAPSHOT",
-                    _ => "OTHER",
-                };
-                // For OnDemandSnapshot, show the message (body) if available
-                // For Discard, show file names from trailers if available
-                let display_title = if details.operation == OperationKind::OnDemandSnapshot {
-                    details
+                let display_title = match details.operation {
+                    OperationKind::OnDemandSnapshot => details
                         .body
                         .as_ref()
                         .filter(|b| !b.is_empty())
                         .cloned()
-                        .unwrap_or_else(|| details.title.clone())
-                } else if details.operation == OperationKind::Discard {
-                    // Extract file names from trailers
-                    let file_names: Vec<String> = details
-                        .trailers
-                        .iter()
-                        .filter(|t| t.key == "file")
-                        .map(|t| t.value.clone())
-                        .collect();
-
-                    if !file_names.is_empty() {
-                        format!("{} ({})", details.title, file_names.join(", "))
-                    } else {
-                        details.title.clone()
+                        .unwrap_or_else(|| details.operation.title().to_owned()),
+                    OperationKind::Discard => {
+                        let file_names = details
+                            .trailers
+                            .iter()
+                            .filter_map(|t| {
+                                if let Trailer::File(value) = t {
+                                    Some(&**value)
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect::<Vec<_>>();
+                        if !file_names.is_empty() {
+                            format!("{} ({})", details.operation.title(), file_names.join(", "))
+                        } else {
+                            details.operation.title().to_owned()
+                        }
                     }
-                } else {
-                    details.title.clone()
+                    OperationKind::DiscardCommit => {
+                        let commit_count = details
+                            .trailers
+                            .iter()
+                            .filter(|trailer| matches!(trailer, Trailer::Sha(_)))
+                            .count();
+                        if commit_count > 1 {
+                            format!("Discarded {commit_count} commits")
+                        } else {
+                            details.operation.title().to_owned()
+                        }
+                    }
+                    OperationKind::RestoreFromSnapshotViaUndo
+                    | OperationKind::RestoreFromSnapshotViaRedo
+                    | OperationKind::RestoreFromSnapshot => {
+                        if let Ok(Some(restore_target)) =
+                            but_api::legacy::oplog::peel_restore_snapshot(ctx, snapshot.commit_id)
+                            && restore_target.commit_id != snapshot.commit_id
+                            && let Some(restore_target_details) = &restore_target.details
+                        {
+                            format!(
+                                "Restored from snapshot: {} ({})",
+                                restore_target_details.operation.title(),
+                                t.cli_id.paint(
+                                    restore_target
+                                        .commit_id
+                                        .to_hex_with_len(longest_short_id_len)
+                                        .to_string()
+                                ),
+                            )
+                        } else {
+                            details.operation.title().to_owned()
+                        }
+                    }
+                    OperationKind::CreateCommit
+                    | OperationKind::CreateBranch
+                    | OperationKind::StashIntoBranch
+                    | OperationKind::SetBaseBranch
+                    | OperationKind::MergeUpstream
+                    | OperationKind::MergeBranch
+                    | OperationKind::UpdateWorkspaceBase
+                    | OperationKind::MoveHunk
+                    | OperationKind::UpdateBranchName
+                    | OperationKind::UpdateBranchNotes
+                    | OperationKind::ReorderBranches
+                    | OperationKind::UpdateBranchRemoteName
+                    | OperationKind::GenericBranchUpdate
+                    | OperationKind::DeleteBranch
+                    | OperationKind::ApplyBranch
+                    | OperationKind::SwitchBranch
+                    | OperationKind::SwitchToWorkspace
+                    | OperationKind::DiscardLines
+                    | OperationKind::DiscardHunk
+                    | OperationKind::DiscardFile
+                    | OperationKind::DiscardChanges
+                    | OperationKind::AmendCommit
+                    | OperationKind::Absorb
+                    | OperationKind::AutoCommit
+                    | OperationKind::UndoCommit
+                    | OperationKind::UnapplyBranch
+                    | OperationKind::CherryPick
+                    | OperationKind::SquashCommit
+                    | OperationKind::UpdateCommitMessage
+                    | OperationKind::MoveCommit
+                    | OperationKind::MoveBranch
+                    | OperationKind::TearOffBranch
+                    | OperationKind::ReorderCommit
+                    | OperationKind::InsertBlankCommit
+                    | OperationKind::MoveCommitFile
+                    | OperationKind::FileChanges
+                    | OperationKind::EnterEditMode
+                    | OperationKind::ResolveConflicts
+                    | OperationKind::ResolveConflictsAi
+                    | OperationKind::SyncWorkspace
+                    | OperationKind::CreateDependentBranch
+                    | OperationKind::RemoveDependentBranch
+                    | OperationKind::UpdateDependentBranchName
+                    | OperationKind::UpdateDependentBranchDescription
+                    | OperationKind::UpdateDependentBranchPrNumber
+                    | OperationKind::AutoHandleChangesBefore
+                    | OperationKind::AutoHandleChangesAfter
+                    | OperationKind::SplitBranch
+                    | OperationKind::CleanWorkspace
+                    | OperationKind::Unknown => details.operation.title().to_owned(),
                 };
 
                 let display_title = out.truncate_if_unpaged(&display_title, 80);
-                (op_type, display_title)
+                (details.operation, display_title)
             } else {
-                ("UNKNOWN", "Unknown operation".to_string())
+                (OperationKind::Unknown, "Unknown operation".to_string())
             };
 
             let operation_colored = match operation_type {
-                "CREATE" => operation_type.green(),
-                "AMEND" | "REWORD" => operation_type.yellow(),
-                "UNDO" | "RESTORE" => operation_type.red(),
-                "DISCARD" => operation_type.red().bold(),
-                "BRANCH" | "CHECKOUT" => operation_type.purple(),
-                "MOVE" | "REORDER" | "MOVE_HUNK" => operation_type.cyan(),
-                "SNAPSHOT" => operation_type.bright_magenta(),
-                _ => operation_type.normal(),
+                OperationKind::CreateCommit => t.success.paint(operation_type.kind_str()),
+                OperationKind::UpdateCommitMessage
+                | OperationKind::AmendCommit
+                | OperationKind::ResolveConflicts
+                | OperationKind::ResolveConflictsAi => t.attention.paint(operation_type.kind_str()),
+                OperationKind::UndoCommit
+                | OperationKind::RestoreFromSnapshot
+                | OperationKind::RestoreFromSnapshotViaUndo
+                | OperationKind::RestoreFromSnapshotViaRedo => {
+                    t.error.paint(operation_type.kind_str())
+                }
+                OperationKind::DiscardChanges | OperationKind::Discard => {
+                    t.error.paint(operation_type.kind_str())
+                }
+                OperationKind::CreateBranch => t.local_branch.paint(operation_type.kind_str()),
+                OperationKind::MoveCommit
+                | OperationKind::ReorderCommit
+                | OperationKind::MoveHunk => t.info.paint(operation_type.kind_str()),
+                OperationKind::OnDemandSnapshot => t.hint.paint(operation_type.kind_str()),
+                OperationKind::StashIntoBranch
+                | OperationKind::SetBaseBranch
+                | OperationKind::MergeUpstream
+                | OperationKind::MergeBranch
+                | OperationKind::UpdateWorkspaceBase
+                | OperationKind::UpdateBranchName
+                | OperationKind::UpdateBranchNotes
+                | OperationKind::ReorderBranches
+                | OperationKind::UpdateBranchRemoteName
+                | OperationKind::GenericBranchUpdate
+                | OperationKind::DeleteBranch
+                | OperationKind::ApplyBranch
+                | OperationKind::DiscardLines
+                | OperationKind::DiscardHunk
+                | OperationKind::DiscardFile
+                | OperationKind::Absorb
+                | OperationKind::AutoCommit
+                | OperationKind::DiscardCommit
+                | OperationKind::UnapplyBranch
+                | OperationKind::CherryPick
+                | OperationKind::SquashCommit
+                | OperationKind::MoveBranch
+                | OperationKind::TearOffBranch
+                | OperationKind::InsertBlankCommit
+                | OperationKind::MoveCommitFile
+                | OperationKind::FileChanges
+                | OperationKind::EnterEditMode
+                | OperationKind::SyncWorkspace
+                | OperationKind::CreateDependentBranch
+                | OperationKind::RemoveDependentBranch
+                | OperationKind::UpdateDependentBranchName
+                | OperationKind::UpdateDependentBranchDescription
+                | OperationKind::UpdateDependentBranchPrNumber
+                | OperationKind::AutoHandleChangesBefore
+                | OperationKind::AutoHandleChangesAfter
+                | OperationKind::SplitBranch
+                | OperationKind::CleanWorkspace
+                | OperationKind::SwitchBranch
+                | OperationKind::SwitchToWorkspace
+                | OperationKind::Unknown => t.default.paint(operation_type.kind_str()),
             };
 
             writeln!(
                 out,
                 "{} {} [{}] {}",
                 commit_id,
-                time_string.dimmed(),
+                t.time.paint(&time_string),
                 operation_colored,
                 title
             )?;
@@ -172,7 +287,6 @@ pub(crate) fn restore_to_oplog(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
     oplog_sha: &str,
-    force: bool,
 ) -> anyhow::Result<()> {
     let commit_id = ctx.repo.get()?.rev_parse_single(oplog_sha)?.detach();
     let target_snapshot = &but_api::legacy::oplog::get_snapshot(ctx, commit_id)?;
@@ -191,98 +305,37 @@ pub(crate) fn restore_to_oplog(
 
     if let Some(mut out) = out.prepare_for_terminal_input() {
         use std::fmt::Write;
-        writeln!(out, "{}", "Restoring to oplog snapshot...".blue().bold())?;
+        let t = theme::get();
+        writeln!(
+            out,
+            "{}",
+            t.progress.paint("Restoring to oplog snapshot...")
+        )?;
         writeln!(
             out,
             "  Target: {} ({})",
-            target_operation.green(),
-            target_time.dimmed()
+            t.important.paint(target_operation),
+            t.time.paint(&target_time)
         )?;
-        writeln!(out, "  Snapshot: {}", commit_short.cyan().bold())?;
-
-        // Confirm the restoration (safety check)
-        if !force {
-            writeln!(
-                out,
-                "\n{}",
-                "⚠️  This will overwrite your current workspace state."
-                    .yellow()
-                    .bold()
-            )?;
-            if out.confirm("Continue with restore?", ConfirmDefault::No)? == Confirm::No {
-                return Ok(());
-            }
-        }
+        writeln!(out, "  Snapshot: {}", t.commit_id.paint(&commit_short))?;
     }
 
     // Restore to the target snapshot using the but-api crate
-    but_api::legacy::oplog::restore_snapshot(ctx, commit_id)?;
+    but_api::legacy::oplog::restore_snapshot_with_kind(
+        ctx,
+        RestoreKind::ExplicitRestoreFromSnapshot,
+        commit_id,
+    )?;
 
     if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "\n{} Restore completed successfully!",
-            "✓".green().bold(),
-        )?;
+        let t = theme::get();
+        writeln!(out, "\n{} Restore completed successfully!", t.sym().success,)?;
 
         writeln!(
             out,
             "{}",
-            "\nWorkspace has been restored to the selected snapshot.".green()
-        )?;
-    }
-
-    Ok(())
-}
-
-pub(crate) fn undo_last_operation(
-    ctx: &mut but_ctx::Context,
-    out: &mut OutputChannel,
-) -> anyhow::Result<()> {
-    // Get the last two snapshots - restore to the second one back
-    let snapshots = but_api::legacy::oplog::list_snapshots(ctx, 2, None, None, None)?;
-
-    if snapshots.len() < 2 {
-        if let Some(out) = out.for_human() {
-            writeln!(out, "{}", "No previous operations to undo.".yellow())?;
-        }
-        return Ok(());
-    }
-
-    // TODO: Why the second most recent one, and not use the most recent one?
-    let target_snapshot = &snapshots[1];
-
-    let target_operation = target_snapshot
-        .details
-        .as_ref()
-        .map(|d| d.title.as_str())
-        .unwrap_or("Unknown operation");
-
-    let target_time = snapshot_time_string(target_snapshot);
-
-    if let Some(out) = out.for_human() {
-        writeln!(out, "{}", "Undoing operation...".blue().bold())?;
-        writeln!(
-            out,
-            "  Reverting to: {} ({})",
-            target_operation.green(),
-            target_time.dimmed()
-        )?;
-    }
-
-    // Restore to the previous snapshot using the but_api
-    // TODO: Why does this not require force? It will also overwrite user changes (I think).
-    but_api::legacy::oplog::restore_snapshot(ctx, target_snapshot.commit_id)?;
-
-    if let Some(out) = out.for_human() {
-        let repo = ctx.repo.get()?;
-        let short = shorten_object_id(&repo, target_snapshot.commit_id);
-
-        writeln!(
-            out,
-            "{} Undo completed successfully! Restored to snapshot: {}",
-            "✓".green().bold(),
-            short.blue().bold()
+            t.success
+                .paint("\nWorkspace has been restored to the selected snapshot.")
         )?;
     }
 
@@ -305,17 +358,18 @@ pub(crate) fn create_snapshot(
     } else if let Some(out) = out.for_human() {
         let repo = ctx.repo.get()?;
         let short = shorten_object_id(&repo, snapshot_id);
-        writeln!(out, "{}", "Snapshot created successfully!".green().bold())?;
+        let t = theme::get();
+        writeln!(out, "{}", t.success.paint("Snapshot created successfully!"))?;
 
         if let Some(msg) = message {
-            writeln!(out, "  Message: {}", msg.cyan())?;
+            writeln!(out, "  Message: {}", t.info.paint(msg))?;
         }
 
-        writeln!(out, "  Snapshot ID: {}", short.blue().bold(),)?;
+        writeln!(out, "  Snapshot ID: {}", t.cli_id.paint(&short))?;
         writeln!(
             out,
             "\n{} Use 'but oplog restore {}' to restore to this snapshot later.",
-            "💡".bright_blue(),
+            t.info.paint("💡"),
             short
         )?;
     }

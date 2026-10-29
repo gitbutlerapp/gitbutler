@@ -36,6 +36,31 @@ git clone repo conficted_entries_get_written_when_leaving_edit_mode
   git commit --allow-empty -m "GitButler Workspace Commit"
 )
 
+git clone conficted_entries_get_written_when_leaving_edit_mode conficted_entries_get_written_when_leaving_edit_mode_in_edit_mode
+(cd conficted_entries_get_written_when_leaving_edit_mode_in_edit_mode
+  git branch --track main origin/main
+  git branch -f branchy origin/branchy
+  git branch -f gitbutler/edit branchy
+  git symbolic-ref HEAD refs/heads/gitbutler/edit
+  git reset --hard gitbutler/edit
+  git update-ref refs/gitbutler/edit-uncommitted-changes "$(git rev-parse HEAD^{tree})"
+
+  left_blob=$(printf "left\n" | git hash-object -w --stdin)
+  right_blob=$(printf "right\n" | git hash-object -w --stdin)
+  git update-index --index-info <<EOF
+100644 $left_blob 2	conflict
+100644 $right_blob 3	conflict
+EOF
+  cat >conflict <<EOF
+<<<<<<< ours
+left
+|||||||
+=======
+right
+>>>>>>> theirs
+EOF
+)
+
 git clone repo enter_edit_mode_with_conflicted_commit
 (cd enter_edit_mode_with_conflicted_commit
   git config user.name "Author"
@@ -74,7 +99,9 @@ gitbutler-headers-version 2
 change-id 00000000-0000-0000-0000-000000000001
 gitbutler-conflicted 1
 
-Changes to make millions
+[conflict] Changes to make millions
+
+GitButler-Conflict: fixture marker
 
 EOF
   )

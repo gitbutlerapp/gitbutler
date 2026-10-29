@@ -1,11 +1,11 @@
 <script lang="ts">
-	import BranchHeaderIcon from "$components/BranchHeaderIcon.svelte";
+	import BranchHeaderIcon from "$components/branch/BranchHeaderIcon.svelte";
 	import { getColorFromCommitState } from "$components/lib";
 	import { type CommitStatusType } from "$lib/commits/commit";
-	import { type PushStatus } from "$lib/stacks/stack";
-	import { Icon, FileIcon } from "@gitbutler/ui";
-	import { type DragStateService } from "@gitbutler/ui/drag/dragStateService.svelte";
+	import { Icon, FileIcon } from "@gitbutler/ui-svelte";
+	import { type DragStateService } from "@gitbutler/ui-svelte/drag/dragStateService.svelte";
 	import { readable } from "svelte/store";
+	import type { PushStatus } from "@gitbutler/but-sdk";
 
 	type Props = {
 		type: "branch" | "commit" | "file" | "folder" | "hunk" | "ai-session";
@@ -59,7 +59,7 @@
 		<div class="drag-animation-wrapper" class:activated={$dropLabel !== undefined}>
 			{@render dropLabelSnippet({ label: $dropLabel, amount: childrenAmount })}
 			{#if pushStatus}
-				<BranchHeaderIcon iconName="branch-local" color="var(--clr-commit-local)" small />
+				<BranchHeaderIcon iconName="branch-local" color="var(--commit-local)" small />
 			{/if}
 			<span class="truncate text-15 text-bold">
 				{label}
@@ -77,7 +77,12 @@
 			commitType !== "Base"}
 		style:--commit-color={commitColor}
 	>
-		<div class="drag-animation-wrapper" class:activated={$dropLabel !== undefined}>
+		<div
+			class="drag-animation-wrapper"
+			class:activated={$dropLabel !== undefined}
+			class:commit-two={childrenAmount === 2}
+			class:commit-multiple={childrenAmount > 2}
+		>
 			{@render dropLabelSnippet({ label: $dropLabel, amount: childrenAmount })}
 			<div class="draggable-commit-indicator"></div>
 			<div class="truncate text-13 text-semibold draggable-commit-label">
@@ -118,7 +123,7 @@
 					</div>
 				{:else if type === "folder"}
 					<div class="dragchip-file-container">
-						<FileIcon fileName="folder-close" color="var(--clr-text-2)" />
+						<FileIcon fileName="folder-close" color="var(--text-2)" />
 						<span class="text-12 text-semibold truncate dragchip-file-name">
 							{label || "Empty folder"}
 						</span>
@@ -188,16 +193,16 @@
 		align-items: center;
 		padding: 4px 7px;
 		border-radius: 100px;
-		background-color: var(--clr-theme-gray-element);
-		color: var(--clr-theme-gray-on-element);
+		background-color: var(--fill-gray-bg);
+		color: var(--fill-gray-fg);
 		white-space: nowrap;
 		pointer-events: none;
 	}
 
 	.drag-action-label__action {
 		gap: 4px;
-		background-color: var(--clr-theme-pop-element);
-		color: var(--clr-theme-pop-on-element);
+		background-color: var(--fill-pop-bg);
+		color: var(--fill-pop-fg);
 	}
 
 	.drag-action-label-icon {
@@ -223,9 +228,9 @@
 		position: relative;
 		min-width: 50px;
 		max-width: 240px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		box-shadow: var(--chip-shadow);
 	}
 
@@ -236,9 +241,9 @@
 		position: absolute;
 		width: 100%;
 		height: 100%;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		content: "";
 	}
 
@@ -275,7 +280,7 @@
 	}
 
 	.dragchip-file-name {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 
 	/* HUNK DRAG */
@@ -287,10 +292,10 @@
 
 	.dragchip-hunk-decorator {
 		padding: 6px 5px;
-		border-right: 1px solid var(--clr-border-2);
+		border-right: 1px solid var(--border-2);
 		border-radius: var(--radius-m) 0 0 var(--radius-m);
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-2);
+		background-color: var(--bg-2);
+		color: var(--text-2);
 		font-variant-ligatures: none;
 		letter-spacing: -1px;
 	}
@@ -331,9 +336,9 @@
 			height: 36px;
 			padding: 0 10px;
 			gap: 10px;
-			border: 1px solid var(--clr-border-2);
+			border: 1px solid var(--border-2);
 			border-radius: var(--radius-m);
-			background-color: var(--clr-bg-1);
+			background-color: var(--bg-1);
 			box-shadow: var(--chip-shadow);
 		}
 	}
@@ -349,9 +354,9 @@
 			height: 36px;
 			padding: 0 10px;
 			gap: 10px;
-			border: 1px solid var(--clr-border-2);
+			border: 1px solid var(--border-2);
 			border-radius: var(--radius-m);
-			background-color: var(--clr-bg-1);
+			background-color: var(--bg-1);
 			box-shadow: var(--chip-shadow);
 
 			&::before {
@@ -372,8 +377,43 @@
 		flex-shrink: 0;
 		width: 10px;
 		height: 10px;
-		outline: 3px solid var(--clr-bg-1);
+		outline: 3px solid var(--bg-1);
 		background-color: var(--commit-color);
+	}
+
+	/* if dragging more than one commit */
+	.drag-animation-wrapper.commit-two::after,
+	.drag-animation-wrapper.commit-multiple::before,
+	.drag-animation-wrapper.commit-multiple::after {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		border: 1px solid var(--border-2);
+		border-radius: var(--radius-m);
+		background-color: var(--bg-1);
+		content: "";
+	}
+
+	.drag-animation-wrapper.commit-two {
+		&::after {
+			z-index: -1;
+			top: 6px;
+			left: 6px;
+		}
+	}
+
+	.drag-animation-wrapper.commit-multiple {
+		&::before {
+			z-index: -1;
+			top: 6px;
+			left: 6px;
+		}
+
+		&::after {
+			z-index: -2;
+			top: 12px;
+			left: 12px;
+		}
 	}
 
 	.draggable-commit-local {

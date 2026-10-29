@@ -302,7 +302,7 @@
 			padding: 12px 14px;
 			border-top-right-radius: 8px;
 			border-top-left-radius: 8px;
-			background-color: var(--clr-core-gray-20);
+			background-color: var(--clr-gray-20);
 			color: #cccccc;
 			font-weight: 400;
 			font-size: 14px;
@@ -343,8 +343,8 @@
 		padding: 24px;
 		padding-bottom: var(--desktop-padding-bottom);
 		overflow-y: auto;
-		background: var(--clr-core-gray-10);
-		box-shadow: inset 0px 4px 100px var(--clr-core-gray-20);
+		background: var(--clr-gray-10);
+		box-shadow: inset 0px 4px 100px var(--clr-gray-20);
 		color: #d4d4d4;
 		font-size: 14px;
 		line-height: 1.5;

@@ -1,0 +1,151 @@
+// A keymap like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming
+// and adding an empty commit, Return to fold and unfold, and the keys the app's lists and
+// overlays need, as GitButler's keymap has them. `base.json`, which macOS gives every app,
+// binds after these. `secondary` is cmd on macOS and ctrl elsewhere; a section with "os" binds
+// only there. Order matters: within a context the binding added last wins, and the last binding
+// for an action is the key menus and tooltips show, so the TUI's letters come after the arrows.
+[
+  // : for the TUI's command line, ? for its help, / for its jump and Esc to go back. y copies the
+  // selection and ⇧Y picks what else of it to copy. u undoes and ⇧U redoes. ← and →, or h and l,
+  // go to the pane on that side, as l focuses the TUI's details and h its status.
+  {
+    "context": "Workspace && !TextInput",
+    "bindings": {
+      ":": "app::CommandPalette",
+      "?": "settings::OpenKeyboardShortcuts",
+      "/": "palette::GoTo",
+      "escape": "app::Cancel",
+      "y": "navigator::CopySelection",
+      "shift-y": "palette::CopyMore",
+      "u": "app::Undo",
+      "shift-u": "app::Redo",
+      "right": "app::FocusPaneRight",
+      "l": "app::FocusPaneRight",
+      "left": "app::FocusPaneLeft",
+      "h": "app::FocusPaneLeft"
+    }
+  },
+  // The TUI's status list: up and down, ⇧J and ⇧K between sections, g and ⇧G to either end. r
+  // renames, where the TUI's squashes, and n adds an empty commit above the selected one, or on
+  // top of the selected branch. Return folds or unfolds what the selected row heads: a card, a
+  // section, a worktree, a stack, a branch or a merge.
+  {
+    "context": "Navigator && !TextInput",
+    "bindings": {
+      "up": "navigator::SelectPrevious",
+      "k": "navigator::SelectPrevious",
+      "down": "navigator::SelectNext",
+      "j": "navigator::SelectNext",
+      "shift-k": "navigator::PreviousSection",
+      "shift-j": "navigator::NextSection",
+      "g": "navigator::SelectFirst",
+      "shift-g": "navigator::SelectLast",
+      "r": "navigator::RenameSelection",
+      "n": "edits::AddEmptyCommitAbove",
+      "enter": "navigator::ToggleFold"
+    }
+  },
+  // The TUI's details: j and k between hunks, ⌃D and ⌃U half a page, g and ⇧G to the first and
+  // last file. Return on a file's header folds or unfolds it, as on its row in the file list.
+  {
+    "context": "Diff && !TextInput",
+    "bindings": {
+      "down": "diff::NextHunk",
+      "j": "diff::NextHunk",
+      "up": "diff::PreviousHunk",
+      "k": "diff::PreviousHunk",
+      "ctrl-d": "diff::HalfPageDown",
+      "ctrl-u": "diff::HalfPageUp",
+      "g": "diff::FirstFile",
+      "shift-g": "diff::LastFile",
+      "enter": "diff::ToggleFileFold"
+    }
+  },
+  // The file list, inside the diff's context, steps through its files rather than going on to
+  // the diff's hunks, which would take the keys there.
+  {
+    "context": "Files && !TextInput",
+    "bindings": {
+      "down": "diff::NextFile",
+      "j": "diff::NextFile",
+      "up": "diff::PreviousFile",
+      "k": "diff::PreviousFile"
+    }
+  },
+  // The History and Branches lists step and jump as the navigator does, and fold as GitButler's
+  // keymap folds them, the arrows last so menus show them. Return folds or unfolds as in the
+  // navigator, the People card under a list too; on Operations history, where nothing folds,
+  // it restores to before the operation, after asking.
+  {
+    "context": "List && !TextInput",
+    "bindings": {
+      "down": "navigator::SelectNext",
+      "j": "navigator::SelectNext",
+      "up": "navigator::SelectPrevious",
+      "k": "navigator::SelectPrevious",
+      "g": "navigator::SelectFirst",
+      "shift-g": "navigator::SelectLast",
+      "shift-l": "navigator::Expand",
+      "shift-right": "navigator::Expand",
+      "shift-h": "navigator::Collapse",
+      "shift-left": "navigator::Collapse",
+      "enter": "navigator::ToggleFold"
+    }
+  },
+  // After the text field's own keys, so these win in the find field.
+  {
+    "context": "FindBar > TextInput",
+    "bindings": {
+      "enter": "find::FindNext",
+      "shift-enter": "find::FindPrevious"
+    }
+  },
+  // After the text field's own keys, so these win inside the palette. ⌃P and ⌃N, as in the
+  // TUI's jump.
+  {
+    "context": "Palette > TextInput",
+    "bindings": {
+      "up": "palette::PaletteUp",
+      "down": "palette::PaletteDown",
+      "ctrl-p": "palette::PaletteUp",
+      "ctrl-n": "palette::PaletteDown"
+    }
+  },
+  // Settings' pages, from its search box too, as the palette's list is.
+  {
+    "context": "SettingsPages > TextInput",
+    "bindings": {
+      "up": "navigator::SelectPrevious",
+      "down": "navigator::SelectNext"
+    }
+  },
+  {
+    "context": "SettingsPages && !TextInput",
+    "bindings": {
+      "up": "navigator::SelectPrevious",
+      "k": "navigator::SelectPrevious",
+      "down": "navigator::SelectNext",
+      "j": "navigator::SelectNext"
+    }
+  },
+  // After the text field's own keys, so these win in the search field.
+  {
+    "context": "WhatsNew > TextInput",
+    "bindings": {
+      "up": "whats_new::PreviousRelease",
+      "down": "whats_new::NextRelease"
+    }
+  },
+  // A description's image previewed: the one before or after it, and Space closes it, as in
+  // Quick Look.
+  {
+    "context": "ImagePreview",
+    "bindings": {
+      "left": "image_preview::PreviousImage",
+      "h": "image_preview::PreviousImage",
+      "right": "image_preview::NextImage",
+      "l": "image_preview::NextImage",
+      "space": "app::Cancel"
+    }
+  }
+]

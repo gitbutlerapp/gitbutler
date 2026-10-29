@@ -1,15 +1,20 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, strum::Display, clap::ValueEnum, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, strum::Display, clap::ValueEnum)]
 #[serde(rename_all = "camelCase")]
 pub enum CommandName {
     Init,
+    Setup,
     Absorb,
     Discard,
     Status,
     Tui,
     Stf,
-    Rub,
+    Uncommit,
+    Amend,
+    Squash,
+    Move,
+    Split,
     Diff,
     Edit,
     Show,
@@ -21,7 +26,9 @@ pub enum CommandName {
     OplogSnapshot,
     Restore,
     Undo,
+    Redo,
     Gui,
+    Open,
     BaseFetch,
     BaseCheck,
     Pull,
@@ -31,15 +38,16 @@ pub enum CommandName {
     BranchShow,
     BranchUnapply,
     BranchApply,
+    BranchUpdate,
     BranchMove,
-    ClaudePreTool,
-    ClaudePostTool,
-    ClaudeStop,
-    CursorAfterEdit,
-    CursorStop,
-    Worktree,
-    Mark,
-    Unmark,
+    BranchTearOff,
+    WorktreeList,
+    WorktreeArchive,
+    WorktreeUnarchive,
+    WorktreeRemove,
+    WorktreeNew,
+    Switch,
+    Config,
     ForgeAuth,
     ForgeListUsers,
     ForgeForget,
@@ -50,29 +58,47 @@ pub enum CommandName {
     EnableAutoMerge,
     SetReviewReady,
     SetReviewDraft,
-    Completions,
     AliasCheck,
     AliasAdd,
     AliasRemove,
     RefreshRemoteData,
     Resolve,
     Update,
-    Merge,
+    UpdateCheck,
+    UpdateSuppress,
+    UpdateInstall,
+    Land,
+    Teardown,
+    #[cfg(feature = "nightly")]
+    Expand,
+    Comment,
+    Completions,
+    Mcp,
+    Metrics,
+    Help,
+    Onboarding,
+    AgentLog,
+    Actions,
+    Skill,
     SkillInstall,
     SkillCheck,
+    AgentSetup,
     Pick,
-    #[default]
-    Unknown,
+    Clean,
+    External,
 }
 
 impl CommandName {
-    /// Percentage sample rate, between 0 and 1.
+    /// Sampling rate for successful events, in (0, 1].
     ///
-    /// 1 indicates that the command should always be submitted to posthog, and
-    /// 0 should never be submitted to posthog.
+    /// Failures bypass this policy and are emitted with a rate of 1. In PostHog,
+    /// estimate successful command totals with
+    /// `sum(1 / coalesce(samplingRate, 1))`.
     pub fn sample_rate(&self) -> f32 {
         match self {
-            Self::Unknown | Self::Completions | Self::Status => 0.05,
+            Self::Status => 0.01,
+            Self::Diff | Self::RefreshRemoteData => 0.05,
+            Self::BranchList => 0.10,
             _ => 1.0,
         }
     }

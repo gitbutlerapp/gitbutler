@@ -11,40 +11,61 @@
     clippy::too_many_lines
 )]
 
-use std::sync::Arc;
-
 use anyhow::{Context, bail};
-use but_api::{commit, diff, github, gitlab, legacy, platform};
-use but_claude::{Broadcaster, Claude};
+use but_api::{
+    bitbucket, branch, commit, diff, github, gitlab, land, legacy, open, platform, resolve,
+    workspace, worktrees,
+};
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{
-    WindowState, action, askpass, bot, claude, csp::csp_with_extras, env, logs, menu, projects,
-    settings, zip,
+    WindowState, askpass, csp::csp_with_extras, env, logs, menu, projects, settings, zip,
 };
 use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_log::{Target, TargetKind};
-use tokio::sync::Mutex;
 
 fn main() -> anyhow::Result<()> {
+    // The native client relaunches this as the web app when its window can't open, and to
+    // install an update. Both are taken out of the environment, which the relaunches after
+    // them pass on: the web app's after installing, and the Windows installer's once done.
+    #[cfg(feature = "builtin-gpui")]
+    let web_once = std::env::var_os(but_gpui::WEB_APP_ONCE).is_some();
+    #[cfg(feature = "builtin-gpui")]
+    let install_update = std::env::var_os(but_gpui::INSTALL_UPDATE).is_some();
+    #[cfg(feature = "builtin-gpui")]
+    // SAFETY: first thing in `main`, before any other thread could read the environment.
+    unsafe {
+        std::env::remove_var(but_gpui::WEB_APP_ONCE);
+        std::env::remove_var(but_gpui::INSTALL_UPDATE);
+    };
     but_api::panic_capture::install_panic_hook();
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
     #[cfg(feature = "builtin-but")]
     {
-        let exe = std::env::current_exe()?;
-        if exe.file_stem().is_some_and(|stem| stem == "but") || std::env::args_os().count() > 1 {
-            gitbutler_repo_actions::askpass::disable();
+        if but::is_executed_as_but()? {
+            but_askpass::disable();
             return runtime.block_on(but::handle_args(std::env::args_os()));
         }
     }
     let performance_logging = std::env::var_os("GITBUTLER_PERFORMANCE_LOG").is_some();
     let tauri_debug_logging = std::env::var_os("GITBUTLER_TAURI_DEBUG_LOG").is_some();
 
-    gitbutler_project::configure_git2();
     let mut tauri_context = generate_context!();
+    #[cfg(feature = "builtin-gpui")]
+    if install_update {
+        return install_update_for_gpui(tauri_context);
+    }
     but_secret::secret::set_application_namespace(&tauri_context.config().identifier);
+
+    // Set the macOS notification bundle ID so notifications appear as GitButler.
+    #[cfg(target_os = "macos")]
+    {
+        if let Err(e) = notify_rust::set_application(&tauri_context.config().identifier) {
+            tracing::warn!(error = %e, "Failed to set notification application");
+        }
+    }
 
     let config_dir = but_path::app_config_dir().expect("missing config dir");
     std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
@@ -64,8 +85,36 @@ fn main() -> anyhow::Result<()> {
         custom_settings
     };
     let mut app_settings =
-        AppSettingsWithDiskSync::new_with_customization(config_dir.clone(), custom_settings)
+        AppSettingsWithDiskSync::new_with_customization(config_dir, custom_settings)
             .expect("failed to create app settings");
+
+    // The native client, on the same settings, accounts and keychain entries. It owns the main
+    // thread until it quits, so it starts here, before Tauri does.
+    #[cfg(feature = "builtin-gpui")]
+    if !web_once
+        && (std::env::args_os().any(|arg| arg == "--gpui")
+            || app_settings.get()?.feature_flags.gpui)
+    {
+        // Into the web app's log folder, so the setup below is logged too.
+        but_gpui::init_logging();
+        // As the web app's setup does: hooks and signing need the PATH and the like of the
+        // user's shell, which an app opened from the Dock or Finder doesn't have.
+        #[cfg(target_os = "macos")]
+        but_action::cli::auto_fix_broken_but_cli_symlink();
+        inherit_interactive_login_shell_environment_if_not_launched_from_terminal();
+        // It asks the web app's update feed, as often as the web app would, and installs what
+        // it offers with a run of this binary, `install_update_for_gpui`.
+        #[allow(deprecated)]
+        let interval = app_settings.get()?.ui.check_for_updates_interval_in_seconds;
+        but_gpui::run(Some(but_gpui::Embedded {
+            version: tauri_context.package_info().version.to_string(),
+            update_feed: (interval > 0)
+                .then(|| update_feed(&tauri_context))
+                .flatten(),
+            check_every: std::time::Duration::from_secs(interval),
+        }));
+        return Ok(());
+    }
 
     if let Ok(updated_csp) = csp_with_extras(
         tauri_context.config().app.security.csp.as_ref().cloned(),
@@ -93,7 +142,6 @@ fn main() -> anyhow::Result<()> {
     std::fs::create_dir_all(&app_log_dir).context("failed to create app log dir")?;
 
     let tokio_debug = matches!(std::env::var("GITBUTLER_TOKIO_DEBUG").as_deref(), Ok("1"));
-    let app_settings_for_menu = app_settings.clone();
     runtime.block_on(async {
         tauri::async_runtime::set(tokio::runtime::Handle::current());
 
@@ -102,9 +150,9 @@ fn main() -> anyhow::Result<()> {
                 file_name: Some("ui-logs".to_string()),
             }))
             .level(if tauri_debug_logging {
-                log::LevelFilter::Debug
+                tauri_plugin_log::log::LevelFilter::Debug
             } else {
-                log::LevelFilter::Error
+                tauri_plugin_log::log::LevelFilter::Error
             });
 
         let builder = tauri::Builder::default()
@@ -118,7 +166,7 @@ fn main() -> anyhow::Result<()> {
 
                 // TODO(mtsgrd): Is there a better way to disable devtools in E2E tests?
                 #[cfg(debug_assertions)]
-                if tauri_app.config().product_name != Some("GitButler Test".to_string()) {
+                if tauri_app.config().product_name.as_deref() != Some("GitButler Test") {
                     window.open_devtools();
                 }
 
@@ -126,6 +174,7 @@ fn main() -> anyhow::Result<()> {
 
                 logs::init(app_handle, &app_log_dir, performance_logging, tokio_debug);
 
+                #[cfg(target_os = "macos")]
                 but_action::cli::auto_fix_broken_but_cli_symlink();
                 inherit_interactive_login_shell_environment_if_not_launched_from_terminal();
                 migrate_projects().ok();
@@ -140,7 +189,7 @@ fn main() -> anyhow::Result<()> {
                     tracing::info!("SHELL env: {var:?}", var = std::env::var_os("SHELL"));
                 }
 
-                gitbutler_repo_actions::askpass::init({
+                but_askpass::init({
                     let handle = app_handle.clone();
                     move |event| {
                         handle
@@ -162,35 +211,12 @@ fn main() -> anyhow::Result<()> {
                     }
                 })?;
 
-                let broadcaster = Arc::new(Mutex::new(Broadcaster::new()));
-
-                let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
-                let broadcaster2 = broadcaster.clone();
-                tokio::spawn(async move {
-                    broadcaster2
-                        .lock()
-                        .await
-                        .register_sender(&uuid::Uuid::new_v4(), send)
-                });
-
-                let window2 = window.clone();
-                std::thread::spawn(move || {
-                    while let Some(message) = recv.blocking_recv() {
-                        window2.emit(&message.name, message.payload).unwrap();
-                    }
-                });
-
-                let claude = Claude {
-                    broadcaster: broadcaster.clone(),
-                    instance_by_stack: Default::default(),
-                };
                 let archival = but_feedback::Archival {
                     cache_dir: app_cache_dir.clone(),
                     logs_dir: app_log_dir.clone(),
                 };
                 app_handle.manage(archival);
                 app_handle.manage(app_settings);
-                app_handle.manage(claude);
 
                 tauri_app.on_menu_event(move |handle, event| {
                     let target_window = handle
@@ -246,10 +272,28 @@ fn main() -> anyhow::Result<()> {
                 gitlab::tauri_forget_gitlab_account::forget_gitlab_account,
                 gitlab::tauri_list_known_gitlab_accounts::list_known_gitlab_accounts,
                 gitlab::tauri_clear_all_gitlab_tokens::clear_all_gitlab_tokens,
+                bitbucket::tauri_store_bitbucket_api_token::store_bitbucket_api_token,
+                bitbucket::tauri_get_bb_user::get_bb_user,
+                bitbucket::tauri_forget_bitbucket_account::forget_bitbucket_account,
+                bitbucket::tauri_list_known_bitbucket_accounts::list_known_bitbucket_accounts,
+                bitbucket::tauri_clear_all_bitbucket_tokens::clear_all_bitbucket_tokens,
+                bitbucket::tauri_check_bitbucket_credentials::check_bitbucket_credentials,
                 diff::tauri_commit_details::commit_details,
                 diff::tauri_commit_details_with_line_stats::commit_details_with_line_stats,
+                workspace::tauri_get_workspace::get_workspace,
+                workspace::tauri_set_target_ref_and_init_project::set_target_ref_and_init_project,
+                workspace::tauri_resolve_worktree_conflicts::resolve_worktree_conflicts,
                 but_api::branch::tauri_branch_diff::branch_diff,
+                but_api::branch::tauri_move_branch::move_branch,
+                but_api::branch::tauri_tear_off_branch::tear_off_branch,
+                but_api::branch::tauri_branch_remove::branch_remove,
+                but_api::branch::tauri_branch_create::branch_create,
+                but_api::branch::tauri_branch_rename::branch_rename,
+                but_api::branch::tauri_branch_name_segment::branch_name_segment,
+                but_api::branch::tauri_branch_canned_name::branch_canned_name,
+                but_api::target_commits::tauri_workspace_target_commits::workspace_target_commits,
                 legacy::git::tauri_git_remote_branches::git_remote_branches,
+                but_api::branch::tauri_branch_list::branch_list,
                 legacy::git::tauri_delete_all_data::delete_all_data,
                 legacy::git::tauri_git_set_global_config::git_set_global_config,
                 legacy::git::tauri_git_remove_global_config::git_remove_global_config,
@@ -260,6 +304,10 @@ fn main() -> anyhow::Result<()> {
                 legacy::users::tauri_set_user::set_user,
                 legacy::users::tauri_delete_user::delete_user,
                 legacy::users::tauri_get_user::get_user,
+                legacy::users::tauri_get_login_token::get_login_token,
+                legacy::users::tauri_login_with_token::login_with_token,
+                legacy::users::tauri_get_user_profile::get_user_profile,
+                legacy::users::tauri_update_user_profile::update_user_profile,
                 legacy::projects::tauri_add_project::add_project,
                 legacy::projects::tauri_add_project_best_effort::add_project_best_effort,
                 legacy::projects::tauri_get_project::get_project,
@@ -275,41 +323,20 @@ fn main() -> anyhow::Result<()> {
                 legacy::repo::tauri_pre_commit_hook_diffspecs::pre_commit_hook_diffspecs,
                 legacy::repo::tauri_post_commit_hook::post_commit_hook,
                 legacy::repo::tauri_message_hook::message_hook,
-                legacy::cherry_apply::tauri_cherry_apply_status::cherry_apply_status,
-                legacy::cherry_apply::tauri_cherry_apply::cherry_apply,
                 legacy::virtual_branches::tauri_create_virtual_branch::create_virtual_branch,
                 legacy::virtual_branches::tauri_delete_local_branch::delete_local_branch,
                 legacy::virtual_branches::tauri_get_base_branch_data::get_base_branch_data,
                 legacy::virtual_branches::tauri_set_base_branch::set_base_branch,
                 legacy::virtual_branches::tauri_switch_back_to_workspace::switch_back_to_workspace,
-                legacy::virtual_branches::tauri_push_base_branch::push_base_branch,
-                legacy::virtual_branches::tauri_integrate_upstream_commits::integrate_upstream_commits,
-                legacy::virtual_branches::tauri_get_initial_integration_steps_for_branch::get_initial_integration_steps_for_branch,
                 legacy::virtual_branches::tauri_update_stack_order::update_stack_order,
                 legacy::virtual_branches::tauri_unapply_stack::unapply_stack,
-                legacy::virtual_branches::tauri_create_virtual_branch_from_branch::create_virtual_branch_from_branch,
-                legacy::virtual_branches::tauri_amend_virtual_branch::amend_virtual_branch,
-                legacy::virtual_branches::tauri_undo_commit::undo_commit,
-                legacy::virtual_branches::tauri_reorder_stack::reorder_stack,
-                legacy::virtual_branches::tauri_update_commit_message::update_commit_message,
                 legacy::virtual_branches::tauri_list_branches::list_branches,
                 legacy::virtual_branches::tauri_get_branch_listing_details::get_branch_listing_details,
-                legacy::virtual_branches::tauri_integrate_branch_with_steps::integrate_branch_with_steps,
-                legacy::virtual_branches::tauri_squash_commits::squash_commits,
                 legacy::virtual_branches::tauri_fetch_from_remotes::fetch_from_remotes,
-                legacy::virtual_branches::tauri_move_commit::move_commit,
-                legacy::virtual_branches::tauri_move_branch_legacy::move_branch_legacy,
-                legacy::virtual_branches::tauri_tear_off_branch::tear_off_branch,
                 legacy::virtual_branches::tauri_normalize_branch_name::normalize_branch_name,
-                legacy::virtual_branches::tauri_upstream_integration_statuses::upstream_integration_statuses,
-                legacy::virtual_branches::tauri_integrate_upstream::integrate_upstream,
-                legacy::virtual_branches::tauri_resolve_upstream_integration::resolve_upstream_integration,
-                legacy::stack::tauri_create_reference::create_reference,
-                legacy::stack::tauri_create_branch::create_branch,
-                legacy::stack::tauri_remove_branch::remove_branch,
-                legacy::stack::tauri_update_branch_name::update_branch_name,
-                legacy::stack::tauri_update_branch_pr_number::update_branch_pr_number,
-                legacy::stack::tauri_push_stack::push_stack,
+                branch::tauri_apply::apply,
+                branch::tauri_get_initial_branch_integration::get_initial_branch_integration,
+                branch::tauri_apply_branch_integration::apply_branch_integration,
                 legacy::secret::tauri_secret_get_global::secret_get_global,
                 legacy::secret::tauri_secret_set_global::secret_set_global,
                 legacy::secret::tauri_secret_delete_global::secret_delete_global,
@@ -330,12 +357,25 @@ fn main() -> anyhow::Result<()> {
                 legacy::modes::tauri_abort_edit_and_return_to_workspace::abort_edit_and_return_to_workspace,
                 legacy::modes::tauri_edit_initial_index_state::edit_initial_index_state,
                 legacy::modes::tauri_edit_changes_from_initial::edit_changes_from_initial,
-                legacy::open::tauri_open_url::open_url,
-                legacy::open::tauri_open_in_terminal::open_in_terminal,
-                legacy::open::tauri_show_in_finder::show_in_finder,
+                open::tauri_open_url::open_url,
+                open::tauri_open_in_terminal::open_in_terminal,
+                open::tauri_show_in_finder::show_in_finder,
+                open::tauri_workdir_path::workdir_path,
+                open::terminal::tauri_get_terminal_options_for_platform::get_terminal_options_for_platform,
+                open::terminal::tauri_get_recommended_terminal_for_platform::get_recommended_terminal_for_platform,
                 legacy::forge::tauri_pr_templates::pr_templates,
                 legacy::forge::tauri_pr_template::pr_template,
+                legacy::forge::tauri_forge_provider::forge_provider,
+                legacy::forge::tauri_forge_info::forge_info,
+                legacy::forge::tauri_forge_compare_branch_url::forge_compare_branch_url,
                 legacy::forge::tauri_list_reviews::list_reviews,
+                legacy::forge::tauri_review_apply::review_apply,
+                legacy::forge::tauri_get_review::get_review,
+                legacy::forge::tauri_get_review_merge_status::get_review_merge_status,
+                legacy::forge::tauri_get_review_base_repo_url::get_review_base_repo_url,
+                legacy::forge::tauri_get_repo_info::get_repo_info,
+                legacy::forge::tauri_update_review::update_review,
+                legacy::forge::tauri_list_ci_checks::list_ci_checks,
                 legacy::forge::tauri_publish_review::publish_review,
                 legacy::forge::tauri_merge_review::merge_review,
                 legacy::forge::tauri_set_review_auto_merge::set_review_auto_merge,
@@ -343,51 +383,26 @@ fn main() -> anyhow::Result<()> {
                 legacy::forge::tauri_update_review_footers::update_review_footers,
                 legacy::cli::tauri_install_cli::install_cli,
                 legacy::cli::tauri_cli_path::cli_path,
-                legacy::rules::tauri_create_workspace_rule::create_workspace_rule,
-                legacy::rules::tauri_delete_workspace_rule::delete_workspace_rule,
-                legacy::rules::tauri_update_workspace_rule::update_workspace_rule,
-                legacy::rules::tauri_list_workspace_rules::list_workspace_rules,
                 legacy::workspace::tauri_head_info::head_info,
-                legacy::workspace::tauri_stacks::stacks,
-                legacy::workspace::tauri_stack_details::stack_details,
                 legacy::workspace::tauri_branch_details::branch_details,
-                legacy::workspace::tauri_create_commit_from_worktree_changes::create_commit_from_worktree_changes,
-                legacy::workspace::tauri_amend_commit_from_worktree_changes::amend_commit_from_worktree_changes,
                 legacy::workspace::tauri_discard_worktree_changes::discard_worktree_changes,
                 legacy::workspace::tauri_stash_into_branch::stash_into_branch,
-                legacy::workspace::tauri_canned_branch_name::canned_branch_name,
-                legacy::workspace::tauri_target_commits::target_commits,
-                legacy::workspace::tauri_move_changes_between_commits::move_changes_between_commits,
-                legacy::workspace::tauri_uncommit_changes::uncommit_changes,
-                legacy::workspace::tauri_split_branch::split_branch,
-                legacy::workspace::tauri_split_branch_into_dependent_branch::split_branch_into_dependent_branch,
+                legacy::workspace::tauri_workspace_branch_and_ancestors_push::workspace_branch_and_ancestors_push,
                 legacy::absorb::tauri_absorb::absorb,
                 legacy::absorb::tauri_absorption_plan::absorption_plan,
-                legacy::diff::tauri_changes_in_worktree::changes_in_worktree,
-                legacy::diff::tauri_tree_change_diffs::tree_change_diffs,
-                legacy::diff::tauri_assign_hunk::assign_hunk,
+                diff::tauri_changes_in_worktree::changes_in_worktree,
+                diff::tauri_tree_change_diffs::tree_change_diffs,
+                diff::tauri_tree_change_diffs_from_source::tree_change_diffs_from_source,
+                diff::tauri_assign_hunk::assign_hunk,
+                worktrees::tauri_worktrees_list::worktrees_list,
+                worktrees::tauri_worktree_set_archived::worktree_set_archived,
+                worktrees::tauri_worktree_remove::worktree_remove,
+                worktrees::tauri_worktree_new::worktree_new,
                 #[cfg(unix)]
                 legacy::workspace::tauri_show_graph_svg::show_graph_svg,
-                legacy::claude::tauri_claude_get_session_details::claude_get_session_details,
-                legacy::claude::tauri_claude_list_permission_requests::claude_list_permission_requests,
-                legacy::claude::tauri_claude_update_permission_request::claude_update_permission_request,
-                legacy::claude::tauri_claude_answer_ask_user_question::claude_answer_ask_user_question,
-                legacy::claude::tauri_claude_check_available::claude_check_available,
-                legacy::claude::tauri_claude_list_prompt_templates::claude_list_prompt_templates,
-                legacy::claude::tauri_claude_get_prompt_dirs::claude_get_prompt_dirs,
-                legacy::claude::tauri_claude_maybe_create_prompt_dir::claude_maybe_create_prompt_dir,
-                legacy::claude::tauri_claude_get_config::claude_get_config,
-                legacy::claude::tauri_claude_get_sub_agents::claude_get_sub_agents,
-                legacy::claude::tauri_claude_verify_path::claude_verify_path,
-                legacy::claude::tauri_claude_get_user_message::claude_get_user_message,
-                action::list_actions,
-                action::handle_changes,
-                action::list_workflows,
-                action::auto_commit,
-                action::auto_branch_changes,
                 askpass::submit_prompt_response,
-                menu::menu_item_set_enabled,
                 projects::list_projects,
+                projects::server_capabilities,
                 projects::set_project_active,
                 projects::open_project_in_window,
                 zip::get_logs_archive_path,
@@ -398,29 +413,33 @@ fn main() -> anyhow::Result<()> {
                 settings::update_telemetry,
                 settings::update_feature_flags,
                 settings::update_telemetry_distinct_id,
-                settings::update_claude,
                 settings::update_fetch,
                 settings::update_reviews,
                 settings::update_ui,
-                bot::bot,
-                bot::forge_branch_chat,
                 // Debug-only - not for production!
                 #[cfg(debug_assertions)]
                 env::env_vars,
-                claude::claude_send_message,
-                claude::claude_get_messages,
-                claude::claude_cancel_session,
-                claude::claude_is_stack_active,
-                claude::claude_compact_history,
-                commit::tauri_commit_reword::commit_reword,
-                commit::tauri_commit_insert_blank::commit_insert_blank,
-                commit::tauri_commit_create::commit_create,
-                commit::tauri_commit_amend::commit_amend,
-                commit::tauri_commit_move_changes_between::commit_move_changes_between,
-                commit::tauri_commit_uncommit_changes::commit_uncommit_changes,
+                commit::reword::tauri_commit_reword::commit_reword,
+                commit::insert_blank::tauri_commit_insert_blank::commit_insert_blank,
+                commit::create::tauri_commit_create::commit_create,
+                commit::amend::tauri_commit_amend::commit_amend,
+                commit::cherry_pick::tauri_commit_cherry_pick::commit_cherry_pick,
+                commit::move_commit::tauri_commit_move::commit_move,
+                commit::move_changes::tauri_commit_move_changes_between::commit_move_changes_between,
+                commit::squash::tauri_commit_squash::commit_squash,
+                commit::uncommit::tauri_commit_uncommit_changes::commit_uncommit_changes,
+                commit::uncommit::tauri_commit_uncommit_changes_from_commits::commit_uncommit_changes_from_commits,
+                commit::uncommit::tauri_commit_uncommit::commit_uncommit,
+                workspace::tauri_workspace_integrate_upstream::workspace_integrate_upstream,
+                workspace::tauri_workspace_fetch_from_remotes::workspace_fetch_from_remotes,
+                workspace::tauri_workspace_fetch_status::workspace_fetch_status,
+                land::tauri_branch_land::branch_land,
+                resolve::tauri_resolve_commit_conflicts_ai::resolve_commit_conflicts_ai,
+                resolve::tauri_commit_conflicts::commit_conflicts,
+                resolve::tauri_resolve_commit_conflict_hunks::resolve_commit_conflict_hunks,
                 platform::tauri_build_type::build_type,
             ])
-            .menu(move |handle| menu::build(handle, &app_settings_for_menu))
+            .menu(menu::build)
             .on_window_event(|window, event| match event {
                 #[cfg(target_os = "macos")]
                 tauri::WindowEvent::CloseRequested { .. } => {
@@ -452,9 +471,7 @@ fn main() -> anyhow::Result<()> {
         builder
             .build(tauri_context)
             .expect("Failed to build tauri app")
-            .run(|app_handle, event| {
-                let _ = (app_handle, event);
-            });
+            .run(|_app_handle, _event| {});
     });
     Ok(())
 }
@@ -514,4 +531,82 @@ fn inherit_interactive_login_shell_environment_if_not_launched_from_terminal() {
     } else {
         doit();
     }
+}
+
+/// Install the update the feed offers, with the updater the web app uses, for the native
+/// client, which started this run to do it and stays open meanwhile. No window opens; stdout
+/// gets how much has downloaded, in percent, a line each time it changes, and a failure ends
+/// the run with its message on stderr.
+#[cfg(feature = "builtin-gpui")]
+fn install_update_for_gpui(context: tauri::Context<tauri::Wry>) -> anyhow::Result<()> {
+    use std::io::Write as _;
+    use tauri_plugin_updater::UpdaterExt as _;
+
+    async fn install(app: &tauri::AppHandle) -> anyhow::Result<()> {
+        let update = (app.updater()?.check().await?).context("there's no newer version")?;
+        let (mut downloaded, mut shown) = (0, None);
+        let bytes = update
+            .download(
+                |chunk, total| {
+                    downloaded += chunk as u64;
+                    let percent = total.map(|total| downloaded * 100 / total.max(1));
+                    if percent != shown {
+                        shown = percent;
+                        if let Some(percent) = percent {
+                            // The client may have quit, which doesn't stop the install.
+                            writeln!(std::io::stdout(), "{percent}").ok();
+                        }
+                    }
+                },
+                || {},
+            )
+            .await?;
+        update.install(bytes)?;
+        Ok(())
+    }
+
+    tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .setup(|app| {
+            // No Dock icon beside the client's.
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            let app = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let code = match install(&app).await {
+                    Ok(()) => 0,
+                    Err(err) => {
+                        eprintln!("{err:#}");
+                        1
+                    }
+                };
+                // Not `app.exit`, which ends the run with 0 whatever the code.
+                std::process::exit(code);
+            });
+            Ok(())
+        })
+        .run(context)?;
+    Ok(())
+}
+
+/// The update feed the web app asks for this build: its updater's first endpoint, filled in
+/// as the updater fills it for this machine and version.
+#[cfg(feature = "builtin-gpui")]
+fn update_feed(context: &tauri::Context<tauri::Wry>) -> Option<String> {
+    let updater = context.config().plugins.0.get("updater")?;
+    let endpoint = updater.get("endpoints")?.get(0)?.as_str()?;
+    let version = context.package_info().version.to_string();
+    Some(
+        endpoint
+            // Tauri's name for the OS.
+            .replace(
+                "{{target}}",
+                match std::env::consts::OS {
+                    "macos" => "darwin",
+                    os => os,
+                },
+            )
+            .replace("{{arch}}", std::env::consts::ARCH)
+            .replace("{{current_version}}", &version),
+    )
 }

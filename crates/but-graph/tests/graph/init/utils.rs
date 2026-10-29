@@ -1,7 +1,7 @@
-use but_core::{RefMetadata, ref_metadata::StackId};
+use but_core::ref_metadata::{ProjectMeta, StackId};
 use but_meta::{
     VirtualBranchesTomlMetadata,
-    virtual_branches_legacy_types::{Stack, StackBranch, Target},
+    virtual_branches_legacy_types::{Stack, StackBranch},
 };
 use but_testsupport::gix_testtools::scripted_fixture_read_only;
 
@@ -10,6 +10,7 @@ pub fn read_only_in_memory_scenario(
 ) -> anyhow::Result<(
     gix::Repository,
     std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+    but_db::DbHandle,
 )> {
     named_read_only_in_memory_scenario("scenarios", name)
 }
@@ -20,10 +21,13 @@ pub fn named_read_only_in_memory_scenario(
 ) -> anyhow::Result<(
     gix::Repository,
     std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+    but_db::DbHandle,
 )> {
     let repo = read_only_in_memory_scenario_named(script, name)?;
     let meta = in_memory_meta(repo.path().join(".git"))?;
-    Ok((repo, meta))
+    // The fixture is shared and read-only, so its database cannot live on disk.
+    let db = but_testsupport::in_memory_db();
+    Ok((repo, meta, db))
 }
 
 pub fn in_memory_meta(
@@ -63,35 +67,42 @@ pub fn add_workspace(meta: &mut VirtualBranchesTomlMetadata) {
 pub fn add_workspace_with_target(
     meta: &mut VirtualBranchesTomlMetadata,
     target_commit: impl Into<gix::ObjectId>,
-) {
+) -> ProjectMeta {
     add_stack(
         meta,
         usize::MAX,
         "definitely-outside-of-the-workspace-just-to-have-it",
         StackState::Inactive,
     );
-    meta.data_mut()
-        .default_target
-        .as_mut()
-        .expect("set in prior call")
-        .sha = target_commit.into();
+    ProjectMeta {
+        target_commit_id: Some(target_commit.into()),
+        target_ref: Some(target_ref_name()),
+        ..Default::default()
+    }
 }
 
-pub fn remove_target(meta: &mut VirtualBranchesTomlMetadata) {
-    let mut ws_md = meta
-        .workspace(
-            "refs/heads/gitbutler/workspace"
-                .try_into()
-                .expect("statically known to be valid"),
-        )
-        .unwrap();
-    ws_md.target_ref = None;
-    meta.set_workspace(&ws_md).unwrap();
+fn target_ref_name() -> but_core::ref_metadata::LocalRefName {
+    but_core::ref_metadata::LocalRefName::new(
+        "refs/heads/main"
+            .try_into()
+            .expect("statically known to be valid"),
+    )
+    .expect("statically known to be a local branch")
 }
 
-pub fn add_workspace_without_target(meta: &mut VirtualBranchesTomlMetadata) {
-    add_workspace(meta);
-    meta.data_mut().default_target = None;
+/// The target is local `main`, with the tip of `origin/main` as the stored target commit.
+pub fn default_project_meta(repo: &gix::Repository) -> ProjectMeta {
+    let target_ref = target_ref_name();
+    ProjectMeta {
+        target_commit_id: repo
+            .try_find_reference("refs/remotes/origin/main")
+            .ok()
+            .flatten()
+            .and_then(|mut r| r.peel_to_id().ok())
+            .map(|id| id.detach()),
+        target_ref: Some(target_ref),
+        ..Default::default()
+    }
 }
 
 pub fn add_stack(
@@ -135,15 +146,6 @@ pub fn add_stack_with_segments(
     let stack_id = StackId::from_number_for_testing(stack_id as u128);
     stack.id = stack_id;
     meta.data_mut().branches.insert(stack_id, stack);
-    // Assure we have a target set.
-    if meta.data_mut().default_target.is_none() {
-        meta.data_mut().default_target = Some(Target {
-            branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-            remote_url: "does not matter".to_string(),
-            sha: gix::hash::Kind::Sha1.null(),
-            push_remote_name: None,
-        });
-    }
     stack_id
 }
 
@@ -153,18 +155,8 @@ pub fn standard_options() -> but_graph::init::Options {
         commits_limit_hint: None,
         commits_limit_recharge_location: vec![],
         hard_limit: None,
-        extra_target_commit_id: None,
         dangerously_skip_postprocessing_for_debugging: false,
-    }
-}
-
-pub fn standard_options_with_extra_target(
-    repo: &gix::Repository,
-    name: &str,
-) -> but_graph::init::Options {
-    but_graph::init::Options {
-        extra_target_commit_id: Some(repo.rev_parse_single(name).expect("present").detach()),
-        ..standard_options()
+        worktrees: false,
     }
 }
 

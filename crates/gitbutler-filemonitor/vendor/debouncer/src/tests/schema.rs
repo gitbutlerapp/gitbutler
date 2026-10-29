@@ -296,6 +296,7 @@ impl State {
             rescan_event,
             errors: Vec::new(),
             timeout: Duration::from_millis(self.timeout.unwrap_or(50)),
+            hurried: false,
         }
     }
 }

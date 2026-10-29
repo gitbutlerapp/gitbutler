@@ -1,6 +1,6 @@
 # GitButler CLI Skill
 
-Claude Code skill for working with the GitButler CLI (`but` command) in workspace mode.
+Agent skill for working with the GitButler CLI (`but` command) in workspace mode.
 
 ## Installation
 
@@ -8,23 +8,20 @@ Install this skill using the GitButler CLI:
 
 ```bash
 but skill install    # Prompts for scope and format
-but skill install --with-link   # Install optional coordination-enabled variant
 ```
 
-The command prompts you to choose local (repository) or global (home directory) scope first, then prompts you to select a skill format (Claude Code, OpenCode, Codex, GitHub Copilot, Cursor, or Windsurf) and installs to the appropriate location. When run outside a git repository, local scope is unavailable and the default install location is global (home directory), but you can still install to a custom location with `--path` using an absolute or `~` path.
+The command prompts you to choose local (repository) or global (home directory) scope first, then prompts you to select a skill format (Agent Skills / `.agents/skills`, Claude Code, OpenCode, Codex, GitHub Copilot, Cursor, Windsurf, or Poolside) and installs to the appropriate location. When run outside a git repository, local scope is unavailable and the default install location is global (home directory), but you can still install to a custom location with `--path` using an absolute or `~` path.
 
 **Options:**
 - `--path <path>` - Install to a custom path (outside a repository, relative paths require `--global`)
 - `--global` - Install globally (in home directory) instead of current repository
 - `--detect` - Auto-detect installation location from existing installation (useful for updates)
-- `--with-link` - Install the optional variant that includes `but link` coordination workflow instructions
-
 In non-interactive mode, use `--path` or `--detect`.
 
 **Requirements:**
-- **GitButler CLI** installed: `curl -sSL https://gitbutler.com/install.sh | sh`
-- **Claude Code, OpenCode, Codex, GitHub Copilot, Cursor, or Windsurf**
-- Repository initialized with GitButler: `but setup` (only for local installs)
+- **GitButler CLI** installed (refer to the docs for installation instructions)
+- **An AI assistant with skills support** such as Agent Skills / `.agents/skills`, Claude Code, OpenCode, Codex, GitHub Copilot, Cursor, Windsurf, or Poolside
+- A Git repository.
 
 **Updating:**
 
@@ -42,34 +39,48 @@ but skill install
 
 This will overwrite the existing skill files with the latest version.
 
+## Printing the skill from the CLI
+
+The same content is embedded in the binary and can be read without installing anything:
+
+```bash
+but skill                # SKILL.md body
+but skill --full         # plus every reference document
+but skill reference      # command reference, rendered from the CLI's own command tree
+but skill concepts       # references/concepts.md
+but skill examples       # references/examples.md
+```
+
+`but skill reference` is rendered from the clap command tree
+(`crates/but/src/command/skill/reference.rs`), and `but skill install` writes the same text to
+`references/reference.md`, so the reference always matches the binary. To change it, edit the
+command's doc comments in `crates/but/src/args/`.
+
+Pointers inside the skill files use these commands rather than file paths, so they resolve whether the agent loaded an installed copy or read the CLI output.
+
 ## Skill Structure
 
 The skill directory contains both distributable skill files and development documentation:
 
 ```text
 crates/but/skill/
-├── SKILL.md                   ← Default skill entry point (INSTALLED by default)
-├── SKILL.with-link.md         ← Optional coordination-enabled variant (INSTALLED with --with-link)
+├── SKILL.md                   ← Skill entry point (INSTALLED)
+├── AGENTS.md                  ← Rules for editing these files (NOT installed)
 ├── README.md                  ← This file - development docs (NOT installed)
-├── RESEARCH.md                ← Tier 4 testing research and strategy (NOT installed)
-├── eval/                      ← Tier 4 integration eval harness (NOT installed)
 └── references/                ← Additional skill documentation (INSTALLED)
-    ├── reference.md           - Command reference
     ├── concepts.md            - Deep concepts
-    ├── examples.md            - Workflow examples
-    └── link.md                - `but link` coordination workflow reference
+    └── examples.md            - Workflow examples
 ```
 
 **What gets installed:**
 The `but skill install` command only copies the distributable files to the user's system:
-- `SKILL.md` - Main skill entry point (selected from default or `--with-link` variant)
-- `references/` - All reference documentation files
+- `SKILL.md` - Main skill entry point
+- `references/` - All reference documentation files, plus `references/reference.md` rendered from the command tree
 
 **What stays in the repository:**
 Development documentation remains in the source tree and is not installed:
+- `AGENTS.md` - Rules for anyone editing the skill files (symlinked as `CLAUDE.md`)
 - `README.md` - This file (development and maintenance docs)
-- `RESEARCH.md` - Testing strategy and learnings
-- `eval/` - Tier 4 integration test harness and scenarios
 
 ## When This Skill Is Invoked
 
@@ -77,7 +88,7 @@ Claude automatically invokes this skill when:
 
 - Checking version control state (status, diffs, commits)
 - Starting new work (should create branch/stack for each task)
-- After making code changes (should stage files to branches)
+- After making code changes (should commit them to the right branches)
 - Committing work (when logical units complete)
 - Editing history (amend, squash, move changes)
 - Any git-like operation
@@ -101,7 +112,7 @@ The YAML `description` field contains all triggering information so Claude knows
 
 ### Lean Entry Point
 
-SKILL.md is kept under 150 lines as a "table of contents" that points to detailed materials.
+SKILL.md acts as a "table of contents" that points to detailed materials.
 
 ### Domain Separation
 
@@ -119,11 +130,11 @@ Uses directive language ("do this") rather than passive ("this might happen").
 - Changes to core concepts
 - Updates to quick reference commands
 
-### When to Update REFERENCE.md
+### When to Update the Command Reference
 
-- New `but` commands
-- Changed command syntax
-- New flags or options
+The reference is rendered from the CLI's doc comments, so new commands, changed syntax, and new
+flags show up without edits here. Fix wrong or missing facts in the doc comments under
+`crates/but/src/args/`.
 
 ### When to Update CONCEPTS.md
 
@@ -137,31 +148,14 @@ Uses directive language ("do this") rather than passive ("this might happen").
 - Common user questions
 - Real-world scenarios
 
-### Line Count Guideline
-
-Keep SKILL.md at or under 250 lines. Split content into reference files if approaching the limit.
-
 ## Testing the Skill
 
 Test that Claude:
 
 1. Invokes skill when starting new work
 2. Creates branches before making changes
-3. Stages changes after edits
-4. Commits at logical points
-5. Uses `but` commands instead of `git`
-
-For automated integration testing against real disposable repositories, use the Tier 4 harness in `eval/`:
-Node must satisfy the `promptfoo` engine range documented in `eval/README.md` (repo baseline: `lts/jod`).
-
-```bash
-cd crates/but/skill/eval
-pnpm install --ignore-workspace
-pnpm approve-builds --ignore-workspace
-pnpm run eval
-# Optional: run the same harness with Codex instead of Claude
-pnpm run eval:codex
-```
+3. Commits changes to the right branches at logical points
+4. Uses `but` commands instead of `git`
 
 ## References
 

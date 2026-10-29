@@ -51,4 +51,9 @@
   <b>Don't worry, I can stop anytime.</b>
 </details>
 
+<details>
+  <summary>Why did the commit break up with the branch?</summary>
+  <b>It felt too detached</b>
+</details>
+
 <br>

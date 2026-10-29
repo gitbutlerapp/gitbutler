@@ -1,8 +1,8 @@
 #!/bin/bash
 
 echo "GIT CONFIG $GIT_CONFIG_GLOBAL"
-echo "DATA DIR $GITBUTLER_CLI_DATA_DIR"
-echo "BUT_TESTING $BUT_TESTING"
+echo "DATA DIR $E2E_TEST_APP_DATA_DIR"
+echo "BUT $BUT"
 
 # Setup a remote project.
 # GitButler currently requires projects to have a remote
@@ -37,12 +37,18 @@ popd
 git clone remote-project local-clone
 pushd local-clone
   git checkout master
-  $BUT_TESTING add-project --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
+  target_branch="$(git rev-parse --symbolic-full-name @{u})"
+  target_branch="${target_branch#refs/remotes/}"
+  "$BUT" switch --workspace
+  "$BUT" config target "$target_branch"
 popd
 
 # Clone the remote into another folder and add the project as well.
 git clone remote-project local-clone-2
 pushd local-clone-2
   git checkout master
-  $BUT_TESTING add-project --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
+  target_branch="$(git rev-parse --symbolic-full-name @{u})"
+  target_branch="${target_branch#refs/remotes/}"
+  "$BUT" switch --workspace
+  "$BUT" config target "$target_branch"
 popd

@@ -17,7 +17,7 @@ pub(super) struct PullCheckOutput {
 #[serde(rename_all = "camelCase")]
 pub(super) struct BaseBranchInfo {
     pub name: String,
-    pub remote_name: String,
+    pub remote_name: Option<String>,
     pub base_sha: String,
     pub current_sha: String,
 }

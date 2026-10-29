@@ -1,148 +1,305 @@
+use snapbox::IntoJson;
+
+#[test]
+fn head_info_with_local_target_converts_for_ui() -> anyhow::Result<()> {
+    let repo = crate::utils::read_only_in_memory_scenario_named("one-commit-detached", "")?;
+    let meta = std::mem::ManuallyDrop::new(but_meta::VirtualBranchesTomlMetadata::from_path(
+        repo.path().join("should-never-be-written.toml"),
+    )?);
+    let mut db = but_testsupport::in_memory_db();
+    assert!(repo.remote_names().is_empty(), "the fixture has no remotes");
+    let ref_info = but_workspace::head_info(
+        &repo,
+        &*meta,
+        &mut db,
+        but_workspace::ref_info::Options {
+            project_meta: but_core::ref_metadata::ProjectMeta {
+                target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+                    "refs/heads/main".try_into()?,
+                )?),
+                target_commit_id: Some(repo.rev_parse_single("refs/heads/main")?.detach()),
+                push_remote: None,
+            },
+            ..Default::default()
+        },
+    )?;
+    let ui_info: but_workspace::ui::RefInfo = ref_info.try_into()?;
+    let target = ui_info.target.expect("local target is retained");
+    // The transport preserves the local namespace without inventing a remote.
+    snapbox::assert_data_eq!(
+        (&target).into_json(),
+        snapbox::str![[r#"
+{
+  "refName": {
+    "fullNameBytes": [
+      114,
+      101,
+      102,
+      115,
+      47,
+      104,
+      101,
+      97,
+      100,
+      115,
+      47,
+      109,
+      97,
+      105,
+      110
+    ],
+    "displayName": "main",
+    "remoteName": null
+  },
+  "commitsAhead": 0,
+  "upstream": null,
+  "hasLanesBehind": false,
+  "canFastForwardLocalTarget": false
+}
+"#]]
+    );
+    Ok(())
+}
+
 mod changes_in_branch {
     use but_graph::init::Options;
     use but_testsupport::visualize_commit_graph_all;
     use but_workspace::ui;
+    use snapbox::prelude::*;
 
-    use crate::{ref_info::with_workspace_commit::utils::read_only_in_memory_scenario, utils::r};
+    use crate::{
+        ref_info::with_workspace_commit::utils::{project_meta, read_only_in_memory_scenario},
+        utils::r,
+    };
+
+    #[test]
+    fn inactive_branch_diff_preserves_local_target_changes_above_cutoff() -> anyhow::Result<()> {
+        let repo = but_testsupport::read_only_in_memory_scenario_named(
+            "branch-diff-local-target-ahead",
+            "",
+        )?;
+        let meta = but_testsupport::InMemoryRefMetadata::default();
+        let mut db = but_testsupport::in_memory_db();
+        let cutoff = repo.rev_parse_single("base")?.detach();
+        let project_meta = but_core::ref_metadata::ProjectMeta {
+            target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+                "refs/heads/main".try_into()?,
+            )?),
+            target_commit_id: Some(cutoff),
+            ..Default::default()
+        };
+        let ws =
+            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
+                .into_workspace()?;
+        let branch = r("refs/heads/inactive");
+        assert!(
+            ws.find_segment_by_refname(branch).is_none(),
+            "the inactive branch must use the fallback diff path"
+        );
+        assert_eq!(
+            ws.target_commit.as_ref().map(|target| target.commit_id),
+            Some(cutoff),
+            "the selected cutoff must remain below local main"
+        );
+
+        let changes = ui::diff::changes_in_branch(&repo, &ws, branch)?;
+        let paths: Vec<_> = changes
+            .changes
+            .iter()
+            .map(|change| change.path_bytes.as_slice())
+            .collect();
+        assert_eq!(
+            paths,
+            Vec::from([b"feature-only".as_slice(), b"local-only".as_slice()]),
+            "the diff must include local target changes above the cutoff"
+        );
+        Ok(())
+    }
 
     #[test]
     fn multiple_inside_and_outside_of_workspace() -> anyhow::Result<()> {
-        let (repo, meta) = read_only_in_memory_scenario("remote-advanced-ff")?;
-        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-        * fb27086 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-        | * 89cc2d3 (origin/A) change in A
-        |/  
-        * d79bba9 (A) new file in A
-        * c166d42 (origin/main, origin/HEAD, main) init-integration
-        ");
+        let (repo, meta, mut db) = read_only_in_memory_scenario("remote-advanced-ff")?;
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            snapbox::str![[r#"
+* fb27086 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| * 89cc2d3 (origin/A) change in A
+|/  
+* d79bba9 (A) new file in A
+* c166d42 (origin/main, origin/HEAD, main) init-integration
 
-        let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
+"#]]
+        );
+
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &*meta,
+            project_meta(&repo)?,
+            &mut db,
+            Options::limited(),
+        )?;
         let ws = graph.into_workspace()?;
 
-        insta::assert_debug_snapshot!(ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/A"))?, @r#"
-        TreeChanges {
-            changes: [
-                TreeChange {
-                    path: BStringForFrontend(
-                        "file-in-A",
-                    ),
-                    path_bytes: "file-in-A",
-                    status: Addition {
-                        state: ChangeState {
-                            id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
-                            kind: Blob,
-                        },
-                        is_untracked: false,
-                    },
+        snapbox::assert_data_eq!(
+            ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/A"))?.to_debug(),
+            snapbox::str![[r#"
+TreeChanges {
+    changes: [
+        TreeChange {
+            path: BStringForFrontend(
+                "file-in-A",
+            ),
+            path_bytes: "file-in-A",
+            status: Addition {
+                state: ChangeState {
+                    id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
+                    kind: Blob,
                 },
-            ],
-            stats: TreeStats {
-                lines_added: 0,
-                lines_removed: 0,
-                files_changed: 1,
+                is_untracked: false,
             },
-        }
-        "#);
-        insta::assert_debug_snapshot!(ui::diff::changes_in_branch(&repo, &ws, r("refs/remotes/origin/A"))?, @r#"
-        TreeChanges {
-            changes: [
-                TreeChange {
-                    path: BStringForFrontend(
-                        "file-in-A",
-                    ),
-                    path_bytes: "file-in-A",
-                    status: Addition {
-                        state: ChangeState {
-                            id: Sha1(0835e4f9714005ed591f68d306eea0d6d2ae8fd7),
-                            kind: Blob,
-                        },
-                        is_untracked: false,
-                    },
-                },
-            ],
-            stats: TreeStats {
-                lines_added: 1,
-                lines_removed: 0,
-                files_changed: 1,
-            },
-        }
-        "#);
-        insta::assert_debug_snapshot!(ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/gitbutler/workspace"))?, @r#"
-        TreeChanges {
-            changes: [
-                TreeChange {
-                    path: BStringForFrontend(
-                        "file-in-A",
-                    ),
-                    path_bytes: "file-in-A",
-                    status: Addition {
-                        state: ChangeState {
-                            id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
-                            kind: Blob,
-                        },
-                        is_untracked: false,
-                    },
-                },
-            ],
-            stats: TreeStats {
-                lines_added: 0,
-                lines_removed: 0,
-                files_changed: 1,
-            },
-        }
-        "#);
+        },
+    ],
+    stats: TreeStats {
+        lines_added: 0,
+        lines_removed: 0,
+        files_changed: 1,
+    },
+}
 
-        insta::assert_debug_snapshot!(ui::diff::changes_in_branch(&repo, &ws, r("refs/remotes/origin/A"))?, @r#"
-        TreeChanges {
-            changes: [
-                TreeChange {
-                    path: BStringForFrontend(
-                        "file-in-A",
-                    ),
-                    path_bytes: "file-in-A",
-                    status: Addition {
-                        state: ChangeState {
-                            id: Sha1(0835e4f9714005ed591f68d306eea0d6d2ae8fd7),
-                            kind: Blob,
-                        },
-                        is_untracked: false,
-                    },
+"#]]
+        );
+        snapbox::assert_data_eq!(
+            ui::diff::changes_in_branch(&repo, &ws, r("refs/remotes/origin/A"))?.to_debug(),
+            snapbox::str![[r#"
+TreeChanges {
+    changes: [
+        TreeChange {
+            path: BStringForFrontend(
+                "file-in-A",
+            ),
+            path_bytes: "file-in-A",
+            status: Addition {
+                state: ChangeState {
+                    id: Sha1(0835e4f9714005ed591f68d306eea0d6d2ae8fd7),
+                    kind: Blob,
                 },
-            ],
-            stats: TreeStats {
-                lines_added: 1,
-                lines_removed: 0,
-                files_changed: 1,
+                is_untracked: false,
             },
-        }
-        "#);
+        },
+    ],
+    stats: TreeStats {
+        lines_added: 1,
+        lines_removed: 0,
+        files_changed: 1,
+    },
+}
+
+"#]]
+        );
+        snapbox::assert_data_eq!(
+            ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/gitbutler/workspace"))?
+                .to_debug(),
+            snapbox::str![[r#"
+TreeChanges {
+    changes: [
+        TreeChange {
+            path: BStringForFrontend(
+                "file-in-A",
+            ),
+            path_bytes: "file-in-A",
+            status: Addition {
+                state: ChangeState {
+                    id: Sha1(e69de29bb2d1d6434b8b29ae775ad8c2e48c5391),
+                    kind: Blob,
+                },
+                is_untracked: false,
+            },
+        },
+    ],
+    stats: TreeStats {
+        lines_added: 0,
+        lines_removed: 0,
+        files_changed: 1,
+    },
+}
+
+"#]]
+        );
+
+        snapbox::assert_data_eq!(
+            ui::diff::changes_in_branch(&repo, &ws, r("refs/remotes/origin/A"))?.to_debug(),
+            snapbox::str![[r#"
+TreeChanges {
+    changes: [
+        TreeChange {
+            path: BStringForFrontend(
+                "file-in-A",
+            ),
+            path_bytes: "file-in-A",
+            status: Addition {
+                state: ChangeState {
+                    id: Sha1(0835e4f9714005ed591f68d306eea0d6d2ae8fd7),
+                    kind: Blob,
+                },
+                is_untracked: false,
+            },
+        },
+    ],
+    stats: TreeStats {
+        lines_added: 1,
+        lines_removed: 0,
+        files_changed: 1,
+    },
+}
+
+"#]]
+        );
 
         // Nothing here, it's the target.
-        insta::assert_debug_snapshot!(ui::diff::changes_in_branch(&repo, &ws, r("refs/remotes/origin/main"))?, @"
-        TreeChanges {
-            changes: [],
-            stats: TreeStats {
-                lines_added: 0,
-                lines_removed: 0,
-                files_changed: 0,
-            },
-        }
-        ");
+        snapbox::assert_data_eq!(
+            ui::diff::changes_in_branch(&repo, &ws, r("refs/remotes/origin/main"))?.to_debug(),
+            snapbox::str![[r#"
+TreeChanges {
+    changes: [],
+    stats: TreeStats {
+        lines_added: 0,
+        lines_removed: 0,
+        files_changed: 0,
+    },
+}
+
+"#]]
+        );
 
         let err =
             ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/does-not-exist")).unwrap_err();
-        assert_eq!(
+        // passing strange ref-names still causes an error - they must exist
+        snapbox::assert_data_eq!(
             err.to_string(),
-            "The reference 'refs/heads/does-not-exist' did not exist",
-            "passing strange ref-names still causes an error - they must exist"
+            snapbox::str![[
+                r#"The ref partially named "refs/heads/does-not-exist" could not be found[..]"#
+            ]]
         );
 
-        let mut ref_info: ui::RefInfo =
-            but_workspace::head_info(&repo, &*meta, Default::default())?.try_into()?;
-        ref_info = ref_info.pruned_to_entrypoint();
-        insta::assert_json_snapshot!(&ref_info, @r#"
+        let ref_info: ui::RefInfo = but_workspace::head_info(
+            &repo,
+            &*meta,
+            &mut db,
+            but_workspace::ref_info::Options {
+                project_meta: project_meta(&repo)?,
+                ..Default::default()
+            },
+        )?
+        .try_into()?;
+        snapbox::assert_data_eq!((&ref_info).into_json(), snapbox::str![[r#"
+{
+  "stacks": [
+    {
+      "id": null,
+      "base": "c166d42d4ef2e5e742d33554d03805cfb0b24d11",
+      "segments": [
         {
-          "workspaceRef": {
+          "refName": {
             "fullNameBytes": [
               114,
               101,
@@ -155,429 +312,197 @@ mod changes_in_branch {
               100,
               115,
               47,
-              103,
-              105,
-              116,
-              98,
-              117,
-              116,
-              108,
-              101,
+              65
+            ],
+            "displayName": "A"
+          },
+          "remoteTrackingRefName": {
+            "fullNameBytes": [
               114,
+              101,
+              102,
+              115,
               47,
-              119,
+              114,
+              101,
+              109,
+              111,
+              116,
+              101,
+              115,
+              47,
               111,
               114,
-              107,
-              115,
-              112,
-              97,
-              99,
-              101
+              105,
+              103,
+              105,
+              110,
+              47,
+              65
             ],
-            "displayName": "gitbutler/workspace"
+            "displayName": "A",
+            "remoteName": "origin"
           },
-          "stacks": [
+          "commits": [
             {
-              "id": null,
-              "base": "c166d42d4ef2e5e742d33554d03805cfb0b24d11",
-              "segments": [
-                {
-                  "refName": {
-                    "fullNameBytes": [
-                      114,
-                      101,
-                      102,
-                      115,
-                      47,
-                      104,
-                      101,
-                      97,
-                      100,
-                      115,
-                      47,
-                      65
-                    ],
-                    "displayName": "A"
-                  },
-                  "remoteTrackingRefName": {
-                    "fullNameBytes": [
-                      114,
-                      101,
-                      102,
-                      115,
-                      47,
-                      114,
-                      101,
-                      109,
-                      111,
-                      116,
-                      101,
-                      115,
-                      47,
-                      111,
-                      114,
-                      105,
-                      103,
-                      105,
-                      110,
-                      47,
-                      65
-                    ],
-                    "displayName": "A",
-                    "remoteName": "origin"
-                  },
-                  "commits": [
-                    {
-                      "id": "d79bba960b112dbd25d45921c47eeda22288022b",
-                      "parentIds": [
-                        "c166d42d4ef2e5e742d33554d03805cfb0b24d11"
-                      ],
-                      "message": "new file in A\n",
-                      "hasConflicts": false,
-                      "state": {
-                        "type": "LocalAndRemote",
-                        "subject": "d79bba960b112dbd25d45921c47eeda22288022b"
-                      },
-                      "createdAt": 946684800000,
-                      "author": {
-                        "name": "author",
-                        "email": "author@example.com",
-                        "gravatarUrl": "https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro"
-                      },
-                      "gerritReviewUrl": null
-                    }
-                  ],
-                  "commitsOnRemote": [
-                    {
-                      "id": "89cc2d303514654e9cab2d05b9af08b420a740c1",
-                      "message": "change in A\n",
-                      "createdAt": 946684800000,
-                      "author": {
-                        "name": "author",
-                        "email": "author@example.com",
-                        "gravatarUrl": "https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro"
-                      }
-                    }
-                  ],
-                  "commitsOutside": null,
-                  "metadata": null,
-                  "isEntrypoint": false,
-                  "pushStatus": "unpushedCommitsRequiringForce",
-                  "base": "c166d42d4ef2e5e742d33554d03805cfb0b24d11"
-                }
-              ]
+              "id": "d79bba960b112dbd25d45921c47eeda22288022b",
+              "parentIds": [
+                "c166d42d4ef2e5e742d33554d03805cfb0b24d11"
+              ],
+              "message": "new file in A\n",
+              "hasConflicts": false,
+              "state": {
+                "type": "LocalAndRemote",
+                "subject": "d79bba960b112dbd25d45921c47eeda22288022b"
+              },
+              "authoredAt": 946684800000,
+              "committedAt": 946771200000,
+              "author": {
+                "name": "author",
+                "email": "author@example.com",
+                "gravatarUrl": "https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro"
+              },
+              "changeId": "mvvzyyvvvuosslxwrvqpxopvomovrrmz",
+              "gerritReviewUrl": null
             }
           ],
-          "target": {
-            "remoteTrackingRef": {
-              "fullNameBytes": [
-                114,
-                101,
-                102,
-                115,
-                47,
-                114,
-                101,
-                109,
-                111,
-                116,
-                101,
-                115,
-                47,
-                111,
-                114,
-                105,
-                103,
-                105,
-                110,
-                47,
-                109,
-                97,
-                105,
-                110
-              ],
-              "displayName": "main",
-              "remoteName": "origin"
-            },
-            "commitsAhead": 0
-          },
-          "isManagedRef": true,
-          "isManagedCommit": true,
-          "isEntrypoint": true
-        }
-        "#);
-
-        // Forcefully set another entrypoint to simulate the real deal.
-        ref_info.is_entrypoint = false;
-        ref_info
-            .stacks
-            .push(ref_info.stacks.first().unwrap().clone());
-        ref_info
-            .stacks
-            .first_mut()
-            .unwrap()
-            .segments
-            .first_mut()
-            .unwrap()
-            .is_entrypoint = true;
-        ref_info = ref_info.pruned_to_entrypoint();
-        // only one entrypoint, despite having two.
-        insta::assert_json_snapshot!(&ref_info, @r#"
-        {
-          "workspaceRef": {
-            "fullNameBytes": [
-              114,
-              101,
-              102,
-              115,
-              47,
-              104,
-              101,
-              97,
-              100,
-              115,
-              47,
-              103,
-              105,
-              116,
-              98,
-              117,
-              116,
-              108,
-              101,
-              114,
-              47,
-              119,
-              111,
-              114,
-              107,
-              115,
-              112,
-              97,
-              99,
-              101
-            ],
-            "displayName": "gitbutler/workspace"
-          },
-          "stacks": [
+          "commitsOnRemote": [
             {
-              "id": null,
-              "base": "c166d42d4ef2e5e742d33554d03805cfb0b24d11",
-              "segments": [
-                {
-                  "refName": {
-                    "fullNameBytes": [
-                      114,
-                      101,
-                      102,
-                      115,
-                      47,
-                      104,
-                      101,
-                      97,
-                      100,
-                      115,
-                      47,
-                      65
-                    ],
-                    "displayName": "A"
-                  },
-                  "remoteTrackingRefName": {
-                    "fullNameBytes": [
-                      114,
-                      101,
-                      102,
-                      115,
-                      47,
-                      114,
-                      101,
-                      109,
-                      111,
-                      116,
-                      101,
-                      115,
-                      47,
-                      111,
-                      114,
-                      105,
-                      103,
-                      105,
-                      110,
-                      47,
-                      65
-                    ],
-                    "displayName": "A",
-                    "remoteName": "origin"
-                  },
-                  "commits": [
-                    {
-                      "id": "d79bba960b112dbd25d45921c47eeda22288022b",
-                      "parentIds": [
-                        "c166d42d4ef2e5e742d33554d03805cfb0b24d11"
-                      ],
-                      "message": "new file in A\n",
-                      "hasConflicts": false,
-                      "state": {
-                        "type": "LocalAndRemote",
-                        "subject": "d79bba960b112dbd25d45921c47eeda22288022b"
-                      },
-                      "createdAt": 946684800000,
-                      "author": {
-                        "name": "author",
-                        "email": "author@example.com",
-                        "gravatarUrl": "https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro"
-                      },
-                      "gerritReviewUrl": null
-                    }
-                  ],
-                  "commitsOnRemote": [
-                    {
-                      "id": "89cc2d303514654e9cab2d05b9af08b420a740c1",
-                      "message": "change in A\n",
-                      "createdAt": 946684800000,
-                      "author": {
-                        "name": "author",
-                        "email": "author@example.com",
-                        "gravatarUrl": "https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro"
-                      }
-                    }
-                  ],
-                  "commitsOutside": null,
-                  "metadata": null,
-                  "isEntrypoint": true,
-                  "pushStatus": "unpushedCommitsRequiringForce",
-                  "base": "c166d42d4ef2e5e742d33554d03805cfb0b24d11"
-                }
-              ]
+              "id": "89cc2d303514654e9cab2d05b9af08b420a740c1",
+              "message": "change in A\n",
+              "authoredAt": 946684800000,
+              "committedAt": 946771200000,
+              "author": {
+                "name": "author",
+                "email": "author@example.com",
+                "gravatarUrl": "https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro"
+              },
+              "changeId": null
             }
           ],
-          "target": {
-            "remoteTrackingRef": {
-              "fullNameBytes": [
-                114,
-                101,
-                102,
-                115,
-                47,
-                114,
-                101,
-                109,
-                111,
-                116,
-                101,
-                115,
-                47,
-                111,
-                114,
-                105,
-                103,
-                105,
-                110,
-                47,
-                109,
-                97,
-                105,
-                110
-              ],
-              "displayName": "main",
-              "remoteName": "origin"
-            },
-            "commitsAhead": 0
-          },
-          "isManagedRef": true,
-          "isManagedCommit": true,
-          "isEntrypoint": false
+          "metadata": null,
+          "pushStatus": "unpushedCommitsRequiringForce",
+          "base": "c166d42d4ef2e5e742d33554d03805cfb0b24d11"
         }
-        "#);
+      ]
+    }
+  ],
+  "target": {
+    "refName": {
+      "fullNameBytes": [
+        114,
+        101,
+        102,
+        115,
+        47,
+        104,
+        101,
+        97,
+        100,
+        115,
+        47,
+        109,
+        97,
+        105,
+        110
+      ],
+      "displayName": "main",
+      "remoteName": null
+    },
+    "commitsAhead": 0,
+    "upstream": {
+      "refName": {
+        "fullNameBytes": [
+          114,
+          101,
+          102,
+          115,
+          47,
+          114,
+          101,
+          109,
+          111,
+          116,
+          101,
+          115,
+          47,
+          111,
+          114,
+          105,
+          103,
+          105,
+          110,
+          47,
+          109,
+          97,
+          105,
+          110
+        ],
+        "displayName": "main",
+        "remoteName": "origin"
+      },
+      "tip": "c166d42d4ef2e5e742d33554d03805cfb0b24d11",
+      "cutoffMatchesTip": true
+    },
+    "hasLanesBehind": false,
+    "canFastForwardLocalTarget": false
+  },
+  "worktrees": []
+}
+"#]].raw());
+        Ok(())
+    }
 
-        ref_info
-            .stacks
-            .first_mut()
-            .unwrap()
-            .segments
-            .first_mut()
-            .unwrap()
-            .is_entrypoint = false;
-
-        // it's Ok to have no entrypoint (even though it's not happening in practice)
-        ref_info = ref_info.pruned_to_entrypoint();
-        insta::assert_json_snapshot!(&ref_info, @r#"
-        {
-          "workspaceRef": {
-            "fullNameBytes": [
-              114,
-              101,
-              102,
-              115,
-              47,
-              104,
-              101,
-              97,
-              100,
-              115,
-              47,
-              103,
-              105,
-              116,
-              98,
-              117,
-              116,
-              108,
-              101,
-              114,
-              47,
-              119,
-              111,
-              114,
-              107,
-              115,
-              112,
-              97,
-              99,
-              101
-            ],
-            "displayName": "gitbutler/workspace"
-          },
-          "stacks": [],
-          "target": {
-            "remoteTrackingRef": {
-              "fullNameBytes": [
-                114,
-                101,
-                102,
-                115,
-                47,
-                114,
-                101,
-                109,
-                111,
-                116,
-                101,
-                115,
-                47,
-                111,
-                114,
-                105,
-                103,
-                105,
-                110,
-                47,
-                109,
-                97,
-                105,
-                110
-              ],
-              "displayName": "main",
-              "remoteName": "origin"
+    #[test]
+    fn worktree_branch_resting_on_a_stack() -> anyhow::Result<()> {
+        let repo =
+            crate::utils::read_only_in_memory_scenario_named("worktree-on-stack-with-files", "")?;
+        let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
+            repo.path().join("should-never-be-written.toml"),
+        )?;
+        let mut db = but_testsupport::in_memory_db();
+        db.worktree_meta_mut().mark_adopted()?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            project_meta(&repo)?,
+            &mut db,
+            Options {
+                worktrees: true,
+                ..Options::limited()
             },
-            "commitsAhead": 0
-          },
-          "isManagedRef": true,
-          "isManagedCommit": true,
-          "isEntrypoint": false
-        }
-        "#);
+        )?;
+        let ws = graph.into_workspace()?;
+
+        // Only the worktree's own commit is diffed, not stack `A` beneath it.
+        snapbox::assert_data_eq!(
+            ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/wt-on-A"))?.to_debug(),
+            snapbox::str![[r#"
+TreeChanges {
+    changes: [
+        TreeChange {
+            path: BStringForFrontend(
+                "W",
+            ),
+            path_bytes: "W",
+            status: Addition {
+                state: ChangeState {
+                    id: Sha1(a42d8ff61914884d31a8f36bbc78085aae1e0b01),
+                    kind: Blob,
+                },
+                is_untracked: false,
+            },
+        },
+    ],
+    stats: TreeStats {
+        lines_added: 1,
+        lines_removed: 0,
+        files_changed: 1,
+    },
+}
+
+"#]]
+        );
         Ok(())
     }
 }

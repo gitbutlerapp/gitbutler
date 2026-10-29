@@ -4,7 +4,7 @@ pub mod checkout;
 use std::{io::Read, path::Path};
 
 use bstr::BStr;
-pub use checkout::function::{safe_checkout, safe_checkout_from_head};
+pub use checkout::function::safe_checkout_from_head;
 use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
 
 /// Read a worktree file into `buf` after converting it to what Git *would* store.
@@ -27,7 +27,7 @@ pub fn worktree_file_to_git_in_buf(
     } else {
         let to_git = pipeline.convert_to_git(
             std::fs::File::open(path)?,
-            &gix::path::from_bstr(rela_path),
+            &gix::path::from_bstr(rela_path)?,
             index,
         )?;
         match to_git {

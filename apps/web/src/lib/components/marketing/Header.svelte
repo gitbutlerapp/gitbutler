@@ -3,13 +3,17 @@
 	import GitbutlerLogoLink from "$lib/components/GitbutlerLogoLink.svelte";
 	import HeaderAuthSection from "$lib/components/HeaderAuthSection.svelte";
 	import * as jsonLinks from "$lib/data/links.json";
-	import { Icon, type IconName } from "@gitbutler/ui";
+	import { Icon, type IconName } from "@gitbutler/ui-svelte";
+	import { env } from "$env/dynamic/public";
 
 	interface Props {
 		disableLogoLink?: boolean;
 	}
 
 	const { disableLogoLink }: Props = $props();
+
+	// Hidden unless explicitly turned on, so the link only shows while we're hiring.
+	const showJobsLink = env.PUBLIC_SHOW_JOBS_LINK === "true";
 </script>
 
 <!-- Link snippet for reusable navigation links -->
@@ -51,10 +55,12 @@
 				href: jsonLinks.resources.downloads.url,
 				label: jsonLinks.resources.downloads.label,
 			})}
-			{@render link({
-				href: jsonLinks.resources.jobs.url,
-				label: jsonLinks.resources.jobs.label,
-			})}
+			{#if showJobsLink}
+				{@render link({
+					href: jsonLinks.resources.jobs.url,
+					label: jsonLinks.resources.jobs.label,
+				})}
+			{/if}
 			{@render link({
 				href: jsonLinks.resources.blog.url,
 				label: jsonLinks.resources.blog.label,
@@ -88,7 +94,7 @@
 		align-items: center;
 		gap: 32px;
 
-		@media (--tablet-viewport) {
+		@media (--header-menu-breakpoint) {
 			display: none;
 		}
 	}
@@ -98,7 +104,7 @@
 		align-items: center;
 		gap: 6px;
 		text-decoration: none;
-		text-decoration-color: var(--clr-theme-pop-element);
+		text-decoration-color: var(--fill-pop-bg);
 		text-decoration-thickness: 2px;
 		text-underline-offset: 4px;
 		transition:
@@ -106,7 +112,7 @@
 			text-decoration var(--transition-fast);
 
 		&:hover {
-			color: var(--clr-text-1);
+			color: var(--text-1);
 			text-decoration-line: underline;
 		}
 	}

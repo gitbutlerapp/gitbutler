@@ -1,5 +1,7 @@
 use std::{convert::Infallible, future::Future, net::SocketAddr, sync::Arc};
 
+use colored::Colorize as _;
+
 use axum::{
     Json, Router,
     body::Body,
@@ -12,9 +14,11 @@ use axum::{
     response::IntoResponse,
     routing::{MethodRouter, any, post},
 };
-use but_api::{commit, diff, github, gitlab, json, legacy, platform};
-use but_claude::{Broadcaster, Claude};
-use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
+use but_api::{commit, diff, github, gitlab, json, legacy, open, platform, workspace, worktrees};
+use but_ctx::ProjectHandleOrLegacyProjectId;
+
+mod broadcaster;
+use broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
 use futures_util::{SinkExt, StreamExt as _};
 use serde::{Deserialize, Serialize};
@@ -48,16 +52,9 @@ pub(crate) struct Extra {
 
 #[derive(Clone)]
 struct AppState {
-    app: Claude,
+    broadcaster: Arc<Mutex<Broadcaster>>,
     extra: Extra,
     app_settings: AppSettingsWithDiskSync,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ClaudeGetSessionDetailsParams {
-    project_id: ProjectHandleOrLegacyProjectId,
-    session_id: uuid::Uuid,
 }
 
 /// Converts a synchronous command handler into an axum `MethodRouter` that works with
@@ -68,7 +65,9 @@ where
     S: Clone + Send + Sync + 'static,
 {
     post(move |Json(params)| async move {
-        let res = f(params);
+        let res = tokio::task::spawn_blocking(move || f(params))
+            .await
+            .unwrap_or_else(|e| Err(anyhow::anyhow!("handler task panicked: {e}")));
         cmd_result_to_json(res)
     })
 }
@@ -87,6 +86,146 @@ where
     })
 }
 
+fn server_capabilities(_params: serde_json::Value) -> anyhow::Result<serde_json::Value> {
+    Ok(serde_json::to_value(
+        but_api::platform::ServerCapabilities {
+            is_remote: false,
+            can_add_projects: true,
+        },
+    )?)
+}
+
+/// Opens a native directory picker on the machine running but-server.
+///
+/// `rfd` cannot be used here because but-server is a headless process without
+/// an NSApplication run loop, so on macOS it would panic trying to show a
+/// dialog off the main thread. Instead we shell out to `osascript` (macOS) or
+/// `zenity`/`kdialog` (Linux) which work from any thread and any process.
+async fn pick_directory(_params: serde_json::Value) -> anyhow::Result<serde_json::Value> {
+    let path = tokio::task::spawn_blocking(native_pick_directory).await??;
+    match path {
+        Some(p) => Ok(json!({ "path": p })),
+        None => Ok(json!({ "path": null })),
+    }
+}
+
+/// Shell out to a platform-native directory picker.
+fn native_pick_directory() -> anyhow::Result<Option<String>> {
+    #[cfg(target_os = "macos")]
+    {
+        let output = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg(
+                r#"set theFolder to choose folder with prompt "Select a Git repository"
+return POSIX path of theFolder"#,
+            )
+            .output()?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            // osascript exits with code 1 and "User canceled" on cancel
+            if stderr.contains("User canceled") || stderr.contains("(-128)") {
+                return Ok(None);
+            }
+            anyhow::bail!(
+                "osascript directory picker failed (exit {:?}): {}",
+                output.status.code(),
+                if stderr.is_empty() {
+                    "unknown error"
+                } else {
+                    &stderr
+                }
+            );
+        }
+        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if path.is_empty() {
+            return Ok(None);
+        }
+        // osascript returns paths with a trailing slash — strip it
+        Ok(Some(path.trim_end_matches('/').to_string()))
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // Try zenity first, fall back to kdialog
+        let output = std::process::Command::new("zenity")
+            .args([
+                "--file-selection",
+                "--directory",
+                "--title=Select a Git repository",
+            ])
+            .output()
+            .or_else(|_| {
+                std::process::Command::new("kdialog")
+                    .args([
+                        "--getexistingdirectory",
+                        ".",
+                        "--title",
+                        "Select a Git repository",
+                    ])
+                    .output()
+            })?;
+        if !output.status.success() {
+            // zenity exits 1 on cancel, kdialog exits 1 on cancel
+            let code = output.status.code().unwrap_or(-1);
+            if code == 1 {
+                return Ok(None);
+            }
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            anyhow::bail!(
+                "directory picker failed (exit {code}): {}",
+                if stderr.is_empty() {
+                    "unknown error"
+                } else {
+                    &stderr
+                }
+            );
+        }
+        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if path.is_empty() {
+            return Ok(None);
+        }
+        Ok(Some(path))
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // Use the modern IFileOpenDialog via PowerShell (STA is required for
+        // any Windows Forms/COM dialog). FolderBrowserDialog is directory-only.
+        // The script outputs the selected path on OK, or empty string on cancel.
+        // A non-zero exit means PowerShell itself failed (e.g. Add-Type error).
+        let output = std::process::Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-STA",
+                "-Command",
+                r#"Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.FolderBrowserDialog; $f.Description = 'Select a Git repository'; $f.UseDescriptionForTitle = $true; if ($f.ShowDialog() -eq 'OK') { $f.SelectedPath } else { '' }"#,
+            ])
+            .output()?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            anyhow::bail!(
+                "PowerShell directory picker failed (exit {:?}): {}",
+                output.status.code(),
+                if stderr.is_empty() {
+                    "unknown error"
+                } else {
+                    &stderr
+                }
+            );
+        }
+        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if path.is_empty() {
+            return Ok(None);
+        }
+        Ok(Some(path))
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    {
+        anyhow::bail!("Native file picker is not supported on this platform")
+    }
+}
+
 fn cmd_result_to_json(res: anyhow::Result<serde_json::Value>) -> Json<serde_json::Value> {
     match res {
         Ok(value) => Json(json!(Response::Success(value))),
@@ -97,40 +236,142 @@ fn cmd_result_to_json(res: anyhow::Result<serde_json::Value>) -> Json<serde_json
     }
 }
 
-/// Middleware to ensure all connections are from localhost only
+/// Check if an origin byte string is from localhost.
+///
+/// Matches `http(s)://localhost`, `http(s)://127.0.0.1`, and
+/// `http(s)://[::1]`, each optionally followed by `:<port>`.
+pub(crate) fn is_localhost_origin(origin: &[u8]) -> bool {
+    for prefix in [
+        b"http://localhost".as_slice(),
+        b"https://localhost".as_slice(),
+        b"http://127.0.0.1".as_slice(),
+        b"https://127.0.0.1".as_slice(),
+        b"http://[::1]".as_slice(),
+        b"https://[::1]".as_slice(),
+    ] {
+        if let Some(rest) = origin.strip_prefix(prefix)
+            && rest.first().is_none_or(|b| *b == b':')
+        {
+            return true;
+        }
+    }
+    false
+}
+
+/// Check if a `Host` header value is a localhost address.
+///
+/// Matches `localhost`, `127.0.0.1`, and `[::1]`, each optionally followed
+/// by `:<port>`. Used to defend against DNS rebinding: browsers always set
+/// `Host` to the *domain name* being requested (not the resolved IP), so a
+/// rebinding attack using `evil.com` will have `Host: evil.com:PORT` and be
+/// rejected here.
+fn is_localhost_host(host: &[u8]) -> bool {
+    for prefix in [
+        b"localhost".as_slice(),
+        b"127.0.0.1".as_slice(),
+        b"[::1]".as_slice(),
+    ] {
+        if let Some(rest) = host.strip_prefix(prefix)
+            && rest.first().is_none_or(|b| *b == b':')
+        {
+            return true;
+        }
+    }
+    false
+}
+
+/// Configuration for the but-server, populated from CLI args.
+#[derive(Debug, Default)]
+pub struct Config {
+    /// Port to listen on. `but-server` defaults to 6978.
+    pub port: Option<u16>,
+    /// Address to bind to. Defaults to 127.0.0.1. Override with --bind-addr if needed
+    /// (e.g. 0.0.0.0 in a container environment).
+    pub bind_addr: Option<String>,
+    /// Prefix all API routes with this path (e.g. `/api`).
+    pub base_path: Option<String>,
+    /// If set, auto-activate this directory's project on startup.
+    pub project_path: Option<std::path::PathBuf>,
+}
+
+/// Middleware to ensure all connections are from localhost only.
+///
+/// Rejects non-loopback peer addresses and `Host` headers that don't match
+/// `localhost`/`127.0.0.1`/`[::1]`. The Host check defends against DNS
+/// rebinding: an attacker's domain pointed at 127.0.0.1 connects from
+/// loopback (so the IP check passes) but the browser sets Host to the
+/// attacker's domain, which fails here.
 async fn localhost_only_middleware(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     req: axum::extract::Request<Body>,
     next: Next,
 ) -> Result<impl IntoResponse, StatusCode> {
-    // Check if the connection is from localhost (127.0.0.1 or ::1)
-    if addr.ip().is_loopback() {
-        Ok(next.run(req).await)
-    } else {
-        tracing::warn!("Rejected non-localhost connection from: {}", addr);
-        Err(StatusCode::FORBIDDEN)
+    if let Some(origin) = req.headers().get(axum::http::header::ORIGIN)
+        && !is_localhost_origin(origin.as_bytes())
+    {
+        tracing::warn!(
+            "Rejected request with disallowed Origin: {}",
+            String::from_utf8_lossy(origin.as_bytes())
+        );
+        return Err(StatusCode::FORBIDDEN);
     }
+    if !addr.ip().is_loopback() {
+        tracing::warn!("Rejected non-localhost connection from: {}", addr);
+        return Err(StatusCode::FORBIDDEN);
+    }
+    if let Some(host) = req.headers().get(axum::http::header::HOST)
+        && !is_localhost_host(host.as_bytes())
+    {
+        tracing::warn!(
+            "Rejected DNS-rebinding attempt: Host header was {}",
+            String::from_utf8_lossy(host.as_bytes())
+        );
+        return Err(StatusCode::FORBIDDEN);
+    }
+    Ok(next.run(req).await)
 }
 
-pub async fn run() {
+pub async fn run(config: Config) -> anyhow::Result<()> {
     but_api::panic_capture::install_panic_hook();
+
+    let port: u16 = config
+        .port
+        .or_else(|| std::env::var("BUTLER_PORT").ok()?.parse().ok())
+        .unwrap_or(6978);
+
+    // CORS wildcards are forbidden when credentials are allowed, so always list explicitly.
+    // `baggage` and `sentry-trace` are injected by Sentry's performance monitoring into
+    // outgoing fetch requests; without them the browser blocks the preflight.
+    let allowed_headers: cors::AllowHeaders = vec![
+        axum::http::header::CONTENT_TYPE,
+        axum::http::header::AUTHORIZATION,
+        axum::http::HeaderName::from_static("baggage"),
+        axum::http::HeaderName::from_static("sentry-trace"),
+    ]
+    .into();
+    let allowed_methods: cors::AllowMethods = vec![
+        axum::http::Method::GET,
+        axum::http::Method::POST,
+        axum::http::Method::PUT,
+        axum::http::Method::DELETE,
+        axum::http::Method::OPTIONS,
+    ]
+    .into();
     let cors = CorsLayer::new()
-        .allow_methods(cors::Any)
+        .allow_methods(allowed_methods)
         .allow_origin(cors::AllowOrigin::predicate(|origin, _parts| {
-            origin
-                .as_bytes()
-                .strip_prefix(b"http://localhost")
-                .is_some_and(|rest| rest.first().is_none_or(|b| *b == b':'))
+            is_localhost_origin(origin.as_bytes())
         }))
-        .allow_headers(cors::Any);
+        .allow_headers(allowed_headers)
+        .allow_credentials(true);
 
     let config_dir = but_path::app_config_dir().unwrap();
     let app_data_dir = but_path::app_data_dir().unwrap();
 
     let broadcaster = Arc::new(Mutex::new(Broadcaster::new()));
     let archival = Arc::new(but_feedback::Archival {
-        cache_dir: app_data_dir.join("cache").clone(),
-        logs_dir: app_data_dir.join("logs").clone(),
+        cache_dir: app_data_dir.join("cache"),
+        logs_dir: app_data_dir.join("logs"),
     });
     let extra = Extra {
         active_projects: Arc::new(Mutex::new(ActiveProjects::new())),
@@ -139,18 +380,48 @@ pub async fn run() {
     let app_settings = AppSettingsWithDiskSync::new_with_customization(config_dir.clone(), None)
         .expect("failed to create app settings");
 
-    let app = Claude {
-        broadcaster: broadcaster.clone(),
-        instance_by_stack: Default::default(),
-    };
+    // If a project path was provided, auto-activate that project.
+    if let Some(ref project_path) = config.project_path {
+        match but_ctx::Context::discover(project_path) {
+            Ok(mut ctx) => {
+                but_api::legacy::projects::prepare_project_for_activation(&mut ctx).ok();
+                let mut active = extra.active_projects.lock().await;
+                if active
+                    .set_active(&ctx, &broadcaster, app_settings.clone())
+                    .is_err()
+                {
+                    tracing::warn!("Failed to activate project at {}", project_path.display());
+                }
+            }
+            Err(err) => {
+                tracing::warn!(
+                    "Could not discover project at {}: {err}",
+                    project_path.display()
+                );
+            }
+        }
+    }
+
+    let mut api_base = config
+        .base_path
+        .as_deref()
+        .unwrap_or("")
+        .trim_end_matches('/')
+        .to_string();
+    // Ensure the base path starts with '/' when non-empty so Router::nest doesn't panic.
+    if !api_base.is_empty() && !api_base.starts_with('/') {
+        api_base.insert(0, '/');
+    }
 
     let state = AppState {
-        app,
+        broadcaster: broadcaster.clone(),
         extra,
         app_settings,
     };
 
     let app = Router::new()
+        .route("/server_capabilities", but_post(server_capabilities))
+        .route("/pick_directory", but_post_async(pick_directory))
         .route(
             "/git_remote_branches",
             but_post(legacy::git::git_remote_branches_cmd),
@@ -174,29 +445,61 @@ pub async fn run() {
             "/git_get_global_config",
             but_post(legacy::git::git_get_global_config_cmd),
         )
+        .route("/tree_change_diffs", but_post(diff::tree_change_diffs_cmd))
         .route(
-            "/tree_change_diffs",
-            but_post(legacy::diff::tree_change_diffs_cmd),
+            "/tree_change_diffs_from_source",
+            but_post(diff::tree_change_diffs_from_source_cmd),
         )
+        .route("/get_workspace", but_post(workspace::get_workspace_cmd))
         .route(
             "/commit_details_with_line_stats",
             but_post(diff::commit_details_with_line_stats_cmd),
         )
         .route("/branch_diff", but_post(but_api::branch::branch_diff_cmd))
+        .route("/move_branch", but_post(but_api::branch::move_branch_cmd))
+        .route(
+            "/set_target_ref_and_init_project",
+            but_post(workspace::set_target_ref_and_init_project_cmd),
+        )
+        .route("/apply", but_post(but_api::branch::apply_cmd))
+        .route("/review_apply", but_post(legacy::forge::review_apply_cmd))
+        .route(
+            "/branch_create",
+            but_post(but_api::branch::branch_create_cmd),
+        )
+        .route(
+            "/branch_remove",
+            but_post(but_api::branch::branch_remove_cmd),
+        )
+        .route(
+            "/branch_rename",
+            but_post(but_api::branch::branch_rename_cmd),
+        )
+        .route(
+            "/branch_canned_name",
+            but_post(but_api::branch::branch_canned_name_cmd),
+        )
+        .route(
+            "/workspace_target_commits",
+            but_post(but_api::target_commits::workspace_target_commits_cmd),
+        )
+        .route(
+            "/get_initial_branch_integration",
+            but_post(but_api::branch::get_initial_branch_integration_cmd),
+        )
+        .route(
+            "/apply_branch_integration",
+            but_post(but_api::branch::apply_branch_integration_cmd),
+        )
+        .route(
+            "/tear_off_branch",
+            but_post(but_api::branch::tear_off_branch_cmd),
+        )
         .route(
             "/changes_in_worktree",
-            but_post(legacy::diff::changes_in_worktree_cmd),
+            but_post(diff::changes_in_worktree_cmd),
         )
-        .route("/assign_hunk", but_post(legacy::diff::assign_hunk_cmd))
-        .route(
-            "/cherry_apply_status",
-            but_post(legacy::cherry_apply::cherry_apply_status_cmd),
-        )
-        .route(
-            "/cherry_apply",
-            but_post(legacy::cherry_apply::cherry_apply_cmd),
-        )
-        .route("/stacks", but_post(legacy::workspace::stacks_cmd))
+        .route("/assign_hunk", but_post(diff::assign_hunk_cmd))
         .route("/head_info", but_post(legacy::workspace::head_info_cmd));
 
     #[cfg(unix)]
@@ -207,52 +510,27 @@ pub async fn run() {
 
     let app = app
         .route(
-            "/stack_details",
-            but_post(legacy::workspace::stack_details_cmd),
-        )
-        .route(
             "/branch_details",
             but_post(legacy::workspace::branch_details_cmd),
-        )
-        .route(
-            "/create_commit_from_worktree_changes",
-            but_post(legacy::workspace::create_commit_from_worktree_changes_cmd),
-        )
-        .route(
-            "/amend_commit_from_worktree_changes",
-            but_post(legacy::workspace::amend_commit_from_worktree_changes_cmd),
         )
         .route(
             "/discard_worktree_changes",
             but_post(legacy::workspace::discard_worktree_changes_cmd),
         )
         .route(
-            "/move_changes_between_commits",
-            but_post(legacy::workspace::move_changes_between_commits_cmd),
-        )
-        .route(
-            "/split_branch",
-            but_post(legacy::workspace::split_branch_cmd),
-        )
-        .route(
-            "/split_branch_into_dependent_branch",
-            but_post(legacy::workspace::split_branch_into_dependent_branch_cmd),
-        )
-        .route(
-            "/uncommit_changes",
-            but_post(legacy::workspace::uncommit_changes_cmd),
-        )
-        .route(
             "/stash_into_branch",
             but_post(legacy::workspace::stash_into_branch_cmd),
         )
+        .route("/worktrees_list", but_post(worktrees::worktrees_list_cmd))
         .route(
-            "/canned_branch_name",
-            but_post(legacy::workspace::canned_branch_name_cmd),
+            "/worktree_set_archived",
+            but_post(worktrees::worktree_set_archived_cmd),
         )
+        .route("/worktree_remove", but_post(worktrees::worktree_remove_cmd))
+        .route("/worktree_new", but_post(worktrees::worktree_new_cmd))
         .route(
-            "/target_commits",
-            but_post(legacy::workspace::target_commits_cmd),
+            "/workspace_branch_and_ancestors_push",
+            but_post_async(legacy::workspace::workspace_branch_and_ancestors_push_cmd),
         )
         .route(
             "/secret_get_global",
@@ -270,6 +548,22 @@ pub async fn run() {
         .route("/get_user", but_post(legacy::users::get_user_cmd))
         .route("/set_user", but_post(legacy::users::set_user_cmd))
         .route("/delete_user", but_post(legacy::users::delete_user_cmd))
+        .route(
+            "/get_login_token",
+            but_post(legacy::users::get_login_token_cmd),
+        )
+        .route(
+            "/login_with_token",
+            but_post(legacy::users::login_with_token_cmd),
+        )
+        .route(
+            "/get_user_profile",
+            but_post(legacy::users::get_user_profile_cmd),
+        )
+        .route(
+            "/update_user_profile",
+            but_post(legacy::users::update_user_profile_cmd),
+        )
         .route(
             "/update_project",
             but_post(legacy::projects::update_project_cmd),
@@ -299,22 +593,6 @@ pub async fn run() {
             but_post(legacy::virtual_branches::delete_local_branch_cmd),
         )
         .route(
-            "/create_virtual_branch_from_branch",
-            but_post(legacy::virtual_branches::create_virtual_branch_from_branch_cmd),
-        )
-        .route(
-            "/integrate_upstream_commits",
-            but_post(legacy::virtual_branches::integrate_upstream_commits_cmd),
-        )
-        .route(
-            "/get_initial_integration_steps_for_branch",
-            but_post(legacy::virtual_branches::get_initial_integration_steps_for_branch_cmd),
-        )
-        .route(
-            "/integrate_branch_with_steps",
-            but_post(legacy::virtual_branches::integrate_branch_with_steps_cmd),
-        )
-        .route(
             "/get_base_branch_data",
             but_post(legacy::virtual_branches::get_base_branch_data_cmd),
         )
@@ -327,10 +605,6 @@ pub async fn run() {
             but_post(legacy::virtual_branches::switch_back_to_workspace_cmd),
         )
         .route(
-            "/push_base_branch",
-            but_post(legacy::virtual_branches::push_base_branch_cmd),
-        )
-        .route(
             "/update_stack_order",
             but_post(legacy::virtual_branches::update_stack_order_cmd),
         )
@@ -339,21 +613,10 @@ pub async fn run() {
             but_post(legacy::virtual_branches::unapply_stack_cmd),
         )
         .route(
-            "/amend_virtual_branch",
-            but_post(legacy::virtual_branches::amend_virtual_branch_cmd),
-        )
-        .route(
-            "/undo_commit",
-            but_post(legacy::virtual_branches::undo_commit_cmd),
-        )
-        .route(
-            "/reorder_stack",
-            but_post(legacy::virtual_branches::reorder_stack_cmd),
-        )
-        .route(
             "/commit_insert_blank",
-            but_post(commit::commit_insert_blank_cmd),
+            but_post(commit::insert_blank::commit_insert_blank_cmd),
         )
+        .route("/branch_list", but_post(but_api::branch::branch_list_cmd))
         .route(
             "/list_branches",
             but_post(legacy::virtual_branches::list_branches_cmd),
@@ -363,28 +626,8 @@ pub async fn run() {
             but_post(legacy::virtual_branches::get_branch_listing_details_cmd),
         )
         .route(
-            "/squash_commits",
-            but_post(legacy::virtual_branches::squash_commits_cmd),
-        )
-        .route(
             "/fetch_from_remotes",
             but_post(legacy::virtual_branches::fetch_from_remotes_cmd),
-        )
-        .route(
-            "/move_commit",
-            but_post(legacy::virtual_branches::move_commit_cmd),
-        )
-        .route(
-            "/move_branch_legacy",
-            but_post(legacy::virtual_branches::move_branch_legacy_cmd),
-        )
-        .route(
-            "/tear_off_branch",
-            but_post(legacy::virtual_branches::tear_off_branch_cmd),
-        )
-        .route(
-            "/update_commit_message",
-            but_post(legacy::virtual_branches::update_commit_message_cmd),
         )
         .route(
             "/operating_mode",
@@ -438,21 +681,6 @@ pub async fn run() {
             but_post(legacy::repo::post_commit_hook_cmd),
         )
         .route("/message_hook", but_post(legacy::repo::message_hook_cmd))
-        .route("/create_branch", but_post(legacy::stack::create_branch_cmd))
-        .route(
-            "/create_reference",
-            but_post(legacy::stack::create_reference_cmd),
-        )
-        .route("/remove_branch", but_post(legacy::stack::remove_branch_cmd))
-        .route(
-            "/update_branch_name",
-            but_post(legacy::stack::update_branch_name_cmd),
-        )
-        .route(
-            "/update_branch_pr_number",
-            but_post(legacy::stack::update_branch_pr_number_cmd),
-        )
-        .route("/push_stack", but_post(legacy::stack::push_stack_cmd))
         // Undo/Snapshot commands
         .route(
             "/list_snapshots",
@@ -481,22 +709,6 @@ pub async fn run() {
         )
         .route("/list_remotes", but_post(legacy::remotes::list_remotes_cmd))
         .route("/add_remote", but_post(legacy::remotes::add_remote_cmd))
-        .route(
-            "/create_workspace_rule",
-            but_post(legacy::rules::create_workspace_rule_cmd),
-        )
-        .route(
-            "/delete_workspace_rule",
-            but_post(legacy::rules::delete_workspace_rule_cmd),
-        )
-        .route(
-            "/update_workspace_rule",
-            but_post(legacy::rules::update_workspace_rule_cmd),
-        )
-        .route(
-            "/list_workspace_rules",
-            but_post(legacy::rules::list_workspace_rules_cmd),
-        )
         .route(
             "/forget_github_account",
             but_post(github::forget_github_account_cmd),
@@ -530,14 +742,17 @@ pub async fn run() {
         )
         .route("/install_cli", but_post(legacy::cli::install_cli_cmd))
         .route("/cli_path", but_post(legacy::cli::cli_path_cmd))
-        .route("/open_url", but_post(legacy::open::open_url_cmd))
+        .route("/open_url", but_post(open::open_url_cmd))
+        .route("/open_in_terminal", but_post(open::open_in_terminal_cmd))
+        .route("/show_in_finder", but_post(open::show_in_finder_cmd))
+        .route("/workdir_path", but_post(open::workdir_path_cmd))
         .route(
-            "/open_in_terminal",
-            but_post(legacy::open::open_in_terminal_cmd),
+            "/get_terminal_options_for_platform",
+            but_post(open::terminal::get_terminal_options_for_platform_cmd),
         )
         .route(
-            "/show_in_finder",
-            but_post(legacy::open::show_in_finder_cmd),
+            "/get_recommended_terminal_for_platform",
+            but_post(open::terminal::get_recommended_terminal_for_platform_cmd),
         )
         .route("/absorb", but_post(legacy::absorb::absorb_cmd))
         .route(
@@ -545,85 +760,125 @@ pub async fn run() {
             but_post(legacy::absorb::absorption_plan_cmd),
         )
         .route(
-            "/claude_get_user_message",
-            but_post(legacy::claude::claude_get_user_message_cmd),
+            "/commit_reword",
+            but_post(commit::reword::commit_reword_cmd),
         )
         .route(
-            "/claude_list_permission_requests",
-            but_post(legacy::claude::claude_list_permission_requests_cmd),
+            "/commit_create",
+            but_post(commit::create::commit_create_cmd),
+        )
+        .route("/commit_amend", but_post(commit::amend::commit_amend_cmd))
+        .route(
+            "/commit_cherry_pick",
+            but_post(commit::cherry_pick::commit_cherry_pick_cmd),
         )
         .route(
-            "/claude_update_permission_request",
-            but_post(legacy::claude::claude_update_permission_request_cmd),
+            "/commit_move",
+            but_post(commit::move_commit::commit_move_cmd),
         )
-        .route(
-            "/claude_answer_ask_user_question",
-            but_post(legacy::claude::claude_answer_ask_user_question_cmd),
-        )
-        .route(
-            "/claude_list_prompt_templates",
-            but_post(legacy::claude::claude_list_prompt_templates_cmd),
-        )
-        .route(
-            "/claude_get_prompt_dirs",
-            but_post(legacy::claude::claude_get_prompt_dirs_cmd),
-        )
-        .route(
-            "/claude_maybe_create_prompt_dir",
-            but_post(legacy::claude::claude_maybe_create_prompt_dir_cmd),
-        )
-        .route("/commit_reword", but_post(commit::commit_reword_cmd))
-        .route("/commit_create", but_post(commit::commit_create_cmd))
-        .route("/commit_amend", but_post(commit::commit_amend_cmd))
         .route(
             "/commit_move_changes_between",
-            but_post(commit::commit_move_changes_between_cmd),
+            but_post(commit::move_changes::commit_move_changes_between_cmd),
+        )
+        .route(
+            "/commit_squash",
+            but_post(commit::squash::commit_squash_cmd),
         )
         .route(
             "/commit_uncommit_changes",
-            but_post(commit::commit_uncommit_changes_cmd),
+            but_post(commit::uncommit::commit_uncommit_changes_cmd),
         )
-        .route("/build_type", but_post(platform::build_type_cmd))
-        // Catch-all for commands that need special handling (app, extra, app_settings_sync)
+        .route(
+            "/commit_uncommit_changes_from_commits",
+            but_post(commit::uncommit::commit_uncommit_changes_from_commits_cmd),
+        )
+        .route(
+            "/commit_uncommit",
+            but_post(commit::uncommit::commit_uncommit_cmd),
+        )
+        .route(
+            "/workspace_integrate_upstream",
+            but_post(workspace::workspace_integrate_upstream_cmd),
+        )
+        .route(
+            "/workspace_fetch_from_remotes",
+            but_post(workspace::workspace_fetch_from_remotes_cmd),
+        )
+        .route(
+            "/workspace_fetch_status",
+            but_post(workspace::workspace_fetch_status_cmd),
+        )
+        .route("/build_type", but_post(platform::build_type_cmd));
+
+    // Catch-all for commands that need special handling (app, extra, app_settings_sync)
+    let app = app
         .route("/{command}", post(post_handle_command_with_path))
-        .route("/ws", any(move |req| handle_ws_request(req, broadcaster)))
+        .route(
+            "/ws",
+            any(move |headers, ws| handle_ws_request(headers, ws, broadcaster)),
+        )
         // Spawning in a separate thread to prevent abort if the client
-        // disconnects. We need this to ensure locks are removed after
-        // the claude processes finishes.
+        // disconnects.
         .route_layer(middleware::from_fn(
             |req: axum::extract::Request<Body>, next: Next| async move {
                 tokio::task::spawn(next.run(req)).await.unwrap()
             },
         ))
-        .layer(
-            ServiceBuilder::new()
-                // Middleware to ensure only localhost connections are accepted.
-                //
-                // NOTE: `ServiceBuilder` runs middlewares top to bottom:
-                // - `localhost_only_middleware` will receive the request first and performs the
-                //    security checks.
-                // - Then `cors`
-                // - Then our `route_layer` middleware
-                // - Then the axum router calls the handler and produces a response
-                // - `cors` receives the response
-                // - `localhost_only_middleware` receives the response
-                // - And finally the response is sent to the client
-                .layer(middleware::from_fn(localhost_only_middleware))
-                .layer(cors),
-        )
         .with_state(state);
 
-    let port = std::env::var("BUTLER_PORT").unwrap_or("6978".into());
-    let host = std::env::var("BUTLER_HOST").unwrap_or("127.0.0.1".into());
+    // Optionally nest all API routes under a configurable base path.
+    // e.g. --base-path=/api makes all endpoints available at /api/...
+    let app: Router = if api_base.is_empty() {
+        app
+    } else {
+        Router::new().nest(&api_base, app)
+    };
+
+    let app = app
+        .layer(ServiceBuilder::new().layer(middleware::from_fn(localhost_only_middleware)))
+        .layer(cors);
+
+    let default_host = "127.0.0.1";
+    let host_env = std::env::var("BUTLER_HOST").ok();
+    let host = config
+        .bind_addr
+        .as_deref()
+        .or(host_env.as_deref())
+        .unwrap_or(default_host);
     let url = format!("{host}:{port}");
-    let listener = tokio::net::TcpListener::bind(&url).await.unwrap();
-    println!("Running at {url}");
-    axum::serve(
+    let listener = match tokio::net::TcpListener::bind(&url).await {
+        Ok(listener) => listener,
+        Err(e) => {
+            if e.kind() == std::io::ErrorKind::AddrInUse {
+                tracing::error!(
+                    "Failed to bind to {url}: {e}. Another instance of but-server may already be running on port {port}."
+                );
+            } else {
+                tracing::error!("Failed to bind to {url}: {e}");
+            }
+            anyhow::bail!("Failed to bind to {url}: {e}");
+        }
+    };
+    println!(
+        "{} {}",
+        "Local:".bold(),
+        format!("http://localhost:{port}").cyan().underline()
+    );
+    let server = axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
-    )
-    .await
-    .unwrap();
+    );
+
+    tokio::select! {
+        result = server => { result.unwrap(); }
+        _ = tokio::signal::ctrl_c() => {
+            // The settings file watcher (spawn_blocking with infinite loop) and
+            // other background tasks prevent the tokio runtime from exiting
+            // cleanly. It's safe to terminate immediately.
+            std::process::exit(0);
+        }
+    }
+    Ok(())
 }
 
 /// Handler that extracts the command from the URL path.
@@ -633,11 +888,11 @@ async fn post_handle_command_with_path(
     Path(command): Path<String>,
     Json(params): Json<serde_json::Value>,
 ) -> Json<serde_json::Value> {
-    let app = state.app;
+    let broadcaster = state.broadcaster;
     let extra = state.extra;
     let app_settings_sync = state.app_settings;
     let req = Request { command, params };
-    let res = handle_command(req, app, extra, app_settings_sync).await;
+    let res = handle_command(req, broadcaster, extra, app_settings_sync).await;
     match res {
         Ok(value) => Json(json!(Response::Success(value))),
         Err(e) => {
@@ -648,10 +903,20 @@ async fn post_handle_command_with_path(
 }
 
 async fn handle_ws_request(
+    headers: axum::http::HeaderMap,
     ws: WebSocketUpgrade,
     broadcaster: Arc<Mutex<Broadcaster>>,
-) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| handle_websocket(socket, broadcaster))
+) -> Result<impl IntoResponse, StatusCode> {
+    // Validate the Origin header to prevent cross-site WebSocket hijacking.
+    // CORS headers don't protect WebSocket upgrades, so we must check manually.
+    let origin = headers
+        .get(axum::http::header::ORIGIN)
+        .ok_or(StatusCode::FORBIDDEN)?;
+    if !is_localhost_origin(origin.as_bytes()) {
+        tracing::warn!("Rejected WebSocket connection from origin: {origin:?}");
+        return Err(StatusCode::FORBIDDEN);
+    }
+    Ok(ws.on_upgrade(move |socket| handle_websocket(socket, broadcaster)))
 }
 
 async fn handle_websocket(socket: WebSocket, broadcaster: Arc<Mutex<Broadcaster>>) {
@@ -685,8 +950,7 @@ async fn handle_websocket(socket: WebSocket, broadcaster: Arc<Mutex<Broadcaster>
 
 async fn handle_command(
     request: Request,
-    // TODO: this is due to mixing UI broadcasting into Claude related state (which also broadcasts)
-    app: Claude,
+    broadcaster: Arc<Mutex<Broadcaster>>,
     extra: Extra,
     app_settings_sync: AppSettingsWithDiskSync,
     // TODO: make this anyhow::Result<serde_json::Value>
@@ -709,9 +973,6 @@ async fn handle_command(
         "update_feature_flags" => deserialize_json(request.params).and_then(|params| {
             legacy::settings::update_feature_flags(&app_settings_sync, params).map(|r| json!(r))
         }),
-        "update_claude" => deserialize_json(request.params).and_then(|params| {
-            legacy::settings::update_claude(&app_settings_sync, params).map(|r| json!(r))
-        }),
         "update_fetch" => deserialize_json(request.params).and_then(|params| {
             legacy::settings::update_fetch(&app_settings_sync, params).map(|r| json!(r))
         }),
@@ -721,41 +982,18 @@ async fn handle_command(
         // Project management (need extra or app)
         "list_projects" => projects::list_projects(&extra).await,
         "set_project_active" => {
-            projects::set_project_active(&app, &extra, app_settings_sync, request.params).await
+            projects::set_project_active(&broadcaster, &extra, app_settings_sync, request.params)
+                .await
         }
-        // Async virtual branches commands (not yet migrated due to different pattern)
-        "upstream_integration_statuses" => {
-            let params = deserialize_json(request.params);
-            match params {
-                Ok(params) => {
-                    let result =
-                        legacy::virtual_branches::upstream_integration_statuses_cmd(params).await;
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
-            }
+        "branch_create" => deserialize_json(request.params)
+            .and_then(|params| but_api::branch::branch_create_cmd(params).map(|r| json!(r))),
+        "branch_remove" => deserialize_json(request.params)
+            .and_then(|params| but_api::branch::branch_remove_cmd(params).map(|r| json!(r))),
+        "commit_uncommit_changes_from_commits" => {
+            commit::uncommit::commit_uncommit_changes_from_commits_cmd(request.params)
         }
-        "integrate_upstream" => {
-            let params = deserialize_json(request.params);
-            match params {
-                Ok(params) => {
-                    let result = legacy::virtual_branches::integrate_upstream_cmd(params).await;
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
-            }
-        }
-        "resolve_upstream_integration" => {
-            let params = deserialize_json(request.params);
-            match params {
-                Ok(params) => {
-                    let result =
-                        legacy::virtual_branches::resolve_upstream_integration_cmd(params).await;
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
-            }
-        }
+        "branch_rename" => deserialize_json(request.params)
+            .and_then(|params| but_api::branch::branch_rename_cmd(params).map(|r| json!(r))),
         // GitHub commands (async, not yet migrated)
         "init_github_device_oauth" => {
             let result = github::init_github_device_oauth().await;
@@ -893,6 +1131,86 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
+        "get_review" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::forge::get_review_cmd(params);
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "get_review_merge_status" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::forge::get_review_merge_status_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "get_review_base_repo_url" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::forge::get_review_base_repo_url_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "update_review" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::forge::update_review_cmd(params).await;
+                    result.map(|_| json!({"result": "success"}))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "get_repo_info" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::forge::get_repo_info_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "forge_info" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::forge::forge_info_cmd(params);
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "forge_compare_branch_url" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::forge::forge_compare_branch_url_cmd(params);
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "list_ci_checks" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::forge::list_ci_checks_cmd(params);
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
         // Askpass commands (async)
         "submit_prompt_response" => {
             let params = deserialize_json(request.params);
@@ -922,107 +1240,6 @@ async fn handle_command(
             let result = extra.archival.zip_logs();
             result.map(|r| json!(r))
         }
-        // Claude commands (need app)
-        "claude_send_message" => {
-            let params = deserialize_json(request.params)?;
-            let result = legacy::claude::claude_send_message(&app, params).await;
-            result.map(|r| json!(r))
-        }
-        "claude_get_config" => {
-            #[derive(Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Params {
-                project_id: ProjectHandleOrLegacyProjectId,
-            }
-            let params = serde_json::from_value::<Params>(request.params)?;
-            let ctx: Context = params.project_id.try_into()?;
-            let result = legacy::claude::claude_get_config(ctx.into_sync()).await;
-            result.map(|r| json!(r))
-        }
-        "claude_get_messages" => {
-            let params = deserialize_json(request.params);
-            match params {
-                Ok(params) => {
-                    let result = legacy::claude::claude_get_messages(&app, params);
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
-            }
-        }
-        "claude_get_session_details" => {
-            let params = deserialize_json(request.params);
-            match params {
-                Ok(ClaudeGetSessionDetailsParams {
-                    project_id,
-                    session_id,
-                }) => {
-                    let ctx: Context = project_id.try_into()?;
-                    let result =
-                        legacy::claude::claude_get_session_details(ctx.into_sync(), session_id)
-                            .await;
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
-            }
-        }
-        "claude_cancel_session" => {
-            let params = deserialize_json(request.params);
-            match params {
-                Ok(params) => {
-                    let result = legacy::claude::claude_cancel_session(&app, params).await;
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
-            }
-        }
-        "claude_check_available" => {
-            let result = legacy::claude::claude_check_available().await;
-            result.map(|r| json!(r))
-        }
-        "claude_is_stack_active" => {
-            let params = deserialize_json(request.params);
-            match params {
-                Ok(params) => {
-                    let result = legacy::claude::claude_is_stack_active(&app, params).await;
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
-            }
-        }
-        "claude_compact_history" => {
-            let params = deserialize_json(request.params);
-            match params {
-                Ok(params) => {
-                    let result = legacy::claude::claude_compact_history(&app, params).await;
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
-            }
-        }
-        "claude_get_sub_agents" => {
-            #[derive(Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Params {
-                project_id: ProjectHandleOrLegacyProjectId,
-            }
-            let params = serde_json::from_value::<Params>(request.params)?;
-            let ctx: Context = params.project_id.try_into()?;
-            let result = legacy::claude::claude_get_sub_agents(ctx.into_sync()).await;
-            result.map(|r| json!(r))
-        }
-        "claude_verify_path" => {
-            #[derive(Debug, Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            pub struct Params {
-                pub project_id: ProjectHandleOrLegacyProjectId,
-                pub path: String,
-            }
-            let params = serde_json::from_value::<Params>(request.params)?;
-            let ctx: Context = params.project_id.try_into()?;
-            let result = legacy::claude::claude_verify_path(ctx.into_sync(), params.path).await;
-            result.map(|r| json!(r))
-        }
-
         _ => Err(anyhow::anyhow!("Command {command} not found!")),
     }
 }
@@ -1040,16 +1257,71 @@ mod tests {
     use super::*;
 
     #[test]
-    fn claude_get_session_details_params_deserialize_uuid_string() {
-        let project_id = uuid::Uuid::new_v4();
-        let session_id = uuid::Uuid::new_v4();
-        let params: ClaudeGetSessionDetailsParams = deserialize_json(json!({
-            "projectId": project_id,
-            "sessionId": session_id,
-        }))
-        .expect("params should deserialize");
+    fn localhost_origin_accepts_valid() {
+        // Basic schemes
+        assert!(is_localhost_origin(b"http://localhost"));
+        assert!(is_localhost_origin(b"https://localhost"));
+        assert!(is_localhost_origin(b"http://127.0.0.1"));
+        assert!(is_localhost_origin(b"https://127.0.0.1"));
+        assert!(is_localhost_origin(b"http://[::1]"));
+        assert!(is_localhost_origin(b"https://[::1]"));
 
-        assert_eq!(params.project_id.to_string(), project_id.to_string());
-        assert_eq!(params.session_id, session_id);
+        // With port
+        assert!(is_localhost_origin(b"http://localhost:3000"));
+        assert!(is_localhost_origin(b"https://127.0.0.1:8080"));
+        assert!(is_localhost_origin(b"http://[::1]:6978"));
+    }
+
+    #[test]
+    fn localhost_origin_rejects_invalid() {
+        // Missing scheme
+        assert!(!is_localhost_origin(b"localhost"));
+        assert!(!is_localhost_origin(b"localhost:3000"));
+
+        // DNS rebinding — hostname that starts with "localhost" but isn't
+        assert!(!is_localhost_origin(b"http://localhost.evil.com"));
+        assert!(!is_localhost_origin(b"http://localhost.evil.com:8080"));
+
+        // IP prefix attacks
+        assert!(!is_localhost_origin(b"http://127.0.0.10"));
+        assert!(!is_localhost_origin(b"http://127.0.0.1.evil.com"));
+
+        // Other hosts
+        assert!(!is_localhost_origin(b"http://evil.com"));
+        assert!(!is_localhost_origin(b"https://192.168.1.1"));
+
+        // Empty
+        assert!(!is_localhost_origin(b""));
+    }
+
+    #[test]
+    fn localhost_host_accepts_valid() {
+        // Bare hostnames
+        assert!(is_localhost_host(b"localhost"));
+        assert!(is_localhost_host(b"127.0.0.1"));
+        assert!(is_localhost_host(b"[::1]"));
+
+        // With port
+        assert!(is_localhost_host(b"localhost:8080"));
+        assert!(is_localhost_host(b"127.0.0.1:3000"));
+        assert!(is_localhost_host(b"[::1]:6978"));
+    }
+
+    #[test]
+    fn localhost_host_rejects_invalid() {
+        // DNS rebinding — must not match hostnames that merely start with "localhost"
+        assert!(!is_localhost_host(b"localhost.evil.com"));
+        assert!(!is_localhost_host(b"localhost.evil.com:8080"));
+
+        // IP prefix attacks
+        assert!(!is_localhost_host(b"127.0.0.10"));
+        assert!(!is_localhost_host(b"127.0.0.1.evil.com"));
+
+        // Other hosts
+        assert!(!is_localhost_host(b"evil.com"));
+        assert!(!is_localhost_host(b"192.168.1.1"));
+
+        // Empty
+        assert!(!is_localhost_host(b""));
     }
 }

@@ -1,4 +1,4 @@
-import { isReduxError } from "$lib/state/reduxError";
+import { IpcError, isNormalizedError } from "$lib/error/normalizedError";
 import { getCookie } from "$lib/utils/cookies";
 import ReconnectingWebSocket from "reconnecting-websocket";
 import { readable } from "svelte/store";
@@ -9,6 +9,7 @@ import type {
 	OpenDialogOptions,
 	OpenDialogReturn,
 } from "$lib/backend/backend";
+import type { UnlistenFn } from "@tauri-apps/api/event";
 
 export default class Web implements IBackend {
 	platformName = "web";
@@ -42,9 +43,13 @@ export default class Web implements IBackend {
 		document.title = title;
 	}
 
-	async initDeepLinking(): Promise<void> {
+	async getColdStartDeepLinkUrls(): Promise<string[]> {
+		return [];
+	}
+
+	async initDeepLinking(): Promise<UnlistenFn> {
 		// Deep linking is not supported in the web version
-		return await Promise.resolve();
+		return await Promise.resolve(() => {});
 	}
 }
 
@@ -114,16 +119,22 @@ async function webDocumentDir(): Promise<string> {
 async function webFilePicker<T extends OpenDialogOptions>(
 	options?: T,
 ): Promise<OpenDialogReturn<T>> {
+	// For directory picks, delegate to the backend's native OS dialog which
+	// returns an absolute path. The browser's <input> file picker cannot
+	// provide absolute paths, making it useless for "add project".
+	if (options?.directory) {
+		const result: { path: string | null } = await webInvoke("pick_directory");
+		if (result.path) {
+			return result.path as OpenDialogReturn<T>;
+		}
+		return null as OpenDialogReturn<T>;
+	}
+
 	const fileInput = document.createElement("input");
-	const projectPath = getCookie("PROJECT_PATH") || "";
 	fileInput.type = "file";
 
 	if (options?.multiple) {
 		fileInput.multiple = true;
-	}
-
-	if (options?.directory) {
-		fileInput.webkitdirectory = true; // This is a web-specific feature for directory selection
 	}
 
 	const promise = new Promise<OpenDialogReturn<T>>((resolve) => {
@@ -131,15 +142,6 @@ async function webFilePicker<T extends OpenDialogOptions>(
 			const files = fileInput.files;
 			if (!files || files.length === 0) {
 				resolve(null);
-				return;
-			}
-
-			if (options?.directory) {
-				const file = files[0]!;
-				const filePath = file.webkitRelativePath || file.name;
-				const dirPath = filePath.split("/").slice(0, -1).join("/");
-				const absolute = projectPath + "/" + dirPath;
-				resolve(absolute as OpenDialogReturn<T>);
 				return;
 			}
 
@@ -183,7 +185,7 @@ async function webRelaunch(): Promise<void> {
  */
 async function webInvoke<T>(command: string, params: Record<string, unknown> = {}): Promise<T> {
 	try {
-		const response = await fetch(`http://${getWebUrl()}/${command}`, {
+		const response = await fetch(`${getApiBaseUrl()}/${command}`, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -194,14 +196,18 @@ async function webInvoke<T>(command: string, params: Record<string, unknown> = {
 		if (out.type === "success") {
 			return out.subject;
 		} else {
-			if (isReduxError(out.subject)) {
+			if (isNormalizedError(out.subject)) {
 				console.error(`ipc->${command}: ${JSON.stringify(params)}`, out.subject);
+				throw new IpcError(out.subject, command);
 			}
 			throw out.subject;
 		}
 	} catch (error: unknown) {
-		if (isReduxError(error)) {
+		// Already wrapped on the explicit-throw path above; only the network
+		// / parse failure path lands here with a raw redux-shaped error.
+		if (isNormalizedError(error) && !(error instanceof IpcError)) {
 			console.error(`ipc->${command}: ${JSON.stringify(params)}`, error);
+			throw new IpcError(error, command);
 		}
 		throw error;
 	}
@@ -259,7 +265,7 @@ class WebListener {
 		this.handlers.push(handler);
 		this.count++;
 		if (!this.socket) {
-			this.socket = new ReconnectingWebSocket(`ws://${getWebUrl()}/ws`);
+			this.socket = new ReconnectingWebSocket(getWsUrl());
 			this.socket.addEventListener("message", (event) => {
 				const data: { name: string; payload: any } = JSON.parse(event.data);
 				for (const handler of this.handlers) {
@@ -284,10 +290,50 @@ class WebListener {
 	}
 }
 
-function getWebUrl(): string {
-	const host = getCookie("butlerHost") || import.meta.env.VITE_BUTLER_HOST || "localhost";
-	const port = getCookie("butlerPort") || import.meta.env.VITE_BUTLER_PORT || "6978";
-	return `${host}:${port}`;
+/**
+ * Returns the base URL for API calls (without trailing slash).
+ *
+ * Resolution order:
+ * 1. `VITE_BUTLER_API_BASE_URL` — build-time env var (e.g. `http://localhost:6978`)
+ * 2. Cookies (`butlerHost`, `butlerPort`) — runtime overrides used by e2e tests
+ *    to direct each parallel worker to its own but-server instance.
+ * 3. `VITE_BUTLER_HOST` + `VITE_BUTLER_PORT` — legacy host/port env vars
+ * 4. `` — empty string (same origin, no prefix).
+ */
+export function getApiBaseUrl(): string {
+	const base = import.meta.env.VITE_BUTLER_API_BASE_URL;
+	if (base) return base.replace(/\/$/, "");
+
+	const cookieHost = getCookie("butlerHost");
+	const cookiePort = getCookie("butlerPort");
+	const host = cookieHost || import.meta.env.VITE_BUTLER_HOST;
+	const port = cookiePort || import.meta.env.VITE_BUTLER_PORT;
+	if (host && port) {
+		const protocol = "http";
+		return `${protocol}://${host}:${port}`;
+	}
+
+	return "";
+}
+
+/**
+ * Returns the WebSocket URL for the event stream.
+ * Derived from `getApiBaseUrl()` — replaces http(s) with ws(s) and
+ * appends `/ws` after any base path (e.g. `/api`), keeping the same host.
+ */
+function getWsUrl(): string {
+	const base = getApiBaseUrl();
+	// Empty string or relative URL (e.g. /api) — use window.location.host
+	if (!base || base.startsWith("/")) {
+		const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+		return `${wsProtocol}//${window.location.host}${base}/ws`;
+	}
+	// Absolute URL (e.g. http://localhost:6978 or https://tunnel.com/api) —
+	// keep any path component from the base and append /ws.
+	const url = new URL(base);
+	const wsProtocol = url.protocol === "https:" ? "wss:" : "ws:";
+	const basePath = url.pathname.replace(/\/$/, "");
+	return `${wsProtocol}//${url.host}${basePath}/ws`;
 }
 
 type EventName = string;

@@ -1,12 +1,11 @@
-use bstr::{BStr, ByteSlice};
+use bstr::BStr;
 use but_core::{ChangeId, commit::Headers};
 
-/// Extension trait for `git2::Commit`.
+/// Extension trait for `gix::Commit`.
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Commit`
 pub trait CommitExt {
     fn change_id(&self) -> Option<ChangeId>;
-    fn is_signed(&self) -> bool;
     fn is_conflicted(&self) -> bool;
 }
 
@@ -21,19 +20,8 @@ impl CommitExt for gix::Commit<'_> {
         Headers::try_from_commit_headers(|| commit.extra_headers())?.change_id
     }
 
-    fn is_signed(&self) -> bool {
-        self.decode()
-            .is_ok_and(|decoded| decoded.extra_headers().pgp_signature().is_some())
-    }
-
     fn is_conflicted(&self) -> bool {
-        self.decode()
-            .ok()
-            .and_then(|commit| {
-                let headers = Headers::try_from_commit_headers(|| commit.extra_headers())?;
-                Some(headers.conflicted? > 0)
-            })
-            .unwrap_or(false)
+        but_core::Commit::try_from(self.clone()).is_ok_and(|commit| commit.is_conflicted())
     }
 }
 
@@ -41,11 +29,5 @@ impl CommitMessageBstr for gix::Commit<'_> {
     fn message_bstr(&self) -> &BStr {
         self.message_raw()
             .expect("valid commit that can be parsed: TODO - allow it to return errors?")
-    }
-}
-
-impl CommitMessageBstr for git2::Commit<'_> {
-    fn message_bstr(&self) -> &BStr {
-        self.message_bytes().as_bstr()
     }
 }

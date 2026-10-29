@@ -27,6 +27,11 @@ pub(crate) const M: &[M<'static>] = &[
         SchemaVersion::Zero,
         "ALTER TABLE `hunk_assignments` DROP COLUMN `hunk_locks`;",
     ),
+    M::up(
+        20260407120000,
+        SchemaVersion::Zero,
+        "ALTER TABLE `hunk_assignments` ADD COLUMN `branch_ref` BINARY;",
+    ),
 ];
 
 /// Tests are in `but-db/tests/db/table/hunk_assignments.rs`.
@@ -37,6 +42,7 @@ pub struct HunkAssignment {
     pub path: String,
     pub path_bytes: Vec<u8>,
     pub stack_id: Option<String>,
+    pub branch_ref_bytes: Option<Vec<u8>>,
 }
 
 impl DbHandle {
@@ -74,9 +80,9 @@ pub struct HunkAssignmentsHandleMut<'conn> {
 impl HunkAssignmentsHandle<'_> {
     /// Lists all hunk assignments in the database.
     pub fn list_all(&self) -> rusqlite::Result<Vec<HunkAssignment>> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT id, hunk_header, path, path_bytes, stack_id FROM hunk_assignments")?;
+        let mut stmt = self.conn.prepare(
+            "SELECT id, hunk_header, path, path_bytes, stack_id, branch_ref FROM hunk_assignments",
+        )?;
 
         let results = stmt.query_map([], |row| {
             Ok(HunkAssignment {
@@ -85,6 +91,7 @@ impl HunkAssignmentsHandle<'_> {
                 path: row.get(2)?,
                 path_bytes: row.get(3)?,
                 stack_id: row.get(4)?,
+                branch_ref_bytes: row.get(5)?,
             })
         })?;
 
@@ -100,19 +107,20 @@ impl HunkAssignmentsHandleMut<'_> {
 
     /// Sets the hunk assignments table to the provided values.
     /// Any existing entries that are not in the provided values are deleted.
+    /// `stack_id` is preserved only for reads of legacy rows and is no longer written.
     pub fn set_all(self, assignments: Vec<HunkAssignment>) -> rusqlite::Result<()> {
         self.sp.execute("DELETE FROM hunk_assignments", [])?;
 
         for assignment in assignments {
             self.sp.execute(
-                "INSERT INTO hunk_assignments (id, hunk_header, path, path_bytes, stack_id) \
+                "INSERT INTO hunk_assignments (id, hunk_header, path, path_bytes, branch_ref) \
                  VALUES (?1, ?2, ?3, ?4, ?5)",
                 rusqlite::params![
                     assignment.id,
                     assignment.hunk_header,
                     assignment.path,
                     assignment.path_bytes,
-                    assignment.stack_id,
+                    assignment.branch_ref_bytes,
                 ],
             )?;
         }

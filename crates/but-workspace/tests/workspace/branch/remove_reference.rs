@@ -13,25 +13,77 @@ use crate::{
 };
 
 #[test]
+fn deletion_result_distinguishes_missing_refs_from_configuration_cleanup() -> anyhow::Result<()> {
+    let (_tmp, _, mut repo, _, _, _) = named_writable_scenario_with_args_and_description_and_graph(
+        "single-branch-no-ws-commit-no-target",
+        ["A"],
+        |_| {},
+    )?;
+    let ref_name = r("refs/heads/A");
+
+    for existed in [true, false] {
+        but_core::git_config::edit_repo_config(&repo, gix::config::Source::Local, |config| {
+            but_core::git_config::set_config_value(config, "branch.A.remote", "origin")
+        })?;
+        assert_eq!(
+            remove_reference::delete_local_branch(&mut repo, ref_name)?,
+            existed,
+            "configuration cleanup alone must not report a deleted reference"
+        );
+        assert!(
+            repo.try_find_reference(ref_name)?.is_none(),
+            "the requested branch is absent after either call"
+        );
+        assert!(
+            but_core::git_config::open_repo_local_config_for_reading(&repo)?
+                .string("branch.A.remote")
+                .is_none(),
+            "branch configuration is removed even when the reference was already missing"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn no_errors_due_to_idempotency_in_empty_workspace() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, desc) =
-        named_writable_scenario_with_args_and_description_and_graph(
+    let (_tmp, mut repo, mut meta, desc, mut db) =
+        crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_args_and_description(
             "single-branch-no-ws-commit-no-target",
             ["A", "B"],
-            |_| {},
         )?;
-    insta::assert_snapshot!(desc, @"Single commit, no main remote/target, no ws commit, but ws-reference");
+    snapbox::assert_data_eq!(
+        desc,
+        snapbox::str![[r#"
+Single commit, no main remote/target, no ws commit, but ws-reference
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 3183e43 (HEAD -> gitbutler/workspace, main, B, A) M1");
-    let ws = graph.into_workspace()?;
+"#]]
+    );
+
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 3183e43 (HEAD -> gitbutler/workspace, main, B, A) M1
+
+"#]]
+    );
+    let ws = crate::ref_info::with_workspace_commit::utils::graph_with_cutoff_only(
+        &repo, &meta, &mut db,
+    )?
+    .into_workspace()?;
     // the workspace is empty.
-    insta::assert_snapshot!(graph_workspace(&ws), @"📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
+
+"#]]
+    );
 
     for name in ["A", "B", "gitbutler/workspace", "main", "nonexisting"] {
         assert!(
             but_workspace::branch::remove_reference(
                 Category::LocalBranch.to_full_name(name)?.as_ref(),
-                &repo,
+                &mut repo,
                 &ws,
                 &mut meta,
                 remove_reference::Options {
@@ -45,7 +97,7 @@ fn no_errors_due_to_idempotency_in_empty_workspace() -> anyhow::Result<()> {
         assert!(
             but_workspace::branch::remove_reference(
                 Category::LocalBranch.to_full_name(name)?.as_ref(),
-                &repo,
+                &mut repo,
                 &ws,
                 &mut meta,
                 remove_reference::Options {
@@ -58,44 +110,71 @@ fn no_errors_due_to_idempotency_in_empty_workspace() -> anyhow::Result<()> {
     }
 
     // repo and workspace should still look like before.
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 3183e43 (HEAD -> gitbutler/workspace, main, B, A) M1");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 3183e43 (HEAD -> gitbutler/workspace, main, B, A) M1
+
+"#]]
+    );
     let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
-    insta::assert_snapshot!(graph_workspace(&ws), @"📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
+
+"#]]
+    );
 
     Ok(())
 }
 
 #[test]
 fn journey_single_branch_no_ws_commit_no_target() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, desc) = named_writable_scenario_with_description_and_graph(
-        "single-branch-3-commits-no-ws-commit-more-branches",
-        |meta| {
-            add_stack_with_segments(meta, 0, "A", StackState::InWorkspace, &[]);
-        },
-    )?;
-    insta::assert_snapshot!(desc, @"Single commit, target, no ws commit, but ws-reference and a named segment, and branches on each commit");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * c2878fb (HEAD -> gitbutler/workspace, A2, A) A2
-    * 49d4b34 (A1) A1
-    * 3183e43 (origin/main, main) M1
-    ");
+    let (_tmp, graph, mut repo, mut meta, desc, _db) =
+        named_writable_scenario_with_description_and_graph(
+            "single-branch-3-commits-no-ws-commit-more-branches",
+            |meta| {
+                add_stack_with_segments(meta, 0, "A", StackState::InWorkspace, &[]);
+            },
+        )?;
+    snapbox::assert_data_eq!(
+        desc,
+        snapbox::str![[r#"
+Single commit, target, no ws commit, but ws-reference and a named segment, and branches on each commit
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* c2878fb (HEAD -> gitbutler/workspace, A2, A) A2
+* 49d4b34 (A1) A1
+* 3183e43 (origin/main, main) M1
+
+"#]]
+    );
 
     let mut ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-    └── ≡📙:3:A on 3183e43 {0}
-        ├── 📙:3:A
-        │   └── ·c2878fb (🏘️) ►A2
-        └── :4:A1
-            └── ·49d4b34 (🏘️)
-    ");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
+└── ≡📙:A on 3183e43 {0}
+    ├── 📙:A
+    │   └── ·c2878fb (🏘️) ►A2
+    └── :A1
+        └── ·49d4b34 (🏘️)
+
+"#]]
+    );
 
     // It's OK to delete all segment names of a stack
     for name in ["A", "A2", "A1"] {
         let r = Category::LocalBranch.to_full_name(name)?;
         ws = but_workspace::branch::remove_reference(
             r.as_ref(),
-            &repo,
+            &mut repo,
             &ws,
             &mut meta,
             remove_reference::Options {
@@ -108,61 +187,80 @@ fn journey_single_branch_no_ws_commit_no_target() -> anyhow::Result<()> {
     }
 
     let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-    └── ≡:3:anon: on 3183e43
-        └── :3:anon:
-            ├── ·c2878fb (🏘️)
-            └── ·49d4b34 (🏘️)
-    ");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
+└── ≡:anon: on 3183e43
+    └── :anon:
+        ├── ·c2878fb (🏘️)
+        └── ·49d4b34 (🏘️)
+
+"#]]
+    );
 
     Ok(())
 }
 
 #[test]
 fn journey_single_branch_ws_commit_no_target() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, desc) = named_writable_scenario_with_description_and_graph(
-        "single-branch-4-commits-more-branches",
-        |meta| {
-            add_stack_with_segments(
-                meta,
-                0,
-                "A",
-                StackState::InWorkspace,
-                &["A2-3", "A2-2", "A2-1", "A1-1", "A1-2", "A1-3"],
-            );
-        },
-    )?;
+    let (_tmp, graph, mut repo, mut meta, desc, _db) =
+        named_writable_scenario_with_description_and_graph(
+            "single-branch-4-commits-more-branches",
+            |meta| {
+                add_stack_with_segments(
+                    meta,
+                    0,
+                    "A",
+                    StackState::InWorkspace,
+                    &["A2-3", "A2-2", "A2-1", "A1-1", "A1-2", "A1-3"],
+                );
+            },
+        )?;
 
-    insta::assert_snapshot!(desc, @"Two commits in main, target setup, ws commit, many more usable branches");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * 05240ea (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * 43f9472 (A2-3, A2-2, A2-1, A) A2
-    * 6fdab32 (A1-3, A1-2, A1-1) A1
-    * bce0c5e (origin/main, main) M2
-    * 3183e43 M1
-    ");
+    snapbox::assert_data_eq!(
+        desc,
+        snapbox::str![[r#"
+Two commits in main, target setup, ws commit, many more usable branches
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 05240ea (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 43f9472 (A2-3, A2-2, A2-1, A) A2
+* 6fdab32 (A1-3, A1-2, A1-1) A1
+* bce0c5e (origin/main, main) M2
+* 3183e43 M1
+
+"#]]
+    );
     let mut ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-    └── ≡📙:5:A on bce0c5e {0}
-        ├── 📙:5:A
-        ├── 📙:6:A2-3
-        ├── 📙:7:A2-2
-        ├── 📙:8:A2-1
-        │   └── ·43f9472 (🏘️)
-        ├── 📙:9:A1-1
-        ├── 📙:10:A1-2
-        └── 📙:11:A1-3
-            └── ·6fdab32 (🏘️)
-    ");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
+└── ≡📙:A on bce0c5e {0}
+    ├── 📙:A
+    ├── 📙:A2-3
+    ├── 📙:A2-2
+    ├── 📙:A2-1
+    │   └── ·43f9472 (🏘️)
+    ├── 📙:A1-1
+    ├── 📙:A1-2
+    └── 📙:A1-3
+        └── ·6fdab32 (🏘️)
+
+"#]]
+    );
 
     // Delete a whole segment to see how it pulls up to the top of the stack a branch from below
     for name in ["A2-1", "A2-3", "A", "A2-2"] {
         let r = Category::LocalBranch.to_full_name(name)?;
         ws = but_workspace::branch::remove_reference(
             r.as_ref(),
-            &repo,
+            &mut repo,
             &ws,
             &mut meta,
             remove_reference::Options {
@@ -173,21 +271,25 @@ fn journey_single_branch_ws_commit_no_target() -> anyhow::Result<()> {
         )?
         .expect("we deleted something");
     }
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-    └── ≡📙:3:A1-1 on bce0c5e {0}
-        ├── 📙:3:A1-1
-        │   └── ·43f9472 (🏘️)
-        ├── 📙:5:A1-2
-        └── 📙:6:A1-3
-            └── ·6fdab32 (🏘️)
-    ");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
+└── ≡📙:A1-1 on bce0c5e {0}
+    ├── 📙:A1-1
+    │   └── ·43f9472 (🏘️)
+    ├── 📙:A1-2
+    └── 📙:A1-3
+        └── ·6fdab32 (🏘️)
+
+"#]]
+    );
 
     for name in ["A1-1", "A1-2"] {
         let r = Category::LocalBranch.to_full_name(name)?;
         ws = but_workspace::branch::remove_reference(
             r.as_ref(),
-            &repo,
+            &mut repo,
             &ws,
             &mut meta,
             remove_reference::Options {
@@ -198,17 +300,21 @@ fn journey_single_branch_ws_commit_no_target() -> anyhow::Result<()> {
         .expect("we deleted something");
     }
     // Just one segment left.
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-    └── ≡📙:3:A1-3 on bce0c5e {0}
-        └── 📙:3:A1-3
-            ├── ·43f9472 (🏘️)
-            └── ·6fdab32 (🏘️)
-    ");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
+└── ≡📙:A1-3 on bce0c5e {0}
+    └── 📙:A1-3
+        ├── ·43f9472 (🏘️)
+        └── ·6fdab32 (🏘️)
+
+"#]]
+    );
 
     let err = but_workspace::branch::remove_reference(
         r("refs/heads/A1-3"),
-        &repo,
+        &mut repo,
         &ws,
         &mut meta,
         remove_reference::Options {
@@ -228,34 +334,55 @@ fn journey_single_branch_ws_commit_no_target() -> anyhow::Result<()> {
 
 #[test]
 fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, desc) =
-        named_writable_scenario_with_args_and_description_and_graph(
+    let (_tmp, mut repo, mut meta, desc, mut db) =
+        crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_args_and_description(
             "single-branch-no-ws-commit-no-target",
             ["A", "B", "C", "D", "E"],
-            |meta| {
-                add_stack_with_segments(meta, 0, "A", StackState::InWorkspace, &["B", "C"]);
-                add_stack_with_segments(meta, 1, "D", StackState::InWorkspace, &["E"]);
-            },
         )?;
-    insta::assert_snapshot!(desc, @"Single commit, no main remote/target, no ws commit, but ws-reference");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 3183e43 (HEAD -> gitbutler/workspace, main, E, D, C, B, A) M1");
+    add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &["B", "C"]);
+    add_stack_with_segments(&mut meta, 1, "D", StackState::InWorkspace, &["E"]);
+    snapbox::assert_data_eq!(
+        desc,
+        snapbox::str![[r#"
+Single commit, no main remote/target, no ws commit, but ws-reference
 
-    let ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
-    ├── ≡📙:5:D on 3183e43 {1}
-    │   ├── 📙:5:D
-    │   └── 📙:6:E
-    └── ≡📙:2:A on 3183e43 {0}
-        ├── 📙:2:A
-        ├── 📙:3:B
-        └── 📙:4:C
-    ");
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 3183e43 (HEAD -> gitbutler/workspace, main, E, D, C, B, A) M1
+
+"#]]
+    );
+
+    let ws = crate::ref_info::with_workspace_commit::utils::graph_with_cutoff_only(
+        &repo, &meta, &mut db,
+    )?
+    .into_workspace()?;
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
+├── ≡📙:A on 3183e43 {0}
+│   ├── 📙:A
+│   ├── 📙:B
+│   └── 📙:C
+└── ≡📙:D on 3183e43 {1}
+    ├── 📙:D
+    └── 📙:E
+
+"#]]
+    );
+
+    but_core::git_config::edit_repo_config(&repo, gix::config::Source::Local, |config| {
+        but_core::git_config::set_config_value(config, "branch.A.remote", "origin")
+    })?;
 
     let ref_name = r("refs/heads/A");
     let ws = but_workspace::branch::remove_reference(
         ref_name,
-        &repo,
+        &mut repo,
         &ws,
         &mut meta,
         remove_reference::Options {
@@ -264,18 +391,28 @@ fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
         },
     )?
     .expect("we deleted something");
+    assert!(
+        but_core::git_config::open_repo_local_config_for_reading(&repo)?
+            .string("branch.A.remote")
+            .is_none(),
+        "deleting a local branch removes its local branch configuration"
+    );
 
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
-    ├── ≡📙:4:D on 3183e43 {1}
-    │   ├── 📙:4:D
-    │   └── 📙:5:E
-    └── ≡📙:2:B on 3183e43 {0}
-        ├── 📙:2:B
-        └── 📙:3:C
-    ");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
+├── ≡📙:B on 3183e43 {0}
+│   ├── 📙:B
+│   └── 📙:C
+└── ≡📙:D on 3183e43 {1}
+    ├── 📙:D
+    └── 📙:E
 
-    let main_id = repo.head_id()?;
+"#]]
+    );
+
+    let main_id = repo.head_id()?.detach();
     repo.reference(
         ref_name,
         main_id,
@@ -284,20 +421,24 @@ fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
     )?;
 
     let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
-    ├── ≡📙:5:D on 3183e43 {1}
-    │   ├── 📙:5:D
-    │   └── 📙:6:E
-    └── ≡📙:2:A on 3183e43 {0}
-        ├── 📙:2:A
-        ├── 📙:3:B
-        └── 📙:4:C
-    ");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
+├── ≡📙:A on 3183e43 {0}
+│   ├── 📙:A
+│   ├── 📙:B
+│   └── 📙:C
+└── ≡📙:D on 3183e43 {1}
+    ├── 📙:D
+    └── 📙:E
+
+"#]]
+    );
 
     let mut ws = but_workspace::branch::remove_reference(
         ref_name,
-        &repo,
+        &mut repo,
         &ws,
         &mut meta,
         remove_reference::Options::default(),
@@ -310,21 +451,25 @@ fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
         "recreate ref - this time it's not visible as it lacks metadata",
     )?;
 
-    insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
-    ├── ≡📙:4:D on 3183e43 {1}
-    │   ├── 📙:4:D
-    │   └── 📙:5:E
-    └── ≡📙:2:B on 3183e43 {0}
-        ├── 📙:2:B
-        └── 📙:3:C
-    ");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
+├── ≡📙:B on 3183e43 {0}
+│   ├── 📙:B
+│   └── 📙:C
+└── ≡📙:D on 3183e43 {1}
+    ├── 📙:D
+    └── 📙:E
+
+"#]]
+    );
 
     // Try to delete it again, just to see that it doesn't try to touch it as it's outside the workspace.
     assert!(
         but_workspace::branch::remove_reference(
             ref_name,
-            &repo,
+            &mut repo,
             &ws,
             &mut meta,
             remove_reference::Options::default(),
@@ -341,7 +486,7 @@ fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
         let r = Category::LocalBranch.to_full_name(name)?;
         ws = but_workspace::branch::remove_reference(
             r.as_ref(),
-            &repo,
+            &mut repo,
             &ws,
             &mut meta,
             remove_reference::Options {
@@ -354,10 +499,22 @@ fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
     }
 
     // A remains as we recreated it.
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 3183e43 (HEAD -> gitbutler/workspace, main, A) M1");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 3183e43 (HEAD -> gitbutler/workspace, main, A) M1
+
+"#]]
+    );
     let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
     // The workspace is completely empty.
-    insta::assert_snapshot!(graph_workspace(&ws), @"📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43");
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
+
+"#]]
+    );
 
     assert_eq!(
         meta.iter().count(),

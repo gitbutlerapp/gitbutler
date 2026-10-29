@@ -9,8 +9,6 @@ pub(crate) mod state {
 
     pub(crate) mod event {
         use anyhow::{Context as _, Result};
-        use but_ctx::ProjectHandleOrLegacyProjectId;
-        use but_db::poll::ItemKind;
         use but_settings::AppSettings;
         use gitbutler_watcher::Change;
         use tauri::Emitter;
@@ -46,12 +44,26 @@ pub(crate) mod state {
                             "headSha": head_sha,
                         }),
                     },
+                    Change::WorkspaceActivity { project_id } => ChangeForFrontend {
+                        name: format!("project://{project_id}/workspace-activity"),
+                        payload: serde_json::json!({}),
+                    },
                     Change::WorktreeChanges {
                         project_id,
                         changes,
+                        changed_paths: _,
                     } => ChangeForFrontend {
                         name: format!("project://{project_id}/worktree_changes"),
                         payload: serde_json::json!(&changes),
+                    },
+                    Change::LinkedWorktreeChanges {
+                        project_id,
+                        worktree,
+                        changes,
+                        changed_paths: _,
+                    } => ChangeForFrontend {
+                        name: format!("project://{project_id}/linked_worktree_changes"),
+                        payload: serde_json::json!({ "worktree": worktree, "changes": changes }),
                     },
                 }
             }
@@ -62,19 +74,6 @@ pub(crate) mod state {
                 ChangeForFrontend {
                     name: "settings://update".to_string(),
                     payload: serde_json::json!(settings),
-                }
-            }
-        }
-
-        impl From<(ProjectHandleOrLegacyProjectId, ItemKind)> for ChangeForFrontend {
-            fn from(project_item: (ProjectHandleOrLegacyProjectId, ItemKind)) -> Self {
-                let (project_id, item) = project_item;
-                // Use the shared conversion function from but_broadcaster
-                let event =
-                    but_claude::broadcaster::FrontendEvent::from_db_item(project_id.clone(), item);
-                ChangeForFrontend {
-                    name: event.name,
-                    payload: event.payload,
                 }
             }
         }
@@ -99,9 +98,6 @@ pub(crate) mod state {
         /// An active lock to signal that the entire project is locked for the Window this state belongs to.
         /// Let's make it optional while it's only in our own way, while aiming for making that reasonably well working.
         exclusive_access: Option<but_core::sync::LockFile>,
-        // Database watcher handle.
-        #[expect(dead_code)]
-        db_watcher: but_db::poll::DBWatcherHandle,
     }
 
     impl Drop for State {
@@ -185,13 +181,6 @@ pub(crate) mod state {
                 watch_mode,
             )?;
 
-            let db = ctx.db.get()?;
-            let db_watcher = but_db::poll::watch_in_background(&db, {
-                let app_handle = self.app_handle.clone();
-                let project_id = ctx.legacy_project.id.clone();
-                move |item| ChangeForFrontend::from((project_id.clone(), item)).send(&app_handle)
-            })?;
-
             let has_exclusive_access = exclusive_access.is_some();
             state_by_label.insert(
                 window.to_owned(),
@@ -199,7 +188,6 @@ pub(crate) mod state {
                     project_id: ctx.legacy_project.id.clone(),
                     watcher,
                     exclusive_access,
-                    db_watcher,
                 },
             );
             tracing::debug!("Maintaining {} Windows", state_by_label.len());
@@ -238,6 +226,30 @@ pub(crate) mod state {
     }
 }
 
+#[cfg(not(debug_assertions))]
+fn on_navigate(url: &url::Url) -> bool {
+    is_tauri_origin(url)
+}
+
+#[cfg(debug_assertions)]
+fn on_navigate(url: &url::Url) -> bool {
+    is_tauri_origin(url) || (url.scheme() == "http" && url.host_str() == Some("localhost"))
+}
+
+#[cfg(unix)]
+fn is_tauri_origin(url: &url::Url) -> bool {
+    let scheme = url.scheme();
+    scheme == "tauri" || scheme == "asset"
+}
+
+#[cfg(windows)]
+fn is_tauri_origin(url: &url::Url) -> bool {
+    let scheme = url.scheme();
+    let domain = url.domain().unwrap_or_default();
+    (scheme == "http" || scheme == "https")
+        && (domain == "tauri.localhost" || domain == "asset.localhost")
+}
+
 #[cfg(not(target_os = "macos"))]
 pub fn create(
     handle: &tauri::AppHandle,
@@ -255,6 +267,7 @@ pub fn create(
     .disable_drag_drop_handler()
     .min_inner_size(1000.0, 600.0)
     .inner_size(1160.0, 720.0)
+    .on_navigation(on_navigate)
     .build()?;
     Ok(window)
 }
@@ -267,11 +280,11 @@ pub fn create(
 ) -> tauri::Result<tauri::WebviewWindow> {
     tracing::info!("creating window '{label}' created at '{window_relative_url}'");
 
-    let use_native_title_bar =
+    let (use_native_title_bar, no_shadow) =
         but_settings::AppSettings::load_from_default_path_creating_without_customization()
             .ok()
-            .map(|settings| settings.ui.use_native_title_bar)
-            .unwrap_or(false);
+            .map(|settings| (settings.ui.use_native_title_bar, settings.ui.no_shadow))
+            .unwrap_or((false, false));
 
     let window = tauri::WebviewWindowBuilder::new(
         handle,
@@ -289,6 +302,8 @@ pub fn create(
     } else {
         tauri::TitleBarStyle::Overlay
     })
+    .shadow(!no_shadow)
+    .on_navigation(on_navigate)
     .build()?;
 
     if !use_native_title_bar {
@@ -298,7 +313,7 @@ pub fn create(
             // Note that these lights get reset when the Window label is changed!
             // See https://github.com/tauri-apps/tauri/issues/13044 .
             // TODO: stop doing this entirely and work with the defaults, my preference,
-            //       create a build script that makes it clear which MacOS version we are using
+            //       create a build script that makes it clear which macOS version we are using
             //       to conditionally compile the right value.
             let y_offset_for_small_dots_in_pre_tahoe = 25.0;
             window.setup_traffic_lights_inset(LogicalPosition::new(

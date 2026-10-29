@@ -33,11 +33,11 @@
 		RichTextEditor,
 		Textarea,
 		chipToasts,
-	} from "@gitbutler/ui";
+	} from "@gitbutler/ui-svelte";
 	import FileUploadPlugin, {
 		type DropFileResult,
-	} from "@gitbutler/ui/richText/plugins/FileUpload.svelte";
-	import { copyToClipboard } from "@gitbutler/ui/utils/clipboard";
+	} from "@gitbutler/ui-svelte/richText/plugins/FileUpload.svelte";
+	import { copyToClipboard } from "@gitbutler/ui-svelte/utils/clipboard";
 	import dayjs from "dayjs";
 	import relativeTime from "dayjs/plugin/relativeTime";
 
@@ -384,8 +384,8 @@
 	.summary-wrapper {
 		flex-shrink: 0;
 		padding: 6px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 </style>

@@ -2,7 +2,7 @@
 use std::path::PathBuf;
 
 use but_api::json::Error;
-use but_ctx::ProjectHandleOrLegacyProjectId;
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use tauri::State;
 use tracing::instrument;
 
@@ -23,7 +23,9 @@ pub fn get_anonymous_graph_path(
     archival: State<'_, but_feedback::Archival>,
     project_id: ProjectHandleOrLegacyProjectId,
 ) -> Result<PathBuf, Error> {
-    archival.zip_anonymous_graph(project_id).map_err(Into::into)
+    let ctx: Context = project_id.try_into()?;
+    let _guard = ctx.shared_worktree_access();
+    archival.zip_anonymous_graph(&ctx).map_err(Into::into)
 }
 
 #[tauri::command(async)]

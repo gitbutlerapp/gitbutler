@@ -31,28 +31,29 @@ impl Archival {
         create_zip_file_from_dir(ctx.workdir_or_gitdir()?, output_file)
     }
 
-    /// Create an archive commit graph behind `project_id` such that it doesn't reveal PII.
-    pub fn zip_anonymous_graph(
-        &self,
-        project_id: ProjectHandleOrLegacyProjectId,
-    ) -> Result<PathBuf> {
-        let ctx: Context = project_id.try_into()?;
-        let _guard = ctx.shared_worktree_access();
+    /// Create an anonymous archive commit graph for `ctx`, such that it doesn't reveal PII.
+    pub fn zip_anonymous_graph(&self, ctx: &Context) -> Result<PathBuf> {
+        let mut options = but_graph::init::Options {
+            worktrees: true,
+            ..Default::default()
+        };
         let repo = ctx.repo.get()?;
         let meta = ctx.meta()?;
-        let mut graph =
-            but_graph::Graph::from_head(&repo, &meta, Default::default()).or_else(|_| {
-                but_graph::Graph::from_head(
-                    &repo,
-                    &meta,
-                    but_graph::init::Options {
-                        // Assume it fails because of post-processing, try again without.
-                        dangerously_skip_postprocessing_for_debugging: true,
-                        ..Default::default()
-                    },
-                )
-            })?;
-        let dot_file_contents = graph.anonymize(&repo.remote_names())?.dot_graph();
+        let project_meta = ctx.project_meta()?;
+        let mut db = ctx.db.get_cache_mut()?;
+        let mut graph = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            project_meta.clone(),
+            &mut db,
+            options.clone(),
+        )
+        .or_else(|_| {
+            // Assume it fails because of post-processing, try again without.
+            options.dangerously_skip_postprocessing_for_debugging = true;
+            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, options)
+        })?;
+        let dot_file_contents = graph.anonymize(&repo.remote_names())?.dot_graph_pruned();
         let output_file = self.cache_dir.join(format!(
             "commit-graph-anon-{date}.zip",
             date = filesafe_date_time()

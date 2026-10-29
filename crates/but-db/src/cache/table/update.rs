@@ -2,10 +2,11 @@ use chrono::{DateTime, Utc};
 
 use crate::{AppCacheHandle, M, SchemaVersion, Transaction};
 
-pub(crate) const M: &[M<'static>] = &[M::up(
-    2026_01_19__15_00_00,
-    SchemaVersion::Zero,
-    "CREATE TABLE `update-check`(
+pub(crate) const M: &[M<'static>] = &[
+    M::up(
+        2026_01_19__15_00_00,
+        SchemaVersion::Zero,
+        "CREATE TABLE `update-check`(
     `id` INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
     `checked_at` TIMESTAMP NOT NULL,
     `up_to_date` BOOLEAN NOT NULL,
@@ -16,7 +17,13 @@ pub(crate) const M: &[M<'static>] = &[M::up(
     `suppressed_at` TIMESTAMP,
     `suppress_duration_hours` INTEGER
 );",
-)];
+    ),
+    M::up(
+        2026_05_18__08_00_00,
+        SchemaVersion::Zero,
+        "ALTER TABLE `update-check` ADD COLUMN `valid_for_version` TEXT NULL;",
+    ),
+];
 
 // This table currently only has a single row representing the latest update check.
 const SINGLETON_RECORD_ID: u8 = 1;
@@ -80,6 +87,18 @@ pub struct CachedCheckResult {
 /// Information about the latest available version and whether an update is needed.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckUpdateStatus {
+    /// The version of the app for which this update check is valid.
+    ///
+    /// This is used to check for cache staleness. As the version comparison is done server side,
+    /// the value of [`Self::up_to_date`] is only valid if the current version of the app matches
+    /// the version running at the time of the update check.
+    ///
+    /// # Compatibility
+    /// This is nullable only for forward compatibility reasons, as this column hasn't always
+    /// existed. Removing nullability requires bumping the schema version as old clients will no
+    /// longer be able to write to the table.
+    pub valid_for_version: Option<String>,
+
     /// `true` if the current version matches the latest available version, `false` otherwise.
     ///
     /// When this is `false`, you should prompt the user to update or automatically download
@@ -125,7 +144,7 @@ impl UpdateCheckHandle<'_> {
     /// Like [`Self::get`], but fallible.
     pub fn try_get(&self) -> rusqlite::Result<Option<CachedCheckResult>> {
         let mut stmt = self.conn.prepare(
-            "SELECT checked_at, up_to_date, latest_version, release_notes, url, signature,
+            "SELECT checked_at, up_to_date, latest_version, release_notes, url, signature, valid_for_version,
                     suppressed_at, suppress_duration_hours
              FROM `update-check` WHERE id = 1",
         )?;
@@ -137,7 +156,7 @@ impl UpdateCheckHandle<'_> {
                 let checked_at_naive: chrono::NaiveDateTime = row.get(0)?;
                 let checked_at = DateTime::from_naive_utc_and_offset(checked_at_naive, Utc);
 
-                let suppressed_at_naive: Option<chrono::NaiveDateTime> = row.get(6)?;
+                let suppressed_at_naive: Option<chrono::NaiveDateTime> = row.get(7)?;
                 let suppressed_at = suppressed_at_naive
                     .map(|naive| DateTime::from_naive_utc_and_offset(naive, Utc));
 
@@ -149,9 +168,10 @@ impl UpdateCheckHandle<'_> {
                         release_notes: row.get(3)?,
                         url: row.get(4)?,
                         signature: row.get(5)?,
+                        valid_for_version: row.get(6)?,
                     },
                     suppressed_at,
-                    suppress_duration_hours: row.get(7)?,
+                    suppress_duration_hours: row.get(8)?,
                 }))
             }
             None => Ok(None),
@@ -179,9 +199,9 @@ impl UpdateCheckHandleMut<'_> {
 
         sp.execute(
             "INSERT OR REPLACE INTO `update-check`
-             (id, checked_at, up_to_date, latest_version, release_notes, url, signature,
+             (id, checked_at, up_to_date, latest_version, release_notes, url, signature, valid_for_version,
               suppressed_at, suppress_duration_hours)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             rusqlite::params![
                 SINGLETON_RECORD_ID,
                 result.checked_at.naive_utc(),
@@ -190,6 +210,7 @@ impl UpdateCheckHandleMut<'_> {
                 result.status.release_notes,
                 result.status.url,
                 result.status.signature,
+                result.status.valid_for_version,
                 result.suppressed_at.map(|dt| dt.naive_utc()),
                 result.suppress_duration_hours,
             ],

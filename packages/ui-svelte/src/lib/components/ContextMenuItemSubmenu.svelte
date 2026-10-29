@@ -1,0 +1,193 @@
+<script lang="ts">
+	import ContextMenu from "$components/ContextMenu.svelte";
+	import ContextMenuItem from "$components/ContextMenuItem.svelte";
+	import Icon from "$components/Icon.svelte";
+	import { type IconName } from "$lib/icons/names";
+	import { getContext, onDestroy } from "svelte";
+	import type { Snippet } from "svelte";
+
+	// Context key for submenu coordination
+	const SUBMENU_CONTEXT_KEY = "contextmenu-submenu-coordination";
+
+	interface Props {
+		icon?: IconName;
+		label: string;
+		disabled?: boolean;
+		keyboardShortcut?: string;
+		testId?: string;
+		submenu: Snippet<[{ close: () => void }]>;
+		submenuSide?: "left" | "right";
+		submenuVerticalAlign?: "top" | "bottom";
+	}
+
+	const {
+		icon,
+		label,
+		disabled = false,
+		keyboardShortcut,
+		testId,
+		submenu,
+		submenuSide = "right",
+		submenuVerticalAlign = "top",
+	}: Props = $props();
+
+	let menuItemElement: HTMLDivElement | undefined = $state();
+	let isSubmenuOpen = $state(false);
+	let hoverTimeout: NodeJS.Timeout | undefined = $state();
+
+	// Get submenu coordination context
+	const submenuCoordination: {
+		closeAll: () => void;
+		register: (closeCallback: () => void) => () => void;
+		hasOpenSubmenus: () => boolean;
+		getMenuContainer: () => HTMLElement | undefined;
+		getMenuId: () => string;
+		closeEntireMenu: () => void;
+	} = getContext(SUBMENU_CONTEXT_KEY) || {
+		closeAll: () => {},
+		register: () => () => {},
+		hasOpenSubmenus: () => false,
+		getMenuContainer: () => undefined,
+		getMenuId: () => "unknown",
+		closeEntireMenu: () => {},
+	};
+
+	// Register this submenu
+	const _unregister = submenuCoordination.register(() => {
+		if (isSubmenuOpen) {
+			closeSubmenu();
+		}
+	});
+
+	// Cleanup on destroy
+	onDestroy(() => {
+		if (hoverTimeout) {
+			clearTimeout(hoverTimeout);
+		}
+		_unregister();
+	});
+
+	function handleMouseEnter() {
+		if (disabled) return;
+
+		// Clear any existing timeout
+		if (hoverTimeout) {
+			clearTimeout(hoverTimeout);
+		}
+
+		// Small delay to prevent accidental opening
+		hoverTimeout = setTimeout(() => {
+			// Close all other submenus first
+			submenuCoordination.closeAll();
+
+			isSubmenuOpen = true;
+		}, 100);
+	}
+
+	function handleMouseLeave() {
+		// Clear timeout if mouse leaves before delay completes
+		if (hoverTimeout) {
+			clearTimeout(hoverTimeout);
+			hoverTimeout = undefined;
+		}
+	}
+
+	function handleClick(e: MouseEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+
+		if (disabled) return;
+
+		isSubmenuOpen = !isSubmenuOpen;
+	}
+
+	function closeSubmenu() {
+		isSubmenuOpen = false;
+	}
+
+	// Handle arrow key navigation
+	function handleKeyDown(e: KeyboardEvent) {
+		if (disabled) return;
+
+		switch (e.key) {
+			case "ArrowRight":
+				if (submenuSide === "right") {
+					e.preventDefault();
+					e.stopPropagation();
+					isSubmenuOpen = true;
+				}
+				break;
+			case "ArrowLeft":
+				if (submenuSide === "left") {
+					e.preventDefault();
+					e.stopPropagation();
+					isSubmenuOpen = true;
+				}
+				break;
+			case "Enter":
+			case " ":
+				e.preventDefault();
+				e.stopPropagation();
+				if (disabled) return;
+
+				isSubmenuOpen = !isSubmenuOpen;
+				break;
+		}
+	}
+</script>
+
+<div
+	bind:this={menuItemElement}
+	class="submenu-wrapper"
+	class:active={isSubmenuOpen}
+	onmouseenter={handleMouseEnter}
+	onmouseleave={handleMouseLeave}
+	onkeydown={handleKeyDown}
+	role="menuitem"
+	aria-haspopup="menu"
+	aria-expanded={isSubmenuOpen}
+	tabindex="-1"
+>
+	<ContextMenuItem {icon} {label} {disabled} {keyboardShortcut} {testId} onclick={handleClick}>
+		{#snippet control()}
+			<div class="submenu-chevron">
+				<Icon name="chevron-right" size={14} />
+			</div>
+		{/snippet}
+	</ContextMenuItem>
+</div>
+
+{#if isSubmenuOpen}
+	<ContextMenu
+		leftClickTrigger={menuItemElement}
+		parentMenuId={submenuCoordination.getMenuId()}
+		side={submenuSide}
+		align={submenuVerticalAlign === "top" ? "start" : "end"}
+		target={menuItemElement}
+		onclose={() => {
+			isSubmenuOpen = false;
+			menuItemElement?.focus();
+		}}
+	>
+		{@render submenu({ close: closeSubmenu })}
+	</ContextMenu>
+{/if}
+
+<style lang="postcss">
+	.submenu-wrapper {
+		display: flex;
+		position: relative;
+		flex-direction: column;
+
+		&.active :global(.menu-item) {
+			background-color: var(--hover-bg-2);
+		}
+	}
+
+	.submenu-chevron {
+		display: flex;
+		flex-shrink: 0;
+		transform: translateX(4px);
+		color: var(--text-3);
+	}
+</style>

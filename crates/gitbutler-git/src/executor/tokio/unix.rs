@@ -2,7 +2,6 @@ use std::{
     fs::Permissions,
     os::unix::fs::{MetadataExt, PermissionsExt},
     path::Path,
-    time::Duration,
 };
 
 use tokio::{
@@ -72,14 +71,13 @@ impl AskpassServer for TokioAskpassServer {
     type Error = std::io::Error;
     type SocketHandle = BufStream<UnixStream>;
 
-    async fn accept(&self, timeout: Option<Duration>) -> Result<Self::SocketHandle, Self::Error> {
-        let res = if let Some(timeout) = timeout {
-            tokio::time::timeout(timeout, self.server.as_ref().unwrap().accept()).await?
-        } else {
-            self.server.as_ref().unwrap().accept().await
-        };
-
-        res.map(|(s, _)| BufStream::new(s))
+    async fn accept(&self) -> Result<Self::SocketHandle, Self::Error> {
+        self.server
+            .as_ref()
+            .unwrap()
+            .accept()
+            .await
+            .map(|(s, _)| BufStream::new(s))
     }
 }
 

@@ -36,4 +36,8 @@ pub enum Error<BE: std::error::Error + core::fmt::Debug + Send + Sync + 'static>
         "the force push was blocked because the remote branch contains commits that would be overwritten"
     )]
     ForcePushProtection(BE),
+    /// A push was rejected because it would not be a fast-forward — the remote branch moved and
+    /// contains commits the local side does not. Recoverable by re-fetching and retrying.
+    #[error("the push was rejected because the remote branch has moved (non-fast-forward)")]
+    NonFastForward(BE),
 }

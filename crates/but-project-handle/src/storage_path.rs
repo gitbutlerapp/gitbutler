@@ -13,18 +13,28 @@ pub fn storage_path_config_key() -> &'static str {
     storage_path_config_key_for_channel(&AppChannel::new())
 }
 
+/// Return the config key used to customize the GitButler storage path for `channel`.
+pub fn storage_path_config_key_for_app_channel(channel: AppChannel) -> &'static str {
+    storage_path_config_key_for_channel(&channel)
+}
+
 /// Return the path where per-project GitButler data should be stored for `repo`.
 pub fn gitbutler_storage_path(repo: &gix::Repository) -> anyhow::Result<PathBuf> {
+    gitbutler_storage_path_for_channel(repo, AppChannel::new())
+}
+
+/// Return the path where per-project GitButler data should be stored for `repo` and `channel`.
+pub fn gitbutler_storage_path_for_channel(
+    repo: &gix::Repository,
+    channel: AppChannel,
+) -> anyhow::Result<PathBuf> {
     let git_dir = repo.git_dir();
-    let channel = AppChannel::new();
     let storage_key = storage_path_config_key_for_channel(&channel);
 
     match repo.config_snapshot().trusted_path(storage_key) {
-        Some(Ok(path)) => resolve_configured_storage_path(git_dir, path.as_ref()),
-        Some(Err(err)) => {
-            Err(err).with_context(|| format!("{storage_key} contains an invalid path"))
-        }
-        None => Ok(git_dir.join(default_gitbutler_storage_dir_name())),
+        Ok(Some(path)) => resolve_configured_storage_path(git_dir, path.as_ref()),
+        Err(err) => Err(err).with_context(|| format!("{storage_key} contains an invalid path")),
+        Ok(None) => Ok(git_dir.join(DEFAULT_STORAGE_DIR_NAME)),
     }
 }
 
@@ -86,8 +96,8 @@ fn validate_in_git_storage_path(
 
     if !top_level_dir
         .to_string_lossy()
-        .get(.."gitbutler".len())
-        .is_some_and(|name| name.eq_ignore_ascii_case("gitbutler"))
+        .get(..DEFAULT_STORAGE_DIR_NAME.len())
+        .is_some_and(|name| name.eq_ignore_ascii_case(DEFAULT_STORAGE_DIR_NAME))
     {
         bail!(
             "configured storage path '{}' resolves inside '.git' but not under a top-level 'gitbutler*' directory",
@@ -98,8 +108,39 @@ fn validate_in_git_storage_path(
     Ok(())
 }
 
-fn default_gitbutler_storage_dir_name() -> &'static str {
-    "gitbutler"
+/// Name of the default GitButler storage directory inside the git dir.
+pub const DEFAULT_STORAGE_DIR_NAME: &str = "gitbutler";
+
+/// Git-dir-relative path of the refresh sentinel, `gitbutler/REFRESH`.
+///
+/// Single source of truth shared by the writer (`write_refresh_sentinel`) and
+/// the watcher (`gitbutler_filemonitor`).
+pub const REFRESH_SENTINEL_PATH: &str = "gitbutler/REFRESH";
+
+/// Identity written into the refresh sentinel so a process can skip the write
+/// it caused (its own writes are already handled in-process) while still
+/// reacting to others — the `but` CLI, or a second GUI window.
+///
+/// A pid suffices: a recycled one can't be misread as ours, since we only
+/// compare right after the watcher fires on a fresh write.
+pub fn process_sentinel_token() -> String {
+    std::process::id().to_string()
+}
+
+/// Best-effort write of the refresh sentinel in `storage_dir`, the project's
+/// GitButler storage directory — how out-of-process writes (notably the `but`
+/// CLI) reach the watchers of the apps. Metadata writes and mutations declared
+/// `#[but_api(refreshes)]` call it. Contents are this process's
+/// [`process_sentinel_token`] so it can skip its own write. Errors are logged and
+/// swallowed, never failing the mutation.
+pub fn write_refresh_sentinel(storage_dir: &Path) {
+    let Some(filename) = Path::new(REFRESH_SENTINEL_PATH).file_name() else {
+        return;
+    };
+    let sentinel = storage_dir.join(filename);
+    if let Err(err) = std::fs::write(&sentinel, process_sentinel_token()) {
+        tracing::warn!(?sentinel, %err, "failed to touch refresh sentinel");
+    }
 }
 
 fn storage_path_config_key_for_channel(channel: &AppChannel) -> &'static str {

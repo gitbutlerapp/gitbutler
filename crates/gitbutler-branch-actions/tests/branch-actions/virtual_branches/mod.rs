@@ -1,29 +1,200 @@
-use std::{fs, path, path::PathBuf, str::FromStr};
+use std::{fs, path::PathBuf, str::FromStr};
 
+use but_core::RepositoryExt as _;
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId, RepoOpenMode};
-use but_error::Marker;
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_error::{AnyhowContextExt as _, Code};
 use but_settings::AppSettings;
-use gitbutler_branch::BranchCreateRequest;
-use gitbutler_branch_actions::GITBUTLER_WORKSPACE_COMMIT_TITLE;
-use gitbutler_oplog::{OplogExt, SnapshotExt};
-use gitbutler_project::{self as projects};
-use gitbutler_stack::StackId;
-use gitbutler_testsupport::{TestProject, VAR_NO_CLEANUP, paths};
-use tempfile::TempDir;
+use but_testsupport::{
+    gix_testtools::{Creation, scripted_fixture_writable_with_args},
+    open_repo,
+};
+use gitbutler_reference::{LocalRefname, Refname};
+use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_gix};
+use gix::refs::transaction::PreviousValue;
+use tempfile::{TempDir, tempdir};
+
+pub(crate) use crate::support::{stack_details, stack_name};
+
+const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
+
+struct TestRepo {
+    /// The worktree path of the local repository in the fixture.
+    local_path: PathBuf,
+    fixture_tmp_dir: Option<TempDir>,
+}
+
+impl Default for TestRepo {
+    fn default() -> Self {
+        Self::from_fixture("scenario/repo-with-origin.sh")
+    }
+}
+
+impl TestRepo {
+    fn from_fixture(fixture: &str) -> Self {
+        let temp_dir =
+            scripted_fixture_writable_with_args(fixture, None::<String>, Creation::Execute)
+                .map_err(anyhow::Error::from_boxed)
+                .expect("fixture should materialize");
+        let local_path = temp_dir.path().join("local");
+
+        Self {
+            local_path,
+            fixture_tmp_dir: Some(temp_dir),
+        }
+    }
+}
+
+impl Drop for TestRepo {
+    fn drop(&mut self) {
+        if std::env::var_os(VAR_NO_CLEANUP).is_some() {
+            let _ = self.fixture_tmp_dir.take().map(|tmp| tmp.keep());
+        }
+    }
+}
+
+impl TestRepo {
+    pub fn debug_local_repo(&mut self) -> Option<PathBuf> {
+        self.fixture_tmp_dir
+            .take()
+            .map(|tmp| tmp.keep().join("local"))
+    }
+
+    pub fn path(&self) -> &std::path::Path {
+        &self.local_path
+    }
+
+    fn open(&self) -> gix::Repository {
+        open_repo(&self.local_path).expect("local repo opens")
+    }
+
+    /// Simulate pushing `branch` by updating the matching `origin` remote-tracking ref.
+    pub fn simulate_push_branch(&self, branch: &LocalRefname) {
+        let repo = self.open();
+        let local_target = repo
+            .find_reference(&branch.to_string())
+            .unwrap()
+            .peel_to_id()
+            .unwrap()
+            .detach();
+        let short = branch
+            .to_string()
+            .strip_prefix("refs/heads/")
+            .expect("local branch ref")
+            .to_owned();
+        let remote_ref = format!("refs/remotes/origin/{short}");
+        repo.reference(
+            remote_ref.as_str(),
+            local_target,
+            PreviousValue::Any,
+            "sync origin refs for tests",
+        )
+        .unwrap();
+    }
+
+    pub fn push(&self) {
+        self.simulate_push_branch(&"refs/heads/master".parse().unwrap());
+    }
+
+    pub fn checkout_commit(&self, commit_oid: gix::ObjectId) {
+        let repo = self.open();
+        but_core::worktree::safe_checkout_from_head(
+            commit_oid,
+            &repo,
+            but_core::worktree::checkout::Options {
+                skip_head_update: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        set_head_detached(&repo, commit_oid);
+    }
+
+    pub fn checkout(&self, branch: &LocalRefname) {
+        let repo = self.open();
+        let refname: Refname = branch.into();
+        let current_head = repo.head_id().expect("HEAD peels").detach();
+        let branch_name = refname.to_string();
+        let target = match repo.try_find_reference(&branch_name).unwrap() {
+            Some(mut reference) => reference.peel_to_id().unwrap().detach(),
+            None => {
+                repo.reference(
+                    branch_name.as_str(),
+                    current_head,
+                    PreviousValue::Any,
+                    "new branch",
+                )
+                .unwrap();
+                current_head
+            }
+        };
+        but_core::worktree::safe_checkout_from_head(
+            target,
+            &repo,
+            but_core::worktree::checkout::Options {
+                skip_head_update: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        set_head_symbolic(&repo, branch_name.as_str());
+    }
+
+    pub fn commit_all(&self, message: &str) -> gix::ObjectId {
+        let repo = self.open();
+        let parent = repo.head_id().expect("HEAD peels").detach();
+        #[allow(deprecated)]
+        let tree_id = repo
+            .create_wd_tree(0)
+            .expect("worktree tree can be written");
+        let author = signature_gix(SignaturePurpose::Author);
+        let committer = signature_gix(SignaturePurpose::Committer);
+        let commit_id = commit_without_signature_gix(
+            &repo,
+            None,
+            author,
+            committer,
+            message.into(),
+            tree_id,
+            &[parent],
+            None,
+        )
+        .expect("failed to commit");
+        but_core::worktree::safe_checkout_from_head(
+            commit_id,
+            &repo,
+            but_core::worktree::checkout::Options {
+                skip_head_update: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        update_current_head(&repo, commit_id, "commit");
+        commit_id
+    }
+}
 
 struct Test {
-    repo: TestProject,
+    repo: TestRepo,
     project_id: ProjectHandleOrLegacyProjectId,
     data_dir: Option<TempDir>,
     ctx: Context,
 }
 
 impl Test {
-    pub fn new_with_settings(change_settings: fn(&mut AppSettings)) -> Self {
-        let data_dir = paths::data_dir();
+    pub fn from_fixture(fixture: &str) -> Self {
+        Self::new_with_settings_and_repo(|_settings| {}, TestRepo::from_fixture(fixture))
+    }
 
-        let test_project = TestProject::default();
+    pub fn new_with_settings(change_settings: fn(&mut AppSettings)) -> Self {
+        Self::new_with_settings_and_repo(change_settings, TestRepo::default())
+    }
+
+    fn new_with_settings_and_repo(
+        change_settings: fn(&mut AppSettings),
+        test_project: TestRepo,
+    ) -> Self {
+        let data_dir = tempdir().expect("tempdir exists");
+
         let outcome =
             gitbutler_project::add_at_app_data_dir(data_dir.as_ref(), test_project.path())
                 .expect("failed to add project");
@@ -35,7 +206,8 @@ impl Test {
             settings,
             RepoOpenMode::Isolated,
         )
-        .expect("can create context");
+        .expect("can create context")
+        .with_memory_app_cache();
         Self {
             repo: test_project,
             project_id: project.id,
@@ -68,83 +240,39 @@ impl Test {
     }
 }
 
-mod amend;
-mod apply_virtual_branch;
-mod create_virtual_branch_from_branch;
+fn update_current_head(repo: &gix::Repository, target: gix::ObjectId, message: &str) {
+    match repo.head_name().expect("HEAD can be read") {
+        Some(name) => {
+            let name = name.as_bstr().to_string();
+            repo.reference(name.as_str(), target, PreviousValue::Any, message)
+                .expect("head reference can be updated");
+        }
+        None => set_head_detached(repo, target),
+    }
+}
+
+fn set_head_symbolic(repo: &gix::Repository, target: &str) {
+    repo.edit_reference(gix::refs::transaction::RefEdit::update(
+        "HEAD".try_into().unwrap(),
+        gix::refs::FullName::try_from(target).unwrap(),
+        PreviousValue::Any,
+        b"test: set HEAD".as_slice(),
+    ))
+    .expect("HEAD can be set");
+}
+
+fn set_head_detached(repo: &gix::Repository, target: gix::ObjectId) {
+    repo.edit_reference(gix::refs::transaction::RefEdit::update(
+        "HEAD".try_into().unwrap(),
+        target,
+        PreviousValue::Any,
+        b"test: detach HEAD".as_slice(),
+    ))
+    .expect("HEAD can be detached");
+}
+
 mod init;
 mod list;
 mod list_details;
-mod move_commit_to_vbranch;
-mod oplog;
-mod save_and_unapply_virtual_branch;
 mod set_base_branch;
-mod unapply_without_saving_virtual_branch;
-mod undo_commit;
-mod update_commit_message;
 mod workspace_migration;
-
-pub fn list_commit_files(
-    ctx: &Context,
-    commit_oid: git2::Oid,
-) -> anyhow::Result<Vec<but_core::TreeChange>> {
-    let repo = ctx.repo.get()?;
-    let commit_id = commit_oid.to_gix();
-    but_core::diff::CommitDetails::from_commit_id(
-        gix::prelude::ObjectIdExt::attach(commit_id, &repo),
-        false,
-    )
-    .map(|d| d.diff_with_first_parent)
-}
-
-pub fn create_commit(
-    ctx: &mut Context,
-    stack_id: StackId,
-    message: &str,
-) -> anyhow::Result<git2::Oid> {
-    let mut guard = ctx.exclusive_worktree_access();
-
-    let repo = ctx.repo.get()?;
-    let worktree = but_core::diff::worktree_changes(&repo)?;
-    let file_changes: Vec<but_core::DiffSpec> =
-        worktree.changes.iter().map(Into::into).collect::<Vec<_>>();
-
-    let meta = ctx.legacy_meta()?;
-    let stacks = but_workspace::legacy::stacks_v3(
-        &repo,
-        &meta,
-        but_workspace::legacy::StacksFilter::InWorkspace,
-        None,
-    )?;
-
-    let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
-
-    let stack_branch_name = stacks
-        .iter()
-        .find(|s| s.id == Some(stack_id))
-        .and_then(|s| s.heads.first().map(|h| h.name.to_string()))
-        .ok_or(anyhow::anyhow!("Could not find associated reference name"))?;
-
-    let outcome = but_workspace::legacy::commit_engine::create_commit_simple(
-        ctx,
-        stack_id,
-        None,
-        file_changes,
-        message.to_string(),
-        stack_branch_name,
-        guard.write_permission(),
-    );
-
-    let _ = snapshot_tree.and_then(|snapshot_tree| {
-        ctx.snapshot_commit_creation(
-            snapshot_tree,
-            outcome.as_ref().err(),
-            message.to_owned(),
-            None,
-            guard.write_permission(),
-        )
-    });
-    outcome?
-        .new_commit
-        .map(|c| c.to_git2())
-        .ok_or(anyhow::anyhow!("No new commit created"))
-}

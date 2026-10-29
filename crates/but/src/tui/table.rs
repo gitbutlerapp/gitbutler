@@ -12,6 +12,7 @@ pub(super) mod types {
         pub(super) headers: Vec<Cell>,
         pub(super) rows: Vec<Vec<Cell>>,
         pub(super) terminal_width: usize,
+        pub(super) allow_truncation: bool,
     }
 }
 use types::Table;
@@ -61,7 +62,13 @@ impl Table {
             headers,
             rows: Vec::new(),
             terminal_width,
+            allow_truncation: true,
         }
+    }
+
+    pub fn with_truncation(mut self, allow_truncation: bool) -> Self {
+        self.allow_truncation = allow_truncation;
+        self
     }
 
     pub fn add_row(&mut self, row: Vec<Cell>) {
@@ -101,7 +108,7 @@ impl Table {
             }
 
             let width = column_widths.get(i).copied().unwrap_or(0);
-            let formatted = format_cell(&cell.content, width, cell.align);
+            let formatted = format_cell(&cell.content, width, cell.align, self.allow_truncation);
             write!(out, "{formatted}")?;
         }
         Ok(())
@@ -136,7 +143,7 @@ impl Table {
         // If we exceed terminal width, shrink flexible columns to fit.
         // Columns marked `no_truncate` keep their full content width;
         // only other flexible columns are shrunk.
-        if total_fixed_width > self.terminal_width {
+        if self.allow_truncation && total_fixed_width > self.terminal_width {
             let flexible_indices: Vec<usize> = self
                 .headers
                 .iter()
@@ -191,11 +198,11 @@ impl Table {
     }
 }
 
-fn format_cell(content: &str, width: usize, align: Alignment) -> String {
+fn format_cell(content: &str, width: usize, align: Alignment, allow_truncation: bool) -> String {
     let stripped = strip_ansi_codes(content);
     let content_width = stripped.width();
 
-    if content_width >= width {
+    if allow_truncation && content_width >= width {
         return truncate_text(content, width).into_owned();
     }
 
@@ -204,5 +211,32 @@ fn format_cell(content: &str, width: usize, align: Alignment) -> String {
 
     match align {
         Alignment::Left => format!("{}{}", content, " ".repeat(padding_needed)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Cell, Table};
+
+    #[test]
+    fn render_truncates_cells_by_default() {
+        let mut table = Table::new(vec![Cell::new("NAME").with_width(5)]);
+        table.add_row(vec![Cell::new("hello world")]);
+
+        let mut output = String::new();
+        table.render(&mut output).unwrap();
+
+        assert_eq!(output, "hell…\n");
+    }
+
+    #[test]
+    fn render_keeps_full_cells_when_truncation_is_disabled() {
+        let mut table = Table::new(vec![Cell::new("NAME").with_width(5)]).with_truncation(false);
+        table.add_row(vec![Cell::new("hello world")]);
+
+        let mut output = String::new();
+        table.render(&mut output).unwrap();
+
+        assert_eq!(output, "hello world\n");
     }
 }

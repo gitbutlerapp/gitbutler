@@ -1,9 +1,10 @@
 use anyhow::Result;
 use but_core::DiffSpec;
-use but_rebase::graph_rebase::GraphExt;
+use but_rebase::graph_rebase::Editor;
 use but_testsupport::visualize_commit_graph_all;
 use but_workspace::commit::move_changes_between_commits;
 use gix::prelude::ObjectIdExt;
+use snapbox::prelude::*;
 
 use crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_description_and_graph as writable_scenario;
 
@@ -21,65 +22,89 @@ fn visualize_tree(id: gix::Id<'_>) -> String {
 
 #[test]
 fn move_changes_same_commit_is_noop() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, mut _meta, _description, mut db) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * c9f444c (HEAD -> three) commit three
-    * 16fd221 (origin/two, two) commit two
-    * 8b426d0 (one) commit one
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* c9f444c (HEAD -> three) commit three
+* 16fd221 (origin/two, two) commit two
+* 8b426d0 (one) commit one
+
+"#]]
+    );
 
     let commit_id = repo.rev_parse_single("three")?.detach();
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
 
     // Moving changes from a commit to itself should be a no-op
     let outcome =
         move_changes_between_commits(editor, commit_id, commit_id, Vec::<DiffSpec>::new(), 0)?;
 
     // Materialize should succeed
-    outcome.rebase.materialize()?;
+    outcome.rebase.materialize(Default::default())?;
 
     // Graph should be unchanged
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * c9f444c (HEAD -> three) commit three
-    * 16fd221 (origin/two, two) commit two
-    * 8b426d0 (one) commit one
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* c9f444c (HEAD -> three) commit three
+* 16fd221 (origin/two, two) commit two
+* 8b426d0 (one) commit one
+
+"#]]
+    );
 
     Ok(())
 }
 
 #[test]
 fn move_file_from_head_to_parent() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, mut _meta, _description, mut db) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * c9f444c (HEAD -> three) commit three
-    * 16fd221 (origin/two, two) commit two
-    * 8b426d0 (one) commit one
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* c9f444c (HEAD -> three) commit three
+* 16fd221 (origin/two, two) commit two
+* 8b426d0 (one) commit one
+
+"#]]
+    );
 
     // Verify initial tree contents
     let three_id = repo.rev_parse_single("three")?.detach();
     let two_id = repo.rev_parse_single("two")?.detach();
 
-    insta::assert_snapshot!(visualize_tree(three_id.attach(&repo).object()?.peel_to_tree()?.id()), @r#"
-    e0495e9
-    ├── .gitignore:100644:f4ec724 "/remote/\n"
-    ├── one.txt:100644:257cc56 "foo\n"
-    ├── three.txt:100644:257cc56 "foo\n"
-    └── two.txt:100644:257cc56 "foo\n"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(three_id.attach(&repo).object()?.peel_to_tree()?.id()),
+        snapbox::str![[r#"
+e0495e9
+├── .gitignore:100644:f4ec724 "/remote/\n"
+├── one.txt:100644:257cc56 "foo\n"
+├── three.txt:100644:257cc56 "foo\n"
+└── two.txt:100644:257cc56 "foo\n"
 
-    insta::assert_snapshot!(visualize_tree(two_id.attach(&repo).object()?.peel_to_tree()?.id()), @r#"
-    aac5238
-    ├── .gitignore:100644:f4ec724 "/remote/\n"
-    ├── one.txt:100644:257cc56 "foo\n"
-    └── two.txt:100644:257cc56 "foo\n"
-    "#);
+"#]]
+        .raw()
+    );
+
+    snapbox::assert_data_eq!(
+        visualize_tree(two_id.attach(&repo).object()?.peel_to_tree()?.id()),
+        snapbox::str![[r#"
+aac5238
+├── .gitignore:100644:f4ec724 "/remote/\n"
+├── one.txt:100644:257cc56 "foo\n"
+└── two.txt:100644:257cc56 "foo\n"
+
+"#]]
+        .raw()
+    );
 
     // Move three.txt from commit three to commit two
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = move_changes_between_commits(
         editor,
         three_id,
@@ -88,63 +113,86 @@ fn move_file_from_head_to_parent() -> Result<()> {
         0,
     )?;
 
-    let materialized = outcome.rebase.materialize()?;
-    insta::assert_debug_snapshot!(materialized.history.commit_mappings(), @"
-    {
-        Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(88ba151b2f14a87051cdbeb3bdf850a6175eb8fe),
-        Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae): Sha1(95562c28cbe1efce7d36dafe97fc35b1f804fba7),
-    }
-    ");
+    let materialized = outcome.rebase.materialize(Default::default())?;
+    snapbox::assert_data_eq!(
+        materialized.history.commit_mappings().to_debug(),
+        snapbox::str![[r#"
+{
+    Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(198bf421399ca45dfc033777ed30ea2241c55ff4),
+    Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae): Sha1(7cb368cce7a1e76a623c8d7dcd03bcff3145f06a),
+}
+
+"#]]
+    );
 
     // Graph structure should be maintained (commit hashes will change)
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * 95562c2 (HEAD -> three) commit three
-    * 88ba151 (two) commit two
-    | * 16fd221 (origin/two) commit two
-    |/  
-    * 8b426d0 (one) commit one
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 7cb368c (HEAD -> three) commit three
+* 198bf42 (two) commit two
+| * 16fd221 (origin/two) commit two
+|/  
+* 8b426d0 (one) commit one
+
+"#]]
+    );
 
     // Verify new tree contents - three.txt should be in commit two's tree, not three's
     let new_three_id = repo.rev_parse_single("three")?.detach();
     let new_two_id = repo.rev_parse_single("two")?.detach();
 
     // commit three should no longer introduce three.txt
-    insta::assert_snapshot!(visualize_tree(new_three_id.attach(&repo).object()?.peel_to_tree()?.id()), @r#"
-    e0495e9
-    ├── .gitignore:100644:f4ec724 "/remote/\n"
-    ├── one.txt:100644:257cc56 "foo\n"
-    ├── three.txt:100644:257cc56 "foo\n"
-    └── two.txt:100644:257cc56 "foo\n"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(new_three_id.attach(&repo).object()?.peel_to_tree()?.id()),
+        snapbox::str![[r#"
+e0495e9
+├── .gitignore:100644:f4ec724 "/remote/\n"
+├── one.txt:100644:257cc56 "foo\n"
+├── three.txt:100644:257cc56 "foo\n"
+└── two.txt:100644:257cc56 "foo\n"
+
+"#]]
+        .raw()
+    );
 
     // commit two should now have three.txt
-    insta::assert_snapshot!(visualize_tree(new_two_id.attach(&repo).object()?.peel_to_tree()?.id()), @r#"
-    e0495e9
-    ├── .gitignore:100644:f4ec724 "/remote/\n"
-    ├── one.txt:100644:257cc56 "foo\n"
-    ├── three.txt:100644:257cc56 "foo\n"
-    └── two.txt:100644:257cc56 "foo\n"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(new_two_id.attach(&repo).object()?.peel_to_tree()?.id()),
+        snapbox::str![[r#"
+e0495e9
+├── .gitignore:100644:f4ec724 "/remote/\n"
+├── one.txt:100644:257cc56 "foo\n"
+├── three.txt:100644:257cc56 "foo\n"
+└── two.txt:100644:257cc56 "foo\n"
+
+"#]]
+        .raw()
+    );
 
     Ok(())
 }
 
 #[test]
 fn move_file_from_parent_to_head() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, mut _meta, _description, mut db) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * c9f444c (HEAD -> three) commit three
-    * 16fd221 (origin/two, two) commit two
-    * 8b426d0 (one) commit one
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* c9f444c (HEAD -> three) commit three
+* 16fd221 (origin/two, two) commit two
+* 8b426d0 (one) commit one
+
+"#]]
+    );
 
     let three_id = repo.rev_parse_single("three")?.detach();
     let two_id = repo.rev_parse_single("two")?.detach();
 
     // Move two.txt from commit two up to commit three
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = move_changes_between_commits(
         editor,
         two_id,
@@ -153,61 +201,84 @@ fn move_file_from_parent_to_head() -> Result<()> {
         0,
     )?;
 
-    let materialized = outcome.rebase.materialize()?;
-    insta::assert_debug_snapshot!(materialized.history.commit_mappings(), @"
-    {
-        Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(0f198e0be723143e843ec2e2f9538f4ba815cd62),
-        Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae): Sha1(c7eb64bce6de865a5cc4c97ab296f424ec41210d),
-    }
-    ");
+    let materialized = outcome.rebase.materialize(Default::default())?;
+    snapbox::assert_data_eq!(
+        materialized.history.commit_mappings().to_debug(),
+        snapbox::str![[r#"
+{
+    Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(ebc7217ab9e33830c4f09601dfda826eb2e9fed0),
+    Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae): Sha1(f56f108a3b4bf2a67e554d22deb7a22bd7e93955),
+}
+
+"#]]
+    );
 
     // Graph structure should be maintained
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * c7eb64b (HEAD -> three) commit three
-    * 0f198e0 (two) commit two
-    | * 16fd221 (origin/two) commit two
-    |/  
-    * 8b426d0 (one) commit one
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* f56f108 (HEAD -> three) commit three
+* ebc7217 (two) commit two
+| * 16fd221 (origin/two) commit two
+|/  
+* 8b426d0 (one) commit one
+
+"#]]
+    );
 
     // Verify tree contents
     let new_three_id = repo.rev_parse_single("three")?.detach();
     let new_two_id = repo.rev_parse_single("two")?.detach();
 
     // commit two should no longer have two.txt
-    insta::assert_snapshot!(visualize_tree(new_two_id.attach(&repo).object()?.peel_to_tree()?.id()), @r#"
-    6820889
-    ├── .gitignore:100644:f4ec724 "/remote/\n"
-    └── one.txt:100644:257cc56 "foo\n"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(new_two_id.attach(&repo).object()?.peel_to_tree()?.id()),
+        snapbox::str![[r#"
+6820889
+├── .gitignore:100644:f4ec724 "/remote/\n"
+└── one.txt:100644:257cc56 "foo\n"
+
+"#]]
+        .raw()
+    );
 
     // commit three should still have three.txt AND now have two.txt
-    insta::assert_snapshot!(visualize_tree(new_three_id.attach(&repo).object()?.peel_to_tree()?.id()), @r#"
-    e0495e9
-    ├── .gitignore:100644:f4ec724 "/remote/\n"
-    ├── one.txt:100644:257cc56 "foo\n"
-    ├── three.txt:100644:257cc56 "foo\n"
-    └── two.txt:100644:257cc56 "foo\n"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(new_three_id.attach(&repo).object()?.peel_to_tree()?.id()),
+        snapbox::str![[r#"
+e0495e9
+├── .gitignore:100644:f4ec724 "/remote/\n"
+├── one.txt:100644:257cc56 "foo\n"
+├── three.txt:100644:257cc56 "foo\n"
+└── two.txt:100644:257cc56 "foo\n"
+
+"#]]
+        .raw()
+    );
 
     Ok(())
 }
 
 #[test]
 fn move_file_between_non_adjacent_commits() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, mut _meta, _description, mut db) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * c9f444c (HEAD -> three) commit three
-    * 16fd221 (origin/two, two) commit two
-    * 8b426d0 (one) commit one
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* c9f444c (HEAD -> three) commit three
+* 16fd221 (origin/two, two) commit two
+* 8b426d0 (one) commit one
+
+"#]]
+    );
 
     let three_id = repo.rev_parse_single("three")?.detach();
     let one_id = repo.rev_parse_single("one")?.detach();
 
     // Move three.txt from commit three to commit one (skipping two)
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = move_changes_between_commits(
         editor,
         three_id,
@@ -216,23 +287,31 @@ fn move_file_between_non_adjacent_commits() -> Result<()> {
         0,
     )?;
 
-    let materialized = outcome.rebase.materialize()?;
-    insta::assert_debug_snapshot!(materialized.history.commit_mappings(), @"
-    {
-        Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(364d4a2e248a71c66f26bb2b4651ea773fe214a5),
-        Sha1(8b426d09509e2a1e924d939055e1e3eb4b6e7fb4): Sha1(9bc8248dd9ea42b08f66103cd43352fcd2f45f3d),
-        Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae): Sha1(4d3039f44cc829fd5f1622cecc5eafe93b252fe2),
-    }
-    ");
+    let materialized = outcome.rebase.materialize(Default::default())?;
+    snapbox::assert_data_eq!(
+        materialized.history.commit_mappings().to_debug(),
+        snapbox::str![[r#"
+{
+    Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(d5ac8ac48b1eb997e273a131a88d57e4b8ae970d),
+    Sha1(8b426d09509e2a1e924d939055e1e3eb4b6e7fb4): Sha1(4ae70a4fccb46431274b7c89b04600d0fe124b0b),
+    Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae): Sha1(114c8f7e7527abaa7f35faaeb0c38c2d7db2c93e),
+}
+
+"#]]
+    );
 
     // Graph structure should be maintained
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * 4d3039f (HEAD -> three) commit three
-    * 364d4a2 (two) commit two
-    * 9bc8248 (one) commit one
-    * 16fd221 (origin/two) commit two
-    * 8b426d0 commit one
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 114c8f7 (HEAD -> three) commit three
+* d5ac8ac (two) commit two
+* 4ae70a4 (one) commit one
+* 16fd221 (origin/two) commit two
+* 8b426d0 commit one
+
+"#]]
+    );
 
     // Verify tree contents
     let new_three_id = repo.rev_parse_single("three")?.detach();
@@ -240,44 +319,60 @@ fn move_file_between_non_adjacent_commits() -> Result<()> {
     let new_one_id = repo.rev_parse_single("one")?.detach();
 
     // commit one should now have three.txt
-    insta::assert_snapshot!(visualize_tree(new_one_id.attach(&repo).object()?.peel_to_tree()?.id()), @r#"
-    c97666c
-    ├── .gitignore:100644:f4ec724 "/remote/\n"
-    ├── one.txt:100644:257cc56 "foo\n"
-    └── three.txt:100644:257cc56 "foo\n"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(new_one_id.attach(&repo).object()?.peel_to_tree()?.id()),
+        snapbox::str![[r#"
+c97666c
+├── .gitignore:100644:f4ec724 "/remote/\n"
+├── one.txt:100644:257cc56 "foo\n"
+└── three.txt:100644:257cc56 "foo\n"
+
+"#]]
+        .raw()
+    );
 
     // commit two should be unchanged (still has two.txt, now also has three.txt from one)
-    insta::assert_snapshot!(visualize_tree(new_two_id.attach(&repo).object()?.peel_to_tree()?.id()), @r#"
-    e0495e9
-    ├── .gitignore:100644:f4ec724 "/remote/\n"
-    ├── one.txt:100644:257cc56 "foo\n"
-    ├── three.txt:100644:257cc56 "foo\n"
-    └── two.txt:100644:257cc56 "foo\n"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(new_two_id.attach(&repo).object()?.peel_to_tree()?.id()),
+        snapbox::str![[r#"
+e0495e9
+├── .gitignore:100644:f4ec724 "/remote/\n"
+├── one.txt:100644:257cc56 "foo\n"
+├── three.txt:100644:257cc56 "foo\n"
+└── two.txt:100644:257cc56 "foo\n"
+
+"#]]
+        .raw()
+    );
 
     // commit three should no longer have three.txt as its own change
-    insta::assert_snapshot!(visualize_tree(new_three_id.attach(&repo).object()?.peel_to_tree()?.id()), @r#"
-    e0495e9
-    ├── .gitignore:100644:f4ec724 "/remote/\n"
-    ├── one.txt:100644:257cc56 "foo\n"
-    ├── three.txt:100644:257cc56 "foo\n"
-    └── two.txt:100644:257cc56 "foo\n"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(new_three_id.attach(&repo).object()?.peel_to_tree()?.id()),
+        snapbox::str![[r#"
+e0495e9
+├── .gitignore:100644:f4ec724 "/remote/\n"
+├── one.txt:100644:257cc56 "foo\n"
+├── three.txt:100644:257cc56 "foo\n"
+└── two.txt:100644:257cc56 "foo\n"
+
+"#]]
+        .raw()
+    );
 
     Ok(())
 }
 
 #[test]
 fn error_when_changes_not_found_in_source() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, mut _meta, _description, mut db) =
         writable_scenario("reword-three-commits", |_| {})?;
 
     let three_id = repo.rev_parse_single("three")?.detach();
     let two_id = repo.rev_parse_single("two")?.detach();
 
     // Try to move a file that doesn't exist in source commit
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let result = move_changes_between_commits(
         editor,
         three_id,

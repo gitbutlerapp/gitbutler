@@ -8,11 +8,14 @@ pub struct GitRemote {
     pub url: Option<String>,
 }
 
-impl From<git2::Remote<'_>> for GitRemote {
-    fn from(value: git2::Remote) -> Self {
+impl GitRemote {
+    pub fn from_gix(name: String, remote: &gix::Remote<'_>) -> Self {
         GitRemote {
-            name: value.name().map(|name| name.to_owned()),
-            url: value.url().map(|url| url.to_owned()),
+            name: Some(name),
+            url: remote
+                .url(gix::remote::Direction::Push)
+                .or_else(|| remote.url(gix::remote::Direction::Fetch))
+                .map(|url| url.to_bstring().to_string()),
         }
     }
 }

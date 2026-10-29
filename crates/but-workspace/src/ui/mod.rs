@@ -6,6 +6,8 @@ use serde::Serialize;
 pub mod diff;
 /// RefInfo types for the UI.
 pub mod ref_info;
+/// Detailed graph workspace types for the UI.
+pub mod workspace;
 
 pub use ref_info::inner::RefInfo;
 
@@ -19,57 +21,15 @@ use crate::{
     ui,
 };
 
-/// Represents the state a commit could be in.
-#[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(tag = "type", content = "subject")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
-pub enum CommitState {
-    /// The commit is only local
-    LocalOnly,
-    /// The commit is also present at the remote tracking branch.
-    /// This is the commit state if:
-    ///  - The commit has been pushed to the remote
-    ///  - The commit has been copied from a remote commit (when applying a remote branch)
-    ///
-    /// This variant carries the remote commit id.
-    /// The `remote_commit_id` may be the same as the `id` or it may be different if the local commit has been rebased or updated in another way.
-    #[serde(with = "but_serde::object_id")]
-    #[cfg_attr(
-        feature = "export-schema",
-        schemars(schema_with = "but_schemars::object_id")
-    )]
-    LocalAndRemote(#[cfg_attr(feature = "export-ts", ts(type = "string"))] gix::ObjectId),
-    /// The commit is considered integrated.
-    /// This should happen when this commit or the contents of this commit is already part of the base.
-    Integrated,
-}
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(CommitState);
+// `CommitState` now lives in `but-core` so the rebase Editor's workspace
+// projection can produce it without depending on `but-workspace`. Re-exported
+// here to keep `but_workspace::ui::CommitState` (and the SDK schema) stable.
+pub use but_core::ui::CommitState;
 
-impl CommitState {
-    fn display(&self, id: gix::ObjectId) -> &'static str {
-        match self {
-            CommitState::LocalOnly => "local",
-            CommitState::LocalAndRemote(remote_id) => {
-                if *remote_id == id {
-                    "local/remote(identity)"
-                } else {
-                    "local/remote(similarity)"
-                }
-            }
-            CommitState::Integrated => "integrated",
-        }
-    }
-}
-
-/// Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.
+/// Commit that is part of a legacy stack branch and contains state derived in relation to it.
 #[derive(Clone, Serialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub struct Commit {
     /// The OID of the commit.
     #[serde(with = "but_serde::object_id")]
@@ -77,7 +37,6 @@ pub struct Commit {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::object_id")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub id: gix::ObjectId,
     /// The parent OIDs of the commit.
     #[serde(with = "but_serde::object_id_vec")]
@@ -85,7 +44,6 @@ pub struct Commit {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::object_id_vec")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string[]"))]
     pub parent_ids: Vec<gix::ObjectId>,
     /// The message of the commit.
     #[serde(with = "but_serde::bstring_lossy")]
@@ -93,7 +51,6 @@ pub struct Commit {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::bstring_lossy")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub message: BString,
     /// Whether the commit is in a conflicted state.
     /// The Conflicted state of a commit is a GitButler concept.
@@ -104,10 +61,16 @@ pub struct Commit {
     /// or local and remote with respect to the branch it belongs to.
     /// Note that remote only commits in the context of a branch are expressed with the [`UpstreamCommit`] struct instead of this.
     pub state: CommitState,
-    /// Commit creation time in Epoch milliseconds.
-    pub created_at: i128,
+    /// Time at which the commit was authored, in Epoch milliseconds.
+    pub authored_at: i128,
+    /// Time at which the commit was committed, in Epoch milliseconds.
+    pub committed_at: i128,
     /// The author of the commit.
     pub author: Author,
+    /// The GitButler change-id associated with this commit.
+    /// It always exists as we either read it from the [headers][but_core::commit::Headers], or we
+    /// synthesize one from [the commit id][but_core::commit::Headers::synthetic_change_id_from_commit_id()].
+    pub change_id: String,
     /// Optional URL to the Gerrit review for this commit, if applicable.
     /// Only populated if Gerrit mode is enabled and the commit has an associated review.
     pub gerrit_review_url: Option<String>,
@@ -115,25 +78,13 @@ pub struct Commit {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(Commit);
 
-impl TryFrom<gix::Commit<'_>> for Commit {
-    type Error = anyhow::Error;
-    fn try_from(commit: gix::Commit<'_>) -> Result<Self, Self::Error> {
-        Ok(Commit {
-            id: commit.id,
-            parent_ids: commit.parent_ids().map(|id| id.detach()).collect(),
-            message: commit.message_raw_sloppy().into(),
-            has_conflicts: false,
-            state: CommitState::LocalAndRemote(commit.id),
-            created_at: i128::from(commit.time()?.seconds) * 1000,
-            author: commit.author()?.into(),
-            gerrit_review_url: None,
-        })
-    }
-}
-
-impl From<but_core::CommitOwned> for Commit {
-    fn from(CommitOwned { id, inner }: CommitOwned) -> Self {
-        let headers = commit::Headers::try_from_commit(&inner);
+impl Commit {
+    /// Convert a detached `commit`. Its tree is not accessible without a repository,
+    /// so the caller must provide `has_conflicts` as determined by
+    /// [`but_core::Commit::is_conflicted()`] or an equivalent source.
+    pub fn from_commit_owned(commit: CommitOwned, has_conflicts: bool) -> Self {
+        let change_id = commit.change_id().to_string();
+        let CommitOwned { id, inner } = commit;
         let gix::objs::Commit {
             tree: _,
             parents,
@@ -143,14 +94,17 @@ impl From<but_core::CommitOwned> for Commit {
             message,
             extra_headers: _,
         } = inner;
+        let message = but_core::commit::strip_conflict_markers(message.as_ref());
         Commit {
             id,
             parent_ids: parents.into_iter().collect(),
             message,
-            has_conflicts: headers.is_some_and(|hdr| hdr.is_conflicted()),
+            has_conflicts,
             state: CommitState::LocalAndRemote(id),
-            created_at: committer.time.seconds as i128 * 1000,
-            author: author.to_ref(&mut TimeBuf::default()).into(),
+            authored_at: author.time.seconds as i128 * 1000,
+            committed_at: committer.time.seconds as i128 * 1000,
+            author: author.to_ref(&mut TimeBuf::default()).trim().into(),
+            change_id,
             gerrit_review_url: None,
         }
     }
@@ -171,10 +125,8 @@ impl std::fmt::Debug for Commit {
 /// Commit that is only at the remote.
 /// Unlike the `Commit` struct, there is no knowledge of GitButler concepts like conflicted state etc.
 #[derive(Clone, Serialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub struct UpstreamCommit {
     /// The OID of the commit.
     #[serde(with = "but_serde::object_id")]
@@ -182,7 +134,6 @@ pub struct UpstreamCommit {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::object_id")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub id: gix::ObjectId,
     /// The message of the commit.
     #[serde(with = "but_serde::bstring_lossy")]
@@ -190,12 +141,15 @@ pub struct UpstreamCommit {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::bstring_lossy")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub message: BString,
-    /// Commit creation time in Epoch milliseconds.
-    pub created_at: i128,
+    /// Time at which the commit was authored, in Epoch milliseconds.
+    pub authored_at: i128,
+    /// Time at which the commit was committed, in Epoch milliseconds.
+    pub committed_at: i128,
     /// The author of the commit.
     pub author: Author,
+    /// The GitButler change-id associated with this commit, if available.
+    pub change_id: Option<String>,
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(UpstreamCommit);
@@ -211,33 +165,38 @@ impl std::fmt::Debug for UpstreamCommit {
     }
 }
 
-/// Represents the pushable status for the current stack.
-#[derive(Debug, Clone, PartialEq, Eq, Copy, Serialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
-pub enum PushStatus {
-    /// Can push, but there are no changes to be pushed
-    NothingToPush,
-    /// Can push. This is the case when there are local changes that can be pushed to the remote.
-    UnpushedCommits,
-    /// Can push, but requires a force push to the remote because commits were rewritten.
-    UnpushedCommitsRequiringForce,
-    /// Completely unpushed - there is no remote tracking branch so Git never interacted with the remote.
-    CompletelyUnpushed,
-    /// Fully integrated, no changes to push.
-    Integrated,
+impl TryFrom<gix::Commit<'_>> for UpstreamCommit {
+    type Error = anyhow::Error;
+    /// Like the other commit conversions here, the message is stripped of
+    /// conflict markers; the change-id is the stored one only, `None` when the
+    /// commit has no GitButler headers — nothing is synthesized, as upstream
+    /// commits typically originate outside GitButler.
+    fn try_from(commit: gix::Commit<'_>) -> Result<Self, Self::Error> {
+        let id = commit.id;
+        let commit = commit.decode()?;
+        let change_id = commit::Headers::try_from_commit_headers(|| commit.extra_headers())
+            .and_then(|headers| headers.change_id.map(|change_id| change_id.to_string()));
+        let author = commit.author()?;
+        Ok(UpstreamCommit {
+            id,
+            message: but_core::commit::strip_conflict_markers(commit.message),
+            authored_at: i128::from(author.time()?.seconds) * 1000,
+            committed_at: i128::from(commit.time()?.seconds) * 1000,
+            author: author.into(),
+            change_id,
+        })
+    }
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(PushStatus);
+
+// `PushStatus` now lives in `but-core` so the rebase Editor's workspace
+// projection can produce it without depending on `but-workspace`. Re-exported
+// here to keep `but_workspace::ui::PushStatus` (and the SDK schema) stable.
+pub use but_core::ui::PushStatus;
 
 /// Information about the current state of a branch.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub struct BranchDetails {
     /// The name of the branch. This is the "given name" IE, just `foo` out of `refs/heads/foo`
     #[serde(with = "but_serde::bstring_lossy")]
@@ -245,32 +204,20 @@ pub struct BranchDetails {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::bstring_lossy")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub name: BString,
     #[serde(with = "but_serde::fullname_lossy")]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::fullname_lossy")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     /// The full reference of the branch
     pub reference: gix::refs::FullName,
-    /// The id of the linked worktree that has the reference of `name` checked out.
-    /// Note that we don't list the main worktree here.
-    #[serde(with = "but_serde::bstring_lossy_opt")]
-    #[cfg_attr(
-        feature = "export-schema",
-        schemars(schema_with = "but_schemars::bstring_lossy_opt")
-    )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
-    pub linked_worktree_id: Option<BString>,
     /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
     #[serde(with = "but_serde::bstring_lossy_opt")]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::bstring_lossy_opt")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     pub remote_tracking_branch: Option<BString>,
     /// The pull(merge) request associated with the branch, or None if no such entity has not been created.
     pub pr_number: Option<usize>,
@@ -283,7 +230,6 @@ pub struct BranchDetails {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::object_id")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub tip: gix::ObjectId,
     /// This is the base commit from the perspective of this branch.
     /// If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
@@ -293,7 +239,6 @@ pub struct BranchDetails {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::object_id")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub base_commit: gix::ObjectId,
     /// The pushable status for the branch.
     pub push_status: PushStatus,
@@ -312,23 +257,6 @@ pub struct BranchDetails {
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(BranchDetails);
-
-/// Information about the current state of a stack
-#[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
-pub struct StackDetails {
-    /// This is the name of the top-most branch, provided by the API for convenience
-    pub derived_name: String,
-    /// The pushable status for the stack
-    pub push_status: PushStatus,
-    /// The details about the contained branches
-    pub branch_details: Vec<BranchDetails>,
-    /// Whether the stack is conflicted.
-    pub is_conflicted: bool,
-}
 
 /// Represents a branch in a `Stack`. It contains commits derived from the local pseudo branch and it's respective remote
 #[derive(Debug, Clone, Serialize)]
@@ -368,22 +296,26 @@ impl From<&crate::ref_info::Commit> for ui::UpstreamCommit {
             tree_id: _,
             message,
             author,
+            committer,
             // TODO: also pass refs for the frontend.
             refs: _,
             // TODO: also pass flags for the frontend.
             flags: _,
             // TODO: Represent this in the UI (maybe) and/or deal with divergence of the local and remote tracking branch.
             has_conflicts: _,
-            change_id: _,
+            change_id,
+            gerrit_review_url: _,
         }: &crate::ref_info::Commit,
     ) -> Self {
         ui::UpstreamCommit {
             id: *id,
             message: message.clone(),
-            created_at: author.time.seconds as i128 * 1000,
+            authored_at: author.time.seconds as i128 * 1000,
+            committed_at: committer.time.seconds as i128 * 1000,
             author: author
                 .to_ref(&mut gix::date::parse::TimeBuf::default())
                 .into(),
+            change_id: change_id.as_ref().map(ToString::to_string),
         }
     }
 }
@@ -398,12 +330,14 @@ impl From<&LocalCommit> for ui::Commit {
                     parent_ids,
                     message,
                     author,
+                    committer,
                     // TODO: also pass refs
                     refs: _,
                     // TODO: also flags refs
                     flags: _,
                     has_conflicts,
-                    change_id: _,
+                    change_id,
+                    gerrit_review_url,
                 },
             relation,
         }: &LocalCommit,
@@ -413,22 +347,34 @@ impl From<&LocalCommit> for ui::Commit {
             parent_ids: parent_ids.clone(),
             message: message.clone(),
             has_conflicts: *has_conflicts,
-            state: (*relation).into(),
-            created_at: author.time.seconds as i128 * 1000,
+            state: relation.to_commit_state(),
+            authored_at: author.time.seconds as i128 * 1000,
+            committed_at: committer.time.seconds as i128 * 1000,
             author: author
                 .to_ref(&mut gix::date::parse::TimeBuf::default())
                 .into(),
-            gerrit_review_url: None,
+            change_id: change_id
+                .as_ref()
+                .map(ToString::to_string)
+                .unwrap_or_else(|| {
+                    but_core::commit::Headers::synthetic_change_id_from_commit_id(*id).to_string()
+                }),
+            gerrit_review_url: gerrit_review_url.clone(),
         }
     }
 }
 
-impl From<LocalCommitRelation> for ui::CommitState {
-    fn from(value: LocalCommitRelation) -> Self {
+impl LocalCommitRelation {
+    /// Project this relation onto the frontend-facing [`ui::CommitState`].
+    ///
+    /// A free method rather than a `From` impl because `CommitState` now lives in
+    /// `but-core` (a foreign type), so `From<LocalCommitRelation>` would violate
+    /// the orphan rule.
+    pub fn to_commit_state(&self) -> ui::CommitState {
         use crate::ui::CommitState as E;
-        match value {
+        match self {
             LocalCommitRelation::LocalOnly => E::LocalOnly,
-            LocalCommitRelation::LocalAndRemote(id) => E::LocalAndRemote(id),
+            LocalCommitRelation::LocalAndRemote(id) => E::LocalAndRemote(*id),
             LocalCommitRelation::Integrated(_) => E::Integrated,
         }
     }

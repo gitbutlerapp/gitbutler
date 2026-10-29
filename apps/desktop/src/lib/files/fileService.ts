@@ -1,29 +1,22 @@
+import { checkoutOf } from "$lib/selection/key";
 import { InjectionToken } from "@gitbutler/core/context";
 import type { IBackend } from "$lib/backend";
-import type { FileInfo } from "$lib/files/file";
-import type { BackendApi } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/backendApi";
+import type { FileInfo } from "@gitbutler/but-sdk";
 
 export const FILE_SERVICE = new InjectionToken<FileService>("FileService");
 
 export class FileService {
-	private api: ReturnType<typeof injectEndpoints>;
-
 	constructor(
 		private backend: IBackend,
-		api: BackendApi,
-	) {
-		this.api = injectEndpoints(api);
-	}
+		private backendApi: BackendApi,
+	) {}
 
-	async readFromWorkspace(filePath: string, projectId: string) {
-		const data: FileInfo = await this.backend.invoke("get_workspace_file", {
+	async readFromWorkspace(filePath: string, projectId: string): Promise<FileInfo> {
+		return await this.backend.invoke("get_workspace_file", {
 			relativePath: filePath,
 			projectId: projectId,
 		});
-		return {
-			data,
-			isLarge: isLarge(data.size),
-		};
 	}
 
 	async readFromCommit(filePath: string, projectId: string, commitId: string): Promise<FileInfo> {
@@ -46,40 +39,44 @@ export class FileService {
 		return await this.backend.readFile(path);
 	}
 
-	async showFileInFolder(filePath: string) {
-		await this.backend.invoke<void>("show_in_finder", { path: filePath });
+	/** The absolute path of `path`, relative to the linked `worktree` or the main checkout. */
+	async workdirPath(projectId: string, worktree: string | undefined, path: string) {
+		return await this.backendApi.endpoints.workdirPath.fetch({ projectId, worktree, path });
+	}
+
+	/** What revealing in the file manager is called on this platform. */
+	get showInFolderLabel(): string {
+		switch (this.backend.platformName) {
+			case "macos":
+				return "Show in Finder";
+			case "windows":
+				return "Show in Explorer";
+			default:
+				return "Show in File Manager";
+		}
+	}
+
+	/**
+	 * Reveals `path`, relative to the linked `worktree` or the main checkout, in
+	 * the file manager; an empty `path` reveals the checkout.
+	 */
+	async showFileInFolder(projectId: string, worktree: string | undefined, path: string) {
+		const checkout = checkoutOf({ worktree });
+		await this.backend.invoke<void>("show_in_finder", { projectId, checkout, path });
 	}
 
 	findFiles(projectId: string, query: string, limit: number) {
-		return this.api.endpoints.findFiles.useQuery(
+		return this.backendApi.endpoints.findFiles.useQuery(
 			{ projectId, query, limit },
 			{ forceRefetch: true },
 		);
 	}
 
 	async fetchFiles(projectId: string, query: string, limit: number) {
-		return await this.api.endpoints.findFiles.fetch({
+		return await this.backendApi.endpoints.findFiles.fetch({
 			projectId,
 			query,
 			limit,
 		});
 	}
-}
-
-function isLarge(size: number | undefined) {
-	return size && size > 5 * 1024 * 1024 ? true : false;
-}
-
-function injectEndpoints(api: BackendApi) {
-	return api.injectEndpoints({
-		endpoints: (build) => ({
-			findFiles: build.query<string[], { projectId: string; query: string; limit: number }>({
-				extraOptions: { command: "find_files" },
-				query: (args) => args,
-				// Keep results for a week, but use forceRefetch when using
-				// the query to get eventually correct results.
-				keepUnusedDataFor: 604800,
-			}),
-		}),
-	});
 }

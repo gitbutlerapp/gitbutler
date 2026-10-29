@@ -1,0 +1,19 @@
+.link {
+	color: var(--text-2);
+	text-decoration: underline;
+	text-decoration-color: color-mix(in srgb, currentcolor 40%, transparent);
+	text-underline-position: from-font;
+
+	&:hover {
+		color: var(--text-1);
+		text-decoration-color: currentcolor;
+	}
+}
+
+/* Inline SVG, so the underline stops at the word. Cap height tall and sat on
+   the baseline, the size the character would have had. */
+.arrow {
+	width: 0.7em;
+	height: 0.7em;
+	margin-inline-start: 4px;
+}

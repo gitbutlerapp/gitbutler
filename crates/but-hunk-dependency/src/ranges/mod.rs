@@ -1,11 +1,12 @@
 use std::collections::{HashMap, HashSet};
 
 use but_core::TreeStatusKind;
-use gix::bstr::BString;
+use gix::bstr::{BString, ByteSlice};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::{InputCommit, InputDiffHunk, InputStack, ui::HunkLockTarget};
+use but_core::unified_diff::DiffHunk;
 
 mod hunk;
 pub use hunk::HunkRange;
@@ -139,8 +140,62 @@ impl WorkspaceRanges {
         })
     }
 
-    /// Finds commits that intersect with a given path and range combination.
-    pub fn intersection(&self, path: &BString, start: u32, lines: u32) -> Option<Vec<&HunkRange>> {
+    /// Finds commits that intersect with a given path and hunk.
+    ///
+    /// For `Modification`-type commit ranges that only *touch* (are adjacent to, but don't
+    /// overlap) the worktree hunk, the adjacency is only counted as an intersection when the
+    /// hunk's diff content suggests the change is a reorder or block-move — the class of
+    /// edits that can produce an LCS insertion point right at the boundary and thereby cause
+    /// a cherry-pick conflict even with no overlapping lines.  Plain substitutions (where
+    /// none of the old lines appear in the new lines) are not flagged.
+    pub fn intersection(&self, path: &BString, hunk: &DiffHunk) -> Option<Vec<&HunkRange>> {
+        let start = hunk.old_start;
+        let lines = hunk.old_lines;
+        if let Some(hunk_range) = self.paths.get(path) {
+            let intersection = hunk_range
+                .iter()
+                .filter(|hr| {
+                    if hr.change_type == TreeStatusKind::Modification {
+                        if hr.intersects(start, lines).unwrap_or(false) {
+                            return true;
+                        }
+                        // Extend to adjacent ranges when:
+                        // - the worktree hunk is a pure insertion (old_lines == 0)
+                        //   AND the commit range is a deletion point (hr.lines == 0):
+                        //   a deletion removes the anchor that the merge algorithm
+                        //   uses to place the insertion, so this can conflict.
+                        //   Insertions adjacent to normal modification spans are safe
+                        //   because `intersects()` already catches insertions *inside*
+                        //   the span, and the merge algorithm can anchor outside it.
+                        // - the hunk content signals a reorder/move (not a plain
+                        //   substitution) via `hunk_suggests_boundary_insertion`.
+                        hr.intersects_or_adjacent(start, lines).unwrap_or(false)
+                            && ((lines == 0 && hr.lines == 0)
+                                || (lines > 0 && hunk_suggests_boundary_insertion(&hunk.diff)))
+                    } else {
+                        // For additions and deletions, we consider the hunk to always intersect.
+                        true
+                    }
+                })
+                .collect_vec();
+            if !intersection.is_empty() {
+                return Some(intersection);
+            }
+        }
+        None
+    }
+
+    /// Like [`intersection`], but takes raw coordinates instead of a [`DiffHunk`].
+    /// The adjacency check is not applied — only strict range overlap is tested.
+    /// Prefer [`intersection`] in production code; this exists for unit tests that
+    /// construct ranges without real diff content.
+    #[cfg(test)]
+    pub(crate) fn intersection_at(
+        &self,
+        path: &BString,
+        start: u32,
+        lines: u32,
+    ) -> Option<Vec<&HunkRange>> {
         if let Some(hunk_range) = self.paths.get(path) {
             let intersection = hunk_range
                 .iter()
@@ -148,7 +203,6 @@ impl WorkspaceRanges {
                     if hunk.change_type == TreeStatusKind::Modification {
                         hunk.intersects(start, lines).unwrap_or(false)
                     } else {
-                        // For additions and deletions, we consider the hunk to always intersect.
                         true
                     }
                 })
@@ -164,6 +218,44 @@ impl WorkspaceRanges {
     pub fn ranges_by_path_map(&self) -> &HashMap<BString, Vec<HunkRange>> {
         &self.paths
     }
+}
+
+/// Returns `true` when the hunk diff content suggests that applying this change may create
+/// an LCS insertion point at the trailing boundary — the condition that causes a cherry-pick
+/// conflict with an adjacent commit even when the line ranges don't strictly overlap.
+///
+/// The signal is a *reorder or block-move*: at least one line appears in both the old (`-`)
+/// and new (`+`) sides, **and** the last new line differs from the last old line (meaning the
+/// LCS is unlikely to terminate with a matched anchor at the end, leaving an unmatched
+/// insertion at the boundary).
+///
+/// Plain substitutions (e.g. `- "2"\n+ "two"`) return `false` because no line is shared
+/// between old and new, so the LCS cannot produce a boundary collision.
+fn hunk_suggests_boundary_insertion(diff: &gix::bstr::BString) -> bool {
+    let content = diff.to_str_lossy();
+    // DiffHunk.diff starts with an @@ header line, never ---/+++ file headers,
+    // so we skip lines starting with @@ and collect all -/+ prefixed lines.
+    let old_lines: Vec<&str> = content
+        .lines()
+        .filter(|l: &&str| l.starts_with('-'))
+        .map(|l| &l[1..])
+        .collect();
+    let new_lines: Vec<&str> = content
+        .lines()
+        .filter(|l: &&str| l.starts_with('+'))
+        .map(|l| &l[1..])
+        .collect();
+
+    if old_lines.is_empty() || new_lines.is_empty() {
+        return false;
+    }
+    // At least one line must appear in both sides (movement/reorder signal).
+    let has_moved_line = old_lines.iter().any(|o| new_lines.iter().any(|n| o == n));
+    if !has_moved_line {
+        return false;
+    }
+    // The last new line must differ from the last old line (trailing insertion signal).
+    old_lines.last() != new_lines.last()
 }
 
 /// Combines ranges from multiple branches/stacks into a single vector

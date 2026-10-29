@@ -1,10 +1,12 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
 use but_api::json::ToJsonError;
-use but_claude::{Claude, broadcaster::FrontendEvent};
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
-use but_db::poll::DBWatcherHandle;
+
+use tokio::sync::Mutex;
+
+use crate::broadcaster::{Broadcaster, FrontendEvent};
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_watcher::{Change, WatcherHandle};
 use serde::Deserialize;
@@ -21,8 +23,6 @@ struct SetProjectActiveParams {
 struct ProjectHandles {
     // Watchers are kept alive, drop handles cleanup.
     _file_watcher: WatcherHandle,
-    // Watchers are kept alive, drop handles cleanup.
-    _db_watcher: DBWatcherHandle,
 }
 
 pub struct ActiveProjects {
@@ -39,8 +39,8 @@ impl ActiveProjects {
 
     pub fn set_active(
         &mut self,
-        ctx: &mut Context,
-        claude: &Claude,
+        ctx: &Context,
+        broadcaster: &Arc<Mutex<Broadcaster>>,
         app_settings_sync: AppSettingsWithDiskSync,
     ) -> Result<()> {
         if self.projects.contains_key(&ctx.legacy_project.id) {
@@ -49,8 +49,7 @@ impl ActiveProjects {
 
         // Set up file watcher for worktree changes
         let handler = gitbutler_watcher::Handler::new({
-            let broadcaster = claude.broadcaster.clone();
-
+            let broadcaster = broadcaster.clone();
             move |value| {
                 let frontend_event = match value {
                     Change::GitFetch(project_id) => FrontendEvent {
@@ -74,16 +73,33 @@ impl ActiveProjects {
                             "headSha": head_sha,
                         }),
                     },
+                    Change::WorkspaceActivity { project_id } => FrontendEvent {
+                        name: format!("project://{project_id}/workspace-activity"),
+                        payload: serde_json::json!({}),
+                    },
                     Change::WorktreeChanges {
                         project_id,
-                        changes,
+                        ref changes,
+                        changed_paths: _,
                     } => FrontendEvent {
                         name: format!("project://{project_id}/worktree_changes"),
                         payload: serde_json::json!(&changes),
                     },
+                    Change::LinkedWorktreeChanges {
+                        project_id,
+                        ref worktree,
+                        ref changes,
+                        changed_paths: _,
+                    } => FrontendEvent {
+                        name: format!("project://{project_id}/linked_worktree_changes"),
+                        payload: serde_json::json!({ "worktree": worktree, "changes": changes }),
+                    },
                 };
 
-                broadcaster.blocking_lock().send(frontend_event);
+                let broadcaster = broadcaster.clone();
+                tokio::task::spawn(async move {
+                    broadcaster.lock().await.send(frontend_event);
+                });
                 Ok(())
             }
         });
@@ -96,32 +112,14 @@ impl ActiveProjects {
             handler,
             ctx.workdir_or_fail()?,
             ctx.legacy_project.id.clone(),
-            app_settings_sync.clone(),
+            app_settings_sync,
             watch_mode,
         )?;
-
-        // Set up database watcher for database changes
-        let db_watcher = {
-            let db = &mut *ctx.db.get_mut()?;
-            but_db::poll::watch_in_background(db, {
-                let broadcaster = claude.broadcaster.clone();
-                let project_id = ctx.legacy_project.id.clone();
-                move |item| {
-                    let event = FrontendEvent::from_db_item(project_id.clone(), item);
-                    let broadcaster = broadcaster.clone();
-                    tokio::task::spawn(async move {
-                        broadcaster.lock().await.send(event);
-                    });
-                    Ok(())
-                }
-            })?
-        };
 
         self.projects.insert(
             ctx.legacy_project.id.clone(),
             ProjectHandles {
                 _file_watcher: file_watcher,
-                _db_watcher: db_watcher,
             },
         );
         Ok(())
@@ -148,7 +146,7 @@ pub async fn list_projects(extra: &Extra) -> anyhow::Result<serde_json::Value> {
 }
 
 pub async fn set_project_active(
-    claude: &Claude,
+    broadcaster: &Arc<Mutex<Broadcaster>>,
     extra: &Extra,
     app_settings_sync: AppSettingsWithDiskSync,
     params: serde_json::Value,
@@ -161,7 +159,7 @@ pub async fn set_project_active(
     let mut active_projects = extra.active_projects.lock().await;
     let mut ctx: Context = params.id.try_into()?;
     but_api::legacy::projects::prepare_project_for_activation(&mut ctx)?;
-    active_projects.set_active(&mut ctx, claude, app_settings_sync)?;
+    active_projects.set_active(&ctx, broadcaster, app_settings_sync)?;
 
     // let is_exclusive = !active_projects.projects.contains(&params.id);
 

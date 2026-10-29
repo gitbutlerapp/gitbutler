@@ -14,6 +14,10 @@ rust-version.workspace = true
 name = "but-ts"
 path = "src/main.rs"
 
+[features]
+## Generate the graph-workspace flavor of the SDK types. See `but-api`'s feature docs.
+graph-workspace = ["but-api/graph-workspace"]
+
 [dependencies]
 but-api = { workspace = true, features = ["legacy", "export-schema"] }
 serde_json.workspace = true
@@ -23,7 +27,7 @@ schemars.workspace = true
 but-schemars.workspace = true
 
 [dev-dependencies]
-insta.workspace = true
+snapbox.workspace = true
 serde_json.workspace = true
 schemars.workspace = true
 serde.workspace = true

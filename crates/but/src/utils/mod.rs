@@ -1,42 +1,71 @@
 use std::io::Write;
 
 mod output_channel;
+use anyhow::Context as _;
+use but_api::json::{ChangeIdString, HexHash};
+use but_core::sync::RepoShared;
+use but_ctx::Context;
+use gix::refs::FullName;
+pub(crate) use output_channel::PromptLine;
 pub use output_channel::{
-    Confirm, ConfirmDefault, ConfirmOrEmpty, InputOutputChannel, OutputChannel, WriteWithUtils,
+    CliOutput, CliOutputHuman, Confirm, ConfirmDefault, ConfirmOrEmpty, InputOutputChannel,
+    IntermediateChannel, OutputChannel, WriteWithUtils,
 };
 
 mod object_id;
-pub use object_id::{shorten_hex_object_id, shorten_object_id, split_short_id};
+pub use object_id::{get_change_id_for_commit, shorten_hex_object_id, shorten_object_id};
 
 mod pager;
 
+mod debug_as_type;
+pub(crate) use debug_as_type::DebugAsType;
+
 pub mod metrics;
-#[cfg(feature = "legacy")]
-pub use metrics::types::BackgroundMetrics;
-pub use metrics::types::OneshotMetricsContext;
+pub use metrics::OneshotMetricsContext;
+
+use crate::{CliError, CliResult, id::CommitId, print_and_exit_non_zero};
 
 pub mod detect_agent;
 pub mod time;
 
-/// Utilities attached to `anyhow::Result<impl serde::Serialize>`.
-pub trait ResultJsonExt {
-    /// Write this value as pretty `JSON` to stdout if `json` is `true`.
-    ///
-    /// This style is great if you don't want to forget that JSON must be implemented.
-    /// Note that "null" isn't printed and silently dropped.
-    fn output_json(self, json: bool) -> anyhow::Result<()>;
-}
+pub(crate) mod binary_path;
+pub(crate) mod change_source;
+pub(crate) mod diff_specs;
+#[cfg(feature = "legacy")]
+pub(crate) mod merged_upstream;
+#[cfg(feature = "legacy")]
+pub(crate) mod rejection;
+pub(crate) mod targeting;
+pub(crate) mod worktrees;
+
+#[cfg(feature = "legacy")]
+pub mod single_branch_mode;
+
+pub mod diff_rendering;
+pub mod string_interning;
+
+mod status;
+pub(crate) use status::{status_letter, status_letter_kind, status_letter_ui};
 
 pub trait ResultErrorExt {
     fn show_root_cause_error_then_exit_without_destructors(self, out: OutputChannel) -> !;
 }
 
+pub mod envs;
+
 impl ResultErrorExt for anyhow::Result<()> {
     fn show_root_cause_error_then_exit_without_destructors(self, out: OutputChannel) -> ! {
+        let full_error_chain = out.full_error_chain();
         // Trigger the pager to be flushed before exiting early, or destructors aren't called.
         drop(out);
         let code = if let Err(e) = &self {
-            writeln!(std::io::stderr(), "{} {}", e, e.root_cause()).ok();
+            if full_error_chain {
+                writeln!(std::io::stderr(), "{e:#}").ok();
+            } else if e.chain().nth(1).is_some() {
+                writeln!(std::io::stderr(), "{} {}", e, e.root_cause()).ok();
+            } else {
+                writeln!(std::io::stderr(), "{e}").ok();
+            }
             1
         } else {
             0
@@ -45,30 +74,98 @@ impl ResultErrorExt for anyhow::Result<()> {
     }
 }
 
-/// Utilities attached to `anyhow::Result<T>`.
-pub trait ResultMetricsExt {
-    fn emit_metrics(self, ctx: Option<OneshotMetricsContext>) -> anyhow::Result<()>;
+impl ResultErrorExt for CliResult<()> {
+    fn show_root_cause_error_then_exit_without_destructors(self, out: OutputChannel) -> ! {
+        match self {
+            Ok(_) => {
+                // Trigger the pager to be flushed before exiting early, or destructors aren't called.
+                drop(out);
+                std::process::exit(0)
+            }
+            Err(err) => match err {
+                CliError::BadInput(_)
+                | CliError::ExternalCommandNotFound(_)
+                | CliError::ExternalCommandFailed(_)
+                | CliError::CommandRejection => {
+                    // Trigger the pager to be flushed before exiting early, or destructors aren't called.
+                    drop(out);
+                    print_and_exit_non_zero(err)
+                }
+                CliError::Initialization(error) | CliError::Internal(error) => {
+                    Err(error).show_root_cause_error_then_exit_without_destructors(out)
+                }
+            },
+        }
+    }
 }
 
-impl<T> ResultJsonExt for anyhow::Result<T>
-where
-    T: serde::Serialize,
-{
-    fn output_json(self, json: bool) -> anyhow::Result<()> {
-        if json && let Ok(value) = &self {
-            json_pretty_to_stdout(value)?;
-        }
-        self.map(|_| ())
-    }
+/// Metrics utilities for results
+pub trait ResultMetricsExt<T, E> {
+    /// Emit metrics for the [`Result`].
+    ///
+    /// The result must simply be propagated through this method, regardless of if emitting metrics
+    /// is successful or not. We do not want a failure to emit metrics to impact the user
+    /// experience.
+    fn emit_metrics(self, ctx: Option<OneshotMetricsContext>) -> Result<T, E>;
 }
 
 fn json_pretty_to_stdout(value: &impl serde::Serialize) -> std::io::Result<()> {
     let stdout = std::io::stdout();
     let mut stdout = stdout.lock();
+    json_pretty_to(value, &mut stdout)
+}
+
+fn json_pretty_to(
+    value: &impl serde::Serialize,
+    out: &mut dyn std::io::Write,
+) -> std::io::Result<()> {
     let value = serde_json::to_string_pretty(value).map_err(std::io::Error::other)?;
     if value != "null" {
-        stdout.write_all(value.as_bytes())?;
-        stdout.write_all(b"\n").ok();
+        out.write_all(value.as_bytes())?;
+        out.write_all(b"\n").ok();
     }
     Ok(())
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitIdJson {
+    pub commit_id: HexHash,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub change_id: Option<ChangeIdString>,
+}
+
+impl From<CommitId> for CommitIdJson {
+    fn from(value: CommitId) -> Self {
+        Self {
+            commit_id: HexHash(value.commit_id),
+            change_id: value.change_id.map(Into::into),
+        }
+    }
+}
+
+#[cfg(feature = "legacy")]
+pub fn in_single_branch_mode(ctx: &Context) -> anyhow::Result<bool> {
+    let guard = ctx.shared_worktree_access();
+    in_single_branch_mode_with_perm(ctx, guard.read_permission())
+}
+
+#[cfg(feature = "legacy")]
+pub fn in_single_branch_mode_with_perm(ctx: &Context, perm: &RepoShared) -> anyhow::Result<bool> {
+    let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
+
+    Ok(match &ws.kind {
+        but_graph::workspace::WorkspaceKind::AdHoc => true,
+        but_graph::workspace::WorkspaceKind::Managed { .. }
+        | but_graph::workspace::WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => false,
+    })
+}
+
+pub fn head_name(repo: &gix::Repository) -> anyhow::Result<FullName> {
+    Ok(repo
+        .head()?
+        .referent_name()
+        .filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
+        .context("HEAD must refer to a local branch")?
+        .to_owned())
 }

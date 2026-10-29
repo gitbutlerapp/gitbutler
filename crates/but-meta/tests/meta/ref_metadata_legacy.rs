@@ -8,13 +8,16 @@ use but_core::{
         WorkspaceStack, WorkspaceStackBranch,
     },
 };
-use but_meta::{VirtualBranchesTomlMetadata, virtual_branches_legacy_types::Target};
+use but_meta::{
+    BranchOrderMetadata, VirtualBranchesTomlMetadata,
+    virtual_branches_legacy_types::{Stack as LegacyStack, StackBranch},
+};
 use but_testsupport::{
     debug_str,
     gix_testtools::tempfile::{TempDir, tempdir},
     sanitize_uuids_and_timestamps, sanitize_uuids_and_timestamps_with_mapping,
 };
-use gitbutler_reference::RemoteRefname;
+use snapbox::prelude::*;
 
 #[test]
 fn journey() -> anyhow::Result<()> {
@@ -26,11 +29,13 @@ fn journey() -> anyhow::Result<()> {
     drop(store);
     // The file exists, but is empty and valid. This is handled correctly by code
     // that cares about the file.
-    insta::assert_snapshot!(std::fs::read_to_string(&writable_toml_path)?, @"
-    [branch_targets]
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(&writable_toml_path)?,
+        snapbox::str![[r#"
+[branches]
 
-    [branches]
-    ");
+"#]]
+    );
 
     let store = VirtualBranchesTomlMetadata::from_path(&writable_toml_path)?;
     assert_eq!(
@@ -43,12 +48,105 @@ fn journey() -> anyhow::Result<()> {
         writable_toml_path.exists(),
         "default content is mirrored back to TOML"
     );
-    insta::assert_snapshot!(std::fs::read_to_string(&writable_toml_path)?, @"
-    [branch_targets]
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(&writable_toml_path)?,
+        snapbox::str![[r#"
+[branches]
 
-    [branches]
-    ");
+"#]]
+    );
 
+    Ok(())
+}
+
+#[test]
+fn read_only_store_does_not_write_on_drop() -> anyhow::Result<()> {
+    let tmp = TempDir::new()?;
+    let writable_toml_path = tmp.path().join("vb.toml");
+    std::fs::copy(vb_fixture("virtual-branches-01"), &writable_toml_path)?;
+    let original = std::fs::read_to_string(&writable_toml_path)?;
+
+    {
+        let mut store = VirtualBranchesTomlMetadata::from_path_read_only(&writable_toml_path)?;
+        store.data_mut().branches.clear();
+        store.set_changed_to_necessitate_write();
+    }
+
+    assert_eq!(
+        std::fs::read_to_string(&writable_toml_path)?,
+        original,
+        "read-only metadata is projection input and must not reconcile or persist on drop"
+    );
+    Ok(())
+}
+
+#[test]
+fn managed_workspace_order_is_available_to_ad_hoc_workspaces() -> anyhow::Result<()> {
+    let tmp = TempDir::new()?;
+    let mut store =
+        BranchOrderMetadata::from_paths(tmp.path().join("virtual-branches.toml"), tmp.path())?;
+    let workspace_name: gix::refs::FullName = "refs/heads/gitbutler/workspace".try_into()?;
+    let mut workspace = store.workspace(workspace_name.as_ref())?;
+    let refs = ["C", "A", "D", "B"]
+        .map(|name| format!("refs/heads/{name}").try_into())
+        .into_iter()
+        .collect::<Result<Vec<gix::refs::FullName>, _>>()?;
+    workspace.stacks = vec![
+        WorkspaceStack {
+            id: StackId::from_number_for_testing(1),
+            workspacecommit_relation: Merged,
+            branches: refs[..3]
+                .iter()
+                .cloned()
+                .map(|ref_name| WorkspaceStackBranch {
+                    ref_name,
+                    archived: false,
+                })
+                .collect(),
+        },
+        WorkspaceStack {
+            id: StackId::from_number_for_testing(2),
+            workspacecommit_relation: Merged,
+            branches: vec![WorkspaceStackBranch {
+                ref_name: refs[3].clone(),
+                archived: false,
+            }],
+        },
+    ];
+
+    store.set_workspace(&workspace)?;
+
+    assert_eq!(
+        store.branch_stack_order(refs[1].as_ref())?,
+        Some(refs[..3].to_vec()),
+        "managed stack order should be reusable after checking out its middle branch"
+    );
+    assert_eq!(
+        store.branch_stack_order(refs[3].as_ref())?,
+        Some(vec![refs[3].clone()]),
+        "independent stacks should remain independent"
+    );
+    Ok(())
+}
+
+#[test]
+fn writable_store_does_not_reconcile_on_drop() -> anyhow::Result<()> {
+    let (repo, _tmp) = but_testsupport::writable_scenario("dlib-standin");
+    let path = repo.path().join("virtual_branches.toml");
+    std::fs::copy(vb_fixture("non-unique-branches"), &path)?;
+
+    let mut store = VirtualBranchesTomlMetadata::from_path(&path)?;
+    store.set_changed_to_necessitate_write();
+    store.write_unreconciled()?;
+    let unreconciled = std::fs::read_to_string(&path)?;
+    store.set_changed_to_necessitate_write();
+    drop(store);
+
+    assert_eq!(
+        std::fs::read_to_string(path)?,
+        unreconciled,
+        "dropping writable metadata must persist without reconciling it against the workspace"
+    );
     Ok(())
 }
 
@@ -58,96 +156,99 @@ fn read_only() -> anyhow::Result<()> {
     let ws = store.workspace("refs/heads/gitbutler/workspace".try_into()?)?;
     assert!(!ws.is_default(), "value read from file");
     let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
-    insta::assert_snapshot!(actual, @r#"
-    [
-        WorkspaceStack {
-            id: 1,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/A",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-        WorkspaceStack {
-            id: 2,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/B-top",
-                    archived: false,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/B",
-                    archived: false,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/C-top-empty",
-                    archived: true,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/C-empty",
-                    archived: true,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-        WorkspaceStack {
-            id: 3,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/C-top",
-                    archived: false,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/C-middle",
-                    archived: false,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/C",
-                    archived: false,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/D-top-empty",
-                    archived: true,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/D-middle-empty",
-                    archived: true,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/D-empty",
-                    archived: true,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-        WorkspaceStack {
-            id: 4,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/D-top",
-                    archived: false,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/D",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-        WorkspaceStack {
-            id: 5,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/E",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-    ]
-    "#);
+    snapbox::assert_data_eq!(
+        actual,
+        snapbox::str![[r#"
+[
+    WorkspaceStack {
+        id: 1,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/A",
+                archived: false,
+            },
+        ],
+        workspacecommit_relation: Merged,
+    },
+    WorkspaceStack {
+        id: 2,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/B-top",
+                archived: false,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/B",
+                archived: false,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/C-top-empty",
+                archived: true,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/C-empty",
+                archived: true,
+            },
+        ],
+        workspacecommit_relation: Merged,
+    },
+    WorkspaceStack {
+        id: 3,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/C-top",
+                archived: false,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/C-middle",
+                archived: false,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/C",
+                archived: false,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/D-top-empty",
+                archived: true,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/D-middle-empty",
+                archived: true,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/D-empty",
+                archived: true,
+            },
+        ],
+        workspacecommit_relation: Merged,
+    },
+    WorkspaceStack {
+        id: 4,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/D-top",
+                archived: false,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/D",
+                archived: false,
+            },
+        ],
+        workspacecommit_relation: Merged,
+    },
+    WorkspaceStack {
+        id: 5,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/E",
+                archived: false,
+            },
+        ],
+        workspacecommit_relation: Merged,
+    },
+]
+"#]]
+    );
 
     for uuid in uuids.keys() {
         assert_ne!(
@@ -179,111 +280,115 @@ fn read_only() -> anyhow::Result<()> {
         .collect::<Vec<_>>();
 
     // Stack-ids are duplicated just to indicate in which each branch-segment actually is.
-    insta::assert_debug_snapshot!(branches, @r#"
-    [
-        (
-            1,
-            FullName(
-                "refs/heads/A",
-            ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: None },
-                review: Review { pull_request: 12, review_id: None },
-            },
+    snapbox::assert_data_eq!(
+        branches.to_debug(),
+        snapbox::str![[r#"
+[
+    (
+        1,
+        FullName(
+            "refs/heads/A",
         ),
-        (
-            2,
-            FullName(
-                "refs/heads/B-top",
-            ),
-            Branch,
+        Branch {
+            ref_info: RefInfo { created_at: None, updated_at: None },
+            review: Review { pull_request: 12, review_id: None },
+        },
+    ),
+    (
+        2,
+        FullName(
+            "refs/heads/B-top",
         ),
-        (
-            2,
-            FullName(
-                "refs/heads/B",
-            ),
-            Branch,
+        Branch,
+    ),
+    (
+        2,
+        FullName(
+            "refs/heads/B",
         ),
-        (
-            2,
-            FullName(
-                "refs/heads/C-top-empty",
-            ),
-            Branch,
+        Branch,
+    ),
+    (
+        2,
+        FullName(
+            "refs/heads/C-top-empty",
         ),
-        (
-            2,
-            FullName(
-                "refs/heads/C-empty",
-            ),
-            Branch,
+        Branch,
+    ),
+    (
+        2,
+        FullName(
+            "refs/heads/C-empty",
         ),
-        (
-            3,
-            FullName(
-                "refs/heads/C-top",
-            ),
-            Branch,
+        Branch,
+    ),
+    (
+        3,
+        FullName(
+            "refs/heads/C-top",
         ),
-        (
-            3,
-            FullName(
-                "refs/heads/C-middle",
-            ),
-            Branch,
+        Branch,
+    ),
+    (
+        3,
+        FullName(
+            "refs/heads/C-middle",
         ),
-        (
-            3,
-            FullName(
-                "refs/heads/C",
-            ),
-            Branch,
+        Branch,
+    ),
+    (
+        3,
+        FullName(
+            "refs/heads/C",
         ),
-        (
-            3,
-            FullName(
-                "refs/heads/D-top-empty",
-            ),
-            Branch,
+        Branch,
+    ),
+    (
+        3,
+        FullName(
+            "refs/heads/D-top-empty",
         ),
-        (
-            3,
-            FullName(
-                "refs/heads/D-middle-empty",
-            ),
-            Branch,
+        Branch,
+    ),
+    (
+        3,
+        FullName(
+            "refs/heads/D-middle-empty",
         ),
-        (
-            3,
-            FullName(
-                "refs/heads/D-empty",
-            ),
-            Branch,
+        Branch,
+    ),
+    (
+        3,
+        FullName(
+            "refs/heads/D-empty",
         ),
-        (
-            4,
-            FullName(
-                "refs/heads/D-top",
-            ),
-            Branch,
+        Branch,
+    ),
+    (
+        4,
+        FullName(
+            "refs/heads/D-top",
         ),
-        (
-            4,
-            FullName(
-                "refs/heads/D",
-            ),
-            Branch,
+        Branch,
+    ),
+    (
+        4,
+        FullName(
+            "refs/heads/D",
         ),
-        (
-            5,
-            FullName(
-                "refs/heads/E",
-            ),
-            Branch,
+        Branch,
+    ),
+    (
+        5,
+        FullName(
+            "refs/heads/E",
         ),
-    ]
-    "#);
+        Branch,
+    ),
+]
+
+"#]]
+    );
 
     let toml_path = store.path().to_owned();
     assert!(toml_path.exists(), "the file is still present");
@@ -323,11 +428,13 @@ fn read_only() -> anyhow::Result<()> {
     drop(store);
 
     assert!(toml_path.exists(), "the TOML mirror stays available");
-    insta::assert_snapshot!(std::fs::read_to_string(&toml_path)?, @"
-    [branch_targets]
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(&toml_path)?,
+        snapbox::str![[r#"
+[branches]
 
-    [branches]
-    ");
+"#]]
+    );
 
     Ok(())
 }
@@ -336,19 +443,19 @@ fn read_only() -> anyhow::Result<()> {
 fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_unapply()
 -> anyhow::Result<()> {
     let (mut store, _tmp) = empty_vb_store_rw()?;
-    store.data_mut().default_target = None;
 
     let ws_ref = "refs/heads/gitbutler/workspace".try_into()?;
     let mut ws_md = store.workspace(ws_ref)?;
-    insta::assert_debug_snapshot!(ws_md.deref(), @r#"
-    Workspace {
-        ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
-        stacks: [],
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        ws_md.deref().to_debug(),
+        snapbox::str![[r#"
+Workspace {
+    ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+    stacks: [],
+}
+
+"#]]
+    );
 
     let branch1: gix::refs::FullName = "refs/heads/in-workspace".try_into()?;
     let stack_id1 = StackId::from_number_for_testing(1);
@@ -358,7 +465,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
         id: stack_id1,
         workspacecommit_relation: Merged,
         branches: vec![WorkspaceStackBranch {
-            ref_name: branch1.clone(),
+            ref_name: branch1,
             archived: false,
         }],
     });
@@ -366,79 +473,81 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
         id: stack_id2,
         workspacecommit_relation: Outside,
         branches: vec![WorkspaceStackBranch {
-            ref_name: branch2.clone(),
+            ref_name: branch2,
             archived: false,
         }],
     });
     store.set_workspace(&ws_md)?;
 
     let ws_md = store.workspace(ws_ref)?;
-    insta::assert_debug_snapshot!(ws_md.deref(), @r#"
-    Workspace {
-        ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
-        stacks: [
-            WorkspaceStack {
-                id: 00000000-0000-0000-0000-000000000001,
-                branches: [
-                    WorkspaceStackBranch {
-                        ref_name: "refs/heads/in-workspace",
-                        archived: false,
-                    },
-                ],
-                workspacecommit_relation: Merged,
-            },
-            WorkspaceStack {
-                id: 00000000-0000-0000-0000-000000000002,
-                branches: [
-                    WorkspaceStackBranch {
-                        ref_name: "refs/heads/outside-workspace",
-                        archived: false,
-                    },
-                ],
-                workspacecommit_relation: Outside,
-            },
-        ],
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        ws_md.deref().to_debug(),
+        snapbox::str![[r#"
+Workspace {
+    ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+    stacks: [
+        WorkspaceStack {
+            id: 00000000-0000-0000-0000-000000000001,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/in-workspace",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Merged,
+        },
+        WorkspaceStack {
+            id: 00000000-0000-0000-0000-000000000002,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/outside-workspace",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Outside,
+        },
+    ],
+}
+
+"#]]
+    );
 
     let toml_path = store.path().to_owned();
     drop(store);
 
     let mut store = VirtualBranchesTomlMetadata::from_path(&toml_path)?;
     let mut ws_md = store.workspace(ws_ref)?;
-    insta::assert_debug_snapshot!(ws_md.deref(), @r#"
-    Workspace {
-        ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
-        stacks: [
-            WorkspaceStack {
-                id: 00000000-0000-0000-0000-000000000001,
-                branches: [
-                    WorkspaceStackBranch {
-                        ref_name: "refs/heads/in-workspace",
-                        archived: false,
-                    },
-                ],
-                workspacecommit_relation: Merged,
-            },
-            WorkspaceStack {
-                id: 00000000-0000-0000-0000-000000000002,
-                branches: [
-                    WorkspaceStackBranch {
-                        ref_name: "refs/heads/outside-workspace",
-                        archived: false,
-                    },
-                ],
-                workspacecommit_relation: Outside,
-            },
-        ],
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        ws_md.deref().to_debug(),
+        snapbox::str![[r#"
+Workspace {
+    ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+    stacks: [
+        WorkspaceStack {
+            id: 00000000-0000-0000-0000-000000000001,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/in-workspace",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Merged,
+        },
+        WorkspaceStack {
+            id: 00000000-0000-0000-0000-000000000002,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/outside-workspace",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Outside,
+        },
+    ],
+}
+
+"#]]
+    );
 
     ws_md.stacks[0].workspacecommit_relation = Outside;
     ws_md.stacks[1].workspacecommit_relation = Merged;
@@ -446,36 +555,37 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
     // It's totally possible to change 'in_workspace' directly.
     store.set_workspace(&ws_md)?;
     let mut ws_md = store.workspace(ws_ref)?;
-    insta::assert_debug_snapshot!(ws_md.deref(), @r#"
-    Workspace {
-        ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
-        stacks: [
-            WorkspaceStack {
-                id: 00000000-0000-0000-0000-000000000001,
-                branches: [
-                    WorkspaceStackBranch {
-                        ref_name: "refs/heads/in-workspace",
-                        archived: false,
-                    },
-                ],
-                workspacecommit_relation: Outside,
-            },
-            WorkspaceStack {
-                id: 00000000-0000-0000-0000-000000000002,
-                branches: [
-                    WorkspaceStackBranch {
-                        ref_name: "refs/heads/outside-workspace",
-                        archived: false,
-                    },
-                ],
-                workspacecommit_relation: Merged,
-            },
-        ],
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        ws_md.deref().to_debug(),
+        snapbox::str![[r#"
+Workspace {
+    ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+    stacks: [
+        WorkspaceStack {
+            id: 00000000-0000-0000-0000-000000000001,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/in-workspace",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Outside,
+        },
+        WorkspaceStack {
+            id: 00000000-0000-0000-0000-000000000002,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/outside-workspace",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Merged,
+        },
+    ],
+}
+
+"#]]
+    );
 
     // Remotes can be part of the workspace as well.
     ws_md.stacks.clear();
@@ -497,55 +607,123 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
     // We are NOT able to retrieve the original names as the backend can't capture it thanks to partial names and the
     // assumption that we never use remote branches directly.
     let ws_md = store.workspace(ws_ref)?;
-    insta::assert_debug_snapshot!(ws_md.deref(), @r#"
-    Workspace {
-        ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
-        stacks: [
-            WorkspaceStack {
-                id: 00000000-0000-0000-0000-000000000003,
-                branches: [
-                    WorkspaceStackBranch {
-                        ref_name: "refs/heads/origin/feature",
-                        archived: false,
-                    },
-                ],
-                workspacecommit_relation: Merged,
-            },
-            WorkspaceStack {
-                id: 00000000-0000-0000-0000-000000000004,
-                branches: [
-                    WorkspaceStackBranch {
-                        ref_name: "refs/heads/fork/other-feature",
-                        archived: false,
-                    },
-                ],
-                workspacecommit_relation: Merged,
-            },
-        ],
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        ws_md.deref().to_debug(),
+        snapbox::str![[r#"
+Workspace {
+    ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+    stacks: [
+        WorkspaceStack {
+            id: 00000000-0000-0000-0000-000000000003,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/origin/feature",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Merged,
+        },
+        WorkspaceStack {
+            id: 00000000-0000-0000-0000-000000000004,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/fork/other-feature",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Merged,
+        },
+    ],
+}
 
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn set_workspace_stack_only_changes_are_written_on_drop() -> anyhow::Result<()> {
+    let (mut store, _tmp) = empty_vb_store_rw()?;
+    let first_stack_id = StackId::from_number_for_testing(1);
+    let second_stack_id = StackId::from_number_for_testing(2);
+    let first_head = gix::ObjectId::from_str("1111111111111111111111111111111111111111")?;
+    let second_head = gix::ObjectId::from_str("2222222222222222222222222222222222222222")?;
+
+    let mut first_stack = LegacyStack::new_with_just_heads(
+        vec![StackBranch {
+            head: first_head,
+            name: "first".into(),
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        }],
+        0,
+        true,
+    );
+    first_stack.id = first_stack_id;
+    let mut second_stack = LegacyStack::new_with_just_heads(
+        vec![StackBranch {
+            head: second_head,
+            name: "second".into(),
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        }],
+        1,
+        true,
+    );
+    second_stack.id = second_stack_id;
+
+    store
+        .data_mut()
+        .branches
+        .insert(first_stack_id, first_stack);
+    store
+        .data_mut()
+        .branches
+        .insert(second_stack_id, second_stack);
+    store.set_changed_to_necessitate_write();
+    store.write_unreconciled()?;
+
+    let toml_path = store.path().to_owned();
+    drop(store);
+
+    let ws_ref: gix::refs::FullName = "refs/heads/gitbutler/workspace".try_into()?;
+    let mut store = VirtualBranchesTomlMetadata::from_path(&toml_path)?;
+    let mut ws = store.workspace(ws_ref.as_ref())?;
+    assert_eq!(ws.stacks.len(), 2, "fixture starts with both stacks");
+    ws.stacks.retain(|stack| stack.id == first_stack_id);
+    store.set_workspace(&ws)?;
+    drop(store);
+
+    let store = VirtualBranchesTomlMetadata::from_path(&toml_path)?;
+    let ws = store.workspace(ws_ref.as_ref())?;
+    assert_eq!(
+        ws.stacks.len(),
+        1,
+        "stack-only workspace metadata changes must be persisted on drop"
+    );
+    assert_eq!(ws.stacks[0].id, first_stack_id);
     Ok(())
 }
 
 #[test]
 fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()> {
     let (mut store, _tmp) = empty_vb_store_rw()?;
-    store.data_mut().default_target = None;
 
     let toml_path = store.path().to_owned();
     let branch_name: gix::refs::FullName = "refs/heads/feat".try_into()?;
     let mut branch = store.branch(branch_name.as_ref())?;
     assert!(branch.is_default(), "nothing was there yet");
     assert!(toml_path.exists(), "TOML mirror exists from initialization");
-    insta::assert_snapshot!(std::fs::read_to_string(&toml_path)?, @"
-    [branch_targets]
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(&toml_path)?,
+        snapbox::str![[r#"
+[branches]
 
-    [branches]
-    ");
+"#]]
+    );
     assert_eq!(branch.stack_id(), None, "default values have no stack-id");
 
     branch.review = but_core::ref_metadata::Review {
@@ -562,20 +740,23 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         "the branch is auto-added to the workspace - even though it's not 'in_workspace'"
     );
     let actual = sanitize_uuids_and_timestamps(debug_str(&ws.stacks));
-    insta::assert_snapshot!(actual, @r#"
-    [
-        WorkspaceStack {
-            id: 1,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/feat",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Outside,
-        },
-    ]
-    "#);
+    snapbox::assert_data_eq!(
+        actual,
+        snapbox::str![[r#"
+[
+    WorkspaceStack {
+        id: 1,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/feat",
+                archived: false,
+            },
+        ],
+        workspacecommit_relation: Outside,
+    },
+]
+"#]]
+    );
     // add the first branch to the workspace.
     let ignored_id = StackId::from_number_for_testing(2);
     ws.stacks.push(WorkspaceStack {
@@ -594,20 +775,23 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     // Assure `ws` is what we think it should be - a single stack with one branch.
     let mut ws = store.workspace(workspace_name.as_ref())?;
     let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
-    insta::assert_snapshot!(actual, @r#"
-    [
-        WorkspaceStack {
-            id: 1,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/feat",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-    ]
-    "#);
+    snapbox::assert_data_eq!(
+        actual,
+        snapbox::str![[r#"
+[
+    WorkspaceStack {
+        id: 1,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/feat",
+                archived: false,
+            },
+        ],
+        workspacecommit_relation: Merged,
+    },
+]
+"#]]
+    );
     assert!(
         !uuids.contains_key(&ignored_id.to_string()),
         "it really is ignore"
@@ -633,24 +817,27 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
 
     let mut ws = store.workspace(workspace_name.as_ref())?;
     let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
-    insta::assert_snapshot!(actual, @r#"
-    [
-        WorkspaceStack {
-            id: 1,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/feat-on-top",
-                    archived: false,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/feat",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-    ]
-    "#);
+    snapbox::assert_data_eq!(
+        actual,
+        snapbox::str![[r#"
+[
+    WorkspaceStack {
+        id: 1,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/feat-on-top",
+                archived: false,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/feat",
+                archived: false,
+            },
+        ],
+        workspacecommit_relation: Merged,
+    },
+]
+"#]]
+    );
     assert!(
         uuids.contains_key(&id.to_string()),
         "the stack is still named after the first branch"
@@ -661,39 +848,41 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     assert!(toml_path.exists(), "file was written due to change");
     let (actual, uuids) =
         sanitize_uuids_and_timestamps_with_mapping(std::fs::read_to_string(&toml_path)?);
-    insta::assert_snapshot!(actual, @r#"
-    [branch_targets]
+    snapbox::assert_data_eq!(
+        actual,
+        snapbox::str![[r#"
+[branches.1]
+id = "1"
+order = 0
+in_workspace = true
+notes = ""
+ownership = ""
+allow_rebasing = true
+post_commits = false
+tree = "0000000000000000000000000000000000000000"
+created_timestamp_ms = "0"
+updated_timestamp_ms = "0"
+name = ""
+head = "0000000000000000000000000000000000000000"
 
-    [branches.1]
-    id = "1"
-    order = 0
-    in_workspace = true
-    notes = ""
-    ownership = ""
-    allow_rebasing = true
-    post_commits = false
-    tree = "0000000000000000000000000000000000000000"
-    created_timestamp_ms = "0"
-    updated_timestamp_ms = "0"
-    name = ""
-    head = "0000000000000000000000000000000000000000"
+[[branches.1.heads]]
+name = "feat"
+pr_number = 42
+archived = false
+review_id = "review-id"
 
-    [[branches.1.heads]]
-    name = "feat"
-    pr_number = 42
-    archived = false
-    review_id = "review-id"
+[branches.1.heads.head]
+CommitId = "0000000000000000000000000000000000000000"
 
-    [branches.1.heads.head]
-    CommitId = "0000000000000000000000000000000000000000"
+[[branches.1.heads]]
+name = "feat-on-top"
+archived = false
 
-    [[branches.1.heads]]
-    name = "feat-on-top"
-    archived = false
+[branches.1.heads.head]
+CommitId = "0000000000000000000000000000000000000000"
 
-    [branches.1.heads.head]
-    CommitId = "0000000000000000000000000000000000000000"
-    "#);
+"#]]
+    );
     assert!(
         uuids.contains_key(&id.to_string()),
         "the written file also contains the id we have set for the first branch, which is a stack now."
@@ -707,24 +896,27 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         "It's still what it was before - it was persisted"
     );
     let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&new_ws.stacks));
-    insta::assert_snapshot!(actual, @r#"
-    [
-        WorkspaceStack {
-            id: 1,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/feat-on-top",
-                    archived: false,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/feat",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-    ]
-    "#);
+    snapbox::assert_data_eq!(
+        actual,
+        snapbox::str![[r#"
+[
+    WorkspaceStack {
+        id: 1,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/feat-on-top",
+                archived: false,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/feat",
+                archived: false,
+            },
+        ],
+        workspacecommit_relation: Merged,
+    },
+]
+"#]]
+    );
     assert!(
         uuids.contains_key(&id.to_string()),
         "after reading it back, the id is still used"
@@ -742,28 +934,31 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     store.set_workspace(&ws)?;
     let mut ws = store.workspace(workspace_name.as_ref())?;
     let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
-    insta::assert_snapshot!(actual, @r#"
-    [
-        WorkspaceStack {
-            id: 1,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/feat-on-top",
-                    archived: false,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/feat-in-middle",
-                    archived: true,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/feat",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-    ]
-    "#);
+    snapbox::assert_data_eq!(
+        actual,
+        snapbox::str![[r#"
+[
+    WorkspaceStack {
+        id: 1,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/feat-on-top",
+                archived: false,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/feat-in-middle",
+                archived: true,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/feat",
+                archived: false,
+            },
+        ],
+        workspacecommit_relation: Merged,
+    },
+]
+"#]]
+    );
     assert!(uuids.contains_key(&id.to_string()));
 
     ws.stacks[0].branches[1].archived = false;
@@ -801,38 +996,41 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     let mut ws = store.workspace(ws.as_ref())?;
     // Two stacks are present now.
     let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
-    insta::assert_snapshot!(actual, @r#"
-    [
-        WorkspaceStack {
-            id: 1,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/feat-on-top",
-                    archived: false,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/feat-in-middle",
-                    archived: false,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/feat",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-        WorkspaceStack {
-            id: 2,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/second-stack",
-                    archived: true,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-    ]
-    "#);
+    snapbox::assert_data_eq!(
+        actual,
+        snapbox::str![[r#"
+[
+    WorkspaceStack {
+        id: 1,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/feat-on-top",
+                archived: false,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/feat-in-middle",
+                archived: false,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/feat",
+                archived: false,
+            },
+        ],
+        workspacecommit_relation: Merged,
+    },
+    WorkspaceStack {
+        id: 2,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/second-stack",
+                archived: true,
+            },
+        ],
+        workspacecommit_relation: Merged,
+    },
+]
+"#]]
+    );
     assert_eq!(uuids.len(), 2);
     assert!(uuids.contains_key(&id.to_string()));
     assert!(uuids.contains_key(&second_id.to_string()));
@@ -895,90 +1093,28 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         ws.is_default(),
         "it's empty, so no difference to a default one"
     );
-    insta::assert_debug_snapshot!(ws.deref(), @r#"
-    Workspace {
-        ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
-        stacks: [],
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        ws.deref().to_debug(),
+        snapbox::str![[r#"
+Workspace {
+    ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+    stacks: [],
+}
+
+"#]]
+    );
 
     drop(store);
-    insta::assert_snapshot!(std::fs::read_to_string(&toml_path)?, @"
-    [branch_targets]
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(&toml_path)?,
+        snapbox::str![[r#"
+[branches]
 
-    [branches]
-    ");
+"#]]
+    );
     assert!(
         toml_path.exists(),
         "default state is still mirrored into TOML"
-    );
-
-    let mut store = VirtualBranchesTomlMetadata::from_path(&toml_path)?;
-    store.data_mut().default_target = Some(default_target());
-
-    let toml_path = store.path().to_owned();
-    let mut ws = store.workspace(workspace_name.as_ref())?;
-
-    ws.push_remote = Some("push-remote".into());
-    ws.target_ref = Some(gix::refs::FullName::try_from(
-        "refs/remotes/new-origin/new-target",
-    )?);
-    store.set_workspace(&ws)?;
-
-    drop(store);
-    let (actual, _uuids) =
-        sanitize_uuids_and_timestamps_with_mapping(std::fs::read_to_string(&toml_path)?);
-    insta::assert_snapshot!(actual, @r#"
-    [default_target]
-    branchName = "new-target"
-    remoteName = "new-origin"
-    remoteUrl = "https://example.com/example-org/example-repo"
-    sha = "0000000000000000000000000000000000000000"
-    pushRemoteName = "push-remote"
-
-    [branch_targets]
-
-    [branches]
-    "#);
-
-    Ok(())
-}
-
-#[test]
-fn target_journey() -> anyhow::Result<()> {
-    let (mut store, _tmp) = empty_vb_store_rw()?;
-    let ws_name = "refs/heads/gitbutler/workspace".try_into()?;
-    let mut ws = store.workspace(ws_name)?;
-    assert_eq!(
-        ws.target_ref,
-        Some("refs/remotes/origin/sub-name/main".try_into()?)
-    );
-
-    let expected_target: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
-    ws.target_ref = Some(expected_target.clone());
-    store.set_workspace(&ws)?;
-
-    let mut ws = store.workspace(ws_name)?;
-    assert_eq!(
-        ws.target_ref,
-        Some(expected_target.clone()),
-        "can change the name as well"
-    );
-
-    ws.target_ref = None;
-    store.set_workspace(&ws)?;
-
-    let mut ws = store.workspace(ws_name)?;
-    ws.target_ref = Some(expected_target);
-
-    let err = store.set_workspace(&ws).unwrap_err();
-    assert_eq!(
-        err.to_string(),
-        "Cannot reasonably set a target in the old data structure as we don't have repo access here",
-        "cannot do that as the data structures are too incompatible, can't set all values and certainly shouldn't make it up"
     );
 
     Ok(())
@@ -1018,38 +1154,42 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
 
     // This is still what was defined in memory, including our test-stack ids
     // which are respected.
-    insta::assert_debug_snapshot!(ws.stacks, @r#"
-    [
-        WorkspaceStack {
-            id: 00000000-0000-0000-0000-000000000001,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/top",
-                    archived: false,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/one-below-top",
-                    archived: true,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/base",
-                    archived: true,
-                },
-            ],
-            workspacecommit_relation: Outside,
-        },
-        WorkspaceStack {
-            id: 00000000-0000-0000-0000-000000000002,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/second-branch",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-    ]
-    "#);
+    snapbox::assert_data_eq!(
+        ws.stacks.to_debug(),
+        snapbox::str![[r#"
+[
+    WorkspaceStack {
+        id: 00000000-0000-0000-0000-000000000001,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/top",
+                archived: false,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/one-below-top",
+                archived: true,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/base",
+                archived: true,
+            },
+        ],
+        workspacecommit_relation: Outside,
+    },
+    WorkspaceStack {
+        id: 00000000-0000-0000-0000-000000000002,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/second-branch",
+                archived: false,
+            },
+        ],
+        workspacecommit_relation: Merged,
+    },
+]
+
+"#]]
+    );
     store.set_workspace(&ws)?;
     let stored_ws = store.workspace(workspace_name)?;
     assert_eq!(stored_ws.deref(), ws.deref());
@@ -1058,34 +1198,38 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
     ws.stacks[0].branches.pop();
     store.set_workspace(&ws)?;
     let mut ws = store.workspace(workspace_name)?;
-    insta::assert_debug_snapshot!(ws.stacks, @r#"
-    [
-        WorkspaceStack {
-            id: 00000000-0000-0000-0000-000000000001,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/top",
-                    archived: false,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/one-below-top",
-                    archived: true,
-                },
-            ],
-            workspacecommit_relation: Outside,
-        },
-        WorkspaceStack {
-            id: 00000000-0000-0000-0000-000000000002,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/second-branch",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-    ]
-    "#);
+    snapbox::assert_data_eq!(
+        ws.stacks.to_debug(),
+        snapbox::str![[r#"
+[
+    WorkspaceStack {
+        id: 00000000-0000-0000-0000-000000000001,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/top",
+                archived: false,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/one-below-top",
+                archived: true,
+            },
+        ],
+        workspacecommit_relation: Outside,
+    },
+    WorkspaceStack {
+        id: 00000000-0000-0000-0000-000000000002,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/second-branch",
+                archived: false,
+            },
+        ],
+        workspacecommit_relation: Merged,
+    },
+]
+
+"#]]
+    );
 
     // Remove the last branch, but leave the stack.
     ws.stacks[1].branches.pop();
@@ -1131,26 +1275,26 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
     // the implementation under test here, this data is disjoint otherwise.
     // By making it not in the workspace, users should be forced to not rely on this.
     store.set_branch(&branch)?;
-    insta::assert_snapshot!(sanitize_uuids_and_timestamps(format!("{:#?}", store.workspace(workspace_name)?.deref())), @r#"
-    Workspace {
-        ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
-        stacks: [
-            WorkspaceStack {
-                id: 1,
-                branches: [
-                    WorkspaceStackBranch {
-                        ref_name: "refs/heads/one-below-top",
-                        archived: false,
-                    },
-                ],
-                workspacecommit_relation: Outside,
-            },
-        ],
-        target_ref: "refs/remotes/origin/sub-name/main",
-        target_commit_id: None,
-        push_remote: None,
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        sanitize_uuids_and_timestamps(format!("{:#?}", store.workspace(workspace_name)?.deref())),
+        snapbox::str![[r#"
+Workspace {
+    ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+    stacks: [
+        WorkspaceStack {
+            id: 1,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/one-below-top",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Outside,
+        },
+    ],
+}
+"#]]
+    );
 
     // Create a branch implicitly, but turn it into a dependent branch later.
     let another_branch: &gix::refs::FullNameRef = "refs/heads/two-below-top".try_into()?;
@@ -1165,204 +1309,31 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
     store
         .set_workspace(&ws)
         .expect("setting the data works, despite having changed the branch association");
-    insta::assert_snapshot!(sanitize_uuids_and_timestamps(format!("{:#?}", store.workspace(workspace_name)?.deref())), @r#"
-    Workspace {
-        ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
-        stacks: [
-            WorkspaceStack {
-                id: 1,
-                branches: [
-                    WorkspaceStackBranch {
-                        ref_name: "refs/heads/two-below-top",
-                        archived: false,
-                    },
-                    WorkspaceStackBranch {
-                        ref_name: "refs/heads/one-below-top",
-                        archived: false,
-                    },
-                ],
-                workspacecommit_relation: Outside,
-            },
-        ],
-        target_ref: "refs/remotes/origin/sub-name/main",
-        target_commit_id: None,
-        push_remote: None,
-    }
-    "#);
-
-    Ok(())
-}
-
-#[test]
-fn dlib_rs_auto_fix() -> anyhow::Result<()> {
-    let (store, _tmp) = vb_store_rw("non-unique-branches")?;
-
-    insta::assert_debug_snapshot!(store.data().default_target, @r#"
-    Some(
-        Target {
-            branch: Refname {
-                remote: "origin",
-                branch: "main",
-            },
-            remote_url: "https://github.com/A2va/dlib-rs",
-            sha: Sha1(39b41821d90a6445815f32777ec5dbebb716897f),
-            push_remote_name: Some(
-                "origin",
-            ),
-        },
-    )
-    "#);
-    let ws_ref_name = "refs/heads/gitbutler/workspace".try_into()?;
-    let ws = store.workspace(ws_ref_name)?;
-    let (actual, _uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
-    // The iteration order is fixed by sorting by order, and then by name as the order can't be trusted either.
-    // Also: `main` as target somehow made it into the workspace officially.
-    insta::assert_snapshot!(actual, @r#"
-    [
+    snapbox::assert_data_eq!(
+        sanitize_uuids_and_timestamps(format!("{:#?}", store.workspace(workspace_name)?.deref())),
+        snapbox::str![[r#"
+Workspace {
+    ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+    stacks: [
         WorkspaceStack {
             id: 1,
             branches: [
                 WorkspaceStackBranch {
-                    ref_name: "refs/heads/main",
-                    archived: true,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/confidence",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-        WorkspaceStack {
-            id: 2,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/main",
+                    ref_name: "refs/heads/two-below-top",
                     archived: false,
                 },
                 WorkspaceStackBranch {
-                    ref_name: "refs/heads/confidence",
+                    ref_name: "refs/heads/one-below-top",
                     archived: false,
                 },
             ],
             workspacecommit_relation: Outside,
         },
-    ]
-    "#);
-
-    // The above being stable already fixes `dlib`.
-    let repo = but_testsupport::read_only_in_memory_scenario("dlib-standin")?;
-    let graph = but_graph::Graph::from_commit_traversal(
-        repo.find_reference(ws_ref_name)?.peel_to_id()?,
-        Some(ws_ref_name.to_owned()),
-        &store,
-        but_graph::init::Options::limited(),
-    )?;
-    // It looks very empty without reconciliation, as if it had not found any metadata (even though it's there).
-    // The problem is that StackId {1} refers to stack that is also marked as outside the workspace, so it's not really
-    // picked up. But… it also listed as stack (which shouldn't happen), which gets it the stack-id association.
-    // Finally, we end up with nothing as that one segment is also marked archived, which leads to it being truncated
-    // and fully empty stacks are removed. OMG.
-    // AND: all of the above was before the `name` field was removed which served to help with ordering, so maybe the whole
-    // test was tuned for a certain outcome and now this becomes more obvious. But whatever, it's legacy and
-    // it doesn't fail anymore.
-    insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?), @"
-    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-    ├── ≡📙:5:main[🌳] <> origin/main →:1: on 3183e43 {1}
-    │   └── 📙:5:main[🌳] <> origin/main →:1:
-    │       └── ❄️bce0c5e (🏘️|✓)
-    └── ≡📙:4:confidence on 3183e43
-        └── 📙:4:confidence
-    ");
-
-    let path = store.path().to_owned();
-    store.write_reconciled(&repo)?;
-
-    let mut store = VirtualBranchesTomlMetadata::from_path(&path)?;
-    // The target was adjusted to fit the computed lower bound, which took the possibly stale
-    // stored value into consideration.
-    insta::assert_debug_snapshot!(store.data().default_target, @r#"
-    Some(
-        Target {
-            branch: Refname {
-                remote: "origin",
-                branch: "main",
-            },
-            remote_url: "https://github.com/A2va/dlib-rs",
-            sha: Sha1(3183e43ff482a2c4c8ff531d595453b64f58d90b),
-            push_remote_name: Some(
-                "origin",
-            ),
-        },
-    )
-    "#);
-
-    let ws = store.workspace(ws_ref_name)?;
-    let graph = but_graph::Graph::from_commit_traversal(
-        repo.find_reference(ws_ref_name)?.peel_to_id()?,
-        Some(ws_ref_name.to_owned()),
-        &store,
-        but_graph::init::Options::limited(),
-    )?;
-    insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?), @"
-    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-    └── ≡📙:2:main[🌳] <> origin/main →:1: on 3183e43 {1}
-        └── 📙:2:main[🌳] <> origin/main →:1:
-            └── ❄️bce0c5e (🏘️|✓)
-    ");
-
-    let (actual, _uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
-    // Now both stacks are outside workspace, as is indicated by the workspace above.
-    // Also, their uniqueness constraint is enforced.
-    // AND: The above is no more and it's all just weird.
-    insta::assert_snapshot!(actual, @r#"
-    [
-        WorkspaceStack {
-            id: 1,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/main",
-                    archived: true,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/confidence",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-    ]
-    "#);
-
-    // Now that there is one stack left, we can manipulate it and look at vb.toml data directly.
-    // AND: this makes no sense with the lack of a `Stack::name` field.
-    store
-        .data_mut()
-        .branches
-        .values_mut()
-        .next()
-        .expect("exactly one")
-        .id = StackId::from_number_for_testing(8);
-    // Now the ID and the ID used for storage are out of sync.
-    snapbox::assert_data_eq!(
-        debug_str(&store.data().branches),
-        snapbox::str![[r#"
-{
-    1819a203-26ef-477c-ac56-2d07a034ddb8: Stack {
-...
-        id: 00000000-0000-0000-0000-000000000008,
-...
+    ],
 }
 "#]]
     );
-    store.write_reconciled(&repo)?;
 
-    let _store = VirtualBranchesTomlMetadata::from_path(path)?;
-
-    // now the ID is in sync again
-    // AND: this test makes no sense anymore… . Maybe the test was too tuned to a particular thing?
-    //      Now there are two branches here, because the names are all off and strange in this data.
-    //      Let's just hope we get to DB backed metadata soon so all this can go away.
     Ok(())
 }
 
@@ -1379,20 +1350,57 @@ fn vb_store_rw(name: &str) -> anyhow::Result<(VirtualBranchesTomlMetadata, TempD
     Ok((store, tmp))
 }
 
-fn empty_vb_store_rw() -> anyhow::Result<(VirtualBranchesTomlMetadata, TempDir)> {
-    let tmp = tempdir()?;
-    let mut store = VirtualBranchesTomlMetadata::from_path(tmp.path().join("vb.toml"))?;
-    store.data_mut().default_target = Some(default_target());
-    Ok((store, tmp))
+#[test]
+fn legacy_target_is_ignored_and_not_written() -> anyhow::Result<()> {
+    let data: but_meta::virtual_branches_legacy_types::VirtualBranches =
+        toml::from_str(&std::fs::read_to_string(vb_fixture("virtual-branches-01"))?)?;
+    let canonical = toml::to_string(&data)?;
+    assert!(
+        !canonical.contains("[default_target]"),
+        "canonical TOML omits the legacy project target"
+    );
+    Ok(())
 }
 
-fn default_target() -> Target {
-    Target {
-        branch: RemoteRefname::new("origin/sub-name", "main"),
-        remote_url: "https://example.com/example-org/example-repo".to_string(),
-        sha: gix::hash::Kind::Sha1.null(),
-        push_remote_name: None,
+#[test]
+fn rename_onto_an_existing_branch_is_rejected() -> anyhow::Result<()> {
+    let (mut store, _tmp) = empty_vb_store_rw()?;
+
+    let a: gix::refs::FullName = "refs/heads/a".try_into()?;
+    let b: gix::refs::FullName = "refs/heads/b".try_into()?;
+
+    // Persist two distinct branches (each ends up in its own stack).
+    for name in [&a, &b] {
+        let mut branch = store.branch(name.as_ref())?;
+        branch.review.pull_request = Some(1);
+        store.set_branch(&branch)?;
     }
+
+    // Renaming `a` onto the existing `b` must be rejected rather than creating a duplicate head.
+    let err = store
+        .rename(a.as_ref(), b.as_ref())
+        .expect_err("cannot rename onto an existing branch");
+    assert!(err.to_string().contains("already exists"), "{err}");
+    assert!(store.branch_opt(a.as_ref())?.is_some());
+    assert!(store.branch_opt(b.as_ref())?.is_some());
+
+    // Renaming onto a fresh name works and moves the metadata in place.
+    let c: gix::refs::FullName = "refs/heads/c".try_into()?;
+    store.rename(a.as_ref(), c.as_ref())?;
+    assert!(store.branch_opt(a.as_ref())?.is_none());
+    assert!(store.branch_opt(c.as_ref())?.is_some());
+
+    // Renaming a branch onto its own name is a no-op, not a self-conflict.
+    store.rename(c.as_ref(), c.as_ref())?;
+    assert!(store.branch_opt(c.as_ref())?.is_some());
+
+    Ok(())
+}
+
+fn empty_vb_store_rw() -> anyhow::Result<(VirtualBranchesTomlMetadata, TempDir)> {
+    let tmp = tempdir()?;
+    let store = VirtualBranchesTomlMetadata::from_path(tmp.path().join("vb.toml"))?;
+    Ok((store, tmp))
 }
 
 /// Assure everything can round-trip and the data looks consistent, independently of the actual data,
@@ -1462,6 +1470,413 @@ fn legacy_change_id_deserializes_as_null_sha() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn removes_duplicate_heads_even_if_they_point_to_the_same_commit() -> anyhow::Result<()> {
+    let (mut store, _tmp) = empty_vb_store_rw()?;
+    let head = gix::ObjectId::from_str("1111111111111111111111111111111111111111")?;
+
+    let first = LegacyStack::new_with_just_heads(
+        vec![StackBranch {
+            head,
+            name: "shared".into(),
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        }],
+        0,
+        true,
+    );
+    let second = LegacyStack::new_with_just_heads(
+        vec![StackBranch {
+            head,
+            name: "shared".into(),
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        }],
+        1,
+        true,
+    );
+    let first_id = first.id;
+    let second_id = second.id;
+    store.data_mut().branches.insert(first_id, first);
+    store.data_mut().branches.insert(second_id, second);
+    store.set_changed_to_necessitate_write();
+
+    let path = store.path().to_owned();
+    drop(store);
+
+    let store = VirtualBranchesTomlMetadata::from_path(path)?;
+    let shared_heads = store
+        .data()
+        .branches
+        .values()
+        .flat_map(|stack| stack.heads.iter())
+        .filter(|head| head.name == "shared")
+        .count();
+    assert_eq!(
+        shared_heads, 1,
+        "without a workspace projection, duplicate names still use first-wins cleanup",
+    );
+
+    Ok(())
+}
+
+#[test]
+fn garbage_collect_removes_outside_workspace_stack_at_target() -> anyhow::Result<()> {
+    let repo = but_testsupport::read_only_in_memory_scenario("dlib-standin")?;
+    let target = repo.head_id()?.detach();
+    let (mut store, _tmp) = empty_vb_store_rw()?;
+
+    let workspace_stack = LegacyStack::new_with_just_heads(
+        vec![StackBranch {
+            head: target,
+            name: "kept".into(),
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        }],
+        0,
+        true,
+    );
+    let outside_stack = LegacyStack::new_with_just_heads(
+        vec![StackBranch {
+            head: target,
+            name: "collected".into(),
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        }],
+        1,
+        false,
+    );
+    let workspace_stack_id = workspace_stack.id;
+    let outside_stack_id = outside_stack.id;
+    store
+        .data_mut()
+        .branches
+        .insert(workspace_stack_id, workspace_stack);
+    store
+        .data_mut()
+        .branches
+        .insert(outside_stack_id, outside_stack);
+
+    store.garbage_collect(&repo, &project_meta(target))?;
+
+    assert!(store.data().branches.contains_key(&workspace_stack_id));
+    assert!(!store.data().branches.contains_key(&outside_stack_id));
+    Ok(())
+}
+
+#[test]
+fn garbage_collect_removes_outside_workspace_stack_with_missing_head() -> anyhow::Result<()> {
+    let repo = but_testsupport::read_only_in_memory_scenario("dlib-standin")?;
+    let target = repo.head_id()?.detach();
+    let missing_head = gix::ObjectId::from_hex(b"30696678319e0fa3a20e54f22d47fc8cf1ceaade")?;
+    let (mut store, _tmp) = empty_vb_store_rw()?;
+    let outside_stack = LegacyStack::new_with_just_heads(
+        vec![StackBranch {
+            head: missing_head,
+            name: "missing".into(),
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        }],
+        0,
+        false,
+    );
+    let outside_stack_id = outside_stack.id;
+    store
+        .data_mut()
+        .branches
+        .insert(outside_stack_id, outside_stack);
+
+    store.garbage_collect(&repo, &project_meta(target))?;
+
+    assert!(!store.data().branches.contains_key(&outside_stack_id));
+    Ok(())
+}
+
+#[test]
+fn garbage_collect_removes_outside_workspace_stack_with_broken_ref() -> anyhow::Result<()> {
+    let (mut repo, _tmp) = but_testsupport::writable_scenario("dlib-standin");
+    let target = repo.head_id()?.detach();
+    let missing_head = gix::ObjectId::from_hex(b"30696678319e0fa3a20e54f22d47fc8cf1ceaade")?;
+    repo.reference(
+        "refs/heads/missing",
+        missing_head,
+        gix::refs::transaction::PreviousValue::Any,
+        "test",
+    )?;
+    repo.reload()?;
+    let (mut store, _tmp) = empty_vb_store_rw()?;
+    let outside_stack = LegacyStack::new_with_just_heads(
+        vec![StackBranch {
+            head: target,
+            name: "missing".into(),
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        }],
+        0,
+        false,
+    );
+    let outside_stack_id = outside_stack.id;
+    store
+        .data_mut()
+        .branches
+        .insert(outside_stack_id, outside_stack);
+
+    store.garbage_collect(&repo, &project_meta(target))?;
+
+    assert!(!store.data().branches.contains_key(&outside_stack_id));
+    Ok(())
+}
+
+#[test]
+fn preserves_duplicate_heads_if_they_map_to_the_same_workspace_segment() -> anyhow::Result<()> {
+    let (repo, _repo_tmp) = but_testsupport::writable_scenario("ws/multi-lane-with-shared-segment");
+    let path = repo.path().join("virtual_branches.toml");
+    let mut store = VirtualBranchesTomlMetadata::from_path(&path)?;
+    but_core::ref_metadata::ProjectMeta {
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
+        target_commit_id: None,
+        push_remote: Some("origin".into()),
+    }
+    .persist(&repo)?;
+
+    let stack_a = LegacyStack::new_with_just_heads(
+        vec![
+            StackBranch::new_with_zero_head("shared".into(), None, None, false),
+            StackBranch::new_with_zero_head("A".into(), None, None, false),
+        ],
+        0,
+        true,
+    );
+    let stack_b = LegacyStack::new_with_just_heads(
+        vec![
+            StackBranch::new_with_zero_head("shared".into(), None, None, false),
+            StackBranch::new_with_zero_head("B".into(), None, None, false),
+        ],
+        1,
+        true,
+    );
+    let stack_d = LegacyStack::new_with_just_heads(
+        vec![
+            StackBranch::new_with_zero_head("shared".into(), None, None, false),
+            StackBranch::new_with_zero_head("C".into(), None, None, false),
+            StackBranch::new_with_zero_head("D".into(), None, None, false),
+        ],
+        2,
+        true,
+    );
+    store.data_mut().branches.insert(stack_a.id, stack_a);
+    store.data_mut().branches.insert(stack_b.id, stack_b);
+    store.data_mut().branches.insert(stack_d.id, stack_d);
+    store.set_changed_to_necessitate_write();
+
+    store.write_unreconciled()?;
+
+    let store = VirtualBranchesTomlMetadata::from_path(path)?;
+    let shared_heads = store
+        .data()
+        .branches
+        .values()
+        .flat_map(|stack| stack.heads.iter())
+        .filter(|head| head.name == "shared")
+        .count();
+    assert_eq!(
+        shared_heads, 3,
+        "repo-backed cleanup should preserve duplicate names when they resolve to the same projected segment",
+    );
+
+    Ok(())
+}
+
+#[test]
+fn removes_within_stack_duplicate_heads_even_when_mapped_to_a_segment_13345() -> anyhow::Result<()>
+{
+    let (repo, _repo_tmp) = but_testsupport::writable_scenario("ws/multi-lane-with-shared-segment");
+    let path = repo.path().join("virtual_branches.toml");
+    let mut store = VirtualBranchesTomlMetadata::from_path(&path)?;
+    but_core::ref_metadata::ProjectMeta {
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
+        target_commit_id: None,
+        push_remote: Some("origin".into()),
+    }
+    .persist(&repo)?;
+
+    // A single stack that lists "shared" twice.
+    // Even though "shared" maps to a real projected segment, one stack must never repeat a branch.
+    let stack = LegacyStack::new_with_just_heads(
+        vec![
+            StackBranch::new_with_zero_head("shared".into(), None, None, false),
+            StackBranch::new_with_zero_head("shared".into(), None, None, false),
+            StackBranch::new_with_zero_head("A".into(), None, None, false),
+        ],
+        0,
+        true,
+    );
+    let stack_id = stack.id;
+    store.data_mut().branches.insert(stack_id, stack);
+    store.set_changed_to_necessitate_write();
+
+    store.write_unreconciled()?;
+
+    let store = VirtualBranchesTomlMetadata::from_path(path)?;
+    let shared_in_stack = store.data().branches.get(&stack_id).map(|stack| {
+        stack
+            .heads
+            .iter()
+            .filter(|head| head.name == "shared")
+            .count()
+    });
+    assert_eq!(
+        shared_in_stack,
+        Some(1),
+        "the stack must not keep the same branch twice, even when it maps to a projected segment",
+    );
+
+    Ok(())
+}
+
+/// A stale unapplied stack may still list a branch that meanwhile lives in an applied
+/// stack - `reconcile_projected_stacks` tolerates such duplicates as stale hints.
+/// Writing the workspace back must not move the applied stack's copy into the stale
+/// stack; that regrouping made snapshots record every branch below the tip as
+/// unapplied, so restoring them stranded those branches (#15573).
+#[test]
+fn duplicate_names_in_unapplied_stacks_do_not_steal_applied_branches() -> anyhow::Result<()> {
+    let (mut store, _tmp) = empty_vb_store_rw()?;
+    let lower_head = gix::ObjectId::from_str("1111111111111111111111111111111111111111")?;
+    let tip_head = gix::ObjectId::from_str("2222222222222222222222222222222222222222")?;
+    let stale_head = gix::ObjectId::from_str("3333333333333333333333333333333333333333")?;
+
+    let applied = LegacyStack::new_with_just_heads(
+        vec![
+            StackBranch {
+                head: lower_head,
+                name: "lower".into(),
+                pr_number: None,
+                archived: false,
+                review_id: None,
+            },
+            StackBranch {
+                head: tip_head,
+                name: "tip".into(),
+                pr_number: None,
+                archived: false,
+                review_id: None,
+            },
+        ],
+        0,
+        true,
+    );
+    let stale = LegacyStack::new_with_just_heads(
+        vec![StackBranch {
+            head: stale_head,
+            name: "lower".into(),
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        }],
+        1,
+        false,
+    );
+    let applied_id = applied.id;
+    let stale_id = stale.id;
+    store.data_mut().branches.insert(applied_id, applied);
+    store.data_mut().branches.insert(stale_id, stale);
+
+    // Reading the workspace and writing it back unchanged must not regroup branches.
+    let workspace_name: gix::refs::FullName = "refs/heads/gitbutler/workspace".try_into()?;
+    let ws = store.workspace(workspace_name.as_ref())?;
+    store.set_workspace(&ws)?;
+
+    let names = |stack_id: StackId| {
+        store.data().branches.get(&stack_id).map(|stack| {
+            stack
+                .heads
+                .iter()
+                .map(|head| head.name.clone())
+                .collect::<Vec<_>>()
+        })
+    };
+    assert_eq!(
+        names(applied_id),
+        Some(vec!["lower".to_string(), "tip".to_string()]),
+        "the applied stack keeps all its branches",
+    );
+    assert_eq!(
+        names(stale_id),
+        Some(vec!["lower".to_string()]),
+        "the stale stack keeps only its own copy",
+    );
+    assert_eq!(
+        store.data().branches[&stale_id].heads[0].head,
+        stale_head,
+        "the stale copy is untouched",
+    );
+    Ok(())
+}
+
+/// Two applied stacks may share a segment, so both legitimately list the same
+/// branch name. A workspace roundtrip must leave each stack's own copy in place
+/// instead of moving the lower-ordered one into whichever stack is written last.
+#[test]
+fn shared_segment_names_stay_in_their_own_applied_stacks() -> anyhow::Result<()> {
+    let (mut store, _tmp) = empty_vb_store_rw()?;
+    let shared_head = gix::ObjectId::from_str("1111111111111111111111111111111111111111")?;
+
+    let names = |heads: &[&str]| {
+        heads
+            .iter()
+            .map(|name| StackBranch {
+                head: shared_head,
+                name: (*name).into(),
+                pr_number: None,
+                archived: false,
+                review_id: None,
+            })
+            .collect::<Vec<_>>()
+    };
+    let stack_a = LegacyStack::new_with_just_heads(names(&["shared", "A"]), 0, true);
+    let stack_b = LegacyStack::new_with_just_heads(names(&["shared", "B"]), 1, true);
+    let stack_a_id = stack_a.id;
+    let stack_b_id = stack_b.id;
+    store.data_mut().branches.insert(stack_a_id, stack_a);
+    store.data_mut().branches.insert(stack_b_id, stack_b);
+
+    let workspace_name: gix::refs::FullName = "refs/heads/gitbutler/workspace".try_into()?;
+    let ws = store.workspace(workspace_name.as_ref())?;
+    store.set_workspace(&ws)?;
+
+    let head_names = |stack_id: StackId| {
+        store.data().branches.get(&stack_id).map(|stack| {
+            stack
+                .heads
+                .iter()
+                .map(|head| head.name.clone())
+                .collect::<Vec<_>>()
+        })
+    };
+    assert_eq!(
+        head_names(stack_a_id),
+        Some(vec!["shared".to_string(), "A".to_string()]),
+        "the first applied stack keeps its copy of the shared segment",
+    );
+    assert_eq!(
+        head_names(stack_b_id),
+        Some(vec!["shared".to_string(), "B".to_string()]),
+        "the second applied stack keeps its copy of the shared segment",
+    );
+    Ok(())
+}
+
 #[cfg(unix)]
 #[test]
 fn falls_back_to_in_memory_db_when_persistent_db_open_fails() -> anyhow::Result<()> {
@@ -1469,7 +1884,7 @@ fn falls_back_to_in_memory_db_when_persistent_db_open_fails() -> anyhow::Result<
 
     let tmp = tempdir()?;
     let toml_path = tmp.path().join("virtual_branches.toml");
-    std::fs::write(&toml_path, "[branch_targets]\n\n[branches]\n")?;
+    std::fs::write(&toml_path, "[branches]\n")?;
 
     let original_permissions = std::fs::metadata(tmp.path())?.permissions();
     let mut read_only_permissions = original_permissions.clone();
@@ -1496,4 +1911,11 @@ fn falls_back_to_in_memory_db_when_persistent_db_open_fails() -> anyhow::Result<
         "failed on-disk DB open should not leave sqlite shm sidecars behind"
     );
     Ok(())
+}
+
+fn project_meta(target_commit_id: gix::ObjectId) -> but_core::ref_metadata::ProjectMeta {
+    but_core::ref_metadata::ProjectMeta {
+        target_commit_id: Some(target_commit_id),
+        ..Default::default()
+    }
 }

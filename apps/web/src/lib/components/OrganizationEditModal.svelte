@@ -2,8 +2,8 @@
 	import { inject } from "@gitbutler/core/context";
 	import { ORGANIZATION_SERVICE } from "@gitbutler/shared/organizations/organizationService";
 
-	import { Button, Modal, Textarea, Textbox, chipToasts } from "@gitbutler/ui";
-	import { slugify } from "@gitbutler/ui/utils/string";
+	import { Button, Modal, Textarea, Textbox, chipToasts } from "@gitbutler/ui-svelte";
+	import { slugify } from "@gitbutler/ui-svelte/utils/string";
 
 	interface Props {
 		organizationSlug: string;
@@ -140,7 +140,7 @@
 
 	.slug-note {
 		margin-top: -12px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 13px;
 	}
 </style>

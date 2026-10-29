@@ -1,7 +1,7 @@
 use bstr::{BStr, BString, ByteSlice};
 use gix::diff::blob::{
     ResourceKind,
-    platform::prepare_diff::Operation,
+    platform::prepare_diff::{self, Operation},
     unified_diff::{ConsumeBinaryHunk, ContextSize, HunkHeader},
 };
 use serde::{Deserialize, Serialize};
@@ -135,10 +135,15 @@ impl UnifiedPatch {
             repo,
         ) {
             Ok(()) => {}
-            Err(
-                err @ blob::platform::set_resource::Error::InvalidMode { .. }
-                | err @ blob::platform::set_resource::Error::ConvertToDiffable(_),
-            ) => {
+            Err(err)
+                if matches!(
+                    err.downcast_any_ref::<blob::platform::set_resource::Error>(),
+                    Some(
+                        blob::platform::set_resource::Error::InvalidMode { .. }
+                            | blob::platform::set_resource::Error::ConvertToDiffable { .. }
+                    )
+                ) =>
+            {
                 tracing::warn!(?err, %path, "ignoring diff processing failure");
                 return Ok(None);
             }
@@ -160,17 +165,34 @@ impl UnifiedPatch {
             repo,
         ) {
             Ok(()) => {}
-            Err(
-                err @ blob::platform::set_resource::Error::InvalidMode { .. }
-                | err @ blob::platform::set_resource::Error::ConvertToDiffable(_),
-            ) => {
+            Err(err)
+                if matches!(
+                    err.downcast_any_ref::<blob::platform::set_resource::Error>(),
+                    Some(
+                        blob::platform::set_resource::Error::InvalidMode { .. }
+                            | blob::platform::set_resource::Error::ConvertToDiffable { .. }
+                    )
+                ) =>
+            {
                 tracing::warn!(?err, %actual_previous_path, "ignoring diff processing failure");
                 return Ok(None);
             }
             Err(err) => return Err(err.into()),
         };
 
-        let prep = diff_filter.prepare_diff()?;
+        let prep = match diff_filter.prepare_diff() {
+            Ok(prep) => prep,
+            Err(err)
+                if matches!(
+                    err.downcast_any_ref::<prepare_diff::Error>(),
+                    Some(prepare_diff::Error::SourceAndDestinationRemoved)
+                ) =>
+            {
+                tracing::warn!(%path, "ignoring diff of two removed resources");
+                return Ok(None);
+            }
+            Err(err) => return Err(err.into()),
+        };
         Ok(Some(match prep.operation {
             Operation::InternalDiff { algorithm } => {
                 #[derive(Default)]
@@ -200,13 +222,16 @@ impl UnifiedPatch {
                     }
                 }
                 let input = prep.interned_input();
-                let uni_diff = gix::diff::blob::UnifiedDiff::new(
+                let diff = gix::diff::blob::diff_with_slider_heuristics(algorithm, &input);
+                let (lines_added, lines_removed) = compute_line_changes(&diff);
+                let hunks = gix::diff::blob::UnifiedDiff::new(
+                    &diff,
                     &input,
                     ConsumeBinaryHunk::new(ProduceDiffHunk::default(), "\n"),
                     ContextSize::symmetrical(context_lines),
-                );
-                let hunks = gix::diff::blob::diff(algorithm, &input, uni_diff)?.hunks;
-                let (lines_added, lines_removed) = compute_line_changes(&hunks);
+                )
+                .consume()?
+                .hunks;
                 UnifiedPatch::Patch {
                     is_result_of_binary_to_text_conversion: prep.old_or_new_is_derived,
                     hunks,
@@ -262,19 +287,8 @@ fn detect_and_convert_to_utf8(content: BString) -> BString {
     decoded.into_owned().into()
 }
 
-fn compute_line_changes(hunks: &Vec<DiffHunk>) -> (u32, u32) {
-    let mut lines_added = 0;
-    let mut lines_removed = 0;
-    for hunk in hunks {
-        hunk.diff.lines().for_each(|line| {
-            if line.starts_with(b"+") {
-                lines_added += 1;
-            } else if line.starts_with(b"-") {
-                lines_removed += 1;
-            }
-        });
-    }
-    (lines_added, lines_removed)
+fn compute_line_changes(diff: &gix::diff::blob::Diff) -> (u32, u32) {
+    (diff.count_additions(), diff.count_removals())
 }
 
 /// Produce a filter from `repo` and `state` using `mode` that is able to perform diffs of `state`.

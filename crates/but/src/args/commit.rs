@@ -1,113 +1,126 @@
+//! Arguments for `commit`.
+
+#![deny(missing_docs)]
+
+use crate::args::atoms::{AllowMergedArg, CliIdArg, MessageFileArg};
+
+/// Create a commit.
+///
+/// By default, all uncommitted changes of the checkout `but` runs in are included in the commit:
+/// the main worktree's, or a linked worktree's when run from inside one. This can be controlled
+/// with change flags such as `--empty` and `--interactive`, or by providing `CHANGES` as
+/// positional arguments.
+///
+/// Run from a linked worktree, or given changes from one, the commit is placed at the tip of that
+/// worktree's branch. Otherwise, if there are no branches applied, a new branch is created for the
+/// commit. If there is only one stack of branches applied, the commit is placed at the tip of that
+/// stack. Otherwise, the targeting flags `--above`, `--below` and `--branch` control where the
+/// commit is placed.
+/// `--above` and `--below` are mutually exclusive; combine either with `--branch` to name a new
+/// branch when targeting a branch.
+///
+/// The commit is expected to have a commit message unless `--no-message` is provided. If none of
+/// `--no-message`, `--message` or `--file` is provided, the user's preferred editor is opened to
+/// input a message.
+///
+/// For more details about CLI IDs, see `but help cli-ids`.
 #[derive(Debug, clap::Parser)]
+#[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
 pub struct Platform {
-    /// Commit message
-    #[clap(short = 'm', long = "message", conflicts_with = "message_file")]
-    pub message: Option<String>,
-    /// Read commit message from file
-    #[clap(long = "message-file", value_name = "FILE", conflicts_with = "message")]
-    pub message_file: Option<std::path::PathBuf>,
-    /// Branch CLI ID or name to derive the stack to commit to
-    pub branch: Option<String>,
-    /// Whether to create a new branch for this commit.
-    /// If the branch name given matches an existing branch, that branch will be used instead.
-    /// If no branch name is given, a new branch with a generated name will be created.
-    #[clap(short = 'c', long = "create")]
-    pub create: bool,
-    /// Only commit staged files, not unstaged files
-    #[clap(short = 'o', long = "only")]
-    pub only: bool,
-    /// Bypass pre-commit hooks
-    #[clap(short = 'n', long = "no-hooks", alias = "no-verify")]
-    pub no_hooks: bool,
-    /// Generate commit message using AI with optional user summary.
-    /// Use --ai by itself or --ai="your instructions" (equals sign required for value)
-    #[clap(
-        short = 'i',
-        long = "ai",
-        conflicts_with = "message",
-        conflicts_with = "message_file",
-        num_args = 0..=1,
-        require_equals = true
-    )]
-    pub ai: Option<Option<String>>,
-    /// Uncommitted file or hunk CLI IDs to include in the commit.
-    /// Can be specified multiple times or as comma-separated values.
-    /// If not specified, all uncommitted changes (or changes staged to the target branch) are committed.
-    #[clap(
-        long = "changes",
-        short = 'p',
-        value_delimiter = ',',
-        conflicts_with = "only"
-    )]
-    pub changes: Vec<String>,
-    /// Always show diff inside the editor.
+    /// The message to use for the commit.
     ///
-    /// By default the diff will be shown unless it's large. The diff will always be shown if
-    /// `--diff` is passed, regardless of the size of the diff.
-    #[clap(long = "diff", default_value_t, conflicts_with_all = &["no_diff", "message", "message_file", "ai"])]
-    pub diff: bool,
-    /// Never show the diff inside the editor.
-    #[clap(long = "no-diff", default_value_t, conflicts_with_all = &["diff", "message", "message_file", "ai"])]
-    pub no_diff: bool,
-    #[clap(subcommand)]
-    pub cmd: Option<Subcommands>,
+    /// Can be supplied any amount of times, each value being appended to the preceding ones with a
+    /// blank line in between. Without `-m`, `-F` or `--no-message`, a terminal opens the editor
+    /// and a non-interactive run commits with an empty message.
+    #[clap(short, long, group = "commit_message")]
+    pub message: Option<Vec<String>>,
+
+    /// Create the commit without a message.
+    #[clap(long, group = "commit_message")]
+    pub no_message: bool,
+
+    /// Read the commit message from `FILE`, or from stdin when `FILE` is `-`.
+    #[clap(short = 'F', long, value_name = "FILE", group = "commit_message")]
+    pub file: Option<MessageFileArg>,
+
+    /// Place the commit on the branch `BRANCH`.
+    ///
+    /// With `--above` or `--below`, name the new branch created relative to the target branch.
+    /// The name must not already exist; omit it for a generated name. Cannot be combined with
+    /// commit or worktree targets.
+    ///
+    /// Otherwise, if `BRANCH` does not exist, it is created as an unstacked branch.
+    /// If `BRANCH` is omitted, an unstacked branch with a generated name is created.
+    ///
+    /// If `BRANCH` is a worktree or a branch checked out in one, the commit is placed
+    /// on the tip of that worktree's branch.
+    ///
+    /// Attempting to place a commit on a branch that exists but is not applied is an error.
+    #[clap(short, long, value_name = "BRANCH")]
+    pub branch: Option<Option<CliIdArg>>,
+
+    /// Place the commit above `BRANCH_OR_COMMIT`, which must be an applied branch or commit.
+    ///
+    /// If `BRANCH_OR_COMMIT` is a commit, the new commit is placed on the same branch as the
+    /// targeted commit.
+    ///
+    /// If `BRANCH_OR_COMMIT` is a branch, the new commit is placed on a new branch above the
+    /// targeted branch. Use `--branch <NAME>` to name it; otherwise a name is generated.
+    #[clap(
+        short = 'A',
+        long,
+        value_name = "BRANCH_OR_COMMIT",
+        group = "targeting"
+    )]
+    pub above: Option<CliIdArg>,
+
+    /// Place the commit below `BRANCH_OR_COMMIT`, which must be an applied branch or commit.
+    ///
+    /// If `BRANCH_OR_COMMIT` is a commit, the new commit is placed on the same branch as the targeted
+    /// commit.
+    ///
+    /// If `BRANCH_OR_COMMIT` is a branch, the new commit is placed on a new branch below the
+    /// targeted branch. Branches are treated as buckets, meaning that "below a branch" is treated
+    /// as below the oldest ancestor on that branch. Use `--branch <NAME>` to name the new branch;
+    /// otherwise a name is generated.
+    ///
+    /// If `BRANCH_OR_COMMIT` is a worktree, the new commit is placed on the tip of the
+    /// branch that worktree has checked out.
+    #[clap(
+        short = 'B',
+        long,
+        value_name = "BRANCH_OR_COMMIT",
+        group = "targeting"
+    )]
+    pub below: Option<CliIdArg>,
+
+    /// Create an empty commit even when there are changes.
+    #[clap(long, group = "changes_to_commit")]
+    pub empty: bool,
+
+    /// Open the TUI to interactively select what to commit.
+    #[clap(short, long, group = "changes_to_commit", help_heading = "Interactive")]
+    pub interactive: bool,
+
+    /// The files or hunks to commit, by CLI ID from `but diff`.
+    ///
+    /// If omitted, everything uncommitted in the checkout `but` runs in is committed.
+    #[clap(group = "changes_to_commit")]
+    pub changes: Vec<CliIdArg>,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub allow_merged: AllowMergedArg,
+
+    /// Switch to the target branch instead of remaining in the GitButler workspace.
+    #[clap(long, short, group = "targeting")]
+    pub switch: bool,
 }
 
-#[derive(Debug, clap::Subcommand)]
-pub enum Subcommands {
-    /// Insert a blank commit before or after the specified commit.
-    ///
-    /// This is useful for creating a placeholder commit that you can
-    /// then amend changes into later using `but mark`, `but rub` or `but absorb`.
-    ///
-    /// You can modify the empty commit message at any time using `but reword`.
-    ///
-    /// This allows for a more Jujutsu style workflow where you create commits
-    /// first and then fill them in as you work. Create an empty commit, mark it
-    /// for auto-commit, and then just work on your changes. Write the commit
-    /// message whenever you prefer.
-    ///
-    /// ## Examples
-    ///
-    /// Insert at the top of the first branch (no arguments):
-    ///
-    /// ```text
-    /// but commit empty
-    /// ```
-    ///
-    /// Insert before a commit:
-    ///
-    /// ```text
-    /// but commit empty ab
-    /// ```
-    ///
-    /// Explicitly insert before a commit:
-    ///
-    /// ```text
-    /// but commit empty --before ab
-    /// ```
-    ///
-    /// Insert after a commit (at the top of the stack if target is a branch):
-    ///
-    /// ```text
-    /// but commit empty --after ab
-    /// ```
-    ///
-    #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
-    #[command(group = clap::ArgGroup::new("position"))]
-    Empty {
-        /// The target commit or branch to insert relative to.
-        ///
-        /// If a target is provided without --before or --after, defaults to --before behavior.
-        /// If no arguments are provided at all, inserts at the top of the first branch.
-        #[arg(group = "position")]
-        target: Option<String>,
-        /// Insert the blank commit before this commit or branch
-        #[arg(long, group = "position")]
-        before: Option<String>,
-        /// Insert the blank commit after this commit or branch
-        #[arg(long, group = "position")]
-        after: Option<String>,
-    },
-}
+/// Example invocations appended to a `but commit` parse error.
+pub(crate) const ERROR_EXAMPLES: &str = "\
+Examples:
+  but commit -b <branch> -m \"message\"                    # commit onto a branch (created if needed)
+  but commit -b <branch> -m \"message\" <file-or-hunk>...  # commit only the given changes
+  but commit -m \"message\"                                # commit when only one stack is applied
+";

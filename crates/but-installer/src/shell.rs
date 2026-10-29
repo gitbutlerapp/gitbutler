@@ -1,7 +1,6 @@
 //! Shell and PATH configuration
 
 use std::{
-    env,
     fs::{self, OpenOptions},
     io::Write as IoWrite,
     path::{Path, PathBuf},
@@ -28,6 +27,13 @@ impl ShellType {
         }
     }
 
+    fn path_command(&self) -> &'static str {
+        match self {
+            ShellType::Zsh | ShellType::Bash => "export PATH=\"$HOME/.local/bin:$PATH\"",
+            ShellType::Fish => "fish_add_path $HOME/.local/bin",
+        }
+    }
+
     fn name(&self) -> &'static str {
         match self {
             ShellType::Zsh => "zsh",
@@ -35,202 +41,235 @@ impl ShellType {
             ShellType::Fish => "fish",
         }
     }
+
+    fn detect_config(&self, home_dir: &Path) -> Option<ShellConfig> {
+        match self {
+            ShellType::Fish => ShellConfig::detect_fish_shell_config(home_dir),
+            ShellType::Bash | ShellType::Zsh => {
+                ShellConfig::detect_posix_shell_config(home_dir, *self)
+            }
+        }
+    }
+
+    /// Find the most likely config path for the shell, if it exists
+    fn config_path(&self, home_dir: &Path) -> Option<PathBuf> {
+        match self {
+            ShellType::Zsh => some_if_is_file(home_dir.join(".zshrc")),
+            ShellType::Bash => {
+                #[cfg(target_os = "macos")]
+                {
+                    // On macOS, iTerm starts as a login shell and therefore only sources
+                    // bash_profile, so we look for that first.
+                    let bash_profile = home_dir.join(".bash_profile");
+                    if bash_profile.is_file() {
+                        return Some(bash_profile);
+                    }
+                }
+
+                some_if_is_file(home_dir.join(".bashrc"))
+            }
+            ShellType::Fish => some_if_is_file(home_dir.join(".config/fish/config.fish")),
+        }
+    }
 }
 
-pub(crate) fn setup_path(home_dir: &Path) -> Result<()> {
-    let bin_dir = home_dir.join(".local/bin");
+fn some_if_is_file(path: PathBuf) -> Option<PathBuf> {
+    if path.is_file() { Some(path) } else { None }
+}
 
-    // Canonicalize bin_dir for comparison (resolves symlinks, removes .., etc.)
-    let bin_dir_canonical = fs::canonicalize(&bin_dir).unwrap_or_else(|_| bin_dir.clone());
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ShellConfig {
+    shell: ShellType,
+    config_path: PathBuf,
+    has_completions: bool,
+    has_path: bool,
+}
 
-    // Check if already in PATH with normalized comparison
-    let current_path = env::var("PATH").unwrap_or_default();
-    let already_in_path = current_path.split(':').any(|p| {
-        if p.is_empty() {
-            return false;
+impl ShellConfig {
+    fn setup_config(&self) -> Result<()> {
+        setup_shell_config(self)
+    }
+
+    fn is_fully_configured(&self) -> bool {
+        self.has_path && self.has_completions
+    }
+
+    fn generate_missing_shell_config_lines(&self) -> Vec<&'static str> {
+        let mut missing_shell_config_lines: Vec<&'static str> = vec![];
+        if !self.has_path {
+            missing_shell_config_lines.push(self.shell.path_command());
+        }
+        if !self.has_completions {
+            missing_shell_config_lines.push(self.shell.completion_command());
         }
 
-        // Expand tilde and $HOME in PATH entries
-        let expanded = if p.starts_with("~/") {
-            home_dir.join(p.trim_start_matches("~/"))
-        } else if p.starts_with("$HOME/") {
-            home_dir.join(p.trim_start_matches("$HOME/"))
-        } else {
-            PathBuf::from(p)
-        };
+        missing_shell_config_lines
+    }
 
-        // Normalize by removing trailing slashes and canonicalizing
-        let normalized = fs::canonicalize(&expanded).unwrap_or_else(|_| {
-            // If path doesn't exist yet, at least normalize the string
-            let path_str = expanded.to_string_lossy();
-            PathBuf::from(path_str.trim_end_matches('/'))
+    /// Create an empty [`ShellConfig`] for `shell` with a bogus `config_path`.
+    fn empty_config(shell: ShellType) -> Self {
+        ShellConfig {
+            shell,
+            config_path: PathBuf::from("/dev/null"),
+            has_completions: false,
+            has_path: false,
+        }
+    }
+
+    fn detect_posix_shell_config(home_dir: &Path, shell: ShellType) -> Option<ShellConfig> {
+        let config_path = shell.config_path(home_dir)?;
+        let contents = fs::read_to_string(&config_path).unwrap_or_default();
+
+        // Check for PATH setup with more robust detection
+        // Look for lines that export PATH and contain .local/bin
+        let has_path = contents.lines().any(|line| {
+            let trimmed = line.trim();
+            // Must be a PATH export line
+            if !trimmed.starts_with("export PATH=") && !trimmed.starts_with("export PATH ") {
+                return false;
+            }
+            // Must contain .local/bin (handles ~, $HOME, full paths, etc.)
+            trimmed.contains(".local/bin")
         });
 
-        normalized == bin_dir_canonical
-    });
+        let has_completions = contents.contains("but completions");
 
-    if already_in_path {
-        success(&format!("{} is already in your PATH", bin_dir.display()));
+        Some(ShellConfig {
+            shell,
+            config_path,
+            has_completions,
+            has_path,
+        })
     }
 
-    // Detect shell config file
-    let fish_config = home_dir.join(".config/fish/config.fish");
-    let zshrc = home_dir.join(".zshrc");
-    let bash_profile = home_dir.join(".bash_profile");
-    let bashrc = home_dir.join(".bashrc");
+    fn detect_fish_shell_config(home_dir: &Path) -> Option<ShellConfig> {
+        let config_path = ShellType::Fish.config_path(home_dir)?;
+        let contents = fs::read_to_string(&config_path).unwrap_or_default();
 
-    if fish_config.exists() {
-        setup_fish_config(&fish_config, &bin_dir, already_in_path)?;
-    } else if let Some((shell_config, shell_type)) =
-        detect_shell_config(&zshrc, &bash_profile, &bashrc)
-    {
-        setup_posix_shell_config(&shell_config, shell_type, &bin_dir, already_in_path)?;
-    } else {
-        print_manual_setup_instructions(&bin_dir, already_in_path);
-    }
+        // Check for PATH setup - detect various Fish patterns for adding .local/bin to PATH
+        let has_path = contents.lines().any(|line| {
+            let trimmed = line.trim();
+            // Check if line mentions .local/bin and likely configures PATH
+            if !trimmed.contains(".local/bin") {
+                return false;
+            }
+            // Common patterns:
+            // - fish_add_path $HOME/.local/bin
+            // - set -gx PATH $HOME/.local/bin $PATH
+            // - set -x PATH ~/.local/bin $PATH
+            // - set PATH $HOME/.local/bin $PATH
+            trimmed.contains("fish_add_path")
+                || (trimmed.contains("set") && trimmed.contains("PATH"))
+        });
 
-    Ok(())
-}
-
-#[cfg(target_os = "macos")]
-fn detect_shell_config(
-    zshrc: &Path,
-    bash_profile: &Path,
-    bashrc: &Path,
-) -> Option<(PathBuf, ShellType)> {
-    if zshrc.exists() {
-        Some((zshrc.to_path_buf(), ShellType::Zsh))
-    } else if bash_profile.exists() {
-        Some((bash_profile.to_path_buf(), ShellType::Bash))
-    } else if bashrc.exists() {
-        Some((bashrc.to_path_buf(), ShellType::Bash))
-    } else {
-        None
+        let has_completions = contents.contains("but completions");
+        Some(ShellConfig {
+            shell: ShellType::Fish,
+            config_path,
+            has_completions,
+            has_path,
+        })
     }
 }
 
-#[cfg(target_os = "linux")]
-fn detect_shell_config(
-    zshrc: &Path,
-    // bash_profile is only sourced when executing a login shell, which is rarely how shells are
-    // invoked on Linux distros. Therefore, we ignore it when detecting shell config on Linux.
-    _bash_profile: &Path,
-    bashrc: &Path,
-) -> Option<(PathBuf, ShellType)> {
-    if zshrc.exists() {
-        Some((zshrc.to_path_buf(), ShellType::Zsh))
-    } else if bashrc.exists() {
-        Some((bashrc.to_path_buf(), ShellType::Bash))
-    } else {
-        None
+/// Interactively add shell configurations for the user.
+///
+/// This is designed to run interactively and errors if [`ui::is_connected_to_terminal`] returns `false`.
+pub(crate) fn configure_shell(home_dir: &Path) -> Result<()> {
+    if !ui::is_connected_to_terminal() {
+        anyhow::bail!("Shell configuration cannot be performed without a connected terminal");
     }
-}
 
-fn setup_fish_config(fish_config: &Path, _bin_dir: &Path, already_in_path: bool) -> Result<()> {
-    let contents = fs::read_to_string(fish_config).unwrap_or_default();
+    let detected_shell_configs: Vec<ShellConfig> =
+        [ShellType::Bash, ShellType::Zsh, ShellType::Fish]
+            .map(|config| config.detect_config(home_dir))
+            .into_iter()
+            .flatten()
+            .collect();
+    let num_detected_shells = detected_shell_configs.len();
 
-    // Check for PATH setup - detect various Fish patterns for adding .local/bin to PATH
-    let has_path_setup = contents.lines().any(|line| {
-        let trimmed = line.trim();
-        // Check if line mentions .local/bin and likely configures PATH
-        if !trimmed.contains(".local/bin") {
-            return false;
-        }
-        // Common patterns:
-        // - fish_add_path $HOME/.local/bin
-        // - set -gx PATH $HOME/.local/bin $PATH
-        // - set -x PATH ~/.local/bin $PATH
-        // - set PATH $HOME/.local/bin $PATH
-        trimmed.contains("fish_add_path") || (trimmed.contains("set") && trimmed.contains("PATH"))
-    });
+    let unconfigured_shells: Vec<ShellConfig> = detected_shell_configs
+        .into_iter()
+        .filter(|cfg| !cfg.is_fully_configured())
+        .collect();
 
-    // Check for completions
-    let completion_cmd = ShellType::Fish.completion_command();
-    let has_completions = contents.contains("but completions");
-
-    let needs_path_setup = !already_in_path && !has_path_setup;
-    let needs_completions = !has_completions;
-
-    if needs_path_setup || needs_completions {
+    for cfg in &unconfigured_shells {
         ui::println_empty();
-        info("Fish shell detected. Please add the following to your ~/.config/fish/config.fish:");
+        info(&format!(
+            "Detected {} config file: '{}'",
+            cfg.shell.name(),
+            cfg.config_path.display()
+        ));
 
-        if needs_path_setup {
-            ui::println("  fish_add_path $HOME/.local/bin");
+        let mut missing = Vec::new();
+        if !cfg.has_path {
+            missing.push("PATH setup");
         }
+        if !cfg.has_completions {
+            missing.push("shell completions");
+        }
+        info(&format!("Config file lacks: {}", missing.join(", ")));
 
-        if needs_completions {
-            ui::println(&format!("  {completion_cmd}"));
+        if ui::prompt_for_confirmation("Automatically add missing config?") {
+            if let Err(err) = cfg.setup_config() {
+                warn(&format!("{err}"));
+                warn(&format!(
+                    "Failed to add shell configuration for {}, skipping...",
+                    cfg.shell.name()
+                ));
+            }
+        } else {
+            info(&format!(
+                "Skipping auto-configuration for {}",
+                cfg.shell.name()
+            ));
+            info(&format!(
+                "For manual setup, add the following to '{}'",
+                cfg.config_path.display(),
+            ));
+            ui::println_empty();
+            for line in cfg.generate_missing_shell_config_lines() {
+                ui::println(&format!("  {line}"));
+            }
         }
-    } else {
-        success("Fish shell configuration is already set up");
+    }
+
+    if num_detected_shells == 0 {
+        print_fallback_setup_instructions();
     }
 
     Ok(())
 }
 
-fn setup_posix_shell_config(
-    shell_config: &Path,
-    shell_type: ShellType,
-    bin_dir: &Path,
-    already_in_path: bool,
-) -> Result<()> {
-    let path_cmd = format!("export PATH=\"{}:$PATH\"", bin_dir.display());
-    let completion_cmd = shell_type.completion_command();
+fn setup_shell_config(cfg: &ShellConfig) -> Result<()> {
+    let path_cmd = cfg.shell.path_command();
+    let completion_cmd = cfg.shell.completion_command();
 
-    let contents = fs::read_to_string(shell_config).unwrap_or_default();
+    let needs_path = !cfg.has_path;
+    let needs_completions = !cfg.has_completions;
 
-    // Check for PATH setup with more robust detection
-    // Look for lines that export PATH and contain .local/bin
-    let has_path_setup = contents.lines().any(|line| {
-        let trimmed = line.trim();
-        // Must be a PATH export line
-        if !trimmed.starts_with("export PATH=") && !trimmed.starts_with("export PATH ") {
-            return false;
-        }
-        // Must contain .local/bin (handles ~, $HOME, full paths, etc.)
-        trimmed.contains(".local/bin")
-    });
-
-    let has_completions = contents.contains("but completions");
-
-    // Determine what needs to be added based on config file contents, not current environment
-    let needs_path_in_config = !has_path_setup;
-    let needs_completions = !has_completions;
-    let needs_update = needs_path_in_config || needs_completions;
-
-    if !needs_update {
-        if has_path_setup {
-            info(&format!(
-                "PATH configuration already exists in {}",
-                shell_config.display()
-            ));
-        }
-        if has_completions {
-            success(&format!(
-                "{} shell completions already configured",
-                shell_type.name()
-            ));
-        }
+    if cfg.is_fully_configured() {
+        // We shouldn't hit this case in practice as we should never ask the user to setup
+        // the shell if there is nothing to do, so this is just being extra defensive.
+        info(&format!(
+            "Shell already configured in '{}', there is nothing to do.",
+            cfg.config_path.display()
+        ));
         return Ok(());
     }
 
     // Try to add to config file
-    match OpenOptions::new().append(true).open(shell_config) {
+    match OpenOptions::new().append(true).open(&cfg.config_path) {
         Ok(mut file) => {
             writeln!(file)?;
             writeln!(file, "# Added by GitButler installer")?;
 
-            if needs_path_in_config {
-                writeln!(file, "{path_cmd}")?;
-            }
-
-            if needs_completions {
-                writeln!(file, "{completion_cmd}")?;
+            for line in cfg.generate_missing_shell_config_lines() {
+                writeln!(file, "{line}")?;
             }
 
             let mut updated_items = Vec::new();
-            if needs_path_in_config {
+            if needs_path {
                 updated_items.push("PATH");
             }
             if needs_completions {
@@ -239,15 +278,14 @@ fn setup_posix_shell_config(
 
             success(&format!(
                 "Updated {} to include {}",
-                shell_config.display(),
+                cfg.config_path.display(),
                 updated_items.join(" and ")
             ));
 
-            // Only show sourcing instructions if PATH was added and not already in current session
-            if needs_path_in_config && !already_in_path {
+            if needs_path {
                 ui::println_empty();
-                info("To use 'but' in this terminal session, run:");
-                ui::println(&format!("  source \"{}\"", shell_config.display()));
+                info("To use 'but' in this terminal session, you may need to run:");
+                ui::println(&format!("  source \"{}\"", cfg.config_path.display()));
                 ui::println_empty();
                 info("Or close and reopen your terminal");
             }
@@ -262,12 +300,12 @@ fn setup_posix_shell_config(
 
             warn(&format!(
                 "Cannot write to {} ({})",
-                shell_config.display(),
+                cfg.config_path.display(),
                 error_msg
             ));
             info("Please add the following lines to your shell config file manually:");
 
-            if needs_path_in_config {
+            if needs_path {
                 ui::println(&format!("  {path_cmd}"));
             }
             if needs_completions {
@@ -279,27 +317,59 @@ fn setup_posix_shell_config(
     Ok(())
 }
 
-fn print_manual_setup_instructions(bin_dir: &Path, already_in_path: bool) {
+/// Instructions to print if we cannot detect any supported shells
+fn print_fallback_setup_instructions() {
     ui::println_empty();
     warn("Could not detect your shell configuration file");
 
-    if already_in_path {
-        // PATH is already set up, only need completions
-        info("To set up shell completions, add this to your shell config file:");
-        ui::println("  eval \"$(but completions <shell>)\"  # Replace <shell> with bash or zsh");
-    } else {
-        // Need both PATH and completions
-        info("Please add the following lines to your shell config file:");
-        ui::println(&format!("  export PATH=\"{}:$PATH\"", bin_dir.display()));
-        ui::println("  eval \"$(but completions <shell>)\"  # Replace <shell> with bash or zsh");
+    for shell in [ShellType::Bash, ShellType::Zsh, ShellType::Fish] {
+        ui::println_empty();
+        info(&format!(
+            "For {}, add the following to your config:",
+            shell.name()
+        ));
+        for line in ShellConfig::empty_config(shell).generate_missing_shell_config_lines() {
+            ui::println(&format!("  {line}"));
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write;
 
     use super::*;
+
+    fn tmpdir_with_config_at(
+        config_relpath: &Path,
+        config_content: Option<&str>,
+    ) -> tempfile::TempDir {
+        let temp_dir = tempfile::tempdir()
+            .expect("must be able to create temporary directory for tests to work");
+        let config_abspath = temp_dir.path().join(config_relpath);
+        fs::create_dir_all(temp_dir.path().join(config_relpath.parent().unwrap()))
+            .expect("must be able to create parent dir of config");
+
+        let config_content = config_content.unwrap_or_default();
+        fs::write(&config_abspath, config_content).expect("must be able to write to config file");
+
+        temp_dir
+    }
+
+    #[test]
+    fn test_shell_type_path_commands() {
+        assert_eq!(
+            ShellType::Zsh.path_command(),
+            "export PATH=\"$HOME/.local/bin:$PATH\""
+        );
+        assert_eq!(
+            ShellType::Bash.path_command(),
+            "export PATH=\"$HOME/.local/bin:$PATH\""
+        );
+        assert_eq!(
+            ShellType::Fish.path_command(),
+            "fish_add_path $HOME/.local/bin"
+        );
+    }
 
     #[test]
     fn test_shell_type_completion_commands() {
@@ -325,143 +395,48 @@ mod tests {
     }
 
     #[test]
-    fn test_setup_posix_shell_config_adds_path_and_completions() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let home_dir = temp_dir.path();
-        let bin_dir = home_dir.join(".local/bin");
-        let zshrc = home_dir.join(".zshrc");
-
-        // Create empty config file
-        std::fs::File::create(&zshrc).unwrap();
-
-        // Setup shell config (PATH not already set)
-        setup_posix_shell_config(&zshrc, ShellType::Zsh, &bin_dir, false).unwrap();
-
-        // Verify both PATH and completions were added
-        let content = std::fs::read_to_string(&zshrc).unwrap();
-        assert!(content.contains("# Added by GitButler installer"));
-        assert!(content.contains(&format!("export PATH=\"{}:$PATH\"", bin_dir.display())));
-        assert!(content.contains("eval \"$(but completions zsh)\""));
+    fn test_detect_posix_config_no_config() {
+        for shell in &[ShellType::Bash, ShellType::Zsh] {
+            let temp_dir = tempfile::tempdir().unwrap();
+            let cfg = shell.detect_config(temp_dir.path());
+            assert!(cfg.is_none(), "Should not detect config");
+        }
     }
 
     #[test]
-    fn test_setup_posix_shell_config_adds_path_even_when_in_current_env() {
-        let temp_dir = tempfile::tempdir().unwrap();
+    fn test_detect_empty_bash_config() {
+        let config_path = Path::new(".bashrc");
+        let temp_dir = tmpdir_with_config_at(config_path, None);
         let home_dir = temp_dir.path();
-        let bin_dir = home_dir.join(".local/bin");
-        let zshrc = home_dir.join(".zshrc");
 
-        // Create empty config file
-        std::fs::File::create(&zshrc).unwrap();
+        let cfg = ShellType::Bash
+            .detect_config(home_dir)
+            .expect("Should detect config");
 
-        // Setup shell config with already_in_path=true (PATH in current environment)
-        // But config file is empty, so PATH should still be added for persistence
-        setup_posix_shell_config(&zshrc, ShellType::Zsh, &bin_dir, true).unwrap();
-
-        // Verify both PATH and completions were added
-        // (PATH must be persisted even if temporarily in environment)
-        let content = std::fs::read_to_string(&zshrc).unwrap();
-        assert!(content.contains("# Added by GitButler installer"));
-        assert!(content.contains("export PATH"));
-        assert!(content.contains("eval \"$(but completions zsh)\""));
+        assert_eq!(cfg.shell, ShellType::Bash);
+        assert_eq!(cfg.config_path, home_dir.join(config_path));
+        assert!(!cfg.has_path);
+        assert!(!cfg.has_completions);
     }
 
     #[test]
-    fn test_setup_posix_shell_config_only_adds_completions_when_path_in_config() {
-        let temp_dir = tempfile::tempdir().unwrap();
+    fn test_detect_empty_zsh_config() {
+        let config_path = Path::new(".zshrc");
+        let temp_dir = tmpdir_with_config_at(config_path, None);
         let home_dir = temp_dir.path();
-        let bin_dir = home_dir.join(".local/bin");
-        let zshrc = home_dir.join(".zshrc");
 
-        // Create config file with PATH already configured
-        let mut file = std::fs::File::create(&zshrc).unwrap();
-        writeln!(file, "export PATH=\"{}:$PATH\"", bin_dir.display()).unwrap();
-        drop(file);
+        let cfg = ShellType::Zsh
+            .detect_config(home_dir)
+            .expect("Should detect config");
 
-        // Setup shell config (PATH not in environment, but IS in config)
-        setup_posix_shell_config(&zshrc, ShellType::Zsh, &bin_dir, false).unwrap();
-
-        // Verify only completions were added, PATH was not duplicated
-        let content = std::fs::read_to_string(&zshrc).unwrap();
-        assert_eq!(content.matches("export PATH").count(), 1);
-        assert!(content.contains("eval \"$(but completions zsh)\""));
+        assert_eq!(cfg.shell, ShellType::Zsh);
+        assert_eq!(cfg.config_path, home_dir.join(config_path));
+        assert!(!cfg.has_path);
+        assert!(!cfg.has_completions);
     }
 
     #[test]
-    fn test_setup_posix_shell_config_no_duplicates() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let home_dir = temp_dir.path();
-        let bin_dir = home_dir.join(".local/bin");
-        let zshrc = home_dir.join(".zshrc");
-
-        // Create config file with existing setup
-        let mut file = std::fs::File::create(&zshrc).unwrap();
-        writeln!(file, "export PATH=\"{}:$PATH\"", bin_dir.display()).unwrap();
-        writeln!(file, "eval \"$(but completions zsh)\"").unwrap();
-        drop(file);
-
-        // Try to setup again
-        setup_posix_shell_config(&zshrc, ShellType::Zsh, &bin_dir, false).unwrap();
-
-        // Verify no duplicates were added
-        let content = std::fs::read_to_string(&zshrc).unwrap();
-        assert_eq!(content.matches("export PATH").count(), 1);
-        assert_eq!(content.matches("but completions").count(), 1);
-    }
-
-    #[test]
-    fn test_setup_fish_config_prints_manual_instructions() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let home_dir = temp_dir.path();
-        let bin_dir = home_dir.join(".local/bin");
-        let fish_config_dir = home_dir.join(".config/fish");
-        std::fs::create_dir_all(&fish_config_dir).unwrap();
-        let fish_config = fish_config_dir.join("config.fish");
-
-        // Create empty config file
-        std::fs::File::create(&fish_config).unwrap();
-
-        // Setup fish config (PATH not already set)
-        // Fish setup only prints instructions, doesn't modify the file
-        setup_fish_config(&fish_config, &bin_dir, false).unwrap();
-
-        // Verify file is unchanged (fish config doesn't auto-modify)
-        let content = std::fs::read_to_string(&fish_config).unwrap();
-        assert_eq!(content, "");
-    }
-
-    #[test]
-    fn test_setup_fish_config_detects_existing_setup() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let home_dir = temp_dir.path();
-        let bin_dir = home_dir.join(".local/bin");
-        let fish_config_dir = home_dir.join(".config/fish");
-        std::fs::create_dir_all(&fish_config_dir).unwrap();
-        let fish_config = fish_config_dir.join("config.fish");
-
-        // Create config file with existing setup
-        let mut file = std::fs::File::create(&fish_config).unwrap();
-        writeln!(file, "fish_add_path ~/.local/bin").unwrap();
-        writeln!(file, "but completions fish | source").unwrap();
-        drop(file);
-
-        // Setup should detect existing configuration
-        setup_fish_config(&fish_config, &bin_dir, false).unwrap();
-
-        // Verify file is unchanged (existing setup detected)
-        let content = std::fs::read_to_string(&fish_config).unwrap();
-        assert_eq!(content.matches("fish_add_path").count(), 1);
-        assert_eq!(content.matches("but completions").count(), 1);
-    }
-
-    #[test]
-    fn test_setup_posix_shell_detects_path_variations() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let home_dir = temp_dir.path();
-        let bin_dir = home_dir.join(".local/bin");
-        let zshrc = home_dir.join(".zshrc");
-
-        // Test various PATH export formats that should all be detected
+    fn test_detect_posix_config_with_path_variations() {
         let variations = [
             "export PATH=\"$HOME/.local/bin:$PATH\"",
             "export PATH='$HOME/.local/bin:$PATH'",
@@ -470,51 +445,90 @@ mod tests {
             "  export PATH=\"$HOME/.local/bin:$PATH\"  # with whitespace",
         ];
 
-        for (i, path_line) in variations.iter().enumerate() {
-            // Create config with this variation
-            std::fs::write(&zshrc, path_line).unwrap();
+        for (i, export_statement) in variations.iter().enumerate() {
+            let config_path = Path::new(".zshrc");
+            let temp_dir = tmpdir_with_config_at(config_path, Some(export_statement));
+            let home_dir = temp_dir.path();
 
-            // Try to setup - should detect existing PATH
-            setup_posix_shell_config(&zshrc, ShellType::Zsh, &bin_dir, false).unwrap();
+            let cfg = ShellType::Zsh
+                .detect_config(home_dir)
+                .expect("Should detect config");
 
-            // Verify no duplicate PATH line was added
-            let content = std::fs::read_to_string(&zshrc).unwrap();
-            let path_count = content
-                .lines()
-                .filter(|l| l.contains("export PATH="))
-                .count();
-            assert_eq!(
-                path_count, 1,
-                "Variation {i} should not add duplicate PATH entry"
+            assert_eq!(cfg.shell, ShellType::Zsh);
+            assert_eq!(cfg.config_path, home_dir.join(config_path));
+            assert!(
+                cfg.has_path,
+                "Variation {i}='{export_statement}' should be detected"
             );
+            assert!(!cfg.has_completions);
         }
     }
 
     #[test]
-    fn test_setup_fish_config_with_path_already_in_env() {
-        let temp_dir = tempfile::tempdir().unwrap();
+    fn test_detect_posix_config_with_completions() {
+        let config_path = Path::new(".zshrc");
+        let temp_dir =
+            tmpdir_with_config_at(config_path, Some(ShellType::Zsh.completion_command()));
         let home_dir = temp_dir.path();
-        let bin_dir = home_dir.join(".local/bin");
-        let fish_config = home_dir.join("config.fish");
 
-        // Create empty config file
-        std::fs::File::create(&fish_config).unwrap();
+        let cfg = ShellType::Zsh
+            .detect_config(home_dir)
+            .expect("Should detect config");
 
-        // PATH is already in environment but NOT in config file
-        // Should NOT print PATH instructions (already_in_path=true)
-        // Should print completion instructions (has_completions=false)
-        setup_fish_config(&fish_config, &bin_dir, true).unwrap();
-
-        // Verify file is unchanged (we don't auto-write to Fish configs)
-        let content = std::fs::read_to_string(&fish_config).unwrap();
-        assert_eq!(content, "");
+        assert_eq!(cfg.shell, ShellType::Zsh);
+        assert_eq!(cfg.config_path, home_dir.join(config_path));
+        assert!(!cfg.has_path);
+        assert!(cfg.has_completions);
     }
 
     #[test]
-    fn test_setup_fish_config_detects_path_variations() {
+    fn test_detect_fish_config_no_config() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let shell_config = ShellType::Fish.detect_config(temp_dir.path());
+        assert!(shell_config.is_none(), "Should not detect config");
+    }
+
+    #[test]
+    fn test_detect_fish_config_empty_config() -> Result<()> {
+        let config_path = Path::new(".config/fish/config.fish");
+        let temp_dir = tmpdir_with_config_at(config_path, None);
+        let home_dir = temp_dir.path();
+
+        let cfg = ShellType::Fish
+            .detect_config(home_dir)
+            .expect("Should detect config");
+
+        assert_eq!(cfg.shell, ShellType::Fish);
+        assert_eq!(cfg.config_path, home_dir.join(config_path));
+        assert!(!cfg.has_path);
+        assert!(!cfg.has_completions);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_detect_fish_config_with_completions() -> Result<()> {
+        let config_path = Path::new(".config/fish/config.fish");
+        let temp_dir =
+            tmpdir_with_config_at(config_path, Some(ShellType::Fish.completion_command()));
+        let home_dir = temp_dir.path();
+
+        let cfg = ShellType::Fish
+            .detect_config(home_dir)
+            .expect("Should detect config");
+
+        assert_eq!(cfg.shell, ShellType::Fish);
+        assert_eq!(cfg.config_path, home_dir.join(config_path));
+        assert!(!cfg.has_path);
+        assert!(cfg.has_completions);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_detect_fish_config_detects_path_variations() {
         let temp_dir = tempfile::tempdir().unwrap();
         let home_dir = temp_dir.path();
-        let bin_dir = home_dir.join(".local/bin");
         let fish_config_dir = home_dir.join(".config/fish");
         std::fs::create_dir_all(&fish_config_dir).unwrap();
         let fish_config = fish_config_dir.join("config.fish");
@@ -534,15 +548,138 @@ mod tests {
             let config_content = format!("{path_line}\nbut completions fish | source");
             std::fs::write(&fish_config, &config_content).unwrap();
 
-            // Try to setup - should detect existing PATH and completions
-            setup_fish_config(&fish_config, &bin_dir, false).unwrap();
+            let cfg = ShellType::Fish
+                .detect_config(home_dir)
+                .expect("should detect config");
 
             // Verify no changes were made (already configured)
-            let content = std::fs::read_to_string(&fish_config).unwrap();
-            assert_eq!(
-                content, config_content,
+            assert!(
+                cfg.has_path,
                 "Variation {i} should not modify already-configured Fish config"
             );
         }
+    }
+
+    #[test]
+    fn test_setup_fish_shell_config_adds_path_and_completions() -> Result<()> {
+        let config_path = Path::new(".config/fish/config.fish");
+        let temp_dir = tmpdir_with_config_at(config_path, None);
+        let home_dir = temp_dir.path();
+
+        let cfg = ShellType::Fish
+            .detect_config(home_dir)
+            .expect("Should detect config");
+
+        cfg.setup_config()?;
+
+        let content = std::fs::read_to_string(home_dir.join(config_path)).unwrap();
+        assert!(content.contains("# Added by GitButler installer"));
+        assert!(content.contains("fish_add_path $HOME/.local/bin"));
+        assert!(content.contains("but completions fish | source"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_setup_fish_shell_config_only_adds_completions_when_path_in_config() -> Result<()> {
+        let config_path = Path::new(".config/fish/config.fish");
+        let temp_dir = tmpdir_with_config_at(config_path, Some("fish_add_path $HOME/.local/bin"));
+        let home_dir = temp_dir.path();
+
+        let cfg = ShellType::Fish
+            .detect_config(home_dir)
+            .expect("Should detect config");
+
+        cfg.setup_config()?;
+
+        let content = std::fs::read_to_string(home_dir.join(config_path)).unwrap();
+        assert_eq!(content.matches("fish_add_path").count(), 1);
+        assert!(content.contains("but completions fish | source"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_setup_fish_shell_config_no_duplicates() -> Result<()> {
+        let config_path = Path::new(".config/fish/config.fish");
+        let temp_dir = tmpdir_with_config_at(config_path, None);
+        let home_dir = temp_dir.path();
+
+        // detecting and setting up twice should have the same effect as doing it once
+        ShellType::Fish
+            .detect_config(home_dir)
+            .expect("Should detect config")
+            .setup_config()?;
+        ShellType::Fish
+            .detect_config(home_dir)
+            .expect("Should detect config")
+            .setup_config()?;
+
+        let content = std::fs::read_to_string(home_dir.join(config_path)).unwrap();
+        assert_eq!(content.matches("fish_add_path").count(), 1);
+        assert_eq!(content.matches("but completions").count(), 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_setup_posix_shell_config_adds_path_and_completions() -> Result<()> {
+        let config_path = Path::new(".zshrc");
+        let temp_dir = tmpdir_with_config_at(config_path, None);
+        let home_dir = temp_dir.path();
+
+        let cfg = ShellType::Zsh
+            .detect_config(home_dir)
+            .expect("Should detect config");
+
+        cfg.setup_config()?;
+
+        // Verify both PATH and completions were added
+        let content = std::fs::read_to_string(home_dir.join(config_path)).unwrap();
+        assert!(content.contains("# Added by GitButler installer"));
+        assert!(content.contains("export PATH=\"$HOME/.local/bin:$PATH\""));
+        assert!(content.contains("eval \"$(but completions zsh)\""));
+        Ok(())
+    }
+
+    #[test]
+    fn test_setup_posix_shell_config_only_adds_completions_when_path_in_config() -> Result<()> {
+        let config_path = Path::new(".zshrc");
+        let temp_dir = tmpdir_with_config_at(config_path, Some("export PATH=\"~/.local/bin\""));
+        let home_dir = temp_dir.path();
+
+        let cfg = ShellType::Zsh
+            .detect_config(home_dir)
+            .expect("Should detect config");
+
+        cfg.setup_config()?;
+
+        // Verify only completions were added, PATH was not duplicated
+        let content = std::fs::read_to_string(home_dir.join(config_path)).unwrap();
+        assert_eq!(content.matches("export PATH").count(), 1);
+        assert!(content.contains("eval \"$(but completions zsh)\""));
+        Ok(())
+    }
+
+    #[test]
+    fn test_setup_posix_shell_config_no_duplicates() -> Result<()> {
+        let config_path = Path::new(".zshrc");
+        let temp_dir = tmpdir_with_config_at(config_path, None);
+        let home_dir = temp_dir.path();
+
+        // detecting and setting up twice should have the same effect as doing it once
+        ShellType::Zsh
+            .detect_config(home_dir)
+            .expect("Should detect config")
+            .setup_config()?;
+        ShellType::Zsh
+            .detect_config(home_dir)
+            .expect("Should detect config")
+            .setup_config()?;
+
+        // Verify no duplicates were added
+        let content = std::fs::read_to_string(home_dir.join(config_path)).unwrap();
+        assert_eq!(content.matches("export PATH").count(), 1);
+        assert_eq!(content.matches("but completions").count(), 1);
+
+        Ok(())
     }
 }

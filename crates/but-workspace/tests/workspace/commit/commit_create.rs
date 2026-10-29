@@ -1,10 +1,11 @@
 use anyhow::Result;
 use but_core::DiffSpec;
 use but_rebase::graph_rebase::{
-    GraphExt as _, LookupStep as _,
-    mutate::{InsertSide, RelativeTo},
+    Editor, LookupStep as _,
+    mutate::{InsertSide, RelativeToRef},
 };
-use but_workspace::commit::commit_create;
+use but_workspace::commit::{ChangeSource, commit_create};
+use but_workspace::commit_engine::{Destination, create_commit};
 
 use crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_description_and_graph as writable_scenario;
 
@@ -17,8 +18,88 @@ fn worktree_changes_as_specs(repo: &gix::Repository) -> Result<Vec<DiffSpec>> {
 }
 
 #[test]
+fn new_commit_uses_configured_user_as_committer() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let repo = gix::init(tmp.path())?;
+    but_core::git_config::edit_repo_config(&repo, gix::config::Source::Local, |config| {
+        but_core::git_config::set_config_value(config, "user.name", "Configured User")?;
+        but_core::git_config::set_config_value(config, "user.email", "configured@example.com")
+    })?;
+    std::fs::write(tmp.path().join("file"), "content")?;
+
+    but_testsupport::isolated_app_data_dir(|| -> Result<()> {
+        let ctx = but_ctx::Context::open_with_repo_open_mode(
+            tmp.path(),
+            but_ctx::RepoOpenMode::Isolated,
+        )?;
+        let repo = ctx.repo.get()?;
+        let outcome = create_commit(
+            &repo,
+            Destination::NewCommit {
+                parent_commit_id: None,
+                stack_segment: None,
+                message: "new commit".into(),
+            },
+            worktree_changes_as_specs(&repo)?,
+            0,
+        )?;
+        let commit = repo.find_commit(outcome.new_commit.expect("a commit was created"))?;
+        let committer = commit.committer()?;
+        assert_eq!(
+            (committer.name.to_owned(), committer.email.to_owned()),
+            ("Configured User".into(), "configured@example.com".into()),
+            "a fallback committer must not override the configured user identity"
+        );
+        Ok(())
+    })
+}
+
+#[test]
+fn new_commit_whose_every_change_is_rejected_is_not_made() -> Result<()> {
+    use but_testsupport::{CommandExt as _, git_at_dir};
+    let tmp = tempfile::tempdir()?;
+    let git = || {
+        let mut cmd = git_at_dir(tmp.path());
+        cmd.args(["-c", "user.name=T", "-c", "user.email=t@example.com"]);
+        cmd.args(["-c", "commit.gpgsign=false"]);
+        cmd
+    };
+    git().args(["init", "-q"]).run();
+    std::fs::write(tmp.path().join("file"), "one\n")?;
+    git().args(["add", "file"]).run();
+    git().args(["commit", "-q", "-m", "base"]).run();
+    std::fs::write(tmp.path().join("file"), "first's\n")?;
+    git().args(["commit", "-q", "-am", "first"]).run();
+    // An edit of the line only `first` has, so it can't go on `base`.
+    std::fs::write(tmp.path().join("file"), "first's, edited\n")?;
+
+    let repo = gix::open(tmp.path())?;
+    let base = repo.rev_parse_single("HEAD~1")?.detach();
+    let outcome = create_commit(
+        &repo,
+        Destination::NewCommit {
+            parent_commit_id: Some(base),
+            stack_segment: None,
+            message: "edit".into(),
+        },
+        worktree_changes_as_specs(&repo)?,
+        0,
+    )?;
+    assert_eq!(
+        outcome.rejected_specs.len(),
+        1,
+        "picking the edit onto `base` conflicts"
+    );
+    assert!(
+        outcome.new_commit.is_none(),
+        "with every change rejected, no empty commit is made on `base`"
+    );
+    Ok(())
+}
+
+#[test]
 fn commit_above_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, mut _meta, _description, mut db) =
         writable_scenario("reword-three-commits", |_| {})?;
     let two_id = repo.rev_parse_single("two")?.detach();
     std::fs::write(
@@ -27,33 +108,35 @@ fn commit_above_commit() -> Result<()> {
         "inserted\n",
     )?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = commit_create(
         editor,
         worktree_changes_as_specs(&repo)?,
-        RelativeTo::Commit(two_id),
+        RelativeToRef::Commit(two_id),
         InsertSide::Above,
         "insert above commit",
         0,
+        ChangeSource::Head,
     )?;
 
     assert!(outcome.rejected_specs.is_empty());
     let selector = outcome
         .commit_selector
         .expect("a selector for the new commit");
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let new_commit_id = materialized.lookup_pick(selector)?;
 
     let new_commit = repo.find_commit(new_commit_id)?;
     assert_eq!(new_commit.message_raw()?, "insert above commit");
     assert_eq!(
-        new_commit.parent_ids().next().expect("one parent").detach(),
+        new_commit.parent_ids().next().expect("one parent"),
         two_id,
         "new commit should be based on the target commit when inserted above"
     );
     let mut two_ref = repo.find_reference("two")?;
     assert_eq!(
-        two_ref.peel_to_id()?.detach(),
+        two_ref.peel_to_id()?,
         new_commit_id,
         "the two reference should now point to the inserted commit"
     );
@@ -63,7 +146,7 @@ fn commit_above_commit() -> Result<()> {
 
 #[test]
 fn commit_below_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, mut _meta, _description, mut db) =
         writable_scenario("reword-three-commits", |_| {})?;
     let one_id = repo.rev_parse_single("one")?.detach();
     let two_id = repo.rev_parse_single("two")?.detach();
@@ -73,27 +156,29 @@ fn commit_below_commit() -> Result<()> {
         "inserted\n",
     )?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = commit_create(
         editor,
         worktree_changes_as_specs(&repo)?,
-        RelativeTo::Commit(two_id),
+        RelativeToRef::Commit(two_id),
         InsertSide::Below,
         "insert below commit",
         0,
+        ChangeSource::Head,
     )?;
 
     assert!(outcome.rejected_specs.is_empty());
     let selector = outcome
         .commit_selector
         .expect("a selector for the new commit");
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let new_commit_id = materialized.lookup_pick(selector)?;
 
     let new_commit = repo.find_commit(new_commit_id)?;
     assert_eq!(new_commit.message_raw()?, "insert below commit");
     assert_eq!(
-        new_commit.parent_ids().next().expect("one parent").detach(),
+        new_commit.parent_ids().next().expect("one parent"),
         one_id,
         "new commit should be based on the target's first parent when inserted below"
     );
@@ -103,7 +188,7 @@ fn commit_below_commit() -> Result<()> {
 
 #[test]
 fn commit_above_reference() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, mut _meta, _description, mut db) =
         writable_scenario("reword-three-commits", |_| {})?;
     let two_id = repo.rev_parse_single("two")?.detach();
     let reference = repo.find_reference("two")?;
@@ -113,33 +198,35 @@ fn commit_above_reference() -> Result<()> {
         "inserted\n",
     )?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = commit_create(
         editor,
         worktree_changes_as_specs(&repo)?,
-        RelativeTo::Reference(reference.name()),
+        RelativeToRef::Reference(reference.name()),
         InsertSide::Above,
         "insert above reference",
         0,
+        ChangeSource::Head,
     )?;
 
     assert!(outcome.rejected_specs.is_empty());
     let selector = outcome
         .commit_selector
         .expect("a selector for the new commit");
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let new_commit_id = materialized.lookup_pick(selector)?;
 
     let new_commit = repo.find_commit(new_commit_id)?;
     assert_eq!(new_commit.message_raw()?, "insert above reference");
     assert_eq!(
-        new_commit.parent_ids().next().expect("one parent").detach(),
+        new_commit.parent_ids().next().expect("one parent"),
         two_id,
         "new commit should be based on the referenced commit"
     );
     let mut two_ref = repo.find_reference("two")?;
     assert_eq!(
-        two_ref.peel_to_id()?.detach(),
+        two_ref.peel_to_id()?,
         two_id,
         "when inserting above a reference, the reference keeps pointing to the original commit"
     );
@@ -149,7 +236,7 @@ fn commit_above_reference() -> Result<()> {
 
 #[test]
 fn commit_below_merge_commit_uses_first_parent() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, mut _meta, _description, mut db) =
         writable_scenario("merge-with-two-branches-line-offset", |_| {})?;
     let merge_id = repo.rev_parse_single("HEAD")?.detach();
     let merge_commit = repo.find_commit(merge_id)?;
@@ -164,31 +251,29 @@ fn commit_below_merge_commit_uses_first_parent() -> Result<()> {
         "inserted\n",
     )?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = commit_create(
         editor,
         worktree_changes_as_specs(&repo)?,
-        RelativeTo::Commit(merge_id),
+        RelativeToRef::Commit(merge_id),
         InsertSide::Below,
         "insert below merge",
         0,
+        ChangeSource::Head,
     )?;
 
     assert!(outcome.rejected_specs.is_empty());
     let selector = outcome
         .commit_selector
         .expect("a selector for the new commit");
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let new_commit_id = materialized.lookup_pick(selector)?;
 
     let new_commit = repo.find_commit(new_commit_id)?;
     assert_eq!(new_commit.message_raw()?, "insert below merge");
     assert_eq!(
-        new_commit
-            .parent_ids()
-            .next()
-            .expect("has a parent")
-            .detach(),
+        new_commit.parent_ids().next().expect("has a parent"),
         first_parent_id,
         "for below merge commits, we base creation on first parent"
     );
@@ -198,10 +283,11 @@ fn commit_below_merge_commit_uses_first_parent() -> Result<()> {
 
 #[test]
 fn commit_all_rejected_is_noop() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, mut _meta, _description, mut db) =
         writable_scenario("reword-three-commits", |_| {})?;
     let two_id = repo.rev_parse_single("two")?.detach();
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
 
     let outcome = commit_create(
         editor,
@@ -210,10 +296,11 @@ fn commit_all_rejected_is_noop() -> Result<()> {
             path: "does-not-exist".into(),
             hunk_headers: vec![],
         }],
-        RelativeTo::Commit(two_id),
+        RelativeToRef::Commit(two_id),
         InsertSide::Above,
         "no-op commit",
         0,
+        ChangeSource::Head,
     )?;
 
     assert!(

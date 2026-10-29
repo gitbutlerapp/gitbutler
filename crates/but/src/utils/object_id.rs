@@ -1,3 +1,4 @@
+use but_core::ChangeId;
 use gix::prelude::ObjectIdExt as _;
 
 /// Shorten a commit object id using repository disambiguation (`core.abbrev`), and return
@@ -15,11 +16,18 @@ pub fn shorten_hex_object_id(repo: &gix::Repository, hex: &str) -> String {
         .unwrap_or_else(|_| hex.to_owned())
 }
 
-/// Split a `short_id` into a leading prefix and remaining suffix for styled output.
-pub fn split_short_id(short_id: &str, prefix_len: usize) -> (&str, &str) {
-    if short_id.len() <= prefix_len {
-        (short_id, "")
-    } else {
-        short_id.split_at(prefix_len)
-    }
+/// Read commit's change ID or synthesize one based on the commit ID if none is available.
+pub fn get_change_id_for_commit(
+    repo: &gix::Repository,
+    commit_id: gix::ObjectId,
+) -> anyhow::Result<ChangeId> {
+    let commit = repo.find_commit(commit_id)?;
+    let commit = commit.decode()?;
+    Ok(
+        but_core::commit::Headers::try_from_commit_headers(|| commit.extra_headers())
+            .and_then(|headers| headers.change_id)
+            .unwrap_or_else(|| {
+                but_core::commit::Headers::synthetic_change_id_from_commit_id(commit_id)
+            }),
+    )
 }

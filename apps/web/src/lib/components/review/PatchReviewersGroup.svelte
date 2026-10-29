@@ -4,7 +4,7 @@
 		getPatchRejectorsAllWithAvatars,
 	} from "@gitbutler/shared/contributors";
 	import { type PatchCommit } from "@gitbutler/shared/patches/types";
-	import { AvatarGroup } from "@gitbutler/ui";
+	import { AvatarGroup } from "@gitbutler/ui-svelte";
 
 	type Props = {
 		patchCommit: PatchCommit;

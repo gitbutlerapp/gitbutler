@@ -32,8 +32,8 @@
 	}
 
 	.dynthead th {
-		border: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-2);
+		border: 1px solid var(--border-2);
+		background-color: var(--bg-2);
 		vertical-align: top;
 
 		&:not(:last-child) {
@@ -55,7 +55,7 @@
 
 	.dynthead-title {
 		padding: var(--cell-padding);
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		text-align: left;
 	}
 

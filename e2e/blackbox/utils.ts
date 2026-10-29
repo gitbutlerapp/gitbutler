@@ -11,10 +11,15 @@ export async function spawnAndLog(command: string, args: string[]) {
 }
 
 export async function findAndClick(selector: string) {
-	const element = await $(selector).getElement();
-	await element.waitForDisplayed({ timeout: 5000 });
-	await element.waitForEnabled({ timeout: 5000 });
+	const element = $(selector);
+	await element.waitForClickable({ timeout: 30000 });
 	await element.click();
+}
+
+export async function findElement(selector: string) {
+	const element = $(selector);
+	await element.waitForExist({ timeout: 30000 });
+	return await element.getElement();
 }
 
 export async function setElementValue(targetElement: WebdriverIO.Element, value: string) {

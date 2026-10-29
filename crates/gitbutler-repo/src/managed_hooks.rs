@@ -1,8 +1,9 @@
-//! Management of GitButler-installed Git hooks
+//! Cleanup of Git hooks installed by older GitButler versions
 //!
-//! This module handles installation and cleanup of Git hooks that prevent
-//! accidental `git commit` usage on the `gitbutler/workspace` branch and
-//! provide auto-cleanup when users checkout away from GitButler mode.
+//! GitButler used to install hooks that prevented accidental `git commit` usage
+//! on the `gitbutler/workspace` branch and cleaned themselves up when users
+//! checked out away from GitButler mode. It no longer installs them; this module
+//! removes the ones previous versions left behind.
 
 use std::{
     fs,
@@ -14,137 +15,20 @@ use anyhow::{Context, Result};
 /// Marker comment to identify GitButler-managed hooks
 const GITBUTLER_HOOK_SIGNATURE: &str = "# GITBUTLER_MANAGED_HOOK_V1";
 
-/// Pre-commit hook script content
-const PRE_COMMIT_HOOK_SCRIPT: &str = r#"#!/bin/sh
-# GITBUTLER_MANAGED_HOOK_V1
-# This hook is managed by GitButler to prevent accidental commits on the workspace branch.
-# Your original pre-commit hook has been preserved as 'pre-commit-user'.
-
-HOOKS_DIR=$(dirname "$0")
-
-# Run user's hook first if it exists - if it fails, stop here
-if [ -x "$HOOKS_DIR/pre-commit-user" ]; then
-    "$HOOKS_DIR/pre-commit-user" "$@" || exit $?
-fi
-
-# Get the current branch name
-BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null)
-
-if [ "$BRANCH" = "gitbutler/workspace" ]; then
-    echo ""
-    echo "GITBUTLER_ERROR: Cannot commit directly to gitbutler/workspace branch."
-    echo ""
-    echo "GitButler manages commits on this branch. Please use GitButler to commit your changes:"
-    echo "  - Use the GitButler app to create commits"
-    echo "  - Or run 'but commit' from the command line"
-    echo ""
-    echo "If you want to exit GitButler mode and use normal git:"
-    echo "  - Run 'but teardown' to switch to a regular branch"
-    echo "  - Or directly checkout another branch: git checkout <branch>"
-    echo ""
-    echo "If you no longer have the GitButler CLI installed, you can simply remove this hook and checkout another branch:"
-    printf '  rm "%s/pre-commit"\n' "$HOOKS_DIR"
-    echo ""
-    exit 1
-fi
-
-# Not on workspace branch - run user's original hook if it exists
-if [ -x "$HOOKS_DIR/pre-commit-user" ]; then
-    echo ""
-    echo "WARNING: GitButler's pre-commit hook is still installed but you're not on gitbutler/workspace."
-    echo "If you're no longer using GitButler, you can restore your original hook:"
-    printf '  mv "%s/pre-commit-user" "%s/pre-commit"\n' "$HOOKS_DIR" "$HOOKS_DIR"
-    echo ""
-fi
-
-exit 0
-"#;
-
-/// Post-checkout hook script content
-const POST_CHECKOUT_HOOK_SCRIPT: &str = r#"#!/bin/sh
-# GITBUTLER_MANAGED_HOOK_V1
-# This hook auto-cleans GitButler hooks when you checkout away from gitbutler/workspace.
-
-PREV_HEAD=$1
-NEW_HEAD=$2
-BRANCH_CHECKOUT=$3
-
-# Only act on branch checkouts (not file checkouts)
-if [ "$BRANCH_CHECKOUT" != "1" ]; then
-    # Run user's hook if it exists
-    if [ -x "$(dirname "$0")/post-checkout-user" ]; then
-        exec "$(dirname "$0")/post-checkout-user" "$@"
-    fi
-    exit 0
-fi
-
-# Get the new branch name
-NEW_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null)
-
-# If we just left gitbutler/workspace (and aren't coming back to it)
-PREV_BRANCH=$(git name-rev --name-only "$PREV_HEAD" 2>/dev/null | sed 's|^remotes/||')
-if echo "$PREV_BRANCH" | grep -q "gitbutler/workspace"; then
-    if [ "$NEW_BRANCH" != "gitbutler/workspace" ]; then
-        echo ""
-        echo "NOTE: You have left GitButler's managed workspace branch."
-        echo "Cleaning up GitButler hooks..."
-
-        HOOKS_DIR=$(dirname "$0")
-
-        # Restore pre-commit - but only if it's GitButler-managed
-        if [ -f "$HOOKS_DIR/pre-commit-user" ]; then
-            mv "$HOOKS_DIR/pre-commit-user" "$HOOKS_DIR/pre-commit"
-            echo "  Restored: pre-commit"
-        elif [ -f "$HOOKS_DIR/pre-commit" ]; then
-            # Only remove if it's GitButler-managed (has our signature)
-            if grep -q "GITBUTLER_MANAGED_HOOK_V1" "$HOOKS_DIR/pre-commit"; then
-                rm "$HOOKS_DIR/pre-commit"
-                echo "  Removed: pre-commit (GitButler managed)"
-            else
-                echo "  Warning: pre-commit hook is not GitButler-managed, leaving it untouched"
-            fi
-        fi
-
-        # Run user's post-checkout if it exists, then clean up
-        if [ -x "$HOOKS_DIR/post-checkout-user" ]; then
-            "$HOOKS_DIR/post-checkout-user" "$@"
-            mv "$HOOKS_DIR/post-checkout-user" "$HOOKS_DIR/post-checkout"
-            echo "  Restored: post-checkout"
-        else
-            # Only remove self if we're GitButler-managed (we should be, but check anyway)
-            if grep -q "GITBUTLER_MANAGED_HOOK_V1" "$HOOKS_DIR/post-checkout"; then
-                rm "$HOOKS_DIR/post-checkout"
-                echo "  Removed: post-checkout (GitButler managed)"
-            else
-                echo "  Warning: post-checkout hook is not GitButler-managed, leaving it untouched"
-            fi
-        fi
-
-        echo ""
-        echo "To return to GitButler mode, run: but setup"
-        echo ""
-        exit 0
-    fi
-fi
-
-# Run user's hook if it exists
-if [ -x "$(dirname "$0")/post-checkout-user" ]; then
-    exec "$(dirname "$0")/post-checkout-user" "$@"
-fi
-
-exit 0
-"#;
-
-/// Result of hook installation/uninstallation
+/// Result of hook uninstallation
 #[derive(Debug, Clone)]
 pub enum HookInstallationResult {
-    /// Hook was successfully installed/uninstalled
+    /// Hook was successfully uninstalled
     Success,
     /// Hook was already in the desired state
     AlreadyConfigured,
-    /// Installation partially succeeded with warnings
+    /// Uninstallation partially succeeded with warnings
     PartialSuccess { warnings: Vec<String> },
 }
+
+/// Subdirectory of the common git directory where GitButler stored its hook scripts
+/// when hooks were registered through git config (git 2.54+).
+const CONFIG_HOOK_SCRIPTS_SUBDIR: &str = "gitbutler/hooks";
 
 /// Types of hooks we manage
 #[derive(Debug, Clone, Copy)]
@@ -154,10 +38,21 @@ enum ManagedHookType {
 }
 
 impl ManagedHookType {
+    /// Every hook type GitButler manages.
+    const ALL: [ManagedHookType; 2] = [ManagedHookType::PreCommit, ManagedHookType::PostCheckout];
+
     fn hook_name(&self) -> &'static str {
         match self {
             Self::PreCommit => "pre-commit",
             Self::PostCheckout => "post-checkout",
+        }
+    }
+
+    /// Subsection name under which this hook was registered in git config (git 2.54+).
+    fn config_section(&self) -> &'static str {
+        match self {
+            Self::PreCommit => "gitbutler-pre-commit",
+            Self::PostCheckout => "gitbutler-post-checkout",
         }
     }
 
@@ -167,20 +62,38 @@ impl ManagedHookType {
             Self::PostCheckout => "post-checkout-user",
         }
     }
-
-    fn script_content(&self) -> &'static str {
-        match self {
-            Self::PreCommit => PRE_COMMIT_HOOK_SCRIPT,
-            Self::PostCheckout => POST_CHECKOUT_HOOK_SCRIPT,
-        }
-    }
 }
 
-/// Get the hooks directory, respecting core.hooksPath configuration
-fn get_hooks_dir(repo: &git2::Repository) -> PathBuf {
-    repo.config()
-        .and_then(|config| config.get_path("core.hooksPath"))
-        .unwrap_or_else(|_| repo.path().join("hooks"))
+fn hooks_dir_from_git_dir_and_config_path_for_run_dir(
+    git_dir: &Path,
+    hook_run_dir: &Path,
+    hooks_path: Option<PathBuf>,
+) -> PathBuf {
+    let hooks_path = hooks_path.map(|path| {
+        if path.is_relative() {
+            hook_run_dir.join(path)
+        } else {
+            path
+        }
+    });
+    hooks_path.unwrap_or_else(|| git_dir.join("hooks"))
+}
+
+/// Get the hooks directory for a `gix` repository, respecting `core.hooksPath`.
+pub(crate) fn get_hooks_dir(repo: &gix::Repository) -> PathBuf {
+    hooks_dir_from_git_dir_and_config_path_for_run_dir(
+        repo.git_dir(),
+        repo.workdir().unwrap_or(repo.git_dir()),
+        repo.config_snapshot()
+            .trusted_path("core.hooksPath")
+            .ok()
+            .flatten(),
+    )
+}
+
+/// Directory holding GitButler's config-registered hook scripts.
+fn config_scripts_dir(repo: &gix::Repository) -> PathBuf {
+    repo.common_dir().join(CONFIG_HOOK_SCRIPTS_SUBDIR)
 }
 
 /// Check if a hook file contains our signature
@@ -190,47 +103,6 @@ fn is_gitbutler_managed_hook(path: &Path) -> bool {
     } else {
         false
     }
-}
-
-/// Set executable permissions on Unix systems
-fn set_hook_executable(path: &Path) -> Result<()> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(path, fs::Permissions::from_mode(0o755))
-            .context("Failed to set hook as executable")?;
-    }
-    Ok(())
-}
-
-/// Install a single managed hook
-fn install_hook(hooks_dir: &Path, hook_type: ManagedHookType) -> Result<HookInstallationResult> {
-    let hook_path = hooks_dir.join(hook_type.hook_name());
-    let user_backup_path = hooks_dir.join(hook_type.user_backup_name());
-
-    // Create hooks directory if it doesn't exist
-    if !hooks_dir.exists() {
-        fs::create_dir_all(hooks_dir).context("Failed to create hooks directory")?;
-    }
-
-    // Check if our hook is already installed
-    if hook_path.exists() && is_gitbutler_managed_hook(&hook_path) {
-        return Ok(HookInstallationResult::AlreadyConfigured);
-    }
-
-    // Backup existing hook if it exists and backup doesn't already exist
-    if hook_path.exists() && !user_backup_path.exists() {
-        fs::rename(&hook_path, &user_backup_path).context("Failed to backup existing hook")?;
-    }
-
-    // Write our managed hook
-    let hook_content = hook_type.script_content();
-
-    fs::write(&hook_path, hook_content).context("Failed to write managed hook")?;
-
-    set_hook_executable(&hook_path)?;
-
-    Ok(HookInstallationResult::Success)
 }
 
 /// Uninstall a single managed hook and restore user's original
@@ -260,55 +132,61 @@ fn uninstall_hook(hooks_dir: &Path, hook_type: ManagedHookType) -> Result<HookIn
     Ok(HookInstallationResult::Success)
 }
 
-/// Install all GitButler managed hooks
+/// Uninstall all GitButler managed hooks and restore user's originals
 ///
-/// Called after switching HEAD to gitbutler/workspace
-pub fn install_managed_hooks(repo: &git2::Repository) -> Result<HookInstallationResult> {
-    let hooks_dir = get_hooks_dir(repo);
+/// Called during teardown. Cleans up both installation mechanisms older versions
+/// used: config-based registrations (git 2.54+) and hooks in the hooks directory.
+pub fn uninstall_managed_hooks(repo: &gix::Repository) -> Result<HookInstallationResult> {
     let mut warnings = Vec::new();
-    let mut already_configured_count = 0;
 
-    for hook_type in [ManagedHookType::PreCommit, ManagedHookType::PostCheckout] {
-        match install_hook(&hooks_dir, hook_type) {
-            Ok(HookInstallationResult::Success) => {
-                tracing::debug!("Installed {} hook", hook_type.hook_name());
-            }
-            Ok(HookInstallationResult::AlreadyConfigured) => {
-                tracing::trace!("{} hook already configured", hook_type.hook_name());
-                already_configured_count += 1;
-            }
-            Ok(HookInstallationResult::PartialSuccess { warnings: w }) => {
-                warnings.extend(w);
-            }
-            Err(e) => {
-                warnings.push(format!(
-                    "Failed to install {}: {}",
-                    hook_type.hook_name(),
-                    e
-                ));
-            }
-        }
+    if let Err(e) = uninstall_config_based_hooks(repo) {
+        warnings.push(format!("Failed to remove config-based hooks: {e}"));
     }
 
-    // If all hooks were already configured, return AlreadyConfigured
-    if already_configured_count == 2 && warnings.is_empty() {
-        Ok(HookInstallationResult::AlreadyConfigured)
-    } else if warnings.is_empty() {
+    match uninstall_managed_hooks_at(&get_hooks_dir(repo)) {
+        Ok(HookInstallationResult::PartialSuccess { warnings: w }) => warnings.extend(w),
+        Ok(_) => {}
+        Err(e) => warnings.push(format!("Failed to remove hooks from hooks directory: {e}")),
+    }
+
+    if warnings.is_empty() {
         Ok(HookInstallationResult::Success)
     } else {
         Ok(HookInstallationResult::PartialSuccess { warnings })
     }
 }
 
-/// Uninstall all GitButler managed hooks and restore user's originals
-///
-/// Called during teardown
-pub fn uninstall_managed_hooks(repo: &git2::Repository) -> Result<HookInstallationResult> {
-    let hooks_dir = get_hooks_dir(repo);
+/// Remove GitButler's config-based hook registrations and their scripts.
+fn uninstall_config_based_hooks(repo: &gix::Repository) -> Result<()> {
+    // Removing an absent section is a no-op, and the file is only written back
+    // if anything actually changed.
+    but_core::git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
+        for hook_type in ManagedHookType::ALL {
+            config.remove_section("hook", Some(hook_type.config_section().into()));
+        }
+        Ok(())
+    })?;
+
+    let scripts_dir = config_scripts_dir(repo);
+    for hook_type in ManagedHookType::ALL {
+        let script_path = scripts_dir.join(hook_type.hook_name());
+        // The signature check matters when `core.hooksPath` points at the
+        // scripts directory: a user's own hook may live at this path, and only
+        // GitButler's signed scripts may be deleted.
+        if script_path.exists() && is_gitbutler_managed_hook(&script_path) {
+            fs::remove_file(&script_path).context("Failed to remove hook script")?;
+        }
+    }
+    // Remove the scripts directory if it is now empty; keep it if anything else is inside.
+    let _ = fs::remove_dir(&scripts_dir);
+    Ok(())
+}
+
+fn uninstall_managed_hooks_at(hooks_dir: &Path) -> Result<HookInstallationResult> {
     let mut warnings = Vec::new();
 
-    for hook_type in [ManagedHookType::PreCommit, ManagedHookType::PostCheckout] {
-        match uninstall_hook(&hooks_dir, hook_type) {
+    for hook_type in ManagedHookType::ALL {
+        match uninstall_hook(hooks_dir, hook_type) {
             Ok(HookInstallationResult::Success) => {
                 tracing::debug!("Uninstalled {} hook", hook_type.hook_name());
             }

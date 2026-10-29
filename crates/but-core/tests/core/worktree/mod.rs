@@ -1,12 +1,14 @@
 mod checkout;
+#[cfg(unix)]
+mod checkout_vs_git;
 
 mod utils {
-    /// Using the `repo` `HEAD` commit, build a new commit based on its tree with `edit` and `message`, and return the `(current_commit, new_commit)`.
+    /// Using the `repo` `HEAD` commit, build a new commit based on its tree with `edit` and `message`, and return the new commit.
     pub fn build_commit<'repo>(
         repo: &'repo gix::Repository,
         mut edit: impl FnMut(&mut gix::object::tree::Editor) -> anyhow::Result<()>,
         message: &str,
-    ) -> anyhow::Result<(gix::Commit<'repo>, gix::Commit<'repo>)> {
+    ) -> anyhow::Result<gix::Commit<'repo>> {
         let head_commit = repo.head_commit()?;
 
         repo.write_blob([])?;
@@ -21,6 +23,6 @@ mod utils {
                 ..head_commit.decode()?.to_owned()?
             })?
             .detach();
-        Ok((head_commit, repo.find_commit(new_commit_id)?))
+        Ok(repo.find_commit(new_commit_id)?)
     }
 }

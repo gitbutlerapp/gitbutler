@@ -1,8 +1,5 @@
 //! Legacy types that won't be needed anymore once the toml is removed.
 //!
-//! These are here to break the dependency to `gitbutler-stack`. In there, we have a dupe of these
-//! types with conversions to allow us to keep the structs dumb.
-//!
 //! The types here are the only ones to implement `serde`.
 #![allow(missing_docs)]
 use std::collections::HashMap;
@@ -13,10 +10,6 @@ use serde::{Deserialize, Serialize};
 /// The state of virtual branches data, as persisted in a TOML file.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct VirtualBranches {
-    /// This is the target/base that is set when a repo is added to gb
-    pub default_target: Option<Target>,
-    /// The targets for each virtual branch
-    pub branch_targets: HashMap<StackId, Target>,
     /// The current state of the virtual branches
     pub branches: HashMap<StackId, Stack>,
     #[serde(with = "but_serde::object_id_opt", default)]
@@ -51,7 +44,6 @@ mod stack {
         #[serde(default = "default_true")]
         pub in_workspace: bool,
         /// Represents the Stack state of pseudo-references ("heads").
-        /// Do **NOT** edit this directly, instead use the `Stack` trait in gitbutler_stack.
         #[serde(default)]
         pub heads: Vec<StackBranch>,
 
@@ -97,8 +89,7 @@ mod stack {
     }
 
     impl Stack {
-        /// This is the name of the top-most branch, provided by the API for convenience
-        /// Copy of `gitbutler-stack::Stack::derived_name()`.
+        /// This is the name of the top-most branch, provided by the API for convenience.
         pub fn derived_name(&self) -> anyhow::Result<String> {
             self.heads
                 .last()
@@ -459,75 +450,3 @@ mod stack {
     }
 }
 pub use stack::*;
-
-mod target {
-    use std::str::FromStr;
-
-    use gitbutler_reference::RemoteRefname;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeStruct};
-
-    #[derive(Debug, PartialEq, Clone)]
-    pub struct Target {
-        /// The combination of remote name and branch name, i.e. `origin` and `main`.
-        /// The remote name is the one used to fetch from.
-        /// It's equivalent to e.g. `refs/remotes/origin/main` , and the type `RemoteRefName`
-        /// stores it as `<remote>` and `<suffix>` so that finding references named `<remote>/<suffix>`
-        /// will typically find the local tracking branch unambiguously.
-        pub branch: RemoteRefname,
-        /// The URL of the remote behind the symbolic name.
-        pub remote_url: String,
-        /// The merge-base between `branch` and the current worktree `HEAD` upon first creation,
-        /// but then it's the set to the new destination of e.g. `refs/remotes/origin/main` after
-        /// the remote was fetched. This value is used to determine if there was a change,
-        /// and if the *workspace* needs to be recalculated/rebased against the new commit.
-        // TODO(ST): is it safe/correct to rename this to `branch_target_id`? Should be!
-        //           It's just a bit strange it starts life as merge-base, but maybe it ends
-        //           up the same anyway? Definitely could use a test then.
-        pub sha: gix::ObjectId,
-        /// The name of the remote to push to.
-        pub push_remote_name: Option<String>,
-    }
-
-    impl Serialize for Target {
-        fn serialize<S>(&self, serializer: S) -> anyhow::Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            let mut state = serializer.serialize_struct("Target", 5)?;
-            state.serialize_field("branchName", &self.branch.branch())?;
-            state.serialize_field("remoteName", &self.branch.remote())?;
-            state.serialize_field("remoteUrl", &self.remote_url)?;
-            state.serialize_field("sha", &self.sha.to_string())?;
-            if let Some(push_remote_name) = &self.push_remote_name {
-                state.serialize_field("pushRemoteName", push_remote_name)?;
-            }
-            state.end()
-        }
-    }
-
-    impl<'de> serde::Deserialize<'de> for Target {
-        fn deserialize<D: Deserializer<'de>>(d: D) -> anyhow::Result<Self, D::Error> {
-            #[derive(Debug, Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct TargetData {
-                branch_name: String,
-                remote_name: String,
-                remote_url: String,
-                push_remote_name: Option<String>,
-                sha: String,
-            }
-            let target_data: TargetData = serde::Deserialize::deserialize(d)?;
-            let sha = gix::ObjectId::from_str(&target_data.sha)
-                .map_err(|x| serde::de::Error::custom(x.to_string()))?;
-
-            let target = Target {
-                branch: RemoteRefname::new(&target_data.remote_name, &target_data.branch_name),
-                remote_url: target_data.remote_url,
-                sha,
-                push_remote_name: target_data.push_remote_name,
-            };
-            Ok(target)
-        }
-    }
-}
-pub use target::Target;

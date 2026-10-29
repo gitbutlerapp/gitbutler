@@ -5,19 +5,16 @@
 use std::path::Path;
 
 use anyhow::Result;
-use but_ctx::ProjectHandleOrLegacyProjectId;
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_settings::AppSettingsWithDiskSync;
 pub use handler::Handler;
-use tokio::{
-    sync::mpsc::{UnboundedSender, unbounded_channel},
-    task,
-};
+use tokio::{sync::mpsc::unbounded_channel, task};
 use tokio_util::sync::CancellationToken;
 
 mod events;
 
 pub use events::Change;
-use gitbutler_filemonitor::InternalEvent;
+use gitbutler_filemonitor::{FileMonitorHandle, InternalEvent, LinkedWorktree};
 
 mod handler;
 
@@ -28,14 +25,17 @@ pub use gitbutler_filemonitor::WatchMode;
 pub struct WatcherHandle {
     /// The id of the project we are watching.
     project_id: ProjectHandleOrLegacyProjectId,
-    signal_flush: UnboundedSender<()>,
-    /// A way to tell the background process to stop handling events.
+    /// Must be dropped synchronously so disconnecting its command channel unblocks
+    /// `BlockingPool::shutdown` during Tokio runtime teardown.
+    file_monitor: FileMonitorHandle,
+    /// A way to tell the async event-dispatch task to stop.
     cancellation_token: CancellationToken,
 }
 
 impl Drop for WatcherHandle {
     fn drop(&mut self) {
         self.cancellation_token.cancel();
+        // file_monitor drops here, disconnecting cmd_rx and unblocking the spawn_blocking task.
     }
 }
 
@@ -46,8 +46,7 @@ impl WatcherHandle {
     }
 
     pub fn flush(&self) -> Result<()> {
-        self.signal_flush.send(())?;
-        Ok(())
+        self.file_monitor.flush()
     }
 }
 
@@ -74,19 +73,22 @@ pub fn watch_in_background(
     watch_mode: WatchMode,
 ) -> Result<WatcherHandle, anyhow::Error> {
     let (events_out, mut events_in) = unbounded_channel();
-    let (flush_tx, mut flush_rx) = unbounded_channel();
 
-    let monitor = gitbutler_filemonitor::spawn(
+    let file_monitor = gitbutler_filemonitor::spawn(
         project_id.clone(),
         worktree_path.as_ref(),
-        events_out.clone(),
+        {
+            let project_id = project_id.clone();
+            move || active_linked_worktrees(project_id.clone())
+        },
+        events_out,
         watch_mode,
     )?;
 
     let cancellation_token = CancellationToken::new();
     let handle = WatcherHandle {
         project_id: project_id.clone(),
-        signal_flush: flush_tx,
+        file_monitor,
         cancellation_token: cancellation_token.clone(),
     };
     let handle_event =
@@ -106,9 +108,6 @@ pub fn watch_in_background(
         loop {
             tokio::select! {
                 Some(event) = events_in.recv() => handle_event(event, app_settings.clone())?,
-                Some(_signal_flush) = flush_rx.recv() => {
-                    monitor.flush()?;
-                }
                 () = cancellation_token.cancelled() => {
                     tracing::debug!(%project_id, "stopped watcher");
                     break;
@@ -119,4 +118,19 @@ pub fn watch_in_background(
     });
 
     Ok(handle)
+}
+
+fn active_linked_worktrees(
+    project_id: ProjectHandleOrLegacyProjectId,
+) -> Result<Vec<LinkedWorktree>> {
+    let ctx: Context = project_id.try_into()?;
+    Ok(ctx
+        .worktrees_with_state()?
+        .into_iter()
+        .filter(|worktree| !worktree.archived)
+        .map(|worktree| LinkedWorktree {
+            name: worktree.name,
+            workdir: worktree.path,
+        })
+        .collect())
 }

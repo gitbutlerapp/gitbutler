@@ -15,22 +15,18 @@ name = "but-server"
 path = "src/main.rs"
 doctest = false
 
-[features]
-
 [dependencies]
 but-api = { workspace = true, features = ["path-bytes", "legacy"] }
-but-claude.workspace = true
-but-db.workspace = true
+but-askpass.workspace = true
 but-path.workspace = true
 but-settings.workspace = true
 but-feedback.workspace = true
 but-secret.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
 gitbutler-watcher.workspace = true
-gitbutler-repo-actions.workspace = true
 
 serde.workspace = true
-axum = { version = "0.8.8", features = ["ws"] }
+axum = { version = "0.8.9", features = ["ws"] }
 futures-util = { version = "0.3", default-features = false, features = [
     "sink",
     "std",
@@ -38,6 +34,8 @@ futures-util = { version = "0.3", default-features = false, features = [
 tower-http = { version = "0.6.8", features = ["cors"] }
 tower = { version = "0.5.3" }
 tokio = { workspace = true, features = ["full"] }
+clap.workspace = true
+colored = "3.0.0"
 anyhow.workspace = true
 serde_json.workspace = true
 uuid.workspace = true

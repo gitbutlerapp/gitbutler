@@ -126,8 +126,8 @@ pub fn tool_calling_blocking(
     model: &str,
 ) -> anyhow::Result<async_openai::types::chat::CreateChatCompletionResponse> {
     let client = provider.client()?;
-    let messages_owned = messages.clone();
-    let tools_owned = tools.clone();
+    let messages_owned = messages;
+    let tools_owned = tools;
     let model = model.to_string();
 
     std::thread::spawn(move || {
@@ -177,8 +177,8 @@ pub fn tool_calling_stream_blocking(
     on_token: impl Fn(&str) + Send + Sync + 'static,
 ) -> anyhow::Result<StreamToolCallResult> {
     let client = provider.client()?;
-    let messages_owned = messages.clone();
-    let tools_owned = tools.clone();
+    let messages_owned = messages;
+    let tools_owned = tools;
     let model = model.to_string();
 
     std::thread::spawn(move || {
@@ -494,13 +494,17 @@ async fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSchema>(
     model: String,
 ) -> anyhow::Result<Option<T>> {
     let schema = schema_for!(T);
-    let schema_value = serde_json::to_value(&schema)?;
+    let mut schema_value = serde_json::to_value(&schema)?;
+    make_schema_strict(&mut schema_value);
+    // `strict` makes OpenAI constrain the output to the schema. Without it the
+    // schema is only advisory, and models occasionally answer with the schema
+    // document itself instead of an instance of it.
     let response_format = ResponseFormat::JsonSchema {
         json_schema: ResponseFormatJsonSchema {
             description: None,
             name: "structured_response".into(),
             schema: Some(schema_value),
-            strict: Some(false),
+            strict: Some(true),
         },
     };
 
@@ -519,6 +523,39 @@ async fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSchema>(
     }
 
     Ok(None)
+}
+
+/// Rewrite a schemars-generated schema to satisfy OpenAI's strict
+/// structured-output requirements: every object schema must list all of its
+/// properties as required and forbid additional properties, and the `$schema`
+/// marker is not part of the accepted vocabulary.
+fn make_schema_strict(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(map) => {
+            map.remove("$schema");
+            // Emitted by schemars for `#[serde(default)]` fields; not part of
+            // the strict-mode vocabulary.
+            map.remove("default");
+            if let Some(serde_json::Value::Object(properties)) = map.get("properties") {
+                let all_properties = properties
+                    .keys()
+                    .cloned()
+                    .map(serde_json::Value::String)
+                    .collect();
+                map.insert("required".into(), serde_json::Value::Array(all_properties));
+                map.insert("additionalProperties".into(), false.into());
+            }
+            for nested in map.values_mut() {
+                make_schema_strict(nested);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for nested in items {
+                make_schema_strict(nested);
+            }
+        }
+        _ => {}
+    }
 }
 
 async fn response(
@@ -692,4 +729,57 @@ async fn tool_calling_stream(
     }
 
     Ok((None, response_text))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::make_schema_strict;
+    use serde_json::json;
+
+    #[test]
+    fn schemas_are_rewritten_for_strict_mode() {
+        let mut schema = json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "title": "Response",
+            "type": "object",
+            "properties": {
+                "summary": { "type": ["string", "null"], "default": null },
+                "items": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/Item" }
+                }
+            },
+            "required": ["items"],
+            "$defs": {
+                "Item": {
+                    "type": "object",
+                    "properties": {
+                        "name": { "type": "string" }
+                    }
+                }
+            }
+        });
+        make_schema_strict(&mut schema);
+
+        assert_eq!(schema.get("$schema"), None);
+        assert_eq!(schema["properties"]["summary"].get("default"), None);
+        let mut required: Vec<&str> = schema["required"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|value| value.as_str().unwrap())
+            .collect();
+        required.sort_unstable();
+        assert_eq!(
+            required,
+            ["items", "summary"],
+            "every property must be required, including nullable ones"
+        );
+        assert_eq!(schema["additionalProperties"], json!(false));
+        assert_eq!(schema["$defs"]["Item"]["required"], json!(["name"]));
+        assert_eq!(
+            schema["$defs"]["Item"]["additionalProperties"],
+            json!(false)
+        );
+    }
 }

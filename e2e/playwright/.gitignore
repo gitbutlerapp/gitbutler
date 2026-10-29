@@ -1,5 +1,6 @@
 
 /test-results/
+/test-results-flat/
 /playwright-report/
 /blob-report/
 /playwright/.cache/

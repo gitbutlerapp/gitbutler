@@ -1,85 +1,250 @@
 use gitbutler_commit::commit_ext::CommitMessageBstr as _;
 use snapbox::str;
 
+use super::util::add_worktree_with_commit;
 use crate::utils::Sandbox;
+use but_testsupport::CommandExt as _;
 
 #[test]
-fn reword_commit_with_message_flag() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
-    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * 9477ae7 (A) add A
-    * 0dc3733 (origin/main, origin/HEAD, main) add M
-    ");
+fn names_an_anonymous_segment() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
+    env.setup_metadata(&["A"]);
+    let anonymous_tip = env.invoke_git("rev-parse gitbutler/workspace^");
 
-    env.setup_metadata(&["A"])?;
-
-    // Use reword with -m flag to change commit message (using commit ID)
-    env.but("reword 9477ae7 -m 'Updated commit message'")
+    env.but("reword g0 -m recovered")
         .assert()
         .success()
+        .stderr_eq(str![])
         .stdout_eq(str![[r#"
-Updated commit message for [..] (now [..])
+Named anonymous branch 'g0' as 'recovered'
 
 "#]]);
 
-    insta::assert_snapshot!(env.git_log()?, @r"
-    * 0bd57a4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * 2f7c570 (A) Updated commit message
-    * 0dc3733 (origin/main, origin/HEAD, main) add M
-    ");
+    assert_eq!(
+        env.invoke_git("rev-parse recovered"),
+        anonymous_tip,
+        "new branch reference names the anonymous segment tip"
+    );
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ re [recovered]
+┊●   sxu anonymous (no changes)
+┊│
+┊├┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
-    Ok(())
+Hint: run `but help` for all commands
+
+"#]]);
 }
 
 #[test]
-fn reword_commit_with_multiline_message() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
-    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * 9477ae7 (A) add A
-    * 0dc3733 (origin/main, origin/HEAD, main) add M
-    ");
+fn names_the_anonymous_segment_of_a_detached_worktree() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
+    env.setup_metadata(&["A"]);
+    env.but("worktree list").assert().success();
+    let worktree = add_worktree_with_commit(&env, "W", "A");
+    but_testsupport::git_at_dir(&worktree)
+        .args(["checkout", "-q", "--detach"])
+        .run();
+    env.invoke_git("branch -D W");
 
-    env.setup_metadata(&["A"])?;
+    env.but("reword i0 -m named")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Named anonymous branch 'i0' as 'named'
 
-    // Use reword with multiline message
-    env.but("reword 9477ae7 -m 'First line\n\n\tSecond paragraph with details'")
+"#]]);
+
+    assert_eq!(
+        gix::open(&worktree)
+            .expect("worktree opens")
+            .head_name()
+            .expect("HEAD is readable")
+            .map(|name| name.shorten().to_string()),
+        Some("named".to_owned()),
+        "the worktree is attached to the branch naming its segment"
+    );
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0
+┊●   sxu anonymous (no changes)
+┊│
+┊├┄ h0 [A]
+┊┊
+┊┊╭┄ na:@ [uncommitted] {W} (no changes)
+┊┊├┄ na [named]
+┊┊●   nsn add W
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn rejects_naming_an_anonymous_segment_after_an_existing_branch() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
+    env.setup_metadata(&["A"]);
+
+    env.but("reword g0 -m A")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: A branch named 'A' is already applied
+
+"#]]);
+}
+
+#[test]
+fn names_an_anonymous_segment_from_editor() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
+    env.setup_metadata(&["A"]);
+    env.file(
+        "editor.sh",
+        "#!/usr/bin/env bash\nprintf 'from-editor\\n' > \"$1\"\n",
+    );
+
+    env.but("reword g0")
+        .env("GIT_EDITOR", "bash editor.sh")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Updated commit message for [..] (now [..])
+Named anonymous branch 'g0' as 'from-editor'
+
+"#]]);
+    assert_eq!(
+        env.invoke_git("rev-parse from-editor"),
+        env.invoke_git("rev-parse gitbutler/workspace^"),
+        "editor-provided name creates a reference at the segment tip"
+    );
+}
+
+#[test]
+fn reword_commit_with_message_flag() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+    );
+
+    env.setup_metadata(&["A"]);
+
+    // Use reword with -m flag to change commit message.
+    env.but("reword tpm -m 'Updated commit message'")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Updated commit message for [..]
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 95614cf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* dfe058b (A) Updated commit message
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+/// Commits with a change ID are identified by it, matching how `but status`
+/// displays them.
+#[test]
+fn reword_commit_with_change_id_shows_change_id() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("new.txt", "content\n");
+    env.but("commit -b A -m 'add new.txt'").assert().success();
+
+    env.but("reword uzw -m 'reworded'")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Updated commit message for uzw
+
+"#]]);
+}
+
+#[test]
+fn reword_commit_with_multiline_message() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+    );
+
+    env.setup_metadata(&["A"]);
+
+    // Use reword with multiline message
+    env.but("reword tpm -m 'First line\n\n\tSecond paragraph with details'")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Updated commit message for [..]
 
 "#]]);
 
     // Verify the commit message was updated with multiline content
-    insta::assert_snapshot!(env.git_log()?, @r"
-    * 5996541 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * cdf2c74 (A) First line
-    * 0dc3733 (origin/main, origin/HEAD, main) add M
-    ");
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 71a85cb (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 3ffa6ce (A) First line
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
-    let repo = env.open_repo()?;
+"#]]
+    );
+
+    let repo = env.open_repo();
     assert_eq!(
-        repo.rev_parse_single(":/First line")?
-            .object()?
+        repo.rev_parse_single(":/First line")
+            .unwrap()
+            .object()
+            .unwrap()
             .into_commit()
             .message_bstr(),
         "First line\n\n\tSecond paragraph with details"
     );
-
-    Ok(())
 }
 
 // Note: Branch rename test is omitted because the test scenario uses single-character
 // branch names ("A") which don't meet the 2-character minimum requirement for CLI IDs.
 // The branch rename functionality with -m flag is tested manually and works correctly.
 #[test]
-fn reword_branch_from_editor_trims_trailing_newlines_in_confirmation_output() -> anyhow::Result<()>
-{
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+fn reword_branch_from_editor_trims_trailing_newlines_in_confirmation_output() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
 
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata(&["A"]);
     env.but("branch new branch-to-rename-123")
         .assert()
         .success();
@@ -89,36 +254,372 @@ fn reword_branch_from_editor_trims_trailing_newlines_in_confirmation_output() ->
         "#!/usr/bin/env bash\nprintf 'renamed-branch\\n\\n' > \"$1\"\n",
     );
     env.but("reword branch-to-rename-123")
-        .env("EDITOR", "bash editor.sh")
+        .env("GIT_EDITOR", "bash editor.sh")
         .assert()
         .success()
         .stdout_eq(str![[r#"
 Renamed branch 'branch-to-rename-123' to 'renamed-branch'
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn reword_commit_with_same_message_succeeds_as_noop() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
-    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * 9477ae7 (A) add A
-    * 0dc3733 (origin/main, origin/HEAD, main) add M
-    ");
+fn reword_branch_rejects_head() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
-    env.setup_metadata(&["A"])?;
+    env.but("branch new branch-to-rename").assert().success();
+
+    env.but("reword branch-to-rename -m HEAD")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Bad input 'HEAD'
+
+Invalid branch name: Could not turn "HEAD" into a valid reference name
+
+"#]]);
+}
+
+#[test]
+fn reword_branch_rejects_non_normalized_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("reword A -m /B")
+        .assert()
+        .failure()
+        .stdout_eq(str![[]])
+        .stderr_eq(str![[r#"
+Error: Bad input '/B'
+
+Invalid branch name
+
+Hint: Try 'B' instead
+
+"#]]);
+}
+
+#[test]
+fn reword_branch_rejects_branch_name_that_already_exists() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("branch new existing").assert().success();
+
+    env.but("reword A -m existing")
+        .assert()
+        .failure()
+        .stdout_eq(str![[]])
+        .stderr_eq(str![[r#"
+Error: A branch named 'existing' is already applied
+
+"#]]);
+}
+
+#[test]
+fn reword_branch_allows_rewording_to_same_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("reword A -m A")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Branch already named 'A' - nothing to do
+
+"#]])
+        .stderr_eq(str![[]]);
+}
+
+#[test]
+fn reword_commit_with_same_message_succeeds_as_noop() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+    );
+
+    env.setup_metadata(&["A"]);
 
     // Try to reword with the same message
-    env.but("reword 9477ae7 -m 'add A'")
+    env.but("reword tpm -m 'add A'")
         .assert()
         .success()
         .stdout_eq(str![[r#"
 No changes to commit message - nothing to be done
 
 "#]]);
+}
 
-    Ok(())
+#[test]
+fn reword_commit_with_json_flag() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+    );
+
+    env.setup_metadata(&["A"]);
+
+    // Use reword with -m flag to change commit message (using commit ID)
+    env.but("reword tpm -m 'Updated commit message' --json")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"{
+  "new_commit_id": [..]
+}
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 95614cf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* dfe058b (A) Updated commit message
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+#[test]
+fn reword_commit_json_can_request_status_after() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let output = env
+        .but("reword tpm -m 'Updated commit message' --json --status-after")
+        .assert()
+        .success();
+    let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout).unwrap();
+
+    assert!(
+        json["result"]["new_commit_id"].is_string(),
+        "status output must retain the reword result"
+    );
+    assert!(
+        json["status"]["stacks"].is_array(),
+        "status-after must include the workspace with fresh commit IDs"
+    );
+}
+
+#[test]
+fn reword_rejects_merged_upstream_commit() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
+
+    // `nyq` is branch A's commit, whose content already landed on origin/main.
+    env.but("reword nyq -m 'new message'")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Commit 756ee31 is merged upstream
+
+Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
+
+"#]]);
+}
+
+/// A commit owned by a linked worktree resolves like a workspace commit, so rewording it
+/// rewrites the commit and moves the worktree's branch and checkout onto the result.
+#[test]
+fn reword_a_commit_in_a_linked_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.but("status").assert().success();
+    let wt_dir = super::util::add_worktree_with_commit(&env, "wt-feature", "A");
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| * 580bef0 (wt-feature) add W
+|/  
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+    );
+
+    env.but("reword 580bef0 -m 'add the W file'")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Updated commit message for nsn
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| * b6105ca (wt-feature) add the W file
+|/  
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+    // The worktree's own HEAD followed the rewrite and its checkout stayed clean.
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
+        snapbox::str![[r#"
+* edd3eb7 (gitbutler/workspace) GitButler Workspace Commit
+| * b6105ca (HEAD -> wt-feature) add the W file
+|/  
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+    assert_eq!(env.git_status(), "", "the main checkout stayed clean");
+}
+
+#[test]
+fn reword_renames_branches_in_a_linked_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.but("status").assert().success();
+    let wt_dir = super::util::add_worktree_with_lower_branch(&env, "wt-feature", "A");
+
+    env.but("reword wt-lower -m wt-lower-renamed")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Renamed branch 'wt-lower' to 'wt-lower-renamed'
+
+"#]]);
+    env.but("reword wt-feature -m wt-renamed")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Renamed branch 'wt-feature' to 'wt-renamed'
+
+"#]]);
+
+    // The worktree's checkout followed its branch to the new name.
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
+        snapbox::str![[r#"
+* edd3eb7 (gitbutler/workspace) GitButler Workspace Commit
+| * 3b0b265 (HEAD -> wt-renamed) add W2
+| * 580bef0 (wt-lower-renamed) add W
+|/  
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+#[test]
+fn reword_commit_from_editor_uses_core_comment_char() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.invoke_git("config core.commentChar ;");
+    env.file(
+        "editor.sh",
+        "#!/usr/bin/env bash\ncp \"$1\" template.txt\nsed 's/^add A$/#123 reworded/' template.txt > \"$1\"\n",
+    );
+    let commit = env.invoke_git("rev-parse A");
+
+    env.but(format!("reword {commit}"))
+        .env("GIT_EDITOR", "bash editor.sh")
+        .assert()
+        .success();
+
+    assert_eq!(
+        env.invoke_git("log -1 --format=%B refs/heads/A"),
+        "#123 reworded",
+        "with ';' as comment char, a line starting with '#' is kept"
+    );
+    // The template, ignore-rest marker included, uses the configured comment char.
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(env.projects_root().join("template.txt")).unwrap(),
+        str![[r#"
+add A
+
+; Please enter the commit message for your changes. Lines starting
+; with ';' will be ignored, and an empty message aborts the commit.
+;
+; Changes in this commit:
+;	new file:   A
+;
+; --- ignore-rest ---
+--- /dev/null
++++ b/A
+@@ -1,0 +1,1 @@
++A
+
+"#]]
+    );
+}
+
+#[test]
+fn reword_commit_from_editor_auto_comment_char_avoids_message_lines() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    let commit = env.invoke_git("rev-parse A");
+    env.but(format!("reword {commit} -m '#123 add A'"))
+        .assert()
+        .success();
+    // Git matches `auto` case-insensitively.
+    env.invoke_git("config core.commentChar AUTO");
+    env.file(
+        "editor.sh",
+        "#!/usr/bin/env bash\nsed 's/^#123 add A$/#123 reworded/' \"$1\" > \"$1.new\" && mv \"$1.new\" \"$1\"\n",
+    );
+    let commit = env.invoke_git("rev-parse A");
+
+    env.but(format!("reword {commit}"))
+        .env("GIT_EDITOR", "bash editor.sh")
+        .assert()
+        .success();
+
+    assert_eq!(
+        env.invoke_git("log -1 --format=%B refs/heads/A"),
+        "#123 reworded",
+        "'auto' picks a comment char other than '#' because the message starts with '#'"
+    );
+}
+
+#[test]
+fn reword_commit_from_editor_auto_comment_char_fails_when_all_candidates_are_used() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    let commit = env.invoke_git("rev-parse A");
+    env.but(format!(
+        "reword {commit} -m 'x\n#\n;\n@\n!\n$\n%\n^\n&\n|\n:'"
+    ))
+    .assert()
+    .success();
+    env.invoke_git("config core.commentChar auto");
+    let commit = env.invoke_git("rev-parse A");
+
+    // Git refuses here too, rather than picking a prefix that would strip message lines.
+    env.but(format!("reword {commit}"))
+        .env("GIT_EDITOR", "true")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Unable to select a comment character that is not used in the current commit message
+
+"#]]);
 }

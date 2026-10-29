@@ -9,6 +9,7 @@ generated-do-not-edit/
 .idea
 $.idea
 $.zed
+*.code-workspace
 
 .sentryclirc
 .DS_Store
@@ -47,7 +48,7 @@ tsconfig.tsbuildinfo
 # playwright
 test-results*
 playwright-report
-packages/ui/tests/.cache
+packages/ui-svelte/tests/.cache
 
 # storybook
 *storybook.log
@@ -71,10 +72,21 @@ storybook-static
 # Claude
 .swarm
 .claude-flow
-/.agents/
-/.claude/
+/.agents/*
+!/.agents/skills/
+!/.agents/skills/**
+/.claude/*
+# Symlink to /.agents/skills so Claude Code discovers the repo's skills.
+!/.claude/skills
 
 # Auto-generated design tokens
-packages/ui/src/styles/tokens.css
+packages/ui-svelte/src/styles/tokens.css
 
 debug-graph-??.svg
+
+# written to by cargo-flamegraph
+/cargo-flamegraph.trace/
+
+# Generated single-file MCP apps, embedded into packaged CLI builds.
+/crates/but/src/command/mcp/review.html
+/crates/but/src/command/mcp/workspace.html

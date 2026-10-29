@@ -49,7 +49,7 @@ pub mod json {
     }
 
     impl FromStr for HexHash {
-        type Err = gix::hash::decode::Error;
+        type Err = gix::Error;
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
             let _ = gix::ObjectId::from_hex(s.as_bytes())?;
@@ -120,6 +120,28 @@ impl From<(usize, isize)> for ComplexResult {
     fn from((u, i): (usize, isize)) -> Self {
         Self {
             combined: u as i32 + i as i32,
+        }
+    }
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+pub enum UiRelativeTo {
+    Commit(String),
+    Reference(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RelativeTo {
+    Commit(String),
+    Reference(String),
+}
+
+impl From<UiRelativeTo> for RelativeTo {
+    fn from(value: UiRelativeTo) -> Self {
+        match value {
+            UiRelativeTo::Commit(commit) => Self::Commit(commit),
+            UiRelativeTo::Reference(reference) => Self::Reference(reference),
         }
     }
 }

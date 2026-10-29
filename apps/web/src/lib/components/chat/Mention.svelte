@@ -30,8 +30,8 @@
 		padding: 0px 4px;
 		gap: 10px;
 		border-radius: var(--radius-s, 4px);
-		background: var(--clr-theme-pop-bg);
-		color: var(--clr-theme-pop-on-soft);
+		background: var(--bg-pop);
+		color: var(--chip-pop-fg);
 		font-style: normal;
 	}
 </style>

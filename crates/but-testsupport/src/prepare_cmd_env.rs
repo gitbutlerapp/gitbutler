@@ -2,6 +2,14 @@ use std::{borrow::Cow, ffi::OsStr};
 
 /// Change the `cmd` environment to be very isolated, particularly when Git is involved.
 pub fn isolate_env_std_cmd(cmd: &mut std::process::Command) -> &mut std::process::Command {
+    isolate_env_std_cmd_with_additional_removals(cmd, &[])
+}
+
+/// Isolate `cmd`, also removing client-specific environment variables.
+pub fn isolate_env_std_cmd_with_additional_removals<'a>(
+    cmd: &'a mut std::process::Command,
+    additional_removals: &[&str],
+) -> &'a mut std::process::Command {
     for op in updates() {
         match op {
             EnvOp::Remove(var) => {
@@ -12,17 +20,32 @@ pub fn isolate_env_std_cmd(cmd: &mut std::process::Command) -> &mut std::process
             }
         }
     }
+    for var in additional_removals {
+        cmd.env_remove(var);
+    }
     cmd
 }
 
 /// Change the `cmd` environment to be very isolated, particularly when Git is involved.
 #[cfg(feature = "snapbox")]
-pub fn isolate_snapbox_cmd(mut cmd: snapbox::cmd::Command) -> snapbox::cmd::Command {
+pub fn isolate_snapbox_cmd(cmd: snapbox::cmd::Command) -> snapbox::cmd::Command {
+    isolate_snapbox_cmd_with_additional_removals(cmd, &[])
+}
+
+/// Isolate `cmd`, also removing client-specific environment variables.
+#[cfg(feature = "snapbox")]
+pub fn isolate_snapbox_cmd_with_additional_removals(
+    mut cmd: snapbox::cmd::Command,
+    additional_removals: &[&str],
+) -> snapbox::cmd::Command {
     for op in updates() {
         cmd = match op {
             EnvOp::Remove(var) => cmd.env_remove(var),
             EnvOp::Add { name, value } => cmd.env(name, value),
         };
+    }
+    for var in additional_removals {
+        cmd = cmd.env_remove(var);
     }
     cmd
 }
@@ -54,6 +77,14 @@ fn updates() -> Vec<EnvOp> {
         EnvOp::Remove("GIT_COMMON_DIR"),
         EnvOp::Remove("GIT_ASKPASS"),
         EnvOp::Remove("SSH_ASKPASS"),
+        EnvOp::Remove("GIT_EDITOR"),
+        EnvOp::Remove("VISUAL"),
+        EnvOp::Remove("EDITOR"),
+        EnvOp::Remove("NO_BG_TASKS"),
+        EnvOp::Remove("BUT_THEME"),
+        EnvOp::Remove("COPILOT_MODEL"),
+        EnvOp::Remove("COPILOT_ALLOW_ALL"),
+        EnvOp::Remove("COPILOT_GITHUB_TOKEN"),
     ]
     .into_iter()
     .chain(
@@ -67,6 +98,7 @@ fn updates() -> Vec<EnvOp> {
             ("GIT_COMMITTER_DATE", "2000-01-02 00:00:00 +0000"),
             ("GIT_COMMITTER_EMAIL", "committer@example.com"),
             ("GIT_COMMITTER_NAME", "committer"),
+            ("TZ", "UTC0"),
             ("GIT_CONFIG_COUNT", "4"),
             ("GIT_CONFIG_KEY_0", "commit.gpgsign"),
             ("GIT_CONFIG_VALUE_0", "false"),
@@ -88,5 +120,11 @@ fn updates() -> Vec<EnvOp> {
         name: "MSYS",
         value: Cow::Owned(msys_for_git_bash_on_windows),
     }))
+    .chain(
+        std::env::var_os("GIX_TEST_FIXTURE_HASH").map(|object_hash| EnvOp::Add {
+            name: "GIT_DEFAULT_HASH",
+            value: Cow::Owned(object_hash),
+        }),
+    )
     .collect()
 }

@@ -32,13 +32,15 @@ export default defineConfig({
 		exclude: ["node_modules/**/*", "e2e/**/*", "tests/**/*"],
 		environment: "jsdom",
 		setupFiles: ["./vitest-setup.js"],
+		reporters: process.env.CI ? ["default", "buildkite-test-collector/vitest/reporter"] : "default",
+		includeTaskLocation: true,
 	},
 	build: {
 		sourcemap: true,
 	},
 	resolve: {
 		alias: {
-			"@gitbutler/ui/styles/fonts": "../../packages/ui/src/styles/fonts",
+			"@gitbutler/ui-svelte/styles/fonts": "../../packages/ui-svelte/src/styles/fonts",
 		},
 	},
 	ssr: {

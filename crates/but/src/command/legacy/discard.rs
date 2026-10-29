@@ -1,214 +1,753 @@
 //! Implementation of the `but discard` command.
-//!
-//! This module provides functionality to discard uncommitted changes from the worktree.
 
-use anyhow::{Context as _, Result, bail};
-use bstr::ByteSlice;
-use but_api::legacy::diff;
-use but_core::DiffSpec;
+use std::collections::{BTreeMap, BTreeSet};
+
+use anyhow::{Context as _, bail};
+use bstr::{BString, ByteSlice as _};
+use but_api::{
+    WorkspaceState,
+    json::{ChangeIdString, HexHash},
+};
+use but_core::{DiffSpec, DryRun, RefMetadata, sync::RepoExclusive};
 use but_ctx::Context;
-use gitbutler_oplog::{
-    OplogExt,
-    entry::{OperationKind, SnapshotDetails},
+use but_transaction::Commit;
+use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
+use gix::{ObjectId, refs::FullName};
+use itertools::Itertools;
+use nonempty::NonEmpty;
+use serde::Serialize;
+
+use crate::{
+    CliError, CliResult, IdMap,
+    args::{
+        atoms::{BranchArg, CliIdArg, Purpose, ResolvedCliIdArg},
+        discard::Platform,
+    },
+    bad_input,
+    command::worktree::remove::{RemoveOperation, RemoveOutcome},
+    id::{CommitId, CommittedFileId, CommittedHunk, IdAndHunk, UncommittedHunkOrFile},
+    theme::{self, Theme},
+    utils::{
+        CliOutput, CliOutputHuman, CommitIdJson, IntermediateChannel, WriteWithUtils,
+        change_source::{ChangeSourceId, ChangeSourceRepo, InvokedFrom, single_source},
+        diff_specs::DiffSpecBuilder,
+    },
 };
 
-use crate::{CliId, IdMap, id::parser::parse_sources, utils::OutputChannel};
+#[derive(Debug)]
+pub enum DiscardOperation {
+    Branches(NonEmpty<FullName>),
+    Commits(NonEmpty<CommitId>),
+    Committed {
+        source: CommitId,
+        changes: NonEmpty<CommittedDiscardSource>,
+    },
+    Uncommitted(UncommittedSelection),
+}
 
-/// Handle the `but discard <id>` command.
-///
-/// Discards changes to files or hunks identified by the given ID.
-/// The ID should be a file or hunk ID as shown in `but status`.
-pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()> {
-    // Build ID map to resolve the user's ID
-    let id_map = IdMap::new_from_context(ctx, None)?;
+#[derive(Debug)]
+enum ClassifiedDiscardables {
+    Commits(NonEmpty<CommitId>),
+    Branches(NonEmpty<BranchArg>),
+    UncommittedChanges(NonEmpty<UncommittedDiscardSource>),
+    /// Every uncommitted change in this checkout.
+    Uncommitted(ChangeSourceId),
+    CommittedChanges(NonEmpty<CommittedDiscardSource>),
+}
 
-    // Resolve the ID to get file information
-    let resolved_ids =
-        parse_sources(ctx, &id_map, id).with_context(|| format!("Could not resolve ID '{id}'"))?;
+impl ClassifiedDiscardables {
+    fn try_from_sources(
+        commit_sources: Vec<CommitId>,
+        branch_sources: Vec<BranchArg>,
+        uncommitted_change_sources: Vec<UncommittedDiscardSource>,
+        uncommitted_sources: Vec<ChangeSourceId>,
+        committed_file_sources: Vec<CommittedDiscardSource>,
+        // The checkout to discard everything in when nothing was named.
+        default_source: impl FnOnce() -> CliResult<ChangeSourceId>,
+    ) -> CliResult<Self> {
+        let has_commits = !commit_sources.is_empty();
+        let has_branches = !branch_sources.is_empty();
+        let has_uncommitted_changes = !uncommitted_change_sources.is_empty();
+        let has_uncommitted = !uncommitted_sources.is_empty();
+        let has_committed_files = !committed_file_sources.is_empty();
 
-    if resolved_ids.is_empty() {
-        bail!("No entity found for the given ID");
+        let source_type_count = [
+            has_commits,
+            has_branches,
+            has_uncommitted_changes,
+            has_uncommitted,
+            has_committed_files,
+        ]
+        .into_iter()
+        .filter(|has_source| *has_source)
+        .count();
+
+        if source_type_count > 1 {
+            return Err(bad_input("Cannot mix different types of sources")
+                .arg_name("<CHANGES>")
+                .hint(
+                    "Discard branches, commits, committed files, or uncommitted changes separately",
+                )
+                .into());
+        }
+
+        if let Some(commits) = NonEmpty::from_vec(commit_sources) {
+            Ok(Self::Commits(commits))
+        } else if let Some(branches) = NonEmpty::from_vec(branch_sources) {
+            Ok(Self::Branches(branches))
+        } else if let Some(changes) = NonEmpty::from_vec(uncommitted_change_sources) {
+            Ok(Self::UncommittedChanges(changes))
+        } else if has_uncommitted {
+            Ok(Self::Uncommitted(single_source(uncommitted_sources)?))
+        } else if let Some(changes) = NonEmpty::from_vec(committed_file_sources) {
+            Ok(Self::CommittedChanges(changes))
+        } else {
+            Ok(Self::Uncommitted(default_source()?))
+        }
     }
+}
 
-    // Get worktree changes once for the Unassigned case
-    // Also used to determine file status for additions/deletions
-    let worktree_changes = diff::changes_in_worktree(ctx)?;
-    let path_status: std::collections::HashMap<_, _> = worktree_changes
-        .worktree_changes
-        .changes
-        .iter()
-        .map(|change| (change.path.as_bstr(), &change.status))
-        .collect();
+#[derive(Debug)]
+pub enum UncommittedSelection {
+    /// Every uncommitted change in this checkout.
+    All(ChangeSourceId),
+    Changes(Box<NonEmpty<UncommittedDiscardSource>>),
+}
 
-    // Extract DiffSpecs from all resolved entities
-    let mut diff_specs: Vec<DiffSpec> = Vec::new();
-
-    for resolved_id in resolved_ids {
-        match resolved_id {
-            CliId::Uncommitted(uncommitted) => {
-                // Convert hunk assignments to DiffSpecs
-                for assignment in uncommitted.hunk_assignments {
-                    let is_addition_or_deletion = path_status
-                        .get(assignment.path_bytes.as_bstr())
-                        .map(|status| {
-                            matches!(
-                                status,
-                                but_core::ui::TreeStatus::Addition { .. }
-                                    | but_core::ui::TreeStatus::Deletion { .. }
-                            )
-                        })
-                        .unwrap_or(false);
-
-                    diff_specs.push(DiffSpec {
-                        previous_path: None, // HunkAssignment doesn't track previous path (renames)
-                        path: assignment.path_bytes,
-                        // For additions/deletions, use empty hunk_headers to signal whole-file mode
-                        hunk_headers: if is_addition_or_deletion {
-                            Vec::new()
-                        } else {
-                            assignment.hunk_header.into_iter().collect()
-                        },
-                    });
-                }
-            }
-            CliId::PathPrefix { .. } => todo!(),
-            CliId::Unassigned { .. } => {
-                // Discard all uncommitted changes
-                let assignments = worktree_changes.assignments.clone();
-
-                // Convert all assignments to DiffSpecs
-                // For file additions and deletions, we must use whole-file mode (empty hunk_headers)
-                for assignment in assignments {
-                    let is_addition_or_deletion = path_status
-                        .get(assignment.path_bytes.as_bstr())
-                        .map(|status| {
-                            matches!(
-                                status,
-                                but_core::ui::TreeStatus::Addition { .. }
-                                    | but_core::ui::TreeStatus::Deletion { .. }
-                            )
-                        })
-                        .unwrap_or(false);
-
-                    diff_specs.push(DiffSpec {
-                        previous_path: None,
-                        path: assignment.path_bytes,
-                        // For additions/deletions, use empty hunk_headers to signal whole-file mode
-                        hunk_headers: if is_addition_or_deletion {
-                            Vec::new()
-                        } else {
-                            assignment.hunk_header.into_iter().collect()
-                        },
-                    });
-                }
-            }
-            CliId::Branch { .. } => {
-                bail!("Cannot discard a branch. Use a file or hunk ID instead.");
-            }
-            CliId::Commit { .. } => {
-                bail!("Cannot discard a commit. Use a file or hunk ID instead.");
-            }
-            CliId::CommittedFile { .. } => {
-                bail!(
-                    "Cannot discard a committed file. Use an uncommitted file or hunk ID instead."
-                );
-            }
-            CliId::Stack { .. } => {
-                bail!("Cannot discard a stack. Use a file or hunk ID instead.");
+impl UncommittedSelection {
+    /// The checkout to discard in. Errors when the changes span several checkouts.
+    fn source(&self) -> CliResult<ChangeSourceId> {
+        match self {
+            UncommittedSelection::All(source) => Ok(source.clone()),
+            UncommittedSelection::Changes(changes) => {
+                single_source(changes.iter().map(|change| match change {
+                    UncommittedDiscardSource::HunkOrFile(change) => change.source.clone(),
+                    UncommittedDiscardSource::PathPrefix { source, .. } => source.clone(),
+                }))
             }
         }
     }
 
-    if diff_specs.is_empty() {
-        bail!("No changes found for the given ID");
+    pub fn changes(changes: NonEmpty<UncommittedHunkOrFile>) -> Self {
+        Self::Changes(Box::new(changes.map(UncommittedDiscardSource::HunkOrFile)))
     }
+}
 
-    // Collect unique file names for the snapshot message
-    let file_names: Vec<String> = {
-        let mut names: std::collections::HashSet<String> = diff_specs
-            .iter()
-            .map(|spec| spec.path.to_str_lossy().to_string())
-            .collect();
-        let mut names_vec: Vec<_> = names.drain().collect();
-        names_vec.sort();
-        names_vec
+#[derive(Debug)]
+pub enum UncommittedDiscardSource {
+    HunkOrFile(UncommittedHunkOrFile),
+    PathPrefix {
+        hunks: NonEmpty<IdAndHunk>,
+        source: ChangeSourceId,
+    },
+}
+
+#[derive(Clone, Debug)]
+pub(crate) enum CommittedDiscardSource {
+    Hunk(CommittedHunk),
+    File(CommittedFileId),
+}
+
+impl CommittedDiscardSource {
+    fn committed_file(&self) -> &CommittedFileId {
+        match self {
+            CommittedDiscardSource::Hunk(hunk) => &hunk.committed_file,
+            CommittedDiscardSource::File(file) => file,
+        }
+    }
+}
+
+#[must_use]
+pub enum DiscardOutcome {
+    Branches(NonEmpty<FullName>),
+    Commits {
+        commits: NonEmpty<CommitId>,
+        /// Rewritten surviving commits, used by callers to retain their selection.
+        replaced_commits: BTreeMap<ObjectId, ObjectId>,
+    },
+    CommittedChanges {
+        source: CommitId,
+        paths: NonEmpty<BString>,
+        new_commit: CommitId,
+    },
+    Uncommitted {
+        paths: NonEmpty<BString>,
+    },
+    Worktree(RemoveOutcome),
+}
+
+impl CliOutputHuman for DiscardOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        agent: bool,
+        theme: &'static Theme,
+    ) -> anyhow::Result<()> {
+        match self {
+            DiscardOutcome::Branches(branches) => {
+                if branches.len() == 1 {
+                    writeln!(out, "Discarded branch {}", theme::Branch(&branches.head))?;
+                } else {
+                    let branches = branches.iter().map(theme::Branch).join(", ");
+                    writeln!(out, "Discarded branches {branches}")?;
+                }
+            }
+            DiscardOutcome::Commits {
+                commits,
+                replaced_commits: _,
+            } => {
+                if commits.len() == 1 {
+                    writeln!(out, "Discarded commit {}", theme::Commit(commits.head))?;
+                } else {
+                    let commits = commits.iter().map(theme::Commit).join(", ");
+                    writeln!(out, "Discarded commits {commits}")?;
+                }
+            }
+            DiscardOutcome::CommittedChanges {
+                source,
+                paths,
+                new_commit,
+            } => {
+                let paths = paths.iter().map(|path| path.as_bstr()).join(", ");
+                writeln!(
+                    out,
+                    "Discarded changes from {paths} from {} to create {}",
+                    theme::Commit(source),
+                    theme::Commit(new_commit)
+                )?;
+            }
+            DiscardOutcome::Uncommitted { paths } => {
+                let paths = paths.iter().map(|path| path.as_bstr()).join(", ");
+                writeln!(out, "Discarded uncommitted changes from {paths}")?;
+            }
+            DiscardOutcome::Worktree(removed) => removed.on_human(out, agent, theme)?,
+        }
+
+        Ok(())
+    }
+}
+
+impl CliOutput for DiscardOutcome {
+    fn on_json(self) -> impl Serialize {
+        #[derive(Serialize)]
+        #[serde(
+            tag = "type",
+            rename_all = "camelCase",
+            rename_all_fields = "camelCase"
+        )]
+        enum Output {
+            Branches {
+                branches: Vec<String>,
+            },
+            Commits {
+                commits: Vec<CommitIdJson>,
+            },
+            CommittedChanges {
+                source_commit_id: HexHash,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                source_change_id: Option<ChangeIdString>,
+                paths: Vec<String>,
+                new_commit_id: HexHash,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                new_change_id: Option<ChangeIdString>,
+            },
+            UncommittedChanges {
+                paths: Vec<String>,
+            },
+            Worktree {
+                name: String,
+            },
+        }
+
+        match self {
+            DiscardOutcome::Branches(branches) => Output::Branches {
+                branches: branches
+                    .into_iter()
+                    .map(|branch| branch.shorten().to_string())
+                    .collect(),
+            },
+            DiscardOutcome::Commits {
+                commits,
+                replaced_commits: _,
+            } => Output::Commits {
+                commits: commits.into_iter().map(Into::into).collect(),
+            },
+            DiscardOutcome::CommittedChanges {
+                source,
+                paths,
+                new_commit,
+            } => Output::CommittedChanges {
+                source_commit_id: source.commit_id.into(),
+                source_change_id: source.change_id.map(Into::into),
+                new_commit_id: new_commit.commit_id.into(),
+                new_change_id: new_commit.change_id.map(Into::into),
+                paths: paths
+                    .into_iter()
+                    .map(|path| path.to_str_lossy().into_owned())
+                    .collect(),
+            },
+            DiscardOutcome::Uncommitted { paths } => Output::UncommittedChanges {
+                paths: paths
+                    .into_iter()
+                    .map(|path| path.to_str_lossy().into_owned())
+                    .collect(),
+            },
+            DiscardOutcome::Worktree(removed) => Output::Worktree {
+                name: removed.name.to_string(),
+            },
+        }
+    }
+}
+
+pub fn discard(
+    ctx: &mut Context,
+    _out: IntermediateChannel<'_>,
+    args: Platform,
+    invoked_from: &InvokedFrom,
+) -> CliResult<(DiscardOutcome, Option<WorkspaceState>)> {
+    let mut guard = ctx.exclusive_worktree_access();
+    let mut meta = ctx.meta()?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission(), Some(invoked_from))?;
+    let operation = {
+        let repo = ctx.repo.get()?;
+        if let Some(name) = resolve_worktree(&repo, &id_map, &args.changes)? {
+            let removed = remove_clean_worktree(ctx, guard.write_permission(), &repo, name)?;
+            return Ok((DiscardOutcome::Worktree(removed), None));
+        }
+        resolve(&repo, &id_map, args, invoked_from)?
     };
 
-    // Create a snapshot before performing discard operation
-    // This allows the user to undo with `but undo` if needed
-    create_snapshot(ctx, OperationKind::Discard, &file_names);
+    let (outcome, ws) = run(
+        ctx,
+        &mut meta,
+        guard.write_permission(),
+        operation,
+        gitbutler_oplog::entry::OperationKind::Discard,
+    )?;
+    Ok((outcome, Some(ws)))
+}
 
-    // Perform the discard operation
-    let repo = ctx.repo.get()?;
-    let dropped = but_workspace::discard_workspace_changes(
-        &repo,
-        diff_specs.clone(),
-        3, // context_lines - default value used by GUI
+fn resolve_worktree(
+    repo: &gix::Repository,
+    id_map: &IdMap,
+    changes: &[CliIdArg],
+) -> CliResult<Option<BString>> {
+    for change in changes {
+        if let Some(name) = change.try_resolve_worktree_top(repo, id_map)? {
+            if changes.len() > 1 {
+                return Err(bad_input(
+                    "A worktree cannot be discarded together with other changes",
+                )
+                .arg_name("<CHANGES>")
+                .arg_value(change.to_string())
+                .into());
+            }
+            return Ok(Some(name));
+        }
+    }
+    Ok(None)
+}
+
+fn remove_clean_worktree(
+    ctx: &Context,
+    perm: &mut RepoExclusive,
+    repo: &gix::Repository,
+    name: BString,
+) -> CliResult<RemoveOutcome> {
+    let operation = RemoveOperation {
+        worktree: name.clone(),
+        force: false,
+    };
+    let err = match crate::command::worktree::remove::run(ctx, perm, operation) {
+        Ok(removed) => return Ok(removed),
+        Err(err) => err,
+    };
+    let dirty = but_workspace::worktrees::open_worktree_repo(repo, name.as_ref())
+        .and_then(|worktree_repo| but_core::diff::worktree_changes(&worktree_repo))
+        .is_ok_and(|changes| !changes.changes.is_empty());
+    if !dirty {
+        return Err(err.into());
+    }
+    Err(
+        bad_input(format!("Worktree {name} has uncommitted changes"))
+            .hint(format!(
+                "Use `but worktree remove --force {name}` to remove it anyway"
+            ))
+            .into(),
+    )
+}
+
+fn resolve(
+    repo: &gix::Repository,
+    id_map: &IdMap,
+    args: Platform,
+    invoked_from: &InvokedFrom,
+) -> CliResult<DiscardOperation> {
+    let Platform { changes } = args;
+
+    let mut branch_sources = Vec::new();
+    let mut commit_sources = Vec::new();
+    let mut committed_change_sources = Vec::new();
+    let mut uncommitted_change_sources = Vec::new();
+    let mut uncommitted_sources = Vec::new();
+
+    for change in changes {
+        let value = change.to_string();
+        match change.resolve_in_workspace(repo, id_map, Purpose::Source, None)? {
+            ResolvedCliIdArg::Branch(branch) => branch_sources.push(branch),
+            ResolvedCliIdArg::AnonymousSegment(segment) => {
+                return Err(crate::args::atoms::anonymous_segment_error(&segment.id));
+            }
+            ResolvedCliIdArg::Commit(commit) => commit_sources.push(commit),
+            ResolvedCliIdArg::CommittedFile(committed_file) => {
+                committed_change_sources.push(CommittedDiscardSource::File(committed_file))
+            }
+            ResolvedCliIdArg::CommittedHunk(hunk) => {
+                committed_change_sources.push(CommittedDiscardSource::Hunk(*hunk))
+            }
+            ResolvedCliIdArg::UncommittedHunkOrFile(change) => {
+                uncommitted_change_sources.push(UncommittedDiscardSource::HunkOrFile(*change))
+            }
+            ResolvedCliIdArg::Uncommitted(source) => uncommitted_sources.push(source),
+            ResolvedCliIdArg::PathPrefix {
+                id: _,
+                hunks,
+                source,
+            } => uncommitted_change_sources
+                .push(UncommittedDiscardSource::PathPrefix { hunks, source }),
+            ResolvedCliIdArg::Stack { .. } => {
+                return Err(bad_input("Stacks cannot be discarded")
+                    .arg_name("<CHANGES>")
+                    .arg_value(value)
+                    .hint("Use branch CLI IDs instead")
+                    .into());
+            }
+        }
+    }
+
+    let classified = ClassifiedDiscardables::try_from_sources(
+        commit_sources,
+        branch_sources,
+        uncommitted_change_sources,
+        uncommitted_sources,
+        committed_change_sources,
+        || invoked_from.managed_source(id_map),
     )?;
 
-    // Report results
-    if !dropped.is_empty()
-        && let Some(out) = out.for_human()
-    {
-        writeln!(
-            out,
-            "Warning: Some changes could not be discarded (possibly already discarded or modified):"
-        )?;
-        for spec in &dropped {
-            writeln!(out, "  {}", spec.path.as_bstr())?;
+    match classified {
+        ClassifiedDiscardables::Branches(branches) => {
+            let branches = branches
+                .into_iter()
+                .map(|branch| branch.resolve_local_branch_name())
+                .collect::<anyhow::Result<Vec<_>>>()?
+                .into_iter()
+                .unique()
+                .collect();
+            let branches = NonEmpty::from_vec(branches)
+                .expect("classified branches are guaranteed to be non-empty");
+            Ok(DiscardOperation::Branches(branches))
         }
-    }
+        ClassifiedDiscardables::Commits(commits) => Ok(DiscardOperation::Commits(commits)),
+        ClassifiedDiscardables::CommittedChanges(committed_files) => {
+            let NonEmpty { head, tail } = committed_files;
 
-    let discarded_count = diff_specs.len() - dropped.len();
-    if discarded_count > 0 {
-        if let Some(out) = out.for_human() {
-            writeln!(
-                out,
-                "Successfully discarded changes to {} {}",
-                discarded_count,
-                if discarded_count == 1 {
-                    "item"
-                } else {
-                    "items"
+            let CommittedFileId {
+                commit_id,
+                change_id,
+                path: _,
+            } = head.committed_file();
+
+            let head_source_commit = CommitId {
+                commit_id: *commit_id,
+                change_id: change_id.clone(),
+            };
+            let mut changes = NonEmpty::new(head);
+
+            for change in tail {
+                if change.committed_file().commit_id != head_source_commit.commit_id {
+                    return Err(
+                        bad_input("All committed files must come from the same commit")
+                            .arg_name("<CHANGES>")
+                            .hint("Discard committed files from each commit separately")
+                            .into(),
+                    );
                 }
-            )?;
+                changes.push(change);
+            }
+            Ok(DiscardOperation::Committed {
+                source: head_source_commit,
+                changes,
+            })
         }
-        if let Some(out) = out.for_json() {
-            out.write_value(serde_json::json!({
-                "discarded": discarded_count,
-                "failed": dropped.len(),
-            }))?;
-        }
-    } else {
-        if let Some(out) = out.for_human() {
-            writeln!(out, "No changes were discarded.")?;
-        }
-        if let Some(out) = out.for_json() {
-            out.write_value(serde_json::json!({
-                "discarded": 0,
-                "failed": dropped.len(),
-            }))?;
+        ClassifiedDiscardables::Uncommitted(source) => Ok(DiscardOperation::Uncommitted(
+            UncommittedSelection::All(source),
+        )),
+        ClassifiedDiscardables::UncommittedChanges(changes) => {
+            let selection = UncommittedSelection::Changes(Box::new(changes));
+            // Refuse a selection spanning checkouts as bad input, before `run()`.
+            selection.source()?;
+            Ok(DiscardOperation::Uncommitted(selection))
         }
     }
+}
 
+pub fn run(
+    ctx: &mut Context,
+    meta: &mut impl RefMetadata,
+    perm: &mut RepoExclusive,
+    operation: DiscardOperation,
+    oplog_operation_kind: OperationKind,
+) -> anyhow::Result<(DiscardOutcome, WorkspaceState)> {
+    let source = match &operation {
+        DiscardOperation::Uncommitted(selection) => {
+            selection.source().map_err(CliError::into_internal)?
+        }
+        _ => ChangeSourceId::Head,
+    };
+    let source_repo = ChangeSourceRepo::open(ctx, &source)?;
+    let executable = match operation {
+        DiscardOperation::Branches(branches) => {
+            let commits = {
+                let (repo, workspace, _db) =
+                    ctx.workspace_and_db_with_perm(perm.read_permission())?;
+                let mut commits = Vec::new();
+                for branch in &branches {
+                    let segment = workspace
+                        .try_find_segment_by_refname(branch.as_ref())
+                        .with_context(|| {
+                            format!(
+                                "Could not find branch {} in the workspace",
+                                branch.shorten()
+                            )
+                        })?;
+                    for commit in &segment.commits {
+                        let commit = CommitId::try_from_commit_id(commit.id, &repo)?;
+                        commits.push(commit);
+                    }
+                }
+                commits
+            };
+            ExecutableDiscardOperation::Branches { branches, commits }
+        }
+        DiscardOperation::Commits(commits) => ExecutableDiscardOperation::Commits(commits),
+        DiscardOperation::Committed { source, changes } => {
+            let mut tree_changes = None;
+            let mut paths = BTreeSet::new();
+
+            let changes = {
+                let context_lines = ctx.settings.context_lines;
+                let repo = ctx.repo.get()?;
+                let mut builder = DiffSpecBuilder::new(&repo, context_lines);
+                for change in changes {
+                    match change {
+                        CommittedDiscardSource::File(file) => {
+                            let path = file.path;
+                            builder.push_changes_from_committed_file(
+                                source.commit_id,
+                                path.as_ref(),
+                            )?;
+                            paths.insert(path);
+                        }
+                        CommittedDiscardSource::Hunk(hunk) => {
+                            paths.insert(hunk.committed_file.path);
+
+                            if tree_changes.is_none() {
+                                let commit = repo.find_commit(source.commit_id)?;
+                                tree_changes = Some(
+                                    but_core::diff::tree_changes(
+                                        &repo,
+                                        commit.parent_ids().next().map(|id| id.detach()),
+                                        source.commit_id,
+                                    )?
+                                    .into_iter()
+                                    .map(Into::into)
+                                    .collect::<Vec<but_core::ui::TreeChange>>(),
+                                );
+                            }
+
+                            builder.push_hunks_with_changes(
+                                [hunk.hunk],
+                                tree_changes
+                                    .as_ref()
+                                    .expect("tree changes are initialized for committed hunks"),
+                            )
+                        }
+                    }
+                }
+                builder.into_diff_specs()
+            };
+            let paths: NonEmpty<BString> = NonEmpty::from_vec(paths.into_iter().collect())
+                .context("Paths must not be empty")?;
+
+            anyhow::ensure!(!changes.is_empty(), "No committed changes to discard");
+            ExecutableDiscardOperation::CommittedChanges {
+                source,
+                paths,
+                changes,
+            }
+        }
+        DiscardOperation::Uncommitted(selection) => {
+            let changes = {
+                let context_lines = ctx.settings.context_lines;
+                let repo = ctx.repo.get()?;
+                let mut builder =
+                    DiffSpecBuilder::for_change_source(&source_repo, &repo, context_lines);
+                match selection {
+                    UncommittedSelection::All(_) => builder.push_changes_from_uncommitted_area()?,
+                    UncommittedSelection::Changes(changes) => {
+                        for change in *changes {
+                            match change {
+                                UncommittedDiscardSource::HunkOrFile(change) => {
+                                    builder.push_changes_from_uncommitted(&change)?;
+                                }
+                                UncommittedDiscardSource::PathPrefix { hunks, source: _ } => {
+                                    builder.push_changes_from_path_prefix(&hunks)?;
+                                }
+                            }
+                        }
+                    }
+                }
+                builder.reconcile_worktree_diff_specs()?;
+                builder.into_diff_specs()
+            };
+            anyhow::ensure!(!changes.is_empty(), "No uncommitted changes to discard");
+            let paths = paths_from_changes(&changes);
+            ExecutableDiscardOperation::Uncommitted { paths, changes }
+        }
+    };
+
+    // The oplog can't restore a linked worktree, so discarding there isn't snapshotted.
+    let snapshot = source.worktree_name().is_none();
+    let transaction = |mut tx: but_transaction::Transaction<'_, '_, _>| {
+        let outcome = match executable {
+            ExecutableDiscardOperation::Branches { branches, commits } => {
+                if !commits.is_empty() {
+                    tx.discard_commits(commits.iter().map(|c| c.commit_id))?;
+                }
+                for branch in &branches {
+                    tx.remove_reference(branch.as_ref())?;
+                }
+                DiscardOutcome::Branches(branches)
+            }
+            ExecutableDiscardOperation::Commits(commits) => {
+                tx.discard_commits(commits.iter().map(|c| c.commit_id))?;
+                DiscardOutcome::Commits {
+                    commits,
+                    replaced_commits: BTreeMap::new(),
+                }
+            }
+            ExecutableDiscardOperation::CommittedChanges {
+                source,
+                paths,
+                changes,
+            } => {
+                let new_commit = tx.discard_changes_from_commit(source.commit_id, changes)?;
+                DiscardOutcome::CommittedChanges {
+                    source,
+                    paths,
+                    new_commit: new_commit.into(),
+                }
+            }
+            ExecutableDiscardOperation::Uncommitted { paths, changes } => {
+                let refused = but_workspace::discard_workspace_changes(
+                    source_repo.repo(tx.repo()),
+                    changes,
+                    tx.context_lines(),
+                )?;
+                if !refused.is_empty() {
+                    let refused_paths = refused
+                        .iter()
+                        .map(|change| change.path.as_bstr())
+                        .join(", ");
+                    bail!("Could not discard all selected changes: {refused_paths}");
+                }
+                DiscardOutcome::Uncommitted { paths }
+            }
+        };
+
+        Ok(Commit(outcome))
+    };
+    let (mut outcome, mut ws) = if snapshot {
+        but_transaction::with_transaction_with_perm(
+            ctx,
+            meta,
+            perm,
+            SnapshotDetails::new(oplog_operation_kind),
+            &[],
+            DryRun::No,
+            transaction,
+        )?
+    } else {
+        but_transaction::with_transaction_with_perm_only(ctx, meta, perm, DryRun::No, transaction)?
+            .1
+    };
+
+    if let DiscardOutcome::Commits {
+        replaced_commits, ..
+    } = &mut outcome
+    {
+        *replaced_commits = std::mem::take(&mut ws.replaced_commits);
+    }
+    if matches!(outcome, DiscardOutcome::Branches(_)) {
+        dissolve_unnecessary_workspace(ctx, meta, perm, &mut ws)?;
+    }
+
+    Ok((outcome, ws))
+}
+
+/// Like unapply, leave a workspace that removing branches left without purpose, showing the
+/// result in `state` while keeping the commits the operation replaced.
+fn dissolve_unnecessary_workspace(
+    ctx: &mut Context,
+    meta: &mut impl RefMetadata,
+    perm: &mut RepoExclusive,
+    state: &mut WorkspaceState,
+) -> anyhow::Result<()> {
+    let dissolved = {
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+        but_workspace::branch::dissolve_unnecessary_workspace(&ws, &repo, meta, Default::default())?
+    };
+    let Some((new_ws, _)) = dissolved else {
+        return Ok(());
+    };
+    ctx.update_workspace_cache(new_ws);
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+    *state = WorkspaceState {
+        checkout_conflict_occurred: state.checkout_conflict_occurred,
+        ..WorkspaceState::from_workspace_with_db(
+            &ws,
+            meta,
+            &repo,
+            std::mem::take(&mut state.replaced_commits),
+            std::mem::take(&mut state.conflicted_commits),
+            &mut db,
+        )?
+    };
     Ok(())
 }
 
-/// Create a snapshot in the oplog before performing an operation
-fn create_snapshot(ctx: &mut Context, operation: OperationKind, file_names: &[String]) {
-    use gitbutler_oplog::entry::Trailer;
+#[derive(Debug)]
+enum ExecutableDiscardOperation {
+    Branches {
+        branches: NonEmpty<FullName>,
+        commits: Vec<CommitId>,
+    },
+    Commits(NonEmpty<CommitId>),
+    CommittedChanges {
+        source: CommitId,
+        paths: NonEmpty<BString>,
+        changes: Vec<DiffSpec>,
+    },
+    Uncommitted {
+        paths: NonEmpty<BString>,
+        changes: Vec<DiffSpec>,
+    },
+}
 
-    let mut guard = ctx.exclusive_worktree_access();
-
-    // Create trailers with file names
-    let trailers: Vec<Trailer> = file_names
+fn paths_from_changes(changes: &[DiffSpec]) -> NonEmpty<BString> {
+    let paths = changes
         .iter()
-        .map(|name| Trailer {
-            key: "file".to_string(),
-            value: name.clone(),
-        })
-        .collect();
-
-    let details = SnapshotDetails::new(operation).with_trailers(trailers);
-    let _snapshot = ctx.create_snapshot(details, guard.write_permission()).ok();
+        .map(|change| change.path.clone())
+        .collect::<Vec<_>>();
+    NonEmpty::from_vec(paths).expect("changes being non-empty means paths are non-empty")
 }

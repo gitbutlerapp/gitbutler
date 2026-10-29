@@ -1,10 +1,37 @@
 import { setConfig } from "./config.ts";
-import { BUT_SERVER_PORT, BUT_TESTING, DESKTOP_PORT, GIT_CONFIG_GLOBAL } from "./env.ts";
-import { type BrowserContext } from "@playwright/test";
+import { BUT, BUT_SERVER, BUT_SERVER_PORT, DESKTOP_PORT, GIT_CONFIG_GLOBAL } from "./env.ts";
+import { serverLogSink } from "./serverLog.ts";
+import { waitForTestId } from "./util.ts";
+import { type BrowserContext, type Page } from "@playwright/test";
 import { ChildProcess, spawn } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { Socket } from "node:net";
 import path from "node:path";
+
+/**
+ * Apply one or more upstream branches from `local-clone` (the default project workdir).
+ */
+export async function applyUpstream(gitbutler: GitButler, ...branches: string[]): Promise<void> {
+	for (const branch of branches) {
+		await gitbutler.runScript("apply-upstream-branch.sh", [branch, "local-clone"]);
+	}
+}
+
+/**
+ * Navigate to the workspace and wait for it to load.
+ */
+export async function openWorkspace(page: Page): Promise<void> {
+	await page.goto("/");
+	await waitForTestId(page, "workspace-view");
+}
+
+/**
+ * Navigate to the onboarding page and wait for it to load.
+ */
+export async function gotoOnboarding(page: Page): Promise<void> {
+	await page.goto("/");
+	await waitForTestId(page, "onboarding-page");
+}
 
 export function getBaseURL() {
 	const port = parseInt(DESKTOP_PORT, 10);
@@ -32,6 +59,7 @@ class GitButlerManager implements GitButler {
 	private scriptsDir: string;
 	private butServerProcess: ChildProcess;
 	private env: Record<string, string> | undefined;
+	private gitConfigGlobal: string;
 
 	constructor(
 		workdir: string,
@@ -55,12 +83,14 @@ class GitButlerManager implements GitButler {
 				setConfig(config, this.configDir);
 			}
 		}
+		this.gitConfigGlobal =
+			env?.GIT_CONFIG_GLOBAL ?? createIsolatedGitConfig(this.configDir, GIT_CONFIG_GLOBAL);
 
 		const serverEnv = {
 			E2E_TEST_APP_DATA_DIR: this.configDir,
 			BUTLER_PORT: getButlerPort(),
-			GIT_CONFIG_GLOBAL,
-			RUST_LOG: "error",
+			GIT_CONFIG_GLOBAL: this.gitConfigGlobal,
+			RUST_LOG: "info",
 			...this.env,
 		};
 
@@ -91,7 +121,43 @@ class GitButlerManager implements GitButler {
 
 	async destroy() {
 		log("Stopping GitButler...");
-		this.butServerProcess.kill("SIGTERM");
+		await new Promise<void>((resolve) => {
+			if (this.butServerProcess.exitCode !== null || this.butServerProcess.signalCode !== null) {
+				resolve();
+				return;
+			}
+
+			const shutdownTimeoutMs = 5000;
+			let settled = false;
+
+			function finish() {
+				if (settled) return;
+				settled = true;
+				clearTimeout(forceKillTimer);
+				resolve();
+			}
+
+			this.butServerProcess.once("close", finish);
+
+			const forceKillTimer = setTimeout(() => {
+				if (settled) return;
+				log(`but-server did not stop after ${shutdownTimeoutMs}ms, sending SIGKILL...`, colors.red);
+				try {
+					this.butServerProcess.kill("SIGKILL");
+				} catch {
+					finish();
+				}
+			}, shutdownTimeoutMs);
+
+			try {
+				const killed = this.butServerProcess.kill("SIGTERM");
+				if (!killed) {
+					finish();
+				}
+			} catch {
+				finish();
+			}
+		});
 	}
 
 	pathInWorkdir(...filePathSegments: string[]): string {
@@ -108,9 +174,14 @@ class GitButlerManager implements GitButler {
 		const scriptArgs = args ?? [];
 
 		const envVars = {
-			GITBUTLER_CLI_DATA_DIR: getButlerDataDir(this.configDir),
 			E2E_TEST_APP_DATA_DIR: this.configDir,
-			GIT_CONFIG_GLOBAL,
+			GIT_CONFIG_GLOBAL: this.gitConfigGlobal,
+			// No ambient background sync (fetch/PR/CI refresh): the detached
+			// child it spawns outlives the script and keeps writing while the
+			// test's dirs are torn down. The Rust CLI tests set this too; the
+			// sync-vs-mutation race itself is covered deterministically in
+			// but-db's transaction tests.
+			NO_BG_TASKS: "1",
 			...this.env,
 			...env,
 		};
@@ -119,45 +190,50 @@ class GitButlerManager implements GitButler {
 	}
 }
 
+function createIsolatedGitConfig(configDir: string, baseGitConfig: string): string {
+	const gitConfig = path.join(configDir, "gitconfig");
+	const credentialStore = path.join(configDir, "git-credentials");
+	const base = readFileSync(baseGitConfig, "utf8").trimEnd();
+	writeFileSync(
+		gitConfig,
+		`${base}
+[credential]
+	helper = store --file ${credentialStore}
+`,
+	);
+	return gitConfig;
+}
+
 function createButServerProcess(rootDir: string, serverEnv: Record<string, string>): ChildProcess {
-	const child = spawn("cargo", ["run", "-p", "but-server"], {
+	const child = spawn(BUT_SERVER, ["--port", serverEnv.BUTLER_PORT], {
 		cwd: rootDir,
-		stdio: "pipe",
+		stdio: ["ignore", "pipe", "pipe"],
 		env: {
 			...process.env,
 			...serverEnv,
 		},
 	});
 
-	// Reprint stdout in green
-	child.stdout?.on("data", (data) => {
-		process.stdout.write(`BUT-SERVER: ${colors.green}${data}${colors.reset}`);
-	});
+	// Reprint stdout in green and buffer for artifact capture
+	child.stdout?.on("data", (data) => serverLogSink.push(data));
 
-	// Reprint stderr in green
-	child.stderr?.on("data", (data) => {
-		process.stderr.write(`BUT-SERVER: ${colors.red}${data}${colors.reset}`);
-	});
+	// Reprint stderr in red and buffer for artifact capture
+	child.stderr?.on("data", (data) => serverLogSink.push(data));
 
 	return child;
 }
 
-function getButlerDataDir(configDir: string): string {
-	return path.join(configDir, "com.gitbutler.app");
-}
-
-async function waitForServer(port: string, host = "localhost", maxAttempts = 500) {
+async function waitForServer(port: string, host = "localhost", timeoutMs = 30_000) {
 	const parsed = parseInt(port, 10);
+	const deadline = Date.now() + timeoutMs;
 
-	for (let i = 0; i < maxAttempts; i++) {
+	while (Date.now() < deadline) {
 		if (await checkPort(parsed, host)) {
 			log(`✅ Server is ready on ${host}:${port}`, colors.green);
 			return true;
 		}
 
-		if (i < maxAttempts - 1) {
-			await new Promise((resolve) => setTimeout(resolve, 1000));
-		}
+		await new Promise((resolve) => setTimeout(resolve, 100));
 	}
 
 	return false;
@@ -188,6 +264,15 @@ async function checkPort(port: number, host = "localhost") {
 
 const VITE_HOST = "localhost";
 
+/** Lines of a failed script's output carried in the rejection. */
+const TAIL_LINES = 40;
+
+/**
+ * Retained output, in UTF-16 code units (what `String.length`/`slice` count) —
+ * comfortably more than TAIL_LINES of any sane script.
+ */
+const TAIL_CHARS = 64 * 1024;
+
 // Colors for console output
 const colors = {
 	reset: "\x1b[0m",
@@ -212,12 +297,14 @@ function spawnProcess(
 ) {
 	const child = spawn(command, args, {
 		cwd,
-		stdio: "inherit",
+		// Piped rather than inherited so a failing script's output can ride
+		// along in the rejection; `runCommand` still echoes it live.
+		stdio: ["inherit", "pipe", "pipe"],
 		env: {
 			...process.env,
 			ELECTRON_ENV: "development",
 			VITE_BUILD_TARGET: "web",
-			BUT_TESTING: BUT_TESTING,
+			BUT,
 			VITE_HOST,
 			...env,
 		},
@@ -276,15 +363,47 @@ async function runCommand(
 
 		const child = spawnProcess(command, args, cwd, env);
 
+		// Keep the tail of the output so a failure names the script and why it
+		// failed; without it CI only ever reports the bare exit code. Compacted
+		// as it grows, so a chatty script cannot hold its whole output in
+		// memory for the sake of a 40-line error tail.
+		const output: string[] = [];
+		let buffered = 0;
+		for (const [stream, sink] of [
+			[child.stdout, process.stdout],
+			[child.stderr, process.stderr],
+		] as const) {
+			stream?.setEncoding("utf8");
+			stream?.on("data", (chunk: string) => {
+				output.push(chunk);
+				buffered += chunk.length;
+				if (buffered > TAIL_CHARS * 2) {
+					const tail = output.join("").slice(-TAIL_CHARS);
+					output.length = 0;
+					output.push(tail);
+					buffered = tail.length;
+				}
+				sink.write(chunk);
+			});
+		}
+
 		child.on("message", (message) => {
 			log(`Child process message: ${message}`, colors.blue);
 		});
 
-		child.on("close", (code) => {
+		child.on("close", (code, signal) => {
 			if (code === 0) {
 				resolve();
 			} else {
-				reject(new Error(`Command failed with exit code ${code}`));
+				// A signal death reports null as the code; name the signal instead.
+				const cause = code === null ? `signal ${signal}` : `exit code ${code}`;
+				const tail = output.join("").trimEnd().split("\n").slice(-TAIL_LINES).join("\n");
+				reject(
+					new Error(
+						`Command failed with ${cause}: ${command} ${args.join(" ")}` +
+							(tail ? `\n${tail}` : ""),
+					),
+				);
 			}
 		});
 

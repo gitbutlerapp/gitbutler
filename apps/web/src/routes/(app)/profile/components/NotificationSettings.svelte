@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CardGroup, Spacer, Toggle } from "@gitbutler/ui";
+	import { CardGroup, Spacer, Toggle } from "@gitbutler/ui-svelte";
 	import type { NotificationSettingsService } from "@gitbutler/shared/settings/notificationSettingsService";
 	import type { NotificationSettings as NotificationSettingsType } from "@gitbutler/shared/settings/types";
 

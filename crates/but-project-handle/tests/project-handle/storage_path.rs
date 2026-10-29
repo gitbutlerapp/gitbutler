@@ -1,6 +1,10 @@
 use std::path::{Path, PathBuf};
 
-use but_project_handle::{ProjectHandle, gitbutler_storage_path, storage_path_config_key};
+use but_path::AppChannel;
+use but_project_handle::{
+    ProjectHandle, gitbutler_storage_path, gitbutler_storage_path_for_channel,
+    storage_path_config_key, storage_path_config_key_for_app_channel,
+};
 use but_testsupport::{CommandExt as _, git, gix_testtools, open_repo};
 use gix_testtools::tempfile::TempDir;
 
@@ -93,6 +97,31 @@ fn storage_path_default_stays_in_git_dir() -> anyhow::Result<()> {
     let expected = repo.git_dir().join(default_storage_dir_name());
 
     assert_eq!(gitbutler_storage_path(&repo)?, expected);
+    Ok(())
+}
+
+#[test]
+fn storage_path_can_be_resolved_for_an_explicit_channel() -> anyhow::Result<()> {
+    let (_tmp, repo) = init_repo()?;
+    let repo = set_git_config(
+        &repo,
+        storage_path_config_key_for_app_channel(AppChannel::Nightly),
+        "gitbutler-nightly",
+    )?;
+    let repo = set_git_config(
+        &repo,
+        storage_path_config_key_for_app_channel(AppChannel::Dev),
+        "gitbutler-dev",
+    )?;
+
+    assert_eq!(
+        gitbutler_storage_path_for_channel(&repo, AppChannel::Nightly)?,
+        repo.git_dir().join("gitbutler-nightly")
+    );
+    assert_eq!(
+        gitbutler_storage_path_for_channel(&repo, AppChannel::Dev)?,
+        repo.git_dir().join("gitbutler-dev")
+    );
     Ok(())
 }
 

@@ -1,0 +1,52 @@
+/* Snackbars take the bottom centre; the bottom-right corner belongs to toasts. The viewport has no
+   size of its own: each snackbar centres itself on it. A host with its own furniture at the bottom
+   centre lifts the stack above it through --snackbars-bottom. */
+.viewport {
+	z-index: 1;
+	position: fixed;
+	bottom: var(--snackbars-bottom, 16px);
+	left: 50%;
+}
+
+/* One below another, 8px apart, the newest at the bottom. Base UI measures each snackbar and sets
+   --toast-offset-y to the height of the ones below it, so when one goes, the ones above glide down
+   into its place rather than jumping. */
+.root {
+	--gap: 8px;
+	z-index: calc(1000 - var(--toast-index));
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	width: max-content;
+	transform: translateY(calc(-1 * (var(--toast-offset-y) + var(--toast-index) * var(--gap))));
+	transform-origin: bottom center;
+	translate: -50% 0;
+	transition:
+		transform 0.35s var(--easing-popup),
+		opacity 0.3s ease;
+
+	/* Past Base UI's limit of three, the oldest recedes where it stands: it shrinks toward its own
+	   centre and fades, as if going back into depth, without moving onto the one below. It waits
+	   there until one below goes and brings it forward again. */
+	&[data-limited] {
+		transform: translateY(calc(-1 * (var(--toast-offset-y) + var(--toast-index) * var(--gap))))
+			scale(0.85);
+		transform-origin: center;
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	/* A snackbar fades as it goes; the newest also sinks, the reverse of how it rose in. One further
+	   up fades where it stands while the rest close the gap. */
+	&[data-ending-style] {
+		opacity: 0;
+	}
+
+	&[data-ending-style][data-front] {
+		transform: translateY(50%);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		transition: none;
+	}
+}

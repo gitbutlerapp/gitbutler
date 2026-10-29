@@ -45,9 +45,9 @@
 	.sidebar {
 		align-self: flex-start;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-l);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.tabs {
@@ -59,10 +59,10 @@
 		flex-grow: 1;
 
 		padding: 16px 0;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-top: none;
 		border-right: none;
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 		text-align: center;
 		cursor: pointer;
 
@@ -72,7 +72,7 @@
 
 		&.current {
 			border-bottom: none;
-			background-color: var(--clr-bg-1);
+			background-color: var(--bg-1);
 		}
 	}
 

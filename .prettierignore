@@ -20,3 +20,6 @@ package-lock.json
 e2e/playwright/fixtures
 packages/but-sdk/src/generated
 packages/but-sdk/**/*.md
+
+# Auto-generated icon names union type
+packages/ui-react/src/iconNames.ts

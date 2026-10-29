@@ -45,8 +45,8 @@ pub enum Subcommands {
 
     /// View and manage forge configuration.
     ///
-    /// Shows configured forge accounts (GitHub, GitLab, etc.) and authentication status.
-    /// Use subcommands to authenticate or forget accounts.
+    /// Shows configured forge accounts (GitHub, GitLab, Bitbucket) and authentication status.
+    /// Use subcommands to manage accounts or native GitHub stacked pull requests.
     ///
     /// ## Examples
     ///
@@ -73,6 +73,13 @@ pub enum Subcommands {
     /// ```text
     /// but config forge forget username
     /// ```
+    ///
+    /// View or configure native GitHub stacked pull requests:
+    ///
+    /// ```text
+    /// but config forge github-stacks
+    /// but config forge github-stacks enable
+    /// ```
     Forge {
         #[clap(subcommand)]
         cmd: Option<ForgeSubcommand>,
@@ -81,7 +88,9 @@ pub enum Subcommands {
     /// View or set the target branch.
     ///
     /// Without arguments, displays the current target branch.
-    /// With a branch name, sets the target branch.
+    ///
+    /// With a branch name, sets the target branch. Local branches take precedence;
+    /// remote-tracking branches resolve to their local tracking branch.
     ///
     /// ## Examples
     ///
@@ -94,11 +103,46 @@ pub enum Subcommands {
     /// Set target branch:
     ///
     /// ```text
-    /// but config target origin/main
+    /// but config target main
     /// ```
+    ///
+    /// Set a target branch and push branches to a fork:
+    ///
+    /// ```text
+    /// but config target main --push-remote origin
+    /// ```
+    ///
+    /// Assumes main tracks upstream/main and origin points to your fork.
     Target {
-        /// New target branch to set (e.g., "origin/main")
+        /// Local or remote-tracking branch (e.g., "main" or "origin/main").
+        /// Use refs/heads/... or refs/remotes/... to disambiguate.
         branch: Option<String>,
+        /// Remote to push branches to (e.g., "origin" for a fork).
+        #[clap(long, value_name = "REMOTE", requires = "branch")]
+        push_remote: Option<String>,
+    },
+
+    /// View or set the remote used to push branches.
+    ///
+    /// Without arguments, displays the effective push remote. With a remote name, updates the push
+    /// remote without changing the target branch.
+    ///
+    /// ## Examples
+    ///
+    /// View the current push remote:
+    ///
+    /// ```text
+    /// but config push-remote
+    /// ```
+    ///
+    /// Push branches to a fork remote:
+    ///
+    /// ```text
+    /// but config push-remote origin
+    /// ```
+    PushRemote {
+        /// New remote to use when pushing branches (e.g., "origin").
+        remote: Option<String>,
     },
 
     /// View or set metrics collection.
@@ -133,38 +177,162 @@ pub enum Subcommands {
         status: Option<MetricsStatus>,
     },
 
-    /// View and configure UI preferences.
+    /// View and configure feature flags.
     ///
-    /// Without arguments, displays current UI settings.
-    /// Use subcommands to set or unset configuration values.
+    /// Without arguments, displays all feature flags that can be changed through the CLI.
+    /// Specify a flag to view its current value, or add `enable` or `disable` to update it.
     ///
     /// ## Examples
     ///
-    /// View UI configuration:
+    /// View all feature flags:
     ///
     /// ```text
-    /// but config ui
+    /// but config feature
     /// ```
+    Feature {
+        /// Feature flag to view or update.
+        #[clap(value_enum)]
+        flag: Option<FeatureFlag>,
+        /// Whether the feature flag is enabled.
+        #[clap(value_enum, requires = "flag")]
+        status: Option<FeatureStatus>,
+    },
+
+    /// View and configure AI provider settings.
     ///
-    /// Enable TUI mode for diff by default:
+    /// Without subcommands, this starts an interactive setup flow.
+    /// Use provider subcommands for non-interactive configuration.
+    ///
+    /// ## Examples
+    ///
+    /// Interactive setup:
     ///
     /// ```text
-    /// but config ui set tui true
+    /// but config ai
     /// ```
     ///
-    /// Disable TUI mode:
+    /// View current AI configuration:
     ///
     /// ```text
-    /// but config ui set tui false
+    /// but config ai show
     /// ```
-    Ui {
+    ///
+    /// Configure OpenAI non-interactively:
+    ///
+    /// ```text
+    /// but config ai openai --key-option bring-your-own --api-key-env OPENAI_API_KEY --model gpt-5.4-nano
+    /// ```
+    ///
+    /// Configure Ollama locally:
+    ///
+    /// ```text
+    /// but config ai --local ollama --endpoint localhost:11434 --model llama3.1
+    /// ```
+    Ai {
+        /// Configure local repository git config instead of global user config
+        #[clap(long, conflicts_with = "global")]
+        local: bool,
+        /// Configure global user git config
+        #[clap(long)]
+        global: bool,
         #[clap(subcommand)]
-        cmd: Option<UiSubcommand>,
+        cmd: Option<AiSubcommand>,
     },
 }
 
+/// Subcommands for `but config ai`
+#[derive(Debug, Clone, clap::Subcommand)]
+pub enum AiSubcommand {
+    /// Show current AI provider configuration.
+    Show,
+
+    /// Configure OpenAI as the active AI provider.
+    Openai {
+        /// Which credential source to use.
+        #[clap(long, value_enum)]
+        key_option: Option<AiKeyOption>,
+        /// Preferred model name (for example, gpt-5.4-nano).
+        #[clap(long)]
+        model: Option<String>,
+        /// Optional custom OpenAI-compatible endpoint URL.
+        #[clap(long)]
+        endpoint: Option<String>,
+        /// OpenAI API key. Prefer --api-key-env to avoid shell history exposure.
+        #[clap(long, hide_env_values = true)]
+        api_key: Option<String>,
+        /// Name of an environment variable holding the OpenAI API key.
+        #[clap(long)]
+        api_key_env: Option<String>,
+    },
+
+    /// Configure Anthropic as the active AI provider.
+    Anthropic {
+        /// Which credential source to use.
+        #[clap(long, value_enum)]
+        key_option: Option<AiKeyOption>,
+        /// Preferred model name (for example, claude-3-5-haiku-latest).
+        #[clap(long)]
+        model: Option<String>,
+        /// Anthropic API key. Prefer --api-key-env to avoid shell history exposure.
+        #[clap(long, hide_env_values = true)]
+        api_key: Option<String>,
+        /// Name of an environment variable holding the Anthropic API key.
+        #[clap(long)]
+        api_key_env: Option<String>,
+    },
+
+    /// Configure Ollama as the active AI provider.
+    Ollama {
+        /// Ollama endpoint in host:port form (for example, localhost:11434).
+        #[clap(long)]
+        endpoint: Option<String>,
+        /// Preferred model name.
+        #[clap(long)]
+        model: Option<String>,
+    },
+
+    /// Configure LM Studio as the active AI provider.
+    Lmstudio {
+        /// LM Studio API base endpoint (for example, http://localhost:1234/v1).
+        #[clap(long)]
+        endpoint: Option<String>,
+        /// Preferred model name.
+        #[clap(long)]
+        model: Option<String>,
+    },
+
+    /// Configure OpenRouter as the active AI provider.
+    Openrouter {
+        /// Preferred model name (for example, openai/gpt-4.1-mini).
+        #[clap(long)]
+        model: Option<String>,
+        /// OpenRouter API key. Prefer --api-key-env to avoid shell history exposure.
+        #[clap(long, hide_env_values = true)]
+        api_key: Option<String>,
+        /// Name of an environment variable holding the OpenRouter API key.
+        #[clap(long)]
+        api_key_env: Option<String>,
+    },
+}
+
+/// Credential source options for OpenAI/Anthropic.
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum AiKeyOption {
+    BringYourOwn,
+    ButlerApi,
+}
+
+impl From<AiKeyOption> for but_llm::CredentialsKeyOption {
+    fn from(value: AiKeyOption) -> Self {
+        match value {
+            AiKeyOption::BringYourOwn => Self::BringYourOwn,
+            AiKeyOption::ButlerApi => Self::ButlerApi,
+        }
+    }
+}
+
 /// Subcommands for `but config user`
-#[derive(Debug, clap::Subcommand)]
+#[derive(Debug, Clone, clap::Subcommand)]
 pub enum UserSubcommand {
     /// Set a user configuration value.
     ///
@@ -212,64 +380,38 @@ pub enum UserConfigKey {
     Editor,
 }
 
-/// Subcommands for `but config ui`
-#[derive(Debug, clap::Subcommand)]
-pub enum UiSubcommand {
-    /// Set a UI configuration value.
-    ///
-    /// ## Examples
-    ///
-    /// ```text
-    /// but config ui set tui true
-    /// but config ui set --global tui true
-    /// ```
-    Set {
-        /// The configuration key to set
-        key: UiConfigKey,
-        /// The value to set (true/false or 1/0)
-        value: String,
-        /// Set the configuration globally instead of locally
-        #[clap(long, short = 'g')]
-        global: bool,
-    },
-
-    /// Unset (remove) a UI configuration value.
-    ///
-    /// ## Examples
-    ///
-    /// ```text
-    /// but config ui unset tui
-    /// ```
-    Unset {
-        /// The configuration key to unset
-        key: UiConfigKey,
-        /// Unset the global configuration instead of local
-        #[clap(long, short = 'g')]
-        global: bool,
-    },
-}
-
-/// UI configuration keys that can be set or unset
-#[derive(Debug, Clone, clap::ValueEnum)]
-pub enum UiConfigKey {
-    /// Use the interactive TUI for diff by default (but.ui.tui)
-    Tui,
-}
-
-impl UiConfigKey {
-    /// Convert to the corresponding git config key
-    pub fn to_git_key(&self) -> &'static str {
-        match self {
-            UiConfigKey::Tui => "but.ui.tui",
-        }
-    }
-}
-
 /// Values for `but config metrics`
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
 pub enum MetricsStatus {
     Enable,
     Disable,
+}
+
+/// Feature flags that can be managed through `but config feature`.
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum FeatureFlag {}
+
+impl FeatureFlag {
+    pub fn as_str(self) -> &'static str {
+        match self {}
+    }
+
+    pub fn as_json_key(self) -> &'static str {
+        match self {}
+    }
+}
+
+/// Values for a feature flag.
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum FeatureStatus {
+    Enable,
+    Disable,
+}
+
+impl FeatureStatus {
+    pub fn enabled(self) -> bool {
+        matches!(self, FeatureStatus::Enable)
+    }
 }
 
 impl MetricsStatus {
@@ -292,7 +434,7 @@ impl UserConfigKey {
 /// Subcommands for `but config forge`
 #[derive(Debug, Clone, clap::Subcommand)]
 pub enum ForgeSubcommand {
-    /// Authenticate with your forge provider (currently only GitHub is supported).
+    /// Authenticate with the forge (GitHub, GitLab, or Bitbucket).
     ///
     /// This will guide you through the authentication process using either:
     /// GitHub
@@ -303,6 +445,11 @@ pub enum ForgeSubcommand {
     /// GitLab
     ///  - Personal Access Token (PAT)
     ///  - Self-Hosted
+    ///
+    /// Bitbucket
+    ///  - Atlassian API token with scopes (read:user:bitbucket,
+    ///    read:repository:bitbucket, read:pullrequest:bitbucket,
+    ///    write:pullrequest:bitbucket)
     Auth,
 
     /// List authenticated forge accounts known to GitButler.
@@ -332,4 +479,25 @@ pub enum ForgeSubcommand {
         /// If not provided, you'll be prompted to select which account(s) to forget.
         username: Option<String>,
     },
+
+    /// View or configure native GitHub stacked pull requests for this repository.
+    ///
+    /// This is an opt-in GitHub private-preview feature. The setting is stored in the
+    /// repository-local Git config and shared with the GitButler desktop application.
+    #[cfg(feature = "legacy")]
+    GithubStacks {
+        /// Enable, disable, or auto-detect native GitHub stacked pull requests.
+        #[clap(value_enum)]
+        status: Option<GitHubStacksStatus>,
+    },
+}
+
+/// Values for the native GitHub stacks project setting.
+#[cfg(feature = "legacy")]
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum GitHubStacksStatus {
+    /// Use native stacks when the repository supports them (the default).
+    Auto,
+    Enable,
+    Disable,
 }

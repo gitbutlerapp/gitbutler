@@ -1,0 +1,90 @@
+.snackbar {
+	display: inline-flex;
+	column-gap: 8px;
+	align-items: center;
+	max-width: 100%;
+
+	/* Every snackbar is 32px tall, with a close button or without: the floor is the height the
+	   button's 20px row gives, so a run of snackbars lines up whichever of them can be dismissed.
+	   Boxes here are border-box, so the floor includes the padding and the border. */
+	min-height: 32px;
+	/* More room after the sentence than before the glyph, so a snackbar with nothing to close
+	   doesn't end hard against its edge. */
+	padding: 5px 13px 5px 9px;
+	/* An inverted ground, so a snackbar reads as a passing note over the page rather than a piece of
+	   it. The border stays, transparent, to keep the measurements the light one had. */
+	border: 1px solid transparent;
+	/* It floats over the page, so it wears the popup radius. */
+	border-radius: var(--radius-popup);
+	background-color: var(--scale-gray-10);
+	box-shadow: var(--shadow-md);
+	color: var(--text-1-invert);
+	white-space: nowrap;
+	animation: enter 0.3s var(--easing-popup);
+
+	@media (prefers-reduced-motion: reduce) {
+		animation: none;
+	}
+}
+
+/* A snackbar rises into place as it appears, from just below where it settles. On `translate`, so
+   a host can still position it with `transform`. */
+@keyframes enter {
+	from {
+		translate: 0 50%;
+		opacity: 0;
+	}
+}
+
+/* The whole verdict: the surface, the border, and the sentence stay the same across variants, so
+   the glyph is the only thing saying how the news landed. */
+.icon {
+	color: var(--snackbar-icon);
+}
+
+.info {
+	--snackbar-icon: var(--text-2-invert);
+}
+
+.warning {
+	--snackbar-icon: var(--fill-warn-bg);
+}
+
+.danger {
+	--snackbar-icon: var(--fill-danger-bg);
+}
+
+.safe {
+	--snackbar-icon: var(--fill-safe-bg);
+}
+
+/* Takes the width it needs and gives it back before the snackbar grows past its container: a long
+   sentence ellipsises rather than pushing the way out off the end. Centring is on the cap band
+   rather than the line box, so the row reads evenly however the font hangs its ascent and descent
+   — and since the trimmed box ends at the baseline, the clip gets its descenders back by hand. */
+.message {
+	flex: 0 1 auto;
+	min-width: 0;
+	margin-block-end: -0.25em;
+	padding-block-end: 0.25em;
+	overflow: hidden;
+	text-box: trim-both cap alphabetic;
+	text-overflow: ellipsis;
+}
+
+/* Fences the way out off from what it would be closing. Its lane has room only on the sentence's
+   side, so the close button sits nearer the line than the words do. */
+.divider {
+	align-self: stretch;
+	width: 1px;
+	min-height: 20px;
+	margin-inline: 3.5px -0.5px;
+	background-color: var(--border-3);
+	opacity: 0.3;
+}
+
+/* The button spills 8px into the snackbar's wider end padding, so a snackbar that can be closed is
+   no wider for it, and its cross sits 10px from the edge, as the glyph does at the other end. */
+.dismiss {
+	margin-inline-end: -8px;
+}

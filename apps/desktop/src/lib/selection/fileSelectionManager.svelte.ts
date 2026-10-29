@@ -1,3 +1,4 @@
+import { createBranchRef } from "$lib/branches/branchUtils";
 import {
 	selectionKey,
 	key,
@@ -7,18 +8,38 @@ import {
 	type SelectionId,
 	type SelectedFile,
 } from "$lib/selection/key";
-import { createBranchRef } from "$lib/utils/branch";
 import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { SvelteSet } from "svelte/reactivity";
 import { get, writable, type Writable } from "svelte/store";
 import type { HistoryService } from "$lib/history/history";
 import type { OplogService } from "$lib/history/oplogService.svelte";
-import type { TreeChange } from "$lib/hunks/change";
-import type { HunkAssignment } from "$lib/hunks/hunk";
 import type { UncommittedService } from "$lib/selection/uncommittedService.svelte";
-import type { StackService } from "$lib/stacks/stackService.svelte";
+import type { Result } from "$lib/state/helpers";
 import type { WorktreeService } from "$lib/worktree/worktreeService.svelte";
+import type { HunkAssignment } from "@gitbutler/but-sdk";
+import type { TreeChange } from "@gitbutler/but-sdk";
+
+// Structural type for the return value of change-by-path queries.
+type ChangeResult = { result: Result<TreeChange>; response: TreeChange | undefined };
+
+// Structural interface to avoid circular import with stacks/.
+interface StackServiceLike {
+	branchChangesByPaths(args: {
+		projectId: string;
+		stackId?: string;
+		branch: string;
+		paths: string[];
+	}): Promise<TreeChange[]>;
+	commitChangesByPaths(projectId: string, commitId: string, paths: string[]): Promise<TreeChange[]>;
+	commitChange(projectId: string, commitId: string, path: string): ChangeResult;
+	branchChange(args: {
+		projectId: string;
+		stackId?: string;
+		branch: string;
+		path: string;
+	}): ChangeResult;
+}
 
 export const FILE_SELECTION_MANAGER = new InjectionToken<FileSelectionManager>(
 	"FileSelectionManager",
@@ -47,7 +68,7 @@ export class FileSelectionManager {
 	>;
 
 	constructor(
-		private stackService: StackService,
+		private stackService: StackServiceLike,
 		private uncommittedService: UncommittedService,
 		private worktreeService: WorktreeService,
 		private oplogService: OplogService,
@@ -154,6 +175,7 @@ export class FileSelectionManager {
 		switch (params.type) {
 			case "worktree":
 				return this.uncommittedService
+					.at(params.worktree)
 					.getChangesByStackId(params.stackId || null)
 					.filter((c) => paths.includes(c.path));
 			case "branch": {
@@ -161,7 +183,6 @@ export class FileSelectionManager {
 				const branch = createBranchRef(branchName, remote);
 				return await this.stackService.branchChangesByPaths({
 					projectId,
-					stackId: params.stackId,
 					branch,
 					paths: paths,
 				});
@@ -195,7 +216,9 @@ export class FileSelectionManager {
 				const paths = this.values(params).map((fileSelection) => {
 					return fileSelection.path;
 				});
-				return this.uncommittedService.getAssignmentsByPaths(params.stackId || null, paths);
+				return this.uncommittedService
+					.at(params.worktree)
+					.getAssignmentsByPaths(params.stackId || null, paths);
 			}
 			case "branch":
 			case "commit":
@@ -219,14 +242,14 @@ export class FileSelectionManager {
 	 * current worktree changes. Note that this function is a special case
 	 * for a particular key. It feels a bit out of place.
 	 */
-	retain(paths: string[] | undefined) {
+	retain(paths: string[] | undefined, worktree?: string) {
 		if (paths === undefined) {
 			this.selections.clear();
 			return;
 		}
 		const removedFiles: SelectedFile[] = [];
 		const worktreeSelection = this.selections.get(
-			selectionKey(createWorktreeSelection({ stackId: undefined })),
+			selectionKey(createWorktreeSelection({ stackId: undefined, worktree })),
 		);
 		if (!worktreeSelection) return;
 
@@ -262,14 +285,17 @@ export class FileSelectionManager {
 				const branch = createBranchRef(branchName, remote);
 				return this.stackService.branchChange({
 					projectId,
-					stackId: selectedFile.stackId,
 					branch,
 					path: selectedFile.path,
 				});
 			}
 			case "worktree":
 				this.uncommittedService.assignmentsByPath(selectedFile.stackId || null, selectedFile.path);
-				return this.worktreeService.treeChangeByPath(projectId, selectedFile.path);
+				return this.worktreeService.treeChangeByPath(
+					projectId,
+					selectedFile.path,
+					selectedFile.worktree,
+				);
 			case "snapshot":
 				return this.historyService.snapshotDiffByPath({
 					projectId,

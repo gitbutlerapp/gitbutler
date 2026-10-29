@@ -1,42 +1,48 @@
+use snapbox::prelude::*;
+
 #[test]
 fn change_2_to_two_in_second_commit() -> anyhow::Result<()> {
     let repo = repo("1-2-3-10_two")?;
     let digest = workspace_ranges_digest_for_worktree_changes(&repo)?;
     // TODO: not sure about the line shift, expected to be 0.
-    insta::assert_debug_snapshot!(digest.partial(), @r#"
-    WorkspaceWithoutRanges {
-        intersections_by_path: [
-            (
-                "file",
-                [
-                    HunkIntersection {
-                        hunk: DiffHunk("@@ -2,1 +2,1 @@
-                        -2
-                        +two
-                        "),
-                        commit_intersections: [
-                            StableHunkRange {
-                                change_type: Addition,
-                                commit_id: Sha1(72623dc20d0c01a70a8c82b5d87f8989558c47cd),
-                                start: 1,
-                                lines: 1,
-                                line_shift: 1,
-                            },
-                            StableHunkRange {
-                                change_type: Modification,
-                                commit_id: Sha1(ca5567e4be81f1ee69b3d5ac5410d5010bcea756),
-                                start: 2,
-                                lines: 1,
-                                line_shift: 1,
-                            },
-                        ],
-                    },
-                ],
-            ),
-        ],
-        missed_hunks: [],
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        digest.partial().to_debug(),
+        snapbox::str![[r#"
+WorkspaceWithoutRanges {
+    intersections_by_path: [
+        (
+            "file",
+            [
+                HunkIntersection {
+                    hunk: DiffHunk("@@ -2,1 +2,1 @@
+                    -2
+                    +two
+                    "),
+                    commit_intersections: [
+                        StableHunkRange {
+                            change_type: Addition,
+                            commit_id: Sha1(72623dc20d0c01a70a8c82b5d87f8989558c47cd),
+                            start: 1,
+                            lines: 1,
+                            line_shift: 1,
+                        },
+                        StableHunkRange {
+                            change_type: Modification,
+                            commit_id: Sha1(ca5567e4be81f1ee69b3d5ac5410d5010bcea756),
+                            start: 2,
+                            lines: 1,
+                            line_shift: 1,
+                        },
+                    ],
+                },
+            ],
+        ),
+    ],
+    missed_hunks: [],
+}
+
+"#]]
+    );
     Ok(())
 }
 
@@ -45,20 +51,24 @@ fn change_2_to_two_in_second_commit_after_file_rename() -> anyhow::Result<()> {
     let repo = repo("1-2-3-10_renamed-two")?;
     let digest = workspace_ranges_digest_for_worktree_changes(&repo)?;
     // TODO: It should find a commit, probably due to rename tracking - it would have to start searching for the new path name.
-    insta::assert_debug_snapshot!(digest.partial(), @r#"
-    WorkspaceWithoutRanges {
-        intersections_by_path: [],
-        missed_hunks: [
-            (
-                "file-renamed",
-                DiffHunk("@@ -2,1 +2,1 @@
-                -2
-                +two
-                "),
-            ),
-        ],
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        digest.partial().to_debug(),
+        snapbox::str![[r#"
+WorkspaceWithoutRanges {
+    intersections_by_path: [],
+    missed_hunks: [
+        (
+            "file-renamed",
+            DiffHunk("@@ -2,1 +2,1 @@
+            -2
+            +two
+            "),
+        ),
+    ],
+}
+
+"#]]
+    );
     Ok(())
 }
 
@@ -67,40 +77,44 @@ fn change_2_to_two_in_second_commit_after_shift_by_two() -> anyhow::Result<()> {
     let repo = repo("1-2-3-10-shift_two")?;
     let digest = workspace_ranges_digest_for_worktree_changes(&repo)?;
     // TODO: It finds the correct commit, but `line_shift` should be 2.
-    insta::assert_debug_snapshot!(digest.partial(), @r#"
-    WorkspaceWithoutRanges {
-        intersections_by_path: [
-            (
-                "file",
-                [
-                    HunkIntersection {
-                        hunk: DiffHunk("@@ -4,1 +4,1 @@
-                        -2
-                        +two
-                        "),
-                        commit_intersections: [
-                            StableHunkRange {
-                                change_type: Addition,
-                                commit_id: Sha1(72623dc20d0c01a70a8c82b5d87f8989558c47cd),
-                                start: 1,
-                                lines: 1,
-                                line_shift: 1,
-                            },
-                            StableHunkRange {
-                                change_type: Modification,
-                                commit_id: Sha1(ca5567e4be81f1ee69b3d5ac5410d5010bcea756),
-                                start: 4,
-                                lines: 1,
-                                line_shift: 1,
-                            },
-                        ],
-                    },
-                ],
-            ),
-        ],
-        missed_hunks: [],
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        digest.partial().to_debug(),
+        snapbox::str![[r#"
+WorkspaceWithoutRanges {
+    intersections_by_path: [
+        (
+            "file",
+            [
+                HunkIntersection {
+                    hunk: DiffHunk("@@ -4,1 +4,1 @@
+                    -2
+                    +two
+                    "),
+                    commit_intersections: [
+                        StableHunkRange {
+                            change_type: Addition,
+                            commit_id: Sha1(72623dc20d0c01a70a8c82b5d87f8989558c47cd),
+                            start: 1,
+                            lines: 1,
+                            line_shift: 1,
+                        },
+                        StableHunkRange {
+                            change_type: Modification,
+                            commit_id: Sha1(ca5567e4be81f1ee69b3d5ac5410d5010bcea756),
+                            start: 4,
+                            lines: 1,
+                            line_shift: 1,
+                        },
+                    ],
+                },
+            ],
+        ),
+    ],
+    missed_hunks: [],
+}
+
+"#]]
+    );
     Ok(())
 }
 
@@ -109,39 +123,43 @@ fn add_single_line() -> anyhow::Result<()> {
     let repo = repo("1-2-3-10_add-five")?;
     let digest = workspace_ranges_digest_for_worktree_changes(&repo)?;
     // TODO: It finds the right commit, but the hunk numbers seem off, should be inserted at line 6, and it's just one line with no `line_shift`.
-    insta::assert_debug_snapshot!(digest.partial(), @r#"
-    WorkspaceWithoutRanges {
-        intersections_by_path: [
-            (
-                "file",
-                [
-                    HunkIntersection {
-                        hunk: DiffHunk("@@ -6,0 +6,1 @@
-                        +5.5
-                        "),
-                        commit_intersections: [
-                            StableHunkRange {
-                                change_type: Addition,
-                                commit_id: Sha1(72623dc20d0c01a70a8c82b5d87f8989558c47cd),
-                                start: 1,
-                                lines: 1,
-                                line_shift: 1,
-                            },
-                            StableHunkRange {
-                                change_type: Modification,
-                                commit_id: Sha1(ab311c05e6ca309fb01bcba46e9ab6ba652e0012),
-                                start: 4,
-                                lines: 7,
-                                line_shift: 7,
-                            },
-                        ],
-                    },
-                ],
-            ),
-        ],
-        missed_hunks: [],
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        digest.partial().to_debug(),
+        snapbox::str![[r#"
+WorkspaceWithoutRanges {
+    intersections_by_path: [
+        (
+            "file",
+            [
+                HunkIntersection {
+                    hunk: DiffHunk("@@ -6,0 +6,1 @@
+                    +5.5
+                    "),
+                    commit_intersections: [
+                        StableHunkRange {
+                            change_type: Addition,
+                            commit_id: Sha1(72623dc20d0c01a70a8c82b5d87f8989558c47cd),
+                            start: 1,
+                            lines: 1,
+                            line_shift: 1,
+                        },
+                        StableHunkRange {
+                            change_type: Modification,
+                            commit_id: Sha1(ab311c05e6ca309fb01bcba46e9ab6ba652e0012),
+                            start: 4,
+                            lines: 7,
+                            line_shift: 7,
+                        },
+                    ],
+                },
+            ],
+        ),
+    ],
+    missed_hunks: [],
+}
+
+"#]]
+    );
     Ok(())
 }
 
@@ -150,39 +168,43 @@ fn remove_single_line() -> anyhow::Result<()> {
     let repo = repo("1-2-3-10_remove-five")?;
     let digest = workspace_ranges_digest_for_worktree_changes(&repo)?;
     // TODO: It finds the right commit, but the hunk numbers seem off, removal should be at 5, without line shift.
-    insta::assert_debug_snapshot!(digest.partial(), @r#"
-    WorkspaceWithoutRanges {
-        intersections_by_path: [
-            (
-                "file",
-                [
-                    HunkIntersection {
-                        hunk: DiffHunk("@@ -5,1 +5,0 @@
-                        -5
-                        "),
-                        commit_intersections: [
-                            StableHunkRange {
-                                change_type: Addition,
-                                commit_id: Sha1(72623dc20d0c01a70a8c82b5d87f8989558c47cd),
-                                start: 1,
-                                lines: 1,
-                                line_shift: 1,
-                            },
-                            StableHunkRange {
-                                change_type: Modification,
-                                commit_id: Sha1(ab311c05e6ca309fb01bcba46e9ab6ba652e0012),
-                                start: 4,
-                                lines: 7,
-                                line_shift: 7,
-                            },
-                        ],
-                    },
-                ],
-            ),
-        ],
-        missed_hunks: [],
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        digest.partial().to_debug(),
+        snapbox::str![[r#"
+WorkspaceWithoutRanges {
+    intersections_by_path: [
+        (
+            "file",
+            [
+                HunkIntersection {
+                    hunk: DiffHunk("@@ -5,1 +5,0 @@
+                    -5
+                    "),
+                    commit_intersections: [
+                        StableHunkRange {
+                            change_type: Addition,
+                            commit_id: Sha1(72623dc20d0c01a70a8c82b5d87f8989558c47cd),
+                            start: 1,
+                            lines: 1,
+                            line_shift: 1,
+                        },
+                        StableHunkRange {
+                            change_type: Modification,
+                            commit_id: Sha1(ab311c05e6ca309fb01bcba46e9ab6ba652e0012),
+                            start: 4,
+                            lines: 7,
+                            line_shift: 7,
+                        },
+                    ],
+                },
+            ],
+        ),
+    ],
+    missed_hunks: [],
+}
+
+"#]]
+    );
     Ok(())
 }
 

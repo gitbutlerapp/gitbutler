@@ -177,4 +177,66 @@ impl HunkRange {
 
         Ok(self.start <= incoming_last_line && last_line >= start)
     }
+
+    /// Like [`intersects`], but also returns `true` when the two ranges are *adjacent* —
+    /// i.e. one ends on the line immediately before the other starts.
+    ///
+    /// This is used when querying which commits a worktree hunk should be locked to, because
+    /// a reorder or restructuring can create an LCS insertion point right at the boundary
+    /// between two hunks, which would produce a cherry-pick conflict even though the line
+    /// ranges do not technically overlap.
+    pub(crate) fn intersects_or_adjacent(&self, start: u32, lines: u32) -> Result<bool> {
+        if lines == 0 {
+            // Incoming hunk is a pure insertion at position `start`. Check whether
+            // the tracked range is at or adjacent to that position.
+            if self.change_type == TreeStatusKind::Deletion {
+                return Ok(true);
+            }
+            if self.lines == 0 {
+                // Both are points — adjacent if within 1 position of each other.
+                return Ok(
+                    self.start <= start.saturating_add(1) && self.start.saturating_add(1) >= start
+                );
+            }
+            let last_line = (self.start + self.lines).sub_or_err(1)?;
+            return Ok(
+                self.start <= start.saturating_add(1) && last_line.saturating_add(1) >= start
+            );
+        }
+
+        if self.change_type == TreeStatusKind::Deletion {
+            return Ok(true);
+        }
+
+        if self.lines == 0 {
+            // The tracked range is a deletion point (lines == 0). Apply the adjacency
+            // margin to the effective range, otherwise a deletion at position N would
+            // not be considered adjacent to a worktree hunk ending at N-1.
+            let incoming_last_line = (start + lines).sub_or_err(1)?;
+            if self.line_shift < 0 {
+                // Deletion spans multiple lines: effective range from self.start
+                // to self.start + |line_shift| - 1.
+                let lines_removed = 0 - self.line_shift;
+                let this_start = i32::try_from(self.start)?;
+                let last_line = (this_start + lines_removed) - 1;
+                let incoming_start = i32::try_from(start)?;
+                let incoming_last_line = i32::try_from(incoming_last_line)?;
+                return Ok(this_start <= incoming_last_line + 1 && last_line + 1 >= incoming_start);
+            }
+            // Single deletion point: adjacent if within 1 line of the incoming range.
+            return Ok(self.start <= incoming_last_line.saturating_add(1)
+                && self.start.saturating_add(1) >= start);
+        }
+
+        let last_line = (self.start + self.lines)
+            .sub_or_err(1)
+            .context("While calculating the last line")?;
+        let incoming_last_line = (start + lines)
+            .sub_or_err(1)
+            .context("While calculating the last line of the incoming hunk")?;
+
+        // Allow a 1-line gap so that adjacent hunks are treated as intersecting.
+        Ok(self.start <= incoming_last_line.saturating_add(1)
+            && last_line.saturating_add(1) >= start)
+    }
 }

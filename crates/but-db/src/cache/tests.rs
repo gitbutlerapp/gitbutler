@@ -53,6 +53,36 @@ mod open_with_migrations_infallible {
         assert!(table_exists(&conn, "foo")?);
         Ok(())
     }
+
+    #[test]
+    fn existing_cache_with_migration_failure_falls_back_to_memory() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let url = tmp.path().join("existing-cache.sqlite");
+        let conn = rusqlite::Connection::open(&url)?;
+        conn.execute_batch(
+            "CREATE TABLE `foo`(
+                `id` TEXT NOT NULL PRIMARY KEY
+            );",
+        )?;
+        drop(conn);
+
+        let (conn, actual_url) = open_with_migrations_infallible(&url, migrations());
+        assert_eq!(
+            actual_url, ":memory:",
+            "migration failures on a valid existing cache fall back to memory"
+        );
+        assert!(url.exists(), "valid caches are kept on disk");
+        assert!(table_exists(&conn, "foo")?);
+        assert!(table_exists(&conn, "__diesel_schema_migrations")?);
+
+        let disk_conn = rusqlite::Connection::open(&url)?;
+        assert!(table_exists(&disk_conn, "foo")?);
+        assert!(
+            !table_exists(&disk_conn, "__diesel_schema_migrations")?,
+            "failed migrations leave the existing cache untouched"
+        );
+        Ok(())
+    }
 }
 
 fn migrations() -> impl Iterator<Item = M<'static>> + Clone {

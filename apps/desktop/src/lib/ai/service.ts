@@ -24,16 +24,17 @@ import {
 	AnthropicModelName,
 	ModelKind,
 	MessageRole,
+	type OpenRouterModelName,
 	type Prompt,
 	type PromptMessage,
 	type FileChange,
 } from "$lib/ai/types";
-import { splitMessage } from "$lib/utils/commitMessage";
+import { splitMessage } from "$lib/commits/commitMessage";
 import { InjectionToken } from "@gitbutler/core/context";
 import { get } from "svelte/store";
 import type { GitConfigService } from "$lib/config/gitConfigService";
 import type { SecretsService } from "$lib/secrets/secretsService";
-import type { TokenMemoryService } from "$lib/stores/tokenMemoryService";
+import type { TokenMemoryService } from "$lib/user/tokenMemoryService";
 import type { HttpClient } from "@gitbutler/shared/network/httpClient";
 
 const maxDiffLengthLimitForAPI = 5000;
@@ -47,6 +48,7 @@ export enum KeyOption {
 export enum AISecretHandle {
 	OpenAIKey = "aiOpenAIKey",
 	AnthropicKey = "aiAnthropicKey",
+	OpenRouterKey = "aiOpenRouterKey",
 }
 
 export enum GitAIConfigKey {
@@ -61,6 +63,7 @@ export enum GitAIConfigKey {
 	OllamaModelName = "gitbutler.aiOllamaModelName",
 	LMStudioEndpoint = "gitbutler.aiLMStudioEndpoint",
 	LMStudioModelName = "gitbutler.aiLMStudioModelName",
+	OpenRouterModelName = "gitbutler.aiOpenRouterModelName",
 }
 
 interface BaseAIServiceOpts {
@@ -153,11 +156,16 @@ export class AIService {
 		return await this.secretsService.get(AISecretHandle.OpenAIKey);
 	}
 
-	async getOpenAIModleName() {
-		return await this.gitConfig.getWithDefault<OpenAIModelName>(
+	async getOpenAIModelName() {
+		const defaultModel = OpenAIModelName.GPT54Nano;
+		const storedValue = await this.gitConfig.getWithDefault<string>(
 			GitAIConfigKey.OpenAIModelName,
-			OpenAIModelName.GPT4oMini,
+			defaultModel,
 		);
+		if (Object.values(OpenAIModelName).includes(storedValue as OpenAIModelName)) {
+			return storedValue as OpenAIModelName;
+		}
+		return defaultModel;
 	}
 
 	async getAnthropicKeyOption() {
@@ -172,10 +180,15 @@ export class AIService {
 	}
 
 	async getAnthropicModelName() {
-		return await this.gitConfig.getWithDefault<AnthropicModelName>(
+		const defaultModel = AnthropicModelName.Haiku;
+		const storedValue = await this.gitConfig.getWithDefault<string>(
 			GitAIConfigKey.AnthropicModelName,
-			AnthropicModelName.Haiku,
+			defaultModel,
 		);
+		if (Object.values(AnthropicModelName).includes(storedValue as AnthropicModelName)) {
+			return storedValue as AnthropicModelName;
+		}
+		return defaultModel;
 	}
 
 	async getDiffLengthLimit() {
@@ -228,6 +241,17 @@ export class AIService {
 		);
 	}
 
+	async getOpenRouterKey() {
+		return await this.secretsService.get(AISecretHandle.OpenRouterKey);
+	}
+
+	async getOpenRouterModelName() {
+		return await this.gitConfig.getWithDefault<OpenRouterModelName>(
+			GitAIConfigKey.OpenRouterModelName,
+			"openai/gpt-4.1-mini",
+		);
+	}
+
 	async usingGitButlerAPI() {
 		const modelKind = await this.getModelKind();
 		const openAIKeyOption = await this.getOpenAIKeyOption();
@@ -258,12 +282,15 @@ export class AIService {
 			modelKind === ModelKind.Ollama && !!ollamaEndpoint && !!ollamaModelName;
 		const lmStudioActiveAndEndpointProvided =
 			modelKind === ModelKind.LMStudio && !!lmStudioEndpoint && !!lmStudioModelName;
+		const openRouterActiveAndKeyProvided =
+			modelKind === ModelKind.OpenRouter && !!(await this.getOpenRouterKey());
 
 		return (
 			openAIActiveAndKeyProvided ||
 			anthropicActiveAndKeyProvided ||
 			ollamaActiveAndEndpointProvided ||
-			lmStudioActiveAndEndpointProvided
+			lmStudioActiveAndEndpointProvided ||
+			openRouterActiveAndKeyProvided
 		);
 	}
 
@@ -308,7 +335,7 @@ export class AIService {
 		}
 
 		if (modelKind === ModelKind.OpenAI) {
-			const openAIModelName = await this.getOpenAIModleName();
+			const openAIModelName = await this.getOpenAIModelName();
 			const openAIKey = await this.getOpenAIKey();
 			const openAICustomEndpoint = await this.getOpenAICustomEndpoint();
 
@@ -332,6 +359,17 @@ export class AIService {
 			}
 
 			return new AnthropicAIClient(anthropicKey, anthropicModelName);
+		}
+
+		if (modelKind === ModelKind.OpenRouter) {
+			const openRouterKey = (await this.getOpenRouterKey())?.trim();
+			const openRouterModelName = await this.getOpenRouterModelName();
+
+			if (!openRouterKey) {
+				throw new Error("When using OpenRouter, you must provide a valid API key");
+			}
+
+			return new OpenAIClient(openRouterKey, openRouterModelName, "https://openrouter.ai/api/v1");
 		}
 
 		return undefined;

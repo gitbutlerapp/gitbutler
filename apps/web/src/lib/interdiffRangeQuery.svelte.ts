@@ -2,7 +2,7 @@ import { goto } from "$app/navigation";
 import { page } from "$app/state";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { type Reactive } from "@gitbutler/shared/storeUtils";
-import { isDefined } from "@gitbutler/ui/utils/typeguards";
+import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 
 /**
  * Sets the interdiff before version.

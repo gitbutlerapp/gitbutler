@@ -4,12 +4,15 @@ use but_testsupport::{read_only_in_memory_scenario, visualize_commit_graph_all};
 #[test]
 fn journey() -> anyhow::Result<()> {
     let repo = read_only_in_memory_scenario("multiple-remotes-with-tracking-branches")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, 
-            @"
-    * 14f7926 (nested/remote-b/main, nested/remote-b/in-nested-remote-b, nested/remote-b/HEAD) init-c
-    * 5efb67f (nested/remote/main, nested/remote/in-nested-remote, nested/remote/HEAD) init-b
-    * 263500f (origin/normal-remote, origin/main, origin/HEAD) init-a
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 14f7926 (nested/remote-b/main, nested/remote-b/in-nested-remote-b, nested/remote-b/HEAD) init-c
+* 5efb67f (nested/remote/main, nested/remote/in-nested-remote, nested/remote/HEAD) init-b
+* 263500f (origin/normal-remote, origin/main, origin/HEAD) init-a
+
+"#]]
+    );
 
     let remote_names = repo.remote_names();
     let rn = "refs/remotes/origin/feature".try_into()?;

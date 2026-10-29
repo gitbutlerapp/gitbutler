@@ -33,13 +33,44 @@ pub use bstring::BStringForFrontend;
 /// ```
 pub mod bstring_lossy {
     use bstr::{BString, ByteSlice};
-    use serde::Serialize;
+    use serde::{Deserialize, Deserializer, Serialize};
 
     pub fn serialize<S>(v: &BString, s: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         v.to_str_lossy().serialize(s)
+    }
+
+    pub fn deserialize<'de, D>(d: D) -> Result<BString, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(String::deserialize(d)?.into())
+    }
+}
+
+/// Use on `PathBuf` fields that should serialize as JSON strings, degrading
+/// lossily instead of failing on paths that are not valid UTF-8 (which is what
+/// serde's built-in `Path` serialization does).
+///
+/// ```rust
+/// #[derive(serde::Serialize)]
+/// struct Example {
+///     #[serde(with = "but_serde::path_lossy")]
+///     path: std::path::PathBuf,
+/// }
+/// ```
+pub mod path_lossy {
+    use std::path::Path;
+
+    use serde::Serialize;
+
+    pub fn serialize<S>(v: &Path, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        v.to_string_lossy().serialize(s)
     }
 }
 
@@ -70,6 +101,76 @@ pub mod fullname_lossy {
         let string = <String as Deserialize>::deserialize(d)?;
         gix::refs::FullName::try_from(string)
             .map_err(|err| serde::de::Error::custom(err.to_string()))
+    }
+}
+
+/// Like [`fullname_lossy`], but for `Option<gix::refs::FullName>` fields.
+///
+/// ```rust
+/// #[derive(serde::Serialize, serde::Deserialize)]
+/// struct Example {
+///     #[serde(with = "but_serde::fullname_lossy_opt")]
+///     reference: Option<gix::refs::FullName>,
+/// }
+/// ```
+pub mod fullname_lossy_opt {
+    use bstr::ByteSlice;
+    use serde::{Deserialize, Deserializer, Serialize};
+
+    pub fn serialize<S>(v: &Option<gix::refs::FullName>, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        v.as_ref().map(|v| v.as_bstr().to_str_lossy()).serialize(s)
+    }
+
+    pub fn deserialize<'de, D>(d: D) -> Result<Option<gix::refs::FullName>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let string = <Option<String> as Deserialize>::deserialize(d)?;
+        string
+            .map(|v| {
+                gix::refs::FullName::try_from(v)
+                    .map_err(|err| serde::de::Error::custom(err.to_string()))
+            })
+            .transpose()
+    }
+}
+
+/// Like [`fullname_lossy`], but serializes as bytes and wraps `Option<gix::refs::FullName>`.
+///
+/// ```rust
+/// #[derive(serde::Serialize, serde::Deserialize)]
+/// struct Example {
+///     #[serde(with = "but_serde::fullname_bytes_opt")]
+///     reference: Option<gix::refs::FullName>,
+/// }
+/// ```
+pub mod fullname_bytes_opt {
+    use bstr::ByteSlice;
+    use serde::{Deserialize, Deserializer, Serialize};
+
+    pub fn serialize<S>(v: &Option<gix::refs::FullName>, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        v.as_ref()
+            .map(|v| v.as_bstr().as_bytes().to_vec())
+            .serialize(s)
+    }
+
+    pub fn deserialize<'de, D>(d: D) -> Result<Option<gix::refs::FullName>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes = <Option<Vec<u8>> as Deserialize>::deserialize(d)?;
+        bytes
+            .map(|v| {
+                gix::refs::FullName::try_from(bstr::BString::from(v))
+                    .map_err(|err| serde::de::Error::custom(err.to_string()))
+            })
+            .transpose()
     }
 }
 
@@ -155,20 +256,20 @@ where
     v.seconds().serialize(s)
 }
 
-/// Use on `gix::date::Time` fields that should serialize as Unix seconds.
+/// Use on `gix::date::Time` fields that should serialize as Unix milliseconds.
 ///
 /// ```rust
 /// #[derive(serde::Serialize)]
 /// struct Example {
-///     #[serde(serialize_with = "but_serde::as_time_seconds_from_unix_epoch_gix")]
+///     #[serde(serialize_with = "but_serde::as_time_milliseconds_from_unix_epoch")]
 ///     created_at: gix::date::Time,
 /// }
 /// ```
-pub fn as_time_seconds_from_unix_epoch_gix<S>(v: &gix::date::Time, s: S) -> Result<S::Ok, S::Error>
+pub fn as_time_milliseconds_from_unix_epoch<S>(v: &gix::date::Time, s: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
-    v.seconds.serialize(s)
+    (v.seconds as i128 * 1000).serialize(s)
 }
 
 #[cfg(feature = "legacy")]

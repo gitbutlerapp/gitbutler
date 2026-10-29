@@ -3,35 +3,19 @@ use std::{ffi::OsString, path::PathBuf, process::Stdio};
 use bstr::BStr;
 use tracing::instrument;
 
-/// Prepare `program` for invocation with a Git-compatible shell to help it pick up more of the usual environment on Windows.
-///
-/// On Windows, this specifically uses the Git-bundled shell, further increasing compatibility.
-pub fn prepare_with_shell_on_windows(program: impl Into<OsString>) -> gix::command::Prepare {
-    if cfg!(windows) {
-        gix::command::prepare(program)
-            // On Windows, this means a shell will always be used.
-            .command_may_be_shell_script_disallow_manual_argument_splitting()
-            // force using a shell, we want access to additional programs here
-            .with_shell()
-            // We know `program` is a path, so quote it.
-            .with_quoted_command()
-    } else {
-        gix::command::prepare(program)
-    }
-}
-
 /// Launch the login shell and try to extract their environment variables, or `None` if the shell couldn't be determined,
 /// or if it couldn't be launched, or if the environment extraction failed.
 #[instrument()]
 pub fn extract_interactive_login_shell_environment() -> Option<Vec<(OsString, OsString)>> {
     // NOTE that `SHELL` isn't usually set on Windows, so this will not usually run there.
     let shell_path: PathBuf = std::env::var_os("SHELL")?.into();
-    let stdout = std::process::Command::from(
+    let stdout = std::process::Command::try_from(
         // This automatically prevents a Window from popping up on Windows.
         gix::command::prepare(shell_path)
             .args(["-i", "-l", "-c", "env"])
             .stderr(Stdio::null()),
     )
+    .ok()?
     .output()
     .ok()?
     .stdout;
@@ -49,10 +33,13 @@ fn parse_key_value_pairs<'a>(input: impl Into<&'a BStr>) -> Vec<(OsString, OsStr
         let (key, value) = (tokens.next(), tokens.next());
         match (key, value) {
             (Some(key), Some(value)) => {
-                out.push((
-                    gix::path::from_byte_slice(key).into(),
-                    gix::path::from_byte_slice(value).into(),
-                ));
+                let kv = (
+                    gix::path::from_byte_slice(key),
+                    gix::path::from_byte_slice(value),
+                );
+                if let (Ok(key), Ok(value)) = kv {
+                    out.push((key.into(), value.into()));
+                }
             }
             _ => continue,
         }

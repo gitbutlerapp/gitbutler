@@ -2,7 +2,7 @@
 	import { goto } from "$app/navigation";
 	import { inject } from "@gitbutler/core/context";
 	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
-	import { Button, Icon } from "@gitbutler/ui";
+	import { Button, Icon } from "@gitbutler/ui-svelte";
 
 	const routes = inject(WEB_ROUTES_SERVICE);
 
@@ -43,15 +43,15 @@
 		align-items: center;
 		max-width: 400px;
 		padding: 32px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		text-align: center;
 	}
 
 	.icon-container {
 		margin-bottom: 16px;
-		color: var(--clr-theme-danger-element);
+		color: var(--fill-danger-bg);
 	}
 
 	.title {
@@ -60,7 +60,7 @@
 
 	.error-message {
 		margin-bottom: 24px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		line-height: 1.5;
 	}
 

@@ -3,102 +3,7 @@
 ### General Description
 
 # Various directories with different scenarios for testing stack information *with* or *without* a workspace commit.
-set -eu -o pipefail
-
-function remote_tracking_caught_up() {
-  setup_remote_tracking "$1"
-}
-
-function setup_remote_tracking() {
-  local branch_name="${1:?}"
-  local remote_branch_name=${2:-"$branch_name"}
-  local mode=${3:-"cp"}
-  mkdir -p .git/refs/remotes/origin
-
-  local dst=".git/refs/remotes/origin/$remote_branch_name";
-  mkdir -p "${dst%/*}"
-  if [[ "$mode" == "cp" ]]; then
-    cp ".git/refs/heads/$branch_name" $dst
-  else
-    mv ".git/refs/heads/$branch_name" $dst
-  fi
-}
-
-function tick () {
-  if test -z "${tick+set}"; then
-    tick=1675176957
-  else
-    tick=$(($tick + 60))
-  fi
-  GIT_COMMITTER_DATE="$tick +0100"
-  GIT_AUTHOR_DATE="$tick +0100"
-  export GIT_COMMITTER_DATE GIT_AUTHOR_DATE
-}
-
-function setup_target_to_match_main() {
-  remote_tracking_caught_up main
-
-  add_main_remote_setup
-}
-
-function add_main_remote_setup() {
-  cat <<EOF >>.git/config
-[remote "origin"]
-	url = ./fake/local/path/which-is-fine-as-we-dont-fetch-or-push
-	fetch = +refs/heads/*:refs/remotes/origin/*
-
-[branch "main"]
-  remote = "origin"
-  merge = refs/heads/main
-EOF
-}
-
-
-# can only be called once per test setup
-function create_workspace_commit_once() {
-  local workspace_commit_subject="GitButler Workspace Commit"
-
-  if [ $# == 1 ]; then
-    local current_branch=$(git rev-parse --abbrev-ref HEAD)
-    if [[ "$current_branch" != "$1" ]]; then
-      echo "BUG: Must assure the current branch is the branch passed as argument: $current_branch != $1"
-      return 42
-    fi
-  fi
-
-  git checkout -b gitbutler/workspace
-  if [ $# == 1 ] || [ $# == 0 ]; then
-    git commit --allow-empty -m "$workspace_commit_subject"
-  else
-    git merge --no-ff -m "$workspace_commit_subject" "${@}"
-  fi
-}
-
-# can only be called once per test setup, and definitely doesn't do anything smart like the above version.
-# TODO: Both yield different results due to the way the merge is done, so that's maybe something to double-check as well.
-function create_workspace_commit_aggressively() {
-  local workspace_commit_subject="GitButler Workspace Commit"
-
-  if [ $# == 1 ]; then
-    local current_branch=$(git rev-parse --abbrev-ref HEAD)
-    if [[ "$current_branch" != "$1" ]]; then
-      echo "BUG: Must assure the current branch is the branch passed as argument: $current_branch != $1"
-      return 42
-    fi
-  fi
-
-  git checkout -b gitbutler/workspace main
-  if [ $# == 1 ] || [ $# == 0 ]; then
-    git commit --allow-empty -m "$workspace_commit_subject"
-  else
-    git merge --no-ff --strategy octopus -m "$workspace_commit_subject" "${@}"
-  fi
-}
-
-function commit() {
-  local message=${1:?first argument is the commit message}
-  git commit -m "$message" --allow-empty
-}
+source "${BASH_SOURCE[0]%/*}/shared.sh"
 
 git init unborn
 git init detached
@@ -135,6 +40,47 @@ git init only-remote-advanced
   add_main_remote_setup
 )
 
+git init single-branch-local-target
+(cd single-branch-local-target
+  commit M
+)
+
+cp -R single-branch-local-target single-branch-local-target-empty-feature
+(cd single-branch-local-target-empty-feature
+  git checkout -b feature
+)
+
+git init single-branch-in-sync
+(cd single-branch-in-sync
+  commit M
+  setup_remote_tracking main
+  add_main_remote_setup
+)
+
+cp -R single-branch-in-sync single-branch-empty-feature
+(cd single-branch-empty-feature
+  git checkout -b feature
+)
+
+cp -R single-branch-empty-feature single-branch-empty-feature-with-upstream
+(cd single-branch-empty-feature-with-upstream
+  setup_remote_tracking feature
+  git branch --set-upstream-to=origin/feature feature
+)
+
+git init ad-hoc-branch-integrated-upstream
+(cd ad-hoc-branch-integrated-upstream
+  commit M1
+  git checkout -b old-target
+    commit OLD
+  git checkout -b feature main
+    commit F1
+  git checkout -b soon-upstream-trunk
+    commit RM1
+  setup_remote_tracking soon-upstream-trunk trunk "move"
+  git checkout feature
+)
+
 cp -R only-remote-advanced only-remote-advanced-with-special-branch-name
 (cd only-remote-advanced-with-special-branch-name
   git branch gitbutler/target :/^M1
@@ -159,6 +105,21 @@ git init ambiguous-worktrees
   commit M
   git worktree add ../wt-outside-ambiguous-worktree
   git worktree add wt-inside-ambiguous-worktree
+)
+
+# A linked worktree whose branch is ahead of `main`, so its head commit is
+# unreachable from any other traversal tip.
+git init worktree-ahead
+(cd worktree-ahead
+  commit M
+  git worktree add -b wt-feature ../worktree-ahead-feature
+  (cd ../worktree-ahead-feature
+    commit W
+  )
+  git worktree add --detach ../worktree-ahead-detached
+  (cd ../worktree-ahead-detached
+    commit D
+  )
 )
 
 # A single root that splits up into 4 branches and merges again
@@ -289,6 +250,65 @@ mkdir ws
       git checkout -b B main
         commit B
     create_workspace_commit_once B A
+  )
+
+  git init advanced-stack-tip-outside-workspace
+  (cd advanced-stack-tip-outside-workspace
+    commit M
+    setup_target_to_match_main
+    git checkout -b A
+      commit A
+    git checkout -b B
+      commit B
+    create_workspace_commit_once B
+    git checkout B
+      commit B-outside
+    git checkout gitbutler/workspace
+  )
+
+  # Like above, but the advance is two commits deep so the workspace walk reaches
+  # the fork commit before the stack-branch walk does.
+  git init advanced-stack-tip-twice-outside-workspace
+  (cd advanced-stack-tip-twice-outside-workspace
+    commit M
+    setup_target_to_match_main
+    git checkout -b A
+      commit A
+    git checkout -b B
+      commit B
+    create_workspace_commit_once B
+    git checkout B
+      commit B-outside-1
+      commit B-outside-2
+    git checkout gitbutler/workspace
+  )
+
+  # Like above, but HEAD stays on the advanced branch (single-branch mode).
+  git init advanced-stack-tip-twice-outside-workspace-single-branch
+  (cd advanced-stack-tip-twice-outside-workspace-single-branch
+    commit M
+    setup_target_to_match_main
+    git checkout -b A
+      commit A
+    git checkout -b B
+      commit B
+    create_workspace_commit_once B
+    git checkout B
+      commit B-outside-1
+      commit B-outside-2
+  )
+
+  # A branch created on top of the workspace commit itself, with HEAD on it.
+  git init branch-on-top-of-workspace-commit
+  (cd branch-on-top-of-workspace-commit
+    commit M
+    setup_target_to_match_main
+    git checkout -b A
+      commit A
+    create_workspace_commit_once A
+    git checkout -b C
+      commit C-1
+      commit C-2
   )
 
   git init reproduce-11459
@@ -466,6 +486,21 @@ mkdir ws
      create_workspace_commit_once B
   )
 
+  git init incomplete-metadata-stack-order
+  (cd incomplete-metadata-stack-order
+     commit M
+     setup_target_to_match_main
+
+     git branch B
+     git checkout -b A
+       commit A
+     git checkout B
+       commit B
+     git checkout -b C
+       commit C
+     create_workspace_commit_once A C
+  )
+
   git init single-merge-into-main
   (cd single-merge-into-main
      commit init
@@ -553,7 +588,7 @@ mkdir ws
     setup_remote_tracking soon-remote main "move"
   )
 
-  # The remote of 'main' is just deduced by name.
+  # Feature publication-remote selection without a project target.
   git init deduced-remote-ahead
   (cd deduced-remote-ahead
     commit init
@@ -737,6 +772,7 @@ EOF
     create_workspace_commit_once workspace
 
     setup_remote_tracking soon-remote-main main "move"
+    add_main_remote_setup
   )
 
   # like above, but triggers a different case where 'main' can't be reached easily.
@@ -789,6 +825,7 @@ EOF
     create_workspace_commit_once workspace
 
     setup_remote_tracking soon-remote-main main "move"
+    add_main_remote_setup
   )
   git init multi-lane-with-shared-segment
   (cd multi-lane-with-shared-segment
@@ -816,6 +853,7 @@ EOF
 
     git checkout gitbutler/workspace
     setup_remote_tracking soon-remote-main main "move"
+    add_main_remote_setup
   )
 
   git init multi-lane-with-shared-segment-one-integrated
@@ -914,6 +952,7 @@ EOF
     commit "disjoint remote target"
 
     setup_remote_tracking disjoint-target-tracking main 'move'
+    add_main_remote_setup
     git checkout gitbutler/workspace
   )
 
@@ -942,6 +981,9 @@ EOF
 
   git init no-target-without-ws-commit
   (cd no-target-without-ws-commit
+    git remote add origin ./fake/local/path/which-is-fine-as-we-dont-fetch-or-push
+    git config branch.A.remote origin
+    git config branch.A.merge refs/heads/A
     commit init
     git checkout -b A
       commit A1
@@ -955,6 +997,9 @@ EOF
 
   git init no-target-without-ws-commit-ambiguous
   (cd no-target-without-ws-commit-ambiguous
+    git remote add origin ./fake/local/path/which-is-fine-as-we-dont-fetch-or-push
+    git config branch.A.remote origin
+    git config branch.A.merge refs/heads/A
     commit init
     git checkout -b A
       commit A1
@@ -967,15 +1012,32 @@ EOF
     git checkout gitbutler/workspace
   )
 
+  cp -R no-target-without-ws-commit-ambiguous no-target-without-ws-commit-ambiguous-ahead
+  (cd no-target-without-ws-commit-ambiguous-ahead
+    # Keep A and B at A2, with both local commits above A's upstream.
+    git update-ref refs/remotes/origin/A main
+  )
+
   cp -R no-target-without-ws-commit-ambiguous no-target-without-ws-commit-ambiguous-with-remotes
   (cd no-target-without-ws-commit-ambiguous-with-remotes
     add_main_remote_setup
     remote_tracking_caught_up A
     remote_tracking_caught_up B
+    git branch --set-upstream-to=origin/B B
+  )
+
+  cp -R no-target-without-ws-commit-ambiguous-with-remotes no-target-without-ws-commit-ambiguous-with-remotes-ahead
+  (cd no-target-without-ws-commit-ambiguous-with-remotes-ahead
+    # Both upstreams are below the shared local tip, keeping both branch associations visible.
+    git update-ref refs/remotes/origin/A main
+    git update-ref refs/remotes/origin/B main
   )
 
   git init no-target-with-ws-commit
   (cd no-target-with-ws-commit
+    git remote add origin ./fake/local/path/which-is-fine-as-we-dont-fetch-or-push
+    git config branch.A.remote origin
+    git config branch.A.merge refs/heads/A
     commit init
     git checkout -b A
       commit A1
@@ -996,6 +1058,7 @@ EOF
     create_workspace_commit_once A
     git checkout -b soon-main-remote
       setup_remote_tracking soon-main-remote main "move"
+    add_main_remote_setup
 
     git checkout gitbutler/workspace
   )
@@ -1140,6 +1203,22 @@ EOF
       git branch -m D
 
     create_workspace_commit_once D
+  )
+
+  git init "stacked-bottom-remote-still-points-at-now-split-top"
+  (cd "stacked-bottom-remote-still-points-at-now-split-top"
+    commit init
+    setup_target_to_match_main
+    git checkout -b bottom
+        commit "B"
+    git checkout -b top
+        commit "T"
+    # origin/bottom previously pointed at the combined push (T), but the
+    # branches were since split locally so that bottom now contains only B
+    # and top contains T on top of bottom. Force-push is required to clear
+    # T from origin/bottom.
+    setup_remote_tracking top bottom "cp"
+    create_workspace_commit_once top
   )
 
   git init special-branches
@@ -1355,6 +1434,72 @@ EOF
     create_workspace_commit_once main
   )
 
+  # A branch ahead of the workspace base stands in for a linked-worktree HEAD -
+  # unreachable from the workspace or target unless seeded as a worktree tip.
+  git init worktree-ahead
+  (cd worktree-ahead
+    commit init
+    setup_target_to_match_main
+    git checkout -b wt-feature
+      commit W
+    git checkout main
+    create_workspace_commit_once main
+  )
+
+  # Like worktree-ahead, but wt-feature is checked out in a real linked worktree.
+  git init worktree-ahead-checkout
+  (cd worktree-ahead-checkout
+    commit init
+    setup_target_to_match_main
+    git checkout -b wt-feature
+      commit W
+    git checkout main
+    create_workspace_commit_once main
+    git worktree add ../worktree-ahead-checkout-feature wt-feature
+  )
+
+  # The worktree fork predates the target, beyond its normal traversal allowance.
+  git init worktree-behind-target
+  (cd worktree-behind-target
+    commit init
+    tick
+    commit base
+    git branch wt-feature
+    for n in $(seq 1 6); do
+      tick
+      commit "M$n"
+    done
+    setup_target_to_match_main
+    create_workspace_commit_once main
+    git worktree add ../worktree-behind-target-feature wt-feature
+    (cd ../worktree-behind-target-feature
+      tick
+      commit W1
+      tick
+      commit W2
+    )
+  )
+
+  git init target-shared-with-unapplied-and-origin-head
+  (cd target-shared-with-unapplied-and-origin-head
+    commit init
+    commit M1
+    setup_target_to_match_main
+    setup_remote_tracking main HEAD
+
+    git branch unapplied
+    git branch base-peer
+    for n in $(seq 1 8); do
+      git branch "base-peer-$n"
+    done
+
+    git checkout -b survivor
+      commit S1
+      commit S2
+
+    create_workspace_commit_once survivor
+  )
+
   git init remote-far-in-ancestry
   (cd remote-far-in-ancestry
     commit M1
@@ -1387,6 +1532,7 @@ EOF
   (cd no-ws-ref-no-ws-commit-two-branches
     commit M1
     commit M2
+    setup_target_to_match_main
 
     git branch A
     git branch B
@@ -1506,5 +1652,256 @@ EOF
     # Create the workspace commit
     git checkout -b gitbutler/workspace
     git commit --allow-empty -m "GitButler Workspace Commit"
+  )
+
+  # A stack where the bottom commit is a local merge that's already integrated
+  # into origin/main. The merge commit is kept because it is above the fork
+  # point — it's part of the branch's history.
+  #
+  # History:
+  #   ws ─ D ─ C ─ local-merge ─ init
+  #                     │            │
+  #                     └── fix ─────┘
+  #   origin/main: upstream-merge ─ fix ─ init
+  #
+  # "local-merge" and "upstream-merge" merge the same branch ("fix") but are
+  # different commits (different committer, like GitHub vs local).
+  git init integrated-merge-at-bottom
+  (cd integrated-merge-at-bottom
+     commit init
+
+     # Create the fix branch
+     git checkout -b fix
+       commit fix
+
+     # Simulate GitHub merging the PR into main (upstream merge)
+     git checkout main
+       GIT_COMMITTER_NAME="GitHub" GIT_COMMITTER_EMAIL="noreply@github.com" \
+         git merge --no-ff -m "Merge pull request #1 from fix" fix
+       setup_target_to_match_main
+
+     # Create a local merge of the same branch (as if the user had merged locally)
+     git checkout -b local-stack main~1
+       git merge --no-ff -m "Merge pull request #1 from fix" fix
+
+     # Add two real commits on top
+       commit C
+       commit D
+
+     create_workspace_commit_once local-stack
+  )
+
+  # A branch with a commit, then a merge from main, then another commit.
+  # The merge-from-main moves the merge base up past the first commit,
+  # so merge-base-counting pruning should still show both real commits.
+  git init merge-from-main-in-branch
+  (cd merge-from-main-in-branch
+     commit init
+
+     # Create the branch from init
+     git checkout -b my-branch
+       commit branch-commit-1
+
+     # Advance main with a commit after the branch was created
+     git checkout main
+       commit main-advance
+       setup_target_to_match_main
+
+     # Back to the branch: merge main into it, then add another commit
+     git checkout my-branch
+       git merge --no-ff -m "Merge main into my-branch" main
+       commit branch-commit-2
+
+     create_workspace_commit_once my-branch
+  )
+
+  # A branch whose commits are integrated (merged upstream via origin/main)
+  # but the workspace target hasn't advanced past them yet.
+  # The target_commit_id will be set to "init" in the test, while origin/main
+  # has moved forward to include the branch's commits via a merge.
+  #
+  # History:
+  #   gitbutler/workspace ─ B ─ A ─ init   (my-branch at B)
+  #   origin/main: merge(my-branch) ─ B ─ A ─ init
+  #
+  # With target at "init", A and B are above the target and should be kept
+  # even though they're marked integrated.
+  # A ref (tag or branch) points at the workspace commit itself,
+  # and that ref is the entrypoint for traversal.
+  git init entrypoint-on-workspace-commit
+  (cd entrypoint-on-workspace-commit
+    commit init
+    setup_target_to_match_main
+
+    git checkout -b A
+      commit A1
+      commit A2
+
+    create_workspace_commit_once A
+    # Place a tag on the workspace commit so it can be used as entrypoint
+    git tag my-tag HEAD
+  )
+
+  # A workspace where the local branch was deleted, leaving only the remote
+  # tracking branch. The workspace commit still has the old branch tip as parent.
+  # This tests whether a remote-only segment at the start of a stack is handled.
+  git init remote-only-stack-top
+  (cd remote-only-stack-top
+    commit init
+    setup_target_to_match_main
+
+    git checkout -b A
+      commit A1
+      commit A2
+
+    # Copy A to origin/A, then delete local A
+    setup_remote_tracking A A cp
+    create_workspace_commit_once A
+
+    # Delete the local branch (we're on gitbutler/workspace now)
+    git branch -D A
+  )
+
+  # A local branch B stacked on top of a remote-only branch origin/A.
+  # origin/A has commits on the first-parent path between B and main.
+  # This tests whether a remote-only segment trailing a local segment is handled.
+  git init remote-trailing-local-stack
+  (cd remote-trailing-local-stack
+    commit init
+    setup_target_to_match_main
+
+    git checkout -b soon-origin-A
+      commit A1
+      commit A2
+    setup_remote_tracking soon-origin-A A move
+
+    git checkout -b B
+      commit B1
+      commit B2
+
+    create_workspace_commit_once B
+  )
+
+  # A workspace where the only ref on the branch commits is origin/A (remote).
+  # The local branch never existed - only the remote was fetched.
+  # This tests that a remote-only ref at the top of the stack still produces the
+  # correct workspace output without requiring any special pruning.
+  git init remote-ref-as-stack-top
+  (cd remote-ref-as-stack-top
+    commit init
+    setup_target_to_match_main
+
+    # Create commits and move them directly to origin/A (no local branch ever)
+    git checkout -b temp-A
+      commit A1
+      commit A2
+    setup_remote_tracking temp-A A move
+    # temp-A is now gone, only origin/A exists
+
+    # Manually create workspace merging origin/A's commit
+    git checkout main
+    git checkout -b gitbutler/workspace
+    git merge --no-ff -m "GitButler Workspace Commit" origin/A
+  )
+
+  git init integrated-above-target
+  (cd integrated-above-target
+     commit init
+
+     # Branch with two commits
+     git checkout -b my-branch
+       commit A
+       commit B
+
+     # Simulate upstream merging the branch
+     git checkout main
+       git merge --no-ff -m "Merge branch my-branch" my-branch
+       setup_target_to_match_main
+
+     # Back to branch for workspace
+     git checkout my-branch
+     create_workspace_commit_once my-branch
+  )
+
+  # origin/main has advanced past the stored target, and an old branch forks below
+  # the target - dragging the workspace base below it so the integrated commits
+  # between base and target are exposed in every stack.
+  git init integrated-below-target-upstream-ahead
+  (cd integrated-below-target-upstream-ahead
+     commit init
+     commit base
+     commit target
+     commit upstream
+     setup_target_to_match_main
+
+     # Old branch forks at 'base', below the (later) stored target.
+     git checkout -b old-branch main~2
+       commit O
+     # Real work on top of the stored target.
+     git checkout -b my-branch main~1
+       commit W
+     create_workspace_commit_once my-branch old-branch
+  )
+
+  # X forks below the target (at 'c1') and catches up via `merge origin/main`, so the
+  # target enters X only through the merge's second parent. The trunk below the fork
+  # ('c1', 'init') must be pruned, leaving X's own commits; origin/main stays ahead.
+  git init catchup-merge-leak
+  (cd catchup-merge-leak
+     commit init
+     commit c1
+     commit c2
+     commit T
+     commit B
+     commit U
+     setup_target_to_match_main
+     git checkout -b X main~4
+       commit x1
+       git merge --no-ff main -m "catch up to origin/main"
+       commit x2
+     create_workspace_commit_once X
+  )
+
+  # A branch checked out in a linked worktree points at the tip commit of an
+  # applied workspace branch, so the worktree ref competes with the stack
+  # branch for that commit.
+  git init worktree-ref-at-applied-branch
+  (cd worktree-ref-at-applied-branch
+    commit init
+    setup_target_to_match_main
+    git checkout -b foo
+      commit A
+    git worktree add -b wsref ../worktree-ref-at-applied-branch-wt foo
+    create_workspace_commit_once foo
+  )
+
+  # A branch checked out in a linked worktree points at the tip of an applied
+  # branch that also has a remote tracking branch.
+  git init worktree-ref-at-remote-tracked-branch
+  (cd worktree-ref-at-remote-tracked-branch
+    commit init
+    setup_target_to_match_main
+    git checkout -b foo
+      commit A
+    git checkout -b soon-origin-foo foo
+    git checkout -b soon-origin-wsref foo
+    git checkout foo
+    setup_remote_tracking soon-origin-foo foo "move"
+    setup_remote_tracking soon-origin-wsref wsref "move"
+    git worktree add -b wsref ../worktree-ref-at-remote-tracked-branch-wt foo
+    create_workspace_commit_once foo
+  )
+
+  # A branch checked out in a linked worktree points into the middle of an
+  # applied branch's commits, below its tip.
+  git init worktree-ref-mid-stack
+  (cd worktree-ref-mid-stack
+    commit init
+    setup_target_to_match_main
+    git checkout -b foo
+      commit A1
+      commit A2
+    git worktree add -b wsref ../worktree-ref-mid-stack-wt foo~1
+    create_workspace_commit_once foo
   )
 )

@@ -1,0 +1,53 @@
+70 cases: 59 like `git checkout`, 3 like `git checkout -m`, 8 different
+
+## GitButler checks out where `git checkout` refuses (7)
+
+HEAD file P, target file p; index staged file; worktree ignored directory
+  before:    index: P file staged; worktree: p/, p/y file worktree
+  git:       refuses
+  git -m:    index: P conflict (base file head, theirs file staged), p file target; worktree: P file staged
+  GitButler: index: p file target; worktree: p file target
+
+HEAD file P, target directory p; index as in HEAD; worktree directory with an untracked file
+  before:    index: P file head; worktree: p/, p/y file worktree
+  git:       refuses
+  git -m:    index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2
+  GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
+
+HEAD file P, target directory p; index as in HEAD; worktree ignored directory
+  before:    index: P file head; worktree: p/, p/y file worktree
+  git:       refuses
+  git -m:    index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2
+  GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
+
+HEAD file P, target directory p; index staged file; worktree directory with an untracked file
+  before:    index: P file staged; worktree: p/, p/y file worktree
+  git:       refuses
+  git -m:    index: P conflict (base file head, theirs file staged), p/x file target, p/x2 file target2; worktree: P file staged
+  GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
+
+HEAD file P, target directory p; index staged file; worktree ignored directory
+  before:    index: P file staged; worktree: p/, p/y file worktree
+  git:       refuses
+  git -m:    index: P conflict (base file head, theirs file staged), p/x file target, p/x2 file target2; worktree: P file staged
+  GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
+
+HEAD directory P, target file p; index staged file; worktree deleted
+  before:    index: p file staged; worktree: nothing
+  git:       refuses
+  git -m:    index: p conflict (ours file target, theirs file staged); worktree: p file with conflict markers
+  GitButler: index: p file target; worktree: p file target
+
+HEAD directory P, target file p; index staged file; worktree ignored directory
+  before:    index: p file staged; worktree: p/, p/y file worktree
+  git:       refuses
+  git -m:    index: p conflict (ours file target, theirs file staged); worktree: p file with conflict markers
+  GitButler: index: p file target; worktree: p file target
+
+## GitButler refuses where `git checkout` checks out (1)
+
+HEAD directory P, target directory p; index staged file; worktree clean
+  before:    index: p file staged; worktree: p file staged
+  git:       index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2
+  git -m:    index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2
+  GitButler: refuses

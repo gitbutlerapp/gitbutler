@@ -19,9 +19,8 @@ This directory contains all end-to-end (E2E) tests for GitButler. We use two dif
 
 Before running E2E tests, ensure you have:
 
-1. **Node.js** (v20.11+): See [DEVELOPMENT.md](../DEVELOPMENT.md) for installation
-2. **pnpm** (v10.17.0): Enabled via `corepack enable` in the project root
-3. **Built application**: E2E tests require a built version of the app
+1. **pnpm**: Follow the [development prerequisites](../DEVELOPMENT.md#prerequisites).
+2. **Built application**: E2E tests require a built version of the app
 
 ### Install Dependencies
 
@@ -140,10 +139,7 @@ import { spawnAndLog, findAndClick, setElementValue } from "../utils.js";
 describe("Your Feature", () => {
 	before(() => {
 		// Setup test repositories
-		spawnAndLog("bash", [
-			"-c",
-			"./blackbox/scripts/your-setup-script.sh ../target/debug/gitbutler-cli",
-		]);
+		spawnAndLog("bash", ["-c", "./blackbox/scripts/your-setup-script.sh ../target/debug/but"]);
 	});
 
 	it("should perform an action", async () => {
@@ -166,6 +162,7 @@ describe("Your Feature", () => {
 - **Playwright**: Test scripts are in `playwright/scripts/` - these are bash scripts that set up git repositories
 - **Blackbox**: Setup scripts in `blackbox/scripts/` prepare test repositories
 - **Fixtures**: Shared fixtures can be placed in `playwright/fixtures/`
+- **Review apply fixture**: See [review-apply-fixture.md](review-apply-fixture.md) for the fake GitHub setup used by PR apply tests.
 
 ### Best Practices
 
@@ -359,8 +356,7 @@ e2e/
 
 E2E tests run in CI via GitHub Actions:
 
-- `.github/workflows/test-e2e-playwright.yml`: Playwright tests
-- `.github/workflows/test-e2e-blackbox.yml`: Blackbox tests
+- `.github/workflows/test-e2e.yml`: E2E tests (Playwright and blackbox)
 
 Tests run on push and pull requests with:
 

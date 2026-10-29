@@ -22,8 +22,6 @@
 //! * **DiffSpec**
 //!   - A type that identifies changes, either as whole file, or as hunks in the file.
 //!   - It doesn't specify if the change is in a commit, or in the worktree, so that information must be provided separately.
-use std::collections::HashMap;
-
 use but_core::DiffSpec;
 
 /// **Do not use!**
@@ -32,12 +30,15 @@ use but_core::DiffSpec;
 #[cfg(feature = "legacy")]
 pub mod legacy;
 
+pub mod init;
+
 /// Types specifically for the user-interface.
 pub mod ui;
 
 pub mod commit_engine;
 /// Tools for manipulating trees
 pub mod tree_manipulation;
+use indexmap::IndexMap;
 pub use tree_manipulation::discard_worktree_changes::discard_workspace_changes;
 
 /// 🚧utilities for applying and unapplying branches 🚧.
@@ -45,6 +46,9 @@ pub use tree_manipulation::discard_worktree_changes::discard_workspace_changes;
 pub mod branch;
 
 mod changeset;
+mod divergence;
+pub use but_core::branch::resolve_tracking_branch_ref_name;
+mod graph_manipulation;
 
 /// Utility types for the [`WorkspaceCommit`].
 pub mod commit;
@@ -53,49 +57,66 @@ pub mod commit;
 ///
 /// Note that many of these types should eventually end up in the crate root.
 pub mod ref_info;
-pub use ref_info::function::{head_info, ref_info};
+pub use ref_info::{graph_to_ref_info, head_info, head_info_and_workspace, ref_info};
 
 mod branch_details;
 pub use branch_details::{branch_details, local_commits_for_branch};
-use but_graph::{SegmentIndex, projection::TargetCommit};
+use but_graph::{SegmentIndex, workspace::TargetCommit};
+
+mod upstream_integration;
+pub use upstream_integration::{
+    BottomUpdate, BottomUpdateKind, IntegrateUpstreamOutcome, ReviewIntegrationHint,
+    fast_forward_local_tracking_branch, integrate_upstream, integrate_upstream_with_hints,
+    local_tracking_branch_to_fast_forward,
+};
+mod worktree;
+pub use worktree::{resolve_worktree_conflicts, worktree_conflicts_for_rebase};
+
+pub mod worktrees;
+
+pub mod workspace;
+
+pub mod editor_workspace;
 
 /// Information about refs, as seen from within or outsie of a workspace.
 ///
 /// We always try to deduce a set of stacks that are currently applied to a workspace,
 /// even though it's possible to look at refs that are outside a workspace as well.
-/// TODO: There should be a UI version of [`but_graph::projection::Workspace`].
-///       This should also include base-branch data, see `get_base_branch_data()`.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct RefInfo {
-    /// The name of the ref that points to a workspace commit,
-    /// *or* the name of the first stack segment, along with worktree information.
-    pub workspace_ref_info: Option<but_graph::RefInfo>,
     /// Symbolic remote names known when the ref info was created, based on all known remotes.
     /// The order is shortest to longest.
     ///
     /// These are carried along so UI conversions can resolve remote-tracking references
     /// without needing repository access. That is, they can know if `refs/remotes/name/foo/bar`
     /// has the symbolic remote `name/foo` or just `name`.
-    pub symbolic_remote_names: gix::remote::Names<'static>,
+    pub symbolic_remote_names: gix::remote::Names,
     /// The stacks visible in the current workspace.
     ///
     /// This is an empty array if the `HEAD` is unborn.
     /// Otherwise, there is one or more stacks.
     pub stacks: Vec<branch::Stack>,
-    /// The target to integrate workspace stacks into.
+    /// The projected target reference, retained for UI conversion.
     ///
-    /// If `None`, this is a local workspace that doesn't know when possibly pushed branches are considered integrated.
-    /// This happens when there is a local branch checked out without a remote tracking branch.
-    pub target_ref: Option<but_graph::projection::TargetRef>,
-    /// A commit reachable by [`Self::target_ref`] which we chose to keep as base. That way we can extend the workspace
-    /// past its computed lower bound.
+    /// This field is intentionally private: It describes what the UI shows, not the project's
+    /// target configuration. Use `ProjectMeta` to get the configured local target branch and its
+    /// upstream.
+    target_ref: Option<but_graph::workspace::TargetRef>,
+    /// The workspace projection's selected cutoff commit.
     ///
-    /// Indeed, it's valid to not set the reference, and to only set the commit which should act as an integration base.
+    /// It can exist without a projected target reference and need not be reachable from the local target.
     pub target_commit: Option<TargetCommit>,
-    /// The segment index of the extra target as provided for traversal,
-    /// useful for AdHoc workspaces, but generally applicable to all workspaces to keep the lower bound lower than it
-    /// otherwise would be.
-    pub extra_target: Option<SegmentIndex>,
+    /// The target's derived upstream, including its availability and relation to the stored cutoff.
+    pub target_upstream: Option<TargetUpstream>,
+    /// Whether pull can safely advance the local target to its upstream tip.
+    /// False for equal, ahead, diverged, missing, or checked-out local targets.
+    pub can_fast_forward_local_target: bool,
+    /// Whether a stack, or a worktree with something of its own to rebase onto the target, lacks
+    /// the stored target commit.
+    ///
+    /// Updating only some lanes advances the stored target past the others, so `true` means an
+    /// update has work to do even when the stored cutoff matches the upstream tip.
+    pub has_lanes_behind_target: bool,
     /// The bound can be imagined as the segment from which all other commits in the workspace originate.
     /// It can also be imagined to be the delimiter at the bottom beyond which nothing belongs to the workspace,
     /// as antagonist to the first commit in tip of the segment with `id`, serving as first commit that is
@@ -108,40 +129,62 @@ pub struct RefInfo {
     ///
     /// It is `None` there is only a single stack and no target, so nothing was integrated.
     pub lower_bound: Option<SegmentIndex>,
-    /// The `workspace_ref_name` is `Some(_)` and belongs to GitButler, because it had metadata attached.
-    pub is_managed_ref: bool,
-    /// The `workspace_ref_name` points to a commit that was specifically created by us.
-    /// If the user advanced the workspace head by hand, this would be `false`.
-    /// See if `ancestor_workspace_commit` is `Some()` to understand if anything could be fixed here.
-    /// If there is no managed commits, we have to be extra careful as to what we allow, but setting
-    /// up stacks and dependent branches is usually fine, and limited commit creation. Play it safe though,
-    /// this is mainly for graceful handling of special cases.
-    pub is_managed_commit: bool,
     /// The workspace commit as it exists in the past of `workspace_ref_name`.
     ///
     /// **Warning**: If `Some()`, only fixing this issue should be allowed.
     pub ancestor_workspace_commit: Option<AncestorWorkspaceCommit>,
-    /// The workspace represents what `HEAD` is pointing to.
-    pub is_entrypoint: bool,
+    /// The active linked worktrees along with the commits they own, or empty if the traversal
+    /// wasn't seeded with worktree tips.
+    pub worktrees: Vec<worktrees::WorktreeInfo>,
 }
 
-impl RefInfo {
-    /// Keep only the stack and segment that contains the entrypoint.
-    pub fn pruned_to_entrypoint(mut self) -> Self {
-        if self.is_entrypoint {
-            return self;
+/// Hand-written so `worktrees` and `has_lanes_behind_target` only show up once set, keeping the
+/// debug output (and the many snapshots built on it) unchanged for the overwhelmingly common case.
+impl std::fmt::Debug for RefInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let RefInfo {
+            symbolic_remote_names,
+            stacks,
+            target_ref,
+            target_commit,
+            target_upstream,
+            can_fast_forward_local_target,
+            has_lanes_behind_target,
+            lower_bound,
+            ancestor_workspace_commit,
+            worktrees,
+        } = self;
+        let mut s = f.debug_struct("RefInfo");
+        s.field("symbolic_remote_names", symbolic_remote_names)
+            .field("stacks", stacks)
+            .field("target_ref", target_ref)
+            .field("target_commit", target_commit)
+            .field("target_upstream", target_upstream)
+            .field(
+                "can_fast_forward_local_target",
+                can_fast_forward_local_target,
+            )
+            .field("lower_bound", lower_bound)
+            .field("ancestor_workspace_commit", ancestor_workspace_commit);
+        if *has_lanes_behind_target {
+            s.field("has_lanes_behind_target", has_lanes_behind_target);
         }
-        self.stacks
-            .retain(|s| s.segments.iter().any(|s| s.is_entrypoint));
-        if let Some(only_stack) = self.stacks.first_mut() {
-            let mut found_entrypoint = false;
-            only_stack.segments.retain(|s| {
-                found_entrypoint |= s.is_entrypoint;
-                found_entrypoint
-            })
+        if !worktrees.is_empty() {
+            s.field("worktrees", worktrees);
         }
-        self
+        s.finish()
     }
+}
+
+/// The upstream derived from the local target's tracking configuration.
+#[derive(Debug, Clone)]
+pub struct TargetUpstream {
+    /// The configured tracking ref, retained even when it is missing.
+    pub ref_name: gix::refs::FullName,
+    /// Its locally available tip, or `None` when it cannot be resolved.
+    pub tip: Option<gix::ObjectId>,
+    /// Whether an explicitly stored cutoff equals the available upstream tip.
+    pub cutoff_matches_tip: bool,
 }
 
 /// Describes a workspace commit that is in the ancestry of a managed workspace reference,
@@ -168,8 +211,20 @@ pub struct WorkspaceCommit<'repo> {
 }
 
 /// If there are multiple diffs spces where path and previous_path are the same, collapse them into one.
-pub fn flatten_diff_specs(input: Vec<DiffSpec>) -> Vec<DiffSpec> {
-    let mut output: HashMap<String, DiffSpec> = HashMap::new();
+///
+/// This flattening preserves the initial order of each (path, previous_path) pair. The output order
+/// is relative to the _first_ occurrence in the input. As a simplified example using, an input of
+/// `[2, 1, 2, 3]` deterministically produces an output ordered as `[2, 1, 3]`.
+///
+/// This is an important property as there are applications of [`DiffSpec`] sequences that are
+/// currently very sensitive to ordering, such as when discarding file renamings, additions and
+/// deletions of intersecting paths.
+///
+/// Corner case: If the same (path, previous_path) pair has entries both for individual hunks and
+/// the entire file, only the entire file is retained, regardless of where in the order the
+/// entire-file [`DiffSpec`] appeared.
+pub fn flatten_diff_specs(input: impl IntoIterator<Item = DiffSpec>) -> Vec<DiffSpec> {
+    let mut output: IndexMap<String, DiffSpec> = IndexMap::new();
     for spec in input {
         let key = format!(
             "{}:{}",
@@ -181,7 +236,14 @@ pub fn flatten_diff_specs(input: Vec<DiffSpec>) -> Vec<DiffSpec> {
         );
         output
             .entry(key)
-            .and_modify(|e| e.hunk_headers.extend(spec.hunk_headers.clone()))
+            .and_modify(|e| {
+                if e.hunk_headers.is_empty() || spec.hunk_headers.is_empty() {
+                    // there's at least one entire-file entry -> result is entire file
+                    e.hunk_headers.clear();
+                } else {
+                    e.hunk_headers.extend(spec.hunk_headers.clone())
+                }
+            })
             .or_insert(spec);
     }
     output.into_values().collect()

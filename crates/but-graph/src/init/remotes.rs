@@ -34,6 +34,12 @@ pub fn lookup_remote_tracking_branch_or_deduce_it(
     symbolic_remote_names: &[String],
     configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
 ) -> anyhow::Result<Option<gix::refs::FullName>> {
+    // Only local branches can have a remote-tracking branch. Deduction for any other ref
+    // would build a nonsensical candidate name and pay for a pointless ref lookup per call.
+    if ref_name.category() != Some(gix::refs::Category::LocalBranch) {
+        return Ok(None);
+    }
+
     Ok(lookup_remote_tracking_branch(repo, ref_name)?.or_else(|| {
         for symbolic_remote_name in symbolic_remote_names {
             // Deduce the ref-name as fallback.

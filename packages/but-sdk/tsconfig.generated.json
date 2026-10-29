@@ -2,7 +2,8 @@
 	"compilerOptions": {
 		"strict": true,
 		"skipLibCheck": false,
-		"composite": true
+		"composite": true,
+		"types": []
 	},
 	"include": ["src/generated/**/*.ts"]
 }

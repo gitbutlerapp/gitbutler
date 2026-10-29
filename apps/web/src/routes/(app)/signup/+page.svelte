@@ -8,7 +8,7 @@
 	import { inject } from "@gitbutler/core/context";
 	import { LOGIN_SERVICE } from "@gitbutler/shared/login/loginService";
 	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
-	import { Button, EmailTextbox, InfoMessage } from "@gitbutler/ui";
+	import { Button, EmailTextbox, InfoMessage } from "@gitbutler/ui-svelte";
 
 	let username = $state<string>();
 	let email = $state<string>();

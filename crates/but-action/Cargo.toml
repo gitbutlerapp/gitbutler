@@ -8,29 +8,28 @@ rust-version.workspace = true
 
 [lib]
 doctest = false
-test = false
+test = true
 
 [features]
 ## If enabled, we will let the current executable (gitbutler-tauri) be the source for the `but` link.
 builtin-but = []
-export-ts = ["dep:ts-rs", "but-core/export-ts"]
 
 [dependencies]
 but-serde.workspace = true
 but-db.workspace = true
 but-core.workspace = true
+but-graph.workspace = true
+but-error.workspace = true
 but-workspace = { workspace = true, features = ["legacy"] }
+but-rebase.workspace = true
 but-hunk-assignment.workspace = true
-but-tools.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
 but-llm.workspace = true
 
-gitbutler-stack.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-branch-actions.workspace = true
-gitbutler-branch.workspace = true
-gitbutler-oplog.workspace = true
 gitbutler-reference.workspace = true
+gitbutler-oplog.workspace = true
 
 serde.workspace = true
 serde-error = "0.1.3"
@@ -38,14 +37,15 @@ schemars.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
-itertools.workspace = true
 uuid = { workspace = true }
 strum = { version = "0.27", features = ["derive"] }
 gix.workspace = true
 rmcp.workspace = true
 tracing.workspace = true
 bstr = { workspace = true }
-ts-rs = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true

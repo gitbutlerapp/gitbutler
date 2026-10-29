@@ -1,18 +1,12 @@
 use std::borrow::Cow;
 
-use bstr::ByteSlice;
-use but_core::{
-    DiffSpec, HunkHeader, TreeChange, TreeStatus, UnifiedPatch, unified_diff::DiffHunk,
-};
-use but_workspace::commit_engine::Destination;
-use gix::prelude::ObjectIdExt;
+use but_core::{DiffSpec, TreeStatus};
 
 pub const CONTEXT_LINES: u32 = 0;
 
 pub use but_testsupport::{
     read_only_in_memory_scenario, read_only_in_memory_scenario_named, visualize_index,
-    visualize_index_with_content, writable_scenario, writable_scenario_slow,
-    writable_scenario_with_args, writable_scenario_with_ssh_key, write_sequence,
+    writable_scenario, writable_scenario_slow, writable_scenario_with_args,
 };
 
 /// Always use all the hunks.
@@ -31,18 +25,6 @@ pub fn to_change_specs_whole_file(changes: but_core::WorktreeChanges) -> Vec<Dif
         "fixture should contain actual changes to turn into requests"
     );
     out
-}
-
-pub fn diff_spec(
-    previous_path: Option<&str>,
-    path: &str,
-    hunks: impl IntoIterator<Item = HunkHeader>,
-) -> DiffSpec {
-    DiffSpec {
-        previous_path: previous_path.map(Into::into),
-        path: path.into(),
-        hunk_headers: hunks.into_iter().collect(),
-    }
 }
 
 /// Always use all the hunks.
@@ -90,130 +72,25 @@ pub fn to_change_specs_all_hunks_with_context_lines(
     Ok(out)
 }
 
-pub fn visualize_tree(
-    repo: &gix::Repository,
-    outcome: &but_workspace::commit_engine::CreateCommitOutcome,
-) -> anyhow::Result<String> {
-    Ok(but_testsupport::visualize_tree(
-        outcome
-            .new_commit
-            .expect("no rejected changes")
-            .attach(repo)
-            .object()?
-            .peel_to_commit()?
-            .tree_id()?,
-    )
-    .to_string())
-}
-
-pub struct LeanDiffHunk(DiffHunk);
-
-impl std::fmt::Debug for LeanDiffHunk {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, r#"DiffHunk("{:?}")"#, self.0.diff)
-    }
-}
-
-pub fn worktree_changes_with_diffs(
-    repo: &gix::Repository,
-) -> anyhow::Result<Vec<(TreeChange, Vec<LeanDiffHunk>)>> {
-    let worktree_changes = but_core::diff::worktree_changes(repo)?;
-    Ok(worktree_changes
-        .changes
-        .into_iter()
-        .map(|tree_change| {
-            let diff = tree_change
-                .unified_patch(repo, 0 /* context_lines */)
-                .expect("diffs can always be generated");
-            let Some(UnifiedPatch::Patch { hunks, .. }) = diff else {
-                unreachable!("don't use this with binary files or large files or submodules")
-            };
-            (tree_change, hunks.into_iter().map(LeanDiffHunk).collect())
-        })
-        .collect())
-}
-
-/// Create a commit with the entire file as change, and another time with a whole hunk.
-/// Both should be equal or it will panic.
-pub fn commit_whole_files_and_all_hunks_from_workspace(
-    repo: &gix::Repository,
-    destination: Destination,
-) -> anyhow::Result<but_workspace::commit_engine::CreateCommitOutcome> {
-    let worktree_changes = but_core::diff::worktree_changes(repo)?;
-    let whole_file_output = but_workspace::commit_engine::create_commit(
-        repo,
-        destination.clone(),
-        to_change_specs_whole_file(worktree_changes.clone()),
-        CONTEXT_LINES,
-    )?;
-    let all_hunks_output = but_workspace::commit_engine::create_commit(
-        repo,
-        destination,
-        to_change_specs_all_hunks(repo, worktree_changes)?,
-        CONTEXT_LINES,
-    )?;
-
-    if whole_file_output.new_commit.is_some() && all_hunks_output.new_commit.is_some() {
-        assert_eq!(
-            visualize_tree(repo, &all_hunks_output)?,
-            visualize_tree(repo, &whole_file_output)?,
-        );
-    }
-    assert_eq!(
-        all_hunks_output.new_commit, whole_file_output.new_commit,
-        "Adding the whole file is the same as adding all patches (but whole files are faster)"
-    );
-    // NOTE: cannot compare rejections as whole-file rejections don't have hunks
-    assert_eq!(
-        all_hunks_output
-            .rejected_specs
-            .iter()
-            .cloned()
-            .map(|(reason, mut spec)| {
-                spec.hunk_headers.clear();
-                (reason, spec)
-            })
-            .collect::<Vec<_>>(),
-        whole_file_output.rejected_specs,
-        "rejections are the same as well"
-    );
-    Ok(all_hunks_output)
-}
-
-pub fn commit_from_outcome(
-    repo: &gix::Repository,
-    outcome: &but_workspace::commit_engine::CreateCommitOutcome,
-) -> anyhow::Result<gix::objs::Commit> {
-    Ok(outcome
-        .new_commit
-        .expect("the amended commit was created")
-        .attach(repo)
-        .object()?
-        .peel_to_commit()?
-        .decode()?
-        .try_into()?)
-}
-
-pub fn visualize_commit(
-    repo: &gix::Repository,
-    outcome: &but_workspace::commit_engine::CreateCommitOutcome,
-) -> anyhow::Result<String> {
-    cat_commit(
-        outcome
-            .new_commit
-            .expect("a new commit was created")
-            .attach(repo),
-    )
-}
-
-pub fn cat_commit(commit: gix::Id<'_>) -> anyhow::Result<String> {
-    Ok(commit.object()?.data.as_bstr().to_string())
-}
-
 pub fn r(name: &str) -> &gix::refs::FullNameRef {
     name.try_into().expect("statically known valid ref-name")
 }
 
 pub fn rc(name: &str) -> Cow<'static, gix::refs::FullNameRef> {
     Cow::Owned(name.try_into().expect("statically known valid ref-name"))
+}
+
+pub fn create_reference<'a>(
+    repo: &gix::Repository,
+    ws: &mut but_graph::Workspace,
+    meta: &mut impl but_core::RefMetadata,
+    db: &mut but_db::DbHandle,
+    ref_name: impl std::borrow::Borrow<gix::refs::FullNameRef>,
+    anchor: impl Into<Option<but_workspace::branch::create_reference::Anchor<'a>>>,
+    order: impl Into<Option<usize>>,
+) -> anyhow::Result<but_graph::Workspace> {
+    let editor = but_rebase::graph_rebase::Editor::create(ws, meta, repo, db)?;
+    but_workspace::branch::create_reference(editor, ref_name.borrow(), anchor, order)?
+        .materialize(Default::default())?;
+    Ok(ws.clone())
 }

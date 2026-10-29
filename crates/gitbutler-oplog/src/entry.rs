@@ -1,13 +1,13 @@
 use std::{
-    fmt,
-    fmt::{Debug, Display, Formatter},
+    borrow::Cow,
+    fmt::{self, Debug, Display, Formatter},
     str::FromStr,
 };
 
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use strum::EnumString;
+use strum::IntoEnumIterator as _;
 
 /// A snapshot of the repository and virtual branches state that GitButler can restore to.
 /// It captures the state of the working directory, virtual branches and commits.
@@ -17,8 +17,8 @@ pub struct Snapshot {
     /// The id of the commit that represents the snapshot
     #[serde(rename = "id", with = "but_serde::object_id")]
     pub commit_id: gix::ObjectId,
-    /// Snapshot creation time in seconds from Unix epoch seconds, based on a commit as `commit_id`.
-    #[serde(serialize_with = "but_serde::as_time_seconds_from_unix_epoch_gix")]
+    /// Snapshot creation time in milliseconds from Unix epoch, based on a commit as `commit_id`.
+    #[serde(serialize_with = "but_serde::as_time_milliseconds_from_unix_epoch")]
     pub created_at: gix::date::Time,
     /// Snapshot details as persisted in the commit message, or `None` if the details couldn't be parsed.
     pub details: Option<SnapshotDetails>,
@@ -44,17 +44,24 @@ pub struct SnapshotDetails {
 
 impl SnapshotDetails {
     pub fn new(operation: OperationKind) -> Self {
-        let title = operation.to_string();
         SnapshotDetails {
             version: Default::default(),
             operation,
-            title,
+            title: operation.as_persisted_str().to_string(),
             body: None,
             trailers: vec![],
         }
     }
-    pub fn with_trailers(mut self, trailers: Vec<Trailer>) -> Self {
-        self.trailers = trailers;
+
+    pub fn with_count(mut self, count: usize) -> Self {
+        if count > 1 {
+            self.title = format!("{} ({})", self.title, count);
+        }
+        self
+    }
+
+    pub fn with_trailers(mut self, trailers: impl IntoIterator<Item = Trailer>) -> Self {
+        self.trailers.extend(trailers);
         self
     }
 }
@@ -77,21 +84,22 @@ impl FromStr for SnapshotDetails {
 
         let version = trailers
             .iter()
-            .find(|t| t.key == "Version")
-            .ok_or(anyhow!("No version found on snapshot commit message"))?
-            .value
-            .parse()?;
+            .find_map(|t| match t {
+                Trailer::Version(version) => Some(*version),
+                _ => None,
+            })
+            .context("No version found on snapshot commit message")?;
 
         let operation = trailers
             .iter()
-            .find(|t| t.key == "Operation")
-            .ok_or(anyhow!("No operation found on snapshot commit message"))?
-            .value
-            .parse()
-            .unwrap_or_default();
+            .find_map(|t| match t {
+                Trailer::Operation(operation_kind) => Some(*operation_kind),
+                _ => None,
+            })
+            .context("No operation found on snapshot commit message")?;
 
         // remove the version and operation attributes from the trailers since they have dedicated fields
-        trailers.retain(|t| t.key != "Version" && t.key != "Operation");
+        trailers.retain(|t| !matches!(t, Trailer::Version(..) | Trailer::Operation(..)));
 
         Ok(SnapshotDetails {
             version,
@@ -109,81 +117,259 @@ impl Display for SnapshotDetails {
         if let Some(body) = &self.body {
             writeln!(f, "{body}\n")?;
         }
-        writeln!(f, "Version: {}", self.version)?;
-        writeln!(f, "Operation: {}", self.operation)?;
-        for line in &self.trailers {
-            writeln!(f, "{line}")?;
+        writeln!(f, "{}", Trailer::Version(self.version))?;
+        writeln!(f, "{}", Trailer::Operation(self.operation))?;
+        for trailer in &self.trailers {
+            if matches!(trailer, Trailer::Version(..) | Trailer::Operation(..)) {
+                continue;
+            }
+            writeln!(f, "{trailer}")?;
         }
         Ok(())
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize, EnumString, Default)]
-pub enum OperationKind {
-    CreateCommit,
-    CreateBranch,
-    StashIntoBranch,
-    SetBaseBranch,
-    MergeUpstream,
-    UpdateWorkspaceBase,
-    MoveHunk,
-    UpdateBranchName,
-    UpdateBranchNotes,
-    ReorderBranches,
-    UpdateBranchRemoteName,
-    GenericBranchUpdate,
-    DeleteBranch,
-    ApplyBranch,
-    DiscardLines,
-    DiscardHunk,
-    DiscardFile,
-    DiscardChanges,
-    Discard,
-    AmendCommit,
-    Absorb,
-    AutoCommit,
-    UndoCommit,
-    UnapplyBranch,
-    CherryPick,
-    SquashCommit,
-    UpdateCommitMessage,
-    MoveCommit,
-    MoveBranch,
-    TearOffBranch,
-    RestoreFromSnapshot,
-    ReorderCommit,
-    InsertBlankCommit,
-    MoveCommitFile,
-    FileChanges,
-    EnterEditMode,
-    SyncWorkspace,
-    CreateDependentBranch,
-    RemoveDependentBranch,
-    UpdateDependentBranchName,
-    UpdateDependentBranchDescription,
-    UpdateDependentBranchPrNumber,
-    AutoHandleChangesBefore,
-    AutoHandleChangesAfter,
-    SplitBranch,
-    OnDemandSnapshot,
-    #[default]
-    Unknown,
+// Generates the `OperationKind` enum with these two methods:
+//
+//     pub fn as_persisted_str(self) -> &'static str
+//     pub fn parse_persisted_str(s: &str) -> Option<Self>
+macro_rules! generate_to_and_from_persisted_str_methods {
+    (
+        $(#[$outer_meta:meta])*
+        pub enum $name:ident {
+            $(
+                $(#[$variant_meta:meta])*
+                $variant:ident
+            ),* $(,)?
+        }
+    ) =>{
+        $(#[$outer_meta])*
+        pub enum $name {
+            $(
+                $(#[$variant_meta])*
+                $variant,
+            )*
+        }
+
+        impl $name {
+            pub fn as_persisted_str(self) -> &'static str {
+                match self {
+                    $(
+                        Self::$variant => stringify!($variant),
+                    )*
+                }
+            }
+
+            pub fn parse_persisted_str(s: &str) -> Option<Self> {
+                Some(match s {
+                    $(
+                        stringify!($variant) => Self::$variant,
+                    )*
+                    _ => return None,
+                })
+            }
+        }
+    };
 }
 
-impl From<OperationKind> for SnapshotDetails {
-    fn from(value: OperationKind) -> Self {
-        SnapshotDetails::new(value)
+generate_to_and_from_persisted_str_methods! {
+    #[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize, strum::EnumIter)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    pub enum OperationKind {
+        CreateCommit,
+        CreateBranch,
+        StashIntoBranch,
+        SetBaseBranch,
+        MergeUpstream,
+        MergeBranch,
+        UpdateWorkspaceBase,
+        MoveHunk,
+        UpdateBranchName,
+        UpdateBranchNotes,
+        ReorderBranches,
+        UpdateBranchRemoteName,
+        GenericBranchUpdate,
+        DeleteBranch,
+        ApplyBranch,
+        SwitchBranch,
+        SwitchToWorkspace,
+        DiscardLines,
+        DiscardHunk,
+        DiscardFile,
+        DiscardChanges,
+        Discard,
+        AmendCommit,
+        Absorb,
+        AutoCommit,
+        UndoCommit,
+        DiscardCommit,
+        UnapplyBranch,
+        CherryPick,
+        SquashCommit,
+        UpdateCommitMessage,
+        MoveCommit,
+        MoveBranch,
+        TearOffBranch,
+        /// Restore via `but undo`
+        RestoreFromSnapshotViaUndo,
+        /// Restore via `but redo`
+        RestoreFromSnapshotViaRedo,
+        /// Restore via `but oplog restore`
+        ///
+        /// Or old oplog entries that existed before `RestoreFromSnapshotViaUndo` and
+        /// `RestoreFromSnapshotViaRedo` were introduced.
+        RestoreFromSnapshot,
+        ReorderCommit,
+        InsertBlankCommit,
+        MoveCommitFile,
+        FileChanges,
+        EnterEditMode,
+        ResolveConflicts,
+        ResolveConflictsAi,
+        SyncWorkspace,
+        CreateDependentBranch,
+        RemoveDependentBranch,
+        UpdateDependentBranchName,
+        UpdateDependentBranchDescription,
+        UpdateDependentBranchPrNumber,
+        AutoHandleChangesBefore,
+        AutoHandleChangesAfter,
+        SplitBranch,
+        CleanWorkspace,
+        OnDemandSnapshot,
+        Unknown,
     }
 }
 
-impl fmt::Display for OperationKind {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        Debug::fmt(self, f)
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(OperationKind);
+
+impl OperationKind {
+    pub fn kind_str(self) -> &'static str {
+        match self {
+            OperationKind::CreateCommit => "COMMIT",
+            OperationKind::CreateBranch => "BRANCH",
+            OperationKind::AmendCommit => "AMEND",
+            OperationKind::Absorb => "ABSORB",
+            OperationKind::AutoCommit => "AUTO_COMMIT",
+            OperationKind::UndoCommit => "UNDO_COMMIT",
+            OperationKind::DiscardCommit => "DISCARD_COMMIT",
+            OperationKind::SquashCommit => "SQUASH",
+            OperationKind::UpdateCommitMessage => "REWORD",
+            OperationKind::MoveCommit => "MOVE",
+            OperationKind::RestoreFromSnapshotViaUndo => "UNDO",
+            OperationKind::RestoreFromSnapshotViaRedo => "REDO",
+            OperationKind::RestoreFromSnapshot => "RESTORE",
+            OperationKind::ReorderCommit => "REORDER",
+            OperationKind::InsertBlankCommit => "INSERT_COMMIT",
+            OperationKind::MoveHunk => "MOVE_HUNK",
+            OperationKind::ReorderBranches => "REORDER_BRANCH",
+            OperationKind::UpdateWorkspaceBase => "UPDATE_BASE",
+            OperationKind::UpdateBranchName => "RENAME",
+            OperationKind::GenericBranchUpdate => "BRANCH_UPDATE",
+            OperationKind::ApplyBranch => "APPLY",
+            OperationKind::SwitchBranch => "SWITCH",
+            OperationKind::SwitchToWorkspace => "SWITCH_WORKSPACE",
+            OperationKind::UnapplyBranch => "UNAPPLY",
+            OperationKind::DeleteBranch => "DELETE",
+            OperationKind::DiscardChanges => "DISCARD",
+            OperationKind::Discard => "DISCARD",
+            OperationKind::CleanWorkspace => "CLEAN",
+            OperationKind::OnDemandSnapshot => "SNAPSHOT",
+            OperationKind::DiscardLines => "DISCARD_LINES",
+            OperationKind::DiscardHunk => "DISCARD_HUNK",
+            OperationKind::DiscardFile => "DISCARD_FILE",
+            OperationKind::CherryPick => "CHERRY_PICK",
+            OperationKind::MoveBranch => "MOVE_BRANCH",
+            OperationKind::MergeBranch => "MERGE",
+            OperationKind::TearOffBranch => "UNSTACK_BRANCH",
+            OperationKind::MoveCommitFile => "MOVE_FILE",
+            OperationKind::CreateDependentBranch => "CREATE_BRANCH",
+            OperationKind::RemoveDependentBranch => "REMOVE_BRANCH",
+            OperationKind::UpdateDependentBranchName
+            | OperationKind::UpdateDependentBranchDescription
+            | OperationKind::UpdateDependentBranchPrNumber => "UPDATE_BRANCH",
+            OperationKind::SplitBranch => "SPLIT_BRANCH",
+            OperationKind::ResolveConflicts => "RESOLVE",
+            OperationKind::ResolveConflictsAi => "AI_RESOLVE",
+            OperationKind::StashIntoBranch
+            | OperationKind::SetBaseBranch
+            | OperationKind::MergeUpstream
+            | OperationKind::UpdateBranchNotes
+            | OperationKind::UpdateBranchRemoteName
+            | OperationKind::FileChanges
+            | OperationKind::EnterEditMode
+            | OperationKind::SyncWorkspace
+            | OperationKind::AutoHandleChangesBefore
+            | OperationKind::AutoHandleChangesAfter => "OTHER",
+            OperationKind::Unknown => "UNKNOWN",
+        }
+    }
+
+    pub fn title(self) -> &'static str {
+        match self {
+            OperationKind::CreateCommit => "Created commit",
+            OperationKind::CreateBranch => "Created branch",
+            OperationKind::StashIntoBranch => "Stashed into branch",
+            OperationKind::SetBaseBranch => "Set base branch",
+            OperationKind::MergeUpstream => "Merged upstream",
+            OperationKind::MergeBranch => "Merged branch",
+            OperationKind::UpdateWorkspaceBase => "Updated workspace base",
+            OperationKind::MoveHunk => "Moved hunk",
+            OperationKind::UpdateBranchName => "Renamed branch",
+            OperationKind::UpdateBranchNotes => "Updated branch notes",
+            OperationKind::ReorderBranches => "Reordered branches",
+            OperationKind::UpdateBranchRemoteName => "Updated branch remote",
+            OperationKind::GenericBranchUpdate => "Updated branch",
+            OperationKind::DeleteBranch => "Deleted branch",
+            OperationKind::ApplyBranch => "Applied branch",
+            OperationKind::SwitchBranch => "Switched branch",
+            OperationKind::SwitchToWorkspace => "Switched to workspace",
+            OperationKind::DiscardLines => "Discarded lines",
+            OperationKind::DiscardHunk => "Discarded hunk",
+            OperationKind::DiscardFile => "Discarded file",
+            OperationKind::DiscardChanges | OperationKind::Discard => "Discarded changes",
+            OperationKind::AmendCommit => "Amended commit",
+            OperationKind::Absorb => "Absorbed changes",
+            OperationKind::AutoCommit => "Auto-committed changes",
+            OperationKind::UndoCommit => "Undid commit",
+            OperationKind::DiscardCommit => "Discarded commit",
+            OperationKind::UnapplyBranch => "Unapplied branch",
+            OperationKind::CherryPick => "Cherry-picked commit",
+            OperationKind::SquashCommit => "Squashed commit",
+            OperationKind::UpdateCommitMessage => "Updated commit message",
+            OperationKind::MoveCommit => "Moved commit",
+            OperationKind::MoveBranch => "Moved branch",
+            OperationKind::TearOffBranch => "Unstacked branch",
+            OperationKind::RestoreFromSnapshotViaUndo
+            | OperationKind::RestoreFromSnapshotViaRedo
+            | OperationKind::RestoreFromSnapshot => "Restored from snapshot",
+            OperationKind::ReorderCommit => "Reordered commit",
+            OperationKind::InsertBlankCommit => "Inserted blank commit",
+            OperationKind::MoveCommitFile => "Moved file",
+            OperationKind::FileChanges => "Updated file changes",
+            OperationKind::EnterEditMode => "Entered edit mode",
+            OperationKind::ResolveConflicts => "Resolved conflicts",
+            OperationKind::ResolveConflictsAi => "Resolved conflicts with AI",
+            OperationKind::SyncWorkspace => "Synced workspace",
+            OperationKind::CreateDependentBranch => "Created branch",
+            OperationKind::RemoveDependentBranch => "Removed branch",
+            OperationKind::UpdateDependentBranchName => "Updated branch name",
+            OperationKind::UpdateDependentBranchDescription => "Updated branch description",
+            OperationKind::UpdateDependentBranchPrNumber => "Updated branch pull request number",
+            OperationKind::AutoHandleChangesBefore => "Handled changes before action",
+            OperationKind::AutoHandleChangesAfter => "Handled changes after action",
+            OperationKind::SplitBranch => "Split branch",
+            OperationKind::CleanWorkspace => "Cleaned workspace",
+            OperationKind::OnDemandSnapshot => "Created snapshot",
+            OperationKind::Unknown => "Unknown operation",
+        }
     }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy, Serialize)]
 pub struct Version(pub u32);
+
 impl Default for Version {
     fn default() -> Self {
         Version(3)
@@ -206,33 +392,284 @@ impl FromStr for Version {
 
 /// Represents a key value pair stored in a snapshot, like `key: value\n`
 /// Using the git trailer format (<https://git-scm.com/docs/git-interpret-trailers>)
-#[derive(Debug, PartialEq, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Trailer {
-    /// Trailer key
-    pub key: String,
-    /// Trailer value
-    pub value: String,
+#[derive(Debug, PartialEq, Clone, strum::EnumDiscriminants)]
+#[strum_discriminants(derive(strum::EnumIter))]
+pub enum Trailer {
+    Version(Version),
+    Operation(OperationKind),
+    RestoredFrom(gix::ObjectId),
+    RestoredOperation(OperationKind),
+    RestoredDate(i64),
+    File(String),
+    Name(String),
+    /// The prior name in a rename (e.g. the branch name before an `UpdateBranchName`), paired with
+    /// [`Name`](Self::Name) which carries the new name. A distinct key so the two don't collide.
+    PreviousName(String),
+    Error(String),
+    Message(String),
+    Branch(String),
+    Before(usize),
+    After(usize),
+    Sha(gix::ObjectId),
+    /// Trailer of unknown origin. GitButler should ideally never be generating such trailers but
+    /// we might see them when parsing user data.
+    Other {
+        key: String,
+        value: String,
+    },
+}
+
+impl Trailer {
+    const OPERATION_KEY: &str = "Operation";
+    const VERSION_KEY: &str = "Version";
+    const RESTORED_FROM_KEY: &str = "restored_from";
+    const RESTORED_OPERATION_KEY: &str = "restored_operation";
+    const RESTORED_DATE_KEY: &str = "restored_date";
+    const FILE_KEY: &str = "file";
+    const NAME_KEY: &str = "name";
+    const PREVIOUS_NAME_KEY: &str = "previous_name";
+    const ERROR_KEY: &str = "error";
+    const BEFORE_KEY: &str = "before";
+    const AFTER_KEY: &str = "after";
+    const SHA_KEY: &str = "sha";
+    const MESSAGE_KEY: &str = "message";
+    const BRANCH_KEY: &str = "branch";
+
+    pub fn key(&self) -> &str {
+        match self {
+            Trailer::Other { key, .. } => key,
+            Trailer::Version(..) => Self::VERSION_KEY,
+            Trailer::Operation(..) => Self::OPERATION_KEY,
+            Trailer::RestoredFrom(..) => Self::RESTORED_FROM_KEY,
+            Trailer::RestoredOperation(..) => Self::RESTORED_OPERATION_KEY,
+            Trailer::RestoredDate(..) => Self::RESTORED_DATE_KEY,
+            Trailer::File(..) => Self::FILE_KEY,
+            Trailer::Name(..) => Self::NAME_KEY,
+            Trailer::PreviousName(..) => Self::PREVIOUS_NAME_KEY,
+            Trailer::Error(..) => Self::ERROR_KEY,
+            Trailer::Message(..) => Self::MESSAGE_KEY,
+            Trailer::Branch(..) => Self::BRANCH_KEY,
+            Trailer::Before(..) => Self::BEFORE_KEY,
+            Trailer::After(..) => Self::AFTER_KEY,
+            Trailer::Sha(..) => Self::SHA_KEY,
+        }
+    }
+
+    pub fn value(&self) -> Cow<'_, str> {
+        match self {
+            Trailer::Other { value, .. } => value.into(),
+            Trailer::Version(version) => version.0.to_string().into(),
+            Trailer::Operation(operation_kind) => operation_kind.as_persisted_str().into(),
+            Trailer::RestoredFrom(commit) => commit.to_string().into(),
+            Trailer::RestoredOperation(operation_kind) => operation_kind.as_persisted_str().into(),
+            Trailer::RestoredDate(timestamp) => timestamp.to_string().into(),
+            Trailer::File(name) => name.as_str().into(),
+            Trailer::Name(name) => name.as_str().into(),
+            Trailer::PreviousName(name) => name.as_str().into(),
+            Trailer::Error(error) => error.as_str().into(),
+            Trailer::Message(message) => message.as_str().into(),
+            Trailer::Branch(branch) => branch.as_str().into(),
+            Trailer::Before(n) => n.to_string().into(),
+            Trailer::After(n) => n.to_string().into(),
+            Trailer::Sha(commit) => commit.to_string().into(),
+        }
+    }
 }
 
 impl Display for Trailer {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let escaped_value = self.value.replace('\n', "\\n");
-        write!(f, "{}: {}", self.key, escaped_value)
+        let value = self.value();
+        let escaped_value = value.replace('\n', "\\n");
+        write!(f, "{}: {escaped_value}", self.key())
     }
 }
 
 impl FromStr for Trailer {
     type Err = anyhow::Error;
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Vec<&str> = s.splitn(2, ':').collect();
-        if parts.len() != 2 {
-            return Err(anyhow!("Invalid trailer format, expected `key: value`"));
+        let (key, value) = s
+            .split_once(':')
+            .context("Invalid trailer format, expected `key: value`")?;
+        let key = key.trim();
+        let unescaped_value = value.trim().replace("\\n", "\n");
+
+        for d in TrailerDiscriminants::iter() {
+            match d {
+                TrailerDiscriminants::Other => {
+                    // only used if no other variant matches
+                }
+                TrailerDiscriminants::Version => {
+                    if key == Self::VERSION_KEY {
+                        return Ok(Self::Version(
+                            unescaped_value.parse::<Version>().with_context(|| {
+                                format!(
+                                    "invalid version number in {} trailer: {unescaped_value:?}",
+                                    Self::VERSION_KEY
+                                )
+                            })?,
+                        ));
+                    }
+                }
+                TrailerDiscriminants::Operation => {
+                    if key == Self::OPERATION_KEY {
+                        return Ok(Self::Operation(
+                            OperationKind::parse_persisted_str(&unescaped_value)
+                                .unwrap_or(OperationKind::Unknown),
+                        ));
+                    }
+                }
+                TrailerDiscriminants::RestoredFrom => {
+                    if key == Self::RESTORED_FROM_KEY {
+                        return Ok(Self::RestoredFrom(unescaped_value.parse().with_context(
+                            || {
+                                format!(
+                                    "invalid commit in {} in trailer: {unescaped_value:?}",
+                                    Self::RESTORED_FROM_KEY
+                                )
+                            },
+                        )?));
+                    }
+                }
+                TrailerDiscriminants::RestoredOperation => {
+                    if key == Self::RESTORED_OPERATION_KEY {
+                        return Ok(Self::RestoredOperation(
+                            OperationKind::parse_persisted_str(&unescaped_value)
+                                .unwrap_or(OperationKind::Unknown),
+                        ));
+                    }
+                }
+                TrailerDiscriminants::RestoredDate => {
+                    if key == Self::RESTORED_DATE_KEY {
+                        return Ok(Self::RestoredDate(unescaped_value.parse().with_context(
+                            || {
+                                format!(
+                                    "invalid timestamp in {} trailer: {unescaped_value:?}",
+                                    Self::RESTORED_DATE_KEY
+                                )
+                            },
+                        )?));
+                    }
+                }
+                TrailerDiscriminants::File => {
+                    if key == Self::FILE_KEY {
+                        return Ok(Self::File(unescaped_value));
+                    }
+                }
+                TrailerDiscriminants::Name => {
+                    if key == Self::NAME_KEY {
+                        return Ok(Self::Name(unescaped_value));
+                    }
+                }
+                TrailerDiscriminants::PreviousName => {
+                    if key == Self::PREVIOUS_NAME_KEY {
+                        return Ok(Self::PreviousName(unescaped_value));
+                    }
+                }
+                TrailerDiscriminants::Error => {
+                    if key == Self::ERROR_KEY {
+                        return Ok(Self::Error(unescaped_value));
+                    }
+                }
+                TrailerDiscriminants::Before => {
+                    if key == Self::BEFORE_KEY {
+                        return Ok(Self::Before(unescaped_value.parse().with_context(
+                            || {
+                                format!(
+                                    "invalid number in {} trailer: {unescaped_value:?}",
+                                    Self::BEFORE_KEY
+                                )
+                            },
+                        )?));
+                    }
+                }
+                TrailerDiscriminants::After => {
+                    if key == Self::AFTER_KEY {
+                        return Ok(Self::After(unescaped_value.parse().with_context(|| {
+                            format!(
+                                "invalid number in {} trailer: {unescaped_value:?}",
+                                Self::AFTER_KEY
+                            )
+                        })?));
+                    }
+                }
+                TrailerDiscriminants::Sha => {
+                    if key == Self::SHA_KEY {
+                        return Ok(Self::Sha(unescaped_value.parse().with_context(|| {
+                            format!(
+                                "invalid commit in {} trailer: {unescaped_value:?}",
+                                Self::SHA_KEY
+                            )
+                        })?));
+                    }
+                }
+                TrailerDiscriminants::Message => {
+                    if key == Self::MESSAGE_KEY {
+                        return Ok(Self::Message(unescaped_value));
+                    }
+                }
+                TrailerDiscriminants::Branch => {
+                    if key == Self::BRANCH_KEY {
+                        return Ok(Self::Branch(unescaped_value));
+                    }
+                }
+            }
         }
-        let unescaped_value = parts[1].trim().replace("\\n", "\n");
-        Ok(Self {
-            key: parts[0].trim().to_string(),
+
+        Ok(Self::Other {
+            key: key.to_string(),
             value: unescaped_value,
         })
+    }
+}
+
+impl Serialize for Trailer {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct KeyValue<'a> {
+            key: &'a str,
+            value: Cow<'a, str>,
+        }
+
+        KeyValue {
+            key: self.key(),
+            value: self.value(),
+        }
+        .serialize(serializer)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use strum::IntoEnumIterator;
+
+    use super::OperationKind;
+
+    #[test]
+    fn parsing_operation_kinds() {
+        for kind in OperationKind::iter() {
+            let s = kind.as_persisted_str();
+            assert_eq!(kind, OperationKind::parse_persisted_str(s).unwrap());
+        }
+    }
+
+    #[test]
+    fn previous_name_trailer_has_a_distinct_key_and_roundtrips() {
+        use super::Trailer;
+
+        let previous = Trailer::PreviousName("old-name".to_owned());
+        // A key distinct from `Name` so a rename's two names don't collide under `.find(key)`.
+        assert_eq!(previous.key(), "previous_name");
+        assert_ne!(previous.key(), Trailer::Name(String::new()).key());
+
+        let parsed: Trailer = previous
+            .to_string()
+            .parse()
+            .expect("roundtrips through Display");
+        assert_eq!(parsed, previous);
     }
 }

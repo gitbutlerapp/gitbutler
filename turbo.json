@@ -3,11 +3,18 @@
 	"tasks": {
 		"package": {
 			"dependsOn": ["^package"],
-			"outputs": ["dist/**"]
+			"outputs": ["dist/**", ".svelte-kit/**"]
 		},
 		"build": {
 			"dependsOn": ["package"],
-			"passThroughEnv": ["SENTRY_AUTH_TOKEN", "GITHUB_TOKEN"],
+			"passThroughEnv": [
+				"SENTRY_AUTH_TOKEN",
+				"GITHUB_TOKEN",
+				"SVELTEKIT_OUT_DIR",
+				"VITE_BUILD_TARGET",
+				"VITE_BUTLER_API_BASE_URL",
+				"VITE_EMBEDDED_BUILD"
+			],
 			"env": ["SENTRY_RELEASE"],
 			"outputs": [
 				".svelte-kit/**",
@@ -20,7 +27,8 @@
 		"dev": {
 			"dependsOn": ["package"],
 			"cache": false,
-			"persistent": true
+			"persistent": true,
+			"passThroughEnv": ["SSH_AUTH_SOCK"]
 		},
 		"check": {
 			"dependsOn": ["package"]
@@ -28,21 +36,43 @@
 		"playwright:install:unit": {},
 		"playwright:install:ct": {},
 		"test": {
-			"dependsOn": ["package", "playwright:install:unit"]
+			"dependsOn": ["package", "playwright:install:unit"],
+			"passThroughEnv": [
+				"BUILDKITE_ANALYTICS_TOKEN",
+				"BUILDKITE_ANALYTICS_BASE_URL",
+				"BUILDKITE_ANALYTICS_KEY",
+				"BUILDKITE_ANALYTICS_BRANCH",
+				"BUILDKITE_ANALYTICS_SHA"
+			]
 		},
 		"test:e2e:playwright": {
 			"env": ["PLAYWRIGHT_BROWSERS_PATH"],
+			"passThroughEnv": [
+				"BUILDKITE_ANALYTICS_TOKEN",
+				"BUILDKITE_ANALYTICS_BASE_URL",
+				"BUILDKITE_ANALYTICS_KEY",
+				"BUILDKITE_ANALYTICS_BRANCH",
+				"BUILDKITE_ANALYTICS_SHA"
+			],
 			"dependsOn": ["package"]
 		},
 		"test:ct": {
 			"env": ["PLAYWRIGHT_BROWSERS_PATH"],
+			"passThroughEnv": [
+				"BUILDKITE_ANALYTICS_TOKEN",
+				"BUILDKITE_ANALYTICS_BASE_URL",
+				"BUILDKITE_ANALYTICS_KEY",
+				"BUILDKITE_ANALYTICS_BRANCH",
+				"BUILDKITE_ANALYTICS_SHA"
+			],
 			"dependsOn": ["package", "playwright:install:ct"]
 		},
 		"//#globallint": {
 			"dependsOn": [
-				"@gitbutler/ui#package",
+				"@gitbutler/ui-svelte#package",
 				"@gitbutler/shared#package",
-				"@gitbutler/no-relative-imports#package"
+				"@gitbutler/no-relative-imports#package",
+				"@gitbutler/no-cross-domain-imports#package"
 			]
 		}
 	}

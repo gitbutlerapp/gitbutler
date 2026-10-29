@@ -1,6 +1,7 @@
+import { expect } from "./expect.ts";
 import { clickByTestId, getByTestId, waitForTestId } from "./util.ts";
-import { expect, Page } from "@playwright/test";
-import { execSync } from "child_process";
+import { Page } from "@playwright/test";
+import { execFileSync } from "child_process";
 
 export async function openBranchContextMenu(page: Page, branchName: string) {
 	const branchHeader = getByTestId(page, "branch-header").filter({
@@ -50,10 +51,102 @@ export async function createNewBranch(page: Page, branchName: string) {
 }
 
 export async function assertBranch(branchName: string, pathToRepo: string): Promise<void> {
-	expect
-		.poll(() => execSync(`git branch --show-current`, { cwd: pathToRepo }), {
+	await expect
+		.poll(() => git(pathToRepo, ["branch", "--show-current"]), {
 			message: `Expected branch name to be "${branchName}"`,
 			intervals: [100, 200, 500, 1000],
 		})
 		.toBe(branchName);
+}
+
+export async function assertSymbolicHead(refName: string, pathToRepo: string): Promise<void> {
+	await expect
+		.poll(() => git(pathToRepo, ["symbolic-ref", "--short", "HEAD"]), {
+			message: `Expected HEAD to point to "${refName}"`,
+			intervals: [100, 200, 500, 1000],
+		})
+		.toBe(refName);
+}
+
+export async function assertCommitSubjects(
+	expectedSubjects: string[],
+	pathToRepo: string,
+): Promise<void> {
+	await expect
+		.poll(() => commitSubjects(pathToRepo, expectedSubjects.length), {
+			message: `Expected commit subjects to be ${JSON.stringify(expectedSubjects)}`,
+			intervals: [100, 200, 500, 1000],
+		})
+		.toEqual(expectedSubjects);
+}
+
+export async function assertCleanWorktree(pathToRepo: string): Promise<void> {
+	await expect
+		.poll(() => git(pathToRepo, ["status", "--porcelain"]), {
+			message: "Expected worktree to be clean",
+			intervals: [100, 200, 500, 1000],
+		})
+		.toBe("");
+}
+
+export async function assertDirtyWorktree(pathToRepo: string): Promise<void> {
+	await expect
+		.poll(() => git(pathToRepo, ["status", "--porcelain"]), {
+			message: "Expected worktree to be dirty",
+			intervals: [100, 200, 500, 1000],
+		})
+		.not.toBe("");
+}
+
+export async function assertRefDoesNotExist(refName: string, pathToRepo: string): Promise<void> {
+	await expect
+		.poll(() => git(pathToRepo, ["for-each-ref", "--format=%(refname)", refName]), {
+			message: `Expected ref "${refName}" to not exist`,
+			intervals: [100, 200, 500, 1000],
+		})
+		.toBe("");
+}
+
+export async function assertGitConfigValue(
+	key: string,
+	value: string,
+	pathToRepo: string,
+): Promise<void> {
+	await expect
+		.poll(
+			() => {
+				try {
+					return git(pathToRepo, ["config", "--local", key]);
+				} catch {
+					// `git config` exits non-zero while the key is not set yet.
+					return "<unset>";
+				}
+			},
+			{
+				message: `Expected git config "${key}" to be "${value}"`,
+				intervals: [100, 200, 500, 1000],
+			},
+		)
+		.toBe(value);
+}
+
+export function currentBranch(pathToRepo: string): string {
+	return git(pathToRepo, ["branch", "--show-current"]);
+}
+
+export function commitSubjects(pathToRepo: string, count: number): string[] {
+	return git(pathToRepo, ["log", `--max-count=${count}`, "--format=%s"])
+		.split("\n")
+		.filter(Boolean);
+}
+
+export function branchTip(branchName: string, pathToRepo: string): string {
+	return git(pathToRepo, ["rev-parse", branchName]);
+}
+
+function git(pathToRepo: string, args: string[]): string {
+	return execFileSync("git", args, {
+		cwd: pathToRepo,
+		encoding: "utf8",
+	}).trim();
 }

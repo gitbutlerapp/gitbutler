@@ -47,7 +47,7 @@ impl From<TreeChange> for DiffSpec {
     fn from(change: crate::TreeChange) -> Self {
         Self {
             previous_path: change.previous_path().map(ToOwned::to_owned),
-            path: change.path.to_owned(),
+            path: change.path,
             hunk_headers: vec![],
         }
     }
@@ -55,10 +55,8 @@ impl From<TreeChange> for DiffSpec {
 
 /// The header of a hunk that represents a change to a file.
 #[derive(Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/diffTypes.ts"))]
 pub struct HunkHeader {
     /// The 1-based line number at which the previous version of the file started.
     pub old_start: u32,

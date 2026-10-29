@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::{Context as _, bail};
 use but_core::{RefMetadata, is_workspace_ref_name, ref_metadata};
-use gix::{hashtable::hash_map::Entry, reference::Category, traverse::commit::Either};
+use gix::{reference::Category, traverse::commit::Either};
 use petgraph::{Direction, prelude::EdgeRef};
 
 use crate::{
@@ -69,7 +69,7 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
 
     let mut out = Vec::new();
     'next_ws_tip: for ws_tip in ws_tips {
-        if crate::projection::commit::is_managed_workspace_by_message(
+        if crate::workspace::commit::is_managed_workspace_by_message(
             repo.find_commit(ws_tip)?.message_raw()?,
         ) {
             if next.iter().filter(|(info, ..)| info.id == ws_tip).count() <= 1 {
@@ -164,9 +164,14 @@ pub fn split_commit_into_segment(
     let top_commit_index = graph[sidx].last_commit_index();
     let bottom_commit_id = bottom_segment.commits[0].id;
     let bottom_segment = match standin {
-        None => {
-            graph.connect_new_segment(sidx, top_commit_index, bottom_segment, 0, bottom_commit_id)
-        }
+        None => graph.connect_new_segment(
+            sidx,
+            top_commit_index,
+            bottom_segment,
+            0,
+            bottom_commit_id,
+            0,
+        ),
         Some(standin_sidx) => {
             let outgoing_edges: Vec<_> = graph
                 .edges_directed(standin_sidx, Direction::Outgoing)
@@ -184,6 +189,7 @@ pub fn split_commit_into_segment(
                 standin_sidx,
                 0,
                 Some(bottom_commit_id),
+                0,
             );
             let s = &mut graph[standin_sidx];
             s.commits = bottom_segment.commits;
@@ -295,6 +301,8 @@ fn split_connections(
                     })
                     .transpose()?,
                 dst_id: edge.weight.dst_id,
+                parent_order: edge.weight.parent_order,
+                workspace_parent_order: edge.weight.workspace_parent_order,
             },
         );
     }
@@ -322,27 +330,6 @@ pub fn replace_queued_segments(queue: &mut Queue, find: SegmentIndex, replace: S
         if cmp == find {
             *instruction_to_replace = instruction_to_replace.with_replaced_sidx(replace);
         }
-    }
-}
-
-pub fn swap_queued_segments(queue: &mut Queue, a: SegmentIndex, b: SegmentIndex) {
-    for instruction_to_replace in queue.iter_mut().map(|(_, _, instruction, _)| instruction) {
-        let cmp = instruction_to_replace.segment_idx();
-        if cmp == a {
-            *instruction_to_replace = instruction_to_replace.with_replaced_sidx(b);
-        } else if cmp == b {
-            *instruction_to_replace = instruction_to_replace.with_replaced_sidx(a);
-        }
-    }
-}
-
-pub fn swap_commits_and_connections(graph: &mut PetGraph, a: SegmentIndex, b: SegmentIndex) {
-    {
-        let (a, b) = graph.index_twice_mut(a, b);
-        std::mem::swap(&mut a.commits, &mut b.commits);
-    }
-    if graph.edges(a).next().is_some() || graph.edges(b).next().is_some() {
-        todo!("swap connections of nodes as well")
     }
 }
 
@@ -399,6 +386,7 @@ pub fn try_split_non_empty_segment_at_branch<T: RefMetadata>(
         segment_below,
         0,
         info.id,
+        0,
     );
     Ok(Some(segment_below))
 }
@@ -406,6 +394,8 @@ pub fn try_split_non_empty_segment_at_branch<T: RefMetadata>(
 /// Queue the `parent_ids` of the current commit, whose additional information like `current_kind` and `current_index`
 /// are used.
 /// `limit` is used to determine if the tip is NOT supposed to be dropped, with `0` meaning it's depleted.
+///
+/// Returns `true` if queueing a parent reaches the queue's hard limit.
 #[expect(clippy::too_many_arguments)]
 pub fn queue_parents(
     next: &mut Queue,
@@ -414,38 +404,49 @@ pub fn queue_parents(
     current_sidx: SegmentIndex,
     current_cidx: CommitIndex,
     mut limit: Limit,
+    is_shallow_boundary: bool,
     commit_graph: Option<&gix::commitgraph::Graph>,
     objects: &impl gix::objs::Find,
     buf: &mut Vec<u8>,
 ) -> anyhow::Result<bool> {
+    if is_shallow_boundary {
+        return Ok(false);
+    }
+    // Don't enqueue new parents if we don't have space anymore.
+    if next.is_exhausted() {
+        return Ok(next.hard_limit_hit());
+    }
     if limit.is_exhausted_or_decrement(flags, next) {
         return Ok(false);
     }
+    let mut queue_is_exhausted = false;
     if parent_ids.len() > 1 {
-        let instruction = Instruction::ConnectNewSegment {
-            parent_above: current_sidx,
-            at_commit: current_cidx,
-        };
         let limit_per_parent = limit.per_parent(parent_ids.len());
-        for pid in parent_ids {
+        for (parent_order, pid) in parent_ids.iter().enumerate() {
+            let instruction = Instruction::ConnectNewSegment {
+                parent_above: current_sidx,
+                at_commit: current_cidx
+                    .try_into()
+                    .context("commit index does not fit into u32")?,
+                parent_order: parent_order
+                    .try_into()
+                    .context("commit parent position does not fit into u32")?,
+            };
             let info = find(commit_graph, objects, *pid, buf)?;
-            if next.push_back_exhausted((info, flags, instruction, limit_per_parent)) {
-                return Ok(true);
-            }
+            queue_is_exhausted =
+                next.push_back_even_if_exhausted((info, flags, instruction, limit_per_parent));
         }
     } else if !parent_ids.is_empty() {
         let info = find(commit_graph, objects, parent_ids[0], buf)?;
-        if next.push_back_exhausted((
+        queue_is_exhausted |= next.push_back_exhausted((
             info,
             flags,
             Instruction::CollectCommit { into: current_sidx },
             limit,
-        )) {
-            return Ok(true);
-        }
+        ));
     }
 
-    Ok(false)
+    Ok(queue_is_exhausted)
 }
 
 /// As convenience, if `ref_name` is `Some` and the metadata is not set, it will look it up for you.
@@ -477,11 +478,12 @@ pub fn branch_segment_from_name_and_meta_sibling<T: RefMetadata>(
     refs_by_id_lookup: Option<(&RefsById, gix::ObjectId)>,
     worktree_by_branch: &WorktreeByBranch,
 ) -> anyhow::Result<Segment> {
+    let commit_id = refs_by_id_lookup.map(|(_, id)| id);
     let (ref_name, metadata) =
         unambiguous_local_branch_and_segment_data(ref_name, meta, refs_by_id_lookup)?;
     Ok(Segment {
         metadata,
-        ref_info: ref_name.map(|rn| crate::RefInfo::from_ref(rn, worktree_by_branch)),
+        ref_info: ref_name.map(|rn| crate::RefInfo::from_ref(rn, commit_id, worktree_by_branch)),
         sibling_segment_id: sibling_sidx,
         ..Default::default()
     })
@@ -565,7 +567,7 @@ fn extract_local_branch_metadata<T: RefMetadata>(
         // through the current tip.
         .or_else(|| {
             meta.workspace_opt(ref_name)
-                .map(|res| res.map(|md| SegmentMetadata::Workspace(md.clone())))
+                .map(|res| res.map(SegmentMetadata::Workspace))
                 .transpose()
         })
         .transpose()
@@ -622,6 +624,13 @@ impl Ord for GenThenTime {
 }
 
 impl TraverseInfo {
+    /// Convert this traversal item into a graph [`Commit`].
+    ///
+    /// `flags` are the graph-specific classifications collected for this
+    /// commit during traversal. `refs` are the fully-qualified ref names that
+    /// peel to this commit and should be attached to the resulting commit.
+    /// `worktree_by_branch` is used to annotate each ref with the worktree that
+    /// currently has it checked out, if any.
     pub fn into_commit(
         self,
         flags: CommitFlags,
@@ -630,7 +639,7 @@ impl TraverseInfo {
     ) -> anyhow::Result<Commit> {
         let refs: Vec<_> = refs
             .into_iter()
-            .map(|rn| crate::RefInfo::from_ref(rn, worktree_by_branch))
+            .map(|rn| crate::RefInfo::from_ref(rn, self.inner.id, worktree_by_branch))
             .collect();
         Ok(match self.commit {
             Some(commit) => Commit {
@@ -728,27 +737,24 @@ pub fn find(
             id,
             parent_ids,
             commit_time: None,
+            generation: gen_then_time.generation,
         },
         commit,
         gen_then_time,
     })
 }
 
-/// Returns `([(workspace_tip, workspace_ref_name, workspace_info)], target_refs, desired_refs)` for all available workspace,
+/// Returns `[(workspace_tip, workspace_ref_name, workspace_info)]` for all available workspace,
 /// or exactly one workspace if `maybe_ref_name` has workspace metadata (and only then).
 ///
 /// That way we can discover the workspace containing any starting point, but only if needed.
 /// This means we process all workspaces if we aren't currently and clearly looking at a workspace.
 /// Also prune all non-standard workspaces early, or those that don't have a tip.
-#[expect(clippy::type_complexity)]
 pub fn obtain_workspace_infos<T: RefMetadata>(
     repo: &OverlayRepo<'_>,
     maybe_ref_name: Option<&gix::refs::FullNameRef>,
     meta: &OverlayMetadata<'_, T>,
-) -> anyhow::Result<(
-    Vec<(gix::ObjectId, gix::refs::FullName, ref_metadata::Workspace)>,
-    Vec<gix::refs::FullName>,
-)> {
+) -> anyhow::Result<Vec<(gix::ObjectId, gix::refs::FullName, ref_metadata::Workspace)>> {
     let workspaces = if let Some((ref_name, ws_data)) = maybe_ref_name
         .and_then(|ref_name| {
             meta.workspace_opt(ref_name)
@@ -762,27 +768,11 @@ pub fn obtain_workspace_infos<T: RefMetadata>(
         meta.iter_workspaces().collect()
     };
 
-    let (mut out, mut target_refs) = (Vec::new(), Vec::new());
+    let mut out = Vec::new();
     for (rn, data) in workspaces {
         if rn.category() != Some(Category::LocalBranch) {
             tracing::warn!(
                 "Skipped workspace at ref {rn} as workspaces can only ever be on normal branches",
-            );
-            continue;
-        }
-        if target_refs.contains(&rn) {
-            tracing::warn!(
-                "Skipped workspace at ref {rn} as it was also a target ref for another workspace (or for itself)",
-            );
-            continue;
-        }
-        if let Some(invalid_target_ref) = data
-            .target_ref
-            .as_ref()
-            .filter(|trn| trn.category() != Some(Category::RemoteBranch))
-        {
-            tracing::warn!(
-                "Skipped workspace at ref {rn} as its target reference {invalid_target_ref} was not a remote tracking branch",
             );
             continue;
         }
@@ -793,11 +783,10 @@ pub fn obtain_workspace_infos<T: RefMetadata>(
             continue;
         };
 
-        target_refs.extend(data.target_ref.clone());
         out.push((ws_tip, rn, data))
     }
 
-    Ok((out, target_refs))
+    Ok(out)
 }
 
 pub fn try_refname_to_id(
@@ -990,6 +979,7 @@ pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
     })
 }
 
+#[expect(clippy::too_many_arguments)]
 pub fn possibly_split_occupied_segment(
     graph: &mut Graph,
     seen: &mut gix::revwalk::graph::IdMap<SegmentIndex>,
@@ -998,45 +988,18 @@ pub fn possibly_split_occupied_segment(
     propagated_flags: CommitFlags,
     src_sidx: SegmentIndex,
     limit: Limit,
+    parent_order: u32,
 ) -> anyhow::Result<()> {
-    let Entry::Occupied(mut existing_sidx) = seen.entry(id) else {
+    // `src` runs into the segment that already owns `id`. That segment keeps its commits,
+    // split below `id` if `id` isn't its first commit, and `src` is connected on top of it.
+    let Some(mut bottom_sidx) = seen.get(&id).copied() else {
         bail!("BUG: Can only work with occupied entries")
     };
-    let dst_sidx = *existing_sidx.get();
-    let (top_sidx, mut bottom_sidx) =
-        // If a normal branch walks into a workspace branch, put the workspace branch on top
-        // so it doesn't own the existing commit.
-        if graph[dst_sidx].workspace_metadata().is_some() &&
-            graph[src_sidx].ref_name()
-                .and_then(|rn| rn.category()).is_some_and(|c| matches!(c, Category::LocalBranch)) {
-            // `dst` is basically swapping with `src`, so must swap commits and connections.
-            swap_commits_and_connections(&mut graph.inner, dst_sidx, src_sidx);
-            swap_queued_segments(next, dst_sidx, src_sidx);
-
-            // Assure the first commit doesn't name the new owner segment.
-            {
-                let s: &mut Segment = &mut graph[src_sidx];
-                if let Some(c) = s.commits.first_mut() {
-                    c.refs.retain(|ri| Some(&ri.ref_name) != s.ref_info.as_ref().map(|rn| &rn.ref_name))
-                }
-                // Update the commit-ownership of the connecting commit, but also
-                // of all other commits in the segment.
-                existing_sidx.insert(src_sidx);
-                for commit_id in s.commits.iter().skip(1).map(|c| c.id) {
-                    seen.entry(commit_id).insert(src_sidx);
-                }
-            }
-            (dst_sidx, src_sidx)
-        } else {
-            // `src` naturally runs into destination, so nothing needs to be done
-            // except for connecting both. Commit ownership doesn't change.
-            (src_sidx, dst_sidx)
-        };
-    let top_cidx = graph[top_sidx].last_commit_index();
+    let top_cidx = graph[src_sidx].last_commit_index();
     let mut bottom_cidx = graph[bottom_sidx].commit_index_of(id).with_context(|| {
         format!(
             "BUG: Didn't find commit {id} in segment {bottom_sidx}",
-            bottom_sidx = dst_sidx.index(),
+            bottom_sidx = bottom_sidx.index(),
         )
     })?;
 
@@ -1048,8 +1011,7 @@ pub fn possibly_split_occupied_segment(
         // maybe all this can be simpler?
         let standin = {
             let s = &graph[src_sidx];
-            (top_sidx == src_sidx
-                && s.commits.is_empty()
+            (s.commits.is_empty()
                 && s.ref_info.is_some()
                 && graph
                     .neighbors_directed(src_sidx, Direction::Incoming)
@@ -1068,11 +1030,28 @@ pub fn possibly_split_occupied_segment(
     }
 
     // Standins will cause this, avoid self-connection.
-    if top_sidx != bottom_sidx {
-        graph.connect_segments(top_sidx, top_cidx, bottom_sidx, bottom_cidx);
+    if src_sidx != bottom_sidx {
+        if top_cidx.is_none()
+            && let Some(ref_name) = graph[src_sidx].ref_name().map(ToOwned::to_owned)
+        {
+            // The empty segment already represents this ref. Leaving it on the
+            // commit would create a second reference node in the editor.
+            graph[bottom_sidx].commits[bottom_cidx]
+                .refs
+                .retain(|info| info.ref_name != ref_name);
+        }
+        graph.connect_segments_with_ids(
+            src_sidx,
+            top_cidx,
+            None,
+            bottom_sidx,
+            bottom_cidx,
+            None,
+            parent_order,
+        );
     }
     let top_flags = top_cidx
-        .map(|cidx| graph[top_sidx].commits[cidx].flags)
+        .map(|cidx| graph[src_sidx].commits[cidx].flags)
         .unwrap_or_default();
     let bottom_flags = graph[bottom_sidx].commits[bottom_cidx].flags;
     let new_flags = propagated_flags | top_flags | bottom_flags;
@@ -1139,18 +1118,20 @@ fn propagate_goals_of_reachable_tips(
     }
 }
 
-/// Remove tips with only integrated commits and delete empty segments of pruned tips,
-/// as these are uninteresting.
+/// Stop traversal once only integrated tips with reached goals are left.
 /// However, do so only if our entrypoint isn't integrated itself and is not in a workspace. The reason for this is that we
 /// always also traverse workspaces and their targets, even if the traversal starts outside a workspace.
 pub fn prune_integrated_tips(graph: &mut Graph, next: &mut Queue) -> anyhow::Result<()> {
-    let all_integated_and_done = next.iter().all(|(_id, flags, _instruction, tip_limit)| {
-        flags.contains(CommitFlags::Integrated) && tip_limit.goal_reached()
-    });
-    if !all_integated_and_done {
+    if next.is_exhausted() {
         return Ok(());
     }
-    let ep = graph.lookup_entrypoint()?;
+    let all_integrated_and_done = next.iter().all(|(_id, flags, _instruction, tip_limit)| {
+        flags.contains(CommitFlags::Integrated) && tip_limit.goal_reached()
+    });
+    if !all_integrated_and_done {
+        return Ok(());
+    }
+    let ep = graph.entrypoint()?;
     if ep
         .segment
         .non_empty_flags_of_first_commit()
@@ -1159,15 +1140,7 @@ pub fn prune_integrated_tips(graph: &mut Graph, next: &mut Queue) -> anyhow::Res
         return Ok(());
     }
 
-    next.inner
-        .retain_mut(|(_id, _flags, instruction, _tip_limit)| {
-            let sidx = instruction.segment_idx();
-            let s = &graph[sidx];
-            if s.commits.is_empty() {
-                graph.inner.remove_node(sidx);
-            }
-            false
-        });
+    next.exhaust();
     Ok(())
 }
 
@@ -1176,12 +1149,17 @@ pub(crate) type WorktreeByBranch = BTreeMap<gix::refs::FullName, Vec<Worktree>>;
 impl crate::RefInfo {
     pub(crate) fn from_ref(
         ref_name: gix::refs::FullName,
+        commit_id: impl Into<Option<gix::ObjectId>>,
         worktree_by_branch: &WorktreeByBranch,
     ) -> Self {
         let worktree = worktree_by_branch
             .get(&ref_name)
             .and_then(|worktrees| worktrees.first().cloned());
-        Self { ref_name, worktree }
+        Self {
+            ref_name,
+            commit_id: commit_id.into(),
+            worktree,
+        }
     }
 }
 

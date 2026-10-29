@@ -1,6 +1,6 @@
 import { getEphemeralStorageItem, setEphemeralStorageItem } from "@gitbutler/shared/persisted";
 import { type Subscriber, type Unsubscriber } from "svelte/store";
-import type { Commit } from "$lib/branches/v3";
+import type { Commit } from "@gitbutler/but-sdk";
 
 /**
  * A custom persisted store that makes it easier to manage pr descriptions.

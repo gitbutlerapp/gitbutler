@@ -11,7 +11,7 @@ you right. Let's get started.
 - [CLI-only development](#cli-only-development)
 - [The Basics](#the-basics)
   - [Prerequisites](#prerequisites)
-  - [Install dependencies](#install-dependencies)
+  - [Install JavaScript dependencies](#install-javascript-dependencies)
   - [Run the app](#run-the-app)
   - [Lint & format](#lint--format)
 - [Debugging](#debugging)
@@ -21,7 +21,6 @@ you right. Let's get started.
 - [Troubleshooting](#troubleshooting)
 - [Building](#building)
   - [Building on Windows](#building-on-windows)
-    - [File permissions](#file-permissions)
     - [Perl](#perl)
     - [Crosscompilation](#crosscompilation)
 - [Design](#design)
@@ -137,38 +136,21 @@ $ cd gitbutler-repo
 $ curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
 ```
 
-3. Node
+3. pnpm
 
-Next, ensure you've got at least Node 20 installed. If you're on Mac OS or Linux and you're missing `node`, you can use your favorite package manager like `brew` or `apt`.
+Install standalone pnpm using the [pnpm installation instructions](https://pnpm.io/installation#using-a-standalone-script).
+It provides Node.js.
 
-Alternatively, you can use the following Node installer from Vercel to get the latest version.
+### Install JavaScript dependencies
 
-```bash
-$ curl https://install-node.vercel.app/latest > install_node.sh
-$ sudo ./install_node.sh
-```
-
-4. pnpm
-
-Finally, we use `pnpm` as our javascript package manager. You can leverage `corepack`, which comes shipped with `node`, to install and use the `pnpm` version we defined in our `package.json`.
+From the repository root, install the JavaScript dependencies. This also installs the project's Node.js runtime:
 
 ```bash
-$ cd gitbutler-repo
-$ corepack enable
+$ pnpm install
 ```
 
-### Install dependencies
-
-Next, install the app dependencies.
-
-I hope you have some disk space for 300M of `node_modules`, because this bad
-boy will fill er up:
-
-```bash
-$ pnpm install # This should now ask you to confirm the download, installation, and use of pnpm via corepack
-```
-
-You'll have to re-run this occasionally when our deps change.
+Re-run it when dependencies change.
+Run project commands through `pnpm` scripts or `pnpm exec` to use that runtime.
 
 > [!NOTE]  
 > We use [turborepo](https://turbo.build/repo) as our monorepo tooling and by default Vercel collects some [basic telemetry](https://turbo.build/repo/docs/telemetry). If you'd like to disable this, please run `pnpm exec turbo telemetry disable` once in the project's root directory after installing dependencies.
@@ -246,7 +228,7 @@ Often the behaviour depends on the current context: the repository being display
 To do that, _launch the application from a terminal_ as shown in the paragraph above this one, or right below, but with `graphviz` installed.
 The `dot` program should be available in `PATH` so it can run from the terminal.
 
-Doing so can look like this on MacOS, for example:
+Doing so can look like this on macOS, for example:
 
 ###### For the stable build
 
@@ -322,25 +304,6 @@ pnpm install
 cargo clean
 ```
 
-### Node.js & pnpm
-
-Use the Node version pinned by `.nvmrc` (currently LTS “jod” / Node 22):
-
-```bash
-nvm install
-nvm use
-node -v
-```
-
-Use pnpm via Corepack (avoid global installs):
-
-```bash
-corepack enable
-corepack pnpm -v
-# optionally pin a major:
-corepack prepare pnpm@10 --activate
-```
-
 ### Additional resources
 
 For issues specific to our toolchain components:
@@ -357,7 +320,7 @@ If none of these solutions work, please check our [GitHub Issues](https://github
 To build the app in production mode, run:
 
 ```bash
-$ pnpm tauri build --features devtools,builtin-but,disable-auto-updates --config crates/gitbutler-tauri/tauri.conf.nightly-local.json
+$ pnpm tauri build --features devtools,builtin-but,disable-auto-updates,nightly --config crates/gitbutler-tauri/tauri.conf.nightly-local.json
 ```
 
 This will make an asset similar to our nightly build.
@@ -365,28 +328,6 @@ This will make an asset similar to our nightly build.
 ### Building on Windows
 
 Building on Windows is a bit of a tricky process. Here are some helpful tips.
-
-#### File permissions
-
-We use `pnpm`, which requires a relatively recent version of Node.js.
-Make sure that the latest stable version of Node.js is installed and
-on the PATH, and then `npm install -g pnpm`.
-
-Sometimes npm's prefix is incorrect on Windows, we can check this via:
-
-```sh
-npm config get prefix
-```
-
-If it's not `C:\Users\<username>\AppData\Roaming\npm` or another folder that is
-normally writable, then we can set it in Powershell:
-
-```sh
-mkdir -p $APPDATA\npm
-npm config set prefix $env:APPDATA\npm
-```
-
-Afterwards, add this folder to your PATH.
 
 #### Perl
 
@@ -439,7 +380,7 @@ export OPENSSL_SRC_PERL="c:/Strawberry/perl/bin/perl.exe"
 Here is how to produce a nightly release build:
 
 ```
-pnpm tauri build --features windows,devtools --config  crates/gitbutler-tauri/tauri.conf.nightly.json
+pnpm tauri build --features windows,devtools,nightly --config  crates/gitbutler-tauri/tauri.conf.nightly.json
 ```
 
 And this is how to get a local developer debug build:
@@ -512,6 +453,15 @@ By default, you will not be able to log into GitButler using Github/Google becau
 PUBLIC_API_BASE_URL=https://app.gitbutler.com/
 ```
 
+The desktop frontend and local backend both honor `PUBLIC_API_BASE_URL`. If you
+need a backend-only override while debugging, `GITBUTLER_API_URL` still takes
+precedence on the Rust side.
+
+When you start the desktop app with `pnpm dev:desktop`, the Tauri launcher now
+loads `apps/desktop/.env`, `.env.local`, `.env.development`, and
+`.env.development.local` into the Rust process as well, so the frontend and
+backend see the same local overrides by default.
+
 ---
 
 ## Joining the GitButler Team
@@ -529,5 +479,4 @@ This is a list of crates/modules that we want to eliminate or split into smaller
 - [gitbutler-reference](crates/gitbutler-reference/) (just bad)
 - [gitbutler-branch-actions](crates/gitbutler-branch-actions/) (contains functionality outside of the virtual branch domain (e.g. commit actions etc.))
 - [gitbutler-branch](crates/gitbutler-branch/) (contains `diff` and `branch` contexts due to a cyclic dependency)
-- [gitbutler-url](crates/gitbutler-url/) (this is a huge mess and ideally we need none of it)
 - [gitbutler_repo::config](crates/gitbutler-repo/src/config.rs) (seems like the wrong abstraction)

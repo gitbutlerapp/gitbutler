@@ -10,7 +10,7 @@
 	import { PATCH_EVENTS_SERVICE } from "@gitbutler/shared/patchEvents/patchEventsService";
 	import { getPatchEvents } from "@gitbutler/shared/patches/patchCommitsPreview.svelte";
 	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
-	import { Button } from "@gitbutler/ui";
+	import { Button } from "@gitbutler/ui-svelte";
 	import type { PatchCommit } from "@gitbutler/shared/patches/types";
 
 	type Props = {
@@ -158,10 +158,10 @@
 		width: 100%;
 		height: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 
 		border-radius: var(--radius-ml, 10px);
-		background: var(--clr-bg-1);
+		background: var(--bg-1);
 		pointer-events: all;
 
 		&.tablet-mode {
@@ -185,7 +185,7 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 10px 10px 10px 16px;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--border-2);
 	}
 
 	.chat-header-actions {
@@ -231,6 +231,6 @@
 
 	.blank-message-text {
 		margin-top: 10px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

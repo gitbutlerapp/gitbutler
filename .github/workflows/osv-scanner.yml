@@ -19,13 +19,14 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Run scanner
-        uses: google/osv-scanner-action/osv-scanner-action@c5996e0193a3df57d695c1b8a1dec2a4c62e8730 # v2.3.3
+        uses: google/osv-scanner-action/osv-scanner-action@6e4298ebc4db23e847df9b2e2de2939d6f066c67 # v2.5.1
         with:
           scan-args: |-
+            --config=.github/osv-scanner.toml
             --output=results.sarif
             --format=sarif
             -r
@@ -40,14 +41,14 @@ jobs:
           fi
       - name: Upload artifact
         if: ${{ !cancelled() && hashFiles('results.sarif') != '' }}
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: osv-scanner-sarif-default-${{ github.run_id }}-${{ github.run_attempt }}
           path: results.sarif
           retention-days: 5
       - name: Upload to code-scanning
         if: ${{ !cancelled() && hashFiles('results.sarif') != '' }}
-        uses: github/codeql-action/upload-sarif@9e907b5e64f6b83e7804b09294d44122997950d6 # v4.32.3
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
           sarif_file: results.sarif
       - name: Report vulnerabilities
@@ -66,7 +67,7 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 2
@@ -92,9 +93,10 @@ jobs:
             git checkout FETCH_HEAD
           fi
       - name: Run scanner on existing code
-        uses: google/osv-scanner-action/osv-scanner-action@c5996e0193a3df57d695c1b8a1dec2a4c62e8730 # v2.3.3
+        uses: google/osv-scanner-action/osv-scanner-action@6e4298ebc4db23e847df9b2e2de2939d6f066c67 # v2.5.1
         with:
           scan-args: |-
+            --config=.github/osv-scanner.toml
             --format=json
             --output=old-results.json
             -r
@@ -103,9 +105,10 @@ jobs:
       - name: Checkout current branch
         run: git checkout -f "$GITHUB_SHA"
       - name: Run scanner on new code
-        uses: google/osv-scanner-action/osv-scanner-action@c5996e0193a3df57d695c1b8a1dec2a4c62e8730 # v2.3.3
+        uses: google/osv-scanner-action/osv-scanner-action@6e4298ebc4db23e847df9b2e2de2939d6f066c67 # v2.5.1
         with:
           scan-args: |-
+            --config=.github/osv-scanner.toml
             --format=json
             --output=new-results.json
             -r
@@ -127,7 +130,7 @@ jobs:
       - name: Run reporter
         id: run_reporter
         if: ${{ always() && !cancelled() && steps.check_scan_outputs.outcome == 'success' }}
-        uses: google/osv-scanner-action/osv-reporter-action@c5996e0193a3df57d695c1b8a1dec2a4c62e8730 # v2.3.3
+        uses: google/osv-scanner-action/osv-reporter-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
         with:
           scan-args: |-
             --output=results.sarif
@@ -146,28 +149,28 @@ jobs:
           fi
       - name: Upload artifact
         if: ${{ always() && !cancelled() && hashFiles('results.sarif') != '' }}
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: osv-scanner-sarif-pr-${{ github.run_id }}-${{ github.run_attempt }}
           path: results.sarif
           retention-days: 5
       - name: Upload old scan json results
         if: ${{ always() && !cancelled() && hashFiles('old-results.json') != '' }}
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: osv-scanner-old-json-${{ github.run_id }}-${{ github.run_attempt }}
           path: old-results.json
           retention-days: 5
       - name: Upload new scan json results
         if: ${{ always() && !cancelled() && hashFiles('new-results.json') != '' }}
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: osv-scanner-new-json-${{ github.run_id }}-${{ github.run_attempt }}
           path: new-results.json
           retention-days: 5
       - name: Upload to code-scanning
         if: ${{ always() && !cancelled() && hashFiles('results.sarif') != '' }}
-        uses: github/codeql-action/upload-sarif@9e907b5e64f6b83e7804b09294d44122997950d6 # v4.32.3
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
           sarif_file: results.sarif
       - name: Fail on vulnerabilities introduced by PR

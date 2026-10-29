@@ -25,7 +25,7 @@ use config::{Channel, InstallerConfig};
 pub use config::{Version, VersionRequest};
 use install::but_binary_path;
 use release::fetch_release;
-use shell::setup_path;
+use shell::configure_shell;
 use ui::{info, success};
 
 #[cfg(target_os = "linux")]
@@ -63,17 +63,56 @@ pub fn run_installation_with_version(
 /// Reads version from command-line arguments or GITBUTLER_VERSION environment variable.
 /// If neither is provided, installs the latest release.
 ///
-/// This is the entry point for the standalone installer binary, so it runs in
-/// interactive mode (runs onboarding and prints usage instructions).
+/// This is the entry point for the standalone installer binary, and runs in interactive mode with
+/// shell configuration and other onboarding if there is a terminal connected. Otherwise, or when
+/// `GITBUTLER_NONINTERACTIVE` is set to a non-empty value (for scripts that wrap the installer),
+/// it runs non-interactively.
 ///
 /// Returns an error if any step fails. The function will attempt to rollback
 /// changes on installation failure.
 pub fn run_installation() -> Result<()> {
     let config = InstallerConfig::new()?;
-    run_installation_impl(config, true)
+    let forced_noninteractive =
+        std::env::var("GITBUTLER_NONINTERACTIVE").is_ok_and(|v| !v.is_empty());
+    let interactive = ui::is_connected_to_terminal() && !forced_noninteractive;
+    let but_path = but_binary_path(&config.home_dir);
+    run_installation_impl(config, interactive)?;
+    if supports_agent_setup(&but_path) {
+        if interactive {
+            ui::println_empty();
+            offer_agent_skill_setup(&but_path);
+        } else {
+            info("To install the GitButler skill for your coding agent, run: but agent setup");
+        }
+    }
+    Ok(())
+}
+
+/// Returns true if the installed `but` has the built-in `agent setup` command.
+///
+/// Detected by `but --help` listing an `agent` subcommand. Do not probe by
+/// running `but agent ...` itself: pinned older versions lack the command and
+/// some of them would dispatch it to an unrelated `but-agent` executable on
+/// PATH, whereas `--help` is built in on every version.
+fn supports_agent_setup(but_path: &std::path::Path) -> bool {
+    std::process::Command::new(but_path)
+        .arg("--help")
+        .stdin(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .is_ok_and(|out| {
+            out.status.success()
+                && String::from_utf8_lossy(&out.stdout)
+                    .lines()
+                    .any(|line| line.trim_start().starts_with("agent "))
+        })
 }
 
 fn run_installation_impl(config: InstallerConfig, interactive: bool) -> Result<()> {
+    if interactive && !ui::is_connected_to_terminal() {
+        anyhow::bail!("interactive mode requested, but there is no terminal to prompt on");
+    }
+
     info(&format!("Detected platform: {}", config.platform));
 
     // Fetch release information
@@ -115,8 +154,10 @@ fn run_installation_impl(config: InstallerConfig, interactive: bool) -> Result<(
 
     download_and_install_app(&config, platform_info, &release, channel)?;
 
-    // Setup PATH
-    setup_path(&config.home_dir)?;
+    if interactive {
+        info("Checking shell configuration");
+        configure_shell(&config.home_dir)?;
+    }
 
     ui::println_empty();
     success(&format!(
@@ -146,4 +187,41 @@ fn run_installation_impl(config: InstallerConfig, interactive: bool) -> Result<(
     }
 
     Ok(())
+}
+
+/// Offers to run `but agent setup` after a successful interactive installation.
+///
+/// Best-effort: the installation has already succeeded at this point, so
+/// declining, cancelling the wizard, or any failure never fails the install.
+fn offer_agent_skill_setup(but_path: &std::path::Path) {
+    if !ui::prompt_for_confirmation_default_yes(
+        "Install the GitButler skill for your coding agent (Claude Code, Codex, ...)?",
+    ) {
+        info("You can install it later with: but agent setup");
+        return;
+    }
+
+    // The setup wizard requires a terminal on stdin. Under `curl | sh` this
+    // process inherits curl's pipe as stdin, so give the child a duplicate of
+    // our stdout instead — in interactive mode that is the terminal device,
+    // opened read-write by the terminal emulator. Deliberately not an opened
+    // `/dev/tty`: on macOS, kqueue cannot poll that alias device, and the
+    // wizard's event loop would hang before reading a single key.
+    let child_stdin = {
+        use std::os::fd::AsFd;
+        std::io::stdout()
+            .as_fd()
+            .try_clone_to_owned()
+            .map(std::process::Stdio::from)
+            .unwrap_or_else(|_| std::process::Stdio::inherit())
+    };
+
+    let status = std::process::Command::new(but_path)
+        .args(["agent", "setup"])
+        .stdin(child_stdin)
+        .status();
+
+    if !status.map(|s| s.success()).unwrap_or(false) {
+        info("Agent setup did not complete. You can run it again with: but agent setup");
+    }
 }

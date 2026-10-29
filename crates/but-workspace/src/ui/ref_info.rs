@@ -6,24 +6,14 @@ use but_core::{
 };
 use gix::refs::Category;
 
-use crate::{
-    ref_info::{LocalCommit, LocalCommitRelation},
-    ui,
-    ui::UpstreamCommit,
-};
+use crate::{ui, ui::UpstreamCommit};
 
 /// A reference in `refs/heads`.
 #[derive(serde::Serialize, Debug, Clone)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/index.ts")
-)]
 pub struct BranchReference {
     /// The full ref name, like `refs/heads/feat`, for usage with the backend.
-    #[cfg_attr(feature = "export-ts", ts(type = "number[]"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::bstring_bytes")
@@ -46,16 +36,10 @@ impl From<gix::refs::FullName> for BranchReference {
 
 /// A reference in `refs/remotes`.
 #[derive(serde::Serialize, Debug, Clone)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/index.ts")
-)]
 pub struct RemoteTrackingReference {
     /// The full ref name, like `refs/remotes/origin/on-remote`, for usage with the backend.
-    #[cfg_attr(feature = "export-ts", ts(type = "number[]"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::bstring_bytes")
@@ -101,57 +85,218 @@ impl RemoteTrackingReference {
     }
 }
 
-/// Information about the target reference, the one we want to integrate with.
+/// A local or remote-tracking reference used as the integration target.
 #[derive(serde::Serialize, Debug, Clone)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/index.ts")
-)]
+pub struct TargetReference {
+    /// The full ref name, preserving the local or remote-tracking namespace.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::bstring_bytes")
+    )]
+    pub full_name_bytes: BString,
+    /// The branch name for display, without the remote name.
+    pub display_name: String,
+    /// The remote name for a remote-tracking target, or `None` for a local target.
+    pub remote_name: Option<String>,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(TargetReference);
+
+impl TargetReference {
+    fn for_ui(
+        ref_name: gix::refs::FullName,
+        remote_names: &gix::remote::Names,
+    ) -> anyhow::Result<TargetReference> {
+        if ref_name.category() == Some(Category::LocalBranch) {
+            let branch = BranchReference::from(ref_name);
+            return Ok(TargetReference {
+                full_name_bytes: branch.full_name_bytes,
+                display_name: branch.display_name,
+                remote_name: None,
+            });
+        }
+        let remote = RemoteTrackingReference::for_ui(ref_name, remote_names)?;
+        Ok(TargetReference {
+            full_name_bytes: remote.full_name_bytes,
+            display_name: remote.display_name,
+            remote_name: Some(remote.remote_name),
+        })
+    }
+}
+
+/// Information about the target reference, the one we want to integrate with.
+#[derive(serde::Serialize, Debug, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
 pub struct Target {
-    /// The remote tracking branch of the target to integrate with, like `refs/remotes/origin/main`.
-    pub remote_tracking_ref: RemoteTrackingReference,
+    /// The local or remote-tracking branch to integrate with.
+    pub ref_name: TargetReference,
     /// The amount of commits that aren't reachable by any segment in the workspace, they are in its future.
     pub commits_ahead: usize,
+    /// The derived upstream, or `None` when the target has no upstream configuration.
+    pub upstream: Option<TargetUpstream>,
+    /// Whether a stack, or a worktree with something of its own to rebase onto the target, lacks
+    /// the stored target commit.
+    ///
+    /// Updating only some of them leaves the others so, which means an update has work to do
+    /// even when the stored cutoff matches the upstream tip.
+    pub has_lanes_behind: bool,
+    /// Whether pull can safely advance the local target to the upstream tip.
+    /// False for equal, ahead, diverged, missing, or checked-out local targets.
+    pub can_fast_forward_local_target: bool,
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(Target);
 
+/// The target's configured upstream, distinct from the local target itself.
+#[derive(serde::Serialize, Debug, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct TargetUpstream {
+    /// The derived tracking ref, retained even when its tip is unavailable.
+    pub ref_name: TargetReference,
+    /// The locally available upstream tip, or `None` if the ref cannot be resolved.
+    #[serde(with = "but_serde::object_id_opt")]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::object_id_opt")
+    )]
+    pub tip: Option<gix::ObjectId>,
+    /// Whether the stored cutoff equals the available upstream tip. False if either is absent.
+    pub cutoff_matches_tip: bool,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(TargetUpstream);
+
 impl Target {
     fn for_ui(
-        but_graph::projection::TargetRef {
+        but_graph::workspace::TargetRef {
             ref_name,
             segment_index: _,
             commits_ahead,
-        }: but_graph::projection::TargetRef,
+        }: but_graph::workspace::TargetRef,
         remote_names: &gix::remote::Names,
+        upstream: Option<crate::TargetUpstream>,
+        has_lanes_behind: bool,
+        can_fast_forward_local_target: bool,
     ) -> anyhow::Result<Self> {
         Ok(Target {
-            remote_tracking_ref: RemoteTrackingReference::for_ui(ref_name, remote_names)?,
+            ref_name: TargetReference::for_ui(ref_name, remote_names)?,
             commits_ahead,
+            upstream: upstream
+                .map(|upstream| -> anyhow::Result<_> {
+                    Ok(TargetUpstream {
+                        ref_name: TargetReference::for_ui(upstream.ref_name, remote_names)?,
+                        tip: upstream.tip,
+                        cutoff_matches_tip: upstream.cutoff_matches_tip,
+                    })
+                })
+                .transpose()?,
+            has_lanes_behind,
+            can_fast_forward_local_target,
+        })
+    }
+}
+
+/// What a linked worktree's own commits are resting on.
+#[derive(serde::Serialize, Debug, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(tag = "type", content = "subject")]
+pub enum WorktreeBase {
+    /// The base commit is owned by one of the workspace stacks (or by another worktree),
+    /// so the worktree branches off the workspace and belongs *inside* it when presented.
+    InWorkspace(
+        #[serde(with = "but_serde::object_id")]
+        #[cfg_attr(
+            feature = "export-schema",
+            schemars(schema_with = "but_schemars::object_id")
+        )]
+        gix::ObjectId,
+    ),
+    /// The base commit is outside the workspace, i.e. it is the target commit or below it,
+    /// so the worktree stands on its own.
+    Outside(
+        #[serde(with = "but_serde::object_id")]
+        #[cfg_attr(
+            feature = "export-schema",
+            schemars(schema_with = "but_schemars::object_id")
+        )]
+        gix::ObjectId,
+    ),
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(WorktreeBase);
+
+/// A non-archived linked worktree along with the segments it owns exclusively.
+#[derive(serde::Serialize, Debug, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct Worktree {
+    /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`.
+    #[serde(with = "but_serde::bstring_lossy")]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::bstring_lossy")
+    )]
+    pub name: BString,
+    /// The branch the worktree has checked out, or `None` for a detached `HEAD`.
+    pub ref_name: Option<BranchReference>,
+    /// The commit the worktree `HEAD` peels to.
+    #[serde(with = "but_serde::object_id")]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::object_id")
+    )]
+    pub head: gix::ObjectId,
+    /// What the last of [`Self::segments`] is resting on, or `None` if the traversal ran out of
+    /// graph before reaching the workspace or the target (unrelated history, or a limit was hit).
+    pub base: Option<WorktreeBase>,
+    /// The segments owned by this worktree alone, from its `HEAD` down to (excluding) its base,
+    /// along the first parent. Never empty; the first is named by `ref_name`, or is anonymous
+    /// for a detached `HEAD`.
+    pub segments: Vec<Segment>,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(Worktree);
+
+impl Worktree {
+    fn for_ui(
+        crate::worktrees::WorktreeInfo {
+            name,
+            ref_name,
+            head,
+            base,
+            segments,
+        }: crate::worktrees::WorktreeInfo,
+        names: &gix::remote::Names,
+    ) -> anyhow::Result<Self> {
+        Ok(Worktree {
+            name,
+            ref_name: ref_name.map(Into::into),
+            head,
+            base: base.map(|base| match base {
+                crate::worktrees::WorktreeBase::InWorkspace(id) => WorktreeBase::InWorkspace(id),
+                crate::worktrees::WorktreeBase::Outside(id) => WorktreeBase::Outside(id),
+            }),
+            segments: segments
+                .into_iter()
+                .map(|s| Segment::for_ui(s, names))
+                .collect::<Result<_, _>>()?,
         })
     }
 }
 
 pub(crate) mod inner {
-    use crate::ui::ref_info::{BranchReference, Stack, Target};
+    use crate::ui::ref_info::{Stack, Target, Worktree};
 
     /// The UI-clone of [`crate::RefInfo`].
     /// TODO: should also include base-branch data, see `get_base_branch_data()`.
     #[derive(serde::Serialize, Debug, Clone)]
-    #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
     #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
     #[serde(rename_all = "camelCase")]
-    #[cfg_attr(
-        feature = "export-ts",
-        ts(export, export_to = "./workspace/refInfo/index.ts")
-    )]
     pub struct RefInfo {
-        /// The name of the ref that points to a workspace commit,
-        /// *or* the name of the first stack segment.
-        pub workspace_ref: Option<BranchReference>,
         /// The stacks visible in the current workspace.
         ///
         /// This is an empty array if the `HEAD` is unborn.
@@ -162,56 +307,27 @@ pub(crate) mod inner {
         /// If `None`, this is a local workspace that doesn't know when possibly pushed branches are considered integrated.
         /// This happens when there is a local branch checked out without a remote tracking branch.
         pub target: Option<Target>,
-        /// The `workspace_ref_name` is `Some(_)` and belongs to GitButler, because it had metadata attached.
-        /// This will be `false` when in single-branch mode.
-        pub is_managed_ref: bool,
-        /// The `workspace_ref_name` points to a commit that was specifically created by us.
-        /// If the user advanced the workspace head by hand, this would be `false`.
-        /// See if `ancestor_workspace_commit` is `Some()` to understand if anything could be fixed here.
-        /// If there is no managed commits, we have to be extra careful as to what we allow, but setting
-        /// up stacks and dependent branches is usually fine, and limited commit creation. Play it safe though,
-        /// this is mainly for graceful handling of special cases.
-        pub is_managed_commit: bool,
-        /// The workspace represents what `HEAD` is pointing to.
-        pub is_entrypoint: bool,
+        /// The active linked worktrees along with the commits they own, or empty if the
+        /// traversal wasn't seeded with worktree tips.
+        pub worktrees: Vec<Worktree>,
     }
     #[cfg(feature = "export-schema")]
     but_schemars::register_sdk_type!(RefInfo);
-
-    impl RefInfo {
-        /// Make sure only the stack and segment that is the entrypoint remains.
-        pub fn pruned_to_entrypoint(mut self) -> Self {
-            if self.is_entrypoint {
-                return self;
-            }
-            self.stacks
-                .retain(|s| s.segments.iter().any(|s| s.is_entrypoint));
-            if let Some(only_stack) = self.stacks.first_mut() {
-                let mut found_entrypoint = false;
-                only_stack.segments.retain(|s| {
-                    found_entrypoint |= s.is_entrypoint;
-                    found_entrypoint
-                })
-            }
-            self
-        }
-    }
 }
 
 impl inner::RefInfo {
     fn try_from_ref_info(
         crate::RefInfo {
-            workspace_ref_info,
             symbolic_remote_names,
             stacks,
             target_ref,
             target_commit: _,
-            extra_target: _,
+            target_upstream,
+            can_fast_forward_local_target,
+            has_lanes_behind_target,
             lower_bound: _,
-            is_managed_ref,
-            is_managed_commit,
             ancestor_workspace_commit: _,
-            is_entrypoint,
+            worktrees,
         }: crate::RefInfo,
     ) -> anyhow::Result<Self> {
         let stacks: Vec<_> = stacks
@@ -219,14 +335,22 @@ impl inner::RefInfo {
             .map(|stack| Stack::for_ui(stack, &symbolic_remote_names))
             .collect::<Result<_, _>>()?;
         Ok(inner::RefInfo {
-            workspace_ref: workspace_ref_info.map(|ri| ri.ref_name.into()),
             stacks,
             target: target_ref
-                .map(|t| Target::for_ui(t, &symbolic_remote_names))
+                .map(|t| {
+                    Target::for_ui(
+                        t,
+                        &symbolic_remote_names,
+                        target_upstream,
+                        has_lanes_behind_target,
+                        can_fast_forward_local_target,
+                    )
+                })
                 .transpose()?,
-            is_managed_ref,
-            is_managed_commit,
-            is_entrypoint,
+            worktrees: worktrees
+                .into_iter()
+                .map(|wt| Worktree::for_ui(wt, &symbolic_remote_names))
+                .collect::<Result<_, _>>()?,
         })
     }
 }
@@ -241,16 +365,10 @@ impl TryFrom<crate::RefInfo> for inner::RefInfo {
 
 /// The UI-clone of `branch::Stack`.
 #[derive(serde::Serialize, Debug, Clone)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/index.ts")
-)]
 pub struct Stack {
     /// Otherwise, it is `None`.
-    #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::stack_id_opt")
@@ -261,7 +379,6 @@ pub struct Stack {
     /// Otherwise, it's the merge-base of all stacks in the current workspace.
     /// It is `None` if this is a stack derived from a branch without relation to any other branch.
     #[serde(with = "but_serde::object_id_opt")]
-    #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::object_id_opt")
@@ -289,13 +406,8 @@ impl Stack {
 
 /// A segment of a commit graph, representing a set of commits exclusively.
 #[derive(serde::Serialize, Debug, Clone)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/index.ts")
-)]
 pub struct Segment {
     ///
     /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to
@@ -321,19 +433,9 @@ pub struct Segment {
     /// with the local tracking branch. If these diverge, we can represent this in data, but currently there is
     /// no derived value to make this visible explicitly.
     pub commits_on_remote: Vec<UpstreamCommit>,
-    /// All commits *that are not workspace commits* reachable by (and including commits in) this segment.
-    /// The list was created by walking all parents, not only the first parent.
-    /// This means the segment needs fixing.
-    pub commits_outside: Option<Vec<ui::Commit>>,
     /// Read-only metadata with additional information about the branch naming the segment,
     /// or `None` if nothing was present.
     pub metadata: Option<ref_metadata::Branch>,
-    /// This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Graph::from_commit_traversal)
-    /// is this segment, and the surrounding workspace is provided for context.
-    ///
-    /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
-    /// *Note* that this segment can be listed in *multiple stacks* as it's reachable from multiple 'ahead' segments.
-    pub is_entrypoint: bool,
     /// A derived value to help the UI decide which functions to make available.
     pub push_status: ui::PushStatus,
     /// This is always the `first()` commit in `commits` of the next stacksegment, or the first commit of
@@ -343,7 +445,6 @@ pub struct Segment {
     /// It is `None` if the stack segment contains the first commit in the history, an orphan without ancestry,
     /// or if the history traversal was stopped early.
     #[serde(with = "but_serde::object_id_opt")]
-    #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::object_id_opt")
@@ -359,11 +460,10 @@ impl Segment {
             ref_info,
             id: _,
             remote_tracking_ref_name,
+            remote_tracking_branch_segment_id: _,
             commits,
             commits_on_remote,
-            commits_outside,
             metadata,
-            is_entrypoint,
             push_status,
             base,
         }: crate::ref_info::Segment,
@@ -376,20 +476,7 @@ impl Segment {
                 .transpose()?,
             commits: commits.iter().map(Into::into).collect(),
             commits_on_remote: commits_on_remote.iter().map(Into::into).collect(),
-            commits_outside: commits_outside.map(|commits| {
-                commits
-                    .into_iter()
-                    .map(|c| {
-                        (&LocalCommit {
-                            inner: c,
-                            relation: LocalCommitRelation::LocalOnly,
-                        })
-                            .into()
-                    })
-                    .collect()
-            }),
             metadata,
-            is_entrypoint,
             push_status,
             base,
         })

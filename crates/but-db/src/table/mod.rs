@@ -1,17 +1,21 @@
 use crate::{M, SchemaVersion};
 
+pub(crate) mod branch_order;
 pub(crate) mod butler_actions;
 pub(crate) mod ci_checks;
 pub(crate) mod claude;
+pub(crate) mod fetch_status;
 pub(crate) mod file_write_locks;
 pub(crate) mod forge_reviews;
 pub(crate) mod gerrit_metadata;
 pub(crate) mod hunk_assignments;
 pub(crate) mod virtual_branches;
-pub(crate) mod workflows;
-pub(crate) mod workspace_rules;
+pub(crate) mod worktree_meta;
 
 /// Move migrations that relate to tables that don't have their module anymore here.
+///
+/// Removing a feature does not justify a schema-version bump: keep these at
+/// [`SchemaVersion::Zero`] and leave tables that older binaries still read in place.
 pub(crate) const M_FULLY_REMOVED: &[M<'static>] = &[
     M::up(
         20251013092749,
@@ -63,5 +67,38 @@ ALTER TABLE worktrees_new RENAME TO worktrees;",
         SchemaVersion::Zero,
         "-- Drop worktrees table as metadata is now stored in .git/worktrees/ as files
 DROP TABLE IF EXISTS worktrees;",
+    ),
+    M::up(
+        20250717150441,
+        SchemaVersion::Zero,
+        "CREATE TABLE `workspace_rules`(
+	`id` TEXT NOT NULL PRIMARY KEY,
+	`created_at` TIMESTAMP NOT NULL,
+	`enabled` BOOL NOT NULL,
+	`trigger` TEXT NOT NULL,
+	`filters` TEXT NOT NULL,
+	`action` TEXT NOT NULL
+);",
+    ),
+    M::up(
+        20260626120000,
+        SchemaVersion::Zero,
+        "-- Drop workspace_rules table as the rules feature has been removed
+DROP TABLE IF EXISTS workspace_rules;",
+    ),
+    // Keep this inert table so older SchemaVersion::Zero binaries can still open the database.
+    M::up(
+        20250619192246,
+        SchemaVersion::Zero,
+        "CREATE TABLE `workflows`(
+	`id` TEXT NOT NULL PRIMARY KEY,
+	`created_at` TIMESTAMP NOT NULL,
+	`kind` TEXT NOT NULL,
+	`triggered_by` TEXT NOT NULL,
+	`status` TEXT NOT NULL,
+	`input_commits` TEXT NOT NULL,
+	`output_commits` TEXT NOT NULL,
+	`summary` TEXT
+);",
     ),
 ];

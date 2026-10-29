@@ -76,8 +76,3 @@ mod handle {
 fn in_memory_cache() -> but_db::AppCacheHandle {
     but_db::AppCacheHandle::new_at_path(":memory:")
 }
-
-/// Return a valid project-local cache handle with all migrations applied, ready for use, and *in-memory* only.
-fn in_memory_project_cache() -> but_db::CacheHandle {
-    but_db::CacheHandle::new_at_path(":memory:")
-}

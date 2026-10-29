@@ -5,25 +5,31 @@ edition.workspace = true
 authors.workspace = true
 publish = false
 rust-version.workspace = true
-autotests = false
 
 [lib]
 doctest = false
 
+[features]
+## Generate JSON schemas for TypeScript type generation via schemars.
+export-schema = ["dep:schemars", "dep:but-schemars"]
+
 [dependencies]
 but-secret.workspace = true
-but-fs = { workspace = true, features = ["legacy"] }
+schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
+but-utils = { workspace = true, features = ["legacy"] }
 but-path.workspace = true
 
 anyhow.workspace = true
+base64.workspace = true
+reqwest.workspace = true
 serde.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 
-[[test]]
-name = "user"
-path = "tests/mod.rs"
-
 [dev-dependencies]
+but-testsupport.workspace = true
 serial_test = "3.2.0"
 tempfile.workspace = true
 keyring.workspace = true

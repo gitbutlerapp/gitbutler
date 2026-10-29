@@ -1,40 +1,37 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
-	import AnalyticsMonitor from "$components/AnalyticsMonitor.svelte";
-	import Chrome from "$components/Chrome.svelte";
-	import FileMenuAction from "$components/FileMenuAction.svelte";
-	import FullviewLoading from "$components/FullviewLoading.svelte";
-	import IrcPopups from "$components/IrcPopups.svelte";
-	import NoBaseBranch from "$components/NoBaseBranch.svelte";
-	import NotOnGitButlerBranch from "$components/NotOnGitButlerBranch.svelte";
-	import ProblemLoadingRepo from "$components/ProblemLoadingRepo.svelte";
-	import ProjectSettingsMenuAction from "$components/ProjectSettingsMenuAction.svelte";
-	import ReduxResult from "$components/ReduxResult.svelte";
-	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
+	import ProjectSettingsShortcutHandler from "$components/settings/ProjectSettingsShortcutHandler.svelte";
+	import AnalyticsMonitor from "$components/shared/AnalyticsMonitor.svelte";
+	import FullviewLoading from "$components/shared/FullviewLoading.svelte";
+	import NotOnGitButlerBranch from "$components/shared/NotOnGitButlerBranch.svelte";
+	import ProjectShortcutHandler from "$components/shared/ProjectShortcutHandler.svelte";
+	import ReduxResult from "$components/shared/ReduxResult.svelte";
+	import AppLayout from "$components/views/AppLayout.svelte";
+	import NoBaseBranch from "$components/views/NoBaseBranch.svelte";
+	import ProblemLoadingRepo from "$components/views/ProblemLoadingRepo.svelte";
 	import { BACKEND } from "$lib/backend";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
-	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
-	import { GITHUB_CLIENT } from "$lib/forge/github/githubClient";
-	import { useGitHubAccessToken } from "$lib/forge/github/hooks.svelte";
-	import { createGitLabProjectId } from "$lib/forge/gitlab/gitlab";
-	import { GITLAB_CLIENT } from "$lib/forge/gitlab/gitlabClient.svelte";
+	import { parseQueryError } from "$lib/error/error";
+	import { showError } from "$lib/error/showError";
+	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { GITLAB_USER_SERVICE } from "$lib/forge/gitlab/gitlabUserService.svelte";
-	import { useGitLabAccessToken } from "$lib/forge/gitlab/hooks.svelte";
+	import { LISTING_SERVICE } from "$lib/forge/listingService.svelte";
+	import { createPollBackoff } from "$lib/forge/shared/pollErrorBackoff.svelte";
 	import { GIT_SERVICE } from "$lib/git/gitService";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
-	import { showError, showInfo, showWarning } from "$lib/notifications/toasts";
+	import { showInfo, showWarning } from "$lib/notifications/toasts";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
-	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
-	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+	import { syncUncommittedChanges } from "$lib/selection/syncUncommittedChanges.svelte";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { CLIENT_STATE } from "$lib/state/clientState.svelte";
 	import { combineResults } from "$lib/state/helpers";
+	import { invalidatesList, ReduxTag } from "$lib/state/tags";
+	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { debounce } from "$lib/utils/debounce";
-	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+	import { mergeUnlisten } from "@gitbutler/ui-svelte/utils/mergeUnlisten";
 	import { onDestroy, untrack, type Snippet } from "svelte";
 	import type { LayoutData } from "./$types";
 
@@ -67,17 +64,11 @@
 	const gitService = inject(GIT_SERVICE);
 
 	const repoInfoQuery = $derived(baseBranchService.repo(projectId));
-	const pushRepoQuery = $derived(baseBranchService.pushRepo(projectId));
 
 	const repoInfo = $derived(repoInfoQuery.response);
-	const forkInfo = $derived(pushRepoQuery.response);
 
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
 	const baseBranch = $derived(baseBranchQuery.response);
-	const baseBranchName = $derived(baseBranch?.shortName);
-	const forgeProviderQuery = $derived(baseBranchService.forgeProvider(projectId));
-	const detectedForgeProvider = $derived(forgeProviderQuery.response);
-	const detectedForgeProviderIsLoading = $derived(detectedForgeProvider === undefined);
 
 	// =============================================================================
 	// WORKSPACE & MODE MANAGEMENT
@@ -85,7 +76,6 @@
 
 	const modeService = inject(MODE_SERVICE);
 	const stackService = inject(STACK_SERVICE);
-	const worktreeService = inject(WORKTREE_SERVICE);
 
 	const modeQuery = $derived(modeService.mode(projectId));
 
@@ -93,108 +83,46 @@
 	// FORGE INTEGRATION (GitHub & GitLab)
 	// =============================================================================
 
-	const gitHubClient = inject(GITHUB_CLIENT);
-	const gitLabClient = inject(GITLAB_CLIENT);
 	const gitlabUserService = inject(GITLAB_USER_SERVICE);
-	const forgeFactory = inject(DEFAULT_FORGE_FACTORY);
-
-	const githubAccessToken = useGitHubAccessToken(reactive(() => projectId));
-	const gitlabAccessToken = useGitLabAccessToken(reactive(() => projectId));
-
-	// GitHub setup
-	$effect.pre(() => gitHubClient.setToken(githubAccessToken.accessToken.current));
-	$effect.pre(() => gitHubClient.setHost(githubAccessToken.host.current));
-	$effect.pre(() => gitHubClient.setRepo({ owner: repoInfo?.owner, repo: repoInfo?.name }));
-
-	const forkInfoOwner = $derived(forkInfo?.owner);
-	const forkInfoName = $derived(forkInfo?.name);
-	const gitlabForkProjectId = $derived(
-		forkInfoOwner !== undefined && forkInfoName !== undefined
-			? createGitLabProjectId(forkInfoOwner, forkInfoName)
-			: undefined,
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+	const listingService = inject(LISTING_SERVICE);
+	const projectForgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const canListReviews = $derived(
+		projectForgeInfoQuery.response?.capabilities.listService ?? false,
 	);
-	const repoInfoOwner = $derived(repoInfo?.owner);
-	const repoInfoName = $derived(repoInfo?.name);
-	const gitlabUpstreamProjectId = $derived(
-		repoInfoOwner !== undefined && repoInfoName !== undefined
-			? createGitLabProjectId(repoInfoOwner, repoInfoName)
-			: undefined,
+	// Keep one project-level subscription alive so a cold workspace populates
+	// the backend forge cache even when the Branches view is never opened. The
+	// backoff's effect reads the result, which makes the lazy derived query
+	// part of this component's reactive graph.
+	const POLL_INTERVAL = 15 * 60 * 1000;
+	const reviewListBackoff = createPollBackoff({
+		getKey: () => projectId,
+		getResult: () => forgeReviews?.result,
+		getElapsedMs: () => 0,
+		getShouldStop: () => false,
+	});
+	const reviewListPollingInterval = $derived(
+		reviewListBackoff.pollingInterval === 0 ? 0 : POLL_INTERVAL,
 	);
-
-	const gitlabTokenIsLoading = $derived(gitlabAccessToken.isLoading.current);
-
-	const gitlabIsLoading = $derived(
-		gitlabTokenIsLoading && !gitlabForkProjectId && !gitlabUpstreamProjectId,
-	);
-
-	// GitLab setup
-	$effect.pre(() => {
-		const accessToken = gitlabAccessToken.accessToken.current;
-		if (accessToken && gitlabForkProjectId && gitlabUpstreamProjectId) {
-			gitLabClient.set(
-				gitlabAccessToken.host.current,
-				accessToken,
-				gitlabForkProjectId,
-				gitlabUpstreamProjectId,
-			);
-		}
+	const forgeReviews = $derived(canListReviews ? listingService.list(projectId) : undefined);
+	// In place rather than by re-creating the query: see `SubscribedQuery`.
+	$effect(() => {
+		forgeReviews?.updateSubscriptionOptions({ pollingInterval: reviewListPollingInterval });
 	});
 
-	// GitLab migration
-	// Migrate the stored access token from the old location to the new one on app load
+	// Migrate stored GitLab access token from the legacy location to the
+	// per-account secrets entry on app load. Safe no-op when already done.
 	$effect(() => {
 		if (projectId) {
 			gitlabUserService.migrate(projectId);
 		}
 	});
 
-	// Forge factory configuration
-	$effect(() => {
-		forgeFactory.setConfig({
-			repo: repoInfo,
-			pushRepo: forkInfo,
-			baseBranch: baseBranchName,
-			githubAuthenticated: !!githubAccessToken.accessToken.current,
-			forgeIsLoading:
-				githubAccessToken.isLoading.current || gitlabIsLoading || detectedForgeProviderIsLoading,
-			githubError: githubAccessToken.error.current,
-			gitlabAuthenticated: !!gitlabAccessToken.accessToken.current,
-			detectedForgeProvider: detectedForgeProvider ?? undefined,
-			forgeOverride: projects?.find((project) => project.id === projectId)?.forge_override,
-		});
-	});
-
 	// =============================================================================
 	// FILE SELECTION & WORKTREE MANAGEMENT
 	// ================================================ReorderDropzoneFactory
 
-	const uncommittedService = inject(UNCOMMITTED_SERVICE);
-	const idSelection = inject(FILE_SELECTION_MANAGER);
-
-	const worktreeDataQuery = $derived(worktreeService.worktreeData(projectId));
-	const worktreeData = $derived(worktreeDataQuery.response);
-
-	// Bridge between RTKQ and custom slice
-	$effect(() => {
-		if (worktreeData) {
-			untrack(() => {
-				uncommittedService.updateData({
-					changes: worktreeData.rawChanges,
-					assignments: worktreeData.hunkAssignments,
-				});
-			});
-		}
-	});
-
-	// Clear expired file selections
-	const affectedPaths = $derived(worktreeData?.rawChanges.map((c) => c.path));
-	$effect(() => {
-		if (affectedPaths) {
-			untrack(() => {
-				idSelection.retain(affectedPaths);
-			});
-		}
-	});
+	syncUncommittedChanges(() => projectId);
 
 	// =============================================================================
 	// ANALYTICS INIT
@@ -246,6 +174,43 @@
 
 	const headResponse = $derived(modeService.head(projectId));
 	const head = $derived(headResponse.response);
+
+	function invalidateDiffs() {
+		clientState.dispatch(
+			clientState.backendApi.util.invalidateTags([invalidatesList(ReduxTag.Diff)]),
+		);
+	}
+
+	// Invalidate caches in response to backend events.
+	$effect(() =>
+		mergeUnlisten(
+			backend.listen(`project://${projectId}/hunk-assignment-update`, () => {
+				stackService.invalidateStacksAndDetails();
+			}),
+			// A symbolic HEAD change can switch branches without changing the commit SHA.
+			backend.listen(`project://${projectId}/git/head`, () => {
+				stackService.invalidateStacksAndDetails();
+			}),
+			backend.listen(`project://${projectId}/worktree_changes`, invalidateDiffs),
+			backend.listen(`project://${projectId}/linked_worktree_changes`, invalidateDiffs),
+			// Activity that requires re-reading workspace state — emitted on
+			// remote-ref updates (push, external fetch), on external
+			// writes to `virtual_branches.toml` (e.g. by the `but` CLI)
+			// and when linked worktrees are added or removed.
+			backend.listen(`project://${projectId}/workspace-activity`, () => {
+				clientState.dispatch(
+					clientState.backendApi.util.invalidateTags([
+						invalidatesList(ReduxTag.Stacks),
+						invalidatesList(ReduxTag.StackDetails),
+						invalidatesList(ReduxTag.WorktreeChanges),
+						invalidatesList(ReduxTag.Worktrees),
+						invalidatesList(ReduxTag.IntegrationSteps),
+						invalidatesList(ReduxTag.BranchListing),
+					]),
+				);
+			}),
+		),
+	);
 
 	// If the head changes, invalidate stacks and details
 	// We need to track the previous head value to avoid infinite loops
@@ -356,7 +321,7 @@
 				});
 			}
 		} catch (error: unknown) {
-			posthog.captureOnboarding(OnboardingEvent.SetProjectActiveFailed);
+			posthog.captureOnboarding(OnboardingEvent.SetProjectActiveFailed, error);
 			showError("Failed to set the project active", error);
 		}
 	}
@@ -378,19 +343,19 @@
 	});
 </script>
 
-<ProjectSettingsMenuAction {projectId} />
-<FileMenuAction />
+<ProjectSettingsShortcutHandler {projectId} />
+<ProjectShortcutHandler />
 
 <ReduxResult {projectId} result={combineResults(baseBranchQuery.result, modeQuery.result)}>
 	{#snippet children([baseBranch, mode], { projectId })}
 		{#if !baseBranch}
 			<NoBaseBranch {projectId} />
 		{:else if baseBranch}
-			{#if mode.type === "OpenWorkspace" || mode.type === "Edit" || ($settingsStore?.featureFlags.singleBranch && mode.subject.branchName)}
+			{#if mode.type === "OpenWorkspace" || mode.type === "Edit" || mode.subject.branchName}
 				<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
-					<Chrome {projectId} sidebarDisabled={mode.type === "Edit"}>
+					<AppLayout {projectId} sidebarDisabled={mode.type === "Edit"}>
 						{@render pageChildren()}
-					</Chrome>
+					</AppLayout>
 				</div>
 			{:else if mode.type === "OutsideWorkspace"}
 				<NotOnGitButlerBranch {projectId} {baseBranch}>
@@ -403,13 +368,15 @@
 		<FullviewLoading />
 	{/snippet}
 	{#snippet error(baseError)}
-		<ProblemLoadingRepo {projectId} error={baseError} />
+		{@const parsedError = parseQueryError(baseError)}
+		<!-- A target an older GitButler set as a remote branch is replaced by choosing a local one. -->
+		{#if parsedError.code === "UnresolvedLegacyTarget"}
+			<NoBaseBranch {projectId} notice={parsedError.message} />
+		{:else}
+			<ProblemLoadingRepo {projectId} error={baseError} />
+		{/if}
 	{/snippet}
 </ReduxResult>
-
-<!-- {#if $settingsStore?.featureFlags.v3} -->
-<IrcPopups />
-<!-- {/if} -->
 
 <AnalyticsMonitor {projectId} />
 

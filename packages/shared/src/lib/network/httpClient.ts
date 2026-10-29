@@ -110,8 +110,14 @@ export class HttpClient {
 async function parseResponseJSON(response: Response) {
 	if (response.status === 204 || response.status === 205) {
 		return null;
+	} else if (response.status === 401) {
+		throw new ApiError("Login token expired. Please log in to GitButler again.", response);
 	} else if (response.status >= 400) {
-		throw new ApiError(`HTTP Error ${response.statusText}: ${await response.text()}`, response);
+		const text = await response.text();
+		if (text.includes("401 Unauthorized") || text.includes("401 unauthorized")) {
+			throw new ApiError("Login token expired. Please log in to GitButler again.", response);
+		}
+		throw new ApiError(`HTTP Error ${response.statusText}: ${text}`, response);
 	} else {
 		return await response.json();
 	}

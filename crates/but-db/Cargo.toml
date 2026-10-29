@@ -10,32 +10,25 @@ description = "A place for defining metadata stored in a sqlite file"
 [lib]
 doctest = false
 
-[features]
-## Support for polling for changes in the database
-poll = ["dep:tokio"]
-
 [dependencies]
 rusqlite = { workspace = true, features = ["chrono"] }
-bitflags.workspace = true
 serde.workspace = true
 anyhow.workspace = true
 chrono = { workspace = true, features = ["serde"] }
-but-core.workspace = true
-bstr.workspace = true
+but-utils.workspace = true
 gix.workspace = true
 # other things
 tracing.workspace = true
 backoff.workspace = true
 
-tokio = { workspace = true, features = ["rt-multi-thread", "parking_lot", "time", "sync", "macros"], optional = true }
 
 [dev-dependencies]
 tempfile = "3.24.0"
-insta.workspace = true
+snapbox.workspace = true
 
 # for multi-process migration testing.
 [target."cfg(unix)".dev-dependencies]
-libc = "0.2.180"
+libc.workspace = true
 
 [lints]
 workspace = true

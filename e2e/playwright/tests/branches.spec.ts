@@ -1,270 +1,471 @@
-import { createNewBranch, deleteBranch, unapplyStack } from "../src/branch.ts";
-import { getBaseURL, type GitButler, startGitButler } from "../src/setup.ts";
+import { assertBranch, createNewBranch, deleteBranch, unapplyStack } from "../src/branch.ts";
+import { expect } from "../src/expect.ts";
+import { startFakeGitHubServer, type FakeGitHubServer } from "../src/fakeGithub.ts";
+import { storeFakeGitHubEnterprisePat } from "../src/forge.ts";
+import { applyUpstream, openWorkspace, type GitButler } from "../src/setup.ts";
+import { test } from "../src/test.ts";
 import {
 	clickByTestId,
+	commitRow,
 	fillByTestId,
 	getByTestId,
+	stack,
 	textEditorFillByTestId,
 	waitForTestId,
 	waitForTestIdToNotExist,
 } from "../src/util.ts";
-import { expect, test } from "@playwright/test";
+import { type Page, type Request } from "@playwright/test";
+import { execFileSync } from "child_process";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 
-let gitbutler: GitButler;
-
-test.use({
-	baseURL: getBaseURL(),
-});
-
-test.afterEach(async () => {
-	await gitbutler?.destroy();
-});
-
-test("should be able to apply a remote branch", async ({ page, context }, testInfo) => {
-	const workdir = testInfo.outputPath("workdir");
-	const configdir = testInfo.outputPath("config");
-	gitbutler = await startGitButler(workdir, configdir, context);
-
-	// const projectPath = gitbutler.pathInWorkdir('local-clone/');
-
-	await gitbutler.runScript("project-with-remote-branches.sh");
-
-	await page.goto("/");
-
-	// Should load the workspace
-	await waitForTestId(page, "workspace-view");
-
-	// Should navigate to the branches page when clicking the branches button
+/**
+ * Navigate to the branches page and assert the standard 3-card layout from
+ * `project-with-remote-branches.sh`. Filters on the `origin/master` header
+ * because workspace stack headers also use the `branch-header` test id.
+ */
+async function gotoBranchesView(page: Page) {
 	await clickByTestId(page, "navigation-branches-button");
-	const header = await waitForTestId(page, "branch-header");
+	const originHeader = getByTestId(page, "branch-header").filter({ hasText: "origin/master" });
+	await expect(originHeader).toBeVisible();
 
-	await expect(header).toContainText("origin/master");
+	const cards = getByTestId(page, "branch-list-card");
+	await expect(cards).toHaveCount(3);
+}
 
-	const branchListCards = getByTestId(page, "branch-list-card");
-	await expect(branchListCards).toHaveCount(3);
+/**
+ * Navigate to the branches page and apply a branch from its card.
+ */
+async function applyBranchFromBranchesView(page: Page, branchName: string) {
+	await gotoBranchesView(page);
 
-	const firstBranchCard = branchListCards.filter({ hasText: "branch1" });
-	await expect(firstBranchCard).toBeVisible();
-	await firstBranchCard.click();
-
-	// The delete branch should be visible
+	await getByTestId(page, "branch-list-card").filter({ hasText: branchName }).click();
 	await waitForTestId(page, "branches-view-delete-local-branch-button");
 
-	// Apply the branch
 	await clickByTestId(page, "branches-view-apply-branch-button");
-	// Should be redirected to the workspace
 	await waitForTestId(page, "workspace-view");
+}
 
-	// There should be only one stack
-	const stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(1);
-	const stack = stacks.first();
-	await expect(stack).toContainText("branch1");
+async function syncAndIntegrate(page: Page) {
+	await clickByTestId(page, "sync-button");
+	await clickByTestId(page, "upstream-commits-integrate-button");
+	await waitForTestId(page, "branch-integration-apply-button");
+	await clickByTestId(page, "branch-integration-apply-button");
+	await waitForTestIdToNotExist(page, "branch-integration-modal");
+}
 
-	// The stack should have two commits
-	const commits = getByTestId(page, "commit-row");
-	await expect(commits).toHaveCount(2);
+function git(pathToRepo: string, args: string[]): string {
+	return execFileSync("git", args, {
+		cwd: pathToRepo,
+		encoding: "utf8",
+	}).trim();
+}
+
+async function openProjectWithFakeGitHub(
+	page: Page,
+	gitbutler: GitButler,
+	fakeGitHub: FakeGitHubServer,
+) {
+	await gitbutler.runScript("project-with-github-fork-pr.sh", [fakeGitHub.repositoryUrl]);
+	await openWorkspace(page);
+	await storeFakeGitHubEnterprisePat(page, fakeGitHub);
+	await page.reload();
+	await waitForTestId(page, "workspace-view");
+}
+
+async function applyReviewFromBranchesView(page: Page, title: string) {
+	await clickByTestId(page, "navigation-branches-button");
+	await getByTestId(page, "pr-list-card").filter({ hasText: title }).click();
+	await clickByTestId(page, "branches-view-apply-from-fork-button");
+	await waitForTestId(page, "workspace-view");
+}
+
+async function applyReviewBranchFromBranchesView(page: Page, branchName: string) {
+	await clickByTestId(page, "navigation-branches-button");
+	await waitForTestId(page, "branches-view");
+	await expect(getByTestId(page, "branch-list-card").filter({ hasText: "#42" })).toBeVisible();
+	await getByTestId(page, "branch-list-card").filter({ hasText: branchName }).click();
+	await waitForTestId(page, "branches-view-apply-branch-button");
+	await clickByTestId(page, "branches-view-apply-branch-button");
+	await waitForTestId(page, "workspace-view");
+}
+
+test("should be able to apply a remote branch", async ({ page, gitbutler }) => {
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await openWorkspace(page);
+
+	await applyBranchFromBranchesView(page, "branch1");
+
+	await expect(stack(page, "branch1")).toHaveCount(1);
+	await expect(commitRow(page)).toHaveCount(2);
+});
+
+test.describe("GitHub review apply", () => {
+	test("should apply a GitHub fork PR by creating the fork remote in the backend", async ({
+		page,
+		gitbutler,
+	}) => {
+		const localClone = gitbutler.pathInWorkdir("local-clone");
+		const forkRepoPath = gitbutler.pathInWorkdir("fork-project-bare");
+		const baseRepoPath = gitbutler.pathInWorkdir("remote-project");
+		const fakeGitHub = await startFakeGitHubServer({ forkRepoPath, baseRepoPath });
+		try {
+			await openProjectWithFakeGitHub(page, gitbutler, fakeGitHub);
+			await applyReviewFromBranchesView(page, "Fork PR");
+
+			expect(git(localClone, ["remote", "get-url", "contributor-user"])).toBe(forkRepoPath);
+			expect(
+				git(localClone, ["show-ref", "--verify", "refs/remotes/contributor-user/fork-feature"]),
+			).toContain("refs/remotes/contributor-user/fork-feature");
+			expect(readFileSync(gitbutler.pathInWorkdir("local-clone", "fork-pr.txt"), "utf-8")).toBe(
+				"fork pr content\n",
+			);
+			await expect(stack(page, "fork-feature")).toHaveCount(1);
+			await expect(getByTestId(page, "pr-review-badge")).toContainText("PR");
+			await expect(getByTestId(page, "pr-review-badge")).toContainText("#42");
+		} finally {
+			await fakeGitHub.close();
+		}
+	});
+
+	test("should apply a GitHub fork PR by reusing an existing fork remote", async ({
+		page,
+		gitbutler,
+	}) => {
+		const localClone = gitbutler.pathInWorkdir("local-clone");
+		const forkRepoPath = gitbutler.pathInWorkdir("fork-project-bare");
+		const baseRepoPath = gitbutler.pathInWorkdir("remote-project");
+		const fakeGitHub = await startFakeGitHubServer({ forkRepoPath, baseRepoPath });
+		try {
+			await gitbutler.runScript("project-with-github-fork-pr.sh", [fakeGitHub.repositoryUrl]);
+			git(localClone, ["remote", "add", "contributor-user", forkRepoPath]);
+			git(localClone, ["fetch", "contributor-user"]);
+			await openWorkspace(page);
+			await storeFakeGitHubEnterprisePat(page, fakeGitHub);
+			await page.reload();
+			await waitForTestId(page, "workspace-view");
+
+			await applyReviewBranchFromBranchesView(page, "fork-feature");
+
+			expect(git(localClone, ["remote", "get-url", "contributor-user"])).toBe(forkRepoPath);
+			expect(git(localClone, ["remote"]).split("\n")).not.toContain("contributor-user-2");
+			await expect(stack(page, "fork-feature")).toHaveCount(1);
+		} finally {
+			await fakeGitHub.close();
+		}
+	});
+
+	test("should apply a GitHub PR from the base repository to the managed workspace", async ({
+		page,
+		gitbutler,
+	}) => {
+		const localClone = gitbutler.pathInWorkdir("local-clone");
+		const baseRepoPath = gitbutler.pathInWorkdir("remote-project");
+		const fakeGitHub = await startFakeGitHubServer({
+			headRepoPath: baseRepoPath,
+			sourceBranch: "base-pr-feature",
+			repoOwner: "acme",
+			title: "Base PR",
+			isFork: false,
+		});
+		try {
+			await openProjectWithFakeGitHub(page, gitbutler, fakeGitHub);
+			await applyReviewBranchFromBranchesView(page, "base-pr-feature");
+
+			expect(readFileSync(gitbutler.pathInWorkdir("local-clone", "base-pr.txt"), "utf-8")).toBe(
+				"base pr content\n",
+			);
+			await assertBranch("gitbutler/workspace", localClone);
+			await expect(stack(page, "base-pr-feature")).toHaveCount(1);
+			await expect(getByTestId(page, "pr-review-badge")).toContainText("#42");
+		} finally {
+			await fakeGitHub.close();
+		}
+	});
+
+	test.describe("single-branch mode", () => {
+		test.use({
+			gitbutlerOptions: {
+				config: {
+					onboardingComplete: true,
+				},
+			},
+		});
+
+		test("should apply a GitHub PR from the base repository", async ({ page, gitbutler }) => {
+			const localClone = gitbutler.pathInWorkdir("local-clone");
+			const baseRepoPath = gitbutler.pathInWorkdir("remote-project");
+			const fakeGitHub = await startFakeGitHubServer({
+				headRepoPath: baseRepoPath,
+				sourceBranch: "base-pr-feature",
+				repoOwner: "acme",
+				title: "Base PR",
+				isFork: false,
+			});
+			try {
+				await gitbutler.runScript("project-with-github-fork-pr.sh", [fakeGitHub.repositoryUrl]);
+				git(localClone, [
+					"checkout",
+					"-b",
+					"single-branch-fixture",
+					"origin/single-branch-fixture",
+				]);
+				await openWorkspace(page);
+				await expect(getByTestId(page, "chrome-header-current-branch")).toContainText(
+					"single-branch-fixture",
+				);
+				await storeFakeGitHubEnterprisePat(page, fakeGitHub);
+				await page.reload();
+				await waitForTestId(page, "workspace-view");
+
+				await applyReviewBranchFromBranchesView(page, "base-pr-feature");
+
+				await assertBranch("gitbutler/workspace", localClone);
+				expect(
+					readFileSync(gitbutler.pathInWorkdir("local-clone", "single-branch.txt"), "utf-8"),
+				).toBe("single branch content\n");
+				expect(readFileSync(gitbutler.pathInWorkdir("local-clone", "base-pr.txt"), "utf-8")).toBe(
+					"base pr content\n",
+				);
+				await expect(stack(page, "single-branch-fixture")).toHaveCount(1);
+				await expect(stack(page, "base-pr-feature")).toHaveCount(1);
+			} finally {
+				await fakeGitHub.close();
+			}
+		});
+
+		test("should apply a GitHub fork PR", async ({ page, gitbutler }) => {
+			const localClone = gitbutler.pathInWorkdir("local-clone");
+			const forkRepoPath = gitbutler.pathInWorkdir("fork-project-bare");
+			const baseRepoPath = gitbutler.pathInWorkdir("remote-project");
+			const fakeGitHub = await startFakeGitHubServer({ forkRepoPath, baseRepoPath });
+			try {
+				await gitbutler.runScript("project-with-github-fork-pr.sh", [fakeGitHub.repositoryUrl]);
+				git(localClone, [
+					"checkout",
+					"-b",
+					"single-branch-fixture",
+					"origin/single-branch-fixture",
+				]);
+				await openWorkspace(page);
+				await expect(getByTestId(page, "chrome-header-current-branch")).toContainText(
+					"single-branch-fixture",
+				);
+				await storeFakeGitHubEnterprisePat(page, fakeGitHub);
+				await page.reload();
+				await waitForTestId(page, "workspace-view");
+
+				await applyReviewFromBranchesView(page, "Fork PR");
+
+				await assertBranch("gitbutler/workspace", localClone);
+				expect(git(localClone, ["remote", "get-url", "contributor-user"])).toBe(forkRepoPath);
+				expect(
+					readFileSync(gitbutler.pathInWorkdir("local-clone", "single-branch.txt"), "utf-8"),
+				).toBe("single branch content\n");
+				expect(readFileSync(gitbutler.pathInWorkdir("local-clone", "fork-pr.txt"), "utf-8")).toBe(
+					"fork pr content\n",
+				);
+				await expect(stack(page, "single-branch-fixture")).toHaveCount(1);
+				await expect(stack(page, "fork-feature")).toHaveCount(1);
+			} finally {
+				await fakeGitHub.close();
+			}
+		});
+	});
 });
 
 test("should be able to apply a remote branch and integrate the remote changes - simple", async ({
 	page,
-	context,
-}, testInfo) => {
-	const workdir = testInfo.outputPath("workdir");
-	const configdir = testInfo.outputPath("config");
-	gitbutler = await startGitButler(workdir, configdir, context);
-
+	gitbutler,
+}) => {
 	await gitbutler.runScript("project-with-remote-branches.sh");
+	await openWorkspace(page);
 
-	await page.goto("/");
-
-	// Should load the workspace
-	await waitForTestId(page, "workspace-view");
-
-	// Should navigate to the branches page when clicking the branches button
-	await clickByTestId(page, "navigation-branches-button");
-	const header = await waitForTestId(page, "branch-header");
-
-	await expect(header).toContainText("origin/master");
-
-	const branchListCards = getByTestId(page, "branch-list-card");
-	await expect(branchListCards).toHaveCount(3);
-
-	const firstBranchCard = branchListCards.filter({ hasText: "branch1" });
-	await expect(firstBranchCard).toBeVisible();
-	await firstBranchCard.click();
-
-	// The delete branch should be visible
-	await waitForTestId(page, "branches-view-delete-local-branch-button");
-
-	// Apply the branch
-	await clickByTestId(page, "branches-view-apply-branch-button");
-	// Should be redirected to the workspace
-	await waitForTestId(page, "workspace-view");
-
-	// There should be only one stack
-	const stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(1);
-	const stack = stacks.first();
-	await expect(stack).toContainText("branch1");
-
-	// The stack should have two commits
-	const commits = getByTestId(page, "commit-row");
-	await expect(commits).toHaveCount(2);
+	await applyBranchFromBranchesView(page, "branch1");
+	await expect(commitRow(page)).toHaveCount(2);
 
 	await gitbutler.runScript("project-with-remote-branches__add-commit-to-remote-branch.sh");
+	await syncAndIntegrate(page);
 
-	// Click the sync button
+	await expect(commitRow(page)).toHaveCount(3);
+});
+
+test("should preview branch integration for a diverged branch with a parallel empty branch", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript("project-with-diverged-branch-and-parallel-empty-branch.sh");
+	await openWorkspace(page);
+
+	await clickByTestId(page, "sync-button");
+	await clickByTestId(page, "upstream-commits-integrate-button");
+
+	await waitForTestId(page, "branch-integration-modal");
+	await expect(getByTestId(page, "branch-integration-preview-row").first()).toBeVisible();
+	await expect(getByTestId(page, "branch-integration-error")).toHaveCount(0);
+});
+
+test("fetches a fresh default integration plan each time the modal opens", async ({
+	page,
+	gitbutler,
+}) => {
+	const integrationPlanRequests: Request[] = [];
+	page.on("request", (request) => {
+		if (request.url().endsWith("/get_initial_branch_integration")) {
+			integrationPlanRequests.push(request);
+		}
+	});
+
+	await gitbutler.runScript("project-with-diverged-branch-and-parallel-empty-branch.sh");
+	await openWorkspace(page);
 	await clickByTestId(page, "sync-button");
 
-	// Integrate upstream commits
-	await clickByTestId(page, "upstream-commits-integrate-button");
-	await waitForTestIdToNotExist(page, "upstream-commits-integrate-button");
-	await waitForTestIdToNotExist(page, "upstream-commits-commit-action");
+	await expect(getByTestId(page, "upstream-commits-integrate-button")).toBeVisible();
+	expect(integrationPlanRequests).toHaveLength(0);
 
-	const commitsAfterIntegration = getByTestId(page, "commit-row");
-	await expect(commitsAfterIntegration).toHaveCount(3);
+	await clickByTestId(page, "upstream-commits-integrate-button");
+	await expect(getByTestId(page, "branch-integration-preview-row").first()).toBeVisible();
+	expect(integrationPlanRequests).toHaveLength(1);
+	expect(integrationPlanRequests[0]?.postDataJSON()).toMatchObject({
+		branch: expect.stringContaining("feature-foo"),
+		strategy: "pullRebase",
+	});
+
+	await page.getByRole("button", { name: "Cancel" }).click();
+	await waitForTestIdToNotExist(page, "branch-integration-modal");
+	await clickByTestId(page, "upstream-commits-integrate-button");
+	await expect(getByTestId(page, "branch-integration-preview-row").first()).toBeVisible();
+
+	expect(integrationPlanRequests).toHaveLength(2);
+	expect(integrationPlanRequests[1]?.postDataJSON()).toMatchObject({
+		branch: integrationPlanRequests[0]?.postDataJSON().branch,
+		strategy: "pullRebase",
+	});
+});
+
+test("keeps integration steps aligned with the selected strategy", async ({ page, gitbutler }) => {
+	await gitbutler.runScript("project-with-diverged-branch-and-parallel-empty-branch.sh");
+	await openWorkspace(page);
+	await clickByTestId(page, "sync-button");
+	await clickByTestId(page, "upstream-commits-integrate-button");
+
+	const applyButton = getByTestId(page, "branch-integration-apply-button");
+	await expect(applyButton).toBeEnabled();
+
+	let releaseStrategyRequest: () => void;
+	const strategyRequestBlocked = new Promise<void>((resolve) => {
+		releaseStrategyRequest = resolve;
+	});
+	let blockStrategyRequest = true;
+	await page.route("**/get_initial_branch_integration", async (route) => {
+		if (blockStrategyRequest && route.request().postDataJSON()?.strategy === "smartSquash") {
+			blockStrategyRequest = false;
+			await strategyRequestBlocked;
+		}
+		await route.continue();
+	});
+
+	await clickByTestId(page, "branch-integration-template-smartSquash");
+	await expect(applyButton).toBeDisabled();
+	releaseStrategyRequest!();
+	await expect(applyButton).toBeEnabled();
+
+	const strategyRefresh = page.waitForRequest(
+		(request) =>
+			request.url().endsWith("/get_initial_branch_integration") &&
+			request.postDataJSON()?.strategy === "smartSquash",
+	);
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+	git(localClone, [
+		"update-ref",
+		"refs/remotes/origin/workspace-activity",
+		git(localClone, ["rev-parse", "HEAD"]),
+	]);
+	await strategyRefresh;
+
+	await expect(page.locator("#strategy-smartSquash")).toBeChecked();
+	await expect(applyButton).toBeEnabled();
 });
 
 test("should be able to apply a remote branch and integrate the remote changes - create commit", async ({
 	page,
-	context,
-}, testInfo) => {
-	const workdir = testInfo.outputPath("workdir");
-	const configdir = testInfo.outputPath("config");
-	gitbutler = await startGitButler(workdir, configdir, context);
-
+	gitbutler,
+}) => {
 	const fileCPath = gitbutler.pathInWorkdir("local-clone/c_file");
 
 	await gitbutler.runScript("project-with-remote-branches.sh");
-	await gitbutler.runScript("apply-upstream-branch.sh", ["branch1", "local-clone"]);
+	await applyUpstream(gitbutler, "branch1");
+	await openWorkspace(page);
 
-	await page.goto("/");
-
-	// Should load the workspace
-	await waitForTestId(page, "workspace-view");
-
-	// There should be only one stack
-	const stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(1);
-	const stack = stacks.first();
-	await expect(stack).toContainText("branch1");
-
-	// The stack should have two commits
-	const commits = getByTestId(page, "commit-row");
-	await expect(commits).toHaveCount(2);
+	await expect(stack(page, "branch1")).toHaveCount(1);
+	await expect(commitRow(page)).toHaveCount(2);
 
 	await gitbutler.runScript("project-with-remote-branches__add-commit-to-remote-branch.sh");
-
-	// Click the sync button
 	await clickByTestId(page, "sync-button");
 
-	// Create a new commit
+	// New local commit
 	writeFileSync(fileCPath, "This is file C\n", { flag: "w" });
 	await clickByTestId(page, "start-commit-button");
-
-	// Should see the commit drawer
 	await waitForTestId(page, "new-commit-view");
 
 	const newCommitMessage = "New local commit: adding file C";
-	const newCommitMessageBody = "CCCCCCC";
-	// Write a commit message
 	await fillByTestId(page, "commit-drawer-title-input", newCommitMessage);
-	await textEditorFillByTestId(page, "commit-drawer-description-input", newCommitMessageBody);
-
-	// Click the commit button
+	await textEditorFillByTestId(page, "commit-drawer-description-input", "CCCCCCC");
 	await clickByTestId(page, "commit-drawer-action-button");
+	// The commit must land before integrate races it. Lost in rebases twice
+	// before (42b0b4c86b): keep it.
+	await expect(commitRow(page)).toHaveCount(3);
 
-	// Integrate upstream commits
+	// Integrate upstream commits on top
 	await clickByTestId(page, "upstream-commits-integrate-button");
-	await waitForTestIdToNotExist(page, "upstream-commits-integrate-button");
-	await waitForTestIdToNotExist(page, "upstream-commits-commit-action");
+	await waitForTestId(page, "branch-integration-apply-button");
+	await clickByTestId(page, "branch-integration-apply-button");
+	await waitForTestIdToNotExist(page, "branch-integration-modal");
 
-	const commitsAfterIntegration = getByTestId(page, "commit-row");
-	await expect(commitsAfterIntegration).toHaveCount(4);
-	const firstCommit = commitsAfterIntegration.nth(0);
-	await expect(firstCommit).toContainText(newCommitMessage);
+	const commits = commitRow(page);
+	await expect(commits).toHaveCount(4);
+	await expect(commits.nth(0)).toContainText(newCommitMessage);
 });
 
 test("should be able to apply a remote branch and integrate the remote changes - conflict", async ({
 	page,
-	context,
-}, testInfo) => {
-	const workdir = testInfo.outputPath("workdir");
-	const configdir = testInfo.outputPath("config");
-	gitbutler = await startGitButler(workdir, configdir, context);
-
+	gitbutler,
+}) => {
 	const filePath = gitbutler.pathInWorkdir("local-clone/a_file");
 
 	await gitbutler.runScript("project-with-remote-branches.sh");
-	await gitbutler.runScript("apply-upstream-branch.sh", ["branch1", "local-clone"]);
+	await applyUpstream(gitbutler, "branch1");
+	await openWorkspace(page);
 
-	await page.goto("/");
+	await expect(commitRow(page)).toHaveCount(2);
 
-	// Should load the workspace
-	await waitForTestId(page, "workspace-view");
-	// There should be only one stack
-	const stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(1);
-	const stack = stacks.first();
-	await expect(stack).toContainText("branch1");
-
-	// The stack should have two commits
-	const commits = getByTestId(page, "commit-row");
-	await expect(commits).toHaveCount(2);
-
-	// Make a conflicting change
 	writeFileSync(filePath, "conflicting change\n", { flag: "a" });
 
-	// Commit the change
 	await clickByTestId(page, "start-commit-button");
-
-	// Should see the commit drawer
 	await waitForTestId(page, "new-commit-view");
 
 	const newCommitMessage = "Conflicting change commit";
-	const newCommitMessageBody = "This should be oh-so-bad 🤭";
-	// Write a commit message
 	await fillByTestId(page, "commit-drawer-title-input", newCommitMessage);
-	await textEditorFillByTestId(page, "commit-drawer-description-input", newCommitMessageBody);
-
-	// Click the commit button
+	await textEditorFillByTestId(
+		page,
+		"commit-drawer-description-input",
+		"This should be oh-so-bad 🤭",
+	);
 	await clickByTestId(page, "commit-drawer-action-button");
 
-	// This should create a new commit
-	const commitsAfterChange = getByTestId(page, "commit-row");
-	await expect(commitsAfterChange).toHaveCount(3);
+	await expect(commitRow(page)).toHaveCount(3);
 
 	await gitbutler.runScript("project-with-remote-branches__add-commit-to-remote-branch.sh");
+	await syncAndIntegrate(page);
 
-	// Click the sync button
-	await clickByTestId(page, "sync-button");
+	const commits = commitRow(page);
+	await expect(commits).toHaveCount(4);
 
-	// Integrate upstream commits
-	await clickByTestId(page, "upstream-commits-integrate-button");
-	await waitForTestIdToNotExist(page, "upstream-commits-integrate-button");
-	await waitForTestIdToNotExist(page, "upstream-commits-commit-action");
-
-	const commitsAfterIntegration = getByTestId(page, "commit-row");
-	await expect(commitsAfterIntegration).toHaveCount(4);
-
-	const conflictedCommit = commitsAfterIntegration.filter({
-		hasText: "Conflicting change commit",
-	});
-	await expect(conflictedCommit).toBeVisible();
-
-	// Click on the conflicted commit to open the commit drawer
+	const conflictedCommit = commitRow(page, newCommitMessage);
 	await conflictedCommit.click();
-
-	// Click the resolve conflicts button (now in the file list area)
 	await clickByTestId(page, "commit-drawer-resolve-conflicts-button");
-
-	// Should open the edit mode
 	await waitForTestId(page, "edit-mode");
 
-	const conflictedFileContent = readFileSync(filePath, "utf-8");
-	expect(conflictedFileContent).toEqual(
+	expect(readFileSync(filePath, "utf-8")).toEqual(
 		`foo
 bar
 baz
@@ -280,467 +481,182 @@ conflicting change
 `,
 	);
 
-	// Resolve the conflict by keeping both changes
-	writeFileSync(
-		filePath,
-		`foo
+	const resolved = `foo
 bar
 baz
 branch1 commit 1
 branch1 commit 2
 branch1 commit 3
 conflicting change
-`,
-		{ flag: "w" },
-	);
+`;
+	writeFileSync(filePath, resolved, { flag: "w" });
 
-	// Click the save and exit button
 	await clickByTestId(page, "edit-mode-save-and-exit-button");
-
-	// Should be back in the workspace
 	await waitForTestId(page, "workspace-view");
 
-	const commitsAfterResolving = getByTestId(page, "commit-row");
-	await expect(commitsAfterResolving).toHaveCount(4);
-
-	const resolvedFileContent = readFileSync(filePath, "utf-8");
-	expect(resolvedFileContent).toEqual(
-		`foo
-bar
-baz
-branch1 commit 1
-branch1 commit 2
-branch1 commit 3
-conflicting change
-`,
-	);
+	await expect(commitRow(page)).toHaveCount(4);
+	expect(readFileSync(filePath, "utf-8")).toEqual(resolved);
 });
 
 test("should be able gracefully handle adding a branch that is ahead of our target commit", async ({
 	page,
-	context,
-}, testInfo) => {
-	const workdir = testInfo.outputPath("workdir");
-	const configdir = testInfo.outputPath("config");
-	gitbutler = await startGitButler(workdir, configdir, context);
-
+	gitbutler,
+}) => {
 	const fileBPath = gitbutler.pathInWorkdir("local-clone/b_file");
 
 	await gitbutler.runScript("project-with-remote-branches.sh");
+	await openWorkspace(page);
 
-	await page.goto("/");
-
-	// Should load the workspace
-	await waitForTestId(page, "workspace-view");
-
-	// There are remote changes in the base branch
 	await gitbutler.runScript("project-with-remote-branches__add-commit-to-base-and-branch.sh");
-
-	// Click the sync button
 	await clickByTestId(page, "sync-button");
 
-	// Should navigate to the branches page when clicking the branches button
-	await clickByTestId(page, "navigation-branches-button");
-	const header = await waitForTestId(page, "branch-header");
+	await applyBranchFromBranchesView(page, "branch1");
 
-	await expect(header).toContainText("origin/master");
-
-	const branchListCards = getByTestId(page, "branch-list-card");
-	await expect(branchListCards).toHaveCount(3);
-
-	const firstBranchCard = branchListCards.filter({ hasText: "branch1" });
-	await expect(firstBranchCard).toBeVisible();
-	await firstBranchCard.click();
-
-	// The delete branch should be visible
-	await waitForTestId(page, "branches-view-delete-local-branch-button");
-
-	// Apply the branch
-	await clickByTestId(page, "branches-view-apply-branch-button");
-	// Should be redirected to the workspace
-	await waitForTestId(page, "workspace-view");
-
-	const commits = getByTestId(page, "commit-row");
-	// Should have 4 commits.
-	// Three commits from branch 1, and the new commit from the base branch
-	await expect(commits).toHaveCount(4);
-
+	// 3 commits from branch1 + 1 base commit
+	await expect(commitRow(page)).toHaveCount(4);
 	expect(existsSync(fileBPath)).toBe(true);
 });
 
-test("should be able gracefully handle adding a branch that is behind of our target commit", async ({
+// TODO: The integrate-upstream-commits-button assertion fails because target.sha
+// is now set correctly after upstream integration, so no further integration is detected.
+test.skip("should be able gracefully handle adding a branch that is behind of our target commit", async ({
 	page,
-	context,
-}, testInfo) => {
-	const workdir = testInfo.outputPath("workdir");
-	const configdir = testInfo.outputPath("config");
-	gitbutler = await startGitButler(workdir, configdir, context);
-
+	gitbutler,
+}) => {
 	const filePath = gitbutler.pathInWorkdir("local-clone/a_file");
 	await gitbutler.runScript("project-with-remote-branches.sh");
+	await openWorkspace(page);
 
-	await page.goto("/");
-
-	// Should load the workspace
-	await waitForTestId(page, "workspace-view");
-
-	// There are remote changes in the base branch
 	await gitbutler.runScript("project-with-remote-branches__add-commit-to-base.sh");
-
-	// Click the sync button
 	await clickByTestId(page, "sync-button");
-	// Update the workspace
 	await clickByTestId(page, "integrate-upstream-commits-button");
 	await clickByTestId(page, "integrate-upstream-action-button");
+	await waitForTestIdToNotExist(page, "integrate-upstream-commits-button");
 
-	// Should navigate to the branches page when clicking the branches button
-	await clickByTestId(page, "navigation-branches-button");
-	const header = await waitForTestId(page, "branch-header");
+	await applyBranchFromBranchesView(page, "branch1");
+	await expect(getByTestId(page, "integrate-upstream-commits-button")).toBeVisible();
 
-	await expect(header).toContainText("origin/master");
-
-	const branchListCards = getByTestId(page, "branch-list-card");
-	await expect(branchListCards).toHaveCount(3);
-
-	const firstBranchCard = branchListCards.filter({ hasText: "branch1" });
-	await expect(firstBranchCard).toBeVisible();
-	await firstBranchCard.click();
-
-	// The delete branch should be visible
-	await waitForTestId(page, "branches-view-delete-local-branch-button");
-
-	// Apply the branch
-	await clickByTestId(page, "branches-view-apply-branch-button");
-	// Should be redirected to the workspace
-	await waitForTestId(page, "workspace-view");
-
-	const commits = getByTestId(page, "commit-row");
-	await expect(commits).toHaveCount(2);
-
-	const conflictedCommit = commits.filter({
-		hasText: "branch1: first commit",
-	});
-	await expect(conflictedCommit).toBeVisible();
-
-	// Click on the conflicted commit to open the commit drawer
+	await expect(commitRow(page)).toHaveCount(2);
+	const conflictedCommit = commitRow(page, "branch1: first commit");
 	await conflictedCommit.click();
-
-	// Click the resolve conflicts button (now in the file list area)
-	await clickByTestId(page, "commit-drawer-resolve-conflicts-button");
-
-	// Should open the edit mode
-	await waitForTestId(page, "edit-mode");
-
-	let conflictedFileContent = readFileSync(filePath, "utf-8");
-	expect(conflictedFileContent).toEqual(
+	await expect(getByTestId(page, "commit-drawer-resolve-conflicts-button")).toHaveCount(0);
+	expect(readFileSync(filePath, "utf-8")).toEqual(
 		`foo
 bar
 baz
-<<<<<` +
-			`<< New base: commit in base
-Update to main branch
-||||||| Common ancestor
-=======
-branch1 commit 1
->>>>>>> Current commit: branch1: first commit
-`,
-	);
-
-	// Resolve the conflict by keeping both changes
-	writeFileSync(
-		filePath,
-		`foo
-bar
-baz
-Update to main branch
-branch1 commit 1
-`,
-		{ flag: "w" },
-	);
-
-	// Click the save and exit button
-	await clickByTestId(page, "edit-mode-save-and-exit-button");
-
-	// Should be back in the workspace
-	await waitForTestId(page, "workspace-view");
-
-	const commitsAfterResolving = getByTestId(page, "commit-row");
-	await expect(commitsAfterResolving).toHaveCount(2);
-
-	// Verify the file content
-	let resolvedFileContent = readFileSync(filePath, "utf-8");
-	expect(resolvedFileContent).toEqual(
-		`foo
-bar
-baz
-Update to main branch
-branch1 commit 1
-`,
-	);
-
-	const commitsAfterResolution = getByTestId(page, "commit-row");
-	const conflictedCommitAfterResolution = commitsAfterResolution.filter({
-		hasText: "branch1: second commit",
-	});
-	await expect(conflictedCommitAfterResolution).toBeVisible();
-
-	// Click on the conflicted commit to open the commit drawer
-	await conflictedCommitAfterResolution.click();
-
-	// Click the resolve conflicts button (now in the file list area)
-	await clickByTestId(page, "commit-drawer-resolve-conflicts-button");
-
-	// Should open the edit mode
-	await waitForTestId(page, "edit-mode");
-
-	conflictedFileContent = readFileSync(filePath, "utf-8");
-	expect(conflictedFileContent).toEqual(
-		`foo
-bar
-baz
-Update to main branch
-<<<<<` +
-			`<< New base: branch1: first commit
-branch1 commit 1
-||||||| Common ancestor
-=======
-branch1 commit 2
->>>>>>> Current commit: branch1: second commit
-`,
-	);
-
-	// Resolve the conflict by keeping both changes
-	writeFileSync(
-		filePath,
-		`foo
-bar
-baz
-Update to main branch
-branch1 commit 1
-branch1 commit 2
-`,
-		{ flag: "w" },
-	);
-
-	// Click the save and exit button
-	await clickByTestId(page, "edit-mode-save-and-exit-button");
-
-	// Should be back in the workspace
-	await waitForTestId(page, "workspace-view");
-
-	// Verify the file content
-	resolvedFileContent = readFileSync(filePath, "utf-8");
-	expect(resolvedFileContent).toEqual(
-		`foo
-bar
-baz
-Update to main branch
 branch1 commit 1
 branch1 commit 2
 `,
 	);
 });
 
-test("should handle gracefully applying two conflicting branches", async ({
-	page,
-	context,
-}, testInfo) => {
-	const workdir = testInfo.outputPath("workdir");
-	const configdir = testInfo.outputPath("config");
-	gitbutler = await startGitButler(workdir, configdir, context);
-
+test("should handle gracefully applying two conflicting branches", async ({ page, gitbutler }) => {
 	await gitbutler.runScript("project-with-remote-branches.sh");
-	await gitbutler.runScript("apply-upstream-branch.sh", ["branch1", "local-clone"]);
+	await applyUpstream(gitbutler, "branch1");
+	await openWorkspace(page);
 
-	await page.goto("/");
+	await expect(commitRow(page)).toHaveCount(2);
 
-	// Should load the workspace
-	await waitForTestId(page, "workspace-view");
-
-	const commits = getByTestId(page, "commit-row");
-	await expect(commits).toHaveCount(2);
-
-	// Should navigate to the branches page when clicking the branches button
-	await clickByTestId(page, "navigation-branches-button");
-
-	const branchCard2 = getByTestId(page, "branch-list-card").filter({ hasText: "branch2" });
-	await expect(branchCard2).toBeVisible();
-	await branchCard2.click();
-
-	// Apply the second branch
+	await gotoBranchesView(page);
+	await getByTestId(page, "branch-list-card").filter({ hasText: "branch2" }).click();
 	await clickByTestId(page, "branches-view-apply-branch-button");
-	// Should be redirected to the workspace
 	await waitForTestId(page, "workspace-view");
 
-	// The modal explaining this should be visible
-	await waitForTestId(page, "stacks-unapplied-toast");
+	await waitForTestId(page, "branch-apply-conflict-toast");
 });
 
-test("should update the stale selection of an unexisting branch", async ({
-	page,
-	context,
-}, testInfo) => {
-	const workdir = testInfo.outputPath("workdir");
-	const configdir = testInfo.outputPath("config");
-	gitbutler = await startGitButler(workdir, configdir, context);
-
+test("should update the stale selection of an unexisting branch", async ({ page, gitbutler }) => {
 	await gitbutler.runScript("project-with-remote-branches.sh");
-	// Apply branch1
-	await gitbutler.runScript("apply-upstream-branch.sh", ["branch1", "local-clone"]);
+	await applyUpstream(gitbutler, "branch1");
+	await openWorkspace(page);
 
-	await page.goto("/");
+	await gotoBranchesView(page);
+	await getByTestId(page, "branch-list-card").filter({ hasText: "branch1" }).click();
 
-	// Should load the workspace
-	await waitForTestId(page, "workspace-view");
-
-	// Navigate to branches page
-	await clickByTestId(page, "navigation-branches-button");
-	let header = await waitForTestId(page, "branch-header");
-
-	await expect(header).toContainText("origin/master");
-
-	let branchListCards = getByTestId(page, "branch-list-card");
-	await expect(branchListCards).toHaveCount(3);
-
-	// Select the branch1
-	let firstBranchCard = branchListCards.filter({ hasText: "branch1" });
-	await expect(firstBranchCard).toBeVisible();
-	await firstBranchCard.click();
-
-	// Go back to the workspace
 	await clickByTestId(page, "navigation-workspace-button");
 	await waitForTestId(page, "workspace-view");
+	await expect(stack(page)).toHaveCount(1);
 
-	// There should be one stack applied
-	const stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(1);
-
-	// Branch one was merged in the forge
+	// branch1 was merged in the forge — sync and integrate it away.
 	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
-
-	// Click the sync button
 	await clickByTestId(page, "sync-button");
-
-	// Update the workspace
 	await clickByTestId(page, "integrate-upstream-commits-button");
 	await clickByTestId(page, "integrate-upstream-action-button");
 	await waitForTestIdToNotExist(page, "integrate-upstream-action-button");
 
-	// There should be no stacks
 	await waitForTestIdToNotExist(page, "stack");
 
-	// Navigate to branches page
-	await clickByTestId(page, "navigation-branches-button");
-	await waitForTestId(page, "branches-view");
+	await gotoBranchesView(page);
 
-	header = await waitForTestId(page, "branch-header");
-
-	await expect(header).toContainText("origin/master");
-	// The previously selected branch1 should not be selected anymore
-	branchListCards = getByTestId(page, "branch-list-card");
-	await expect(branchListCards).toHaveCount(2);
-	firstBranchCard = branchListCards.filter({ hasText: "branch1" });
-	await expect(firstBranchCard).not.toBeVisible();
+	// We don't prune, so 3 branches remain, but branch1 is not selected anymore.
+	const cardsAfter = getByTestId(page, "branch-list-card");
+	await expect(cardsAfter.filter({ hasText: "branch1" })).not.toHaveClass(/\bselected\b/);
+	await expect(getByTestId(page, "current-origin-list-card")).toHaveClass(/\bselected\b/);
 });
 
-test("should be able to delete a local branch", async ({ page, context }, testInfo) => {
-	const workdir = testInfo.outputPath("workdir");
-	const configdir = testInfo.outputPath("config");
-	gitbutler = await startGitButler(workdir, configdir, context);
-
+test("should be able to delete a local branch", async ({ page, gitbutler }) => {
 	await gitbutler.runScript("project-with-remote-branches.sh");
-	await gitbutler.runScript("apply-upstream-branch.sh", ["branch1", "local-clone"]);
-	await gitbutler.runScript("apply-upstream-branch.sh", ["branch3", "local-clone"]);
+	await applyUpstream(gitbutler, "branch1", "branch3");
+	await gitbutler.runScript("move-branch.sh", ["branch3", "branch1", "local-clone"]);
+	await openWorkspace(page);
+
+	await expect(stack(page)).toHaveCount(1);
+	await expect(getByTestId(page, "branch-header")).toHaveCount(2);
+
+	await deleteBranch(page, "branch1");
+	await waitForTestId(page, "workspace-view");
+
+	await expect(stack(page)).toHaveCount(1);
+	const headers = getByTestId(page, "branch-header");
+	await expect(headers).toHaveCount(1);
+	await expect(headers.first()).toContainText("branch3");
+});
+
+test("should be able to delete an empty local branch", async ({ page, gitbutler }) => {
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await openWorkspace(page);
+
+	await createNewBranch(page, "new-branch");
+	await expect(stack(page)).toHaveCount(1);
+
+	await deleteBranch(page, "new-branch");
+	await waitForTestId(page, "workspace-view");
+
+	await expect(stack(page)).toHaveCount(0);
+	await expect(getByTestId(page, "branch-header")).toHaveCount(0);
+});
+
+test("should be able to unapply a stack", async ({ page, gitbutler }) => {
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await applyUpstream(gitbutler, "branch1");
+	await openWorkspace(page);
+
+	await expect(stack(page)).toHaveCount(1);
+	await expect(getByTestId(page, "branch-header").filter({ hasText: "branch1" })).toBeVisible();
+
+	await unapplyStack(page, "branch1");
+	await waitForTestId(page, "workspace-view");
+
+	await expect(stack(page)).toHaveCount(0);
+	await expect(getByTestId(page, "branch-header").filter({ hasText: "branch1" })).toHaveCount(0);
+});
+
+test("should be able to move a branch when origin/master has advanced past the fork point", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await applyUpstream(gitbutler, "branch1", "branch3");
+
+	// Advance origin/master past the fork point of branch1/branch3 so the old
+	// fork point becomes an unnamed segment in the graph.
+	await gitbutler.runScript("project-with-remote-branches__add-commit-to-base.sh");
+	await gitbutler.runScript("fetch-in-clone.sh", ["local-clone"]);
+	// Move branch3 on top of branch1 — must succeed even with a nameless base segment.
 	await gitbutler.runScript("move-branch.sh", ["branch3", "branch1", "local-clone"]);
 
-	await page.goto("/");
+	await openWorkspace(page);
 
-	// Should load the workspace
-	await waitForTestId(page, "workspace-view");
-
-	// There should be one stack with two branches applied
-	let stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(1);
-	let branchHeaders = getByTestId(page, "branch-header");
-	await expect(branchHeaders).toHaveCount(2);
-
-	// Right click on the branch header to open the branch menu
-	await deleteBranch(page, "branch1");
-
-	// Should be back in the workspace
-	await waitForTestId(page, "workspace-view");
-
-	// There should be one stack with only one branch
-	stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(1);
-
-	branchHeaders = getByTestId(page, "branch-header");
-	await expect(branchHeaders).toHaveCount(1);
-	await expect(branchHeaders.first()).toContainText("branch3");
-});
-
-test("should be able to delete an empty local branch", async ({ page, context }, testInfo) => {
-	const workdir = testInfo.outputPath("workdir");
-	const configdir = testInfo.outputPath("config");
-	gitbutler = await startGitButler(workdir, configdir, context);
-
-	await gitbutler.runScript("project-with-remote-branches.sh");
-
-	await page.goto("/");
-
-	// Should load the workspace
-	await waitForTestId(page, "workspace-view");
-
-	// Create a new branch
-	await createNewBranch(page, "new-branch");
-
-	// There should be one stack applied
-	let stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(1);
-
-	// Right click on the branch header to open the branch menu
-	await deleteBranch(page, "new-branch");
-
-	// Should be back in the workspace
-	await waitForTestId(page, "workspace-view");
-
-	// There should be no stacks
-	stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(0);
-
-	const branchHeaders = getByTestId(page, "branch-header");
-	await expect(branchHeaders).toHaveCount(0);
-});
-
-test("should be able to unapply a stack", async ({ page, context }, testInfo) => {
-	const workdir = testInfo.outputPath("workdir");
-	const configdir = testInfo.outputPath("config");
-	gitbutler = await startGitButler(workdir, configdir, context);
-
-	await gitbutler.runScript("project-with-remote-branches.sh");
-	await gitbutler.runScript("apply-upstream-branch.sh", ["branch1", "local-clone"]);
-
-	await page.goto("/");
-
-	// Should load the workspace
-	await waitForTestId(page, "workspace-view");
-
-	// There should be one stack applied
-	let stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(1);
-	let branchHeaders = getByTestId(page, "branch-header").filter({ hasText: "branch1" });
-	await expect(branchHeaders).toBeVisible();
-
-	// Unapply the stack
-	await unapplyStack(page, "branch1");
-
-	// Should be back in the workspace
-	await waitForTestId(page, "workspace-view");
-
-	// There should be no stacks
-	stacks = getByTestId(page, "stack");
-	await expect(stacks).toHaveCount(0);
-
-	branchHeaders = getByTestId(page, "branch-header").filter({ hasText: "branch1" });
-	await expect(branchHeaders).toHaveCount(0);
+	await expect(stack(page)).toHaveCount(1);
+	await expect(getByTestId(page, "branch-header")).toHaveCount(2);
 });

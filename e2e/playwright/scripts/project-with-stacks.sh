@@ -1,8 +1,10 @@
 #!/bin/bash
 
 echo "GIT CONFIG $GIT_CONFIG_GLOBAL"
-echo "DATA DIR $GITBUTLER_CLI_DATA_DIR"
-echo "BUT_TESTING $BUT_TESTING"
+echo "DATA DIR $E2E_TEST_APP_DATA_DIR"
+echo "BUT $BUT"
+
+FORGE_REMOTE_URL="${1:-}"
 
 # Setup a remote project.
 # GitButler currently requires projects to have a remote
@@ -14,6 +16,7 @@ echo "bar" >> a_file
 echo "baz" >> a_file
 git add a_file
 git commit -am "Hey, look! A commit."
+git config http.receivepack true
 
 # Create branch 1
 git checkout -b branch1
@@ -45,11 +48,26 @@ git commit -am "branch3: first commit"
 echo "branch3 commit 2" >> c_file
 git commit -am "branch3: second commit"
 git checkout master
+
+# Create branch 4, also independent
+git checkout -b branch4
+echo "branch4 commit 1" >> d_file
+git add d_file
+git commit -am "branch4: first commit"
+echo "branch4 commit 2" >> d_file
+git commit -am "branch4: second commit"
+git checkout master
 popd
 
 # Clone the remote into a folder and add the project to the application.
 git clone remote-project local-clone
 pushd local-clone
   git checkout master
-  $BUT_TESTING add-project --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
+  target_branch="$(git rev-parse --symbolic-full-name @{u})"
+  target_branch="${target_branch#refs/remotes/}"
+  "$BUT" switch --workspace
+  "$BUT" config target "$target_branch"
+  if [ -n "$FORGE_REMOTE_URL" ]; then
+    git remote set-url origin "$FORGE_REMOTE_URL"
+  fi
 popd

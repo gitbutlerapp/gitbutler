@@ -1,10 +1,15 @@
 use std::sync::Arc;
 
+use but_core::ref_metadata::StackId;
 use ratatui::text::Span;
 
-use crate::{CliId, command::legacy::status::render_oneshot, utils::WriteWithUtils};
+use crate::{
+    CliId,
+    command::legacy::status::{CommitClassification, render_oneshot},
+    utils::WriteWithUtils,
+};
 
-pub(super) enum StatusOutput<'a> {
+pub enum StatusOutput<'a> {
     /// Immediately print the outputs as it's being generated.
     ///
     /// This is used when running the status command in one-shot mode.
@@ -40,7 +45,7 @@ impl StatusOutput<'_> {
         Ok(())
     }
 
-    pub(super) fn update_notice(&mut self, line: Vec<Span<'static>>) -> anyhow::Result<()> {
+    pub fn update_notice(&mut self, line: Vec<Span<'static>>) -> anyhow::Result<()> {
         self.push_line(
             None,
             StatusOutputContent::Plain(line),
@@ -48,7 +53,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn connector(&mut self, connector: Vec<Span<'static>>) -> anyhow::Result<()> {
+    pub fn connector(&mut self, connector: Vec<Span<'static>>) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
             StatusOutputContent::Plain(<_>::default()),
@@ -56,7 +61,15 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn staged_changes(
+    pub fn between_stacks(&mut self, connector: Vec<Span<'static>>) -> anyhow::Result<()> {
+        self.push_line(
+            Some(connector),
+            StatusOutputContent::Plain(<_>::default()),
+            StatusOutputLineData::BetweenStacks,
+        )
+    }
+
+    pub fn staged_changes(
         &mut self,
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
@@ -71,97 +84,118 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn staged_file(
+    pub fn staged_file(
         &mut self,
         connector: Vec<Span<'static>>,
-        line: Vec<Span<'static>>,
+        line: FileLineContent,
         id: CliId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::Plain(line),
+            StatusOutputContent::File(line),
             StatusOutputLineData::StagedFile {
                 cli_id: Arc::new(id),
             },
         )
     }
 
-    pub(super) fn unstaged_changes(
+    pub fn uncommitted_changes(
         &mut self,
         connector: Vec<Span<'static>>,
-        line: Vec<Span<'static>>,
+        line: UncommittedLineContent,
         id: CliId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::Plain(line),
-            StatusOutputLineData::UnstagedChanges {
+            StatusOutputContent::Uncommitted(line),
+            StatusOutputLineData::UncommittedChanges {
                 cli_id: Arc::new(id),
             },
         )
     }
 
-    pub(super) fn unstaged_file(
+    pub fn worktree_uncommitted(
         &mut self,
         connector: Vec<Span<'static>>,
-        line: Vec<Span<'static>>,
+        line: UncommittedLineContent,
         id: CliId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::Plain(line),
-            StatusOutputLineData::UnstagedFile {
+            StatusOutputContent::Uncommitted(line),
+            StatusOutputLineData::WorktreeUncommitted {
                 cli_id: Arc::new(id),
             },
         )
     }
 
-    pub(super) fn branch(
+    pub fn uncommitted_file(
         &mut self,
         connector: Vec<Span<'static>>,
-        line: Vec<Span<'static>>,
+        line: FileLineContent,
         id: CliId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::Plain(line),
+            StatusOutputContent::File(line),
+            StatusOutputLineData::UncommittedFile {
+                cli_id: Arc::new(id),
+            },
+        )
+    }
+
+    pub fn branch(
+        &mut self,
+        connector: Vec<Span<'static>>,
+        line: BranchLineContent,
+        id: CliId,
+        is_merged_upstream: bool,
+    ) -> anyhow::Result<()> {
+        self.push_line(
+            Some(connector),
+            StatusOutputContent::Branch(line),
             StatusOutputLineData::Branch {
                 cli_id: Arc::new(id),
+                is_merged_upstream,
             },
         )
     }
 
-    pub(super) fn file(
+    pub fn file(
         &mut self,
         connector: Vec<Span<'static>>,
-        line: Vec<Span<'static>>,
+        line: FileLineContent,
         id: CliId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::Plain(line),
+            StatusOutputContent::File(line),
             StatusOutputLineData::File {
                 cli_id: Arc::new(id),
             },
         )
     }
 
-    pub(super) fn commit(
+    pub fn commit(
         &mut self,
         connector: Vec<Span<'static>>,
         line: CommitLineContent,
         id: CliId,
+        stack_id: Option<StackId>,
+        classification: CommitClassification,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
             StatusOutputContent::Commit(line),
             StatusOutputLineData::Commit {
                 cli_id: Arc::new(id),
+                stack_id,
+                classification,
             },
         )
     }
 
-    pub(super) fn commit_message(
+    pub fn commit_message(
         &mut self,
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
@@ -173,7 +207,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn empty_commit_message(
+    pub fn empty_commit_message(
         &mut self,
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
@@ -185,7 +219,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn warning(&mut self, line: Vec<Span<'static>>) -> anyhow::Result<()> {
+    pub fn warning(&mut self, line: Vec<Span<'static>>) -> anyhow::Result<()> {
         self.push_line(
             None,
             StatusOutputContent::Plain(line),
@@ -193,7 +227,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn hint(&mut self, line: Vec<Span<'static>>) -> anyhow::Result<()> {
+    pub fn hint(&mut self, line: Vec<Span<'static>>) -> anyhow::Result<()> {
         self.push_line(
             None,
             StatusOutputContent::Plain(line),
@@ -201,7 +235,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn no_assignments_unstaged(
+    pub fn no_assignments_unstaged(
         &mut self,
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
@@ -213,19 +247,20 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn merge_base(
+    pub fn merge_base(
         &mut self,
         connector: Vec<Span<'static>>,
-        line: Vec<Span<'static>>,
+        id: Vec<Span<'static>>,
+        suffix: Vec<Span<'static>>,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::Plain(line),
+            StatusOutputContent::MergeBase(MergeBaseLineContent { id, suffix }),
             StatusOutputLineData::MergeBase,
         )
     }
 
-    pub(super) fn upstream_changes(
+    pub fn upstream_changes(
         &mut self,
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
@@ -239,63 +274,124 @@ impl StatusOutput<'_> {
 }
 
 /// The non-connector content rendered for one status line.
-#[derive(Debug)]
-pub(super) enum StatusOutputContent {
-    /// Generic status content represented as one flat list of spans.
+#[derive(Debug, Clone)]
+pub enum StatusOutputContent {
     Plain(Vec<Span<'static>>),
-    /// Structured content for commit rows where SHA and message are split.
     Commit(CommitLineContent),
+    Branch(BranchLineContent),
+    File(FileLineContent),
+    Uncommitted(UncommittedLineContent),
+    MergeBase(MergeBaseLineContent),
 }
 
-/// Structured content for a commit row in status output.
-#[derive(Debug, Default)]
-pub(super) struct CommitLineContent {
-    pub(super) sha: Vec<Span<'static>>,
-    pub(super) author: Vec<Span<'static>>,
-    pub(super) message: Vec<Span<'static>>,
-    pub(super) suffix: Vec<Span<'static>>,
+#[derive(Debug, Clone)]
+pub struct MergeBaseLineContent {
+    pub id: Vec<Span<'static>>,
+    pub suffix: Vec<Span<'static>>,
 }
 
-#[derive(Debug)]
-pub(super) struct StatusOutputLine {
+#[derive(Debug, Default, Clone)]
+pub struct CommitLineContent {
+    pub change_id: Vec<Span<'static>>,
+    pub sha: Vec<Span<'static>>,
+    pub author: Vec<Span<'static>>,
+    pub message: Vec<Span<'static>>,
+    pub suffix: Vec<Span<'static>>,
+}
+
+/// Consdering the example "dp [dp-branch-1] (no commits)" see the field docs for what exactly they
+/// correspond to.
+#[derive(Debug, Default, Clone)]
+pub struct BranchLineContent {
+    /// "dp" in the example
+    pub id: Vec<Span<'static>>,
+    /// " [" in the example
+    pub decoration_start: Vec<Span<'static>>,
+    /// "dp-branch-1" in the example
+    pub branch_name: Vec<Span<'static>>,
+    /// "] " in the example
+    pub decoration_end: Vec<Span<'static>>,
+    /// "(no commits)" in the example
+    pub suffix: Vec<Span<'static>>,
+}
+
+/// Consdering the example "ae:sv A a/b/c.rs" see the field docs for what exactly they
+/// correspond to.
+#[derive(Debug, Default, Clone)]
+pub struct FileLineContent {
+    /// "ae:sv" in the example
+    pub id: Vec<Span<'static>>,
+    /// "A" in the example
+    pub status: Vec<Span<'static>>,
+    /// "a/b/c.rs" in the example
+    pub path: Vec<Span<'static>>,
+}
+
+/// Considering the example "@ [uncommitted] (no changes)" see the field docs for what exactly
+/// they correspond to.
+#[derive(Debug, Default, Clone)]
+pub struct UncommittedLineContent {
+    /// "@" in the example
+    pub id: Vec<Span<'static>>,
+    /// " [" in the example
+    pub decoration_start: Vec<Span<'static>>,
+    /// "uncommitted" in the example
+    pub label: Vec<Span<'static>>,
+    /// "]" in the example
+    pub decoration_end: Vec<Span<'static>>,
+    /// " (no changes)" in the example
+    pub suffix: Vec<Span<'static>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StatusOutputLine {
     /// The span holding the connector, if any, for this line. Includes padding and indicators that
     /// might be shown along side the connector.
     ///
     /// Example:
     ///
-    /// ╭┄zz [unstaged changes]                                         | Some("╭┄")
-    /// ┊   ur M flake.nix                                              | Some("┊   ")
-    /// ┊                                                               | Some("┊ ")
-    /// ┊╭┄dp [dp-branch-4]                                             | Some("┊╭┄")
-    /// ┊●   3dd0f00 (no commit message) (no changes)                   | Some("┊●   ")
-    /// ├╯                                                              | Some("├╯ ")
-    /// ┊                                                               | Some("┊ ")
-    /// ┊● 7cd07f6 (upstream) ⏫ 1 new commits (checked 34 seconds ago) | Some("┊● ")
-    /// ├╯ 8678259 [origin/main] 2026-03-11 nix                         | Some("├╯ ")
-    pub(super) connector: Option<Vec<Span<'static>>>,
+    /// ╭┄@ [uncommitted]                                                       | Some("╭┄")
+    /// ┊   ur M flake.nix                                                       | Some("┊   ")
+    /// ┊                                                                        | Some("┊ ")
+    /// ┊╭┄dp [dp-branch-4]                                                      | Some("┊╭┄")
+    /// ┊●   3dd0f00 (no commit message) (no changes)                            | Some("┊●   ")
+    /// ├╯                                                                       | Some("├╯ ")
+    /// ┊                                                                        | Some("┊ ")
+    /// ┊● 7cd07f6 (upstream: origin/main) 1 new commit (checked 34 seconds ago) | Some("┊● ")
+    /// ├╯ 8678259 [origin/main] 2026-03-11 nix                                  | Some("├╯ ")
+    pub connector: Option<Vec<Span<'static>>>,
     /// The content of the line such as the commit, branch, or file.
-    pub(super) content: StatusOutputContent,
+    pub content: StatusOutputContent,
     /// The backing data associated with this line.
     ///
     /// This tells the TUI what data the actual line is showing. Used for performing operations on
     /// the line.
-    pub(super) data: StatusOutputLineData,
+    pub data: StatusOutputLineData,
 }
 
 impl StatusOutputLine {
-    pub(super) fn is_selectable(&self) -> bool {
+    pub fn is_selectable(&self) -> bool {
         match &self.data {
+            StatusOutputLineData::Commit { classification, .. } => match classification {
+                CommitClassification::LocalOnly
+                | CommitClassification::Pushed
+                | CommitClassification::Modified => true,
+                CommitClassification::Upstream | CommitClassification::Integrated => false,
+            },
+            StatusOutputLineData::Branch {
+                is_merged_upstream, ..
+            } => !*is_merged_upstream,
             StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
-            | StatusOutputLineData::UnstagedFile { .. }
-            | StatusOutputLineData::Branch { .. }
-            | StatusOutputLineData::Commit { .. }
+            | StatusOutputLineData::UncommittedChanges { .. }
+            | StatusOutputLineData::WorktreeUncommitted { .. }
+            | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::MergeBase
             | StatusOutputLineData::File { .. } => true,
-            StatusOutputLineData::Connector
-            | StatusOutputLineData::UpdateNotice
+            StatusOutputLineData::UpdateNotice
+            | StatusOutputLineData::BetweenStacks
+            | StatusOutputLineData::Connector
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint
             | StatusOutputLineData::NoAssignmentsUnstaged
@@ -305,19 +401,41 @@ impl StatusOutputLine {
     }
 }
 
-#[derive(Debug)]
-pub(super) enum StatusOutputLineData {
+#[derive(Debug, Clone, strum::EnumDiscriminants)]
+#[strum_discriminants(name(StatusOutputLineDataKind))]
+pub enum StatusOutputLineData {
     UpdateNotice,
     Connector,
-    StagedChanges { cli_id: Arc<CliId> },
-    StagedFile { cli_id: Arc<CliId> },
-    UnstagedChanges { cli_id: Arc<CliId> },
-    UnstagedFile { cli_id: Arc<CliId> },
-    Branch { cli_id: Arc<CliId> },
-    Commit { cli_id: Arc<CliId> },
+    BetweenStacks,
+    StagedChanges {
+        cli_id: Arc<CliId>,
+    },
+    StagedFile {
+        cli_id: Arc<CliId>,
+    },
+    UncommittedChanges {
+        cli_id: Arc<CliId>,
+    },
+    WorktreeUncommitted {
+        cli_id: Arc<CliId>,
+    },
+    UncommittedFile {
+        cli_id: Arc<CliId>,
+    },
+    Branch {
+        cli_id: Arc<CliId>,
+        is_merged_upstream: bool,
+    },
+    Commit {
+        cli_id: Arc<CliId>,
+        stack_id: Option<StackId>,
+        classification: CommitClassification,
+    },
     CommitMessage,
     EmptyCommitMessage,
-    File { cli_id: Arc<CliId> },
+    File {
+        cli_id: Arc<CliId>,
+    },
     MergeBase,
     UpstreamChanges,
     Warning,
@@ -326,17 +444,19 @@ pub(super) enum StatusOutputLineData {
 }
 
 impl StatusOutputLineData {
-    pub(super) fn cli_id(&self) -> Option<&Arc<CliId>> {
+    pub fn cli_id(&self) -> Option<&Arc<CliId>> {
         match self {
-            StatusOutputLineData::UnstagedChanges { cli_id }
-            | StatusOutputLineData::UnstagedFile { cli_id }
-            | StatusOutputLineData::Branch { cli_id }
+            StatusOutputLineData::UncommittedChanges { cli_id }
+            | StatusOutputLineData::WorktreeUncommitted { cli_id }
+            | StatusOutputLineData::UncommittedFile { cli_id }
+            | StatusOutputLineData::Branch { cli_id, .. }
             | StatusOutputLineData::StagedChanges { cli_id }
             | StatusOutputLineData::StagedFile { cli_id }
-            | StatusOutputLineData::Commit { cli_id }
+            | StatusOutputLineData::Commit { cli_id, .. }
             | StatusOutputLineData::File { cli_id } => Some(cli_id),
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
+            | StatusOutputLineData::BetweenStacks
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::MergeBase

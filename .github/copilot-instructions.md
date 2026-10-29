@@ -1,24 +1,32 @@
 ## General information
 
-This is a monorepo with multiple projects.
-The main applications are found in the `apps` directory.
-They are:
+This is a Rust/Svelte/React/TypeScript monorepo with multiple projects. For
+agent instruction precedence and scoped guidance, follow the nearest applicable
+`AGENTS.md`; use this file as Copilot-oriented project context.
+
+The main applications are found in the `apps` directory:
 
 - `desktop` containing the Tauri application's frontend code
 - `web` containing the web application's frontend code
 
-The backend of the Tauri application is found in the `crates` directory.
-It contains different rust packages, with `gitbutler-tauri` for the tauri application,
-and `but-api` for implementing various command-line utilities like `but-testing`
-and `but`.
+Rust code is found in the `crates` directory. It contains `gitbutler-tauri` for
+the Tauri application, `but-api` for the API surface used by Tauri, CLI,
+and TUI callers, and the `but` CLI crate.
 
 The `packages` directory contains different self-contained npm packages.
-These are shared between the `desktop` and `web` applications.
+These are shared between the applications.
 The packages are:
 
+- `but-sdk` containing the generated TypeScript/Node SDK for Rust APIs
+- `core` containing shared TypeScript helpers
 - `ui` containing the shared UI components
 - `shared` containing the shared types and utils
-- `no-relative-imports` containing the no-relative-imports ESLINT package
+- `no-cross-domain-imports` containing the no-cross-domain-imports ESLint package
+- `no-relative-imports` containing the no-relative-imports ESLint package
+- `svelte-comment-injector` containing the Svelte comment injector package
+
+The `e2e` directory contains Playwright, WebdriverIO, and blackbox end-to-end
+tests.
 
 ## Technology Stack
 
@@ -33,10 +41,9 @@ The packages are:
 
 ### Prerequisites
 
-1. **Rust**: Version 1.91 (as specified in `rust-toolchain.toml`). Install via rustup.
-2. **Node.js**: Version 20.11 or higher (specified in `package.json`). Use the version in `.nvmrc` (lts/jod, which resolves to Node 22).
-3. **pnpm**: Version 10.17.0 (specified in `package.json`). Enabled via corepack. Run `corepack enable` in the project root.
-4. **System Dependencies**: Tauri requires platform-specific dependencies (see DEVELOPMENT.md for details).
+1. **Rust**: as specified in `rust-toolchain.toml`. Install via rustup.
+2. **pnpm**: Install standalone pnpm as described in [DEVELOPMENT.md](../DEVELOPMENT.md#prerequisites).
+3. **System Dependencies**: Tauri requires platform-specific dependencies (see DEVELOPMENT.md for details).
 
 ### Initial Setup
 
@@ -45,10 +52,7 @@ The packages are:
 git clone https://github.com/gitbutlerapp/gitbutler.git
 cd gitbutler
 
-# Enable pnpm via corepack
-corepack enable
-
-# Install dependencies
+# Install dependencies and the project-managed Node.js runtime
 pnpm install
 
 # Build Rust binaries (required before running the app)
@@ -173,7 +177,7 @@ pnpm add -D <package>
 
 # Add to specific package
 pnpm add <package> --filter @gitbutler/desktop
-pnpm add <package> --filter @gitbutler/ui
+pnpm add <package> --filter @gitbutler/ui-svelte
 ```
 
 **Always check for vulnerabilities before adding npm packages** (ecosystem: npm).
@@ -216,7 +220,6 @@ The `crates/` directory contains ~65 Rust crates organized by functionality:
 - gitbutler-reference
 - gitbutler-branch-actions
 - gitbutler-repository
-- gitbutler-url
 
 ## CI/CD
 
@@ -226,8 +229,7 @@ Located in `.github/workflows/`:
 
 - `push.yaml`: Main CI for linting, building, and testing on push
 - `publish.yaml`: Release builds for different platforms
-- `test-e2e-playwright.yml`: E2E tests with Playwright
-- `test-e2e-blackbox.yml`: E2E blackbox tests
+- `test-e2e.yml`: E2E tests (Playwright and blackbox)
 - `test-client-fe-integration.yml`: Frontend integration tests
 
 ### Pre-commit Checks
@@ -246,10 +248,10 @@ Auto-fix with `pnpm begood && cargo clippy --fix --all-targets`
 
 ### Frontend File Organization
 
-- Use absolute imports via package references (e.g., `@gitbutler/ui`) instead of relative imports
+- Use absolute imports via package references (e.g., `@gitbutler/ui-svelte`) instead of relative imports
 - Components should be in logical directories by feature
 - Shared utilities go in `packages/shared`
-- UI components go in `packages/ui`
+- UI components go in `packages/ui-svelte`
 
 ### Naming Conventions
 
@@ -286,18 +288,6 @@ pnpm install
 cargo clean
 ```
 
-### Node/pnpm Issues
-
-```bash
-# Use correct Node version
-nvm install
-nvm use
-
-# Ensure pnpm is via corepack
-corepack enable
-corepack prepare pnpm@10.17.0 --activate
-```
-
 ### Platform-Specific Issues
 
 - **macOS**: Ensure Xcode and cmake are installed
@@ -322,7 +312,7 @@ corepack prepare pnpm@10.17.0 --activate
 - **Development Guide**: See DEVELOPMENT.md for detailed setup instructions
 - **Contributing Guide**: See CONTRIBUTING.md for contribution guidelines
 - **Discord**: https://discord.gg/MmFkmaJ42D for questions and discussions
-- See `crates/but/agents.md` for information about the `but` CLI specifically
+- See `crates/AGENTS.md` for Rust-specific API, repository, and testing conventions
 
 ## Important Notes for AI Coding Agents
 
@@ -337,3 +327,10 @@ corepack prepare pnpm@10.17.0 --activate
 9. **Security**: Check dependencies for vulnerabilities before adding them
 10. **Code marked for refactoring**: Be extra careful with crates in the "Code Hitlist" section
 11. **but CLI happy path testing only**: CLI tests are expensive and should be limited to what really matters.
+
+## Review Guidelines
+
+Follow these guidelines when reviewing code.
+
+- Do not report type errors. CI will catch those.
+- Don't review formatting such as commas, indentation, etc

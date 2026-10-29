@@ -1,9 +1,4 @@
-use std::vec;
-
-use anyhow::Result;
 use but_ctx::access::RepoExclusive;
-use gitbutler_branch::BranchUpdateRequest;
-use gitbutler_stack::Stack;
 
 use super::entry::Trailer;
 use crate::{
@@ -11,34 +6,7 @@ use crate::{
     oplog::OplogExt,
 };
 
-/// The name of a reference i.e. `refs/heads/master`
-pub type ReferenceName = String;
-
 pub trait SnapshotExt {
-    fn snapshot_branch_unapplied(
-        &self,
-        snapshot_tree: gix::ObjectId,
-        result: Result<&ReferenceName, &anyhow::Error>,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()>;
-
-    fn snapshot_commit_undo(
-        &self,
-        snapshot_tree: gix::ObjectId,
-        result: Result<&(), &anyhow::Error>,
-        commit_sha: gix::ObjectId,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()>;
-
-    fn snapshot_commit_creation(
-        &self,
-        snapshot_tree: gix::ObjectId,
-        error: Option<&anyhow::Error>,
-        commit_message: String,
-        sha: Option<gix::ObjectId>,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()>;
-
     fn snapshot_stash_into_branch(
         &self,
         branch_name: String,
@@ -50,29 +18,19 @@ pub trait SnapshotExt {
         branch_name: String,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<()>;
-    fn snapshot_branch_deletion(
-        &self,
-        branch_name: String,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()>;
-    fn snapshot_branch_update(
-        &self,
-        snapshot_tree: gix::ObjectId,
-        old_stack: &Stack,
-        update: &BranchUpdateRequest,
-        error: Option<&anyhow::Error>,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()>;
+
     fn snapshot_create_dependent_branch(
         &self,
         branch_name: &str,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<()>;
+
     fn snapshot_remove_dependent_branch(
         &self,
         branch_name: &str,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<()>;
+
     fn snapshot_update_dependent_branch_name(
         &self,
         new_branch_name: &str,
@@ -82,69 +40,13 @@ pub trait SnapshotExt {
 
 /// Snapshot functionality
 impl SnapshotExt for but_ctx::Context {
-    fn snapshot_branch_unapplied(
-        &self,
-        snapshot_tree: gix::ObjectId,
-        result: Result<&ReferenceName, &anyhow::Error>,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()> {
-        let result = result.map(|s| Some(s.to_string()));
-        let details = SnapshotDetails::new(OperationKind::UnapplyBranch)
-            .with_trailers(result_trailer(result, "name".to_string()));
-        self.commit_snapshot(snapshot_tree, details, perm)?;
-        Ok(())
-    }
-    fn snapshot_commit_undo(
-        &self,
-        snapshot_tree: gix::ObjectId,
-        result: Result<&(), &anyhow::Error>,
-        commit_sha: gix::ObjectId,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()> {
-        let result = result.map(|_| Some(commit_sha.to_string()));
-        let details = SnapshotDetails::new(OperationKind::UndoCommit)
-            .with_trailers(result_trailer(result, "sha".to_string()));
-        self.commit_snapshot(snapshot_tree, details, perm)?;
-        Ok(())
-    }
-    fn snapshot_commit_creation(
-        &self,
-        snapshot_tree: gix::ObjectId,
-        error: Option<&anyhow::Error>,
-        commit_message: String,
-        sha: Option<gix::ObjectId>,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()> {
-        let details = SnapshotDetails::new(OperationKind::CreateCommit).with_trailers(
-            [
-                vec![
-                    Trailer {
-                        key: "message".to_string(),
-                        value: commit_message,
-                    },
-                    Trailer {
-                        key: "sha".to_string(),
-                        value: sha.map(|sha| sha.to_string()).unwrap_or_default(),
-                    },
-                ],
-                error_trailer(error),
-            ]
-            .concat(),
-        );
-        self.commit_snapshot(snapshot_tree, details, perm)?;
-        Ok(())
-    }
-
     fn snapshot_stash_into_branch(
         &self,
         branch_name: String,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<()> {
-        let details =
-            SnapshotDetails::new(OperationKind::StashIntoBranch).with_trailers(vec![Trailer {
-                key: "name".to_string(),
-                value: branch_name,
-            }]);
+        let details = SnapshotDetails::new(OperationKind::StashIntoBranch)
+            .with_trailers([Trailer::Name(branch_name)]);
         self.create_snapshot(details, perm)?;
         Ok(())
     }
@@ -154,132 +56,42 @@ impl SnapshotExt for but_ctx::Context {
         branch_name: String,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<()> {
-        let details =
-            SnapshotDetails::new(OperationKind::CreateBranch).with_trailers(vec![Trailer {
-                key: "name".to_string(),
-                value: branch_name,
-            }]);
+        let details = SnapshotDetails::new(OperationKind::CreateBranch)
+            .with_trailers([Trailer::Name(branch_name)]);
         self.create_snapshot(details, perm)?;
         Ok(())
     }
-    fn snapshot_branch_deletion(
-        &self,
-        branch_name: String,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()> {
-        let details =
-            SnapshotDetails::new(OperationKind::DeleteBranch).with_trailers(vec![Trailer {
-                key: "name".to_string(),
-                value: branch_name.to_string(),
-            }]);
 
-        self.create_snapshot(details, perm)?;
-        Ok(())
-    }
-    fn snapshot_branch_update(
-        &self,
-        snapshot_tree: gix::ObjectId,
-        old_stack: &Stack,
-        update: &BranchUpdateRequest,
-        error: Option<&anyhow::Error>,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()> {
-        let details = if let Some(order) = update.order {
-            SnapshotDetails::new(OperationKind::ReorderBranches).with_trailers(
-                [
-                    vec![
-                        Trailer {
-                            key: "before".to_string(),
-                            value: old_stack.order.to_string(),
-                        },
-                        Trailer {
-                            key: "after".to_string(),
-                            value: order.to_string(),
-                        },
-                    ],
-                    error_trailer(error),
-                ]
-                .concat(),
-            )
-        } else {
-            SnapshotDetails::new(OperationKind::GenericBranchUpdate)
-        };
-        self.commit_snapshot(snapshot_tree, details, perm)?;
-        Ok(())
-    }
     fn snapshot_create_dependent_branch(
         &self,
         branch_name: &str,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<()> {
-        let details =
-            SnapshotDetails::new(OperationKind::CreateDependentBranch).with_trailers(vec![
-                Trailer {
-                    key: "name".to_string(),
-                    value: branch_name.to_string(),
-                },
-            ]);
+        let details = SnapshotDetails::new(OperationKind::CreateDependentBranch)
+            .with_trailers([Trailer::Name(branch_name.to_owned())]);
         self.create_snapshot(details, perm)?;
         Ok(())
     }
+
     fn snapshot_remove_dependent_branch(
         &self,
         branch_name: &str,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<()> {
-        let details =
-            SnapshotDetails::new(OperationKind::RemoveDependentBranch).with_trailers(vec![
-                Trailer {
-                    key: "name".to_string(),
-                    value: branch_name.to_string(),
-                },
-            ]);
+        let details = SnapshotDetails::new(OperationKind::RemoveDependentBranch)
+            .with_trailers([Trailer::Name(branch_name.to_owned())]);
         self.create_snapshot(details, perm)?;
         Ok(())
     }
+
     fn snapshot_update_dependent_branch_name(
         &self,
         new_branch_name: &str,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<()> {
-        let details =
-            SnapshotDetails::new(OperationKind::UpdateDependentBranchName).with_trailers(vec![
-                Trailer {
-                    key: "name".to_string(),
-                    value: new_branch_name.to_string(),
-                },
-            ]);
+        let details = SnapshotDetails::new(OperationKind::UpdateDependentBranchName)
+            .with_trailers([Trailer::Name(new_branch_name.to_owned())]);
         self.create_snapshot(details, perm)?;
         Ok(())
     }
-}
-
-fn result_trailer(result: Result<Option<String>, &anyhow::Error>, key: String) -> Vec<Trailer> {
-    match result {
-        Ok(v) => {
-            if let Some(v) = v {
-                vec![Trailer {
-                    key,
-                    value: v.clone(),
-                }]
-            } else {
-                vec![]
-            }
-        }
-        Err(error) => vec![Trailer {
-            key: "error".to_string(),
-            value: error.to_string(),
-        }],
-    }
-}
-
-fn error_trailer(error: Option<&anyhow::Error>) -> Vec<Trailer> {
-    error
-        .map(|e| {
-            vec![Trailer {
-                key: "error".to_string(),
-                value: e.to_string(),
-            }]
-        })
-        .unwrap_or_default()
 }

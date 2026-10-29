@@ -1,4 +1,4 @@
-import type { PostHogWrapper } from "$lib/analytics/posthog";
+import type { PostHogWrapper } from "$lib/telemetry/posthog";
 import type { ThunkDispatch, UnknownAction } from "@reduxjs/toolkit";
 import type { RootState } from "@reduxjs/toolkit/query";
 

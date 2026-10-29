@@ -3,15 +3,13 @@ use std::path::PathBuf;
 use anyhow::{Context as _, Result};
 use serde::Deserialize;
 
-use crate::{
-    ApiProject, AuthKey, CodePushState, FetchResult, Project, ProjectHandleOrLegacyProjectId,
-};
+use crate::{ApiProject, FetchResult, Project, ProjectHandleOrLegacyProjectId};
 
 const PROJECTS_FILE: &str = "projects.json";
 
 #[derive(Debug, Clone)]
 pub(crate) struct Storage {
-    inner: but_fs::Storage,
+    inner: but_utils::Storage,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -25,11 +23,9 @@ pub struct UpdateRequest {
     #[serde(default = "default_false")]
     pub unset_api: bool,
     pub gitbutler_data_last_fetched: Option<FetchResult>,
-    pub preferred_key: Option<AuthKey>,
     pub ok_with_force_push: Option<bool>,
     pub force_push_protection: Option<bool>,
     pub husky_hooks_enabled: Option<bool>,
-    pub gitbutler_code_push_state: Option<CodePushState>,
     pub project_data_last_fetched: Option<FetchResult>,
     pub omit_certificate_check: Option<bool>,
     pub use_diff_context: Option<bool>,
@@ -52,11 +48,9 @@ impl UpdateRequest {
             api: None,
             unset_api: false,
             gitbutler_data_last_fetched: None,
-            preferred_key: None,
             ok_with_force_push: None,
             force_push_protection: None,
             husky_hooks_enabled: None,
-            gitbutler_code_push_state: None,
             project_data_last_fetched: None,
             omit_certificate_check: None,
             use_diff_context: None,
@@ -76,13 +70,11 @@ impl From<Project> for UpdateRequest {
             description,
             worktree_dir,
             git_dir,
-            preferred_key,
             ok_with_force_push,
             force_push_protection,
             husky_hooks_enabled,
             api,
             gitbutler_data_last_fetch,
-            gitbutler_code_push_state,
             project_data_last_fetch,
             omit_certificate_check,
             snapshot_lines_threshold,
@@ -99,11 +91,9 @@ impl From<Project> for UpdateRequest {
             api,
             unset_api: false,
             gitbutler_data_last_fetched: gitbutler_data_last_fetch,
-            preferred_key: Some(preferred_key),
             ok_with_force_push: Some(ok_with_force_push.into()),
             force_push_protection: Some(force_push_protection),
             husky_hooks_enabled: Some(husky_hooks_enabled),
-            gitbutler_code_push_state,
             project_data_last_fetched: project_data_last_fetch,
             omit_certificate_check,
             use_diff_context: None,
@@ -122,7 +112,7 @@ fn default_false() -> bool {
 impl Storage {
     pub fn from_path(path: impl Into<PathBuf>) -> Self {
         Storage {
-            inner: but_fs::Storage::new(path),
+            inner: but_utils::Storage::new(path),
         }
     }
 
@@ -143,7 +133,7 @@ impl Storage {
                     })
                     .collect();
 
-                all_projects.sort_by_key(|p| p.title.to_lowercase());
+                all_projects.sort_by_cached_key(|p| p.title.to_lowercase());
                 Ok(all_projects)
             }
             None => Ok(vec![]),
@@ -171,11 +161,9 @@ impl Storage {
             api,
             unset_api,
             gitbutler_data_last_fetched,
-            preferred_key,
             ok_with_force_push,
             force_push_protection,
             husky_hooks_enabled,
-            gitbutler_code_push_state,
             project_data_last_fetched,
             omit_certificate_check,
             use_diff_context: _, /* seemingly not used for a while */
@@ -196,7 +184,7 @@ impl Storage {
         }
 
         if let Some(description) = description {
-            project.description = Some(description.clone());
+            project.description = Some(description);
         }
 
         if let Some(path) = git_dir {
@@ -204,11 +192,11 @@ impl Storage {
         }
 
         if let Some(repo_path) = path {
-            project.set_worktree_dir(repo_path.clone())?;
+            project.set_worktree_dir(repo_path)?;
         }
 
         if let Some(api) = api {
-            project.api = Some(api.clone());
+            project.api = Some(api);
         }
 
         if unset_api {
@@ -216,19 +204,15 @@ impl Storage {
         }
 
         if let Some(forge_override) = forge_override {
-            project.forge_override = Some(forge_override.clone());
+            project.forge_override = Some(forge_override);
         }
 
         if let Some(preferred_forge_user) = preferred_forge_user {
-            project.preferred_forge_user = Some(preferred_forge_user.clone());
+            project.preferred_forge_user = Some(preferred_forge_user);
         }
 
         if unset_forge_override {
             project.forge_override = None;
-        }
-
-        if let Some(preferred_key) = preferred_key {
-            project.preferred_key = preferred_key.clone();
         }
 
         if let Some(gitbutler_data_last_fetched) = gitbutler_data_last_fetched.as_ref() {
@@ -237,10 +221,6 @@ impl Storage {
 
         if let Some(project_data_last_fetched) = project_data_last_fetched.as_ref() {
             project.project_data_last_fetch = Some(project_data_last_fetched.clone());
-        }
-
-        if let Some(state) = gitbutler_code_push_state {
-            project.gitbutler_code_push_state = Some(state);
         }
 
         if let Some(ok_with_force_push) = ok_with_force_push {

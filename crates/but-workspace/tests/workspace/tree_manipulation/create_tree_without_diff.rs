@@ -2,6 +2,7 @@ use but_core::{Commit, DiffSpec, HunkHeader};
 use but_testsupport::visualize_tree;
 use but_workspace::tree_manipulation::{ChangesSource, create_tree_without_diff};
 use gix::prelude::ObjectIdExt;
+use snapbox::IntoData;
 
 use crate::utils::{CONTEXT_LINES, read_only_in_memory_scenario};
 
@@ -29,10 +30,15 @@ fn two_regular_commits_should_succeed() -> anyhow::Result<()> {
     )?;
 
     assert!(dropped.is_empty());
-    insta::assert_snapshot!(visualize_tree(actual_tree_id.attach(&repo)), @r#"
-    9c0554f
-    └── regular-change.txt:100644:35f45fd "base-1\nbase-2\nkeep-1\nkeep-2\n"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(actual_tree_id.attach(&repo)).to_string(),
+        snapbox::str![[r#"
+9c0554f
+└── regular-change.txt:100644:35f45fd "base-1\nbase-2\nkeep-1\nkeep-2\n"
+
+"#]]
+        .raw()
+    );
     Ok(())
 }
 
@@ -62,11 +68,16 @@ fn conflicted_then_regular_should_succeed() -> anyhow::Result<()> {
     )?;
 
     assert!(dropped.is_empty());
-    insta::assert_snapshot!(visualize_tree(actual_tree_id.attach(&repo)), @r#"
-    4ce1de9
-    ├── file:100644:8076ded "keep-a\nkeep-b\n"
-    └── regular-change.txt:100644:c01d3c5 "base-1\nbase-2\nkeep-1\ndrop-1\ndrop-2\nkeep-2\n"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(actual_tree_id.attach(&repo)).to_string(),
+        snapbox::str![[r#"
+4ce1de9
+├── file:100644:8076ded "keep-a\nkeep-b\n"
+└── regular-change.txt:100644:c01d3c5 "base-1\nbase-2\nkeep-1\ndrop-1\ndrop-2\nkeep-2\n"
+
+"#]]
+        .raw()
+    );
     Ok(())
 }
 
@@ -86,7 +97,10 @@ fn regular_then_conflicted_should_bail() -> anyhow::Result<()> {
         CONTEXT_LINES,
     )
     .unwrap_err();
-    insta::assert_snapshot!(err.to_string(), @"The source of changes cannot have a conflicted 'after' side.");
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str!["The source of changes cannot have a conflicted 'after' side."]
+    );
 
     Ok(())
 }

@@ -48,18 +48,21 @@ export default defineConfig({
 	},
 	optimizeDeps: {
 		// Exclude local packages from pre-bundling
-		exclude: ["@gitbutler/core", "@gitbutler/ui", "@gitbutler/shared"],
+		exclude: ["@gitbutler/core", "@gitbutler/ui-svelte", "@gitbutler/shared"],
 	},
 	// to make use of `TAURI_ENV_DEBUG` and other env variables
 	// https://tauri.studio/v1/api/config#buildconfig.beforedevcommand
 	envPrefix: ["VITE_", "TAURI_"],
 	build: {
-		rollupOptions: { output: { manualChunks: {} } },
+		rollupOptions: {
+			output: {
+				manualChunks: {},
+			},
+		},
 		// Tauri supports es2021
 		target: "modules",
 		// minify production builds
 		minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,
-		// ship sourcemaps for better sentry error reports
 		sourcemap: true,
 	},
 	test: {
@@ -67,6 +70,8 @@ export default defineConfig({
 		exclude: ["node_modules/**/*", "e2e/**/*"],
 		environment: "jsdom",
 		setupFiles: ["./vitest-setup.js"],
+		reporters: process.env.CI ? ["default", "buildkite-test-collector/vitest/reporter"] : "default",
+		includeTaskLocation: true,
 	},
 	preview: {
 		// preview port for the e2e tests
@@ -136,7 +141,7 @@ function debounceReload(): Plugin {
 	};
 }
 function isLocalPackageFile(file: string) {
-	return ["gitbutler/packages/shared/dist", "gitbutler/packages/ui/dist"].some((pkg) =>
+	return ["gitbutler/packages/shared/dist", "gitbutler/packages/ui-svelte/dist"].some((pkg) =>
 		file.includes(pkg),
 	);
 }

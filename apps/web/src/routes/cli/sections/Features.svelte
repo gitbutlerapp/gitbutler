@@ -16,12 +16,5 @@
 		display: grid;
 		grid-template-columns: subgrid;
 		grid-column: full-start / full-end;
-		margin-top: 46px;
-	}
-
-	@media (max-width: 700px) {
-		.cli-features {
-			margin-top: 0;
-		}
 	}
 </style>

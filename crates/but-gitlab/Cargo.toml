@@ -11,7 +11,6 @@ publish = false
 rust-version.workspace = true
 
 [features]
-export-ts = ["dep:ts-rs"]
 export-schema = ["dep:schemars", "dep:but-schemars"]
 
 [lib]
@@ -23,14 +22,19 @@ but-forge-storage.workspace = true
 but-error.workspace = true
 serde.workspace = true
 anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
 reqwest = { workspace = true, features = ["json"] }
+serde_json.workspace = true
 urlencoding.workspace = true
-ts-rs = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
 but-schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
+keyring.workspace = true
 reqwest = { workspace = true, features = ["blocking"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt"] }
 
 [lints]
 workspace = true

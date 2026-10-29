@@ -1,19 +1,135 @@
+use bstr::ByteSlice;
+use snapbox::IntoData;
 use snapbox::str;
 
+use crate::command::branch::apply::utils::create_local_branch_with_commit_with_message;
+use crate::command::util;
 use crate::utils::{CommandExt, Sandbox};
+
+use utils::create_local_branch_with_commit;
+
+#[cfg(feature = "legacy")]
+#[test]
+fn applying_a_worktree_branch_is_a_no_op() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.but("status").assert().success();
+    util::add_worktree_with_commit(&env, "wt-feature", "A");
+
+    env.but("apply wt-feature")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Branch 'wt-feature' is already in the workspace; nothing changed
+
+"#]]);
+
+    // The branch stays in its worktree lane and the workspace commit is untouched.
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ wt [wt-feature]
+┊┊●   nsn add W
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| * 580bef0 (wt-feature) add W
+|/  
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+    );
+}
+
+#[test]
+fn applying_empty_branch_from_single_branch_mode_preserves_current_stack() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.but("branch new A").assert().success();
+    env.but("branch new B --above A").assert().success();
+    env.but("branch new C --above B").assert().success();
+    env.but("branch new D").assert().success();
+    env.but("switch C").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C] [HEAD] (no commits)
+┊│
+┊├┄ h0 [B] (no commits)
+┊│
+┊├┄ i0 [A] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("apply D").assert().success();
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref HEAD"),
+        "gitbutler/workspace"
+    );
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [D] (no commits)
+├╯
+┊
+┊╭┄ h0 [C] (no commits)
+┊│
+┊├┄ i0 [B] (no commits)
+┊│
+┊├┄ j0 [A] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
 
 #[cfg(not(feature = "legacy"))]
 #[test]
-fn single_branch() -> anyhow::Result<()> {
-    let env = Sandbox::open_with_default_settings("one-fork")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
+fn single_branch() {
+    let env = Sandbox::open_with_default_settings("one-fork");
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r"
     * bf53300 (A) add A
     | * b1540e5 (HEAD -> main) M
     |/  
     | * 0e391b2 (origin/B) add B
     |/  
     * e31e6ca (origin/main, origin/HEAD) add init
-    ");
+    "]]
+    );
 
     env.but("apply A")
         .assert()
@@ -25,7 +141,9 @@ Applied branch 'A' to workspace
 
 "#]]);
 
-    insta::assert_snapshot!(env.workspace_debug_at_head()?, @r"
+    snapbox::assert_data_eq!(
+        env.workspace_debug_at_head().unwrap(),
+        snapbox::str![[r"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on e31e6ca
     ├── ≡📙:2:A on e31e6ca {1}
     │   └── 📙:2:A
@@ -33,9 +151,12 @@ Applied branch 'A' to workspace
     └── ≡📙:1:main on e31e6ca {2}
         └── 📙:1:main
             └── ·b1540e5 (🏘️)
-    ");
+    "]]
+    );
 
-    insta::assert_snapshot!(env.git_log()?, @r"
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r"
     *   d87b903 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
     | * bf53300 (A) add A
@@ -44,7 +165,9 @@ Applied branch 'A' to workspace
     | * 0e391b2 (origin/B) add B
     |/  
     * e31e6ca (origin/main, origin/HEAD) add init
-    ");
+    "]]
+        .raw()
+    );
 
     env.but("apply origin/B")
         .assert()
@@ -54,7 +177,9 @@ Applied remote branch 'origin/B' to workspace
 
 "#]])
         .stderr_eq(str![""]);
-    insta::assert_snapshot!(env.workspace_debug_at_head()?, @r"
+    snapbox::assert_data_eq!(
+        env.workspace_debug_at_head().unwrap(),
+        snapbox::str![[r"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on e31e6ca
     ├── ≡📙:3:B <> origin/B →:4: on e31e6ca {1}
     │   └── 📙:3:B <> origin/B →:4:
@@ -65,10 +190,13 @@ Applied remote branch 'origin/B' to workspace
     └── ≡📙:1:main on e31e6ca {3}
         └── 📙:1:main
             └── ·b1540e5 (🏘️)
-    ");
+    "]]
+    );
 
     // TODO: should be success and create a local tracking branch.
-    insta::assert_snapshot!(env.git_log()?, @r"
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r"
     *-.   7bcf528 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\ \  
     | | * 0e391b2 (origin/B, B) add B
@@ -77,24 +205,25 @@ Applied remote branch 'origin/B' to workspace
     * / b1540e5 (main) M
     |/  
     * e31e6ca (origin/main, origin/HEAD) add init
-    ");
-    Ok(())
+    "]]
+        .raw()
+    );
 }
 
-use utils::create_local_branch_with_commit;
-
-use crate::command::branch::apply::utils::create_local_branch_with_commit_with_message;
-
 #[test]
-fn local_branch() -> anyhow::Result<()> {
-    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
+fn local_branch() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
 * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 9477ae7 (A) add A
 * 0dc3733 (origin/main, origin/HEAD, main) add M
-");
 
-    env.setup_metadata(&["A"])?;
+"#]]
+    );
+
+    env.setup_metadata(&["A"]);
 
     let branch_name = "feature-branch";
     create_local_branch_with_commit(&env, branch_name);
@@ -109,40 +238,57 @@ fn local_branch() -> anyhow::Result<()> {
 Applied branch 'feature-branch' to workspace
 
 "#]]);
-    // It's idempotent and can produce a shell value.
-    env.but("-f shell apply feature-branch")
+    env.but("apply")
+        .arg(branch_name)
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Branch 'feature-branch' is already in the workspace; nothing changed
+
+"#]]);
+
+    // It's idempotent
+    env.but("apply feature-branch")
         .allow_json()
         .assert()
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-refs/heads/feature-branch
+Branch 'feature-branch' is already in the workspace; nothing changed
 
 "#]]);
 
     // It actually applied the branch, by merging it in.
-    insta::assert_snapshot!(env.git_log()?, @r"
-    *   9d5d9e5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
-    | * 9f9d5a6 (feature-branch) Add feature
-    * | 9477ae7 (A) add A
-    |/  
-    * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
-    ");
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   9d5d9e5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 9f9d5a6 (feature-branch) Add feature
+* | 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
-    Ok(())
+"#]]
+        .raw()
+    );
 }
 
 #[test]
-fn local_branch_with_json_output() -> anyhow::Result<()> {
-    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
+fn local_branch_with_json_output() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
 * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 9477ae7 (A) add A
 * 0dc3733 (origin/main, origin/HEAD, main) add M
-");
 
-    env.setup_metadata(&["A"])?;
+"#]]
+    );
+
+    env.setup_metadata(&["A"]);
 
     create_local_branch_with_commit(&env, "feature-branch");
 
@@ -153,65 +299,46 @@ fn local_branch_with_json_output() -> anyhow::Result<()> {
         .success()
         .stdout_eq(str![[r#"
 {
-  "name": {
-    "full": "refs/heads/feature-branch",
-    "full_bytes": [
-      114,
-      101,
-      102,
-      115,
-      47,
-      104,
-      101,
-      97,
-      100,
-      115,
-      47,
-      102,
-      101,
-      97,
-      116,
-      117,
-      114,
-      101,
-      45,
-      98,
-      114,
-      97,
-      110,
-      99,
-      104
-    ]
-  },
-  "target_id": "9f9d5a694afe171f5f9c72f8cf06db6210c3cf43",
-  "target_ref": null
+  "status": "applied",
+  "workspaceChanged": true,
+  "appliedBranches": [
+    "refs/heads/feature-branch"
+  ],
+  "conflictingStacks": []
 }
 
 "#]])
         .stderr_eq(str![]);
 
-    insta::assert_snapshot!(env.git_log()?, @r"
-    *   9d5d9e5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
-    | * 9f9d5a6 (feature-branch) Add feature
-    * | 9477ae7 (A) add A
-    |/  
-    * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
-    ");
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   9d5d9e5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 9f9d5a6 (feature-branch) Add feature
+* | 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
-    Ok(())
+"#]]
+        .raw()
+    );
 }
 
 #[test]
-fn remote_branch_creates_local_tracking_branch_automatically() -> anyhow::Result<()> {
-    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
+fn remote_branch_creates_local_tracking_branch_automatically() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
 * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 9477ae7 (A) add A
 * 0dc3733 (origin/main, origin/HEAD, main) add M
-");
 
-    env.setup_metadata(&["A"])?;
+"#]]
+    );
+
+    env.setup_metadata(&["A"]);
 
     // Create a remote branch reference
     env.invoke_bash(
@@ -234,38 +361,190 @@ Applied remote branch 'origin/remote-feature' to workspace
 "#]]);
 
     // It created a local tracking branch.
-    insta::assert_snapshot!(env.git_log()?, @r"
-    *   1bb7daf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
-    | * ba02e5f (origin/remote-feature, remote-feature) Add remote feature
-    * | 9477ae7 (A) add A
-    |/  
-    * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
-    ");
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   1bb7daf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * ba02e5f (origin/remote-feature, remote-feature) Add remote feature
+* | 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
-    Ok(())
+"#]]
+        .raw()
+    );
 }
 
 #[test]
-fn nonexistent_branch() -> anyhow::Result<()> {
-    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
+fn remote_branch_short_name_resolves_to_unique_remote_tracking_branch() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+    );
+
+    env.setup_metadata(&["A"]);
+
+    // Create a remote-only branch reference.
+    env.invoke_bash(
+        r#"
+    git checkout origin/main
+    git commit -m 'Add remote feature' --allow-empty
+    git update-ref refs/remotes/origin/remote-feature HEAD
+    git checkout gitbutler/workspace
+"#,
+    );
+
+    // Apply the remote branch by its bare name.
+    env.but("apply remote-feature")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Applied remote branch 'origin/remote-feature' to workspace
+
+"#]]);
+
+    // It created the same local tracking branch as the qualified form.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   1bb7daf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * ba02e5f (origin/remote-feature, remote-feature) Add remote feature
+* | 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+}
+
+#[test]
+fn remote_branch_short_name_requires_disambiguation_across_multiple_remotes() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+    );
+
+    env.setup_metadata(&["A"]);
+
+    // Create two configured remotes that both expose the same short branch name.
+    env.invoke_bash(
+        r#"
+    git remote add upstream .
+    git checkout origin/main
+    git commit -m 'Add remote feature' --allow-empty
+    git update-ref refs/remotes/origin/remote-feature HEAD
+    git update-ref refs/remotes/upstream/remote-feature HEAD
+    git checkout gitbutler/workspace
+"#,
+    );
+
+    env.but("apply remote-feature")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Failed to apply branch
+
+Caused by:
+    The ref partially named "remote-feature" could not be found[..]
+
+"#]])
+        .stdout_eq(str![""]);
+
+    env.but("apply origin/remote-feature")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Applied remote branch 'origin/remote-feature' to workspace
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   1bb7daf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * ba02e5f (upstream/remote-feature, origin/remote-feature, remote-feature) Add remote feature
+* | 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+}
+
+#[test]
+fn concurrent_apply_of_independent_branches_succeeds() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    create_local_branch_with_commit(&env, "feature-branch-a");
+    create_local_branch_with_commit_with_message(&env, "feature-branch-b", "Add other feature");
+
+    let child_a = util::but_std_cmd(&env, "apply feature-branch-a")
+        .spawn()
+        .unwrap();
+    let child_b = util::but_std_cmd(&env, "apply feature-branch-b")
+        .spawn()
+        .unwrap();
+
+    let out_a = child_a.wait_with_output().unwrap();
+    let out_b = child_b.wait_with_output().unwrap();
+
+    assert!(
+        out_a.status.success(),
+        "apply feature-branch-a failed: {}",
+        out_a.stderr.as_bstr()
+    );
+    assert!(
+        out_b.status.success(),
+        "apply feature-branch-b failed: {}",
+        out_b.stderr.as_bstr()
+    );
+
+    let status = util::status_json(&env);
+    util::find_branch(&status, "feature-branch-a");
+    util::find_branch(&status, "feature-branch-b");
+}
+
+#[test]
+fn nonexistent_branch() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
 
     // Try to apply a branch that doesn't exist
     env.but("apply nonexistent-branch")
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to apply branch. The reference 'nonexistent-branch' did not exist
+Error: Failed to apply branch
+
+Caused by:
+    The ref partially named "nonexistent-branch" could not be found[..]
 
 "#]])
         .stdout_eq(str![""]);
-
-    Ok(())
 }
 
 #[test]
-fn nonexistent_branch_with_json() -> anyhow::Result<()> {
-    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
+fn nonexistent_branch_with_json() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
 
     // Try to apply a branch that doesn't exist with JSON output
     env.but("--json apply nonexistent-branch")
@@ -273,25 +552,30 @@ fn nonexistent_branch_with_json() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to apply branch. The reference 'nonexistent-branch' did not exist
+Error: Failed to apply branch
+
+Caused by:
+    The ref partially named "nonexistent-branch" could not be found[..]
 
 "#]]);
     // Note: Currently the apply function doesn't output anything with JSON when branch not found
     // This might be improved to output an error in JSON format
-
-    Ok(())
 }
 
 #[test]
-fn multiple_branches_sequentially() -> anyhow::Result<()> {
-    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
+fn multiple_branches_sequentially() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
 * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 9477ae7 (A) add A
 * 0dc3733 (origin/main, origin/HEAD, main) add M
-");
 
-    env.setup_metadata(&["A"])?;
+"#]]
+    );
+
+    env.setup_metadata(&["A"]);
 
     let f1 = "feature-1";
     create_local_branch_with_commit_with_message(&env, f1, "Add feature 1");
@@ -319,17 +603,214 @@ Applied branch 'feature-2' to workspace
 "#]])
         .stderr_eq(str![]);
 
-    insta::assert_snapshot!(env.git_log()?, @r"
-    *-.   7044ae9 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\ \  
-    | | * 4e81b31 (feature-2) Add feature 2
-    | * | 9c2fe5c (feature-1) Add feature 1
-    | |/  
-    * / 9477ae7 (A) add A
-    |/  
-    * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
-    ");
-    Ok(())
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*-.   7044ae9 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\ \  
+| | * 4e81b31 (feature-2) Add feature 2
+| * | 9c2fe5c (feature-1) Add feature 1
+| |/  
+* / 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+}
+
+#[test]
+fn apply_branch_conflicting_with_workspace_reports_error() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+    );
+
+    env.setup_metadata(&["A"]);
+
+    env.invoke_bash(
+        r#"
+    git checkout main -b conflicting-branch;
+    echo 'conflicting-A-content' > A;
+    git add A;
+    git commit -m 'Add conflicting A';
+    git checkout gitbutler/workspace;
+    "#,
+    );
+
+    // It's notable that this behaviour is different from what the GUI does, which
+    // unapplies all conflicting instead.
+    env.but("apply conflicting-branch")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Failed to apply branch: 'conflicting-branch' conflicts with existing stack: 'A'
+
+"#]])
+        .stdout_eq(str![""]);
+
+    env.but("apply conflicting-branch")
+        .allow_json()
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Failed to apply branch: 'conflicting-branch' conflicts with existing stack: 'A'
+
+"#]])
+        .stdout_eq(str![""]);
+}
+
+#[test]
+fn apply_branch_conflicting_with_workspace_reports_json_error() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+    );
+
+    env.setup_metadata(&["A"]);
+
+    env.invoke_bash(
+        r#"
+    git checkout main -b conflicting-branch;
+    echo 'conflicting-A-content' > A;
+    git add A;
+    git commit -m 'Add conflicting A';
+    git checkout gitbutler/workspace;
+    "#,
+    );
+
+    env.but("apply conflicting-branch --json")
+        .assert()
+        .failure()
+        // intentionally prints to stdout since that makes it easier for tools to consume the JSON
+        // output
+        .stdout_eq(str![[r#"
+{
+  "status": "conflictAborted",
+  "workspaceChanged": true,
+  "appliedBranches": [],
+  "conflictingStacks": [
+    "refs/heads/A"
+  ]
+}
+
+"#]])
+        .stderr_eq(str![""]);
+}
+
+#[test]
+fn applying_top_branch_of_stack_in_sbm() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.but("commit --above bottom -b top -m 'on top'")
+        .assert()
+        .success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD]
+┊●   ylm on top (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch bottom").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ bo [bottom] [HEAD]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("apply top").assert().success().stdout_eq(str![[r#"
+Applied branch 'bottom' to workspace
+Applied branch 'top' to workspace
+
+"#]]);
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top]
+┊●   ylm on top (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* c878e9e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 41e32b0 (top) on top
+* ff665ad (bottom) on bottom
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+        .raw()
+    );
+}
+
+/// Applying from single branch mode doesn't report the checked-out branch, which was already applied.
+#[test]
+fn apply_from_single_branch_mode_reports_only_requested_branch() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    create_local_branch_with_commit(&env, "feature-branch");
+    env.but("apply feature-branch").assert().success();
+    env.but("unapply feature-branch").assert().success();
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref HEAD"),
+        "A",
+        "unapplying down to one branch checks that branch out"
+    );
+
+    env.but("apply feature-branch")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Applied branch 'feature-branch' to workspace
+
+"#]]);
 }
 
 mod utils {

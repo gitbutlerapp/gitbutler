@@ -1,11 +1,13 @@
+use crate::{
+    args::update,
+    theme::{self, Paint},
+    utils::OutputChannel,
+};
 use anyhow::Result;
 #[cfg(all(unix, not(feature = "packaged-but-distribution")))]
 use but_installer::VersionRequest;
 use but_settings::AppSettings;
 use but_update::{AppName, CheckUpdateStatus, check_status};
-use colored::Colorize;
-
-use crate::{args::update, utils::OutputChannel};
 
 pub fn handle(
     cmd: update::Subcommands,
@@ -29,16 +31,12 @@ fn check_for_updates(out: &mut OutputChannel, app_settings: &AppSettings) -> Res
             print_human_output(writer, &status)?;
         } else if let Some(out) = out.for_json() {
             out.write_value(&status)?;
-        } else if let Some(writer) = out.for_shell()
-            && !status.up_to_date
-        {
-            writeln!(writer, "{}", status.latest_version)?;
         }
     } else if let Some(writer) = out.for_human() {
         writeln!(
             writer,
             "{} Another process is currently checking for updates",
-            "→".yellow().bold()
+            theme::get().attention.paint("→")
         )?;
     }
 
@@ -46,12 +44,13 @@ fn check_for_updates(out: &mut OutputChannel, app_settings: &AppSettings) -> Res
 }
 
 fn print_human_output(writer: &mut dyn std::fmt::Write, status: &CheckUpdateStatus) -> Result<()> {
+    let t = theme::get();
     if status.up_to_date {
         writeln!(
             writer,
             "{} You're running the latest version ({})",
-            "✓".green().bold(),
-            status.latest_version.bold()
+            t.sym().success,
+            t.important.paint(&status.latest_version)
         )?;
     } else {
         let current_version = option_env!("VERSION").unwrap_or("0.0.0");
@@ -61,19 +60,25 @@ fn print_human_output(writer: &mut dyn std::fmt::Write, status: &CheckUpdateStat
             {
                 "Install it with your package manager"
             }
-            #[cfg(not(feature = "packaged-but-distribution"))]
+            // `but update install` only exists on Unix (see `args::update::Subcommands`), so only
+            // suggest it there. On other platforms (e.g. Windows) point at the download instead.
+            #[cfg(all(unix, not(feature = "packaged-but-distribution")))]
             {
                 "Install it with 'but update install'"
+            }
+            #[cfg(all(not(unix), not(feature = "packaged-but-distribution")))]
+            {
+                "Download it from https://gitbutler.com/downloads"
             }
         };
 
         writeln!(
             writer,
             "{} A new version is available: {} {} {}. {}",
-            "→".yellow().bold(),
-            current_version.dimmed(),
-            "→".dimmed(),
-            status.latest_version.green().bold(),
+            t.attention.paint("→"),
+            t.hint.paint(current_version),
+            t.hint.paint("→"),
+            t.success.paint(&status.latest_version),
             install_hint,
         )?;
 
@@ -89,7 +94,7 @@ fn print_human_output(writer: &mut dyn std::fmt::Write, status: &CheckUpdateStat
         #[cfg(not(target_os = "linux"))]
         if let Some(url) = &status.url {
             writeln!(writer)?;
-            writeln!(writer, "Download: {}", url.cyan())?;
+            writeln!(writer, "Download: {}", t.link.paint(url.as_str()))?;
         }
     }
 
@@ -100,6 +105,7 @@ fn suppress_updates(out: &mut OutputChannel, days: u32) -> Result<()> {
     // Convert days to hours (the API uses hours)
     // Note: days is already validated to be 1-30 by clap, so no overflow possible
     let hours = days * 24;
+    let t = theme::get();
 
     // Call the suppress_update function
     let mut cache = but_ctx::Context::app_cache();
@@ -109,7 +115,7 @@ fn suppress_updates(out: &mut OutputChannel, days: u32) -> Result<()> {
         writeln!(
             writer,
             "{} Update notifications suppressed for {} {}",
-            "✓".green().bold(),
+            t.sym().success,
             days,
             if days == 1 { "day" } else { "days" }
         )?;
@@ -167,11 +173,13 @@ fn install(out: &mut OutputChannel, target: Option<String>) -> Result<()> {
 
     // Show change log link
     if let Some(writer) = out.for_human() {
+        let t = theme::get();
         writeln!(
             writer,
             "{} {}",
-            "→".cyan().bold(),
-            "View release notes: https://gitbutler.com/releases".bold()
+            t.info.paint("→"),
+            t.link
+                .paint("View release notes: https://gitbutler.com/releases")
         )?;
         writeln!(writer)?;
     }

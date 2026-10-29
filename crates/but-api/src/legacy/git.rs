@@ -1,19 +1,38 @@
 //! In place of commands.rs
-use anyhow::{Context as _, Result};
+use anyhow::{Context as _, Result, bail};
+use bstr::ByteSlice;
 use but_api_macros::but_api;
-use but_core::git_config::{
-    open_user_global_config_for_editing, remove_config_value, set_config_value, write_config,
-};
+use but_core::git_config::{edit_config, remove_config_value, set_config_value};
+use gitbutler_git::GitContextExt as _;
 use gitbutler_reference::RemoteRefname;
-use gitbutler_repo::RepositoryExt as _;
-use gitbutler_repo_actions::RepoActionsExt as _;
 use tracing::instrument;
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn git_remote_branches(ctx: &but_ctx::Context) -> Result<Vec<RemoteRefname>> {
-    let repo = ctx.git2_repo.get()?;
-    repo.remote_branches()
+    let repo = ctx.repo.get()?;
+    repo.references()?
+        .remote_branches()?
+        .filter_map(Result::ok)
+        .filter(|reference| !reference.name().as_bstr().ends_with_str("/HEAD"))
+        .filter(|reference| {
+            let name = reference.name().as_bstr();
+            let one_component = name
+                .strip_prefix(b"refs/remotes/")
+                .is_some_and(|rest| !rest.is_empty() && !rest.contains(&b'/'));
+            if one_component {
+                tracing::debug!(%name, "skipping remote-tracking ref without a `<remote>/<branch>` shape");
+            }
+            !one_component
+        })
+        .map(|reference| {
+            reference
+                .name()
+                .to_string()
+                .parse()
+                .context("failed to parse remote refname")
+        })
+        .collect()
 }
 
 #[but_api]
@@ -45,10 +64,11 @@ pub fn git_test_fetch(
 #[instrument(err(Debug))]
 pub fn git_index_size(ctx: &but_ctx::Context) -> Result<usize> {
     let size = ctx
-        .git2_repo
+        .repo
         .get()?
-        .index()
+        .index_or_empty()
         .context("failed to get index size")?
+        .entries()
         .len();
     Ok(size)
 }
@@ -68,28 +88,39 @@ pub fn delete_all_data() -> Result<()> {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn git_set_global_config(key: String, value: String) -> Result<String> {
-    let (mut config, path) = open_user_global_config_for_editing()?;
-    set_config_value(&mut config, &key, &value)?;
-    write_config(&path, &config)?;
+    validate_gitbutler_global_key(&key)?;
+    _ = edit_config(None, gix::config::Source::User, |config| {
+        set_config_value(config, &key, &value)?;
+        Ok(())
+    })?;
     Ok(value)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn git_remove_global_config(key: String) -> Result<()> {
-    let (mut config, path) = open_user_global_config_for_editing()?;
-    remove_config_value(&mut config, &key)?;
-    write_config(&path, &config)?;
+    validate_gitbutler_global_key(&key)?;
+    _ = edit_config(None, gix::config::Source::User, |config| {
+        remove_config_value(config, &key)?;
+        Ok(())
+    })?;
     Ok(())
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn git_get_global_config(key: String) -> Result<Option<String>> {
-    let (config, _) = open_user_global_config_for_editing()?;
+    let config = gix::config(None, &gix::open::Options::default())?;
     Ok(get_config_string(&config, &key))
 }
 
-fn get_config_string(config: &gix::config::File<'_>, key: &str) -> Option<String> {
+fn get_config_string(config: &gix::config::File, key: &str) -> Option<String> {
     config.string(key).map(|s| s.to_string())
+}
+
+fn validate_gitbutler_global_key(key: &str) -> Result<()> {
+    if !key.starts_with("gitbutler.") {
+        bail!("Invalid section for global key: {key}")
+    }
+    Ok(())
 }

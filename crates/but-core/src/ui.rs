@@ -1,4 +1,6 @@
 #![allow(missing_docs)]
+use std::collections::BTreeMap;
+
 use bstr::BString;
 use but_serde::BStringForFrontend;
 use gix::object::tree::EntryKind;
@@ -6,17 +8,85 @@ use serde::{Deserialize, Serialize};
 
 use crate::IgnoredWorktreeChange;
 
+/// Represents the pushable status for the current stack.
+#[derive(Debug, Clone, PartialEq, Eq, Copy, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub enum PushStatus {
+    /// Can push, but there are no changes to be pushed
+    NothingToPush,
+    /// Can push. This is the case when there are local changes that can be pushed to the remote.
+    UnpushedCommits,
+    /// Can push, but requires a force push to the remote because commits were rewritten.
+    UnpushedCommitsRequiringForce,
+    /// Completely unpushed - there is no remote tracking branch so Git never interacted with the remote.
+    CompletelyUnpushed,
+    /// Fully integrated, no changes to push.
+    Integrated,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(PushStatus);
+
+/// Represents the state a commit could be in.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(tag = "type", content = "subject")]
+pub enum CommitState {
+    /// The commit is only local
+    LocalOnly,
+    /// The commit is also present at the remote tracking branch.
+    /// This is the commit state if:
+    ///  - The commit has been pushed to the remote
+    ///  - The commit has been copied from a remote commit (when applying a remote branch)
+    ///
+    /// This variant carries the remote commit id.
+    /// The `remote_commit_id` may be the same as the `id` or it may be different if the local commit has been rebased or updated in another way.
+    #[serde(with = "but_serde::object_id")]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::object_id")
+    )]
+    LocalAndRemote(gix::ObjectId),
+    /// The commit is considered integrated.
+    /// This should happen when this commit or the contents of this commit is already part of the base.
+    Integrated,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(CommitState);
+
+impl CommitState {
+    /// A short human-readable label for this state, given the owning commit `id`.
+    pub fn display(&self, id: gix::ObjectId) -> &'static str {
+        match self {
+            CommitState::LocalOnly => "local",
+            CommitState::LocalAndRemote(remote_id) => {
+                if *remote_id == id {
+                    "local/remote(identity)"
+                } else {
+                    "local/remote(similarity)"
+                }
+            }
+            CommitState::Integrated => "integrated",
+        }
+    }
+}
+
 /// The type returned by [`crate::diff::worktree_changes()`].
 ///
 /// Not registered as a frontend type library because it is flattened into a
 /// super WorktreeChanges type.
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub struct WorktreeChanges {
     /// Changes that could be committed.
     pub changes: Vec<TreeChange>,
     /// Changes that were in the index that we can't handle. The user can see them and interact with them to clear them out before a commit can be made.
     pub ignored_changes: Vec<IgnoredWorktreeChange>,
+    /// Filesystem modification times in milliseconds since the Unix epoch, keyed by
+    /// the same (lossy) path as [`TreeChange::path`]. A path with nothing on disk to
+    /// stat — a deletion — is absent.
+    pub modification_times: BTreeMap<String, u64>,
 }
 
 impl WorktreeChanges {
@@ -41,6 +111,7 @@ impl From<crate::WorktreeChanges> for WorktreeChanges {
         WorktreeChanges {
             changes: changes.into_iter().map(Into::into).collect(),
             ignored_changes,
+            modification_times: BTreeMap::new(),
         }
     }
 }
@@ -86,19 +157,15 @@ fn changes_to_unidiff(
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/ui.ts"))]
 pub struct TreeChange {
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::bstring_lossy")
     )]
     pub path: BStringForFrontend,
     /// Something silently carried back and forth between the frontend and the backend.
-    #[cfg_attr(feature = "export-ts", ts(type = "number[]"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::bstring_bytes")
@@ -134,10 +201,8 @@ pub struct TreeStats {
 but_schemars::register_sdk_type!(TreeStats);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(tag = "type", content = "subject")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/ui.ts"))]
 pub enum TreeStatus {
     Addition {
         state: ChangeState,
@@ -156,7 +221,6 @@ pub enum TreeStatus {
     },
     Rename {
         #[serde(rename = "previousPath")]
-        #[cfg_attr(feature = "export-ts", ts(type = "string"))]
         #[cfg_attr(
             feature = "export-schema",
             schemars(schema_with = "but_schemars::bstring_lossy")
@@ -164,7 +228,6 @@ pub enum TreeStatus {
         previous_path: BStringForFrontend,
         /// Something silently carried back and forth between the frontend and the backend.
         #[serde(rename = "previousPathBytes")]
-        #[cfg_attr(feature = "export-ts", ts(type = "number[]"))]
         #[cfg_attr(
             feature = "export-schema",
             schemars(schema_with = "but_schemars::bstring_bytes")
@@ -256,22 +319,15 @@ impl From<crate::TreeStatus> for TreeStatus {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/ui.ts"))]
 pub struct ChangeState {
     #[serde(with = "but_serde::object_id")]
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::object_id")
     )]
     pub id: gix::ObjectId,
-    #[cfg_attr(
-        feature = "export-ts",
-        ts(type = "'Tree' | 'Blob' | 'BlobExecutable' | 'Link' | 'Commit'")
-    )]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::entry_kind")
@@ -282,10 +338,8 @@ pub struct ChangeState {
 but_schemars::register_sdk_type!(ChangeState);
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[expect(missing_docs)]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/ui.ts"))]
 pub enum ModeFlags {
     ExecutableBitAdded,
     ExecutableBitRemoved,

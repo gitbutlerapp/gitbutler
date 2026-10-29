@@ -2,6 +2,8 @@
 // This snapshots current compile failure to make future behavior changes intentional.
 // Extend when: tauri module/export generation semantics are changed or fixed.
 
+#![allow(macro_expanded_macro_exports_accessed_by_absolute_paths)]
+
 use but_api_macros::but_api;
 
 pub use but_api_macros_tests::{json, panic_capture};

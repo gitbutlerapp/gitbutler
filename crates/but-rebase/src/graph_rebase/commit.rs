@@ -1,20 +1,106 @@
 //! Provides some slightly higher level tools to help with manipulating commits, in preparation for use in the editor.
 
 use anyhow::{Context, Result, bail};
+use but_core::commit::SignCommit;
+use but_core::{RefMetadata, commit::Headers};
 use gix::prelude::ObjectIdExt;
 
+use crate::graph_rebase::util::OrderedParentKind;
 use crate::{
     commit::{DateMode, create},
     graph_rebase::{
-        Editor, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector,
+        Editor, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector, ToSelector,
         util::collect_ordered_parents,
     },
 };
 
-impl Editor {
+impl<M: RefMetadata> Editor<'_, '_, M> {
     /// Returns a reference to the in-memory repository.
     pub fn repo(&self) -> &gix::Repository {
         &self.repo
+    }
+
+    /// Set a merge-base override for checkout so that consumed worktree
+    /// changes don't reappear as uncommitted after materialization.
+    pub fn set_merge_base_override(&mut self, tree_id: gix::ObjectId) {
+        for checkout in &mut self.checkouts {
+            match checkout {
+                super::Checkout::Head {
+                    merge_base_override,
+                    ..
+                } => {
+                    *merge_base_override = Some(tree_id);
+                }
+                super::Checkout::Worktree { .. } => {}
+            }
+        }
+    }
+
+    /// Like [`Self::set_merge_base_override()`], but for the checkout of the linked
+    /// worktree named `worktree_name`, whose changes were consumed.
+    ///
+    /// Fails if that worktree has no checkout recorded in this editor - it is unknown,
+    /// archived, or worktree tips weren't seeded into the graph - so callers can bail
+    /// before mutating the step graph.
+    pub fn set_worktree_merge_base_override(
+        &mut self,
+        worktree_name: &gix::bstr::BStr,
+        tree_id: gix::ObjectId,
+    ) -> Result<()> {
+        for checkout in &mut self.checkouts {
+            if let super::Checkout::Worktree {
+                worktree_name: name,
+                merge_base_override,
+                ..
+            } = checkout
+                && name == worktree_name
+            {
+                *merge_base_override = Some(tree_id);
+                return Ok(());
+            }
+        }
+        bail!("Worktree {worktree_name} has no checkout recorded in the editor")
+    }
+
+    /// Make the linked worktree named `worktree_name` check out `target` instead of what it
+    /// had checked out: a reference keeps its `HEAD` attached to that branch, a commit
+    /// detaches it there.
+    ///
+    /// Fails if that worktree has no checkout recorded in this editor.
+    pub fn set_worktree_checkout(
+        &mut self,
+        worktree_name: &gix::bstr::BStr,
+        target: impl ToSelector,
+    ) -> Result<()> {
+        let target = target.to_selector(self)?;
+        for checkout in &mut self.checkouts {
+            if let super::Checkout::Worktree {
+                worktree_name: name,
+                selector,
+                ..
+            } = checkout
+                && name == worktree_name
+            {
+                *selector = target;
+                return Ok(());
+            }
+        }
+        bail!("Worktree {worktree_name} has no checkout recorded in the editor")
+    }
+
+    /// Make `HEAD` check out `target` instead of what it had checked out: a reference keeps it
+    /// attached to that branch, a commit detaches it there.
+    ///
+    /// Fails if `HEAD` has no checkout recorded in this editor.
+    pub fn set_head_checkout(&mut self, target: impl ToSelector) -> Result<()> {
+        let target = target.to_selector(self)?;
+        for checkout in &mut self.checkouts {
+            if let super::Checkout::Head { selector, .. } = checkout {
+                *selector = target;
+                return Ok(());
+            }
+        }
+        bail!("HEAD has no checkout recorded in the editor")
     }
 
     /// Finds a commit from inside the editor's in memory repository.
@@ -39,62 +125,64 @@ impl Editor {
         Ok((selector, self.find_commit(*id)?))
     }
 
+    /// Finds the commit `selector` stands for: a pick is its own commit, while a reference
+    /// or a removed step resolves to its first pick parent.
+    pub fn find_commit_target(
+        &self,
+        selector: impl ToSelector,
+    ) -> Result<(Selector, but_core::CommitOwned)> {
+        let selector = self
+            .history
+            .normalize_selector(selector.to_selector(self)?)?;
+        let target = match &self.graph[selector.id] {
+            Step::Pick(_) => selector.id,
+            Step::Reference { .. } | Step::None => {
+                *collect_ordered_parents(&self.graph, selector.id, OrderedParentKind::CommitOnly)
+                    .first()
+                    .context("Failed to find a parent for selected step in the step graph.")?
+            }
+        };
+
+        let Step::Pick(pick) = &self.graph[target] else {
+            bail!("BUG: collect_ordered_parents provided a non-pick return value");
+        };
+
+        Ok((self.new_selector(target), self.find_commit(pick.id)?))
+    }
+
     /// Finds the first pick parent of a reference
     pub fn find_reference_target(
         &self,
         selector: impl ToReferenceSelector,
     ) -> Result<(Selector, but_core::CommitOwned)> {
-        let selector = self
-            .history
-            .normalize_selector(selector.to_reference_selector(self)?)?;
-
-        let parents = collect_ordered_parents(&self.graph, selector.id);
-        let first_parent = parents
-            .first()
-            .context("Failed to find a parent for selected reference in the step graph.")?;
-
-        let Step::Pick(pick) = &self.graph[*first_parent] else {
-            bail!("BUG: collect_ordered_parents provided a non-pick return value");
-        };
-
-        Ok((
-            Selector {
-                id: *first_parent,
-                revision: self.history.current_revision(),
-            },
-            self.find_commit(pick.id)?,
-        ))
+        self.find_commit_target(selector.to_reference_selector(self)?)
     }
 
-    /// Writes a commit with correct signing to the in memory repository,
-    /// without updating the history log.
-    pub fn new_commit_untracked(
+    /// Writes a commit with correct signing to the in memory repository.
+    ///
+    /// This does not update the commit mappings; a rewrite is only recorded
+    /// once the commit is installed into the graph via, say,
+    /// [Editor::amend_pick] or a rebase.
+    pub fn new_commit(
         &self,
         commit: but_core::CommitOwned,
         date_mode: DateMode,
     ) -> Result<gix::ObjectId> {
-        // TODO(GB-983): As part of moving to only signing at the materializing
-        // step, this should have sign_if_configured false here.
-        create(&self.repo, commit.inner, date_mode, true)
+        let change_id = commit.change_id();
+        create(
+            &self.repo,
+            commit.inner,
+            date_mode,
+            SignCommit::IfSignCommitsEnabled,
+            Some(change_id),
+        )
     }
 
-    /// Writes a commit with correct signing to the in memory repository.
-    pub fn new_commit(
-        &mut self,
-        commit: but_core::CommitOwned,
-        date_mode: DateMode,
-    ) -> Result<gix::ObjectId> {
-        let commit_id = commit.id;
-        let new_id = self.new_commit_untracked(commit, date_mode)?;
-        self.history.update_mapping(commit_id, new_id);
-        Ok(new_id)
-    }
-
-    /// Creates a commit with only the signature and author set correctly.
+    /// Creates a commit with only the signature, author, and headers set correctly.
     ///
     /// The ID of the commit is all zeros & the commit hasn't been written into any ODB
     pub fn empty_commit(&self) -> Result<but_core::CommitOwned> {
-        let kind = gix::hash::Kind::Sha1;
+        let kind = self.repo.object_hash();
         let committer = self
             .repo
             .committer()
@@ -114,7 +202,7 @@ impl Editor {
             author,
             encoding: None,
             message: b"".into(),
-            extra_headers: vec![],
+            extra_headers: (&Headers::from_config(&self.repo.config_snapshot())).into(),
         };
 
         Ok(but_core::CommitOwned {

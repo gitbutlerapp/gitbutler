@@ -78,3 +78,17 @@ There are a few workarounds to try:
   - You may still want to disable hardware acceleration due to performance issues
 
 See https://github.com/gitbutlerapp/gitbutler/issues/11761 for details.
+
+### Blurry text with NVIDIA GPU
+
+NVIDIA drivers have been known to cause blurry text in WebKitGTK-powered apps because of FXAA.
+
+Workarounds to try:
+
+- Disabling hardware acceleration with `WEBKIT_DISABLE_COMPOSITING_MODE=1`
+  - Typically the most stable solution
+  - The app will _not_ run on your GPU which may cause performance degradation
+- Disabling FXAA in NVIDIA settings
+- Using the Nouveau driver instead of the proprietary NVIDIA driver
+
+See https://github.com/gitbutlerapp/gitbutler/issues/12971 for details.

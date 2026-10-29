@@ -30,8 +30,9 @@ unified diff:
     );
 
     let chat_messages = vec![ChatMessage::User(user_message)];
+    let model = llm.model_or_default();
     let response = llm
-        .structured_output::<StructuredOutput>(&system_message, chat_messages, "gpt-5-mini")?
+        .structured_output::<StructuredOutput>(&system_message, chat_messages, &model)?
         .context("Failed to generate structured content for commit message")?;
 
     Ok(response.commit_message)
@@ -42,74 +43,6 @@ unified diff:
 #[schemars(deny_unknown_fields)]
 pub struct StructuredOutput {
     pub commit_message: String,
-}
-
-pub fn branch_name(
-    llm: &but_llm::LLMProvider,
-    commit_messages: &[String],
-    diffs: &[String],
-    existing_branch_names: &[String],
-) -> anyhow::Result<String> {
-    let system_message =
-        "You are a version control assistant that helps with Git branch naming.".to_string();
-    let user_message = format!(
-        "Generate a concise and descriptive branch name based on the provided commit messages.
-        Keep the branch name short, ideally under 50 characters. Only user lowercase letters, numbers, and hyphens.
-        Don't use other special characters or spaces.
-
-        <important_notes>
-            The branch name should reflect the main content of the commit messages and, if available, change diffs.
-            Try to make the branch name unique and noticeably different from existing branch names.
-            In order to make it noticeably different, use a different first word for the branh name.
-            Do not use any of the existing branch names.
-
-        </important_notes>
-
-        <exisiting_branch_names>
-        {}
-        </existing_branch_names>
-
-        <commit_messages>
-        {}
-        </commit_messages>
-
-        <diffs>
-        {}
-        </diffs>
-        ",
-        existing_branch_names.join(",\n"),
-        commit_messages.join("\n==================\n"),
-        diffs.join("\n==================\n")
-    );
-
-    let chat_messages = vec![ChatMessage::User(user_message)];
-    let response = llm
-        .structured_output::<GenerateBranchNameOutput>(
-            &system_message,
-            chat_messages,
-            "gpt-5-mini",
-        )?
-        .context("Failed to generate structured content for commit message")?;
-
-    Ok(response.branch_name)
-}
-
-#[derive(serde::Serialize, serde::Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct GenerateBranchNameOutput {
-    #[schemars(description = "
-    <description>
-        The generated branch name based on the commit messages.
-    </description>
-
-    <important_notes>
-        The branch name should be concise, descriptive, and follow the naming conventions.
-        It should not contain spaces or special characters other than hyphens.
-        Return the branch name only, no backticks or quotes.
-        It should be noticeably different from existing branch names.
-    </important_notes>
-    ")]
-    pub branch_name: String,
 }
 
 const DEFAULT_COMMIT_MESSAGE_INSTRUCTIONS: &str = r#"The message should be a short summary line, followed by two newlines, then a short paragraph explaining WHY the change was needed based off the prompt.

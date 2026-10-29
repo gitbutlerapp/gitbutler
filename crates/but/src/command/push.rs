@@ -60,7 +60,7 @@ pub mod help {
         )?;
         writeln!(
             out,
-            "  -r, --run-hooks                   Run pre-push hooks"
+            "      --no-hooks, --no-verify       Bypass pre-push hooks"
         )?;
 
         // Check if gerrit mode is enabled and show gerrit options

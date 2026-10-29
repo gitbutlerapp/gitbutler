@@ -5,7 +5,7 @@ error[E0425]: cannot find function `with_context_cmd` in this scope
    | ------------------------------------------------------------------------------ similarly named function `with_context` defined here
 ...
 17 |     let _ = with_context_cmd(serde_json::json!({
-   |             ^^^^^^^^^^^^^^^^ help: a function with a similar name exists: `with_context`
+   |             ^^^^^^^^^^^^^^^^
    |
 note: found an item that was configured out
   --> tests/ui/fail/default_cmd_requires_legacy.rs:12:8
@@ -14,3 +14,8 @@ note: found an item that was configured out
    | ---------- the item is gated behind the `legacy` feature
 12 | pub fn with_context(_ctx: but_ctx::Context, value: i32) -> anyhow::Result<i32> {
    |        ^^^^^^^^^^^^
+help: a function with a similar name exists
+   |
+17 -     let _ = with_context_cmd(serde_json::json!({
+17 +     let _ = with_context(serde_json::json!({
+   |

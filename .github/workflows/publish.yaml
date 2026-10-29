@@ -24,6 +24,11 @@ on:
           - patch
           - minor
           - major
+      dry_run:
+        description: Perform a dry run that builds the artifacts and uploads them to GitHub, but does not publish them to end users. Useful to test experimental features before they go out in a nightly.
+        type: boolean
+        required: true
+        default: false
 
 permissions: {}
 
@@ -33,7 +38,7 @@ jobs:
     env:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Consume input variables
         shell: bash
         run: |
@@ -52,19 +57,22 @@ jobs:
           NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ env.bump }}")
           echo "version=$NEXT_VERSION" >> $GITHUB_ENV
           mkdir -p release && echo "$NEXT_VERSION" > release/version
+
+      - name: Check AppStream metadata contains release entry for next version
+        if: runner.os == 'Linux' && env.channel == 'release'
+        env:
+          VERSION: ${{ env.version }}
+        run: |
+          sudo apt update && sudo apt install -y xmlstarlet
+          ./scripts/check-appstream-metadata.sh "$VERSION" "./crates/gitbutler-tauri/com.gitbutler.gitbutler.metainfo.xml"
+
       - name: Init Node Environment
         uses: ./.github/actions/init-env-node
       - name: Build SvelteKit
         run: pnpm build:desktop -- --mode ${{ env.vitemode }}
         env:
           SENTRY_RELEASE: ${{ env.version }}
-      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        name: Upload pnpm-store contents
-        with:
-          name: pnpm-store
-          path: /home/runner/setup-pnpm/node_modules/.bin/store/v3
-          retention-days: 7
-      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         name: Upload SvelteKit build output
         with:
           name: sveltekit-build
@@ -117,7 +125,7 @@ jobs:
           echo "PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           echo "OPENSSL_SRC_PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set Cargo build target to ${{ matrix.target }}
         shell: bash
         if: matrix.target != ''
@@ -126,7 +134,7 @@ jobs:
           rustup target add ${{ matrix.target }}
       # The cache doesn't pick up the environment variable set above, so we have to set it ourselves.
       - name: Rust Cache ${{ matrix.target }}
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: app-release-build-${{ github.event.inputs.channel || 'nightly' }}${{ matrix.target }}${{ matrix.platform }}
       - name: Init Node Environment
@@ -167,6 +175,7 @@ jobs:
             libgtk-3-dev \
             libappindicator3-dev \
             librsvg2-dev \
+            libxkbcommon-x11-dev \
             xdg-utils;
 
           webkit_version='2.50.*'
@@ -178,11 +187,13 @@ jobs:
             gir1.2-javascriptcoregtk-4.1="$webkit_version" \
             gir1.2-webkit2-4.1="$webkit_version";
 
-      - uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         name: Download SvelteKit build output
         with:
           name: sveltekit-build
           path: ./apps/desktop/build/
+      - name: Build MCP apps
+        run: pnpm --filter @gitbutler/but-mcp-app build
       - name: Build binary
         shell: bash
         run: |
@@ -206,6 +217,42 @@ jobs:
           APPIMAGE_KEY_PASSPHRASE: ${{ secrets.APPIMAGE_KEY_PASSPHRASE }}
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
 
+      # Profiling build for debugging purposes
+      - name: Build profiling CLI
+        if: matrix.platform == 'ubuntu-22.04' && env.channel == 'nightly'
+        shell: bash
+        env:
+          VERSION: ${{ env.version }}
+          CHANNEL: nightly
+          GITBUTLER_REQUIRE_MCP_APP: "1"
+          CARGO_PROFILE_RELEASE_LTO: fat
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
+          CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+          CARGO_PROFILE_RELEASE_DEBUG: "2"
+          CARGO_PROFILE_RELEASE_STRIP: none
+          CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO: "off"
+        run: |
+          cargo build --locked --release -p but --bin but \
+            --features nightly \
+            --target x86_64-unknown-linux-gnu \
+            --target-dir target/profiling
+
+          binary=target/profiling/x86_64-unknown-linux-gnu/release/but
+          "$binary" --version
+          readelf -S --wide "$binary" | grep '\.debug_info' >/dev/null
+
+          mkdir -p profiling
+          tar -czf profiling/but-profiling.tar.gz \
+            -C "$(dirname "$binary")" but
+
+      - name: Upload profiling artifact
+        if: matrix.platform == 'ubuntu-22.04' && env.channel == 'nightly'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: "profiling-nightly-linux-x86_64-${{ github.run_number }}"
+          path: profiling/but-profiling.tar.gz
+          if-no-files-found: error
+
       - name: Set artifact name suffix
         shell: bash
         run: |
@@ -216,7 +263,7 @@ jobs:
             echo "artifact_suffix=" >> $GITHUB_ENV
           fi
       - name: Upload Artifacts
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: "${{ env.channel }}-${{ matrix.platform }}${{ env.artifact_suffix }}-${{ github.run_number }}"
           path: release/
@@ -231,7 +278,7 @@ jobs:
           cp target/release/gitbutler-git-askpass.exe tauri-aux-artifacts/
 
       - name: Upload Windows Aux Binary Artifacts
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: runner.os == 'Windows'
         with:
           name: "${{ env.channel }}-windows-aux-${{ github.run_number }}"
@@ -241,6 +288,11 @@ jobs:
   sign-windows:
     needs: build-tauri
     runs-on: [self-hosted, evcodesignd]
+    # When the signing machine is offline, jobs queue for up to 24h; let each
+    # newer run cancel the previous stuck one instead of stacking behind it.
+    concurrency:
+      group: sign-windows-${{ github.event.inputs.channel || 'nightly' }}
+      cancel-in-progress: true
     strategy:
       matrix:
         platform:
@@ -250,7 +302,7 @@ jobs:
         shell: bash
         run: rm -rf release
       - name: Download unsigned artifacts
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release
@@ -261,7 +313,7 @@ jobs:
         env:
           EVCODESIGND_PSK: ${{ secrets.EVCODESIGND_PSK }}
       - name: Upload signed artifacts
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release/
@@ -280,7 +332,7 @@ jobs:
         shell: bash
         run: rm -rf release
       - name: Download ev-signed artifacts
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release
@@ -310,7 +362,7 @@ jobs:
         run: |
           Compress-Archive -Force -Path "release/${{ steps.set-path.outputs.msi_file }}" -DestinationPath "release/${{ steps.set-path.outputs.msi_file }}.zip"
       - name: Upload re-signed artifacts
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release/
@@ -332,7 +384,7 @@ jobs:
         shell: bash
         run: rm -rf release
       - name: Download unsigned artifacts
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release
@@ -355,15 +407,18 @@ jobs:
           rm "release/$but_file.minisig"
           rm minisign.key
       - name: Upload signed artifacts
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release/
           if-no-files-found: error
           overwrite: true
 
+  # macOS and Linux only; Windows is published separately in publish-windows so
+  # an offline Windows signing machine does not block the other platforms.
   publish-tauri:
-    needs: [sign-tauri, sign-but, build-tauri]
+    needs: [sign-but, build-tauri]
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run == 'false' }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ env.version }}
@@ -380,10 +435,10 @@ jobs:
             target: ""
           - platform: ubuntu-22.04-arm # [linux, ARM64]
             target: ""
-          - platform: windows-latest # [windows, x64]
-            target: ""
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Set artifact name suffix
         shell: bash
         run: |
@@ -394,7 +449,7 @@ jobs:
             echo "artifact_suffix=" >> $GITHUB_ENV
           fi
       - name: Download artifacts
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}${{ env.artifact_suffix }}-${{ github.run_number }}"
           path: release
@@ -419,6 +474,77 @@ jobs:
           aws_bucket: "releases.gitbutler.com"
           source_dir: "release-s3/"
           destination_dir: "releases/${{ needs.build-tauri.outputs.channel }}/${{ env.version }}-${{ github.run_number }}"
+
+      - name: Download profiling artifact
+        if: matrix.platform == 'ubuntu-22.04' && needs.build-tauri.outputs.channel == 'nightly'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: "profiling-nightly-linux-x86_64-${{ github.run_number }}"
+          path: profiling
+      - name: Upload profiling artifact to S3
+        if: matrix.platform == 'ubuntu-22.04' && needs.build-tauri.outputs.channel == 'nightly'
+        uses: shallwefootball/s3-upload-action@0d261a6f15b3b2e209dfebdecace4b100c04f95b # commit 0d261a6
+        with:
+          aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_bucket: "releases.gitbutler.com"
+          source_dir: "profiling/"
+          destination_dir: "profiling/nightly/${{ env.version }}-${{ github.run_number }}"
+
+  publish-windows:
+    needs: [sign-tauri, build-tauri]
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run == 'false' }}
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ env.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: "${{ needs.build-tauri.outputs.channel }}-windows-latest-${{ github.run_number }}"
+          path: release
+      - name: Extract version
+        shell: bash
+        run: |
+          VERSION="$(cat release/version)"
+          echo "version=$VERSION" >> $GITHUB_ENV
+      - name: Prepare S3 payload
+        shell: bash
+        run: |
+          rm -rf release-s3
+          mkdir -p release-s3
+          rsync -avE --prune-empty-dirs --include-from='.github/workflows/publish.include.txt' --exclude='*' release/ release-s3/
+          bash scripts/normalize-spaces.sh ./release-s3
+      - uses: shallwefootball/s3-upload-action@0d261a6f15b3b2e209dfebdecace4b100c04f95b # commit 0d261a6
+        name: Upload To S3
+        id: S3
+        with:
+          aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_bucket: "releases.gitbutler.com"
+          source_dir: "release-s3/"
+          destination_dir: "releases/${{ needs.build-tauri.outputs.channel }}/${{ env.version }}-${{ github.run_number }}"
+
+  # Turns a Windows-less release run red (nightlies may ship without Windows).
+  # Recovery: re-run the failed jobs once the signing machine is back.
+  require-windows-for-release:
+    needs: [build-tauri, publish-windows]
+    if: ${{ !cancelled() && github.event.inputs.channel == 'release' && github.event.inputs.dry_run == 'false' }}
+    permissions: {}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a published Windows build
+        shell: bash
+        env:
+          RESULT: ${{ needs.publish-windows.result }}
+        run: |
+          if [[ "$RESULT" != "success" ]]; then
+            echo "publish-windows did not succeed (result: $RESULT), which blocks a release."
+            exit 1
+          fi
 
   notify-gitbutler-api:
     needs: [build-tauri, publish-tauri]
@@ -445,6 +571,35 @@ jobs:
             --header "X-Auth-Token: ${BOT_AUTH_TOKEN}" \
             --data "$payload"
 
+  # The API re-scans S3 on every notify, so this second notify adds the Windows
+  # build to the release whenever the Windows leg completes. Needing the first
+  # notify serializes the two API calls and skips this one if it never happened.
+  notify-gitbutler-api-windows:
+    needs: [build-tauri, publish-windows, notify-gitbutler-api]
+    permissions: {}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify GitButler API of the Windows build
+        shell: bash
+        env:
+          CHANNEL: ${{ needs.build-tauri.outputs.channel }}
+          VERSION: ${{ needs.publish-windows.outputs.version }}-${{ github.run_number }}
+          SHA: ${{ github.sha }}
+          BOT_AUTH_TOKEN: ${{ secrets.BOT_AUTH_TOKEN }}
+        run: |
+          payload=$(jq -n \
+            --arg channel "$CHANNEL" \
+            --arg version "$VERSION" \
+            --arg sha "$SHA" \
+            '{channel: $channel, version: $version, sha: $sha}')
+          curl 'https://app.gitbutler.com/api/releases' \
+            --fail \
+            --retry 3 \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --header "X-Auth-Token: ${BOT_AUTH_TOKEN}" \
+            --data "$payload"
+
   smoke-test-version-compatibility:
     needs: [notify-gitbutler-api, build-tauri, publish-tauri]
     uses: ./.github/workflows/smoke-test-version-compatibility.yaml
@@ -458,7 +613,7 @@ jobs:
     permissions:
       contents: write # needed to push tags
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Create git tag
         shell: bash
         env:

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import BranchesCardTemplate from "$components/branchesPage/BranchesCardTemplate.svelte";
+	import BranchesCardLayout from "$components/branchesPage/BranchesCardLayout.svelte";
 	import { getPrStatus } from "$lib/forge/interface/prUtils";
-	import { Avatar, ReviewBadge, SeriesIcon, TestId, TimeAgo } from "@gitbutler/ui";
-	import type { ReviewUnitInfo } from "$lib/forge/interface/forgePrService";
+	import { Avatar, ReviewBadge, SeriesIcon, TestId, TimeAgo } from "@gitbutler/ui-svelte";
+	import type { ForgeUnitInfo } from "@gitbutler/but-sdk";
 	type basePrData = {
 		number: number;
 		isDraft: boolean;
@@ -20,7 +20,8 @@
 	};
 
 	interface Props extends basePrData {
-		reviewUnit: ReviewUnitInfo | undefined;
+		reviewUnit: ForgeUnitInfo | undefined;
+		forge?: string;
 		onclick?: (prData: basePrData) => void;
 		selected?: boolean;
 		noRemote?: boolean;
@@ -28,6 +29,7 @@
 
 	const {
 		reviewUnit,
+		forge,
 		selected,
 		noRemote,
 		isDraft,
@@ -46,7 +48,7 @@
 	const prStatus = $derived(getPrStatus({ mergedAt, closedAt, draft: isDraft }));
 </script>
 
-<BranchesCardTemplate
+<BranchesCardLayout
 	testId={TestId.PRListCard}
 	{selected}
 	onclick={() =>
@@ -70,7 +72,7 @@
 		</div>
 
 		<div class="text-12 sidebar-entry__about">
-			<ReviewBadge type={reviewUnit?.abbr} status={prStatus} {title} {number} />
+			<ReviewBadge type={reviewUnit?.abbr} {forge} status={prStatus} {title} {number} />
 			<span class="sidebar-entry__divider">•</span>
 
 			{#if noRemote || !sourceBranch}
@@ -90,14 +92,14 @@
 			{author.name || unknownName}
 		{/if}
 	{/snippet}
-</BranchesCardTemplate>
+</BranchesCardLayout>
 
 <style lang="postcss">
 	.sidebar-entry__about {
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.sidebar-entry__header {
@@ -111,7 +113,7 @@
 	}
 
 	.sidebar-entry__divider {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 
 		&:last-child {
 			display: none;
@@ -122,6 +124,6 @@
 		display: flex;
 		align-items: center;
 		gap: 4px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

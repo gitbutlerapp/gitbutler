@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import { getRelativeTime } from "$lib/utils/dateUtils";
-	import { AvatarGroup, Button, CommitStatusBadge, type CommitStatusType } from "@gitbutler/ui";
+	import {
+		AvatarGroup,
+		Button,
+		CommitStatusBadge,
+		type CommitStatusType,
+	} from "@gitbutler/ui-svelte";
 	import type { Branch } from "@gitbutler/shared/branches/types";
 
 	interface Contributor {
@@ -209,7 +214,7 @@
 	.reviews-table {
 		width: 100%;
 		border-collapse: collapse;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 13px;
 	}
 

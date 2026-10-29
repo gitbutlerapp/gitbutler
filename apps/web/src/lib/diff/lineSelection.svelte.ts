@@ -1,6 +1,6 @@
-import { encodeDiffFileLine } from "@gitbutler/ui/utils/diffParsing";
+import { encodeDiffFileLine } from "@gitbutler/ui-svelte/utils/diffParsing";
 import type { DiffPatch } from "@gitbutler/shared/chat/types";
-import type { DiffFileLineId, LineSelector } from "@gitbutler/ui/utils/diffParsing";
+import type { DiffFileLineId, LineSelector } from "@gitbutler/ui-svelte/utils/diffParsing";
 
 export interface DiffLineSelected extends LineSelector {
 	index: number;

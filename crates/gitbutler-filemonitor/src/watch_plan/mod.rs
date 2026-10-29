@@ -15,12 +15,14 @@ mod tests;
 /// Traverse all unignored or tracked directories in `worktree_path` and pass them to `visit_dir(path, notify-mode)`,
 /// which can decide to stop the iteration by returning `ControlFlow::Break`.
 /// `git_dir` is used to select specific directories for recursive watching first,
-/// and other contained `.git` directories are watched similarly.
+/// and other contained `.git` directories are watched similarly, as are the `linked_git_dirs`
+/// of linked worktrees.
 #[tracing::instrument(skip(repo, visit_dir), level = "debug", err)]
 pub(crate) fn compute_watch_plan_for_repo(
     repo: &gix::Repository,
     worktree_path: &Path,
     git_dir: &Path,
+    linked_git_dirs: &[&Path],
     mut visit_dir: impl FnMut(&Path, notify::RecursiveMode) -> anyhow::Result<ControlFlow<()>>,
 ) -> anyhow::Result<()> {
     let index = repo.index_or_empty()?;
@@ -41,6 +43,11 @@ pub(crate) fn compute_watch_plan_for_repo(
     }
     if emit_git_dir_watches(git_dir, &mut visit_dir)?.is_break() {
         return Ok(());
+    }
+    for linked_git_dir in linked_git_dirs.iter().filter(|dir| dir.is_dir()) {
+        if emit_git_dir_watches(linked_git_dir, &mut visit_dir)?.is_break() {
+            return Ok(());
+        }
     }
 
     seen.insert(worktree_path.to_owned());
@@ -78,7 +85,7 @@ pub(crate) fn compute_watch_plan_for_repo(
                 .is_ok_and(|platform| platform.is_excluded());
             if is_excluded
                 && !is_tracked_in_index(
-                    to_repo_relative_path(relative).as_ref(),
+                    to_repo_relative_path(relative)?.as_ref(),
                     true,
                     &index,
                     icase_acc.as_ref(),
@@ -117,6 +124,31 @@ fn emit_git_dir_watches(
     // to auto-track newly added directories here. But if that would change, we could non-recursively
     // watch everything.
     if refs_heads_dir.is_dir() && visit_dir(&refs_heads_dir, RecursiveMode::Recursive)?.is_break() {
+        return Ok(ControlFlow::Break(()));
+    }
+    let refs_remotes_dir = git_dir.join("refs").join("remotes");
+    // Watch remote tracking refs so that pushes (which update `refs/remotes/<remote>/<branch>`)
+    // are detected and can trigger a UI refresh.
+    if refs_remotes_dir.is_dir()
+        && visit_dir(&refs_remotes_dir, RecursiveMode::Recursive)?.is_break()
+    {
+        return Ok(ControlFlow::Break(()));
+    }
+    // Watch where linked worktrees are registered so their addition and removal is detected.
+    let linked_worktrees_dir = git_dir.join(crate::LINKED_WORKTREES_DIR);
+    if linked_worktrees_dir.is_dir()
+        && visit_dir(&linked_worktrees_dir, RecursiveMode::NonRecursive)?.is_break()
+    {
+        return Ok(ControlFlow::Break(()));
+    }
+    // Watch the default GitButler storage dir so external sentinel writes (e.g.
+    // the `but` CLI) reach the UI. A custom `gitbutler.storagePath` isn't watched:
+    // the override relocates storage off the git dir (e.g. onto local disk when
+    // the repo's on NFS), so a configured path would typically sit outside any
+    // git-dir watch anyway — such setups fall back to other refresh signals.
+    let gitbutler_dir = git_dir.join(but_project_handle::DEFAULT_STORAGE_DIR_NAME);
+    if gitbutler_dir.is_dir() && visit_dir(&gitbutler_dir, RecursiveMode::NonRecursive)?.is_break()
+    {
         return Ok(ControlFlow::Break(()));
     }
     Ok(ControlFlow::Continue(()))
@@ -178,6 +210,8 @@ pub(crate) fn is_tracked_in_index(
     }
 }
 
-pub(crate) fn to_repo_relative_path(path: &Path) -> Cow<'_, BStr> {
-    gix::path::to_unix_separators_on_windows(gix::path::into_bstr(path))
+pub(crate) fn to_repo_relative_path(path: &Path) -> gix::Result<Cow<'_, BStr>> {
+    Ok(gix::path::to_unix_separators_on_windows(
+        gix::path::into_bstr(path)?,
+    ))
 }

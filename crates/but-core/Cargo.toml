@@ -11,7 +11,6 @@ description = "A leaf-crate with core algorithms and types"
 doctest = false
 
 [features]
-export-ts = ["dep:ts-rs"]
 export-schema = ["dep:schemars", "dep:but-schemars"]
 ## Make legacy functionality available.
 legacy = []
@@ -25,6 +24,7 @@ but-serde.workspace = true
 git2.workspace = true
 but-oxidize.workspace = true
 
+nonempty.workspace = true
 serde.workspace = true
 bstr.workspace = true
 tracing.workspace = true
@@ -38,6 +38,7 @@ gix = { workspace = true, features = [
     "status",
     "merge",
 ] }
+smallvec.workspace = true
 # for V1 conflict commits
 toml.workspace = true
 chardetng = "0.1.17"
@@ -45,10 +46,14 @@ chardetng = "0.1.17"
 # for `id`
 uuid.workspace = true
 
+boolean-enums.workspace = true
+
+# for parallel changeset-similarity computation
+flume = "0.11.1"
+
 # for `sync`
 fslock = "0.2.1"
 parking_lot = { workspace = true, features = ["arc_lock"] }
-ts-rs = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
 but-schemars = { workspace = true, optional = true }
 
@@ -59,7 +64,7 @@ rand.workspace = true
 but-testsupport.workspace = true
 gix = { workspace = true, features = ["revision"] }
 serde_json = "1.0"
-insta.workspace = true
+snapbox.workspace = true
 
 [lints]
 workspace = true

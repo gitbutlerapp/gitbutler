@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use bstr::{BStr, ByteSlice};
-use gitbutler_stack::StackId;
+use but_core::ref_metadata::StackId;
 use serde::{Deserialize, Serialize, Serializer};
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]

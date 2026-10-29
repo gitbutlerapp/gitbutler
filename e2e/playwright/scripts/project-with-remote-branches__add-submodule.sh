@@ -1,8 +1,8 @@
 #!/bin/bash
 
 echo "GIT CONFIG $GIT_CONFIG_GLOBAL"
-echo "DATA DIR $GITBUTLER_CLI_DATA_DIR"
-echo "BUT_TESTING $BUT_TESTING"
+echo "DATA DIR $E2E_TEST_APP_DATA_DIR"
+echo "BUT $BUT"
 
 # Create a simple repository to use as a submodule
 mkdir submodule-repo
@@ -17,4 +17,3 @@ popd
 pushd local-clone
   git submodule add ../submodule-repo my-submodule
 popd
-

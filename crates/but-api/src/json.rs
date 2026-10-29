@@ -9,7 +9,7 @@
 pub use error::{Error, ToJsonError, UnmarkedError};
 use gix::refs::Target;
 use schemars::{self, JsonSchema};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 mod hex_hash {
     use std::{ops::Deref, str::FromStr};
@@ -73,7 +73,7 @@ mod hex_hash {
         pub struct HexHashString(String);
 
         impl TryFrom<HexHashString> for gix::ObjectId {
-            type Error = gix::hash::decode::Error;
+            type Error = gix::Error;
 
             fn try_from(value: HexHashString) -> Result<Self, Self::Error> {
                 value.0.parse()
@@ -109,6 +109,30 @@ mod hex_hash {
     }
     pub use stringy::HexHashString;
 
+    mod change_id_hash {
+        use bstr::ByteSlice;
+        use but_core::ChangeId;
+
+        /// Newtype that serializes changes ids as strings.
+        pub struct ChangeIdString(pub ChangeId);
+
+        impl From<ChangeId> for ChangeIdString {
+            fn from(value: ChangeId) -> Self {
+                Self(value)
+            }
+        }
+
+        impl serde::Serialize for ChangeIdString {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                self.0.as_bstr().to_str_lossy().serialize(serializer)
+            }
+        }
+    }
+    pub use change_id_hash::ChangeIdString;
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -129,7 +153,55 @@ mod hex_hash {
         }
     }
 }
-pub use hex_hash::{HexHash, HexHashString};
+pub use hex_hash::{ChangeIdString, HexHash, HexHashString};
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HexHashString);
+
+/// Shared JSON transport type for mutation workspace results.
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceState {
+    /// Commits that were replaced by the operation. Maps `oldId -> newId`.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(with = "std::collections::BTreeMap<String, String>")
+    )]
+    pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
+    /// The post-operation workspace view presented to the frontend.
+    #[cfg(not(feature = "graph-workspace"))]
+    pub head_info: but_workspace::ui::RefInfo,
+    /// The post-operation workspace view presented to the frontend, as the
+    /// rendered graph projection.
+    #[cfg(feature = "graph-workspace")]
+    pub graph_workspace: but_workspace::ui::workspace::DetailedGraphWorkspace,
+    /// True if a checkout occurred, and a conflict occurred during that
+    /// checkout.
+    pub checkout_conflict_occurred: bool,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(WorkspaceState);
+
+impl TryFrom<crate::WorkspaceState> for WorkspaceState {
+    type Error = anyhow::Error;
+
+    fn try_from(value: crate::WorkspaceState) -> Result<Self, Self::Error> {
+        Ok(Self {
+            replaced_commits: value
+                .replaced_commits
+                .into_iter()
+                .map(|(old, new)| (HexHash::from(old), HexHash::from(new)))
+                .collect(),
+            #[cfg(not(feature = "graph-workspace"))]
+            head_info: value.head_info.try_into()?,
+            #[cfg(feature = "graph-workspace")]
+            graph_workspace: value.graph_workspace,
+            checkout_conflict_occurred: value.checkout_conflict_occurred,
+        })
+    }
+}
 
 mod error {
     //! Utilities to control which errors show in the frontend.
@@ -239,6 +311,7 @@ mod error {
     mod tests {
         use anyhow::anyhow;
         use but_error::{Code, Context};
+        use snapbox::prelude::*;
 
         use super::*;
 
@@ -256,7 +329,7 @@ mod error {
             );
             assert_eq!(
                 json(err),
-                "{\"code\":\"errors.unknown\",\"message\":\"err msg\"}",
+                "{\"code\":\"Unknown\",\"message\":\"err msg\"}",
                 "if there is no explicit error code or context, the original error message is shown (and chain)"
             );
         }
@@ -266,12 +339,12 @@ mod error {
             let err = anyhow!("err msg").context(Code::Validation);
             assert_eq!(
                 format!("{err:#}"),
-                "errors.validation: err msg",
+                "Validation: err msg",
                 "note how the context becomes an error, in front of the original one"
             );
             assert_eq!(
                 json(err),
-                "{\"code\":\"errors.validation\",\"message\":\"err msg\"}",
+                "{\"code\":\"Validation\",\"message\":\"err msg\"}",
                 "the 'code' is available as string, but the message is taken from the source error"
             );
         }
@@ -281,12 +354,14 @@ mod error {
             let original_err = std::io::Error::other("actual cause");
             let err = anyhow::Error::from(original_err).context("err msg");
 
-            insta::assert_json_snapshot!(Error(err), @r#"
-            {
-              "code": "errors.unknown",
-              "message": "err msg\n\nCaused by:\n    1: actual cause\n"
-            }
-            "#);
+            snapbox::assert_data_eq!(
+                Error(err).into_json(),
+                snapbox::str![[r#"{
+  "code": "Unknown",
+  "message": "err msg\n\nCaused by:\n    1: actual cause\n"
+}"#]]
+                .raw()
+            );
         }
 
         #[test]
@@ -298,12 +373,12 @@ mod error {
 
             assert_eq!(
                 format!("{err:#}"),
-                "errors.validation: err msg: actual cause",
+                "Validation: err msg: actual cause",
                 "an even longer chain, with the cause as root as one might expect"
             );
             assert_eq!(
                 json(err),
-                "{\"code\":\"errors.validation\",\"message\":\"err msg\"}",
+                "{\"code\":\"Validation\",\"message\":\"err msg\"}",
                 "in order to attach a custom message to an original cause, our messaging (and Code) is the tail"
             );
         }
@@ -314,8 +389,61 @@ mod error {
             assert_eq!(format!("{err:#}"), "ctx msg: err msg");
             assert_eq!(
                 json(err),
-                "{\"code\":\"errors.validation\",\"message\":\"ctx msg\"}",
+                "{\"code\":\"Validation\",\"message\":\"ctx msg\"}",
                 "Contexts often provide their own message, so the error message is ignored"
+            );
+        }
+
+        #[test]
+        fn static_context_hides_saml_authorization_url() {
+            const MESSAGE: &str = "Authorize this GitHub credential for SAML SSO, then try again.";
+            let err = anyhow!("HTTP 403 Forbidden")
+                .context(r#"Resource protected by organization SAML enforcement. Visit https://example.invalid/orgs/example/sso?authorization_request=redacted"#)
+                .context(Context::new_static(Code::GitHubOrgSamlRestricted, MESSAGE))
+                .context("Failed to load a pull request");
+            let serialized = json(err);
+            let expected = format!(r#"{{"code":"GitHubOrgSamlRestricted","message":"{MESSAGE}"}}"#);
+            assert_eq!(serialized, expected, "the API sends only static guidance");
+            let leaked = ["authorization_request", "/sso?"]
+                .iter()
+                .any(|detail| serialized.contains(detail));
+            assert!(!leaked, "per-request SSO details must stay private");
+        }
+
+        #[test]
+        fn static_context_hides_token_lifetime_policy_details() {
+            const MESSAGE: &str =
+                "Create a token with a shorter expiration, then reconnect GitHub.";
+            let err = anyhow!("HTTP 403 Forbidden")
+                .context(r#"The 'example-org' organization forbids access via a personal access tokens (classic) if the token's lifetime is greater than 180 days. Please adjust your token's lifetime at the following URL: https://github.com/settings/tokens/123456"#)
+                .context(Context::new_static(Code::GitHubTokenLifetimeRestricted, MESSAGE))
+                .context("Failed to list open pull requests");
+            let serialized = json(err);
+            let expected =
+                format!(r#"{{"code":"GitHubTokenLifetimeRestricted","message":"{MESSAGE}"}}"#);
+            assert_eq!(serialized, expected, "the API sends only static guidance");
+            let leaked = ["example-org", "settings/tokens"]
+                .iter()
+                .any(|detail| serialized.contains(detail));
+            assert!(
+                !leaked,
+                "the organization name and token URL must stay private"
+            );
+        }
+
+        #[test]
+        fn static_context_between_operation_layers_keeps_its_code() {
+            const MESSAGE: &str = "GitLab did not accept the token.";
+            // The forge read wrappers add operation text below and above the
+            // classification, like `but_gitlab::mr::list` around its client.
+            let err = anyhow!("HTTP 401")
+                .context("Failed to list open merge requests")
+                .context(Context::new_static(Code::GitLabUnauthorized, MESSAGE))
+                .context("Failed to list open merge requests");
+            assert_eq!(
+                json(err),
+                format!(r#"{{"code":"GitLabUnauthorized","message":"{MESSAGE}"}}"#),
+                "the code survives the outer operation layer and only the static guidance is sent"
             );
         }
 
@@ -329,7 +457,7 @@ mod error {
             );
             assert_eq!(
                 json(err),
-                "{\"code\":\"errors.validation\",\"message\":\"err msg\"}",
+                "{\"code\":\"Validation\",\"message\":\"err msg\"}",
                 "Contexts without a message show the error's message as well"
             );
         }
@@ -341,12 +469,12 @@ mod error {
                 .context(Code::Validation);
             assert_eq!(
                 format!("{err:#}"),
-                "errors.validation: top msg: bottom msg",
+                "Validation: top msg: bottom msg",
                 "now it's clear why bottom is bottom"
             );
             assert_eq!(
                 json(err),
-                "{\"code\":\"errors.validation\",\"message\":\"top msg\"}",
+                "{\"code\":\"Validation\",\"message\":\"top msg\"}",
                 "the 'code' gets the message of the error that it provides context to, and it finds it down the chain"
             );
         }
@@ -359,12 +487,12 @@ mod error {
                 .context(Code::Validation);
             assert_eq!(
                 format!("{err:#}"),
-                "errors.validation: top msg: errors.projects.git.auth: bottom msg",
+                "Validation: top msg: ProjectGitAuth: bottom msg",
                 "each code is treated like its own error in the chain"
             );
             assert_eq!(
                 json(err),
-                "{\"code\":\"errors.validation\",\"message\":\"top msg\"}",
+                "{\"code\":\"Validation\",\"message\":\"top msg\"}",
                 "it finds the most recent 'code' (and the same would be true for contexts, of course)"
             );
         }
@@ -399,6 +527,96 @@ impl From<gix::refs::FullName> for FullRefName {
             #[cfg(feature = "path-bytes")]
             full_bytes: value.as_bstr().into(),
         }
+    }
+}
+
+/// An optional full reference name accepted as a string like `refs/heads/main`,
+/// for use as a parameter transport via `#[but_api(...)]`.
+///
+/// The name is validated during deserialization. Note that it is lossy: a name
+/// that can't be represented in Unicode can't be passed through this type.
+#[derive(Debug, Clone, schemars::JsonSchema, Deserialize)]
+#[serde(try_from = "Option<String>")]
+pub struct MaybeLossyFullNameRef(
+    #[schemars(schema_with = "but_schemars::fullname_lossy_opt")] Option<gix::refs::FullName>,
+);
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(MaybeLossyFullNameRef);
+
+impl TryFrom<Option<String>> for MaybeLossyFullNameRef {
+    type Error = gix::refs::name::Error;
+
+    fn try_from(value: Option<String>) -> Result<Self, Self::Error> {
+        Ok(Self(value.map(gix::refs::FullName::try_from).transpose()?))
+    }
+}
+
+impl From<MaybeLossyFullNameRef> for Option<gix::refs::FullName> {
+    fn from(value: MaybeLossyFullNameRef) -> Self {
+        value.0
+    }
+}
+
+/// A full reference name accepted as raw bytes.
+///
+/// Use this as parameter transport when callers must avoid lossy UTF-8
+/// conversion at the API boundary.
+#[derive(Debug, Clone, schemars::JsonSchema, Deserialize)]
+#[serde(try_from = "Vec<u8>")]
+#[schemars(schema_with = "but_schemars::fullname_bytes")]
+pub struct FullNameBytes(gix::refs::FullName);
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(FullNameBytes);
+
+impl TryFrom<Vec<u8>> for FullNameBytes {
+    type Error = gix::refs::name::Error;
+
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        Ok(Self(gix::refs::FullName::try_from(bstr::BString::from(
+            value,
+        ))?))
+    }
+}
+
+impl From<FullNameBytes> for gix::refs::FullName {
+    fn from(value: FullNameBytes) -> Self {
+        value.0
+    }
+}
+
+#[cfg(test)]
+mod maybe_lossy_full_name_ref_tests {
+    use super::{FullNameBytes, MaybeLossyFullNameRef};
+
+    #[test]
+    fn maybe_lossy_full_name_ref() {
+        let actual: Option<gix::refs::FullName> =
+            serde_json::from_str::<MaybeLossyFullNameRef>("\"refs/heads/main\"")
+                .expect("valid full ref name")
+                .into();
+        assert_eq!(actual.expect("present"), "refs/heads/main");
+
+        let actual: Option<gix::refs::FullName> =
+            serde_json::from_str::<MaybeLossyFullNameRef>("null")
+                .expect("null is a valid absent name")
+                .into();
+        assert_eq!(actual, None);
+
+        serde_json::from_str::<MaybeLossyFullNameRef>("\"not-a-full-name\"")
+            .expect_err("partial ref names are rejected");
+    }
+
+    #[test]
+    fn full_name_bytes() {
+        let actual: gix::refs::FullName = serde_json::from_str::<FullNameBytes>(
+            "[114,101,102,115,47,104,101,97,100,115,47,109,97,105,110]",
+        )
+        .expect("valid full ref name bytes")
+        .into();
+        assert_eq!(actual, "refs/heads/main");
+
+        serde_json::from_str::<FullNameBytes>("[109,97,105,110]")
+            .expect_err("partial ref names are rejected");
     }
 }
 

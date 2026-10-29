@@ -2,12 +2,18 @@
 	import ThemeSwitcher from "$lib/components/marketing/ThemeSwitcher.svelte";
 	import * as jsonLinks from "$lib/data/links.json";
 	import osIcons from "$lib/data/os-icons.json";
+	import { env } from "$env/dynamic/public";
 
 	interface Props {
 		showDownloadLinks?: boolean;
 	}
 
 	const { showDownloadLinks = true }: Props = $props();
+
+	const showJobsLink = env.PUBLIC_SHOW_JOBS_LINK === "true";
+	const resources = Object.values(jsonLinks.resources).filter(
+		(resource) => resource.id !== "jobs" || showJobsLink,
+	);
 </script>
 
 <footer class="footer">
@@ -29,7 +35,7 @@
 							</svg>
 
 							<a href={jsonLinks.downloads.appleSilicon.url} class="download-link">
-								MacOS ({jsonLinks.downloads.appleSilicon.label})
+								macOS ({jsonLinks.downloads.appleSilicon.label})
 							</a>
 						</div>
 
@@ -109,7 +115,7 @@
 		<hr class="links-divider" />
 
 		<ul class="links-list">
-			{#each Object.values(jsonLinks.resources) as resource}
+			{#each resources as resource}
 				<li class="text-16 link">
 					<a href={resource.url}>
 						<span>{resource.label}</span>
@@ -150,7 +156,7 @@
 	.banner {
 		display: flex;
 		position: relative;
-		flex: 3.2;
+		flex: 3.3;
 		padding: 36px 48px;
 	}
 
@@ -163,11 +169,7 @@
 		height: 100%;
 		overflow: hidden;
 		border-radius: var(--radius-xl);
-		background-color: color-mix(
-			in srgb,
-			var(--clr-theme-pop-element) 40%,
-			var(--clr-theme-pop-soft)
-		);
+		background-color: color-mix(in srgb, var(--fill-pop-bg) 40%, var(--chip-pop-bg));
 	}
 
 	.banner-bg-grainy {
@@ -229,14 +231,8 @@
 		transform: translateY(-4px);
 	}
 
-	.download-options {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-	}
-
 	.download-link {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		font-size: 16px;
 		line-height: 120%;
 		text-decoration: underline;
@@ -244,7 +240,7 @@
 
 		&:hover {
 			text-decoration: underline wavy;
-			text-decoration-color: var(--clr-theme-pop-element);
+			text-decoration-color: var(--fill-pop-bg);
 		}
 	}
 
@@ -268,7 +264,7 @@
 		text-underline-offset: 3px;
 
 		&:hover {
-			color: var(--clr-text-1);
+			color: var(--text-1);
 			text-decoration: underline wavy;
 		}
 	}
@@ -285,7 +281,7 @@
 	.links-divider {
 		margin: 0;
 		border: none;
-		border-top: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--border-2);
 	}
 
 	.links-list {
@@ -301,9 +297,9 @@
 			align-items: center;
 
 			&:hover {
-				color: var(--clr-text-1);
+				color: var(--text-1);
 				text-decoration: underline wavy;
-				text-decoration-color: var(--clr-theme-pop-element);
+				text-decoration-color: var(--fill-pop-bg);
 			}
 		}
 	}
@@ -312,7 +308,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 12px;
 	}
 
@@ -325,7 +321,7 @@
 			text-decoration: underline;
 
 			&:hover {
-				color: var(--clr-text-1);
+				color: var(--text-1);
 				text-decoration: none;
 			}
 		}

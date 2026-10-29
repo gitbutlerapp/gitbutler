@@ -1,0 +1,502 @@
+use but_ctx::Context;
+use gix::{ObjectId, refs::Category};
+use nonempty::NonEmpty;
+use ratatui::text::{Line, Span};
+
+use crate::{
+    ChangeSourceId, CliId,
+    command::legacy::{
+        discard::{
+            self, CommittedDiscardSource, DiscardOperation, DiscardOutcome, UncommittedSelection,
+        },
+        status::{
+            FilesStatusFlag,
+            output::StatusOutputLineData,
+            tui::{
+                Message, ReloadCause, SelectAfterReload, Selectable,
+                app::{App, Modal},
+                confirm::Confirm,
+                message_on_drop,
+                mode::Mode,
+                operations,
+            },
+        },
+    },
+    id::{CommitId, LaneId},
+    theme,
+    utils::worktrees,
+};
+
+use super::mark::{CommittedMark, Marks, committed_changes_to_act_on};
+
+impl App {
+    pub fn handle_discard(
+        &mut self,
+        ctx: &Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        if self.marks_ref().is_empty() {
+            self.handle_discard_selection(ctx, messages)
+        } else {
+            self.handle_discard_marks(messages)
+        }
+    }
+
+    pub fn handle_discard_selection(
+        &mut self,
+        ctx: &Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+            return Ok(());
+        };
+        let Some(cli_id) = selection.data.cli_id() else {
+            return Ok(());
+        };
+
+        self.modal = Some(Modal::Confirm {
+            confirm: match &**cli_id {
+                CliId::UncommittedArea {
+                    source: ChangeSourceId::Head,
+                    ..
+                } => {
+                    self.to_be_discarded = Vec::from([Selectable::Uncommitted]);
+                    // The uncommitted header remains selectable when staged assignments consume
+                    // all changes. Preserve confirming discard as a no-op in that state.
+                    let has_uncommitted_changes = self.status_lines.iter().any(|line| {
+                        matches!(line.data, StatusOutputLineData::UncommittedFile { .. })
+                    });
+                    let drop_to_be_discarded =
+                        message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
+                    Confirm::new(
+                        NonEmpty::new("Discard uncommitted changes?".into()),
+                        self.theme,
+                        move |ctx, messages| {
+                            if has_uncommitted_changes {
+                                let DiscardOutcome::Uncommitted { paths: _ } = run_discard(
+                                    ctx,
+                                    DiscardOperation::Uncommitted(UncommittedSelection::All(
+                                        ChangeSourceId::Head,
+                                    )),
+                                )?
+                                else {
+                                    anyhow::bail!(
+                                        "BUG: uncommitted discard returned an unexpected outcome"
+                                    )
+                                };
+                            }
+                            messages.push(Message::Reload(
+                                Some(SelectAfterReload::Uncommitted),
+                                ReloadCause::Mutation,
+                            ));
+                            drop(drop_to_be_discarded);
+                            Ok(())
+                        },
+                    )
+                }
+                CliId::UncommittedHunkOrFile(uncommitted) => {
+                    self.to_be_discarded =
+                        Vec::from([Selectable::UncommittedHunkOrFile(uncommitted.clone())]);
+                    let operation = DiscardOperation::Uncommitted(UncommittedSelection::changes(
+                        NonEmpty::new(uncommitted.clone()),
+                    ));
+
+                    // Discarding only part of a file: select the previous selectable line.
+                    let select_after_reload = self.cursor.select_previous_cli_id_or_uncommitted(
+                        &self.status_lines,
+                        &self.mode,
+                        self.flags.show_files,
+                    );
+
+                    let drop_to_be_discarded =
+                        message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
+                    Confirm::new(
+                        NonEmpty::new("Discard uncommitted file?".into()),
+                        self.theme,
+                        move |ctx, messages| {
+                            let DiscardOutcome::Uncommitted { paths: _ } =
+                                run_discard(ctx, operation)?
+                            else {
+                                anyhow::bail!(
+                                    "BUG: uncommitted discard returned an unexpected outcome"
+                                )
+                            };
+                            messages.push(Message::Reload(
+                                Some(select_after_reload),
+                                ReloadCause::Mutation,
+                            ));
+                            drop(drop_to_be_discarded);
+                            Ok(())
+                        },
+                    )
+                }
+                CliId::Commit { commit, id: _ } => {
+                    self.to_be_discarded = Vec::from([Selectable::Commit(commit.clone())]);
+                    let commit = commit.clone();
+                    let select_after_reload = self
+                        .cursor
+                        .select_after_discarded_commit(&self.status_lines);
+                    let drop_to_be_discarded =
+                        message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
+                    Confirm::new(
+                        NonEmpty::new(Line::from_iter([
+                            Span::raw("Discard commit "),
+                            theme::Commit(&commit).to_span(),
+                            Span::raw("?"),
+                        ])),
+                        self.theme,
+                        move |ctx, messages| {
+                            let DiscardOutcome::Commits {
+                                commits: _,
+                                replaced_commits,
+                            } = run_discard(ctx, DiscardOperation::Commits(NonEmpty::new(commit)))?
+                            else {
+                                anyhow::bail!("BUG: commit discard returned an unexpected outcome")
+                            };
+                            let select_after_reload =
+                                map_selected_commits(select_after_reload, |commit_id| {
+                                    replaced_commits
+                                        .get(&commit_id)
+                                        .copied()
+                                        .unwrap_or(commit_id)
+                                });
+                            messages
+                                .push(Message::Reload(select_after_reload, ReloadCause::Mutation));
+                            drop(drop_to_be_discarded);
+                            Ok(())
+                        },
+                    )
+                }
+                CliId::Branch(..) | CliId::AnonymousSegment(..)
+                    if let Some(name) = cli_id.lane().and_then(LaneId::worktree_name)
+                        && worktrees::is_worktree_top(&*ctx.repo.get()?, name, cli_id)? =>
+                {
+                    let worktree_name = name.to_owned();
+
+                    self.to_be_discarded = match &**cli_id {
+                        CliId::Branch(branch) => Vec::from([Selectable::Branch(branch.clone())]),
+                        _ => Vec::new(),
+                    };
+                    let drop_to_be_discarded =
+                        message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
+
+                    Confirm::new(
+                        NonEmpty::new(Line::from_iter([
+                            Span::raw("Delete worktree "),
+                            Span::styled(worktree_name.to_string(), self.theme.local_branch),
+                            Span::raw(" and its directory? This cannot be undone"),
+                        ])),
+                        self.theme,
+                        move |ctx, messages| {
+                            let mut guard = ctx.exclusive_worktree_access();
+                            _ = crate::command::worktree::remove::run(
+                                ctx,
+                                guard.write_permission(),
+                                crate::command::worktree::remove::RemoveOperation {
+                                    worktree: worktree_name,
+                                    force: true,
+                                },
+                            )?;
+
+                            messages.extend([
+                                Message::EnterNormalModeAfterConfirmingOperation,
+                                Message::Reload(None, ReloadCause::Mutation),
+                            ]);
+
+                            drop(drop_to_be_discarded);
+
+                            Ok(())
+                        },
+                    )
+                }
+                CliId::Branch(branch) => {
+                    let name = branch.name.to_owned();
+                    let ref_name = Category::LocalBranch.to_full_name(&*name)?;
+
+                    self.to_be_discarded = Vec::from([Selectable::Branch(branch.clone())]);
+
+                    let select_after_reload = self
+                        .cursor
+                        .select_after_discarded_branch(&self.status_lines);
+                    let drop_to_be_discarded =
+                        message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
+
+                    Confirm::new(
+                        NonEmpty::new(Line::from_iter([
+                            Span::raw("Discard branch "),
+                            Span::styled(name, self.theme.local_branch),
+                            Span::raw("?"),
+                        ])),
+                        self.theme,
+                        move |ctx, messages| {
+                            let DiscardOutcome::Branches(_) = run_discard(
+                                ctx,
+                                DiscardOperation::Branches(NonEmpty::new(ref_name)),
+                            )?
+                            else {
+                                anyhow::bail!("BUG: branch discard returned an unexpected outcome")
+                            };
+
+                            messages.extend([
+                                Message::EnterNormalModeAfterConfirmingOperation,
+                                Message::Reload(select_after_reload, ReloadCause::Mutation),
+                            ]);
+                            drop(drop_to_be_discarded);
+                            Ok(())
+                        },
+                    )
+                }
+                CliId::CommittedFile {
+                    committed_file,
+                    id: _,
+                } => {
+                    let commit = CommitId {
+                        commit_id: committed_file.commit_id,
+                        change_id: committed_file.change_id.clone(),
+                    };
+                    let committed_file = committed_file.clone();
+
+                    self.to_be_discarded =
+                        Vec::from([Selectable::CommittedFile(committed_file.clone())]);
+                    let drop_to_be_discarded =
+                        message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
+
+                    Confirm::new(
+                        NonEmpty::new(
+                            format!("Discard changes to {}?", committed_file.path).into(),
+                        ),
+                        self.theme,
+                        move |ctx, messages| {
+                            let DiscardOutcome::CommittedChanges {
+                                source: _,
+                                paths: _,
+                                new_commit,
+                            } = run_discard(
+                                ctx,
+                                DiscardOperation::Committed {
+                                    source: commit,
+                                    changes: NonEmpty::new(CommittedDiscardSource::File(
+                                        committed_file,
+                                    )),
+                                },
+                            )?
+                            else {
+                                anyhow::bail!(
+                                    "BUG: committed file discard returned an unexpected outcome"
+                                )
+                            };
+
+                            let select_after_reload =
+                                if operations::commit_is_empty(ctx, new_commit.commit_id)? {
+                                    SelectAfterReload::Commit(new_commit.commit_id)
+                                } else {
+                                    SelectAfterReload::FirstFileInCommit(new_commit.commit_id)
+                                };
+                            messages.push(Message::Reload(
+                                Some(select_after_reload),
+                                ReloadCause::Mutation,
+                            ));
+
+                            drop(drop_to_be_discarded);
+                            Ok(())
+                        },
+                    )
+                }
+                CliId::AnonymousSegment(..)
+                | CliId::CommittedHunk(..)
+                | CliId::Stack { .. }
+                | CliId::PathPrefix { .. }
+                | CliId::UncommittedArea {
+                    source: ChangeSourceId::Worktree(_),
+                    ..
+                } => return Ok(()),
+            },
+        });
+
+        Ok(())
+    }
+
+    pub fn handle_discard_marks(&mut self, messages: &mut Vec<Message>) -> anyhow::Result<()> {
+        let marks = match &*self.mode {
+            Mode::Normal(normal_mode) => &normal_mode.marks,
+            Mode::Branch(branch_mode) => &branch_mode.marks,
+
+            Mode::Squash(..)
+            | Mode::InlineReword(..)
+            | Mode::Command(..)
+            | Mode::Commit(..)
+            | Mode::Move(..)
+            | Mode::Details(..)
+            | Mode::Stack(..)
+            | Mode::MoveStack(..)
+            | Mode::PickChanges(..)
+            | Mode::Jump(..)
+            | Mode::Worktree(..)
+            | Mode::CherryPick(..) => return Ok(()),
+        };
+
+        let operation = match marks {
+            Marks::Empty => return Ok(()),
+            Marks::Commits(commits) => DiscardOperation::Commits(commits.clone()),
+            Marks::Branches(branches) => {
+                let branches = branches
+                    .iter()
+                    .map(|branch| Category::LocalBranch.to_full_name(&*branch.name))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let Some(branches) = NonEmpty::from_vec(branches) else {
+                    anyhow::bail!("BUG: marked branches must not be empty")
+                };
+                DiscardOperation::Branches(branches)
+            }
+            Marks::Hunks(hunks) => {
+                DiscardOperation::Uncommitted(UncommittedSelection::changes(hunks.clone()))
+            }
+            Marks::Committed(marks) => committed_discard_operation(marks)?,
+        };
+
+        self.to_be_discarded = marks
+            .iter()
+            .filter_map(|mark| mark.to_owned().into_selectable())
+            .collect::<Vec<_>>();
+
+        let select_after_reload = self
+            .cursor
+            .select_after_discarded_marks(&self.status_lines, marks);
+        let file_list_of_marked_commit_is_shown =
+            match (marks.as_committed(), self.flags.show_files) {
+                (Some(marks), FilesStatusFlag::Commit(commit_id)) => {
+                    commit_id == marks.head.committed_file().commit_id
+                }
+                (_, FilesStatusFlag::None | FilesStatusFlag::All | FilesStatusFlag::Commit(_)) => {
+                    false
+                }
+            };
+
+        let drop_to_be_discarded =
+            message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
+
+        let confirm = Confirm::new(
+            NonEmpty::new("Discard?".into()),
+            self.theme,
+            move |ctx, messages| {
+                let select_after_reload = match run_discard(ctx, operation)? {
+                    DiscardOutcome::Commits {
+                        commits: _,
+                        replaced_commits,
+                    } => map_selected_commits(select_after_reload, |commit_id| {
+                        replaced_commits
+                            .get(&commit_id)
+                            .copied()
+                            .unwrap_or(commit_id)
+                    }),
+                    DiscardOutcome::CommittedChanges {
+                        source,
+                        paths: _,
+                        new_commit,
+                    } if file_list_of_marked_commit_is_shown => {
+                        // The file list belongs to the rewritten commit, so it must follow the
+                        // rewrite. Discarding hunks can leave every listed file in place, such as
+                        // a renamed file, so the commit isn't necessarily empty.
+                        Some(SelectAfterReload::RewrittenCommit {
+                            source: source.commit_id,
+                            new_commit: new_commit.commit_id,
+                            details_section: None,
+                        })
+                    }
+                    DiscardOutcome::CommittedChanges {
+                        source,
+                        paths: _,
+                        new_commit,
+                    } => map_selected_commits(select_after_reload, |commit_id| {
+                        if commit_id == source.commit_id {
+                            new_commit.commit_id
+                        } else {
+                            commit_id
+                        }
+                    }),
+                    DiscardOutcome::Branches(_)
+                    | DiscardOutcome::Uncommitted { .. }
+                    | DiscardOutcome::Worktree(_) => select_after_reload,
+                };
+
+                drop(drop_to_be_discarded);
+
+                messages.extend([
+                    Message::ClearMarks,
+                    Message::EnterNormalModeAfterConfirmingOperation,
+                    Message::Reload(select_after_reload, ReloadCause::Mutation),
+                ]);
+
+                Ok(())
+            },
+        );
+
+        self.modal = Some(Modal::Confirm { confirm });
+
+        Ok(())
+    }
+}
+
+/// Discards the marked committed files and hunks, which all come from one commit.
+pub(in crate::command::legacy::status::tui) fn committed_discard_operation(
+    marks: &NonEmpty<CommittedMark>,
+) -> anyhow::Result<DiscardOperation> {
+    let source = marks.head.committed_file().to_commit_id();
+    anyhow::ensure!(
+        marks
+            .tail
+            .iter()
+            .all(|mark| mark.committed_file().commit_id == source.commit_id),
+        "BUG: marked committed changes must come from one commit"
+    );
+    let changes = committed_changes_to_act_on(marks).map(|mark| match mark {
+        CommittedMark::File(file) => CommittedDiscardSource::File(file.clone()),
+        CommittedMark::Hunk(hunk) => CommittedDiscardSource::Hunk(hunk.clone()),
+    });
+    Ok(DiscardOperation::Committed { source, changes })
+}
+
+fn map_selected_commits(
+    selection: Option<SelectAfterReload>,
+    mut map: impl FnMut(ObjectId) -> ObjectId,
+) -> Option<SelectAfterReload> {
+    selection.map(|selection| match selection {
+        SelectAfterReload::Commit(commit_id) => SelectAfterReload::Commit(map(commit_id)),
+        SelectAfterReload::FirstFileInCommit(commit_id) => {
+            SelectAfterReload::FirstFileInCommit(map(commit_id))
+        }
+        SelectAfterReload::Branch(name) => SelectAfterReload::Branch(name),
+        SelectAfterReload::Uncommitted => SelectAfterReload::Uncommitted,
+        SelectAfterReload::UncommittedFile { path } => SelectAfterReload::UncommittedFile { path },
+        SelectAfterReload::UncommittedDetailsSection { index, direction } => {
+            SelectAfterReload::UncommittedDetailsSection { index, direction }
+        }
+        SelectAfterReload::RewrittenCommit {
+            source,
+            new_commit,
+            details_section,
+        } => SelectAfterReload::RewrittenCommit {
+            source,
+            new_commit,
+            details_section,
+        },
+        SelectAfterReload::CliId(cli_id) => SelectAfterReload::CliId(cli_id),
+        SelectAfterReload::Worktree(name) => SelectAfterReload::Worktree(name),
+    })
+}
+
+pub(in crate::command::legacy::status::tui) fn run_discard(
+    ctx: &mut Context,
+    operation: DiscardOperation,
+) -> anyhow::Result<DiscardOutcome> {
+    let mut guard = ctx.exclusive_worktree_access();
+    let mut meta = ctx.meta()?;
+    let (outcome, _ws) = discard::run(
+        ctx,
+        &mut meta,
+        guard.write_permission(),
+        operation,
+        gitbutler_oplog::entry::OperationKind::Discard,
+    )?;
+    Ok(outcome)
+}

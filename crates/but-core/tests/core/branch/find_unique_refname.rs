@@ -72,12 +72,15 @@ fn it_considers_remote_tracking_branches_even_if_unregistered() -> anyhow::Resul
 #[test]
 fn registered_remotes_help_deal_with_slashed_remote_names() -> anyhow::Result<()> {
     let repo = read_only_in_memory_scenario("multiple-remotes-with-tracking-branches")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, 
-        @"
-    * 14f7926 (nested/remote-b/main, nested/remote-b/in-nested-remote-b, nested/remote-b/HEAD) init-c
-    * 5efb67f (nested/remote/main, nested/remote/in-nested-remote, nested/remote/HEAD) init-b
-    * 263500f (origin/normal-remote, origin/main, origin/HEAD) init-a
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 14f7926 (nested/remote-b/main, nested/remote-b/in-nested-remote-b, nested/remote-b/HEAD) init-c
+* 5efb67f (nested/remote/main, nested/remote/in-nested-remote, nested/remote/HEAD) init-b
+* 263500f (origin/normal-remote, origin/main, origin/HEAD) init-a
+
+"#]]
+    );
 
     let unique = find_unique_refname(&repo, "refs/heads/in-nested-remote".try_into()?)?;
     assert_eq!(
@@ -128,5 +131,26 @@ fn returns_original_if_unique() -> anyhow::Result<()> {
     let unique = find_unique_refname(&repo, branch_1.as_ref())?;
     assert_eq!(unique, branch_1);
 
+    Ok(())
+}
+
+#[test]
+fn names_claimed_by_the_caller_are_skipped() -> anyhow::Result<()> {
+    let repo = but_testsupport::read_only_in_memory_scenario("unborn-empty")?;
+    let template: gix::refs::FullName = "refs/heads/feature".try_into()?;
+    let reserved: [gix::refs::FullName; 2] = [
+        "refs/heads/feature".try_into()?,
+        "refs/heads/feature-1".try_into()?,
+    ];
+
+    let unique =
+        but_core::branch::find_unique_refname_excluding(&repo, template.as_ref(), |name| {
+            reserved.iter().any(|taken| taken.as_ref() == name)
+        })?;
+    assert_eq!(
+        unique.shorten(),
+        "feature-2",
+        "names the caller reserved count as taken even though the repository lacks them"
+    );
     Ok(())
 }

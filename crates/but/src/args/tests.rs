@@ -1,7 +1,353 @@
 use super::*;
 
-mod commit;
+#[cfg(feature = "legacy")]
+mod amend;
+#[cfg(feature = "legacy")]
+mod diff;
+#[cfg(feature = "legacy")]
 mod reword;
+
+mod find_subcommand {
+    fn found(args: &[&str]) -> Option<String> {
+        let args: Vec<std::ffi::OsString> = args.iter().map(Into::into).collect();
+        crate::args::find_subcommand(&args).map(|(_, name)| name.to_string_lossy().into_owned())
+    }
+
+    #[test]
+    fn skips_root_options_including_short_clusters() {
+        assert_eq!(found(&["but", "move", "ab"]).as_deref(), Some("move"));
+        assert_eq!(found(&["but", "-C", ".", "move"]).as_deref(), Some("move"));
+        // Clap accepts `-C`'s value clustered behind other shorts or attached.
+        assert_eq!(found(&["but", "-tC", ".", "move"]).as_deref(), Some("move"));
+        assert_eq!(
+            found(&["but", "-ttC", ".", "move"]).as_deref(),
+            Some("move")
+        );
+        assert_eq!(found(&["but", "-tC.", "move"]).as_deref(), Some("move"));
+        assert_eq!(found(&["but", "-C.", "move"]).as_deref(), Some("move"));
+        assert_eq!(found(&["but", "-t", "move"]).as_deref(), Some("move"));
+        assert_eq!(found(&["but", "-t"]), None);
+    }
+}
+
+mod config_ai {
+    use clap::Parser;
+
+    use crate::args::{
+        Args, Subcommands,
+        config::{AiKeyOption, AiSubcommand, Platform as ConfigPlatform, Subcommands as ConfigCmd},
+    };
+
+    #[test]
+    fn interactive_defaults_to_global_scope() {
+        let args = Args::try_parse_from(["but", "config", "ai"]).expect("parse args");
+        let cmd = args.cmd.expect("subcommand");
+
+        match cmd {
+            Subcommands::Config(ConfigPlatform {
+                cmd: Some(ConfigCmd::Ai { local, global, cmd }),
+            }) => {
+                assert!(!local);
+                assert!(!global);
+                assert!(cmd.is_none());
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn openai_non_interactive_parses_provider_flags() {
+        let args = Args::try_parse_from([
+            "but",
+            "config",
+            "ai",
+            "openai",
+            "--key-option",
+            "bring-your-own",
+            "--model",
+            "gpt-5.4-nano",
+            "--endpoint",
+            "https://api.openai.com/v1",
+            "--api-key-env",
+            "OPENAI_API_KEY",
+        ])
+        .expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Config(ConfigPlatform {
+                cmd:
+                    Some(ConfigCmd::Ai {
+                        cmd:
+                            Some(AiSubcommand::Openai {
+                                key_option,
+                                model,
+                                endpoint,
+                                api_key,
+                                api_key_env,
+                            }),
+                        ..
+                    }),
+            }) => {
+                assert!(matches!(key_option, Some(AiKeyOption::BringYourOwn)));
+                assert_eq!(model.as_deref(), Some("gpt-5.4-nano"));
+                assert_eq!(endpoint.as_deref(), Some("https://api.openai.com/v1"));
+                assert!(api_key.is_none());
+                assert_eq!(api_key_env.as_deref(), Some("OPENAI_API_KEY"));
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn local_scope_flag_parses_before_provider() {
+        let args = Args::try_parse_from([
+            "but",
+            "config",
+            "ai",
+            "--local",
+            "ollama",
+            "--endpoint",
+            "localhost:11434",
+            "--model",
+            "llama3.1",
+        ])
+        .expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Config(ConfigPlatform {
+                cmd:
+                    Some(ConfigCmd::Ai {
+                        local,
+                        global,
+                        cmd: Some(AiSubcommand::Ollama { endpoint, model }),
+                    }),
+            }) => {
+                assert!(local);
+                assert!(!global);
+                assert_eq!(endpoint.as_deref(), Some("localhost:11434"));
+                assert_eq!(model.as_deref(), Some("llama3.1"));
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn show_subcommand_parses() {
+        let args = Args::try_parse_from(["but", "config", "ai", "show"]).expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Config(ConfigPlatform {
+                cmd:
+                    Some(ConfigCmd::Ai {
+                        local,
+                        global,
+                        cmd: Some(AiSubcommand::Show),
+                    }),
+            }) => {
+                assert!(!local);
+                assert!(!global);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+}
+
+mod agent_setup {
+    use clap::Parser;
+
+    use crate::args::{
+        Args, Subcommands,
+        agent::{Platform as AgentPlatform, Subcommands as AgentCmd},
+    };
+
+    #[test]
+    fn parses_agent_setup() {
+        let args = Args::try_parse_from(["but", "agent", "setup"]).expect("parse args");
+        let cmd = args.cmd.expect("subcommand");
+
+        match cmd {
+            Subcommands::Agent(AgentPlatform {
+                cmd: Some(AgentCmd::Setup { print, .. }),
+            }) => assert!(!print),
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_agent_setup_print() {
+        let args = Args::try_parse_from(["but", "agent", "setup", "--print"]).expect("parse args");
+        let cmd = args.cmd.expect("subcommand");
+
+        match cmd {
+            Subcommands::Agent(AgentPlatform {
+                cmd: Some(AgentCmd::Setup { print, .. }),
+            }) => assert!(print),
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_bare_agent_as_no_subcommand() {
+        // Bare `but agent` parses with no subcommand; the handler treats this as
+        // running the setup wizard.
+        let args = Args::try_parse_from(["but", "agent"]).expect("parse args");
+        let cmd = args.cmd.expect("subcommand");
+
+        match cmd {
+            Subcommands::Agent(AgentPlatform { cmd: None }) => {}
+            _ => panic!("unexpected command shape"),
+        }
+    }
+}
+
+mod branch_update {
+    use clap::Parser;
+
+    use crate::args::{
+        Args, Subcommands,
+        branch::{IntegrationStrategy, Platform, Subcommands as BranchSubcommands},
+    };
+
+    #[test]
+    fn parses_branch_update_with_defaults() {
+        let args =
+            Args::try_parse_from(["but", "branch", "update", "feature"]).expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Branch(Platform {
+                cmd:
+                    Some(BranchSubcommands::Update {
+                        branch,
+                        strategy,
+                        dry_run,
+                        verbose,
+                        interactive,
+                    }),
+            }) => {
+                assert_eq!(branch, "feature");
+                assert_eq!(strategy, IntegrationStrategy::PullRebase);
+                assert!(!dry_run);
+                assert!(!verbose);
+                assert!(!interactive);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_branch_update_pull_rebase_strategy() {
+        let args = Args::try_parse_from([
+            "but",
+            "branch",
+            "update",
+            "feature",
+            "--strategy",
+            "pull-rebase",
+        ])
+        .expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Branch(Platform {
+                cmd:
+                    Some(BranchSubcommands::Update {
+                        strategy: IntegrationStrategy::PullRebase,
+                        ..
+                    }),
+            }) => {}
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_branch_update_smart_squash_strategy() {
+        let args =
+            Args::try_parse_from(["but", "branch", "update", "feature", "-s", "smart-squash"])
+                .expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Branch(Platform {
+                cmd:
+                    Some(BranchSubcommands::Update {
+                        strategy: IntegrationStrategy::SmartSquash,
+                        ..
+                    }),
+            }) => {}
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_branch_update_interactive_with_other_flags() {
+        let args = Args::try_parse_from([
+            "but",
+            "branch",
+            "update",
+            "feature",
+            "--dry-run",
+            "--interactive",
+            "--strategy",
+            "merge",
+        ])
+        .expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Branch(Platform {
+                cmd:
+                    Some(BranchSubcommands::Update {
+                        strategy: IntegrationStrategy::Merge,
+                        dry_run,
+                        verbose,
+                        interactive,
+                        ..
+                    }),
+            }) => {
+                assert!(dry_run);
+                assert!(!verbose);
+                assert!(interactive);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_branch_update_verbose_short_flag() {
+        let args =
+            Args::try_parse_from(["but", "branch", "update", "feature", "-v"]).expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Branch(Platform {
+                cmd: Some(BranchSubcommands::Update { verbose, .. }),
+            }) => {
+                assert!(verbose);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_branch_update_interactive() {
+        let args = Args::try_parse_from(["but", "branch", "update", "feature", "--interactive"])
+            .expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Branch(Platform {
+                cmd: Some(BranchSubcommands::Update { interactive, .. }),
+            }) => {
+                assert!(interactive);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+}
 
 #[test]
 fn clap() {
@@ -9,7 +355,333 @@ fn clap() {
     Args::command().debug_assert();
 }
 
+#[test]
+fn help_parses_without_topic() {
+    use clap::Parser;
+
+    let args = Args::try_parse_from(["but", "help"]).expect("parse help args");
+
+    match args.cmd.expect("subcommand") {
+        Subcommands::Help { topic } => assert_eq!(topic, None),
+        _ => panic!("unexpected command shape"),
+    }
+}
+
+#[test]
+fn help_parses_cli_ids_topic() {
+    use clap::Parser;
+
+    let args = Args::try_parse_from(["but", "help", "cli-ids"]).expect("parse help topic args");
+
+    match args.cmd.expect("subcommand") {
+        Subcommands::Help { topic } => assert_eq!(topic, Some(HelpTopic::CliIds)),
+        _ => panic!("unexpected command shape"),
+    }
+}
+
+#[test]
+fn help_rejects_unknown_topic() {
+    use clap::Parser;
+
+    let err = Args::try_parse_from(["but", "help", "unknown-topic"]).expect_err("reject topic");
+    assert!(
+        err.to_string().contains("unknown-topic"),
+        "rejected topic should appear in clap error"
+    );
+}
+
+#[test]
+fn mcp_command_is_hidden_but_still_parses() {
+    use clap::{CommandFactory, Parser};
+
+    let args = Args::try_parse_from(["but", "mcp", "serve"]).expect("parse hidden mcp command");
+    assert!(
+        matches!(
+            args.cmd,
+            Some(Subcommands::Mcp(mcp::Platform {
+                cmd: mcp::Subcommands::Serve
+            }))
+        ),
+        "hidden MCP command should remain callable"
+    );
+
+    let help = Args::command().render_long_help().to_string();
+    assert!(
+        !help
+            .lines()
+            .any(|line| line.trim_start().starts_with("mcp ")),
+        "MCP command should stay hidden from top-level help"
+    );
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn status_short_is_hidden_noop_compatibility_flag() {
+    use clap::Parser;
+
+    let args = Args::try_parse_from(["but", "status", "--short"]).expect("parse status --short");
+    let cmd = args.cmd.expect("subcommand");
+
+    match cmd {
+        Subcommands::Status {
+            show_files,
+            verbose,
+            refresh_prs,
+            upstream,
+            no_hint,
+            short,
+        } => {
+            assert!(short, "compatibility-only flag should parse");
+            assert!(!show_files);
+            assert!(!verbose);
+            assert!(!refresh_prs);
+            assert!(!upstream);
+            assert!(!no_hint);
+        }
+        _ => panic!("unexpected command shape"),
+    }
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn status_short_is_not_shown_in_help() {
+    use clap::CommandFactory;
+
+    let mut command = Args::command();
+    let status = command
+        .find_subcommand_mut("status")
+        .expect("status command");
+    let help = status.render_long_help().to_string();
+
+    assert!(
+        !help.contains("--short"),
+        "compatibility-only flag should stay hidden from status help"
+    );
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn diff_help_explains_single_target() {
+    use clap::CommandFactory;
+
+    let mut command = Args::command();
+    let diff = command.find_subcommand_mut("diff").expect("diff command");
+    let help = diff.render_long_help().to_string();
+    let help = help.split_whitespace().collect::<Vec<_>>().join(" ");
+
+    assert!(
+        help.contains("TARGET accepts at most one entity"),
+        "diff help should state that only one target is accepted"
+    );
+    assert!(
+        help.contains("run this command once per entity"),
+        "diff help should explain how to inspect several targets"
+    );
+}
+
+#[test]
+fn status_after_is_global_and_shown_in_help() {
+    use clap::{CommandFactory, Parser};
+
+    let before = Args::try_parse_from(["but", "--status-after", "branch"])
+        .expect("parse status-after before command");
+    let after = Args::try_parse_from(["but", "branch", "--status-after"])
+        .expect("parse status-after after command");
+    assert!(
+        before.status_after,
+        "a global status-after flag must parse before a built-in command"
+    );
+    assert!(
+        after.status_after,
+        "a global status-after flag must parse after a built-in command"
+    );
+
+    let help = Args::command().render_long_help().to_string();
+    assert!(
+        help.contains("--status-after"),
+        "status opt-in should be discoverable in help"
+    );
+    assert!(
+        help.contains("next step needs IDs or details"),
+        "help should explain when status is useful"
+    );
+}
+
+mod config_target {
+    use clap::Parser;
+
+    use crate::args::{
+        Args, Subcommands,
+        config::{Platform as ConfigPlatform, Subcommands as ConfigCmd},
+    };
+
+    #[test]
+    fn parses_push_remote_for_fork() {
+        let args = Args::try_parse_from([
+            "but",
+            "config",
+            "target",
+            "upstream/main",
+            "--push-remote",
+            "origin",
+        ])
+        .expect("parse args");
+
+        match args.cmd.expect("subcommand") {
+            Subcommands::Config(ConfigPlatform {
+                cmd:
+                    Some(ConfigCmd::Target {
+                        branch,
+                        push_remote,
+                    }),
+            }) => {
+                assert_eq!(branch.as_deref(), Some("upstream/main"));
+                assert_eq!(push_remote.as_deref(), Some("origin"));
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_standalone_push_remote() {
+        let args = Args::try_parse_from(["but", "config", "push-remote", "origin"])
+            .expect("parse standalone push remote");
+
+        assert!(matches!(
+            args.cmd,
+            Some(Subcommands::Config(ConfigPlatform {
+                cmd: Some(ConfigCmd::PushRemote { remote: Some(remote) }),
+            })) if remote == "origin"
+        ));
+    }
+
+    #[test]
+    fn target_push_remote_still_requires_target_branch() {
+        let err = Args::try_parse_from(["but", "config", "target", "--push-remote", "origin"])
+            .expect_err("target push remote requires a target branch");
+
+        assert_eq!(err.kind(), clap::error::ErrorKind::MissingRequiredArgument);
+    }
+}
+
+mod config_feature {
+    use clap::Parser;
+
+    use crate::args::{
+        Args, Subcommands,
+        config::{Platform as ConfigPlatform, Subcommands as ConfigCmd},
+    };
+
+    #[test]
+    fn parses_feature_list() {
+        let args = Args::try_parse_from(["but", "config", "feature"]).expect("parse feature list");
+
+        assert!(matches!(
+            args.cmd,
+            Some(Subcommands::Config(ConfigPlatform {
+                cmd: Some(ConfigCmd::Feature {
+                    flag: None,
+                    status: None,
+                }),
+            }))
+        ));
+    }
+
+    #[test]
+    fn rejects_removed_single_branch_flag() {
+        let err = Args::try_parse_from(["but", "config", "feature", "single-branch", "enable"])
+            .expect_err("single-branch mode no longer has a feature flag");
+
+        assert_eq!(
+            err.kind(),
+            clap::error::ErrorKind::InvalidValue,
+            "removed feature flags should not be accepted"
+        );
+    }
+
+    #[test]
+    fn rejects_feature_status_without_flag() {
+        let err = Args::try_parse_from(["but", "config", "feature", "enable"])
+            .expect_err("feature status without flag is invalid");
+
+        assert_eq!(err.kind(), clap::error::ErrorKind::InvalidValue);
+    }
+}
+
+#[test]
+fn output_format_agent_is_text_without_human_ui() {
+    let format = OutputFormat::Human { agent: true };
+
+    assert!(format.is_human_text(), "is human text");
+    assert!(format.is_text(), "is text");
+    assert!(!format.allows_human_ui(), "doesn't allow human ui");
+    assert!(!format.allows_truncation(), "doesn't allow truncation");
+    assert!(!format.is_json(), "is not json");
+}
+
+mod agentlog {
+    use clap::Parser;
+
+    use crate::args::{Args, Subcommands};
+
+    #[test]
+    fn publish_parses_branch_shorthand() {
+        let args =
+            Args::try_parse_from(["but", "agentlog", "publish", "main"]).expect("parse args");
+        let cmd = args.cmd.expect("subcommand");
+
+        match cmd {
+            Subcommands::AgentLog {
+                cmd:
+                    but_agentlog::Command::Publish {
+                        branch_or_target,
+                        value,
+                        dry_run,
+                    },
+            } => {
+                assert_eq!(branch_or_target, "main");
+                assert_eq!(value, None);
+                assert!(!dry_run);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn publish_parses_explicit_review_target() {
+        let args = Args::try_parse_from([
+            "but",
+            "agentlog",
+            "publish",
+            "review",
+            "review-1",
+            "--dry-run",
+        ])
+        .expect("parse args");
+        let cmd = args.cmd.expect("subcommand");
+
+        match cmd {
+            Subcommands::AgentLog {
+                cmd:
+                    but_agentlog::Command::Publish {
+                        branch_or_target,
+                        value,
+                        dry_run,
+                    },
+            } => {
+                assert_eq!(branch_or_target, "review");
+                assert_eq!(value.as_deref(), Some("review-1"));
+                assert!(dry_run);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+}
+
+#[cfg(feature = "legacy")]
 mod push {
+    use clap::Parser;
+
     #[cfg(feature = "legacy")]
     mod get_gerrit_flags {
         use crate::{args::push::Command as Args, command::legacy::push::get_gerrit_flags};
@@ -20,7 +692,7 @@ mod push {
                 branch_id: Some("test".to_string()),
                 with_force: true,
                 skip_force_push_protection: false,
-                run_hooks: true,
+                no_hooks: false,
                 wip: false,
                 ready: false,
                 hashtag: vec![],
@@ -28,6 +700,7 @@ mod push {
                 topic_from_branch: false,
                 private: false,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", false);
@@ -41,7 +714,7 @@ mod push {
                 branch_id: Some("test".to_string()),
                 with_force: true,
                 skip_force_push_protection: false,
-                run_hooks: true,
+                no_hooks: false,
                 wip: true,
                 ready: false,
                 hashtag: vec![],
@@ -49,6 +722,7 @@ mod push {
                 topic_from_branch: false,
                 private: false,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", false);
@@ -67,7 +741,7 @@ mod push {
                 branch_id: Some("test".to_string()),
                 with_force: true,
                 skip_force_push_protection: false,
-                run_hooks: true,
+                no_hooks: false,
                 wip: false,
                 ready: false,
                 hashtag: vec![],
@@ -75,6 +749,7 @@ mod push {
                 topic_from_branch: false,
                 private: false,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -90,7 +765,7 @@ mod push {
                 branch_id: Some("test".to_string()),
                 with_force: true,
                 skip_force_push_protection: false,
-                run_hooks: true,
+                no_hooks: false,
                 wip: true,
                 ready: false,
                 hashtag: vec![],
@@ -98,6 +773,7 @@ mod push {
                 topic_from_branch: false,
                 private: false,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -113,7 +789,7 @@ mod push {
                 branch_id: Some("test".to_string()),
                 with_force: true,
                 skip_force_push_protection: false,
-                run_hooks: true,
+                no_hooks: false,
                 wip: false,
                 ready: false,
                 hashtag: vec!["tag1".to_string(), "tag2".to_string(), "tag3".to_string()],
@@ -121,6 +797,7 @@ mod push {
                 topic_from_branch: false,
                 private: false,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -147,7 +824,7 @@ mod push {
                 branch_id: Some("test".to_string()),
                 with_force: true,
                 skip_force_push_protection: false,
-                run_hooks: true,
+                no_hooks: false,
                 wip: false,
                 ready: false,
                 hashtag: vec![],
@@ -155,6 +832,7 @@ mod push {
                 topic_from_branch: false,
                 private: false,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -178,7 +856,7 @@ mod push {
                 branch_id: Some("test".to_string()),
                 with_force: true,
                 skip_force_push_protection: false,
-                run_hooks: true,
+                no_hooks: false,
                 wip: false,
                 ready: false,
                 hashtag: vec![],
@@ -186,6 +864,7 @@ mod push {
                 topic_from_branch: true,
                 private: false,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "my-branch-name", true);
@@ -209,7 +888,7 @@ mod push {
                 branch_id: Some("test".to_string()),
                 with_force: true,
                 skip_force_push_protection: false,
-                run_hooks: true,
+                no_hooks: false,
                 wip: false,
                 ready: false,
                 hashtag: vec![],
@@ -217,6 +896,7 @@ mod push {
                 topic_from_branch: false,
                 private: true,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -237,7 +917,7 @@ mod push {
                 branch_id: Some("test".to_string()),
                 with_force: true,
                 skip_force_push_protection: false,
-                run_hooks: true,
+                no_hooks: false,
                 wip: true,
                 ready: false,
                 hashtag: vec!["tag1".to_string(), "tag2".to_string()],
@@ -245,6 +925,7 @@ mod push {
                 topic_from_branch: false,
                 private: true,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -283,7 +964,7 @@ mod push {
                 branch_id: Some("test".to_string()),
                 with_force: true,
                 skip_force_push_protection: false,
-                run_hooks: true,
+                no_hooks: false,
                 wip: false,
                 ready: false,
                 hashtag: vec!["  ".to_string()],
@@ -291,6 +972,7 @@ mod push {
                 topic_from_branch: false,
                 private: false,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -309,7 +991,7 @@ mod push {
                 branch_id: Some("test".to_string()),
                 with_force: true,
                 skip_force_push_protection: false,
-                run_hooks: true,
+                no_hooks: false,
                 wip: false,
                 ready: false,
                 hashtag: vec![],
@@ -317,6 +999,7 @@ mod push {
                 topic_from_branch: false,
                 private: false,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -327,6 +1010,78 @@ mod push {
                     .to_string()
                     .contains("Topic cannot be empty")
             );
+        }
+    }
+
+    #[test]
+    fn defaults_to_running_hooks() {
+        let args = crate::args::Args::try_parse_from(["but", "push", "topic"]).expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            crate::args::Subcommands::Push(crate::args::push::Command { no_hooks, .. }) => {
+                assert!(!no_hooks);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_no_hooks_and_alias() {
+        for argv in [
+            ["but", "push", "topic", "--no-hooks"],
+            ["but", "push", "topic", "--no-verify"],
+        ] {
+            let args = crate::args::Args::try_parse_from(argv).expect("parse args");
+            let cmd = args.cmd.expect("subcommand");
+            match cmd {
+                crate::args::Subcommands::Push(crate::args::push::Command { no_hooks, .. }) => {
+                    assert!(no_hooks);
+                }
+                _ => panic!("unexpected command shape"),
+            }
+        }
+    }
+}
+
+#[cfg(feature = "legacy")]
+mod pr {
+    use clap::Parser;
+
+    #[test]
+    fn defaults_to_running_hooks() {
+        let args =
+            crate::args::Args::try_parse_from(["but", "pr", "new", "topic"]).expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            crate::args::Subcommands::Pr(crate::args::forge::pr::Platform {
+                cmd: Some(crate::args::forge::pr::Subcommands::New { no_hooks, .. }),
+                ..
+            }) => {
+                assert!(!no_hooks);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_no_hooks_and_alias() {
+        for argv in [
+            ["but", "pr", "new", "topic", "--no-hooks"],
+            ["but", "pr", "new", "topic", "--no-verify"],
+        ] {
+            let args = crate::args::Args::try_parse_from(argv).expect("parse args");
+            let cmd = args.cmd.expect("subcommand");
+            match cmd {
+                crate::args::Subcommands::Pr(crate::args::forge::pr::Platform {
+                    cmd: Some(crate::args::forge::pr::Subcommands::New { no_hooks, .. }),
+                    ..
+                }) => {
+                    assert!(no_hooks);
+                }
+                _ => panic!("unexpected command shape"),
+            }
         }
     }
 }

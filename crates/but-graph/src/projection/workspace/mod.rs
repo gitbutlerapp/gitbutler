@@ -1,11 +1,10 @@
-use anyhow::Context as _;
 use but_core::ref_metadata;
 
-use crate::{Graph, SegmentIndex, projection::Stack};
+use super::{Stack, WorktreeStack};
+use crate::{Graph, SegmentIndex};
 
-mod api;
-mod init;
-pub(crate) use init::Downgrade;
+pub(super) mod api;
+pub(crate) mod init;
 
 /// A workspace reference is a list of [Stacks](Stack), with a reference to the underlying [`Graph`].
 #[derive(Clone)]
@@ -38,20 +37,27 @@ pub struct Workspace {
     /// possibly pushed branches are considered integrated. This happens when there is a local branch
     /// checked out without a remote tracking branch.
     pub target_ref: Option<TargetRef>,
-    /// A commit reachable by [`Self::target_ref`] which we chose to keep as base. That way we can extend the workspace
+    /// A commit *typically* reachable by [`Self::target_ref`] which we chose to keep as base. That way we can extend the workspace
     /// past its computed lower bound.
     ///
     /// Indeed, it's valid to not set the reference, and to only set the commit which should act as an integration base.
+    /// This can be done by direct user override, who simply wants to cut off history at a certain movable point in time.
+    ///
+    /// It is also valid to have this field point to the same Segment as [Self::target_ref]. Both have different purposes,
+    /// semantically.
     pub target_commit: Option<TargetCommit>,
-    /// The segment index of the extra target as provided for traversal,
-    /// useful for AdHoc workspaces, but generally applicable to all workspaces to keep the lower bound lower than it
-    /// otherwise would be.
-    // TODO: could extra-target and target_commit be one and the same? They kind of are, check usages.
-    //       Probably better to keep the `target_commit`.
-    pub extra_target: Option<SegmentIndex>,
     /// Read-only workspace metadata with additional information, or `None` if nothing was present.
     /// If this is `Some()` the `kind` is always [`WorkspaceKind::Managed`]
+    ///
+    /// # WARNING
+    ///
+    /// Do not use this data to understand the workspace. It's unreconciled metadata which may
+    /// have nothing to do with the actual workspace.
+    /// To see that, look at [Self::stacks].
     pub metadata: Option<ref_metadata::Workspace>,
+    /// The linked worktrees the traversal was [seeded with](crate::init::Options::worktrees), in
+    /// [tip order](Graph::worktree_tips), each with the first-parent history it owns.
+    pub worktrees: Vec<WorktreeStack>,
 }
 
 /// A copy of all workspace state, to pass it around internally.
@@ -63,38 +69,8 @@ pub(crate) struct WorkspaceState {
     pub lower_bound_segment_id: Option<SegmentIndex>,
     pub target_ref: Option<TargetRef>,
     pub target_commit: Option<TargetCommit>,
-    pub extra_target: Option<SegmentIndex>,
     pub metadata: Option<ref_metadata::Workspace>,
-}
-
-impl Workspace {
-    fn from_state(
-        graph: Graph,
-        WorkspaceState {
-            id,
-            kind,
-            stacks,
-            lower_bound,
-            lower_bound_segment_id,
-            target_ref,
-            target_commit,
-            extra_target,
-            metadata,
-        }: WorkspaceState,
-    ) -> Self {
-        Workspace {
-            graph,
-            id,
-            kind,
-            stacks,
-            lower_bound,
-            lower_bound_segment_id,
-            target_ref,
-            target_commit,
-            extra_target,
-            metadata,
-        }
-    }
+    pub worktrees: Vec<WorktreeStack>,
 }
 
 /// A classifier for the workspace.
@@ -122,7 +98,7 @@ pub enum WorkspaceKind {
     ///
     /// It can be inside or outside a workspace.
     /// If the respective segment is [not named](Workspace::ref_name), this means the `HEAD` id detached.
-    /// The commit that the working tree is at is always implied to be the first commit of the [`crate::projection::StackSegment`]
+    /// The commit that the working tree is at is always implied to be the first commit of the [`crate::workspace::StackSegment`]
     /// at [`Workspace::id`].
     AdHoc,
 }
@@ -132,10 +108,22 @@ impl WorkspaceKind {
     /// by means of workspace metadata that is associated with that ref.
     /// If `false`, we are more conservative and may not support all features.
     pub fn has_managed_ref(&self) -> bool {
-        matches!(
-            self,
-            WorkspaceKind::Managed { .. } | WorkspaceKind::ManagedMissingWorkspaceCommit { .. }
-        )
+        match self {
+            WorkspaceKind::Managed { .. } | WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => {
+                true
+            }
+            WorkspaceKind::AdHoc => false,
+        }
+    }
+
+    /// Return `true` if this workspace is adhoc.
+    pub fn has_adhoc_ref(&self) -> bool {
+        match self {
+            WorkspaceKind::Managed { .. } | WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => {
+                false
+            }
+            WorkspaceKind::AdHoc => true,
+        }
     }
 
     /// Return `true` if we have a workspace commit, a commit that merges all stacks together.
@@ -145,16 +133,8 @@ impl WorkspaceKind {
     }
 }
 
-impl WorkspaceKind {
-    fn managed(ref_info: &Option<crate::RefInfo>) -> anyhow::Result<Self> {
-        let ref_info = ref_info
-            .clone()
-            .context("BUG: managed workspaces must always be on a named segment")?;
-        Ok(WorkspaceKind::Managed { ref_info })
-    }
-}
-
-/// Information about the target reference.
+/// Information about the target reference, which marks a portion in the commit-graph
+/// that the workspace wants to integrate with.
 #[derive(Debug, Clone)]
 pub struct TargetRef {
     /// The name of the target branch, i.e. the branch that all [Stacks](Stack) want to get merged into.
@@ -162,30 +142,43 @@ pub struct TargetRef {
     pub ref_name: gix::refs::FullName,
     /// The index to the respective segment in the graph, it's the segment with [`Self::ref_name`] as name.
     pub segment_index: SegmentIndex,
-    /// The amount of commits that aren't included in any segment in the workspace, they are in its future.
+    /// The amount of *all* commits that aren't included in any segment in the workspace, they are in its future.
     pub commits_ahead: usize,
 }
 
-/// Information about the target commit.
+/// Information about the target commit, which marks a portion in the commit-graph
+/// that the workspace wants to integrate with.
+///
+/// It's an unnamed point of interest which may
+/// be set by any means. Typically, it's set by using a stored value, which makes it
+/// a point in time at which we have seen the [`TargetRef`].
 #[derive(Debug, Clone)]
 pub struct TargetCommit {
     /// The hash of the commit that was once included in the [target ref](TargetRef), and that we remember to expand
     /// the reach of the workspace.
     pub commit_id: gix::ObjectId,
-    /// The index to the respective segment in the graph for which [`Self::commit_id`] is the first commit.
+    /// The index to the respective segment in the graph that contains [`Self::commit_id`].
     pub segment_index: SegmentIndex,
 }
 
 impl TargetCommit {
     /// Find `target_commit_id` in the `graph` and store its segment in this instance, or return `None` if not found.
+    /// The `None` case is acceptable as we consider these possibly stored.
     fn from_commit(target_commit_id: gix::ObjectId, graph: &Graph) -> Option<Self> {
-        graph.node_weights().find_map(|s| {
-            s.commits.first().and_then(|c| {
-                (c.id == target_commit_id).then_some(TargetCommit {
-                    commit_id: target_commit_id,
-                    segment_index: s.id,
-                })
-            })
+        let segment = graph.segment_by_commit_id(target_commit_id).ok()?;
+        let commit_index = segment.commit_index_of(target_commit_id)?;
+        if commit_index != 0 {
+            tracing::warn!(
+                current = ?target_commit_id,
+                segment = ?segment.id,
+                commit_index,
+                "Ignoring stored target commit because it is not the first commit in its segment"
+            );
+            return None;
+        }
+        Some(TargetCommit {
+            commit_id: target_commit_id,
+            segment_index: segment.id,
         })
     }
 }
@@ -193,32 +186,31 @@ impl TargetCommit {
 impl TargetRef {
     /// Return `None` if `ref_name` wasn't found as segment in `graph`.
     /// This can happen if a reference is configured, but not actually present as reference.
-    /// Note that `commits_ahead` isn't set yet, see [`Self::compute_and_set_commits_ahead()`].
+    /// Note that `commits_ahead` isn't set yet, see [`Self::commits_ahead()`].
     fn from_ref_name_without_commits_ahead(
-        ref_name: &gix::refs::FullName,
+        ref_name: &gix::refs::FullNameRef,
         graph: &Graph,
     ) -> Option<Self> {
-        let target_segment_sidx = graph.inner.node_indices().find_map(|n| {
-            let s = &graph[n];
-            (s.ref_name() == Some(ref_name.as_ref())).then_some(s.id)
-        })?;
         Some(TargetRef {
             ref_name: ref_name.to_owned(),
-            segment_index: target_segment_sidx,
+            segment_index: graph.segment_by_ref_name(ref_name)?.id,
             commits_ahead: 0,
         })
     }
 
-    fn compute_and_set_commits_ahead(
-        &mut self,
+    /// Count the commits of the target at `target_segment` that aren't in the workspace, stopping
+    /// at `lower_bound_segment`.
+    pub(crate) fn commits_ahead(
         graph: &Graph,
+        target_segment: SegmentIndex,
         lower_bound_segment: Option<SegmentIndex>,
-    ) {
+    ) -> usize {
         let lower_bound = lower_bound_segment.map(|sidx| (sidx, graph[sidx].generation));
-        self.commits_ahead = 0;
-        Self::visit_upstream_commits(graph, self.segment_index, lower_bound, |s| {
-            self.commits_ahead += s.commits.len();
-        })
+        let mut commits_ahead = 0;
+        Self::visit_upstream_commits(graph, target_segment, lower_bound, |s| {
+            commits_ahead += s.commits.len();
+        });
+        commits_ahead
     }
 }
 

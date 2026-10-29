@@ -6,7 +6,7 @@ use but_path::AppChannel;
 ///
 /// This expects that the GUI application is present and has correctly registered URL
 /// schemes for the different channels.
-pub fn open(possibly_project_dir: &std::path::Path) -> Result<()> {
+pub fn open(possibly_project_dir: &std::path::Path, new_window: bool) -> Result<()> {
     if !possibly_project_dir.is_dir() {
         anyhow::bail!(
             "Can only open the GUI on directories: '{not_dir}'",
@@ -21,6 +21,6 @@ pub fn open(possibly_project_dir: &std::path::Path) -> Result<()> {
             possibly_project_dir.display()
         )
     })?;
-    channel.open(&absolute_path)?;
+    channel.open(&absolute_path, new_window)?;
     Ok(())
 }

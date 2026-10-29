@@ -1,0 +1,2051 @@
+use bstr::ByteSlice;
+
+use crate::{
+    command::util::{
+        self, add_dirty_worktree, add_worktree_with_commit,
+        commit_file_with_worktree_changes_as_two_hunks,
+    },
+    utils::{CommandExt as _, Sandbox},
+};
+
+#[test]
+fn rejects_unnamed_segment_as_source() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
+    env.setup_metadata(&["A"]);
+
+    env.but("discard g0")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot operate on anonymous branch 'g0'
+
+Hint: Name it with `but reword g0` first! Note that the short ID is likely to change when the branch is named.
+
+"#]]);
+}
+
+#[test]
+fn discard_removes_selected_change() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("src/discard-me.ts", "export const value = true;\n");
+
+    env.but("discard src/discard-me.ts").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    assert!(
+        !env.projects_root().join("src/discard-me.ts").exists(),
+        "discarding a new file should remove it from the worktree"
+    );
+}
+
+#[test]
+fn discard_removes_path_prefix_mixed_with_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("path/to/first.txt", "first\n");
+    env.file("path/to/second.txt", "second\n");
+    env.file("path/to-other.txt", "outside the prefix\n");
+    env.file("also-discard.txt", "selected separately\n");
+
+    env.but("discard path/to/ also-discard.txt")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   nl A path/to-other.txt
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+}
+
+#[test]
+fn concurrent_discard_to_independent_files_succeeds() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("src/a/discard.ts", "export const a = true;\n");
+    env.file("src/b/discard.ts", "export const b = true;\n");
+
+    let child_a = util::but_std_cmd(&env, "discard src/a/discard.ts")
+        .spawn()
+        .unwrap();
+    let child_b = util::but_std_cmd(&env, "discard src/b/discard.ts")
+        .spawn()
+        .unwrap();
+
+    let out_a = child_a.wait_with_output().unwrap();
+    let out_b = child_b.wait_with_output().unwrap();
+
+    assert!(
+        out_a.status.success(),
+        "first discard failed: {}",
+        out_a.stderr.as_bstr()
+    );
+    assert!(
+        out_b.status.success(),
+        "second discard failed: {}",
+        out_b.stderr.as_bstr()
+    );
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn discard_reverts_simple_rename() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("src/rename-source.ts", "export const source = true;\n");
+    env.but("commit -b A -m 'seed rename source'")
+        .assert()
+        .success();
+
+    std::fs::rename(
+        env.projects_root().join("src/rename-source.ts"),
+        env.projects_root().join("src/rename-target.ts"),
+    )
+    .unwrap();
+
+    env.but("discard src/rename-target.ts").assert().success();
+
+    assert!(
+        env.projects_root().join("src/rename-source.ts").exists(),
+        "discarding a rename should restore the source path"
+    );
+    assert!(
+        !env.projects_root().join("src/rename-target.ts").exists(),
+        "discarding a rename should remove the target path"
+    );
+    assert_eq!(
+        env.invoke_git("status --porcelain"),
+        "",
+        "discarding a rename should leave a clean worktree"
+    );
+}
+
+#[test]
+fn discard_rename_does_not_discard_unrelated_changes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("src/rename-source-only.ts", "export const source = 1;\n");
+    env.but("commit -b A -m 'seed rename source only'")
+        .assert()
+        .success();
+
+    std::fs::rename(
+        env.projects_root().join("src/rename-source-only.ts"),
+        env.projects_root().join("src/rename-target-only.ts"),
+    )
+    .unwrap();
+    env.file("src/keep-me.ts", "export const keep = true;\n");
+
+    env.but("discard src/rename-target-only.ts")
+        .assert()
+        .success();
+
+    assert!(
+        env.projects_root()
+            .join("src/rename-source-only.ts")
+            .exists(),
+        "discarding rename should restore source path"
+    );
+    assert!(
+        !env.projects_root()
+            .join("src/rename-target-only.ts")
+            .exists(),
+        "discard should remove renamed target path"
+    );
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   tz A src/keep-me.ts
+┊
+┊╭┄ g0 [A]
+┊●   uwm seed rename source only
+┊│     uwm:l A src/rename-source-only.ts
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+
+    let git_status = env.invoke_git("status --porcelain");
+    assert!(
+        git_status.contains("src/keep-me.ts"),
+        "expected unrelated uncommitted file to remain, got:\n{git_status}"
+    );
+    assert!(
+        !git_status.contains("rename-target-only") && !git_status.contains("rename-source-only"),
+        "rename paths should no longer be dirty, got:\n{git_status}"
+    );
+}
+
+#[test]
+fn discard_the_whole_uncommitted_changes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("src/rename-source-only.ts", "export const source = 1;\n");
+    env.but("commit -b A -m 'seed rename source only'")
+        .assert()
+        .success();
+
+    std::fs::rename(
+        env.projects_root().join("src/rename-source-only.ts"),
+        env.projects_root().join("src/rename-target-only.ts"),
+    )
+    .unwrap();
+    env.file("src/keep-me.ts", "export const keep = true;\n");
+
+    env.but("discard @").assert().success();
+
+    assert!(
+        env.projects_root()
+            .join("src/rename-source-only.ts")
+            .exists(),
+        "discarding rename should restore source path"
+    );
+    assert!(
+        !env.projects_root()
+            .join("src/rename-target-only.ts")
+            .exists(),
+        "discard should remove renamed target path"
+    );
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   uwm seed rename source only
+┊│     uwm:l A src/rename-source-only.ts
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("status --porcelain"),
+        "",
+        "discarding a rename should leave a clean worktree"
+    );
+}
+
+#[test]
+fn discarding_multiple_hunks_in_a_file_works() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let content = "1\n2\n3\n4\n5\n6\n7";
+    let file_path = "src/some_file.txt";
+
+    env.file(file_path, content);
+    env.but("commit -b A -m 'seed rename source only'")
+        .assert()
+        .success();
+
+    env.file(file_path, "a\nb\nc\n1\n2\n3\n4\n5\n6\n7\nd\ne\nf");
+    env.but("discard @").assert().success();
+
+    assert!(
+        env.projects_root().join("src/some_file.txt").exists(),
+        "discarding multiple hunks should keep the tracked file present"
+    );
+
+    let content_after_discard = env.read_file(file_path).unwrap();
+    assert_eq!(
+        content_after_discard, content,
+        "discarding all hunks should restore the committed contents"
+    );
+}
+
+#[test]
+fn discard_multiple_uncommitted_files_outputs_json() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("first-uncommitted.txt", "first\n");
+    env.file("second-uncommitted.txt", "second\n");
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   rv A first-uncommitted.txt
+┊   xs A second-uncommitted.txt
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+
+    env.but("--json discard first-uncommitted.txt second-uncommitted.txt")
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "type": "uncommittedChanges",
+  "paths": [
+    "first-uncommitted.txt",
+    "second-uncommitted.txt"
+  ]
+}
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn discard_resulting_in_workdir_ud_conflict() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("commit.txt", "text\n");
+    env.but("commit -b A -m 'discardable commit'")
+        .assert()
+        .success();
+    let commit_id = env.invoke_git("rev-parse refs/heads/A");
+
+    env.file("commit.txt", "would conflict if commit above was deleted\n");
+
+    env.but(format!("discard {commit_id}"))
+        .assert()
+        .success()
+        .stderr_eq("")
+        .stdout_eq(snapbox::str![[r#"
+Discarded commit tvn
+
+⚠ A conflict occurred during checkout. Run `but status` for more information.
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊    commit.txt {conflicted}
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+⚠ Uncommitted file conflicts: edit each file to the wanted contents (or delete it), then run `but resolve <path>...` to mark it resolved.
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_status(),
+        snapbox::str![[r#"
+UD commit.txt
+
+"#]]
+    );
+
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(env.projects_root().join("commit.txt")).unwrap(),
+        snapbox::str![[r#"
+would conflict if commit above was deleted
+
+"#]]
+    );
+}
+
+#[test]
+fn discard_resulting_in_workdir_uu_conflict() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("commit.txt", "first\n");
+    env.but("commit -b A -m 'commit'").assert().success();
+
+    env.file("commit.txt", "second\n");
+    env.but("commit -b A -m 'discardable commit'")
+        .assert()
+        .success();
+    let commit_id = env.invoke_git("rev-parse refs/heads/A");
+
+    env.file("commit.txt", "would conflict if commit above was deleted\n");
+
+    env.but(format!("discard {commit_id}"))
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded commit syk
+
+⚠ A conflict occurred during checkout. Run `but status` for more information.
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊    commit.txt {conflicted}
+┊
+┊╭┄ g0 [A]
+┊●   pmw commit
+┊│     pmw:t A commit.txt
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+⚠ Uncommitted file conflicts: edit each file to the wanted contents (or delete it), then run `but resolve <path>...` to mark it resolved.
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_status(),
+        snapbox::str![[r#"
+UU commit.txt
+
+"#]]
+    );
+
+    // The output depends on whether merge.conflictstyle=diff3 is configured in
+    // gitconfig, so add a wildcard to support both types of output.
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(env.projects_root().join("commit.txt")).unwrap(),
+        snapbox::str![[r#"
+<<<<<<< ours
+would conflict if commit above was deleted
+...
+=======
+first
+>>>>>>> theirs
+
+"#]]
+    );
+}
+
+#[test]
+fn discard_multiple_commits_outputs_human() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("first-commit.txt", "first\n");
+    env.but("commit -b A -m 'first discardable commit'")
+        .assert()
+        .success();
+    let first = env.invoke_git("rev-parse refs/heads/A");
+
+    env.file("second-commit.txt", "second\n");
+    env.but("commit -b A -m 'second discardable commit'")
+        .assert()
+        .success();
+    let second = env.invoke_git("rev-parse refs/heads/A");
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   yqn second discardable commit
+┊│     yqn:r A second-commit.txt
+┊●   lmp first discardable commit
+┊│     lmp:m A first-commit.txt
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but(format!("discard {first} {second}"))
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded commits lmp, yqn
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    assert!(
+        !env.projects_root().join("first-commit.txt").exists(),
+        "discarding the first commit should remove its changes"
+    );
+    assert!(
+        !env.projects_root().join("second-commit.txt").exists(),
+        "discarding the second commit should remove its changes"
+    );
+}
+
+#[test]
+fn discard_committed_files_outputs_new_commit_in_json() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("discarded-from-commit.txt", "discard me\n");
+    env.file("retained-in-commit.txt", "retain me\n");
+    env.but("commit -b A -m 'files to selectively discard'")
+        .assert()
+        .success();
+    let source = env.invoke_git("rev-parse refs/heads/A");
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   toz files to selectively discard
+┊│     toz:n A discarded-from-commit.txt
+┊│     toz:x A retained-in-commit.txt
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but(format!("--json discard {source}:discarded-from-commit.txt"))
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "type": "committedChanges",
+  "sourceCommitId": "7df37764a21d5510d4108ad82bfaf98bc926a1a8",
+  "sourceChangeId": "tozmluwlnkpxmqykupputuolovmvyprt",
+  "paths": [
+    "discarded-from-commit.txt"
+  ],
+  "newCommitId": "ab57cd43e38112a1b44246daf6eb509f6097f5a4",
+  "newChangeId": "tozmluwlnkpxmqykupputuolovmvyprt"
+}
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   toz files to selectively discard
+┊│     toz:x A retained-in-commit.txt
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    assert!(
+        !env.projects_root()
+            .join("discarded-from-commit.txt")
+            .exists(),
+        "discarding a committed file should remove its changes"
+    );
+    assert!(
+        env.projects_root().join("retained-in-commit.txt").exists(),
+        "discarding one committed file should retain other committed files"
+    );
+}
+
+#[test]
+fn discard_rejects_mixed_sources() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("committed.txt", "committed\n");
+    env.but("commit -b A -m 'committed source'")
+        .assert()
+        .success();
+    let commit = env.invoke_git("rev-parse refs/heads/A");
+    env.file("uncommitted.txt", "uncommitted\n");
+
+    env.but(format!("discard A {commit}"))
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input for '<CHANGES>'
+
+Cannot mix different types of sources
+
+Hint: Discard branches, commits, committed files, or uncommitted changes separately
+
+"#]]);
+    env.but(format!("discard {commit} {commit}:committed.txt"))
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input for '<CHANGES>'
+
+Cannot mix different types of sources
+
+Hint: Discard branches, commits, committed files, or uncommitted changes separately
+
+"#]]);
+    env.but("discard @ uncommitted.txt")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input for '<CHANGES>'
+
+Cannot mix different types of sources
+
+Hint: Discard branches, commits, committed files, or uncommitted changes separately
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   ln A uncommitted.txt
+┊
+┊╭┄ g0 [A]
+┊●   opq committed source
+┊│     opq:z A committed.txt
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+}
+
+#[test]
+fn discard_rejects_committed_changes_from_multiple_commits() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("first-committed.txt", "first\n");
+    env.but("commit -b A -m 'first committed source'")
+        .assert()
+        .success();
+    let first = env.invoke_git("rev-parse refs/heads/A");
+
+    env.file("second-committed.txt", "second\n");
+    env.but("commit -b A -m 'second committed source'")
+        .assert()
+        .success();
+    let second = env.invoke_git("rev-parse refs/heads/A");
+
+    env.but(format!(
+        "discard {first}:first-committed.txt {second}:second-committed.txt"
+    ))
+    .assert()
+    .failure()
+    .stderr_eq(snapbox::str![[r#"
+Error: Bad input for '<CHANGES>'
+
+All committed files must come from the same commit
+
+Hint: Discard committed files from each commit separately
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   lqq second committed source
+┊│     lqq:q A second-committed.txt
+┊●   ssw first committed source
+┊│     ssw:t A first-committed.txt
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn discard_committed_hunk_in_modified_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    let original_content = "one
+two
+three
+four
+five
+six
+seven
+";
+    env.file("file.txt", original_content);
+    env.but("commit -m 'Add file'").assert().success();
+
+    env.file("file.txt", format!("first\n{original_content}last\n"));
+    env.but("commit -m 'Modify file'").assert().success();
+    let modified_commit = env.invoke_git("rev-parse refs/heads/a-branch-1");
+
+    env.but(format!("diff {modified_commit}"))
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────────╮
+ x:u:2 M file.txt │
+──────────────────╯
+
+@@ -1,3 +1,4 @@
+───────────────
+  ┊ 1 │ +first
+1 ┊ 2 │  one
+2 ┊ 3 │  two
+3 ┊ 4 │  three
+
+──────────────────╮
+ x:u:e M file.txt │
+──────────────────╯
+
+@@ -5,3 +6,4 @@
+───────────────
+5 ┊  6 │  five
+6 ┊  7 │  six
+7 ┊  8 │  seven
+  ┊  9 │ +last
+
+"#]]);
+
+    env.but(format!("discard {modified_commit}:u:2"))
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded changes from file.txt from xsw to create xsw
+
+"#]]);
+
+    let rewritten_commit = env.invoke_git("rev-parse refs/heads/a-branch-1");
+    env.but(format!("diff {rewritten_commit}"))
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────────╮
+ x:u:e M file.txt │
+──────────────────╯
+
+@@ -5,3 +5,4 @@
+───────────────
+5 ┊ 5 │  five
+6 ┊ 6 │  six
+7 ┊ 7 │  seven
+  ┊ 8 │ +last
+
+"#]]);
+}
+
+#[test]
+fn discard_single_committed_hunk_in_deleted_file_discards_deletion() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.remove_file("A");
+    env.but("commit -m 'Delete file'").assert().success();
+    let delete_commit = env.invoke_git("rev-parse refs/heads/A");
+
+    env.but(format!("diff {delete_commit}"))
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+───────────╮
+ s:t:a D A │
+───────────╯
+
+@@ -1,1 +1,0 @@
+───────────────
+1 ┊   │ -A
+
+"#]]);
+
+    env.but(format!("discard {delete_commit}:t:a"))
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded changes from A from sum to create sum
+
+"#]]);
+
+    // commit now has no changes
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   sum Delete file (no changes)
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn discard_single_committed_hunk_in_added_file_discards_addition() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    env.but("diff tpm")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+───────────╮
+ t:t:6 A A │
+───────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +A
+
+"#]]);
+
+    env.but("discard tpm:t:6")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded changes from A from tpm to create tpm
+
+"#]]);
+
+    // commit now has no changes
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A (no changes)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn discard_final_content_hunk_in_renamed_file_does_not_discard_rename_itself() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&["A"]);
+
+    let original_content = "one\ntwo\nthree\n";
+    env.file("file.txt", original_content);
+    env.but("commit -m 'Add file'")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit xvz on new branch 'a-branch-1'
+
+"#]]);
+
+    env.remove_file("file.txt");
+    env.file("renamed_file.txt", format!("{original_content}\nnew"));
+    env.but("commit -m 'Rename and edit file'")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit xlx on branch 'a-branch-1'
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   xlx Rename and edit file
+┊│     xlx:q R renamed_file.txt
+┊●   xvz Add file
+┊│     xvz:u A file.txt
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("diff xlx")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+───────────────────────────╮
+ xl:q:7 R renamed_file.txt │
+───────────────────────────╯
+
+@@ -1,3 +1,5 @@
+───────────────
+1 ┊ 1 │  one
+2 ┊ 2 │  two
+3 ┊ 3 │  three
+  ┊ 4 │ +
+  ┊ 5 │ +new
+
+"#]]);
+
+    env.but("discard xlx:q:7")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded changes from renamed_file.txt from xlx to create xlx
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   xlx Rename and edit file
+┊│     xlx:q R renamed_file.txt
+┊●   xvz Add file
+┊│     xvz:u A file.txt
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    env.but("diff xlx")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+───────────────────────────╮
+ xl:q:e R renamed_file.txt │
+───────────────────────────╯
+
+No diff available - file is either empty, binary, or too large
+
+"#]]);
+}
+
+/// This is here to document this strange corner case that we probably don't want to have. Pending a
+/// decision on what to do with "unihunks", for renamed files especially.
+#[test]
+fn discard_unihunk_in_renamed_file_without_content_discards_rename() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.rename_file("A", "B");
+    env.but("commit -m 'Rename file A -> B'")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit ylp on branch 'A'
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ylp Rename file A -> B
+┊│     ylp:p R B
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("diff ylp")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+───────────╮
+ y:p:e R B │
+───────────╯
+
+No diff available - file is either empty, binary, or too large
+
+"#]]);
+
+    env.but("discard ylp:p:e")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded changes from B from ylp to create ylp
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ylp Rename file A -> B (no changes)
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    env.but("diff ylp")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![""]);
+}
+
+#[test]
+fn discard_an_uncommitted_hunk() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "hunks.txt");
+
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────────╮
+ lw:2 M hunks.txt │
+──────────────────╯
+
+@@ -1,4 +1,4 @@
+───────────────
+1 ┊   │ -first
+  ┊ 1 │ +firsta
+2 ┊ 2 │  line
+3 ┊ 3 │  line
+4 ┊ 4 │  line
+
+──────────────────╮
+ lw:e M hunks.txt │
+──────────────────╯
+
+@@ -6,4 +6,4 @@
+───────────────
+ 6 ┊  6 │  line
+ 7 ┊  7 │  line
+ 8 ┊  8 │  line
+ 9 ┊    │ -last
+   ┊  9 │ +lasta
+
+"#]]);
+
+    env.but("discard lw:2")
+        .assert()
+        .success()
+        .stdout_eq("Discarded uncommitted changes from hunks.txt\n");
+
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────────╮
+ lw:e M hunks.txt │
+──────────────────╯
+
+@@ -6,4 +6,4 @@
+───────────────
+ 6 ┊  6 │  line
+ 7 ┊  7 │  line
+ 8 ┊  8 │  line
+ 9 ┊    │ -last
+   ┊  9 │ +lasta
+
+"#]]);
+
+    let content = env.read_file("hunks.txt").expect("hunks.txt should exist");
+    assert!(
+        content.starts_with("first\n"),
+        "the discarded first hunk should be restored"
+    );
+    assert!(
+        content.ends_with("lasta\n"),
+        "the undiscarded last hunk should remain"
+    );
+}
+
+#[test]
+fn discard_that_conflicts_warns_on_stderr_in_json_mode() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-dependent-commits");
+    env.setup_metadata(&["A"]);
+
+    let status = util::status_json(&env);
+    let bottom = util::branch_commit_cli_ids(&status, "A")
+        .pop()
+        .expect("branch A has commits");
+
+    // Discarding the bottom commit rebases its dependent on top of the base,
+    // which conflicts. JSON output stays parseable, so the warning goes to
+    // stderr.
+    env.but(format!("--json discard {bottom}"))
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "type": "commits",
+  "commits": [
+    {
+      "commitId": "5f55e3a5b4a9441ce84d6a0858f7c0a970576d50",
+      "changeId": "zpotlpzlquzwlkypyzutoxyswrxxquxm"
+    }
+  ]
+}
+
+"#]])
+        .stderr_eq(snapbox::str![[r#"
+warning: this operation left 1 commit(s) conflicted: [..]. Resolve with `but resolve`, or back out with `but undo`.
+
+"#]]);
+}
+
+#[test]
+fn discard_defaults_to_uncommitted_area() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("src/discard-me.ts", "export const value = true;\n");
+
+    env.but("discard")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded uncommitted changes from src/discard-me.ts
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn discarding_the_top_of_a_clean_worktree_removes_it() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    add_worktree_with_commit(&env, "wt-feature", "A");
+
+    env.but("discard wt")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Removed worktree wt-feature
+
+"#]]);
+    env.but("worktree list")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Active worktrees
+(none)
+
+Archived worktrees
+(none)
+
+"#]]);
+}
+
+#[test]
+fn discarding_the_top_of_a_dirty_worktree_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    add_dirty_worktree(&env, "wt-feature", "A");
+
+    env.but("discard wt")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Worktree wt-feature has uncommitted changes
+
+Hint: Use `but worktree remove --force wt-feature` to remove it anyway
+
+"#]]);
+}
+
+#[test]
+fn discarding_a_linked_worktrees_changes_discards_them_in_that_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("main.txt", "dirty in main\n");
+    let oplog = || env.but("oplog").output().unwrap().stdout;
+    let oplog_before = oplog();
+
+    // From inside the worktree, everything uncommitted there.
+    env.but("discard")
+        .current_dir(&wt_dir)
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Discarded uncommitted changes from note.txt
+
+"#]]);
+    assert!(
+        !wt_dir.join("note.txt").exists(),
+        "the worktree's new file is discarded"
+    );
+
+    // Its uncommitted area, named from the main checkout.
+    std::fs::write(wt_dir.join("note.txt"), "again\n").unwrap();
+    env.but("discard wt:@")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Discarded uncommitted changes from note.txt
+
+"#]]);
+    assert!(
+        !wt_dir.join("note.txt").exists(),
+        "the worktree's uncommitted area is discarded"
+    );
+
+    // A single file of the worktree, by its ID.
+    std::fs::write(wt_dir.join("note.txt"), "once more\n").unwrap();
+    env.but("discard nl")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Discarded uncommitted changes from note.txt
+
+"#]]);
+    assert!(
+        !wt_dir.join("note.txt").exists(),
+        "the worktree's file is discarded by its ID"
+    );
+
+    assert_eq!(
+        oplog(),
+        oplog_before,
+        "the oplog can't restore a linked worktree, so its discards aren't recorded"
+    );
+
+    // The main checkout keeps its change throughout.
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   qy A main.txt
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ wt [wt-feature] (no commits)
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+}
+
+#[test]
+fn a_bare_path_names_a_file_in_the_checkout_it_is_run_from() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("main.txt", "dirty in main\n");
+
+    env.but("discard main.txt")
+        .current_dir(&wt_dir)
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find source: 'main.txt'
+
+Hint: Run `but status` for applicable targets.
+
+"#]]);
+    env.but("discard note.txt")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find source: 'note.txt'
+
+Hint: Run `but status` for applicable targets.
+
+"#]]);
+    assert!(
+        env.projects_root().join("main.txt").exists(),
+        "the main checkout keeps its change"
+    );
+    assert!(
+        wt_dir.join("note.txt").exists(),
+        "the worktree keeps its change"
+    );
+
+    env.but("discard note.txt")
+        .current_dir(&wt_dir)
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Discarded uncommitted changes from note.txt
+
+"#]]);
+    assert!(
+        !wt_dir.join("note.txt").exists(),
+        "the worktree's own file is discarded"
+    );
+    assert!(
+        env.projects_root().join("main.txt").exists(),
+        "the main checkout still keeps its change"
+    );
+}
+
+#[test]
+fn a_path_prefix_names_files_in_the_checkout_it_is_run_from() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    std::fs::create_dir_all(wt_dir.join("dir")).unwrap();
+    std::fs::write(wt_dir.join("dir/wt.txt"), "dirty in the worktree\n").unwrap();
+    std::fs::create_dir_all(env.projects_root().join("dir")).unwrap();
+    env.file("dir/main.txt", "dirty in main\n");
+
+    env.but("discard dir/")
+        .current_dir(&wt_dir)
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Discarded uncommitted changes from dir/wt.txt
+
+"#]]);
+    assert!(
+        !wt_dir.join("dir/wt.txt").exists(),
+        "the worktree's file under the prefix is discarded"
+    );
+    assert!(
+        env.projects_root().join("dir/main.txt").exists(),
+        "the main checkout keeps its file under the same prefix"
+    );
+    assert!(
+        wt_dir.join("note.txt").exists(),
+        "the worktree keeps its file outside the prefix"
+    );
+}
+
+#[test]
+fn bare_discard_in_an_unmanaged_worktree_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("main.txt", "dirty in main\n");
+
+    env.but("discard")
+        .current_dir(&wt_dir)
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Worktree wt-feature is not managed by GitButler
+
+Hint: Run `but worktree list` to see the worktrees GitButler manages
+
+"#]]);
+}
+
+#[test]
+fn discarding_top_branch_in_single_branch_mode_stack() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.but("commit -b middle --above bottom -m 'on middle'")
+        .assert()
+        .success();
+    env.but("commit -b top --above middle -m 'on top'")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD]
+┊●   rvm on top (no changes)
+┊│
+┊├┄ mi [middle]
+┊●   ylm on middle (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard top").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mi [middle] [HEAD]
+┊●   ylm on middle (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard middle").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ bo [bottom] [HEAD]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard bottom").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
+
+#[test]
+fn deleting_current_branch_in_single_branch_mode_preserves_changes_and_is_undoable() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("bottom.txt", "bottom\n");
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.file("top.txt", "top\n");
+    env.but("commit -b top --above bottom -m 'on top'")
+        .assert()
+        .success();
+    env.file("bottom.txt", "uncommitted bottom\n");
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   tk M bottom.txt
+┊
+┊╭┄ to [top] [HEAD]
+┊●   mqp on top
+┊│     mqp:m A top.txt
+┊│
+┊├┄ bo [bottom]
+┊●   rtw on bottom
+┊│     rtw:t A bottom.txt
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+
+    env.but("branch delete top").assert().success();
+
+    // Deletion switches to the surviving branch and preserves unrelated tracked edits.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   tk M bottom.txt
+┊
+┊╭┄ bo [bottom] [HEAD]
+┊●   rtw on bottom
+┊│     rtw:t A bottom.txt
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+
+    env.but("undo").assert().success();
+
+    // One undo restores both the branch and its checkout, without losing dirty changes.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   tk M bottom.txt
+┊
+┊╭┄ to [top] [HEAD]
+┊●   mqp on top
+┊│     mqp:m A top.txt
+┊│
+┊├┄ bo [bottom]
+┊●   rtw on bottom
+┊│     rtw:t A bottom.txt
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+}
+
+#[test]
+fn deleting_current_branch_in_single_branch_mode_preserves_conflicting_changes_and_is_undoable() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.file("top.txt", "top\n");
+    env.but("commit -b top --above bottom -m 'on top'")
+        .assert()
+        .success();
+    env.file("top.txt", "uncommitted top\n");
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   my M top.txt
+┊
+┊╭┄ to [top] [HEAD]
+┊●   row on top
+┊│     row:m A top.txt
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+────────────────╮
+ my:6 M top.txt │
+────────────────╯
+
+@@ -1,1 +1,1 @@
+───────────────
+1 ┊   │ -top
+  ┊ 1 │ +uncommitted top
+
+"#]]);
+
+    env.but("branch delete top")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded branch 'top'
+
+⚠ A conflict occurred during checkout. Run `but status` for more information.
+
+"#]]);
+
+    // Removing the branch conflicts with its dirty file instead of losing the edit.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊    top.txt {conflicted}
+┊
+┊╭┄ bo [bottom] [HEAD]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+⚠ Uncommitted file conflicts: edit each file to the wanted contents (or delete it), then run `but resolve <path>...` to mark it resolved.
+
+Hint: run `but help` for all commands
+
+"#]]);
+    // `but diff` omits conflicted files, so snapshot the preserved contents directly.
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(env.projects_root().join("top.txt")).unwrap(),
+        snapbox::str![[r#"
+uncommitted top
+
+"#]]
+    );
+
+    env.but("undo").assert().success();
+
+    // Undo restores the checked-out branch and the original uncommitted edit.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   my M top.txt
+┊
+┊╭┄ to [top] [HEAD]
+┊●   row on top
+┊│     row:m A top.txt
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+────────────────╮
+ my:6 M top.txt │
+────────────────╯
+
+@@ -1,1 +1,1 @@
+───────────────
+1 ┊   │ -top
+  ┊ 1 │ +uncommitted top
+
+"#]]);
+}
+
+#[test]
+fn discarding_multiple_branches_in_single_branch_mode() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.but("commit -b middle --above bottom -m 'on middle'")
+        .assert()
+        .success();
+    env.but("commit -b top --above middle -m 'on top'")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD]
+┊●   rvm on top (no changes)
+┊│
+┊├┄ mi [middle]
+┊●   ylm on middle (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard middle top").assert().success();
+
+    // HEAD follows the removed refs and commits to the first surviving branch.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ bo [bottom] [HEAD]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn discarding_empty_current_branch_in_single_branch_mode() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.but("branch new top --above bottom").assert().success();
+
+    // Ensure this exercises removal of a checked-out ref with no commits of its own.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD] (no commits)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard top").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ bo [bottom] [HEAD]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn discarding_top_commit_in_single_branch_mode_stack() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("commit -b bottom -m 'one'").assert().success();
+    env.but("commit -b bottom -m 'two'").assert().success();
+    env.but("commit -b --above bottom -m 'three'")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1] [HEAD]
+┊●   mot three (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   mwt two (no changes)
+┊●   lsm one (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard mot").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1] [HEAD] (no commits)
+┊│
+┊├┄ bo [bottom]
+┊●   mwt two (no changes)
+┊●   lsm one (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard mwt").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1] [HEAD] (no commits)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm one (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard lsm").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1] [HEAD] (no commits)
+┊│
+┊├┄ bo [bottom] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn discarding_changes_from_two_checkouts_at_once_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("main.txt", "dirty in main\n");
+
+    // A worktree file by its ID, then a main checkout path.
+    env.but("discard nl main.txt")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot use changes from worktree wt-feature and the uncommitted area together
+
+Hint: An operation can only take changes from one checkout at a time
+
+"#]]);
+    assert!(
+        wt_dir.join("note.txt").exists() && env.projects_root().join("main.txt").exists(),
+        "a selection spanning two checkouts discards nothing"
+    );
+}

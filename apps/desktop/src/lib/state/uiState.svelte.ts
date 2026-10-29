@@ -2,21 +2,42 @@ import { type SnapPositionName } from "$lib/floating/types";
 import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { type Reactive } from "@gitbutler/shared/storeUtils";
-import { isStr } from "@gitbutler/ui/utils/string";
 import { createEntityAdapter, createSlice, type EntityState } from "@reduxjs/toolkit";
-import type { ThinkingLevel, ModelType, PermissionMode } from "$lib/codegen/types";
-import type { GeneralSettingsPageId } from "$lib/settings/generalSettingsPages";
-import type { ProjectSettingsPageId } from "$lib/settings/projectSettingsPages";
-import type { StackDetails } from "$lib/stacks/stack";
-import type { RejectionReason } from "$lib/stacks/stackService.svelte";
+import type { TerminalService } from "$lib/settings/terminalService";
 import type { AppDispatch } from "$lib/state/clientState.svelte";
+import type { ScrollbarVisilitySettings } from "@gitbutler/ui-svelte";
+
+export type GeneralSettingsPageId =
+	| "general"
+	| "appearance"
+	| "lanes-and-branches"
+	| "git"
+	| "integrations"
+	| "ai"
+	| "telemetry"
+	| "experimental"
+	| "organizations";
+export type ProjectSettingsPageId = "project" | "git" | "worktrees" | "ai" | "experimental";
+export type RejectionReason =
+	| "workspaceMergeConflict"
+	| "workspaceMergeConflictOfUnrelatedFile"
+	| "cherryPickMergeConflict"
+	| "noEffectiveChanges"
+	| "worktreeFileMissingForObjectConversion"
+	| "fileToLargeOrBinary"
+	| "pathNotFoundInBaseTree"
+	| "unsupportedDirectoryEntry"
+	| "unsupportedTreeEntry"
+	| "missingDiffSpecAssociation";
 
 export type StackSelection = {
 	branchName?: string;
+	/** The primary selected commit (drives the preview pane). */
 	commitId?: string;
+	/** All selected commit IDs (for multi-select). When undefined, only `commitId` is selected. */
+	commitIds?: string[];
 	upstream?: boolean;
 	previewOpen: boolean;
-	codegen?: boolean;
 };
 
 export type NewCommitMessage = {
@@ -27,31 +48,23 @@ export type NewCommitMessage = {
 export type StackState = {
 	selection: StackSelection | undefined;
 	newCommitMessage: NewCommitMessage;
-	// The current codegen prompt
-	prompt: string;
-	// The permission mode for Claude Code
-	permissionMode: PermissionMode;
-	// A list of mcp server names that should be disabled
-	disabledMcpServers: string[];
-	// A list of added directories for Claude Code
-	addedDirs: string[];
 };
 
 export type ExclusiveAction =
 	| {
 			type: "commit";
 			stackId: string | undefined;
+			/** The linked worktree committed in, the main checkout when unset. */
+			worktree?: string;
 			branchName: string | undefined;
 			parentCommitId?: string;
+			insertBelow?: boolean;
 	  }
 	| {
 			type: "edit-commit-message";
 			stackId: string | undefined;
-			branchName: string;
+			branchName: string | undefined;
 			commitId: string;
-	  }
-	| {
-			type: "codegen";
 	  }
 	| {
 			type: "create-pr";
@@ -59,12 +72,15 @@ export type ExclusiveAction =
 			branchName: string;
 	  };
 
+export type StackBusyState = {
+	commitId?: string;
+	stackIds?: string[];
+};
+
 export type ProjectUiState = {
 	exclusiveAction: ExclusiveAction | undefined;
+	stackBusy: StackBusyState | undefined;
 	branchesToPoll: string[];
-	selectedClaudeSession: { stackId: string; head: string } | undefined;
-	thinkingLevel: ThinkingLevel;
-	selectedModel: ModelType;
 };
 
 type GlobalModalType =
@@ -72,8 +88,7 @@ type GlobalModalType =
 	| "author-missing"
 	| "general-settings"
 	| "project-settings"
-	| "login-confirmation"
-	| "auto-commit";
+	| "login-confirmation";
 type BaseGlobalModalState = {
 	type: GlobalModalType;
 };
@@ -109,18 +124,25 @@ export type LoginConfirmationModalState = BaseGlobalModalState & {
 	type: "login-confirmation";
 };
 
-export type AutoCommitModalState = BaseGlobalModalState & {
-	type: "auto-commit";
-	projectId: string;
-};
+export type AppTheme = "system" | "light" | "dark";
 
 export type GlobalModalState =
 	| CommitFailedModalState
 	| AuthorMissingModalState
 	| GeneralSettingsModalState
 	| ProjectSettingsModalState
-	| LoginConfirmationModalState
-	| AutoCommitModalState;
+	| LoginConfirmationModalState;
+
+export type CodeEditorSettings = {
+	schemeIdentifer: string;
+	displayName: string;
+};
+
+export type TerminalSettings = {
+	identifier: string;
+	displayName: string;
+	platform: "macos" | "windows" | "linux";
+};
 
 export type GlobalUiState = {
 	drawerHeight: number;
@@ -137,9 +159,38 @@ export type GlobalUiState = {
 	useRuler: boolean;
 	rulerCountValue: number;
 	aiSuggestionsOnType: boolean;
-	channel: string | undefined;
 	draftBranchName: string | undefined;
 	modal: GlobalModalState | undefined;
+	// User settings (migrated from userSettings.ts)
+	aiSummariesEnabled: boolean;
+	bottomPanelExpanded: boolean;
+	bottomPanelHeight: number;
+	peekTrayWidth: number;
+	theme: AppTheme;
+	trayWidth: number;
+	stashedBranchesHeight: number;
+	defaultLaneWidth: number;
+	defaultFileWidth: number;
+	defaultTreeHeight: number;
+	zoom: number;
+	scrollbarVisibilityState: ScrollbarVisilitySettings;
+	tabSize: number;
+	wrapText: boolean;
+	diffFont: string;
+	diffFontSize: number;
+	diffLigatures: boolean;
+	inlineUnifiedDiffs: boolean;
+	strongContrast: boolean;
+	colorBlindFriendly: boolean;
+	defaultCodeEditor: CodeEditorSettings;
+	defaultTerminal: TerminalSettings;
+	defaultFileListMode: "tree" | "list";
+	pathFirst: boolean;
+	allInOneDiff: boolean;
+	highlightDiffs: boolean;
+	svgAsImage: boolean;
+	syntaxThemeLight: string;
+	syntaxThemeDark: string;
 };
 
 export const UI_STATE = new InjectionToken<UiState>("UiState");
@@ -151,28 +202,21 @@ export class UiState {
 	private state = $state.raw<EntityState<UiStateVariable, string>>(uiStateSlice.getInitialState());
 
 	private scopesCache = {
-		lanes: {} as Record<string, GlobalStore<any>>,
-		projects: {} as Record<string, GlobalStore<any>>,
+		lanes: {} as Record<string, WritableReactiveStore<any>>,
+		projects: {} as Record<string, WritableReactiveStore<any>>,
 	};
 
 	/** Properties scoped to a specific stack. */
 	readonly lane = this.buildScopedProps<StackState>(this.scopesCache.lanes, {
 		selection: undefined,
 		newCommitMessage: { title: "", description: "" },
-		prompt: "",
-		// I _know_ we have a permission mode called 'default', but acceptEdits is a much more sensible default.
-		permissionMode: "acceptEdits",
-		disabledMcpServers: [],
-		addedDirs: [],
 	});
 
 	/** Properties scoped to a specific project. */
 	readonly project = this.buildScopedProps<ProjectUiState>(this.scopesCache.projects, {
 		exclusiveAction: undefined,
+		stackBusy: undefined,
 		branchesToPoll: [],
-		selectedClaudeSession: undefined,
-		thinkingLevel: "normal",
-		selectedModel: "sonnet",
 	});
 
 	/** Properties that are globally scoped. */
@@ -191,10 +235,60 @@ export class UiState {
 		useRuler: true,
 		rulerCountValue: 72,
 		aiSuggestionsOnType: false,
-		channel: undefined,
 		draftBranchName: undefined,
 		modal: undefined,
+		// User settings defaults
+		aiSummariesEnabled: false,
+		bottomPanelExpanded: false,
+		bottomPanelHeight: 200,
+		peekTrayWidth: 480,
+		theme: "system",
+		trayWidth: 320,
+		stashedBranchesHeight: 150,
+		defaultLaneWidth: 460,
+		defaultFileWidth: 460,
+		defaultTreeHeight: 100,
+		zoom: 1,
+		scrollbarVisibilityState: "scroll",
+		tabSize: 4,
+		wrapText: false,
+		diffFont: "Geist Mono, Menlo, monospace",
+		diffFontSize: 12,
+		diffLigatures: false,
+		inlineUnifiedDiffs: false,
+		strongContrast: false,
+		colorBlindFriendly: false,
+		defaultCodeEditor: { schemeIdentifer: "vscode", displayName: "VSCode" },
+		defaultTerminal: { identifier: "terminal", displayName: "Terminal", platform: "macos" },
+		defaultFileListMode: "list",
+		pathFirst: true,
+		allInOneDiff: false,
+		highlightDiffs: false,
+		svgAsImage: true,
+		syntaxThemeLight: "github-light",
+		syntaxThemeDark: "github-dark",
 	});
+
+	/**
+	 * Returns a reactive proxy for the given global property keys. Property
+	 * accesses are forwarded to `.current` via getters, so values stay in
+	 * sync with the store rather than being captured at call time.
+	 *
+	 * Useful for spreading into component props:
+	 * ```svelte
+	 * <HunkDiff {...uiState.pick('tabSize', 'wrapText', 'diffFont')} />
+	 * ```
+	 */
+	pick<K extends keyof GlobalUiState>(...keys: K[]): { [P in K]: GlobalUiState[P] } {
+		const result = {} as { [P in K]: GlobalUiState[P] };
+		for (const key of keys) {
+			Object.defineProperty(result, key, {
+				get: () => this.global[key].current,
+				enumerable: true,
+			});
+		}
+		return result;
+	}
 
 	constructor(
 		reactiveState: Reactive<typeof this.state>,
@@ -215,25 +309,55 @@ export class UiState {
 	}
 
 	/**
+	 * Creates a single redux-backed reactive property with get/set and
+	 * optional convenience methods for arrays and objects.
+	 */
+	private createProperty(id: string, defaultValue: UiStateValue): WritableReactive<UiStateValue> {
+		const result = this.getById(id, defaultValue);
+		let mutableResult = $derived(result.current);
+
+		const prop: Record<string, unknown> = {
+			set: (value: UiStateValue) => {
+				mutableResult = value;
+				this.update(id, value);
+			},
+			get current() {
+				return mutableResult;
+			},
+		};
+
+		if (Array.isArray(defaultValue)) {
+			prop.add = (...value: string[]) => {
+				const current = mutableResult as string[];
+				const toAdd = value.filter((v) => !current.includes(v));
+				if (toAdd.length === 0) return;
+				mutableResult = [...current, ...toAdd];
+				this.update(id, mutableResult);
+			};
+			prop.remove = (value: string) => {
+				mutableResult = (mutableResult as string[]).filter((v) => v !== value);
+				this.update(id, mutableResult);
+			};
+		} else if (typeof defaultValue === "object" && defaultValue !== null) {
+			prop.update = (value: Record<string, UiStateValue>) => {
+				mutableResult = { ...(mutableResult as Record<string, UiStateValue>), ...value };
+				this.update(id, mutableResult);
+			};
+		}
+
+		return prop as WritableReactive<UiStateValue>;
+	}
+
+	/**
 	 * Generate redux backed properties corresponding to the shape of the
 	 * parameter value, with types corresponding to their default values.
 	 */
-	private buildGlobalProps<T extends DefaultConfig>(param: T): GlobalStore<T> {
-		const props: GlobalStore<DefaultConfig> = {};
+	private buildGlobalProps<T extends DefaultConfig>(param: T): WritableReactiveStore<T> {
+		const props: WritableReactiveStore<DefaultConfig> = {};
 		for (const [key, defaultValue] of Object.entries(param)) {
-			const result = this.getById(key, defaultValue);
-			let mutableResult = $derived(result.current);
-			props[key] = {
-				set: (value: UiStateValue) => {
-					mutableResult = value;
-					this.update(key, value);
-				},
-				get current() {
-					return mutableResult;
-				},
-			};
+			props[key] = this.createProperty(key, defaultValue);
 		}
-		return props as GlobalStore<T>;
+		return props as WritableReactiveStore<T>;
 	}
 
 	/**
@@ -242,58 +366,18 @@ export class UiState {
 	 * to e.g. a projectId.
 	 */
 	private buildScopedProps<T extends DefaultConfig>(
-		scopeCache: Record<string, GlobalStore<T>>,
+		scopeCache: Record<string, WritableReactiveStore<T>>,
 		defaultConfig: T,
-	): (id: string) => GlobalStore<T> {
+	): (id: string) => WritableReactiveStore<T> {
 		return (id: string) => {
 			if (id in scopeCache) {
-				return scopeCache[id] as GlobalStore<T>;
+				return scopeCache[id] as WritableReactiveStore<T>;
 			}
-			const props: GlobalStore<DefaultConfig> = {};
+			const props: WritableReactiveStore<DefaultConfig> = {};
 			for (const [key, defaultValue] of Object.entries(defaultConfig)) {
-				const result = this.getById(`${id}:${key}`, defaultValue);
-
-				// We need a mutable value here for read/write consistency.
-				let mutableResult = $derived(result.current);
-
-				props[key] = {
-					set: (value: UiStateValue) => {
-						mutableResult = value;
-						this.update(`${id}:${key}`, value);
-					},
-					get current() {
-						return mutableResult;
-					},
-				};
-
-				// If the value is an array of strings, we add methods to add/remove
-				if (Array.isArray(mutableResult) && mutableResult.every(isStr)) {
-					(props[key] as GlobalProperty<string[]>).add = (...value: string[]) => {
-						const current = mutableResult as string[];
-						mutableResult = [...current, ...value.filter((v) => !current.includes(v))];
-						this.update(`${id}:${key}`, mutableResult);
-					};
-					(props[key] as GlobalProperty<string[]>).remove = (value: string) => {
-						const current = mutableResult as string[];
-						mutableResult = current.filter((v) => v !== value);
-						this.update(`${id}:${key}`, mutableResult);
-					};
-				}
-				// If the value is an object, we add a method to update
-				if (
-					typeof mutableResult === "object" &&
-					!Array.isArray(mutableResult) &&
-					mutableResult !== null
-				) {
-					(props[key] as GlobalProperty<Record<string, UiStateValue>>).update = (
-						value: Record<string, UiStateValue>,
-					) => {
-						mutableResult = { ...(mutableResult as Record<string, UiStateValue>), ...value };
-						this.update(`${id}:${key}`, mutableResult);
-					};
-				}
+				props[key] = this.createProperty(`${id}:${key}`, defaultValue);
 			}
-			scopeCache[id] = props as GlobalStore<T>;
+			scopeCache[id] = props as WritableReactiveStore<T>;
 			return scopeCache[id];
 		};
 	}
@@ -352,185 +436,89 @@ type ObjectPropertyMethods<T> =
 		: // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 			{};
 
-/** Node type for global properties. */
-export type GlobalProperty<T> = {
+/** A reactive value that can be read (.current) and written (.set). */
+export type WritableReactive<T> = {
 	set(value: T): void;
 } & Reactive<T> &
 	ArrayPropertyMethods<T> &
 	ObjectPropertyMethods<T>;
 
-/** Type returned by the build function for global properties. */
-export type GlobalStore<T extends DefaultConfig> = {
-	[K in keyof T]: GlobalProperty<T[K]>;
+/** A record of WritableReactive properties keyed by the config shape. */
+export type WritableReactiveStore<T extends DefaultConfig> = {
+	[K in keyof T]: WritableReactive<T[K]>;
 };
 
-export function replaceBranchInExclusiveAction(
-	action: ExclusiveAction,
-	oldBranchName: string,
-	branchName: string,
-): ExclusiveAction {
-	switch (action.type) {
-		case "commit":
-			if (action.branchName === oldBranchName) {
-				return { ...action, branchName };
-			}
-			return action;
-		case "edit-commit-message":
-			return action; // No change needed
-		case "create-pr":
-			if (action.branchName === oldBranchName) {
-				return { ...action, branchName };
-			}
-			return action;
-		case "codegen":
-			return action;
-	}
-}
-
-export function replaceBranchInStackSelection(
-	selection: StackSelection,
-	oldBranchName: string,
-	branchName: string,
-): StackSelection {
-	if (selection.branchName === oldBranchName) {
-		return { ...selection, branchName };
-	}
-	return selection;
-}
-
-function updateStackSelection(uiState: UiState, stackId: string, details: StackDetails): void {
-	const laneState = uiState.lane(stackId);
-	const selection = laneState.selection.current;
-	const branches = details.branchDetails.map((branch) => branch.name);
-
-	// If no selection, do nothing
-	if (!selection) return;
-
-	// Clear selection if the selected branch is not in the list of branches
-	if (selection.branchName && !branches.includes(selection.branchName)) {
-		laneState.selection.set(undefined);
-		return;
-	}
-
-	// If the selected branch exists and there is no commit selected, do nothing
-	if (!selection.commitId) return;
-
-	const selectedBranch = selection.branchName;
-	const branchDetails = details.branchDetails.find((branch) => branch.name === selectedBranch);
-
-	if (!branchDetails) {
-		// Should not happen since we already checked the branch exists
-		return;
-	}
-
-	const branchCommits = branchDetails.commits;
-	const branchCommitIds = branchCommits.map((commit) => commit.id);
-
-	// If the selected commit is not in the branch, clear the commit selection
-	if (!selection.upstream && !branchCommitIds.includes(selection.commitId)) {
-		laneState.selection.set({
-			branchName: selection.branchName,
-			previewOpen: false,
-		});
-
-		return;
-	}
-
-	const upstreamCommits = branchDetails.upstreamCommits;
-	const upstreamCommitIds = upstreamCommits.map((commit) => commit.id);
-
-	// If the selection is for an upstream commit and the commit is not in the upstream commits, clear the selection
-	if (selection.upstream && !upstreamCommitIds.includes(selection.commitId)) {
-		laneState.selection.set({
-			branchName: selection.branchName,
-			previewOpen: false,
-		});
-
-		return;
-	}
-}
+const LEGACY_SETTINGS_KEY = "settings-json";
 
 /**
- * Updates the current stack state selection and exclusive action.
- */
-export function updateStaleStackState(
-	uiState: UiState,
-	stackId: string,
-	details: StackDetails,
-): void {
-	updateStackSelection(uiState, stackId, details);
-}
-
-/**
- * Update the project state based on the current stacks, branches and commits.
+ * Initialises user settings in UiState:
+ * 1. Migrates any legacy `settings-json` localStorage data into the Redux-backed store.
+ * 2. Ensures the default terminal matches the current platform (the static
+ *    default is macOS; this corrects it for Windows/Linux on fresh installs).
  *
- * - Clears the selected stack if it no longer exists.
- * - Clears the exclusive action if it references a non-existing stack, branch or commit.
+ * Must be called after Redux Persist has rehydrated so that migrated values
+ * are not overwritten.
  */
-export function updateStaleProjectState(
+export async function initUserSettings(
+	uiState: UiState,
+	platformName: string,
+	terminalService: TerminalService,
+) {
+	const raw = localStorage.getItem(LEGACY_SETTINGS_KEY);
+	if (raw) {
+		try {
+			const obj = JSON.parse(raw) as Record<string, unknown>;
+			const g = uiState.global;
+			for (const [key, value] of Object.entries(obj)) {
+				if (!Object.prototype.hasOwnProperty.call(g, key)) continue;
+				const prop = g[key as keyof typeof g];
+				if (!prop || value === null || value === undefined) continue;
+				// Validate that the migrated value's type matches the current default
+				// to avoid persisting e.g. a string where an object is expected.
+				if (typeof value !== typeof prop.current) continue;
+				(prop as WritableReactive<UiStateValue>).set(value as UiStateValue);
+			}
+			localStorage.removeItem(LEGACY_SETTINGS_KEY);
+		} catch {
+			// Corrupted data – just remove it.
+			localStorage.removeItem(LEGACY_SETTINGS_KEY);
+		}
+	}
+
+	// Ensure the terminal default matches the platform.
+	const DESKTOP_PLATFORMS = ["macos", "windows", "linux"];
+	if (DESKTOP_PLATFORMS.includes(platformName)) {
+		const terminal = uiState.global.defaultTerminal.current as TerminalSettings | null;
+		if (terminal?.platform !== platformName) {
+			try {
+				const recommended = await terminalService.getRecommendedTerminalForPlatform(platformName);
+				const fallback =
+					recommended ?? (await terminalService.getTerminalOptionsForPlatform(platformName))[0];
+				if (fallback) {
+					uiState.global.defaultTerminal.set(fallback);
+				}
+			} catch (err) {
+				console.error("Failed to get recommended terminal", err);
+			}
+		}
+	}
+}
+
+/**
+ * Sets the `stackBusy` state while running `fn`, and clears it afterwards.
+ * Used to show a busy spinner on commits and block interaction on affected
+ * stacks during operations like squash, move, uncommit, etc.
+ */
+export async function withStackBusy(
 	uiState: UiState,
 	projectId: string,
-	stackIds: string[],
-	branches: string[],
-	commitIds: string[],
-	baseCommitShas: string[],
+	opts: { commitId?: string; stackIds?: string[] },
+	fn: () => Promise<void>,
 ) {
-	const projectState = uiState.project(projectId);
-
-	if (projectState.exclusiveAction.current) {
-		updateExclusiveActionState(
-			projectState.exclusiveAction.current,
-			projectState,
-			stackIds,
-			commitIds,
-			branches,
-			baseCommitShas,
-		);
-	}
-}
-
-function updateExclusiveActionState(
-	action: ExclusiveAction,
-	projectState: GlobalStore<ProjectUiState>,
-	stackIds: string[],
-	commitIds: string[],
-	branches: string[],
-	baseCommitShas: string[],
-) {
-	switch (action.type) {
-		case "commit":
-			if (action.stackId && !stackIds.includes(action.stackId)) {
-				projectState.exclusiveAction.set(undefined);
-			}
-			if (
-				action.parentCommitId &&
-				!commitIds.includes(action.parentCommitId) &&
-				!baseCommitShas.includes(action.parentCommitId)
-			) {
-				projectState.exclusiveAction.set(undefined);
-			}
-			if (action.branchName && !branches.includes(action.branchName)) {
-				projectState.exclusiveAction.set(undefined);
-			}
-			break;
-		case "edit-commit-message":
-			if (action.stackId && !stackIds.includes(action.stackId)) {
-				projectState.exclusiveAction.set(undefined);
-			}
-			if (action.commitId && !commitIds.includes(action.commitId)) {
-				projectState.exclusiveAction.set(undefined);
-			}
-			if (action.branchName && !branches.includes(action.branchName)) {
-				projectState.exclusiveAction.set(undefined);
-			}
-			break;
-		case "create-pr":
-			if (action.stackId && !stackIds.includes(action.stackId)) {
-				projectState.exclusiveAction.set(undefined);
-			}
-			if (action.branchName && !branches.includes(action.branchName)) {
-				projectState.exclusiveAction.set(undefined);
-			}
-			break;
+	uiState.project(projectId).stackBusy.set({ commitId: opts.commitId, stackIds: opts.stackIds });
+	try {
+		await fn();
+	} finally {
+		uiState.project(projectId).stackBusy.set(undefined);
 	}
 }

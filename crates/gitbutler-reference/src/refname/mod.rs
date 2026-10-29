@@ -21,13 +21,16 @@ pub enum Refname {
 
 impl From<&RemoteRefname> for Refname {
     fn from(value: &RemoteRefname) -> Self {
-        Self::Remote(value.clone())
+        value.clone().into()
     }
 }
 
 impl From<RemoteRefname> for Refname {
     fn from(value: RemoteRefname) -> Self {
-        Self::Remote(value)
+        match value.remote() {
+            Some(_) => Refname::Remote(value),
+            None => Refname::Local(LocalRefname::new(value.branch(), None)),
+        }
     }
 }
 
@@ -65,19 +68,10 @@ impl Refname {
         }
     }
 
-    pub fn simple_name(&self) -> String {
-        match self {
-            Refname::Virtual(virtual_refname) => virtual_refname.branch().to_string(),
-            Refname::Local(local) => local.branch().to_string(),
-            Refname::Remote(remote) => remote.fullname(),
-            Refname::Other(raw) => raw.to_string(),
-        }
-    }
-
     pub fn remote(&self) -> Option<&str> {
         match self {
-            Self::Remote(remote) => Some(remote.remote()),
-            Self::Local(remote) => remote.remote().map(|remote| remote.remote()),
+            Self::Remote(remote) => remote.remote(),
+            Self::Local(remote) => remote.remote().and_then(|remote| remote.remote()),
             _ => None,
         }
     }

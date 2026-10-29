@@ -1,168 +1,157 @@
 //! This crate implements various automations that GitButler can perform.
 
-use std::{
-    fmt::{Debug, Display},
-    path::Path,
-    str::FromStr,
-};
+use std::fmt::{Debug, Display};
 
-use but_core::{TreeChange, sync::RepoExclusiveGuard};
-use but_ctx::{Context, ProjectHandleOrLegacyProjectId, access::RepoExclusive};
-use but_hunk_assignment::CommitAbsorption;
-use but_workspace::legacy::ui::StackEntry;
-use gitbutler_branch::BranchCreateRequest;
-use gitbutler_stack::{Target, VirtualBranchesHandle};
+use anyhow::Context as _;
+use but_core::sync::RepoExclusive;
+use but_ctx::Context;
+use gitbutler_operating_modes::OperatingMode;
+use gitbutler_oplog::{
+    OplogExt,
+    entry::{OperationKind, SnapshotDetails},
+};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 mod action;
-mod auto_commit;
-mod branch_changes;
 pub mod cli;
 pub mod commit_format;
 mod generate;
-pub mod rename_branch;
 pub mod reword;
 mod simple;
-mod workflow;
 pub use action::{ActionListing, Source, list_actions};
 use but_core::ref_metadata::StackId;
 use strum::EnumString;
-use uuid::Uuid;
-pub use workflow::{WorkflowList, list_workflows};
 
-pub fn branch_changes(
+/// React to detected worktree changes by creating commits on the appropriate workspace stacks.
+///
+/// This is the action-side callback for watcher or external tool flows that have noticed
+/// uncommitted changes and want GitButler to absorb them. It first prepares the repository state,
+/// then collects hunk assignments, creates a stack if none exists, groups changes by target stack,
+/// and creates commits with the requested message.
+///
+/// `ctx` provides the repository, workspace, database, metadata, settings, default-target setup,
+/// and operating-mode state. `change_summary` is the generated or user-provided summary used in the
+/// commit message. `external_prompt` is optional additional prompt text to prepend to the commit
+/// message. `handler` selects the concrete handle-changes implementation. `exclusive_stack` limits
+/// commits to one stack when set. `perm` is the caller-held exclusive worktree permission used for
+/// every repository and workspace access in this function.
+pub fn on_uncommitted_changes(
     ctx: &mut Context,
-    llm: &but_llm::LLMProvider,
-    changes: Vec<TreeChange>,
-    model: String,
-) -> anyhow::Result<()> {
-    branch_changes::branch_changes(ctx, llm, changes, model)
+    change_summary: &str,
+    external_prompt: Option<String>,
+    handler: ActionHandler,
+    exclusive_stack: Option<StackId>,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<Outcome> {
+    prepare_handle_changes(ctx, perm)?;
+    let context_lines = ctx.settings.context_lines;
+    let mut meta = ctx.meta()?;
+    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    match handler {
+        ActionHandler::HandleChangesSimple => simple::handle_changes(
+            change_summary,
+            external_prompt,
+            exclusive_stack,
+            perm,
+            &repo,
+            &mut ws,
+            &mut db,
+            &mut meta,
+            context_lines,
+        ),
+    }
 }
 
-#[expect(clippy::too_many_arguments)]
-pub fn auto_commit(
-    project_id: ProjectHandleOrLegacyProjectId,
-    repo: &gix::Repository,
-    project_data_dir: &Path,
-    context_lines: u32,
-    llm: Option<&but_llm::LLMProvider>,
-    emitter: impl Fn(&str, serde_json::Value) + Send + Sync + 'static,
-    absorption_plan: Vec<CommitAbsorption>,
-    guard: &mut RepoExclusiveGuard,
-) -> anyhow::Result<usize> {
-    auto_commit::auto_commit(
-        project_id,
-        repo,
-        project_data_dir,
-        context_lines,
-        llm,
-        emitter,
-        absorption_plan,
-        guard,
-    )
-}
-
-pub fn auto_commit_simple(
-    repo: &gix::Repository,
-    project_data_dir: &Path,
-    context_lines: u32,
-    llm: Option<&but_llm::LLMProvider>,
-    absorption_plan: Vec<CommitAbsorption>,
-    guard: &mut RepoExclusiveGuard,
-) -> anyhow::Result<usize> {
-    auto_commit::auto_commit_simple(
-        repo,
-        project_data_dir,
-        context_lines,
-        llm,
-        absorption_plan,
-        guard,
-    )
-}
-
-pub fn handle_changes(
+/// Record and run an uncommitted-changes reaction while reusing the caller's worktree permission.
+///
+/// `ctx` provides the repository, workspace, database, metadata, settings, snapshots, and
+/// operating-mode state. `change_summary` is the generated or user-provided summary used in the
+/// commit message and action record. `external_prompt` is optional additional prompt text to
+/// prepend to the commit message and persist with the action. `handler` selects the concrete
+/// handle-changes implementation. `source` records where the action originated. `exclusive_stack`
+/// limits commits to one stack when set. `perm` is the caller-held exclusive worktree permission
+/// used for snapshots, repository access, workspace access, and rule preparation.
+pub fn record_uncommitted_changes_with_perm(
     ctx: &mut Context,
     change_summary: &str,
     external_prompt: Option<String>,
     handler: ActionHandler,
     source: Source,
     exclusive_stack: Option<StackId>,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<(Uuid, Outcome)> {
-    match handler {
-        ActionHandler::HandleChangesSimple => simple::handle_changes(
-            ctx,
+    let snapshot_before = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::AutoHandleChangesBefore),
+        perm,
+    )?;
+    let response = on_uncommitted_changes(
+        ctx,
+        change_summary,
+        external_prompt.clone(),
+        handler,
+        exclusive_stack,
+        perm,
+    );
+    let snapshot_after = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::AutoHandleChangesAfter),
+        perm,
+    )?;
+    let id = {
+        let mut db = ctx.db.get_cache_mut()?;
+        action::record_handle_changes_action(
+            &mut db,
             change_summary,
             external_prompt,
+            handler,
             source,
-            exclusive_stack,
-        ),
+            snapshot_before,
+            snapshot_after,
+            &response,
+        )?
+    };
+    response.map(|outcome| (id, outcome))
+}
+
+/// Prepare repository state for handle-changes.
+///
+/// This preserves the legacy preconditions from the old context-owning action flow:
+/// ensure a default target exists, reject edit mode, and switch back to the workspace
+/// branch when the repository is currently outside the workspace. Callers must hold
+/// exclusive worktree access and pass its permission through so no nested guard is
+/// acquired here.
+fn prepare_handle_changes(ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<()> {
+    default_target_setting_if_none(ctx)?;
+    match gitbutler_operating_modes::operating_mode(ctx, perm.read_permission())? {
+        OperatingMode::OpenWorkspace => Ok(()),
+        OperatingMode::Edit(_) => Err(anyhow::anyhow!(
+            "Cannot handle changes while in edit mode. Please exit edit mode first."
+        )),
+        OperatingMode::OutsideWorkspace(_) => {
+            let target_ref: gitbutler_reference::RemoteRefname = ctx
+                .project_meta()?
+                .target_ref_or_err()?
+                .to_string()
+                .parse()?;
+            gitbutler_branch_actions::set_base_branch(ctx, &target_ref, perm).map(|_| ())
+        }
     }
 }
 
-fn default_target_setting_if_none(
-    ctx: &Context,
-    vb_state: &VirtualBranchesHandle,
-) -> anyhow::Result<Target> {
-    if let Ok(default_target) = vb_state.get_default_target() {
-        return Ok(default_target);
+fn default_target_setting_if_none(ctx: &Context) -> anyhow::Result<()> {
+    let mut project_meta = ctx.project_meta()?;
+    if project_meta.target_ref.is_some() {
+        return Ok(());
     }
-    // Lets do the equivalent of `git symbolic-ref refs/remotes/origin/HEAD --short` to guess the default target.
 
     let repo = ctx.repo.get()?;
-    let remote_name = repo
-        .remote_default_name(gix::remote::Direction::Push)
-        .ok_or_else(|| anyhow::anyhow!("No push remote set or more than one remote"))?
-        .to_string();
-
-    let mut head_ref = repo
-        .find_reference(&format!("refs/remotes/{remote_name}/HEAD"))
-        .map_err(|_| anyhow::anyhow!("No HEAD reference found for remote {remote_name}"))?;
-
-    let head_commit = head_ref.peel_to_commit()?;
-
-    let remote_refname =
-        gitbutler_reference::RemoteRefname::from_str(&head_ref.name().as_bstr().to_string())?;
-
-    let target = Target {
-        branch: remote_refname,
-        remote_url: "".to_string(),
-        sha: head_commit.id,
-        push_remote_name: None,
-    };
-
-    vb_state.set_default_target(target.clone())?;
-    Ok(target)
-}
-
-fn stacks(ctx: &Context, repo: &gix::Repository) -> anyhow::Result<Vec<StackEntry>> {
-    let meta = ctx.legacy_meta()?;
-    but_workspace::legacy::stacks_v3(
-        repo,
-        &meta,
-        but_workspace::legacy::StacksFilter::InWorkspace,
-        None,
-    )
-}
-
-/// Returns the currently applied stacks, creating one if none exists.
-fn stacks_creating_if_none(
-    ctx: &Context,
-    perm: &mut RepoExclusive,
-) -> anyhow::Result<Vec<StackEntry>> {
-    let repo = &*ctx.repo.get()?;
-    let stacks = stacks(ctx, repo)?;
-    if stacks.is_empty() {
-        let template = but_core::branch::canned_refname(repo)?;
-        let branch_name = but_core::branch::find_unique_refname(repo, template.as_ref())?;
-        let create_req = BranchCreateRequest {
-            name: Some(branch_name.shorten().to_string()),
-            order: None,
-        };
-        let stack = gitbutler_branch_actions::create_virtual_branch(ctx, &create_req, perm)?;
-        Ok(vec![stack.into()])
-    } else {
-        Ok(stacks)
-    }
+    project_meta.target_ref = Some(
+        but_workspace::init::infer_default_target_ref(&repo)?
+            .context("Could not infer a local target branch; configure one first")?,
+    );
+    project_meta.target_commit_id = Some(project_meta.resolve_target_commit(&repo)?);
+    ctx.set_project_meta(project_meta)?;
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, EnumString, Default)]
@@ -190,4 +179,121 @@ pub struct UpdatedBranch {
     pub stack_id: StackId,
     pub branch_name: String,
     pub new_commits: Vec<String>,
+}
+
+#[cfg(test)]
+mod target_tests {
+    use super::default_target_setting_if_none;
+
+    fn git(path: &std::path::Path, args: &[&str]) -> anyhow::Result<()> {
+        let output = std::process::Command::new("git")
+            .current_dir(path)
+            .args(args)
+            .output()?;
+        anyhow::ensure!(
+            output.status.success(),
+            "fixture command failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        Ok(())
+    }
+
+    fn repository() -> anyhow::Result<tempfile::TempDir> {
+        let tmp = tempfile::tempdir()?;
+        git(tmp.path(), &["init", "-b", "main"])?;
+        git(
+            tmp.path(),
+            &[
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "--allow-empty",
+                "-m",
+                "base",
+            ],
+        )?;
+        Ok(tmp)
+    }
+
+    #[test]
+    fn initializes_local_only_main() -> anyhow::Result<()> {
+        let tmp = repository()?;
+        let repo = gix::open(tmp.path())?;
+        let local = repo.head_id()?.detach();
+        let ctx = but_ctx::Context::from_repo_for_testing(repo)?;
+        default_target_setting_if_none(&ctx)?;
+        let meta = ctx.project_meta()?;
+        assert_eq!(
+            meta.target_ref_or_err()?.to_string(),
+            "refs/heads/main",
+            "local main is a valid automation target without any remote"
+        );
+        assert_eq!(
+            meta.target_commit_id,
+            Some(local),
+            "local-only initialization uses main's tip"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn push_default_does_not_choose_the_automation_target() -> anyhow::Result<()> {
+        let tmp = repository()?;
+        git(
+            tmp.path(),
+            &[
+                "remote",
+                "add",
+                "origin",
+                "https://example.com/upstream.git",
+            ],
+        )?;
+        git(
+            tmp.path(),
+            &["remote", "add", "fork", "https://example.com/fork.git"],
+        )?;
+        git(
+            tmp.path(),
+            &["update-ref", "refs/remotes/origin/main", "HEAD"],
+        )?;
+        git(
+            tmp.path(),
+            &["update-ref", "refs/remotes/fork/other", "HEAD"],
+        )?;
+        git(
+            tmp.path(),
+            &[
+                "symbolic-ref",
+                "refs/remotes/origin/HEAD",
+                "refs/remotes/origin/main",
+            ],
+        )?;
+        git(
+            tmp.path(),
+            &[
+                "symbolic-ref",
+                "refs/remotes/fork/HEAD",
+                "refs/remotes/fork/other",
+            ],
+        )?;
+        git(tmp.path(), &["branch", "--track", "other", "fork/other"])?;
+        git(
+            tmp.path(),
+            &["branch", "--set-upstream-to=origin/main", "main"],
+        )?;
+        git(tmp.path(), &["config", "remote.pushDefault", "fork"])?;
+        let repo = gix::open(tmp.path())?;
+        let ctx = but_ctx::Context::from_repo_for_testing(repo)?;
+        default_target_setting_if_none(&ctx)?;
+        assert_eq!(
+            ctx.project_meta()?.target_ref_or_err()?.to_string(),
+            "refs/heads/main",
+            "feature publication settings must not select the integration target"
+        );
+        Ok(())
+    }
 }

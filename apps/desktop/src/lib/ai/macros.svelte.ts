@@ -1,6 +1,6 @@
-import { showError, showToast } from "$lib/notifications/toasts";
+import { showToast } from "$lib/notifications/toasts";
+import type { PromptService } from "$lib/ai/aiPromptService";
 import type DiffInputContext from "$lib/ai/diffInputContext.svelte";
-import type { PromptService } from "$lib/ai/promptService";
 import type { AIService, DiffInput } from "$lib/ai/service";
 
 type GenerateCommitMessageParams = {
@@ -43,7 +43,14 @@ export default class AIMacros {
 		const prompt = this.promptService.selectedCommitPrompt(this.projectId);
 		const diffInput = params.diffInput ?? (await this.diffInputContext.diffInput());
 		if (!diffInput) {
-			showError("Failed to generate commit message", "No changes found");
+			// "No changes" is a benign UX state (user clicked Generate with
+			// nothing selected). Surface it as an info toast rather than an
+			// error, to avoid spamming error telemetry and to keep the tone
+			// consistent with the empty state.
+			showToast({
+				style: "info",
+				message: "Nothing to summarize yet — add or select some changes first.",
+			});
 			return;
 		}
 
@@ -91,7 +98,10 @@ export default class AIMacros {
 
 		const diffInput = await this.diffInputContext.diffInput();
 		if (!diffInput) {
-			showError("Failed to generate branch name", "No changes found");
+			showToast({
+				style: "info",
+				message: "Nothing to summarize yet — add or select some changes first.",
+			});
 			return { branchName: undefined, commitMessage: undefined };
 		}
 		const branchName = await this.generateBranchNameFromDiffInput(diffInput);

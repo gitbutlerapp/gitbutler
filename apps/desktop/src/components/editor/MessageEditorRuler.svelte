@@ -48,7 +48,7 @@
 		bottom: var(--lexical-input-client-toolbar-height);
 		left: var(--ruler-position);
 		width: 1px;
-		background-color: var(--clr-theme-pop-element);
+		background-color: var(--fill-pop-bg);
 		opacity: 0.5;
 	}
 

@@ -1,0 +1,39 @@
+.bone {
+	background-color: var(--fill-gray-bg);
+	animation: pulse 0.8s ease-in-out infinite alternate;
+	opacity: 0.1;
+
+	@media (prefers-reduced-motion: reduce) {
+		animation: none;
+	}
+}
+
+/* One line box of the surrounding text style, so swapping the bone for the
+   text it stands in for leaves the row the same height. */
+.line {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	min-width: 0;
+	height: 1lh;
+}
+
+.bar {
+	width: 100%;
+	height: 1em;
+	border-radius: var(--radius-control);
+}
+
+.circle {
+	display: block;
+	flex: none;
+	width: var(--bone-size);
+	height: var(--bone-size);
+	border-radius: var(--radius-full);
+}
+
+@keyframes pulse {
+	to {
+		opacity: 0.16;
+	}
+}

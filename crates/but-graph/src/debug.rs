@@ -1,11 +1,13 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 
 use anyhow::{Context as _, bail};
 use bstr::{BString, ByteSlice, ByteVec};
 use gix::reference::Category;
 use petgraph::{prelude::EdgeRef, stable_graph::EdgeReference};
 
-use crate::{Edge, Graph, Segment, SegmentIndex, SegmentMetadata, init::PetGraph};
+use crate::{
+    CommitFlags, Edge, Graph, Segment, SegmentIndex, SegmentMetadata, StopCondition, init::PetGraph,
+};
 
 /// Debugging
 impl Graph {
@@ -106,9 +108,6 @@ impl Graph {
                 anon(&mut ri.ref_name)?;
             }
             if let Some(SegmentMetadata::Workspace(md)) = node.metadata.as_mut() {
-                if let Some(rn) = md.target_ref.as_mut() {
-                    anon(rn)?;
-                }
                 for rn in md
                     .stacks
                     .iter_mut()
@@ -124,25 +123,49 @@ impl Graph {
     pub fn commit_debug_string(
         commit: &crate::Commit,
         is_entrypoint: bool,
-        is_early_end: bool,
+        stop_condition: Option<StopCondition>,
         hard_limit: bool,
-        max_goals: Option<usize>,
+    ) -> String {
+        Self::commit_debug_string_inner(commit, is_entrypoint, stop_condition, hard_limit, false)
+    }
+
+    /// Like [`Self::commit_debug_string()`], but includes graph-contextual worktree ownership markers.
+    pub fn commit_debug_string_with_graph_context(
+        &self,
+        commit: &crate::Commit,
+        is_entrypoint: bool,
+        stop_condition: Option<StopCondition>,
+        hard_limit: bool,
+    ) -> String {
+        Self::commit_debug_string_inner(
+            commit,
+            is_entrypoint,
+            stop_condition,
+            hard_limit,
+            self.has_multiple_worktrees(),
+        )
+    }
+
+    fn commit_debug_string_inner(
+        commit: &crate::Commit,
+        is_entrypoint: bool,
+        stop_condition: Option<StopCondition>,
+        hard_limit: bool,
+        show_owned_by_repo: bool,
     ) -> String {
         format!(
             "{ep}{end}{kind}{hex}{flags}{refs}",
             ep = if is_entrypoint { "👉" } else { "" },
-            end = if is_early_end {
-                if hard_limit { "❌" } else { "✂" }
-            } else {
-                ""
-            },
+            end = stop_condition
+                .map(|condition| condition.debug_string(hard_limit))
+                .unwrap_or_default(),
             kind = if commit.flags.is_remote() {
                 "🟣"
             } else {
                 "·"
             },
             flags = if !commit.flags.is_empty() {
-                format!(" ({})", commit.flags.debug_string(max_goals))
+                format!(" ({})", commit.flags.debug_string())
             } else {
                 "".to_string()
             },
@@ -156,7 +179,11 @@ impl Graph {
                         .refs
                         .iter()
                         .map(|ri| format!("►{}", {
-                            Self::ref_debug_string(ri.ref_name.as_ref(), ri.worktree.as_ref())
+                            Self::ref_debug_string_inner(
+                                ri.ref_name.as_ref(),
+                                ri.worktree.as_ref(),
+                                show_owned_by_repo,
+                            )
                         }))
                         .collect::<Vec<_>>()
                         .join(", ")
@@ -169,6 +196,23 @@ impl Graph {
     pub fn ref_debug_string(
         ref_name: &gix::refs::FullNameRef,
         worktree: Option<&crate::Worktree>,
+    ) -> String {
+        Self::ref_debug_string_inner(ref_name, worktree, false)
+    }
+
+    /// Like [`Self::ref_debug_string()`], but includes graph-contextual worktree ownership markers.
+    pub fn ref_debug_string_with_graph_context(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+        worktree: Option<&crate::Worktree>,
+    ) -> String {
+        Self::ref_debug_string_inner(ref_name, worktree, self.has_multiple_worktrees())
+    }
+
+    fn ref_debug_string_inner(
+        ref_name: &gix::refs::FullNameRef,
+        worktree: Option<&crate::Worktree>,
+        show_owned_by_repo: bool,
     ) -> String {
         let (cat, sn) = ref_name.category_and_short_name().expect("valid refs");
         // Only shorten those that look good and are unambiguous enough.
@@ -184,46 +228,52 @@ impl Graph {
                     .unwrap_or(ref_name.as_bstr())
             },
             ws = worktree
-                .map(|ws| ws.debug_string(ref_name))
+                .map(|wt| wt.debug_string_with_graph_context(ref_name, show_owned_by_repo))
                 .unwrap_or_default()
         )
     }
 
-    /// Return a useful one-line string showing the relationship between `ref_name`, `remote_ref_name` and how
-    /// they are linked with `sibling_id` and `remote_tracking_branch_id`.
+    /// Return a useful one-line string showing the relationship between `ref_name` and `remote_ref_name`.
     pub fn ref_and_remote_debug_string(
         ref_info: Option<&crate::RefInfo>,
         remote_ref_name: Option<&gix::refs::FullName>,
-        sibling_id: Option<SegmentIndex>,
-        remote_tracking_branch_id: Option<SegmentIndex>,
+    ) -> String {
+        Self::ref_and_remote_debug_string_inner(ref_info, remote_ref_name, false)
+    }
+
+    /// Like [`Self::ref_and_remote_debug_string()`], but includes graph-contextual worktree ownership markers.
+    pub fn ref_and_remote_debug_string_with_graph_context(
+        &self,
+        ref_info: Option<&crate::RefInfo>,
+        remote_ref_name: Option<&gix::refs::FullName>,
+    ) -> String {
+        Self::ref_and_remote_debug_string_inner(
+            ref_info,
+            remote_ref_name,
+            self.has_multiple_worktrees(),
+        )
+    }
+
+    fn ref_and_remote_debug_string_inner(
+        ref_info: Option<&crate::RefInfo>,
+        remote_ref_name: Option<&gix::refs::FullName>,
+        show_owned_by_repo: bool,
     ) -> String {
         format!(
             "{ref_name}{remote}",
             ref_name = ref_info
                 .as_ref()
-                .map(|ri| format!(
-                    "{}{maybe_id}",
-                    Graph::ref_debug_string(ri.ref_name.as_ref(), ri.worktree.as_ref()),
-                    maybe_id = sibling_id
-                        .filter(|_| remote_ref_name.is_none())
-                        .map(|id| format!(" →:{}:", id.index()))
-                        .unwrap_or_default()
+                .map(|ri| Graph::ref_debug_string_inner(
+                    ri.ref_name.as_ref(),
+                    ri.worktree.as_ref(),
+                    show_owned_by_repo,
                 ))
-                .unwrap_or_else(|| format!(
-                    "anon:{maybe_id}",
-                    maybe_id = sibling_id
-                        .map(|id| format!(" →:{}:", id.index()))
-                        .unwrap_or_default()
-                )),
+                .unwrap_or_else(|| "anon:".to_string()),
             remote = remote_ref_name
                 .as_ref()
                 .map(|remote_ref_name| format!(
-                    " <> {remote_name}{maybe_id}",
+                    " <> {remote_name}",
                     remote_name = Graph::ref_debug_string(remote_ref_name.as_ref(), None),
-                    maybe_id = remote_tracking_branch_id
-                        .or(sibling_id)
-                        .map(|id| format!(" →:{}:", id.index()))
-                        .unwrap_or_default()
                 ))
                 .unwrap_or_default()
         )
@@ -253,7 +303,7 @@ impl Graph {
     /// Note that this may reveal additional debug information when invariants of the graph are violated.
     /// This often is more useful than seeing a hard error, which can be achieved with `Self::validated()`
     pub fn eprint_dot_graph(&self) {
-        let dot = self.dot_graph();
+        let dot = self.dot_graph_pruned();
         eprintln!("{dot}");
     }
 
@@ -281,7 +331,7 @@ impl Graph {
         dot.stdin
             .as_mut()
             .unwrap()
-            .write_all(self.dot_graph().as_bytes())
+            .write_all(self.dot_graph_pruned().as_bytes())
             .ok();
         let mut out = dot.wait_with_output().unwrap();
         out.stdout.extend(out.stderr);
@@ -312,19 +362,54 @@ impl Graph {
             .max()
     }
 
-    /// Produces a dot-version of the graph.
-    pub fn dot_graph(&self) -> String {
+    /// Return `true` if more than one unique worktree is referenced by the graph.
+    pub(crate) fn has_multiple_worktrees(&self) -> bool {
+        let mut first: Option<&crate::WorktreeKind> = None;
+        self.node_weights()
+            .flat_map(|segment| {
+                segment
+                    .ref_info
+                    .iter()
+                    .chain(segment.commits.iter().flat_map(|commit| commit.refs.iter()))
+            })
+            .filter_map(|ref_info| ref_info.worktree.as_ref())
+            .any(|worktree| {
+                if let Some(first) = first {
+                    first != &worktree.kind
+                } else {
+                    first = Some(&worktree.kind);
+                    false
+                }
+            })
+    }
+
+    /// Produces a pruned dot-version of the graph.
+    ///
+    /// This best-effort rendering path prunes very large graphs from the bottom
+    /// before handing them to Graphviz, because complete DOT input can make
+    /// `dot` hang on huge histories. It tries to compute the workspace lower
+    /// bound to preserve workspace-relevant segments and clear stale
+    /// `InWorkspace` flags below that bound, but projection is allowed to fail:
+    /// DOT output is diagnostic-only, so a workspace projection error must not
+    /// prevent rendering the graph.
+    pub fn dot_graph_pruned(&self) -> String {
+        let mut display_graph = self.clone();
+        display_graph.prune_for_dot_graph();
+        display_graph.dot_graph_unpruned()
+    }
+
+    /// Produces a dot-version of the graph without pruning.
+    fn dot_graph_unpruned(&self) -> String {
         const HEX: usize = 7;
-        let entrypoint = self.entrypoint;
-        let max_goals = self.max_goals();
+        let entrypoint = self.entrypoint_location();
+        let show_owned_by_repo = self.has_multiple_worktrees();
         let node_attrs = |_: &PetGraph, (sidx, s): (SegmentIndex, &Segment)| {
             let name = format!(
                 "{ref_name_and_remote}{maybe_centering_newline}",
-                ref_name_and_remote = Self::ref_and_remote_debug_string(
+                ref_name_and_remote = Self::ref_and_remote_debug_string_inner(
                     s.ref_info.as_ref(),
                     s.remote_tracking_ref_name.as_ref(),
-                    s.sibling_segment_id,
-                    s.remote_tracking_branch_segment_id,
+                    show_owned_by_repo,
                 ),
                 maybe_centering_newline = if s.commits.is_empty() { "" } else { "\n" },
             );
@@ -336,16 +421,16 @@ impl Graph {
                 .iter()
                 .enumerate()
                 .map(|(cidx, c)| {
-                    Self::commit_debug_string(
+                    Self::commit_debug_string_inner(
                         c,
                         !show_segment_entrypoint && Some((sidx, Some(cidx))) == entrypoint,
                         if cidx + 1 != s.commits.len() {
-                            false
+                            None
                         } else {
-                            self.is_early_end_of_traversal(sidx)
+                            self.stop_condition(sidx)
                         },
                         self.hard_limit_hit,
-                        max_goals,
+                        show_owned_by_repo,
                     )
                 })
                 .collect::<Vec<_>>()
@@ -406,5 +491,76 @@ impl Graph {
         };
         let dot = petgraph::dot::Dot::with_attr_getters(&self.inner, &[], &edge_attrs, &node_attrs);
         format!("{dot:?}")
+    }
+
+    // WARNING: should only be run on a fresh clone as it probably leaves the graph unusable.
+    fn prune_for_dot_graph(&mut self) {
+        let lower_bound_segment_id = self
+            .to_workspace_state()
+            .ok()
+            .and_then(|state| state.lower_bound_segment_id);
+        if let Some(lower_bound_segment_id) = lower_bound_segment_id {
+            self.remove_in_workspace_flag_below_lower_bound(lower_bound_segment_id);
+        }
+
+        // It's OK if it takes a while, prefer complete graphs.
+        const LIMIT: usize = 5000;
+        let mut to_remove = self.num_segments().saturating_sub(LIMIT);
+        if to_remove > 0 {
+            tracing::warn!(
+                "Pruning at most {to_remove} nodes from the bottom to assure 'dot' won't hang",
+            );
+            let mut next = VecDeque::new();
+            next.extend(self.base_segments());
+            let mut seen = self.seen_table();
+            while let Some(sidx) = next.pop_front() {
+                if to_remove == 0 {
+                    break;
+                }
+                if let Some(s) = self.node_weight(sidx) {
+                    if lower_bound_segment_id.is_some()
+                        && s.non_empty_flags_of_first_commit()
+                            .is_some_and(|flags| flags.contains(CommitFlags::InWorkspace))
+                    {
+                        continue;
+                    }
+                    if s.metadata.is_some() || s.sibling_segment_id.is_some() {
+                        continue;
+                    }
+                }
+                next.extend(
+                    self.neighbors_directed(sidx, petgraph::Direction::Incoming)
+                        .filter(|n| seen.insert_unseen(*n)),
+                );
+                self.remove_node(sidx);
+                to_remove -= 1;
+            }
+            if to_remove != 0 {
+                tracing::warn!(
+                    "{to_remove} extra nodes were kept to keep vital portions of the graph"
+                );
+            }
+            self.set_hard_limit_hit();
+        }
+    }
+
+    fn remove_in_workspace_flag_below_lower_bound(&mut self, lower_bound_segment_id: SegmentIndex) {
+        let mut seen = self.seen_table();
+        seen.insert_unseen(lower_bound_segment_id);
+        let mut queue = VecDeque::from([lower_bound_segment_id]);
+        while let Some(sidx) = queue.pop_front() {
+            let below_segments: Vec<_> = self
+                .neighbors_directed(sidx, petgraph::Direction::Outgoing)
+                .filter(|n| seen.insert_unseen(*n))
+                .collect();
+            for below_sidx in below_segments {
+                if let Some(segment) = self.node_weight_mut(below_sidx)
+                    && let Some(first_commit) = segment.commits.first_mut()
+                {
+                    first_commit.flags.remove(CommitFlags::InWorkspace);
+                }
+                queue.push_back(below_sidx);
+            }
+        }
     }
 }

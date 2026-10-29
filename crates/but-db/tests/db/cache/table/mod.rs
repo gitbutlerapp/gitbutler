@@ -1,2 +1,2 @@
-mod commit_metadata;
+mod agent_skill_notice;
 mod update;

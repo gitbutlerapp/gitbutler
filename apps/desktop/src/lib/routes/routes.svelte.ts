@@ -18,14 +18,6 @@ export function workspacePath(projectId: string) {
 	return `/${projectId}/workspace`;
 }
 
-export function ircPath(projectId: string) {
-	return `/${projectId}/irc`;
-}
-
-export function isIrcPath() {
-	return isUrl<{ projectId: string }>("/[projectId]/irc");
-}
-
 export function isWorkspacePath(): { projectId: string; stackId?: string } | undefined {
 	const isStackUrl = isUrl<{ projectId: string; stackId?: string }>(
 		"/[projectId]/workspace?stackId=[stackId]",
@@ -48,14 +40,6 @@ export function branchesPath(projectId: string) {
 
 export function isBranchesPath() {
 	return isUrl<{ projectId: string }>("/[projectId]/branches");
-}
-
-export function codegenPath(projectId: string) {
-	return `/${projectId}/codegen`;
-}
-
-export function isCodegenPath() {
-	return isUrl<{ projectId: string }>("/[projectId]/codegen");
 }
 
 export function isPreviewStackPath() {

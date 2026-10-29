@@ -1,0 +1,5 @@
+error: `#[but_api(Type)]` only supports owned parameters
+ --> tests/ui/fail/base_parameter_transport_reference.rs:7:43
+  |
+7 |     #[but_api(UiRelativeTo)] relative_to: &str,
+  |                                           ^^^^

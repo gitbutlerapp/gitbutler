@@ -1,10 +1,8 @@
-import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
-import { isDefined } from "@gitbutler/ui/utils/typeguards";
-import type { TreeChange } from "$lib/hunks/change";
+import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 import type { UnifiedDiff } from "$lib/hunks/diff";
-import type { AssignmentRejection, HunkAssignmentRequest } from "$lib/hunks/hunk";
-import type { BackendApi } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/backendApi";
+import type { TreeChange } from "@gitbutler/but-sdk";
 
 export type ChangeDiff = {
 	path: string;
@@ -14,38 +12,39 @@ export type ChangeDiff = {
 export const DIFF_SERVICE = new InjectionToken<DiffService>("DiffService");
 
 export class DiffService {
-	private api: ReturnType<typeof injectEndpoints>;
+	constructor(private backendApi: BackendApi) {}
 
-	constructor(api: BackendApi) {
-		this.api = injectEndpoints(api);
-	}
-
-	getDiff(projectId: string, change: TreeChange) {
-		return this.api.endpoints.getDiff.useQuery({ projectId, change });
+	/** The diff of `change`; an uncommitted one is read from the linked `worktree`, if given. */
+	getDiff(projectId: string, change: TreeChange, worktree?: string) {
+		return this.backendApi.endpoints.getDiff.useQuery({ projectId, change, worktree });
 	}
 
 	get assignHunk() {
-		return this.api.endpoints.assignHunk.mutate;
+		return this.backendApi.endpoints.assignHunk.mutate;
 	}
 
-	async fetchDiff(projectId: string, change: TreeChange) {
-		const { getDiff } = this.api.endpoints;
-		return await getDiff.fetch({ projectId, change });
+	async fetchDiff(projectId: string, change: TreeChange, worktree?: string) {
+		const { getDiff } = this.backendApi.endpoints;
+		return await getDiff.fetch({ projectId, change, worktree });
 	}
 
 	getChanges(projectId: string, changes: TreeChange[]) {
 		const args = changes.map((change) => ({ projectId, change }));
-		const { getDiff } = this.api.endpoints;
+		const { getDiff } = this.backendApi.endpoints;
 		return getDiff.useQueries(args, {
 			transform: (data, args): ChangeDiff => ({ path: args.change.path, diff: data }),
 		});
 	}
 
-	async fetchChanges(projectId: string, changes: TreeChange[]): Promise<ChangeDiff[]> {
-		const args = changes.map((change) => ({ projectId, change }));
+	async fetchChanges(
+		projectId: string,
+		changes: TreeChange[],
+		worktree?: string,
+	): Promise<ChangeDiff[]> {
+		const args = changes.map((change) => ({ projectId, change, worktree }));
 		const responses = await Promise.all(
 			args.map((arg) =>
-				this.api.endpoints.getDiff.fetch(arg, {
+				this.backendApi.endpoints.getDiff.fetch(arg, {
 					transform: (diff, args) => ({
 						path: args.change.path,
 						diff,
@@ -55,25 +54,4 @@ export class DiffService {
 		);
 		return responses.filter(isDefined);
 	}
-}
-function injectEndpoints(api: BackendApi) {
-	return api.injectEndpoints({
-		endpoints: (build) => ({
-			getDiff: build.query<UnifiedDiff | null, { projectId: string; change: TreeChange }>({
-				extraOptions: { command: "tree_change_diffs" },
-				query: (args) => args,
-				providesTags: [providesList(ReduxTag.Diff)],
-			}),
-			assignHunk: build.mutation<
-				AssignmentRejection[],
-				{ projectId: string; assignments: HunkAssignmentRequest[] }
-			>({
-				extraOptions: {
-					command: "assign_hunk",
-				},
-				query: (args) => args,
-				invalidatesTags: [invalidatesList(ReduxTag.WorktreeChanges)],
-			}),
-		}),
-	});
 }

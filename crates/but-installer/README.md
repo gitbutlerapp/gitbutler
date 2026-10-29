@@ -30,6 +30,9 @@ curl -sSL https://gitbutler.com/install.sh | sh -s 0.18.7
 but-installer                  # Install latest stable
 but-installer nightly          # Install nightly
 but-installer 0.18.7           # Install specific version
+
+# From another script: skip the shell-config and agent-setup prompts even in a terminal
+curl -sSL https://gitbutler.com/install.sh | GITBUTLER_NONINTERACTIVE=1 sh
 ```
 
 ## Building

@@ -1,4 +1,4 @@
-# Container for running E2E tests on MacOS
+# Container for running E2E tests on macOS
 #
 # 1. docker build --tag gitbutler/e2e:latest
 # 2. docker run --name e2e-agent --detach -p 2222:22 -v $GITBUTLER_REPO:/root/gitbutler \
@@ -9,7 +9,7 @@
 # The rest is run inside the container in your SSH session:
 # 6. cd /root/gitbutler
 # 7. pnpm install && cargo build
-# 8. cargo build -p gitbutler-git && cargo build -p gitbutler-cli
+# 8. cargo build -p gitbutler-git && cargo build -p but
 # 9. pnpm build:test
 # 10. pnpm test:e2e:blackbox
 
@@ -67,17 +67,12 @@ ENV SHELL=bash
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-# Install node.
-RUN curl -fsSL "https://deb.nodesource.com/setup_20.x" | bash - && \
-  apt install -y nodejs && \
-  corepack enable
-
 # Install pnpm and configure store directory.
 ENV PNPM_HOME=/tmp/.pnpm
-RUN wget -qO- https://get.pnpm.io/install.sh | ENV="$HOME/.bashrc" SHELL="$(which bash)" bash -
+ENV PATH="${PNPM_HOME}/bin:${PATH}"
+RUN wget -qO- https://get.pnpm.io/install.sh | PNPM_VERSION=12.5.1 ENV="$HOME/.bashrc" SHELL="$(which bash)" bash -
 # Home/store dir should be mounted from the host.
 RUN pnpm config set store-dir /tmp/.pnpm
-ENV PATH="/tmp/.pnpm:${PATH}"
 RUN pnpm setup
 
 # Used to manage build dependencies between packages.

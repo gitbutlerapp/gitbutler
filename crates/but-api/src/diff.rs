@@ -1,7 +1,16 @@
 use but_api_macros::but_api;
+use but_core::{
+    sync::{RepoExclusive, RepoShared},
+    ui::TreeChange,
+};
 use but_ctx::Context;
+use but_hunk_assignment::{HunkAssignmentRequest, WorktreeChanges};
+use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
+use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use gix::prelude::ObjectIdExt;
 use tracing::instrument;
+
+use crate::commit::json::ChangesSource;
 
 boolean_enums::gen_boolean_enum!(pub serde ComputeLineStats);
 
@@ -37,13 +46,13 @@ pub mod json {
         fn from(value: but_core::diff::CommitDetails) -> Self {
             let but_core::diff::CommitDetails {
                 commit,
+                has_conflicts,
                 diff_with_first_parent,
                 line_stats,
                 conflict_entries,
             } = value;
-
             CommitDetails {
-                commit: commit.into(),
+                commit: but_workspace::ui::Commit::from_commit_owned(commit, has_conflicts),
                 changes: diff_with_first_parent.into_iter().map(Into::into).collect(),
                 line_stats,
                 conflict_entries,
@@ -52,7 +61,11 @@ pub mod json {
     }
 }
 
-/// Compute the tree-diff for `commit_id` with its first parent and optionally calculate `line_stats`.
+/// Computes the tree diff for `commit_id` against its first parent and
+/// optionally calculates `line_stats`.
+///
+/// For lower-level implementation details, see
+/// [`but_core::diff::CommitDetails::from_commit_id()`].
 #[but_api(json::CommitDetails)]
 #[instrument(err(Debug))]
 pub fn commit_details(
@@ -64,12 +77,256 @@ pub fn commit_details(
     CommitDetails::from_commit_id(commit_id.attach(&repo), line_stats.into())
 }
 
-/// This function just exists for the frontend to work without the need for line-stats to be enabled explicitly.
-#[but_api(napi, json::CommitDetails)]
+/// Computes commit details for `commit_id` with line statistics enabled.
+///
+/// This exists for callers that always want line statistics without passing
+/// `line_stats` explicitly.
+#[but_api(json::CommitDetails)]
 #[instrument(err(Debug))]
 pub fn commit_details_with_line_stats(
     ctx: &Context,
     commit_id: gix::ObjectId,
 ) -> anyhow::Result<CommitDetails> {
     commit_details(ctx, commit_id, ComputeLineStats::Yes)
+}
+
+/// Produces a unified patch for `change`.
+///
+/// `change` must not be a type change or a submodule change. For lower-level
+/// implementation details, see [`but_core::TreeChange::unified_patch()`].
+#[but_api]
+#[instrument(err(Debug))]
+pub fn tree_change_diffs(
+    ctx: &Context,
+    change: TreeChange,
+) -> anyhow::Result<Option<but_core::UnifiedPatch>> {
+    let change: but_core::TreeChange = change.into();
+    let repo = ctx.repo.get()?;
+    change.unified_patch(&repo, ctx.settings.context_lines)
+}
+
+/// Like [`tree_change_diffs()`], reading `change` from the checkout `changes_source`
+/// names, so a linked worktree's uncommitted changes diff against its own files.
+///
+/// A linked worktree has to be active, see `worktrees::open_changes_source()`.
+#[but_api]
+#[instrument(err(Debug))]
+pub fn tree_change_diffs_from_source(
+    ctx: &Context,
+    changes_source: ChangesSource,
+    change: TreeChange,
+) -> anyhow::Result<Option<but_core::UnifiedPatch>> {
+    let change: but_core::TreeChange = change.into();
+    let context_lines = ctx.settings.context_lines;
+    if let Some((_name, wt_repo)) = crate::worktrees::open_changes_source(ctx, &changes_source)? {
+        return change.unified_patch(&wt_repo, context_lines);
+    }
+    let repo = ctx.repo.get()?;
+    change.unified_patch(&repo, context_lines)
+}
+
+/// The UI's worktree changes, with the modification times the file lists show.
+///
+/// Composed here rather than in `but_core::diff::ui::worktree_changes()`, which
+/// leaves them out: the stat pass costs one syscall per changed file, and most
+/// of its callers want only the changes.
+fn worktree_changes_with_modification_times(
+    repo: &gix::Repository,
+) -> anyhow::Result<but_core::ui::WorktreeChanges> {
+    let mut changes: but_core::ui::WorktreeChanges = but_core::diff::worktree_changes(repo)?.into();
+    changes.modification_times = but_core::diff::ui::modification_times(repo, &changes);
+    Ok(changes)
+}
+
+/// See [`changes_in_worktree_with_perm()`].
+#[but_api]
+#[instrument(err(Debug))]
+pub fn changes_in_worktree(
+    ctx: &Context,
+    changes_source: ChangesSource,
+    compute_deps_and_assignments: bool,
+) -> anyhow::Result<WorktreeChanges> {
+    let guard = ctx.shared_worktree_access();
+    changes_in_worktree_with_perm(
+        ctx,
+        changes_source,
+        compute_deps_and_assignments,
+        guard.read_permission(),
+    )
+}
+
+/// This UI-version of [`but_core::diff::worktree_changes()`] simplifies the `git status` information for display in
+/// the user interface as it is right now. From here, it's always possible to add more information as the need arises.
+///
+/// `changes_source` selects the checkout to inspect. A linked worktree has to be active, see
+/// `worktrees::open_changes_source()`.
+///
+/// ### Notable Transformations
+/// * There is no notion of an index (`.git/index`) - all changes seem to have happened in the worktree.
+/// * Modifications that were made to the index will be ignored *only if* there is a worktree modification to the same file.
+/// * conflicts are ignored
+///
+/// All ignored status changes are also provided so they can be displayed separately.
+///
+/// When dependency and assignment computation is turned off, hunk assignments and dependencies
+/// are not computed at all: `assignments` is empty and there are no `dependencies`.
+///
+/// A linked worktree is not part of the workspace: its hunks all come back unassigned,
+/// it has no dependencies, and nothing is persisted.
+///
+/// For lower-level implementation details, see
+/// [`but_core::diff::worktree_changes()`],
+/// [`but_hunk_assignment::assignments_with_fallback()`], and
+/// [`but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir()`].
+#[but_api]
+#[instrument(skip_all, err(Debug))]
+pub fn changes_in_worktree_with_perm(
+    ctx: &Context,
+    changes_source: ChangesSource,
+    compute_deps_and_assignments: bool,
+    perm: &RepoShared,
+) -> anyhow::Result<WorktreeChanges> {
+    let context_lines = ctx.settings.context_lines;
+
+    if let Some((_name, wt_repo)) = crate::worktrees::open_changes_source(ctx, &changes_source)? {
+        let changes = worktree_changes_with_modification_times(&wt_repo)?;
+        if !compute_deps_and_assignments {
+            return Ok(changes.into());
+        }
+        let assignments =
+            but_hunk_assignment::unassigned(&wt_repo, changes.changes.clone(), context_lines);
+        return Ok(WorktreeChanges {
+            assignments,
+            ..changes.into()
+        });
+    }
+
+    if !compute_deps_and_assignments {
+        let repo = ctx.repo.get()?;
+        return Ok(worktree_changes_with_modification_times(&repo)?.into());
+    }
+
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
+
+    let changes = but_core::diff::worktree_changes(&repo)?;
+
+    let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
+        &repo,
+        &ws,
+        Some(changes.changes.clone()),
+    );
+    let mut trans = db.immediate_transaction()?;
+
+    let (assignments, assignments_error) = {
+        but_hunk_assignment::assignments_with_fallback(
+            trans.hunk_assignments_mut()?,
+            &repo,
+            &ws,
+            Some(changes.changes.clone()),
+            context_lines,
+        )?
+    };
+
+    trans.commit()?;
+
+    let mut worktree_changes: but_core::ui::WorktreeChanges = changes.into();
+    worktree_changes.modification_times =
+        but_core::diff::ui::modification_times(&repo, &worktree_changes);
+    drop((repo, ws, db));
+
+    Ok(WorktreeChanges {
+        worktree_changes,
+        assignments,
+        assignments_error: assignments_error.map(|err| serde_error::Error::new(&*err)),
+        dependencies: dependencies.as_ref().ok().cloned(),
+        dependencies_error: dependencies
+            .as_ref()
+            .err()
+            .map(|err| serde_error::Error::new(&**err)),
+    })
+}
+
+/// Persists `assignments` for the current workspace without creating an oplog
+/// entry.
+///
+/// This acquires shared worktree access from `ctx` before writing
+/// assignments.
+///
+/// See [`assign_hunk_only_with_perm()`] for details.
+#[but_api]
+#[instrument(skip_all, err(Debug))]
+pub fn assign_hunk_only(
+    ctx: &Context,
+    assignments: Vec<HunkAssignmentRequest>,
+) -> anyhow::Result<()> {
+    let guard = ctx.shared_worktree_access();
+    assign_hunk_only_with_perm(ctx, assignments, guard.read_permission())
+}
+
+/// Persists `assignments` under caller-held shared repository access without
+/// creating an oplog entry.
+///
+/// For lower-level implementation details, see
+/// [`but_hunk_assignment::assign()`].
+pub fn assign_hunk_only_with_perm(
+    ctx: &Context,
+    assignments: Vec<HunkAssignmentRequest>,
+    perm: &RepoShared,
+) -> anyhow::Result<()> {
+    let context_lines = ctx.settings.context_lines;
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
+    but_hunk_assignment::assign(
+        db.hunk_assignments_mut()?,
+        &repo,
+        &ws,
+        assignments,
+        context_lines,
+    )?;
+    Ok(())
+}
+
+/// Persists `assignments` for the current workspace and records an oplog
+/// snapshot on success.
+///
+/// This acquires exclusive worktree access from `ctx` before writing
+/// assignments.
+///
+/// See [`assign_hunk_with_perm()`] for details.
+#[but_api]
+#[instrument(skip_all, err(Debug))]
+pub fn assign_hunk(
+    ctx: &mut Context,
+    assignments: Vec<HunkAssignmentRequest>,
+) -> anyhow::Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
+    assign_hunk_with_perm(ctx, assignments, guard.write_permission())
+}
+
+/// Persists `assignments` under caller-held exclusive repository access and
+/// records an oplog snapshot on success.
+///
+/// It behaves like [`assign_hunk_only_with_perm()`], but first prepares a
+/// best-effort `MoveHunk` oplog snapshot and commits the snapshot only if the
+/// assignment succeeds.
+pub fn assign_hunk_with_perm(
+    ctx: &Context,
+    assignments: Vec<HunkAssignmentRequest>,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<()> {
+    // this oplog entry is currently a noop (i.e. restoring it does nothing) but we do wanna
+    // support it in the future so leaving it here for consistency
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+        ctx,
+        SnapshotDetails::new(OperationKind::MoveHunk),
+        perm.read_permission(),
+        but_core::DryRun::No,
+    );
+
+    let res = assign_hunk_only_with_perm(ctx, assignments, perm.read_permission());
+    if let Some(snapshot) = maybe_oplog_entry
+        && res.is_ok()
+    {
+        snapshot.commit(ctx, perm).ok();
+    }
+    res
 }

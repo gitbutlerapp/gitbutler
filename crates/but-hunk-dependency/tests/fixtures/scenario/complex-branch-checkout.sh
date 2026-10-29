@@ -41,7 +41,7 @@ function set-change-id() {
 
 git checkout -b my_stack
 echo "this is a" > a
-git add a && git commit -m "add a" --trailer ""
+git add a && git commit -m "add a"
 set-change-id "change-id-1" "my_stack"
 
 echo "this is b" > b

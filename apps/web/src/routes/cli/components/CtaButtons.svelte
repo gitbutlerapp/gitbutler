@@ -78,7 +78,7 @@
 		>
 			<path
 				d="M20.8096 5.75H7C5.20507 5.75 3.75 7.20507 3.75 9V21C3.75 22.7949 5.20507 24.25 7 24.25H21C22.7949 24.25 24.25 22.7949 24.25 21V17.1055H25.75V21C25.75 23.6234 23.6234 25.75 21 25.75H7C4.37665 25.75 2.25 23.6234 2.25 21V9C2.25 6.37665 4.37665 4.25 7 4.25H20.8096V5.75ZM31.0498 5.51074L19.1787 18.2881C17.7582 19.8171 15.3621 19.8921 13.8486 18.4551L7.9834 12.8867L9.0166 11.7988L14.8818 17.3682C15.7899 18.2301 17.2269 18.1848 18.0791 17.2676L29.9502 4.48926L31.0498 5.51074Z"
-				fill="var(--clr-core-safe-60)"
+				fill="var(--clr-safe-60)"
 			/>
 		</svg>
 
@@ -151,26 +151,26 @@
 		gap: 12px;
 
 		/* Light mode defaults */
-		--copy-bg: var(--clr-core-gray-20);
+		--copy-bg: var(--clr-gray-20);
 		--copy-shadow: inset 0px -36px 54px rgba(0, 0, 0, 0.2);
 		--copy-text: white;
-		--copy-code: var(--clr-core-pop-70);
+		--copy-code: var(--clr-pop-70);
 		--copy-icon-fill: white;
 		--copy-icon-opacity: 0.4;
-		--docs-border: var(--clr-border-2);
-		--docs-text: var(--clr-text-2);
-		--docs-hover-bg: color-mix(in srgb, var(--clr-bg-1) 60%, transparent);
+		--docs-border: var(--border-2);
+		--docs-text: var(--text-2);
+		--docs-hover-bg: color-mix(in srgb, var(--bg-1) 60%, transparent);
 
 		&.dark-mode {
-			--copy-bg: var(--clr-theme-pop-on-element);
+			--copy-bg: var(--fill-pop-fg);
 			--copy-shadow: none;
-			--copy-text: var(--clr-core-pop-40);
-			--copy-code: var(--clr-core-pop-40);
-			--copy-icon-fill: var(--clr-core-pop-40);
+			--copy-text: var(--clr-pop-40);
+			--copy-code: var(--clr-pop-40);
+			--copy-icon-fill: var(--clr-pop-40);
 			--copy-icon-opacity: 0.5;
-			--docs-border: var(--clr-core-pop-70);
-			--docs-text: var(--clr-theme-pop-on-element);
-			--docs-hover-bg: color-mix(in srgb, var(--clr-theme-pop-on-element) 10%, transparent);
+			--docs-border: var(--clr-pop-70);
+			--docs-text: var(--fill-pop-fg);
+			--docs-hover-bg: color-mix(in srgb, var(--fill-pop-fg) 10%, transparent);
 		}
 	}
 

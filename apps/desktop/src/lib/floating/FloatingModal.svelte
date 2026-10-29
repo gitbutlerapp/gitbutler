@@ -3,12 +3,12 @@
 	import { DragResizeHandler } from "$lib/floating/dragResizeHandler";
 	import { ResizeCalculator } from "$lib/floating/resizeCalculator";
 	import { SnapPointManager } from "$lib/floating/snapPointManager";
-	import { SETTINGS } from "$lib/settings/userSettings";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { getStorageItem, setStorageItem } from "@gitbutler/shared/persisted";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
-	import { portal } from "@gitbutler/ui/utils/portal";
-	import { pxToRem, remToPx } from "@gitbutler/ui/utils/pxToRem";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
+	import { portal } from "@gitbutler/ui-svelte/utils/portal";
+	import { pxToRem, remToPx } from "@gitbutler/ui-svelte/utils/pxToRem";
 	import { onMount, untrack, type Snippet } from "svelte";
 	import type { SnapPositionName } from "$lib/floating/types";
 	import type { SnapPoint, ModalBounds } from "$lib/floating/types";
@@ -55,8 +55,8 @@
 		setStorageItem(`${persistId}-height`, nextHeight);
 	}
 
-	const userSettings = inject(SETTINGS);
-	const zoom = $derived($userSettings.zoom);
+	const uiState = inject(UI_STATE);
+	const zoom = $derived(uiState.global.zoom.current);
 
 	// Margin constants for viewport constraints (in rem; actual px depend on root font size and zoom)
 	const VIEWPORT_MARGIN_REM = 5; // total horizontal margin of 5rem (e.g., 2.5rem on each side)
@@ -211,10 +211,11 @@
 
 	// Reactively wire the drag handle — handles element changes after mount.
 	$effect(() => {
-		if (!dragHandleElement) return;
-		dragHandleElement.addEventListener("pointerdown", handleHeaderPointerDown);
+		const element = dragHandleElement;
+		if (!element) return;
+		element.addEventListener("pointerdown", handleHeaderPointerDown);
 		return () => {
-			dragHandleElement!.removeEventListener("pointerdown", handleHeaderPointerDown);
+			element.removeEventListener("pointerdown", handleHeaderPointerDown);
 		};
 	});
 
@@ -291,9 +292,9 @@
 		position: absolute;
 		flex-direction: column;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background: var(--clr-bg-1);
+		background: var(--bg-1);
 		box-shadow: var(--fx-shadow-l);
 		animation: slide-in 0.2s ease-out forwards;
 	}

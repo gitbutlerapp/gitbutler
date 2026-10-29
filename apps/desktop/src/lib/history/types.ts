@@ -1,10 +1,9 @@
-import { Transform, Type } from "class-transformer";
-
 export type Operation =
 	| "CreateCommit"
 	| "CreateBranch"
 	| "SetBaseBranch"
 	| "MergeUpstream"
+	| "MergeBranch"
 	| "UpdateWorkspaceBase"
 	| "MoveHunk"
 	| "UpdateBranchName"
@@ -15,6 +14,8 @@ export type Operation =
 	| "GenericBranchUpdate"
 	| "DeleteBranch"
 	| "ApplyBranch"
+	| "SwitchBranch"
+	| "SwitchToWorkspace"
 	| "DiscardLines"
 	| "DiscardHunk"
 	| "DiscardFile"
@@ -22,6 +23,7 @@ export type Operation =
 	| "Absorb"
 	| "AutoCommit"
 	| "UndoCommit"
+	| "DiscardCommit"
 	| "UnapplyBranch"
 	| "CherryPick"
 	| "SquashCommit"
@@ -29,6 +31,8 @@ export type Operation =
 	| "MoveCommit"
 	| "MoveBranch"
 	| "TearOffBranch"
+	| "RestoreFromSnapshotViaUndo"
+	| "RestoreFromSnapshotViaRedo"
 	| "RestoreFromSnapshot"
 	| "ReorderCommit"
 	| "InsertBlankCommit"
@@ -46,23 +50,22 @@ export type Operation =
 	| "SplitBranch"
 	| "OnDemandSnapshot";
 
-export class Trailer {
-	key!: string;
-	value!: string;
+export interface Trailer {
+	key: string;
+	value: string;
 }
 
-export class SnapshotDetails {
-	title!: string;
-	operation!: Operation;
+export interface SnapshotDetails {
+	title: string;
+	operation: Operation;
 	body?: string | undefined;
-	@Type(() => Trailer)
-	trailers!: Trailer[];
+	trailers: Trailer[];
 }
 
-export class Snapshot {
-	id!: string;
-	@Type(() => SnapshotDetails)
+export interface Snapshot {
+	/** Wire field is `commitId`; see `but_api::legacy::oplog::json::Snapshot`. */
+	commitId: string;
 	details?: SnapshotDetails;
-	@Transform((obj) => new Date(obj.value * 1000))
-	createdAt!: Date;
+	/** Milliseconds since epoch. */
+	createdAt: number;
 }

@@ -14,10 +14,7 @@ rust-version.workspace = true
 ignored = [
     # Used by macro-generated async API glue that machete does not detect reliably.
     "futures",
-    # Used only when the `napi` feature is enabled for Node bindings.
-    "napi",
-    # Used only when the `napi` feature is enabled for Node bindings.
-    "napi-derive",
+    "tokio",
     # Used only when the `tauri` feature is enabled for Tauri command bindings.
     "tauri",
 ]
@@ -30,54 +27,60 @@ default = []
 ## Provide Tauri commands automatically where possible, to avoid duplication.
 ## Needs "legacy" as long as it needs legacy project support.
 tauri = ["dep:tauri", "legacy"]
-## Provide napi bindings for Node.js via napi-rs.
-## Needs "legacy" as long as it needs legacy project support.
-napi = ["dep:napi", "dep:napi-derive", "legacy", "export-schema"]
 ## When paths are turned into strings they are lossy. Also provide a `_bytes` variant of such fields with the original value
 ## for lossless use.
 path-bytes = []
 ## Generate JSON schemas for TypeScript type generation via schemars.
 export-schema = [
+    "but-error/export-schema",
+    "but-project-handle/export-schema",
+    "gitbutler-user/export-schema",
     "but-workspace/export-schema",
     "but-hunk-assignment/export-schema",
+    "but-comments/export-schema",
     "gitbutler-project/export-schema",
     "but-rebase/export-schema",
-    "gitbutler-branch-actions/export-schema",
     "gitbutler-operating-modes/export-schema",
+    "gitbutler-branch/export-schema",
+    "gitbutler-branch-actions/export-schema",
+    "gitbutler-edit-mode/export-schema",
+    "gitbutler-oplog/export-schema",
+    "but-gerrit/export-schema",
 ]
+## Switch mutation responses ([`WorkspaceState`]) from the legacy `RefInfo`
+## projection to the graph-based `DetailedGraphWorkspace` projection.
+##
+## This changes the shape of a public type, so it must stay coherent across one
+## build: never enable it in any crate's default features. Leaf crates
+## (`gitbutler-tauri`, `but`) forward it so artifact builds can opt
+## in on the command line.
+graph-workspace = []
 ## Make legacy functionality available.
 legacy = [
     "but-ctx/legacy",
     "but-workspace/legacy",
+    "dep:but-askpass",
     "dep:gitbutler-user",
     "dep:gitbutler-project",
     "dep:gitbutler-branch",
     "dep:gitbutler-branch-actions",
     "dep:gitbutler-commit",
     "dep:gitbutler-reference",
-    "dep:gitbutler-stack",
     "dep:gitbutler-repo",
-    "dep:gitbutler-repo-actions",
     "dep:gitbutler-edit-mode",
     "dep:gitbutler-operating-modes",
     "dep:gitbutler-oplog",
-    "dep:gitbutler-git",
     "dep:but-action",
-    "dep:but-claude",
-    "dep:but-rules",
     "dep:but-gerrit",
-    "dep:but-worktrees",
-    "dep:but-cherry-apply",
-    "dep:url",
 ]
 
 [dependencies]
 but-serde.workspace = true
 but-path.workspace = true
 but-api-macros.workspace = true
-but-oxidize.workspace = true
 but-error.workspace = true
 but-core.workspace = true
+but-branches.workspace = true
 but-graph.workspace = true
 but-ctx.workspace = true
 but-workspace.workspace = true
@@ -87,63 +90,69 @@ but-rebase.workspace = true
 but-db.workspace = true
 but-forge.workspace = true
 but-forge-storage.workspace = true
+but-comments.workspace = true
+but-project-handle.workspace = true
 but-hunk-assignment.workspace = true
 but-hunk-dependency.workspace = true
 but-github.workspace = true
 but-gitlab.workspace = true
+but-bitbucket.workspace = true
 # 'legacy' is needed while this is only a sketch of what the oplog could be.
 # For single-branch testing, we also want the oplog and just take it as it is.
 but-oplog = { workspace = true, features = ["legacy"] }
+but-llm.workspace = true
+but-askpass = { workspace = true, optional = true }
 itertools.workspace = true
 
 # What follows is *basically* newly written crates that are built on top of legacy,
 # so need some refactoring/rethinking to become usable.
-but-cherry-apply = { workspace = true, optional = true }
 but-action = { workspace = true, optional = true }
-but-claude = { workspace = true, optional = true }
-but-rules = { workspace = true, optional = true }
 but-gerrit = { workspace = true, optional = true }
-but-worktrees = { workspace = true, optional = true }
 gitbutler-user = { workspace = true, optional = true }
 gitbutler-project = { workspace = true, optional = true }
 gitbutler-branch = { workspace = true, optional = true }
 gitbutler-branch-actions = { workspace = true, optional = true }
 gitbutler-commit = { workspace = true, optional = true }
 gitbutler-reference = { workspace = true, optional = true }
-gitbutler-stack = { workspace = true, optional = true }
 gitbutler-repo = { workspace = true, optional = true }
-gitbutler-repo-actions = { workspace = true, optional = true }
 gitbutler-edit-mode = { workspace = true, optional = true }
 gitbutler-operating-modes = { workspace = true, optional = true }
 gitbutler-oplog = { workspace = true, optional = true }
-gitbutler-git = { workspace = true, optional = true }
-tauri = { version = "^2.9.5", features = [
+gitbutler-git.workspace = true
+tauri = { version = "^2.10.3", features = [
     "unstable",
 ], optional = true } # For the #[tauri::command(async)] macro only
-napi = { version = "3.0.0", features = [
-    "serde-json",
-    "tokio_rt",
-], optional = true }
-napi-derive = { version = "3.0.0", optional = true }
 boolean-enums.workspace = true
 bstr = { workspace = true }
 schemars.workspace = true
 serde.workspace = true
-tokio = { workspace = true, features = ["full"] }
 futures.workspace = true
+tokio = { workspace = true, features = ["full"] }
 anyhow.workspace = true
+chrono.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
+uuid.workspace = true
 serde-error = "0.1.3"
 gix = { workspace = true, features = ["worktree-mutation"] }
 open.workspace = true
-url = { version = "2.5", optional = true }
-uuid.workspace = true
-which = "8.0.0"
+url.workspace = true
+which = "8.0.2"
+nonempty.workspace = true
 but-schemars.workspace = true
 
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSWorkspace"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString", "NSURL"] }
+
 [dev-dependencies]
-insta.workspace = true
+but-api = { path = ".", features = ["legacy"] }
+but-testsupport.workspace = true
+chrono.workspace = true
+gitbutler-oplog.workspace = true
+snapbox.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["full"] }
 
 [lints]
 workspace = true

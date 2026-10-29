@@ -12,16 +12,16 @@ import {
 	createSelectByPrefix,
 	createSelectNotIn,
 } from "$lib/state/customSelectors";
-import { isDefined } from "@gitbutler/ui/utils/typeguards";
+import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 import {
 	createSelector,
 	createSlice,
 	type EntityState,
 	type PayloadAction,
 } from "@reduxjs/toolkit";
-import type { TreeChange } from "$lib/hunks/change";
-import type { HunkAssignment, HunkHeader } from "$lib/hunks/hunk";
-import type { LineId } from "@gitbutler/ui/utils/diffParsing";
+import type { HunkAssignment, HunkHeader } from "@gitbutler/but-sdk";
+import type { TreeChange } from "@gitbutler/but-sdk";
+import type { LineId } from "@gitbutler/ui-svelte/utils/diffParsing";
 
 type UncommittedState = {
 	treeChanges: EntityState<TreeChange, string>;
@@ -324,6 +324,15 @@ export const uncommittedSlice = createSlice({
 		},
 	},
 });
+
+/** The main checkout's slice under another `name`, for a linked worktree's changes. */
+export function createUncommittedSlice(name: string) {
+	return createSlice({
+		name,
+		initialState: uncommittedSlice.getInitialState(),
+		reducers: uncommittedSlice.caseReducers,
+	});
+}
 
 /** This type is needed for `createSelector` calls. */
 type AssignmentState = ReturnType<typeof uncommittedSlice.getInitialState>;

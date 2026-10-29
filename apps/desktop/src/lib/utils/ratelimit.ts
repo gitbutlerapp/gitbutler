@@ -1,3 +1,5 @@
+import { SilentError } from "$lib/error/error";
+
 type RateLimitedFunction<T extends (...args: any[]) => any> = (
 	...args: Parameters<T>
 ) => ReturnType<T> | void;
@@ -29,7 +31,7 @@ export function rateLimit<T extends (...args: any[]) => any>(params: {
 			timestamps.push(now);
 			return fn(...args);
 		} else {
-			throw new Error(`Rate limit for ${name} exceeded, ${limit} / ${windowMs}ms.`);
+			throw new SilentError(`Rate limit for ${name} exceeded, ${limit} / ${windowMs}ms.`);
 		}
 	};
 }

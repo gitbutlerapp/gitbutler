@@ -23,9 +23,7 @@
 </tspan>
     <tspan x="10px" y="46px">
 </tspan>
-    <tspan x="10px" y="64px"><tspan>Usage: but [OPTIONS] &lt;COMMAND&gt;</tspan>
-</tspan>
-    <tspan x="10px" y="82px"><tspan>       but [OPTIONS] [RUB-SOURCE] [RUB-TARGET]</tspan>
+    <tspan x="10px" y="64px"><tspan>Usage: but [OPTIONS] [COMMAND]</tspan>
 </tspan>
     <tspan x="10px" y="100px">
 </tspan>

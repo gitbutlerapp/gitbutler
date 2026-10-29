@@ -1,14 +1,14 @@
-#![allow(deprecated)]
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TS)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./settings/index.ts"))]
 pub struct AppSettings {
     /// The amount of context lines to show in unified diffs, above and below the hunk.
     pub context_lines: u32,
     /// Whether the user has passed the onboarding flow.
     pub onboarding_complete: bool,
+    /// Whether the CLI shows agent skill installation and freshness notices.
+    pub agent_skill_notices: bool,
     /// Telemetry settings
     pub telemetry: app_settings::TelemetrySettings,
     /// Client ID for the GitHub OAuth application.
@@ -40,6 +40,7 @@ impl Default for AppSettings {
             .expect("BUG: default settings structure always matches the type")
     }
 }
+but_schemars::register_sdk_type!(AppSettings);
 
 /// Preset customizations for applications to use in [AppSettingsWithDiskSync::new_with_customization()], but tested and maintained here.
 pub mod customization {
@@ -84,7 +85,6 @@ mod json;
 mod legacy_settings;
 mod persistence;
 mod watch;
-use ts_rs::TS;
 pub use watch::AppSettingsWithDiskSync;
 
 pub mod api;

@@ -2,27 +2,42 @@ use super::super::FileChange;
 use bstr::ByteSlice;
 use but_ctx::Context;
 use but_llm::ChatMessage;
-use colored::Colorize;
 use tracing::instrument;
 
-use crate::utils::{OutputChannel, shorten_object_id};
+use crate::{
+    CliResult, IdMap,
+    args::atoms::{BranchArg, CliIdArg},
+    command::legacy::workspace_target,
+    theme::{self, Paint},
+    utils::{OutputChannel, get_change_id_for_commit, shorten_object_id},
+};
 
 pub fn show(
     ctx: &mut Context,
-    branch_id: &str,
+    branch_arg: CliIdArg,
     out: &mut OutputChannel,
     review: bool,
     show_files: bool,
     generate_ai_summary: bool,
     check_merge: bool,
-) -> anyhow::Result<()> {
-    let branch_name = branch_id.to_string();
+) -> CliResult<()> {
+    let (branch_arg, id_map) = {
+        let guard = ctx.exclusive_worktree_access();
+        let id_map = IdMap::new_from_context(ctx, guard.read_permission(), None)?;
+        let repo = ctx.repo.get()?;
+        let branch_arg = branch_arg
+            .try_resolve_branch(&repo, &id_map)?
+            .unwrap_or(BranchArg(branch_arg.0));
+        (branch_arg, id_map)
+    };
 
     // Get the list of commits ahead of base for this branch
-    let commits = get_commits_ahead(ctx, &branch_name, show_files)?;
+    let commits = get_commits_ahead(ctx, &branch_arg, show_files, &id_map)?;
 
-    // Get unassigned files for this branch
-    let unassigned_files = get_unassigned_files(ctx, &branch_name)?;
+    // Get uncommitted files for this branch
+    let uncommitted_files = get_uncommitted_files(ctx, &branch_arg)?;
+
+    let branch_name = &branch_arg.0;
 
     // Get review information if requested
     let reviews = if review {
@@ -30,7 +45,7 @@ pub fn show(
             ctx,
             Some(but_forge::CacheConfig::CacheOnly),
         )?
-        .get(&branch_name)
+        .get(branch_name)
         .cloned()
         .unwrap_or_default()
     } else {
@@ -39,28 +54,24 @@ pub fn show(
 
     // Generate AI summary if requested
     let ai_summary = if generate_ai_summary {
-        let git_config = gix::config::File::from_globals()?;
-        Some(generate_branch_summary(
-            &branch_name,
-            &commits,
-            &git_config,
-        )?)
+        let git_config = gix::config(None, &gix::open::Options::default())?;
+        Some(generate_branch_summary(branch_name, &commits, &git_config)?)
     } else {
         None
     };
 
     // Check merge conflicts if requested
     let merge_check = if check_merge {
-        Some(check_merge_conflicts(ctx, &branch_name)?)
+        Some(check_merge_conflicts(ctx, branch_name, &id_map)?)
     } else {
         None
     };
 
     if let Some(out) = out.for_json() {
         output_json(
-            &branch_name,
+            branch_name,
             &commits,
-            &unassigned_files,
+            &uncommitted_files,
             &reviews,
             ai_summary.as_deref(),
             merge_check.as_ref(),
@@ -68,9 +79,9 @@ pub fn show(
         )?;
     } else if let Some(out) = out.for_human() {
         output_human(
-            &branch_name,
+            branch_name,
             &commits,
-            &unassigned_files,
+            &uncommitted_files,
             &reviews,
             ai_summary.as_deref(),
             merge_check.as_ref(),
@@ -96,8 +107,15 @@ struct ConflictingFile {
 
 #[derive(Debug, serde::Serialize)]
 struct CommitRef {
+    #[serde(skip)]
+    #[allow(dead_code)]
+    object_id: gix::ObjectId,
+    #[serde(skip)]
+    change_id: but_core::ChangeId,
     sha: String,
     short_sha: String,
+    /// The stable change-ID ref shown by `but status`, when the commit has one.
+    cli_id: Option<String>,
     message: String,
     author_name: String,
     timestamp: i64,
@@ -106,38 +124,26 @@ struct CommitRef {
 // TODO(perf): re-write with `gix`, just avoid duplicate work there (get_merge_conflict_paths) isn't needed.
 // TODO(perf): re-write this to use a graph that includes all branches from the listing, needs a listing that uses
 //             the graph.
-fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> Result<MergeCheck, anyhow::Error> {
+fn check_merge_conflicts(
+    ctx: &Context,
+    branch_name: &str,
+    id_map: &IdMap,
+) -> CliResult<MergeCheck> {
     use but_core::RepositoryExt;
 
+    let guard = ctx.shared_worktree_access();
     let repo = ctx.repo.get()?;
-    let merge_repo = ctx.clone_repo_for_merging_non_persisting()?;
-
-    // Get the target (remote tracking branch like origin/master)
-    let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
-    let target = stack.get_default_target()?;
-
-    // Try to find the remote tracking branch (e.g., refs/remotes/origin/master)
-    let target_ref_name = format!(
-        "refs/remotes/{}/{}",
-        target.branch.remote(),
-        target.branch.branch()
-    );
-    let target_commit_id = match merge_repo.find_reference(&target_ref_name) {
-        Ok(mut reference) => reference.peel_to_commit()?.id,
-        Err(_) => target.sha,
-    };
-
-    // Find the branch by name
-    let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
-    let branch = branches
-        .iter()
-        .find(|b| b.name.to_string() == branch_name)
-        .ok_or_else(|| anyhow::anyhow!("Branch '{branch_name}' not found"))?;
+    let branch = BranchArg(branch_name.to_owned()).resolve_branch(&repo)?;
 
     // Find merge base
-    let merge_base = repo.merge_base(branch.head, target_commit_id)?.detach();
+    let (merge_base, target) = workspace_target::merge_base_with_target_with_perm(
+        ctx,
+        guard.read_permission(),
+        branch.head,
+    )?;
+    let merge_repo = ctx.clone_repo_for_merging_non_persisting()?;
     let merge_base_tree_id = repo.find_commit(merge_base)?.tree_id()?.detach();
-    let target_tree_id = repo.find_commit(target_commit_id)?.tree_id()?.detach();
+    let target_tree_id = repo.find_commit(target.oid())?.tree_id()?.detach();
     let branch_tree_id = repo.find_commit(branch.head)?.tree_id()?.detach();
 
     // Check if branch merges cleanly into target
@@ -155,10 +161,10 @@ fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> Result<MergeCheck,
         // For each conflicting file, find which commits on both sides modified it
         for path in conflict_paths {
             let branch_commits =
-                find_commits_modifying_file(&repo, &path, merge_base, branch.head)?;
+                find_commits_modifying_file(&repo, id_map, &path, merge_base, branch.head)?;
 
             let upstream_commits =
-                find_commits_modifying_file(&repo, &path, merge_base, target_commit_id)?;
+                find_commits_modifying_file(&repo, id_map, &path, merge_base, target.oid())?;
 
             conflicting_files.push(ConflictingFile {
                 path,
@@ -197,7 +203,7 @@ fn get_merge_conflict_paths(
     if merge_result.has_unresolved_conflicts(conflict_kind) {
         for conflict in merge_result.conflicts.iter() {
             if conflict.is_unresolved(conflict_kind) {
-                let path = gix::path::from_bstr(conflict.ours.location())
+                let path = gix::path::from_bstr(conflict.ours.location())?
                     .to_string_lossy()
                     .to_string();
                 paths.push(path);
@@ -211,6 +217,7 @@ fn get_merge_conflict_paths(
 // TODO(perf): we need a common mechanism for doing this and let it create a per-commit cache per repository.
 fn find_commits_modifying_file(
     repo: &gix::Repository,
+    id_map: &IdMap,
     path: &str,
     from_commit: gix::ObjectId,
     to_commit: gix::ObjectId,
@@ -243,8 +250,16 @@ fn find_commits_modifying_file(
         if modified_file {
             let author = commit.author()?;
             commits.push(CommitRef {
+                object_id: info.id,
+                change_id: match id_map.change_id_ref(info.id).map(|c| c.change_id.clone()) {
+                    Some(id) => id,
+                    None => get_change_id_for_commit(repo, info.id)?,
+                },
                 sha: info.id.to_string(),
                 short_sha: shorten_object_id(repo, info.id),
+                cli_id: id_map
+                    .change_id_ref(info.id)
+                    .map(|change_id| change_id.padded_short_id()),
                 message: super::super::commit_summary(&commit),
                 author_name: author.name.to_str_lossy().to_string(),
                 timestamp: commit.committer()?.time()?.seconds,
@@ -257,42 +272,36 @@ fn find_commits_modifying_file(
 
 fn get_commits_ahead(
     ctx: &Context,
-    branch_name: &str,
+    branch_arg: &BranchArg,
     show_files: bool,
-) -> Result<Vec<CommitInfo>, anyhow::Error> {
+    id_map: &IdMap,
+) -> CliResult<Vec<CommitInfo>> {
     use gix::prelude::ObjectIdExt as _;
 
+    let guard = ctx.shared_worktree_access();
     let repo = ctx.repo.get()?;
+    let branch = branch_arg.resolve_branch(&repo)?;
 
-    // Get the target (remote tracking branch like origin/master)
-    let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
-    let target = stack.get_default_target()?;
-
-    // Try to find the remote tracking branch (e.g., refs/remotes/origin/master)
-    let target_ref_name = format!(
-        "refs/remotes/{}/{}",
-        target.branch.remote(),
-        target.branch.branch()
-    );
-    let target_oid_gix = match repo.find_reference(&target_ref_name) {
-        Ok(mut reference) => reference.peel_to_commit()?.id,
-        Err(_) => target.sha,
+    // Workspace branches are buckets, not the entire history back to the target.
+    let branch_base = crate::legacy::workspace::applied_stacks(ctx)?
+        .iter()
+        .find_map(|stack| stack.branch(&branch_arg.0))
+        .map(|branch| branch.base_commit);
+    let merge_base = match branch_base {
+        Some(base) => base,
+        None => {
+            workspace_target::merge_base_with_target_with_perm(
+                ctx,
+                guard.read_permission(),
+                branch.head,
+            )?
+            .0
+        }
     };
 
-    // Find the branch by name
-    let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
-    let branch = branches
-        .iter()
-        .find(|b| b.name.to_string() == branch_name)
-        .ok_or_else(|| anyhow::anyhow!("Branch '{branch_name}' not found"))?;
-
-    let branch_oid_gix = branch.head;
-
-    // Find merge base
-    let merge_base = repo.merge_base(branch_oid_gix, target_oid_gix)?;
-
     // Walk from branch head to merge base, collecting commits
-    let traversal = branch_oid_gix
+    let traversal = branch
+        .head
         .attach(&repo)
         .ancestors()
         .with_hidden(Some(merge_base))
@@ -320,8 +329,16 @@ fn get_commits_ahead(
         };
 
         commits.push(CommitInfo {
+            object_id: info.id,
+            change_id: match id_map.change_id_ref(info.id).map(|c| c.change_id.clone()) {
+                Some(id) => id,
+                None => get_change_id_for_commit(&repo, info.id)?,
+            },
             sha: info.id.to_string(),
             short_sha: shorten_object_id(&repo, info.id),
+            cli_id: id_map
+                .change_id_ref(info.id)
+                .map(|change_id| change_id.padded_short_id()),
             message: super::super::commit_summary(&commit),
             author_name: author.name.to_str_lossy().to_string(),
             author_email: author.email.to_str_lossy().to_string(),
@@ -336,30 +353,23 @@ fn get_commits_ahead(
     Ok(commits)
 }
 
-fn get_unassigned_files(
-    ctx: &mut Context,
-    branch_name: &str,
-) -> Result<Vec<String>, anyhow::Error> {
+fn get_uncommitted_files(ctx: &mut Context, branch_arg: &BranchArg) -> anyhow::Result<Vec<String>> {
     use std::collections::BTreeMap;
 
     use bstr::{BString, ByteSlice};
     use but_hunk_assignment::HunkAssignment;
 
-    // Find the stack that contains this branch
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let stack = branch_arg.try_resolve_stack(ctx)?;
 
-    // Find the stack ID for this branch
-    let stack_id = stacks
-        .iter()
-        .find(|stack| stack.heads.iter().any(|head| head.name == branch_name))
-        .and_then(|stack| stack.id);
-
-    if let Some(stack_id) = stack_id {
+    if let Some(stack) = stack
+        && let Some(stack_id) = stack.id
+    {
         // Get worktree changes and assignments
-        let worktree_changes = but_api::legacy::diff::changes_in_worktree(ctx)?;
+        let worktree_changes = but_api::diff::changes_in_worktree(
+            ctx,
+            but_api::commit::json::ChangesSource::Head,
+            true,
+        )?;
 
         let mut by_file: BTreeMap<BString, Vec<HunkAssignment>> = BTreeMap::new();
         for assignment in worktree_changes.assignments {
@@ -371,25 +381,32 @@ fn get_unassigned_files(
 
         // Collect files that have hunks assigned to this stack
         // These are the "uncommitted" files for the stack
-        let mut unassigned: Vec<String> = Vec::new();
+        let mut uncommitted: Vec<String> = Vec::new();
         for (path, assignments) in &by_file {
             let has_stack_assignment = assignments.iter().any(|a| a.stack_id == Some(stack_id));
             if has_stack_assignment {
-                unassigned.push(path.to_str_lossy().to_string());
+                uncommitted.push(path.to_str_lossy().to_string());
             }
         }
 
-        Ok(unassigned)
+        Ok(uncommitted)
     } else {
-        // Branch is not in workspace, so no unassigned files
+        // Branch is not in workspace, so no uncommitted files
         Ok(vec![])
     }
 }
 
 #[derive(Debug, serde::Serialize)]
 struct CommitInfo {
+    #[serde(skip)]
+    #[allow(dead_code)]
+    object_id: gix::ObjectId,
+    #[serde(skip)]
+    change_id: but_core::ChangeId,
     sha: String,
     short_sha: String,
+    /// The stable change-ID ref shown by `but status`, when the commit has one.
+    cli_id: Option<String>,
     message: String,
     author_name: String,
     author_email: String,
@@ -404,7 +421,7 @@ struct CommitInfo {
 fn generate_branch_summary(
     branch_name: &str,
     commits: &[CommitInfo],
-    git_config: &gix::config::File<'static>,
+    git_config: &gix::config::File,
 ) -> anyhow::Result<String> {
     use but_llm::LLMProvider;
 
@@ -453,7 +470,7 @@ fn generate_branch_summary(
 fn output_json(
     branch_name: &str,
     commits: &[CommitInfo],
-    unassigned_files: &[String],
+    uncommitted_files: &[String],
     reviews: &[but_forge::ForgeReview],
     ai_summary: Option<&str>,
     merge_check: Option<&MergeCheck>,
@@ -477,7 +494,7 @@ fn output_json(
         "branch": branch_name,
         "commitsAhead": commits.len(),
         "commits": commits,
-        "unassignedFiles": unassigned_files,
+        "uncommittedFiles": uncommitted_files,
         "reviews": reviews_json,
     });
 
@@ -501,13 +518,16 @@ fn output_json(
 fn output_human(
     branch_name: &str,
     commits: &[CommitInfo],
-    unassigned_files: &[String],
+    uncommitted_files: &[String],
     reviews: &[but_forge::ForgeReview],
     ai_summary: Option<&str>,
     merge_check: Option<&MergeCheck>,
     out: &mut dyn std::fmt::Write,
 ) -> anyhow::Result<()> {
     use std::fmt::Write;
+
+    let t = theme::get();
+
     // Build output as a string first
     let mut buf = String::new();
 
@@ -518,18 +538,18 @@ fn output_human(
             .map(|r| format!("{}{}", r.unit_symbol, r.number))
             .collect::<Vec<String>>()
             .join(", ");
-        format!(" ({review_numbers})").blue().to_string()
+        t.info.paint(format!(" ({review_numbers})"))
     } else {
-        String::new()
+        t.default.paint("")
     };
 
     writeln!(
         buf,
         "{} {}{} ({} commits ahead)",
-        "Branch:".bold(),
-        branch_name.green(),
+        t.important.paint("Branch:"),
+        t.local_branch.paint(branch_name),
         reviews_str,
-        commits.len().to_string().cyan()
+        t.info.paint(commits.len().to_string()),
     )?;
     writeln!(buf)?;
 
@@ -537,12 +557,17 @@ fn output_human(
         writeln!(buf, "No commits ahead of base branch.")?;
     } else {
         for (i, commit) in commits.iter().enumerate() {
-            writeln!(buf, "{} {}", commit.short_sha.yellow(), commit.message)?;
+            writeln!(
+                buf,
+                "{} {}",
+                theme::Commit(commit.change_id.clone()),
+                commit.message
+            )?;
             writeln!(
                 buf,
                 "    {} by {}",
-                format_timestamp(commit.timestamp).dimmed(),
-                commit.author_name.dimmed()
+                t.hint.paint(format_timestamp(commit.timestamp)),
+                t.hint.paint(&commit.author_name)
             )?;
 
             // Show diff stats
@@ -555,17 +580,17 @@ fn output_human(
                 commit.deletions,
                 if commit.deletions == 1 { "" } else { "s" }
             );
-            writeln!(buf, "    {}", stats_str.dimmed())?;
+            writeln!(buf, "    {}", t.hint.paint(stats_str))?;
 
             // Show per-file changes if available
             if !commit.files.is_empty() {
                 writeln!(buf)?;
                 for file in &commit.files {
                     let status_color = match file.status.as_str() {
-                        "added" => file.path.green(),
-                        "deleted" => file.path.red(),
-                        "modified" => file.path.yellow(),
-                        _ => file.path.normal(),
+                        "added" => t.addition.paint(&file.path),
+                        "deleted" => t.deletion.paint(&file.path),
+                        "modified" => t.modification.paint(&file.path),
+                        _ => t.default.paint(&file.path),
                     };
 
                     let change_str = if file.status == "added" {
@@ -590,13 +615,13 @@ fn output_human(
         }
     }
 
-    // Display unassigned files if any exist
-    if !unassigned_files.is_empty() {
+    // Display uncommitted files if any exist
+    if !uncommitted_files.is_empty() {
         writeln!(buf)?;
         writeln!(buf)?;
-        writeln!(buf, "{}", "Unstaged Files:".bold())?;
-        for file in unassigned_files {
-            writeln!(buf, "  {}", file.yellow())?;
+        writeln!(buf, "{}", t.important.paint("Uncommitted Files:"))?;
+        for file in uncommitted_files {
+            writeln!(buf, "  {}", t.attention.paint(file))?;
         }
     }
 
@@ -604,23 +629,28 @@ fn output_human(
     if !reviews.is_empty() {
         writeln!(buf)?;
         writeln!(buf)?;
-        writeln!(buf, "{}", "Reviews:".bold())?;
+        writeln!(buf, "{}", t.important.paint("Reviews:"))?;
         for review in reviews {
             writeln!(buf)?;
             writeln!(
                 buf,
                 "  {} {}{}",
-                "PR/MR:".dimmed(),
+                t.hint.paint("PR/MR:"),
                 review.unit_symbol,
                 review.number
             )?;
-            writeln!(buf, "  {} {}", "Title:".dimmed(), review.title)?;
-            writeln!(buf, "  {} {}", "URL:".dimmed(), review.html_url.cyan())?;
+            writeln!(buf, "  {} {}", t.hint.paint("Title:"), review.title)?;
+            writeln!(
+                buf,
+                "  {} {}",
+                t.hint.paint("URL:"),
+                t.link.paint(&review.html_url)
+            )?;
 
             if let Some(body) = &review.body
                 && !body.is_empty()
             {
-                writeln!(buf, "  {}", "Description:".dimmed())?;
+                writeln!(buf, "  {}", t.hint.paint("Description:"))?;
                 // Indent each line of the description
                 for line in body.lines() {
                     writeln!(buf, "    {line}")?;
@@ -628,7 +658,12 @@ fn output_human(
             }
 
             if review.draft {
-                writeln!(buf, "  {} {}", "Status:".dimmed(), "Draft".yellow())?;
+                writeln!(
+                    buf,
+                    "  {} {}",
+                    t.hint.paint("Status:"),
+                    t.attention.paint("Draft")
+                )?;
             }
         }
     }
@@ -637,7 +672,7 @@ fn output_human(
     if let Some(summary) = ai_summary {
         writeln!(buf)?;
         writeln!(buf)?;
-        writeln!(buf, "{}", "AI Summary:".bold().cyan())?;
+        writeln!(buf, "{}", t.info.paint("AI Summary:"))?;
         writeln!(buf, "{summary}")?;
         writeln!(buf)?;
     }
@@ -650,15 +685,15 @@ fn output_human(
             writeln!(
                 buf,
                 "{} {}",
-                "Merge Check:".bold(),
-                "Merges cleanly into upstream".green()
+                t.important.paint("Merge Check:"),
+                t.success.paint("Merges cleanly into upstream")
             )?;
         } else {
             writeln!(
                 buf,
                 "{} {}",
-                "Merge Check:".bold(),
-                "Conflicts detected".red().bold()
+                t.important.paint("Merge Check:"),
+                t.error.paint("Conflicts detected"),
             )?;
             writeln!(buf)?;
             writeln!(
@@ -679,18 +714,23 @@ fn output_human(
             writeln!(buf)?;
 
             for file in &check.conflicting_files {
-                writeln!(buf, "  {}", file.path.yellow().bold())?;
+                writeln!(buf, "  {}", t.attention.paint(&file.path))?;
 
                 // Show branch commits that modified this file
                 if !file.branch_commits.is_empty() {
                     writeln!(buf, "    Modified by this branch:")?;
                     for commit in &file.branch_commits {
-                        writeln!(buf, "      {} {}", commit.short_sha.cyan(), commit.message)?;
+                        writeln!(
+                            buf,
+                            "      {} {}",
+                            theme::Commit(commit.change_id.clone()),
+                            commit.message
+                        )?;
                         writeln!(
                             buf,
                             "        {} by {}",
-                            format_timestamp(commit.timestamp).dimmed(),
-                            commit.author_name.dimmed()
+                            t.hint.paint(format_timestamp(commit.timestamp)),
+                            t.hint.paint(&commit.author_name)
                         )?;
                     }
                     writeln!(buf)?;
@@ -703,14 +743,14 @@ fn output_human(
                         writeln!(
                             buf,
                             "      {} {}",
-                            commit.short_sha.magenta(),
+                            theme::Commit(commit.change_id.clone()),
                             commit.message
                         )?;
                         writeln!(
                             buf,
                             "        {} by {}",
-                            format_timestamp(commit.timestamp).dimmed(),
-                            commit.author_name.dimmed()
+                            t.hint.paint(format_timestamp(commit.timestamp)),
+                            t.hint.paint(&commit.author_name)
                         )?;
                     }
                     writeln!(buf)?;

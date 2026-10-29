@@ -1,0 +1,55 @@
+{
+  "changes": [
+    {
+      "id": "zq:e",
+      "path": "a/b.txt",
+      "status": "modified",
+      "diff": {
+        "type": "patch",
+        "hunks": [
+          {
+            "oldStart": 1,
+            "oldLines": 0,
+            "newStart": 1,
+            "newLines": 1,
+            "diff": "@@ -1,0 +1,1 @@\n+content of b\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "up:2",
+      "path": "a/b/c.txt",
+      "status": "modified",
+      "diff": {
+        "type": "patch",
+        "hunks": [
+          {
+            "oldStart": 1,
+            "oldLines": 0,
+            "newStart": 1,
+            "newLines": 1,
+            "diff": "@@ -1,0 +1,1 @@\n+content of c\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "oz:8",
+      "path": "a/b/d.txt",
+      "status": "modified",
+      "diff": {
+        "type": "patch",
+        "hunks": [
+          {
+            "oldStart": 1,
+            "oldLines": 0,
+            "newStart": 1,
+            "newLines": 1,
+            "diff": "@@ -1,0 +1,1 @@\n+content of d\n"
+          }
+        ]
+      }
+    }
+  ]
+}

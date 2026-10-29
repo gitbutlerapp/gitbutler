@@ -124,10 +124,10 @@
 		overflow: hidden;
 		gap: 4px;
 		transform-style: preserve-3d;
-		border: 1px solid color-mix(in srgb, var(--clr-theme-pop-element) 50%, transparent);
+		border: 1px solid color-mix(in srgb, var(--fill-pop-bg) 50%, transparent);
 		border-radius: var(--radius-xl);
-		background-color: var(--clr-theme-pop-soft);
-		color: var(--clr-theme-pop-text);
+		background-color: var(--chip-pop-bg);
+		color: var(--clr-pop-30);
 		transition:
 			transform 0.15s ease-out,
 			color 0.15s ease,
@@ -137,9 +137,13 @@
 		will-change: transform;
 
 		&:hover {
-			background-color: hsl(from var(--clr-theme-pop-soft) h s calc(l - 5));
-			box-shadow: 0 12px 26px color-mix(in srgb, var(--clr-theme-pop-element) 30%, transparent);
+			background-color: hsl(from var(--chip-pop-bg) h s calc(l - 5));
+			box-shadow: 0 12px 26px color-mix(in srgb, var(--fill-pop-bg) 30%, transparent);
 		}
+	}
+
+	:global(.dark) .download-btn {
+		color: var(--clr-pop-80);
 	}
 
 	.download-btn.mobile {
@@ -185,11 +189,7 @@
 		left: 0;
 		width: 100%;
 		height: 100%;
-		background: radial-gradient(
-			ellipse at center,
-			var(--clr-theme-pop-bg) 40%,
-			rgba(255, 255, 255, 0) 100%
-		);
+		background: radial-gradient(ellipse at center, var(--bg-pop) 40%, rgba(255, 255, 255, 0) 100%);
 		pointer-events: none;
 	}
 

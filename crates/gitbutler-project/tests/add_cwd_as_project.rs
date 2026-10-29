@@ -1,9 +1,10 @@
-use gitbutler_testsupport::paths;
+#[path = "project/support.rs"]
+mod support;
 
 #[test]
 fn current_directory_dot() -> anyhow::Result<()> {
-    let tmp = paths::data_dir();
-    let repo = gitbutler_testsupport::TestProject::default();
+    let tmp = support::data_dir();
+    let repo = support::TestProject::default();
     let repo_path = repo.path();
 
     // Change to the repository directory and add "." as the path

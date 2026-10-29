@@ -185,19 +185,25 @@ if [ "$OS" = "windows" ]; then
 	#          Should it be re-added, please ensure that `but` is built
 	#          as part of the 'beforeBuildCommand' in tauri.conf AND it must be injected
 	#          via 'inject-git-binaries.sh'.
-	EXTERNAL_BIN='["gitbutler-git-askpass", "gitbutler-git-setsid", "but"]'
+	EXTERNAL_BIN='["gitbutler-git-askpass", "but"]'
 	FEATURES="windows"
 elif [ "$OS" = "linux" ]; then
 	EXTERNAL_BIN='["gitbutler-git-askpass"]'
 	FEATURES="builtin-but packaged-but-distribution"
 elif [ "$OS" = "macos" ]; then
-	# we need to include the gitbutler-git-setsid dummy binary as
-	# installers bundled with version <=0.19.3 will validate that it's there for macOS.
-	EXTERNAL_BIN='["gitbutler-git-askpass", "gitbutler-git-setsid"]'
+	EXTERNAL_BIN='["gitbutler-git-askpass"]'
 	FEATURES="builtin-but"
 else
 	echo "Unsupported OS: $OS"
 	exit 1
+fi
+
+# The experimental native client, which opens instead of the web app once it's turned on
+# with the `gpui` feature flag.
+FEATURES="$FEATURES builtin-gpui"
+
+if [ "$CHANNEL" = "nightly" ]; then
+	FEATURES="$FEATURES nightly"
 fi
 
 # update the version in the tauri release config
@@ -211,6 +217,7 @@ cat "$TMP_DIR/tauri.conf.json"
 # set the VERSION and CHANNEL as an environment variables so that they available in the but CLI
 export VERSION
 export CHANNEL
+export GITBUTLER_REQUIRE_MCP_APP=1
 
 # Build the app with release config
 if [ -n "$TARGET" ]; then

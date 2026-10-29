@@ -9,8 +9,13 @@ rust-version.workspace = true
 [lib]
 doctest = true
 
+[features]
+export-schema = ["dep:schemars", "dep:but-schemars"]
+
 [dependencies]
 anyhow.workspace = true
+schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
 
 [lints]
 workspace = true

@@ -1,4 +1,22 @@
+#[cfg(feature = "legacy")]
+use crate::args::atoms::{AllowMergedArg, BranchArg, CliIdArg};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum, Default)]
+pub enum IntegrationStrategy {
+    /// Rebuilds the branch picking first the commits on the remote, and then the commits on the local branch.
+    #[default]
+    PullRebase,
+    /// Tries to fold matching remote work into related local commits.
+    /// This is done through matching Change IDs, and falling back to pull-rebase ordering otherwise.
+    SmartSquash,
+    /// Keeps your local history and merges the remote tip into it.
+    Merge,
+    /// Rebuilds the branch picking only the commits on the remote.
+    PickRemote,
+}
+
 #[derive(Debug, clap::Parser)]
+#[clap(after_help = "To rename an applied branch, use `but reword <branch> -m <new-name>`.")]
 pub struct Platform {
     #[clap(subcommand)]
     pub cmd: Option<Subcommands>,
@@ -6,40 +24,19 @@ pub struct Platform {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
-    /// Creates a new branch in the workspace
-    ///
-    /// If no branch name is provided, a new parallel branch with a generated
-    /// name will be created.
-    ///
-    /// You can also specify an anchor point using the `--anchor` option,
-    /// which can be either a commit ID or an existing branch name to create
-    /// the new branch from. This allows you to create stacked branches.
-    ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
-    New {
-        /// Name of the new branch
-        branch_name: Option<String>,
-        /// Anchor point - either a commit ID or branch name to create the new branch from
-        #[clap(long, short = 'a')]
-        anchor: Option<String>,
-    },
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    New(NewPlatform),
 
-    /// Deletes a branch from the workspace
-    ///
-    /// This will remove the branch and all its commits from the workspace.
-    /// If the branch has unpushed commits, you will be prompted for confirmation
-    /// unless the `--force` flag is used.
+    /// Delete branches and their commits from the workspace
     ///
     #[cfg(feature = "legacy")]
     #[clap(short_flag = 'd')]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Delete {
-        /// Name of the branch to delete
-        branch_name: String,
-        /// Force deletion without confirmation
-        #[clap(long, short = 'f')]
-        force: bool,
+        /// One or more branches to delete.
+        #[clap(required = true)]
+        branches: Vec<CliIdArg>,
     },
 
     /// List the branches in the repository
@@ -65,7 +62,7 @@ pub enum Subcommands {
     /// make the command faster.
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     List {
         /// Filter branches by name (case-insensitive substring match)
         filter: Option<String>,
@@ -75,7 +72,8 @@ pub enum Subcommands {
         /// Show only remote branches
         #[clap(long, short = 'r', conflicts_with = "local")]
         remote: bool,
-        /// Show all branches (not just active + 20 most recent)
+        /// Show all branches (not just active + 20 most recent); empty branches also need
+        /// `--empty`
         #[clap(long, short = 'a')]
         all: bool,
         /// Don't calculate and show number of commits ahead of base (faster)
@@ -105,7 +103,7 @@ pub enum Subcommands {
     #[cfg(feature = "legacy")]
     Show {
         /// CLI ID or name of the branch to show
-        branch_id: String,
+        branch: CliIdArg,
         /// Fetch and display review information
         #[clap(short, long)]
         review: bool,
@@ -119,32 +117,84 @@ pub enum Subcommands {
         #[clap(long)]
         check: bool,
     },
-    /// Move a branch on top of another branch, effectively stacking them.
-    ///
-    /// This allows you to e.g. create a stack out of two branches.
-    ///
-    /// Just specify the branch to move (or take out of a stack) and insert it into another stack,
-    /// on top of another branch.
+
+    /// Deprecated: use `but move` instead
+    #[clap(hide = true)]
     Move {
-        /// The name or CLI ID of the branch to move
-        #[clap(value_name = "BRANCH")]
+        #[clap(trailing_var_arg = true, allow_hyphen_values = true)]
+        _args: Vec<String>,
+    },
+
+    /// Integrate a branch's remote counterpart into the local branch.
+    ///
+    /// This allows you to resolve the divergence between your local branch and its
+    /// tracked remote in different ways.
+    #[clap(short_flag = 'u')]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Update {
+        /// Name of the local branch to integrate
         branch: String,
-        /// The name or CLI ID of the branch to move the branch on top of
-        #[clap(value_name = "TARGET_BRANCH")]
-        target_branch: String,
+        /// Strategy to use for the integration.
+        #[clap(long, short = 's', value_enum, default_value_t)]
+        strategy: IntegrationStrategy,
+        /// Preview the resulting branch state without persisting changes
+        #[clap(long)]
+        dry_run: bool,
+        /// Show additional dry-run details like the current divergence
+        #[clap(long, short = 'v')]
+        verbose: bool,
+        /// Open the generated integration script in an editor
+        #[clap(long, short = 'i', help_heading = "Interactive")]
+        interactive: bool,
     },
-    /// Apply a branch to the workspace (non-legacy path)
+}
+
+/// Create a new branch.
+///
+/// Use `--above` or `--below` to create stacked branches. Omitting these creates a new unstacked
+/// branch in the workspace, which is refused when run from a linked worktree.
+///
+/// For more details about CLI IDs, see `but help cli-ids`.
+#[cfg(feature = "legacy")]
+#[derive(Debug, clap::Parser)]
+#[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+pub struct NewPlatform {
+    /// Place the branch above `BRANCH_OR_COMMIT`, which must be an applied branch or commit.
     ///
-    /// If you want to apply an unapplied branch to your workspace so you
-    /// can work on it, you can run `but branch apply <branch-name>`.
+    /// If `BRANCH_OR_COMMIT` is a commit, the new branch is created above the commit.
     ///
-    /// This will apply the changes in that branch into your working directory
-    /// as a parallel applied branch.
+    /// If `BRANCH_OR_COMMIT` is a branch, the new branch is created above the targeted branch.
+    #[clap(
+        short = 'A',
+        long,
+        value_name = "BRANCH_OR_COMMIT",
+        group = "targeting"
+    )]
+    pub above: Option<CliIdArg>,
+
+    /// Place the branch below `BRANCH_OR_COMMIT`, which must be an applied branch or commit.
     ///
-    #[cfg(not(feature = "legacy"))]
-    #[clap(verbatim_doc_comment)]
-    Apply {
-        /// Name of the branch to apply
-        branch_name: String,
-    },
+    /// If `BRANCH_OR_COMMIT` is a commit, the new branch is created below the commit.
+    ///
+    /// If `BRANCH_OR_COMMIT` is a branch, the new branch is created below the targeted branch.
+    #[clap(
+        short = 'B',
+        long,
+        value_name = "BRANCH_OR_COMMIT",
+        group = "targeting"
+    )]
+    pub below: Option<CliIdArg>,
+
+    /// Switch to the newly created branch instead of applying it to the GitButler workspace.
+    #[clap(long, short, group = "targeting")]
+    pub switch: bool,
+
+    /// Name of the new branch.
+    ///
+    /// If omitted the new branch will get a generated name.
+    pub name: Option<BranchArg>,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub allow_merged: AllowMergedArg,
 }

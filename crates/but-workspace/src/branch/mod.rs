@@ -433,6 +433,15 @@ pub struct Stack {
 }
 
 impl Stack {
+    /// The stack as a lane, which rests on the target.
+    pub fn lane(&self) -> ref_info::Lane<'_> {
+        ref_info::Lane {
+            segments: &self.segments,
+            rests_on: None,
+            worktree: None,
+        }
+    }
+
     /// Return the tip of the stack, which is either the first commit of the first segment or `None` if this is an unborn branch.
     pub fn tip(&self) -> Option<gix::ObjectId> {
         self.segments.first().and_then(|name| name.tip())
@@ -454,40 +463,189 @@ impl Stack {
     }
 }
 
-/// What to do if the applied branch conflicts with the existing branches?
-#[derive(Default, Debug, Copy, Clone)]
-pub enum OnWorkspaceMergeConflict {
-    /// Provide additional information about the stack(s) that conflicted and the files involved in it,
-    /// and don't materialise the merge, but continue on best-effort basis to merge as many stacks as possible.
-    #[default]
-    AbortAndReportConflictingStacks,
-    /// Despite possible conflicts, materialise the result with the conflicting stacks un-merged and unreachable from the workspace commit.
-    /// Note that the metadata of these branches is still available.
-    MaterializeAndReportConflictingStacks,
+/// Convert unnamed projected stacks into merge tips while preserving their parent order.
+///
+/// Named stacks are driven by workspace metadata, but anonymous stacks have no metadata entry
+/// and must be supplied explicitly when rebuilding a workspace merge commit.
+///
+/// Each returned tuple is `(parent_index, tip)`: `parent_index` is the stack's position in the
+/// projected workspace so the merge builder can insert the anonymous tip at the same parent slot,
+/// and `tip` is the commit/segment pair to merge, with no ref name attached.
+pub(crate) fn anon_stacks(
+    stacks: &[but_graph::workspace::Stack],
+) -> impl Iterator<Item = (usize, crate::commit::merge::Tip)> {
+    stacks.iter().enumerate().filter_map(|(idx, s)| {
+        if s.ref_name().is_none() {
+            s.tip_skip_empty().and_then(|cid| {
+                s.segments.first().map(|s| {
+                    (
+                        idx,
+                        crate::commit::merge::Tip {
+                            name: None,
+                            commit_id: cid,
+                            segment_idx: s.id,
+                        },
+                    )
+                })
+            })
+        } else {
+            None
+        }
+    })
 }
 
-impl OnWorkspaceMergeConflict {
-    /// Return `true` if we are supposed to abort on merge conflict.
-    pub fn should_abort(&self) -> bool {
-        matches!(
-            self,
-            OnWorkspaceMergeConflict::AbortAndReportConflictingStacks
-        )
+/// Ensure every metadata stack that should be merged was visible in the graph.
+pub(crate) fn ensure_no_missing_stacks(
+    merge: &crate::commit::merge::Outcome,
+) -> anyhow::Result<()> {
+    if merge.missing_stacks.is_empty() {
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!(
+            "Somehow some of the workspace stacks weren't part of the graph: {:#?}",
+            merge.missing_stacks
+        ))
     }
 }
 
-/// Functions and types related to applying a workspace branch.
+/// Find `branch` in `repo` and reject it if it resolves to a symbolic reference.
+///
+/// `operation` is used only for the error message so callers such as apply and unapply can share
+/// validation while still reporting the action they refused to perform.
+///
+/// Missing references are returned as `Ok(None)` so each caller can decide whether absence is an error or a no-op.
+pub(crate) fn try_find_validated_ref<'repo>(
+    repo: &'repo gix::Repository,
+    branch: &gix::refs::FullNameRef,
+    operation: &str,
+) -> anyhow::Result<Option<gix::Reference<'repo>>> {
+    let branch_ref = repo.try_find_reference(branch)?;
+    if branch_ref
+        .as_ref()
+        .is_some_and(|r| matches!(r.target(), gix::refs::TargetRef::Symbolic(_)))
+    {
+        anyhow::bail!(
+            "Refusing to {operation} symbolic ref '{}' due to potential ambiguity",
+            branch.shorten()
+        );
+    }
+    Ok(branch_ref)
+}
+
+/// Setup `local_tracking_ref` to track `remote_tracking_ref`, and prepare a locked configuration
+/// transaction with the branch configuration added.
+/// We also return the commit at which `local_tracking_ref` should be placed, which is assumed to not exist.
+pub(crate) fn setup_local_tracking_configuration(
+    repo: &gix::Repository,
+    local_tracking_ref: &gix::refs::FullNameRef,
+    remote_tracking_ref: &gix::refs::FullNameRef,
+) -> anyhow::Result<(gix::config::FileTransaction, gix::ObjectId)> {
+    let remote_tracking_commit_id = repo
+        .find_reference(remote_tracking_ref)?
+        .peel_to_commit()?
+        .id();
+    let Some((upstream_branch, remote)) =
+        repo.upstream_branch_and_remote_for_tracking_branch(remote_tracking_ref)?
+    else {
+        anyhow::bail!(
+            "No remote refspec maps {} to a local branch",
+            remote_tracking_ref.as_bstr()
+        );
+    };
+    let remote_name = remote
+        .name()
+        .expect("a remote loaded by name is never anonymous");
+
+    let mut config = repo.config_file_mut(repo.common_dir().join("config"))?;
+    let mut section =
+        config.section_mut_or_create_new("branch", Some(local_tracking_ref.shorten()))?;
+    // Each key only where the user has not set it: neither one nor other keys are a reason to skip.
+    let remote_key = gix::config::tree::Branch::REMOTE.name;
+    if section.value(remote_key).is_none() {
+        section.push(remote_key, Some(remote_name.as_bstr()))?;
+    }
+    let merge_key = gix::config::tree::Branch::MERGE.name;
+    if section.value(merge_key).is_none() {
+        section.push(merge_key, Some(upstream_branch.as_bstr()))?;
+    }
+    Ok((config, remote_tracking_commit_id.into()))
+}
+
+/// Return the local tracking branch of `remote_tracking_ref`, creating it at the remote-tracking
+/// commit with tracking configuration if it doesn't exist yet, like `git checkout <name>` does.
+///
+/// An existing local tracking branch is returned as is, even if it diverged from the remote.
+pub fn local_tracking_branch(
+    repo: &gix::Repository,
+    remote_tracking_ref: &gix::refs::FullNameRef,
+) -> anyhow::Result<gix::refs::FullName> {
+    // Symbolic ones, `origin/HEAD` say, would make a local branch of the name they point through.
+    if try_find_validated_ref(repo, remote_tracking_ref, "check out")?.is_none() {
+        anyhow::bail!(
+            "Remote-tracking branch {} does not exist",
+            remote_tracking_ref.as_bstr()
+        );
+    }
+    let Some((local_tracking_ref, _remote)) =
+        repo.upstream_branch_and_remote_for_tracking_branch(remote_tracking_ref)?
+    else {
+        anyhow::bail!(
+            "Couldn't find remote refspecs that would match {}",
+            remote_tracking_ref.as_bstr()
+        );
+    };
+    if repo
+        .try_find_reference(local_tracking_ref.as_ref())?
+        .is_some()
+    {
+        return Ok(local_tracking_ref);
+    }
+
+    let (config, commit_id) =
+        setup_local_tracking_configuration(repo, local_tracking_ref.as_ref(), remote_tracking_ref)?;
+    // The reference first, as git does: should it fail, the config transaction drops unwritten.
+    repo.reference(
+        local_tracking_ref.as_ref(),
+        commit_id,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        format!(
+            "GitButler creates local tracking for {}",
+            remote_tracking_ref.as_bstr()
+        ),
+    )?;
+    config.commit()?;
+    Ok(local_tracking_ref)
+}
+
+/// Functions and types related to adding a branch to the workspace.
 pub mod apply;
-pub use apply::function::apply;
+pub use apply::{apply, apply_stack};
+
+/// Functions and types related to removing a branch from the workspace.
+pub mod unapply;
+pub use unapply::function::{dissolve_unnecessary_workspace, unapply, unapply_stack};
 
 /// related types for removing a workspace reference.
 pub mod remove_reference;
-pub use remove_reference::function::remove_reference;
+pub use remove_reference::remove_reference;
 
 /// related types for creating a workspace reference.
 pub mod create_reference;
 pub use create_reference::function::create_reference;
 
+/// Naming an anonymous segment.
+pub mod name_segment;
+pub use name_segment::name_segment;
+
 /// Functions and types related to moving branches across stacks.
 pub mod move_branch;
-pub use move_branch::function::move_branch;
+pub use move_branch::function::{move_branch, tear_off_branch};
+
+/// Functions and types for integrating remote changes into local branches.
+pub mod integrate_branch_upstream;
+pub use integrate_branch_upstream::{
+    BranchIntegrationStrategy, InitialBranchIntegration, IntegrationDivergenceCommit,
+    IntegrationDivergenceDisplay, IntegrationDivergenceTargetRelation, InteractiveIntegrationStep,
+    get_initial_integration_steps_for_branch, integrate_branch_with_steps,
+    parse_integration_steps_script, render_integration_steps_script,
+};

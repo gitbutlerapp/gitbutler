@@ -8,35 +8,40 @@ rust-version.workspace = true
 description = "Utilities to interact with forges in a somewhat generic way"
 
 [features]
-export-ts = ["dep:ts-rs"]
 export-schema = [
   "dep:schemars",
   "dep:but-schemars",
   "but-github/export-schema",
   "but-gitlab/export-schema",
+  "but-bitbucket/export-schema",
 ]
 
 [lib]
 doctest = false
 
 [dependencies]
-but-fs.workspace = true
+but-utils.workspace = true
+but-error.workspace = true
 but-github.workspace = true
 but-gitlab.workspace = true
+but-bitbucket.workspace = true
 but-forge-storage.workspace = true
 but-db.workspace = true
 but-path.workspace = true
+but-schemars = { workspace = true, optional = true }
 
 chrono.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 
-git-url-parse = "0.6.0"
+gix = { workspace = true }
+urlencoding.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 anyhow.workspace = true
-ts-rs = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
-but-schemars = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true

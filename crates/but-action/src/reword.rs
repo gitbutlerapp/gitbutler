@@ -1,92 +1,52 @@
-use but_ctx::{Context, ThreadSafeContext};
-use but_workspace::legacy::{StacksFilter, ui::StackEntry};
-use uuid::Uuid;
-
-use crate::workflow::{self, Workflow};
+use anyhow::bail;
+use bstr::ByteSlice as _;
+use but_core::RefMetadata;
+use but_rebase::graph_rebase::{Editor, LookupStep as _};
 
 #[derive(Debug, Clone)]
-pub struct CommitEvent {
-    pub ctx: ThreadSafeContext,
+pub struct RewordInput {
     pub external_summary: String,
     pub external_prompt: String,
-    pub branch_name: String,
     pub commit_id: gix::ObjectId,
-    pub trigger: Uuid,
 }
 
+/// Generate and apply an AI commit-message reword for `input.commit_id`.
+///
+/// `llm` produces the replacement message from the event summaries and the commit diff.
+/// `input` carries the commit and prompt context. `repo`, `ws`, and `meta` are supplied by the
+/// caller so this action does not acquire repository guards or rebuild workspace state itself.
+/// `context_lines` controls the amount of diff context shown to the message generator.
 pub fn commit(
     llm: &but_llm::LLMProvider,
-    event: CommitEvent,
-) -> anyhow::Result<Option<(gix::ObjectId, String)>> {
-    let (diff, sync_ctx) = {
-        let ctx = event.ctx.into_thread_local();
-        let repo = &ctx.clone_repo_for_merging_non_persisting()?;
-        let changes = but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(
-            repo,
-            event.commit_id,
-        )?;
-        (
-            changes
-                .try_to_unidiff(repo, ctx.settings.context_lines)?
-                .to_string(),
-            ctx.into_sync(),
-        )
-    };
+    input: RewordInput,
+    repo: &gix::Repository,
+    ws: &mut but_graph::Workspace,
+    meta: &mut impl RefMetadata,
+    db: &mut but_db::DbHandle,
+    context_lines: u32,
+) -> anyhow::Result<(gix::ObjectId, String)> {
+    let changes =
+        but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(repo, input.commit_id)?;
+    let diff = changes.try_to_unidiff(repo, context_lines)?.to_string();
     let message = crate::generate::commit_message(
         llm,
-        &event.external_summary,
-        &event.external_prompt,
+        &input.external_summary,
+        &input.external_prompt,
         &diff,
     )?;
 
     // Format the commit message to follow email RFC format (80 char line wrapping)
     let message = crate::commit_format::format_commit_message(&message);
 
-    let mut ctx = sync_ctx.into_thread_local();
-    let stacks = stacks(&ctx)?;
-    let stack_id = stacks
-        .iter()
-        .find(|s| s.heads.iter().any(|h| h.name == event.branch_name))
-        .and_then(|s| s.id)
-        .ok_or_else(|| anyhow::anyhow!("Stack with name '{}' not found", event.branch_name))?;
-    let result = gitbutler_branch_actions::update_commit_message(
-        &mut ctx,
-        stack_id,
-        event.commit_id,
-        &message,
-    );
-    let status = match &result {
-        Ok(_) => workflow::Status::Completed,
-        Err(e) => workflow::Status::Failed(e.to_string()),
-    };
+    if message.is_empty() {
+        bail!("commit message cannot be empty");
+    }
 
-    let new_commit_id = result.ok();
-    let output_commits = new_commit_id.map(|id| vec![id]).unwrap_or_default();
+    let editor = Editor::create(ws, meta, repo, db)?;
+    let (rebase, edited_commit_selector) =
+        but_workspace::commit::reword(editor, input.commit_id, message.as_bytes().as_bstr())?;
+    let new_commit_id = rebase.lookup_pick(edited_commit_selector)?;
+    rebase.materialize(Default::default())?;
 
-    Workflow::new(
-        workflow::Kind::Reword(Some(workflow::RewordOutcome {
-            stack_id,
-            branch_name: event.branch_name.clone(),
-            commit_id: output_commits
-                .first()
-                .cloned()
-                .ok_or_else(|| anyhow::anyhow!("No output commit found"))?,
-            new_message: message.clone(),
-        })),
-        workflow::Trigger::Snapshot(event.trigger),
-        status,
-        vec![event.commit_id],
-        output_commits,
-        None,
-    )
-    .persist(&mut ctx)
-    .ok();
-
-    Ok(new_commit_id.map(|id| (id, message)))
-}
-
-fn stacks(ctx: &Context) -> anyhow::Result<Vec<StackEntry>> {
-    let repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let meta = ctx.legacy_meta()?;
-    but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
+    Ok((new_commit_id, message))
 }

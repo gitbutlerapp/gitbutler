@@ -1,0 +1,370 @@
+/* The one surface every overlay in Lite wears — modals, dropdowns and the toolbox alike. A modal
+   adds a backdrop and centres itself in the window; a dropdown anchors to its trigger. Nothing
+   else about the container differs between them. */
+.popup {
+	display: flex;
+	flex-direction: column;
+	/* The border is the container's edge, so content clips to it rather than squaring off the
+	   corners it sits in. */
+	overflow: hidden;
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-popup);
+	/* A popup takes focus as it opens, and the browser would paint its own accent-coloured ring on
+	   a container no app rule covers. What is inside shows the focus instead. */
+	outline: none;
+	background-color: var(--bg-1);
+	box-shadow: var(--shadow-lg);
+}
+
+/* Recessed, so what sits on it reads as cards rather than sections — the arrangement a pane uses
+   once it holds more than one group of things. */
+.recessed {
+	background-color: var(--bg-2);
+}
+
+.backdrop {
+	position: fixed;
+	inset: 0;
+	background-color: var(--bg-overlay);
+	transition: opacity var(--transition-popup) var(--easing-popup);
+
+	&[data-starting-style],
+	&[data-ending-style] {
+		opacity: 0;
+	}
+}
+
+/* Holds the modal off the window edges at any size, and is what a modal's own height maxes out
+   against. */
+.viewport {
+	display: flex;
+	position: fixed;
+	justify-content: center;
+	inset: 0;
+	padding: 1rem;
+	overflow: hidden;
+}
+
+.viewportCenter {
+	align-items: center;
+}
+
+/* A picker opens under the pointer's resting height rather than dead centre, so the list grows
+   downward into the window the way a command palette does. Grown to the window's height, it
+   stops as far from the bottom as it starts from the top. */
+.viewportTop {
+	align-items: flex-start;
+	padding-block: 4.5rem;
+}
+
+.modal {
+	max-width: 100%;
+	max-height: 100%;
+	transition:
+		transform var(--transition-popup) var(--easing-popup),
+		opacity var(--transition-popup) var(--easing-popup);
+
+	/* Only reached when the caller keeps the modal mounted and toggles `open`. A caller that
+	   renders it already open — `{shown && <Picker open />}` — mounts past the starting state, and
+	   the modal appears without animating. */
+	&[data-starting-style],
+	&[data-ending-style] {
+		transform: translateY(-0.5rem) scale(0.97);
+		opacity: 0;
+	}
+}
+
+.sizeXsmall {
+	width: var(--size-modal-xs);
+}
+
+.sizeSmall {
+	width: var(--size-modal-sm);
+}
+
+.sizeMedium {
+	width: var(--size-modal-md);
+}
+
+.sizeLarge {
+	width: var(--size-modal-lg);
+}
+
+/* A form wrapping a modal's parts, so Enter submits, lays out as the modal itself would. */
+.modal > form {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+/* Header, body and footer each pad themselves, so the modal's own padding holds at the edges and
+   one stack gap separates any two of them, whichever are present. */
+.modalPart {
+	padding: var(--gap-stack) var(--padding-modal) 0;
+
+	&:first-child {
+		padding-top: var(--padding-modal);
+	}
+
+	&:last-child {
+		padding-bottom: var(--padding-modal);
+	}
+}
+
+/* Title and description a step apart, still well inside the stack gap to the body. */
+.modalHeader {
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	gap: var(--space-lg);
+}
+
+/* A drilled-in step's Back button, then its title, on one line. */
+.modalTitleRow {
+	display: flex;
+	align-items: center;
+	gap: var(--gap-icon-text);
+}
+
+.modalTitle {
+	margin: 0;
+	color: var(--text-1);
+	overflow-wrap: anywhere;
+}
+
+.modalDescription {
+	margin: 0;
+	color: var(--text-2);
+	overflow-wrap: anywhere;
+}
+
+/* The one part that scrolls, so a tall list or form keeps its title and buttons in view. The
+   viewport carries the part's padding, so what scrolls reaches the modal's edges. */
+.modalBodyArea {
+	flex: 1 1 auto;
+}
+
+/* A hairline at each edge the body scrolls past: under the header once it's scrolled down, over
+   the footer while there is more below. The modal's own edges, so they span its whole width. */
+.modalBodyArea::before,
+.modalBodyArea::after {
+	z-index: 1;
+	position: absolute;
+	inset-inline: 0;
+	border-top: 1px solid var(--border-section);
+	content: "";
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity var(--transition-fast);
+}
+
+.modalBodyArea::before {
+	top: 0;
+}
+
+.modalBodyArea::after {
+	bottom: 0;
+}
+
+.modalBodyArea[data-overflow-y-start]::before,
+.modalBodyArea[data-overflow-y-end]::after {
+	opacity: 1;
+}
+
+/* A header inside the body scrolls away with it, so there is no edge above to mark: the line would
+   sit on the modal's own border. */
+.modalBodyArea:has(.modalHeader)::before {
+	display: none;
+}
+
+/* .modalPart's padding, restated for the viewport: its own place among the modal's parts is the
+   area's. */
+.modalBody {
+	display: flex;
+	flex-direction: column;
+	padding: var(--gap-stack) var(--padding-modal) 0;
+	gap: var(--gap-stack);
+	color: var(--text-1);
+}
+
+.modalBodyArea:first-child > .modalBody {
+	padding-top: var(--padding-modal);
+}
+
+.modalBodyArea:last-child > .modalBody {
+	padding-bottom: var(--padding-modal);
+}
+
+.modalFooter {
+	display: flex;
+	flex: none;
+	justify-content: flex-end;
+	gap: var(--gap-buttons);
+}
+
+/* Dropdown's own: at least as wide as its trigger, wider when its content asks. Not on
+   .dropdown, which comboboxes and the caret-anchored mention list wear too. */
+.dropdownPanel {
+	min-width: var(--anchor-width);
+}
+
+/* Grows out of the corner it is anchored to, rather than from its own middle. */
+.dropdown {
+	transform-origin: var(--transform-origin);
+	transition:
+		transform var(--transition-popup) var(--easing-popup),
+		opacity var(--transition-popup) var(--easing-popup);
+
+	&[data-starting-style],
+	&[data-ending-style] {
+		transform: scale(0.96);
+		opacity: 0;
+	}
+}
+
+/* A full-bleed row at the popup's top edge: no border of its own, just the hairline dividing it
+   from the list it filters. */
+.search {
+	display: flex;
+	flex: none;
+	align-items: center;
+	height: 36px;
+	padding-inline: 12px;
+	gap: 8px;
+	border-bottom: 1px solid var(--border-3);
+}
+
+.searchInput {
+	flex: 1;
+	min-width: 0;
+	border: none;
+	background: none;
+	color: var(--text-1);
+
+	&::placeholder {
+		color: var(--text-3);
+	}
+
+	/* The popup is already the focus ring; a second one around a borderless input reads as
+	   clutter. */
+	&:focus {
+		outline: none;
+	}
+}
+
+.searchIcon {
+	flex: none;
+	color: var(--text-3);
+}
+
+/* Takes the magnifier's place once there is a query, and carries a little more weight than it
+   did: the glyph is something to press rather than a mark of what the row is for. */
+.searchClear {
+	display: flex;
+	flex: none;
+	align-items: center;
+	color: var(--text-2);
+
+	&:hover {
+		color: var(--text-1);
+	}
+}
+
+/* Holds the list's place where the rows would have been, so the popup does not collapse to the
+   search row with a line under it. How tall comes from the tidy block, which follows the popup's
+   width; this only centres the block on its own geometry. */
+.empty {
+	justify-content: center;
+}
+
+.section {
+	display: flex;
+	flex: none;
+	flex-direction: column;
+}
+
+/* Sections divide from each other rather than closing themselves off, so the last one in a popup
+   never draws a line against the container's own edge. */
+.section + .section {
+	border-top: 1px solid var(--border-3);
+}
+
+/* The heading carries the inset its rows open with, so it is the same box whether a section wraps
+   it or a virtualised list renders it as a row of its own. */
+.sectionLabel {
+	padding: 8px 10px var(--padding-menu);
+	color: var(--text-3);
+}
+
+/* A row of its own has no section to draw the divider on, so the heading below the line hosts it
+   inside its own box. The previous section's inset, the divider, then this heading's own inset. */
+.sectionLabelDivided {
+	position: relative;
+	padding-top: calc(var(--padding-menu) + 1px + 8px);
+
+	&::before {
+		position: absolute;
+		inset-inline: 0;
+		top: var(--padding-menu);
+		border-top: 1px solid var(--border-3);
+		content: "";
+	}
+}
+
+.sectionItems {
+	display: flex;
+	flex-direction: column;
+	padding: var(--padding-menu);
+}
+
+/* A heading above already opens the rows by the inset. */
+.sectionLabel + .sectionItems {
+	padding-top: 0;
+}
+
+.item {
+	display: flex;
+	flex: none;
+	align-items: center;
+	width: 100%;
+	height: 28px;
+	padding-inline: 8px;
+	gap: 8px;
+	border: none;
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--text-1);
+	text-align: start;
+
+	/* `data-highlighted` is what Base UI's list primitives set as the keyboard walks them, so
+	   pointer and keyboard land on the same tint. A menu highlights a disabled row too; it still
+	   takes no tint. */
+	&:hover:not(:disabled, [data-disabled]),
+	&[data-highlighted]:not([data-disabled]) {
+		background-color: var(--bg-hover);
+	}
+
+	&:disabled,
+	&[data-disabled] {
+		opacity: var(--opacity-disabled);
+	}
+}
+
+/* The label is what the row is about, so it takes the width and gives it back last. */
+.itemLabel {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.itemIcon {
+	flex: none;
+	color: var(--text-2);
+}
+
+.itemKbd {
+	flex: none;
+	color: var(--text-3);
+}

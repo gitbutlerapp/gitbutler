@@ -3,14 +3,12 @@
 use anyhow::bail;
 use but_core::{
     DiffSpec, RepositoryExt,
-    commit::Headers,
+    commit::{Headers, SignCommit},
     ref_metadata::StackId,
     tree::{CreateTreeOutcome, create_tree, create_tree::RejectionReason},
 };
 use but_rebase::{RebaseOutput, commit::DateMode};
 use gix::prelude::ObjectIdExt as _;
-
-pub(crate) mod index;
 
 /// Types for use in the frontend with serialization support.
 pub mod ui;
@@ -164,13 +162,18 @@ pub fn create_commit(
             .detach(),
     };
 
+    let requested = changes.len();
     let CreateTreeOutcome {
         rejected_specs,
         destination_tree,
         changed_tree_pre_cherry_pick,
     } = create_tree(repo, target_tree, changes, context_lines)?;
+    let all_rejected = requested > 0 && rejected_specs.len() == requested;
     let new_commit = if let Some(new_tree) = destination_tree {
         match destination {
+            // With every change rejected, as when each builds on another branch, it would be
+            // empty.
+            Destination::NewCommit { .. } if all_rejected => None,
             Destination::NewCommit {
                 message,
                 parent_commit_id: _,
@@ -191,11 +194,13 @@ pub fn create_commit(
                 if let Some(message) = new_message {
                     commit.message = message.into();
                 }
+                let change_id = commit.change_id();
                 Some(but_rebase::commit::create(
                     repo,
                     commit.inner,
                     DateMode::CommitterUpdateAuthorKeep,
-                    true,
+                    SignCommit::IfSignCommitsEnabled,
+                    Some(change_id),
                 )?)
             }
         }
@@ -222,6 +227,8 @@ fn create_possibly_signed_commit(
     parents: impl IntoIterator<Item = impl Into<gix::ObjectId>>,
     commit_headers: Option<but_core::commit::Headers>,
 ) -> anyhow::Result<gix::ObjectId> {
+    let commit_headers =
+        commit_headers.unwrap_or_else(|| Headers::from_config(&repo.config_snapshot()));
     let commit = gix::objs::Commit {
         message: message.into(),
         tree,
@@ -229,9 +236,13 @@ fn create_possibly_signed_commit(
         committer,
         encoding: None,
         parents: parents.into_iter().map(Into::into).collect(),
-        extra_headers: (&commit_headers
-            .unwrap_or_else(|| Headers::from_config(&repo.config_snapshot())))
-            .into(),
+        extra_headers: (&commit_headers).into(),
     };
-    but_rebase::commit::create(repo, commit, DateMode::CommitterKeepAuthorKeep, true)
+    but_rebase::commit::create(
+        repo,
+        commit,
+        DateMode::CommitterKeepAuthorKeep,
+        SignCommit::IfSignCommitsEnabled,
+        None,
+    )
 }

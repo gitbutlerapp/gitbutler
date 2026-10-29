@@ -1,52 +1,486 @@
 use snapbox::str;
 
+use super::util::{add_worktree_with_commit, sandbox_with_conflicted_commit};
 use crate::utils::{CommandExt, Sandbox};
 
-#[test]
-fn push_refuses_conflicted_commits() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+fn repo_with_unpushed_branch() -> Sandbox {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
-    // Create a new branch for our test
+    let remote_git = env.app_data_dir().join("origin.git");
+    let remote_git = remote_git.display();
+    env.invoke_bash(format!(
+        "rm -rf {remote_git} && git clone --bare . {remote_git} && (git remote get-url origin >/dev/null 2>&1 && git remote set-url origin {remote_git} || git remote add origin {remote_git})",
+    ));
+
     env.but("branch new branchB").assert().success();
+    env.but("apply branchB").assert().success();
 
-    // Create a file with initial content and commit it
     env.file("test-file.txt", "line 1\nline 2\nline 3\n");
-    env.but("commit -m 'first commit' branchB")
+    env.but("commit -m 'first commit' -b branchB")
         .assert()
         .success();
 
-    // Add more content that depends on the first commit and commit again
-    env.file("test-file.txt", "line 1\nline 2\nline 3\nline 4\n");
-    env.but("commit -m 'second commit' branchB")
+    env
+}
+
+/// [`repo_with_unpushed_branch()`] with a linked worktree on the new branch `wt`, with one
+/// commit of its own, resting on the unpushed `branchB`.
+fn repo_with_worktree_on_unpushed_branch() -> Sandbox {
+    let env = repo_with_unpushed_branch();
+    // Worktrees that predate the first read are adopted as archived.
+    env.but("worktree list").assert().success();
+    add_worktree_with_commit(&env, "wt", "branchB");
+    env
+}
+
+#[test]
+fn pushing_a_worktree_branch_pushes_what_it_rests_on_first() {
+    let env = repo_with_worktree_on_unpushed_branch();
+
+    env.but("push wt").assert().success().stdout_eq(str![[r#"
+
+✓ Push completed successfully
+
+  branchB -> origin/branchB ((new branch) -> 7566fe0)
+  wt -> origin/wt ((new branch) -> 9da8421)
+
+"#]]);
+}
+
+#[test]
+fn bare_push_includes_worktree_lanes() {
+    let env = repo_with_worktree_on_unpushed_branch();
+
+    // Stacks push before worktrees, so `wt` finds `branchB` already current.
+    env.but("push").assert().success().stdout_eq(str![[r#"
+
+✓ Successfully pushed 3 commits
+
+  branchB -> origin/branchB ((new branch) -> 7566fe0)
+  A -> origin/A ((new branch) -> 9477ae7)
+  wt -> origin/wt ((new branch) -> 9da8421)
+
+"#]]);
+}
+
+fn shell_quote_path(path: &std::path::Path) -> String {
+    shell_words::quote(&path.display().to_string()).into_owned()
+}
+
+fn repo_with_unpushed_single_branch() -> (Sandbox, std::path::PathBuf) {
+    let env = Sandbox::open_with_default_settings("one-fork");
+
+    let remote = env.app_data_dir().join("origin with spaces.git");
+    let remote_arg = shell_quote_path(&remote);
+    env.invoke_bash(format!(
+        "git clone -q --bare . {remote_arg} && git remote set-url origin {remote_arg}",
+    ));
+
+    env.file("unpushed.txt", "content\n");
+    env.but("commit -m 'unpushed work'").assert().success();
+
+    (env, remote)
+}
+
+fn assert_single_branch_status_before_push(env: &Sandbox) {
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ ma [main] [HEAD]
+┊●   pxt unpushed work
+┊●   nmy M (no changes)
+├╯
+┊
+┴ e31e6ca (common base, origin/main) 2000-01-02 add init
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+fn assert_single_branch_status_after_push(env: &Sandbox) {
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ ma [main] [HEAD] (merged upstream)
+┊●   pxt unpushed work
+┊●   nmy M (no changes)
+├╯
+┊
+┊● d781bd0 (main, upstream: origin/main) 2 new commits
+├╯ e31e6ca (common base) 2000-01-02 add init
+
+Hint: origin/main moved ahead; run `but pull` to update the workspace
+Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
+
+"#]]);
+}
+
+fn configure_other_tracking_remote(env: &Sandbox) -> std::path::PathBuf {
+    let remote_base = env.invoke_git("rev-parse refs/heads/branchB^");
+    let other = env.app_data_dir().join("other.git");
+    env.invoke_bash(format!(
+        "rm -rf {other} && git clone -q --bare . {other} && \
+         git remote add other {other} && \
+         git config branch.branchB.remote other && \
+         git config branch.branchB.merge refs/heads/branchB && \
+         git --git-dir={other} update-ref refs/heads/branchB {remote_base} && \
+         git update-ref refs/remotes/other/branchB {remote_base}",
+        other = other.display(),
+    ));
+    other
+}
+
+#[test]
+fn pushes_an_explicit_checked_out_branch_in_single_branch_mode() {
+    let (env, remote) = repo_with_unpushed_single_branch();
+    let local_tip = env.invoke_git("rev-parse main");
+    assert_single_branch_status_before_push(&env);
+
+    env.but("push main").assert().success();
+    assert_single_branch_status_after_push(&env);
+
+    assert_eq!(
+        env.invoke_git(&format!(
+            "--git-dir={} rev-parse refs/heads/main",
+            shell_quote_path(&remote)
+        )),
+        local_tip,
+        "explicit push should update the checked-out branch on the remote"
+    );
+    assert!(
+        env.open_repo()
+            .try_find_reference(but_core::WORKSPACE_REF_NAME)
+            .unwrap()
+            .is_none(),
+        "pushing must not create a managed workspace"
+    );
+}
+
+#[test]
+fn bare_push_pushes_the_checked_out_branch_in_single_branch_mode() {
+    let (env, remote) = repo_with_unpushed_single_branch();
+    let local_tip = env.invoke_git("rev-parse main");
+    assert_single_branch_status_before_push(&env);
+
+    env.but("push").assert().success();
+    assert_single_branch_status_after_push(&env);
+
+    assert_eq!(
+        env.invoke_git(&format!(
+            "--git-dir={} rev-parse refs/heads/main",
+            shell_quote_path(&remote)
+        )),
+        local_tip,
+        "bare push should select and update the checked-out branch"
+    );
+    assert!(
+        env.open_repo()
+            .try_find_reference(but_core::WORKSPACE_REF_NAME)
+            .unwrap()
+            .is_none(),
+        "pushing must not create a managed workspace"
+    );
+}
+
+/// An unreachable remote that is not the target's must not block a dry-run push:
+/// `fetch_from_remotes` only fails when the target's own fetch remote failed.
+#[test]
+fn push_dry_run_ignores_unreachable_unrelated_remote() {
+    let env = repo_with_unpushed_branch();
+    env.invoke_git("remote add broken /nonexistent/path/broken.git");
+
+    env.but("push --dry-run branchB").assert().success();
+}
+
+#[test]
+fn push_dry_run_of_a_stacked_branch_lists_the_branches_beneath_it() {
+    let env = repo_with_unpushed_branch();
+    env.but("branch new branchC --above branchB")
         .assert()
         .success();
+    env.file("on-top.txt", "content\n");
+    env.but("commit -m 'on top' -b branchC").assert().success();
 
-    // add origin as local repository
-    env.invoke_git("remote add origin .");
-
-    // Get the first commit's CLI ID from status
-    let status_output = env.but("--json status").allow_json().output()?;
-    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
-    let first_commit_id = status_json["stacks"][0]["branches"][0]["commits"][1]["cliId"]
-        .as_str()
-        .expect("should have first commit cliId");
-
-    // Rub the first commit to unassigned (zz) - this should create a conflict
-    // in the second commit since it depends on the first
-    env.but(format!("rub {} zz", first_commit_id))
+    // Pushing branchC pushes the unpushed branchB beneath it too, so the preview lists both.
+    env.but("push --dry-run branchC")
         .assert()
-        .success();
+        .success()
+        .stdout_eq(str![[r#"
 
-    // Try to push the branch - should fail with an error about conflicted commits
-    env.but("push branchB")
+Dry run: Showing what would be pushed
+
+Stack: branchC (2 branches)
+
+┌─ Branch: branchC ↑ (on top of branchB)
+│   → Would push to: origin/branchC
+│   Commits: 1 unpushed commit
+│ 
+│     16a3787 on top
+│
+└─ Branch: branchB
+    → Would push to: origin/branchB
+    Commits: 1 unpushed commit
+  
+      7566fe0 first commit
+
+
+Summary: Would push 2 commits across 2 branches
+
+Run without --dry-run to push these changes.
+
+"#]]);
+    env.but("push branchC")
         .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Error: Cannot push branch 'branchB': the branch contains 1 conflicted commit.
+        .success()
+        .stdout_eq(str![[r#"
+
+✓ Push completed successfully
+
+  branchB -> origin/branchB ((new branch) -> 7566fe0)
+  branchC -> origin/branchC ((new branch) -> 16a3787)
+
+"#]]);
+}
+
+#[test]
+fn push_dry_run_json_reports_remote_and_remote_ref() {
+    let env = repo_with_unpushed_branch();
+    configure_other_tracking_remote(&env);
+
+    let output = env
+        .but("push --dry-run --json branchB")
+        .allow_json()
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "push --dry-run --json branchB failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let branches = json["branches"]
+        .as_array()
+        .unwrap_or_else(|| panic!("expected branches array in JSON output: {json:#}"));
+    assert!(
+        !branches.is_empty(),
+        "expected at least one branch in dry-run JSON output: {json:#}"
+    );
+    let branch = &branches[0];
+
+    assert_eq!(branch["branchName"], "branchB");
+    assert_eq!(branch["remote"], "other");
+    let remote_ref = if let Some(remote_ref) = branch["remoteRef"].as_str() {
+        remote_ref.to_owned()
+    } else {
+        let bytes = branch["remoteRef"]
+            .as_array()
+            .expect("expected remoteRef to serialize as a string or byte array")
+            .iter()
+            .map(|byte| {
+                byte.as_u64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .expect("remoteRef bytes should be valid u8 values")
+            })
+            .collect();
+        String::from_utf8(bytes).unwrap()
+    };
+    assert_eq!(remote_ref, "refs/remotes/other/branchB");
+}
+
+#[test]
+fn push_dry_run_agent_reports_human_summary() {
+    let env = repo_with_unpushed_branch();
+
+    let output = env
+        .but("push --dry-run branchB")
+        .as_agent()
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "push --dry-run branchB failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Dry run:") && stdout.contains("Run without --dry-run"),
+        "agent dry-run push should print the human summary, got: {stdout}"
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "agent dry-run push should not print progress, got: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn push_uses_tracking_remote_when_branch_tracks_another_remote() {
+    let env = repo_with_unpushed_branch();
+    let local_tip = env.invoke_git("rev-parse refs/heads/branchB");
+    let other = configure_other_tracking_remote(&env);
+
+    env.but("push branchB").assert().success();
+
+    assert_eq!(
+        env.invoke_git(&format!(
+            "--git-dir={} rev-parse refs/heads/branchB",
+            other.display()
+        )),
+        local_tip,
+        "push should update the branch's tracking remote"
+    );
+}
+
+#[test]
+fn push_makes_the_pushed_branch_the_upstream() {
+    let env = repo_with_unpushed_branch();
+
+    env.but("push branchB").assert().success();
+
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref branchB@{upstream}"),
+        "origin/branchB",
+        "a first push tracks the remote branch, as `git push -u` does"
+    );
+}
+
+#[test]
+fn push_keeps_an_upstream_already_configured() {
+    let env = repo_with_unpushed_branch();
+    configure_other_tracking_remote(&env);
+
+    env.but("push branchB").assert().success();
+
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref branchB@{upstream}"),
+        "other/branchB",
+        "the user's own upstream stays"
+    );
+}
+
+#[test]
+fn push_refuses_conflicted_commits() {
+    let env = sandbox_with_conflicted_commit();
+
+    // Try to push the branch - should fail with an error about conflicted commits.
+    env.but("push A").assert().failure().stderr_eq(str![[r#"
+Error: Cannot push branch 'A': the push would include 1 conflicted commit.
 Conflicted commits: [..]
 Please resolve conflicts before pushing using 'but resolve <commit>'.
 
 "#]]);
+}
 
-    Ok(())
+#[test]
+fn push_all_exits_nonzero_when_push_fails() {
+    let env = repo_with_unpushed_branch();
+
+    // Reject every push via a pre-push hook, then push without a branch
+    // argument: the non-interactive push-all path must surface the failure
+    // in the exit code, not just in the printed summary.
+    env.invoke_bash(
+        "mkdir -p .githooks \
+         && printf '#!/bin/sh\\necho PRE-PUSH DENY; exit 1\\n' > .githooks/pre-push \
+         && chmod +x .githooks/pre-push \
+         && git config core.hooksPath .githooks",
+    );
+
+    // Counts are wildcarded: the claim is the non-zero exit on failure, not
+    // how many candidates this fixture happens to produce.
+    env.but("push").assert().failure().stderr_eq(str![[r#"
+Error: failed to push [..] of [..] branches
+
+"#]]);
+}
+
+#[test]
+fn push_refuses_conflicted_commits_on_ancestors() {
+    let env = sandbox_with_conflicted_commit();
+
+    // Stack a clean branch on top of the conflicted one.
+    env.but("branch new B --above A").assert().success();
+    env.file("on-top.txt", "content\n");
+    env.but("commit -b B -m 'work on top'").assert().success();
+
+    // Pushing B also pushes its ancestor A, so A's conflicted commit must
+    // refuse the push even though B itself is clean.
+    env.but("push B").assert().failure().stderr_eq(str![[r#"
+Error: Cannot push branch 'B': the push would include 1 conflicted commit.
+Conflicted commits: [..]
+Please resolve conflicts before pushing using 'but resolve <commit>'.
+
+"#]]);
+}
+
+#[test]
+fn push_refuses_conflicted_commits_in_anonymous_segments_beneath_a_worktree() {
+    let env = sandbox_with_conflicted_commit();
+    env.but("worktree list").assert().success();
+    add_worktree_with_commit(&env, "W", "A");
+    env.invoke_git("update-ref refs/heads/A A~1");
+
+    env.but("push W").assert().failure().stderr_eq(str![[r#"
+Error: Cannot push branch 'W': the push would include 1 conflicted commit.
+Conflicted commits: [..]
+Please resolve conflicts before pushing using 'but resolve <commit>'.
+
+"#]]);
+}
+
+#[test]
+fn push_rejects_merged_upstream_branch() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
+
+    // Branch A's content already landed on origin/main; pushing it would
+    // publish finished work to a branch nobody needs anymore.
+    env.but("push A")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch 'A' is merged upstream
+
+Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
+
+"#]]);
+}
+
+#[test]
+fn push_gives_decent_error_without_remote() {
+    let env = Sandbox::empty();
+    env.but("init --commit").assert().success();
+
+    env.but("commit -m 'new commit'").assert().success();
+
+    env.but("push")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: No push remote configured
+
+"#]]);
+
+    env.but("switch --workspace").assert().success();
+
+    env.but("push")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: No push remote configured
+
+"#]]);
 }

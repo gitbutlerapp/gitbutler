@@ -1,0 +1,17 @@
+.container {
+	display: inline-flex;
+	/* Two short numbers: when a header runs out of room the heading beside them
+	   truncates instead. */
+	flex-shrink: 0;
+	align-items: center;
+	gap: 4px;
+	text-box: trim-both cap alphabetic;
+}
+
+.added {
+	color: var(--text-safe);
+}
+
+.removed {
+	color: var(--text-danger);
+}

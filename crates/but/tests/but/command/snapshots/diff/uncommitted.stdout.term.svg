@@ -1,0 +1,111 @@
+<svg width="740px" height="452px" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .fg { fill: #AAAAAA }
+    .bg { fill: #000000 }
+    .bg-rgb-004100 { stroke: #004100; fill: #004100; user-select: none;  }
+    .bg-rgb-004120 { stroke: #004120; fill: #004120; user-select: none;  }
+    .bg-rgb-00415A { stroke: #00415A; fill: #00415A; user-select: none;  }
+    .bg-rgb-0041F4 { stroke: #0041F4; fill: #0041F4; user-select: none;  }
+    .fg-blue { fill: #0000AA }
+    .fg-bright-black { fill: #555555 }
+    .fg-green { fill: #00AA00 }
+    .container {
+      padding: 0 10px;
+      line-height: 18px;
+    }
+    .dimmed { opacity: 0.4; }
+    tspan {
+      font: 14px SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+      white-space: pre;
+      line-height: 18px;
+    }
+  </style>
+
+  <rect width="100%" height="100%" y="0" rx="4.5" class="bg" />
+
+  <text xml:space="preserve" class="container fg">
+    <tspan x="10px" y="28px"><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">╮</tspan>
+</tspan>
+    <tspan x="10px" y="46px"><tspan> </tspan><tspan class="fg-blue">qs:d</tspan><tspan> </tspan><tspan class="fg-green">A</tspan><tspan> file </tspan><tspan class="fg-bright-black">│</tspan>
+</tspan>
+    <tspan x="10px" y="64px"><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">╯</tspan>
+</tspan>
+    <tspan x="10px" y="82px">
+</tspan>
+    <tspan x="10px" y="100px"><tspan class="dimmed">@@ -1,0 +1,17 @@</tspan>
+</tspan>
+    <tspan x="10px" y="118px"><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan>
+</tspan>
+    <tspan x="10px" y="136px"><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-004120">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan>
+</tspan>
+    <tspan x="10px" y="136px"><tspan> </tspan><tspan> ┊ </tspan><tspan> </tspan><tspan>1</tspan><tspan> │ </tspan><tspan>+</tspan>
+</tspan>
+    <tspan x="10px" y="154px"><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-004120">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-0041F4">███████████████████████████████████████████████████████████████████</tspan>
+</tspan>
+    <tspan x="10px" y="154px"><tspan> </tspan><tspan> ┊ </tspan><tspan> </tspan><tspan>2</tspan><tspan> │ </tspan><tspan>+</tspan><tspan>items = ["ink ribbon", "old key", "green herb", "crank", "lighter"]</tspan>
+</tspan>
+    <tspan x="10px" y="172px"><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-004120">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan>
+</tspan>
+    <tspan x="10px" y="172px"><tspan> </tspan><tspan> ┊ </tspan><tspan> </tspan><tspan>3</tspan><tspan> │ </tspan><tspan>+</tspan>
+</tspan>
+    <tspan x="10px" y="190px"><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-004120">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-0041F4">███████████████████████████████████</tspan>
+</tspan>
+    <tspan x="10px" y="190px"><tspan> </tspan><tspan> ┊ </tspan><tspan> </tspan><tspan>4</tspan><tspan> │ </tspan><tspan>+</tspan><tspan>puts "You check the desk drawer..."</tspan>
+</tspan>
+    <tspan x="10px" y="208px"><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-004120">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-0041F4">█████████</tspan>
+</tspan>
+    <tspan x="10px" y="208px"><tspan> </tspan><tspan> ┊ </tspan><tspan> </tspan><tspan>5</tspan><tspan> │ </tspan><tspan>+</tspan><tspan>sleep 0.8</tspan>
+</tspan>
+    <tspan x="10px" y="226px"><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-004120">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan>
+</tspan>
+    <tspan x="10px" y="226px"><tspan> </tspan><tspan> ┊ </tspan><tspan> </tspan><tspan>6</tspan><tspan> │ </tspan><tspan>+</tspan>
+</tspan>
+    <tspan x="10px" y="244px"><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-004120">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-0041F4">████████████████████</tspan>
+</tspan>
+    <tspan x="10px" y="244px"><tspan> </tspan><tspan> ┊ </tspan><tspan> </tspan><tspan>7</tspan><tspan> │ </tspan><tspan>+</tspan><tspan>found = items.sample</tspan>
+</tspan>
+    <tspan x="10px" y="262px"><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-004120">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan>
+</tspan>
+    <tspan x="10px" y="262px"><tspan> </tspan><tspan> ┊ </tspan><tspan> </tspan><tspan>8</tspan><tspan> │ </tspan><tspan>+</tspan>
+</tspan>
+    <tspan x="10px" y="280px"><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-004120">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-0041F4">████████████████████████</tspan>
+</tspan>
+    <tspan x="10px" y="280px"><tspan> </tspan><tspan> ┊ </tspan><tspan> </tspan><tspan>9</tspan><tspan> │ </tspan><tspan>+</tspan><tspan>if found == "green herb"</tspan>
+</tspan>
+    <tspan x="10px" y="298px"><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004120">██</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-0041F4">██████████████████████████████</tspan>
+</tspan>
+    <tspan x="10px" y="298px"><tspan> </tspan><tspan> ┊ </tspan><tspan>10</tspan><tspan> │ </tspan><tspan>+</tspan><tspan>  puts "You found a #{found}."</tspan>
+</tspan>
+    <tspan x="10px" y="316px"><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004120">██</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-0041F4">███████████████████████████████████████</tspan>
+</tspan>
+    <tspan x="10px" y="316px"><tspan> </tspan><tspan> ┊ </tspan><tspan>11</tspan><tspan> │ </tspan><tspan>+</tspan><tspan>  puts "You feel just a little better."</tspan>
+</tspan>
+    <tspan x="10px" y="334px"><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004120">██</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-0041F4">████</tspan>
+</tspan>
+    <tspan x="10px" y="334px"><tspan> </tspan><tspan> ┊ </tspan><tspan>12</tspan><tspan> │ </tspan><tspan>+</tspan><tspan>else</tspan>
+</tspan>
+    <tspan x="10px" y="352px"><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004120">██</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-0041F4">███████████████████████████████████████████████████████████████████</tspan>
+</tspan>
+    <tspan x="10px" y="352px"><tspan> </tspan><tspan> ┊ </tspan><tspan>13</tspan><tspan> │ </tspan><tspan>+</tspan><tspan>  puts "You found an #{found}." rescue puts "You found a #{found}."</tspan>
+</tspan>
+    <tspan x="10px" y="370px"><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004120">██</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-0041F4">███████████████████████████████████</tspan>
+</tspan>
+    <tspan x="10px" y="370px"><tspan> </tspan><tspan> ┊ </tspan><tspan>14</tspan><tspan> │ </tspan><tspan>+</tspan><tspan>  puts "Probably useful somewhere."</tspan>
+</tspan>
+    <tspan x="10px" y="388px"><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004120">██</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-0041F4">███</tspan>
+</tspan>
+    <tspan x="10px" y="388px"><tspan> </tspan><tspan> ┊ </tspan><tspan>15</tspan><tspan> │ </tspan><tspan>+</tspan><tspan>end</tspan>
+</tspan>
+    <tspan x="10px" y="406px"><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004120">██</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan>
+</tspan>
+    <tspan x="10px" y="406px"><tspan> </tspan><tspan> ┊ </tspan><tspan>16</tspan><tspan> │ </tspan><tspan>+</tspan>
+</tspan>
+    <tspan x="10px" y="424px"><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004120">██</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-0041F4">████████████████████████████████</tspan>
+</tspan>
+    <tspan x="10px" y="424px"><tspan> </tspan><tspan> ┊ </tspan><tspan>17</tspan><tspan> │ </tspan><tspan>+</tspan><tspan>puts "/nA distant door unlocks."</tspan>
+</tspan>
+    <tspan x="10px" y="442px">
+</tspan>
+  </text>
+
+</svg>

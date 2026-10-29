@@ -3,8 +3,8 @@ use but_settings::AppSettings;
 use tracing::instrument;
 
 use crate::{
-    Context, LegacyProjectId, ProjectHandleOrLegacyProjectId, RepoOpenMode, ThreadSafeContext,
-    app_settings, new_ondemand_app_cache, new_ondemand_cache, new_ondemand_db,
+    CacheMode, Context, LegacyProjectId, ProjectHandleOrLegacyProjectId, RepoOpenMode,
+    ThreadSafeContext, app_settings, new_ondemand_app_cache, new_ondemand_db,
     new_ondemand_git2_repo, new_ondemand_repo, open_repo,
 };
 
@@ -35,6 +35,10 @@ impl Context {
 
     /// Open the repository identified by `legacy_project` and `settings`, while controlling
     /// how the repository sources configuration via `repo_open_mode`.
+    #[allow(
+        deprecated,
+        reason = "Context owns the deprecated boundary cache and must initialize it."
+    )]
     pub fn new_from_legacy_project_and_settings_with_repo_open_mode(
         legacy_project: &gitbutler_project::Project,
         settings: AppSettings,
@@ -44,21 +48,22 @@ impl Context {
         let repo = open_repo(&gitdir, repo_open_mode)?;
         let project_data_dir = repo.gitbutler_storage_path()?;
         let app_cache_dir = but_path::app_cache_dir().ok();
-        Ok(Context {
+        let cache_mode = CacheMode::Disk;
+        Context {
             settings,
             gitdir: gitdir.clone(),
             project_data_dir: project_data_dir.clone(),
+            cache_mode,
             repo_open_mode,
             legacy_project: legacy_project.clone(),
             repo: new_ondemand_repo(gitdir.clone(), repo_open_mode),
-            git2_repo: new_ondemand_git2_repo(gitdir.clone()),
-            db: new_ondemand_db(project_data_dir.clone()),
-            cache: new_ondemand_cache(project_data_dir),
-            app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
+            git2_repo: new_ondemand_git2_repo(gitdir),
+            db: new_ondemand_db(project_data_dir),
+            app_cache: new_ondemand_app_cache(app_cache_dir.clone(), cache_mode),
             app_cache_dir,
             workspace: Default::default(),
         }
-        .with_repo(repo))
+        .with_repo(repo)
     }
 
     /// Open the repository identified by `legacy_project` and `settings`.
@@ -117,10 +122,7 @@ impl Context {
     pub fn workspace_and_meta_from_head(
         &self,
         _exclusive_access: &RepoExclusive,
-    ) -> anyhow::Result<(
-        impl but_core::RefMetadata + 'static,
-        but_graph::projection::Workspace,
-    )> {
+    ) -> anyhow::Result<(impl but_core::RefMetadata + 'static, but_graph::Workspace)> {
         let ws = self.workspace_from_head()?;
         Ok((self.meta()?, ws))
     }
@@ -130,7 +132,9 @@ impl Context {
     /// This is helping to prevent races with mutable instances.
     // TODO: For a correct implementation, this would also have to hold on to `_read_only`.
     pub fn legacy_meta(&self) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
-        self.meta_inner()
+        but_meta::VirtualBranchesTomlMetadata::from_path(
+            self.project_data_dir().join("virtual_branches.toml"),
+        )
     }
 
     /// Return a wrapper for metadata for read and write access when presented with the project wide permission
@@ -143,6 +147,8 @@ impl Context {
         &mut self,
         _exclusive: &RepoExclusive,
     ) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
-        self.meta_inner()
+        but_meta::VirtualBranchesTomlMetadata::from_path(
+            self.project_data_dir().join("virtual_branches.toml"),
+        )
     }
 }

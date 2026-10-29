@@ -29,6 +29,9 @@ git remote add origin normal-remote
 git remote add nested/remote nested-remote
 git remote add nested/remote-b nested-remote-b
 
+# NOTE: `git fetch` automatically creates remote HEAD refs (e.g.
+# refs/remotes/origin/HEAD) since git 2.48. Tests relying on these
+# refs require at least that version.
 git fetch origin
 git fetch nested/remote
 git fetch nested/remote-b

@@ -10,7 +10,12 @@
 	import { USER_SERVICE } from "$lib/user/userService";
 	import { inject } from "@gitbutler/core/context";
 	import Minimap from "@gitbutler/shared/branches/Minimap.svelte";
-	import { AvatarGroup, CommitStatusBadge, Icon, type CommitStatusType } from "@gitbutler/ui";
+	import {
+		AvatarGroup,
+		CommitStatusBadge,
+		Icon,
+		type CommitStatusType,
+	} from "@gitbutler/ui-svelte";
 
 	import dayjs from "dayjs";
 
@@ -258,7 +263,7 @@
 		&:hover {
 			.dynclmn,
 			.dyncell-td {
-				background-color: var(--clr-bg-muted);
+				background-color: var(--bg-mute);
 			}
 		}
 
@@ -276,10 +281,10 @@
 		padding: 0;
 
 		&:last-child .dynclmn {
-			border-right: 1px solid var(--clr-border-2);
+			border-right: 1px solid var(--border-2);
 		}
 		&:first-child .dynclmn {
-			border-left: 1px solid var(--clr-border-2);
+			border-left: 1px solid var(--border-2);
 		}
 	}
 
@@ -289,9 +294,9 @@
 		height: 58px;
 
 		padding: 0 var(--cell-padding);
-		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-1);
-		color: var(--clr-text-2);
+		border-bottom: 1px solid var(--border-2);
+		background-color: var(--bg-1);
+		color: var(--text-2);
 		transition: background-color var(--transition-fast);
 	}
 
@@ -301,12 +306,12 @@
 		justify-content: flex-end;
 	}
 	.dynclmn-changes_additions {
-		color: var(--clr-theme-safe-element);
+		color: var(--fill-safe-bg);
 		text-align: right;
 	}
 	.dynclmn-changes_deletions {
 		padding-left: 6px;
-		color: var(--clr-theme-danger-element);
+		color: var(--fill-danger-bg);
 		text-align: right;
 	}
 
@@ -333,7 +338,7 @@
 	}
 	.dynclmn-title {
 		display: grid;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 
 	.dynclmn-number {
@@ -351,8 +356,8 @@
 	/* MOBILE CELL */
 	.dyncell-td {
 		padding: 0;
-		border: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-1);
+		border: 1px solid var(--border-2);
+		background-color: var(--bg-1);
 		transition: background-color var(--transition-fast);
 	}
 
@@ -388,7 +393,7 @@
 		}
 
 		.dynclmn {
-			border-top: 1px solid var(--clr-border-2);
+			border-top: 1px solid var(--border-2);
 		}
 	}
 
@@ -406,7 +411,7 @@
 		}
 
 		.dynclmn {
-			border-bottom: 1px solid var(--clr-border-2);
+			border-bottom: 1px solid var(--border-2);
 		}
 	}
 </style>

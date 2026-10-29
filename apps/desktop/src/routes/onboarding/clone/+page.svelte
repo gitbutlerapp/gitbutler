@@ -1,9 +1,9 @@
 <script lang="ts">
-	import CloneForm from "$components/CloneForm.svelte";
-	import DecorativeSplitView from "$components/DecorativeSplitView.svelte";
+	import CloneForm from "$components/onboarding/CloneForm.svelte";
+	import IllustrationSplitLayout from "$components/shared/IllustrationSplitLayout.svelte";
 	import cloningRepoSvg from "$lib/assets/illustrations/cloning-repo.svg?raw";
 </script>
 
-<DecorativeSplitView img={cloningRepoSvg}>
+<IllustrationSplitLayout img={cloningRepoSvg}>
 	<CloneForm />
-</DecorativeSplitView>
+</IllustrationSplitLayout>

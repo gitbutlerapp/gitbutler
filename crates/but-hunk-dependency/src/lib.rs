@@ -133,6 +133,7 @@ pub use input::{InputCommit, InputDiffHunk, InputFile, InputStack};
 
 mod ranges;
 pub use ranges::{CalculationError, HunkRange, WorkspaceRanges};
+use tracing::instrument;
 
 use crate::ui::HunkLockTarget;
 
@@ -141,10 +142,11 @@ pub mod ui;
 
 mod utils;
 
-/// Produce one [`InputStack`] instance for each [`but_graph::projection::Stack`] for use in [`WorkspaceRanges::try_from_stacks`].
+/// Produce one [`InputStack`] instance for each [`but_graph::workspace::Stack`] for use in [`WorkspaceRanges::try_from_stacks`].
+#[instrument(skip_all, err(Debug))]
 pub fn new_stacks_to_input_stacks(
     repo: &gix::Repository,
-    workspace: &but_graph::projection::Workspace,
+    workspace: &but_graph::Workspace,
 ) -> anyhow::Result<Vec<InputStack>> {
     workspace
         .stacks

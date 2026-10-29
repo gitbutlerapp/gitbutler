@@ -5,12 +5,65 @@ use std::{
 };
 
 use anyhow::{Context as _, anyhow, bail};
-use but_core::ref_metadata::StackId;
-use but_db::{VbBranchTarget, VbStack, VbStackHead, VbState, VirtualBranchesSnapshot};
+use but_core::ref_metadata::{ProjectMeta, StackId, UnresolvedLegacyTargetRefError};
+use but_db::{VbStack, VbStackHead, VbState, VirtualBranchesSnapshot};
 use gitbutler_reference::{Refname, RemoteRefname};
 use sha2::{Digest, Sha256};
 
-use crate::virtual_branches_legacy_types::{Stack, StackBranch, Target, VirtualBranches};
+use crate::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
+
+#[derive(serde::Deserialize)]
+struct LegacyProjectMetaFile {
+    default_target: Option<LegacyTarget>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyTarget {
+    remote_name: String,
+    branch_name: String,
+    sha: String,
+    push_remote_name: Option<String>,
+}
+
+/// Read the project metadata that older versions stored in `virtual_branches.toml` without
+/// opening or migrating the project database.
+/// Legacy remote targets must resolve to a local tracking branch in `repo`, as
+/// [`but_core::ref_metadata::resolve_local_target`] does. If no local branch or multiple local
+/// branches match, the [`UnresolvedLegacyTargetRefError`] carries the stored cutoff and push remote.
+pub fn read_legacy_project_meta(
+    path: &Path,
+    repo: &gix::Repository,
+) -> anyhow::Result<Option<ProjectMeta>> {
+    let content = match std::fs::read_to_string(path) {
+        Ok(content) => content,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(err) => return Err(err.into()),
+    };
+    let Some(target) = toml::from_str::<LegacyProjectMetaFile>(&content)?.default_target else {
+        return Ok(None);
+    };
+    let target_commit_id = gix::ObjectId::from_str(&target.sha)?;
+    let target_commit_id = (!target_commit_id.is_null()).then_some(target_commit_id);
+    let remote_target: gix::refs::FullName =
+        format!("refs/remotes/{}/{}", target.remote_name, target.branch_name).try_into()?;
+    let target_ref =
+        match but_core::ref_metadata::resolve_local_target(remote_target.as_ref(), repo) {
+            Ok(target_ref) => target_ref,
+            Err(mut err) => {
+                if let Some(unresolved) = err.downcast_mut::<UnresolvedLegacyTargetRefError>() {
+                    unresolved.target_commit_id = target_commit_id;
+                    unresolved.push_remote = target.push_remote_name;
+                }
+                return Err(err);
+            }
+        };
+    Ok(Some(ProjectMeta {
+        target_ref: Some(target_ref),
+        target_commit_id,
+        push_remote: target.push_remote_name,
+    }))
+}
 
 /// Read virtual-branches state using DB as runtime source of truth while synchronizing with TOML.
 ///
@@ -43,6 +96,11 @@ pub fn write_virtual_branches_and_sync(path: &Path, vb: &VirtualBranches) -> any
     info.update_last_seen_metadata_on(&mut snapshot.state);
     persist_snapshot(&mut tx, snapshot)?;
     tx.commit()?;
+    // The single choke point for metadata writes, so touching the sentinel here surfaces
+    // out-of-process writes. Read-only syncs don't route through here.
+    if let Some(storage_dir) = path.parent() {
+        but_project_handle::write_refresh_sentinel(storage_dir);
+    }
     Ok(())
 }
 
@@ -216,7 +274,7 @@ fn write_toml(path: &Path, data: &VirtualBranches) -> anyhow::Result<TomlFileSta
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    but_fs::write(path, content.as_bytes())?;
+    but_utils::write(path, content.as_bytes())?;
     // Read from a single file descriptor so mtime/hash come from the same file instance.
     let (bytes, metadata) = read_file_bytes_and_metadata(path)?;
     let mtime_ns = file_mtime_ns(&metadata)?;
@@ -284,29 +342,10 @@ fn legacy_to_snapshot(
     }: DbTomlFileState,
 ) -> anyhow::Result<VirtualBranchesSnapshot> {
     let initialized = true;
-    let (
-        default_target_remote_name,
-        default_target_branch_name,
-        default_target_remote_url,
-        default_target_sha,
-        default_target_push_remote_name,
-    ) = vb
-        .default_target
-        .as_ref()
-        .map(|target| {
-            (
-                Some(target.branch.remote().to_owned()),
-                Some(target.branch.branch().to_owned()),
-                Some(target.remote_url.clone()),
-                Some(target.sha.to_string()),
-                target.push_remote_name.clone(),
-            )
-        })
-        .unwrap_or_default();
     let last_pushed_base_sha = vb.last_pushed_base.map(|oid| oid.to_string());
 
     let mut stacks: Vec<_> = vb.branches.iter().collect();
-    stacks.sort_by_key(|(sid, stack)| (stack.order, sid.to_string()));
+    stacks.sort_by_key(|(sid, stack)| (stack.order, **sid));
 
     let mut out_stacks = Vec::with_capacity(stacks.len());
     let mut out_heads = Vec::new();
@@ -340,7 +379,10 @@ fn legacy_to_snapshot(
         out_stacks.push(VbStack {
             id: stack_id.to_string(),
             source_refname: source_refname.as_ref().map(ToString::to_string),
-            upstream_remote_name: upstream.as_ref().map(|up| up.remote().to_owned()),
+            upstream_remote_name: upstream
+                .as_ref()
+                .and_then(|up| up.remote())
+                .map(|remote| remote.to_owned()),
             upstream_branch_name: upstream.as_ref().map(|up| up.branch().to_owned()),
             sort_order: i64::try_from(*order).context("Stack order exceeds i64")?,
             in_workspace: *in_workspace,
@@ -375,35 +417,8 @@ fn legacy_to_snapshot(
         }
     }
 
-    let mut out_targets: Vec<_> = vb.branch_targets.iter().collect();
-    out_targets.sort_by_key(|(sid, _)| sid.to_string());
-    let branch_targets = out_targets
-        .into_iter()
-        .map(|(stack_id, target)| {
-            let Target {
-                branch,
-                remote_url,
-                sha,
-                push_remote_name,
-            } = target;
-            VbBranchTarget {
-                stack_id: stack_id.to_string(),
-                remote_name: branch.remote().to_owned(),
-                branch_name: branch.branch().to_owned(),
-                remote_url: remote_url.clone(),
-                sha: sha.to_string(),
-                push_remote_name: push_remote_name.clone(),
-            }
-        })
-        .collect();
-
     Ok(VirtualBranchesSnapshot {
         state: VbState {
-            default_target_remote_name,
-            default_target_branch_name,
-            default_target_remote_url,
-            default_target_sha,
-            default_target_push_remote_name,
             last_pushed_base_sha,
             initialized,
             toml_last_seen_mtime_ns,
@@ -411,7 +426,6 @@ fn legacy_to_snapshot(
         },
         stacks: out_stacks,
         heads: out_heads,
-        branch_targets,
     })
 }
 
@@ -420,24 +434,7 @@ fn snapshot_to_legacy(snapshot: &VirtualBranchesSnapshot) -> anyhow::Result<Virt
         state,
         stacks,
         heads,
-        branch_targets: snapshot_branch_targets,
     } = snapshot;
-    let default_target = match (
-        state.default_target_remote_name.as_ref(),
-        state.default_target_branch_name.as_ref(),
-        state.default_target_remote_url.as_ref(),
-        state.default_target_sha.as_ref(),
-    ) {
-        (Some(remote), Some(branch), Some(remote_url), Some(sha)) => Some(Target {
-            branch: RemoteRefname::new(remote, branch),
-            remote_url: remote_url.clone(),
-            sha: gix::ObjectId::from_str(sha)
-                .with_context(|| format!("Invalid default target sha: {sha}"))?,
-            push_remote_name: state.default_target_push_remote_name.clone(),
-        }),
-        _ => None,
-    };
-
     let last_pushed_base = state
         .last_pushed_base_sha
         .as_ref()
@@ -553,40 +550,12 @@ fn snapshot_to_legacy(snapshot: &VirtualBranchesSnapshot) -> anyhow::Result<Virt
         });
     }
 
-    let mut branch_targets = HashMap::new();
-    for target in snapshot_branch_targets {
-        let VbBranchTarget {
-            stack_id,
-            remote_name,
-            branch_name,
-            remote_url,
-            sha,
-            push_remote_name,
-        } = target;
-        let stack_id = StackId::from_str(stack_id)
-            .with_context(|| format!("Invalid branch_targets stack id '{stack_id}'"))?;
-        branch_targets.insert(
-            stack_id,
-            Target {
-                branch: RemoteRefname::new(remote_name, branch_name),
-                remote_url: remote_url.clone(),
-                sha: gix::ObjectId::from_str(sha).with_context(|| {
-                    format!("Invalid branch target sha '{sha}' for '{stack_id}'")
-                })?,
-                push_remote_name: push_remote_name.clone(),
-            },
-        );
-    }
-
     Ok(VirtualBranches {
-        default_target,
-        branch_targets,
         branches,
         last_pushed_base,
     })
 }
 
-#[expect(clippy::large_enum_variant)]
 enum TomlInfo {
     Missing,
     Parsed(ParsedToml),

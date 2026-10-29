@@ -55,10 +55,9 @@
 //! ```
 #![expect(clippy::inconsistent_digit_grouping)]
 #![deny(missing_docs)]
-
-#[cfg(feature = "poll")]
-/// Polling helpers to watch for database-backed state changes.
-pub mod poll;
+use but_utils::OnDemand;
+use rusqlite::ErrorCode;
+use std::path::PathBuf;
 
 mod handle;
 mod table;
@@ -68,35 +67,80 @@ mod transaction;
 pub mod cache;
 /// Migration helpers for applying and configuring database schema updates.
 pub mod migration;
+pub mod worktrees;
 
-use std::path::PathBuf;
 #[rustfmt::skip]
 pub use table::{
     hunk_assignments::{HunkAssignmentsHandleMut, HunkAssignmentsHandle, HunkAssignment},
+    branch_order::{BranchOrderEntry, BranchOrderHandle, BranchOrderHandleMut, BranchOrderSnapshot},
     butler_actions::ButlerAction,
-    workflows::Workflow,
     claude::{ClaudeMessage, ClaudePermissionRequest, ClaudeSession},
     file_write_locks::FileWriteLock,
-    workspace_rules::WorkspaceRule,
-    gerrit_metadata::GerritMeta,
+    fetch_status::FetchStatus,
+    gerrit_metadata::{GerritMeta, GerritMetadataHandle},
     forge_reviews::ForgeReview,
     ci_checks::CiCheck,
-    virtual_branches::{VbBranchTarget, VbStack, VbStackHead, VbState, VirtualBranchesSnapshot, VirtualBranchesHandle, VirtualBranchesHandleMut},
+    virtual_branches::{VbStack, VbStackHead, VbState, VirtualBranchesSnapshot, VirtualBranchesHandle, VirtualBranchesHandleMut},
+    worktree_meta::{WorktreeMeta, WorktreeMetaHandle, WorktreeMetaHandleMut},
 };
+
+/// The *retryable* error type used by [`backoff()`] for SQLite operations.
+pub type Error = ::backoff::Error<rusqlite::Error>;
+
+/// Retry a short SQLite operation that was intentionally configured to fail fast on lock contention.
+///
+/// This is meant for operations that should prefer responsiveness over waiting for a database lock.
+/// You *may* pair it with [`Transaction::set_nonblocking()`] or one of the `*_nonblocking` transaction acquisition
+/// functions so each attempt fails immediately with `SQLITE_BUSY` or `SQLITE_LOCKED` instead of spending
+/// the whole retry budget in one blocking call.
+/// This function *must* be used if a [`Transaction`] is used lock in a read, followed by a write, as the
+/// deferred write lock acquisition may fail immediately if another write happened while you were reading.
+///
+/// Consider using [`map_err()`] to decide which database errors can be retried.
+///
+/// Only lock-contention errors are retried. Everything else is treated as permanent and returned immediately.
+pub fn backoff<T, E>(
+    operation: impl FnMut() -> Result<T, ::backoff::Error<E>>,
+) -> Result<T, ::backoff::Error<E>> {
+    // Set this value reasonably high as strong contention can actually lead to failures
+    // if the value is too low (500ms previously). The idea is that failures basically never
+    // happen, but with a low value they are just more likely.
+    let max_duration = std::time::Duration::from_millis(2500);
+    let policy = ::backoff::ExponentialBackoffBuilder::new()
+        .with_max_elapsed_time(Some(max_duration))
+        .build();
+    ::backoff::retry(policy, operation)
+}
+
+/// Classify SQLite lock-contention failures as transient so [`backoff()`] can retry them.
+///
+/// This is the adapter to use with `Result::map_err()` for database operations that participate in
+/// fail-fast retry loops.
+pub fn map_err(err: rusqlite::Error) -> ::backoff::Error<rusqlite::Error> {
+    if err
+        .sqlite_error_code()
+        .is_some_and(|code| matches!(code, ErrorCode::DatabaseLocked | ErrorCode::DatabaseBusy))
+    {
+        ::backoff::Error::transient(err)
+    } else {
+        ::backoff::Error::permanent(err)
+    }
+}
 
 /// The migrations to run, in any order, as ordering is maintained by their date number.
 pub const MIGRATIONS: &[&[M<'static>]] = &[
     table::M_FULLY_REMOVED,
     table::hunk_assignments::M,
+    table::branch_order::M,
     table::butler_actions::M,
-    table::workflows::M,
     table::claude::M,
     table::file_write_locks::M,
-    table::workspace_rules::M,
+    table::fetch_status::M,
     table::gerrit_metadata::M,
     table::forge_reviews::M,
     table::ci_checks::M,
     table::virtual_branches::M,
+    table::worktree_meta::M,
 ];
 
 /// A migration and all the necessary data associated with it to perform it once.
@@ -110,7 +154,7 @@ pub struct M<'a> {
     /// The creation time of the `up` field, in a format like `20250529110746`, so it's suitable for sorting
     up_created_at: u64,
     /// The forward-compatibility schema version after this migration has been applied.
-    schema_version: SchemaVersion,
+    schema_version: u32,
 }
 
 /// Documents the forward-compatibility boundary associated with a migration.
@@ -118,6 +162,10 @@ pub struct M<'a> {
 /// The numeric migration id remains the source of truth for ordering. This enum exists so
 /// each migration must state whether it crosses into a new forward-incompatible database
 /// shape or remains readable by older client binaries.
+///
+/// Bumping the version locks every older binary out of the database, so it is reserved
+/// for planned, coordinated breaks. Leaving no-longer-used columns or tables in place is
+/// harmless and always preferred over a bump for routine cleanup.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SchemaVersion {
     /// The current forward-compatible schema line.
@@ -161,6 +209,9 @@ pub struct DbHandle {
     conn: rusqlite::Connection,
     /// The path at which the connection was opened, mainly for debugging.
     path: PathBuf,
+    /// A lazily opened project-local cache. It is in-memory of the parent instance is in-memory,
+    /// or in the same directory as the parent instance.
+    pub cache: OnDemand<CacheHandle>,
 }
 
 /// A wrapper for a [`rusqlite::Transaction`] to allow ORM handles to be created more easily,

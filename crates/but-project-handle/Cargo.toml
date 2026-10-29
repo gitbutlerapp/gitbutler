@@ -12,6 +12,8 @@ doctest = false
 
 [features]
 legacy = []
+## Generate JSON schemas for TypeScript type generation via schemars.
+export-schema = ["dep:schemars", "dep:but-schemars"]
 
 [dependencies]
 but-path.workspace = true
@@ -22,6 +24,8 @@ serde.workspace = true
 uuid.workspace = true
 base64 = "0.22.1"
 tracing.workspace = true
+schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 but-testsupport.workspace = true

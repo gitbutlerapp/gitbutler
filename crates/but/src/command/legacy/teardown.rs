@@ -1,20 +1,33 @@
 use anyhow::Context as _;
+use but_core::WORKSPACE_REF_NAME;
 use but_ctx::Context;
-use but_workspace::legacy::StacksFilter;
-use colored::Colorize;
-use gix::refs::transaction::PreviousValue;
+use gix::refs::{Category, transaction::PreviousValue};
 use serde::Serialize;
 
-use crate::utils::{OutputChannel, shorten_object_id};
+use crate::{
+    CliError, CliResult, bad_input,
+    theme::{self, Paint},
+    utils::{OutputChannel, shorten_object_id},
+};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct TeardownResult {
     snapshot_id: String,
     checked_out_branch: String,
+    /// Hook cleanup problems; when non-empty, some GitButler hooks are still
+    /// installed and may keep affecting git operations.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    hook_warnings: Vec<String>,
 }
 
-pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+pub(crate) fn teardown(
+    ctx: &mut Context,
+    checkout_to: Option<String>,
+    out: &mut OutputChannel,
+) -> CliResult<()> {
+    let t = theme::get();
+
     // Check that we're on gitbutler/workspace
     let head_name = {
         let repo = ctx.repo.get()?;
@@ -29,26 +42,59 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
             writeln!(
                 out,
                 "{}",
-                format!("Not currently on gitbutler/workspace branch (on: {head_name}).").red()
+                t.error.paint(format!(
+                    "Not currently on gitbutler/workspace branch (on: {head_name})."
+                ))
             )?;
             writeln!(out)?;
             writeln!(
                 out,
                 "{}",
-                "Teardown can only be run while on the gitbutler/workspace branch.".dimmed()
+                t.hint
+                    .paint("Teardown can only be run while on the gitbutler/workspace branch.")
             )?;
         }
-        anyhow::bail!("Not on gitbutler/workspace branch");
+        return Err(bad_input("Not on gitbutler/workspace branch").into());
     }
 
+    // Note: Validate checkout_to before snapshot creation to prevent unnecessary snapshot
+    let checkout_to = if let Some(checkout_to) = &checkout_to {
+        let repo = ctx.repo.get()?;
+        let ref_name: gix::refs::PartialName = checkout_to.clone().try_into().map_err(|_| {
+            CliError::from(
+                bad_input(format!("Invalid ref name: {checkout_to}")).arg_name("--checkout-to"),
+            )
+        })?;
+        let resolved_ref = match repo.try_find_reference(ref_name.as_ref())? {
+            Some(resolved_ref) => resolved_ref,
+            None => {
+                return Err(
+                    bad_input(format!("The reference '{checkout_to}' did not exist"))
+                        .arg_name("--checkout-to")
+                        .into(),
+                );
+            }
+        };
+        if !matches!(resolved_ref.name().category(), Some(Category::LocalBranch)) {
+            return Err(bad_input(format!(
+                "Invalid ref for checkout: '{checkout_to}' is not a local branch"
+            ))
+            .arg_name("--checkout-to")
+            .into());
+        }
+        Some(resolved_ref.name().shorten().to_string())
+    } else {
+        None
+    };
+
     if let Some(out) = out.for_human() {
-        writeln!(out, "{}", "Exiting GitButler mode...".cyan().bold())?;
+        writeln!(out, "{}", t.progress.paint("Exiting GitButler mode..."))?;
         writeln!(out)?;
     }
 
     // Create an oplog snapshot
     if let Some(out) = out.for_human() {
-        writeln!(out, "{}", "→ Creating snapshot...".dimmed())?;
+        writeln!(out, "{}", t.hint.paint("→ Creating snapshot..."))?;
     }
 
     let snapshot = but_api::legacy::oplog::create_snapshot(
@@ -64,7 +110,8 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
         writeln!(
             out,
             "  {}",
-            format!("✓ Snapshot created: {snapshot_short}").green()
+            t.success
+                .paint(format!("✓ Snapshot created: {snapshot_short}"))
         )?;
         writeln!(out)?;
     }
@@ -74,54 +121,66 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
         writeln!(
             out,
             "{}",
-            "→ Finding active branch to check out...".dimmed()
+            t.hint.paint("→ Finding active branch to check out...")
         )?;
     }
 
-    // Get stacks filtered to only those in workspace, sorted by order to find the leftmost
-    let mut stacks = match but_api::legacy::workspace::stacks(ctx, Some(StacksFilter::InWorkspace))
-    {
+    let stacks = match crate::legacy::workspace::applied_stacks(ctx) {
         Ok(stacks) => stacks,
         Err(_e) => {
             try_stack_fixes(ctx, out)?;
-            but_api::legacy::workspace::stacks(ctx, Some(StacksFilter::InWorkspace))
+            crate::legacy::workspace::applied_stacks(ctx)
                 .context("Failed to retrieve stacks after attempting fixes")?
         }
     };
 
-    // Sort by order to ensure we get the leftmost (lowest order) stack first
-    stacks.sort_by_key(|s| s.order.unwrap_or(usize::MAX));
-
-    let target_stack = stacks
-        .first()
-        .ok_or_else(|| anyhow::anyhow!("No active branches found"))?;
-
-    // Get the name of the top branch in the stack
-    let target_branch_name = target_stack
-        .heads
-        .first()
-        .map(|h| h.name.to_string())
-        .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
+    let target_branch_name = if let Some(checkout_to) = checkout_to {
+        checkout_to
+    } else {
+        if let Some(target_stack) = stacks.first() {
+            target_stack
+                .branches
+                .first()
+                .map(|branch| branch.name.clone())
+                .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?
+        } else {
+            return Err(bad_input(
+                "Failed to determine checkout target branch. Specify a target branch with `--checkout-to <branch>`.",
+            ).into());
+        }
+    };
 
     if let Some(out) = out.for_human() {
         writeln!(
             out,
             "  {}",
-            format!("✓ Will check out: {target_branch_name}").green()
+            t.success
+                .paint(format!("✓ Will check out: {target_branch_name}"))
         )?;
         writeln!(out)?;
     }
 
-    // Uninstall managed hooks before checking out
-    if let Ok(git2_repo) = ctx.git2_repo.get()
-        && let Err(e) = gitbutler_repo::managed_hooks::uninstall_managed_hooks(&git2_repo)
-        && let Some(out) = out.for_human()
-    {
-        writeln!(
-            out,
-            "  {}",
-            format!("Warning: Failed to uninstall Git hooks: {e}").yellow()
-        )?;
+    // Uninstall managed hooks before checking out. `uninstall_managed_hooks`
+    // reports removal failures as PartialSuccess warnings rather than Err, so
+    // surface those too -- they mean GitButler hooks are still active.
+    let mut hook_warnings = Vec::new();
+    if let Ok(repo) = ctx.repo.get() {
+        hook_warnings = match gitbutler_repo::managed_hooks::uninstall_managed_hooks(&repo) {
+            Ok(gitbutler_repo::managed_hooks::HookInstallationResult::PartialSuccess {
+                warnings,
+            }) => warnings,
+            Ok(_) => Vec::new(),
+            Err(e) => vec![format!("Failed to uninstall Git hooks: {e}")],
+        };
+        if let Some(out) = out.for_human() {
+            for problem in &hook_warnings {
+                writeln!(
+                    out,
+                    "  {}",
+                    t.attention.paint(format!("Warning: {problem}"))
+                )?;
+            }
+        }
     }
 
     // Check out the target branch using Git directly
@@ -129,7 +188,8 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
         writeln!(
             out,
             "{}",
-            format!("→ Checking out {target_branch_name}...").dimmed()
+            t.hint
+                .paint(format!("→ Checking out {target_branch_name}..."))
         )?;
     }
 
@@ -153,7 +213,7 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
             writeln!(
                 out,
                 "  {}",
-                "⚠ Checkout failed, trying soft reset...\n  ⚠ This will leave changes from multiple branches in your working directory.\n  ⚠ You will have to manually remove, stash or re-commit the changes.".yellow()
+                t.attention.paint("⚠ Checkout failed, trying soft reset...\n  ⚠ This will leave changes from multiple branches in your working directory.\n  ⚠ You will have to manually remove, stash or re-commit the changes.")
             )?;
         }
 
@@ -174,27 +234,36 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
         writeln!(
             out,
             "  {}",
-            format!("✓ Checked out: {target_branch_name}").green()
+            t.success
+                .paint(format!("✓ Checked out: {target_branch_name}"))
         )?;
         writeln!(out)?;
     }
 
     // Final success message
     if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "{}",
-            "✓ Successfully exited GitButler mode!".green().bold()
-        )?;
+        if hook_warnings.is_empty() {
+            writeln!(
+                out,
+                "{}",
+                t.success.paint("✓ Successfully exited GitButler mode!")
+            )?;
+        } else {
+            writeln!(
+                out,
+                "{}",
+                t.attention.paint(
+                    "⚠ Exited GitButler mode, but some GitButler hooks could not be removed (see warnings above)."
+                )
+            )?;
+        }
         writeln!(out)?;
         writeln!(
             out,
             "{}",
-            format!("You are now on branch: {target_branch_name}").dimmed()
+            t.hint
+                .paint(format!("You are now on branch: {target_branch_name}"))
         )?;
-        writeln!(out)?;
-        writeln!(out, "{}", "To return to GitButler mode, run:".blue())?;
-        writeln!(out, "  {}", "but setup".cyan())?;
         writeln!(out)?;
     }
 
@@ -203,6 +272,7 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
         out.write_value(&TeardownResult {
             snapshot_id,
             checked_out_branch: target_branch_name,
+            hook_warnings,
         })?;
     }
 
@@ -211,12 +281,13 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
 
 // a call to get stacks failed, which could be because someone committed on top
 // of gitbutler/workspace. Try to fix that.
-fn try_stack_fixes(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+fn try_stack_fixes(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+    let t = theme::get();
     if let Some(out) = out.for_human() {
         writeln!(
             out,
             "\n{}",
-            "Attempting to fix workspace stacks...".yellow()
+            t.attention.paint("Attempting to fix workspace stacks...")
         )?;
     }
 
@@ -225,10 +296,14 @@ fn try_stack_fixes(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result
 
     // Look for dangling commits on gitbutler/workspace
     if let Some(out) = out.for_human() {
-        writeln!(out, "{}", "→ Checking for dangling commits...".dimmed())?;
+        writeln!(
+            out,
+            "{}",
+            t.hint.paint("→ Checking for dangling commits...")
+        )?;
     }
 
-    let mut workspace_ref = repo.find_reference("refs/heads/gitbutler/workspace")?;
+    let mut workspace_ref = repo.find_reference(WORKSPACE_REF_NAME)?;
     let workspace_commit = workspace_ref.peel_to_commit()?;
 
     // Get all commits on workspace that are not workspace commits
@@ -257,7 +332,7 @@ fn try_stack_fixes(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result
 
     if dangling_commits.is_empty() {
         if let Some(out) = out.for_human() {
-            writeln!(out, "  {}", "✓ No dangling commits found".green())?;
+            writeln!(out, "  {}", t.success.paint("✓ No dangling commits found"))?;
             writeln!(out)?;
         }
     } else {
@@ -268,11 +343,12 @@ fn try_stack_fixes(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result
             writeln!(
                 out,
                 "{}",
-                format!("→ Resetting gitbutler/workspace to {target_short}").dimmed()
+                t.hint
+                    .paint(format!("→ Resetting gitbutler/workspace to {target_short}"))
             )?;
         }
         repo.reference(
-            "refs/heads/gitbutler/workspace",
+            WORKSPACE_REF_NAME,
             target_commit,
             PreviousValue::Any,
             "soft resetting to GitButler workspace",
@@ -281,7 +357,8 @@ fn try_stack_fixes(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result
             writeln!(
                 out,
                 "  {}",
-                format!("✓ gitbutler/workspace reset to {target_short}").green()
+                t.success
+                    .paint(format!("✓ gitbutler/workspace reset to {target_short}"))
             )?;
         }
 
@@ -292,11 +369,12 @@ fn try_stack_fixes(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result
             writeln!(
                 out,
                 "\n  {}",
-                format!(
-                    "⚠ Non-GitButler created commits found.\n  ⚠ Undoing these commits but keeping the changes in your working directory.\n  ⚠ Uncommitted {} dangling commit(s):",
+                t.attention.paint(format!(
+                    "⚠ Non-GitButler created commits found.
+  ⚠ Undoing these commits but keeping the changes in your working directory.
+  ⚠ Uncommitted {} dangling commit(s):",
                     dangling_commits.len()
-                )
-                .yellow()
+                ))
             )?;
             for commit in &dangling_commits {
                 let message = String::from_utf8_lossy(commit.message_raw().unwrap_or((&[]).into()));

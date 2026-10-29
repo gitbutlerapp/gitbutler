@@ -1,9 +1,10 @@
 [toolchain]
 # IMPORTANT: This should match CI so it won't download the toolchain all the time.
-channel = "1.93"
+channel = "1.98"
 components = [
     "rustfmt",
     "clippy",
     "rust-src",
+    "rust-analyzer"
 ]
 profile = "minimal"

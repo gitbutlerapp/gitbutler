@@ -145,7 +145,7 @@
 		flex-wrap: wrap;
 		padding: 32px;
 		gap: 24px;
-		background-image: radial-gradient(var(--clr-border-2) 1px, transparent 1px);
+		background-image: radial-gradient(var(--border-2) 1px, transparent 1px);
 		background-size: 6px 6px;
 	}
 
@@ -169,7 +169,7 @@
 
 	.download-link {
 		width: fit-content;
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 		font-size: 14px;
 		font-family: var(--font-mono);
 		text-decoration: underline;
@@ -178,7 +178,7 @@
 
 		&:hover {
 			text-decoration: underline wavy;
-			text-decoration-color: var(--clr-theme-pop-element);
+			text-decoration-color: var(--fill-pop-bg);
 		}
 	}
 

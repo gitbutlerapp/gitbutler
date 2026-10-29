@@ -22,42 +22,192 @@
 #![deny(unsafe_code)]
 #![cfg_attr(not(feature = "legacy"), expect(unused))]
 
-use std::ffi::OsString;
+use std::{
+    ffi::{OsStr, OsString},
+    io::IsTerminal as _,
+};
 
 use anyhow::{Context as _, Result};
+use but_api::WorkspaceState;
 use cfg_if::cfg_if;
-use clap::Parser;
+use clap::{CommandFactory, FromArgMatches as _, Parser as _};
 
 pub mod args;
 use args::{
-    Args, OutputFormat, Subcommands, actions, alias as alias_args, branch, claude, cursor, forge,
-    metrics, update as update_args, worktree,
+    Args, OutputFormat, Subcommands, actions, agent, alias as alias_args, branch, forge,
+    update as update_args, worktree,
 };
 use but_settings::AppSettings;
-use colored::Colorize;
 use gix::date::time::CustomFormat;
+use theme::Paint;
 
+#[cfg(feature = "legacy")]
+use crate::command::legacy::ShowDiffInEditor;
+#[cfg(target_os = "linux")]
+use crate::utils::envs::BUT_CREDENTIALS_DIRECTORY;
 use crate::{
-    command::legacy::ShowDiffInEditor,
-    setup::{BackgroundSync, InitCtxOptions},
-    utils::{
-        OneshotMetricsContext, OutputChannel, ResultErrorExt, ResultJsonExt, ResultMetricsExt,
-    },
+    setup::{BackgroundSync, InitCtxOptions, TargetRequirement},
+    utils::{OutputChannel, ResultErrorExt, ResultMetricsExt, change_source::InvokedFrom, envs},
 };
+
+mod error;
+pub(crate) use error::{CliError, CliResult, CliResultExt, bad_input};
 
 mod id;
 pub use id::{CliId, IdMap};
+pub use utils::change_source::ChangeSourceId;
+
+pub use utils::binary_path::is_executed_as_but;
 
 mod alias;
 /// A place for all command implementations.
 pub(crate) mod command;
+#[cfg(feature = "legacy")]
+pub use command::legacy::status::{FilesStatusFlag, StatusFlags, json as status, workspace_status};
+mod retired_syntax;
+pub mod theme;
 mod tui;
 
 const CLI_DATE: CustomFormat = gix::date::time::format::ISO8601;
 
+/// The format for help output printed before clap parses arguments.
+fn early_help_format(_args: &[OsString], agent_detected: bool) -> OutputFormat {
+    if let Some(output_format_from_env) = OutputFormat::try_from_env(agent_detected)
+        && output_format_from_env.is_human_text()
+    {
+        return output_format_from_env;
+    }
+
+    OutputFormat::Human {
+        agent: agent_detected,
+    }
+}
+
+fn parse_args_and_output_format(args: Vec<OsString>, agent_detected: bool) -> (Args, OutputFormat) {
+    let command = Args::command();
+    let matches = match command.try_get_matches_from(&args) {
+        Ok(matches) => matches,
+        Err(err) => {
+            // Fall back to translating retired syntax (the pre-revamp
+            // `but commit <branch> -c --changes <id>,<id>` form) before giving
+            // up. Help and version requests also arrive as `Err`; translation
+            // rejects them, so they exit through `err.exit()` below.
+            use retired_syntax::Translation;
+            let retry = match retired_syntax::translate_commit(&args) {
+                Translation::Translated(translated) => {
+                    Args::command().try_get_matches_from(translated).ok()
+                }
+                Translation::Refused => None,
+                Translation::NotRetired => {
+                    // Help and version requests also arrive as `Err`; they
+                    // print to stdout and must pass through untouched.
+                    if !err.use_stderr() {
+                        err.exit()
+                    }
+                    // The other revamped commands are never translated, but a
+                    // rejected line that looks like their retired syntax gets
+                    // a teaching hint before the error.
+                    let retired_hint = retired_syntax::parse_failure_hint(&args, agent_detected);
+                    if let Some((command, hint)) = &retired_hint {
+                        print_err_infallible(hint);
+                        utils::metrics::emit_retired_syntax_hint(*command);
+                    }
+                    let _ = err.print();
+                    // For the commands with the trickiest grammar, follow the
+                    // error with example invocations — unless the hint above
+                    // already named a concrete rewrite. The usage-line check
+                    // keeps root-level errors (e.g. a bad root flag before the
+                    // subcommand) from getting examples for a grammar that
+                    // never rejected anything.
+                    let concrete_rewrite = retired_hint
+                        .as_ref()
+                        .is_some_and(|(_, hint)| retired_syntax::hint_is_concrete(hint));
+                    if !concrete_rewrite
+                        && let Some(examples) = args::find_subcommand(&args)
+                            .and_then(|(_, name)| name.to_str())
+                            .filter(|name| err.to_string().contains(&format!("but {name}")))
+                            .and_then(args::error_examples)
+                    {
+                        print_err_infallible(format!("\n{examples}"));
+                    }
+                    std::process::exit(err.exit_code())
+                }
+            };
+            match retry {
+                Some(matches) => {
+                    retired_syntax::mark_used();
+                    matches
+                }
+                // Retired syntax we cannot safely translate (e.g.
+                // `--no-hooks`): teach the new form, then report the
+                // original error.
+                None => {
+                    print_err_infallible(retired_syntax::hint(agent_detected));
+                    utils::metrics::emit_retired_syntax_hint(args::metrics::CommandName::Commit);
+                    err.exit()
+                }
+            }
+        }
+    };
+    let args = Args::from_arg_matches(&matches).unwrap_or_else(|err| err.exit());
+
+    let output_format = if args.format.json {
+        OutputFormat::Json
+    } else if let Some(output_format_from_env) = OutputFormat::try_from_env(agent_detected) {
+        output_format_from_env
+    } else {
+        OutputFormat::Human {
+            agent: agent_detected,
+        }
+    };
+
+    (args, output_format)
+}
+
+fn should_detect_terminal_theme(
+    args: &[OsString],
+    agent_detected: bool,
+    stdout_is_terminal: bool,
+) -> bool {
+    stdout_is_terminal
+        && !agent_detected
+        && !args.iter().any(|arg| arg == "--json")
+        && !matches!(
+            OutputFormat::try_from_env(agent_detected),
+            Some(OutputFormat::Json)
+        )
+}
+
+fn resolve_theme_preset(
+    theme_name_from_env: Option<&OsStr>,
+    detected_preset: Option<theme::ThemePreset>,
+) -> anyhow::Result<theme::ThemePreset> {
+    match theme_name_from_env {
+        Some(theme_name) => theme_name.to_string_lossy().parse(),
+        None => Ok(detected_preset.unwrap_or(theme::ThemePreset::Dark)),
+    }
+}
+
+static APP_SETTINGS: std::sync::OnceLock<AppSettings> = std::sync::OnceLock::new();
+
+/// The application settings, loaded from the default path once per process.
+///
+/// Concurrent first calls may load twice with one winner - harmless, and avoids
+/// the still-unstable `OnceLock::get_or_try_init`.
+pub(crate) fn app_settings() -> Result<&'static AppSettings> {
+    if let Some(settings) = APP_SETTINGS.get() {
+        return Ok(settings);
+    }
+    match AppSettings::load_from_default_path_creating_without_customization() {
+        Ok(settings) => Ok(APP_SETTINGS.get_or_init(|| settings)),
+        // A concurrent caller may have initialized while our load failed.
+        Err(err) => APP_SETTINGS.get().ok_or(err),
+    }
+}
+
 /// Handle `args` which must be what's passed by `std::env::args_os()`.
 pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
-    let args: Vec<_> = args.collect();
+    let mut args: Vec<_> = args.collect();
 
     // Check if version is requested
     if args.iter().any(|arg| arg == "--version" || arg == "-V") {
@@ -66,18 +216,59 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         return Ok(());
     }
 
+    let watwat = expand_watwat(&mut args);
+    if watwat && args::find_subcommand(&args).is_none() {
+        println!(
+            "Something went watwat?\n\n  but watwat <command> [arguments...]\n\nReruns the command with maximum tracing and the full error chain.\nFor an archive: but-debug dump diagnostics"
+        );
+        return Ok(());
+    }
+
+    let agent_detected = utils::detect_agent::detect().is_some();
+    let (args, alias_expansion_warning) = expand_aliases(args);
+    let theme_name_from_env = std::env::var_os(envs::BUT_THEME);
+    let detected_preset = if theme_name_from_env.is_none()
+        && should_detect_terminal_theme(&args, agent_detected, std::io::stdout().is_terminal())
+    {
+        theme::detect_terminal_preset()
+    } else {
+        None
+    };
+    let theme_preset_result = resolve_theme_preset(theme_name_from_env.as_deref(), detected_preset);
+
+    {
+        let theme_preset = match &theme_preset_result {
+            Ok(theme_preset) => theme_preset.clone(),
+            Err(_) => {
+                // ignore for now, we print a warning once the output channel has been initialized
+                theme::ThemePreset::Dark
+            }
+        };
+
+        // Note: Overrides in but-theme.json are hardwired to apply to the Dark theme at present.
+        // This is only for internal testing at the moment so it's not worthwhile to go through the
+        // motions of merging overrides with a configurable theme.
+        let theme = dirs::config_dir()
+            .map(|dir| dir.join("gitbutler").join("but-theme.json"))
+            .filter(|p| p.exists())
+            .and_then(|p| theme::load(&p).ok())
+            .unwrap_or_else(|| theme::Theme::default_for(theme_preset));
+        theme::init(theme);
+    }
+
+    if let Some(warning) = alias_expansion_warning {
+        print_err_infallible(theme::get().attention.paint(warning));
+    }
+
     // Check if help is requested and show grouped help instead of clap's default
     // Only intercept top-level help (but -h or but --help), not subcommand help
     let has_help_flag = args.iter().any(|arg| arg == "--help" || arg == "-h");
     let has_subcommand = args.len() > 2 && args[1] != "--help" && args[1] != "-h";
     if has_help_flag && !has_subcommand {
-        let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
+        let mut out = OutputChannel::new(early_help_format(&args, agent_detected));
         command::help::print_grouped(&mut out)?;
         return Ok(());
     }
-
-    // Expand aliases before parsing arguments
-    let args = alias::expand_aliases(args)?;
 
     // The `but push --help` output is different if gerrit mode is enabled, hence the special handling
     let args_vec: Vec<String> = std::env::args().collect();
@@ -85,103 +276,76 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     if args_vec.iter().any(|arg| arg == "push")
         && args_vec.iter().any(|arg| arg == "--help" || arg == "-h")
     {
-        let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
+        let mut out = OutputChannel::new(early_help_format(&args, agent_detected));
         command::push::help::print(&mut out)?;
         return Ok(());
     }
 
-    // Handle `but help -h` and `but help --help` to show the grouped help output
-    if args_vec.iter().any(|arg| arg == "help")
-        && args_vec.iter().any(|arg| arg == "--help" || arg == "-h")
+    // Handle bare `but help -h` and `but help --help` to show the grouped help output.
+    // Topic help flags, like `but help cli-ids --help`, are left to clap.
+    if args_vec.len() == 3
+        && args_vec[1] == "help"
+        && matches!(args_vec[2].as_str(), "--help" | "-h")
     {
-        let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
+        let mut out = OutputChannel::new(early_help_format(&args, agent_detected));
         command::help::print_grouped(&mut out)?;
         return Ok(());
     }
 
-    let mut args: Args = Args::parse_from(args);
-    let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
-    let output_format = if args.json {
-        OutputFormat::Json
+    let (mut args, output_format) = parse_args_and_output_format(args, agent_detected);
+    let _tracing_appender_worker_guard = if args.trace > 0 {
+        trace::init(args.trace, args.log_file.as_deref())?
     } else {
-        args.format
+        None
     };
-    // Determine if pager should be used based on the command
-    let use_pager = match args.cmd {
-        #[cfg(feature = "legacy")]
-        Some(Subcommands::Status { .. }) => true,
-        #[cfg(feature = "legacy")]
-        Some(Subcommands::Diff { tui, .. }) => !tui,
-        #[cfg(feature = "legacy")]
-        Some(Subcommands::Stage {
-            ref file_or_hunk, ..
-        }) => file_or_hunk.is_some(),
-        _ => false,
-    };
-    if args.trace > 0 {
-        trace::init(args.trace)?;
-    }
-    let _span =
-        tracing::info_span!("CLI", cmd = ?args.cmd.as_ref().map(|cmd| cmd.to_metrics_command()))
-            .entered();
+    let _span = tracing::info_span!(
+        "CLI",
+        cmd = ?args.cmd.as_ref().map(|cmd| cmd.to_metrics_command())
+    )
+    .entered();
 
     let namespace = option_env!("IDENTIFIER").unwrap_or("com.gitbutler.app");
     but_secret::secret::set_application_namespace(namespace);
 
-    // If no subcommand is provided, but we have source and target, default to rub
-    let mut out = OutputChannel::new_with_optional_pager(output_format, use_pager);
-    match args.cmd.take() {
-        None if args.source_or_path.is_some() && args.target.is_some() => {
-            // Default to rub when two arguments are provided without a subcommand
-            let source = args
-                .source_or_path
-                .as_ref()
-                .expect("source is checked to be Some in match guard");
-            let target = args
-                .target
-                .as_ref()
-                .expect("target is checked to be Some in match guard");
-            #[cfg(feature = "legacy")]
-            {
-                let status_after = args.status_after;
-                let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), &mut out)?;
-                out.begin_status_after(status_after);
-                let result = command::legacy::rub::handle(&mut ctx, &mut out, source, target)
-                    .context("Rubbed the wrong way.")
-                    .emit_metrics(OneshotMetricsContext::new_if_enabled(
-                        &app_settings,
-                        metrics::CommandName::Rub,
-                    ));
-                maybe_run_status_after(status_after, &result, &mut ctx, &mut out).await;
-                result.show_root_cause_error_then_exit_without_destructors(out)
-            }
-            #[cfg(not(feature = "legacy"))]
-            todo!("Non-legacy rub isn't implemented yet")
-        }
-        None if args.source_or_path.is_some() && args.target.is_none() => {
-            // If only one argument is provided without a subcommand, check if this is a valid path.
-            let maybe_path = args
-                .source_or_path
-                .as_ref()
-                .expect("path is checked to be Some in match guard");
-            let path = std::path::Path::new(args.current_dir.as_path()).join(maybe_path);
+    #[cfg(target_os = "linux")]
+    if let Some(credentials_dir) = std::env::var_os(BUT_CREDENTIALS_DIRECTORY) {
+        but_secret::secret::file_credentials::setup(credentials_dir)?;
+    }
 
-            // Check if the path exists before trying to open the GUI
-            if !path.exists() {
-                anyhow::bail!(
-                    "\"but {maybe_path}\" is not a command. Type \"but --help\" to see all available commands."
-                );
-            }
+    let mut out = OutputChannel::new(output_format);
+    out.set_full_error_chain(watwat);
+    #[cfg(feature = "legacy")]
+    if matches!(
+        &args.cmd,
+        Some(Subcommands::Status { .. }) | Some(Subcommands::Diff(..))
+    ) {
+        out.request_pager();
+    }
 
-            command::gui::open(&path)?;
-            Ok(())
-        }
+    if let (Err(theme_preset_err), Some(out)) = (theme_preset_result, out.for_human_ui()) {
+        writeln!(
+            out,
+            "{}: {theme_preset_err}",
+            theme::get().attention.paint("Failed to set theme")
+        )?;
+    }
+
+    if let Some(Subcommands::AgentLog { .. }) = &args.cmd {
+        let Some(Subcommands::AgentLog { cmd }) = args.cmd.take() else {
+            unreachable!("agentlog command was checked above")
+        };
+        return run_agentlog_command(&args.current_dir, cmd, &mut out);
+    }
+    let app_settings = app_settings()?.clone();
+
+    let result = match args.cmd.take() {
         None => {
-            // No subcommand and no source/target means run the default alias
+            // No arguments means run the default alias
             // The default alias expands to "status" which provides a helpful entry point
-            let default_args = vec![OsString::from("but"), OsString::from("default")];
-            let expanded = alias::expand_aliases(default_args)?;
-            let mut default_alias_args: Args = clap::Parser::parse_from(expanded);
+            let mut default_args: Vec<OsString> = vec!["but".into()];
+            let expanded_alias = alias::expand_alias("default")?;
+            default_args.extend_from_slice(&expanded_alias);
+            let mut default_alias_args: Args = clap::Parser::parse_from(default_args);
 
             // Preserve globals from the default alias, while letting explicit user globals
             // take precedence (e.g. `but -C <dir>` without a subcommand).
@@ -191,15 +355,8 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             if args.current_dir != std::path::Path::new(".") {
                 default_alias_args.current_dir = args.current_dir.clone();
             }
-            if !matches!(args.format, OutputFormat::Human) {
-                default_alias_args.format = args.format;
-            }
-            if args.json {
-                default_alias_args.json = true;
-            }
-            if args.status_after {
-                default_alias_args.status_after = true;
-            }
+            default_alias_args.format = args.format;
+            default_alias_args.status_after = args.status_after;
 
             match default_alias_args.cmd.take() {
                 Some(cmd) => match_subcommand(cmd, default_alias_args, app_settings, out).await,
@@ -211,7 +368,174 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             }
         }
         Some(cmd) => match_subcommand(cmd, args, app_settings, out).await,
+    };
+
+    if retired_syntax::was_used() {
+        print_err_infallible(retired_syntax::hint(agent_detected));
     }
+
+    match result {
+        Err(CliError::Internal(err) | CliError::Initialization(err)) => Err(err),
+        Err(CliError::CommandRejection) => std::process::exit(1),
+        Err(CliError::BadInput(bad_input)) => print_and_exit_non_zero(bad_input),
+        Err(CliError::ExternalCommandFailed(code)) => std::process::exit(code),
+        Err(CliError::ExternalCommandNotFound(command_name)) => {
+            // Commands removed by the revamp (`rub`) land here as unknown
+            // external subcommands; teach their replacements before the error.
+            if let Some(hint) = retired_syntax::removed_command_hint(&command_name, agent_detected)
+            {
+                print_err_infallible(hint);
+            }
+            // We reparse without external subcommands allowed, which _should_ result in a proper
+            // clap error, including suggestions for "near matches". This gives richer error
+            // information than the plain ExternalCommandNotFound error.
+            let cmd = Args::command();
+            let argv = [OsString::from(cmd.get_name()), command_name.clone()];
+
+            // This should fail to parse, print a nicely formatted Clap error and exit on its own.
+            let _ = cmd
+                .external_subcommand_value_parser(None)
+                .allow_external_subcommands(false)
+                .get_matches_from(argv);
+
+            // If for some reason we succeeded to parse now, we'll print the original error.
+            // This shouldn't happen in practice but logically it could.
+            print_and_exit_non_zero(CliError::ExternalCommandNotFound(command_name))
+        }
+        Ok(()) => Ok(()),
+    }
+}
+
+/// Turn `but watwat <command>` into `<command>` with maximum tracing.
+fn expand_watwat(args: &mut [OsString]) -> bool {
+    let Some((index, command)) = args::find_subcommand(args) else {
+        return false;
+    };
+    if command != "watwat" {
+        return false;
+    }
+    args[index] = "-tttt".into();
+    true
+}
+
+/// Expand aliases in the argument list.
+///
+/// The parser treats aliases in the same way as external subcommands, so they end up inside of
+/// [`Subcommands::External`]. Anytime we find an external subcommand, we attempt to expand the
+/// first word in the command string as an alias.
+///
+/// This also has the intended effect of allowing aliases to shadow external commands. For example,
+/// if there is an external command `but-b` on the PATH and an alias `b=branch`, then `but b` will
+/// expand to `but branch` rather than be executed as `but-b`.
+///
+/// Cargo considers this shadowing behavior to be a security concern due to the fact that Cargo
+/// aliases can be defined in the worktree of a repository (see
+/// https://github.com/rust-lang/cargo/issues/10049). We don't have that problem as `but` aliases
+/// can only ever be defined in Git config, which is trusted and does not follow with clones.
+///
+/// Root options are consumed by the parser separately from [`Subcommands::External`], so e.g. `but
+/// -C some-alias a -b c` resolves into `External(["some-alias", "a", "-b", "c"])`, and the root
+/// options are correctly parsed into the [`Args`] struct.
+///
+/// Note that at present, aliases are resolved from the real working directory ("."). If you pass
+/// `-C /repo`, aliases from `/repo` are _not_ resolved.
+///
+/// # Examples
+///
+/// ```bash
+/// # Set up aliases
+/// but alias add b branch
+/// but alias add bl 'branch list --local'
+///
+/// # Use them
+/// but b                       # Expands to: but branch
+/// but bl                      # Expands to: but branch list --local
+/// but bl --review             # Expands to: but branch list --local --review
+/// but -C /repo bl --review    # Expands to: but -C /repo branch list --local --review
+/// ```
+///
+/// This function never fails - any unexpected situation leads to the original args being returned.
+/// An alias expansion failure also returns a warning to print after the theme is initialized.
+fn expand_aliases(args: Vec<OsString>) -> (Vec<OsString>, Option<String>) {
+    expand_aliases_with(args, alias::expand_alias)
+}
+
+fn expand_aliases_with(
+    args: Vec<OsString>,
+    alias_expander: impl FnOnce(&str) -> anyhow::Result<Vec<OsString>>,
+) -> (Vec<OsString>, Option<String>) {
+    let parsed_args = match Args::try_parse_from(&args) {
+        Ok(parsed) => parsed,
+        Err(_) => {
+            // We let the core parsing logic handle hard parse errors as there is special handling
+            // of e.g. help output. If we get rid of that bespoke parsing we can also get rid of
+            // this early return and let Clap handle parse errors with [`Args::parse_from`].
+            return (args, None);
+        }
+    };
+
+    match &parsed_args.cmd {
+        Some(Subcommands::External(subcommand_args))
+            if let Some(command_name) = subcommand_args.first() =>
+        {
+            if let Some(command_name) = command_name.to_str() {
+                let subcommand_start = args.len() - subcommand_args.len();
+
+                let expanded = match alias_expander(command_name) {
+                    Ok(expanded) => expanded,
+                    Err(err) => {
+                        let warning = format!(
+                            "Failed to expand alias '{command_name}': {err}\nSkipping alias expansion\n",
+                        );
+                        return (args, Some(warning));
+                    }
+                };
+
+                let expanded_args = Vec::<OsString>::new()
+                    .iter()
+                    .chain(args[..subcommand_start].iter())
+                    .chain(expanded.iter())
+                    .chain(args[subcommand_start + 1..].iter())
+                    .cloned()
+                    .collect();
+                (expanded_args, None)
+            } else {
+                (args, None)
+            }
+        }
+        _ => (args, None),
+    }
+}
+
+/// Print to stderr, ignoring any errors in printing. Use this when printing to stderr is the only
+/// reasonable thing to do and there are no other options left.
+fn print_err_infallible<T: std::fmt::Display>(err: T) {
+    use std::io::Write;
+    // We swallow this error, there is nothing more to do at this point
+    let _ = write!(std::io::stderr(), "{err}");
+}
+
+#[expect(dead_code, reason = "Retained for future CLI deprecations")]
+fn print_deprecation_warning(message: impl AsRef<str>) {
+    use std::io::Write;
+    let t = theme::get();
+    let _ = writeln!(
+        std::io::stderr(),
+        "{} {}",
+        t.sym().warning,
+        t.hint.paint(message.as_ref())
+    );
+}
+
+fn print_and_exit_non_zero<T: std::fmt::Display>(err: T) -> ! {
+    print_err_infallible(format!("{}{err}", theme::get().error.paint("Error: ")));
+    std::process::exit(1)
+}
+
+enum DispatchOutcome {
+    Return,
+    ReturnWithOutcome(command::CommandOutcome),
+    ExitWithoutDestructors(CliResult<()>),
 }
 
 async fn match_subcommand(
@@ -219,330 +543,618 @@ async fn match_subcommand(
     args: Args,
     app_settings: AppSettings,
     mut output: OutputChannel,
-) -> Result<()> {
+) -> CliResult<()> {
     let out = &mut output;
-    let metrics_ctx = cmd.to_metrics_context(&app_settings);
 
-    match cmd {
+    let cmd = match cmd {
+        Subcommands::AgentLog { cmd } => {
+            return Ok(run_agentlog_command(&args.current_dir, cmd, out)?);
+        }
+        cmd => cmd,
+    };
+
+    #[cfg(feature = "nightly")]
+    let is_expand = matches!(&cmd, Subcommands::_Expand { .. });
+    #[cfg(not(feature = "nightly"))]
+    let is_expand = false;
+    // A non-interactive invocation of a regular command: the situation where an
+    // agent-facing maintenance notice is worth printing.
+    let notice_worthy_command = !out.can_prompt()
+        && !is_expand
+        && !matches!(
+            &cmd,
+            Subcommands::Skill(_)
+                | Subcommands::Agent(_)
+                | Subcommands::Mcp(_)
+                | Subcommands::Help { .. }
+                | Subcommands::Setup { .. }
+                | Subcommands::Completions { .. }
+                | Subcommands::Metrics { .. }
+                | Subcommands::External(_)
+        );
+    let show_agent_skill_notice =
+        app_settings.agent_skill_notices && out.format().is_human_text() && notice_worthy_command;
+    let agent_skill_notice = show_agent_skill_notice
+        .then(|| command::skill::agent_skill_notice(&args.current_dir))
+        .flatten();
+    if let Some(notice) = agent_skill_notice.as_ref()
+        && let Some(human) = out.for_human()
+    {
+        writeln!(human, "{}", notice.text()).ok();
+        writeln!(human).ok();
+    }
+    // Unlike the skill notice, the policy cleanup also runs for JSON-driven
+    // agents; its notice goes to stderr there so the JSON contract on stdout
+    // stays intact.
+    let retired_policy_notice = notice_worthy_command
+        .then(command::agent::retired_policy_syntax_notice)
+        .flatten();
+    if let Some(notice) = retired_policy_notice.as_ref() {
+        if let Some(human) = out.for_human() {
+            writeln!(human, "{notice}").ok();
+            writeln!(human).ok();
+        } else if out.is_json() {
+            print_err_infallible(format!("{notice}\n"));
+        }
+    }
+    let mut metrics_ctx = cmd.to_metrics_context(&app_settings, &args.current_dir);
+    if agent_skill_notice.is_some_and(|notice| notice.is_hint())
+        && let Some(metrics_ctx) = metrics_ctx.as_mut()
+    {
+        metrics_ctx.push_extra_prop("agentSkillHintShown", true);
+    }
+    if retired_policy_notice.is_some()
+        && let Some(metrics_ctx) = metrics_ctx.as_mut()
+    {
+        metrics_ctx.push_extra_prop("retiredPolicySyntaxCleaned", true);
+    }
+    if retired_syntax::was_used()
+        && let Some(metrics_ctx) = metrics_ctx.as_mut()
+    {
+        metrics_ctx.push_extra_prop("retiredCommitSyntax", true);
+    }
+
+    match dispatch_subcommand(cmd, args, app_settings, &mut output).await {
+        Ok(DispatchOutcome::Return) => Ok(()).emit_metrics(metrics_ctx),
+        Ok(DispatchOutcome::ReturnWithOutcome(outcome)) => {
+            if let Some(metrics_ctx) = metrics_ctx.as_mut() {
+                metrics_ctx.record_outcome(&outcome);
+            }
+            Ok(()).emit_metrics(metrics_ctx)
+        }
+        Ok(DispatchOutcome::ExitWithoutDestructors(result)) => result
+            .emit_metrics(metrics_ctx)
+            .show_root_cause_error_then_exit_without_destructors(output),
+        Err(err) => Err(err).emit_metrics(metrics_ctx),
+    }
+}
+
+async fn dispatch_subcommand(
+    cmd: Subcommands,
+    args: Args,
+    app_settings: AppSettings,
+    output: &mut OutputChannel,
+) -> CliResult<DispatchOutcome> {
+    let out = &mut *output;
+
+    let ctx = match cmd {
+        Subcommands::External(extra) => {
+            return command::external::dispatch(&args.current_dir, &extra)
+                .map(|()| DispatchOutcome::Return);
+        }
         Subcommands::Metrics {
             command_name,
             props,
         } => {
+            let props = utils::metrics::prepare_transport_props(&props)?;
             let mut event = utils::metrics::Event::new(command_name.into());
-            if let Ok(props) = utils::metrics::Props::from_json_string(&props) {
-                props.update_event(&mut event);
+            props.update_event(&mut event);
+            if matches!(
+                command_name,
+                args::metrics::CommandName::Commit | args::metrics::CommandName::CommitEmpty
+            ) {
+                utils::metrics::add_workspace_shape(&mut event, &args.current_dir);
             }
             utils::metrics::capture_event_blocking(&app_settings, event).await;
-            Ok(())
+            return Ok(DispatchOutcome::Return);
         }
-        Subcommands::Gui => command::gui::open(&args.current_dir).emit_metrics(metrics_ctx),
+        Subcommands::Gui { new_window, path } => {
+            let path = path
+                .as_ref()
+                .map(|path| args.current_dir.join(path))
+                .unwrap_or_else(|| args.current_dir.clone());
+            return command::gui::open(&path, new_window)
+                .map(|()| DispatchOutcome::Return)
+                .map_err(CliError::from);
+        }
         Subcommands::Completions { shell } => {
-            command::completions::generate_completions(shell).emit_metrics(metrics_ctx)
+            return command::completions::generate_completions(shell)
+                .map(|()| DispatchOutcome::Return)
+                .map_err(CliError::from);
         }
         Subcommands::Update(update_args::Platform { cmd }) => {
-            command::update::handle(cmd, out, &app_settings).emit_metrics(metrics_ctx)
+            return command::update::handle(cmd, out, &app_settings)
+                .map(|()| DispatchOutcome::Return)
+                .map_err(CliError::from);
         }
-        Subcommands::Help => {
-            command::help::print_grouped(out)?;
-            Ok(())
+        Subcommands::Help { topic } => {
+            command::help::print(out, topic)?;
+            return Ok(DispatchOutcome::Return);
         }
-        Subcommands::Onboarding => command::onboarding::handle(out),
-        Subcommands::EvalHook => {
-            command::eval_hook::execute();
-            Ok(())
+        Subcommands::Setup { init } => {
+            let message = "You no longer need to run `but setup`, you can just start using `but` with any Git repository.";
+            if init {
+                // As the user explicitly requested to initialize, we're making this an error as the
+                // expected task has not been performed.
+                return Err(bad_input(message)
+                    .hint("Run `but init` instead to initialize a repository.")
+                    .into());
+            }
+            if let Some(out) = out.for_human() {
+                writeln!(out, "{message}")?;
+            }
+            return Ok(DispatchOutcome::Return);
+        }
+        Subcommands::Onboarding => {
+            return command::onboarding::handle(out)
+                .map(|()| DispatchOutcome::Return)
+                .map_err(CliError::from);
+        }
+        Subcommands::Config(args::config::Platform { cmd }) => {
+            // Handle subcommands that don't require a repo context
+            return (match &cmd {
+                Some(args::config::Subcommands::Metrics { status }) => {
+                    command::config::metrics_config(out, *status)
+                        .await
+                        .map_err(CliError::from)
+                }
+                Some(args::config::Subcommands::Feature { flag, status }) => {
+                    command::config::feature_config(out, *flag, *status).map_err(CliError::from)
+                }
+                Some(args::config::Subcommands::User { cmd }) => {
+                    let ctx = match cmd {
+                        Some(
+                            args::config::UserSubcommand::Set { global: true, .. }
+                            | args::config::UserSubcommand::Unset { global: true, .. },
+                        ) => None,
+                        _ => discover_optional_context(&args.current_dir)?,
+                    };
+                    command::config::user_config(ctx.as_ref(), out, cmd.clone())
+                        .await
+                        .map_err(CliError::from)
+                }
+                #[cfg(feature = "legacy")]
+                Some(args::config::Subcommands::Forge {
+                    cmd: Some(args::config::ForgeSubcommand::GithubStacks { .. }),
+                }) => {
+                    // Repository-local setting; handled below after project setup.
+                    let mut ctx = setup::init_ctx(
+                        &args,
+                        InitCtxOptions {
+                            background_sync: BackgroundSync::Disabled,
+                            target_requirement: TargetRequirement::Optional,
+                            ..Default::default()
+                        },
+                        out,
+                    )?;
+                    command::config::exec(&mut ctx, out, cmd).await
+                }
+                Some(args::config::Subcommands::Forge { cmd: forge_cmd }) => {
+                    command::config::forge_config(out, forge_cmd.clone())
+                        .await
+                        .map_err(CliError::from)
+                }
+                Some(args::config::Subcommands::Ai {
+                    cmd: ai_cmd,
+                    local,
+                    global,
+                }) if !local => command::config::ai_config(out, ai_cmd.clone(), *local, *global)
+                    .map_err(CliError::from),
+                _ => {
+                    // Other subcommands need a repo context
+                    cfg_if! {
+                        if #[cfg(feature = "legacy")] {
+                            let mut ctx = setup::init_ctx(&args, InitCtxOptions {
+                                background_sync: BackgroundSync::Disabled,
+                                target_requirement: TargetRequirement::Optional,
+                                ..Default::default()
+                            }, out)?;
+                            command::config::exec(&mut ctx, out, cmd).await
+                        } else {
+                            let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
+                            command::config::exec(&mut ctx, out, cmd).await
+                        }
+                    }
+                }
+            })
+            .map(|()| DispatchOutcome::Return);
         }
         Subcommands::Alias(alias_args::Platform { cmd }) => {
-            let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
-            match cmd {
+            let ctx = match &cmd {
+                Some(
+                    alias_args::Subcommands::Add { global: true, .. }
+                    | alias_args::Subcommands::Remove { global: true, .. },
+                ) => None,
+                _ => discover_optional_context(&args.current_dir)?,
+            };
+            return (match cmd {
                 Some(alias_args::Subcommands::List) | None => {
-                    command::alias::list(&*ctx.repo.get()?, out).emit_metrics(metrics_ctx)
+                    command::alias::list(ctx.as_ref(), out)
                 }
                 Some(alias_args::Subcommands::Add {
                     name,
                     value,
                     global,
-                }) => command::alias::add(&mut ctx, out, &name, &value, global.into())
-                    .emit_metrics(metrics_ctx),
+                }) => command::alias::add(ctx.as_ref(), out, &name, &value, global.into()),
                 Some(alias_args::Subcommands::Remove { name, global }) => {
-                    command::alias::remove(&mut ctx, out, &name, global.into())
-                        .emit_metrics(metrics_ctx)
+                    command::alias::remove(ctx.as_ref(), out, &name, global.into())
                 }
-            }
+            })
+            .map(|()| DispatchOutcome::Return)
+            .map_err(CliError::from);
         }
-        Subcommands::Config(args::config::Platform { cmd }) => {
-            // Handle subcommands that don't require a repo context
-            match &cmd {
-                Some(args::config::Subcommands::Metrics { status }) => {
-                    command::config::metrics_config(out, *status)
-                        .await
-                        .emit_metrics(metrics_ctx)
-                }
-                Some(args::config::Subcommands::Forge { cmd: forge_cmd }) => {
-                    command::config::forge_config(out, forge_cmd.clone())
-                        .await
-                        .emit_metrics(metrics_ctx)
-                }
-                _ => {
-                    // Other subcommands need a repo context
-                    cfg_if! {
-                        if #[cfg(feature = "legacy")] {
-                            let mut ctx = setup::init_ctx(&args, InitCtxOptions { background_sync: BackgroundSync::Disabled, ..Default::default() }, out)?;
-                            command::config::exec(&mut ctx, out, cmd)
-                                .await
-                                .emit_metrics(metrics_ctx)
-                        } else {
-                            let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
-                            command::config::exec(&mut ctx, out, cmd)
-                                .await
-                                .emit_metrics(metrics_ctx)
-                        }
-                    }
-                }
-            }
+        Subcommands::Skill(platform) => {
+            // The handler discovers a repository only for the modes that need
+            // one, so reads and global installs work inside an unreadable repo.
+            return command::skill::handle(&args.current_dir, out, platform)
+                .map(|()| DispatchOutcome::Return)
+                .map_err(CliError::from);
         }
-        Subcommands::Skill(args::skill::Platform { cmd }) => {
-            // Skill commands use repository context when available, but can run
-            // without one. Subcommand handlers produce tailored guidance when a
-            // local repository is actually required.
-            let ctx = but_ctx::Context::discover(&args.current_dir);
-            let mut ctx = match ctx {
-                Ok(ctx) => Some(ctx),
-                Err(err) if is_not_in_git_repository_error(&err) => None,
-                Err(err) => return Err(err),
-            };
-            let result = command::skill::handle(ctx.as_mut(), out, cmd);
-
-            // Handle user cancellation gracefully (exit 0 instead of error)
-            if let Err(ref e) = result
-                && e.downcast_ref::<command::skill::UserCancelled>().is_some()
-            {
-                return Ok(());
-            }
-
-            result.emit_metrics(metrics_ctx)
+        Subcommands::Agent(agent::Platform { cmd }) => {
+            return command::agent::handle(&args.current_dir, out, cmd)
+                .map(DispatchOutcome::ReturnWithOutcome)
+                .map_err(CliError::from);
         }
-        Subcommands::Link(link_args) => {
-            but_link::handle(link_args, &args.current_dir).emit_metrics(metrics_ctx)
-        }
-        Subcommands::Stack {
-            branch,
-            target_branch,
-        } => {
-            let ctx = but_ctx::Context::discover(&args.current_dir)?;
-            command::branch::move_branch(ctx, &branch, &target_branch, out)
-                .emit_metrics(metrics_ctx)
-        }
-        Subcommands::Branch(branch::Platform { cmd }) => {
-            let result = match cmd {
-                #[cfg(not(feature = "legacy"))]
-                None => todo!("implement list and call recursively"),
-                #[cfg(feature = "legacy")]
-                None => {
-                    let mut ctx = setup::init_ctx(
-                        &args,
-                        InitCtxOptions {
-                            background_sync: BackgroundSync::Enabled,
-                            ..Default::default()
-                        },
-                        out,
-                    )?;
-                    command::legacy::branch::handle_no_subcommand(&mut ctx, out)
+        Subcommands::Mcp(args::mcp::Platform { cmd }) => {
+            return (match cmd {
+                args::mcp::Subcommands::Serve => {
+                    command::mcp::serve().await.map_err(CliError::from)
                 }
-                #[cfg(feature = "legacy")]
-                Some(branch::Subcommands::List {
-                    filter,
-                    local,
-                    remote,
-                    all,
-                    no_ahead,
-                    review,
-                    no_check,
-                    empty,
-                }) => {
-                    let mut ctx = setup::init_ctx(
-                        &args,
-                        InitCtxOptions {
-                            background_sync: BackgroundSync::Enabled,
-                            ..Default::default()
-                        },
-                        out,
-                    )?;
-                    command::legacy::branch::list_branches(
-                        &mut ctx, out, filter, local, remote, all, no_ahead, review, no_check,
-                        empty,
-                    )
-                }
-                #[cfg(feature = "legacy")]
-                Some(branch::Subcommands::Show {
-                    branch_id,
-                    review,
-                    files,
-                    ai,
-                    check,
-                }) => {
-                    let mut ctx = setup::init_ctx(
-                        &args,
-                        InitCtxOptions {
-                            background_sync: BackgroundSync::Enabled,
-                            ..Default::default()
-                        },
-                        out,
-                    )?;
-                    command::legacy::branch::show_branches(
-                        &mut ctx, out, branch_id, review, files, ai, check,
-                    )
-                }
-                #[cfg(feature = "legacy")]
-                Some(branch::Subcommands::New {
-                    branch_name,
-                    anchor,
-                }) => {
-                    let mut ctx = setup::init_ctx(
-                        &args,
-                        InitCtxOptions {
-                            background_sync: BackgroundSync::Enabled,
-                            ..Default::default()
-                        },
-                        out,
-                    )?;
-                    command::legacy::branch::new(&mut ctx, out, branch_name, anchor)
-                }
-                #[cfg(feature = "legacy")]
-                Some(branch::Subcommands::Delete { branch_name, force }) => {
-                    let mut ctx = setup::init_ctx(
-                        &args,
-                        InitCtxOptions {
-                            background_sync: BackgroundSync::Enabled,
-                            ..Default::default()
-                        },
-                        out,
-                    )?;
-                    command::legacy::branch::delete(&mut ctx, out, branch_name, force)
-                }
-                #[cfg(not(feature = "legacy"))]
-                Some(branch::Subcommands::Apply { branch_name }) => {
-                    let ctx = but_ctx::Context::discover(&args.current_dir)?;
-                    command::branch::apply(ctx, &branch_name, out)
-                }
-                Some(branch::Subcommands::Move {
-                    branch,
-                    target_branch,
-                }) => {
-                    let ctx = but_ctx::Context::discover(&args.current_dir)?;
-                    command::branch::move_branch(ctx, &branch, &target_branch, out)
-                }
-            };
-            result.emit_metrics(metrics_ctx)
+            })
+            .map(|()| DispatchOutcome::Return);
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Mcp { internal } => {
-            if internal {
-                command::legacy::mcp_internal::start(app_settings).await
-            } else {
-                command::legacy::mcp::start(app_settings).await
-            }
+        Subcommands::Init(init_args) => {
+            let outcome = command::legacy::init::run(init_args, &args.current_dir, out)?;
+            out.print_cli_output(outcome)?;
+            return Ok(DispatchOutcome::Return);
         }
-        #[cfg(feature = "legacy")]
-        Subcommands::Actions(actions::Platform { cmd }) => match cmd {
-            Some(actions::Subcommands::HandleChanges {
-                description,
-                handler,
-            }) => {
-                let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-                command::legacy::actions::handle_changes(&mut ctx, out, handler, &description)
-            }
-            None => {
-                let ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-                command::legacy::actions::list_actions(&ctx, out, 0, 10)
-            }
-        },
-        #[cfg(feature = "legacy")]
-        Subcommands::Claude(claude::Platform { cmd }) => {
-            use but_claude::hooks::OutputClaudeJson;
-            let ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
+        Subcommands::Edit { file } => {
+            let path = args.current_dir.join(&file);
+            return Ok(DispatchOutcome::ExitWithoutDestructors(
+                tui::editor::edit_file(&path).map_err(Into::into),
+            ));
+        }
+        #[cfg(feature = "nightly")]
+        Subcommands::_Open { .. } => setup::init_ctx(
+            &args,
+            InitCtxOptions {
+                background_sync: BackgroundSync::Disabled,
+                ..Default::default()
+            },
+            out,
+        ),
+        #[cfg(feature = "nightly")]
+        Subcommands::_Expand { .. } => {
+            but_ctx::Context::discover(&args.current_dir).map_err(CliError::from)
+        }
+        Subcommands::Branch(branch::Platform { ref cmd }) => setup::init_ctx(
+            &args,
             match cmd {
-                claude::Subcommands::PreTool => {
-                    but_claude::hooks::handle_pre_tool_call(ctx, std::io::stdin().lock())
-                        .output_claude_json()
-                        .emit_metrics(metrics_ctx)
-                }
-                claude::Subcommands::PostTool => {
-                    but_claude::hooks::handle_post_tool_call(ctx, std::io::stdin().lock())
-                        .output_claude_json()
-                        .emit_metrics(metrics_ctx)
-                }
-                claude::Subcommands::Stop => {
-                    but_claude::hooks::handle_stop(ctx, std::io::stdin().lock())
-                        .output_claude_json()
-                        .emit_metrics(metrics_ctx)
-                }
-                claude::Subcommands::Last { offset } => {
-                    let message = but_claude::db::get_user_message(&ctx, Some(offset as i64))?;
-                    match message {
-                        Some(msg) => {
-                            if args.json {
-                                // For JSON output, include timestamp and message
-                                let output = serde_json::json!({
-                                    "timestamp": msg.created_at().format("%Y-%m-%d %H:%M:%S").to_string(),
-                                    "message": match msg.content() {
-                                        but_claude::MessagePayload::User(input) => &input.message,
-                                        _ => "",
-                                    }
-                                });
-                                println!("{}", serde_json::to_string_pretty(&output)?);
-                            } else {
-                                // For human-readable output, show timestamp and message
-                                println!(
-                                    "{} {}",
-                                    "Timestamp:".bold(),
-                                    msg.created_at()
-                                        .format("%Y-%m-%d %H:%M:%S")
-                                        .to_string()
-                                        .cyan()
-                                );
-                                match msg.content() {
-                                    but_claude::MessagePayload::User(input) => {
-                                        println!("{}", input.message);
-                                    }
-                                    _ => {
-                                        println!("{}", "Not a user input message".red());
-                                    }
-                                }
-                            }
-                        }
-                        None => {
-                            if args.json {
-                                println!("null");
-                            } else {
-                                println!("No user message found at offset {offset}");
-                            }
-                        }
-                    }
-                    Ok(())
-                }
-            }
+                Some(branch::Subcommands::Update { .. }) => InitCtxOptions {
+                    workspace_check: setup::WorkspaceCheck::Disabled,
+                    ..Default::default()
+                },
+                _ => InitCtxOptions {
+                    background_sync: BackgroundSync::Enabled { silent: false },
+                    ..Default::default()
+                },
+            },
+            out,
+        ),
+        #[cfg(feature = "legacy")]
+        Subcommands::Switch(..) => setup::init_ctx(
+            &args,
+            InitCtxOptions {
+                workspace_check: setup::WorkspaceCheck::Disabled,
+                ..Default::default()
+            },
+            out,
+        ),
+        Subcommands::_Comment(..) | Subcommands::Worktree(..) => {
+            setup::init_ctx(&args, InitCtxOptions::default(), out)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {
-            cursor::Subcommands::AfterEdit => {
-                but_cursor::handle_after_edit(std::io::stdin().lock())
-                    .await
-                    .output_json(true)
-                    .emit_metrics(metrics_ctx)
+        Subcommands::Commit(..) | Subcommands::Status { .. } | Subcommands::Diff(..) => {
+            setup::init_ctx(
+                &args,
+                InitCtxOptions {
+                    background_sync: BackgroundSync::Enabled { silent: false },
+                    // to create the initial commit in an unborn repo
+                    target_requirement: TargetRequirement::OptionalIfUnborn,
+                    ..Default::default()
+                },
+                out,
+            )
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Actions { .. }
+        | Subcommands::Pull { .. }
+        | Subcommands::Fetch
+        | Subcommands::Push(..)
+        | Subcommands::Oplog(..)
+        | Subcommands::Undo(..)
+        | Subcommands::Redo(..)
+        | Subcommands::RefreshRemoteData { .. }
+        | Subcommands::Merge { .. } => setup::init_ctx(&args, InitCtxOptions::default(), out),
+        #[cfg(feature = "legacy")]
+        Subcommands::Clean { .. }
+        | Subcommands::Show { .. }
+        | Subcommands::Squash(..)
+        | Subcommands::Move(..)
+        | Subcommands::Split(..)
+        | Subcommands::_Reword2(..)
+        | Subcommands::Reword { .. }
+        | Subcommands::Absorb { .. }
+        | Subcommands::Discard(..)
+        | Subcommands::Pr(..)
+        | Subcommands::Resolve { .. }
+        | Subcommands::Uncommit(..)
+        | Subcommands::Amend(..)
+        | Subcommands::Pick(..)
+        | Subcommands::Unapply(..)
+        | Subcommands::Open(..)
+        | Subcommands::Apply(..) => setup::init_ctx(
+            &args,
+            InitCtxOptions {
+                background_sync: BackgroundSync::Enabled { silent: false },
+                ..Default::default()
+            },
+            out,
+        ),
+        #[cfg(feature = "legacy")]
+        Subcommands::Tui(..) => setup::init_ctx(
+            &args,
+            InitCtxOptions {
+                background_sync: BackgroundSync::Enabled { silent: true },
+                ..Default::default()
+            },
+            out,
+        ),
+        #[cfg(feature = "legacy")]
+        Subcommands::Teardown { .. } => setup::init_ctx(
+            &args,
+            InitCtxOptions {
+                workspace_check: setup::WorkspaceCheck::Disabled,
+                target_requirement: TargetRequirement::Optional,
+                ..Default::default()
+            },
+            out,
+        ),
+        Subcommands::AgentLog { .. } => {
+            unreachable!("agentlog command is handled before metrics setup")
+        }
+    };
+    let mut ctx = match ctx {
+        Ok(ctx) => ctx,
+        Err(CliError::Internal(err)) => return Err(CliError::Initialization(err)),
+        Err(err) => return Err(err),
+    };
+
+    // If `Some`, and if result is `Ok`, this is passed to
+    // `report_newly_conflicted()`.
+    #[cfg(feature = "legacy")]
+    let mut newly_conflicted_data: Option<command::legacy::conflict_notice::ConflictSnapshot> =
+        None;
+    // If `Some`, and if result is `Ok`, this is passed to
+    // `run_status_after_if_requested()`.
+    let mut status_after_data: Option<bool> = None;
+    #[cfg(feature = "legacy")]
+    let mut command_outcome = None;
+    let ws: Option<WorkspaceState> = match cmd {
+        #[cfg(feature = "legacy")]
+        Subcommands::Init(..) => unreachable!("handled above"),
+        Subcommands::Metrics { .. }
+        | Subcommands::Gui { .. }
+        | Subcommands::Completions { .. }
+        | Subcommands::Update(..)
+        | Subcommands::Help { .. }
+        | Subcommands::Onboarding
+        | Subcommands::Setup { .. }
+        | Subcommands::Config(..)
+        | Subcommands::Alias(..)
+        | Subcommands::Skill(..)
+        | Subcommands::Agent(..)
+        | Subcommands::Mcp(..)
+        | Subcommands::Edit { .. }
+        | Subcommands::AgentLog { .. }
+        | Subcommands::External(..) => {
+            unreachable!("handled above")
+        }
+        #[cfg(feature = "nightly")]
+        Subcommands::_Open {
+            sources,
+            program_id,
+        } => {
+            use crate::utils::IntermediateChannel;
+
+            let out = IntermediateChannel::new(out);
+            command::open::open(
+                &ctx,
+                out,
+                sources,
+                program_id,
+                &InvokedFrom::discover(&args.current_dir)?,
+            )?;
+            None
+        }
+        #[cfg(feature = "nightly")]
+        Subcommands::_Expand { cli_id } => {
+            let outcome =
+                command::expand::handle(&ctx, cli_id, &InvokedFrom::discover(&args.current_dir)?)?;
+            out.print_cli_output(outcome)?;
+            None
+        }
+        Subcommands::Worktree(worktree::Platform { cmd }) => {
+            match cmd.unwrap_or(worktree::Subcommands::List {
+                archived: false,
+                active: false,
+            }) {
+                worktree::Subcommands::List { archived, active } => {
+                    let outcome = command::worktree::list::list(&ctx, archived, active)?;
+                    out.print_cli_output(outcome)?;
+                }
+                worktree::Subcommands::Archive { worktree } => {
+                    let outcome = command::worktree::archive::set_archived(&ctx, &worktree, true)?;
+                    out.print_cli_output(outcome)?;
+                }
+                worktree::Subcommands::Unarchive { worktree } => {
+                    let outcome = command::worktree::archive::set_archived(&ctx, &worktree, false)?;
+                    out.print_cli_output(outcome)?;
+                }
+                worktree::Subcommands::Remove { force, worktree } => {
+                    let outcome = command::worktree::remove::remove(&mut ctx, &worktree, force)?;
+                    out.print_cli_output(outcome)?;
+                }
+                worktree::Subcommands::New { name, above } => {
+                    let outcome =
+                        command::worktree::new::new(&mut ctx, name.as_ref(), above.as_ref())?;
+                    out.print_cli_output(outcome)?;
+                }
             }
-            cursor::Subcommands::Stop { nightly } => {
-                but_cursor::handle_stop(nightly, std::io::stdin().lock())
-                    .await
-                    .output_json(true)
-                    .emit_metrics(metrics_ctx)
+            None
+        }
+        Subcommands::Branch(branch::Platform { cmd }) => match cmd {
+            #[cfg(not(feature = "legacy"))]
+            None => todo!("implement list and call recursively"),
+            #[cfg(feature = "legacy")]
+            None => {
+                command::legacy::branch::handle_no_subcommand(&mut ctx, out)?;
+                None
+            }
+            #[cfg(feature = "legacy")]
+            Some(branch::Subcommands::List {
+                filter,
+                local,
+                remote,
+                all,
+                no_ahead,
+                review,
+                no_check,
+                empty,
+            }) => {
+                command::legacy::branch::list_branches(
+                    &mut ctx, out, filter, local, remote, all, no_ahead, review, no_check, empty,
+                )?;
+                None
+            }
+            #[cfg(feature = "legacy")]
+            Some(branch::Subcommands::Show {
+                branch,
+                review,
+                files,
+                ai,
+                check,
+            }) => {
+                command::legacy::branch::show_branches(
+                    &mut ctx, out, branch, review, files, ai, check,
+                )?;
+                None
+            }
+            #[cfg(feature = "legacy")]
+            Some(branch::Subcommands::New(new_args)) => {
+                use crate::utils::IntermediateChannel;
+
+                let status_after = args.status_after;
+                out.begin_status_after(status_after);
+                status_after_data = Some(status_after);
+
+                newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+                let outcome = command::legacy::branch::new::new(
+                    &mut ctx,
+                    IntermediateChannel::new(out),
+                    new_args,
+                    &InvokedFrom::discover(&args.current_dir)?,
+                )?;
+                out.print_cli_output(outcome)?;
+                None
+            }
+            #[cfg(feature = "legacy")]
+            Some(branch::Subcommands::Delete { branches }) => {
+                use crate::utils::IntermediateChannel;
+
+                let status_after = args.status_after;
+                out.begin_status_after(status_after);
+                status_after_data = Some(status_after);
+
+                newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+                let (outcome, ws) = command::legacy::branch::delete(
+                    &mut ctx,
+                    IntermediateChannel::new(out),
+                    branches,
+                )?;
+                out.print_cli_output(outcome)?;
+                Some(ws)
+            }
+            Some(branch::Subcommands::Update {
+                branch,
+                strategy,
+                dry_run,
+                verbose,
+                interactive,
+            }) => {
+                let status_after = args.status_after && !dry_run && !interactive;
+                out.begin_status_after(status_after);
+                status_after_data = Some(status_after);
+                command::branch::update(
+                    &mut ctx,
+                    &branch,
+                    strategy,
+                    dry_run,
+                    verbose,
+                    interactive,
+                    out,
+                )?;
+                None
+            }
+            Some(branch::Subcommands::Move { .. }) => {
+                return Err(bad_input(
+                    "`but branch move` has been removed. Use `but move` instead.",
+                )
+                .into());
             }
         },
         #[cfg(feature = "legacy")]
-        Subcommands::Pull { check } => {
-            let ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::pull::handle(&ctx, out, check)
-                .await
-                .emit_metrics(metrics_ctx)
+        Subcommands::Switch(switch_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let outcome = command::legacy::switch::switch(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                switch_args,
+                &InvokedFrom::discover(&args.current_dir)?,
+            )?;
+            out.print_cli_output(outcome)?;
+            None
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Actions(actions::Platform { cmd }) => {
+            match cmd {
+                Some(actions::Subcommands::HandleChanges {
+                    description,
+                    handler,
+                }) => {
+                    command::legacy::actions::handle_changes(&mut ctx, out, handler, &description)?;
+                }
+                None => {
+                    command::legacy::actions::list_actions(&ctx, out, 0, 10)?;
+                }
+            }
+            None
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Pull { check, update } => {
+            command::legacy::pull::handle(&mut ctx, out, check, &update).await?
         }
         #[cfg(feature = "legacy")]
         Subcommands::Fetch => {
@@ -551,20 +1163,48 @@ async fn match_subcommand(
             writeln!(
                 progress,
                 "{}",
-                "Assuming you meant to check for upstream work, running `but pull --check`"
-                    .yellow()
+                theme::get().attention.paint(
+                    "Assuming you meant to check for upstream work, running `but pull --check`"
+                )
             )?;
-            let ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::pull::handle(&ctx, out, true)
-                .await
-                .emit_metrics(metrics_ctx)
+            command::legacy::pull::handle(
+                &mut ctx,
+                out,
+                true,
+                <args::PullUpdate as clap::ValueEnum>::value_variants(),
+            )
+            .await?
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Worktree(worktree::Platform { cmd }) => {
-            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::worktree::handle(cmd, &mut ctx, out)
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
+        Subcommands::Clean {
+            dry_run,
+            pull,
+            include_upstream,
+        } => {
+            let status_after = args.status_after;
+            if pull {
+                use std::fmt::Write;
+                let mut progress = out.progress_channel();
+                writeln!(progress, "Pulling latest...")?;
+                command::legacy::pull::handle(
+                    &mut ctx,
+                    out,
+                    false,
+                    <args::PullUpdate as clap::ValueEnum>::value_variants(),
+                )
+                .await?;
+                writeln!(progress, "Pull complete.")?;
+            }
+            out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
+            command::legacy::clean::handle(
+                &mut ctx,
+                out,
+                command::legacy::clean::CleanOptions {
+                    dry_run,
+                    include_upstream,
+                },
+            )?
         }
         #[cfg(feature = "legacy")]
         Subcommands::Status {
@@ -573,17 +1213,16 @@ async fn match_subcommand(
             refresh_prs: sync_prs,
             upstream,
             no_hint,
+            short: _,
         } => {
+            use crate::command::legacy::status::FilesStatusFlag;
             use crate::command::legacy::status::StatusFlags;
 
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
+            let show_files = if show_files {
+                FilesStatusFlag::All
+            } else {
+                FilesStatusFlag::None
+            };
             let flags = StatusFlags {
                 show_files,
                 verbose,
@@ -595,308 +1234,149 @@ async fn match_subcommand(
                 &mut ctx,
                 out,
                 flags,
-                command::legacy::status::StatusRenderMode::Oneshot,
-            )
-            .await
-            .emit_metrics(metrics_ctx)
+                command::legacy::status::StatusRenderMode::Oneshot(Some(InvokedFrom::discover(
+                    &args.current_dir,
+                )?)),
+            )?;
+            None
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Tui { debug } => {
-            use crate::command::legacy::status::{StatusFlags, StatusRenderMode};
+        Subcommands::Tui(tui_args) => {
+            use crate::command::legacy::status::{StatusFlags, StatusRenderMode, TuiLaunchOptions};
 
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
+            if !out.format().allows_human_ui() {
+                return Err(bad_input(
+                    "Interactive terminal UI is not available for this output format.",
+                )
+                .into());
+            }
+
+            let mut options = TuiLaunchOptions::resolve(tui_args);
+            options.invoked_from = Some(InvokedFrom::discover(&args.current_dir)?);
             command::legacy::status::worktree(
                 &mut ctx,
                 out,
-                StatusFlags::all_false(),
-                StatusRenderMode::Tui { debug },
-            )
-            .await
-            .emit_metrics(metrics_ctx)
+                StatusFlags::for_tui(),
+                StatusRenderMode::Tui(options),
+            )?;
+            None
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Rub { source, target } => {
-            let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
+        Subcommands::Diff(diff_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let outcome = command::legacy::diff::diff(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                diff_args,
+                &InvokedFrom::discover(&args.current_dir)?,
             )?;
-            out.begin_status_after(status_after);
-            let result = command::legacy::rub::handle(&mut ctx, out, &source, &target)
-                .context("Rubbed the wrong way.")
-                .emit_metrics(metrics_ctx);
-            maybe_run_status_after(status_after, &result, &mut ctx, out).await;
-            result.show_root_cause_error_then_exit_without_destructors(output)
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Diff {
-            target,
-            tui,
-            no_tui,
-        } => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
-            let use_tui = if tui {
-                true
-            } else if no_tui {
-                false
-            } else {
-                // Check git config for but.ui.tui
-                ctx.repo
-                    .get()
-                    .ok()
-                    .map(|repo| command::config::get_tui_enabled(&repo.config_snapshot()))
-                    .unwrap_or(false)
-            };
-            if use_tui {
-                command::legacy::diff::handle_tui(&mut ctx, target.as_deref())
-                    .emit_metrics(metrics_ctx)
-                    .show_root_cause_error_then_exit_without_destructors(output)
-            } else {
-                command::legacy::diff::handle(&mut ctx, out, target.as_deref())
-                    .emit_metrics(metrics_ctx)
-                    .show_root_cause_error_then_exit_without_destructors(output)
-            }
-        }
-        Subcommands::Edit { file } => {
-            let path = args.current_dir.join(&file);
-            tui::editor::edit_file(&path)
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
+            out.print_cli_output(outcome)?;
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Show { commit, verbose } => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
-            command::legacy::show::show_commit(&mut ctx, out, &commit, verbose)
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Mark { target, delete } => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
-            command::legacy::mark::handle(&mut ctx, out, &target, delete)
-                .context("Can't mark this. Taaaa-na-na-na. Can't mark this.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Unmark => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
-            command::legacy::mark::unmark(&mut ctx, out)
-                .context("Can't unmark this. Taaaa-na-na-na. Can't unmark this.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
+            return Ok(DispatchOutcome::ExitWithoutDestructors(
+                command::legacy::show::show_commit(&mut ctx, out, &commit, verbose)
+                    .map_err(Into::into),
+            ));
         }
         #[cfg(feature = "legacy")]
         Subcommands::Commit(commit_args) => {
+            use crate::utils::IntermediateChannel;
+
             let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
-            let result = match commit_args.cmd {
-                Some(crate::args::commit::Subcommands::Empty {
-                    ref target,
-                    ref before,
-                    ref after,
-                }) => {
-                    use but_rebase::graph_rebase::mutate::InsertSide;
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+            let (outcome, ws) = command::legacy::commit::commit(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                commit_args,
+                &InvokedFrom::discover(&args.current_dir)?,
+                &args.current_dir,
+            )?;
+            let metrics_outcome = command::CommandOutcome::Commit(outcome.clone());
+            out.print_cli_output(outcome)?;
+            command_outcome = Some(metrics_outcome);
+            Some(ws)
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Squash(squash_args) => {
+            use crate::utils::IntermediateChannel;
 
-                    // Validate that no regular commit options are specified with the empty subcommand
-                    if commit_args.message.is_some() {
-                        anyhow::bail!(
-                            "--message cannot be used with 'commit empty'. Empty commits have no message by default."
-                        );
-                    }
-                    if commit_args.message_file.is_some() {
-                        anyhow::bail!(
-                            "--message-file cannot be used with 'commit empty'. Empty commits have no message by default."
-                        );
-                    }
-                    if commit_args.branch.is_some() {
-                        anyhow::bail!(
-                            "branch argument cannot be used with 'commit empty'. Use the target positional argument or --before/--after flags."
-                        );
-                    }
-                    if commit_args.create {
-                        anyhow::bail!("--create cannot be used with 'commit empty'.");
-                    }
-                    if commit_args.only {
-                        anyhow::bail!("--only cannot be used with 'commit empty'.");
-                    }
-                    if commit_args.no_hooks {
-                        anyhow::bail!("--no-hooks cannot be used with 'commit empty'.");
-                    }
-                    if commit_args.ai.is_some() {
-                        anyhow::bail!("--ai cannot be used with 'commit empty'.");
-                    }
-                    if commit_args.diff {
-                        anyhow::bail!("--diff cannot be used with 'commit empty'.");
-                    }
-                    if commit_args.no_diff {
-                        anyhow::bail!("--no-diff cannot be used with 'commit empty'.");
-                    }
-                    // Note: --paths with commit empty is rejected by clap at parse time
-                    // because --paths is not a flag on the empty subcommand
+            let status_after = args.status_after;
+            out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
-                    // Handle the `but commit empty` subcommand
-                    // Determine target and insert side based on which argument was provided
-                    // Note: InsertSide::Above inserts as a child (after in time),
-                    // InsertSide::Below inserts as a parent (before in time)
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+            let (outcome, ws) = command::legacy::squash::squash(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                squash_args,
+                &InvokedFrom::discover(&args.current_dir)?,
+                &args.current_dir,
+            )?;
+            out.print_cli_output(outcome)?;
+            ws
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Move(move_args) => {
+            use crate::utils::IntermediateChannel;
 
-                    // Compute the target string and insert side, possibly storing a String
-                    // we own if we need to create the default branch name
-                    enum TargetSpec<'a> {
-                        Borrowed(&'a str, InsertSide),
-                        Owned(String, InsertSide),
-                    }
+            let status_after = args.status_after;
+            out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
-                    let target_spec = if let Some(t) = before {
-                        TargetSpec::Borrowed(t.as_str(), InsertSide::Below)
-                    } else if let Some(t) = after {
-                        TargetSpec::Borrowed(t.as_str(), InsertSide::Above)
-                    } else if let Some(t) = target {
-                        // Default to --before behavior when using positional argument
-                        TargetSpec::Borrowed(t.as_str(), InsertSide::Below)
-                    } else {
-                        // No arguments provided - default to inserting at top of first branch
-                        use but_api::legacy::workspace;
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+            let (outcome, ws) = command::legacy::r#move::r#move(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                move_args,
+                &args.current_dir,
+            )?;
+            out.print_cli_output(outcome)?;
+            Some(ws)
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Split(split_args) => {
+            use crate::utils::IntermediateChannel;
 
-                        let stack_entries = workspace::stacks(&ctx, None)?;
-                        let stacks: Vec<(
-                            but_core::ref_metadata::StackId,
-                            but_workspace::ui::StackDetails,
-                        )> = stack_entries
-                            .iter()
-                            .filter_map(|s| {
-                                s.id.and_then(|id| {
-                                    workspace::stack_details(&ctx, Some(id))
-                                        .ok()
-                                        .map(|details| (id, details))
-                                })
-                            })
-                            .collect();
+            let status_after = args.status_after;
+            out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
-                        // Find the first stack with branches and convert BString to String
-                        let branch_name = stacks
-                            .iter()
-                            .find_map(|(_, stack_details)| {
-                                stack_details.branch_details.first().map(|b| b.name.to_string())
-                            })
-                            .ok_or_else(|| {
-                                anyhow::anyhow!(
-                                    "No branches found. Create a branch first or specify a target explicitly."
-                                )
-                            })?;
-
-                        TargetSpec::Owned(branch_name, InsertSide::Above)
-                    };
-
-                    let (target_str, insert_side) = match &target_spec {
-                        TargetSpec::Borrowed(s, side) => (*s, *side),
-                        TargetSpec::Owned(s, side) => (s.as_str(), *side),
-                    };
-
-                    command::legacy::commit::insert_blank_commit(
-                        &mut ctx,
-                        out,
-                        target_str,
-                        insert_side,
-                    )
-                    .emit_metrics(metrics_ctx)
-                }
-                None => {
-                    // Handle the regular `but commit` command
-
-                    // In JSON mode, require either -m, --message-file, or --ai to be specified
-                    if args.json
-                        && commit_args.message.is_none()
-                        && commit_args.message_file.is_none()
-                        && commit_args.ai.is_none()
-                    {
-                        anyhow::bail!(
-                            "In JSON mode, either --message (-m), --message-file, or --ai (-i) must be specified"
-                        );
-                    }
-
-                    // Read message from file if provided, otherwise use message option
-                    let commit_message = match &commit_args.message_file {
-                        Some(path) => Some(std::fs::read_to_string(path).with_context(|| {
-                            format!(
-                                "Failed to read commit message from file: {}",
-                                path.display()
-                            )
-                        })?),
-                        None => commit_args.message.clone(),
-                    };
-                    command::legacy::commit::commit(
-                        &mut ctx,
-                        out,
-                        commit_message.as_deref(),
-                        commit_args.branch.as_deref(),
-                        &commit_args.changes,
-                        commit_args.only,
-                        commit_args.create,
-                        commit_args.no_hooks,
-                        commit_args.ai.clone(),
-                        ShowDiffInEditor::from_args(commit_args.diff, commit_args.no_diff)
-                            .unwrap_or(ShowDiffInEditor::Unspecified),
-                    )
-                    .emit_metrics(metrics_ctx)
-                }
-            };
-
-            maybe_run_status_after(status_after, &result, &mut ctx, out).await;
-            result
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+            let (outcome, ws) = command::legacy::split::split(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                split_args,
+                &args.current_dir,
+            )?;
+            out.print_cli_output(outcome)?;
+            Some(ws)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Push(push_args) => {
-            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::push::handle(push_args, &mut ctx, out).emit_metrics(metrics_ctx)
+            command::legacy::push::handle(push_args, &mut ctx, out).await?;
+            None
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::_Reword2(reword_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let status_after = args.status_after;
+            out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
+
+            let (outcome, ws) = command::legacy::reword2::reword(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                reword_args,
+            )?;
+            out.print_cli_output(outcome)?;
+            ws
         }
         #[cfg(feature = "legacy")]
         Subcommands::Reword {
@@ -905,30 +1385,26 @@ async fn match_subcommand(
             format,
             diff,
             no_diff,
+            allow_merged,
         } => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
+            let status_after = args.status_after;
+            out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
             command::legacy::reword::reword_target(
                 &mut ctx,
                 out,
-                &target,
+                target,
                 message.as_deref(),
                 format,
                 // clap's `conflicts_with` should prevent this being `None` but better safe than
                 // sorry
                 ShowDiffInEditor::from_args(diff, no_diff).unwrap_or(ShowDiffInEditor::Unspecified),
-            )
-            .emit_metrics(metrics_ctx)
+                allow_merged,
+            )?;
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Oplog(args::oplog::Platform { cmd }) => {
-            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             match cmd {
                 Some(args::oplog::Subcommands::List { since, snapshot }) => {
                     let filter = if snapshot {
@@ -936,111 +1412,113 @@ async fn match_subcommand(
                     } else {
                         None
                     };
-                    command::legacy::oplog::show_oplog(&mut ctx, out, since.as_deref(), filter)
-                        .emit_metrics(metrics_ctx)
+                    command::legacy::oplog::show_oplog(&mut ctx, out, since.as_deref(), filter)?;
+                    None
                 }
                 Some(args::oplog::Subcommands::Snapshot { message }) => {
-                    command::legacy::oplog::create_snapshot(&mut ctx, out, message.as_deref())
-                        .emit_metrics(metrics_ctx)
+                    command::legacy::oplog::create_snapshot(&mut ctx, out, message.as_deref())?;
+                    None
                 }
-                Some(args::oplog::Subcommands::Restore { oplog_sha, force }) => {
-                    command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha, force)
-                        .emit_metrics(metrics_ctx)
+                Some(args::oplog::Subcommands::Restore { oplog_sha }) => {
+                    command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha)?;
+                    None
                 }
                 None => {
                     // Default to list when no subcommand is provided
-                    command::legacy::oplog::show_oplog(&mut ctx, out, None, None)
-                        .emit_metrics(metrics_ctx)
+                    command::legacy::oplog::show_oplog(&mut ctx, out, None, None)?;
+                    None
                 }
             }
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Undo => {
-            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::oplog::undo_last_operation(&mut ctx, out).emit_metrics(metrics_ctx)
+        Subcommands::Undo(undo_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let status_after = args.status_after;
+            out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
+
+            let outcome = command::legacy::undo_redo::undo(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                undo_args,
+            )?;
+            out.print_cli_output(outcome)?;
+            None
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Redo(redo_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let status_after = args.status_after;
+            out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
+
+            let outcome = command::legacy::undo_redo::redo(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                redo_args,
+            )?;
+            out.print_cli_output(outcome)?;
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Absorb {
             source,
             dry_run,
-            new,
+            allow_merged,
         } => {
             let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
             out.begin_status_after(status_after);
-            let result =
-                command::legacy::absorb::handle(&mut ctx, out, source.as_deref(), dry_run, new)
-                    .emit_metrics(metrics_ctx);
-            maybe_run_status_after(status_after, &result, &mut ctx, out).await;
-            result
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Discard { id } => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
+            status_after_data = Some(status_after);
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+            command::legacy::absorb::handle(
+                &mut ctx,
                 out,
+                source.as_deref(),
+                dry_run,
+                allow_merged,
+                &InvokedFrom::discover(&args.current_dir)?,
             )?;
-            command::legacy::discard::handle(&mut ctx, out, &id).emit_metrics(metrics_ctx)
+            None
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Setup { init } => {
-            let repo =
-                match but_api::legacy::projects::add_project_best_effort(args.current_dir.clone())?
-                {
-                    gitbutler_project::AddProjectOutcome::Added(project)
-                    | gitbutler_project::AddProjectOutcome::AlreadyExists(project) => {
-                        gix::open(project.git_dir())?
-                    }
-                    _ => command::legacy::setup::find_or_initialize_repo(
-                        &args.current_dir,
-                        out,
-                        init,
-                    )?,
-                };
-            let mut ctx = but_ctx::Context::from_repo(repo)?;
-            let mut guard = ctx.exclusive_worktree_access();
-            command::legacy::setup::repo(&mut ctx, &args.current_dir, out, guard.write_permission())
-                .context("Failed to set up GitButler project.")
-                .emit_metrics(metrics_ctx)
+        Subcommands::Discard(discard_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let status_after = args.status_after;
+            out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
+
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+            let (outcome, ws) = command::legacy::discard::discard(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                discard_args,
+                &InvokedFrom::discover(&args.current_dir)?,
+            )?;
+            out.print_cli_output(outcome)?;
+            ws
+        }
+        Subcommands::_Comment(comment_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let outcome =
+                command::comment::comment(&mut ctx, IntermediateChannel::new(out), comment_args)?;
+            out.print_cli_output(outcome)?;
+            None
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Teardown => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    workspace_check: setup::WorkspaceCheck::Disabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
-            command::legacy::teardown::teardown(&mut ctx, out)
-                .context("Failed to teardown GitButler project.")
-                .emit_metrics(metrics_ctx)
+        Subcommands::Teardown { checkout_to } => {
+            command::legacy::teardown::teardown(&mut ctx, checkout_to, out)
+                .map_err(|err| err.context("Failed to teardown GitButler project."))?;
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Pr(forge::pr::Platform {
             cmd,
             draft: top_level_draft,
         }) => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
             match cmd {
                 Some(forge::pr::Subcommands::New {
                     branch,
@@ -1048,19 +1526,14 @@ async fn match_subcommand(
                     file,
                     skip_force_push_protection,
                     with_force,
-                    run_hooks,
+                    no_hooks,
                     default,
                     draft,
                 }) => {
                     let draft = top_level_draft || draft;
                     // Read message content from file or inline
                     let message_content = match &file {
-                        Some(path) => Some(std::fs::read_to_string(path).with_context(|| {
-                            format!(
-                                "Failed to read forge review message from file: {}",
-                                path.display()
-                            )
-                        })?),
+                        Some(file) => Some(file.read(&args.current_dir)?),
                         None => message.clone(),
                     };
                     // Parse early to fail fast on invalid content
@@ -1073,30 +1546,32 @@ async fn match_subcommand(
                     // Check for non-interactive environment
                     if !out.can_prompt() {
                         if branch.is_none() {
-                            anyhow::bail!(
-                                "Non-interactive environment detected. Please specify a branch."
-                            );
+                            return Err(bad_input(
+                                "Non-interactive environment detected. Please specify a branch.",
+                            )
+                            .into());
                         }
                         if review_message.is_none() && !default {
-                            anyhow::bail!(
+                            return Err(bad_input(
                                 "Non-interactive environment detected. Provide one of: --message (-m), --file (-F), or --default (-t)."
-                            );
+                            ).into());
                         }
                     }
                     command::legacy::forge::review::create_review(
                         &mut ctx,
+                        &args.current_dir,
                         branch,
                         skip_force_push_protection,
                         with_force,
-                        run_hooks,
+                        !no_hooks,
                         default,
                         draft,
                         review_message,
                         out,
                     )
                     .await
-                    .context("Failed to create forge review for branch.")
-                    .emit_metrics(metrics_ctx)
+                    .context("Failed to create forge review for branch.")?;
+                    None
                 }
                 Some(forge::pr::Subcommands::Template { template_path }) => {
                     command::legacy::forge::review::set_review_template(
@@ -1104,37 +1579,38 @@ async fn match_subcommand(
                         template_path,
                         out,
                     )
-                    .context("Failed to set forge review template.")
-                    .emit_metrics(metrics_ctx)
+                    .context("Failed to set forge review template.")?;
+                    None
                 }
                 Some(forge::pr::Subcommands::AutoMerge { selector, off }) => {
                     command::legacy::forge::review::enable_auto_merge(&mut ctx, selector, off, out)
                         .await
-                        .context("Failed to set the auto-merge state.")
-                        .emit_metrics(metrics_ctx)
+                        .context("Failed to set the auto-merge state.")?;
+                    None
                 }
                 Some(forge::pr::Subcommands::SetDraft { selector }) => {
                     command::legacy::forge::review::set_draftiness(&mut ctx, selector, true, out)
                         .await
-                        .context("Failed to set reviews as draft.")
-                        .emit_metrics(metrics_ctx)
+                        .context("Failed to set reviews as draft.")?;
+                    None
                 }
                 Some(forge::pr::Subcommands::SetReady { selector }) => {
                     command::legacy::forge::review::set_draftiness(&mut ctx, selector, false, out)
                         .await
-                        .context("Failed to set reviews as ready-for-review.")
-                        .emit_metrics(metrics_ctx)
+                        .context("Failed to set reviews as ready-for-review.")?;
+                    None
                 }
                 Some(forge::pr::Subcommands::Open { selector }) => {
                     command::legacy::forge::review::open_review(&mut ctx, selector, out)
                         .await
-                        .context("Failed to open review in browser.")
-                        .emit_metrics(metrics_ctx)
+                        .context("Failed to open review in browser.")?;
+                    None
                 }
                 None => {
                     // Default to `pr new` when no subcommand is provided
                     command::legacy::forge::review::create_review(
                         &mut ctx,
+                        &args.current_dir,
                         None,
                         false,
                         true,
@@ -1145,8 +1621,8 @@ async fn match_subcommand(
                         out,
                     )
                     .await
-                    .context("Failed to create forge review for branch.")
-                    .emit_metrics(metrics_ctx)
+                    .context("Failed to create forge review for branch.")?;
+                    None
                 }
             }
         }
@@ -1157,300 +1633,323 @@ async fn match_subcommand(
             ci,
             updates,
         } => {
-            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::refresh::handle(&mut ctx, out, fetch, prs, ci, updates, &app_settings)
-                .emit_metrics(metrics_ctx)
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Resolve { cmd, commit } => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
-            command::legacy::resolve::handle(&mut ctx, out, cmd, commit)
-                .context("Failed to handle conflict resolution.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Uncommit { source } => {
-            let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
-            out.begin_status_after(status_after);
-            let result = command::legacy::rub::handle_uncommit(&mut ctx, out, &source)
-                .context("Failed to uncommit.")
-                .emit_metrics(metrics_ctx);
-            maybe_run_status_after(status_after, &result, &mut ctx, out).await;
-            result.show_root_cause_error_then_exit_without_destructors(output)
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Amend { file, commit } => {
-            let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
-            out.begin_status_after(status_after);
-            let result = command::legacy::rub::handle_amend(&mut ctx, out, &file, &commit)
-                .context("Failed to amend.")
-                .emit_metrics(metrics_ctx);
-            maybe_run_status_after(status_after, &result, &mut ctx, out).await;
-            result.show_root_cause_error_then_exit_without_destructors(output)
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Stage {
-            file_or_hunk,
-            branch_pos,
-            branch,
-        } => {
-            let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
-            out.begin_status_after(status_after);
-            let result = if let Some(file_or_hunk) = file_or_hunk {
-                // Direct mode: but stage <file_or_hunk> <branch>
-                let branch = branch.or(branch_pos).ok_or_else(|| {
-                    anyhow::anyhow!("Missing required argument: <branch>. Usage: but stage <file_or_hunk> <branch>")
-                })?;
-                command::legacy::rub::handle_stage(&mut ctx, out, &file_or_hunk, &branch)
-                    .context("Failed to stage.")
-                    .emit_metrics(metrics_ctx)
-            } else {
-                // Interactive mode: but stage [--branch <branch>]
-                use std::io::IsTerminal;
-                if !std::io::stdout().is_terminal() {
-                    anyhow::bail!(
-                        "Interactive stage requires a terminal. Use: but stage <file_or_hunk> <branch>"
-                    );
-                }
-                command::legacy::rub::handle_stage_tui(&mut ctx, out, branch.as_deref())
-                    .context("Failed to stage.")
-                    .emit_metrics(metrics_ctx)
-            };
-            maybe_run_status_after(status_after, &result, &mut ctx, out).await;
-            result.show_root_cause_error_then_exit_without_destructors(output)
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Unstage {
-            file_or_hunk,
-            branch,
-        } => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
-            command::legacy::rub::handle_unstage(&mut ctx, out, &file_or_hunk, branch.as_deref())
-                .context("Failed to unstage.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Squash {
-            commits,
-            drop_message,
-            message,
-            ai,
-        } => {
-            let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
-            out.begin_status_after(status_after);
-            let result = command::legacy::rub::squash::handle(
+            command::legacy::refresh::handle(
                 &mut ctx,
                 out,
-                &commits,
-                drop_message,
-                message.as_deref(),
-                ai.clone(),
-            )
-            .context("Failed to squash commits.")
-            .emit_metrics(metrics_ctx);
-            maybe_run_status_after(status_after, &result, &mut ctx, out).await;
-            result.show_root_cause_error_then_exit_without_destructors(output)
+                fetch,
+                prs,
+                ci,
+                updates,
+                &app_settings,
+            )?;
+            None
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Merge { branch } => {
-            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::merge::handle(&mut ctx, out, &branch)
-                .await
-                .context("Failed to merge branch.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
-        }
-        Subcommands::Move {
-            source_commit,
-            target,
-            after,
-        } => {
-            let status_after = args.status_after;
-            let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
+        Subcommands::Resolve { cmd, targets, ai } => {
+            let status_after = args.status_after
+                && matches!(&cmd, Some(crate::args::resolve::Subcommands::Finish));
             out.begin_status_after(status_after);
-            let result =
-                command::commit::r#move::handle(&mut ctx, out, &source_commit, &target, after)
-                    .context("Failed to move commit.")
-                    .emit_metrics(metrics_ctx);
-            maybe_run_status_after(status_after, &result, &mut ctx, out).await;
-            result.show_root_cause_error_then_exit_without_destructors(output)
+            let result = command::legacy::resolve::handle(&mut ctx, out, cmd, targets, ai);
+            if result.is_ok() {
+                run_status_after_if_requested(
+                    status_after,
+                    app_settings.agent_skill_notices,
+                    &mut ctx,
+                    out,
+                    &args.current_dir,
+                );
+            }
+            return Ok(DispatchOutcome::ExitWithoutDestructors(result));
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Pick {
-            source,
-            target_branch,
+        Subcommands::Uncommit(uncommit_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let status_after = args.status_after;
+            out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
+
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+            let (outcome, ws) = command::legacy::uncommit::uncommit(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                uncommit_args,
+            )?;
+            out.print_cli_output(outcome)?;
+            ws
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Amend(amend_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let status_after = args.status_after;
+            out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
+
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+            let (outcome, ws) = command::legacy::amend::amend(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                amend_args,
+                &InvokedFrom::discover(&args.current_dir)?,
+            )?;
+            out.print_cli_output(outcome)?;
+            ws
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Merge {
+            branch,
+            yes,
+            no_ff,
+            ff_only,
+            whole_stack,
         } => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
+            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
+            let result = command::legacy::merge::handle(
+                &mut ctx,
                 out,
-            )?;
-            command::legacy::pick::handle(&mut ctx, out, &source, target_branch.as_deref())
-                .context("Failed to pick commit.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
+                &branch,
+                yes,
+                no_ff,
+                ff_only,
+                whole_stack,
+            )
+            .context("Failed to merge branch.")
+            .map_err(Into::into);
+            if let Ok(conflicted_commits) = result {
+                command::legacy::conflict_notice::report_newly_conflicted(
+                    &ctx,
+                    out,
+                    conflicts_before,
+                    conflicted_commits,
+                );
+                return Ok(DispatchOutcome::ExitWithoutDestructors(Ok(())));
+            } else {
+                return Ok(DispatchOutcome::ExitWithoutDestructors(result.map(|_| ())));
+            }
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Unapply { identifier, force } => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
+        Subcommands::Pick(pick_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let status_after = args.status_after;
+            out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
+
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+            let (outcome, ws) = command::legacy::pick::pick(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                pick_args,
+                &InvokedFrom::discover(&args.current_dir)?,
             )?;
-            command::legacy::unapply::handle(&mut ctx, out, &identifier, force)
-                .context("Failed to unapply branch.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
+            out.print_cli_output(outcome)?;
+            Some(ws)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Apply { branch_name } => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
+        Subcommands::Unapply(unapply_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let status_after = args.status_after;
+            out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
+
+            let outcome = command::legacy::unapply::unapply(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                unapply_args,
             )?;
-            command::legacy::branch::apply::apply(&mut ctx, &branch_name, out)
-                .context("Failed to apply branch.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
+            out.print_cli_output(outcome)?;
+            None
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Open(open_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let outcome =
+                command::legacy::open::open(&mut ctx, IntermediateChannel::new(out), open_args)?;
+            out.print_cli_output(outcome)?;
+            None
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Apply(apply_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let status_after = args.status_after;
+            out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
+
+            let outcome =
+                command::legacy::apply::apply(&mut ctx, IntermediateChannel::new(out), apply_args)?;
+            out.print_cli_output(outcome)?;
+            None
+        }
+    };
+
+    #[cfg(feature = "legacy")]
+    if let Some(ws) = ws {
+        if ws.checkout_conflict_occurred {
+            command::legacy::conflict_notice::report_checkout_conflict(out);
+        }
+        if let Some(conflicts_before) = newly_conflicted_data {
+            command::legacy::conflict_notice::report_newly_conflicted(
+                &ctx,
+                out,
+                conflicts_before,
+                ws.conflicted_commits,
+            );
         }
     }
+    #[cfg(feature = "legacy")]
+    if let Some(status_after) = status_after_data {
+        run_status_after_if_requested(
+            status_after,
+            app_settings.agent_skill_notices,
+            &mut ctx,
+            out,
+            &args.current_dir,
+        );
+    }
+
+    #[cfg(feature = "legacy")]
+    if let Some(outcome) = command_outcome {
+        return Ok(DispatchOutcome::ReturnWithOutcome(outcome));
+    }
+    Ok(DispatchOutcome::Return)
 }
 
-fn is_not_in_git_repository_error(err: &anyhow::Error) -> bool {
+fn run_agentlog_command(
+    current_dir: &std::path::Path,
+    mut cmd: but_agentlog::Command,
+    out: &mut OutputChannel,
+) -> Result<()> {
+    let quiet = matches!(cmd, but_agentlog::Command::Hook { .. });
+    match &mut cmd {
+        but_agentlog::Command::Hook { agent, .. } if agent.is_none() => {
+            use utils::detect_agent::Agent as DetectedAgent;
+
+            *agent = match utils::detect_agent::detect() {
+                Some(DetectedAgent::Codex) => Some(but_agentlog::Agent::Codex),
+                Some(DetectedAgent::ClaudeCode | DetectedAgent::ClaudeCodeCowork) => {
+                    Some(but_agentlog::Agent::Claude)
+                }
+                _ => None,
+            };
+        }
+        _ => {}
+    }
+
+    let report = but_agentlog::run_from_dir(current_dir, cmd)?;
+    if quiet {
+        return Ok(());
+    }
+    if let Some(writer) = out.for_human_or_shell() {
+        writeln!(writer, "{report}")?;
+    } else if let Some(json_out) = out.for_json() {
+        json_out.write_value(&report)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn is_not_in_git_repository_error(err: &anyhow::Error) -> bool {
     matches!(
-        err.downcast_ref::<gix::discover::Error>(),
-        Some(gix::discover::Error::Discover(
+        err.downcast_ref::<gix::Error>()
+            .and_then(|err| err.downcast_any_ref::<gix::discover::upwards::Error>()),
+        Some(
             gix::discover::upwards::Error::NoGitRepository { .. }
                 | gix::discover::upwards::Error::NoGitRepositoryWithinCeiling { .. }
                 | gix::discover::upwards::Error::NoGitRepositoryWithinFs { .. }
-        ))
+        )
     )
 }
 
-/// If `--status-after` was requested, appends workspace status to the output.
-///
-/// Call `out.begin_status_after(status_after)` *before* the mutation to set up
-/// JSON buffering, then call this *after* to conditionally emit the combined output.
-///
-/// When the mutation succeeded, runs status and combines the output.
-/// When the mutation failed, the buffer is left intact — `OutputChannel::drop`
-/// will flush any buffered error JSON (e.g. structured illegal_move details) to stdout.
-/// Errors from the status query itself are logged to stderr but never mask
-/// the mutation's success.
-#[cfg(feature = "legacy")]
-async fn maybe_run_status_after(
-    status_after: bool,
-    result: &anyhow::Result<()>,
-    ctx: &mut but_ctx::Context,
-    out: &mut OutputChannel,
-) {
-    if !status_after {
-        return;
-    }
-    if result.is_ok() {
-        let mutation_json = out.take_json_buffer();
-        run_status_after(ctx, out, mutation_json).await;
-    } else {
-        // Mutation failed — don't drain the buffer here. OutputChannel::drop
-        // will flush any buffered JSON (e.g. structured illegal_move details)
-        // to stdout, so the mutation result is never silently lost.
+fn discover_optional_context(path: &std::path::Path) -> CliResult<Option<but_ctx::Context>> {
+    match but_ctx::Context::discover(path) {
+        Ok(ctx) => Ok(Some(ctx)),
+        Err(err) if is_not_in_git_repository_error(&err) => Ok(None),
+        Err(err) => Err(CliError::Internal(err)),
     }
 }
 
-/// Run workspace status output after a mutation command completes.
+#[cfg(feature = "legacy")]
+fn run_status_after_if_requested(
+    status_after: bool,
+    agent_skill_notices: bool,
+    ctx: &mut but_ctx::Context,
+    out: &mut OutputChannel,
+    current_dir: &std::path::Path,
+) {
+    if !status_after {
+        if agent_skill_notices
+            && out.is_json()
+            && let Some(notice) = command::skill::agent_skill_update_notice()
+        {
+            eprintln!("{notice}");
+        }
+        return;
+    }
+    let mutation_json = out.take_json_buffer();
+    run_status_after(
+        agent_skill_notices,
+        ctx,
+        out,
+        mutation_json,
+        InvokedFrom::discover(current_dir).ok(),
+    );
+}
+
+/// Run workspace status output after a mutation command when explicitly requested.
 ///
 /// In human mode, prints a blank line then full status.
 /// In JSON mode, combines the mutation's buffered JSON with status JSON into
 /// `{"result": <mutation_output>, "status": <workspace_status>}`.
+/// For JSON commands, reconciles stale skill installations and includes an
+/// update announcement or failure notice under `agent_skill_notice`.
+/// The global `--status-after` flag controls whether this function runs.
 ///
 /// Status errors are handled gracefully: in JSON mode the mutation result is
 /// always emitted (with a `"status_error"` field on failure); in human mode
 /// a warning is printed to stderr.
 #[cfg(feature = "legacy")]
-async fn run_status_after(
+fn run_status_after(
+    agent_skill_notices: bool,
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
     mutation_json: Option<serde_json::Value>,
+    invoked_from: Option<InvokedFrom>,
 ) {
     use crate::command::legacy::status::StatusFlags;
+
+    if let Err(err) = ctx.invalidate_workspace_cache() {
+        eprintln!("warning: failed to write status after mutation: {err}");
+        return;
+    }
+
+    let agent_skill_notice = (agent_skill_notices && out.format().is_json())
+        .then(command::skill::agent_skill_update_notice)
+        .flatten();
 
     if out.is_json() {
         out.start_json_buffering();
         let status_result = command::legacy::status::worktree(
             ctx,
             out,
-            StatusFlags::all_false(),
-            command::legacy::status::StatusRenderMode::Oneshot,
-        )
-        .await;
+            StatusFlags {
+                show_files: crate::command::legacy::status::FilesStatusFlag::All,
+                ..StatusFlags::all_false()
+            },
+            command::legacy::status::StatusRenderMode::Oneshot(invoked_from),
+        );
         let status_json = out.take_json_buffer().unwrap_or(serde_json::Value::Null);
 
-        let combined = match status_result {
+        let mut combined = match status_result {
             Ok(()) => serde_json::json!({
                 "result": mutation_json.unwrap_or(serde_json::Value::Null),
                 "status": status_json,
             }),
             Err(err) => {
                 eprintln!(
-                    "warning: --status-after failed: {err:#}. Run 'but status' separately to check workspace state."
+                    "warning: status after mutation failed: {err:#}. Run 'but status' separately to check workspace state."
                 );
                 serde_json::json!({
                     "result": mutation_json.unwrap_or(serde_json::Value::Null),
@@ -1458,8 +1957,16 @@ async fn run_status_after(
                 })
             }
         };
+        if let Some(notice) = agent_skill_notice
+            && let Some(object) = combined.as_object_mut()
+        {
+            object.insert(
+                "agent_skill_notice".to_string(),
+                serde_json::Value::String(notice),
+            );
+        }
         if let Err(err) = out.write_value(combined) {
-            eprintln!("warning: failed to write --status-after output: {err}");
+            eprintln!("warning: failed to write status after mutation: {err}");
         }
     } else {
         if let Some(human) = out.for_human() {
@@ -1469,15 +1976,15 @@ async fn run_status_after(
             ctx,
             out,
             StatusFlags {
+                show_files: crate::command::legacy::status::FilesStatusFlag::All,
+                verbose: true,
                 hint: true,
                 ..StatusFlags::all_false()
             },
-            command::legacy::status::StatusRenderMode::Oneshot,
-        )
-        .await
-        {
+            command::legacy::status::StatusRenderMode::Oneshot(invoked_from),
+        ) {
             eprintln!(
-                "warning: --status-after failed: {err:#}. Run 'but status' separately to check workspace state."
+                "warning: status after mutation failed: {err:#}. Run 'but status' separately to check workspace state."
             );
         }
     }
@@ -1489,3 +1996,180 @@ mod legacy;
 mod setup;
 pub mod trace;
 mod utils;
+#[doc(hidden)]
+pub use utils::detect_agent::ENVIRONMENT_VARIABLES as AGENT_ENVIRONMENT_VARIABLES;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn repository_discovery_errors_keep_their_classification() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let err = anyhow::Error::from(gix::discover(tmp.path()).unwrap_err())
+            .context("discovering the optional repository");
+        assert!(
+            is_not_in_git_repository_error(&err),
+            "missing repositories are recognized through both error wrappers"
+        );
+
+        let err = anyhow::Error::from(gix::Error::from_error(
+            gix::discover::upwards::Error::NoTrustedGitRepository {
+                path: tmp.path().into(),
+                candidate: tmp.path().into(),
+                required: gix::sec::Trust::Full,
+                trust: gix::sec::Trust::Reduced,
+            },
+        ))
+        .context("discovering the optional repository");
+        assert!(
+            !is_not_in_git_repository_error(&err),
+            "an untrusted repository must remain an error rather than being treated as an absent repository"
+        );
+        Ok(())
+    }
+
+    fn os_args(args: &[&str]) -> Vec<OsString> {
+        args.iter().map(|arg| OsString::from(*arg)).collect()
+    }
+
+    #[test]
+    fn watwat_enables_maximum_tracing() {
+        let mut args = os_args(&["but", "-C", "repo", "watwat", "status", "--verbose"]);
+
+        assert!(expand_watwat(&mut args), "watwat should be recognized");
+        assert_eq!(
+            args,
+            os_args(&["but", "-C", "repo", "-tttt", "status", "--verbose"])
+        );
+    }
+
+    #[test]
+    fn ordinary_commands_are_unchanged_by_watwat_expansion() {
+        let mut args = os_args(&["but", "status"]);
+
+        assert!(!expand_watwat(&mut args), "status is not watwat");
+        assert_eq!(args, os_args(&["but", "status"]));
+    }
+
+    #[test]
+    fn expanded_alias_arguments_control_terminal_theme_detection() {
+        let (expanded_args, warning) = expand_aliases_with(os_args(&["but", "js"]), |alias| {
+            assert_eq!(alias, "js", "the external command should be expanded");
+            Ok(os_args(&["status", "--json"]))
+        });
+
+        assert!(
+            warning.is_none(),
+            "successful alias expansion should not produce a warning"
+        );
+        temp_env::with_var(envs::BUT_OUTPUT_FORMAT, None::<&str>, || {
+            assert!(
+                !should_detect_terminal_theme(&expanded_args, false, true),
+                "an alias that enables JSON output should not query the terminal"
+            );
+        });
+    }
+
+    #[test]
+    fn terminal_theme_detection_is_limited_to_interactive_human_output() {
+        temp_env::with_var(envs::BUT_OUTPUT_FORMAT, None::<&str>, || {
+            assert!(
+                should_detect_terminal_theme(&os_args(&["but", "status"]), false, true),
+                "an interactive human command should detect the terminal theme"
+            );
+            assert!(
+                !should_detect_terminal_theme(&os_args(&["but", "status"]), true, true),
+                "an agent command should not query the terminal"
+            );
+            assert!(
+                !should_detect_terminal_theme(&os_args(&["but", "status", "--json"]), false, true),
+                "a JSON command should not query the terminal"
+            );
+            assert!(
+                !should_detect_terminal_theme(&os_args(&["but", "status"]), false, false),
+                "a redirected command should not query the terminal"
+            );
+        });
+
+        temp_env::with_var(envs::BUT_OUTPUT_FORMAT, Some("json"), || {
+            assert!(
+                !should_detect_terminal_theme(&os_args(&["but", "status"]), false, true),
+                "JSON output selected through the environment should not query the terminal"
+            );
+        });
+    }
+
+    #[test]
+    fn explicit_theme_overrides_detection_and_detection_falls_back_to_dark() {
+        assert_eq!(
+            resolve_theme_preset(Some(OsStr::new("light")), Some(theme::ThemePreset::Dark))
+                .unwrap(),
+            theme::ThemePreset::Light,
+            "BUT_THEME should override the detected terminal theme"
+        );
+        assert_eq!(
+            resolve_theme_preset(None, Some(theme::ThemePreset::Light)).unwrap(),
+            theme::ThemePreset::Light,
+            "the detected terminal theme should be used without an override"
+        );
+        assert_eq!(
+            resolve_theme_preset(None, None).unwrap(),
+            theme::ThemePreset::Dark,
+            "failed terminal detection should fall back to the dark preset"
+        );
+    }
+
+    #[test]
+    fn detected_agent_defaults_to_agent_output() {
+        let (_, format) = temp_env::with_var(envs::BUT_OUTPUT_FORMAT, None::<&str>, || {
+            parse_args_and_output_format(os_args(&["but", "status"]), true)
+        });
+
+        assert!(matches!(format, OutputFormat::Human { agent: true }));
+    }
+
+    #[test]
+    fn detected_agent_preserves_environment_output_format() {
+        let (_, format) = temp_env::with_var(envs::BUT_OUTPUT_FORMAT, Some("json"), || {
+            parse_args_and_output_format(os_args(&["but", "status"]), true)
+        });
+
+        assert!(matches!(format, OutputFormat::Json));
+    }
+
+    #[test]
+    #[cfg(feature = "legacy")]
+    fn detected_agent_omits_status_after_mutation_by_default() {
+        let (args, _) =
+            parse_args_and_output_format(os_args(&["but", "commit", "--no-message"]), true);
+
+        assert!(
+            !args.status_after,
+            "detected agents must not request mutation status implicitly"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "legacy")]
+    fn detected_agent_can_request_status_after_mutation() {
+        let (args, _) = parse_args_and_output_format(
+            os_args(&["but", "commit", "--status-after", "--no-message"]),
+            true,
+        );
+
+        assert!(
+            args.status_after,
+            "detected agents must retain an explicit mutation status request"
+        );
+    }
+
+    #[test]
+    fn detected_agent_defaults_early_help_to_agent_output() {
+        let format = temp_env::with_var(envs::BUT_OUTPUT_FORMAT, None::<&str>, || {
+            early_help_format(&os_args(&["but", "--help"]), true)
+        });
+
+        assert!(matches!(format, OutputFormat::Human { agent: true }));
+    }
+}

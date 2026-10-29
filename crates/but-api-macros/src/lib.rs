@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
@@ -14,13 +12,35 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 ///
 /// * `JSONReturnType`
 ///     - Use it like `but_api(JSONReturnType)` where `JSONReturnType::from(actual_return_type)` is implemented.
+///     - `Result<Vec<T>>` converts each `T` into `JSONReturnType`.
 ///     - Controls how the actual return value is converted for JSON serialization in `func_json` and `func_cmd`.
 /// * `try_from = JSONReturnType`
 ///     - Use it like `but_api(try_from = JSONReturnType)` where `JSONReturnType::try_from(actual_return_type)?` is implemented.
+///     - `Result<Vec<T>>` converts each `T` into `JSONReturnType`.
 ///     - Controls how the actual return value is fallibly converted for JSON serialization in `func_json` and `func_cmd`.
 ///
-/// These can be combined with commas, e.g. `#[but_api(napi, try_from = json::CommitDetails)]`
-/// or `#[but_api(napi, json::CommitDetails)]`.
+/// * `refreshes`
+///     - Use it on a mutation like `but_api(refreshes)` whose effects other GitButler processes
+///       can't observe in the repository: forge, app, and config writes.
+///     - A successful call writes the project's refresh sentinel, so the watchers of other
+///       processes re-read the workspace. A failed call writes nothing.
+///     - The function must take a context, which locates the project's storage directory.
+///
+/// # Parameter Attributes
+///
+/// Function parameters may use `#[but_api(TransportType)]` to keep the implementation
+/// signature on a pure Rust type while generated wrappers accept a transport-oriented serde type.
+/// This is currently limited to owned parameters and requires `impl From<TransportType> for ParamType`.
+///
+/// Functions may also take an explicit repository permission token which stays internal to generated
+/// wrappers:
+/// * `perm: &mut RepoExclusive` acquires exclusive access from the generated wrapper.
+/// * `perm: &RepoShared` acquires shared access from the generated wrapper.
+///
+/// These permission-bearing variants are more composable for Rust callers because they reuse a
+/// caller-held lock instead of acquiring one themselves.
+///
+/// These can be combined with commas, e.g. `#[but_api(try_from = json::CommitDetails, refreshes)]`.
 ///
 /// # Generated Functions
 ///
@@ -34,30 +54,26 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 ///           which will be translated to `project_id`:
 ///           - `but_ctx::ProjectHandleOrLegacyProjectId`
 ///         - `gix::ObjectId` will be translated into `json::HexHash`.
+///         - `Option<gix::ObjectId>` will be translated into `Option<json::HexHash>`.
+///         - `Vec<gix::ObjectId>` will be translated into `Vec<json::HexHash>`.
+///         - `&gix::refs::FullNameRef` will be translated into owned `gix::refs::FullName`.
+///         - `&mut RepoExclusive` and `&RepoShared` stay internal and are derived from the context
+///           parameter by acquiring the matching lock in the generated wrapper.
 /// * `func_cmd` for calls from the `but-server`, taking `(params: Params) ` and returning `Result<serde_json::Value, json::Error>`.
 ///     - It performs all **Parameter Transformations** of `func_json`.
-/// * `func_napi` (opt-in) for calls from Node.js via napi-rs, taking individual typed parameters and returning `napi::Result<serde_json::Value>`.
-///     - **Only generated when `napi` is specified**: `#[but_api(napi)]`, `#[but_api(napi, Foo)]`, or `#[but_api(napi, try_from = Foo)]`.
-///     - Gated behind `#[cfg(feature = "napi")]`.
-///     - **Parameter Transformation**
-///         - `Context`/`&Context`/`&mut Context`/`ThreadSafeContext` → `String` named `project_id`
-///         - `gix::ObjectId` / `HexHash` → `String` (hex-encoded)
-///         - `BString` → `String`
-///         - Other serde-compatible types → `serde_json::Value`
-///     - Automatically converts `anyhow::Error` → `napi::Error`.
 #[proc_macro_attribute]
 pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(item as ItemFn);
+    let sanitized_input_fn = strip_param_but_api_attrs(&input_fn);
 
     let vis = &input_fn.vis;
     let sig = &input_fn.sig;
     let fn_name = &sig.ident;
-    let napi_doc_attrs = doc_attributes(&input_fn.attrs);
     let asyncness = &sig.asyncness;
     let input = &sig.inputs;
     let output = &sig.output;
 
-    let is_result_option = is_result_option(match output {
+    let result_container = result_container(match output {
         syn::ReturnType::Type(_, ty) => ty.as_ref(),
         syn::ReturnType::Default => panic!("function must return a type"),
     });
@@ -66,12 +82,20 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         Options::default()
     } else {
         match syn::parse::Parser::parse(
-            |input: syn::parse::ParseStream| parse_options(input, is_result_option),
+            |input: syn::parse::ParseStream| parse_options(input, result_container),
             attr,
         ) {
             Ok(opts) => opts,
             Err(err) => return err.into_compile_error().into(),
         }
+    };
+
+    let sanitized_input_fn = match opts.refreshes {
+        Some(span) => match refresh_on_success(sanitized_input_fn, span) {
+            Ok(input_fn) => input_fn,
+            Err(err) => return err.into_compile_error().into(),
+        },
+        None => sanitized_input_fn,
     };
 
     let wrapper_params = match build_wrapper_params(input.iter()) {
@@ -108,32 +132,6 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         }}
     };
 
-    // Build napi-specific parameter list and conversions.
-    // For napi, Context → String (project_id), ObjectId/HexHash → String,
-    // BString → String, other serde types → serde_json::Value.
-    let napi_info = if opts.napi {
-        let json_ty_by_name = match build_json_type_mapping(input.iter()) {
-            Ok(m) => m,
-            Err(err) => return err.into_compile_error().into(),
-        };
-        match build_napi_params(input.iter(), &json_ty_by_name) {
-            Ok(info) => info,
-            Err(err) => return err.into_compile_error().into(),
-        }
-    } else {
-        NapiParamsInfo::default()
-    };
-
-    let napi_fn_params = &napi_info.params;
-    let napi_param_conversions = &napi_info.conversions;
-    let napi_call_arg_idents = &napi_info.call_arg_idents;
-
-    let napi_call_fn_args = if asyncness.is_some() {
-        quote! { #fn_name(#(#napi_call_arg_idents),*).await }
-    } else {
-        quote! { #fn_name(#(#napi_call_arg_idents),*) }
-    };
-
     // Struct name: <FunctionName>Params (PascalCase)
     let param_struct_name = format_ident!("{}Params", fn_name.to_string().to_case(Case::Pascal));
 
@@ -143,47 +141,47 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     // Cmd function name: <function_name>_json
     let fn_json_name = format_ident!("{}_json", fn_name);
 
-    // Napi function name: <function_name>_napi
-    let fn_napi_name = format_ident!("{}_napi", fn_name);
-
-    // Module name for tauri-renames, to keep the original function names.
-    let napi_mod_name = format_ident!("napi_{}", fn_name);
-
     // Module name for tauri-renames, to keep the original function names.
     let tauri_mod_name = format_ident!("tauri_{}", fn_name);
     let tauri_cmd_name = format_ident!("__cmd__{}", fn_json_name);
     let tauri_orig_cmd_name = format_ident!("__cmd__{}", fn_name);
+    let fn_name_str = fn_name.to_string();
+    let tauri_command_name_macro = format_ident!("__tauri_command_name_{}", fn_json_name);
+    let tauri_orig_command_name_macro = format_ident!("__tauri_command_name_{}", fn_name);
 
     let (convert_to_json_result_type, json_ty) = if let Some(ResultConversion {
         mode,
-        is_result_option,
+        container,
         json_ty,
         json_ty_rval,
     }) = opts.result_conversion
     {
         let convert = match mode {
-            FromMode::From => {
-                if is_result_option {
-                    quote! {
-                        let result: Option<#json_ty> = result.map(Into::into);
-                    }
-                } else {
-                    quote! {
-                        let result: #json_ty = result.into();
-                    }
-                }
-            }
-            FromMode::TryFrom => {
-                if is_result_option {
-                    quote! {
-                        let result: Option<#json_ty> = result.map(TryInto::try_into).transpose()?;
-                    }
-                } else {
-                    quote! {
-                        let result: #json_ty = result.try_into()?;
-                    }
-                }
-            }
+            FromMode::From => match container {
+                ResultContainer::Value => quote! {
+                    let result: #json_ty = result.into();
+                },
+                ResultContainer::Option => quote! {
+                    let result: Option<#json_ty> = result.map(Into::into);
+                },
+                ResultContainer::Vec => quote! {
+                    let result: Vec<#json_ty> = result.into_iter().map(Into::into).collect();
+                },
+            },
+            FromMode::TryFrom => match container {
+                ResultContainer::Value => quote! {
+                    let result: #json_ty = result.try_into()?;
+                },
+                ResultContainer::Option => quote! {
+                    let result: Option<#json_ty> = result.map(TryInto::try_into).transpose()?;
+                },
+                ResultContainer::Vec => quote! {
+                    let result: Vec<#json_ty> = result
+                        .into_iter()
+                        .map(TryInto::try_into)
+                        .collect::<std::result::Result<_, _>>()?;
+                },
+            },
         };
         (convert, json_ty_rval)
     } else {
@@ -200,105 +198,6 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         quote! {}
     };
 
-    // Compute the TypeScript return type name string for napi's ts_return_type attribute.
-    let ts_return_type_str = format!("Promise<{}>", type_to_ts_name(&json_ty));
-
-    // The napi function needs `legacy` when json_ty_by_name is non-empty (Context parameter).
-    let napi_legacy_cfg = if wrapper_params.requires_legacy {
-        quote! { #[cfg(all(feature = "napi", feature = "legacy"))] }
-    } else {
-        quote! { #[cfg(feature = "napi")] }
-    };
-
-    // Build the napi function body.
-    // For async functions, we use an `async {}` block; for sync, spawn_blocking.
-    // Both return anyhow::Result to handle any error type uniformly.
-    let napi_body = if asyncness.is_some() {
-        quote! {
-            let __napi_body_result: ::anyhow::Result<::serde_json::Value> = async {
-                let result = #napi_call_fn_args?;
-                #convert_to_json_result_type
-                Ok(::serde_json::to_value(result)?)
-            }.await;
-            __napi_body_result.map_err(|e: ::anyhow::Error| {
-                let ctx = but_error::AnyhowContextExt::custom_context_or_error_chain(&e);
-                let message = ctx
-                    .message
-                    .map(|m| m.to_string())
-                    .unwrap_or_else(|| format!("{e:#}"));
-                napi::Error::new(napi::Status::GenericFailure, message)
-            })
-        }
-    } else {
-        // For sync functions, param conversions must be inside spawn_blocking
-        // so that non-Send types (e.g. Context with Rc) are never moved across threads.
-        quote! {
-            ::tokio::task::spawn_blocking(move || {
-                #(#napi_param_conversions);*
-                let __napi_body_result: ::anyhow::Result<::serde_json::Value> = (|| {
-                    let result = #napi_call_fn_args?;
-                    #convert_to_json_result_type
-                    Ok(::serde_json::to_value(result)?)
-                })();
-                __napi_body_result.map_err(|e: ::anyhow::Error| {
-                    let ctx = but_error::AnyhowContextExt::custom_context_or_error_chain(&e);
-                    let message = ctx
-                        .message
-                        .map(|m| m.to_string())
-                        .unwrap_or_else(|| format!("{e:#}"));
-                    napi::Error::new(napi::Status::GenericFailure, message)
-                })
-            })
-            .await
-            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, format!("spawn_blocking join error: {e}")))?
-        }
-    };
-
-    // For async functions, param conversions happen outside the body (in the async fn).
-    // For sync functions, they're already inside spawn_blocking in napi_body.
-    let napi_external_conversions = if asyncness.is_some() {
-        quote! { #(#napi_param_conversions);* }
-    } else {
-        quote! {}
-    };
-
-    let js_name = fn_name
-        .to_string()
-        .split("_")
-        .enumerate()
-        .map(|(idx, word)| {
-            if idx == 0 {
-                word.into()
-            } else if let Some((head, tail)) = word.split_at_checked(1) {
-                [head.to_uppercase(), tail.to_string()].concat()
-            } else {
-                word.into()
-            }
-        })
-        .reduce(|a, b| format!("{a}{b}"));
-
-    let napi_fn_block = if opts.napi {
-        quote! {
-            #(#napi_doc_attrs)*
-            #napi_legacy_cfg
-            #[napi_derive::napi(ts_return_type = #ts_return_type_str, js_name = #js_name)]
-            #vis async fn #fn_napi_name(
-                #(#napi_fn_params),*
-            ) -> napi::Result<::serde_json::Value> {
-                #napi_external_conversions
-                #napi_body
-            }
-
-            /// A module to re-export napi functions with the original function name.
-            #napi_legacy_cfg
-            pub mod #napi_mod_name {
-                pub use super::#fn_napi_name as #fn_name;
-            }
-        }
-    } else {
-        quote! {}
-    };
-
     let expanded = quote! {
         // Generated struct
         #[cfg(feature = "legacy")]
@@ -309,7 +208,7 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         // Original function stays
-        #input_fn
+        #sanitized_input_fn
 
         const _: () = {
             #[expect(dead_code)]
@@ -330,11 +229,11 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         /// tauri function - json input, json output, by #fn_name
-        #[cfg_attr(feature = "tauri", tauri::command(async))]
+        #[cfg_attr(feature = "tauri", tauri::command(async, rename = #fn_name_str))]
         #legacy_cfg_if_json_mapping_is_used
         #vis #asyncness fn #fn_json_name(
             #(#json_fn_input_params),*
-        ) -> Result<#json_ty, crate::json::Error> {
+        ) -> std::result::Result<#json_ty, crate::json::Error> {
             #(#param_conversions);*
             let result = #call_fn_args?;
             #convert_to_json_result_type
@@ -346,12 +245,57 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         pub mod #tauri_mod_name {
             pub use super::#fn_json_name as #fn_name;
             pub use super::#tauri_cmd_name as #tauri_orig_cmd_name;
+            pub use super::#tauri_command_name_macro as #tauri_orig_command_name_macro;
         }
 
-        #napi_fn_block
     };
 
     expanded.into()
+}
+
+/// Wrap the body so a successful call writes the project's refresh sentinel,
+/// for the watchers of other processes. The storage directory comes from the
+/// context parameter, so an endpoint without one is an error at `span`.
+fn refresh_on_success(mut input_fn: ItemFn, span: proc_macro2::Span) -> syn::Result<ItemFn> {
+    let Some(ctx_ident) = input_fn.sig.inputs.iter().find_map(|arg| {
+        let FnArg::Typed(pat_ty) = arg else {
+            return None;
+        };
+        context_param_kind(&pat_ty.ty)?;
+        match &*pat_ty.pat {
+            Pat::Ident(pat) => Some(pat.ident.clone()),
+            _ => None,
+        }
+    }) else {
+        return Err(syn::Error::new(
+            span,
+            "`refreshes` needs a context parameter to find the project's storage directory",
+        ));
+    };
+    let syn::ReturnType::Type(_, output_ty) = &input_fn.sig.output else {
+        return Ok(input_fn);
+    };
+    let body = &input_fn.block;
+    // A closure or async block keeps `?` and `return` inside the body meaning
+    // what they did, with the fn's own return type.
+    let run_body = if input_fn.sig.asyncness.is_some() {
+        quote! { let __but_api_result: #output_ty = async move #body.await; }
+    } else {
+        quote! {
+            #[allow(clippy::redundant_closure_call)]
+            let __but_api_result = (move || -> #output_ty #body)();
+        }
+    };
+    let block: syn::Block = syn::parse_quote! {{
+        let __but_api_project_data_dir = #ctx_ident.project_data_dir.clone();
+        #run_body
+        if __but_api_result.is_ok() {
+            ::but_project_handle::write_refresh_sentinel(&__but_api_project_data_dir);
+        }
+        __but_api_result
+    }};
+    input_fn.block = Box::new(block);
+    Ok(input_fn)
 }
 
 struct WrapperParamsInfo {
@@ -361,6 +305,29 @@ struct WrapperParamsInfo {
     param_conversions: Vec<proc_macro2::TokenStream>,
     call_arg_idents: Vec<proc_macro2::TokenStream>,
     requires_legacy: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ContextParamKind {
+    Context,
+    ThreadSafeContext,
+}
+
+struct ContextParamBinding {
+    ident: syn::Ident,
+    kind: ContextParamKind,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PermissionParamKind {
+    Exclusive,
+    Shared,
+}
+
+struct PermissionParamBinding {
+    ty: syn::Type,
+    kind: PermissionParamKind,
+    guard_ident: syn::Ident,
 }
 
 struct WrapperParameterMapping {
@@ -386,6 +353,12 @@ enum WrapperCallArgKind {
     AsRef,
 }
 
+/// A custom wrapper-surface transport type declared on a function parameter via
+/// `#[but_api(TransportType)]`.
+struct ParamTransportMapping {
+    transport_ty: syn::Type,
+}
+
 fn build_wrapper_params<'a>(
     input: impl IntoIterator<Item = &'a syn::FnArg>,
 ) -> Result<WrapperParamsInfo, syn::Error> {
@@ -395,6 +368,8 @@ fn build_wrapper_params<'a>(
     let mut param_conversions = Vec::new();
     let mut call_arg_idents = Vec::new();
     let mut requires_legacy = false;
+    let mut context_bindings = Vec::new();
+    let mut permission_bindings = Vec::new();
 
     for arg in input {
         let FnArg::Typed(pat_ty) = arg else {
@@ -410,6 +385,40 @@ fn build_wrapper_params<'a>(
             ));
         };
         let ident = &pat_ident.ident;
+
+        if let Some(context_kind) = context_param_kind(&pat_ty.ty) {
+            context_bindings.push(ContextParamBinding {
+                ident: ident.clone(),
+                kind: context_kind,
+            });
+        }
+
+        if let Some(custom_transport) = parse_param_transport_mapping(pat_ty)? {
+            let transport_ty = &custom_transport.transport_ty;
+            let binding_ty = &pat_ty.ty;
+            param_field_names.push(ident.clone());
+            struct_fields_with_json_types.push(quote! { pub #ident: #transport_ty });
+            json_fn_input_params.push(syn::parse_quote! { #ident: #transport_ty });
+            param_conversions.push(quote! {
+                let mut #ident: #binding_ty = <#binding_ty>::from(#ident);
+            });
+            call_arg_idents.push(quote! { #ident });
+            continue;
+        }
+
+        if let Some(permission_kind) = permission_param_kind(&pat_ty.ty)? {
+            let guard_ident = permission_guard_ident(ident);
+            permission_bindings.push(PermissionParamBinding {
+                ty: (*pat_ty.ty).clone(),
+                kind: permission_kind,
+                guard_ident: guard_ident.clone(),
+            });
+            call_arg_idents.push(match permission_kind {
+                PermissionParamKind::Exclusive => quote! { #guard_ident.write_permission() },
+                PermissionParamKind::Shared => quote! { #guard_ident.read_permission() },
+            });
+            continue;
+        }
 
         if let Some(mapping) = build_wrapper_parameter_mapping(&pat_ty.ty)? {
             let json_ident = mapping.json_ident.unwrap_or_else(|| ident.clone());
@@ -451,6 +460,49 @@ fn build_wrapper_params<'a>(
         }
     }
 
+    if let Some(permission) = permission_bindings.first() {
+        if permission_bindings.len() > 1 {
+            return Err(syn::Error::new_spanned(
+                &permission.ty,
+                "Only one explicit repository permission parameter is supported",
+            ));
+        }
+
+        let context_binding = match context_bindings.as_slice() {
+            [] => {
+                return Err(syn::Error::new_spanned(
+                    &permission.ty,
+                    "Explicit repository permission parameters require a `Context`, `&Context`, or `&mut Context` parameter",
+                ));
+            }
+            [binding] => binding,
+            _ => {
+                return Err(syn::Error::new_spanned(
+                    &permission.ty,
+                    "Explicit repository permission parameters require exactly one context parameter",
+                ));
+            }
+        };
+
+        if context_binding.kind == ContextParamKind::ThreadSafeContext {
+            return Err(syn::Error::new_spanned(
+                &permission.ty,
+                "Explicit repository permission parameters are not supported with `ThreadSafeContext`; convert it to `Context` before locking",
+            ));
+        }
+
+        let context_ident = &context_binding.ident;
+        let guard_ident = &permission.guard_ident;
+        param_conversions.push(match permission.kind {
+            PermissionParamKind::Exclusive => quote! {
+                let mut #guard_ident = #context_ident.exclusive_worktree_access();
+            },
+            PermissionParamKind::Shared => quote! {
+                let #guard_ident = #context_ident.shared_worktree_access();
+            },
+        });
+    }
+
     Ok(WrapperParamsInfo {
         struct_fields_with_json_types,
         param_field_names,
@@ -459,6 +511,78 @@ fn build_wrapper_params<'a>(
         call_arg_idents,
         requires_legacy,
     })
+}
+
+/// Remove parameter-level `#[but_api(...)]` attributes from the original function item before it
+/// is emitted again, as only the proc-macro implementation should interpret them.
+fn strip_param_but_api_attrs(input_fn: &ItemFn) -> ItemFn {
+    let mut stripped = input_fn.clone();
+    for arg in &mut stripped.sig.inputs {
+        let FnArg::Typed(pat_ty) = arg else {
+            continue;
+        };
+        pat_ty.attrs.retain(|attr| !attr.path().is_ident("but_api"));
+    }
+    stripped
+}
+
+/// Parse an optional parameter-local transport override from `#[but_api(TransportType)]`.
+///
+/// This mirrors the top-level `#[but_api(Type)]` shorthand by treating the provided type as the
+/// wrapper-facing transport type and assuming `impl From<TransportType> for ParamType`.
+/// The override is intentionally limited to owned parameters and cannot overlap with built-in
+/// remappings like `Context` or `gix::ObjectId`.
+fn parse_param_transport_mapping(
+    pat_ty: &syn::PatType,
+) -> Result<Option<ParamTransportMapping>, syn::Error> {
+    let mut transport_ty = None;
+
+    for attr in &pat_ty.attrs {
+        if !attr.path().is_ident("but_api") {
+            continue;
+        }
+
+        let parsed: syn::Type = attr.parse_args_with(|input: syn::parse::ParseStream| {
+            if input.peek(syn::Ident) && input.peek2(syn::Token![=]) {
+                let ident: syn::Ident = input.parse()?;
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    "Expected `Type`; use `#[but_api(Type)]` instead of `#[but_api(transport = Type)]` for parameter attributes",
+                ));
+            }
+
+            let ty: syn::Type = input.parse()?;
+            if !input.is_empty() {
+                return Err(input.error("Unexpected tokens after parameter transport type"));
+            }
+            Ok(ty)
+        })?;
+
+        if transport_ty.is_some() {
+            return Err(syn::Error::new_spanned(
+                attr,
+                "Only one `#[but_api(Type)]` attribute may be specified per parameter",
+            ));
+        }
+
+        if matches!(&*pat_ty.ty, syn::Type::Reference(_)) {
+            return Err(syn::Error::new_spanned(
+                &pat_ty.ty,
+                "`#[but_api(Type)]` only supports owned parameters",
+            ));
+        }
+
+        if build_wrapper_parameter_mapping(&pat_ty.ty)?.is_some() {
+            return Err(syn::Error::new_spanned(
+                &pat_ty.ty,
+                "`#[but_api(Type)]` cannot be combined with built-in parameter remapping",
+            ));
+        }
+
+        transport_ty = Some(parsed);
+    }
+
+    Ok(transport_ty.map(|transport_ty| ParamTransportMapping { transport_ty }))
 }
 
 fn build_wrapper_parameter_mapping(
@@ -553,6 +677,77 @@ fn build_wrapper_parameter_mapping(
     }
 }
 
+fn context_param_kind(ty: &syn::Type) -> Option<ContextParamKind> {
+    let path = match ty {
+        syn::Type::Reference(reference) => match &*reference.elem {
+            syn::Type::Path(type_path) => &type_path.path,
+            _ => return None,
+        },
+        syn::Type::Path(type_path) => &type_path.path,
+        _ => return None,
+    };
+
+    if !is_context_path(path) {
+        return None;
+    }
+
+    path.segments.last().map(|segment| {
+        if segment.ident == "ThreadSafeContext" {
+            ContextParamKind::ThreadSafeContext
+        } else {
+            ContextParamKind::Context
+        }
+    })
+}
+
+fn permission_param_kind(ty: &syn::Type) -> Result<Option<PermissionParamKind>, syn::Error> {
+    let syn::Type::Reference(reference) = ty else {
+        return Ok(None);
+    };
+    let syn::Type::Path(type_path) = &*reference.elem else {
+        return Ok(None);
+    };
+    let path = &type_path.path;
+    let Some(last) = path.segments.last() else {
+        return Ok(None);
+    };
+
+    let kind = match last.ident.to_string().as_str() {
+        "RepoExclusive" => PermissionParamKind::Exclusive,
+        "RepoShared" => PermissionParamKind::Shared,
+        _ => return Ok(None),
+    };
+
+    let supported_root = path.segments.len() == 1
+        || path
+            .segments
+            .first()
+            .is_some_and(|first| first.ident == "but_core" || first.ident == "but_ctx");
+    if !supported_root {
+        return Ok(None);
+    }
+
+    match kind {
+        PermissionParamKind::Exclusive if reference.mutability.is_some() => Ok(Some(kind)),
+        PermissionParamKind::Shared if reference.mutability.is_none() => Ok(Some(kind)),
+        PermissionParamKind::Exclusive => Err(syn::Error::new_spanned(
+            ty,
+            "Explicit repository permission parameters must use `&mut RepoExclusive` for exclusive access",
+        )),
+        PermissionParamKind::Shared => Err(syn::Error::new_spanned(
+            ty,
+            "Explicit repository permission parameters must use `&RepoShared` for shared access",
+        )),
+    }
+}
+
+fn permission_guard_ident(ident: &syn::Ident) -> syn::Ident {
+    let ident = ident.to_string();
+    let ident = ident.trim_start_matches('_');
+    let suffix = if ident.is_empty() { "perm" } else { ident };
+    format_ident!("__but_api_{}_guard", suffix)
+}
+
 fn is_context_path(path: &syn::Path) -> bool {
     path.segments
         .last()
@@ -593,104 +788,6 @@ fn single_generic_type_arg<'a>(path: &'a syn::Path, expected: &str) -> Option<&'
         syn::GenericArgument::Type(ty) => Some(ty),
         _ => None,
     }
-}
-
-fn doc_attributes(attrs: &[syn::Attribute]) -> Vec<syn::Attribute> {
-    attrs
-        .iter()
-        .filter(|attr| attr.path().is_ident("doc"))
-        .cloned()
-        .collect()
-}
-
-struct JsonParameterMapping {
-    /// The mapped type to which the actual type can be converted.
-    json_ty: syn::Path,
-    /// The identifier to use when referring to the `json_ty`.
-    ///
-    /// This is important as the frontend actually uses the parameter names as identifiers.
-    json_ident: Option<syn::Ident>,
-}
-
-/// The mapping is from type name to their respective json types.
-fn build_json_type_mapping<'a>(
-    input: impl IntoIterator<Item = &'a syn::FnArg>,
-) -> Result<HashMap<String, JsonParameterMapping>, syn::Error> {
-    let mut out = HashMap::new();
-
-    for arg in input {
-        let syn::FnArg::Typed(pat_ty) = arg else {
-            continue;
-        };
-
-        let pat = &pat_ty.pat;
-        let ty = &pat_ty.ty;
-
-        let Pat::Ident(pat_ident) = &**pat else {
-            continue;
-        };
-
-        let (path, is_reference) = if let syn::Type::Reference(r) = &**ty {
-            // Extract the referenced type
-            let inner = &r.elem;
-            let syn::Type::Path(tp) = &**inner else {
-                return Err(syn::Error::new_spanned(
-                    inner,
-                    "Expected a type path inside reference",
-                ));
-            };
-
-            (&tp.path, true)
-        } else if let syn::Type::Path(ty_path) = &**ty {
-            (&ty_path.path, false)
-        } else {
-            continue;
-        };
-
-        let segments = &path.segments;
-        if segments.is_empty() {
-            return Err(syn::Error::new_spanned(
-                ty,
-                "Unexpected empty type path in reference",
-            ));
-        }
-
-        let (name, mapping) = if is_context_path(path) {
-            (
-                pat_ident.ident.to_string(),
-                JsonParameterMapping {
-                    json_ty: syn::parse_str("but_ctx::ProjectHandleOrLegacyProjectId")?,
-                    json_ident: Some(syn::parse_str("project_id")?),
-                },
-            )
-        } else if is_object_id_path(path) {
-            (
-                pat_ident.ident.to_string(),
-                JsonParameterMapping {
-                    json_ty: syn::parse_str("crate::json::HexHash")?,
-                    json_ident: None,
-                },
-            )
-        } else if is_full_name_ref_path(path) {
-            (
-                pat_ident.ident.to_string(),
-                JsonParameterMapping {
-                    json_ty: syn::parse_str("gix::refs::FullName")?,
-                    json_ident: None,
-                },
-            )
-        } else if is_reference {
-            return Err(syn::Error::new_spanned(
-                ty,
-                "Only `&Context`, `&but_ctx::Context`, `&ThreadSafeContext`, or `&gix::refs::FullNameRef` may be references",
-            ));
-        } else {
-            continue;
-        };
-        out.insert(name, mapping);
-    }
-
-    Ok(out)
 }
 
 fn extract_ok_type(output: &syn::ReturnType) -> syn::Result<syn::Type> {
@@ -756,34 +853,49 @@ struct Options {
     /// It's `None` if the result type converts to JSON naturally.
     /// Otherwise, we convert to it.
     result_conversion: Option<ResultConversion>,
-    /// If `true`, generate a `_napi` function for Node.js bindings.
-    /// Enabled by writing `#[but_api(napi)]` or `#[but_api(napi, try_from = Foo)]`.
-    napi: bool,
+    /// Where `refreshes` was written, if it was: a successful call writes the
+    /// refresh sentinel.
+    refreshes: Option<proc_macro2::Span>,
 }
 
 struct ResultConversion {
     /// If the result type conversion is fallbile.
     mode: FromMode,
-    /// If the function returns `Result<Option<T>>>`
-    is_result_option: bool,
+    /// Container around the converted value in the function's `Result`.
+    container: ResultContainer,
     /// The type to convert *to* for json.
     json_ty: syn::Type,
-    /// The resulting JSON type after applying option wrapping.
+    /// The resulting JSON type after applying container wrapping.
     json_ty_rval: syn::Type,
 }
 
-fn parse_options(input: syn::parse::ParseStream, is_result_option: bool) -> syn::Result<Options> {
-    let mut napi = false;
+fn parse_options(
+    input: syn::parse::ParseStream,
+    container: ResultContainer,
+) -> syn::Result<Options> {
     let mut conversion_path: Option<(FromMode, syn::Path)> = None;
+    let mut refreshes: Option<proc_macro2::Span> = None;
 
     while !input.is_empty() {
-        if input.peek(syn::Ident) && input.peek2(syn::Token![=]) {
+        let is_refreshes = input.peek(syn::Ident)
+            && (input.peek2(syn::Token![,]) || input.peek2(syn::parse::End))
+            && input.fork().parse::<syn::Ident>()? == "refreshes";
+        if is_refreshes {
+            let ident: syn::Ident = input.parse()?;
+            if refreshes.is_some() {
+                return Err(syn::Error::new_spanned(
+                    &ident,
+                    "`refreshes` may be specified only once",
+                ));
+            }
+            refreshes = Some(ident.span());
+        } else if input.peek(syn::Ident) && input.peek2(syn::Token![=]) {
             // try_from = Path
             let ident: syn::Ident = input.parse()?;
             if ident != "try_from" {
                 return Err(syn::Error::new_spanned(
                     ident,
-                    "Expected `try_from = Type`; only `try_from` is supported as a key",
+                    "Expected `try_from = Type` or `refreshes`",
                 ));
             }
             input.parse::<syn::Token![=]>()?;
@@ -797,17 +909,13 @@ fn parse_options(input: syn::parse::ParseStream, is_result_option: bool) -> syn:
             conversion_path = Some((FromMode::TryFrom, path));
         } else {
             let path: syn::Path = input.parse()?;
-            if path.is_ident("napi") {
-                napi = true;
-            } else {
-                if conversion_path.is_some() {
-                    return Err(syn::Error::new_spanned(
-                        path,
-                        "Only one conversion type may be specified",
-                    ));
-                }
-                conversion_path = Some((FromMode::From, path));
+            if conversion_path.is_some() {
+                return Err(syn::Error::new_spanned(
+                    path,
+                    "Only one conversion type may be specified",
+                ));
             }
+            conversion_path = Some((FromMode::From, path));
         }
 
         if !input.is_empty() {
@@ -820,14 +928,14 @@ fn parse_options(input: syn::parse::ParseStream, is_result_option: bool) -> syn:
             qself: None,
             path: p,
         });
-        let json_ty_rval = if is_result_option {
-            syn::parse_quote! { Option<#base_ty> }
-        } else {
-            base_ty.clone()
+        let json_ty_rval = match container {
+            ResultContainer::Value => base_ty.clone(),
+            ResultContainer::Option => syn::parse_quote! { Option<#base_ty> },
+            ResultContainer::Vec => syn::parse_quote! { Vec<#base_ty> },
         };
         ResultConversion {
             mode,
-            is_result_option,
+            container,
             json_ty: base_ty,
             json_ty_rval,
         }
@@ -835,12 +943,19 @@ fn parse_options(input: syn::parse::ParseStream, is_result_option: bool) -> syn:
 
     Ok(Options {
         result_conversion,
-        napi,
+        refreshes,
     })
 }
 
-/// Detect `Result<Option<` type
-fn is_result_option(ty: &syn::Type) -> bool {
+#[derive(Clone, Copy)]
+enum ResultContainer {
+    Value,
+    Option,
+    Vec,
+}
+
+/// Detect the supported container directly inside `Result`.
+fn result_container(ty: &syn::Type) -> ResultContainer {
     if let syn::Type::Path(tp) = ty
         && let Some(seg) = tp.path.segments.last()
         && seg.ident == "Result"
@@ -848,375 +963,27 @@ fn is_result_option(ty: &syn::Type) -> bool {
         && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
         && let syn::Type::Path(tp) = inner
         && let Some(first) = tp.path.segments.last()
-        && first.ident == "Option"
     {
-        true
+        match first.ident.to_string().as_str() {
+            "Option" => ResultContainer::Option,
+            "Vec" => ResultContainer::Vec,
+            _ => ResultContainer::Value,
+        }
     } else {
-        false
-    }
-}
-
-/// Information about the napi-specific parameters for a function.
-#[derive(Default)]
-struct NapiParamsInfo {
-    /// The napi-compatible function parameters.
-    params: Vec<proc_macro2::TokenStream>,
-    /// Code to convert napi parameters into the types the original function expects.
-    conversions: Vec<proc_macro2::TokenStream>,
-    /// The identifiers to pass to the original function call (may include `&` or `&mut`).
-    call_arg_idents: Vec<proc_macro2::TokenStream>,
-}
-
-/// Build napi-compatible parameter lists and conversions.
-///
-/// For napi, we need to map Rust types to types that napi-rs can handle:
-/// - `Context`/`&Context`/`&mut Context`/`ThreadSafeContext` → `String` (project_id)
-/// - `gix::ObjectId` → `String` (hex-encoded)
-/// - `json::HexHash` → `String` (hex-encoded)
-/// - `BString` → `String`
-/// - Other types that implement Serialize/Deserialize → `serde_json::Value`
-fn build_napi_params<'a>(
-    input: impl IntoIterator<Item = &'a syn::FnArg>,
-    json_ty_by_name: &HashMap<String, JsonParameterMapping>,
-) -> Result<NapiParamsInfo, syn::Error> {
-    let mut params = Vec::new();
-    let mut conversions = Vec::new();
-    let mut call_arg_idents = Vec::new();
-
-    for arg in input {
-        let syn::FnArg::Typed(pat_ty) = arg else {
-            continue;
-        };
-        let Pat::Ident(pat_ident) = &*pat_ty.pat else {
-            return Err(syn::Error::new_spanned(
-                &pat_ty.pat,
-                "Cannot handle this pattern in napi generation",
-            ));
-        };
-        let ident = &pat_ident.ident;
-
-        // Check if this parameter has a json type mapping (Context, ObjectId)
-        if let Some(mapping) = json_ty_by_name.get(&ident.to_string()) {
-            let param_name = mapping.json_ident.as_ref().unwrap_or(ident);
-            let last_segment = mapping.json_ty.segments.last().unwrap();
-            let last_ident = &last_segment.ident;
-
-            if *last_ident == "LegacyProjectId" || *last_ident == "ProjectHandleOrLegacyProjectId" {
-                // Context → String project_id, then convert to Context
-                params.push(quote! { #param_name: String });
-                // Determine the actual type we need to produce (stripping references)
-                let actual_ty = match &*pat_ty.ty {
-                    syn::Type::Reference(r) => &*r.elem,
-                    other => other,
-                };
-                let json_ty = &mapping.json_ty;
-                conversions.push(quote! {
-                    let project_id: #json_ty = #param_name.parse()
-                        .map_err(|e: <#json_ty as ::std::str::FromStr>::Err| {
-                            napi::Error::new(napi::Status::InvalidArg, format!("{e:#}"))
-                        })?;
-                    let mut #ident = <#actual_ty>::try_from(project_id)
-                        .map_err(|e: anyhow::Error| napi::Error::new(napi::Status::GenericFailure, format!("{e:#}")))?;
-                });
-                // Pass as reference if original was a reference
-                let call_ident = match &*pat_ty.ty {
-                    syn::Type::Reference(r) => {
-                        let mutability = &r.mutability;
-                        quote! { &#mutability #ident }
-                    }
-                    _ => quote! { #ident },
-                };
-                call_arg_idents.push(call_ident);
-            } else if *last_ident == "HexHash" {
-                // ObjectId via HexHash → String, then parse
-                params.push(quote! { #param_name: String });
-                conversions.push(quote! {
-                    let #ident = ::std::str::FromStr::from_str(&#param_name)
-                        .map_err(|e: gix::hash::decode::Error| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
-                });
-                let call_ident = match &*pat_ty.ty {
-                    syn::Type::Reference(r) => {
-                        let mutability = &r.mutability;
-                        quote! { &#mutability #ident }
-                    }
-                    _ => quote! { #ident },
-                };
-                call_arg_idents.push(call_ident);
-            } else if *last_ident == "FullName" {
-                // FullNameRef via FullName transport → String, then parse
-                params.push(quote! { #param_name: String });
-                conversions.push(quote! {
-                    let #ident: gix::refs::FullName = gix::refs::FullName::try_from(#param_name)
-                        .map_err(|e: gix::refs::name::Error| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
-                });
-                let call_ident = match &*pat_ty.ty {
-                    syn::Type::Reference(_) => quote! { #ident.as_ref() },
-                    _ => quote! { #ident },
-                };
-                call_arg_idents.push(call_ident);
-            } else {
-                // Fallback: use serde_json::Value with ts_arg_type for proper TS typing
-                let ts_type_str = type_to_ts_name(&pat_ty.ty);
-                params.push(
-                    quote! { #[napi(ts_arg_type = #ts_type_str)] #param_name: ::serde_json::Value },
-                );
-                let actual_ty = match &*pat_ty.ty {
-                    syn::Type::Reference(r) => &*r.elem,
-                    other => other,
-                };
-                conversions.push(quote! {
-                    let mut #ident: #actual_ty = ::serde_json::from_value(#param_name)
-                        .map_err(|e| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
-                });
-                let call_ident = match &*pat_ty.ty {
-                    syn::Type::Reference(r) => {
-                        let mutability = &r.mutability;
-                        quote! { &#mutability #ident }
-                    }
-                    _ => quote! { #ident },
-                };
-                call_arg_idents.push(call_ident);
-            }
-        } else {
-            // No json mapping — use the original type information
-            let ty = &*pat_ty.ty;
-            let (base_ty, is_ref) = match ty {
-                syn::Type::Reference(r) => (&*r.elem, true),
-                other => (other, false),
-            };
-
-            // Check for known types that need special napi handling
-            let type_name = type_last_segment_name(base_ty);
-            match type_name.as_deref() {
-                Some("BString") => {
-                    params.push(quote! { #ident: String });
-                    conversions.push(quote! {
-                        let #ident: bstr::BString = #ident.into();
-                    });
-                    if is_ref {
-                        call_arg_idents.push(quote! { &#ident });
-                    } else {
-                        call_arg_idents.push(quote! { #ident });
-                    }
-                }
-                Some("HexHash") => {
-                    // json::HexHash used directly as parameter (not via ObjectId mapping)
-                    params.push(quote! { #ident: String });
-                    conversions.push(quote! {
-                        let #ident: crate::json::HexHash = ::std::str::FromStr::from_str(&#ident)
-                            .map(crate::json::HexHash)
-                            .map_err(|e: gix::hash::decode::Error| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
-                    });
-                    call_arg_idents.push(quote! { #ident });
-                }
-                _ => {
-                    // For all other types: check for napi-incompatible types first
-                    if let Some(napi_ty) = napi_type_remap(base_ty) {
-                        // Type needs remapping (e.g., usize → i64)
-                        params.push(quote! { #ident: #napi_ty });
-                        let arg_name = ident.to_string();
-                        let conversion = match type_name.as_deref() {
-                            Some("usize") => quote! {
-                                let #ident: usize = ::std::convert::TryFrom::try_from(#ident).map_err(|_| {
-                                    napi::Error::new(
-                                        napi::Status::InvalidArg,
-                                        format!(
-                                            "argument '{}' must be a non-negative integer that fits in usize",
-                                            #arg_name
-                                        ),
-                                    )
-                                })?;
-                            },
-                            Some("isize") => quote! {
-                                let #ident: isize = ::std::convert::TryFrom::try_from(#ident).map_err(|_| {
-                                    napi::Error::new(
-                                        napi::Status::InvalidArg,
-                                        format!(
-                                            "argument '{}' must be an integer that fits in isize",
-                                            #arg_name
-                                        ),
-                                    )
-                                })?;
-                            },
-                            _ => quote! {},
-                        };
-                        conversions.push(conversion);
-                        call_arg_idents.push(quote! { #ident });
-                    } else if is_simple_napi_type(base_ty) {
-                        // Simple types (String, bool, numbers) can be passed directly
-                        params.push(quote! { #ident: #ty });
-                        call_arg_idents.push(quote! { #ident });
-                    } else {
-                        // Complex types → serde_json::Value with ts_arg_type for proper TS typing
-                        let ts_type_str = type_to_ts_name(ty);
-                        params.push(quote! { #[napi(ts_arg_type = #ts_type_str)] #ident: ::serde_json::Value });
-                        conversions.push(quote! {
-                            let #ident: #base_ty = ::serde_json::from_value(#ident)
-                                .map_err(|e| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
-                        });
-                        if is_ref {
-                            call_arg_idents.push(quote! { &#ident });
-                        } else {
-                            call_arg_idents.push(quote! { #ident });
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    Ok(NapiParamsInfo {
-        params,
-        conversions,
-        call_arg_idents,
-    })
-}
-
-/// Get the last segment name of a type path, if it is a simple path.
-fn type_last_segment_name(ty: &syn::Type) -> Option<String> {
-    if let syn::Type::Path(tp) = ty {
-        tp.path.segments.last().map(|s| s.ident.to_string())
-    } else {
-        None
-    }
-}
-
-/// Check if a type is "simple" enough to pass directly to napi without serde_json::Value.
-/// This includes primitive types and String.
-fn is_simple_napi_type(ty: &syn::Type) -> bool {
-    let Some(name) = type_last_segment_name(ty) else {
-        return false;
-    };
-    matches!(
-        name.as_str(),
-        "String" | "bool" | "u8" | "u16" | "u32" | "i8" | "i16" | "i32" | "i64" | "f32" | "f64"
-    )
-}
-
-/// Check if a Rust type needs to be remapped for napi compatibility.
-/// Returns Some(napi_type) if the type needs remapping.
-fn napi_type_remap(ty: &syn::Type) -> Option<proc_macro2::TokenStream> {
-    let name = type_last_segment_name(ty)?;
-    match name.as_str() {
-        // napi doesn't support usize/isize — remap to i64
-        "usize" => Some(quote! { i64 }),
-        "isize" => Some(quote! { i64 }),
-        _ => None,
-    }
-}
-
-/// Convert a Rust `syn::Type` to a TypeScript type name string.
-///
-/// This produces a string suitable for napi-rs's `ts_return_type` attribute
-/// and for schema registration names.
-fn type_to_ts_name(ty: &syn::Type) -> String {
-    match ty {
-        syn::Type::Path(tp) => {
-            let segments: Vec<_> = tp.path.segments.iter().collect();
-            if segments.is_empty() {
-                return "any".to_string();
-            }
-            let last = segments.last().unwrap();
-            let name = last.ident.to_string();
-
-            match name.as_str() {
-                // Primitive type mappings
-                "String" | "str" => "string".to_string(),
-                "bool" => "boolean".to_string(),
-                "u8" | "u16" | "u32" | "i8" | "i16" | "i32" | "f32" | "f64" | "usize" | "isize" => {
-                    "number".to_string()
-                }
-                "i64" | "u64" | "i128" | "u128" => "number".to_string(),
-                // Unit type
-                "()" => "void".to_string(),
-                // Generic containers
-                "Vec" => {
-                    if let syn::PathArguments::AngleBracketed(args) = &last.arguments
-                        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
-                    {
-                        let inner_name = type_to_ts_name(inner);
-                        return format!("Array<{inner_name}>");
-                    }
-                    "Array<any>".to_string()
-                }
-                "Option" => {
-                    if let syn::PathArguments::AngleBracketed(args) = &last.arguments
-                        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
-                    {
-                        let inner_name = type_to_ts_name(inner);
-                        return format!("{inner_name} | null");
-                    }
-                    "any | null".to_string()
-                }
-                "HashMap" | "BTreeMap" => {
-                    if let syn::PathArguments::AngleBracketed(args) = &last.arguments {
-                        let mut iter = args.args.iter();
-                        if let (
-                            Some(syn::GenericArgument::Type(k)),
-                            Some(syn::GenericArgument::Type(v)),
-                        ) = (iter.next(), iter.next())
-                        {
-                            let key_name = type_to_ts_name(k);
-                            let val_name = type_to_ts_name(v);
-                            return format!("Record<{key_name}, {val_name}>");
-                        }
-                    }
-                    "Record<string, any>".to_string()
-                }
-                // Tuple of two elements (e.g., (HexHash, HexHash))
-                "HexHash" | "HexHashString" => "string".to_string(),
-                "ObjectId" => "string".to_string(),
-                "BString" => "string".to_string(),
-                "StackId" => "string".to_string(),
-                // Named types — use their name as-is (these will be defined in the generated .d.ts)
-                other => other.to_string(),
-            }
-        }
-        syn::Type::Tuple(tuple) => {
-            if tuple.elems.is_empty() {
-                "void".to_string()
-            } else {
-                let inner: Vec<_> = tuple.elems.iter().map(type_to_ts_name).collect();
-                format!("[{}]", inner.join(", "))
-            }
-        }
-        syn::Type::Reference(r) => type_to_ts_name(&r.elem),
-        _ => "any".to_string(),
+        ResultContainer::Value
     }
 }
 
 #[cfg(test)]
 mod tests {
     use quote::quote;
-    use syn::{FnArg, ItemFn, parse_quote};
+    use syn::{FnArg, parse_quote};
 
     use super::{
-        WrapperCallArgKind, WrapperConversionKind, build_wrapper_parameter_mapping,
-        build_wrapper_params, doc_attributes,
+        ContextParamKind, PermissionParamKind, WrapperCallArgKind, WrapperConversionKind,
+        build_wrapper_parameter_mapping, build_wrapper_params, context_param_kind,
+        permission_param_kind,
     };
-
-    #[test]
-    fn collects_only_doc_attributes_for_napi_forwarding() {
-        let item_fn: ItemFn = parse_quote! {
-            #[doc = "First line."]
-            #[cfg(feature = "napi")]
-            #[doc = "Second line."]
-            pub fn my_api() -> anyhow::Result<()> {
-                Ok(())
-            }
-        };
-
-        let attrs = doc_attributes(&item_fn.attrs);
-
-        assert_eq!(
-            quote!(#(#attrs)*).to_string(),
-            quote!(
-                #[doc = "First line."]
-                #[doc = "Second line."]
-            )
-            .to_string()
-        );
-    }
 
     #[test]
     fn maps_object_id_to_hex_hash_transport() {
@@ -1293,6 +1060,45 @@ mod tests {
         assert!(
             params.requires_legacy,
             "context parameters should require the legacy project-id wrapper setup"
+        );
+    }
+
+    #[test]
+    fn detects_supported_permission_tokens() {
+        let exclusive_ty = parse_quote!(&mut but_ctx::access::RepoExclusive);
+        let shared_ty = parse_quote!(&but_core::sync::RepoShared);
+
+        assert_eq!(
+            permission_param_kind(&exclusive_ty).unwrap(),
+            Some(PermissionParamKind::Exclusive)
+        );
+        assert_eq!(
+            permission_param_kind(&shared_ty).unwrap(),
+            Some(PermissionParamKind::Shared)
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_permission_token_forms() {
+        let exclusive_ty = parse_quote!(&but_ctx::access::RepoExclusive);
+        let shared_ty = parse_quote!(&mut but_ctx::access::RepoShared);
+
+        assert!(permission_param_kind(&exclusive_ty).is_err());
+        assert!(permission_param_kind(&shared_ty).is_err());
+    }
+
+    #[test]
+    fn detects_thread_safe_context_bindings() {
+        let thread_safe_ctx: syn::Type = parse_quote!(but_ctx::ThreadSafeContext);
+        let borrowed_ctx: syn::Type = parse_quote!(&mut but_ctx::Context);
+
+        assert_eq!(
+            context_param_kind(&thread_safe_ctx),
+            Some(ContextParamKind::ThreadSafeContext)
+        );
+        assert_eq!(
+            context_param_kind(&borrowed_ctx),
+            Some(ContextParamKind::Context)
         );
     }
 

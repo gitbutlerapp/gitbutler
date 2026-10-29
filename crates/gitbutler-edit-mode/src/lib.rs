@@ -2,62 +2,60 @@ use std::collections::HashMap;
 
 use anyhow::{Context as _, Result, bail};
 use bstr::{BString, ByteSlice};
-use but_core::{RepositoryExt, TreeChange, commit::Headers, ref_metadata::StackId};
+use but_core::{
+    Commit, RepositoryExt, TreeChange,
+    commit::{Headers, SignCommit},
+    ref_metadata::StackId,
+    update_head_reference,
+};
 use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
-use but_oxidize::{ObjectIdExt as _, OidExt, RepoExt, gix_to_git2_index};
-use but_rebase::graph_rebase::{GraphExt as _, Step};
+use but_oxidize::{ObjectIdExt as _, gix_to_git2_index};
+use but_rebase::graph_rebase::{Editor, Pick};
 use git2::build::CheckoutBuilder;
-use gitbutler_branch_actions::update_workspace_commit;
-use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
-use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
+use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr};
 use gitbutler_operating_modes::{
-    EDIT_BRANCH_REF, EditModeMetadata, OperatingMode, WORKSPACE_BRANCH_REF, operating_mode,
-    read_edit_mode_metadata, write_edit_mode_metadata,
+    EDIT_BRANCH_REF, EditModeMetadata, INTEGRATION_BRANCH_REF, OperatingMode, WORKSPACE_BRANCH_REF,
+    delete_edit_mode_metadata, operating_mode, read_edit_mode_metadata, write_edit_mode_metadata,
 };
-use gitbutler_repo::{RepositoryExt as _, SignaturePurpose, signature};
-use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
+use gix::prelude::ObjectIdExt as _;
 use serde::Serialize;
 
 pub mod commands;
 
 const UNCOMMITTED_CHANGES_REF: &str = "refs/gitbutler/edit-uncommitted-changes";
 
+fn commit_title_to_merge_conflict_label(commit: &gix::Commit<'_>) -> String {
+    gix::objs::commit::MessageRef::from_bytes(
+        but_core::commit::strip_conflict_markers(commit.message_bstr()).as_ref(),
+    )
+    .title
+    // For some reason, the title sometimes contains newlines at the end, so trim it.
+    .trim_ascii_end()
+    .to_str_lossy()
+    .chars()
+    .take(80)
+    .collect()
+}
+
 /// Returns an index of the tree of `commit` if it is unconflicted, *or* produce a merged tree
 /// if `commit` is conflicted. That tree is turned into an index that records the conflicts that occurred
 /// during the merge.
 fn get_commit_index(ctx: &Context, commit_id: gix::ObjectId) -> Result<git2::Index> {
-    let git2_repo = ctx.git2_repo.get()?;
-    let git2_commit = git2_repo
-        .find_commit(commit_id.to_git2())
-        .context("Failed to find commit")?;
-    let commit_tree = git2_commit.tree().context("Failed to get commit's tree")?;
-    let repo = ctx.repo.get()?;
-    let commit = repo.find_commit(commit_id)?;
-    // Checkout the commit as unstaged changes
-    if commit.is_conflicted() {
-        let base = commit_tree
-            .get_name(".conflict-base-0")
-            .context("Failed to get base")?
-            .id();
-        let ours = commit_tree
-            .get_name(".conflict-side-0")
-            .context("Failed to get base")?
-            .id();
-        let theirs = commit_tree
-            .get_name(".conflict-side-1")
-            .context("Failed to get base")?
-            .id();
+    let repo = &*ctx.repo.get()?;
+    let commit = Commit::from_id(commit_id.attach(repo))?;
 
+    // Checkout the commit as unstaged changes
+    if let Some((base, ours, theirs)) = commit.conflicted_tree_ids()? {
         let repo = repo.clone().for_tree_diffing()?;
         // Merge without favoring a side this time to get a tree containing the actual conflicts.
         let mut merge_result = repo.merge_trees(
-            base.to_gix(),
-            ours.to_gix(),
-            theirs.to_gix(),
+            base,
+            ours,
+            theirs,
             repo.default_merge_labels(),
             repo.tree_merge_options()?,
         )?;
@@ -74,115 +72,114 @@ fn get_commit_index(ctx: &Context, commit_id: gix::ObjectId) -> Result<git2::Ind
         }
         gix_to_git2_index(&index)
     } else {
-        let mut index = git2::Index::new()?;
-        index.read_tree(&commit_tree)?;
-        Ok(index)
+        let commit_tree_id = commit.tree_id_or_auto_resolution()?;
+        let index = repo.index_from_tree(&commit_tree_id)?;
+        gix_to_git2_index(&index)
     }
 }
 
-/// Returns a commit to be the HEAD of `gitbutler/edit`
+/// Returns a commit to be the HEAD of `gitbutler/edit`.
 ///
-/// This should a commit who's tree is what the commit getting edited
-/// (the editee) is based on.
+/// If the edited commit is unconflicted, this is the edited commit itself.
 ///
-/// If the editee is conflicted:
-/// We should checkout `.conflict-side-0`. This is because the resulting merge
-/// is always based on top of `.conflict-side-0`, so this is the preferable
-/// base.
-///
-/// If the parent is conflicted:
-/// We should checkout the parent's `.auto-resolution` because that is what
-/// the editee is based on
-///
-/// Otherwise:
-/// We can simply return the parent commit.
+/// If the edited commit is conflicted, this is the edited commit except that
+/// the root tree is `.conflict-side-0`. This is because the resulting merge is
+/// always based on top of `.conflict-side-0`, so this is the preferable base.
 fn find_or_create_base_commit(
-    repository: &git2::Repository,
+    repo: &gix::Repository,
     commit_id: gix::ObjectId,
 ) -> Result<gix::ObjectId> {
-    let gix_repo = repository.to_gix_repo()?;
-    let gix_commit = gix_repo.find_commit(commit_id)?;
-    let is_conflicted = gix_commit.is_conflicted();
-    let parent = gix_commit
-        .parent_ids()
-        .next()
-        .context("Expected commit to have a single parent")?
-        .object()?
-        .into_commit();
-    let is_parent_conflicted = parent.is_conflicted();
+    let commit = repo.find_commit(commit_id)?;
 
-    // If neither is conflicted, we can use the old parent.
-    if !(is_conflicted || is_parent_conflicted) {
-        return Ok(parent.id);
+    if !commit.is_conflicted() {
+        return Ok(commit_id);
     };
 
-    let commit = repository.find_commit(commit_id.to_git2())?;
-    let base_tree = if is_conflicted {
-        repository.find_real_tree(&commit, ConflictedTreeKey::Ours)?
-    } else {
-        let parent = commit.parent(0)?;
-        repository.find_real_tree(&parent, ConflictedTreeKey::AutoResolution)?
+    let base_tree = but_core::Commit::try_from(commit.clone())?
+        .tree_id_or_kind(but_core::commit::TreeKind::Ours)?;
+
+    let concrete_commit = gix::objs::Commit::try_from(commit.decode()?)?;
+    let extra_headers: Vec<(BString, BString)> = Headers::try_from_commit(&concrete_commit)
+        .map(|commit_headers| {
+            let headers = Headers {
+                conflicted: None,
+                ..commit_headers
+            };
+            (&headers).into()
+        })
+        .unwrap_or_default();
+    let message = but_core::commit::strip_conflict_markers(concrete_commit.message.as_ref());
+    let commit = gix::objs::Commit {
+        tree: base_tree.into(),
+        extra_headers,
+        message,
+        ..concrete_commit
     };
-
-    let author_signature = signature(SignaturePurpose::Author)?;
-    let committer_signature = signature(SignaturePurpose::Committer)?;
-    let base = repository.commit(
-        None,
-        &author_signature,
-        &committer_signature,
-        &parent.message_bstr().to_str_lossy(),
-        &base_tree,
-        &[],
-    )?;
-
-    Ok(base.to_gix())
+    Ok(repo.write_object(&commit)?.detach())
 }
 
-fn commit_uncommited_changes(ctx: &Context) -> Result<()> {
-    let repo = &*ctx.git2_repo.get()?;
-    let uncommited_changes = repo.create_wd_tree(0)?;
-    repo.reference(UNCOMMITTED_CHANGES_REF, uncommited_changes.id(), true, "")?;
+fn commit_uncommited_changes(repo: &gix::Repository) -> Result<()> {
+    #[expect(deprecated)]
+    let uncommitted_changes = repo.create_wd_tree(0)?;
+    repo.reference(
+        UNCOMMITTED_CHANGES_REF,
+        uncommitted_changes,
+        gix::refs::transaction::PreviousValue::Any,
+        "",
+    )?;
     Ok(())
 }
 
-fn get_uncommited_changes(ctx: &Context) -> Result<gix::ObjectId> {
-    let repo = &*ctx.git2_repo.get()?;
-    let uncommited_changes = repo
+fn get_uncommitted_changes(repo: &gix::Repository) -> Result<gix::ObjectId> {
+    let uncommitted_changes = repo
         .find_reference(UNCOMMITTED_CHANGES_REF)?
         .peel_to_tree()?
-        .id();
-    Ok(uncommited_changes.to_gix())
+        .id;
+    Ok(uncommitted_changes)
 }
 
 fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
-    let repo = &*ctx.git2_repo.get()?;
-    let commit = repo.find_commit(commit_id.to_git2())?;
+    let repo = &*ctx.repo.get()?;
+    #[expect(deprecated, reason = "checkout/index materialization boundary")]
+    let git2_repo = &*ctx.git2_repo.get()?;
+    let commit = commit_id.attach(repo).object()?.try_into_commit()?;
 
     // Checkout commits's parent
-    let commit_parent_id = find_or_create_base_commit(repo, commit_id)?;
-    let commit_parent = repo.find_commit(commit_parent_id.to_git2())?;
-    repo.reference(EDIT_BRANCH_REF, commit_parent_id.to_git2(), true, "")?;
-    repo.set_head(EDIT_BRANCH_REF)?;
-    repo.checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))?;
+    let base_commit_id = find_or_create_base_commit(repo, commit_id)?;
+    let base_commit = base_commit_id.attach(repo).object()?.try_into_commit()?;
+    let edit_branch_ref: gix::refs::FullName = EDIT_BRANCH_REF.try_into()?;
+    repo.reference(
+        edit_branch_ref.as_ref(),
+        base_commit_id,
+        gix::refs::transaction::PreviousValue::Any,
+        "enter edit mode",
+    )?;
+    update_head_reference(
+        repo,
+        gix::refs::Target::Symbolic(edit_branch_ref),
+        false,
+        "enter edit mode",
+        EDIT_BRANCH_REF.into(),
+        0,
+    )?;
 
     // Checkout the commit as unstaged changes
+    // TODO this may not be necessary if the commit is unconflicted
     let mut index = get_commit_index(ctx, commit_id)?;
 
-    let their_commit_msg = commit
-        .message()
-        .and_then(|m| m.lines().next())
-        .map(|l| l.chars().take(80).collect::<String>())
-        .unwrap_or("".into());
+    let their_commit_msg = commit_title_to_merge_conflict_label(&commit);
     let their_label = format!("Current commit: {their_commit_msg}");
 
-    let our_commit_msg = commit_parent
-        .message()
-        .and_then(|m| m.lines().next())
-        .map(|l| l.chars().take(80).collect::<String>())
-        .unwrap_or("".into());
-    let our_label = format!("New base: {our_commit_msg}");
+    let commit_parent_id = base_commit.parent_ids().next();
+    let our_label = if let Some(commit_parent_id) = commit_parent_id {
+        let our_commit_msg =
+            commit_title_to_merge_conflict_label(&commit_parent_id.object()?.try_into_commit()?);
+        format!("New base: {our_commit_msg}")
+    } else {
+        "New base: (no commit)".to_string()
+    };
 
-    repo.checkout_index(
+    git2_repo.checkout_index(
         Some(&mut index),
         Some(
             CheckoutBuilder::new()
@@ -198,26 +195,94 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
     Ok(())
 }
 
+fn open_workspace_ref<'repo>(repo: &'repo gix::Repository) -> Result<gix::Reference<'repo>> {
+    [WORKSPACE_BRANCH_REF, INTEGRATION_BRANCH_REF]
+        .iter()
+        .find_map(|&name| repo.find_reference(name).ok())
+        .with_context(|| {
+            format!(
+                "expected one of the open workspace refs to exist: {}",
+                [WORKSPACE_BRANCH_REF, INTEGRATION_BRANCH_REF].join(", ")
+            )
+        })
+}
+
+/// TODO: This function must go away as it recreates an artificial traversal from the workspace,
+/// probably because at some point the surrounding workspace couldn't be found anymore and was strictly required.
+/// By now, edit-mode won't fully detach the commit-to-edit anymore, so the surrounding workspace should still be
+/// found.
+#[deprecated = "extra traversals must not be done and shouldn't be needed here."]
+fn workspace_from_workspace_ref(ctx: &Context) -> Result<but_graph::Workspace> {
+    let repo = ctx.repo.get()?;
+    let meta = ctx.meta()?;
+    let mut workspace_ref = open_workspace_ref(&repo)?;
+    let mut db = ctx.db.get_cache_mut()?;
+    let graph = but_graph::Graph::from_commit_traversal(
+        workspace_ref.peel_to_id()?,
+        Some(workspace_ref.inner.name.clone()),
+        &meta,
+        ctx.project_meta()?,
+        &mut db,
+        but_graph::init::Options::limited(),
+    )?;
+    graph.into_workspace()
+}
+
+fn ensure_stack_in_workspace(ctx: &Context, stack_id: StackId) -> Result<()> {
+    #[allow(deprecated)]
+    workspace_from_workspace_ref(ctx)?.try_find_stack_by_id(stack_id)?;
+    Ok(())
+}
+
 pub(crate) fn enter_edit_mode(
     ctx: &Context,
     commit_oid: gix::ObjectId,
     stack_id: StackId,
     _perm: &mut RepoExclusive,
 ) -> Result<EditModeMetadata> {
+    let repo = &*ctx.repo.get()?;
     let edit_mode_metadata = EditModeMetadata {
         commit_oid,
         stack_id,
     };
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    // Validate the stack_id
-    vb_state.get_stack_in_workspace(stack_id)?;
+    ensure_stack_in_workspace(ctx, stack_id)?;
 
-    commit_uncommited_changes(ctx)?;
+    // Fail before writing anything if the index is already locked, as checkout would only
+    // notice after refs and HEAD were moved. The probe is released so checkout can take it.
+    drop(
+        gix::lock::File::acquire(
+            repo.index_path(),
+            gix::lock::acquire::Fail::Immediately,
+            None,
+            0,
+            Some(&gix::lock::acquire::resolve_symlink),
+        )
+        .context("Repository index is locked by another process")?,
+    );
+
+    commit_uncommited_changes(repo)?;
     write_edit_mode_metadata(ctx, &edit_mode_metadata).context("Failed to persist metadata")?;
     checkout_edit_branch(ctx, commit_oid).context("Failed to checkout edit branch")?;
 
     Ok(edit_mode_metadata)
+}
+
+/// Remove the references and metadata that [`enter_edit_mode`] created.
+///
+/// `HEAD` must already point back at the workspace branch before this is called, otherwise
+/// deleting [`EDIT_BRANCH_REF`] would leave `HEAD` dangling.
+fn cleanup_edit_mode(ctx: &Context, repo: &gix::Repository) -> Result<()> {
+    for ref_name in [EDIT_BRANCH_REF, UNCOMMITTED_CHANGES_REF] {
+        // Tolerate an already-absent ref, but surface real lookup failures.
+        if let Some(reference) = repo.try_find_reference(ref_name)? {
+            reference
+                .delete()
+                .with_context(|| format!("Failed to delete reference {ref_name}"))?;
+        }
+    }
+    delete_edit_mode_metadata(ctx)?;
+    Ok(())
 }
 
 pub(crate) fn abort_and_return_to_workspace(
@@ -231,13 +296,14 @@ pub(crate) fn abort_and_return_to_workspace(
         );
     }
 
+    #[expect(deprecated, reason = "checkout/materialization boundary")]
     let repo = &*ctx.git2_repo.get()?;
 
     // Checkout gitbutler workspace branch
     repo.set_head(WORKSPACE_BRANCH_REF)
         .context("Failed to set head reference")?;
 
-    let uncommited_changes = get_uncommited_changes(ctx)?;
+    let uncommited_changes = get_uncommitted_changes(&*ctx.repo.get()?)?;
     let uncommited_changes = repo.find_tree(uncommited_changes.to_git2())?;
 
     repo.checkout_tree(
@@ -245,64 +311,78 @@ pub(crate) fn abort_and_return_to_workspace(
         Some(CheckoutBuilder::new().force().remove_untracked(true)),
     )?;
 
+    cleanup_edit_mode(ctx, &*ctx.repo.get()?)?;
+
     Ok(())
 }
 
 pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
     let edit_mode_metadata = read_edit_mode_metadata(ctx).context("Failed to read metadata")?;
+    #[expect(deprecated, reason = "checkout/index materialization boundary")]
     let git2_repo = &*ctx.git2_repo.get()?;
     let repo = &*ctx.repo.get()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
-    let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
+    #[allow(deprecated)]
+    let old_workspace_projection = workspace_from_workspace_ref(ctx)?;
+    let old_target_base_oid = old_workspace_projection
+        .target_commit
+        .as_ref()
+        .map(|target| target.commit_id)
+        .context("failed to get target base oid")?;
+    let old_head_oids = old_workspace_projection
+        .stacks
+        .iter()
+        .map(|stack| stack.tip_skip_empty().unwrap_or(old_target_base_oid))
+        .collect::<Vec<_>>();
+    let old_workspace =
+        WorkspaceState::create_from_heads_and_target(repo, &old_head_oids, old_target_base_oid)?;
 
-    // Get important references
-    let commit = git2_repo
-        .find_commit(edit_mode_metadata.commit_oid.to_git2())
-        .context("Failed to find commit")?;
-    let gix_commit = repo.find_commit(commit.id().to_gix())?;
-    let commit_obj = gix_commit.decode()?;
-
-    let parents = commit.parents().collect::<Vec<_>>();
-
+    let head_commit = repo.head_commit()?;
+    let decoded_head_commit = head_commit.decode()?;
     // Write out all the changes, including unstaged changes to a tree for re-committing
-    let tree = git2_repo.create_wd_tree(0)?;
-
-    let (_, committer) = git2_repo.signatures()?;
-    let commit_headers =
-        Headers::try_from_commit_headers(|| commit_obj.extra_headers()).map(|commit_headers| {
-            Headers {
-                conflicted: None,
-                ..commit_headers
-            }
-        });
-    let new_commit_oid = ctx
-        .git2_repo
-        .get()?
-        .commit_with_signature(
+    #[expect(deprecated)]
+    let tree_id = repo.create_wd_tree(0)?;
+    let new_commit_oid = if decoded_head_commit.tree() == tree_id {
+        head_commit.id
+    } else {
+        let commit = gix::objs::Commit::try_from(decoded_head_commit.clone())?;
+        but_rebase::commit::create(
+            repo,
+            gix::objs::Commit {
+                tree: tree_id,
+                ..commit
+            },
+            but_rebase::commit::DateMode::CommitterUpdateAuthorKeep,
+            SignCommit::IfSignCommitsEnabled,
             None,
-            &commit.author(),
-            &committer, // Use a new committer
-            &commit.message_bstr().to_str_lossy(),
-            &tree,
-            &parents.iter().collect::<Vec<_>>(),
-            commit_headers,
-        )
-        .context("Failed to commit new commit")?;
+        )?
+    };
 
     let workspace_commit = repo
         .find_reference(WORKSPACE_BRANCH_REF)?
         .peel_to_commit()?;
-    let meta = ctx.meta()?;
-    let graph = but_graph::Graph::from_commit_traversal(
+    let mut meta = ctx.meta()?;
+    let mut db = ctx.db.get_cache_mut()?;
+    let mut workspace = but_graph::Graph::from_commit_traversal(
         workspace_commit.id(),
         Some(gix::refs::FullName::try_from(WORKSPACE_BRANCH_REF)?),
         &meta,
+        ctx.project_meta()?,
+        &mut db,
         but_graph::init::Options::limited(),
-    )?;
-    let mut editor = graph.to_editor(repo)?;
-    let (target_selector, _commit) = editor.find_selectable_commit(gix_commit.id)?;
-    editor.replace(target_selector, Step::new_pick(new_commit_oid.to_gix()))?;
+    )?
+    .into_workspace()?;
+    let mut editor = Editor::create(&mut workspace, &mut meta, repo, &mut db)?;
+    let (target_selector, _commit) =
+        editor.find_selectable_commit(edit_mode_metadata.commit_oid)?;
+
+    editor.update_pick(target_selector, |_editor, _pick| {
+        let mut pick = Pick::new_pick(new_commit_oid);
+        // Do not replace new_commit_oid's parents with the parents of
+        // edit_mode_metadata.commit_oid
+        pick.preserved_parents = Some(decoded_head_commit.parents().collect());
+        Ok(pick)
+    })?;
     let outcome = editor.rebase()?;
     // HEAD is EDIT_BRANCH_REF and we do not need to re-checkout it (we
     // are checking out WORKSPACE_BRANCH_REF after this). As for needing to
@@ -310,6 +390,10 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     // because there are none (they have been written to a tree earlier in this
     // function). Therefore, use `materialize_without_checkout`.
     outcome.materialize_without_checkout()?;
+    // Nothing below needs the database, and `WorkspaceState::create` re-enters `ctx`
+    // for a shared handle - which the exclusive one taken above would refuse.
+    drop(db);
+    ctx.invalidate_workspace_cache()?;
 
     // Switch branch to gitbutler/workspace
     git2_repo
@@ -317,16 +401,14 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         .context("Failed to set head reference")?;
     git2_repo.checkout_head(Some(CheckoutBuilder::new().force()))?;
 
-    update_workspace_commit(&vb_state, ctx, false)?;
-
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let uncommtied_changes = get_uncommited_changes(ctx)?;
+    let uncommtied_changes = get_uncommitted_changes(repo)?;
 
     update_uncommitted_changes_with_tree(
         ctx,
         old_workspace,
         new_workspace,
-        Some(uncommtied_changes.to_git2()),
+        Some(uncommtied_changes),
         Some(true),
         perm,
     )?;
@@ -337,16 +419,32 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     index.read_tree(&git2_repo.head()?.peel_to_tree()?)?;
     index.write()?;
 
+    // Write the commit evolution.
+    let session = git_meta_lib::Session::open(repo.path())?;
+    session
+        .target(&git_meta_lib::Target::commit(
+            &new_commit_oid.to_hex().to_string(),
+        )?)
+        .set_add(
+            "evolution-parent",
+            &edit_mode_metadata.commit_oid.to_hex().to_string(),
+        )?;
+
+    cleanup_edit_mode(ctx, repo)?;
+
     Ok(())
 }
 
 #[derive(Serialize, Debug, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct ConflictEntryPresence {
     pub ours: bool,
     pub theirs: bool,
     pub ancestor: bool,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ConflictEntryPresence);
 
 pub(crate) fn starting_index_state(
     ctx: &Context,
@@ -356,15 +454,21 @@ pub(crate) fn starting_index_state(
         bail!("Starting index state can only be fetched while in edit mode")
     };
 
-    let git2_repo = &*ctx.git2_repo.get()?;
     let repo = &*ctx.repo.get()?;
-
-    let commit = git2_repo.find_commit(metadata.commit_oid.to_git2())?;
-    let gix_commit = repo.find_commit(commit.id().to_gix())?;
-    let commit_parent_tree = if gix_commit.is_conflicted() {
-        git2_repo.find_real_tree(&commit, ConflictedTreeKey::Base)?
+    let commit = repo.find_commit(metadata.commit_oid)?;
+    let commit_parent_tree = if commit.is_conflicted() {
+        but_core::Commit::try_from(commit.clone())?
+            .tree_id_or_kind(but_core::commit::TreeKind::Base)?
+            .detach()
     } else {
-        commit.parent(0)?.tree()?
+        commit
+            .parent_ids()
+            .next()
+            .context("edited commit had no parent")?
+            .object()?
+            .try_into_commit()?
+            .tree_id()?
+            .detach()
     };
 
     let index = get_commit_index(ctx, metadata.commit_oid)?;
@@ -398,11 +502,10 @@ pub(crate) fn starting_index_state(
 
     let tree_changes = but_core::diff::tree_changes(
         &repo,
-        Some(commit_parent_tree.id().to_gix()),
-        git2_repo
-            .find_real_tree(&commit, ConflictedTreeKey::Theirs)?
-            .id()
-            .to_gix(),
+        Some(commit_parent_tree),
+        but_core::Commit::try_from(commit.clone())?
+            .tree_id_or_kind(but_core::commit::TreeKind::Theirs)?
+            .detach(),
     )?;
 
     let outcome = tree_changes
@@ -418,15 +521,13 @@ pub(crate) fn changes_from_initial(ctx: &Context, perm: &RepoShared) -> Result<V
         bail!("Starting index state can only be fetched while in edit mode")
     };
 
-    let git2_repo = &*ctx.git2_repo.get()?;
-    let commit = git2_repo.find_commit(metadata.commit_oid.to_git2())?;
-    let base = git2_repo
-        .find_real_tree(&commit, Default::default())?
-        .id()
-        .to_gix();
-    let head = git2_repo.create_wd_tree(0)?.id().to_gix();
+    let repo = &*ctx.repo.get()?;
+    let commit = repo.find_commit(metadata.commit_oid)?;
+    let base = but_core::Commit::try_from(commit)?.tree_id_or_auto_resolution()?;
+    #[expect(deprecated)]
+    let head = repo.create_wd_tree(0)?;
 
     let repo = ctx.repo.get()?;
-    let tree_changes = but_core::diff::tree_changes(&repo, Some(base), head)?;
+    let tree_changes = but_core::diff::tree_changes(&repo, Some(base.into()), head)?;
     Ok(tree_changes)
 }

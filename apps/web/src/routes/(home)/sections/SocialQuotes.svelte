@@ -24,8 +24,9 @@
 		return shuffled;
 	}
 
-	// Randomize quotes before grouping into slides
-	const shuffledQuotes = shuffleArray(quotesJson);
+	// The server renders the quotes in file order; they're shuffled once mounted,
+	// so the server and client markup match while hydrating.
+	let shuffledQuotes: Quote[] = quotesJson;
 
 	// Detect mobile viewport
 	let isMobile = false;
@@ -75,9 +76,12 @@
 		return mobileQuotes;
 	}
 
-	const mobileQuotes = createMobileQuotes();
+	let mobileQuotes = createMobileQuotes();
 
 	onMount(() => {
+		shuffledQuotes = shuffleArray(quotesJson);
+		mobileQuotes = createMobileQuotes();
+
 		// Check if mobile viewport
 		function checkMobile() {
 			isMobile = window.innerWidth < 768; // Adjust breakpoint as needed
@@ -262,7 +266,7 @@
 			left: 0;
 			width: 40px;
 			height: 100%;
-			background: linear-gradient(to right, var(--clr-bg-2), transparent);
+			background: linear-gradient(to right, var(--bg-2), transparent);
 			content: "";
 			pointer-events: none;
 		}
@@ -274,7 +278,7 @@
 			right: 0;
 			width: 40px;
 			height: 100%;
-			background: linear-gradient(to left, var(--clr-bg-2), transparent);
+			background: linear-gradient(to left, var(--bg-2), transparent);
 			content: "";
 			pointer-events: none;
 		}
@@ -368,7 +372,7 @@
 	}
 
 	.quote__job-title {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	/* Mobile viewport */

@@ -1,0 +1,144 @@
+use crate::args::atoms::{AllowMergedArg, CliIdArg, MessageFileArg};
+
+/// Move commits and changes around.
+///
+/// Move a set of `<SOURCES>` around relative to a `TARGET`.
+///
+/// `<SOURCES>` is a set of commits, a set of committed changes or a single branch. Committed
+/// changes may be files, hunks or a mixture of both from the same commit. You are not allowed to
+/// mix other kinds of sources (e.g. commits and committed changes) in a single command.
+///
+/// `TARGET` is one of `--above`, `--below`, `--unstack` or `--branch` and defines how `<SOURCES>`
+/// should be moved. Depending on how `<SOURCES>` and `TARGET` are combined, a commit and/or branch
+/// may be created as part of the move.
+///
+/// **A branch is created when:**
+///
+/// * You move a commit or committed change relative to a branch
+/// * You unstack a commit or committed change
+///
+/// **A commit is created when:**
+///
+/// * You move a committed change relative to a commit or branch
+/// * You unstack a committed change
+///
+/// Note the overlap between the above conditions. For example, unstacking a committed change both
+/// creates a new commit for the change and a branch for the commit.
+///
+/// For more details about CLI IDs, see `but help cli-ids`.
+#[derive(Debug, clap::Parser)]
+#[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+#[clap(group(
+    clap::ArgGroup::new("targeting")
+        .args(["above", "below", "branch", "unstack"])
+        .required(true)
+        .multiple(true)
+))]
+pub struct Platform {
+    /// Place `<SOURCES>` on the branch `BRANCH`.
+    ///
+    /// If `BRANCH` exists, commits or committed changes are moved onto its tip. A branch source is
+    /// instead stacked on top of `BRANCH`, equivalent to `--above BRANCH`.
+    ///
+    /// If `BRANCH` does not exist, it is created as an unstacked branch for commit or
+    /// committed-change sources. Using a branch source with a nonexistent `BRANCH` is an error.
+    ///
+    /// If `BRANCH` is a worktree or a branch checked out in one, commit or
+    /// committed-change sources are moved onto the tip of that worktree's branch.
+    ///
+    /// If `BRANCH` is omitted, an unstacked branch with a generated name is created. This is
+    /// exactly equivalent to `--unstack` and is allowed for any source kind.
+    ///
+    /// Attempting to place `<SOURCES>` on a branch that exists but is not applied is an error.
+    #[clap(short, long, value_name = "BRANCH")]
+    pub branch: Option<Option<CliIdArg>>,
+
+    /// Place `<SOURCES>` above `BRANCH_OR_COMMIT`.
+    ///
+    /// If `BRANCH_OR_COMMIT` is a commit, `<SOURCES>` are placed on the same branch as the targeted
+    /// commit.
+    ///
+    /// If `BRANCH_OR_COMMIT` is a branch, the sources are placed on a new branch above the targeted
+    /// branch.
+    ///
+    /// If `BRANCH_OR_COMMIT` is a worktree, a branch source is stacked on the branch that worktree
+    /// has checked out and becomes its checked-out branch.
+    ///
+    /// This target is applicable for all kinds of `<SOURCES>`.
+    ///
+    /// If moving commits or committed changes, use `--branch NAME` to name the new branch.
+    #[clap(
+        short = 'A',
+        long,
+        value_name = "BRANCH_OR_COMMIT",
+        conflicts_with = "below"
+    )]
+    pub above: Option<CliIdArg>,
+
+    /// Place `<SOURCES>` below `BRANCH_OR_COMMIT`.
+    ///
+    /// If `BRANCH_OR_COMMIT` is a commit, the `<SOURCES>` are placed on the same branch as the
+    /// targeted commit.
+    ///
+    /// If `BRANCH_OR_COMMIT` is a branch, `<SOURCES>` are placed on a new branch below the targeted
+    /// branch. Branches are treated as buckets, meaning that "below a branch" is treated as below
+    /// the oldest ancestor on that branch.
+    ///
+    /// If `BRANCH_OR_COMMIT` is a worktree, `<SOURCES>` are placed on the tip of the branch
+    /// that worktree has checked out.
+    ///
+    /// This target is only applicable for `<SOURCES>` that are commits or committed changes.
+    ///
+    /// If moving commits or committed changes, use `--branch NAME` to name the new branch.
+    #[clap(short = 'B', long, value_name = "BRANCH_OR_COMMIT")]
+    pub below: Option<CliIdArg>,
+
+    /// Unstack `<SOURCES>` from their current stacks.
+    ///
+    /// `--unstack` does not take an argument, so `--unstack <SOURCES>` and `<SOURCES> --unstack`
+    /// are equivalent.
+    ///
+    /// If moving commits or committed changes, use `--branch NAME` to name the new branch.
+    #[clap(long, conflicts_with_all = ["above", "below"])]
+    pub unstack: bool,
+
+    /// Switch to the destination branch instead of remaining in the GitButler workspace.
+    ///
+    /// When moving a branch, switch to the moved branch.
+    #[clap(short, long, conflicts_with_all = ["above", "below"])]
+    pub switch: bool,
+
+    /// The message to use when moving changes into a new commit.
+    ///
+    /// Can be supplied any amount of times, each value being appended to the preceding ones with a
+    /// blank line in between. Without `-m`, the new commit will get an empty message.
+    #[clap(short, long)]
+    pub message: Option<Vec<String>>,
+
+    /// Read the new commit's message from `FILE`, or from stdin when `FILE` is `-`.
+    #[clap(short = 'F', long, value_name = "FILE", conflicts_with = "message")]
+    pub file: Option<MessageFileArg>,
+
+    /// One or more sources to move, all of one kind: commits; committed files and hunks from one
+    /// commit; or a single branch.
+    ///
+    /// The order of the sources does not matter.
+    ///
+    /// Providing any of the sources as an argument for a target such as `--above` or `--below` is
+    /// an error.
+    #[clap(required = true)]
+    pub sources: Vec<CliIdArg>,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub allow_merged: AllowMergedArg,
+}
+
+/// Example invocations appended to a `but move` parse error.
+pub(crate) const ERROR_EXAMPLES: &str = "\
+Examples:
+  but move <child-branch> --above <parent-branch>   # stack a branch on top of another
+  but move <commit> --below <other-commit>          # reorder commits
+  but move <commit> --branch <branch>               # move a commit onto a branch
+  but move <branch> --unstack                       # tear a branch off its stack
+";

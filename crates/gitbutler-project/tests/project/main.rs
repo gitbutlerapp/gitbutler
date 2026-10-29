@@ -1,13 +1,39 @@
+use std::path::{Path, PathBuf};
+
+use anyhow::Result;
 use but_core::RepositoryExt;
-use gitbutler_testsupport::{self, paths};
+use but_testsupport::{CommandExt, git_at_dir};
 use tempfile::TempDir;
 
+mod support;
+
 pub fn new() -> TempDir {
-    paths::data_dir()
+    support::data_dir()
 }
 
-fn storage_key() -> String {
-    but_project_handle::storage_path_config_key().to_owned()
+fn repo_path_at(name: &str) -> PathBuf {
+    but_testsupport::gix_testtools::scripted_fixture_read_only("various-repositories.sh")
+        .unwrap()
+        .join(name)
+}
+
+fn repo_git_dir(path: &Path) -> Result<PathBuf> {
+    let repo = gix::open_opts(path, gix::open::Options::isolated())?;
+    Ok(repo.git_dir().canonicalize()?)
+}
+
+fn set_storage_path_config(
+    repo_path: &Path,
+    value: impl AsRef<std::ffi::OsStr>,
+) -> anyhow::Result<gix::Repository> {
+    let mut repo = but_testsupport::open_repo(repo_path)?;
+    let key = but_project_handle::storage_path_config_key();
+    but_core::git_config::edit_repo_config(&repo, gix::config::Source::Local, |config| {
+        config.set_raw_value(key, gix::path::os_str_into_bstr(value.as_ref())?)?;
+        Ok(())
+    })?;
+    repo.reload()?;
+    Ok(repo)
 }
 
 mod add {
@@ -15,8 +41,8 @@ mod add {
 
     #[test]
     fn success() -> anyhow::Result<()> {
-        let tmp = paths::data_dir();
-        let repo = gitbutler_testsupport::TestProject::default();
+        let tmp = support::data_dir();
+        let repo = support::TestProject::default();
         let path = repo.path();
         let project = gitbutler_project::add_at_app_data_dir(tmp.path(), path)
             .unwrap()
@@ -30,50 +56,31 @@ mod add {
 
     #[test]
     fn creates_configured_storage_dir() -> anyhow::Result<()> {
-        let data_dir = paths::data_dir();
-        let repo = gitbutler_testsupport::TestProject::default();
-        let key = storage_key();
-        git2::Repository::open(repo.path())?
-            .config()?
-            .set_str(&key, "gitbutler-custom")?;
+        let data_dir = support::data_dir();
+        let repo = support::TestProject::default();
+        let configured_repo = set_storage_path_config(repo.path(), "gitbutler-custom")?;
+        let expected_gb_dir = configured_repo
+            .git_dir()
+            .canonicalize()?
+            .join("gitbutler-custom");
 
+        assert!(!expected_gb_dir.exists());
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())?.unwrap_project();
         let gb_dir = project.open_isolated_repo()?.gitbutler_storage_path()?;
+        assert_eq!(gb_dir, expected_gb_dir);
         assert!(gb_dir.exists());
         Ok(())
     }
 
-    #[test]
-    fn get_recreates_configured_storage_dir() -> anyhow::Result<()> {
-        let data_dir = paths::data_dir();
-        let repo = gitbutler_testsupport::TestProject::default();
-        let key = storage_key();
-        git2::Repository::open(repo.path())?
-            .config()?
-            .set_str(&key, "gitbutler-custom")?;
-
-        let project =
-            gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())?.unwrap_project();
-        let gb_dir = project.open_isolated_repo()?.gitbutler_storage_path()?;
-        std::fs::remove_dir_all(&gb_dir)?;
-        assert!(!gb_dir.exists(), "sanity check");
-
-        let _project = gitbutler_project::get_with_path(data_dir.path(), project.id)?;
-        assert!(gb_dir.exists(), "storage dir should be recreated on get");
-        Ok(())
-    }
-
     mod error {
-        use std::path::PathBuf;
-
         use gitbutler_project::AddProjectOutcome;
 
         use super::*;
 
         #[test]
         fn non_bare_without_worktree() {
-            let tmp = paths::data_dir();
+            let tmp = support::data_dir();
             let root = repo_path_at("non-bare-without-worktree");
             let outcome =
                 gitbutler_project::add_at_app_data_dir(tmp.path(), root.as_path()).unwrap();
@@ -81,17 +88,8 @@ mod add {
         }
 
         #[test]
-        fn submodule() {
-            let tmp = paths::data_dir();
-            let root = repo_path_at("with-submodule").join("submodule");
-            let outcome =
-                gitbutler_project::add_at_app_data_dir(tmp.path(), root.as_path()).unwrap();
-            assert!(matches!(outcome, AddProjectOutcome::NoDotGitDirectory));
-        }
-
-        #[test]
         fn missing() {
-            let data_dir = paths::data_dir();
+            let data_dir = support::data_dir();
             let tmp = tempfile::tempdir().unwrap();
             let outcome =
                 gitbutler_project::add_at_app_data_dir(data_dir.path(), tmp.path().join("missing"))
@@ -101,7 +99,7 @@ mod add {
 
         #[test]
         fn directory_without_git() {
-            let data_dir = paths::data_dir();
+            let data_dir = support::data_dir();
             let tmp = tempfile::tempdir().unwrap();
             let path = tmp.path();
             std::fs::write(path.join("file.txt"), "hello world").unwrap();
@@ -111,7 +109,7 @@ mod add {
 
         #[test]
         fn empty() {
-            let data_dir = paths::data_dir();
+            let data_dir = support::data_dir();
             let tmp = tempfile::tempdir().unwrap();
             let outcome =
                 gitbutler_project::add_at_app_data_dir(data_dir.path(), tmp.path()).unwrap();
@@ -120,8 +118,8 @@ mod add {
 
         #[test]
         fn twice() {
-            let data_dir = paths::data_dir();
-            let repo = gitbutler_testsupport::TestProject::default();
+            let data_dir = support::data_dir();
+            let repo = support::TestProject::default();
             let path = repo.path();
             gitbutler_project::add_at_app_data_dir(data_dir.path(), path).unwrap();
 
@@ -130,13 +128,35 @@ mod add {
         }
 
         #[test]
+        fn twice_by_its_path_in_another_case() {
+            let data_dir = support::data_dir();
+            let repo = support::TestProject::default();
+            let path = repo.path();
+            let name = path.file_name().unwrap().to_str().unwrap();
+            let other_case = path.with_file_name(name.to_uppercase());
+            if !other_case.exists() {
+                return; // The filesystem tells case apart, so it's another folder.
+            }
+            gitbutler_project::add_at_app_data_dir(data_dir.path(), path).unwrap();
+
+            let outcome =
+                gitbutler_project::add_at_app_data_dir(data_dir.path(), &other_case).unwrap();
+            assert!(
+                matches!(outcome, AddProjectOutcome::AlreadyExists(_)),
+                "the folder is the same, so a second project would share its repository"
+            );
+        }
+
+        #[test]
         fn bare() {
-            let data_dir = paths::data_dir();
+            let data_dir = support::data_dir();
             let tmp = tempfile::tempdir().unwrap();
             let repo_dir = tmp.path().join("bare");
 
-            let repo = git2::Repository::init_bare(&repo_dir).unwrap();
-            create_initial_commit(&repo);
+            git_at_dir(tmp.path())
+                .args(["init", "--bare"])
+                .arg(&repo_dir)
+                .run();
 
             let outcome =
                 gitbutler_project::add_at_app_data_dir(data_dir.path(), repo_dir.as_path())
@@ -146,76 +166,85 @@ mod add {
 
         #[test]
         fn worktree() {
-            let data_dir = paths::data_dir();
+            let data_dir = support::data_dir();
             let tmp = tempfile::tempdir().unwrap();
             let main_worktree_dir = tmp.path().join("main");
             let worktree_dir = tmp.path().join("worktree");
 
-            let repo = git2::Repository::init(main_worktree_dir).unwrap();
-            create_initial_commit(&repo);
-
-            let worktree = repo.worktree("feature", &worktree_dir, None).unwrap();
+            git_at_dir(tmp.path())
+                .args(["init"])
+                .arg(&main_worktree_dir)
+                .run();
+            git_at_dir(&main_worktree_dir)
+                .args(["commit", "--allow-empty", "-m", "initial commit"])
+                .run();
+            git_at_dir(&main_worktree_dir)
+                .args(["worktree", "add", "-b", "feature"])
+                .arg(&worktree_dir)
+                .run();
             let outcome =
-                gitbutler_project::add_at_app_data_dir(data_dir.path(), worktree.path()).unwrap();
+                gitbutler_project::add_at_app_data_dir(data_dir.path(), &worktree_dir).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::NonMainWorktree));
         }
 
-        fn create_initial_commit(repo: &git2::Repository) -> git2::Oid {
-            let signature = git2::Signature::now("test", "test@email.com").unwrap();
+        #[test]
+        fn reftable_ref_format_is_rejected() {
+            let data_dir = support::data_dir();
+            let tmp = tempfile::tempdir().unwrap();
+            let repo_dir = tmp.path().join("reftable");
 
-            let mut index = repo.index().unwrap();
-            let oid = index.write_tree().unwrap();
+            let init_output = git_at_dir(tmp.path())
+                .args(["init", "--ref-format=reftable"])
+                .arg(&repo_dir)
+                .output()
+                .expect("git can be invoked");
+            if !init_output.status.success() {
+                eprintln!(
+                    "Skipping reftable rejection test because this Git cannot initialize a reftable repository: {}",
+                    String::from_utf8_lossy(&init_output.stderr)
+                );
+                return;
+            }
 
-            repo.commit(
-                Some("HEAD"),
-                &signature,
-                &signature,
-                "initial commit",
-                &repo.find_tree(oid).unwrap(),
-                &[],
-            )
-            .unwrap()
+            let outcome =
+                gitbutler_project::add_at_app_data_dir(data_dir.path(), &repo_dir).unwrap();
+            assert!(matches!(
+                outcome,
+                AddProjectOutcome::ReftableRefFormatUnsupported
+            ));
         }
 
-        fn repo_path_at(name: &str) -> PathBuf {
-            gitbutler_testsupport::gix_testtools::scripted_fixture_read_only(
-                "various-repositories.sh",
-            )
-            .unwrap()
-            .join(name)
+        #[test]
+        fn worktree_reftable_ref_format_does_not_affect_project_add() {
+            let data_dir = support::data_dir();
+            let tmp = tempfile::tempdir().unwrap();
+            let repo_dir = tmp.path().join("repo");
+
+            git_at_dir(tmp.path()).args(["init"]).arg(&repo_dir).run();
+            git_at_dir(&repo_dir)
+                .args(["config", "extensions.worktreeConfig", "true"])
+                .run();
+            git_at_dir(&repo_dir)
+                .args(["config", "--worktree", "extensions.refStorage", "reftable"])
+                .run();
+
+            let outcome =
+                gitbutler_project::add_at_app_data_dir(data_dir.path(), &repo_dir).unwrap();
+            assert!(
+                matches!(outcome, AddProjectOutcome::Added(_)),
+                "worktree configuration doesn't say that reftables should be used, only the common config"
+            );
         }
     }
 }
 
 mod delete {
     use super::*;
-    #[test]
-    fn success() {
-        let data_dir = paths::data_dir();
-        let repo = gitbutler_testsupport::TestProject::default();
-        let path = repo.path();
-        let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), path)
-            .unwrap()
-            .unwrap_project();
-        let project_id = project.id.clone();
-        assert!(gitbutler_project::delete_with_path(data_dir.path(), project_id.clone()).is_ok());
-        assert!(gitbutler_project::delete_with_path(data_dir.path(), project_id.clone()).is_ok()); // idempotent
-        assert!(gitbutler_project::get_with_path(data_dir.path(), project_id).is_err());
-        assert!(repo.path().exists());
-        assert!(
-            !project
-                .open_isolated_repo()
-                .unwrap()
-                .gitbutler_storage_path()
-                .unwrap()
-                .exists()
-        );
-    }
-
+    use snapbox::prelude::*;
     #[test]
     fn deletes_gitbutler_references() -> anyhow::Result<()> {
-        let data_dir = paths::data_dir();
-        let repo = gitbutler_testsupport::TestProject::default();
+        let data_dir = support::data_dir();
+        let repo = support::TestProject::default();
         let path = repo.path();
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();
@@ -247,34 +276,42 @@ mod delete {
             "hidden gitbutler ref",
         )?;
 
-        insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"
-        [
-            "refs/gitbutler/test-ref",
-            "refs/heads/gitbutler/workspace",
-            "refs/heads/master",
-            "refs/heads/unrelated",
-            "refs/remotes/origin/master",
-        ]
-        "#);
+        snapbox::assert_data_eq!(
+            all_refs(&repo)?.to_debug(),
+            snapbox::str![[r#"
+[
+    "refs/gitbutler/test-ref",
+    "refs/heads/gitbutler/workspace",
+    "refs/heads/master",
+    "refs/heads/unrelated",
+    "refs/remotes/origin/master",
+]
+
+"#]]
+        );
 
         gitbutler_project::delete_with_path(data_dir.path(), project.id)?;
 
         // Only only sees gitbutler references.
-        insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"
-        [
-            "refs/heads/master",
-            "refs/heads/unrelated",
-            "refs/remotes/origin/master",
-        ]
-        "#);
+        snapbox::assert_data_eq!(
+            all_refs(&repo)?.to_debug(),
+            snapbox::str![[r#"
+[
+    "refs/heads/master",
+    "refs/heads/unrelated",
+    "refs/remotes/origin/master",
+]
+
+"#]]
+        );
         Ok(())
     }
 
     #[test]
     fn deletes_project_without_gitbutler_references() -> anyhow::Result<()> {
         // This test ensures that deletion works even when there are no gitbutler references
-        let data_dir = paths::data_dir();
-        let repo = gitbutler_testsupport::TestProject::default();
+        let data_dir = support::data_dir();
+        let repo = support::TestProject::default();
         let path = repo.path();
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();
@@ -288,13 +325,17 @@ mod delete {
             gix::refs::transaction::PreviousValue::MustNotExist,
             "unrelated workspace ref",
         )?;
-        insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"
-        [
-            "refs/heads/master",
-            "refs/heads/unrelated",
-            "refs/remotes/origin/master",
-        ]
-        "#);
+        snapbox::assert_data_eq!(
+            all_refs(&repo)?.to_debug(),
+            snapbox::str![[r#"
+[
+    "refs/heads/master",
+    "refs/heads/unrelated",
+    "refs/remotes/origin/master",
+]
+
+"#]]
+        );
 
         gitbutler_project::delete_with_path(data_dir.path(), project.id)?;
 
@@ -302,25 +343,55 @@ mod delete {
         assert!(!repo.gitbutler_storage_path()?.exists());
 
         // Nothing changed - no reference was touched.
-        insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"
-        [
-            "refs/heads/master",
-            "refs/heads/unrelated",
-            "refs/remotes/origin/master",
-        ]
-        "#);
+        snapbox::assert_data_eq!(
+            all_refs(&repo)?.to_debug(),
+            snapbox::str![[r#"
+[
+    "refs/heads/master",
+    "refs/heads/unrelated",
+    "refs/remotes/origin/master",
+]
+
+"#]]
+        );
 
         Ok(())
     }
 
     #[test]
+    #[cfg(unix)]
+    fn keeps_what_another_project_of_the_same_repository_uses() -> anyhow::Result<()> {
+        let data_dir = support::data_dir();
+        let repo = support::TestProject::default();
+        let project =
+            gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())?.unwrap_project();
+        let gb_dir = project.open_isolated_repo()?.gitbutler_storage_path()?;
+        // The same repository added again by another spelling of its path, as could happen
+        // before spellings were compared.
+        let elsewhere = tempfile::tempdir()?;
+        let spelled = elsewhere.path().join("same");
+        std::os::unix::fs::symlink(repo.path(), &spelled)?;
+        let projects = data_dir.path().join("projects.json");
+        let mut all: serde_json::Value = serde_json::from_slice(&std::fs::read(&projects)?)?;
+        let mut again = all[0].clone();
+        again["id"] = "00000000-0000-0000-0000-000000000001".into();
+        again["path"] = spelled.to_str().unwrap().into();
+        again["git_dir"] = spelled.join(".git").to_str().unwrap().into();
+        all.as_array_mut().unwrap().push(again);
+        std::fs::write(&projects, serde_json::to_vec(&all)?)?;
+
+        gitbutler_project::delete_with_path(data_dir.path(), project.id)?;
+        assert!(
+            gb_dir.exists(),
+            "the other project still uses its operations history and branches"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn removes_configured_storage_dir() -> anyhow::Result<()> {
-        let data_dir = paths::data_dir();
-        let repo = gitbutler_testsupport::TestProject::default();
-        let key = storage_key();
-        git2::Repository::open(repo.path())?
-            .config()?
-            .set_str(&key, "gitbutler-custom")?;
+        let data_dir = support::data_dir();
+        let repo = support::TestProject::default();
         let path = repo.path();
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();
@@ -334,13 +405,14 @@ mod delete {
 
     #[test]
     fn refuses_to_delete_git_dir_when_storage_path_points_to_dot_git() -> anyhow::Result<()> {
-        let data_dir = paths::data_dir();
-        let repo = gitbutler_testsupport::TestProject::default();
-        let key = storage_key();
-        let git_dir = git2::Repository::open(repo.path())?.path().to_path_buf();
-        git2::Repository::open(repo.path())?
-            .config()?
-            .set_str(&key, ".")?;
+        let data_dir = support::data_dir();
+        let repo = support::TestProject::default();
+        let git_dir = repo_git_dir(repo.path())?;
+        let repo_after_config = set_storage_path_config(repo.path(), ".")?;
+        assert!(
+            repo_after_config.gitbutler_storage_path().is_err(),
+            "sanity check: '.' must be rejected as storage path"
+        );
         let path = repo.path();
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();

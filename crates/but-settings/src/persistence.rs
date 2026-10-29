@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde_json::json;
-use serde_json_lenient::to_string_pretty;
+use serde_json::to_string_pretty;
 
 use crate::{
     AppSettings,
@@ -13,6 +13,50 @@ use crate::{
 
 pub(crate) static DEFAULTS: &str = include_str!("../assets/defaults.jsonc");
 
+fn remove_deprecated_settings(customizations: &mut serde_json::Value) -> bool {
+    let Some(root) = customizations.as_object_mut() else {
+        return false;
+    };
+    let mut removed = false;
+
+    if let Some(feature_flags) = root
+        .get_mut("featureFlags")
+        .and_then(serde_json::Value::as_object_mut)
+    {
+        for deprecated in [
+            "apply3",
+            "unapplyV3",
+            "unapplyV3Pgm",
+            "undo",
+            "rules",
+            "cv3",
+            "singleBranch",
+            "worktreeManipulation",
+        ] {
+            if feature_flags.remove(deprecated).is_some() {
+                removed = true;
+            }
+        }
+        if feature_flags.is_empty() {
+            root.remove("featureFlags");
+        }
+    }
+
+    if let Some(telemetry) = root
+        .get_mut("telemetry")
+        .and_then(serde_json::Value::as_object_mut)
+    {
+        if telemetry.remove("appNonAnonMetricsEnabled").is_some() {
+            removed = true;
+        }
+        if telemetry.is_empty() {
+            root.remove("telemetry");
+        }
+    }
+
+    removed
+}
+
 impl AppSettings {
     /// Load the settings from the configuration directory, or initialize the file with an empty JSON object at `config_path`.
     /// Finally, merge all customizations from `config_path` into the default settings.
@@ -22,13 +66,26 @@ impl AppSettings {
     pub fn load(config_path: &Path, customization: Option<serde_json::Value>) -> Result<Self> {
         // If the file on config_path does not exist, create it empty
         if !config_path.exists() {
-            but_fs::create_dirs_then_write(config_path, "{}\n")?;
+            but_utils::create_dirs_then_write(config_path, "{}\n")?;
         }
 
         // merge customizations from disk into the defaults to get a complete set of settings.
-        let customizations: serde_json::Value =
-            serde_json_lenient::from_str(&std::fs::read_to_string(config_path)?)?;
-        let mut settings: serde_json::Value = serde_json_lenient::from_str(DEFAULTS)?;
+        let config_file_contents = std::fs::read_to_string(config_path).with_context(|| {
+            format!(
+                "failed to read settings file at '{}'",
+                config_path.display()
+            )
+        })?;
+        let customizations = serde_json_lenient::from_str::<serde_json::Value>(
+            &config_file_contents,
+        )
+        .with_context(|| {
+            format!(
+                "failed to parse settings file at '{}' as JSON",
+                config_path.display()
+            )
+        })?;
+        let mut settings = serde_json_lenient::from_str::<serde_json::Value>(DEFAULTS)?;
 
         merge_json_value(customizations, &mut settings);
         if let Some(extra) = customization {
@@ -66,19 +123,20 @@ impl AppSettings {
         let update = serde_json::to_value(self)?;
         let diff = json_difference(current, &update);
 
-        // If there are no changes, do nothing
-        if diff == json!({}) {
-            return Ok(());
-        }
-
         // Load the existing customizations only
         let mut customizations =
             serde_json_lenient::from_str(&std::fs::read_to_string(config_path)?)?;
+        let removed_deprecated_settings = remove_deprecated_settings(&mut customizations);
+
+        // If there are no changes and no deprecated settings to clean up, do nothing
+        if diff == json!({}) && !removed_deprecated_settings {
+            return Ok(());
+        }
 
         // Merge the new customizations into the existing ones
         // TODO: This will nuke any comments in the file
         merge_json_value(diff, &mut customizations);
-        but_fs::write(config_path, to_string_pretty(&customizations)?)?;
+        but_utils::write(config_path, to_string_pretty(&customizations)?)?;
         Ok(())
     }
 }
@@ -96,7 +154,7 @@ mod tests {
         let settings: serde_json::Value =
             serde_json_lenient::from_str(crate::persistence::DEFAULTS).unwrap();
         let app_settings: Result<super::AppSettings, serde_json::Error> =
-            serde_json::from_value(settings.clone());
+            serde_json::from_value(settings);
         if app_settings.is_err() {
             println!(
                 "\n==========================================================================================="
@@ -149,5 +207,79 @@ mod tests {
             !settings.telemetry.app_metrics_enabled,
             "Custom settings should be preserved when migration is skipped"
         );
+    }
+
+    #[test]
+    fn save_prunes_deprecated_feature_flags() {
+        let (_temp_dir, config_path, _legacy_path) = create_test_env();
+
+        std::fs::write(
+            &config_path,
+            r#"{
+                "telemetry": {
+                    "migratedFromLegacy": true
+                },
+                "featureFlags": {
+                    "apply3": true,
+                    "unapplyV3": false,
+                    "undo": true,
+                    "rules": true,
+                    "cv3": true,
+                    "unapplyV3Pgm": true,
+                    "singleBranch": true,
+                    "worktreeManipulation": true
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let settings = AppSettings::load(&config_path, None).unwrap();
+        settings.save(&config_path, None).unwrap();
+
+        let saved: serde_json::Value =
+            serde_json_lenient::from_str(&std::fs::read_to_string(&config_path).unwrap()).unwrap();
+
+        assert_eq!(saved["featureFlags"].get("apply3"), None);
+        assert_eq!(saved["featureFlags"].get("unapplyV3"), None);
+        assert_eq!(saved["featureFlags"].get("undo"), None);
+        assert_eq!(saved["featureFlags"].get("rules"), None);
+        assert_eq!(saved["featureFlags"].get("cv3"), None);
+        assert_eq!(
+            saved["featureFlags"].get("singleBranch"),
+            None,
+            "saving should prune the removed single-branch flag"
+        );
+        assert_eq!(saved["featureFlags"].get("unapplyV3Pgm"), None);
+        assert_eq!(
+            saved["featureFlags"].get("worktreeManipulation"),
+            None,
+            "saving should prune the removed worktree flag"
+        );
+    }
+
+    #[test]
+    fn save_prunes_deprecated_non_anon_metrics_flag() {
+        let (_temp_dir, config_path, _legacy_path) = create_test_env();
+
+        std::fs::write(
+            &config_path,
+            r#"{
+                "telemetry": {
+                    "migratedFromLegacy": true,
+                    "appNonAnonMetricsEnabled": true,
+                    "appMetricsEnabled": false
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let settings = AppSettings::load(&config_path, None).unwrap();
+        settings.save(&config_path, None).unwrap();
+
+        let saved: serde_json::Value =
+            serde_json_lenient::from_str(&std::fs::read_to_string(&config_path).unwrap()).unwrap();
+
+        assert_eq!(saved["telemetry"]["appMetricsEnabled"], json!(false));
+        assert_eq!(saved["telemetry"].get("appNonAnonMetricsEnabled"), None);
     }
 }

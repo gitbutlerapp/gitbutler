@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from "svelte";
 	import { env } from "$env/dynamic/public";
 
 	interface Props {
@@ -7,7 +8,7 @@
 
 	let { mode = "signin" }: Props = $props();
 
-	const actionText = mode === "signup" ? "Sign up" : "Sign in";
+	const actionText = untrack(() => mode) === "signup" ? "Sign up" : "Sign in";
 </script>
 
 <div class="auth-form__social">
@@ -70,10 +71,10 @@
 		padding: 8px;
 		padding-right: 14px;
 		gap: 8px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
-		color: var(--clr-text-1);
+		background-color: var(--bg-1);
+		color: var(--text-1);
 
 		&:hover {
 			background-color: var(--hover-bg-1);
@@ -95,7 +96,7 @@
 		display: flex;
 		justify-content: center;
 		margin-bottom: 16px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 
 		span {
 			margin: 0 12px;
@@ -105,7 +106,7 @@
 		&::after {
 			flex: 1;
 			margin: auto 0;
-			border-bottom: 1px solid var(--clr-border-2);
+			border-bottom: 1px solid var(--border-2);
 			content: "";
 		}
 	}

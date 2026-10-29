@@ -28,6 +28,15 @@ impl SafeDelete {
 }
 
 impl SafeDelete {
+    /// Return the worktree directories whose `HEAD` points to `rn` (directly or indirectly),
+    /// or `None` if no worktree does. Unlike [`delete_reference()`](Self::delete_reference) this
+    /// performs no mutation, so it can be used to check the precondition up front.
+    pub fn worktree_dirs_with_ref(&self, rn: &gix::Reference) -> Option<&[PathBuf]> {
+        self.worktrees_by_ref
+            .get(&rn.inner.name)
+            .map(|paths| paths.as_slice())
+    }
+
     /// Delete the reference `rn` if no `HEAD` in any worktree points to `rn` directly or indirectly.
     /// Return an outcome to indicate if it was deleted or not.
     pub fn delete_reference(&self, rn: &gix::Reference) -> anyhow::Result<Outcome<'_>> {

@@ -2,16 +2,49 @@ use std::path::PathBuf;
 
 use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
+use but_askpass as askpass;
 use but_core::DiffSpec;
 use but_ctx::Context;
-use but_oxidize::ObjectIdExt;
-use gitbutler_branch_actions::hooks;
+
 use gitbutler_repo::{
     FileInfo, RepoCommands,
-    hooks::{HookResult, MessageHookResult},
+    hooks::{self, HookResult, MessageHookResult},
 };
-use gitbutler_repo_actions::askpass;
 use tracing::instrument;
+
+/// JSON types.
+pub mod json {
+    use serde::Serialize;
+
+    /// File contents and metadata suitable for display in a frontend.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct FileInfo {
+        /// File content, base64 encoded when `mime_type` is present.
+        pub content: Option<String>,
+        /// The basename derived from the relative path.
+        pub file_name: String,
+        /// The decoded content size in bytes.
+        pub size: Option<usize>,
+        /// The inferred MIME type for binary displayable content.
+        pub mime_type: Option<String>,
+    }
+
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(FileInfo);
+
+    impl From<gitbutler_repo::FileInfo> for FileInfo {
+        fn from(value: gitbutler_repo::FileInfo) -> Self {
+            Self {
+                content: value.content,
+                file_name: value.file_name,
+                size: value.size,
+                mime_type: value.mime_type,
+            }
+        }
+    }
+}
 
 #[but_api]
 #[instrument(err(Debug))]
@@ -54,13 +87,13 @@ pub fn get_commit_file(
     relative_path: PathBuf,
     commit_id: gix::ObjectId,
 ) -> Result<FileInfo> {
-    ctx.read_file_from_commit(commit_id.to_git2(), &relative_path)
+    ctx.read_file_from_commit(commit_id, &relative_path)
 }
 
-#[but_api]
+#[but_api(json::FileInfo)]
 #[instrument(err(Debug))]
-pub fn get_workspace_file(ctx: &Context, relative_path: PathBuf) -> Result<FileInfo> {
-    ctx.read_file_from_workspace(&relative_path)
+pub fn get_workspace_file(ctx: &Context, relative_path: String) -> Result<FileInfo> {
+    ctx.read_file_from_workspace(relative_path.as_ref())
 }
 
 /// Retrieves file content directly from a Git blob object by its blob ID.
@@ -71,17 +104,17 @@ pub fn get_workspace_file(ctx: &Context, relative_path: PathBuf) -> Result<FileI
 ///
 /// # Arguments
 /// * `blob_id` - Git blob object ID as a hexadecimal string
-#[but_api]
+#[but_api(json::FileInfo)]
 #[instrument(err(Debug))]
 pub fn get_blob_file(
     ctx: &but_ctx::Context,
-    relative_path: PathBuf,
+    relative_path: String,
     blob_id: gix::ObjectId,
 ) -> Result<FileInfo> {
     let repo = ctx.repo.get()?;
     let object = repo.find_object(blob_id).context("Failed to find blob")?;
     let blob = object.try_into_blob().context("Object is not a blob")?;
-    Ok(FileInfo::from_content(&relative_path, &blob.data))
+    Ok(FileInfo::from_content(relative_path.as_ref(), &blob.data))
 }
 
 #[but_api]

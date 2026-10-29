@@ -1,21 +1,22 @@
 <script lang="ts">
 	import { page } from "$app/state";
-	import ScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
-	import ConfigurableScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
-	import CreateSnapshotModal from "$components/CreateSnapshotModal.svelte";
-	import FilePreviewPlaceholder from "$components/FilePreviewPlaceholder.svelte";
-	import FullviewLoading from "$components/FullviewLoading.svelte";
-	import LazyloadContainer from "$components/LazyloadContainer.svelte";
-	import Resizer from "$components/Resizer.svelte";
-	import SelectionView from "$components/SelectionView.svelte";
-	import SnapshotCard from "$components/SnapshotCard.svelte";
+	import FilePreviewPlaceholder from "$components/diff/FilePreviewPlaceholder.svelte";
+	import SelectionView from "$components/diff/SelectionView.svelte";
+	import CreateSnapshotModal from "$components/history/CreateSnapshotModal.svelte";
+	import SnapshotCard from "$components/history/SnapshotCard.svelte";
+	import ScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
+	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
+	import FullviewLoading from "$components/shared/FullviewLoading.svelte";
+	import InfiniteScrollTrigger from "$components/shared/InfiniteScrollTrigger.svelte";
+	import Resizer from "$components/shared/Resizer.svelte";
+	import SashLayer from "$components/shared/SashLayer.svelte";
 	import emptyFolderSvg from "$lib/assets/empty-state/empty-folder.svg?raw";
 	import { HISTORY_SERVICE, createdOnDay } from "$lib/history/history";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { createSnapshotSelection, type SelectionId } from "$lib/selection/key";
 	import { inject } from "@gitbutler/core/context";
-	import { EmptyStatePlaceholder, Icon, Button } from "@gitbutler/ui";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { EmptyStatePlaceholder, Icon, Button } from "@gitbutler/ui-svelte";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
 	import type { Snapshot } from "$lib/history/types";
 
 	// TODO: Refactor so we don't need non-null assertion.
@@ -55,10 +56,14 @@
 		if (snapshots.length === 0) return [];
 
 		const idToIndexMap = new Map<string, number>();
-		snapshots.forEach((snapshot, index) => idToIndexMap.set(snapshot.id, index));
+		snapshots.forEach((snapshot, index) => idToIndexMap.set(snapshot.commitId, index));
 
 		const ranges = snapshots.flatMap((snapshot, startIndex) => {
-			if (snapshot.details?.operation === "RestoreFromSnapshot") {
+			if (
+				snapshot.details?.operation === "RestoreFromSnapshot" ||
+				snapshot.details?.operation === "RestoreFromSnapshotViaUndo" ||
+				snapshot.details?.operation === "RestoreFromSnapshotViaRedo"
+			) {
 				const restoredId = snapshot.details?.trailers.find((t) => t.key === "restored_from")?.value;
 				if (restoredId !== undefined) {
 					const endIndex = idToIndexMap.get(restoredId);
@@ -70,7 +75,7 @@
 			return []; // flatMap ignores empty arrays
 		});
 
-		return ranges.map((snapshot) => snapshot.id);
+		return ranges.map((snapshot) => snapshot.commitId);
 	}
 
 	let scrollContainer: HTMLDivElement | undefined = $state();
@@ -100,14 +105,14 @@
 		<ScrollableContainer>
 			<div class="snapshots-wrapper">
 				<!-- SNAPSHOTS FEED -->
-				<LazyloadContainer
+				<InfiniteScrollTrigger
 					minTriggerCount={MIN_SNAPSHOTS_TO_LOAD}
 					ontrigger={() => {
 						onLastInView();
 					}}
 				>
-					{#each $snapshots as entry, idx (entry.id)}
-						{#if idx === 0 || createdOnDay(entry.createdAt) !== createdOnDay($snapshots[idx - 1]?.createdAt ?? new Date())}
+					{#each $snapshots as entry, idx (entry.commitId)}
+						{#if idx === 0 || createdOnDay(entry.createdAt) !== createdOnDay($snapshots[idx - 1]?.createdAt ?? 0)}
 							<div class="history-view__snapshots__date-header">
 								<h4 class="text-12 text-semibold">
 									{createdOnDay(entry.createdAt)}
@@ -119,11 +124,12 @@
 							<SnapshotCard
 								{projectId}
 								{entry}
-								isWithinRestore={withinRestoreItems.includes(entry.id)}
+								childId={idx > 0 ? $snapshots[idx - 1]?.commitId : undefined}
+								isWithinRestore={withinRestoreItems.includes(entry.commitId)}
 								restoring={restoration.current.isLoading}
 								onRestoreClick={async () => {
 									try {
-										await restore({ projectId, sha: entry.id });
+										await restore({ projectId, sha: entry.commitId });
 									} finally {
 										// In some cases, restoring the snapshot doesn't update the UI correctly
 										// Until we have that figured out, we need to reload the page.
@@ -131,12 +137,12 @@
 									}
 								}}
 								onDiffClick={() => {
-									currentSelectionId = createSnapshotSelection({ snapshotId: entry.id });
+									currentSelectionId = createSnapshotSelection({ snapshotId: entry.commitId });
 								}}
 							/>
 						{/if}
 					{/each}
-				</LazyloadContainer>
+				</InfiniteScrollTrigger>
 
 				<!-- LOAD MORE -->
 				{#if $loading}
@@ -165,45 +171,47 @@
 	{/if}
 {/snippet}
 
-<div class="history-view" use:focusable>
-	<div class="relative overflow-hidden radius-ml">
-		<div bind:this={sidebarEl} class="history-view__snapshots" use:focusable={{ vertical: true }}>
-			<div class="history-view__snapshots-header">
-				<h3 class="history-view__snapshots-header-title text-15 text-bold">Operations history</h3>
-				<Button
-					size="tag"
-					kind="outline"
-					icon="camera"
-					tooltip="Create a manual snapshot of your current state"
-					onclick={() => createSnapshotModal?.show()}
-				>
-					Create snapshot
-				</Button>
+<SashLayer>
+	<div class="history-view" use:focusable>
+		<div class="relative overflow-hidden radius-ml">
+			<div bind:this={sidebarEl} class="history-view__snapshots" use:focusable={{ vertical: true }}>
+				<div class="history-view__snapshots-header">
+					<h3 class="history-view__snapshots-header-title text-15 text-bold">Operations history</h3>
+					<Button
+						size="tag"
+						kind="outline"
+						icon="camera"
+						tooltip="Create a manual snapshot of your current state"
+						onclick={() => createSnapshotModal?.show()}
+					>
+						Create snapshot
+					</Button>
+				</div>
+				{@render historyEntries()}
 			</div>
-			{@render historyEntries()}
+
+			<Resizer
+				viewport={sidebarEl}
+				direction="right"
+				minWidth={14}
+				persistId="resizer-historyWidth"
+				defaultValue={30}
+			/>
 		</div>
 
-		<Resizer
-			viewport={sidebarEl}
-			direction="right"
-			minWidth={14}
-			persistId="resizer-historyWidth"
-			defaultValue={30}
-		/>
+		<div class="history-view__preview dotted-pattern" use:focusable>
+			{#if selectedFile}
+				<div class="history-view__preview-file">
+					<AppScrollableContainer bind:viewport={scrollContainer}>
+						<SelectionView {projectId} {scrollContainer} selectionId={currentSelectionId} />
+					</AppScrollableContainer>
+				</div>
+			{:else}
+				<FilePreviewPlaceholder />
+			{/if}
+		</div>
 	</div>
-
-	<div class="history-view__preview dotted-pattern" use:focusable>
-		{#if selectedFile}
-			<div class="history-view__preview-file">
-				<ConfigurableScrollableContainer bind:viewport={scrollContainer}>
-					<SelectionView {projectId} {scrollContainer} selectionId={currentSelectionId} />
-				</ConfigurableScrollableContainer>
-			</div>
-		{:else}
-			<FilePreviewPlaceholder />
-		{/if}
-	</div>
-</div>
+</SashLayer>
 
 <CreateSnapshotModal {projectId} bind:this={createSnapshotModal} />
 
@@ -225,9 +233,9 @@
 		max-width: 620px;
 		height: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	/* SIDEVIEW HEADER */
@@ -236,7 +244,7 @@
 		align-items: center;
 		padding: 12px 12px 12px 14px;
 		gap: 12px;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--border-2);
 	}
 
 	.history-view__snapshots-header-title {
@@ -250,12 +258,12 @@
 		position: sticky;
 		top: -1px;
 		padding: 10px 14px 8px 86px;
-		border-top: 1px solid var(--clr-border-2);
-		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-2);
+		border-top: 1px solid var(--border-2);
+		border-bottom: 1px solid var(--border-2);
+		background-color: var(--bg-2);
 
 		& h4 {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 		}
 
 		&:first-child {
@@ -278,7 +286,7 @@
 	}
 
 	.welcome-point__caption {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 
 	/* LOAD MORE */
@@ -289,7 +297,7 @@
 	}
 
 	.load-more span {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 
 	/* PREVIEW */
@@ -299,7 +307,7 @@
 		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
 	}
 
@@ -307,6 +315,6 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 </style>

@@ -38,8 +38,7 @@ fn set_all_replaces_existing() -> anyhow::Result<()> {
     let review2 = forge_review(2, "Second PR", "fix-branch");
     let review3 = forge_review(3, "Third PR", "new-feature");
 
-    db.forge_reviews_mut()?
-        .set_all(vec![review1.clone(), review2.clone()])?;
+    db.forge_reviews_mut()?.set_all(vec![review1, review2])?;
 
     let reviews = db.forge_reviews().list_all()?;
     assert_eq!(reviews.len(), 2);
@@ -128,6 +127,7 @@ fn handles_optional_fields() -> anyhow::Result<()> {
         source_branch: "feature".to_string(),
         target_branch: "main".to_string(),
         sha: "abc123".to_string(),
+        integration_commit_shas: "[\"deadbeef\"]".to_string(),
         created_at: None,
         modified_at: None,
         merged_at: None,
@@ -135,12 +135,14 @@ fn handles_optional_fields() -> anyhow::Result<()> {
         repository_ssh_url: None,
         repository_https_url: None,
         repo_owner: None,
+        head_repo_is_fork: false,
         reviewers: "[]".to_string(),
+        auto_merge_enabled: false,
         unit_symbol: "test".to_string(),
         last_sync_at: chrono::DateTime::from_timestamp(1000000, 0)
             .unwrap()
             .naive_utc(),
-        struct_version: 1,
+        struct_version: 2,
     };
 
     db.forge_reviews_mut()?.set_all(vec![review.clone()])?;
@@ -177,11 +179,170 @@ fn upsert_updates_existing_review() -> anyhow::Result<()> {
     updated_review.author = Some("updated-author".to_string());
     updated_review.draft = true;
     updated_review.sha = "updatedsha123".to_string();
+    updated_review.integration_commit_shas = "[\"updated-landing-sha\"]".to_string();
     updated_review.reviewers = "[\"alice\"]".to_string();
+    updated_review.head_repo_is_fork = true;
     db.forge_reviews_mut()?.upsert(updated_review.clone())?;
 
     let reviews = db.forge_reviews().list_all()?;
     assert_eq!(reviews, [updated_review]);
+
+    Ok(())
+}
+
+#[test]
+fn delete_merged_before_prunes_only_stale_merged_reviews() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    let cutoff = chrono::DateTime::from_timestamp(2_000_000, 0)
+        .unwrap()
+        .naive_utc();
+    let mut stale_merged = forge_review(1, "Stale merged PR", "stale-merged");
+    stale_merged.merged_at = Some(cutoff);
+    let mut recent_merged = forge_review(2, "Recent merged PR", "recent-merged");
+    recent_merged.merged_at = Some(cutoff + chrono::Duration::seconds(1));
+    let open = forge_review(3, "Open PR", "open");
+
+    db.forge_reviews_mut()?
+        .set_all(vec![stale_merged, recent_merged.clone(), open.clone()])?;
+    db.forge_reviews_mut()?.delete_merged_before(cutoff)?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(
+        reviews,
+        [recent_merged, open],
+        "only merged reviews at or before the cutoff should be pruned"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn reconcile_listed_prunes_stale_rows() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    let cutoff = chrono::DateTime::from_timestamp(2_000_000, 0)
+        .unwrap()
+        .naive_utc();
+    let stale_open = forge_review(1, "Stale open PR", "stale-open");
+    let mut listed_open = forge_review(2, "Cached open PR", "listed-open");
+    let mut closed = forge_review(3, "Closed PR", "closed");
+    closed.closed_at = Some(cutoff);
+    let mut recent_merged = forge_review(4, "Recent merged PR", "recent-merged");
+    recent_merged.merged_at = Some(cutoff + chrono::Duration::seconds(1));
+    let mut old_merged = forge_review(5, "Old merged PR", "old-merged");
+    old_merged.merged_at = Some(cutoff);
+
+    db.forge_reviews_mut()?.set_all(vec![
+        stale_open,
+        listed_open.clone(),
+        closed.clone(),
+        recent_merged.clone(),
+        old_merged,
+    ])?;
+
+    listed_open.title = "Fresh listed open PR".to_string();
+    // All rows were synced at t=1_000_000, well before `cutoff`, so none fall
+    // inside the optimistic-insert grace window here.
+    db.forge_reviews_mut()?
+        .reconcile_listed(vec![listed_open.clone()], 2, cutoff, cutoff)?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(
+        reviews.len(),
+        3,
+        "stale open and old merged reviews should be pruned"
+    );
+    assert!(
+        reviews.contains(&listed_open),
+        "listed open review should be updated"
+    );
+    assert!(
+        reviews.contains(&closed),
+        "closed review should be retained when absent from open list"
+    );
+    assert!(
+        reviews.contains(&recent_merged),
+        "recent merged review should be retained for integration hints"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn reconcile_listed_spares_recent_optimistic_inserts() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    let mut optimistic = forge_review(1, "Just-created PR", "new-pr");
+    optimistic.last_sync_at = chrono::DateTime::from_timestamp(3_000_000, 0)
+        .unwrap()
+        .naive_utc();
+    let vanished = forge_review(2, "Vanished PR", "gone");
+
+    db.forge_reviews_mut()?
+        .set_all(vec![optimistic.clone(), vanished])?;
+
+    let cutoff = chrono::DateTime::from_timestamp(2_000_000, 0)
+        .unwrap()
+        .naive_utc();
+    db.forge_reviews_mut()?
+        .reconcile_listed(vec![], 2, cutoff, cutoff)?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(
+        reviews,
+        [optimistic],
+        "a recently-inserted open review must survive an empty list within the grace window"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn reconcile_listed_spares_recent_optimistic_inserts_with_non_empty_list() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    // A brand-new PR cached optimistically (synced "just now"), not yet visible
+    // in the forge's list response.
+    let mut optimistic = forge_review(1, "Just-created PR", "new-pr");
+    optimistic.last_sync_at = chrono::DateTime::from_timestamp(3_000_000, 0)
+        .unwrap()
+        .naive_utc();
+    // An open PR that genuinely dropped off the forge, last synced long ago
+    // (the helper stamps `last_sync_at` at t=1_000_000).
+    let vanished = forge_review(2, "Vanished PR", "gone");
+    let listed = forge_review(3, "Listed PR", "listed");
+
+    db.forge_reviews_mut()?
+        .set_all(vec![optimistic.clone(), vanished.clone()])?;
+
+    // Reconcile against a non-empty list with the grace cutoff between the two
+    // sync times: the recent optimistic insert survives, the long-absent one is
+    // pruned, and the listed review is inserted.
+    let cutoff = chrono::DateTime::from_timestamp(2_000_000, 0)
+        .unwrap()
+        .naive_utc();
+    db.forge_reviews_mut()?
+        .reconcile_listed(vec![listed.clone()], 2, cutoff, cutoff)?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(
+        reviews.len(),
+        2,
+        "only the recent optimistic and listed reviews should remain"
+    );
+    assert!(
+        reviews.contains(&optimistic),
+        "a recently-inserted open review must survive within the grace window"
+    );
+    assert!(
+        reviews.contains(&listed),
+        "a review returned by the forge must be retained"
+    );
+    assert!(
+        !reviews.contains(&vanished),
+        "a stale open review absent from the forge list must be pruned"
+    );
 
     Ok(())
 }
@@ -198,6 +359,7 @@ fn forge_review(number: i64, title: &str, source_branch: &str) -> ForgeReview {
         source_branch: source_branch.to_string(),
         target_branch: "main".to_string(),
         sha: "abc123def456".to_string(),
+        integration_commit_shas: "[\"deadbeef\"]".to_string(),
         created_at: Some(
             chrono::DateTime::from_timestamp(1000000, 0)
                 .unwrap()
@@ -213,11 +375,13 @@ fn forge_review(number: i64, title: &str, source_branch: &str) -> ForgeReview {
         repository_ssh_url: Some("git@github.com:owner/repo.git".to_string()),
         repository_https_url: Some("https://github.com/owner/repo.git".to_string()),
         repo_owner: Some("owner".to_string()),
+        head_repo_is_fork: false,
         reviewers: "[]".to_string(),
+        auto_merge_enabled: false,
         unit_symbol: "test".to_string(),
         last_sync_at: chrono::DateTime::from_timestamp(1000000, 0)
             .unwrap()
             .naive_utc(),
-        struct_version: 1,
+        struct_version: 2,
     }
 }

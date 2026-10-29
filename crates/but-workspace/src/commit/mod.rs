@@ -1,23 +1,127 @@
 use anyhow::Context as _;
 use bstr::{BString, ByteSlice};
+use but_core::DiffSpec;
 use but_core::ref_metadata::MaybeDebug;
 
 use crate::WorkspaceCommit;
 
+/// Build a merge-base override tree from `HEAD^{tree}` + `consumed` changes
+/// (additive-only). During checkout, the 3-way snapshot merge uses this as its
+/// base so consumed hunks cancel out and don't reappear as uncommitted changes.
+///
+/// Two kinds of changes are excluded to keep the tree additive-only:
+///
+/// * `previous_path` is stripped so rename-source deletions don't leak in.
+/// * Full-file deletions (empty `hunk_headers`, file absent from worktree) are
+///   skipped — including them would remove the path from the base, causing the
+///   snapshot merge to misinterpret the worktree copy as a new addition.
+fn compute_merge_base_override(
+    repo: &gix::Repository,
+    consumed: Vec<DiffSpec>,
+    context_lines: u32,
+) -> anyhow::Result<gix::ObjectId> {
+    let head_tree = repo.head_tree_id_or_empty()?;
+    let mut specs: Vec<_> = consumed.into_iter().map(Ok).collect();
+    if specs.is_empty() {
+        return Ok(head_tree.detach());
+    }
+    let (committed_tree, _base) =
+        but_core::tree::apply_worktree_changes(head_tree.into(), repo, &mut specs, context_lines)?;
+    Ok(committed_tree.detach())
+}
+
+/// Which checkout the changes to commit are read from, and hence which one has to
+/// cancel them out during materialization.
+pub enum ChangeSource<'a> {
+    /// The worktree of the repository the editor was created for.
+    Head,
+    /// A linked worktree, whose branch may live anywhere in the editor graph.
+    ///
+    /// The commit being created or amended may still live anywhere else - on a
+    /// workspace stack or on the branch of another worktree.
+    Worktree {
+        /// A plain from-disk open of the linked worktree, as returned by
+        /// [`crate::worktrees::open_worktree_repo()`].
+        ///
+        /// It must share the editor repo's object database and have no object
+        /// memory: new objects are written loose to disk, which makes them
+        /// immediately visible to the editor's in-memory repository.
+        repo: &'a gix::Repository,
+        /// The stable worktree name, i.e. the directory name under
+        /// `$GIT_COMMON_DIR/worktrees/`.
+        ///
+        /// Committing fails without mutating the editor graph when this worktree
+        /// has no checkout recorded in the editor - it is unknown, archived, or
+        /// worktree tips weren't seeded into the graph.
+        name: &'a bstr::BStr,
+    },
+}
+
+impl ChangeSource<'_> {
+    /// The repository the `changes` are read from, and whose `HEAD^{tree}` the
+    /// merge-base override is built on.
+    fn repo<'a, M: but_core::RefMetadata>(
+        &'a self,
+        editor: &'a but_rebase::graph_rebase::Editor<'_, '_, M>,
+    ) -> &'a gix::Repository {
+        match self {
+            ChangeSource::Head => editor.repo(),
+            ChangeSource::Worktree { repo, .. } => repo,
+        }
+    }
+}
+
+/// Tell the editor which of `all_changes` were consumed, so the checkout that
+/// provided them doesn't reintroduce them as uncommitted changes.
+fn cancel_consumed_changes<M: but_core::RefMetadata>(
+    editor: &mut but_rebase::graph_rebase::Editor<'_, '_, M>,
+    source: &ChangeSource<'_>,
+    all_changes: Vec<DiffSpec>,
+    rejected_specs: &[(but_core::tree::create_tree::RejectionReason, DiffSpec)],
+    context_lines: u32,
+) -> anyhow::Result<()> {
+    let rejected_paths: std::collections::BTreeSet<_> =
+        rejected_specs.iter().map(|(_, spec)| &spec.path).collect();
+    let consumed: Vec<_> = all_changes
+        .into_iter()
+        .filter(|spec| !rejected_paths.contains(&spec.path))
+        .collect();
+    if consumed.is_empty() {
+        return Ok(());
+    }
+    let merge_base = compute_merge_base_override(source.repo(editor), consumed, context_lines)?;
+    match source {
+        ChangeSource::Head => editor.set_merge_base_override(merge_base),
+        ChangeSource::Worktree { name, .. } => {
+            editor.set_worktree_merge_base_override(name, merge_base)?
+        }
+    }
+    Ok(())
+}
+
 pub mod reword;
-pub use reword::function::reword;
+pub use reword::reword;
 pub mod commit_create;
-pub use commit_create::function::{CommitCreateOutcome, commit_create};
+pub use commit_create::{CommitCreateOutcome, commit_create};
 pub mod commit_amend;
-pub use commit_amend::function::{CommitAmendOutcome, commit_amend};
+pub use commit_amend::{CommitAmendOutcome, commit_amend};
 pub mod insert_blank_commit;
-pub use insert_blank_commit::function::insert_blank_commit;
+pub use insert_blank_commit::insert_blank_commit;
 pub mod move_changes;
-pub use move_changes::function::{MoveChangesOutcome, move_changes_between_commits};
+pub use move_changes::{MoveChangesOutcome, move_changes_between_commits};
 pub mod uncommit_changes;
-pub use uncommit_changes::function::{UncommitChangesOutcome, uncommit_changes};
+pub use uncommit_changes::{
+    UncommitChangesFailure, UncommitChangesFromCommitsOutcome, UncommitChangesOutcome,
+    UncommitChangesSource, uncommit_changes, uncommit_changes_from_commits,
+};
 pub mod move_commit;
-pub use move_commit::function::move_commit;
+pub use move_commit::move_commits;
+pub mod cherry_pick;
+pub use cherry_pick::cherry_pick_commits;
+pub mod discard_commit;
+pub use discard_commit::discard_commits;
+pub mod squash_commits;
+pub use squash_commits::{SquashCommitsOutcome, squash_commits};
 
 /// A minimal stack for use by [WorkspaceCommit::new_from_stacks()].
 #[derive(Clone)]
@@ -67,6 +171,17 @@ pub mod merge {
         pub segment_idx: SegmentIndex,
     }
 
+    /// Tips resolved from workspace metadata, with references that metadata mentioned but the graph
+    /// couldn't resolve.
+    /// Returned by [WorkspaceCommit::tips_from_metadata()].
+    pub struct ResolvedTips {
+        /// Tips in the order they should appear as workspace commit parents.
+        pub tips: Vec<Tip>,
+        /// Metadata stack tips that couldn't be found in the graph.
+        /// This is usually a problem, as the Graph is expected to contain everything of interest.
+        pub missing_stacks: Vec<gix::refs::FullName>,
+    }
+
     /// A minimal stack for to represent a stack that conflicted.
     #[derive(Clone)]
     pub struct ConflictingStack {
@@ -109,6 +224,76 @@ pub mod merge {
 
     /// Merging - create a merge-commit along with its tree.
     impl WorkspaceCommit<'_> {
+        /// Resolve workspace metadata and anonymous stacks into merge tips.
+        ///
+        /// This preserves metadata ordering, reports missing metadata stacks, and inserts anonymous
+        /// stacks at their projected parent slots while avoiding duplicate commit/segment tips.
+        ///
+        /// `stacks` are the workspace metadata stacks whose top branches should become named
+        /// merge tips unless they are marked outside of the workspace.
+        ///
+        /// `anon_stacks` are unnamed projected tips paired with the parent slot they occupied in
+        /// the workspace projection, used to preserve anonymous parents not represented in metadata.
+        ///
+        /// `graph` resolves metadata branch names to commit and segment ids.
+        pub fn tips_from_metadata<'a>(
+            stacks: impl IntoIterator<Item = &'a but_core::ref_metadata::WorkspaceStack>,
+            anon_stacks: impl IntoIterator<Item = (usize, Tip)>,
+            graph: &but_graph::Graph,
+        ) -> ResolvedTips {
+            let mut missing_stacks = Vec::new();
+            let mut tips_with_metadata_slots: Vec<_> = stacks
+                .into_iter()
+                .filter_map(|s| s.branches.first().map(|b| (b, s.workspacecommit_relation)))
+                .map(|(top_segment, relation)| {
+                    match relation {
+                        WorkspaceCommitRelation::Merged => {}
+                        WorkspaceCommitRelation::MergeFrom { .. } => {
+                            // These need to be part of the parents list, but shouldn't be merged.
+                            // If the caller wants to retry them, they can be passed here as "Merged".
+                            todo!(
+                                "this is a placeholder for where we will have to start handling this UnmergedTree"
+                            )
+                        }
+                        WorkspaceCommitRelation::Outside => return None,
+                    }
+                    let stack_tip_name = top_segment.ref_name.as_ref();
+                    match graph.segment_and_commit_by_ref_name(stack_tip_name) {
+                        None => {
+                            missing_stacks.push(top_segment.ref_name.to_owned());
+                            None
+                        }
+                        Some((segment, commit)) => Some(Tip {
+                            name: Some(stack_tip_name.to_owned()),
+                            commit_id: commit.id,
+                            segment_idx: segment.id,
+                        }),
+                    }
+                })
+                .collect();
+            let named_tips = tips_with_metadata_slots
+                .iter()
+                .flatten()
+                .cloned()
+                .collect::<Vec<_>>();
+            let mut anon_stacks = anon_stacks.into_iter().collect::<Vec<_>>();
+            anon_stacks.sort_by_key(|(idx, _)| *idx);
+            for (idx, anon_tip) in anon_stacks {
+                if named_tips.iter().any(|t| {
+                    t.commit_id == anon_tip.commit_id || t.segment_idx == anon_tip.segment_idx
+                }) {
+                    // prevent duplication of tips, make calling this easier as well.
+                    continue;
+                }
+                tips_with_metadata_slots
+                    .insert(idx.min(tips_with_metadata_slots.len()), Some(anon_tip));
+            }
+            ResolvedTips {
+                tips: tips_with_metadata_slots.into_iter().flatten().collect(),
+                missing_stacks,
+            }
+        }
+
         /// like [`Self::from_new_merge_with_metadata`], but supports tips, which makes it possible to re-merge anything
         /// even if the tip is unnamed.
         /// Note that [`missing_stacks`](Outcome::missing_stacks) is never set.
@@ -358,10 +543,6 @@ pub mod merge {
         /// `repo` is expected to be configured to be suitable for merges, and it *should* be configured to write objects into memory
         /// unless the caller knows that any result of the merge is acceptable.
         ///
-        /// IMPORTANT: This inherently needs the tips to be represented by named branches, so this can't be used to
-        ///            re-merge a workspace with lost or renamed branches. It is, however, good to 'fix' workspaces
-        ///            whose tips were advanced and now are outside the workspace, provide the ref that advanced still exists.
-        ///
         /// ### Shortcoming: inefficient conflict behaviour
         ///
         /// In order to find out exactly which branches conflicts, we repeat the whole operations with different configuration.
@@ -380,43 +561,10 @@ pub mod merge {
             repo: &gix::Repository,
             hero_stack: Option<&gix::refs::FullNameRef>,
         ) -> anyhow::Result<Outcome> {
-            let mut missing_stacks = Vec::new();
-            let mut tips: Vec<_> = stacks
-                .into_iter()
-                .filter_map(|s| s.branches.first().map(|b| (b, s.workspacecommit_relation)))
-                .filter_map(|(top_segment, relation)| {
-                    match relation {
-                        WorkspaceCommitRelation::Merged => {}
-                        WorkspaceCommitRelation::MergeFrom { .. } => {
-                            // These need to be part of the parents list, but shouldn't be merged.
-                            // If the caller wants to retry them, they can be passed here as "Merged".
-                            todo!("this is a placeholder for where we will have to start handling this UnmergedTree")
-                        }
-                        WorkspaceCommitRelation::Outside => return None,
-                    }
-                    let stack_tip_name = top_segment.ref_name.as_ref();
-                    match graph.segment_and_commit_by_ref_name(stack_tip_name) {
-                        None => {
-                            missing_stacks.push(top_segment.ref_name.to_owned());
-                            None
-                        }
-                        Some((segment, commit)) => Some(Tip {
-                            name: Some(stack_tip_name.to_owned()),
-                            commit_id: commit.id,
-                            segment_idx: segment.id,
-                        }),
-                    }
-                })
-                .collect();
-            for (idx, anon_tip) in anon_stacks {
-                if tips.iter().any(|t| {
-                    t.commit_id == anon_tip.commit_id || t.segment_idx == anon_tip.segment_idx
-                }) {
-                    // prevent duplication of tips, make calling this easier as well.
-                    continue;
-                }
-                tips.insert(idx, anon_tip)
-            }
+            let ResolvedTips {
+                tips,
+                missing_stacks,
+            } = Self::tips_from_metadata(stacks, anon_stacks, graph);
             let mut out = Self::from_new_merge_with_tips(tips, graph, repo, hero_stack)?;
             out.missing_stacks = missing_stacks;
             Ok(out)
@@ -429,7 +577,7 @@ pub mod merge {
         left: SegmentIndex,
         right: SegmentIndex,
     ) -> anyhow::Result<(gix::ObjectId, SegmentIndex)> {
-        let base_sidx = graph.find_git_merge_base(left, right).with_context(|| {
+        let base_sidx = graph.find_merge_base(left, right).with_context(|| {
             format!(
                 "Couldn't find merge-base between segments {l} and {r} - they are disjoint in the commit-graph",
                 l = left.index(),
@@ -478,7 +626,7 @@ impl<'repo> WorkspaceCommit<'repo> {
     /// It's supposed to be the legitimate merge of the stacks contained in `workspace`.
     /// Note that it will be written to `repo` immediately for persistence, with its object id returned.
     pub fn from_graph_workspace_and_tree(
-        workspace: &but_graph::projection::Workspace,
+        workspace: &but_graph::Workspace,
         repo: &'repo gix::Repository,
         tree: gix::ObjectId,
     ) -> anyhow::Result<Self> {
@@ -513,9 +661,9 @@ impl<'repo> WorkspaceCommit<'repo> {
     }
 
     /// also rewrite the author and committer time, just to be sure we respect all settings. `new_from_stacks` doesn't have a repo.
-    fn fixup_times(ws_commit: &mut gix::objs::Commit, repo: &gix::Repository) {
+    pub(crate) fn fixup_times(ws_commit: &mut gix::objs::Commit, repo: &gix::Repository) {
         fn try_time(
-            sig: Option<Result<gix::actor::SignatureRef<'_>, gix::config::time::Error>>,
+            sig: Option<gix::Result<gix::actor::SignatureRef<'_>>>,
         ) -> Option<gix::date::Time> {
             sig.transpose().ok().flatten().and_then(|s| s.time().ok())
         }
@@ -601,7 +749,7 @@ fn commit_signature(time: gix::date::Time) -> gix::actor::Signature {
 fn commit_time(overriding_variable_name: &str) -> gix::date::Time {
     std::env::var(overriding_variable_name)
         .ok()
-        .and_then(|time| gix::date::parse(&time, Some(std::time::SystemTime::now())).ok())
+        .and_then(|time| gix::date::parse(&time, Some(gix::date::Zoned::now())).ok())
         .unwrap_or_else(gix::date::Time::now_local_or_utc)
 }
 
@@ -611,7 +759,7 @@ impl WorkspaceCommit<'_> {
     /// If `false`, this is the tip of the stack itself which will be put underneath a *managed* workspace commit
     /// once another branch is added to the workspace.
     pub fn is_managed(&self) -> bool {
-        but_graph::projection::commit::is_managed_workspace_by_message(self.message.as_bstr())
+        but_graph::workspace::commit::is_managed_workspace_by_message(self.message.as_bstr())
     }
 }
 

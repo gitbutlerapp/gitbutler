@@ -1,8 +1,8 @@
 #!/bin/bash
 
 echo "GIT CONFIG $GIT_CONFIG_GLOBAL"
-echo "DATA DIR $GITBUTLER_CLI_DATA_DIR"
-echo "BUT_TESTING $BUT_TESTING"
+echo "DATA DIR $E2E_TEST_APP_DATA_DIR"
+echo "BUT $BUT"
 
 # Setup a remote project
 mkdir remote-with-hooks
@@ -69,10 +69,12 @@ HOOK_EOF
 # This hook checks if a marker file exists to trigger failure
 
 if [ -f "FAIL_POST_COMMIT" ]; then
+  touch POST_COMMIT_FAILED
   echo "Error: Post-commit hook failed due to FAIL_POST_COMMIT marker"
   exit 1
 fi
 
+touch POST_COMMIT_SUCCEEDED
 exit 0
 HOOK_EOF
 
@@ -82,5 +84,8 @@ HOOK_EOF
   echo "Uncommitted changes" >> uncommitted.txt
 
   # Add the project to GitButler
-  $BUT_TESTING add-project --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
+  target_branch="$(git rev-parse --symbolic-full-name @{u})"
+  target_branch="${target_branch#refs/remotes/}"
+  "$BUT" switch --workspace
+  "$BUT" config target "$target_branch"
 popd

@@ -1,23 +1,19 @@
 use std::collections::HashSet;
 
 use anyhow::Context as _;
-use but_core::RefMetadata;
+use but_core::{RefMetadata, ref_metadata::ProjectMeta};
 use gix::{
     date::parse::TimeBuf, prelude::ObjectIdExt as _, reference::Category, remote::Direction,
 };
 use itertools::Itertools;
 
-use crate::{
-    ref_info::function::workspace_data_of_default_workspace_branch,
-    ui,
-    ui::{CommitState, PushStatus, UpstreamCommit},
-};
+use crate::ui::{self, CommitState, PushStatus, UpstreamCommit};
 
 /// Returns information about the current state of a branch identified by its `name`.
 /// This branch is assumed to not be in the workspace, but it will still be assumed to want to integrate with the workspace target
 /// reference if set.
-/// Note that for stacks, we shouldn't call `stack_details_v3`, but instead [`head_info()`](crate::head_info()) to get all stacks
-/// reachable from the current HEAD.
+/// Note that stacks are described by [`head_info()`](crate::head_info()) instead, which returns all
+/// stacks reachable from the current HEAD.
 ///
 /// ### Implementation
 ///
@@ -31,20 +27,21 @@ pub fn branch_details(
     repo: &gix::Repository,
     name: &gix::refs::FullNameRef,
     meta: &impl RefMetadata,
+    project_meta: &ProjectMeta,
 ) -> anyhow::Result<ui::BranchDetails> {
-    let integration_branch_name = workspace_data_of_default_workspace_branch(meta)?
-        .context(
-            "TODO: cannot run in non-workspace mode yet.\
-        It would need a way to deal with limiting the commit traversal",
-        )?
+    let integration_branch_name = project_meta
         .target_ref
+        .clone()
         .context("TODO: a target to integrate with is currently needed for a workspace commit")?;
     let mut integration_branch = repo
         .find_reference(&integration_branch_name)
         .context("The branch to integrate with must be present")?;
     let integration_branch_id = integration_branch.peel_to_id()?;
 
-    let mut branch = repo.find_reference(name)?;
+    let Some(mut branch) = repo.try_find_reference(name)? else {
+        return Err(anyhow::anyhow!("The reference '{name}' did not exist")
+            .context(but_error::Code::BranchNotFound));
+    };
     let branch_id = branch.peel_to_id()?;
 
     let mut remote_tracking_branch = repo
@@ -131,7 +128,6 @@ pub fn branch_details(
     Ok(ui::BranchDetails {
         name: name.shorten().into(),
         reference: name.into(),
-        linked_worktree_id: None, /* probably not needed here */
         remote_tracking_branch: remote_tracking_branch.map(|b| b.name().as_bstr().to_owned()),
         pr_number: meta.review.pull_request,
         review_id: meta.review.review_id.clone(),
@@ -185,6 +181,9 @@ fn upstream_commits_gix(
         let info = info?;
         let commit = info.id().object()?.into_commit();
         let commit = commit.decode()?;
+        let change_id =
+            but_core::commit::Headers::try_from_commit_headers(|| commit.extra_headers())
+                .and_then(|hdr| hdr.change_id.map(|id| id.to_string()));
         let author: ui::Author = commit.author()?.into();
         let committer: ui::Author = commit.committer()?.into();
         authors.insert(author.clone());
@@ -192,8 +191,10 @@ fn upstream_commits_gix(
         out.push(UpstreamCommit {
             id: info.id,
             message: commit.message.into(),
-            created_at: i128::from(commit.time()?.seconds) * 1000,
+            authored_at: i128::from(commit.author()?.time()?.seconds) * 1000,
+            committed_at: i128::from(commit.time()?.seconds) * 1000,
             author,
+            change_id,
         });
     }
     Ok(out)
@@ -222,14 +223,18 @@ fn local_commits_gix(
         let committer: ui::Author = commit.committer.to_ref(&mut buf).into();
         authors.insert(author.clone());
         authors.insert(committer);
+        let is_conflicted = commit.is_conflicted();
+        let message = but_core::commit::strip_conflict_markers(commit.message.as_ref());
         out.push(ui::Commit {
             id: info.id,
             parent_ids: commit.parents.iter().cloned().collect(),
-            message: commit.message.clone(),
-            has_conflicts: commit.is_conflicted(),
+            message,
+            has_conflicts: is_conflicted,
             state: CommitState::LocalAndRemote(info.id),
-            created_at: i128::from(commit.committer.time.seconds) * 1000,
+            authored_at: i128::from(commit.author.time.seconds) * 1000,
+            committed_at: i128::from(commit.committer.time.seconds) * 1000,
             author,
+            change_id: commit.change_id().to_string(),
             gerrit_review_url: None,
         });
     }

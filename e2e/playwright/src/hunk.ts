@@ -1,4 +1,4 @@
-import { generateHunkId } from "@gitbutler/ui/utils/hunk";
+import { generateHunkId } from "@gitbutler/ui-svelte/utils/hunk";
 
 type HunkLineSelector =
 	| `#hunk-line-${string}\\:R${number} [data-testid="hunk-count-column"]`

@@ -1,11 +1,10 @@
-import { Snapshot } from "$lib/history/types";
 import { InjectionToken } from "@gitbutler/core/context";
 import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
-import { plainToInstance } from "class-transformer";
 import { get, writable } from "svelte/store";
 import type { IBackend } from "$lib/backend";
-import type { TreeChange } from "$lib/hunks/change";
-import type { BackendApi } from "$lib/state/clientState.svelte";
+import type { Snapshot } from "$lib/history/types";
+import type { BackendApi } from "$lib/state/backendApi";
+import type { TreeChange } from "@gitbutler/but-sdk";
 
 const snapshotDiffAdapter = createEntityAdapter({
 	selectId: (tc: TreeChange) => tc.path,
@@ -38,7 +37,7 @@ class SnapshotPager {
 		const data = await this.fetch();
 		if (data.length) {
 			this.snapshots.set(data);
-			this.cursor = data.at(-1)?.id;
+			this.cursor = data.at(-1)?.commitId;
 		}
 	}
 
@@ -46,14 +45,13 @@ class SnapshotPager {
 		if (!this.cursor) throw new Error("Not without a cursor");
 		if (get(this.isAllLoaded)) return; // Nothing to do.
 
-		// TODO: Update API so we don't have to .slice()
-		const more = (await this.fetch(this.cursor)).slice(1);
+		const more = await this.fetch(this.cursor);
 
 		if (more.length === 0) {
 			this.isAllLoaded.set(true);
 		} else {
 			this.snapshots.update((snapshots) => [...snapshots, ...more]);
-			this.cursor = more.at(-1)?.id;
+			this.cursor = more.at(-1)?.commitId;
 		}
 	}
 
@@ -65,7 +63,7 @@ class SnapshotPager {
 			limit: 32,
 		});
 		this.loading.set(false);
-		return plainToInstance(Snapshot, resp);
+		return resp;
 	}
 
 	clear() {
@@ -76,6 +74,7 @@ class SnapshotPager {
 type SnapshotDiffParams = {
 	projectId: string;
 	snapshotId: string;
+	childId?: string;
 };
 
 export class HistoryService {
@@ -134,7 +133,9 @@ export class HistoryService {
 	}
 }
 
-export function createdOnDay(d: Date) {
+/** Formats a date (milliseconds since epoch) as a human-readable day string. */
+export function createdOnDay(epochMs: number) {
+	const d = new Date(epochMs);
 	const t = new Date();
 	return `${t.toDateString() === d.toDateString() ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" })}, ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 }
@@ -144,7 +145,11 @@ function injectEndpoints(api: BackendApi) {
 		endpoints: (build) => ({
 			snapshotDiff: build.query<EntityState<TreeChange, string>, SnapshotDiffParams>({
 				extraOptions: { command: "snapshot_diff" },
-				query: ({ projectId, snapshotId }) => ({ projectId, sha: snapshotId }),
+				query: ({ projectId, snapshotId, childId }) => ({
+					projectId,
+					sha: snapshotId,
+					childId: childId ?? null,
+				}),
 				transformResponse: (data: TreeChange[]) => {
 					return snapshotDiffAdapter.addMany(snapshotDiffAdapter.getInitialState(), data);
 				},

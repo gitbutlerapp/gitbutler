@@ -1,10 +1,9 @@
-use rusqlite::ErrorCode;
 use tracing::instrument;
 
-use crate::{M, SchemaVersion};
+use crate::{M, SchemaVersion, cache};
 
 /// The error produced when running migrations.
-pub type Error = backoff::Error<rusqlite::Error>;
+pub type Error = crate::Error;
 
 /// The time we wait at most if the database is locked or busy before giving up acquiring a lock.
 pub(crate) const BUSY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
@@ -44,7 +43,7 @@ pub fn run<'m>(
         // Use deferred to allow ourselves to read first without running into locks.
         // That read can determine that nothing needs to be done, saving a lot of time.
         .transaction_with_behavior(rusqlite::TransactionBehavior::Deferred)
-        .map_err(transient_if_locked)?;
+        .map_err(crate::map_err)?;
 
     let application_schema_version = highest_application_schema_version(&migrations);
     let db_schema_version = db_forward_compatibility_version(&trans)?;
@@ -67,7 +66,7 @@ pub fn run<'m>(
     {
         if should_bump_forward_compatibility_version {
             set_db_forward_compatibility_version(&trans, application_schema_version)?;
-            trans.commit().map_err(transient_if_locked)?;
+            trans.commit().map_err(crate::map_err)?;
         }
         return Ok(0);
     }
@@ -78,7 +77,7 @@ pub fn run<'m>(
             // We couldn't read the table, be sure it exists and refresh the count just to be sure.
             trans
                 .execute_batch(DIESEL_SCHEMA_MIGRATION_TABLE)
-                .map_err(transient_if_locked)?;
+                .map_err(crate::map_err)?;
             num_applied_versions(&trans, &migrations)?
         }
     };
@@ -86,9 +85,7 @@ pub fn run<'m>(
     let mut count = 0;
     // Run only new migrations (after all existing ones)
     for migration in migrations.iter().skip(num_applied_consecutive_versions) {
-        trans
-            .execute_batch(migration.up)
-            .map_err(transient_if_locked)?;
+        trans.execute_batch(migration.up).map_err(crate::map_err)?;
 
         let version = migration.up_created_at.to_string();
         trans
@@ -96,7 +93,7 @@ pub fn run<'m>(
                 "INSERT INTO __diesel_schema_migrations (version) VALUES (?1)",
                 [&version],
             )
-            .map_err(transient_if_locked)?;
+            .map_err(crate::map_err)?;
 
         count += 1;
     }
@@ -105,13 +102,13 @@ pub fn run<'m>(
         set_db_forward_compatibility_version(&trans, application_schema_version)?;
     }
 
-    trans.commit().map_err(transient_if_locked)?;
+    trans.commit().map_err(crate::map_err)?;
     Ok(count)
 }
 
 fn db_forward_compatibility_version(conn: &rusqlite::Connection) -> Result<u32, Error> {
     conn.query_row("PRAGMA user_version", [], |row| row.get(0))
-        .map_err(transient_if_locked)
+        .map_err(crate::map_err)
 }
 
 fn set_db_forward_compatibility_version(
@@ -121,14 +118,14 @@ fn set_db_forward_compatibility_version(
     conn.execute_batch(&format!(
         "PRAGMA user_version = {application_schema_version};"
     ))
-    .map_err(transient_if_locked)?;
+    .map_err(crate::map_err)?;
     Ok(())
 }
 
 fn highest_application_schema_version(migrations: &[M]) -> u32 {
     migrations
         .iter()
-        .map(|migration| migration.schema_version as u32)
+        .map(|migration| migration.schema_version)
         .max()
         .unwrap_or(SchemaVersion::Zero as u32)
 }
@@ -137,13 +134,13 @@ fn num_applied_versions(conn: &rusqlite::Connection, migrations: &[M]) -> Result
     let existing_versions = {
         let mut stmt = conn
             .prepare("SELECT version FROM __diesel_schema_migrations ORDER BY version")
-            .map_err(transient_if_locked)?;
+            .map_err(crate::map_err)?;
         let rows = stmt
             .query_map([], |row| row.get::<_, String>(0))
-            .map_err(transient_if_locked)?;
+            .map_err(crate::map_err)?;
         rows.into_iter()
             .collect::<Result<Vec<_>, _>>()
-            .map_err(transient_if_locked)?
+            .map_err(crate::map_err)?
     };
 
     // Validate that existing migrations match the provided migrations list
@@ -174,21 +171,13 @@ fn num_applied_versions(conn: &rusqlite::Connection, migrations: &[M]) -> Result
     Ok(existing_versions.len())
 }
 
-fn transient_if_locked(err: rusqlite::Error) -> Error {
-    if err
-        .sqlite_error_code()
-        .is_some_and(|code| matches!(code, ErrorCode::DatabaseLocked | ErrorCode::DatabaseBusy))
-    {
-        backoff::Error::transient(err)
-    } else {
-        backoff::Error::permanent(err)
-    }
-}
-
 impl<'a> M<'a> {
     /// Create a new migration with `created_at_for_sorting` in a format like `20250529110746`,
     /// a documented forward-compatibility `schema_version`, and the `up_sql` which is Sqlite
     /// compatible SQL to create or update tables.
+    ///
+    /// Prefer [`SchemaVersion::Zero`]: a higher version locks older binaries out of the
+    /// database. Leave stale columns or tables in place rather than bumping for cleanup.
     pub const fn up(
         created_at_for_sorting: u64,
         schema_version: SchemaVersion,
@@ -197,7 +186,22 @@ impl<'a> M<'a> {
         M {
             up: up_sql,
             up_created_at: created_at_for_sorting,
-            schema_version,
+            schema_version: schema_version as u32,
+        }
+    }
+
+    /// Create a new migration with `created_at_for_sorting` in a format like `20250529110746`,
+    /// a documented forward-compatibility `schema_version`, and the `up_sql` which is Sqlite
+    /// compatible SQL to create or update tables.
+    pub const fn up_project_cache(
+        created_at_for_sorting: u64,
+        schema_version: cache::SchemaVersion,
+        up_sql: &'a str,
+    ) -> Self {
+        M {
+            up: up_sql,
+            up_created_at: created_at_for_sorting,
+            schema_version: schema_version as u32,
         }
     }
 }

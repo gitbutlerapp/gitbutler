@@ -10,7 +10,7 @@ import path from "node:path";
 // import path from 'path';
 // dotenv.config({ path: path.resolve(__dirname, '.env') });
 
-const AMOUNT_OF_WORKERS = process.env.CI ? 1 : 4;
+const AMOUNT_OF_WORKERS = process.env.CI ? 2 : 4;
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -26,48 +26,67 @@ export default defineConfig({
 	/* Opt out of parallel tests on CI. */
 	workers: AMOUNT_OF_WORKERS,
 	/* Reporter to use. See https://playwright.dev/docs/test-reporters */
-	reporter: process.env.CI ? "github" : "list",
+	reporter: process.env.CI ? [["github"], ["buildkite-test-collector/playwright/reporter"]] : "dot",
+	/* A backstop, not the deadline that normally fails a test. Waits and
+	   assertions give up 10s after the app falls silent (see src/idle.ts),
+	   which covers anything that is simply never arriving. What reaches this
+	   timeout is the case idleness cannot see — the app busy but not
+	   progressing, e.g. a poll that keeps firing while the awaited state never
+	   comes, or a request that never settles — plus `expect.poll` and the
+	   deliberate `waitForTimeout` sleeps in the poll-backoff tests.
+
+	   Sized from CI, which averages ~9s per test against ~4.9s locally. The
+	   slowest test is 18.1s locally, but 13s of that is a fixed sleep that does
+	   not scale, so it lands near 22s there; the slowest test with no fixed
+	   sleep lands near 28s. 120s keeps roughly 4x headroom, so a runner having
+	   a bad day still passes. Trimming it would only speed up genuinely stuck
+	   tests, which are now rare, at the cost of the margin that keeps slow
+	   runners green. */
+	timeout: 120_000,
+	/* Playwright's own assertion deadline is disabled: a fixed sub-deadline is
+	   a guess at how slow a runner is, and guessing low is what made a slow
+	   runner look like a broken one. Assertions are bounded by src/expect.ts
+	   instead, which retries while the app is still making requests and gives
+	   up once it has been idle for IDLE_BUDGET_MS, keeping Playwright's usual
+	   expected/received report. What still runs under this zero — expect.poll —
+	   is bounded only by the per-test timeout above. */
+	expect: { timeout: 0 },
 	/* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
 	use: {
 		/* Base URL to use in actions like `await page.goto('/')`. */
 		baseURL: `http://localhost:${DESKTOP_PORT}`,
 
+		/* Individual actions (click, fill, etc.) fail after 15s so a stuck
+		   action surfaces quickly instead of burning the full test timeout.
+		   Waiting for the app to reach a state is deliberately not covered:
+		   the wait helpers and hoverPatiently in src/util.ts run under the
+		   idle budget in src/idle.ts instead. */
+		actionTimeout: 15_000,
+
 		/* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
 		// I have no idea why, but with this disabled, some tests just always fail. I have no idea why.
-		trace: "on",
-		video: process.env.CI ? "on-first-retry" : "retain-on-failure",
+		trace: "retain-on-failure",
+		video: { mode: "retain-on-failure", size: { width: 1280, height: 720 } },
 	},
 
 	/* Configure projects for major browsers */
-	projects: projects(),
+	projects: [
+		{
+			name: "webkit",
+			use: {
+				...devices["Desktop Safari"],
+				viewport: { width: 1920, height: 1080 },
+				deviceScaleFactor: 1,
+				headless: process.env.CI ? true : process.env.PLAYWRIGHT_UI !== "1",
+			},
+		},
+	],
 
 	/* Run your local dev server before starting the tests */
 	webServer: webServers(),
 
 	snapshotPathTemplate: "{testDir}/__snapshots__/{testFilePath}/{arg}{ext}",
 });
-
-function projects() {
-	const projects = [];
-	if (process.env.CI) {
-		projects.push({
-			name: "chromium",
-			use: { ...devices["Desktop Chrome"], viewport: { width: 1920, height: 1080 } },
-		});
-		return projects;
-	}
-
-	projects.push({
-		name: "Chrome",
-		use: {
-			...devices["Desktop Chrome"],
-			headless: process.env.PLAYWRIGHT_UI === "1" ? false : true,
-			channel: "chrome",
-		},
-	});
-
-	return projects;
-}
 
 /**
  * Command to start the frontend server.

@@ -14,8 +14,6 @@ use crate::{
 };
 
 const OLLAMA_API_BASE_DEFAULT: &str = "http://localhost:11434/v1/";
-const OLLAMA_ENDPOINT: &str = "gitbutler.aiOllamaEndpoint";
-const OLLAMA_MODEL_NAME: &str = "gitbutler.aiOllamaModelName";
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct OllamaHostConfig {
@@ -72,21 +70,6 @@ impl OpenAIClientProvider for OllamaProvider {
 }
 
 impl LLMClient for OllamaProvider {
-    fn from_git_config(config: &gix::config::File<'static>) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        let endpoint = config
-            .string(OLLAMA_ENDPOINT)
-            .map(|v| v.to_string())
-            .map(OllamaHostConfig::from);
-        let model = config.string(OLLAMA_MODEL_NAME).map(|v| v.to_string());
-        let ollama_config = OllamaConfig {
-            host_config: endpoint,
-        };
-        Some(OllamaProvider::new(ollama_config, model))
-    }
-
     fn model(&self) -> Option<String> {
         self.model.clone()
     }

@@ -14,7 +14,6 @@ doctest = false
 testing = []
 
 [dependencies]
-git2.workspace = true
 gix.workspace = true
 bstr.workspace = true
 but-core.workspace = true

@@ -5,6 +5,7 @@ describe("isValidDeepLinkUrl", () => {
 	test("returns true for valid but:// URLs", () => {
 		expect(isValidDeepLinkUrl("but://open")).toBe(true);
 		expect(isValidDeepLinkUrl("but://open?path=/some/path")).toBe(true);
+		expect(isValidDeepLinkUrl("but://open/?path=C:\\some\\path")).toBe(true);
 		expect(isValidDeepLinkUrl("but://open?path=/some/path&other=param")).toBe(true);
 	});
 
@@ -29,7 +30,15 @@ describe("isValidDeepLinkUrl", () => {
 		expect(isValidDeepLinkUrl("but://")).toBe(false);
 		expect(isValidDeepLinkUrl("but://invalid")).toBe(false);
 		expect(isValidDeepLinkUrl("but://invalid-path")).toBe(false);
+		expect(isValidDeepLinkUrl("but://open-other")).toBe(false);
+		expect(isValidDeepLinkUrl("but://open/extra?path=/some/path")).toBe(false);
 		expect(isValidDeepLinkUrl("but://close")).toBe(false);
+	});
+
+	test("returns false for unsupported URL components", () => {
+		expect(isValidDeepLinkUrl("but://user@open?path=/some/path")).toBe(false);
+		expect(isValidDeepLinkUrl("but://open:123?path=/some/path")).toBe(false);
+		expect(isValidDeepLinkUrl("but://open?path=/some/path#fragment")).toBe(false);
 	});
 
 	test("returns false for malformed URLs", () => {
@@ -49,10 +58,24 @@ describe("parseDeepLinkUrl", () => {
 	});
 
 	test("parses open URLs with single query parameter", () => {
-		const result = parseDeepLinkUrl("but://open?path=/some/path" as any);
+		const result = parseDeepLinkUrl("but://open?path=/some/path");
 		expect(result).not.toBeNull();
 		expect(result![0]).toBe("open");
 		expect(result![1].get("path")).toBe("/some/path");
+	});
+
+	test("parses Windows-normalized URLs with a root path", () => {
+		const result = parseDeepLinkUrl("but://open/?path=C:\\some\\path");
+		expect(result).not.toBeNull();
+		expect(result![0]).toBe("open");
+		expect(result![1].get("path")).toBe("C:\\some\\path");
+	});
+
+	test("parses Windows-normalized login URLs", () => {
+		const result = parseDeepLinkUrl("but://login/?access_token=token&t=123");
+		expect(result).not.toBeNull();
+		expect(result![0]).toBe("login");
+		expect(result![1].get("access_token")).toBe("token");
 	});
 
 	test("parses open URLs with multiple query parameters", () => {
@@ -61,6 +84,14 @@ describe("parseDeepLinkUrl", () => {
 		expect(result![0]).toBe("open");
 		expect(result![1].get("path")).toBe("/some/path");
 		expect(result![1].get("other")).toBe("value");
+	});
+
+	test("parses open URLs with new-window query parameter", () => {
+		const result = parseDeepLinkUrl("but://open?path=/some/path&new_window=1" as any);
+		expect(result).not.toBeNull();
+		expect(result![0]).toBe("open");
+		expect(result![1].get("path")).toBe("/some/path");
+		expect(result![1].get("new_window")).toBe("1");
 	});
 
 	test("handles URL-encoded query parameters", () => {

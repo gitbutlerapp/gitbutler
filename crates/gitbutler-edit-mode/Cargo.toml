@@ -6,6 +6,9 @@ authors.workspace = true
 publish = false
 rust-version.workspace = true
 
+[features]
+export-schema = ["dep:schemars", "dep:but-schemars"]
+
 [lib]
 doctest = false
 
@@ -17,12 +20,8 @@ but-oxidize.workspace = true
 but-ctx.workspace = true
 
 gitbutler-commit.workspace = true
-gitbutler-repo.workspace = true
 gitbutler-operating-modes.workspace = true
-gitbutler-branch-actions.workspace = true
 gitbutler-oplog.workspace = true
-gitbutler-stack.workspace = true
-gitbutler-cherry-pick.workspace = true
 gitbutler-workspace.workspace = true
 
 git2.workspace = true
@@ -31,11 +30,14 @@ anyhow.workspace = true
 bstr.workspace = true
 serde.workspace = true
 tracing.workspace = true
+schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
+git-meta-lib.workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true
 but-meta = { workspace = true, features = ["legacy"] }
-insta.workspace = true
+snapbox.workspace = true
 
 tempfile.workspace = true
 

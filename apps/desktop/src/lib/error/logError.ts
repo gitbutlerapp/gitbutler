@@ -1,8 +1,19 @@
-import { logErrorToFile } from "$lib/backend";
 import { SilentError } from "$lib/error/error";
+import { isNormalizedError, normalizedErrorToException } from "$lib/error/normalizedError";
 import { parseError } from "$lib/error/parser";
-import { showError } from "$lib/notifications/toasts";
+import { showError } from "$lib/error/showError";
 import { captureException } from "@sentry/sveltekit";
+
+// Lazy-import logErrorToFile to avoid circular dependency with backend/.
+let _logErrorToFile: ((error: string) => void) | undefined;
+
+/**
+ * Must be called at startup (e.g., from bootstrap) to wire up the backend
+ * file logger.  Until then, errors are only logged to the console.
+ */
+export function setLogErrorToFile(fn: (error: string) => void) {
+	_logErrorToFile = fn;
+}
 
 const E2E_MESSAGES_TO_IGNORE_DURING_E2E = [
 	"Unable to autolaunch a dbus-daemon without a $DISPLAY for X11",
@@ -49,24 +60,43 @@ export function logError(error: unknown, options?: LogErrorOptions) {
 	}
 
 	try {
-		captureException(error, {
-			mechanism: {
-				type: "sveltekit",
-				handled: false,
-			},
-		});
-
-		// Unwrap error if it's an unhandled promise rejection.
+		// Unwrap promise rejections first so Sentry sees the underlying reason
+		// rather than the event wrapper, and so SilentError detection works
+		// against the actual thrown value.
 		if (error instanceof PromiseRejectionEvent) {
 			error = error.reason;
 		}
 
-		if (!options?.skipToast && !(error instanceof SilentError)) {
-			showError("Unhandled exception", error);
+		// `SilentError` indicates the caller already handled (or chose to
+		// suppress) the error — skip both Sentry capture and the toast so
+		// they don't double-up on noise or surface anything unexpected.
+		const silent = error instanceof SilentError;
+
+		if (!silent) {
+			if (options?.skipToast) {
+				// Sentry-only path (e.g. Svelte `<ErrorBoundary>`): no toast
+				// will be shown, so capture directly here. `showError`
+				// handles the same wrapping in the toast-bearing path
+				// below.
+				const forSentry =
+					isNormalizedError(error) && !(error instanceof Error)
+						? normalizedErrorToException(error)
+						: error;
+				captureException(forSentry, {
+					mechanism: {
+						type: "sveltekit",
+						handled: false,
+					},
+				});
+			} else {
+				// `showError` captures to PostHog and Sentry itself, so the
+				// toast pipeline and the telemetry stay in sync.
+				showError("Unhandled exception", error);
+			}
 		}
 
 		const logMessage = loggableError(error);
-		logErrorToFile(logMessage);
+		_logErrorToFile?.(logMessage);
 
 		console.error(error);
 	} catch (err: unknown) {

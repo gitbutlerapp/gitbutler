@@ -4,8 +4,10 @@ use std::str::FromStr;
 
 use but_core::ref_metadata;
 use but_graph::{Commit, CommitFlags, Graph, RefInfo, Segment, SegmentIndex, SegmentMetadata};
-use but_testsupport::graph_tree;
+
 use gix::ObjectId;
+
+use crate::support::graph_dag;
 
 /// Simulate a graph data structure after the first pass, i.e., right after the walk.
 /// There is no pruning of 'empty' branches, just a perfect representation of the graph as is,
@@ -20,16 +22,13 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         id: 0.into(),
         ref_info: Some(RefInfo {
             ref_name: "refs/heads/main".try_into()?,
+            commit_id: None,
             worktree: None,
         }),
         remote_tracking_ref_name: Some("refs/remotes/origin/main".try_into()?),
-        metadata: Some(SegmentMetadata::Workspace(ref_metadata::Workspace {
-            ref_info: Default::default(),
-            stacks: vec![],
-            target_ref: None,
-            target_commit_id: None,
-            push_remote: None,
-        })),
+        metadata: Some(SegmentMetadata::Workspace(
+            ref_metadata::Workspace::default(),
+        )),
         ..Default::default()
     };
 
@@ -42,30 +41,34 @@ fn post_graph_traversal() -> anyhow::Result<()> {
             id: 1.into(),
             ref_info: Some(RefInfo {
                 ref_name: "refs/heads/new-stack".try_into()?,
+                commit_id: None,
                 worktree: None,
             }),
             ..Default::default()
         },
         0,
         None,
+        0,
     );
 
     let remote_to_local_target = Segment {
         id: 2.into(),
         ref_info: Some(RefInfo {
             ref_name: "refs/remotes/origin/main".try_into()?,
+            commit_id: None,
             worktree: None,
         }),
         commits: vec![commit(id("c"), Some(init_commit_id), CommitFlags::empty())],
         ..Default::default()
     };
-    graph.connect_new_segment(local_target, None, remote_to_local_target, 0, None);
+    graph.connect_new_segment(local_target, None, remote_to_local_target, 0, None, 0);
 
     let branch = Segment {
         id: 3.into(),
         generation: 2,
         ref_info: Some(RefInfo {
             ref_name: "refs/heads/A".try_into()?,
+            commit_id: None,
             worktree: None,
         }),
         remote_tracking_ref_name: Some("refs/remotes/origin/A".try_into()?),
@@ -77,12 +80,13 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         ],
         metadata: None,
     };
-    let branch = graph.connect_new_segment(local_target, None, branch, 0, None);
+    let branch = graph.connect_new_segment(local_target, None, branch, 0, None, 0);
 
     let remote_to_root_branch = Segment {
         id: 4.into(),
         ref_info: Some(RefInfo {
             ref_name: "refs/remotes/origin/A".try_into()?,
+            commit_id: None,
             worktree: None,
         }),
         commits: vec![
@@ -94,20 +98,25 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         ],
         ..Default::default()
     };
-    graph.connect_new_segment(branch, 1, remote_to_root_branch, 0, None);
+    graph.connect_new_segment(branch, 1, remote_to_root_branch, 0, None, 0);
 
-    insta::assert_snapshot!(graph_tree(&graph), @r"
-
-    └── 👉📕►►►:0[0]:main <> origin/main
-        ├── ►:1[0]:new-stack
-        ├── ►:2[0]:origin/main
-        │   └── ✂🟣ccccccc
-        └── ►:3[2]:A <> origin/A →:1:
-            ├── 🟣aaaaaaa (🏘)
-            └── 🟣febafeb (🏘)
-                └── ►:4[0]:origin/A
-                    └── ✂🟣bbbbbbb
-    ");
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎      👉📕main <> origin/main
+├─┬─╮
+◎ │ │  new-stack
+  ◎ │  origin/main
+  ● │  ✂🟣ccccccc
+  │ ◎  A <> origin/A
+  │ ●  🟣aaaaaaa (🏘)
+  ├─╯
+◎ │  origin/A
+● │  ✂🟣bbbbbbb
+├─╯
+●  🟣febafeb (🏘)
+"#]]
+    );
 
     Ok(())
 }
@@ -119,11 +128,7 @@ fn detached_head() {
         commits: vec![commit(id("a"), None, CommitFlags::empty())],
         ..Default::default()
     });
-    insta::assert_snapshot!(graph_tree(&graph), @r"
-
-    └── 👉►:0[0]:anon:
-        └── 🟣aaaaaaa
-    ");
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["●  👉🏁🟣aaaaaaa"]);
 }
 
 fn id(hex: &str) -> ObjectId {
@@ -155,5 +160,5 @@ fn commit(
 
 #[test]
 fn unborn_head() {
-    insta::assert_snapshot!(graph_tree(&Graph::default()), @"<UNBORN>");
+    snapbox::assert_data_eq!(graph_dag(&Graph::default()), snapbox::str!["<UNBORN>"]);
 }

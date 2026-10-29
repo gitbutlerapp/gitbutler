@@ -1,7 +1,12 @@
-import { providesItem, providesList, ReduxTag } from "$lib/state/tags";
+import { invalidatesList, providesItem, providesList, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
-import type { BackendApi } from "$lib/state/clientState.svelte";
-import type { ButGitHub, ButGitHubToken } from "@gitbutler/core/api";
+import type { BackendApi } from "$lib/state/backendApi";
+import type { ReactiveQuery } from "$lib/state/butlerModule";
+import type {
+	GithubAccountIdentifier,
+	GithubAuthStatusResponse,
+	GithubAuthenticatedUserSensitive,
+} from "@gitbutler/but-sdk";
 
 export const GITHUB_USER_SERVICE = new InjectionToken<GitHubUserService>("GitHubUserService");
 
@@ -11,8 +16,8 @@ type Verification = {
 };
 
 export function isSameGitHubAccountIdentifier(
-	a: ButGitHubToken.GithubAccountIdentifier,
-	b: ButGitHubToken.GithubAccountIdentifier,
+	a: GithubAccountIdentifier,
+	b: GithubAccountIdentifier,
 ): boolean {
 	if (a.type !== b.type) {
 		return false;
@@ -29,21 +34,27 @@ export function isSameGitHubAccountIdentifier(
 	}
 }
 
-export type GitHubAccountIdentifierType = ButGitHubToken.GithubAccountIdentifier["type"];
+export type GitHubAccountIdentifierType = GithubAccountIdentifier["type"];
+
+type ExhaustiveGitHubMap = Record<GitHubAccountIdentifierType, true>;
+
+const exhaustiveGitHubMap: ExhaustiveGitHubMap = {
+	enterprise: true,
+	oAuthUsername: true,
+	patUsername: true,
+};
 
 function isGitHubAccountIdentifierType(text: unknown): text is GitHubAccountIdentifierType {
 	if (typeof text !== "string") {
 		return false;
 	}
-	return text === "oAuthUsername" || text === "patUsername" || text === "enterprise";
+	return exhaustiveGitHubMap[text as GitHubAccountIdentifierType] ?? false;
 }
 
 // ASCII Unit Separator, used to separate data units within a record or field.
 const UNIT_SEP = "\u001F";
 
-export function githubAccountIdentifierToString(
-	account: ButGitHubToken.GithubAccountIdentifier,
-): string {
+export function githubAccountIdentifierToString(account: GithubAccountIdentifier): string {
 	switch (account.type) {
 		case "oAuthUsername":
 			return `${account.type}${UNIT_SEP}${account.info.username}`;
@@ -54,9 +65,7 @@ export function githubAccountIdentifierToString(
 	}
 }
 
-export function stringToGitHubAccountIdentifier(
-	str: string,
-): ButGitHubToken.GithubAccountIdentifier | null {
+export function stringToGitHubAccountIdentifier(str: string): GithubAccountIdentifier | null {
 	const parts = str.split(UNIT_SEP);
 	if (parts.length < 2) {
 		return null;
@@ -125,8 +134,11 @@ export class GitHubUserService {
 		return this.backendApi.endpoints.forgetGitHubAccount.useMutation();
 	}
 
-	authenticatedUser(account: ButGitHubToken.GithubAccountIdentifier) {
-		return this.backendApi.endpoints.getGitHubUser.useQuery({ account });
+	authenticatedUser<T = GithubAuthenticatedUserSensitive | null>(
+		account: GithubAccountIdentifier,
+		options?: { transform?: (result: GithubAuthenticatedUserSensitive | null) => T },
+	): ReactiveQuery<T> {
+		return this.backendApi.endpoints.getGitHubUser.useQuery({ account }, options);
 	}
 
 	accounts() {
@@ -140,7 +152,7 @@ export class GitHubUserService {
 function injectBackendEndpoints(api: BackendApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
-			forgetGitHubAccount: build.mutation<void, ButGitHubToken.GithubAccountIdentifier>({
+			forgetGitHubAccount: build.mutation<void, GithubAccountIdentifier>({
 				extraOptions: {
 					command: "forget_github_account",
 					actionName: "Forget GitHub Username",
@@ -148,7 +160,11 @@ function injectBackendEndpoints(api: BackendApi) {
 				query: (account) => ({
 					account,
 				}),
-				invalidatesTags: [providesList(ReduxTag.GitHubUserList)],
+				invalidatesTags: [
+					providesList(ReduxTag.GitHubUserList),
+					invalidatesList(ReduxTag.PullRequests),
+					invalidatesList(ReduxTag.Checks),
+				],
 			}),
 			initDeviceOauth: build.mutation<Verification, void>({
 				extraOptions: {
@@ -157,20 +173,21 @@ function injectBackendEndpoints(api: BackendApi) {
 				},
 				query: () => ({}),
 			}),
-			checkAuthStatus: build.mutation<
-				ButGitHub.AuthStatusResponseSensitive,
-				{ deviceCode: string }
-			>({
+			checkAuthStatus: build.mutation<GithubAuthStatusResponse, { deviceCode: string }>({
 				extraOptions: {
 					command: "check_github_auth_status",
 					actionName: "Check GitHub Auth Status",
 				},
 				query: (args) => args,
-				invalidatesTags: [providesList(ReduxTag.GitHubUserList)],
+				invalidatesTags: [
+					providesList(ReduxTag.GitHubUserList),
+					invalidatesList(ReduxTag.PullRequests),
+					invalidatesList(ReduxTag.Checks),
+				],
 			}),
 			getGitHubUser: build.query<
-				ButGitHub.AuthenticatedUserSensitive | null,
-				{ account: ButGitHubToken.GithubAccountIdentifier }
+				GithubAuthenticatedUserSensitive | null,
+				{ account: GithubAccountIdentifier }
 			>({
 				extraOptions: {
 					command: "get_gh_user",
@@ -180,7 +197,7 @@ function injectBackendEndpoints(api: BackendApi) {
 					...providesItem(ReduxTag.ForgeUser, `github:${username}`),
 				],
 			}),
-			listKnownGitHubAccounts: build.query<ButGitHubToken.GithubAccountIdentifier[], void>({
+			listKnownGitHubAccounts: build.query<GithubAccountIdentifier[], void>({
 				extraOptions: {
 					command: "list_known_github_accounts",
 				},
@@ -193,21 +210,26 @@ function injectBackendEndpoints(api: BackendApi) {
 					actionName: "Clear All GitHub Accounts",
 				},
 				query: () => ({}),
-				invalidatesTags: [providesList(ReduxTag.GitHubUserList)],
+				invalidatesTags: [
+					providesList(ReduxTag.GitHubUserList),
+					invalidatesList(ReduxTag.PullRequests),
+					invalidatesList(ReduxTag.Checks),
+				],
 			}),
-			storeGitHubPat: build.mutation<
-				ButGitHub.AuthStatusResponseSensitive,
-				{ accessToken: string }
-			>({
+			storeGitHubPat: build.mutation<GithubAuthStatusResponse, { accessToken: string }>({
 				extraOptions: {
 					command: "store_github_pat",
 					actionName: "Store GitHub PAT",
 				},
 				query: (args) => args,
-				invalidatesTags: [providesList(ReduxTag.GitHubUserList)],
+				invalidatesTags: [
+					providesList(ReduxTag.GitHubUserList),
+					invalidatesList(ReduxTag.PullRequests),
+					invalidatesList(ReduxTag.Checks),
+				],
 			}),
 			storeGithuibEnterprisePat: build.mutation<
-				ButGitHub.AuthStatusResponseSensitive,
+				GithubAuthStatusResponse,
 				{ host: string; accessToken: string }
 			>({
 				extraOptions: {
@@ -215,7 +237,11 @@ function injectBackendEndpoints(api: BackendApi) {
 					actionName: "Store GitHub Enterprise PAT",
 				},
 				query: (args) => args,
-				invalidatesTags: [providesList(ReduxTag.GitHubUserList)],
+				invalidatesTags: [
+					providesList(ReduxTag.GitHubUserList),
+					invalidatesList(ReduxTag.PullRequests),
+					invalidatesList(ReduxTag.Checks),
+				],
 			}),
 		}),
 	});

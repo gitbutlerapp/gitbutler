@@ -1,4 +1,7 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use anyhow::{Context as _, Result};
 use but_core::{TreeChange, sync::RepoExclusive};
@@ -6,11 +9,14 @@ use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_db::HunkAssignmentsHandleMut;
 use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
+use but_project_handle::{REFRESH_SENTINEL_PATH, process_sentinel_token};
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_filemonitor::{
-    FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LOCAL_REFS_DIR,
+    Checkout, FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LINKED_WORKTREE_GITDIR,
+    LINKED_WORKTREES_DIR, LOCAL_REFS_DIR, REMOTE_REFS_DIR,
 };
 use gitbutler_operating_modes::operating_mode;
+use gix::bstr::{BStr, ByteSlice as _};
 use tracing::instrument;
 
 use crate::Change;
@@ -45,19 +51,49 @@ impl Handler {
         app_settings: AppSettingsWithDiskSync,
     ) -> Result<()> {
         match event {
-            InternalEvent::ProjectFilesChange(project_id, paths) => {
+            InternalEvent::ProjectFilesChange(project_id, Checkout::Main, paths) => {
                 let mut ctx =
                     self.open_command_context(project_id.clone(), app_settings.get()?.clone())?;
                 let mut guard = ctx.exclusive_worktree_access();
                 self.project_files_change(project_id, paths, &mut ctx, guard.write_permission())
             }
 
-            InternalEvent::GitFilesChange(project_id, paths) => {
+            InternalEvent::ProjectFilesChange(project_id, Checkout::Linked(worktree), paths) => {
+                self.emit_linked_worktree_changes(
+                    project_id,
+                    worktree.as_bstr(),
+                    paths,
+                    app_settings.get()?.clone(),
+                )
+            }
+
+            InternalEvent::GitFilesChange(project_id, Checkout::Main, paths) => {
                 let mut ctx =
                     self.open_command_context(project_id.clone(), app_settings.get()?.clone())?;
                 let mut guard = ctx.exclusive_worktree_access();
                 self.git_files_change(project_id, paths, &mut ctx, guard.write_permission())
                     .context("failed to handle git file change event")
+            }
+
+            InternalEvent::GitFilesChange(project_id, Checkout::Linked(worktree), paths) => {
+                if paths.iter().any(|path| {
+                    [HEAD, HEAD_ACTIVITY, LINKED_WORKTREE_GITDIR]
+                        .iter()
+                        .any(|file| path == Path::new(file))
+                }) {
+                    self.emit_app_event(Change::WorkspaceActivity {
+                        project_id: project_id.clone(),
+                    })?;
+                }
+                if paths.iter().any(|path| path == Path::new(INDEX)) {
+                    self.emit_linked_worktree_changes(
+                        project_id,
+                        worktree.as_bstr(),
+                        Vec::new(),
+                        app_settings.get()?.clone(),
+                    )?;
+                }
+                Ok(())
             }
         }
     }
@@ -84,7 +120,7 @@ impl Handler {
         ctx: &mut Context,
         perm: &mut RepoExclusive,
     ) -> Result<()> {
-        _ = self.emit_worktree_changes(project_id, ctx, perm);
+        _ = self.emit_worktree_changes(project_id, ctx, perm, paths);
         Ok(())
     }
 
@@ -93,6 +129,7 @@ impl Handler {
         project_id: ProjectHandleOrLegacyProjectId,
         ctx: &mut Context,
         perm: &mut RepoExclusive,
+        paths: Vec<PathBuf>,
     ) -> Result<()> {
         let context_lines = ctx.settings.context_lines;
         let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
@@ -110,54 +147,65 @@ impl Handler {
             &repo,
             &ws,
             wt_changes.changes.clone(),
-            &dependencies,
             context_lines,
         )?;
 
-        let mut changes = but_hunk_assignment::WorktreeChanges {
-            worktree_changes: wt_changes.clone().into(),
-            assignments: assignments.clone(),
-            assignments_error: assignments_error.clone(),
+        let mut worktree_changes: but_core::ui::WorktreeChanges = wt_changes.into();
+        worktree_changes.modification_times =
+            but_core::diff::ui::modification_times(&repo, &worktree_changes);
+
+        let changes = but_hunk_assignment::WorktreeChanges {
+            worktree_changes,
+            assignments,
+            assignments_error,
             dependencies: dependencies.as_ref().ok().cloned(),
             dependencies_error: dependencies
                 .as_ref()
                 .err()
                 .map(|err| serde_error::Error::new(&**err)),
         };
-        drop((repo, ws, db));
-        if let Ok(update_count) = but_rules::handler::process_workspace_rules(
-            ctx,
-            &assignments,
-            &dependencies.as_ref().ok().cloned(),
-            perm,
-        ) && update_count > 0
-        {
-            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-            // Getting these again since they were updated
-            let (assignments, assignments_error) = assignments_and_errors(
-                db.hunk_assignments_mut()?,
-                &repo,
-                &ws,
-                wt_changes.changes.clone(),
-                &dependencies,
-                context_lines,
-            )?;
-            changes = but_hunk_assignment::WorktreeChanges {
-                worktree_changes: wt_changes.into(),
-                assignments,
-                assignments_error: assignments_error.clone(),
-                dependencies: dependencies.as_ref().ok().cloned(),
-                dependencies_error: dependencies
-                    .as_ref()
-                    .err()
-                    .map(|err| serde_error::Error::new(&**err)),
-            };
-        }
         let _ = self.emit_app_event(Change::WorktreeChanges {
             project_id,
             changes,
+            changed_paths: Arc::from(paths),
         });
         Ok(())
+    }
+
+    fn emit_linked_worktree_changes(
+        &self,
+        project_id: ProjectHandleOrLegacyProjectId,
+        worktree: &BStr,
+        paths: Vec<PathBuf>,
+        app_settings: AppSettings,
+    ) -> Result<()> {
+        let ctx = self.open_command_context(project_id.clone(), app_settings)?;
+        let _guard = ctx.shared_worktree_access();
+        let repo = ctx
+            .repo
+            .get()?
+            .worktree_proxy_by_id(worktree)?
+            .with_context(|| format!("linked worktree {worktree} does not exist"))?
+            .into_repo()?;
+
+        let wt_changes = but_core::diff::worktree_changes(&repo)?;
+        let assignments = but_hunk_assignment::unassigned(
+            &repo,
+            wt_changes.changes.clone(),
+            ctx.settings.context_lines,
+        );
+        let mut changes: but_core::ui::WorktreeChanges = wt_changes.into();
+        changes.modification_times = but_core::diff::ui::modification_times(&repo, &changes);
+
+        self.emit_app_event(Change::LinkedWorktreeChanges {
+            project_id,
+            worktree: worktree.to_str_lossy().into_owned(),
+            changes: but_hunk_assignment::WorktreeChanges {
+                assignments,
+                ..changes.into()
+            },
+            changed_paths: Arc::from(paths),
+        })
     }
 
     pub fn git_files_change(
@@ -168,6 +216,7 @@ impl Handler {
         perm: &mut RepoExclusive,
     ) -> Result<()> {
         let (head_ref_name, head_sha) = head_info(ctx)?;
+        let mut saw_workspace_activity = false;
         for path in paths {
             let Some(file_name) = path.to_str() else {
                 continue;
@@ -176,12 +225,36 @@ impl Handler {
                 FETCH_HEAD => {
                     self.emit_app_event(Change::GitFetch(project_id.clone()))?;
                 }
-                // Watch all local branches. Only emit activity if the HEAD points to that ref.
-                _ if file_name.starts_with(LOCAL_REFS_DIR) && file_name == head_ref_name => {
-                    self.emit_app_event(Change::GitActivity {
-                        project_id: project_id.clone(),
-                        head_sha: head_sha.clone(),
-                    })?;
+                // Watch all local branches. HEAD ref changes affect the current
+                // commit, while other branch refs can change workspace topology.
+                _ if file_name.starts_with(LOCAL_REFS_DIR) && !file_name.ends_with(".lock") => {
+                    if file_name == head_ref_name {
+                        self.emit_app_event(Change::GitActivity {
+                            project_id: project_id.clone(),
+                            head_sha: head_sha.clone(),
+                        })?;
+                    } else {
+                        saw_workspace_activity = true;
+                    }
+                }
+                // Remote-ref updates, linked worktrees coming or going and the refresh
+                // sentinel all mean "re-read workspace state"; coalesce into one emission
+                // after the loop.
+                _ if file_name.starts_with(REMOTE_REFS_DIR)
+                    || path.starts_with(LINKED_WORKTREES_DIR) =>
+                {
+                    saw_workspace_activity = true;
+                }
+                REFRESH_SENTINEL_PATH => {
+                    // Skip the echo of our own write (its pid is already handled
+                    // in-process); a different pid, or a read error, means refresh.
+                    let sentinel = ctx.repo.get()?.path().join(file_name);
+                    let wrote_by_us = std::fs::read_to_string(sentinel)
+                        .map(|content| content.trim() == process_sentinel_token())
+                        .unwrap_or(false);
+                    if !wrote_by_us {
+                        saw_workspace_activity = true;
+                    }
                 }
                 HEAD_ACTIVITY => {
                     self.emit_app_event(Change::GitActivity {
@@ -190,34 +263,41 @@ impl Handler {
                     })?;
                 }
                 INDEX => {
-                    let _ = self.emit_worktree_changes(project_id.clone(), ctx, perm);
+                    let _ = self.emit_worktree_changes(project_id.clone(), ctx, perm, Vec::new());
                 }
                 HEAD => {
-                    let git2_repo = ctx.git2_repo.get()?;
-                    let head_ref = git2_repo.head().context("failed to get head")?;
-                    if let Some(head) = head_ref.name() {
-                        self.emit_app_event(Change::GitHead {
-                            project_id: project_id.clone(),
-                            head: head.to_string(),
-                            operating_mode: operating_mode(ctx, perm.read_permission())?,
-                        })?;
-                    }
+                    let repo = ctx.repo.get()?;
+                    let head_ref = repo.head().context("failed to get head")?;
+                    let head = head_ref
+                        .referent_name()
+                        .map(|name| name.as_bstr().to_str_lossy().into_owned());
+                    self.emit_app_event(Change::GitHead {
+                        project_id: project_id.clone(),
+                        head,
+                        operating_mode: operating_mode(ctx, perm.read_permission())?,
+                    })?;
                 }
                 _ => { /* Ignore other files */ }
             }
+        }
+        if saw_workspace_activity {
+            self.emit_app_event(Change::WorkspaceActivity { project_id })?;
         }
         Ok(())
     }
 }
 
 fn head_info(ctx: &mut Context) -> Result<(String, String)> {
-    let repo = &*ctx.git2_repo.get()?;
-    let head_ref = repo.head().context("failed to get head")?;
-    let head_name = head_ref.name().map(|s| s.to_string()).unwrap_or_default();
+    let repo = &*ctx.repo.get()?;
+    let mut head_ref = repo.head().context("failed to get head")?;
+    let head_name = head_ref
+        .referent_name()
+        .map(|name| name.as_bstr().to_str_lossy().into_owned())
+        .unwrap_or_default();
     let head_sha = head_ref
         .peel_to_commit()
         .context("failed to get head commit")?
-        .id()
+        .id
         .to_string();
     Ok((head_name, head_sha))
 }
@@ -225,25 +305,18 @@ fn head_info(ctx: &mut Context) -> Result<(String, String)> {
 fn assignments_and_errors(
     db: HunkAssignmentsHandleMut,
     repo: &gix::Repository,
-    workspace: &but_graph::projection::Workspace,
+    workspace: &but_graph::Workspace,
     tree_changes: Vec<TreeChange>,
-    dependencies: &Result<but_hunk_dependency::ui::HunkDependencies>,
     context_lines: u32,
 ) -> Result<(Vec<HunkAssignment>, Option<serde_error::Error>)> {
-    let (assignments, assignments_error) = match &dependencies {
-        Ok(dependencies) => but_hunk_assignment::assignments_with_fallback(
+    let (assignments, assignments_error) = {
+        but_hunk_assignment::assignments_with_fallback(
             db,
             repo,
             workspace,
-            false,
             Some(tree_changes),
-            Some(dependencies),
             context_lines,
-        )?,
-        Err(e) => (
-            vec![],
-            Some(anyhow::anyhow!("failed to get hunk dependencies: {e}")),
-        ),
+        )?
     };
     Ok((
         assignments,

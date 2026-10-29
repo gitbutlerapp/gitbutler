@@ -16,7 +16,7 @@
 		ListItem,
 		Paragraph,
 		Strong,
-	} from "@gitbutler/ui";
+	} from "@gitbutler/ui-svelte";
 	import type { UserSimple } from "@gitbutler/shared/users/types";
 	import type { Token } from "marked";
 	import type { Component } from "svelte";

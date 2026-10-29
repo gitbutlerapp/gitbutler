@@ -54,7 +54,7 @@ impl<T> DerefMut for InMemoryRefMetadataHandle<T> {
 impl but_core::RefMetadata for InMemoryRefMetadata {
     type Handle<T> = InMemoryRefMetadataHandle<T>;
 
-    fn iter(&self) -> impl Iterator<Item = anyhow::Result<(FullName, Box<dyn Any>)>> + '_ {
+    fn iter(&self) -> impl Iterator<Item = anyhow::Result<(FullName, Box<dyn Any>)>> {
         self.workspaces
             .iter()
             .cloned()
@@ -156,6 +156,45 @@ impl but_core::RefMetadata for InMemoryRefMetadata {
         };
         Ok(res)
     }
+
+    fn rename(
+        &mut self,
+        old_ref_name: &gix::refs::FullNameRef,
+        new_ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<()> {
+        if old_ref_name == new_ref_name {
+            return Ok(());
+        }
+        // Refuse to rename onto an existing key rather than creating a duplicate entry: readers
+        // match the first entry, so a duplicate would make later reads/updates/removals act on the
+        // wrong one.
+        let new_exists = self
+            .branches
+            .iter()
+            .any(|(rn, _)| rn.as_ref() == new_ref_name)
+            || self
+                .workspaces
+                .iter()
+                .any(|(rn, _)| rn.as_ref() == new_ref_name);
+        if new_exists {
+            anyhow::bail!(
+                "Cannot rename to '{}': metadata for that ref already exists",
+                new_ref_name.shorten()
+            );
+        }
+        // Rename in place, keeping each entry's value and position.
+        for (rn, _v) in self.branches.iter_mut() {
+            if rn.as_ref() == old_ref_name {
+                *rn = new_ref_name.to_owned();
+            }
+        }
+        for (rn, _v) in self.workspaces.iter_mut() {
+            if rn.as_ref() == old_ref_name {
+                *rn = new_ref_name.to_owned();
+            }
+        }
+        Ok(())
+    }
 }
 
 /// A more descriptive way of showing if the stack is included in the workspace or not.
@@ -211,13 +250,6 @@ impl InMemoryRefMetadata {
         // let stack_id = StackId::from_number_for_testing(stack_id as u128);
         // stack.id = stack_id;
         // meta.data_mut().branches.insert(stack_id, stack);
-        // // Assure we have a target set.
-        // meta.data_mut().default_target = Some(Target {
-        //     branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        //     remote_url: "does not matter".to_string(),
-        //     sha: gix::hash::Kind::Sha1.null(),
-        //     push_remote_name: None,
-        // });
         // stack_id
     }
 }

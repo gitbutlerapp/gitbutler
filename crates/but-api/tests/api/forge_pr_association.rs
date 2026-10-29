@@ -1,0 +1,332 @@
+use but_core::RefMetadata;
+use but_testsupport::{CommandExt, git_at_dir, open_repo};
+use gix::refs::transaction::PreviousValue;
+
+const BRANCH: &str = "feature";
+const PR_NUMBER: usize = 42;
+
+#[test]
+fn managed_branch_gets_pr_from_forge_cache() -> anyhow::Result<()> {
+    let (mut ctx, _tmp) = context_with_remote_branch()?;
+    let branch: gix::refs::FullName = format!("refs/heads/{BRANCH}").try_into()?;
+    but_api::branch::apply_only(&mut ctx, branch.as_ref())?;
+    cache_review(&ctx, PR_NUMBER)?;
+
+    let info = but_api::legacy::workspace::head_info(&ctx)?;
+    let segment = segment(&info);
+    assert!(
+        segment.metadata.is_some(),
+        "applied branch should be managed"
+    );
+    assert_eq!(
+        segment
+            .metadata
+            .as_ref()
+            .and_then(|meta| meta.review.pull_request),
+        Some(PR_NUMBER),
+        "managed branch should resolve its PR from the forge cache"
+    );
+    Ok(())
+}
+
+#[test]
+fn single_branch_gets_pr_without_stored_metadata() -> anyhow::Result<()> {
+    let (mut ctx, _tmp) = context_with_remote_branch()?;
+    cache_review(&ctx, PR_NUMBER)?;
+
+    let result =
+        but_api::branch::branch_checkout(&mut ctx, format!("refs/heads/{BRANCH}").try_into()?)?;
+    let segment = segment(&result.workspace.head_info);
+    assert_eq!(
+        segment
+            .metadata
+            .as_ref()
+            .and_then(|meta| meta.review.pull_request),
+        Some(PR_NUMBER),
+        "a cache hit should synthesize projection metadata in single-branch mode"
+    );
+
+    let branch_name: gix::refs::FullName = format!("refs/heads/{BRANCH}").try_into()?;
+    let stored = ctx.meta()?.branch_opt(branch_name.as_ref())?;
+    assert!(
+        stored.is_none(),
+        "projection enrichment must not persist metadata for an ad-hoc branch"
+    );
+    Ok(())
+}
+
+#[test]
+fn empty_cache_preserves_the_stored_pr_of_an_integrated_branch() -> anyhow::Result<()> {
+    let (mut ctx, _tmp) = context_with_remote_branch()?;
+    let branch_name: gix::refs::FullName = format!("refs/heads/{BRANCH}").try_into()?;
+    but_api::branch::apply_only(&mut ctx, branch_name.as_ref())?;
+
+    let mut meta = ctx.meta()?;
+    let mut branch = meta.branch(branch_name.as_ref())?;
+    branch.review.pull_request = Some(99);
+    meta.set_branch(&branch)?;
+    drop(meta);
+    integrate_feature(&ctx, branch_name.as_ref())?;
+
+    let info = but_api::legacy::workspace::head_info(&ctx)?;
+    assert_eq!(
+        segment(&info).push_status,
+        but_workspace::ui::PushStatus::Integrated
+    );
+    assert_eq!(
+        segment(&info)
+            .metadata
+            .as_ref()
+            .and_then(|meta| meta.review.pull_request),
+        Some(99),
+        "an empty forge cache must not erase durable review identity"
+    );
+    Ok(())
+}
+
+#[test]
+fn settled_cache_review_is_only_a_fallback_for_an_integrated_branch() -> anyhow::Result<()> {
+    let (mut ctx, _tmp) = context_with_remote_branch()?;
+    let branch_name: gix::refs::FullName = format!("refs/heads/{BRANCH}").try_into()?;
+    but_api::branch::apply_only(&mut ctx, branch_name.as_ref())?;
+
+    let mut settled = review(PR_NUMBER);
+    settled.merged_at = Some("2026-01-01T00:00:00Z".into());
+    {
+        let mut db = ctx.db.get_cache_mut()?;
+        but_forge::cache_review(&mut db, &settled)?;
+    }
+    assert_eq!(
+        projected_pr(&ctx)?,
+        None,
+        "a merged review must not become active on ongoing work"
+    );
+
+    integrate_feature(&ctx, branch_name.as_ref())?;
+    assert_eq!(
+        projected_pr(&ctx)?,
+        Some(PR_NUMBER),
+        "the settled cache remains a migration fallback after integration"
+    );
+    Ok(())
+}
+
+#[test]
+fn optimistic_cache_insert_is_visible_on_the_next_projection() -> anyhow::Result<()> {
+    let (mut ctx, _tmp) = context_with_remote_branch()?;
+    let branch: gix::refs::FullName = format!("refs/heads/{BRANCH}").try_into()?;
+    but_api::branch::apply_only(&mut ctx, branch.as_ref())?;
+
+    assert_eq!(projected_pr(&ctx)?, None, "cache starts empty");
+    cache_review(&ctx, PR_NUMBER)?;
+    assert_eq!(
+        projected_pr(&ctx)?,
+        Some(PR_NUMBER),
+        "a single optimistic upsert should be visible without a list sync"
+    );
+    Ok(())
+}
+
+#[test]
+fn incompatible_cache_rows_do_not_break_head_info() -> anyhow::Result<()> {
+    let (mut ctx, _tmp) = context_with_remote_branch()?;
+    let branch: gix::refs::FullName = format!("refs/heads/{BRANCH}").try_into()?;
+    but_api::branch::apply_only(&mut ctx, branch.as_ref())?;
+
+    for version in [1, 2] {
+        let mut row: but_db::ForgeReview = review(PR_NUMBER).try_into()?;
+        row.struct_version = version;
+        ctx.db
+            .get_cache_mut()?
+            .forge_reviews_mut()?
+            .set_all(vec![row])?;
+
+        assert_eq!(
+            projected_pr(&ctx)?,
+            None,
+            "an incompatible persisted review should behave like a cache miss"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn feature_push_to_fork_is_visible_to_review_creation() -> anyhow::Result<()> {
+    crate::support::disable_askpass();
+    let (repo, tmp) = crate::support::writable_scenario("checkout-head-info");
+    let root = repo.workdir().expect("fixture has a workdir").to_owned();
+    let fork_path = tmp.path().join("fork.git");
+    git_at_dir(&root)
+        .args(["init", "--bare"])
+        .arg(&fork_path)
+        .run();
+    git_at_dir(&root)
+        .args(["remote", "add", "fork"])
+        .arg(&fork_path)
+        .run();
+    git_at_dir(&root)
+        .args(["update-ref", "refs/remotes/origin/trunk", "main"])
+        .run();
+    git_at_dir(&root)
+        .args(["branch", "--set-upstream-to=origin/trunk", "main"])
+        .run();
+    git_at_dir(&root)
+        .args(["update-ref", "-d", "refs/remotes/origin/main"])
+        .run();
+    git_at_dir(&root).args(["checkout", BRANCH]).run();
+    drop(repo);
+
+    let repo = open_repo(&root)?;
+    crate::support::persist_default_target(&repo)?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    but_api::workspace::set_push_remote(&mut ctx, "fork".into())?;
+    let branch: gix::refs::FullName = format!("refs/heads/{BRANCH}").try_into()?;
+    let before = but_api::legacy::forge::review_creation_target(&ctx, branch.as_ref())
+        .expect_err("an unpublished feature cannot create a review");
+    assert_eq!(
+        before.to_string(),
+        "Branch `feature` must be pushed before creating a review",
+        "review creation requires the feature's publication ref"
+    );
+
+    but_api::legacy::workspace::workspace_branch_and_ancestors_push_only(
+        &mut ctx,
+        false,
+        false,
+        branch.as_ref(),
+        false,
+        Vec::new(),
+    )?;
+
+    assert_eq!(
+        but_api::legacy::forge::review_creation_target(&ctx, branch.as_ref())?,
+        "trunk",
+        "the pushed feature is recognized immediately and targets main's upstream, not the fork"
+    );
+    let fork = open_repo(&fork_path)?;
+    assert_eq!(
+        fork.rev_parse_single("refs/heads/feature")?.detach(),
+        ctx.repo
+            .get()?
+            .rev_parse_single("refs/heads/feature")?
+            .detach(),
+        "feature publication writes the fork repository"
+    );
+    assert!(
+        fork.try_find_reference("refs/heads/main")?.is_none(),
+        "feature publication must not push the local target"
+    );
+    Ok(())
+}
+
+fn context_with_remote_branch() -> anyhow::Result<(
+    but_ctx::Context,
+    but_testsupport::gix_testtools::tempfile::TempDir,
+)> {
+    let (repo, tmp) = crate::support::writable_scenario("checkout-head-info");
+    crate::support::persist_default_target(&repo)?;
+
+    let branch_name: gix::refs::FullName = format!("refs/heads/{BRANCH}").try_into()?;
+    let branch_id = repo.find_reference(&branch_name)?.peel_to_id()?.detach();
+    repo.reference(
+        format!("refs/remotes/origin/{BRANCH}"),
+        branch_id,
+        PreviousValue::Any,
+        "test remote-tracking branch",
+    )?;
+
+    Ok((
+        but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache(),
+        tmp,
+    ))
+}
+
+fn integrate_feature(
+    ctx: &but_ctx::Context,
+    branch_name: &gix::refs::FullNameRef,
+) -> anyhow::Result<()> {
+    // Simulate a squash merge: target gets the same tree in a different commit,
+    // while the local and remote feature refs keep pointing at the reviewed commit.
+    let repo = ctx.repo.get()?;
+    let feature_id = repo.find_reference(branch_name)?.peel_to_id()?.detach();
+    let target_id = repo
+        .find_reference("refs/remotes/origin/main")?
+        .peel_to_id()?
+        .detach();
+    let integration_commit = {
+        let feature_commit = repo.find_commit(feature_id)?;
+        gix::objs::Commit {
+            message: "feature (#99)".into(),
+            parents: [target_id].into(),
+            ..feature_commit.decode()?.to_owned()?
+        }
+    };
+    let integration_id = repo.write_object(integration_commit)?.detach();
+    repo.reference(
+        "refs/remotes/origin/main",
+        integration_id,
+        PreviousValue::Any,
+        "test merged review",
+    )?;
+    but_core::ref_metadata::ProjectMeta {
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
+        target_commit_id: Some(integration_id),
+        push_remote: Some("origin".into()),
+    }
+    .persist(&repo)
+}
+
+fn cache_review(ctx: &but_ctx::Context, number: usize) -> anyhow::Result<()> {
+    let mut db = ctx.db.get_cache_mut()?;
+    but_forge::cache_review(&mut db, &review(number))
+}
+
+fn review(number: usize) -> but_forge::ForgeReview {
+    but_forge::ForgeReview {
+        html_url: format!("https://example.com/pull/{number}"),
+        number: number as i64,
+        title: "Cached review".into(),
+        body: None,
+        author: None,
+        labels: vec![],
+        draft: false,
+        source_branch: BRANCH.into(),
+        target_branch: "main".into(),
+        sha: String::new(),
+        integration_commit_shas: vec![],
+        created_at: None,
+        modified_at: None,
+        merged_at: None,
+        closed_at: None,
+        repository_ssh_url: None,
+        repository_https_url: None,
+        repo_owner: None,
+        head_repo_is_fork: false,
+        auto_merge_enabled: false,
+        reviewers: vec![],
+        unit_symbol: "#".into(),
+        last_sync_at: Default::default(),
+    }
+}
+
+fn projected_pr(ctx: &but_ctx::Context) -> anyhow::Result<Option<usize>> {
+    Ok(segment(&but_api::legacy::workspace::head_info(ctx)?)
+        .metadata
+        .as_ref()
+        .and_then(|meta| meta.review.pull_request))
+}
+
+fn segment(info: &but_workspace::RefInfo) -> &but_workspace::ref_info::Segment {
+    info.stacks
+        .iter()
+        .flat_map(|stack| &stack.segments)
+        .find(|segment| {
+            segment
+                .ref_info
+                .as_ref()
+                .is_some_and(|info| info.ref_name.shorten() == BRANCH)
+        })
+        .expect("feature segment exists")
+}

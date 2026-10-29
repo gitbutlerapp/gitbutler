@@ -11,14 +11,12 @@ use schemars::{JsonSchema, schema_for};
 use serde::de::DeserializeOwned;
 
 use crate::{
-    StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent, chat::ChatMessage,
-    client::LLMClient, key::CredentialsKeyOption,
+    AI_ANTHROPIC_SECRET_HANDLE, GITBUTLER_ACCESS_TOKEN_HANDLE, StreamToolCallResult, ToolCall,
+    ToolCallContent, ToolResponseContent, chat::ChatMessage, client::LLMClient,
 };
 
 const ANTHROPIC_API_BASE: &str = "https://api.anthropic.com/v1";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
-const ANTHROPIC_KEY_OPTION: &str = "gitbutler.aiAnthropicKeyOption";
-const ANTHROPIC_MODEL_NAME: &str = "gitbutler.aiAnthropicModelName";
 pub const GB_ANTHROPIC_API_BASE: &str = "https://app.gitbutler.com/api/proxy/anthropic";
 
 /// Result of a tool calling loop with streaming
@@ -32,17 +30,6 @@ pub enum CredentialsKind {
     EnvVarAnthropicKey,
     OwnAnthropicKey,
     GitButlerProxied,
-}
-
-impl CredentialsKind {
-    fn from_git_config(config: &gix::config::File<'static>) -> Option<Self> {
-        let key_option_str = config.string(ANTHROPIC_KEY_OPTION).map(|v| v.to_string())?;
-        let key_option = CredentialsKeyOption::from_str(&key_option_str)?;
-        match key_option {
-            CredentialsKeyOption::BringYourOwn => Some(CredentialsKind::OwnAnthropicKey),
-            CredentialsKeyOption::ButlerApi => Some(CredentialsKind::GitButlerProxied),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -147,7 +134,7 @@ impl AnthropicProvider {
         self.credentials.0.clone()
     }
     fn gitbutler_proxied_creds() -> Result<(CredentialsKind, Sensitive<String>)> {
-        let creds = secret::retrieve("gitbutler_access_token", secret::Namespace::BuildKind)?
+        let creds = secret::retrieve(GITBUTLER_ACCESS_TOKEN_HANDLE, secret::Namespace::BuildKind)?
             .ok_or(anyhow::anyhow!(
                 "No GitButler token available. Log-in to use the GitButler Anthropic provider"
             ))?;
@@ -155,11 +142,10 @@ impl AnthropicProvider {
     }
 
     fn anthropic_own_key_creds() -> Result<(CredentialsKind, Sensitive<String>)> {
-        let creds = secret::retrieve("aiAnthropicKey", secret::Namespace::Global)?.ok_or(
-            anyhow::anyhow!(
+        let creds = secret::retrieve(AI_ANTHROPIC_SECRET_HANDLE, secret::Namespace::Global)?
+            .ok_or(anyhow::anyhow!(
                 "No Anthropic own key configured. Add this through the GitButler settings"
-            ),
-        )?;
+            ))?;
         Ok((CredentialsKind::OwnAnthropicKey, creds))
     }
 
@@ -177,15 +163,6 @@ impl AnthropicProvider {
 }
 
 impl LLMClient for AnthropicProvider {
-    fn from_git_config(config: &gix::config::File<'static>) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        let credentials_kind = CredentialsKind::from_git_config(config)?;
-        let model = config.string(ANTHROPIC_MODEL_NAME).map(|v| v.to_string());
-        AnthropicProvider::with(Some(credentials_kind), model)
-    }
-
     fn model(&self) -> Option<String> {
         self.model.clone()
     }
@@ -797,9 +774,9 @@ async fn tool_calling_stream(
                                 }
                             }
                         }
-                        "message_stop" => {
+                        "message_stop"
                             // Check if we have tool calls to return
-                            if !tool_calls.is_empty() {
+                            if !tool_calls.is_empty() => {
                                 let calls: Vec<ToolCall> = tool_calls.values().cloned().collect();
                                 let text = if response_text.is_empty() {
                                     None
@@ -808,7 +785,6 @@ async fn tool_calling_stream(
                                 };
                                 return Ok((Some(calls), text));
                             }
-                        }
                         _ => {}
                     }
                 }

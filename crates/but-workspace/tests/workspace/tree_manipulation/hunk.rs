@@ -2,6 +2,7 @@ use bstr::{BString, ByteSlice};
 use but_core::{DiffSpec, HunkHeader, UnifiedPatch};
 use but_testsupport::{git_status, hunk_header, visualize_disk_tree_skip_dot_git};
 use but_workspace::discard_workspace_changes;
+use snapbox::prelude::*;
 
 use crate::{
     tree_manipulation::hunk::util::{changed_file_in_worktree_with_hunks, previous_change_text},
@@ -27,30 +28,38 @@ fn dropped_hunks() -> anyhow::Result<()> {
     };
     let dropped = discard_workspace_changes(&repo, Some(discard_spec), CONTEXT_LINES)?;
     // It drops just the two missing ones hunks
-    insta::assert_debug_snapshot!(dropped, @r#"
-    [
-        DiffSpec {
-            previous_path: None,
-            path: "file",
-            hunk_headers: [
-                HunkHeader("-1,1", "+1,0"),
-                HunkHeader("-10,1", "+13,3"),
-            ],
-        },
-    ]
-    "#);
+    snapbox::assert_data_eq!(
+        dropped.to_debug(),
+        snapbox::str![[r#"
+[
+    DiffSpec {
+        previous_path: None,
+        path: "file",
+        hunk_headers: [
+            HunkHeader("-1,1", "+1,0"),
+            HunkHeader("-10,1", "+13,3"),
+        ],
+    },
+]
+
+"#]]
+    );
     Ok(())
 }
 
 #[test]
 fn non_modifications_trigger_error() -> anyhow::Result<()> {
     let repo = read_only_in_memory_scenario("deletion-addition-untracked")?;
-    insta::assert_snapshot!(git_status(&repo)?, @"
-    A  added-to-index
-     D to-be-deleted
-    D  to-be-deleted-in-index
-    ?? untracked
-    ");
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+A  added-to-index
+ D to-be-deleted
+D  to-be-deleted-in-index
+?? untracked
+
+"#]]
+    );
 
     let add_single_line = hunk_header("-1,0", "+1,1");
     let remove_single_line = hunk_header("-1,1", "+1,0");
@@ -83,56 +92,64 @@ fn from_end() -> anyhow::Result<()> {
     let mut hunk_info = Vec::new();
     let filename = "file-in-index";
     let file_content = || std::fs::read(repo.workdir().unwrap().join(filename)).map(BString::from);
-    insta::assert_snapshot!(file_content()?, @"
-    1
-    2
-    3
-    4
-    5
-    6-7
-    8
-    9
-    ten
-    eleven
-    12
-    20
-    21
-    22
-    15
-    16
-    ");
+    snapbox::assert_data_eq!(
+        file_content()?.to_string(),
+        snapbox::str![[r#"
+1
+2
+3
+4
+5
+6-7
+8
+9
+ten
+eleven
+12
+20
+21
+22
+15
+16
+
+"#]]
+    );
     while let Some(change) = but_core::diff::worktree_changes(&repo)?
         .changes
         .into_iter()
         .find(|change| change.path == filename)
     {
         let previous_text = previous_change_text(&repo, &change)?;
-        insta::allow_duplicates!(insta::assert_snapshot!(previous_text, @"
-        5
-        6
-        7
-        8
-        9
-        10
-        11
-        12
-        13
-        14
-        15
-        16
-        17
-        18
-        "));
+        snapbox::assert_data_eq!(
+            previous_text.to_string(),
+            snapbox::str![[r#"
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+
+"#]]
+        );
         let Some(UnifiedPatch::Patch { mut hunks, .. }) =
             change.unified_patch(&repo, CONTEXT_LINES)?
         else {
             unreachable!("We know there are hunks")
         };
-        assert_ne!(
-            hunks.len(),
-            0,
-            "the reason we see it is file modifications: {change:#?}"
-        );
+        if hunks.is_empty() {
+            // Only the executable-bit change of the worktree file remains; it has no
+            // content hunks and is discarded separately.
+            break;
+        }
 
         let before = file_content()?;
         let mut last_hunk = hunks
@@ -154,35 +171,41 @@ fn from_end() -> anyhow::Result<()> {
         hunk_info.push((before, discarded_patch, after));
     }
 
-    insta::assert_debug_snapshot!(hunk_info, @r#"
-    [
-        (
-            "1\n2\n3\n4\n5\n6-7\n8\n9\nten\neleven\n12\n20\n21\n22\n15\n16\n",
-            "@@ -13,2 +17,0 @@\n-17\n-18\n",
-            "1\n2\n3\n4\n5\n6-7\n8\n9\nten\neleven\n12\n20\n21\n22\n15\n16\n17\n18\n",
-        ),
-        (
-            "1\n2\n3\n4\n5\n6-7\n8\n9\nten\neleven\n12\n20\n21\n22\n15\n16\n17\n18\n",
-            "@@ -9,2 +12,3 @@\n-13\n-14\n+20\n+21\n+22\n",
-            "1\n2\n3\n4\n5\n6-7\n8\n9\nten\neleven\n12\n13\n14\n15\n16\n17\n18\n",
-        ),
-        (
-            "1\n2\n3\n4\n5\n6-7\n8\n9\nten\neleven\n12\n13\n14\n15\n16\n17\n18\n",
-            "@@ -6,2 +9,2 @@\n-10\n-11\n+ten\n+eleven\n",
-            "1\n2\n3\n4\n5\n6-7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n",
-        ),
-        (
-            "1\n2\n3\n4\n5\n6-7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n",
-            "@@ -2,2 +6,1 @@\n-6\n-7\n+6-7\n",
-            "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n",
-        ),
-        (
-            "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n",
-            "@@ -1,0 +1,4 @@\n+1\n+2\n+3\n+4\n",
-            "5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n",
-        ),
-    ]
-    "#);
+    snapbox::assert_data_eq!(
+        hunk_info.to_debug(),
+        snapbox::str![[r#"
+[
+    (
+        "1\n2\n3\n4\n5\n6-7\n8\n9\nten\neleven\n12\n20\n21\n22\n15\n16\n",
+        "@@ -13,2 +17,0 @@\n-17\n-18\n",
+        "1\n2\n3\n4\n5\n6-7\n8\n9\nten\neleven\n12\n20\n21\n22\n15\n16\n17\n18\n",
+    ),
+    (
+        "1\n2\n3\n4\n5\n6-7\n8\n9\nten\neleven\n12\n20\n21\n22\n15\n16\n17\n18\n",
+        "@@ -9,2 +12,3 @@\n-13\n-14\n+20\n+21\n+22\n",
+        "1\n2\n3\n4\n5\n6-7\n8\n9\nten\neleven\n12\n13\n14\n15\n16\n17\n18\n",
+    ),
+    (
+        "1\n2\n3\n4\n5\n6-7\n8\n9\nten\neleven\n12\n13\n14\n15\n16\n17\n18\n",
+        "@@ -6,2 +9,2 @@\n-10\n-11\n+ten\n+eleven\n",
+        "1\n2\n3\n4\n5\n6-7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n",
+    ),
+    (
+        "1\n2\n3\n4\n5\n6-7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n",
+        "@@ -2,2 +6,1 @@\n-6\n-7\n+6-7\n",
+        "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n",
+    ),
+    (
+        "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n",
+        "@@ -1,0 +1,4 @@\n+1\n+2\n+3\n+4\n",
+        "5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n",
+    ),
+]
+
+"#]]
+        .raw()
+    );
+    assert_residual_executable_bit_change(&repo, filename)?;
     Ok(())
 }
 
@@ -202,11 +225,11 @@ fn from_beginning() -> anyhow::Result<()> {
         else {
             unreachable!("We know there are hunks")
         };
-        assert_ne!(
-            hunks.len(),
-            0,
-            "the reason we see it is file modifications: {change:#?}"
-        );
+        if hunks.is_empty() {
+            // Only the executable-bit change of the worktree file remains; it has no
+            // content hunks and is discarded separately.
+            break;
+        }
 
         let before = file_content()?;
         let mut first_hun_hunk = hunks.remove(0);
@@ -226,35 +249,77 @@ fn from_beginning() -> anyhow::Result<()> {
         hunk_info.push((before, discarded_patch, after));
     }
 
-    insta::assert_debug_snapshot!(hunk_info, @r#"
-    [
-        (
-            "1\n2\n3\n4\n5\n6-7\n8\n9\nten\neleven\n12\n20\n21\n22\n15\n16\n",
-            "@@ -1,0 +1,4 @@\n+1\n+2\n+3\n+4\n",
-            "5\n6-7\n8\n9\nten\neleven\n12\n20\n21\n22\n15\n16\n",
+    snapbox::assert_data_eq!(
+        hunk_info.to_debug(),
+        snapbox::str![[r#"
+[
+    (
+        "1\n2\n3\n4\n5\n6-7\n8\n9\nten\neleven\n12\n20\n21\n22\n15\n16\n",
+        "@@ -1,0 +1,4 @@\n+1\n+2\n+3\n+4\n",
+        "5\n6-7\n8\n9\nten\neleven\n12\n20\n21\n22\n15\n16\n",
+    ),
+    (
+        "5\n6-7\n8\n9\nten\neleven\n12\n20\n21\n22\n15\n16\n",
+        "@@ -2,2 +2,1 @@\n-6\n-7\n+6-7\n",
+        "5\n6\n7\n8\n9\nten\neleven\n12\n20\n21\n22\n15\n16\n",
+    ),
+    (
+        "5\n6\n7\n8\n9\nten\neleven\n12\n20\n21\n22\n15\n16\n",
+        "@@ -6,2 +6,2 @@\n-10\n-11\n+ten\n+eleven\n",
+        "5\n6\n7\n8\n9\n10\n11\n12\n20\n21\n22\n15\n16\n",
+    ),
+    (
+        "5\n6\n7\n8\n9\n10\n11\n12\n20\n21\n22\n15\n16\n",
+        "@@ -9,2 +9,3 @@\n-13\n-14\n+20\n+21\n+22\n",
+        "5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n",
+    ),
+    (
+        "5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n",
+        "@@ -13,2 +13,0 @@\n-17\n-18\n",
+        "5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n",
+    ),
+]
+
+"#]]
+        .raw()
+    );
+    assert_residual_executable_bit_change(&repo, filename)?;
+    Ok(())
+}
+
+/// After all content hunks are discarded, the worktree file still differs from `HEAD^{tree}`
+/// by its executable bit, and that change stays visible so it can be discarded separately.
+fn assert_residual_executable_bit_change(
+    repo: &gix::Repository,
+    filename: &str,
+) -> anyhow::Result<()> {
+    let residual = but_core::diff::worktree_changes(repo)?
+        .changes
+        .into_iter()
+        .find(|change| change.path == filename)
+        .expect("the executable-bit change remains");
+    snapbox::assert_data_eq!(
+        residual.to_debug(),
+        snapbox::str![[r#"
+TreeChange {
+    path: "file-in-index",
+    status: Modification {
+        previous_state: ChangeState {
+            id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
+            kind: Blob,
+        },
+        state: ChangeState {
+            id: Sha1(0000000000000000000000000000000000000000),
+            kind: BlobExecutable,
+        },
+        flags: Some(
+            ExecutableBitAdded,
         ),
-        (
-            "5\n6-7\n8\n9\nten\neleven\n12\n20\n21\n22\n15\n16\n",
-            "@@ -2,2 +2,1 @@\n-6\n-7\n+6-7\n",
-            "5\n6\n7\n8\n9\nten\neleven\n12\n20\n21\n22\n15\n16\n",
-        ),
-        (
-            "5\n6\n7\n8\n9\nten\neleven\n12\n20\n21\n22\n15\n16\n",
-            "@@ -6,2 +6,2 @@\n-10\n-11\n+ten\n+eleven\n",
-            "5\n6\n7\n8\n9\n10\n11\n12\n20\n21\n22\n15\n16\n",
-        ),
-        (
-            "5\n6\n7\n8\n9\n10\n11\n12\n20\n21\n22\n15\n16\n",
-            "@@ -9,2 +9,3 @@\n-13\n-14\n+20\n+21\n+22\n",
-            "5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n",
-        ),
-        (
-            "5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n",
-            "@@ -13,2 +13,0 @@\n-17\n-18\n",
-            "5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n",
-        ),
-    ]
-    "#);
+    },
+}
+
+"#]]
+    );
     Ok(())
 }
 
@@ -263,19 +328,24 @@ fn from_selections() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("mixed-hunk-modifications");
     let filename = "file-in-index";
     let (change, hunks) = changed_file_in_worktree_with_hunks(&repo, filename, CONTEXT_LINES)?;
-    insta::assert_debug_snapshot!(hunks.iter().map(|h| &h.diff).collect::<Vec<_>>(), @r#"
-    [
-        "@@ -1,0 +1,4 @@\n+1\n+2\n+3\n+4\n",
-        "@@ -2,2 +6,1 @@\n-6\n-7\n+6-7\n",
-        "@@ -6,2 +9,2 @@\n-10\n-11\n+ten\n+eleven\n",
-        "@@ -9,2 +12,3 @@\n-13\n-14\n+20\n+21\n+22\n",
-        "@@ -13,2 +17,0 @@\n-17\n-18\n",
-    ]
-    "#);
+    snapbox::assert_data_eq!(
+        hunks.iter().map(|h| &h.diff).collect::<Vec<_>>().to_debug(),
+        snapbox::str![[r#"
+[
+    "@@ -1,0 +1,4 @@\n+1\n+2\n+3\n+4\n",
+    "@@ -2,2 +6,1 @@\n-6\n-7\n+6-7\n",
+    "@@ -6,2 +9,2 @@\n-10\n-11\n+ten\n+eleven\n",
+    "@@ -9,2 +12,3 @@\n-13\n-14\n+20\n+21\n+22\n",
+    "@@ -13,2 +17,0 @@\n-17\n-18\n",
+]
+
+"#]]
+        .raw()
+    );
 
     let discard_spec = DiffSpec {
         previous_path: None,
-        path: change.path.clone(),
+        path: change.path,
         hunk_headers: vec![
             // Split first hunk into two yielding
             // '+1\n+3\n+4\n'
@@ -298,21 +368,89 @@ fn from_selections() -> anyhow::Result<()> {
     assert_eq!(dropped, [], "all sub-hunks could be associated");
 
     let file_content: BString = std::fs::read(repo.workdir().unwrap().join(filename))?.into();
-    insta::assert_snapshot!(file_content, @"
-    1
-    3
-    4
-    5
-    6
-    7
-    8
-    9
-    12
-    21
-    15
-    16
-    18
-    ");
+    snapbox::assert_data_eq!(
+        file_content.to_string(),
+        snapbox::str![[r#"
+1
+3
+4
+5
+6
+7
+8
+9
+12
+21
+15
+16
+18
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+/// Regression test reproducing a bug where multiple DiffSpecs for the same file would be applied
+/// independently, making DiffSpecs with a net positive or negative amount of lines cause
+/// misalignment for subsequent DiffSpecs.
+fn handles_multiple_diffspecs_for_same_file() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("mixed-hunk-modifications");
+    let filename = "file-in-index";
+    let (change, hunks) = changed_file_in_worktree_with_hunks(&repo, filename, CONTEXT_LINES)?;
+    snapbox::assert_data_eq!(
+        hunks.iter().map(|h| &h.diff).collect::<Vec<_>>().to_debug(),
+        snapbox::str![[r#"
+[
+    "@@ -1,0 +1,4 @@\n+1\n+2\n+3\n+4\n",
+    "@@ -2,2 +6,1 @@\n-6\n-7\n+6-7\n",
+    "@@ -6,2 +9,2 @@\n-10\n-11\n+ten\n+eleven\n",
+    "@@ -9,2 +12,3 @@\n-13\n-14\n+20\n+21\n+22\n",
+    "@@ -13,2 +17,0 @@\n-17\n-18\n",
+]
+
+"#]]
+        .raw()
+    );
+
+    // First spec contains a hunk that displaces all lines in the rest of the file. With the bug in
+    // place where the specs are applied independently, this causes the second spec's hunk to not
+    // align with the worktree hunk that's resolved after the first spec's application.
+    let first_spec = DiffSpec {
+        previous_path: None,
+        path: change.path.clone(),
+        hunk_headers: vec![hunk_header("-1,0", "+1,4")],
+    };
+    let second_spec = DiffSpec {
+        previous_path: None,
+        path: change.path,
+        hunk_headers: vec![hunk_header("-13,2", "+17,0")],
+    };
+    let dropped = discard_workspace_changes(&repo, vec![first_spec, second_spec], CONTEXT_LINES)?;
+    assert_eq!(dropped, [], "all sub-hunks could be associated");
+
+    let file_content: BString = std::fs::read(repo.workdir().unwrap().join(filename))?.into();
+    snapbox::assert_data_eq!(
+        file_content.to_string(),
+        snapbox::str![[r#"
+5
+6-7
+8
+9
+ten
+eleven
+12
+20
+21
+22
+15
+16
+17
+18
+
+"#]]
+    );
 
     Ok(())
 }
@@ -328,40 +466,44 @@ fn from_selections_with_context() -> anyhow::Result<()> {
         1,
         "one big hunk with context and everything, similar to what the UI sees"
     );
-    insta::assert_snapshot!(hunks[0].diff, @"
-    @@ -1,14 +1,16 @@
-    +1
-    +2
-    +3
-    +4
-     5
-    -6
-    -7
-    +6-7
-     8
-     9
-    -10
-    -11
-    +ten
-    +eleven
-     12
-    -13
-    -14
-    +20
-    +21
-    +22
-     15
-     16
-    -17
-    -18
-    ");
+    snapbox::assert_data_eq!(
+        hunks[0].diff.to_string(),
+        snapbox::str![[r#"
+@@ -1,14 +1,16 @@
++1
++2
++3
++4
+ 5
+-6
+-7
++6-7
+ 8
+ 9
+-10
+-11
++ten
++eleven
+ 12
+-13
+-14
++20
++21
++22
+ 15
+ 16
+-17
+-18
+
+"#]]
+    );
 
     let filepath = repo.workdir().unwrap().join(filename);
     let read_file_content = || std::fs::read(&filepath).map(BString::from);
     let original_file_content = read_file_content()?;
     let mut discard_spec = DiffSpec {
         previous_path: None,
-        path: change.path.clone(),
+        path: change.path,
         hunk_headers: vec![
             // Discard 2,3, keeping 1,4
             hunk_header("-1,14", "+2,2"),
@@ -383,22 +525,26 @@ fn from_selections_with_context() -> anyhow::Result<()> {
     assert_eq!(dropped.len(), 0, "all sub-hunks could be associated");
 
     let file_content = read_file_content()?;
-    insta::assert_snapshot!(file_content, @"
-    1
-    6
-    7
-    4
-    5
-    8
-    11
-    9
-    eleven
-    12
-    15
-    16
-    17
-    18
-    ");
+    snapbox::assert_data_eq!(
+        file_content.to_string(),
+        snapbox::str![[r#"
+1
+6
+7
+4
+5
+8
+11
+9
+eleven
+12
+15
+16
+17
+18
+
+"#]]
+    );
 
     std::fs::write(&filepath, original_file_content)?;
     discard_spec.hunk_headers.reverse();
@@ -410,22 +556,26 @@ fn from_selections_with_context() -> anyhow::Result<()> {
     );
     let actual = read_file_content()?;
     // The order of old/new additions or removals do matter also doesn't matter, the result is stable.
-    insta::assert_snapshot!(actual, @"
-    1
-    6
-    7
-    4
-    5
-    8
-    11
-    9
-    eleven
-    12
-    15
-    16
-    17
-    18
-    ");
+    snapbox::assert_data_eq!(
+        actual.to_string(),
+        snapbox::str![[r#"
+1
+6
+7
+4
+5
+8
+11
+9
+eleven
+12
+15
+16
+17
+18
+
+"#]]
+    );
 
     Ok(())
 }
@@ -440,23 +590,27 @@ fn hunk_removal_of_additions_single_line() -> anyhow::Result<()> {
         1,
         "one big hunk with context and everything, similar to what the UI sees"
     );
-    insta::assert_snapshot!(hunks[0].diff, @"
-    @@ -1,0 +1,10 @@
-    +1
-    +2
-    +3
-    +4
-    +5
-    +6
-    +7
-    +8
-    +9
-    +10
-    ");
+    snapbox::assert_data_eq!(
+        hunks[0].diff.to_string(),
+        snapbox::str![[r#"
+@@ -1,0 +1,10 @@
++1
++2
++3
++4
++5
++6
++7
++8
++9
++10
+
+"#]]
+    );
 
     let discard_spec = DiffSpec {
         previous_path: None,
-        path: change.path.clone(),
+        path: change.path,
         hunk_headers: vec![
             // Anchor at the old hunk, and redefine change to discard in the new hunk,
             // effectively discarding only line 5.
@@ -469,17 +623,21 @@ fn hunk_removal_of_additions_single_line() -> anyhow::Result<()> {
     assert_eq!(dropped.len(), 0, "all sub-hunks could be associated");
 
     let file_content: BString = std::fs::read(repo.workdir().unwrap().join(filename))?.into();
-    insta::assert_snapshot!(file_content, @"
-    1
-    2
-    3
-    4
-    6
-    7
-    8
-    9
-    10
-    ");
+    snapbox::assert_data_eq!(
+        file_content.to_string(),
+        snapbox::str![[r#"
+1
+2
+3
+4
+6
+7
+8
+9
+10
+
+"#]]
+    );
 
     Ok(())
 }
@@ -494,23 +652,27 @@ fn hunk_removal_of_removal_single_line() -> anyhow::Result<()> {
         1,
         "one big hunk with context and everything, similar to what the UI sees"
     );
-    insta::assert_snapshot!(hunks[0].diff, @"
-    @@ -1,10 +1,0 @@
-    -1
-    -2
-    -3
-    -4
-    -5
-    -6
-    -7
-    -8
-    -9
-    -10
-    ");
+    snapbox::assert_data_eq!(
+        hunks[0].diff.to_string(),
+        snapbox::str![[r#"
+@@ -1,10 +1,0 @@
+-1
+-2
+-3
+-4
+-5
+-6
+-7
+-8
+-9
+-10
+
+"#]]
+    );
 
     let discard_spec = DiffSpec {
         previous_path: None,
-        path: change.path.clone(),
+        path: change.path,
         hunk_headers: vec![
             // Anchor at the new hunk, and redefine change to discard in the old hunk,
             // effectively keeping only line 5.
@@ -522,7 +684,13 @@ fn hunk_removal_of_removal_single_line() -> anyhow::Result<()> {
     assert_eq!(dropped.len(), 0, "all sub-hunks could be associated");
 
     let file_content: BString = std::fs::read(repo.workdir().unwrap().join(filename))?.into();
-    insta::assert_snapshot!(file_content, @"5");
+    snapbox::assert_data_eq!(
+        file_content.to_string(),
+        snapbox::str![[r#"
+5
+
+"#]]
+    );
 
     Ok(())
 }
@@ -537,33 +705,37 @@ fn hunk_removal_of_modifications() -> anyhow::Result<()> {
         1,
         "one big hunk with context and everything, similar to what the UI sees"
     );
-    insta::assert_snapshot!(hunks[0].diff, @"
-    @@ -1,10 +1,10 @@
-    -1
-    -2
-    -3
-    -4
-    -5
-    -6
-    -7
-    -8
-    -9
-    -10
-    +11
-    +12
-    +13
-    +14
-    +15
-    +16
-    +17
-    +18
-    +19
-    +20
-    ");
+    snapbox::assert_data_eq!(
+        hunks[0].diff.to_string(),
+        snapbox::str![[r#"
+@@ -1,10 +1,10 @@
+-1
+-2
+-3
+-4
+-5
+-6
+-7
+-8
+-9
+-10
++11
++12
++13
++14
++15
++16
++17
++18
++19
++20
+
+"#]]
+    );
 
     let discard_spec = DiffSpec {
         previous_path: None,
-        path: change.path.clone(),
+        path: change.path,
         hunk_headers: vec![
             // Anchor at the new hunk, and redefine change to discard in the old hunk,
             // effectively keeping only line 5.
@@ -580,18 +752,22 @@ fn hunk_removal_of_modifications() -> anyhow::Result<()> {
     assert_eq!(dropped.len(), 0, "all sub-hunks could be associated");
 
     let file_content: BString = std::fs::read(repo.workdir().unwrap().join(filename))?.into();
-    insta::assert_snapshot!(file_content, @"
-    11
-    12
-    13
-    14
-    5
-    16
-    17
-    18
-    19
-    20
-    ");
+    snapbox::assert_data_eq!(
+        file_content.to_string(),
+        snapbox::str![[r#"
+11
+12
+13
+14
+5
+16
+17
+18
+19
+20
+
+"#]]
+    );
 
     Ok(())
 }
@@ -601,124 +777,144 @@ fn hunk_removal_of_modifications() -> anyhow::Result<()> {
 fn deletion_modification_addition_of_hunks_mixed_discard_all_in_workspace() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("mixed-hunk-modifications");
     // Note that one of these renames can't be detected by Git but is visible to us.
-    insta::assert_snapshot!(git_status(&repo)?, @"
-     M file
-    M  file-in-index
-    RM file-to-be-renamed-in-index -> file-renamed-in-index
-     D file-to-be-renamed
-    ?? file-renamed
-    ");
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+ M file
+M  file-in-index
+RM file-to-be-renamed-in-index -> file-renamed-in-index
+ D file-to-be-renamed
+?? file-renamed
 
-    insta::assert_snapshot!(visualize_index(&**repo.index()?), @"
-    100755:3d3b36f file
-    100755:cb89473 file-in-index
-    100644:3d3b36f file-renamed-in-index
-    100644:3d3b36f file-to-be-renamed
-    ");
+"#]]
+    );
+
+    snapbox::assert_data_eq!(
+        visualize_index(&**repo.index()?),
+        snapbox::str![[r#"
+100755:3d3b36f file
+100755:cb89473 file-in-index
+100644:3d3b36f file-renamed-in-index
+100644:3d3b36f file-to-be-renamed
+
+"#]]
+    );
 
     let workdir = repo.workdir().unwrap();
-    insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(workdir)?, @"
-    .
-    ├── .git:40755
-    ├── file:100644
-    ├── file-in-index:100755
-    ├── file-renamed:100755
-    └── file-renamed-in-index:100644
-    ");
+    snapbox::assert_data_eq!(
+        visualize_disk_tree_skip_dot_git(workdir)?.to_string(),
+        snapbox::str![[r#"
+.
+├── .git:40755
+├── file:100644
+├── file-in-index:100755
+├── file-renamed:100755
+└── file-renamed-in-index:100644
+
+"#]]
+    );
 
     // Show that we detect renames correctly, despite the rename + modification.
     let wt_changes = but_core::diff::worktree_changes(&repo)?;
-    insta::assert_debug_snapshot!(wt_changes, @r#"
-    WorktreeChanges {
-        changes: [
-            TreeChange {
-                path: "file",
-                status: Modification {
-                    previous_state: ChangeState {
-                        id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
-                        kind: BlobExecutable,
-                    },
-                    state: ChangeState {
-                        id: Sha1(0000000000000000000000000000000000000000),
-                        kind: Blob,
-                    },
-                    flags: Some(
-                        ExecutableBitRemoved,
-                    ),
+    snapbox::assert_data_eq!(
+        wt_changes.to_debug(),
+        snapbox::str![[r#"
+WorktreeChanges {
+    changes: [
+        TreeChange {
+            path: "file",
+            status: Modification {
+                previous_state: ChangeState {
+                    id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
+                    kind: BlobExecutable,
                 },
-            },
-            TreeChange {
-                path: "file-in-index",
-                status: Modification {
-                    previous_state: ChangeState {
-                        id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
-                        kind: Blob,
-                    },
-                    state: ChangeState {
-                        id: Sha1(cb89473a55c3443b5567e990e2a0293895c91a4a),
-                        kind: BlobExecutable,
-                    },
-                    flags: Some(
-                        ExecutableBitAdded,
-                    ),
+                state: ChangeState {
+                    id: Sha1(0000000000000000000000000000000000000000),
+                    kind: Blob,
                 },
+                flags: Some(
+                    ExecutableBitRemoved,
+                ),
             },
-            TreeChange {
-                path: "file-renamed",
-                status: Rename {
-                    previous_path: "file-to-be-renamed",
-                    previous_state: ChangeState {
-                        id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
-                        kind: Blob,
-                    },
-                    state: ChangeState {
-                        id: Sha1(0000000000000000000000000000000000000000),
-                        kind: BlobExecutable,
-                    },
-                    flags: Some(
-                        ExecutableBitAdded,
-                    ),
+        },
+        TreeChange {
+            path: "file-in-index",
+            status: Modification {
+                previous_state: ChangeState {
+                    id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
+                    kind: Blob,
                 },
-            },
-            TreeChange {
-                path: "file-renamed-in-index",
-                status: Rename {
-                    previous_path: "file-to-be-renamed-in-index",
-                    previous_state: ChangeState {
-                        id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
-                        kind: Blob,
-                    },
-                    state: ChangeState {
-                        id: Sha1(0000000000000000000000000000000000000000),
-                        kind: Blob,
-                    },
-                    flags: None,
+                state: ChangeState {
+                    id: Sha1(cb89473a55c3443b5567e990e2a0293895c91a4a),
+                    kind: BlobExecutable,
                 },
+                flags: Some(
+                    ExecutableBitAdded,
+                ),
             },
-        ],
-        ignored_changes: [
-            IgnoredWorktreeChange {
-                path: "file-renamed-in-index",
-                status: TreeIndex,
+        },
+        TreeChange {
+            path: "file-renamed",
+            status: Rename {
+                previous_path: "file-to-be-renamed",
+                previous_state: ChangeState {
+                    id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
+                    kind: Blob,
+                },
+                state: ChangeState {
+                    id: Sha1(0000000000000000000000000000000000000000),
+                    kind: BlobExecutable,
+                },
+                flags: Some(
+                    ExecutableBitAdded,
+                ),
             },
-        ],
-    }
-    "#);
+        },
+        TreeChange {
+            path: "file-renamed-in-index",
+            status: Rename {
+                previous_path: "file-to-be-renamed-in-index",
+                previous_state: ChangeState {
+                    id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
+                    kind: Blob,
+                },
+                state: ChangeState {
+                    id: Sha1(0000000000000000000000000000000000000000),
+                    kind: Blob,
+                },
+                flags: None,
+            },
+        },
+    ],
+    ignored_changes: [
+        IgnoredWorktreeChange {
+            path: "file-renamed-in-index",
+            status: TreeIndex,
+        },
+    ],
+}
+
+"#]]
+    );
 
     let specs = to_change_specs_all_hunks(&repo, wt_changes)?;
-    let dropped = discard_workspace_changes(&repo, specs.into_iter(), CONTEXT_LINES)?;
+    let dropped = discard_workspace_changes(&repo, specs, CONTEXT_LINES)?;
     assert!(dropped.is_empty());
 
     // Only the data is undone; the executable bit change can be undone in the next discard,
     // making this a two-step process. This seems valuable as it gives users a choice.
-    insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(repo.workdir().unwrap())?, @"
-    .
-    ├── .git:40755
-    ├── file:100644
-    ├── file-in-index:100755
-    ├── file-renamed:100755
-    └── file-renamed-in-index:100644
-    ");
+    snapbox::assert_data_eq!(
+        visualize_disk_tree_skip_dot_git(repo.workdir().unwrap())?.to_string(),
+        snapbox::str![[r#"
+.
+├── .git:40755
+├── file:100644
+├── file-in-index:100755
+├── file-renamed:100755
+└── file-renamed-in-index:100644
+
+"#]]
+    );
 
     for filename in [
         "file",
@@ -736,83 +932,111 @@ fn deletion_modification_addition_of_hunks_mixed_discard_all_in_workspace() -> a
 
     // Notably, discarding all hunks leaves the renamed file in place, but without modifications.
     // Executable bits stay and can be discarded in a separate step.
-    insta::assert_snapshot!(git_status(&repo)?, @"
-     M file
-    MM file-in-index
-    R  file-to-be-renamed-in-index -> file-renamed-in-index
-     D file-to-be-renamed
-    ?? file-renamed
-    ");
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+ M file
+MM file-in-index
+R  file-to-be-renamed-in-index -> file-renamed-in-index
+ D file-to-be-renamed
+?? file-renamed
+
+"#]]
+    );
     // The index still only holds what was in the index before, but is representing the changed worktree.
-    insta::assert_snapshot!(visualize_index(&**repo.index()?), @"
-    100755:3d3b36f file
-    100755:cb89473 file-in-index
-    100644:3d3b36f file-renamed-in-index
-    100644:3d3b36f file-to-be-renamed
-    ");
+    snapbox::assert_data_eq!(
+        visualize_index(&**repo.index()?),
+        snapbox::str![[r#"
+100755:3d3b36f file
+100755:cb89473 file-in-index
+100644:3d3b36f file-renamed-in-index
+100644:3d3b36f file-to-be-renamed
+
+"#]]
+    );
 
     // The index is transparent, so `file-in-index` was reverted to the version in the `HEAD^{tree}`
     let wt_changes = but_core::diff::worktree_changes(&repo)?;
-    insta::assert_debug_snapshot!(wt_changes, @r#"
-    WorktreeChanges {
-        changes: [
-            TreeChange {
-                path: "file",
-                status: Modification {
-                    previous_state: ChangeState {
-                        id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
-                        kind: BlobExecutable,
-                    },
-                    state: ChangeState {
-                        id: Sha1(0000000000000000000000000000000000000000),
-                        kind: Blob,
-                    },
-                    flags: Some(
-                        ExecutableBitRemoved,
-                    ),
+    snapbox::assert_data_eq!(
+        wt_changes.to_debug(),
+        snapbox::str![[r#"
+WorktreeChanges {
+    changes: [
+        TreeChange {
+            path: "file",
+            status: Modification {
+                previous_state: ChangeState {
+                    id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
+                    kind: BlobExecutable,
                 },
-            },
-            TreeChange {
-                path: "file-renamed",
-                status: Rename {
-                    previous_path: "file-to-be-renamed",
-                    previous_state: ChangeState {
-                        id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
-                        kind: Blob,
-                    },
-                    state: ChangeState {
-                        id: Sha1(0000000000000000000000000000000000000000),
-                        kind: BlobExecutable,
-                    },
-                    flags: Some(
-                        ExecutableBitAdded,
-                    ),
+                state: ChangeState {
+                    id: Sha1(0000000000000000000000000000000000000000),
+                    kind: Blob,
                 },
+                flags: Some(
+                    ExecutableBitRemoved,
+                ),
             },
-            TreeChange {
-                path: "file-renamed-in-index",
-                status: Rename {
-                    previous_path: "file-to-be-renamed-in-index",
-                    previous_state: ChangeState {
-                        id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
-                        kind: Blob,
-                    },
-                    state: ChangeState {
-                        id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
-                        kind: Blob,
-                    },
-                    flags: None,
+        },
+        TreeChange {
+            path: "file-in-index",
+            status: Modification {
+                previous_state: ChangeState {
+                    id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
+                    kind: Blob,
                 },
+                state: ChangeState {
+                    id: Sha1(0000000000000000000000000000000000000000),
+                    kind: BlobExecutable,
+                },
+                flags: Some(
+                    ExecutableBitAdded,
+                ),
             },
-        ],
-        ignored_changes: [
-            IgnoredWorktreeChange {
-                path: "file-in-index",
-                status: TreeIndexWorktreeChangeIneffective,
+        },
+        TreeChange {
+            path: "file-renamed",
+            status: Rename {
+                previous_path: "file-to-be-renamed",
+                previous_state: ChangeState {
+                    id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
+                    kind: Blob,
+                },
+                state: ChangeState {
+                    id: Sha1(0000000000000000000000000000000000000000),
+                    kind: BlobExecutable,
+                },
+                flags: Some(
+                    ExecutableBitAdded,
+                ),
             },
-        ],
-    }
-    "#);
+        },
+        TreeChange {
+            path: "file-renamed-in-index",
+            status: Rename {
+                previous_path: "file-to-be-renamed-in-index",
+                previous_state: ChangeState {
+                    id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
+                    kind: Blob,
+                },
+                state: ChangeState {
+                    id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
+                    kind: Blob,
+                },
+                flags: None,
+            },
+        },
+    ],
+    ignored_changes: [
+        IgnoredWorktreeChange {
+            path: "file-in-index",
+            status: TreeIndex,
+        },
+    ],
+}
+
+"#]]
+    );
 
     Ok(())
 }

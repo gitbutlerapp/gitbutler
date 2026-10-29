@@ -8,7 +8,7 @@
 	import { PROJECT_SERVICE } from "@gitbutler/shared/organizations/projectService";
 	import { projectTable } from "@gitbutler/shared/organizations/projectsSlice";
 
-	import { Button, CardGroup, Modal, chipToasts } from "@gitbutler/ui";
+	import { Button, CardGroup, Modal, chipToasts } from "@gitbutler/ui-svelte";
 	import type { Project } from "@gitbutler/shared/organizations/types";
 
 	type Props = {
@@ -258,19 +258,19 @@
 
 	.description {
 		margin-top: 4px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 0.9rem;
 	}
 
 	.slug {
 		margin-top: 2px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 0.8rem;
 	}
 
 	.empty-state {
 		padding: 24px 0;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		text-align: center;
 	}
 
@@ -283,7 +283,7 @@
 
 	.loading-container {
 		padding: 32px 0;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		text-align: center;
 	}
 

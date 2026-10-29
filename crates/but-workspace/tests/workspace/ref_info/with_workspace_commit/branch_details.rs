@@ -1,66 +1,89 @@
 use but_testsupport::visualize_commit_graph_all;
 use but_workspace::branch_details;
+use snapbox::prelude::*;
 
-use crate::ref_info::with_workspace_commit::read_only_in_memory_scenario;
+use crate::ref_info::with_workspace_commit::{
+    read_only_in_memory_scenario,
+    utils::{StackState, add_stack},
+};
 
 #[test]
 fn disjoint() -> anyhow::Result<()> {
-    let (repo, meta) = read_only_in_memory_scenario("disjoint")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * 32791d2 (HEAD -> disjoint) disjoint init
-    * fafd9d0 (origin/main, main) init
-    ");
+    let (repo, mut meta, _db) = read_only_in_memory_scenario("disjoint")?;
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 32791d2 (HEAD -> disjoint) disjoint init
+* fafd9d0 (origin/main, main) init
 
-    let actual = branch_details(&repo, "refs/heads/disjoint".try_into()?, &*meta)?;
-    insta::assert_debug_snapshot!(actual, @r#"
-    BranchDetails {
-        name: "disjoint",
-        reference: FullName(
-            "refs/heads/disjoint",
-        ),
-        linked_worktree_id: None,
-        remote_tracking_branch: None,
-        pr_number: None,
-        review_id: None,
-        tip: Sha1(32791d22e276ec0ed87d14f906321137356bc6d6),
-        base_commit: Sha1(32791d22e276ec0ed87d14f906321137356bc6d6),
-        push_status: CompletelyUnpushed,
-        last_updated_at: None,
-        authors: [
-            author <author@example.com>,
-            committer <committer@example.com>,
-        ],
-        is_conflicted: false,
-        commits: [
-            Commit(32791d2, "disjoint init", local/remote(identity)),
-        ],
-        upstream_commits: [],
-        is_remote_head: false,
-    }
-    "#);
+"#]]
+    );
 
-    let actual = branch_details(&repo, "refs/heads/main".try_into()?, &*meta)?;
-    insta::assert_debug_snapshot!(actual, @r#"
-    BranchDetails {
-        name: "main",
-        reference: FullName(
-            "refs/heads/main",
-        ),
-        linked_worktree_id: None,
-        remote_tracking_branch: None,
-        pr_number: None,
-        review_id: None,
-        tip: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        base_commit: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        push_status: CompletelyUnpushed,
-        last_updated_at: None,
-        authors: [],
-        is_conflicted: false,
-        commits: [],
-        upstream_commits: [],
-        is_remote_head: false,
-    }
-    "#);
+    add_stack(&mut meta, 1, "disjoint", StackState::InWorkspace);
+    let project_meta = super::utils::project_meta(&repo)?;
+    let actual = branch_details(
+        &repo,
+        "refs/heads/disjoint".try_into()?,
+        &*meta,
+        &project_meta,
+    )?;
+    snapbox::assert_data_eq!(
+        actual.to_debug(),
+        snapbox::str![[r#"
+BranchDetails {
+    name: "disjoint",
+    reference: FullName(
+        "refs/heads/disjoint",
+    ),
+    remote_tracking_branch: None,
+    pr_number: None,
+    review_id: None,
+    tip: Sha1(32791d22e276ec0ed87d14f906321137356bc6d6),
+    base_commit: Sha1(32791d22e276ec0ed87d14f906321137356bc6d6),
+    push_status: CompletelyUnpushed,
+    last_updated_at: None,
+    authors: [
+        author <author@example.com>,
+        committer <committer@example.com>,
+    ],
+    is_conflicted: false,
+    commits: [
+        Commit(32791d2, "disjoint init", local/remote(identity)),
+    ],
+    upstream_commits: [],
+    is_remote_head: false,
+}
+
+"#]]
+    );
+
+    let actual = branch_details(&repo, "refs/heads/main".try_into()?, &*meta, &project_meta)?;
+    snapbox::assert_data_eq!(
+        actual.to_debug(),
+        snapbox::str![[r#"
+BranchDetails {
+    name: "main",
+    reference: FullName(
+        "refs/heads/main",
+    ),
+    remote_tracking_branch: Some(
+        "refs/remotes/origin/main",
+    ),
+    pr_number: None,
+    review_id: None,
+    tip: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+    base_commit: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+    push_status: NothingToPush,
+    last_updated_at: None,
+    authors: [],
+    is_conflicted: false,
+    commits: [],
+    upstream_commits: [],
+    is_remote_head: false,
+}
+
+"#]]
+    );
 
     Ok(())
 }

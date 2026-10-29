@@ -1,23 +1,24 @@
 import {
 	aggregateFileDependencies,
+	filterDependenciesByAssignments,
 	type FileDependencies,
-	type HunkDependencies,
-} from "$lib/dependencies/dependencies";
+} from "$lib/hunks/dependencies";
 import { createSelectByIds } from "$lib/state/customSelectors";
 import { InjectionToken } from "@gitbutler/core/context";
 import { createEntityAdapter } from "@reduxjs/toolkit";
 import type { WorktreeService } from "$lib/worktree/worktreeService.svelte";
+import type { HunkDependencies } from "@gitbutler/but-sdk";
 
 export const DEPENDENCY_SERVICE = new InjectionToken<DependencyService>("DependencyService");
 
 export default class DependencyService {
 	constructor(private readonly worktreeService: WorktreeService) {}
 
-	fileDependencies(projectId: string, filePath: string) {
+	fileDependencies(projectId: string, filePath: string, stackId?: string) {
 		return this.worktreeService.worktreeChanges.useQuery(
 			{ projectId },
 			{
-				transform: ({ dependencies }) => {
+				transform: ({ dependencies, hunkAssignments }) => {
 					if (!dependencies) {
 						return {
 							path: filePath,
@@ -25,7 +26,8 @@ export default class DependencyService {
 						};
 					}
 
-					const e = toEntityAdapter(dependencies);
+					const filtered = filterDependenciesByAssignments(dependencies, hunkAssignments, stackId);
+					const e = toEntityAdapter(filtered);
 					return (
 						fileDependencySelectors.selectById(e.fileDependencies, filePath) || {
 							path: filePath,
@@ -37,16 +39,17 @@ export default class DependencyService {
 		);
 	}
 
-	filesDependencies(projectId: string, filePaths: string[]) {
+	filesDependencies(projectId: string, filePaths: string[], stackId?: string) {
 		return this.worktreeService.worktreeChanges.useQuery(
 			{ projectId },
 			{
-				transform: ({ dependencies }) => {
+				transform: ({ dependencies, hunkAssignments }) => {
 					if (!dependencies) {
 						return [];
 					}
 
-					const e = toEntityAdapter(dependencies);
+					const filtered = filterDependenciesByAssignments(dependencies, hunkAssignments, stackId);
+					const e = toEntityAdapter(filtered);
 					return fileDependencySelectors.selectByIds(e.fileDependencies, filePaths);
 				},
 			},

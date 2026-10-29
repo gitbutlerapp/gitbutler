@@ -1,6 +1,6 @@
 <script lang="ts">
 	import loginSvg from "$lib/assets/login-modal.svg?raw";
-	import { Button, Modal } from "@gitbutler/ui";
+	import { Button, Modal } from "@gitbutler/ui-svelte";
 
 	import { type Snippet } from "svelte";
 	import { env } from "$env/dynamic/public";
@@ -53,7 +53,7 @@
 	.login-modal__illustration {
 		width: 240px;
 		height: 300px;
-		background-color: var(--clr-art-scene-bg);
+		background-color: var(--art-scene-bg);
 
 		@media (--tablet-viewport) {
 			display: none;

@@ -27,6 +27,26 @@ EOF
 
   conflict_tree=$(git write-tree)
 
+  git tag marked-conflict "$(git commit-tree "$conflict_tree" -p HEAD \
+    -m "marked conflict" -m "GitButler-Conflict: true")"
+
+  normal_tree=$(git rev-parse normal^{tree})
+  git tag marked-ordinary "$(git commit-tree "$normal_tree" -p HEAD \
+    -m "marked ordinary commit" -m "GitButler-Conflict: true")"
+
+  git update-index --force-remove .auto-resolution/file
+  partial_conflict_tree=$(git write-tree)
+  git tag partial-conflict "$(git commit-tree "$partial_conflict_tree" -p HEAD \
+    -m "marked partial conflict" -m "GitButler-Conflict: true")"
+
+  git read-tree --empty
+  git update-index --index-info <<EOF
+100644 blob $empty_blob	.conflict-side-2/file
+EOF
+  high_index_partial_tree=$(git write-tree)
+  git tag high-index-partial-conflict "$(git commit-tree "$high_index_partial_tree" -p HEAD \
+    -m "marked high-index partial conflict" -m "GitButler-Conflict: true")"
+
   conflict_commit=$(git hash-object -wt commit --stdin <<EOF
 tree $conflict_tree
 parent $(git rev-parse HEAD)

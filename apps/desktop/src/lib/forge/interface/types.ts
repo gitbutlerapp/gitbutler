@@ -1,16 +1,31 @@
-import type { Author } from "$lib/commits/commit";
-import type { RepoInfo } from "$lib/url/gitUrl";
+import type { RepoInfo } from "$lib/git/gitUrl";
+import type { ForgeReviewLabel } from "@gitbutler/but-sdk";
+import type { Reactive } from "@gitbutler/shared/storeUtils";
 
-export interface Label {
-	name: string;
-	description: string | undefined;
-	color: string;
-}
+/** Author as represented in forge contexts (GitHub/GitLab PR). Fields are optional since forges may omit them. */
+export type Author = {
+	login?: string;
+	name?: string;
+	email?: string;
+	gravatarUrl?: string;
+	isBot?: boolean;
+};
 
 export type ForgeUser = {
-	id: number;
+	login: string;
 	srcUrl: string;
 	name: string;
+};
+
+/**
+ * A display-ready forge user resolved reactively from the project's
+ * preferred account. Stable across re-renders so the producing hook can
+ * be called once at component init (its `inject()` must not run inside a
+ * reactive re-computation).
+ */
+export type ForgeUserQuery = {
+	user: Reactive<ForgeUser | undefined>;
+	isLoading: Reactive<boolean>;
 };
 
 export type ForgeUserDetailed = {
@@ -28,7 +43,7 @@ export type ForgeReview = {
 	title: string;
 	body: string | null;
 	author: ForgeUserDetailed | null;
-	labels: Label[];
+	labels: ForgeReviewLabel[];
 	draft: boolean;
 	sourceBranch: string;
 	targetBranch: string;
@@ -40,6 +55,7 @@ export type ForgeReview = {
 	repositorySshUrl: string | null;
 	repositoryHttpsUrl: string | null;
 	repoOwner: string | null;
+	headRepoIsFork: boolean;
 	reviewers: ForgeUserDetailed[];
 };
 
@@ -49,7 +65,7 @@ export interface PullRequest {
 	title: string;
 	body: string | undefined;
 	author: Author | null;
-	labels: Label[];
+	labels: ForgeReviewLabel[];
 	draft: boolean;
 	sourceBranch: string;
 	targetBranch: string;
@@ -61,6 +77,7 @@ export interface PullRequest {
 	repositorySshUrl?: string;
 	repositoryHttpsUrl?: string;
 	repoOwner?: string;
+	headRepoIsFork: boolean;
 	reviewers: ForgeUser[];
 }
 
@@ -72,6 +89,7 @@ export function mapForgeReviewToPullRequest(pr: ForgeReview): PullRequest {
 		body: pr.body ?? undefined,
 		author: pr.author
 			? {
+					login: pr.author.login,
 					name: pr.author.name ?? pr.author.login,
 					email: pr.author.email ?? undefined,
 					gravatarUrl: pr.author.avatarUrl ?? undefined,
@@ -90,55 +108,30 @@ export function mapForgeReviewToPullRequest(pr: ForgeReview): PullRequest {
 		repositorySshUrl: pr.repositorySshUrl ?? undefined,
 		repositoryHttpsUrl: pr.repositoryHttpsUrl ?? undefined,
 		repoOwner: pr.repoOwner ?? undefined,
+		headRepoIsFork: pr.headRepoIsFork,
 		reviewers: pr.reviewers.map((r) => ({
-			id: r.id,
+			login: r.login,
 			srcUrl: r.avatarUrl ?? "",
 			name: r.name ?? r.login,
 		})),
 	};
 }
 
-export interface PullRequestPermissions {
-	canMerge?: boolean;
-}
-
-export interface DetailedPullRequest {
-	id: number;
-	title: string;
-	author: Author | null;
-	body: string | undefined;
-	number: number;
-	sourceBranch: string;
-	draft?: boolean;
-	fork: boolean;
-	createdAt: string;
-	mergedAt?: string;
-	closedAt?: string;
-	updatedAt: string;
-	htmlUrl: string;
-	merged: boolean;
-	mergeable: boolean;
-	mergeableState: string;
-	rebaseable: boolean;
-	squashable: boolean;
-	state: "open" | "closed";
-	baseRepo?: RepoInfo | undefined;
-	baseBranch: string;
-	reviewers: { srcUrl: string; username: string }[];
-	commentsCount: number;
-	permissions?: PullRequestPermissions;
-	repositorySshUrl?: string;
-	repositoryHttpsUrl?: string;
-}
-
 export type ChecksStatus = {
-	startedAt: string;
+	/**
+	 * Earliest check-run start, or `null` while every run is still
+	 * queued. Must not fall back to "now" — `CIChecksBadge` keys
+	 * polling backoff off this value.
+	 */
+	startedAt: string | null;
 	/**
 	 * Checks are considered completed if all checks have completed  or if there is at least one failure.
 	 */
 	completed: boolean;
 	success: boolean;
 	failedChecks: string[];
+	actionRequired: boolean;
+	actionRequiredChecks: string[];
 };
 
 export enum MergeMethod {
@@ -164,6 +157,6 @@ export type CreatePullRequestArgs = {
 	title: string;
 	body: string;
 	draft: boolean;
-	baseBranchName: string;
+	localBranchName: string;
 	upstreamName: string;
 };

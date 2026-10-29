@@ -31,10 +31,7 @@ impl PathRanges {
 
         for incoming_hunk in &incoming_hunks {
             let mut incoming_hunk_line_shift = incoming_hunk.net_lines()?;
-            loop {
-                let Some(existing_hunk_range) = existing_hunk_ranges_iter.next() else {
-                    break;
-                };
+            while let Some(existing_hunk_range) = existing_hunk_ranges_iter.next() {
                 let ReceiveResult {
                     above,
                     incoming_line_shift_change,

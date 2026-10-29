@@ -43,7 +43,7 @@
 	"[mdx]": {
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
-	"svelte.plugin.css.globals": "packages/ui/src/**/*.css",
+	"svelte.plugin.css.globals": "packages/ui-svelte/src/**/*.css",
 	"js/ts.preferences.importModuleSpecifier": "non-relative",
 	"editor.formatOnSave": true
 }

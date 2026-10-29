@@ -14,11 +14,15 @@ description = "Store and retrieve information about forges"
 doctest = false
 
 [dependencies]
-but-fs = { workspace = true, features = ["legacy"] }
+but-utils = { workspace = true, features = ["legacy"] }
 
 serde.workspace = true
 anyhow.workspace = true
 serde_json.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true

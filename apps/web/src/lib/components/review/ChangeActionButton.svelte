@@ -9,7 +9,7 @@
 		ContextMenuItem,
 		ContextMenuSection,
 		DropdownButton,
-	} from "@gitbutler/ui";
+	} from "@gitbutler/ui-svelte";
 
 	interface Props {
 		branchUuid: string;

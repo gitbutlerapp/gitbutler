@@ -9,7 +9,7 @@ use std::{
 
 use anyhow::{Context, Result, anyhow, bail};
 
-use crate::ui::success;
+use crate::ui;
 
 /// Returns the path to the `but` CLI binary for the given home directory.
 pub(crate) fn but_binary_path(home_dir: &Path) -> PathBuf {
@@ -88,7 +88,7 @@ pub(crate) fn verify_signature(
         anyhow!("Signature verification failed - the download may have been tampered with: {e}")
     })?;
 
-    success("Signature verification passed");
+    ui::info("Signature verification passed");
     Ok(())
 }
 

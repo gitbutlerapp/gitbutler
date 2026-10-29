@@ -5,6 +5,7 @@
 	import { ORGANIZATION_SERVICE } from "@gitbutler/shared/organizations/organizationService";
 	import { getOrganizationBySlug } from "@gitbutler/shared/organizations/organizationsPreview.svelte";
 	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
+	import { untrack } from "svelte";
 
 	type Props = {
 		slug: string;
@@ -15,7 +16,11 @@
 
 	const { slug }: Props = $props();
 
-	const organization = getOrganizationBySlug(appState, organizationService, slug);
+	const organization = getOrganizationBySlug(
+		appState,
+		organizationService,
+		untrack(() => slug),
+	);
 </script>
 
 <Loading loadable={organization.current}>

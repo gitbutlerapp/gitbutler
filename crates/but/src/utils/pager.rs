@@ -1,3 +1,5 @@
+use crate::utils::envs;
+
 pub(crate) enum Pager {
     /// An external pager process (e.g. `less`)
     External(std::process::Child, std::process::ChildStdin),
@@ -13,9 +15,9 @@ const DEFAULT_PAGER: &str = "less";
 /// - `F`: Quit if content fits on screen.
 /// - `X`: Don't clear the screen on exit.
 /// - `R`: Recognize ANSI color escape sequences and use them verbatim to *keep* styling.
-/// - `S`: Don't wrap long lines. We don't want wrapping as we control the layout carefully.
-const DEFAULT_PAGER_ARGS: &str = "FXRS";
+const DEFAULT_PAGER_ARGS: &str = "FXR"; // Do not put S in here. Like, really. Don't.
 const DEFAULT_PAGER_ENV_VAR: &str = "LESS";
+const LESS_ANSI_END_CHARS_ENV_VAR: &str = "LESSANSIENDCHARS";
 
 /// Attempt to initialize a new pager.
 ///
@@ -49,7 +51,7 @@ pub(crate) fn try_init_pager() -> Option<Pager> {
 fn try_spawn_external_pager() -> Option<(std::process::Child, std::process::ChildStdin)> {
     use std::process::{Command, Stdio};
 
-    let pager_override = std::env::var("BUT_PAGER").ok();
+    let pager_override = std::env::var(envs::BUT_PAGER).ok();
     let (program, is_default) = if let Some(cmd) = &pager_override {
         (cmd.as_ref(), false)
     } else if Command::new(DEFAULT_PAGER)
@@ -77,6 +79,8 @@ fn try_spawn_external_pager() -> Option<(std::process::Child, std::process::Chil
         // tend to have some rather exotic configuration for less which messes with our intended
         // experience, we'll just set our own preference here.
         cmd.env(DEFAULT_PAGER_ENV_VAR, DEFAULT_PAGER_ARGS);
+        // `K` terminates the erase-to-end-of-line sequence used to extend diff backgrounds.
+        cmd.env(LESS_ANSI_END_CHARS_ENV_VAR, "mK");
     }
 
     match cmd.spawn() {

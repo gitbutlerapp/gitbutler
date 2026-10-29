@@ -1,4 +1,4 @@
-import { isDefined } from "@gitbutler/ui/utils/typeguards";
+import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 import { createSelector, type EntityState } from "@reduxjs/toolkit";
 
 export function createSelectNth<T>() {

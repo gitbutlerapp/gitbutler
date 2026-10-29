@@ -114,3 +114,21 @@ impl IdUsage {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn true_exhaustion_remains_an_error() {
+        let mut usage = IdUsage::default();
+        for value in 0..UintId::LIMIT {
+            usage.mark_used(UintId(value));
+        }
+
+        assert_eq!(
+            usage.next_available().unwrap_err().to_string(),
+            "too many IDs"
+        );
+    }
+}

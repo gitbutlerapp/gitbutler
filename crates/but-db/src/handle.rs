@@ -1,8 +1,10 @@
 use std::path::{Path, PathBuf};
 
+use but_utils::OnDemand;
+use rusqlite::OpenFlags;
 use tracing::instrument;
 
-use crate::{DbHandle, migration, migration::improve_concurrency};
+use crate::{CacheHandle, DbHandle, migration, migration::improve_concurrency};
 
 const FILE_NAME: &str = "but.sqlite";
 
@@ -24,10 +26,38 @@ impl DbHandle {
         Self::new_at_path(db_file_path)
     }
 
+    /// Open the project database for read-only access if it already exists.
+    ///
+    /// Unlike [`Self::new_in_directory()`], this never creates parent directories,
+    /// creates the database file, or runs migrations.
+    pub fn open_existing_read_only_in_directory(
+        db_dir: impl AsRef<Path>,
+    ) -> anyhow::Result<Option<Self>> {
+        let db_file_path = Self::db_file_path(db_dir);
+        if !db_file_path.exists() {
+            return Ok(None);
+        }
+        Self::open_existing_read_only_at_path(db_file_path).map(Some)
+    }
+
+    /// Open an existing project database for read-only access.
+    #[instrument(
+        name = "DbHandle::open_existing_read_only_at_path",
+        level = "trace",
+        skip(path),
+        err(Debug)
+    )]
+    pub fn open_existing_read_only_at_path(path: impl Into<PathBuf>) -> anyhow::Result<Self> {
+        let path = path.into();
+        let conn = rusqlite::Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+        let cache = cache_for_db_path(&path);
+        Ok(DbHandle { conn, path, cache })
+    }
+
     /// A new instance connecting to the project database at the given `path`.
     #[instrument(
         name = "DbHandle::new_at_path",
-        level = "debug",
+        level = "trace",
         skip(path),
         err(Debug)
     )]
@@ -36,7 +66,8 @@ impl DbHandle {
         let mut conn = rusqlite::Connection::open(&path)?;
         improve_concurrency(&conn)?;
         run_migrations(&mut conn)?;
-        Ok(DbHandle { conn, path })
+        let cache = cache_for_db_path(&path);
+        Ok(DbHandle { conn, path, cache })
     }
 
     /// Return the path to the standard database file.
@@ -45,12 +76,16 @@ impl DbHandle {
     }
 }
 
-fn run_migrations(conn: &mut rusqlite::Connection) -> anyhow::Result<()> {
-    let policy = backoff::ExponentialBackoffBuilder::new()
-        .with_max_elapsed_time(Some(std::time::Duration::from_millis(500)))
-        .build();
+fn cache_for_db_path(path: &Path) -> OnDemand<CacheHandle> {
+    if path == Path::new(":memory:") {
+        return OnDemand::new(|| Ok(CacheHandle::new_at_path(":memory:")));
+    }
+    let cache_dir = path.parent().map(Path::to_path_buf).unwrap_or_default();
+    OnDemand::new(move || Ok(CacheHandle::new_in_directory(cache_dir.clone())))
+}
 
-    backoff::retry(policy, || {
+fn run_migrations(conn: &mut rusqlite::Connection) -> anyhow::Result<()> {
+    crate::backoff(|| {
         let count = migration::run(conn, migration::ours())?;
         if count > 0 {
             tracing::info!("Database updated with {count} migrations");

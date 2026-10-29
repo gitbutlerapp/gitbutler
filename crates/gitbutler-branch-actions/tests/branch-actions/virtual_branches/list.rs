@@ -1,4 +1,5 @@
 use anyhow::Result;
+use but_testsupport::{CommandExt, git_at_dir};
 
 #[test]
 fn one_vbranch_in_workspace() -> Result<()> {
@@ -37,6 +38,46 @@ fn one_vbranch_in_workspace_one_commit() -> Result<()> {
             ..Default::default()
         },
         "It's a bare virtual branch with a single commit",
+    );
+    Ok(())
+}
+
+#[test]
+fn target_remote_can_be_missing_from_git_config() -> Result<()> {
+    init_env();
+    let (mut ctx, tmp) =
+        crate::driverless::writable_context("for-listing.sh", "one-vbranch-in-workspace")?;
+    let repo_path = tmp.path().join("one-vbranch-in-workspace");
+    git_at_dir(&repo_path)
+        .args(["config", "--remove-section", "remote.origin"])
+        .run();
+    ctx.repo.get_mut()?.reload()?;
+
+    {
+        let repo = ctx.repo.get()?;
+        assert!(
+            repo.try_find_reference("refs/remotes/origin/main")?
+                .is_some(),
+            "precondition: stale target remote-tracking ref should still exist"
+        );
+        assert!(
+            repo.find_remote("origin").is_err(),
+            "precondition: origin remote should no longer be configured"
+        );
+    }
+
+    let list = list_branches(&ctx, None)?;
+    assert_eq!(list.len(), 1);
+    assert_equal(
+        &list[0],
+        ExpectedBranchListing {
+            identity: "virtual".into(),
+            virtual_branch_given_name: Some("virtual"),
+            virtual_branch_in_workspace: true,
+            has_local: true,
+            ..Default::default()
+        },
+        "Listing should not require the target remote to still be configured",
     );
     Ok(())
 }

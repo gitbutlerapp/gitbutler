@@ -1,18 +1,22 @@
 use std::fmt::Write;
 
-use but_core::sync::LockScope;
+use crate::theme::{self, Paint};
+use but_core::{WORKSPACE_REF_NAME, sync::LockScope};
 use but_ctx::Context;
-use colored::Colorize;
 use command_group::AsyncCommandGroup;
 
 use crate::{
     args::Args,
-    utils::{Confirm, ConfirmDefault, OutputChannel},
+    error::{CliResult, bad_input},
+    utils::{OutputChannel, binary_path::current_exe_for_but_exec},
 };
 
 #[derive(Default)]
 pub(crate) enum BackgroundSync {
-    Enabled,
+    Enabled {
+        /// If true nothing will be printed when spawning background sync.
+        silent: bool,
+    },
     #[default]
     Disabled,
 }
@@ -24,6 +28,17 @@ pub(crate) enum WorkspaceCheck {
     Disabled,
 }
 
+#[derive(Default)]
+pub(crate) enum TargetRequirement {
+    /// Ensure a target is configured before returning the context.
+    #[default]
+    Required,
+    /// Allow commands that inspect or set target configuration to run without one.
+    Optional,
+    /// The target is optional but only if the repo is unborn, otherwise its required
+    OptionalIfUnborn,
+}
+
 /// Options for initializing the context via [`init_ctx`].
 #[derive(Default)]
 pub(crate) struct InitCtxOptions {
@@ -33,6 +48,9 @@ pub(crate) struct InitCtxOptions {
     /// Controls whether to check for workspace commit integrity.
     /// Defaults to `WorkspaceCheck::Enabled`.
     pub workspace_check: WorkspaceCheck,
+    /// Controls whether single-branch initialization must lazily infer a target.
+    /// Defaults to `TargetRequirement::Required`.
+    pub target_requirement: TargetRequirement,
 }
 
 /// Gets or initializes a non-bare repository context.
@@ -51,6 +69,9 @@ pub(crate) struct InitCtxOptions {
 ///   - `workspace_check` - Controls workspace commit integrity checking:
 ///     - `WorkspaceCheck::Enabled` - Check for non-workspace commits on gitbutler/workspace
 ///     - `WorkspaceCheck::Disabled` - Skip workspace commit checking
+///   - `target_requirement` - Controls target initialization in single-branch mode:
+///     - `TargetRequirement::Required` - Infer and persist a missing target
+///     - `TargetRequirement::Optional` - Return a context without requiring a target
 ///
 /// # Returns
 ///
@@ -70,14 +91,14 @@ pub(crate) struct InitCtxOptions {
 ///
 /// When `background_sync` is `BackgroundSync::Enabled`, a background sync is initiated if:
 /// - The fetch interval is positive (negative or zero disables background sync)
-/// - The output format is for human consumption (not JSON or shell)
+/// - The output format renders human-readable text (human or agent)
 /// - Either no previous sync exists, or the elapsed time since the last sync
 ///   exceeds the configured interval
 ///
-/// When a background sync is initiated, a human-readable message is written to the output
-/// channel showing how long ago the last sync occurred (e.g., "Last fetch was 15m ago.
-/// Initiated a background fetch..."). The time is formatted as seconds (s), minutes (m),
-/// hours (h), or days (d) depending on the elapsed duration.
+/// When a background sync is initiated and the output format allows human UI messages, a
+/// message is written to the output channel showing how long ago the last sync occurred
+/// (e.g., "Last fetch was 15m ago. Initiated a background fetch..."). The time is formatted
+/// as seconds (s), minutes (m), hours (h), or days (d) depending on the elapsed duration.
 ///
 /// When `background_sync` is `BackgroundSync::Disabled`, no background sync is performed
 /// regardless of the configured interval.
@@ -85,14 +106,23 @@ pub fn init_ctx(
     args: &Args,
     options: InitCtxOptions,
     out: &mut OutputChannel,
-) -> anyhow::Result<Context> {
+) -> CliResult<Context> {
+    let app_settings = crate::app_settings()?;
     // lets try to get the repo from the current directory
-    let repo = match gix::discover(&args.current_dir) {
+    let repo = match but_ctx::discover_main_repo(&args.current_dir) {
         Ok(repo) => repo,
-        Err(_) => anyhow::bail!(
-            "No git repository found at {}\nPlease run 'but setup' to initialize the project.",
-            &args.current_dir.display()
-        ),
+        Err(_) => {
+            return Err(bad_input(format!(
+                "No git repository found at {}",
+                args.current_dir
+                    .strip_prefix(".")
+                    .unwrap_or(&args.current_dir)
+                    .join(".git")
+                    .display()
+            ))
+            .hint("Run `but init` to initialize a Git repository.")
+            .into());
+        }
     };
 
     // Check if we're on gitbutler/workspace with non-workspace commits on top
@@ -103,75 +133,38 @@ pub fn init_ctx(
 
     let (ctx, fetch_interval_minutes, last_fetch) = {
         let Some(workdir) = repo.workdir() else {
-            anyhow::bail!("Bare repositories are not supported.");
+            return Err(anyhow::anyhow!("Bare repositories are not supported.").into());
         };
         #[cfg(feature = "legacy")]
         {
             use but_ctx::LegacyProject;
 
-            use crate::command::legacy::setup::check_project_setup;
-
-            // Try to find an existing project, or prompt for setup if not found
             let project = match LegacyProject::find_by_worktree_dir(workdir) {
                 Ok(project) => project,
-                Err(_) => {
-                    let message = format!("No GitButler project found at {}", workdir.display());
-                    match prompt_for_setup(out, &message) {
-                        SetupPromptResult::RunSetup => {
-                            // Run setup
-                            let mut ctx = Context::from_repo(repo.clone())?;
-                            let mut guard = ctx.exclusive_worktree_access();
-                            crate::command::legacy::setup::repo(
-                                &mut ctx,
-                                &args.current_dir,
-                                out,
-                                guard.write_permission(),
-                            )?;
-                            // Retry finding the project after setup
-                            LegacyProject::find_by_worktree_dir(workdir).map_err(|_| {
-                                anyhow::anyhow!(
-                                    "Setup completed but project still not found at {}",
-                                    workdir.display()
-                                )
-                            })?
-                        }
-                        SetupPromptResult::Declined => {
-                            anyhow::bail!("Setup required: {message}");
-                        }
-                    }
-                }
+                Err(_) => match gitbutler_project::add(workdir)? {
+                    gitbutler_project::AddProjectOutcome::Added(project)
+                    | gitbutler_project::AddProjectOutcome::AlreadyExists(project) => project,
+                    outcome => outcome.try_project()?,
+                },
             };
+            let mut ctx =
+                Context::new_from_legacy_project_and_settings(&project, app_settings.clone())?;
 
-            // Check project setup, prompt for setup if needed
-            let mut ctx = Context::new_from_legacy_project(project)?;
-            {
-                let mut guard = ctx.exclusive_worktree_access();
-                if let Err(e) = check_project_setup(&ctx, guard.read_permission()) {
-                    let message = e.to_string();
-                    match prompt_for_setup(out, &message) {
-                        SetupPromptResult::RunSetup => {
-                            // Run setup to fix the project configuration
-                            crate::command::legacy::setup::repo(
-                                &mut ctx,
-                                &args.current_dir,
-                                out,
-                                guard.write_permission(),
-                            )?;
-                            // Re-find and re-check the project after setup
-                            let _project =
-                                LegacyProject::find_by_worktree_dir(workdir).map_err(|_| {
-                                    anyhow::anyhow!(
-                                        "Setup completed but project still not found at {}",
-                                        workdir.display()
-                                    )
-                                })?;
-                            check_project_setup(&ctx, guard.read_permission())?;
-                        }
-                        SetupPromptResult::Declined => {
-                            anyhow::bail!("Setup required: {message}");
-                        }
+            // now that we have a context we should use the repo from that
+            drop(repo);
+
+            match options.target_requirement {
+                TargetRequirement::Required => {
+                    infer_target(&mut ctx)?;
+                }
+                TargetRequirement::OptionalIfUnborn => {
+                    if ctx.repo.get()?.head()?.is_unborn() {
+                        // target is optional, so don't infer it
+                    } else {
+                        infer_target(&mut ctx)?;
                     }
                 }
+                TargetRequirement::Optional => {}
             }
 
             let fetch_interval_minutes = ctx.settings.fetch.auto_fetch_interval_minutes;
@@ -184,7 +177,7 @@ pub fn init_ctx(
         }
         #[cfg(not(feature = "legacy"))]
         {
-            let ctx = but_ctx::Context::from_repo(repo)?;
+            let ctx = but_ctx::Context::from_repo_with_settings(repo, app_settings.clone())?;
             // TODO: this can be implemented once project metadata is available from the project location itself,
             //       i.e. once it was migrated out of `projects.json` into `.git/gitbutler/…`
             let fetch_interval_disabled = 0;
@@ -193,7 +186,7 @@ pub fn init_ctx(
     };
 
     // If this is the first time running GitButler, show a metrics info message and update onboarding status
-    if !ctx.settings.onboarding_complete && out.for_human().is_some() {
+    if !ctx.settings.onboarding_complete && out.format().allows_human_ui() {
         crate::command::onboarding::handle(out)?;
     }
 
@@ -201,14 +194,15 @@ pub fn init_ctx(
         BackgroundSync::Disabled => {
             return Ok(ctx);
         }
-        BackgroundSync::Enabled => {
+        BackgroundSync::Enabled { silent } => {
             // Check if background tasks are disabled via environment variable
             if std::env::var("NO_BG_TASKS").is_ok() {
                 return Ok(ctx);
             }
 
-            // Background sync only done for human output
-            if !matches!(out.format(), crate::args::OutputFormat::Human) {
+            // Background sync is a data side effect wanted for human and agent sessions
+            // alike; only the ambient message is a human UI affordance.
+            if !out.format().is_human_text() {
                 return Ok(ctx);
             }
 
@@ -218,12 +212,42 @@ pub fn init_ctx(
 
             // Spawn background sync if there's anything to do
             if sync_operations.has_work() {
-                spawn_background_sync(args, out, last_fetch, sync_operations);
+                let silent = silent || !out.format().allows_human_ui();
+                spawn_background_sync(args, out, last_fetch, sync_operations, silent);
             }
         }
     }
 
     Ok(ctx)
+}
+
+fn infer_target(ctx: &mut Context) -> CliResult<()> {
+    if ctx.project_meta()?.target_ref.is_none() {
+        let target_ref = {
+            let repo = ctx.repo.get()?;
+            if let Some(target) = but_workspace::init::infer_default_target_ref(&repo)? {
+                target
+            } else if repo.head()?.is_unborn() {
+                return Err(bad_input("Checked out to branch without commits")
+                    .hint("Run `but commit` to create an initial commit")
+                    .into());
+            } else {
+                return Err(anyhow::anyhow!(
+                    "No target branch is configured and none could be inferred. \
+                                Run `but config target <remote>/<branch>` to configure one."
+                )
+                .into());
+            }
+        };
+
+        but_api::workspace::set_target_ref_and_init_project(
+            ctx,
+            target_ref.as_local_full_name_ref(),
+            None,
+        )?;
+    }
+
+    Ok(())
 }
 
 /// Tracks which background sync operations should be performed.
@@ -318,9 +342,19 @@ fn spawn_background_sync(
     out: &mut OutputChannel,
     last_fetch: Option<std::time::SystemTime>,
     operations: SyncOperations,
+    silent: bool,
 ) {
-    let binary_path = std::env::current_exe().unwrap_or_default();
-    let mut cmd = tokio::process::Command::new(binary_path);
+    let mut cmd = {
+        match current_exe_for_but_exec() {
+            Ok(but_path) => tokio::process::Command::new(but_path),
+            Err(e) => {
+                tracing::error!(error = %e, "failed to resolve but binary path");
+                // We don't want to cause a crash just because we can't spawn background sync, so we fail
+                // silently instead
+                return;
+            }
+        }
+    };
     cmd.arg("-C")
         .arg(&args.current_dir)
         .arg("refresh-remote-data");
@@ -343,7 +377,7 @@ fn spawn_background_sync(
         .group()
         .kill_on_drop(false);
 
-    if cmd.spawn().is_ok() {
+    if cmd.spawn().is_ok() && !silent {
         // Show user feedback about what's happening
         // Only show "last fetch" message if we're actually fetching
         let msg = if operations.fetch {
@@ -373,76 +407,12 @@ fn spawn_background_sync(
         writeln!(
             out,
             "{}",
-            format!("{msg}Initiated a background sync...").dimmed()
+            theme::get()
+                .hint
+                .paint(format!("{msg}Initiated a background sync..."))
         )
         .ok();
     }
-}
-
-/// Represents the result of prompting the user for setup
-enum SetupPromptResult {
-    /// User agreed to run setup
-    RunSetup,
-    /// User declined or non-interactive terminal
-    Declined,
-}
-
-fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult {
-    use std::fmt::Write;
-    let mut progress = out.progress_channel();
-
-    // Progress channel only writes when output is for humans, so we can write unconditionally
-    _ = writeln!(
-        progress,
-        "The current project is not configured to be managed by GitButler.\n"
-    );
-    writeln!(progress, "{}\n", message.red()).ok();
-
-    // Check if we have an interactive terminal and prompt the user
-    let user_declined_in_interactive_mode = if let Some(mut inout) =
-        out.prepare_for_terminal_input()
-    {
-        _ = writeln!(
-            progress,
-            "In order to manage projects with GitButler, we need to do some changes:\n\n - Switch you to a special `gitbutler/workspace` branch to enable parallel branches\n - Install Git hooks to help manage the tooling\n\nYou can go back to normal git workflows at any time by either:\n\n - Running `but teardown`\n - Manually checking out a normal branch with `git checkout <branch>`\n",
-        );
-
-        if let Ok(Confirm::Yes) =
-            inout.confirm("Would you like to run setup now?", ConfirmDefault::Yes)
-        {
-            return SetupPromptResult::RunSetup;
-        }
-        // User declined
-        true // indicates interactive terminal was available
-    } else {
-        false // non-interactive
-    };
-
-    // Now handle the declined/non-interactive cases with a fresh borrow
-    if user_declined_in_interactive_mode {
-        // User declined in interactive mode
-        _ = writeln!(
-            progress,
-            "{}",
-            "Please run `but setup` to switch to GitButler management.\n".yellow()
-        );
-    }
-
-    if let Some(json_out) = out.for_json() {
-        _ = json_out.write_value(serde_json::json!({
-            "error": "setup_required",
-            "message": message.to_string(),
-            "hint": "run `but setup` to configure the project"
-        }));
-    } else if out.for_human().is_some() && !user_declined_in_interactive_mode {
-        // Non-interactive terminal, just show the hint
-        _ = writeln!(
-            progress,
-            "{}",
-            "Please run `but setup` to switch to GitButler management.\n".yellow()
-        );
-    };
-    SetupPromptResult::Declined
 }
 
 /// Check if we're on gitbutler/workspace with non-workspace commits on top.
@@ -463,7 +433,7 @@ fn check_workspace_commits_before_init(
     }
 
     // Check the HEAD commit message
-    let mut workspace_ref = repo.find_reference("refs/heads/gitbutler/workspace")?;
+    let mut workspace_ref = repo.find_reference(WORKSPACE_REF_NAME)?;
     let workspace_commit = workspace_ref.peel_to_commit()?;
     let message = workspace_commit.message_raw()?;
     let message_str = String::from_utf8_lossy(message);
@@ -471,20 +441,20 @@ fn check_workspace_commits_before_init(
 
     // If the first line is NOT a workspace commit, someone has committed on top
     if !first_line.starts_with("GitButler Workspace Commit") {
-        if let Some(writer) = out.for_human() {
+        if let Some(writer) = out.for_human_ui() {
             writeln!(writer)?;
             writeln!(
                 writer,
                 "{}",
-                "⚠ Detected commits on top of gitbutler/workspace"
-                    .yellow()
-                    .bold()
+                theme::get()
+                    .attention
+                    .paint("⚠ Detected commits on top of gitbutler/workspace")
             )?;
             writeln!(writer)?;
             writeln!(
                 writer,
                 "{}",
-                "GitButler detected that you have committed directly on the\ngitbutler/workspace branch. To preserve your work and\nfix up things, please run `but teardown`.".dimmed()
+                theme::get().hint.paint("GitButler detected that you have committed directly on the\ngitbutler/workspace branch. To preserve your work and\nfix up things, please run `but teardown`.")
             )?;
             writeln!(writer)?;
         }

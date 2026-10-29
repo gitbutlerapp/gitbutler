@@ -33,14 +33,19 @@ pub struct Options {
     ///
     /// If `None`, perform the merge just like Git, which will include conflict markers!
     pub worktree_cherry_pick: Option<gix::merge::tree::Options>,
+    /// If set, use this tree as the merge base instead of the `HEAD` entry from the snapshot.
+    ///
+    /// This is used when an operation consumed some worktree changes (e.g. amend/commit).
+    /// By setting the merge base to `HEAD^{tree}` + consumed changes, the consumed hunks
+    /// are already present in the base and won't appear as diffs in the snapshot side of
+    /// the merge — eliminating duplication without any hunk-level subtraction.
+    pub merge_base_override: Option<gix::ObjectId>,
 }
 
 pub(super) mod function {
-    use std::collections::BTreeSet;
-
+    use crate::index::ConflictStage;
     use anyhow::{Context as _, bail};
     use bstr::ByteSlice;
-    use gix::index::entry::{Flags, Stage};
 
     use super::{Options, Outcome};
     use crate::RepositoryExt;
@@ -60,6 +65,7 @@ pub(super) mod function {
         target_worktree_tree_id: gix::ObjectId,
         Options {
             worktree_cherry_pick: worktree_cherry_pick_options,
+            merge_base_override,
         }: Options,
     ) -> anyhow::Result<Outcome<'_>> {
         let repo = snapshot_tree.repo;
@@ -71,7 +77,7 @@ pub(super) mod function {
 
         let worktree_cherry_pick = match (&head_tree, worktree) {
             (Some(worktree_base), Some(worktree)) => {
-                let base = worktree_base.object_id();
+                let base = merge_base_override.unwrap_or_else(|| worktree_base.object_id());
                 let ours = target_worktree_tree_id;
                 let theirs = worktree.object_id();
 
@@ -125,7 +131,6 @@ pub(super) mod function {
         })
     }
 
-    #[expect(clippy::indexing_slicing)]
     fn replace_entries_with_their_restored_conflicts(
         index: &mut gix::index::State,
         conflict_tree: gix::Id,
@@ -135,7 +140,7 @@ pub(super) mod function {
         let mut recorder = gix::traverse::tree::Recorder::default();
         conflict_tree.traverse().depthfirst(&mut recorder)?;
 
-        let mut to_remove = BTreeSet::new();
+        let mut edit = crate::index::Edit::new(index);
         for record in &recorder.records {
             if record.mode.is_tree() {
                 continue;
@@ -151,27 +156,14 @@ pub(super) mod function {
             let rela_path = rela_path[..rslash_pos].as_bstr();
             let stage = match stage {
                 0 => bail!("Unconflicted stage for '{rela_path}' is unexpected"),
-                1 => Stage::Base,
-                2 => Stage::Ours,
-                3 => Stage::Theirs,
+                1 => ConflictStage::Base,
+                2 => ConflictStage::Ours,
+                3 => ConflictStage::Theirs,
                 other => bail!("Invalid stage '{other}' for '{rela_path}'"),
             };
-
-            index.dangerously_push_entry(
-                Default::default(),
-                record.oid,
-                Flags::from_stage(stage),
-                record.mode.into(),
-                rela_path,
-            );
-
-            to_remove.insert(rela_path);
+            edit.set_conflict_stage(rela_path, stage, record.mode.into(), record.oid);
         }
-        index.remove_entries(|_idx, path, entry| {
-            entry.flags.stage() == Stage::Unconflicted && to_remove.contains(path)
-        });
-
-        index.sort_entries();
+        edit.finish();
         Ok(())
     }
 }

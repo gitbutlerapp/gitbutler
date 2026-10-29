@@ -1,13 +1,15 @@
 #!/bin/bash
 
+set -eu
+
 echo "GIT CONFIG $GIT_CONFIG_GLOBAL"
-echo "DATA DIR $GITBUTLER_CLI_DATA_DIR"
-echo "BUT_TESTING $BUT_TESTING"
+echo "DATA DIR $E2E_TEST_APP_DATA_DIR"
+echo "BUT $BUT"
 echo "BRANCH DESTINATION: $1"
 echo "BRANCH TO MOVE: $2"
 echo "DIRECTORY: $3"
 
-# Apply remote branch to the workspace.
+# Move the source branch on top of the target branch.
 pushd "$3"
-  $BUT_TESTING -j move-branch $1 $2
+  "$BUT" move "$1" --above "$2"
 popd

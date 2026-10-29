@@ -31,11 +31,6 @@ export type BranchDetails = {
 	 */
 	reference: string;
 	/**
-	 * The id of the linked worktree that has the reference of `name` checked out.
-	 * Note that we don't list the main worktree here.
-	 */
-	linkedWorktreeId: string | null;
-	/**
 	 * Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
 	 */
 	remoteTrackingBranch: string | null;
@@ -76,6 +71,11 @@ export type BranchDetails = {
 	isConflicted: boolean;
 	/**
 	 * The commits contained in the branch, excluding the upstream commits.
+	 *
+	 * Note that legacy stack details currently do not expose
+	 * [`crate::ref_info::Segment::commits_outside`], so commits that only appear there are
+	 * omitted from this list rather than represented separately.
+	 * It's also unclear how to recover from there.
 	 */
 	commits: Array<Commit>;
 	/**
@@ -125,6 +125,12 @@ export type Commit = {
 	 * The author of the commit.
 	 */
 	author: Author;
+	/**
+	 * The GitButler change-id associated with this commit.
+	 * It always exists as we either read it from the [headers][but_core::commit::Headers], or we
+	 * synthesize one from [the commit id][but_core::commit::Headers::synthetic_change_id_from_commit_id()].
+	 */
+	changeId: string;
 	/**
 	 * Optional URL to the Gerrit review for this commit, if applicable.
 	 * Only populated if Gerrit mode is enabled and the commit has an associated review.
@@ -193,4 +199,8 @@ export type UpstreamCommit = {
 	 * The author of the commit.
 	 */
 	author: Author;
+	/**
+	 * The GitButler change-id associated with this commit, if available.
+	 */
+	changeId: string | null;
 };

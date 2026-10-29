@@ -59,10 +59,8 @@
 ///
 /// NOTE: if this utility type should really take a `Context` as parameter, it should be in `but-api`.
 pub struct UnmaterializedOplogSnapshot {
-    /// The tree containing all snapshot information.
     #[cfg(feature = "legacy")]
     tree_id: gix::ObjectId,
-    /// Details to pass when committing the snapshot.
     #[cfg(feature = "legacy")]
     details: gitbutler_oplog::entry::SnapshotDetails,
 }
@@ -75,7 +73,11 @@ pub mod legacy {
 
 #[cfg(feature = "legacy")]
 mod oplog_snapshot {
-    use but_ctx::{Context, access::RepoExclusive};
+    use but_core::DryRun;
+    use but_ctx::{
+        Context,
+        access::{RepoExclusive, RepoShared},
+    };
     use gitbutler_oplog::OplogExt;
 
     use crate::UnmaterializedOplogSnapshot;
@@ -83,19 +85,77 @@ mod oplog_snapshot {
     /// Lifecycle
     impl UnmaterializedOplogSnapshot {
         /// Create a new instance from `details`, which is a snapshot that isn't committed to the oplog yet.
-        /// This fails if the snapshot creation fails.
-        pub fn from_details(
+        /// When `dry_run` is enabled, return `None` instead of preparing
+        /// a snapshot tree. If snapshot preparation fails, the error is logged
+        /// as a warning and ignored, and return `None`.
+        pub fn from_details_with_perm(
             ctx: &but_ctx::Context,
             details: gitbutler_oplog::entry::SnapshotDetails,
-        ) -> anyhow::Result<Self> {
-            // TODO: these guards are probably something to remove as they don't belong into a plumbing crate, neither does Context.
-            let guard = ctx.shared_worktree_access();
-            let tree_id = ctx.prepare_snapshot(guard.read_permission())?;
-            Ok(Self { tree_id, details })
+            perm: &RepoShared,
+            dry_run: DryRun,
+        ) -> Option<Self> {
+            Self::from_details_with_refs_and_perm(ctx, details, &[], perm, dry_run)
+        }
+
+        /// Create a snapshot that also preserves `ref_names` for undo and redo, restoring or,
+        /// if one did not exist yet, deleting each.
+        ///
+        /// If a linked worktree has one of `ref_names` checked out, undo moves it there too and
+        /// leaves that worktree's files alone. Only pass such a ref for an operation that leaves
+        /// those files alone too.
+        pub fn from_details_with_refs_and_perm(
+            ctx: &but_ctx::Context,
+            details: gitbutler_oplog::entry::SnapshotDetails,
+            ref_names: &[&gix::refs::FullNameRef],
+            perm: &RepoShared,
+            dry_run: DryRun,
+        ) -> Option<Self> {
+            if dry_run.into() {
+                return None;
+            }
+
+            match UnmaterializedOplogSnapshot::prepare(ctx, details, ref_names, perm) {
+                Ok(snapshot) => Some(snapshot),
+                Err(err) => {
+                    tracing::warn!(?err, "Failed to prepare unmaterialized oplog snapshot");
+                    None
+                }
+            }
         }
     }
 
     impl UnmaterializedOplogSnapshot {
+        /// Prepare a required checkpoint before a mutation that needs snapshot-based rollback.
+        /// Unlike best-effort timeline recording, failure must prevent the mutation from starting.
+        pub fn prepare_checkpoint(
+            ctx: &Context,
+            details: gitbutler_oplog::entry::SnapshotDetails,
+            perm: &RepoShared,
+        ) -> anyhow::Result<UnmaterializedOplogSnapshot> {
+            UnmaterializedOplogSnapshot::prepare(ctx, details, &[], perm)
+        }
+
+        fn prepare(
+            ctx: &Context,
+            details: gitbutler_oplog::entry::SnapshotDetails,
+            ref_names: &[&gix::refs::FullNameRef],
+            perm: &RepoShared,
+        ) -> anyhow::Result<UnmaterializedOplogSnapshot> {
+            let tree_id = if ref_names.is_empty() {
+                ctx.prepare_snapshot(perm)?
+            } else {
+                ctx.prepare_snapshot_with_refs(ref_names, perm)?
+            };
+            Ok(UnmaterializedOplogSnapshot { tree_id, details })
+        }
+
+        /// Restore the checkpoint without publishing it or appending a restore operation.
+        /// Restore or drop any metadata writers from the failed operation first, so
+        /// they cannot write the failed mutation back after rollback.
+        pub fn rollback(self, ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<()> {
+            gitbutler_oplog::restore_checkpoint(ctx, self.tree_id, perm)
+        }
+
         /// Call this method only if the main effect succeeded so the snapshot should be added to the operation log,
         /// using `ctx` with granted edit `perm`ission.
         pub fn commit(self, ctx: &Context, perm: &mut RepoExclusive) -> anyhow::Result<()> {

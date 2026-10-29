@@ -3,58 +3,63 @@ use serde::{Deserialize, Serialize};
 
 use crate::AppSettingsWithDiskSync;
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(
+    Copy, Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema,
+)]
+#[serde(rename_all = "camelCase", default)]
+#[schemars(extend("x-input" = true))]
 /// Update request for [`crate::app_settings::TelemetrySettings`].
 pub struct TelemetryUpdate {
     pub app_metrics_enabled: Option<bool>,
     pub app_error_reporting_enabled: Option<bool>,
-    pub app_non_anon_metrics_enabled: Option<bool>,
 }
+but_schemars::register_sdk_type!(TelemetryUpdate);
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(
+    Copy, Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema,
+)]
+#[serde(rename_all = "camelCase", default)]
+#[schemars(extend("x-input" = true))]
 /// Update request for [`crate::app_settings::FeatureFlags`].
 pub struct FeatureFlagsUpdate {
-    pub cv3: Option<bool>,
-    pub apply3: Option<bool>,
-    pub rules: Option<bool>,
-    pub single_branch: Option<bool>,
+    pub gpui: Option<bool>,
 }
+but_schemars::register_sdk_type!(FeatureFlagsUpdate);
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-/// Update request for [`crate::app_settings::Claude`].
-pub struct ClaudeUpdate {
-    pub executable: Option<String>,
-    pub notify_on_completion: Option<bool>,
-    pub notify_on_permission_request: Option<bool>,
-    pub dangerously_allow_all_permissions: Option<bool>,
-    pub auto_commit_after_completion: Option<bool>,
-    pub use_configured_model: Option<bool>,
-}
-
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(
+    Copy, Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema,
+)]
+#[serde(rename_all = "camelCase", default)]
+#[schemars(extend("x-input" = true))]
 /// Update request for [`crate::app_settings::Reviews`].
 pub struct ReviewsUpdate {
     pub auto_fill_pr_description_from_commit: Option<bool>,
 }
+but_schemars::register_sdk_type!(ReviewsUpdate);
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(
+    Copy, Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema,
+)]
+#[serde(rename_all = "camelCase", default)]
+#[schemars(extend("x-input" = true))]
 /// Update request for [`crate::app_settings::Fetch`].
 pub struct FetchUpdate {
     pub auto_fetch_interval_minutes: Option<isize>,
 }
+but_schemars::register_sdk_type!(FetchUpdate);
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(
+    Copy, Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema,
+)]
+#[serde(rename_all = "camelCase", default)]
+#[schemars(extend("x-input" = true))]
 /// Update request for [`crate::app_settings::UiSettings`].
 pub struct UiUpdate {
     pub use_native_title_bar: Option<bool>,
+    pub no_shadow: Option<bool>,
     // Note that the CLI related information cannot be set - it's set at compile time.
 }
+but_schemars::register_sdk_type!(UiUpdate);
 
 /// Mutation, immediately followed by writing everything to disk.
 impl AppSettingsWithDiskSync {
@@ -72,9 +77,6 @@ impl AppSettingsWithDiskSync {
         if let Some(app_error_reporting_enabled) = update.app_error_reporting_enabled {
             settings.telemetry.app_error_reporting_enabled = app_error_reporting_enabled;
         }
-        if let Some(app_non_anon_metrics_enabled) = update.app_non_anon_metrics_enabled {
-            settings.telemetry.app_non_anon_metrics_enabled = app_non_anon_metrics_enabled;
-        }
         settings.save()
     }
 
@@ -86,48 +88,11 @@ impl AppSettingsWithDiskSync {
 
     pub fn update_feature_flags(
         &self,
-        FeatureFlagsUpdate {
-            cv3,
-            apply3,
-            rules,
-            single_branch,
-        }: FeatureFlagsUpdate,
+        FeatureFlagsUpdate { gpui }: FeatureFlagsUpdate,
     ) -> Result<()> {
         let mut settings = self.get_mut_enforce_save()?;
-        if let Some(cv3) = cv3 {
-            settings.feature_flags.cv3 = cv3;
-        }
-        if let Some(apply3) = apply3 {
-            settings.feature_flags.apply3 = apply3;
-        }
-        if let Some(rules) = rules {
-            settings.feature_flags.rules = rules;
-        }
-        if let Some(single_branch) = single_branch {
-            settings.feature_flags.single_branch = single_branch;
-        }
-        settings.save()
-    }
-
-    pub fn update_claude(&self, update: ClaudeUpdate) -> Result<()> {
-        let mut settings = self.get_mut_enforce_save()?;
-        if let Some(executable) = update.executable {
-            settings.claude.executable = executable;
-        }
-        if let Some(notify_on_completion) = update.notify_on_completion {
-            settings.claude.notify_on_completion = notify_on_completion;
-        }
-        if let Some(notify_on_permission_request) = update.notify_on_permission_request {
-            settings.claude.notify_on_permission_request = notify_on_permission_request;
-        }
-        if let Some(dangerously_allow_all_permissions) = update.dangerously_allow_all_permissions {
-            settings.claude.dangerously_allow_all_permissions = dangerously_allow_all_permissions;
-        }
-        if let Some(auto_commit_after_completion) = update.auto_commit_after_completion {
-            settings.claude.auto_commit_after_completion = auto_commit_after_completion;
-        }
-        if let Some(use_configured_model) = update.use_configured_model {
-            settings.claude.use_configured_model = use_configured_model;
+        if let Some(gpui) = gpui {
+            settings.feature_flags.gpui = gpui;
         }
         settings.save()
     }
@@ -156,6 +121,91 @@ impl AppSettingsWithDiskSync {
         if let Some(use_native_title_bar) = update.use_native_title_bar {
             settings.ui.use_native_title_bar = use_native_title_bar;
         }
+        if let Some(no_shadow) = update.no_shadow {
+            settings.ui.no_shadow = no_shadow;
+        }
         settings.save()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{AppSettingsWithDiskSync, FeatureFlagsUpdate};
+
+    fn create_test_settings() -> (tempfile::TempDir, AppSettingsWithDiskSync) {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let settings =
+            AppSettingsWithDiskSync::new_with_customization(temp_dir.path(), None).unwrap();
+        (temp_dir, settings)
+    }
+
+    #[test]
+    fn update_feature_flags_updates_gpui_and_persists() {
+        let (dir, settings) = create_test_settings();
+        let original_watch_mode = settings.get().unwrap().feature_flags.watch_mode.clone();
+        let enabled = !settings.get().unwrap().feature_flags.gpui;
+
+        settings
+            .update_feature_flags(FeatureFlagsUpdate {
+                gpui: Some(enabled),
+            })
+            .unwrap();
+
+        let s = settings.get().unwrap();
+        assert_eq!(
+            s.feature_flags.watch_mode, original_watch_mode,
+            "partial updates should leave unrelated feature flags untouched"
+        );
+        drop(s);
+
+        let reloaded = AppSettingsWithDiskSync::new_with_customization(dir.path(), None).unwrap();
+        assert_eq!(
+            reloaded.get().unwrap().feature_flags.gpui,
+            enabled,
+            "feature flag updates should persist across reloads"
+        );
+    }
+
+    #[test]
+    fn numbers_are_written_as_plain_json_numbers() {
+        let (dir, settings) = create_test_settings();
+        settings
+            .update_fetch(super::FetchUpdate {
+                auto_fetch_interval_minutes: Some(-1),
+            })
+            .unwrap();
+
+        // Read as text: this crate's own JSON parsing would accept what other readers can't.
+        let written = std::fs::read_to_string(dir.path().join("settings.json")).unwrap();
+        assert!(
+            written.contains(r#""autoFetchIntervalMinutes": -1"#),
+            "other readers of settings.json, like older versions, need a number there: {written}"
+        );
+    }
+
+    #[test]
+    fn empty_feature_flags_update_preserves_existing_value() {
+        let (_dir, settings) = create_test_settings();
+        settings
+            .update_feature_flags(FeatureFlagsUpdate { gpui: Some(true) })
+            .unwrap();
+        settings
+            .update_feature_flags(FeatureFlagsUpdate::default())
+            .unwrap();
+        assert!(
+            settings.get().unwrap().feature_flags.gpui,
+            "an omitted flag should retain its value"
+        );
+    }
+
+    #[test]
+    fn feature_flags_update_deserializes_gpui() {
+        let update: FeatureFlagsUpdate =
+            serde_json::from_value(serde_json::json!({ "gpui": true })).unwrap();
+        assert_eq!(
+            update.gpui,
+            Some(true),
+            "the API accepts camelCase feature flags"
+        );
     }
 }

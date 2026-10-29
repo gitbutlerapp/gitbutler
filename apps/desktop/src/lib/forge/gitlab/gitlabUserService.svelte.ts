@@ -1,14 +1,37 @@
-import { providesItem, providesList, ReduxTag } from "$lib/state/tags";
+import { getUserErrorCode } from "$lib/backend/ipc";
+import { invalidatesList, providesItem, providesList, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
 import type { SecretsService } from "$lib/secrets/secretsService";
-import type { BackendApi } from "$lib/state/clientState.svelte";
-import type { ButGitLab, ButGitLabToken } from "@gitbutler/core/api";
+import type { BackendApi } from "$lib/state/backendApi";
+import type { ReactiveQuery } from "$lib/state/butlerModule";
+import type {
+	GitlabAccountIdentifier,
+	GitlabAuthStatusResponse,
+	GitlabAuthenticatedUserSensitive,
+} from "@gitbutler/but-sdk";
 
 export const GITLAB_USER_SERVICE = new InjectionToken<GitLabUserService>("GitLabUserService");
 
+export function gitLabEnterprisePatError(error: unknown): string {
+	switch (getUserErrorCode(error)) {
+		case "GitLabUnauthorized":
+			return "The token was not accepted. Check that it is correct, active, and issued by this GitLab host.";
+		case "GitLabForbidden":
+			return "GitLab refused access. Check the token scopes and account permissions, or ask your administrator about instance policies.";
+		default:
+			return "Invalid token or host";
+	}
+}
+
+/** The message for the host field, when the backend rejected the host rather than the token. */
+export function gitLabHostError(error: unknown): string | undefined {
+	if (getUserErrorCode(error) !== "GitLabInvalidHost") return undefined;
+	return "Enter the full URL of your GitLab instance, for example https://gitlab.example.com";
+}
+
 export function isSameGitLabAccountIdentifier(
-	a: ButGitLabToken.GitlabAccountIdentifier,
-	b: ButGitLabToken.GitlabAccountIdentifier,
+	a: GitlabAccountIdentifier,
+	b: GitlabAccountIdentifier,
 ): boolean {
 	if (a.type !== b.type) {
 		return false;
@@ -24,21 +47,26 @@ export function isSameGitLabAccountIdentifier(
 	}
 }
 
-export type GitLabAccountIdentifierType = ButGitLabToken.GitlabAccountIdentifier["type"];
+export type GitLabAccountIdentifierType = GitlabAccountIdentifier["type"];
+
+type ExhaustiveGitLabMap = Record<GitLabAccountIdentifierType, true>;
+
+const exhaustiveGitLabMap: ExhaustiveGitLabMap = {
+	patUsername: true,
+	selfHosted: true,
+};
 
 function isGitLabAccountIdentifierType(text: unknown): text is GitLabAccountIdentifierType {
 	if (typeof text !== "string") {
 		return false;
 	}
-	return text === "patUsername" || text === "enterprise";
+	return exhaustiveGitLabMap[text as GitLabAccountIdentifierType] ?? false;
 }
 
 // ASCII Unit Separator, used to separate data units within a record or field.
 const UNIT_SEP = "\u001F";
 
-export function gitlabAccountIdentifierToString(
-	account: ButGitLabToken.GitlabAccountIdentifier,
-): string {
+export function gitlabAccountIdentifierToString(account: GitlabAccountIdentifier): string {
 	switch (account.type) {
 		case "patUsername":
 			return `${account.type}${UNIT_SEP}${account.info.username}`;
@@ -47,9 +75,7 @@ export function gitlabAccountIdentifierToString(
 	}
 }
 
-export function stringToGitLabAccountIdentifier(
-	str: string,
-): ButGitLabToken.GitlabAccountIdentifier | null {
+export function stringToGitLabAccountIdentifier(str: string): GitlabAccountIdentifier | null {
 	const parts = str.split(UNIT_SEP);
 	if (parts.length < 2) {
 		return null;
@@ -120,8 +146,11 @@ export class GitLabUserService {
 		return this.backendApi.endpoints.forgetGitLabAccount.useMutation();
 	}
 
-	authenticatedUser(account: ButGitLabToken.GitlabAccountIdentifier) {
-		return this.backendApi.endpoints.getGitLabUser.useQuery({ account });
+	authenticatedUser<T = GitlabAuthenticatedUserSensitive | null>(
+		account: GitlabAccountIdentifier,
+		options?: { transform?: (result: GitlabAuthenticatedUserSensitive | null) => T },
+	): ReactiveQuery<T> {
+		return this.backendApi.endpoints.getGitLabUser.useQuery({ account }, options);
 	}
 
 	accounts() {
@@ -133,10 +162,10 @@ export class GitLabUserService {
 	}
 }
 
-function injectBackendEndpoints(api: BackendApi) {
+export function injectBackendEndpoints(api: BackendApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
-			forgetGitLabAccount: build.mutation<void, ButGitLabToken.GitlabAccountIdentifier>({
+			forgetGitLabAccount: build.mutation<void, GitlabAccountIdentifier>({
 				extraOptions: {
 					command: "forget_gitlab_account",
 					actionName: "Forget GitLab Account",
@@ -144,21 +173,29 @@ function injectBackendEndpoints(api: BackendApi) {
 				query: (account) => ({
 					account,
 				}),
-				invalidatesTags: [providesList(ReduxTag.GitLabUserList)],
+				invalidatesTags: [
+					providesList(ReduxTag.GitLabUserList),
+					invalidatesList(ReduxTag.PullRequests),
+					invalidatesList(ReduxTag.Checks),
+				],
 			}),
 			getGitLabUser: build.query<
-				ButGitLab.AuthenticatedUserSensitive | null,
-				{ account: ButGitLabToken.GitlabAccountIdentifier }
+				GitlabAuthenticatedUserSensitive | null,
+				{ account: GitlabAccountIdentifier }
 			>({
 				extraOptions: {
 					command: "get_gl_user",
 				},
 				query: (args) => args,
+				// The account list tag is what every credential mutation
+				// invalidates, so a mounted lookup the old token failed with
+				// refetches once a replacement token is stored.
 				providesTags: (_result, _error, username) => [
 					...providesItem(ReduxTag.ForgeUser, `gitlab:${username}`),
+					providesList(ReduxTag.GitLabUserList),
 				],
 			}),
-			listKnownGitLabAccounts: build.query<ButGitLabToken.GitlabAccountIdentifier[], void>({
+			listKnownGitLabAccounts: build.query<GitlabAccountIdentifier[], void>({
 				extraOptions: {
 					command: "list_known_gitlab_accounts",
 				},
@@ -171,21 +208,22 @@ function injectBackendEndpoints(api: BackendApi) {
 					actionName: "Clear All GitLab Accounts",
 				},
 				query: () => ({}),
-				invalidatesTags: [providesList(ReduxTag.GitLabUserList)],
+				invalidatesTags: [
+					providesList(ReduxTag.GitLabUserList),
+					invalidatesList(ReduxTag.PullRequests),
+					invalidatesList(ReduxTag.Checks),
+				],
 			}),
-			storeGitLabPat: build.mutation<
-				ButGitLab.AuthStatusResponseSensitive,
-				{ accessToken: string }
-			>({
+			storeGitLabPat: build.mutation<GitlabAuthStatusResponse, { accessToken: string }>({
 				extraOptions: {
 					command: "store_gitlab_pat",
 					actionName: "Store GitLab PAT",
 				},
 				query: (args) => args,
-				invalidatesTags: [providesList(ReduxTag.GitLabUserList)],
+				invalidatesTags: invalidatesAfterStoredToken,
 			}),
 			storeGitLabEnterprisePat: build.mutation<
-				ButGitLab.AuthStatusResponseSensitive,
+				GitlabAuthStatusResponse,
 				{ host: string; accessToken: string }
 			>({
 				extraOptions: {
@@ -193,8 +231,21 @@ function injectBackendEndpoints(api: BackendApi) {
 					actionName: "Store GitLab Enterprise PAT",
 				},
 				query: (args) => args,
-				invalidatesTags: [providesList(ReduxTag.GitLabUserList)],
+				invalidatesTags: invalidatesAfterStoredToken,
 			}),
 		}),
 	});
+}
+
+/**
+ * A static tag list is also applied when the mutation fails, which would
+ * refetch the user lookup with the unchanged, still-rejected credentials.
+ */
+function invalidatesAfterStoredToken(_result: unknown, error: unknown) {
+	if (error) return [];
+	return [
+		providesList(ReduxTag.GitLabUserList),
+		invalidatesList(ReduxTag.PullRequests),
+		invalidatesList(ReduxTag.Checks),
+	];
 }

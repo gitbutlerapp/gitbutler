@@ -1,19 +1,19 @@
 <script lang="ts">
-	import BranchesCardTemplate from "$components/branchesPage/BranchesCardTemplate.svelte";
-	import { type BranchListing, BranchListingDetails } from "$lib/branches/branchListing";
+	import BranchesCardLayout from "$components/branchesPage/BranchesCardLayout.svelte";
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { getPrStatus } from "$lib/forge/interface/prUtils";
-	import { USER_SERVICE } from "$lib/user/userService";
+	import { useUserAvatarUrl } from "$lib/user/userAvatar.svelte";
 	import { inject } from "@gitbutler/core/context";
 
-	import { AvatarGroup, ReviewBadge, SeriesLabelsRow, TestId, TimeAgo } from "@gitbutler/ui";
-	import { gravatarUrlFromEmail } from "@gitbutler/ui/components/avatar/gravatar";
-	import type { ReviewUnitInfo } from "$lib/forge/interface/forgePrService";
+	import { AvatarGroup, ReviewBadge, SeriesLabelsRow, TestId, TimeAgo } from "@gitbutler/ui-svelte";
+	import { gravatarUrlFromEmail } from "@gitbutler/ui-svelte/components/avatar/gravatar";
 	import type { PullRequest } from "$lib/forge/interface/types";
+	import type { BranchListing, BranchListingDetails, ForgeUnitInfo } from "@gitbutler/but-sdk";
 
 	interface Props {
-		reviewUnit: ReviewUnitInfo | undefined;
+		reviewUnit: ForgeUnitInfo | undefined;
+		forge?: string;
 		projectId: string;
 		branchListing: BranchListing;
 		prs: PullRequest[];
@@ -21,16 +21,14 @@
 		onclick: (args: { listing: BranchListing; pr?: PullRequest }) => void;
 	}
 
-	const { reviewUnit, projectId, branchListing, prs, selected, onclick }: Props = $props();
+	const { reviewUnit, forge, projectId, branchListing, prs, selected, onclick }: Props = $props();
+	const userAvatarUrl = useUserAvatarUrl();
 
 	const unknownName = "unknown";
 	const unknownEmail = "example@example.com";
 
-	const userService = inject(USER_SERVICE);
 	const gitConfigService = inject(GIT_CONFIG_SERVICE);
 	const branchService = inject(BRANCH_SERVICE);
-
-	const user = userService.user;
 
 	// TODO: Use information from all PRs in a stack?
 	const pr = $derived(prs.at(0));
@@ -73,13 +71,14 @@
 	async function setAvatars(ownedByUser: boolean, branchListingDetails?: BranchListingDetails) {
 		if (ownedByUser) {
 			const name = (await gitConfigService.get("user.name")) || unknownName;
-			const email = (await gitConfigService.get("user.email")) || unknownEmail;
-			const srcUrl =
-				email.toLowerCase() === $user?.email?.toLowerCase() && $user?.picture
-					? $user?.picture
-					: await gravatarUrlFromEmail(email);
+			const email = (await gitConfigService.get<string>("user.email")) || unknownEmail;
 
-			avatars = [{ username: name, srcUrl: srcUrl }];
+			avatars = [
+				{
+					username: name,
+					srcUrl: userAvatarUrl(email) ?? (await gravatarUrlFromEmail(email)),
+				},
+			];
 		} else if (branchListingDetails) {
 			avatars = branchListingDetails.authors
 				? await Promise.all(
@@ -87,9 +86,8 @@
 							return {
 								username: author.name || unknownName,
 								srcUrl:
-									(author.email?.toLowerCase() === $user?.email?.toLowerCase()
-										? $user?.picture
-										: author.gravatarUrl) ??
+									userAvatarUrl(author.email) ??
+									author.gravatarUrl ??
 									(await gravatarUrlFromEmail(author.email || unknownEmail)),
 							};
 						}),
@@ -106,7 +104,7 @@
 	);
 </script>
 
-<BranchesCardTemplate
+<BranchesCardLayout
 	testId={TestId.BranchListCard}
 	{selected}
 	onclick={() => onclick?.({ listing: branchListing, pr })}
@@ -125,6 +123,7 @@
 			{#if pr}
 				<ReviewBadge
 					type={reviewUnit?.abbr}
+					{forge}
 					status={getPrStatus(pr)}
 					title={pr.title}
 					number={pr.number}
@@ -192,14 +191,14 @@
 			{/if}
 		</div>
 	{/snippet}
-</BranchesCardTemplate>
+</BranchesCardLayout>
 
 <style lang="postcss">
 	.sidebar-entry__about {
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.sidebar-entry__header {
@@ -209,7 +208,7 @@
 	}
 
 	.sidebar-entry__divider {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 
 		&:last-child {
 			display: none;
@@ -220,8 +219,8 @@
 		display: flex;
 		padding: 2px 4px;
 		border-radius: 10px;
-		background-color: var(--clr-theme-gray-element);
-		color: var(--clr-theme-gray-on-element);
+		background-color: var(--fill-gray-bg);
+		color: var(--fill-gray-fg);
 	}
 
 	.sidebar-entry__details {
@@ -236,6 +235,6 @@
 		display: flex;
 		align-items: center;
 		gap: 5px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

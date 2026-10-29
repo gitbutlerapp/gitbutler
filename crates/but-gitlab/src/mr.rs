@@ -7,28 +7,84 @@ pub async fn list(
     project_id: GitLabProjectId,
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<crate::client::MergeRequest>> {
-    if let Ok(gl) = GitLabClient::from_storage(storage, preferred_account) {
-        gl.list_open_mrs(project_id)
-            .await
-            .context("Failed to list open merge requests")
-    } else {
-        Ok(vec![])
-    }
+    GitLabClient::from_storage(storage, preferred_account)?
+        .list_open_mrs(project_id)
+        .await
+        .map_err(|err| {
+            if err
+                .downcast_ref::<crate::client::HttpStatusError>()
+                .is_some_and(|http_err| http_err.status == reqwest::StatusCode::NOT_FOUND)
+            {
+                return err.context(but_error::Context::new_static(
+                    but_error::Code::GitLabProjectNotFound,
+                    "GitLab could not find this project, or your token cannot see it.",
+                ));
+            }
+            classify_review_listing_error(err)
+        })
+        .context("Failed to list open merge requests")
 }
 
-pub async fn list_all_for_target(
+pub async fn list_recently_closed(
     preferred_account: Option<&crate::GitlabAccountIdentifier>,
     project_id: GitLabProjectId,
-    target_branch: &str,
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<crate::client::MergeRequest>> {
-    if let Ok(gl) = GitLabClient::from_storage(storage, preferred_account) {
-        gl.list_mrs_for_target(project_id, target_branch)
-            .await
-            .context("Failed to list merge requests for target branch")
-    } else {
-        Ok(vec![])
+    GitLabClient::from_storage(storage, preferred_account)?
+        .list_recently_closed_mrs(project_id)
+        .await
+        .map_err(classify_review_listing_error)
+        .context("Failed to list recently closed merge requests")
+}
+
+pub async fn list_for_commit(
+    preferred_account: Option<&crate::GitlabAccountIdentifier>,
+    project_id: GitLabProjectId,
+    commit_sha: &str,
+    storage: &but_forge_storage::Controller,
+) -> Result<Vec<crate::client::MergeRequest>> {
+    GitLabClient::from_storage(storage, preferred_account)?
+        .list_mrs_for_commit(project_id, commit_sha)
+        .await
+        .map_err(classify_review_listing_error)
+        .context("Failed to list merge requests for commit")
+}
+
+/// Tag transport failures with `but_error::Code::NetworkError` so the desktop
+/// can present them appropriately (silent for offline) and cached readers can
+/// keep serving the last known data, and a rejected token (HTTP 401) with
+/// `GitLabUnauthorized` so pollers stop until a replacement token is stored.
+/// Other statuses stay unclassified; [`classify_review_listing_error`] adds 403.
+/// Only applied to read paths — mutations should still surface failures.
+pub(crate) fn classify_forge_error(err: anyhow::Error) -> anyhow::Error {
+    if err
+        .downcast_ref::<reqwest::Error>()
+        .is_some_and(crate::is_network_error)
+    {
+        return err.context(but_error::Context::new_static(
+            but_error::Code::NetworkError,
+            "Unable to connect to GitLab.",
+        ));
     }
+    if err
+        .downcast_ref::<crate::client::HttpStatusError>()
+        .is_some_and(|http_err| http_err.status == reqwest::StatusCode::UNAUTHORIZED)
+    {
+        return err.context(crate::GITLAB_UNAUTHORIZED);
+    }
+    err
+}
+
+/// A review listing GitLab refuses (403) will be refused on the next poll too.
+fn classify_review_listing_error(err: anyhow::Error) -> anyhow::Error {
+    let err = classify_forge_error(err);
+    if err
+        .downcast_ref::<crate::client::HttpStatusError>()
+        .is_some_and(|http_err| http_err.status == reqwest::StatusCode::FORBIDDEN)
+    {
+        return err.context(crate::GITLAB_FORBIDDEN);
+    }
+    err
 }
 
 pub async fn create(
@@ -53,8 +109,23 @@ pub async fn get(
     let mr = GitLabClient::from_storage(storage, preferred_account)?
         .get_merge_request(project_id, mr_iid)
         .await
+        .map_err(classify_forge_error)
         .context("Failed to get merge request")?;
     Ok(mr)
+}
+
+pub async fn get_merge_status(
+    preferred_account: Option<&crate::GitlabAccountIdentifier>,
+    project_id: GitLabProjectId,
+    mr_iid: usize,
+    storage: &but_forge_storage::Controller,
+) -> Result<crate::client::MergeRequestMergeStatus> {
+    let mr_iid = mr_iid.try_into().context("MR number is too large")?;
+    GitLabClient::from_storage(storage, preferred_account)?
+        .get_merge_request_merge_status(project_id, mr_iid)
+        .await
+        .map_err(classify_forge_error)
+        .context("Failed to fetch MR merge status")
 }
 
 pub async fn update(
@@ -100,4 +171,124 @@ pub async fn set_auto_merge(
         .set_merge_request_auto_merge(&params)
         .await
         .context("Failed to set MR auto-merge state")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Serve one request with the given raw HTTP response, then hang up.
+    fn one_shot_server(response: &'static [u8]) -> std::net::SocketAddr {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0u8; 1024];
+            let _ = stream.read(&mut request);
+            let _ = stream.write_all(response);
+        });
+        addr
+    }
+
+    #[test]
+    fn interrupted_response_bodies_carry_the_network_error_code() {
+        // The response promises more bytes than arrive before the connection
+        // closes — the shape of a network dropping mid-transfer.
+        let addr = one_shot_server(
+            b"HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: 100\r\n\r\n[{\"iid\"",
+        );
+        let reqwest_err = reqwest::blocking::get(format!("http://{addr}/"))
+            .unwrap()
+            .json::<serde_json::Value>()
+            .unwrap_err();
+        let err = classify_forge_error(anyhow::Error::from(reqwest_err));
+        assert_eq!(
+            err.downcast_ref::<but_error::Context>().map(|ctx| ctx.code),
+            Some(but_error::Code::NetworkError),
+            "a connection lost while reading the body is an outage like any other"
+        );
+    }
+
+    #[test]
+    fn malformed_payloads_stay_unclassified() {
+        // The body arrives in full but is not JSON — a forge-side problem,
+        // not an outage.
+        let addr = one_shot_server(
+            b"HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: 12\r\n\r\nnot-json-12b",
+        );
+        let reqwest_err = reqwest::blocking::get(format!("http://{addr}/"))
+            .unwrap()
+            .json::<serde_json::Value>()
+            .unwrap_err();
+        let err = classify_forge_error(anyhow::Error::from(reqwest_err));
+        assert!(
+            err.downcast_ref::<but_error::Context>().is_none(),
+            "an unparseable payload must not be presented as an offline network"
+        );
+    }
+
+    #[test]
+    fn connection_failures_carry_the_network_error_code() {
+        // Binding an ephemeral port and dropping the listener leaves a port
+        // that was just proven closed; connecting to it produces the same
+        // `reqwest::Error` shape as an unreachable GitLab host.
+        let port = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let reqwest_err = reqwest::blocking::Client::new()
+            .get(format!("http://127.0.0.1:{port}"))
+            .send()
+            .unwrap_err();
+        let err = classify_forge_error(anyhow::Error::from(reqwest_err));
+        assert_eq!(
+            err.downcast_ref::<but_error::Context>().map(|ctx| ctx.code),
+            Some(but_error::Code::NetworkError),
+            "cached readers key their stale-data fallback off this code"
+        );
+    }
+
+    #[test]
+    fn api_failures_stay_unclassified() {
+        let err = classify_forge_error(anyhow::anyhow!(
+            "Failed to list open merge requests: 500 Internal Server Error"
+        ));
+        assert!(
+            err.downcast_ref::<but_error::Context>().is_none(),
+            "a forge-side failure must not be presented as an offline network"
+        );
+    }
+
+    fn http_error(status: reqwest::StatusCode) -> anyhow::Error {
+        anyhow::Error::from(crate::client::HttpStatusError { status })
+            .context("Failed to get merge request")
+    }
+
+    #[test]
+    fn rejected_token_responses_carry_the_unauthorized_code() {
+        let err = classify_forge_error(http_error(reqwest::StatusCode::UNAUTHORIZED));
+        assert_eq!(
+            err.downcast_ref::<but_error::Context>().map(|ctx| ctx.code),
+            Some(but_error::Code::GitLabUnauthorized),
+            "pollers stop on this code until a replacement token is stored"
+        );
+    }
+
+    #[test]
+    fn other_http_statuses_stay_unclassified() {
+        for status in [
+            reqwest::StatusCode::FORBIDDEN,
+            reqwest::StatusCode::NOT_FOUND,
+            reqwest::StatusCode::TOO_MANY_REQUESTS,
+            reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+        ] {
+            let err = classify_forge_error(http_error(status));
+            assert!(
+                err.downcast_ref::<but_error::Context>().is_none(),
+                "{status} is not a rejected token and must not become terminal"
+            );
+        }
+    }
 }

@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use anyhow::Context;
 use bstr::{BString, ByteSlice, ByteVec};
+use but_error::bail_precondition;
 use gix::refs;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -32,6 +33,16 @@ pub fn find_unique_refname(
     repo: &gix::Repository,
     template: &gix::refs::FullNameRef,
 ) -> anyhow::Result<gix::refs::FullName> {
+    find_unique_refname_excluding(repo, template, |_| false)
+}
+
+/// Like [`find_unique_refname`], but also skips every name that `is_taken` claims, for names that
+/// are reserved without existing in `repo` yet.
+pub fn find_unique_refname_excluding(
+    repo: &gix::Repository,
+    template: &gix::refs::FullNameRef,
+    is_taken: impl Fn(&gix::refs::FullNameRef) -> bool,
+) -> anyhow::Result<gix::refs::FullName> {
     // TODO(perf): ideally we remove that special case of auto-associating local branches with seemingly matching
     //             RTBs, and avoid this lookup and reference traversal.
     let remote_names = repo.remote_names();
@@ -47,7 +58,10 @@ pub fn find_unique_refname(
 
     // Check if the original name is available
     let short_name = template.shorten();
-    if !rtb_lut.contains(short_name) && repo.try_find_reference(template)?.is_none() {
+    if !rtb_lut.contains(short_name)
+        && !is_taken(template)
+        && repo.try_find_reference(template)?.is_none()
+    {
         return Ok(template.to_owned());
     }
 
@@ -77,7 +91,8 @@ pub fn find_unique_refname(
         }
         let candidate_full = category.to_full_name(candidate_short.as_bstr())?;
 
-        if repo.try_find_reference(&candidate_full)?.is_none() {
+        if !is_taken(candidate_full.as_ref()) && repo.try_find_reference(&candidate_full)?.is_none()
+        {
             return Ok(candidate_full);
         }
     }
@@ -90,6 +105,50 @@ pub fn find_unique_refname(
 pub fn unique_canned_refname(repo: &gix::Repository) -> anyhow::Result<gix::refs::FullName> {
     let name = canned_refname(repo)?;
     find_unique_refname(repo, name.as_ref())
+}
+
+/// Refuse `name` when another reference in `repo` keeps it from being created, as Git can't
+/// hold both `a` and `a/b`: one named like a directory `name` would be in, or one in the
+/// directory `name` would replace. `renamed`, the reference becoming `name`, is no obstacle.
+///
+/// A ref edit only notices a loose one, and with a packed one would write both.
+pub fn refuse_colliding_refname(
+    repo: &gix::Repository,
+    name: &gix::refs::FullNameRef,
+    renamed: Option<&gix::refs::FullNameRef>,
+) -> anyhow::Result<()> {
+    if let Some(colliding) = colliding_refname(repo, name, renamed)? {
+        bail_precondition!(
+            "Branch name '{}' collides with existing branch '{}'",
+            name.shorten(),
+            colliding.shorten()
+        );
+    }
+    Ok(())
+}
+
+fn colliding_refname(
+    repo: &gix::Repository,
+    name: &gix::refs::FullNameRef,
+    renamed: Option<&gix::refs::FullNameRef>,
+) -> anyhow::Result<Option<gix::refs::FullName>> {
+    let full_name = name.as_bstr();
+    let other = |name: &gix::refs::FullNameRef| renamed != Some(name);
+    // Past `refs/` and its category, as `refs/heads/`.
+    for at in full_name.find_iter("/").skip(2) {
+        let outer = gix::refs::FullName::try_from(full_name[..at].as_bstr())?;
+        if other(outer.as_ref()) && repo.try_find_reference(outer.as_ref())?.is_some() {
+            return Ok(Some(outer));
+        }
+    }
+    let mut prefix = BString::from(full_name);
+    prefix.push_byte(b'/');
+    let inner = (repo.references()?)
+        .prefixed(&prefix)?
+        .filter_map(Result::ok)
+        .map(|inner| inner.name().to_owned())
+        .find(|inner| other(inner.as_ref()));
+    Ok(inner)
 }
 
 fn generate_short_name_from_signature(author: &gix::actor::Signature) -> anyhow::Result<BString> {

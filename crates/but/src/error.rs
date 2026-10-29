@@ -1,0 +1,294 @@
+//! Utilities for communicating user errors (i.e. the equivalent of 4xx HTTP responses) to the user.
+
+use std::ffi::OsString;
+use std::fmt::Display;
+
+use crate::theme::{self, Paint};
+
+/// Signifies that a command could not complete its intended action due to the user providing input
+/// that is somehow invalid.
+///
+/// Think of this as the `but` equivalent of a 4xx HTTP response.
+#[derive(Debug)]
+pub struct BadInput {
+    /// A message to print verbatim to the user
+    message: String,
+    /// If applicable, the name of the input argument to which the bad input was passed
+    arg_name: Option<String>,
+    /// If applicable, the bad value that was passed
+    arg_value: Option<String>,
+    /// A hint to guide the user to proper usage of the command
+    hint: Option<String>,
+}
+
+impl BadInput {
+    /// Create a new [`BadInput`]
+    pub fn new<S: AsRef<str>>(message: S) -> Self {
+        Self {
+            message: message.as_ref().to_string(),
+            arg_name: None,
+            arg_value: None,
+            hint: None,
+        }
+    }
+
+    /// Add the name of the argument for which this message applies.
+    pub fn arg_name<S: AsRef<str>>(mut self, name: S) -> Self {
+        self.arg_name = Some(name.as_ref().to_string());
+        self
+    }
+
+    /// Add the value that was passed by the user.
+    pub fn arg_value<S: AsRef<str>>(mut self, value: S) -> Self {
+        self.arg_value = Some(value.as_ref().to_string());
+        self
+    }
+
+    /// Add a hint to guide the user to correct usage.
+    pub fn hint<S: AsRef<str>>(mut self, hint: S) -> Self {
+        self.hint = Some(hint.as_ref().to_string());
+        self
+    }
+
+    pub(crate) fn argument_name(&self) -> Option<&str> {
+        self.arg_name.as_deref()
+    }
+
+    pub(crate) fn has_hint(&self) -> bool {
+        self.hint.is_some()
+    }
+}
+
+/// The hint for a remote-tracking `target_ref` that no local branch tracks.
+pub(crate) fn track_remote_target_hint(target_ref: impl Display) -> String {
+    format!(
+        "Make a local branch track {target_ref} with \
+        `git branch --set-upstream-to={target_ref} <branch>`, \
+        or choose a local target branch with `but config target <branch>`"
+    )
+}
+
+/// Convenience wrapper around [`BadInput::new`].
+pub(crate) fn bad_input<S: AsRef<str>>(message: S) -> BadInput {
+    BadInput::new(message)
+}
+
+// The `Error: ` prefix is added by the consumer: `print_and_exit_non_zero`
+// for directly printed errors, and anyhow's termination handler for errors
+// converted via `into_internal`. Embedding it here would double it up.
+impl Display for BadInput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let t = theme::get();
+
+        match (&self.arg_name, &self.arg_value) {
+            (Some(name), Some(value)) => {
+                writeln!(
+                    f,
+                    "Bad input '{}' for '{}'",
+                    t.attention.paint(value),
+                    t.attention.paint(name),
+                )?;
+                writeln!(f)?;
+            }
+            (Some(name), None) => {
+                writeln!(f, "Bad input for '{}'", t.attention.paint(name),)?;
+                writeln!(f)?;
+            }
+            (None, Some(value)) => {
+                writeln!(f, "Bad input '{}'", t.attention.paint(value))?;
+                writeln!(f)?;
+            }
+            _ => (),
+        }
+
+        writeln!(f, "{}", self.message)?;
+
+        if let Some(hint) = &self.hint {
+            writeln!(f)?;
+            writeln!(f, "{}", t.hint.paint(format!("Hint: {hint}")))?;
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub enum CliError {
+    /// User provided bad input.
+    BadInput(BadInput),
+    /// We tried to execute the subcommand as an external command, but that command was not found.
+    ExternalCommandNotFound(OsString),
+    /// An external subcommand failed with this exit code.
+    ExternalCommandFailed(i32),
+    /// Something went wrong internally.
+    Internal(anyhow::Error),
+    /// The command failed before its handler started.
+    Initialization(anyhow::Error),
+    /// The CLI output was a "rejection". See [`CliOutputHuman::is_rejection`] for more details.
+    CommandRejection,
+}
+
+impl From<BadInput> for CliError {
+    fn from(value: BadInput) -> Self {
+        Self::BadInput(value)
+    }
+}
+
+impl<E> From<E> for CliError
+where
+    E: Into<anyhow::Error>,
+{
+    fn from(value: E) -> Self {
+        let error = value.into();
+        if error.downcast_ref::<but_error::Code>()
+            == Some(&but_error::Code::ConflictedCommitCheckout)
+        {
+            return CliError::BadInput(bad_input("Cannot check out a conflicted commit.").hint(
+                "Run `but switch --workspace` and start conflict resolution with `but resolve`",
+            ));
+        }
+        if let Some(unresolved) =
+            error.downcast_ref::<but_core::ref_metadata::UnresolvedLegacyTargetRefError>()
+        {
+            use but_core::ref_metadata::UnresolvedLegacyTargetReason;
+            let target_ref = unresolved.target_ref.shorten();
+            let (message, hint) = match unresolved.reason {
+                // Making a branch track the legacy target keeps pulls coming from it, while
+                // choosing a branch that tracks something else changes where pulls come from.
+                UnresolvedLegacyTargetReason::NoTrackingBranch => (
+                    format!(
+                        "GitButler now requires the target to be a local branch, \
+                        but no local branch tracks your current target, {target_ref}"
+                    ),
+                    track_remote_target_hint(target_ref),
+                ),
+                UnresolvedLegacyTargetReason::MultipleTrackingBranches => (
+                    format!("Multiple local branches track {target_ref}"),
+                    "Choose a local target branch with `but config target <branch>`".to_owned(),
+                ),
+            };
+            return CliError::BadInput(bad_input(message).hint(hint));
+        }
+        CliError::Internal(error)
+    }
+}
+
+impl CliError {
+    /// Add context to internal errors while preserving user-facing bad input messages.
+    pub fn context<C>(self, context: C) -> Self
+    where
+        C: Display + Send + Sync + 'static,
+    {
+        match self {
+            Self::BadInput(value) => Self::BadInput(value),
+            Self::ExternalCommandNotFound(command_name) => {
+                Self::ExternalCommandNotFound(command_name)
+            }
+            Self::ExternalCommandFailed(code) => Self::ExternalCommandFailed(code),
+            Self::CommandRejection => Self::CommandRejection,
+            Self::Internal(value) => Self::Internal(value.context(context)),
+            Self::Initialization(value) => Self::Initialization(value.context(context)),
+        }
+    }
+
+    /// Add a hint if the error is a [`Self::BadInput`]
+    pub fn hint<S: AsRef<str>>(self, hint: S) -> Self {
+        match self {
+            Self::BadInput(value) => Self::BadInput(value.hint(hint)),
+            Self::ExternalCommandNotFound(command_name) => {
+                Self::ExternalCommandNotFound(command_name)
+            }
+            Self::ExternalCommandFailed(code) => Self::ExternalCommandFailed(code),
+            Self::Internal(value) => Self::Internal(value),
+            Self::Initialization(value) => Self::Initialization(value),
+            Self::CommandRejection => Self::CommandRejection,
+        }
+    }
+
+    /// Add a lazily computed hint if the result is a [`CliError::BadInput`].
+    fn with_hint<S: AsRef<str>>(self, make_hint: impl FnOnce() -> S) -> Self {
+        match self {
+            Self::BadInput(value) => Self::BadInput(value.hint(make_hint())),
+            Self::ExternalCommandNotFound(command_name) => {
+                Self::ExternalCommandNotFound(command_name)
+            }
+            Self::ExternalCommandFailed(code) => Self::ExternalCommandFailed(code),
+            Self::Internal(value) => Self::Internal(value),
+            Self::Initialization(value) => Self::Initialization(value),
+            Self::CommandRejection => Self::CommandRejection,
+        }
+    }
+
+    pub fn into_internal(self) -> anyhow::Error {
+        match self {
+            Self::BadInput(mut err) => {
+                // the hints are unlikely to be useful for internal errors so lets just discard
+                // them
+                err.hint = None;
+
+                anyhow::anyhow!("{err}")
+            }
+            Self::ExternalCommandNotFound(..)
+            | Self::ExternalCommandFailed(..)
+            | Self::CommandRejection => {
+                anyhow::anyhow!("{self}")
+            }
+            Self::Internal(error) | Self::Initialization(error) => error,
+        }
+    }
+}
+
+impl Display for CliError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::BadInput(value) => value.fmt(f),
+            Self::ExternalCommandNotFound(command_name) => {
+                writeln!(
+                    f,
+                    "{}",
+                    bad_input("Unrecognized subcommand").arg_value(command_name.to_string_lossy())
+                )
+            }
+            Self::ExternalCommandFailed(code) => {
+                write!(f, "External command exited with status {code}")
+            }
+            Self::Internal(value) | Self::Initialization(value) => value.fmt(f),
+            Self::CommandRejection => {
+                // The output is printed elsewhere such as by [`OutputChannel::print_cli_output`].
+                f.write_str("Command rejected")
+            }
+        }
+    }
+}
+
+pub type CliResult<T> = Result<T, CliError>;
+
+pub trait CliResultExt<T> {
+    /// Add a hint if the result is a [`CliError::BadInput`].
+    fn hint<S: AsRef<str>>(self, hint: S) -> Self;
+
+    /// Add a lazily computed hint if the result is a [`CliError::BadInput`].
+    fn with_hint<S: AsRef<str>>(self, make_hint: impl FnOnce() -> S) -> Self;
+
+    fn into_internal_error(self) -> anyhow::Result<T>;
+}
+
+impl<T> CliResultExt<T> for CliResult<T> {
+    fn hint<S: AsRef<str>>(self, hint: S) -> Self {
+        match self {
+            Ok(_) => self,
+            Err(err) => Err(err.hint(hint)),
+        }
+    }
+
+    fn with_hint<S: AsRef<str>>(self, make_hint: impl FnOnce() -> S) -> Self {
+        match self {
+            Ok(_) => self,
+            Err(err) => Err(err.with_hint(make_hint)),
+        }
+    }
+
+    fn into_internal_error(self) -> anyhow::Result<T> {
+        self.map_err(|err| err.into_internal())
+    }
+}

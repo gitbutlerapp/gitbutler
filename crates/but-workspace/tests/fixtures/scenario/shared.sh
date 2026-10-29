@@ -46,6 +46,8 @@ function tick_committer () {
 
 function setup_target_to_match_main() {
   remote_tracking_caught_up main
+  git config branch.main.remote origin
+  git config branch.main.merge refs/heads/main
 
   cat <<EOF >>.git/config
 [remote "origin"]
@@ -69,7 +71,7 @@ function create_workspace_commit_once() {
 
   git checkout -b gitbutler/workspace
   if [ $# == 1 ] || [ $# == 0 ]; then
-    git commit --allow-empty -m "$workspace_commit_subject"
+    commit "$workspace_commit_subject"
   else
     git merge --no-ff -m "$workspace_commit_subject" "${@}"
   fi
@@ -90,7 +92,7 @@ function create_workspace_commit_aggressively() {
 
   git checkout -b gitbutler/workspace main
   if [ $# == 1 ] || [ $# == 0 ]; then
-    git commit --allow-empty -m "$workspace_commit_subject"
+    commit "$workspace_commit_subject"
   else
     git merge --no-ff --strategy octopus -m "$workspace_commit_subject" "${@}"
   fi

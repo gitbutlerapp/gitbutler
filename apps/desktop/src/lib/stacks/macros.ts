@@ -1,12 +1,11 @@
-import { getStackName } from "$lib/stacks/stack";
-import { ensureValue } from "$lib/utils/validation";
-import type { DiffSpec } from "$lib/hunks/hunk";
-import type {
-	CreateCommitRequestWorktreeChanges,
-	RejectionReason,
-	StackService,
-} from "$lib/stacks/stackService.svelte";
+import {
+	rejectedChangesByPath,
+	toCommitCreatePlacement,
+	type CreateCommitRequestWorktreeChanges,
+} from "$lib/stacks/stackEndpoints";
+import type { StackService } from "$lib/stacks/stackService.svelte";
 import type { UiState } from "$lib/state/uiState.svelte";
+import type { DiffSpec } from "@gitbutler/but-sdk";
 
 const STUB_COMMIT_MESSAGE = "New commit";
 
@@ -36,7 +35,6 @@ export default class StackMacros {
 			params.branchName,
 			params.commitMessage,
 		);
-		if (!stack.id) return;
 		if (outcome.newCommit) {
 			this.uiState.lane(stack.id).selection.set({
 				branchName,
@@ -58,32 +56,25 @@ export default class StackMacros {
 			projectId: this.projectId,
 			branch: { name },
 		});
-		const branchName = getStackName(stack);
+		// The backend guarantees a non-empty heads array on freshly-created
+		// stacks (see StackEntryNoOpt + the "list is never empty" invariant
+		// on legacy ui::StackEntry).
+		const branchName = stack.heads[0]!.name;
 		const outcome = await this.stackService.createCommitMutation({
 			projectId: this.projectId,
-			stackId: ensureValue(stack.id),
-			stackBranchName: branchName,
-			parentId: undefined,
+			...toCommitCreatePlacement({ stackBranchName: branchName }),
 			message: message ?? STUB_COMMIT_MESSAGE,
-			worktreeChanges,
+			changes: worktreeChanges,
 		});
 
-		if (outcome.pathsToRejectedChanges.length > 0) {
-			const pathsToRejectedChanges = outcome.pathsToRejectedChanges.reduce(
-				(acc: Record<string, RejectionReason>, [reason, path]) => {
-					acc[path] = reason;
-					return acc;
-				},
-				{},
-			);
-
+		if (outcome.rejectedChanges.length > 0) {
 			this.uiState.global.modal.set({
 				type: "commit-failed",
 				projectId: this.projectId,
 				targetBranchName: branchName,
 				newCommitId: outcome.newCommit ?? undefined,
 				commitTitle: message ?? STUB_COMMIT_MESSAGE,
-				pathsToRejectedChanges,
+				pathsToRejectedChanges: rejectedChangesByPath(outcome),
 			});
 		}
 		return { stack, outcome, branchName };
@@ -100,16 +91,17 @@ export default class StackMacros {
 		branchName: string,
 		changes: DiffSpec[],
 	) {
-		const { replacedCommits } = await this.stackService.moveChangesBetweenCommits({
+		const { workspace } = await this.stackService.moveChangesBetweenCommits({
 			projectId: this.projectId,
 			destinationStackId: destinationStackId,
 			destinationCommitId: destinationCommitId,
 			sourceStackId,
 			sourceCommitId,
 			changes,
+			dryRun: false,
 		});
 
-		const newCommitId = replacedCommits.find(([before]) => before === destinationCommitId)?.[1];
+		const newCommitId = workspace.replacedCommits[destinationCommitId];
 		if (!newCommitId) {
 			// This happened only if something went wrong
 			throw new Error("No new commit id found for the moved changes");
