@@ -449,19 +449,22 @@ impl AppView {
         }
     }
 
-    fn new_branch(&mut self, _: &NewBranch, window: &mut Window, cx: &mut Context<Self>) {
-        // Not while a prompt or picker is open: the branch would be made out of sight behind it.
+    /// The selected project, else the first watched one, to start a branch or worktree in. None
+    /// while a prompt or picker is open: it would be made out of sight behind it.
+    fn project_to_start_in(&self, cx: &App) -> Option<ProjectId> {
         if self.covered() {
-            return;
+            return None;
         }
-        let Some(project) = self.selected_project(cx).or_else(|| {
-            self.store
-                .read(cx)
-                .projects
-                .iter()
+        self.selected_project(cx).or_else(|| {
+            let store = self.store.read(cx);
+            (store.projects.iter())
                 .find(|p| p.expanded)
                 .map(|p| p.id.clone())
-        }) else {
+        })
+    }
+
+    fn new_branch(&mut self, _: &NewBranch, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(project) = self.project_to_start_in(cx) else {
             return;
         };
         let create = backend::CreateBranch { name: None };
