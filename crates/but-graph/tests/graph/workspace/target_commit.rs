@@ -448,3 +448,38 @@ fn returns_none_when_no_target() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn stored_target_commit_inside_the_tip_segment_cuts_it() -> anyhow::Result<()> {
+    let (repo, meta, mut db) = read_only_in_memory_scenario("single-branch-two-commits")?;
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* a8740d0 (HEAD -> feature) F2
+* dd4484d F1
+* 85efbe4 (main) M
+
+"#]]
+    );
+
+    let project_meta = ProjectMeta {
+        target_commit_id: Some(repo.rev_parse_single("feature~1")?.detach()),
+        ..Default::default()
+    };
+    let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
+
+    // Only the commit above the stored target belongs to the branch, which rests on the target.
+    snapbox::assert_data_eq!(
+        graph_workspace_determinisitcally(&ws).to_string(),
+        snapbox::str![[r#"
+⌂:feature[🌳] <> ✓! on dd4484d
+└── ≡:feature[🌳] on dd4484d {1}
+    └── :feature[🌳]
+        └── ·a8740d0
+
+"#]]
+    );
+    Ok(())
+}

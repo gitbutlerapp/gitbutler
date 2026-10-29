@@ -166,16 +166,6 @@ impl TargetCommit {
     /// The `None` case is acceptable as we consider these possibly stored.
     fn from_commit(target_commit_id: gix::ObjectId, graph: &Graph) -> Option<Self> {
         let segment = graph.segment_by_commit_id(target_commit_id).ok()?;
-        let commit_index = segment.commit_index_of(target_commit_id)?;
-        if commit_index != 0 {
-            tracing::warn!(
-                current = ?target_commit_id,
-                segment = ?segment.id,
-                commit_index,
-                "Ignoring stored target commit because it is not the first commit in its segment"
-            );
-            return None;
-        }
         Some(TargetCommit {
             commit_id: target_commit_id,
             segment_index: segment.id,

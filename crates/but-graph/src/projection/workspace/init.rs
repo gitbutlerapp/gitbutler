@@ -12,7 +12,8 @@ use petgraph::{Direction, prelude::EdgeRef, visit::NodeIndexable};
 use tracing::instrument;
 
 use crate::{
-    CommitFlags, FirstParent, Graph, Segment, SegmentIndex, SegmentMetadata, Workspace,
+    CommitFlags, CommitIndex, FirstParent, Graph, Segment, SegmentIndex, SegmentMetadata,
+    Workspace,
     init::WorktreeTip,
     utils::SegmentTable,
     workspace::{
@@ -46,8 +47,21 @@ struct Lane {
 struct Group {
     /// The segments contributing commits, starting with `head`.
     /// Empty if `head` is at or below the target.
-    members: Vec<SegmentIndex>,
+    members: Vec<Member>,
     head: SegmentIndex,
+}
+
+/// A segment of a [`Lane`] along with how many of its commits, from the top, are above the target.
+#[derive(Clone, Copy)]
+struct Member {
+    segment: SegmentIndex,
+    len: usize,
+}
+
+impl Member {
+    fn commits(self, graph: &Graph) -> &[crate::Commit] {
+        &graph[self.segment].commits[..self.len]
+    }
 }
 
 /// Which segments the remote tracking branches of the projected segments reach.
@@ -222,10 +236,14 @@ impl Graph {
         // The first commit below the target shared by all lanes.
         let (lower_bound, lower_bound_segment_id) = lanes
             .iter()
-            .filter_map(|lane| lane.base.map(|(_, sidx)| sidx))
-            .reduce(|base, other| self.find_merge_base(base, other).unwrap_or(base))
-            .and_then(|sidx| self.resolve_to_unambiguously_pointed_to_commit(sidx))
-            .map(|(commit, sidx)| (commit.id, sidx))
+            .filter_map(|lane| lane.base)
+            .reduce(|base, other| match self.find_merge_base(base.1, other.1) {
+                Some(sidx) if sidx == other.1 => other,
+                Some(sidx) if sidx != base.1 => self
+                    .resolve_to_unambiguously_pointed_to_commit(sidx)
+                    .map_or(base, |(commit, owner)| (commit.id, owner)),
+                _ => base,
+            })
             .unzip();
         let remotes = self.remote_reachability(
             lanes
@@ -270,13 +288,13 @@ impl Graph {
         frame: &Frame<'_>,
         stack_lanes: &[Lane],
     ) -> Vec<(&'a WorktreeTip, Lane)> {
-        fn claim(stop: &mut SegmentTable<bool>, lane: &Lane) {
-            for &sidx in lane.groups.iter().flat_map(|group| group.members.iter()) {
-                stop.set(sidx, true);
+        fn claim(stop: &mut SegmentTable<Option<CommitIndex>>, lane: &Lane) {
+            for member in lane.groups.iter().flat_map(|group| group.members.iter()) {
+                stop.set(member.segment, Some(0));
             }
         }
         let mut stop = self.stop_set(frame);
-        stop.set(frame.ws, true);
+        stop.set(frame.ws, Some(0));
         let local_target = self.upstream_local_target(frame);
         for lane in stack_lanes {
             claim(&mut stop, lane);
@@ -312,7 +330,7 @@ impl Graph {
         &self,
         tip: &WorktreeTip,
         lane: Lane,
-        target_stop: &SegmentTable<bool>,
+        target_stop: &SegmentTable<Option<CommitIndex>>,
         frame: &Frame<'_>,
         remotes: &RemoteReach,
     ) -> WorktreeStack {
@@ -322,7 +340,14 @@ impl Graph {
             .and_then(|group| self.tip_skip_empty(group.head))
             .map_or(tip.id, |commit| commit.id);
         let base = lane.base.map(|(id, sidx)| {
-            if target_stop.get(sidx) {
+            let is_below_target = target_stop.get(sidx).is_some_and(|cut| {
+                self[sidx]
+                    .commits
+                    .iter()
+                    .position(|commit| commit.id == id)
+                    .is_some_and(|index| index >= cut)
+            });
+            if is_below_target {
                 WorktreeBase::Outside(id)
             } else {
                 WorktreeBase::InWorkspace(id)
@@ -364,18 +389,23 @@ impl Graph {
             .collect()
     }
 
-    /// Mark every segment at or below the target commit.
-    fn stop_set(&self, frame: &Frame<'_>) -> SegmentTable<bool> {
-        let mut stop = SegmentTable::new(self.inner.node_bound(), false);
+    /// The index of the first commit at or below the target commit, in every segment that has one.
+    fn stop_set(&self, frame: &Frame<'_>) -> SegmentTable<Option<CommitIndex>> {
+        let mut stop = SegmentTable::new(self.inner.node_bound(), None);
         if let Some(target) = &frame.target_commit {
             self.visit_all_segments_including_start_until(
                 target.segment_index,
                 Direction::Outgoing,
                 |s| {
-                    stop.set(s.id, true);
+                    stop.set(s.id, Some(0));
                     false
                 },
             );
+            let target_index = self[target.segment_index]
+                .commits
+                .iter()
+                .position(|commit| commit.id == target.commit_id);
+            stop.set(target.segment_index, Some(target_index.unwrap_or(0)));
         }
         stop
     }
@@ -403,33 +433,49 @@ impl Graph {
     fn lane(
         &self,
         tip: SegmentIndex,
-        stop: &SegmentTable<bool>,
+        stop: &SegmentTable<Option<CommitIndex>>,
         local_target: Option<SegmentIndex>,
     ) -> Lane {
         let mut seen = self.seen_table();
         let mut walked = Vec::new();
         // Below the tip, an upstream local target is a base like the target itself.
-        let is_base =
-            |sidx: SegmentIndex| stop.get(sidx) || (sidx != tip && Some(sidx) == local_target);
+        let cut = |sidx: SegmentIndex| {
+            stop.get(sidx)
+                .or((sidx != tip && Some(sidx) == local_target).then_some(0))
+        };
+        let mut base = None;
         let mut cursor = Some(tip);
         while let Some(sidx) = cursor {
-            if is_base(sidx) || !seen.insert_unseen(sidx) {
+            if !seen.insert_unseen(sidx) {
                 break;
             }
-            walked.push(sidx);
+            let cut = cut(sidx);
+            if cut != Some(0) {
+                walked.push(Member {
+                    segment: sidx,
+                    len: cut.unwrap_or(self[sidx].commits.len()),
+                });
+            }
+            if let Some(cut) = cut {
+                base = self[sidx]
+                    .commits
+                    .get(cut)
+                    .map(|commit| (commit.id, sidx))
+                    .or_else(|| {
+                        self.resolve_to_unambiguously_pointed_to_commit(sidx)
+                            .map(|(commit, owner)| (commit.id, owner))
+                    });
+                break;
+            }
             cursor = self
                 .inner
                 .edges_directed(sidx, Direction::Outgoing)
                 .min_by_key(|edge| edge.weight().parent_order)
                 .map(|e| e.target());
         }
-        let base = cursor
-            .filter(|&sidx| is_base(sidx))
-            .and_then(|sidx| self.resolve_to_unambiguously_pointed_to_commit(sidx))
-            .map(|(commit, owner)| (commit.id, owner));
         let early_end = cursor.is_none()
-            && walked.last().is_some_and(|&last| {
-                self.stop_condition(last)
+            && walked.last().is_some_and(|last| {
+                self.stop_condition(last.segment)
                     .is_some_and(|condition| condition.at_limit())
             });
         Lane {
@@ -440,25 +486,22 @@ impl Graph {
     }
 
     /// Split a walk at each local branch.
-    fn groups(&self, tip: SegmentIndex, walked: &[SegmentIndex]) -> Vec<Group> {
-        let group = |sidx: SegmentIndex, members: Vec<SegmentIndex>| Group {
+    fn groups(&self, tip: SegmentIndex, walked: &[Member]) -> Vec<Group> {
+        let group = |sidx: SegmentIndex, members: Vec<Member>| Group {
             members,
             head: sidx,
         };
-        if walked.is_empty() {
-            return vec![group(tip, Vec::new())];
-        }
         walked
             .iter()
-            .fold(Vec::<Group>::new(), |mut groups, &sidx| {
-                let name = self[sidx].ref_name();
+            .fold(vec![group(tip, Vec::new())], |mut groups, &member| {
+                let name = self[member.segment].ref_name();
                 let starts_group = is_local_branch(name)
                     && groups
                         .last()
                         .is_some_and(|last| self[last.head].ref_name() != name);
                 match groups.last_mut().filter(|_| !starts_group) {
-                    Some(last) => last.members.push(sidx),
-                    None => groups.push(group(sidx, vec![sidx])),
+                    Some(last) => last.members.push(member),
+                    None => groups.push(group(member.segment, vec![member])),
                 }
                 groups
             })
@@ -487,7 +530,7 @@ impl Graph {
                     .groups
                     .iter()
                     .flat_map(|g| g.members.iter())
-                    .flat_map(|&sidx| self[sidx].commits.iter())
+                    .flat_map(|&member| member.commits(self))
                     .flat_map(|c| c.refs.iter().map(|ri| ri.ref_name.as_ref()))
                     .collect_vec();
                 let id = [segment_names, commit_refs]
@@ -577,7 +620,7 @@ impl Graph {
                 let above = groups[..idx]
                     .iter()
                     .flat_map(|g| g.members.iter())
-                    .flat_map(|&sidx| self[sidx].commits.iter().map(|c| c.id))
+                    .flat_map(|&member| member.commits(self).iter().map(|c| c.id))
                     .collect();
                 let base = match groups.get(idx + 1) {
                     Some(next) => (
@@ -631,10 +674,7 @@ impl Graph {
             .into_iter()
             .enumerate()
             .filter(|(idx, group)| {
-                group
-                    .members
-                    .iter()
-                    .any(|&sidx| !self[sidx].commits.is_empty())
+                group.members.iter().any(|member| member.len > 0)
                     || (*idx == 0 && keep_first)
                     || self[group.head].ref_name().is_some_and(wanted_by_metadata)
             })
@@ -657,7 +697,12 @@ impl Graph {
         let mut commits: Vec<_> = group
             .members
             .iter()
-            .flat_map(|&sidx| self[sidx].commits.iter().map(move |c| (sidx, c)))
+            .flat_map(|&member| {
+                member
+                    .commits(self)
+                    .iter()
+                    .map(move |c| (member.segment, c))
+            })
             .map(|(sidx, commit)| StackCommit {
                 flags: StackCommitFlags::from(commit.flags) | remotes.flags(sidx, remote),
                 ..StackCommit::from_graph_commit(commit)
@@ -680,9 +725,9 @@ impl Graph {
             commits_by_segment: group
                 .members
                 .iter()
-                .scan(0, |offset, &sidx| {
-                    let entry = (sidx, *offset);
-                    *offset += self[sidx].commits.len();
+                .scan(0, |offset, &member| {
+                    let entry = (member.segment, *offset);
+                    *offset += member.len;
                     Some(entry)
                 })
                 .collect(),

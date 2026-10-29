@@ -50,6 +50,14 @@ cp -R single-branch-local-target single-branch-local-target-empty-feature
   git checkout -b feature
 )
 
+git init single-branch-two-commits
+(cd single-branch-two-commits
+  commit M
+  git checkout -b feature
+  commit F1
+  commit F2
+)
+
 git init single-branch-in-sync
 (cd single-branch-in-sync
   commit M
