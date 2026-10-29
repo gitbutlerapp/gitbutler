@@ -469,52 +469,102 @@ where
             source.into()
         }
     })?;
-    let mut args = vec!["fetch", "--quiet"];
+    let harness_env = HarnessEnv::Repo(repo_path);
+    let mut envs = new_env_with_git_ssh_configured(&harness_env);
+    envs.insert("GIT_TERMINAL_PROMPT".into(), "0".into());
+    envs.insert("LC_ALL".into(), "C".into());
+    let mut overrides: Vec<_> = http_stall_limit_args(&harness_env)
+        .into_iter()
+        .skip(1)
+        .step_by(2)
+        .collect();
+    overrides.push("protocol.version=2".into());
+    let repo_path = repo_path.to_owned();
+    let remote_name = remote.to_owned();
+    with_authentication(&executor, envs, on_prompt, |envs| async move {
+        run_native::<E, _>(move |interrupt| {
+            use gix::remote::fetch::{Status, refs::update::Mode};
 
-    args.push(remote);
-    args.extend(refspecs.iter().map(String::as_str));
-
-    let (status, stdout, stderr) =
-        execute_with_auth_harness(HarnessEnv::Repo(repo_path), &executor, &args, on_prompt).await?;
-
-    if status == 0 {
-        Ok(())
-    } else {
-        // Was the ref not found?
-        if let Some(refname) = stderr
-            .lines()
-            .find(|line| line.to_lowercase().contains("couldn't find remote ref"))
-            .map(|line| line.split_whitespace().last().unwrap_or_default())
-        {
-            Err(crate::Error::RefNotFound(refname.to_owned()))?
-        } else if stderr.to_lowercase().contains("permission denied") {
-            Err(crate::Error::AuthorizationFailed(Error::<E>::Failed {
-                status,
-                args: args.into_iter().map(Into::into).collect(),
-                stdout,
-                stderr,
-            }))?
-        } else {
-            Err(Error::<E>::Failed {
-                status,
-                args: args.into_iter().map(Into::into).collect(),
-                stdout,
-                stderr,
-            })?
-        }
-    }
+            let options = gix::open::Options::default().config_overrides(overrides);
+            #[cfg(unix)]
+            let options =
+                options.credential_cache_daemon(but_utils::credential_cache::daemon_command());
+            let mut repo = options.open(&repo_path)?.to_thread_local();
+            repo.committer_or_set_generic_fallback()?;
+            let environment = envs
+                .into_iter()
+                .map(|(key, value)| (key.into(), value.into()));
+            let mut remote = repo
+                .find_remote(remote_name.as_str())?
+                .with_working_dir(repo_path)?
+                .with_command_environment(environment);
+            remote.replace_refspecs(&refspecs, gix::remote::Direction::Fetch)?;
+            let mut options = remote.fetch_options()?;
+            options.write_fetch_head = true;
+            // Git ignores configured pruneTags when explicit refspecs are supplied.
+            options.prune_tags = false;
+            let outcome = remote.fetch(options, gix::progress::Discard, interrupt)?;
+            let update_refs = match outcome.status {
+                Status::Change { update_refs, .. } | Status::NoPackReceived { update_refs, .. } => {
+                    update_refs
+                }
+            };
+            for (update, mapping) in update_refs.updates.iter().zip(&outcome.ref_map.mappings) {
+                match &update.mode {
+                    Mode::NoChangeNeeded
+                    | Mode::FastForward
+                    | Mode::Forced
+                    | Mode::New
+                    | Mode::ImplicitTagNotSentByRemote => {}
+                    Mode::RejectedSourceObjectNotFound { .. }
+                    | Mode::RejectedTagUpdate
+                    | Mode::RejectedNonFastForward
+                    | Mode::RejectedToReplaceWithUnborn
+                    | Mode::RejectedCurrentlyCheckedOut { .. } => {
+                        gix::error::bail!("Fetch of {:?} failed: {}", mapping.local, update.mode);
+                    }
+                }
+            }
+            Ok(())
+        })
+        .await
+    })
+    .await
+    .map_err(native_error::<E>)
 }
 
-fn fetch_refspecs(repo: &gix::Repository, remote: &str) -> gix::Result<Vec<String>> {
+fn native_error<E: GitExecutor>(error: Error<E>) -> crate::Error<Error<E>> {
+    if let RepositoryError::Native(source) = &error {
+        if source.is_unauthenticated() || source.is_permission_denied() {
+            return crate::Error::AuthorizationFailed(error);
+        }
+        if source.is_not_found()
+            && let Some(name) = source.metadata().find_map(|metadata| {
+                match metadata.get("ref").or_else(|| metadata.get("source")) {
+                    Some(gix::error::MetadataValue::Bytes(name)) => {
+                        Some(String::from_utf8_lossy(name).into_owned())
+                    }
+                    Some(gix::error::MetadataValue::String(name)) => Some(name.clone()),
+                    _ => None,
+                }
+            })
+        {
+            return crate::Error::RefNotFound(name);
+        }
+    }
+    crate::Error::Backend(error)
+}
+
+fn fetch_refspecs(repo: &gix::Repository, remote: &str) -> gix::Result<Vec<gix::bstr::BString>> {
     let refspecs: Vec<_> = repo
         .find_remote(remote)?
         .refspecs(gix::remote::Direction::Fetch)
         .iter()
-        .map(|spec| spec.to_ref().to_bstring().to_string())
+        .map(|spec| spec.to_ref().to_bstring())
         .collect();
 
     Ok(if refspecs.is_empty() {
-        vec![format!("+refs/heads/*:refs/remotes/{remote}/*")]
+        vec![format!("+refs/heads/*:refs/remotes/{remote}/*").into()]
     } else {
         refspecs
     })
@@ -649,7 +699,7 @@ where
         .step_by(2)
         .collect();
     with_authentication(&executor, envs, on_prompt, |envs| async move {
-        run_native::<E>(move |interrupt| {
+        run_native::<E, _>(move |interrupt| {
             use gix::error::ResultExt;
             let work_dir = std::path::absolute(work_dir).or_error()?;
             let mut repository_url = gix::Url::try_from(repository_url.as_str())?;
@@ -709,9 +759,9 @@ where
     })
 }
 
-async fn run_native<E: GitExecutor>(
-    run: impl FnOnce(&std::sync::atomic::AtomicBool) -> gix::Result<()> + Send + 'static,
-) -> Result<(), Error<E>> {
+async fn run_native<E: GitExecutor, T: Send + 'static>(
+    run: impl FnOnce(&std::sync::atomic::AtomicBool) -> gix::Result<T> + Send + 'static,
+) -> Result<T, Error<E>> {
     use std::sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
