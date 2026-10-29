@@ -54,7 +54,7 @@ pub struct TokioAskpassServer {
 impl TokioAskpassServer {
     pub(crate) async fn new() -> Result<Self, std::io::Error> {
         let connection_string =
-            std::env::temp_dir().join(format!("gitbutler-askpass-{}", rand::random::<u64>()));
+            std::env::temp_dir().join(format!("gb-{:016x}", rand::random::<u64>()));
 
         let listener = UnixListener::bind(&connection_string)?;
 
