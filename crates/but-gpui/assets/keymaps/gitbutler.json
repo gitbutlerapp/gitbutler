@@ -76,9 +76,9 @@
       // ⌘R only looks at the remote; ⇧R brings the target's changes in.
       "shift-r": "remote::UpdateFromTarget",
       "secondary-shift-t": "open_in::OpenInTerminal",
-      // Between the navigator, the file list and the diff, as Mail and Xcode move between
-      // their panes. ← and →, or h and l, go to the pane on that side, as from a commit into
-      // its files and back, and stop at the window's edge.
+      // Between the navigator, a list page's list, the files and the diff, as Mail and Xcode
+      // move between their panes. ← and →, or h and l, go to the pane on that side, as from a
+      // commit into its files and back, and stop at the window's edge.
       "tab": "app::FocusNextPane",
       "shift-tab": "app::FocusPreviousPane",
       "l": "app::FocusPaneRight",

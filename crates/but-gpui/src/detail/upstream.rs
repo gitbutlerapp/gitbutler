@@ -501,7 +501,7 @@ impl Detail {
 
     /// Whether a list page shows the files beside its list: it has some, and they aren't
     /// hidden, as they are at first.
-    pub(super) fn beside_files_shown(&self, cx: &gpui::App) -> bool {
+    pub(crate) fn beside_files_shown(&self, cx: &gpui::App) -> bool {
         self.has_files_beside(cx) && !self.beside_files_hidden
     }
 

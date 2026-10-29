@@ -1385,6 +1385,12 @@ impl Detail {
         cx.notify();
     }
 
+    /// Focus the files between a list page's list and the diff.
+    pub fn focus_beside_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        window.focus(&self.files_focus, cx);
+        cx.notify();
+    }
+
     /// Whether `handle` is one of the detail's own, the diff's or a list's, rather than a
     /// text field's.
     pub fn owns_focus(&self, handle: &FocusHandle) -> bool {
@@ -2549,6 +2555,24 @@ impl Detail {
         self.files_slide.openness(now).is_some() || self.beside_slide.openness(now).is_some()
     }
 
+    /// Whether what's selected has no changes to list or diff, as a branch with no commits, a
+    /// checkout with none uncommitted or a list page with nothing opened, so neither the file
+    /// list nor the diff has anything for the keys. Not while its diff loads, which may.
+    pub(crate) fn without_changes(&self, cx: &App) -> bool {
+        match self.key_for_selection(cx) {
+            None => true,
+            Some(key) => {
+                (self.diff.as_ref()).is_some_and(|diff| diff.key == key && diff.files.is_empty())
+            }
+        }
+    }
+
+    /// Whether the keys are on the diff while it has nothing for them, as they are on a
+    /// checkout with no changes once the navigator has gone.
+    pub(crate) fn keys_stranded(&self, window: &Window, cx: &App) -> bool {
+        self.focus.is_focused(window) && self.without_changes(cx)
+    }
+
     /// Whether the page is an overview with no column beside it: Inactive and Network
     /// worktrees', as the navigator lists what they sum up.
     pub fn overview_only(&self, cx: &App) -> bool {
@@ -2560,7 +2584,7 @@ impl Detail {
 
     /// Show or hide the file list beside the diff or a checkout's overview, or a list page's
     /// files beside its list, as `f` does.
-    pub(super) fn toggle_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn toggle_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let list_page = self.list_page(cx);
         if self.overview_only(cx) || (list_page && !self.has_files_beside(cx)) {
             return;
@@ -2599,7 +2623,7 @@ impl Detail {
         cx.notify();
     }
 
-    pub(super) fn list_page(&self, cx: &App) -> bool {
+    pub(crate) fn list_page(&self, cx: &App) -> bool {
         matches!(
             self.selection(cx),
             Some(Selection::Branches(_) | Selection::History(_) | Selection::Project(_))
