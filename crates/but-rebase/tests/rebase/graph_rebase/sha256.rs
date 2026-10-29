@@ -46,7 +46,7 @@ Sha256
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge_id = editor.repo().rev_parse_single("HEAD~")?.detach();
@@ -145,7 +145,7 @@ Sha256
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = editor.repo().rev_parse_single("A")?.detach();
@@ -243,7 +243,7 @@ Sha256
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let inner_merge = editor.repo().rev_parse_single("HEAD~")?.detach();

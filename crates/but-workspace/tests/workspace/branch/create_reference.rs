@@ -65,7 +65,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
             &mut db,
             Options::limited(),
         )?;
-        let ws = graph.into_workspace()?;
+        let ws = graph.into_workspace(&repo)?;
 
         // And even though a stored target commit works like it should, i.e a simulated target
         // in absence of a selected target branch…
@@ -87,7 +87,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
         project_meta.target_commit_id = None;
         let graph =
             but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
-        let mut ws = graph.into_workspace()?;
+        let mut ws = graph.into_workspace(&repo)?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -141,7 +141,7 @@ Single commit, target, no ws commit, but ws-reference
             &mut db,
             Options::limited(),
         )?;
-        let mut ws = graph.into_workspace()?;
+        let mut ws = graph.into_workspace(&repo)?;
 
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
@@ -259,7 +259,7 @@ Single commit, target, no ws commit, but ws-reference
             &mut db,
             Options::limited(),
         )?;
-        let ws = graph.into_workspace()?;
+        let ws = graph.into_workspace(&repo)?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -309,7 +309,7 @@ Single commit, target, no ws commit, but ws-reference
             &mut db,
             Options::limited(),
         )?;
-        let mut ws = graph.into_workspace()?;
+        let mut ws = graph.into_workspace(&repo)?;
 
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
@@ -613,7 +613,7 @@ Single commit, target, no ws commit, but ws-reference
             &mut db,
             Options::limited(),
         )?;
-        let ws = graph.into_workspace()?;
+        let ws = graph.into_workspace(&repo)?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -675,7 +675,7 @@ Single commit, target, no ws commit, but ws-reference
             &mut db,
             Options::limited(),
         )?;
-        let mut ws = graph.into_workspace()?;
+        let mut ws = graph.into_workspace(&repo)?;
 
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
@@ -994,7 +994,7 @@ Single commit, target, no ws commit, but ws-reference
             &mut db,
             Options::limited(),
         )?;
-        let ws = graph.into_workspace()?;
+        let ws = graph.into_workspace(&repo)?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -1055,7 +1055,7 @@ Single commit, target, no ws commit, but ws-reference
             &mut db,
             Options::limited(),
         )?;
-        let mut ws = graph.into_workspace()?;
+        let mut ws = graph.into_workspace(&repo)?;
 
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
@@ -1127,7 +1127,7 @@ Single commit, target, no ws commit, but ws-reference
             &mut db,
             Options::limited(),
         )?;
-        let mut ws = graph.into_workspace()?;
+        let mut ws = graph.into_workspace(&repo)?;
 
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
@@ -1229,7 +1229,7 @@ Single commit, target, no ws commit, but ws-reference
             &mut db,
             Options::limited(),
         )?;
-        let mut ws = graph.into_workspace()?;
+        let mut ws = graph.into_workspace(&repo)?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -1385,7 +1385,7 @@ Single commit, target, no ws commit, but ws-reference
             &mut db,
             Options::limited(),
         )?;
-        let ws = graph.into_workspace()?;
+        let ws = graph.into_workspace(&repo)?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -1428,7 +1428,7 @@ Single commit, target, no ws commit, but ws-reference
                 &mut db,
                 Options::limited(),
             )?
-            .into_workspace()?;
+            .into_workspace(&repo)?;
             let base = ws.lower_bound.expect("fixture has a workspace base");
             let new_ref = r("refs/heads/at-base");
             crate::utils::create_reference(
@@ -1470,7 +1470,7 @@ Single commit, target, no ws commit, but ws-reference
             &mut db,
             Options::limited(),
         )?;
-        let mut ws = graph.into_workspace()?;
+        let mut ws = graph.into_workspace(&repo)?;
 
         let a_ref = r("refs/heads/A");
         let mut ws = crate::utils::create_reference(
@@ -1562,7 +1562,7 @@ Single commit, target, no ws commit, but ws-reference
         project_meta.target_commit_id = None;
         let graph =
             but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
-        let mut ws = graph.into_workspace()?;
+        let mut ws = graph.into_workspace(&repo)?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -1638,7 +1638,7 @@ Single commit, target, no ws commit, but ws-reference
             &mut db,
             Options::limited(),
         )?;
-        let mut ws = graph.into_workspace()?;
+        let mut ws = graph.into_workspace(&repo)?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -1695,7 +1695,7 @@ Single commit, target, no ws commit, but ws-reference
             &mut db,
             Options::limited(),
         )?;
-        let mut ws = graph.into_workspace()?;
+        let mut ws = graph.into_workspace(&repo)?;
 
         // The anchor must be a segment within the workspace.
         let new_ref = r("refs/heads/new");
@@ -1764,7 +1764,7 @@ Single commit, target, no ws commit, but ws-reference
             &mut db,
             Options::limited(),
         )?;
-        let mut ws = graph.into_workspace()?;
+        let mut ws = graph.into_workspace(&repo)?;
 
         // The header describes local main; incoming history still comes from its upstream.
         assert_eq!(
@@ -1849,7 +1849,7 @@ Single commit, target, no ws commit, but ws-reference
             &mut db,
             Options::limited(),
         )?;
-        let mut ws = graph.into_workspace()?;
+        let mut ws = graph.into_workspace(&repo)?;
 
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
@@ -2012,7 +2012,7 @@ Single commit, target, no ws commit, but ws-reference
             &mut db,
             Options::limited(),
         )?;
-        let mut ws = graph.into_workspace()?;
+        let mut ws = graph.into_workspace(&repo)?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -2079,7 +2079,7 @@ fn errors() -> anyhow::Result<()> {
         &mut db,
         Options::limited(),
     )?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -2129,7 +2129,7 @@ fn errors() -> anyhow::Result<()> {
         &mut db,
         Options::limited(),
     )?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -2222,7 +2222,7 @@ fn errors() -> anyhow::Result<()> {
         &mut db,
         Options::limited(),
     )?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -2271,7 +2271,7 @@ fn errors() -> anyhow::Result<()> {
             ..Options::limited()
         },
     )?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -2327,7 +2327,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         &mut db,
         but_graph::init::Options::default(),
     )?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -2439,7 +2439,7 @@ fn existing_git_ref_is_rejected() -> anyhow::Result<()> {
         &mut db,
         Options::limited(),
     )?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     let test_ref = r("refs/heads/created-with-git");
     let target_id = id_by_rev(&repo, ":/A1").detach();
@@ -2488,7 +2488,7 @@ fn detached_head() -> anyhow::Result<()> {
         &mut db,
         Options::limited(),
     )?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     crate::utils::create_reference(
         &repo,
@@ -2558,7 +2558,7 @@ mod ad_hoc_at_reference {
             &mut db,
             Options::limited(),
         )?
-        .into_workspace()?;
+        .into_workspace(&repo)?;
         Ok((tmp, repo, meta, project_meta, ws, db))
     }
 
@@ -2662,7 +2662,7 @@ mod ad_hoc_at_reference {
 
         let ws =
             but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
+                .into_workspace(&repo)?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -2717,7 +2717,7 @@ mod ad_hoc_at_reference {
 
         let ws =
             but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
+                .into_workspace(&repo)?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -2799,7 +2799,7 @@ mod ad_hoc_at_reference {
         // ...and the workspace re-projects identically from the reloaded metadata.
         let ws =
             but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
+                .into_workspace(&repo)?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -2949,7 +2949,7 @@ mod ad_hoc_at_reference {
         // Mix in an `Above` insertion: a new tip over the (still checked-out) `main`.
         let mut ws =
             but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
+                .into_workspace(&repo)?;
         create(&repo, &mut ws, &mut meta, &mut db, crown, main_ref, Above)?;
         assert_order(
             &meta,

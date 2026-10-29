@@ -53,7 +53,9 @@ impl Archival {
             options.dangerously_skip_postprocessing_for_debugging = true;
             but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, options)
         })?;
-        let dot_file_contents = graph.anonymize(&repo.remote_names())?.dot_graph_pruned();
+        let dot_file_contents = graph
+            .anonymize(&repo.remote_names())?
+            .dot_graph_pruned(&repo);
         let output_file = self.cache_dir.join(format!(
             "commit-graph-anon-{date}.zip",
             date = filesafe_date_time()

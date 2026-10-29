@@ -20,7 +20,7 @@ fn with_local_target_uses_fetch_remote() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
 
     assert!(ws.target_ref.is_some(), "fixture has a projected target");
     assert_eq!(
@@ -44,7 +44,7 @@ fn explicit_push_remote_overrides_target_fetch_remote() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
     ws.graph.project_meta.push_remote = Some("fork".into());
     assert_eq!(
         ws.push_remote_name(&repo)?,
@@ -66,7 +66,7 @@ fn unconfigured_target_uses_projected_upstream_remote() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
     ws.graph.project_meta.target_ref = None;
     ws.target_ref
         .as_mut()
@@ -92,7 +92,7 @@ fn configured_target_without_remote_does_not_use_projected_upstream() -> anyhow:
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
     ws.graph.project_meta.target_ref = Some(but_core::ref_metadata::LocalRefName::new(
         "refs/heads/untracked".try_into()?,
     )?);
@@ -122,7 +122,7 @@ fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
 
     assert!(ws.target_ref.is_none(), "should not have a target_ref");
     assert!(
@@ -164,7 +164,7 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
     // the target remote and its local tracking branch get sibling links even when another branch owns the shared commit
     snapbox::assert_data_eq!(
         graph_dag(&ws.graph),

@@ -80,7 +80,7 @@ fn head_info(
                 but_graph::Graph::from_head(&repo, &meta, ctx.project_meta()?, &mut db, options)?
             }
         };
-        graph.into_workspace()?
+        graph.into_workspace(&repo)?
     };
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
     let db = gerrit_mode_enabled

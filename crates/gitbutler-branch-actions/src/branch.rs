@@ -76,7 +76,7 @@ pub fn list_branches(
                 ..traversal.clone()
             },
         )?
-        .into_workspace()?
+        .into_workspace(&repo)?
     };
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
     let db = gerrit_mode_enabled

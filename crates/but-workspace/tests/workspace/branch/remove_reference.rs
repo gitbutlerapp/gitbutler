@@ -69,7 +69,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     let ws = crate::ref_info::with_workspace_commit::utils::graph_with_cutoff_only(
         &repo, &meta, &mut db,
     )?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
     // the workspace is empty.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -155,7 +155,7 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -236,7 +236,7 @@ Two commits in main, target setup, ws commit, many more usable branches
 
 "#]]
     );
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -359,7 +359,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     let ws = crate::ref_info::with_workspace_commit::utils::graph_with_cutoff_only(
         &repo, &meta, &mut db,
     )?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"

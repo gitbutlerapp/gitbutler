@@ -36,8 +36,8 @@ pub(crate) fn run(
                 args.current_dir.display()
             )
         })?;
-        let (_guard, _repo, workspace, _db) = ctx.workspace_and_db()?;
-        return emit_workspace(&workspace, graph_args, out, err);
+        let (_guard, repo, workspace, _db) = ctx.workspace_and_db()?;
+        return emit_workspace(&workspace, &repo, graph_args, out, err);
     }
 
     let mut repo = setup::repo_from_args(args)?;
@@ -88,12 +88,13 @@ pub(crate) fn run(
         }
     }?;
 
-    let workspace = graph.into_workspace()?;
-    emit_workspace(&workspace, graph_args, out, err)
+    let workspace = graph.into_workspace(&repo)?;
+    emit_workspace(&workspace, &repo, graph_args, out, err)
 }
 
 fn emit_workspace(
     workspace: &but_graph::Workspace,
+    repo: &gix::Repository,
     graph_args: &GraphArgs,
     out: &mut dyn io::Write,
     err: &mut dyn io::Write,
@@ -128,11 +129,11 @@ fn emit_workspace(
 
     match dot_mode(graph_args) {
         Some(DotMode::Print) => {
-            out.write_all(workspace.graph.dot_graph_pruned().as_bytes())?;
+            out.write_all(workspace.graph.dot_graph_pruned(repo).as_bytes())?;
         }
         Some(DotMode::OpenAsSvg) => {
             #[cfg(unix)]
-            workspace.graph.open_as_svg();
+            workspace.graph.open_as_svg(repo);
         }
         Some(DotMode::Debug) => {
             writeln!(err, "{graph:#?}", graph = workspace.graph)?;

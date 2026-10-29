@@ -51,7 +51,7 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -125,7 +125,7 @@ fn moving_branch_onto_itself_fails_without_changing_workspace() -> anyhow::Resul
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let before = graph_workspace(&ws).to_string();
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
 
@@ -174,7 +174,7 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -261,7 +261,7 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -345,7 +345,7 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -433,7 +433,7 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -512,7 +512,7 @@ fn move_empty_branch() -> anyhow::Result<()> {
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -582,7 +582,7 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -646,7 +646,7 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
     let graph =
         but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -697,7 +697,7 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
     let graph =
         but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -760,7 +760,7 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -877,7 +877,7 @@ fn empty_move_keeps_display_order_aligned_with_metadata() -> anyhow::Result<()> 
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let before_display_order = stack_display_order(&ws);
     let before_metadata_order = metadata_stack_order(&ws);
     assert_eq!(before_display_order, before_metadata_order);
@@ -950,7 +950,7 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     // The header describes local main; incoming history still comes from its upstream.
     assert_eq!(
         ws.graph
@@ -1053,7 +1053,7 @@ fn move_empty_branch_onto_non_empty_branch_with_advanced_target() -> anyhow::Res
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -1131,7 +1131,7 @@ fn move_non_empty_branch_onto_empty_branch_with_advanced_target() -> anyhow::Res
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -1268,7 +1268,7 @@ mod single_branch_mode {
         target: &gix::refs::FullNameRef,
     ) -> anyhow::Result<()> {
         let mut ws = but_graph::Graph::from_head(repo, meta, project_meta, db, Options::limited())?
-            .into_workspace()?;
+            .into_workspace(repo)?;
         let editor = Editor::create(&mut ws, meta, repo, db)?;
         let rebase = move_branch_above(editor, subject, target)?;
         rebase.materialize(Default::default())?;
@@ -1282,7 +1282,7 @@ mod single_branch_mode {
         db: &mut but_db::DbHandle,
     ) -> anyhow::Result<String> {
         let ws = but_graph::Graph::from_head(repo, meta, project_meta, db, Options::limited())?
-            .into_workspace()?;
+            .into_workspace(repo)?;
         Ok(graph_workspace(&ws).to_string())
     }
 
@@ -1373,7 +1373,7 @@ mod single_branch_mode {
             &mut db,
             Options::limited(),
         )?
-        .into_workspace()?;
+        .into_workspace(&repo)?;
 
         // Each branch is inserted directly below `main`, so creating them in this order yields the
         // chain [main, empty-top, empty-bottom, base] (tip to base).
@@ -1409,7 +1409,7 @@ mod single_branch_mode {
             &mut db,
             Options::limited(),
         )?
-        .into_workspace()?;
+        .into_workspace(&repo)?;
         assert_eq!(ws.ref_name(), Some(main_ref));
 
         let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
@@ -1444,7 +1444,7 @@ mod single_branch_mode {
 
         let mut ws =
             but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
+                .into_workspace(&repo)?;
         let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
         let rebase = move_branch_above(
             editor,
@@ -1473,7 +1473,7 @@ mod single_branch_mode {
             &mut db,
             Options::limited(),
         )?
-        .into_workspace()?;
+        .into_workspace(&repo)?;
         // Single-branch (ad-hoc) workspace: `HEAD` is on `main` directly, no `gitbutler/workspace`
         // commit. `empty-top`/`empty-bottom` are empty segments; `base` owns the commits.
         snapbox::assert_data_eq!(
@@ -1739,7 +1739,7 @@ mod single_branch_mode {
             &mut db,
             Options::limited(),
         )?
-        .into_workspace()?;
+        .into_workspace(&repo)?;
 
         let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
         let rebase = move_branch_above(editor, r("refs/heads/empty-top"), r("refs/heads/base"))?;
@@ -1781,7 +1781,7 @@ mod single_branch_mode {
             &mut db,
             Options::limited(),
         )?
-        .into_workspace()?;
+        .into_workspace(&repo)?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -1875,7 +1875,7 @@ git worktree add -q -b wt wt-dir A
                 ..Options::limited()
             },
         )?
-        .into_workspace()?;
+        .into_workspace(&repo)?;
         Ok(Fixture {
             _tmp: tmp,
             repo,

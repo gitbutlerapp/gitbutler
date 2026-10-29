@@ -118,7 +118,7 @@ pub(super) mod function {
             bail_precondition!("Cannot create reference on unborn branch");
         }
         let rebase = editor.rebase()?;
-        let workspace = rebase.overlayed_graph()?.into_workspace()?;
+        let workspace = rebase.overlayed_graph()?.into_workspace(rebase.repo())?;
         let mut editor = rebase.into_editor();
         let placement = placement(&editor, &workspace, anchor.into())?;
         let reference = Step::new_reference(ref_name.to_owned());

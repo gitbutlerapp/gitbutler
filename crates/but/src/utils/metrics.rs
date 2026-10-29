@@ -652,7 +652,7 @@ fn read_only_workspace(ctx: &but_ctx::Context) -> Option<but_graph::Workspace> {
         },
     )
     .ok()?;
-    graph.into_workspace().ok()
+    graph.into_workspace(&repo).ok()
 }
 
 #[derive(Debug, Clone)]

@@ -29,7 +29,7 @@ fn main_and_origin_main_in_sync() -> anyhow::Result<()> {
     };
     let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
         .validated()?
-        .into_workspace()?;
+        .into_workspace(&repo)?;
 
     // The local integration branch projects to no stacks when in sync with its target.
     snapbox::assert_data_eq!(
@@ -63,7 +63,7 @@ fn empty_feature_branch_at_target_remains_visible() -> anyhow::Result<()> {
     };
     let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
         .validated()?
-        .into_workspace()?;
+        .into_workspace(&repo)?;
 
     // Unlike main, the empty feature branch remains visible above the shared base.
     snapbox::assert_data_eq!(
@@ -100,7 +100,7 @@ fn empty_feature_branch_in_sync_with_own_upstream_remains_visible() -> anyhow::R
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
 
     // The upstream fallback must not cause an empty feature branch to disappear.
     snapbox::assert_data_eq!(
@@ -138,7 +138,7 @@ fn empty_feature_branch_with_own_upstream_and_project_target_remains_visible() -
     };
     let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
         .validated()?
-        .into_workspace()?;
+        .into_workspace(&repo)?;
 
     // Tracking origin/feature does not make feature the local integration branch for origin/main.
     snapbox::assert_data_eq!(
@@ -185,7 +185,7 @@ fn ad_hoc_workspace_uses_project_target_ref() -> anyhow::Result<()> {
 
     let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
         .validated()?
-        .into_workspace()?;
+        .into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace_determinisitcally(&ws).to_string(),
         snapbox::str![[r#"
@@ -232,7 +232,7 @@ fn ad_hoc_workspace_uses_stored_project_target_commit() -> anyhow::Result<()> {
 
     let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
         .validated()?
-        .into_workspace()?;
+        .into_workspace(&repo)?;
     snapbox::assert_data_eq!(
         graph_workspace_determinisitcally(&ws).to_string(),
         snapbox::str![[r#"
@@ -287,7 +287,7 @@ fn returns_target_tip_when_stacks_have_different_bases() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
 
     let tip = ws.target_commit.as_ref().map(|target| target.commit_id);
     let expected_m4 = repo.rev_parse_single(":/M4")?.detach();
@@ -331,7 +331,7 @@ fn returns_target_tip_when_one_stack_is_above_target() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
 
     let tip = ws.target_commit.as_ref().map(|target| target.commit_id);
     let expected_m3 = repo.rev_parse_single(":/M3")?.detach();
@@ -369,7 +369,7 @@ fn prefers_remote_target_tip_over_local_target_without_stored_commit() -> anyhow
     };
     let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
         .validated()?
-        .into_workspace()?;
+        .into_workspace(&repo)?;
 
     let remote_tip = repo.rev_parse_single("refs/remotes/origin/main")?.detach();
     assert_eq!(
@@ -408,7 +408,7 @@ fn prefers_target_commit_over_target_ref() -> anyhow::Result<()> {
 
     let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
         .validated()?
-        .into_workspace()?;
+        .into_workspace(&repo)?;
 
     assert!(ws.target_ref.is_some(), "target_ref should be set");
     assert!(ws.target_commit.is_some(), "target_commit should be set");
@@ -436,7 +436,7 @@ fn returns_none_when_no_target() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
 
     assert!(
         ws.target_commit
@@ -468,7 +468,7 @@ fn stored_target_commit_inside_the_tip_segment_cuts_it() -> anyhow::Result<()> {
     };
     let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
         .validated()?
-        .into_workspace()?;
+        .into_workspace(&repo)?;
 
     // Only the commit above the stored target belongs to the branch, which rests on the target.
     snapbox::assert_data_eq!(

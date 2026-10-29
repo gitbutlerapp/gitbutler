@@ -37,7 +37,7 @@ fn with_selected_cutoff() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
 
     assert!(
         ws.target_commit.is_some(),
@@ -72,7 +72,7 @@ fn returns_none_when_no_target_is_set() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let ws = graph.into_workspace()?;
+    let ws = graph.into_workspace(&repo)?;
 
     assert!(ws.target_commit.is_none(), "should not have target_commit");
 
@@ -99,7 +99,7 @@ fn returns_none_when_commit_not_in_graph() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
 
     let res = ws.merge_base_with_target_commit(repo.object_hash().null());
     assert!(

@@ -111,10 +111,10 @@ impl Graph {
     #[instrument(
         name = "Graph::into_workspace",
         level = "trace",
-        skip(self),
+        skip(self, repo),
         err(Debug)
     )]
-    pub fn into_workspace(self) -> anyhow::Result<Workspace> {
+    pub fn into_workspace(self, repo: &gix::Repository) -> anyhow::Result<Workspace> {
         let WorkspaceState {
             id,
             kind,
@@ -125,7 +125,7 @@ impl Graph {
             target_commit,
             metadata,
             worktrees,
-        } = self.to_workspace_state()?;
+        } = self.to_workspace_state(repo)?;
         Ok(Workspace {
             graph: self,
             id,
@@ -140,7 +140,10 @@ impl Graph {
         })
     }
 
-    pub(crate) fn to_workspace_state(&self) -> anyhow::Result<WorkspaceState> {
+    pub(crate) fn to_workspace_state(
+        &self,
+        _repo: &gix::Repository,
+    ) -> anyhow::Result<WorkspaceState> {
         Ok(self.project(self.frame(self.entrypoint()?.segment.id)?))
     }
 

@@ -36,7 +36,7 @@ fn render(fixture: &str, target: Option<&str>) -> Result<String> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     // The projection bounds stacks at the target commit, so wire it onto the
     // workspace graph that the editor reads from.
@@ -86,7 +86,7 @@ fn local_target_ahead_of_upstream_is_not_integrated() -> Result<()> {
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let commit = editor.select_commit(repo.rev_parse_single("c")?.detach())?;
     let branch = editor.select_reference("refs/heads/c".try_into()?)?;
@@ -128,7 +128,7 @@ fn diverged_target_distinguishes_local_work_from_landed_work() -> Result<()> {
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let local_commit = editor.select_commit(local_tip)?;
     let upstream_commit = editor.select_commit(upstream_tip)?;
@@ -180,7 +180,7 @@ fn upstream_ahead_of_local_target_is_integrated() -> Result<()> {
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let commit = editor.select_commit(repo.rev_parse_single("c")?.detach())?;
     let branch = editor.select_reference("refs/heads/c".try_into()?)?;
@@ -218,7 +218,7 @@ fn upstream_tip_is_integrated_without_its_reference_step() -> Result<()> {
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let upstream = editor.select_reference("refs/remotes/origin/main".try_into()?)?;
     editor.replace_with_none(upstream)?;
@@ -256,7 +256,7 @@ fn local_target_without_upstream_does_not_mark_work_integrated() -> Result<()> {
     );
     let mut ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
         .validated()?
-        .into_workspace()?;
+        .into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let branch = editor.select_reference("refs/heads/c".try_into()?)?;
     let projection = editor.graph_workspace()?;
@@ -300,7 +300,7 @@ fn pushed_feature_is_local_and_remote_without_a_target_upstream() -> Result<()> 
     );
     let mut ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
         .validated()?
-        .into_workspace()?;
+        .into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let commit = editor.select_commit(tip)?;
     let branch = editor.select_reference("refs/heads/c".try_into()?)?;

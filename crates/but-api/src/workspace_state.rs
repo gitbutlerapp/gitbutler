@@ -185,7 +185,7 @@ impl WorkspaceState {
         rebase: &mut SuccessfulRebase<'_, '_, M>,
         prs_by_head: &HashMap<String, but_forge::ReviewAssociation>,
     ) -> anyhow::Result<WorkspaceState> {
-        let workspace = rebase.overlayed_graph()?.into_workspace()?;
+        let workspace = rebase.overlayed_graph()?.into_workspace(rebase.repo())?;
         let replaced_commits = rebase.history.commit_mappings();
         let conflicted_commits = rebase.history.conflicted_commits.clone();
         let (repo, meta, db) = rebase.repo_meta_and_db_mut();

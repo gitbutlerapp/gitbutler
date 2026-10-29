@@ -225,7 +225,7 @@ fn workspace_from_workspace_ref(ctx: &Context) -> Result<but_graph::Workspace> {
         &mut db,
         but_graph::init::Options::limited(),
     )?;
-    graph.into_workspace()
+    graph.into_workspace(&repo)
 }
 
 fn ensure_stack_in_workspace(ctx: &Context, stack_id: StackId) -> Result<()> {
@@ -371,7 +371,7 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         &mut db,
         but_graph::init::Options::limited(),
     )?
-    .into_workspace()?;
+    .into_workspace(repo)?;
     let mut editor = Editor::create(&mut workspace, &mut meta, repo, &mut db)?;
     let (target_selector, _commit) =
         editor.find_selectable_commit(edit_mode_metadata.commit_oid)?;

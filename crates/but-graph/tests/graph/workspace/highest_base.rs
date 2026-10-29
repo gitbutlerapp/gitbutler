@@ -15,7 +15,7 @@ fn child_most_stack_base_wins_over_the_target() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
 
     let m3 = repo.rev_parse_single(":/M3")?.detach();
     let m4 = repo.rev_parse_single(":/M4")?.detach();
@@ -44,7 +44,7 @@ fn target_commit_without_stacks() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
 
     assert!(ws.stacks.is_empty(), "nothing rests on anything yet");
     assert_eq!(
@@ -67,7 +67,7 @@ fn none_without_target() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
 
     assert_eq!(ws.highest_base(), None, "no target means no base to cut at");
     Ok(())

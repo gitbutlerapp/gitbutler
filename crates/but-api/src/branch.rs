@@ -1298,7 +1298,7 @@ pub fn branch_remove_only_with_perm(
             let new_ws = ws
                 .graph
                 .redo_traversal_with_overlay(&repo, &meta, Default::default())?
-                .into_workspace()?;
+                .into_workspace(&repo)?;
             drop(ws);
             drop(repo);
             ctx.update_workspace_cache(new_ws);

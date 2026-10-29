@@ -21,7 +21,7 @@ fn worktree_segments_are_found_alongside_stack_segments() -> anyhow::Result<()> 
         },
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
 
     let foo: gix::refs::FullName = "refs/heads/foo".try_into()?;
     let wsref: gix::refs::FullName = "refs/heads/wsref".try_into()?;

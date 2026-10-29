@@ -42,7 +42,7 @@ fn matches_clean_octopus_merge() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let left_1 = repo.rev_parse_single("left~1")?.detach();
@@ -93,7 +93,7 @@ fn excludes_unselected_parent_changes() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a_commit = repo.rev_parse_single("A")?.detach();
@@ -168,7 +168,7 @@ fn reports_conflicts() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a_commit = repo.rev_parse_single("A")?.detach();
@@ -241,7 +241,7 @@ fn stops_folding_after_first_conflict() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a_commit = repo.rev_parse_single("A")?.detach();
@@ -304,7 +304,7 @@ fn preserves_noncontiguous_selected_changes() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a_commit = repo.rev_parse_single("A")?.detach();
@@ -376,7 +376,7 @@ fn preserves_first_selected_commit_tree_while_applying_later_selected_ranges() -
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let d_commit = repo.rev_parse_single("D")?.detach();
@@ -432,7 +432,7 @@ fn planning_preserves_noncontiguous_selected_changes() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a_commit = repo.rev_parse_single("A")?.detach();
@@ -590,7 +590,7 @@ fn uses_editor_visible_commits_not_only_original_workspace_graph() -> Result<()>
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let head = repo.rev_parse_single("HEAD")?.detach();
@@ -626,7 +626,7 @@ fn planning_prunes_subjects_reachable_from_target_first_parent_lineage() -> Resu
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let d_commit = repo.rev_parse_single("D")?.detach();
@@ -655,7 +655,7 @@ fn planning_prunes_subjects_reachable_from_target_merge_parent_lineage() -> Resu
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge_commit = repo.rev_parse_single("main")?.detach();
@@ -718,7 +718,7 @@ fn planning_uses_pruned_selected_first_parent_tree_as_base_boundary() -> Result<
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let base = repo.rev_parse_single("right~2")?.detach();
@@ -749,7 +749,7 @@ fn planning_works_after_normalizing_chained_editor_mutations() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let head = repo.rev_parse_single("HEAD")?.detach();
@@ -800,7 +800,7 @@ fn simplify_fixture() -> Result<SimplifyFixture> {
         standard_options(),
     )?
     .validated()?;
-    let ws = graph.into_workspace()?;
+    let ws = graph.into_workspace(&repo)?;
 
     let base = repo.rev_parse_single("main~4")?.detach();
     let main_2 = repo.rev_parse_single("main~2")?.detach();

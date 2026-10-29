@@ -731,7 +731,7 @@ impl Context {
                 ..but_graph::init::Options::limited()
             },
         )?;
-        graph.into_workspace()
+        graph.into_workspace(&repo)
     }
 
     /// Project the current workspace without reading from or updating the workspace cache.
@@ -776,7 +776,7 @@ impl Context {
                 ..but_graph::init::Options::limited()
             },
         )?;
-        graph.into_workspace()
+        graph.into_workspace(&repo)
     }
 }
 

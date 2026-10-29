@@ -174,7 +174,7 @@ fn initial_integration_for_branch_with_strategy(
 ) -> Result<InitialBranchIntegration> {
     let mut meta = InMemoryRefMetadata::default();
     let graph = integration_graph_for_branch(ref_name, repo, target_ref_name, &meta)?;
-    let mut workspace = graph.into_workspace()?;
+    let mut workspace = graph.into_workspace(repo)?;
     let mut db = but_testsupport::in_memory_db();
     get_initial_integration_steps_for_branch(
         ref_name,
@@ -268,7 +268,7 @@ fn integration_workspace_for_branch(
 ) -> Result<(but_graph::Workspace, InMemoryRefMetadata)> {
     let meta = InMemoryRefMetadata::default();
     let graph = integration_graph_for_branch(ref_name, repo, target_ref_name, &meta)?;
-    Ok((graph.into_workspace()?, meta))
+    Ok((graph.into_workspace(repo)?, meta))
 }
 
 #[test]
@@ -1005,7 +1005,7 @@ fn integrate_branch_with_steps_empty_errors_early() -> Result<()> {
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let merge_base = repo.rev_parse_single("main")?.detach();
     let integration = InteractiveIntegration {
         merge_base,
@@ -1041,7 +1041,7 @@ fn integrate_branch_with_steps_rejects_duplicate_prepared_commit() -> Result<()>
                 add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             },
         )?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let remote_commit = repo.rev_parse_single("origin/A~1")?.detach();
     let merge_base = repo.rev_parse_single("A~2")?.detach();
     let integration = InteractiveIntegration {
@@ -1088,7 +1088,7 @@ fn integrate_branch_with_steps_classifies_a_stale_first_local_commit() -> Result
                 add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             },
         )?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let local_commit = repo.rev_parse_single("A~1")?.detach();
     let remote_commit = repo.rev_parse_single("origin/A~1")?.detach();
     let merge_base = repo.rev_parse_single("A~2")?.detach();
@@ -1134,7 +1134,7 @@ fn integrate_branch_with_steps_accepts_a_duplicate_merge_base_pick_off_path() ->
                 add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             },
         )?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let local_commit = repo.rev_parse_single("A~1")?.detach();
     let remote_commit = repo.rev_parse_single("origin/A~1")?.detach();
     let merge_base = repo.rev_parse_single("A~2")?.detach();
@@ -1180,7 +1180,7 @@ fn integrate_branch_with_steps_rejects_a_boundary_from_another_branch() -> Resul
                 add_stack_with_segments(meta, 2, "C", StackState::InWorkspace, &["B"]);
             },
         )?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let boundary_on_b = repo.rev_parse_single("B")?.detach();
     let integration = InteractiveIntegration {
         merge_base: repo.rev_parse_single("main")?.detach(),
@@ -1238,7 +1238,7 @@ fn integrate_branch_with_merge_step_does_not_require_preceding_commit() -> Resul
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     let remote_commit_1 = repo.rev_parse_single("origin/A~1")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -1308,7 +1308,7 @@ fn integrate_upstream_commits_into_local() -> Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -1391,7 +1391,7 @@ fn integrate_upstream_commits_into_local_with_merge_step() -> Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -1493,7 +1493,7 @@ fn integrate_upstream_commits_into_local_with_all_locals_then_merge_second_remot
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -1569,7 +1569,7 @@ fn integrate_upstream_commits_into_local_with_two_merges_in_sequence() -> Result
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -1680,7 +1680,7 @@ fn integrate_upstream_commits_into_local_with_remote_on_top() -> Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -1762,7 +1762,7 @@ fn integrate_upstream_commits_into_local_with_remote_interlaced() -> Result<()> 
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -1843,7 +1843,7 @@ fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote() -> R
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
     let remote_commit_2 = repo.rev_parse_single("origin/A")?.detach();
@@ -1918,7 +1918,7 @@ fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote_and_ex
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
     let remote_commit_2 = repo.rev_parse_single("origin/A")?.detach();
@@ -1992,7 +1992,7 @@ fn integrate_upstream_commits_into_local_with_only_remote_commits() -> Result<()
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     let remote_commit_2 = repo.rev_parse_single("origin/A")?.detach();
     let remote_commit_1 = repo.rev_parse_single("origin/A~1")?.detach();
@@ -2060,7 +2060,7 @@ fn integrate_upstream_commits_when_remote_is_ahead_of_local() -> Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     configure_tracking_for_branch_a(&mut repo)?;
     let initial = get_initial_integration_steps_for_branch(
         r("refs/heads/A"),
@@ -2165,7 +2165,7 @@ impl IntegratedBranchA {
             &mut self.db,
             Options::limited(),
         )?
-        .into_workspace()?;
+        .into_workspace(&self.repo)?;
         Ok(get_initial_integration_steps_for_branch(
             r("refs/heads/A"),
             BranchIntegrationStrategy::PullRebase,
@@ -2210,7 +2210,7 @@ fn integrate_branch_a(
         .map(|(spec, label)| Ok((repo.rev_parse_single(*spec)?.detach(), *label)))
         .collect::<Result<Vec<_>>>()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     configure_tracking_for_branch_a(&mut repo)?;
     let initial = get_initial_integration_steps_for_branch(
         r("refs/heads/A"),
@@ -2622,7 +2622,7 @@ fn integrate_upstream_merge_of_another_stack_that_is_behind_locally() -> Result<
         &mut out.db,
         Options::limited(),
     )?
-    .into_workspace()?;
+    .into_workspace(&out.repo)?;
     let initial = get_initial_integration_steps_for_branch(
         r("refs/heads/C"),
         BranchIntegrationStrategy::PullRebase,
@@ -2762,7 +2762,7 @@ fn integrate_remote_advanced_branch_with_parallel_empty_branch() -> Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     configure_tracking_for_branch(&mut repo, "feature-foo")?;
     let initial = get_initial_integration_steps_for_branch(
         r("refs/heads/feature-foo"),
@@ -2836,7 +2836,7 @@ fn initial_pull_rebase_plan_includes_workspace_local_commits_above_branch_ref() 
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     configure_tracking_for_branch_a(&mut repo)?;
     let initial = get_initial_integration_steps_for_branch(
         r("refs/heads/A"),
@@ -2913,7 +2913,7 @@ fn integrate_initial_pull_rebase_plan_for_one_local_and_one_remote_commit() -> R
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     configure_tracking_for_branch_a(&mut repo)?;
     let initial = get_initial_integration_steps_for_branch(
         r("refs/heads/A"),
@@ -2983,7 +2983,7 @@ fn integrate_upstream_commits_into_local_with_squashed_local_commits() -> Result
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -3048,7 +3048,7 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_commits() -> Resul
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -3116,7 +3116,7 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_commits
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -3189,7 +3189,7 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_conflic
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     let local_commit_1 = repo.rev_parse_single("A")?.detach();
     let remote_commit_1 = repo.rev_parse_single("origin/A")?.detach();
@@ -3284,7 +3284,7 @@ fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts(
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     let local_commit_1 = repo.rev_parse_single("A")?.detach();
     let remote_commit_1 = repo.rev_parse_single("origin/A")?.detach();
@@ -3386,7 +3386,7 @@ fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts_
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     let local_commit_1 = repo.rev_parse_single("A")?.detach();
     let remote_commit_1 = repo.rev_parse_single("origin/A")?.detach();
@@ -3414,7 +3414,7 @@ fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts_
         &mut db,
     )?;
     let preview_graph = rebase.overlayed_graph()?;
-    let preview_workspace = preview_graph.into_workspace()?;
+    let preview_workspace = preview_graph.into_workspace(rebase.repo())?;
     let ref_info = but_workspace::graph_to_ref_info(
         &preview_workspace,
         rebase.repo(),
@@ -3443,7 +3443,7 @@ fn integrate_upstream_precomputes_squash_before_later_step_graph_rewiring() -> R
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();

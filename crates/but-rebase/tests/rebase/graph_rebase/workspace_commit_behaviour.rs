@@ -37,7 +37,7 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
     )?
     .validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let id = repo.rev_parse_single("gitbutler/workspace")?;
@@ -122,7 +122,7 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // Remove the "b" commit so "c" and the workspace commit get cherry-picked
@@ -237,7 +237,7 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
     )?
     .validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let id = repo.rev_parse_single("HEAD")?;
@@ -316,7 +316,7 @@ fn workspace_commit_should_not_be_allowed_to_conflict() -> Result<()> {
     )?
     .validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // Dropping c will cause the workspace commit to conflict because the WC
@@ -416,7 +416,7 @@ fn workspace_commit_with_deleted_branch_ref_rebases_successfully() -> Result<()>
     )?
     .validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // The rebase should succeed even though the workspace commit has a

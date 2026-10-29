@@ -37,7 +37,7 @@ fn temporary_change_id_persisted() -> Result<()> {
     .validated()?;
 
     // An operation to cause the parent we care about to be rebased
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let target_selector = target.to_selector(&editor)?;
     editor.replace_with_none(target_parent)?;
@@ -85,7 +85,7 @@ fn empty_commit_uses_content_hash_placeholder_until_materialization() -> Result<
     )?
     .validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let ec = editor.empty_commit()?;

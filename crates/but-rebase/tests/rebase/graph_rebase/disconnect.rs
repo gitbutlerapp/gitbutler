@@ -34,7 +34,7 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
@@ -109,7 +109,7 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
@@ -191,7 +191,7 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("A")?.detach();
@@ -273,7 +273,7 @@ fn disconnect_and_remove_second_parent_of_merge_keeps_parent_order() -> Result<(
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let b_selector = editor
@@ -337,7 +337,7 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
@@ -472,7 +472,7 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
@@ -614,7 +614,7 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
@@ -758,7 +758,7 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
@@ -841,7 +841,7 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
@@ -924,7 +924,7 @@ fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();

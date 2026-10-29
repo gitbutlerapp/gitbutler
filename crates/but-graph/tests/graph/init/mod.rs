@@ -85,7 +85,7 @@ Graph {
         "there is no commit it could return"
     );
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓!
 └── ≡:main[🌳] {1}
@@ -253,7 +253,7 @@ Graph {
     );
 
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:DETACHED <> ✓!
 └── ≡:anon: {1}
@@ -343,7 +343,7 @@ fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
     assert!(!condition.contains(StopCondition::Limit));
     assert!(!condition.contains(StopCondition::FirstCommit));
 
-    let ws = graph.into_workspace()?;
+    let ws = graph.into_workspace(&repo)?;
     assert!(
         ws.lower_bound.is_none(),
         "the shallow boundary prevents reaching a common base with the older upstream"
@@ -418,7 +418,7 @@ fn merge_first_parent_older_non_workspace_maintains_graph_order() -> anyhow::Res
 
     // we see only first-parent with two commits, not the 'second-parent' ref because it *seems* to be traversed first
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:first-parent[🌳] <> ✓!
 └── ≡:first-parent[🌳] {1}
@@ -471,7 +471,7 @@ fn main_advanced_remote_advanced() -> anyhow::Result<()> {
     );
 
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main⇣1 on ce09734
 └── ≡:main[🌳] <> origin/main⇡1⇣1 on ce09734 {1}
@@ -525,7 +525,7 @@ fn only_remote_advanced() -> anyhow::Result<()> {
     // Without a project target, main's lane remains visible.
     // TODO: The lane's remote listing still omits RM1 in the origin/split-segment segment.
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
 └── ≡:main[🌳] <> origin/main⇣1 on 971953d {1}
@@ -581,7 +581,7 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
     //       isn't related to our stack and count its commits to `origin/main`.
     //       Right now we are missing dd9f8d9.
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
 └── ≡:main[🌳] <> origin/main⇣1 on 971953d {1}
@@ -652,7 +652,7 @@ fn multi_root() -> anyhow::Result<()> {
         "there are 4 orphaned bases"
     );
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓!
 └── ≡:main[🌳] {1}
@@ -737,7 +737,7 @@ fn four_diamond() -> anyhow::Result<()> {
     );
 
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:merged[🌳] <> ✓!
 └── ≡:merged[🌳] {1}
@@ -1165,7 +1165,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
 
     // Shared main becomes the base; both stacked branches retain their local and remote commits.
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:B[🌳] <> ✓refs/remotes/origin/B⇣2 on fafd9d0
 └── ≡:B[🌳] <> origin/B⇡1⇣1 on fafd9d0 {1}
@@ -1210,7 +1210,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
         "graph should record that traversal stopped queueing after hitting the hard limit"
     );
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:B[🌳] <> ✓refs/remotes/origin/B⇣3
 └── ≡:B[🌳] <> origin/B⇡1⇣1 {1}
@@ -1275,7 +1275,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
 "#]]
     );
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:A <> ✓refs/remotes/origin/A⇣1 on fafd9d0
 └── ≡:A <> origin/A⇡1⇣1 on fafd9d0 {1}
@@ -1355,7 +1355,7 @@ fn with_limits() -> anyhow::Result<()> {
     );
     // No limits list the first parent everywhere.
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:C[🌳] <> ✓!
 └── ≡:C[🌳] {1}
@@ -1393,7 +1393,7 @@ fn with_limits() -> anyhow::Result<()> {
     );
     // The cut by limit is also represented here.
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:C[🌳] <> ✓!
 └── ≡:C[🌳] {1}
@@ -1426,7 +1426,7 @@ fn with_limits() -> anyhow::Result<()> {
 "#]]
     );
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:C[🌳] <> ✓!
 └── ≡:C[🌳] {1}
@@ -1491,7 +1491,7 @@ fn with_limits() -> anyhow::Result<()> {
 "#]]
     );
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:C[🌳] <> ✓!
 └── ≡:C[🌳] {1}
@@ -1533,7 +1533,7 @@ fn with_limits() -> anyhow::Result<()> {
 "#]]
     );
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:C[🌳] <> ✓!
 └── ≡:C[🌳] {1}
@@ -1634,7 +1634,7 @@ Statistics {
     );
 
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:C[🌳] <> ✓!
 └── ≡:C[🌳] {1}
@@ -1687,7 +1687,7 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
 
     // But special handling for workspace views.
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓!
 └── ≡:main[🌳] {1}
@@ -1733,7 +1733,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     );
 
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳@repo] <> ✓!
 └── ≡:main[🌳@repo] {1}
@@ -1774,7 +1774,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
 
     // workspace debug output should preserve that the linked worktree, not the main worktree, is owned by the repository used to build the graph
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:wt-inside-ambiguous-worktree[📁@repo] <> ✓!
 └── ≡:wt-inside-ambiguous-worktree[📁@repo] {1}
@@ -1927,7 +1927,7 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
         name: b"worktree-ahead-detached".to_vec(),
         archived: false,
     })?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     ws.refresh_from_head(
         &repo,
         &*meta,
@@ -2105,7 +2105,7 @@ fn ad_hoc_same_tip_order_creates_empty_branch_segments() -> anyhow::Result<()> {
         "a checked-out empty ordered branch still points at the bottom commit"
     );
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:top <> ✓!
 └── ≡:top {1}
@@ -2144,7 +2144,7 @@ fn ad_hoc_order_projects_from_entrypoint_when_top_is_above_it() -> anyhow::Resul
 "#]]
     );
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:bottom <> ✓!
 └── ≡:bottom {1}
@@ -2187,7 +2187,7 @@ fn ad_hoc_three_branch_order_preserves_middle_empty_segment() -> anyhow::Result<
 "#]]
     );
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:top <> ✓!
 └── ≡:top {1}
@@ -2227,7 +2227,7 @@ fn ad_hoc_order_ignores_missing_metadata_refs_without_phantoms() -> anyhow::Resu
 "#]]
     );
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:top <> ✓!
 └── ≡:top {1}
@@ -2270,7 +2270,7 @@ fn ad_hoc_order_does_not_force_diverged_refs_into_empty_stack() -> anyhow::Resul
 "#]]
     );
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:top <> ✓!
 └── ≡:top {1}
@@ -2311,7 +2311,7 @@ fn ad_hoc_order_preserves_empty_top_above_commit_owning_branch() -> anyhow::Resu
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:empty-top <> ✓!
 └── ≡:empty-top {1}
@@ -2361,7 +2361,7 @@ fn ad_hoc_order_keeps_lower_empty_branches_after_non_empty_move() -> anyhow::Res
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:commit-branch <> ✓!
 └── ≡:commit-branch {1}
@@ -2421,7 +2421,7 @@ fn ad_hoc_order_scopes_empty_segments_to_active_chain() -> anyhow::Result<()> {
 "#]]
     );
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:top <> ✓!
 └── ≡:top {1}
@@ -2465,7 +2465,7 @@ fn ad_hoc_order_keeps_bottom_branch_sitting_on_target() -> anyhow::Result<()> {
     // All ordered branches sit on the target commit: the walk is empty, and
     // the bottom branch owning the target commit's segment is still a segment.
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:top <> ✓refs/heads/main on 960152d
 └── ≡:top on 960152d {1}
@@ -2508,7 +2508,7 @@ fn ad_hoc_order_hides_target_branch_at_base() -> anyhow::Result<()> {
     );
     // `top` was created on `main`, the target's local branch: that is the base, not a segment.
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:top <> ✓refs/heads/main on 960152d
 └── ≡:top on 960152d {1}
@@ -2558,7 +2558,7 @@ fn ad_hoc_order_hides_target_branch_at_base_with_upstream() -> anyhow::Result<()
     );
     // Tracking does not turn the local target into a feature segment.
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&graph.into_workspace(&repo)?).to_string(),
         snapbox::str![[r#"
 ⌂:top <> ✓refs/heads/main on 960152d
 └── ≡:top on 960152d {1}
@@ -2612,7 +2612,7 @@ fn ad_hoc_branch_at_target_tip() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
 
     assert_eq!(
         ws.target_ref_name().map(ToString::to_string),

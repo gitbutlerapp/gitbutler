@@ -39,7 +39,7 @@ fn branch_stacks(
         ..standard_options()
     };
     let graph = Graph::from_head(repo, &*meta, project_meta, db, options)?.validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(repo)?;
     let rebase = Editor::create(&mut ws, meta, repo, db)?.rebase()?;
     let stacks = rebase.branch_stacks()?;
     let workspace = match &stacks.workspace {
@@ -177,7 +177,7 @@ fn an_empty_stack_on_the_target_stays_on_its_lane() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let rebase = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?.rebase()?;
     let stacks = rebase.branch_stacks()?;
 
@@ -320,7 +320,7 @@ fn local_target_workspace(
 ) -> Result<but_graph::Workspace> {
     Graph::from_head(repo, meta, project_meta, db, standard_options())?
         .validated()?
-        .into_workspace()
+        .into_workspace(repo)
 }
 
 #[test]
@@ -644,7 +644,7 @@ fn materializing_rebuilds_the_workspace_stacks() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
 
     let outcome = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?
         .rebase()?
@@ -700,7 +700,7 @@ fn materializing_persists_an_order_that_moves_no_reference() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
 
     let x = editor.select_reference("refs/heads/X".try_into()?)?;

@@ -18,7 +18,7 @@ fn missing_configured_upstream_does_not_select_local_tip() -> anyhow::Result<()>
     let mut repo = but_testsupport::read_only_in_memory_scenario_named("cutoff-selection", "")?;
     repo.config_snapshot_mut()
         .set_raw_value("branch.main.merge", "refs/heads/missing")?;
-    let ws = graph(&repo)?.into_workspace()?;
+    let ws = graph(&repo)?.into_workspace(&repo)?;
     assert!(
         ws.target_commit.is_none(),
         "an unavailable upstream must not become the local tip"
@@ -37,7 +37,7 @@ fn upstream_selection_does_not_require_a_segment_tracking_link() -> anyhow::Resu
         .expect("local target segment")
         .id;
     graph[local].remote_tracking_branch_segment_id = None;
-    let ws = graph.into_workspace()?;
+    let ws = graph.into_workspace(&repo)?;
     assert_eq!(
         ws.target_commit.map(|target| target.commit_id),
         Some(upstream),
@@ -63,7 +63,7 @@ fn upstream_selection_does_not_require_a_named_local_segment() -> anyhow::Result
         .expect("local target owns commits")
         .refs
         .push(local_ref);
-    let ws = graph.into_workspace()?;
+    let ws = graph.into_workspace(&repo)?;
     assert_eq!(
         ws.target_commit.map(|target| target.commit_id),
         Some(upstream),
@@ -78,7 +78,7 @@ fn no_configured_upstream_selects_local_tip() -> anyhow::Result<()> {
     repo.config_snapshot_mut()
         .set_raw_value("branch.main.remote", "missing")?;
     let local = repo.rev_parse_single("main")?.detach();
-    let ws = graph(&repo)?.into_workspace()?;
+    let ws = graph(&repo)?.into_workspace(&repo)?;
     assert_eq!(
         ws.target_commit.map(|target| target.commit_id),
         Some(local),

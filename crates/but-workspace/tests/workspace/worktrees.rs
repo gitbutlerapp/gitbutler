@@ -53,7 +53,7 @@ fn workspace_with_worktree_tips(
         },
     )?
     .validated()?;
-    graph.into_workspace()
+    graph.into_workspace(repo)
 }
 
 #[test]
@@ -403,7 +403,7 @@ fn worktrees_are_empty_without_seeded_tips() -> Result<()> {
         but_graph::init::Options::limited(),
     )?;
     let info =
-        but_workspace::graph_to_ref_info(&graph.into_workspace()?, &repo, Default::default())?;
+        but_workspace::graph_to_ref_info(&graph.into_workspace(&repo)?, &repo, Default::default())?;
     assert!(
         info.worktrees.is_empty(),
         "worktrees are only projected when the traversal was seeded with their tips"

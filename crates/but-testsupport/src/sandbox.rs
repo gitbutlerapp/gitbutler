@@ -282,15 +282,15 @@ impl Sandbox {
 
     /// Return a worktree visualisation, freshly read from [Self::graph_at_head()].
     pub fn workspace_debug_at_head(&self) -> String {
-        let (graph, _repo, _meta) = self.graph_at_head();
-        graph_workspace_determinisitcally(&graph.into_workspace().unwrap()).to_string()
+        let (graph, repo, _meta) = self.graph_at_head();
+        graph_workspace_determinisitcally(&graph.into_workspace(&repo).unwrap()).to_string()
     }
 
     /// Open the graph at `HEAD` as SVG for debugging.
     #[cfg(unix)]
     pub fn open_graph_at_head_as_svg(&self) {
-        let (graph, _repo, _meta) = self.graph_at_head();
-        graph.open_as_svg();
+        let (graph, repo, _meta) = self.graph_at_head();
+        graph.open_as_svg(&repo);
     }
 
     /// Show a git log for all refs.

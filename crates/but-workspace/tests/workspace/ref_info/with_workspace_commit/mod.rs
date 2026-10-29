@@ -2502,7 +2502,7 @@ fn target_current_follows_the_recording_not_workspace_content() -> anyhow::Resul
         &mut db,
         opts.traversal.clone(),
     )?;
-    let workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace(&repo)?;
     assert!(
         workspace.incoming_target_commit_ids(&repo)?.is_empty(),
         "every upstream commit is already contained in a workspace stack"

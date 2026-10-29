@@ -11,7 +11,7 @@ fn switch_to_workspace(
 ) -> anyhow::Result<but_graph::Workspace> {
     let graph =
         but_graph::Graph::from_head(repo, &*meta, project_meta(repo)?, db, Options::limited())?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(repo)?;
     let editor = but_rebase::graph_rebase::Editor::create(&mut ws, meta, repo, db)?;
     but_workspace::editor_workspace::switch_to_workspace(editor)?
         .0
@@ -89,7 +89,7 @@ fn switch_from_removed_head_reference() -> anyhow::Result<()> {
         &mut db,
         Options::limited(),
     )?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let head = editor.head().expect("HEAD is on A");
     editor.replace_with_none(head)?;

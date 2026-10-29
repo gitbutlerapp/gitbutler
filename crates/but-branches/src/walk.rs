@@ -28,6 +28,7 @@ pub(crate) fn build_workspace(
     db: &mut but_db::DbHandle,
     traversal: but_graph::init::Options,
 ) -> anyhow::Result<(Workspace, bool)> {
+    let repo = head.repo;
     let graph = Graph::from_commit_traversal_with_extra_tips(
         head,
         head_ref,
@@ -40,7 +41,7 @@ pub(crate) fn build_workspace(
         traversal,
     )?;
     let incomplete = graph.hard_limit_hit();
-    Ok((graph.into_workspace()?, incomplete))
+    Ok((graph.into_workspace(repo)?, incomplete))
 }
 
 /// The configured local target's tip and owning segment, without upstream or cutoff fallback.

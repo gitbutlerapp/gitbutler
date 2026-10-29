@@ -20,7 +20,7 @@ fn adding_a_step_returns_a_selector_that_can_be_connected_into_the_graph() -> Re
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let c = repo.rev_parse_single("HEAD")?.detach();
@@ -70,7 +70,7 @@ fn adding_an_existing_edge_causes_an_error() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
@@ -102,7 +102,7 @@ fn adding_an_edge_that_introduces_a_cycle_causes_an_error() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let c = repo.rev_parse_single("HEAD")?.detach();
@@ -131,7 +131,7 @@ fn adding_a_valid_edge_is_successful() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("A")?.detach();
@@ -176,7 +176,7 @@ fn remove_edge_returns_no_orders_when_no_edges_found() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let c = repo.rev_parse_single("HEAD")?.detach();
@@ -201,7 +201,7 @@ fn removing_an_existing_edge_returns_its_order_and_allows_readding_it() -> Resul
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
@@ -238,7 +238,7 @@ fn inserting_a_parent_shifts_the_later_parents() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = editor.select_commit(repo.rev_parse_single("HEAD~")?.detach())?;

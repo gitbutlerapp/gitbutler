@@ -90,7 +90,7 @@ mod changes_in_branch {
         };
         let ws =
             but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
+                .into_workspace(&repo)?;
         let branch = r("refs/heads/inactive");
         assert!(
             ws.find_segment_by_refname(branch).is_none(),
@@ -138,7 +138,7 @@ mod changes_in_branch {
             &mut db,
             Options::limited(),
         )?;
-        let ws = graph.into_workspace()?;
+        let ws = graph.into_workspace(&repo)?;
 
         snapbox::assert_data_eq!(
             ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/A"))?.to_debug(),
@@ -472,7 +472,7 @@ TreeChanges {
                 ..Options::limited()
             },
         )?;
-        let ws = graph.into_workspace()?;
+        let ws = graph.into_workspace(&repo)?;
 
         // Only the worktree's own commit is diffed, not stack `A` beneath it.
         snapbox::assert_data_eq!(

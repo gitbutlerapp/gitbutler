@@ -45,7 +45,7 @@ impl Workspace {
         db: &mut but_db::DbHandle,
     ) -> anyhow::Result<()> {
         let graph = Graph::from_head(repo, meta, project_meta, db, self.graph.options.clone())?;
-        *self = graph.into_workspace()?;
+        *self = graph.into_workspace(repo)?;
         Ok(())
     }
 }

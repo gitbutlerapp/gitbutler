@@ -41,7 +41,7 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
                 ..but_graph::init::Options::limited()
             },
         )?
-        .into_workspace()?
+        .into_workspace(&repo)?
     };
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
     let db = gerrit_mode_enabled
@@ -83,7 +83,7 @@ pub fn show_graph_svg(ctx: &Context) -> Result<()> {
     let meta = ctx.meta()?;
     let mut db = ctx.db.get_cache_mut()?;
     let graph = but_graph::Graph::from_head(&repo, &meta, ctx.project_meta()?, &mut db, options)?;
-    graph.open_as_svg();
+    graph.open_as_svg(&repo);
     Ok(())
 }
 
@@ -450,7 +450,7 @@ pub fn workspace_branch_and_ancestors_push_only(
             ..but_graph::init::Options::limited()
         },
     )?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
     let gerrit_mode = if gerrit_mode_enabled {
         but_workspace::ref_info::GerritMode::Enabled(db.gerrit_metadata())

@@ -190,7 +190,7 @@ fn target_state(
         &mut db,
         but_graph::init::Options::limited(),
     )?
-    .into_workspace()?;
+    .into_workspace(repo)?;
     let info = but_workspace::graph_to_ref_info(&workspace, repo, Default::default())?;
     assert_eq!(
         workspace.graph.project_meta.target_commit_id, cutoff,
@@ -236,7 +236,7 @@ fn integration_applies_a_local_target_without_an_upstream() -> Result<()> {
         &mut db,
         but_graph::init::Options::limited(),
     )?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
     let outcome = but_workspace::integrate_upstream_with_hints(
         &mut workspace,
         &mut meta,
@@ -290,7 +290,7 @@ fn integration_applies_upstream_when_local_target_lags() -> Result<()> {
         &mut db,
         but_graph::init::Options::limited(),
     )?
-    .into_workspace()?;
+    .into_workspace(&repo)?;
     assert_eq!(
         workspace
             .target_ref

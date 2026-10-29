@@ -496,7 +496,7 @@ pub fn head_info_and_workspace(
         db,
         opts.traversal.clone(),
     )?;
-    let ws = graph.into_workspace()?;
+    let ws = graph.into_workspace(repo)?;
     Ok((graph_to_ref_info(&ws, repo, opts)?, ws))
 }
 
@@ -525,7 +525,7 @@ pub fn ref_info(
         db,
         opts.traversal.clone(),
     )?;
-    graph_to_ref_info(&graph.into_workspace()?, repo, opts)
+    graph_to_ref_info(&graph.into_workspace(repo)?, repo, opts)
 }
 
 pub(crate) fn find_ancestor_workspace_commit(

@@ -125,7 +125,7 @@ pub fn remove_reference(
     let mut graph = workspace
         .graph
         .redo_traversal_with_overlay(repo, meta, Default::default())?;
-    let ws = graph.into_workspace()?;
+    let ws = graph.into_workspace(repo)?;
     if avoid_anonymous_stacks {
         let Some(stack) = ws.stacks.iter().find(|s| s.id == stack_id) else {
             // The whole stack is gone, so nothing that could be anonymous.
@@ -158,7 +158,7 @@ pub fn remove_reference(
             graph = ws
                 .graph
                 .redo_traversal_with_overlay(repo, meta, Default::default())?;
-            Ok(Some(graph.into_workspace()?))
+            Ok(Some(graph.into_workspace(repo)?))
         } else {
             Ok(Some(ws))
         }

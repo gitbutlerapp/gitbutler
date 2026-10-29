@@ -53,7 +53,7 @@ fn detailed(
     // The fixture is shared and read-only, so the database stands alone.
     let mut db = but_testsupport::in_memory_db();
     let graph = Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo, &mut db)?;
     Ok((repo, detailed))
 }
@@ -79,7 +79,7 @@ fn detailed_writable(
         push_remote: None,
     };
     let graph = Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo, &mut db)?;
     Ok((tmp, detailed))
 }
@@ -1131,7 +1131,7 @@ fn commit_state_uses_similarity_for_local_and_remote() -> Result<()> {
         &mut db,
         Options::limited(),
     )?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let detailed = detailed_graph_workspace(&mut ws, &mut *meta, &repo, &mut db)?;
     snapbox::assert_data_eq!(
         render_commit_state(&detailed),

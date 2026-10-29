@@ -115,7 +115,7 @@ fn conflict_preview_uses_rebase_repo_for_preview_objects() -> Result<()> {
     )?
     .rebase;
 
-    let preview_workspace = rebase.overlayed_graph()?.into_workspace()?;
+    let preview_workspace = rebase.overlayed_graph()?.into_workspace(rebase.repo())?;
     let preview_head = preview_workspace
         .graph
         .entrypoint()?
@@ -315,7 +315,7 @@ fn workspace_for_stack(
     db: &mut but_db::DbHandle,
 ) -> Result<but_graph::Workspace> {
     let ws = but_graph::Graph::from_head(repo, meta, project_meta(repo)?, db, Options::limited())?
-        .into_workspace()?;
+        .into_workspace(repo)?;
     Ok(ws)
 }
 

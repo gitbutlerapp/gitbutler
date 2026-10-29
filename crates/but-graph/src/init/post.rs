@@ -715,7 +715,7 @@ impl Graph {
         repo: &OverlayRepo<'_>,
         worktree_by_branch: &WorktreeByBranch,
     ) -> anyhow::Result<()> {
-        let workspace = self.to_workspace_state()?;
+        let workspace = self.to_workspace_state(repo.for_attach_only())?;
         let Some(ws_data) = workspace.metadata else {
             return Ok(());
         };

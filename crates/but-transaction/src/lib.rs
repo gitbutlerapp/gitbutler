@@ -1041,7 +1041,7 @@ fn workspace_state_from_rebase<M: RefMetadata>(
         let conflicted_commits = rebase.history.conflicted_commits.clone();
         let workspace = rebase
             .overlayed_graph_with_workspace_overrides(Some((target, branch)), None)?
-            .into_workspace()?;
+            .into_workspace(rebase.repo())?;
         let mut rebase = rebase;
         let (repo, meta, db) = rebase.repo_meta_and_db_mut();
         return WorkspaceState::from_workspace_with_db(

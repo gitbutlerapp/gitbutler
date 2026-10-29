@@ -295,7 +295,7 @@ pub(crate) mod function {
             let workspace = ws
                 .graph
                 .redo_traversal_with_overlay(repo, meta, overlay)?
-                .into_workspace()?;
+                .into_workspace(repo)?;
             return Ok(Outcome {
                 workspace: Cow::Owned(workspace),
                 checked_out: Some(destination.ref_name),
@@ -343,7 +343,7 @@ pub(crate) mod function {
             let graph = ws
                 .graph
                 .redo_traversal_with_overlay(repo, meta, Overlay::default())?;
-            let workspace = graph.into_workspace()?;
+            let workspace = graph.into_workspace(repo)?;
             if workspace.refname_is_segment(branch) {
                 bail!(
                     "Cannot unapply branch '{branch}' from an ad-hoc workspace because non-tip branches can only disappear if their now removed metadata disambiguated them",
@@ -368,7 +368,7 @@ pub(crate) mod function {
                         ws_md.clone(),
                     ))),
             )?
-            .into_workspace()?;
+            .into_workspace(repo)?;
         // Normal unapply first:
         // - re-merge or collapse the workspace commit
         // - point workspace to it
@@ -389,7 +389,7 @@ pub(crate) mod function {
         let ws = ws
             .graph
             .redo_traversal_with_overlay(repo, meta, overlay)?
-            .into_workspace()?;
+            .into_workspace(repo)?;
         if ws_md.stacks.iter().any(|stack| {
             stack.workspacecommit_relation.is_in_workspace()
                 && stack
@@ -547,7 +547,7 @@ pub(crate) mod function {
         let ws = ws
             .graph
             .redo_traversal_with_overlay(repo, meta, overlay)?
-            .into_workspace()?;
+            .into_workspace(repo)?;
         Ok(Outcome {
             workspace: Cow::Owned(ws),
             checked_out: Some(ref_to_checkout.ref_name),
@@ -811,7 +811,7 @@ pub(crate) mod function {
         let ws = ws
             .graph
             .redo_traversal_with_overlay(repo, meta, overlay)?
-            .into_workspace()?;
+            .into_workspace(repo)?;
         Ok(Some((ws, ref_to_switch_to.ref_name)))
     }
 

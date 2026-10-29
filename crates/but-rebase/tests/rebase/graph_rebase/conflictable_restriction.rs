@@ -35,7 +35,7 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
     )?
     .validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // Replacing b with none will cause c to conflict
@@ -166,7 +166,7 @@ fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_err
     )?
     .validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // Replacing b with none will cause c to conflict
@@ -221,7 +221,7 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
     )?
     .validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // Insert an empty commit above b to cause c to get cherry picked with out a conflict
@@ -357,5 +357,5 @@ fn workspace(
         standard_options(),
     )?
     .validated()?
-    .into_workspace()
+    .into_workspace(repo)
 }

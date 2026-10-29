@@ -23,7 +23,7 @@ fn name_segment(
         ..Options::limited()
     };
     let graph = but_graph::Graph::from_head(repo, &*meta, project_meta(repo)?, db, options)?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(repo)?;
     let editor = Editor::create(&mut ws, meta, repo, db)?;
     let top = repo.rev_parse_single(top)?.detach();
     but_workspace::branch::name_segment(editor, &checkout, top, r(ref_name))?

@@ -282,12 +282,12 @@ impl Graph {
     /// Validate the graph for consistency and fail loudly when an issue was found, after printing the dot graph.
     /// Mostly useful for debugging to stop early when a connection wasn't created correctly.
     #[cfg(unix)]
-    pub fn validated_or_open_as_svg(self) -> anyhow::Result<Self> {
+    pub fn validated_or_open_as_svg(self, repo: &gix::Repository) -> anyhow::Result<Self> {
         use petgraph::visit::IntoEdgeReferences;
         for edge in self.inner.edge_references() {
             let res = Self::check_edge(&self.inner, edge, false);
             if res.is_err() {
-                self.open_as_svg();
+                self.open_as_svg(repo);
             }
             res?;
         }
@@ -302,15 +302,15 @@ impl Graph {
     ///
     /// Note that this may reveal additional debug information when invariants of the graph are violated.
     /// This often is more useful than seeing a hard error, which can be achieved with `Self::validated()`
-    pub fn eprint_dot_graph(&self) {
-        let dot = self.dot_graph_pruned();
+    pub fn eprint_dot_graph(&self, repo: &gix::Repository) {
+        let dot = self.dot_graph_pruned(repo);
         eprintln!("{dot}");
     }
 
     /// Open an SVG dot visualization in the browser or panic if the `dot` or `open` tool can't be found.
     #[cfg(unix)]
-    #[tracing::instrument(skip(self))]
-    pub fn open_as_svg(&self) {
+    #[tracing::instrument(skip(self, repo))]
+    pub fn open_as_svg(&self, repo: &gix::Repository) {
         use std::{io::Write, process::Stdio, sync::atomic::AtomicUsize};
 
         static SUFFIX: AtomicUsize = AtomicUsize::new(0);
@@ -331,7 +331,7 @@ impl Graph {
         dot.stdin
             .as_mut()
             .unwrap()
-            .write_all(self.dot_graph_pruned().as_bytes())
+            .write_all(self.dot_graph_pruned(repo).as_bytes())
             .ok();
         let mut out = dot.wait_with_output().unwrap();
         out.stdout.extend(out.stderr);
@@ -392,9 +392,9 @@ impl Graph {
     /// `InWorkspace` flags below that bound, but projection is allowed to fail:
     /// DOT output is diagnostic-only, so a workspace projection error must not
     /// prevent rendering the graph.
-    pub fn dot_graph_pruned(&self) -> String {
+    pub fn dot_graph_pruned(&self, repo: &gix::Repository) -> String {
         let mut display_graph = self.clone();
-        display_graph.prune_for_dot_graph();
+        display_graph.prune_for_dot_graph(repo);
         display_graph.dot_graph_unpruned()
     }
 
@@ -494,9 +494,9 @@ impl Graph {
     }
 
     // WARNING: should only be run on a fresh clone as it probably leaves the graph unusable.
-    fn prune_for_dot_graph(&mut self) {
+    fn prune_for_dot_graph(&mut self, repo: &gix::Repository) {
         let lower_bound_segment_id = self
-            .to_workspace_state()
+            .to_workspace_state(repo)
             .ok()
             .and_then(|state| state.lower_bound_segment_id);
         if let Some(lower_bound_segment_id) = lower_bound_segment_id {

@@ -524,7 +524,7 @@ pub fn apply(
                 meta,
                 Overlay::default().with_entrypoint(commit_to_checkout, ws_ref_name.clone()),
             )?
-            .into_workspace()?;
+            .into_workspace(repo)?;
         set_head_to_reference(
             repo,
             commit_to_checkout,
@@ -702,7 +702,7 @@ pub fn apply(
     let ws = ws
         .graph
         .redo_traversal_with_overlay(repo, meta, overlay.clone())?
-        .into_workspace()?;
+        .into_workspace(repo)?;
 
     let all_applied_branches_are_already_visible = branches_to_apply
         .iter()
@@ -766,7 +766,7 @@ pub fn apply(
             (!head_on_workspace_ref).then_some(workspace_ref_name_to_update.as_ref()),
         )?;
         return Ok(Outcome {
-            workspace: graph.into_workspace()?,
+            workspace: graph.into_workspace(repo)?,
             status: OutcomeStatus::Applied,
             conflicting_stacks: Vec::new(),
             applied_branches,
@@ -826,7 +826,7 @@ pub fn apply(
         .graph
         .redo_traversal_with_overlay(&in_memory_repo, meta, overlay.clone())?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&in_memory_repo)?;
     let collect_unapplied_branches = |ws: &but_graph::Workspace| {
         branches_to_apply
             .iter()
@@ -938,7 +938,7 @@ pub fn apply(
                     .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
                     .with_workspace_metadata_override(ws_md_override),
             )?
-            .into_workspace()?;
+            .into_workspace(&in_memory_repo)?;
         let unapplied_branches = collect_unapplied_branches(&ws);
 
         if !unapplied_branches.is_empty() {

@@ -233,7 +233,7 @@ pub fn commit_uncommit_only_with_perm(
         let conflicted_commits = rebase.history.conflicted_commits.clone();
         let (repo, meta, db) = rebase.repo_meta_and_db_mut();
         (
-            &mut graph.into_workspace()?,
+            &mut graph.into_workspace(repo)?,
             replaced_commits,
             conflicted_commits,
             repo,
@@ -334,7 +334,7 @@ pub fn commit_uncommit_changes_only_with_perm(
         let conflicted_commits = outcome.rebase.history.conflicted_commits.clone();
         let (repo, meta, db) = outcome.rebase.repo_meta_and_db_mut();
         (
-            &mut graph.into_workspace()?,
+            &mut graph.into_workspace(repo)?,
             replaced_commits,
             conflicted_commits,
             repo,
@@ -509,7 +509,7 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
             let conflicted_commits = rebase.history.conflicted_commits.clone();
             let (repo, meta, db) = rebase.repo_meta_and_db_mut();
             (
-                &mut graph.into_workspace()?,
+                &mut graph.into_workspace(repo)?,
                 replaced_commits,
                 conflicted_commits,
                 repo,

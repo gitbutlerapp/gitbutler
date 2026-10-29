@@ -55,7 +55,7 @@ fn workspace(
     meta: &VirtualBranchesTomlMetadata,
     db: &mut but_db::DbHandle,
 ) -> anyhow::Result<but_graph::Workspace> {
-    graph(repo, meta, db)?.into_workspace()
+    graph(repo, meta, db)?.into_workspace(repo)
 }
 
 fn apply_stack(

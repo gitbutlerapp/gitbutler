@@ -34,7 +34,7 @@ fn four_commits() -> Result<()> {
     )?
     .validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -79,7 +79,7 @@ fn merge_in_the_middle() -> Result<()> {
     )?
     .validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -135,7 +135,7 @@ fn three_branches_merged() -> Result<()> {
     )?
     .validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -200,7 +200,7 @@ fn many_references() -> Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -271,7 +271,7 @@ fn first_parent_leg_long() -> Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -348,7 +348,7 @@ fn second_parent_leg_long() -> Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -431,7 +431,7 @@ fn workspace_with_empty_stack() -> Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -507,7 +507,7 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -573,7 +573,7 @@ fn commit_with_two_parents() -> Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -605,7 +605,7 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
             standard_options(),
         )?
         .validated()?;
-        let mut ws = graph.into_workspace()?;
+        let mut ws = graph.into_workspace(&repo)?;
         let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
         snapbox::assert_data_eq!(
@@ -639,7 +639,7 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
             standard_options(),
         )?
         .validated()?;
-        let mut ws = graph.into_workspace()?;
+        let mut ws = graph.into_workspace(&repo)?;
         let editor = Editor::create_with_opts(
             &mut ws,
             &mut *meta,
@@ -731,7 +731,7 @@ fn merge_first_parent_older_than_second() -> Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -824,7 +824,7 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let opts = GraphEditorOptions {
         extra_mutable_refs: vec!["refs/heads/explicit-mut".try_into()?],
         ..Default::default()
@@ -882,7 +882,7 @@ fn a_padding_commit_is_left_out() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // main sits directly on the conflicted c, as the padding commit has no step.
@@ -930,7 +930,7 @@ fn a_commit_on_a_padding_commit_is_rebased_onto_the_conflicted_commit() -> Resul
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // d sits directly on the conflicted c, as the padding commit has no step.
@@ -1000,7 +1000,7 @@ fn detached_checkouts_on_a_padding_commit_check_out_the_conflicted_commit() -> R
         },
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(&repo)?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // The padding commit both checkouts sit on has no step of its own.
@@ -1038,7 +1038,7 @@ fn pad_conflicted_main(
 ) -> Result<(gix::ObjectId, gix::ObjectId)> {
     let graph =
         Graph::from_head(repo, &*meta, Default::default(), db, standard_options())?.validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace(repo)?;
     let mut editor = Editor::create(&mut ws, meta, repo, db)?;
     let b = editor.select_commit(repo.rev_parse_single("b")?.detach())?;
     editor.replace_with_none(b)?;

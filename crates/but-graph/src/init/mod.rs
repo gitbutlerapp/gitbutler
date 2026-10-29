@@ -1281,7 +1281,7 @@ impl Graph {
     ) -> anyhow::Result<crate::Workspace> {
         let new = self.redo_traversal_with_overlay(repo, meta, Default::default())?;
         self = new;
-        self.into_workspace()
+        self.into_workspace(repo)
     }
 }
 

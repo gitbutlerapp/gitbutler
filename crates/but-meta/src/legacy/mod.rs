@@ -254,7 +254,7 @@ impl Snapshot {
             &mut but_db::DbHandle::new_at_path(":memory:")?,
             but_graph::init::Options::limited(),
         )?;
-        graph.into_workspace()
+        graph.into_workspace(repo)
     }
 }
 
