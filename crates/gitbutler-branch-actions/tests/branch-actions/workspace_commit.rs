@@ -64,6 +64,55 @@ fn workspace_commits_ignore_commit_signing_configuration() -> Result<()> {
 }
 
 #[test]
+fn workspace_commit_keeps_unchanged_index_cache_and_sparse_marks() -> Result<()> {
+    use gix::index::entry::{Flags, Stage};
+
+    let (mut ctx, _temp_dir) = command_ctx("diverged-stacks")?;
+    let previous = {
+        let repo = ctx.repo.get()?;
+        let mut index = repo.open_index()?;
+        let entry = index
+            .entry_mut_by_path_and_stage("x".into(), Stage::Unconflicted)
+            .expect("the fixture tracks x");
+        entry.flags |= Flags::EXTENDED | Flags::SKIP_WORKTREE;
+        entry.stat.mtime.secs = 1;
+        let previous = entry.stat;
+        index.write(Default::default())?;
+        previous
+    };
+
+    #[expect(deprecated, reason = "cached legacy index compatibility boundary")]
+    let legacy_index = ctx.git2_repo.get()?.index()?;
+    assert!(
+        legacy_index.get_path("c".as_ref(), 0).is_some()
+            && legacy_index.get_path("z".as_ref(), 0).is_none(),
+        "the cached legacy index starts with the previous workspace tree"
+    );
+
+    gitbutler_branch_actions::update_workspace_commit(&mut ctx, false)?;
+
+    assert!(
+        legacy_index.get_path("z".as_ref(), 0).is_some()
+            && legacy_index.get_path("c".as_ref(), 0).is_none(),
+        "existing legacy index handles observe the updated workspace tree"
+    );
+
+    let index = ctx.repo.get()?.open_index()?;
+    let entry = index
+        .entry_by_path_and_stage("x".into(), Stage::Unconflicted)
+        .expect("the workspace still tracks x");
+    assert_eq!(
+        entry.stat, previous,
+        "unchanged files keep their non-racy cache"
+    );
+    assert!(
+        entry.flags.contains(Flags::SKIP_WORKTREE),
+        "updating the workspace does not expose an excluded file as deleted"
+    );
+    Ok(())
+}
+
+#[test]
 fn deleted_applied_ref_is_not_recreated_from_legacy_metadata() -> Result<()> {
     let (mut ctx, _temp_dir) = command_ctx("adjacent-stacks")?;
     let deleted_head = {

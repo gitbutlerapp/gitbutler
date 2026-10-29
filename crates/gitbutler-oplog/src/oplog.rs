@@ -511,24 +511,7 @@ fn reset_index_to_tree(
     previous: &gix::index::State,
 ) -> Result<()> {
     let repo = ctx.repo.get()?;
-    let tree = repo.find_tree(tree_id)?;
-    let mut index = repo.index_from_tree(&tree.id())?;
-    let stat_options = repo.stat_options()?;
-    for (entry, path) in index.entries_mut_with_paths() {
-        let Some(prev) = previous
-            .entry_by_path_and_stage(path, Stage::Unconflicted)
-            .filter(|prev| prev.id == entry.id && prev.mode == entry.mode)
-        else {
-            continue;
-        };
-        // A sparse checkout's files outside it stay marked, or they'd show as deleted.
-        if prev.flags.contains(Flags::SKIP_WORKTREE) {
-            entry.flags |= Flags::EXTENDED | Flags::SKIP_WORKTREE;
-        }
-        if !prev.stat.is_racy(previous.timestamp(), stat_options) {
-            entry.stat = prev.stat;
-        }
-    }
+    let mut index = repo.index_from_tree_with_index(&tree_id, previous)?;
     if let Some(conflicts_tree_id) = conflicts_tree_id {
         restore_index_conflicts(&mut index, repo.find_tree(conflicts_tree_id)?.id())?;
     }

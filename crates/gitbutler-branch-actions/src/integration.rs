@@ -2,8 +2,6 @@ use std::path::PathBuf;
 
 use anyhow::{Context as _, Result};
 use but_ctx::{Context, access::RepoExclusive};
-use but_oxidize::{ObjectIdExt, OidExt};
-use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
 use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_gix};
 use tracing::instrument;
 
@@ -70,33 +68,29 @@ pub(crate) fn update_workspace_commit_from_workspace(
         .map(|target| target.commit_id)
         .context("failed to get target base oid")?;
 
-    #[expect(deprecated, reason = "workspace checkout/index boundary")]
-    let repo = &*ctx.git2_repo.get()?;
-    let gix_repo = ctx.repo.get()?.clone();
+    let repo = ctx.repo.get()?.clone();
 
     // get current repo head for reference
     let head_ref = repo.head()?;
-    let workspace_filepath = repo.path().join("workspace");
+    let prev_head_id = head_ref.id().map(|id| id.detach());
+    let workspace_filepath = repo.git_dir().join("workspace");
     let mut prev_branch = read_workspace_file(&workspace_filepath)?;
     if let Some(branch) = &prev_branch
         && branch.head != but_core::WORKSPACE_REF_NAME
     {
         // we are moving from a regular branch to our gitbutler workspace branch, write a file to
         // .git/workspace with the previous head and name
-        write_workspace_file(
-            head_ref.target().map(|oid| oid.to_gix()).unwrap(),
-            workspace_filepath,
-        )?;
+        let prev_head_id = prev_head_id.context("Current HEAD is unborn")?;
+        write_workspace_file(prev_head_id, workspace_filepath)?;
         prev_branch = Some(PreviousHead {
-            head: head_ref.target().unwrap().to_string(),
-            sha: head_ref.target().unwrap().to_string(),
+            head: prev_head_id.to_string(),
+            sha: prev_head_id.to_string(),
         });
     }
-    let prev_head_id = head_ref.target();
 
-    let workspace_head = gix_repo.find_commit(
-        but_workspace::legacy::remerged_workspace_commit_v2(ctx, ws)?,
-    )?;
+    let workspace_head = repo.find_commit(but_workspace::legacy::remerged_workspace_commit_v2(
+        ctx, ws,
+    )?)?;
 
     // message that says how to get back to where they were
     let mut message = GITBUTLER_WORKSPACE_COMMIT_TITLE.to_string();
@@ -157,7 +151,7 @@ pub(crate) fn update_workspace_commit_from_workspace(
     let workspace_tree = workspace_head.tree_id()?.detach();
 
     let final_commit = commit_without_signature_gix(
-        &gix_repo,
+        &repo,
         None,
         author,
         committer,
@@ -170,7 +164,7 @@ pub(crate) fn update_workspace_commit_from_workspace(
     let checkout_res = if checkout_new_worktree && prev_head_id.is_some() {
         let res = but_core::worktree::safe_checkout_from_head(
             final_commit,
-            &gix_repo,
+            &repo,
             but_core::worktree::checkout::Options {
                 skip_head_update: true,
                 ..Default::default()
@@ -183,16 +177,26 @@ pub(crate) fn update_workspace_commit_from_workspace(
 
     // Create or replace the workspace branch reference, then set as HEAD.
     repo.reference(
-        &GITBUTLER_WORKSPACE_REFERENCE.clone().to_string(),
-        final_commit.to_git2(),
-        true,
+        but_core::WORKSPACE_REF_NAME,
+        final_commit,
+        gix::refs::transaction::PreviousValue::Any,
         "updated workspace commit",
     )?;
-    repo.set_head(&GITBUTLER_WORKSPACE_REFERENCE.clone().to_string())?;
+    but_core::update_head_reference(
+        &repo,
+        gix::refs::Target::Symbolic(but_core::WORKSPACE_REF_NAME.try_into()?),
+        false,
+        "checkout",
+        but_core::WORKSPACE_REF_NAME.into(),
+        0,
+    )?;
 
-    let mut index = repo.index()?;
-    index.read_tree(&repo.find_tree(workspace_tree.to_git2())?)?;
-    index.write()?;
+    let previous = repo.index_or_empty()?;
+    let mut index = repo.index_from_tree_with_index(&workspace_tree, &previous)?;
+    index.write(Default::default())?;
+    // Keep existing libgit2 index handles in sync until their callers are migrated.
+    #[expect(deprecated, reason = "index cache compatibility boundary")]
+    ctx.git2_repo.get()?.index()?.read(true)?;
 
     // Everything is written out already, so if we fail here, we do so to surface the error
     // that prevented the checkout to be performed. The operation is still successful, on reload.

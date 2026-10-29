@@ -4766,7 +4766,6 @@ dependencies = [
  "but-forge",
  "but-graph",
  "but-meta",
- "but-oxidize",
  "but-project-handle",
  "but-rebase",
  "but-schemars",
