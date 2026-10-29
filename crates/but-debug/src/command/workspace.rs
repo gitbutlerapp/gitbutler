@@ -16,14 +16,24 @@ pub(crate) fn apply(
     let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
+    let (repo, mut ws, mut db) =
+        ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
     let branch = ref_name(&repo, &mutation_args.ref_name)?;
 
-    let outcome =
-        but_workspace::branch::apply_stack(branch.as_ref(), ws, &repo, &mut meta, &mut db)?;
+    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let but_workspace::branch::apply::ApplyStackOutcome {
+        rebase,
+        status,
+        applied_branches,
+        tracking,
+    } = but_workspace::branch::apply_stack(editor, branch.as_ref())?;
+    rebase.materialize(Default::default())?;
+    if let Some(tracking) = tracking {
+        tracking.write(&repo)?;
+    }
 
-    writeln!(out, "{outcome:#?}")?;
-    emit_after(&outcome.workspace, &mutation_args.debug, err)
+    writeln!(out, "{status:?} {applied_branches:#?}")?;
+    emit_after(&ws, &mutation_args.debug, err)
 }
 
 /// Unapply a branch through `but-workspace`, bypassing app/API wiring.

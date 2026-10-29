@@ -160,27 +160,14 @@ impl SingleBranchMode {
             meta.set_workspace(&workspace)?;
         }
 
-        let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
         // Also apply an empty branch, which set_base_branch doesn't apply itself.
         // Non-empty branches may already have been applied by set_base_branch.
-        let outcome = but_workspace::branch::apply_stack(
-            self.head_reference.as_ref(),
-            ws,
-            &repo,
-            meta,
-            &mut db,
-        )?;
-        if !(outcome.status.persisted_mutation()
-            || matches!(
-                outcome.status,
-                but_workspace::branch::apply::OutcomeStatus::AlreadyApplied
-            ))
-        {
-            anyhow::bail!(
-                "BUG: failed to apply head ref ({}). Failed with {:?}",
-                self.head_reference,
-                outcome.status
-            )
+        let editor = but_rebase::graph_rebase::Editor::create(&mut ws, meta, &repo, &mut db)?;
+        let outcome = but_workspace::branch::apply_stack(editor, self.head_reference.as_ref())?;
+        outcome.rebase.materialize(Default::default())?;
+        if let Some(tracking) = outcome.tracking {
+            tracking.write(&repo)?;
         }
         Ok(())
     }

@@ -1547,6 +1547,7 @@ dependencies = [
  "but-ctx",
  "but-db",
  "but-graph",
+ "but-rebase",
  "but-testsupport",
  "but-workspace",
  "clap",

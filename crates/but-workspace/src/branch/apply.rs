@@ -14,7 +14,7 @@ use but_core::{
 };
 use but_error::bail_precondition;
 use but_graph::{SegmentIndex, init::Overlay, petgraph::Direction, workspace::WorkspaceKind};
-use but_rebase::graph_rebase::{Editor, LookupStep as _, Pick, Step};
+use but_rebase::graph_rebase::{Editor, LookupStep as _, Pick, Step, SuccessfulRebase};
 use gix::{
     prelude::ObjectIdExt,
     reference::Category,
@@ -166,6 +166,35 @@ pub struct Options {
     pub allow_applying_already_applied_branch_when_outside_workspace: bool,
 }
 
+/// Returned by [apply_stack()].
+pub struct ApplyStackOutcome<'ws, 'meta, M: RefMetadata> {
+    /// The rebase that applies the stack once materialized.
+    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
+    /// Whether materializing `rebase` changes the workspace.
+    pub status: OutcomeStatus,
+    /// The branch(es) that become lanes once `rebase` is materialized.
+    pub applied_branches: Vec<gix::refs::FullName>,
+    /// The tracking configuration of a local tracking branch that `rebase` creates, to be written
+    /// once `rebase` was materialized.
+    pub tracking: Option<LocalTracking>,
+}
+
+/// A local branch created to track a remote-tracking branch.
+pub struct LocalTracking {
+    local: gix::refs::FullName,
+    remote: gix::refs::FullName,
+}
+
+impl LocalTracking {
+    /// Configure the local branch to track the remote-tracking branch in `repo`.
+    pub fn write(&self, repo: &gix::Repository) -> anyhow::Result<()> {
+        let (config, _) =
+            setup_local_tracking_configuration(repo, self.local.as_ref(), self.remote.as_ref())?;
+        config.commit()?;
+        Ok(())
+    }
+}
+
 /// Ensure that `branch` is a parent of the workspace commit.
 ///
 /// If there is no workspace commit, one is first created with `HEAD` as its parent.
@@ -174,23 +203,21 @@ pub struct Options {
 /// `target..P`.
 ///
 /// If `branch` is a remote-tracking branch, its local tracking branch is applied instead. If that
-/// doesn't exist, it's created at the remote-tracking commit along with its tracking configuration,
-/// but only once the workspace was changed.
-#[instrument(skip(workspace, repo, meta, db), err(Debug))]
-pub fn apply_stack(
+/// doesn't exist, it's created at the remote-tracking commit, and its tracking configuration is
+/// returned to be written after materializing.
+#[instrument(skip(editor), err(Debug))]
+pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
+    editor: Editor<'ws, 'meta, M>,
     branch: &FullNameRef,
-    mut workspace: but_graph::Workspace,
-    repo: &gix::Repository,
-    meta: &mut impl RefMetadata,
-    db: &mut but_db::DbHandle,
-) -> anyhow::Result<Outcome> {
+) -> anyhow::Result<ApplyStackOutcome<'ws, 'meta, M>> {
     let (branch, remote_tracking_branch) = if branch.category() == Some(Category::RemoteBranch) {
         // Symbolic ones, `origin/HEAD` say, would make a local branch of the name they point through.
-        if try_find_validated_ref(repo, branch, "apply")?.is_none() {
+        if try_find_validated_ref(editor.repo(), branch, "apply")?.is_none() {
             bail!("Cannot apply non-existing branch '{}'", branch.shorten());
         }
-        let Some((local_tracking_branch, _remote)) =
-            repo.upstream_branch_and_remote_for_tracking_branch(branch)?
+        let Some((local_tracking_branch, _remote)) = editor
+            .repo()
+            .upstream_branch_and_remote_for_tracking_branch(branch)?
         else {
             bail_precondition!("Couldn't find remote refspecs that would match '{branch}'");
         };
@@ -202,24 +229,30 @@ pub fn apply_stack(
     };
     let branch = branch.as_ref();
 
-    let target = workspace
-        .target_commit
-        .as_ref()
-        .map(|target_commit| target_commit.commit_id);
+    let target = editor
+        .target_selector()
+        .map(|target| editor.find_commit_target(target))
+        .transpose()?
+        .map(|(_, target_commit)| target_commit.id);
 
-    let editor = Editor::create(&mut workspace, meta, repo, db)?;
     // If HEAD was not a parent of the workspace commit, it needs to be reported as applied. This
     // duplicates some of the work in ensure_workspace_commit/switch_to_workspace. Figure out if
     // this can be moved there.
-    let mut applied_branches: Vec<gix::refs::FullName> = repo
-        .head_name()?
+    let head_name = match editor
+        .head()
+        .map(|head| editor.lookup_step(head))
+        .transpose()?
+    {
+        Some(Step::Reference { refname, .. }) => Some(refname),
+        Some(Step::Pick(_) | Step::None) | None => None,
+    };
+    let mut applied_branches: Vec<gix::refs::FullName> = head_name
         .filter(|head| {
             head.as_bstr() != WORKSPACE_REF_NAME
                 && Some(head.as_ref()) != editor.target_ref()
                 && head.as_ref() != branch
         })
-        .iter()
-        .cloned()
+        .into_iter()
         .collect();
 
     let ((rebase, workspace_commit), workspace_commit_created) = match editor.workspace_reference()
@@ -236,53 +269,55 @@ pub fn apply_stack(
     };
     let mut editor = rebase.into_editor();
 
-    // Written once materializing created the local tracking branch it configures.
-    let mut tracking_config = None;
+    let mut tracking = None;
 
     // `branch_selector` needs to be Option because until we know that we are actually applying
     // something, we don't want to create one if it doesn't already exists.
-    let (branch_selector, branch_commit_selector, branch_commit_id) = match editor
-        .try_select_reference(branch)
-    {
-        Some(branch_selector) => {
-            let (branch_commit_selector, branch_commit) =
-                editor.find_commit_target(branch_selector)?;
-            (
-                Some(branch_selector),
-                branch_commit_selector,
-                branch_commit.id,
-            )
-        }
-        None => {
-            let branch_commit_id = match (repo.try_find_reference(branch)?, remote_tracking_branch)
-            {
-                (Some(mut reference), _) => reference.peel_to_commit()?.id,
-                (None, Some(remote_tracking_branch)) => {
-                    let (config, remote_tracking_commit_id) =
-                        setup_local_tracking_configuration(repo, branch, remote_tracking_branch)?;
-                    tracking_config = Some(config);
-                    remote_tracking_commit_id
-                }
-                (None, None) => {
-                    bail!("Cannot apply non-existing branch '{}'", branch.shorten())
-                }
-            };
-            let branch_commit_selector = match editor.try_select_commit(branch_commit_id) {
-                Some(branch_commit_selector) => branch_commit_selector,
-                None => {
-                    // The branch is outside of the graph the editor knows, so keep its history as is.
-                    let mut pick = Pick::new_pick(branch_commit_id);
-                    pick.preserved_parents =
-                        Some(editor.find_commit(branch_commit_id)?.parents.to_vec());
-                    pick.mutable = false;
-                    editor.add_step(Step::Pick(pick))?
-                }
-            };
-            // The reference is only added once the branch becomes a lane, so a local tracking
-            // branch isn't created for nothing.
-            (None, branch_commit_selector, branch_commit_id)
-        }
-    };
+    let (branch_selector, branch_commit_selector, branch_commit_id) =
+        match editor.try_select_reference(branch) {
+            Some(branch_selector) => {
+                let (branch_commit_selector, branch_commit) =
+                    editor.find_commit_target(branch_selector)?;
+                (
+                    Some(branch_selector),
+                    branch_commit_selector,
+                    branch_commit.id,
+                )
+            }
+            None => {
+                let repo = editor.repo();
+                let branch_commit_id =
+                    match (repo.try_find_reference(branch)?, remote_tracking_branch) {
+                        (Some(mut reference), _) => reference.peel_to_commit()?.id,
+                        (None, Some(remote_tracking_branch)) => {
+                            tracking = Some(LocalTracking {
+                                local: branch.to_owned(),
+                                remote: remote_tracking_branch.to_owned(),
+                            });
+                            repo.find_reference(remote_tracking_branch)?
+                                .peel_to_commit()?
+                                .id
+                        }
+                        (None, None) => {
+                            bail!("Cannot apply non-existing branch '{}'", branch.shorten())
+                        }
+                    };
+                let branch_commit_selector = match editor.try_select_commit(branch_commit_id) {
+                    Some(branch_commit_selector) => branch_commit_selector,
+                    None => {
+                        // The branch is outside of the graph the editor knows, so keep its history as is.
+                        let mut pick = Pick::new_pick(branch_commit_id);
+                        pick.preserved_parents =
+                            Some(editor.find_commit(branch_commit_id)?.parents.to_vec());
+                        pick.mutable = false;
+                        editor.add_step(Step::Pick(pick))?
+                    }
+                };
+                // The reference is only added once the branch becomes a lane, so a local tracking
+                // branch isn't created for nothing.
+                (None, branch_commit_selector, branch_commit_id)
+            }
+        };
     let commits_in_branch = commits_in(editor.repo(), branch_commit_id, target)?;
     let already_applied = 'already_applied: {
         if commits_in_branch.is_empty() {
@@ -298,18 +333,15 @@ pub fn apply_stack(
     if already_applied {
         // Branch is already applied, perhaps through ensure_workspace_commit() or
         // switch_to_workspace() (or even before this function was invoked)
-        if workspace_commit_created {
-            editor.rebase()?.materialize(Default::default())?;
-        }
-        return Ok(Outcome {
-            workspace,
+        return Ok(ApplyStackOutcome {
+            rebase: editor.rebase()?,
             status: if workspace_commit_created {
                 OutcomeStatus::Applied
             } else {
                 OutcomeStatus::AlreadyApplied
             },
             applied_branches,
-            conflicting_stacks: Vec::new(),
+            tracking: None,
         });
     }
 
@@ -352,17 +384,13 @@ pub fn apply_stack(
     for empty_parent in empty_parents {
         editor.remove_edges(workspace_commit, empty_parent)?;
     }
-    editor.rebase()?.materialize(Default::default())?;
-    if let Some(config) = tracking_config {
-        config.commit()?;
-    }
     applied_branches.push(branch.to_owned());
 
-    Ok(Outcome {
-        workspace,
+    Ok(ApplyStackOutcome {
+        rebase: editor.rebase()?,
         status: OutcomeStatus::Applied,
         applied_branches,
-        conflicting_stacks: Vec::new(),
+        tracking,
     })
 }
 
