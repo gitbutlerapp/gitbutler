@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use anyhow::Result;
 use bstr::BString;
@@ -126,7 +126,7 @@ pub fn graph(
     ///
     /// (The stacks are not stored directly in this data structure; only their
     /// branches are.)
-    #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+    #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
     struct StackLineage {
         branches_in_lineage: BTreeSet<gix::refs::FullName>,
         /// This commit is the parent of the workspace commit through this stack
@@ -144,7 +144,7 @@ pub fn graph(
     // Data regarding known OIDs that have not yet been assigned a `NodeIndex`.
     // Each OID is known because we have parsed at least one of its children.
     let mut unassigned_oid_map =
-        HashMap::<gix::ObjectId, HashMap<StackLineage, Vec<ToRepoint>>>::new();
+        BTreeMap::<gix::ObjectId, BTreeMap<StackLineage, Vec<ToRepoint>>>::new();
 
     let mut nodes = Vec::<Node>::new();
 
@@ -158,7 +158,7 @@ pub fn graph(
             }
 
             let mut new_stack_lineage = StackLineage::default();
-            let mut new_map = HashMap::<StackLineage, Vec<ToRepoint>>::new();
+            let mut new_map = BTreeMap::<StackLineage, Vec<ToRepoint>>::new();
             let node_index = nodes.len();
             for (stack_lineage, to_repoints) in
                 unassigned_oid_map.remove(&commit_id).unwrap_or_default()
