@@ -1,5 +1,5 @@
+use anyhow::Context as _;
 use but_error::bail_precondition;
-use but_oxidize::{ObjectIdExt, OidExt as _};
 use gix::{merge::tree::TreatAsUnresolved, prelude::ObjectIdExt as _, refs::Target};
 use tracing::instrument;
 
@@ -46,46 +46,47 @@ pub fn safe_checkout_from_head(
         );
     }
 
-    let git2_repo = but_oxidize::open_git2_repo(repo.git_dir())?;
-    let head_tree_id = repo.head_tree_id_or_empty()?;
-    let head_tree = git2_repo.find_tree(head_tree_id.to_git2())?;
-    let old_tree = if let Some(id) = merge_base_override {
-        let mut opts = git2::DiffOptions::new();
-        opts.context_lines(1);
-        // Also write the index.
-        let tree = git2_repo.find_object(id.to_git2(), None)?.peel_to_tree()?;
-        let diff = git2_repo.diff_tree_to_tree(Some(&head_tree), Some(&tree), Some(&mut opts))?;
-        if !skip_index_update
-            && git2_repo
-                .apply(&diff, git2::ApplyLocation::Index, None)
-                .is_err()
-        {
-            // Just overwrite the index.
-            let mut index = git2_repo.index()?;
-            index.read_tree(&tree)?;
-            index.write()?;
-        }
-        tree
-    } else {
-        head_tree
+    // Keep generated merge blobs on disk, including those used only by the prepared index.
+    let mut checkout_repo = gix::open(repo.git_dir())?;
+    let head_tree_id = checkout_repo.head_tree_id_or_empty()?.detach();
+    let old_tree_id = match merge_base_override {
+        Some(id) => checkout_repo.find_object(id)?.peel_to_tree()?.id,
+        None => head_tree_id,
     };
-
-    let new_tree = git2_repo
-        .find_object(new_head_id.to_git2(), None)?
-        .peel_to_tree()?;
+    let new_tree_id = checkout_repo.find_object(new_head_id)?.peel_to_tree()?.id;
+    let index_lock = if skip_index_update {
+        None
+    } else {
+        Some(
+            gix::lock::File::acquire_to_update_resource(
+                checkout_repo.index_path(),
+                gix::lock::acquire::Fail::Immediately,
+                None,
+                0,
+            )
+            .context("Could not lock the index for checkout")?,
+        )
+    };
+    let mut index = checkout_repo.index_or_empty()?.into_owned_or_cloned();
+    let mut index_changed = if skip_index_update {
+        index = checkout_repo.index_from_tree_with_index(&old_tree_id, &index)?;
+        false
+    } else if old_tree_id != head_tree_id {
+        prepare_index_for_merge_base(&checkout_repo, &mut index, head_tree_id, old_tree_id)?
+    } else {
+        false
+    };
     let mut conflict_occurred = false;
-    if old_tree.id() != new_tree.id() {
-        // Reopen to ensure that there is no "object memory" (i.e. all object
-        // writes actually happen on disk).
-        let mut repo = gix::open(repo.git_dir())?;
+    if old_tree_id != new_tree_id {
+        let repo = &mut checkout_repo;
         #[allow(deprecated)]
         let wd_tree_id = repo.create_wd_tree(u64::MAX)?;
         repo.config_snapshot_mut()
             .set_value(&gix::config::tree::Merge::RENORMALIZE, "true")?;
         let mut outcome = repo.merge_trees(
-            old_tree.id().to_gix(),
+            old_tree_id,
             wd_tree_id,
-            new_tree.id().to_gix(),
+            new_tree_id,
             gix::merge::blob::builtin_driver::text::Labels {
                 ancestor: Some("ancestor".into()),
                 current: Some("ours".into()),
@@ -133,16 +134,8 @@ pub fn safe_checkout_from_head(
         }
 
         let baseline = repo.index_from_tree(&wd_tree_id)?;
-        let mut index = repo.index_or_empty()?.into_owned_or_cloned();
-        if skip_index_update {
-            index = repo.index_from_tree_with_index(&old_tree.id().to_gix(), &index)?;
-        }
-        let mut index_changed = remove_index_entries_deleted_on_both_sides(
-            &repo,
-            &mut index,
-            old_tree.id().to_gix(),
-            new_tree.id().to_gix(),
-        )?;
+        index_changed |=
+            remove_index_entries_deleted_on_both_sides(repo, &mut index, old_tree_id, new_tree_id)?;
         index_changed |= repo
             .checkout_index_with_baseline(
                 &baseline,
@@ -176,9 +169,13 @@ pub fn safe_checkout_from_head(
             }
             index_changed |= edit.finish();
         }
-        if index_changed && !skip_index_update {
-            index.write(Default::default())?;
-        }
+    }
+    if index_changed && let Some(mut index_lock) = index_lock {
+        let mut buffered = std::io::BufWriter::new(&mut index_lock);
+        index.write_to(&mut buffered, Default::default())?;
+        std::io::Write::flush(&mut buffered)?;
+        drop(buffered);
+        index_lock.commit()?;
     }
 
     let mut head_update = None;
@@ -206,6 +203,93 @@ pub fn safe_checkout_from_head(
         head_update,
         conflict_occurred,
     })
+}
+
+/// Incorporate consumed changes into staging without discarding independent staged hunks.
+/// Only the resulting edits are kept in memory; checkout must succeed before the index is written.
+fn prepare_index_for_merge_base(
+    repo: &gix::Repository,
+    index: &mut gix::index::State,
+    head_tree_id: gix::ObjectId,
+    merge_base_tree_id: gix::ObjectId,
+) -> anyhow::Result<bool> {
+    use bstr::ByteSlice;
+    use gix::diff::tree_with_rewrites::Change;
+
+    let head_tree = repo.find_tree(head_tree_id)?;
+    let merge_base_tree = repo.find_tree(merge_base_tree_id)?;
+    let mut diff_options = gix::diff::Options::default();
+    diff_options.track_path().track_rewrites(None);
+    let conflicts: Vec<_> = index
+        .entries()
+        .iter()
+        .filter(|entry| entry.stage() != gix::index::entry::Stage::Unconflicted)
+        .map(|entry| entry.path(index))
+        .collect();
+    if !conflicts.is_empty() {
+        let at_or_below = |path: &bstr::BStr, parent: &bstr::BStr| {
+            path.strip_prefix(parent.as_bytes())
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with(b"/"))
+        };
+        for change in repo.diff_tree_to_tree(&head_tree, &merge_base_tree, diff_options)? {
+            if !change.entry_mode().is_tree()
+                && let Some(path) = conflicts.iter().find(|path| {
+                    at_or_below(path, change.location()) || at_or_below(change.location(), path)
+                })
+            {
+                bail_precondition!(
+                    "Consumed changes would overwrite an unresolved index conflict: {path:?}"
+                );
+            }
+        }
+    }
+
+    // Trees cannot carry conflict stages. Leave them in the original index and merge only stage zero.
+    let mut staged = index.clone();
+    staged.remove_entries(|_, _, entry| entry.stage() != gix::index::entry::Stage::Unconflicted);
+    let staged_tree_id = repo.write_index_tree(&staged)?;
+    let mut merged = repo.merge_trees(
+        head_tree_id,
+        staged_tree_id,
+        merge_base_tree_id,
+        repo.default_merge_labels(),
+        repo.tree_merge_options()?.with_rewrites(None),
+    )?;
+    if merged.has_unresolved_conflicts(TreatAsUnresolved::git()) {
+        bail_precondition!("Consumed changes conflict with staged changes");
+    }
+    let merged_tree = merged.tree.write()?.object()?.peel_to_tree()?;
+    let staged_tree = staged_tree_id.object()?.peel_to_tree()?;
+    let mut edit = crate::index::Edit::new(index);
+    for change in repo.diff_tree_to_tree(&staged_tree, &merged_tree, diff_options)? {
+        if change.entry_mode().is_tree() {
+            continue;
+        }
+        match change {
+            Change::Addition {
+                location,
+                id,
+                entry_mode,
+                ..
+            }
+            | Change::Modification {
+                location,
+                id,
+                entry_mode,
+                ..
+            } => {
+                edit.upsert(
+                    location.as_bstr(),
+                    id,
+                    entry_mode.into(),
+                    crate::index::Stat::Unknown,
+                );
+            }
+            Change::Deletion { location, .. } => edit.remove(location.as_bstr()),
+            Change::Rewrite { .. } => unreachable!("rename tracking is disabled"),
+        }
+    }
+    Ok(edit.finish())
 }
 
 /// Remove the index entries of files that both `new_tree` and the user deleted, as Git does,

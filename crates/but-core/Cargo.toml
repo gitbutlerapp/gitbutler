@@ -20,10 +20,6 @@ but-error.workspace = true
 but-project-handle.workspace = true
 but-serde.workspace = true
 
-# for safe-checkout
-git2.workspace = true
-but-oxidize.workspace = true
-
 nonempty.workspace = true
 serde.workspace = true
 bstr.workspace = true
