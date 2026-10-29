@@ -18,15 +18,15 @@ use crate::{
     CommitFlags, CommitIndex, Edge, EntryPointCommit, Graph, Segment, SegmentIndex, SegmentMetadata,
 };
 
-mod walk;
+pub(crate) mod walk;
 use walk::*;
 
 pub(crate) mod types;
 use types::{EdgeOwned, Goals, Instruction, Limit, Queue};
 
-use crate::init::overlay::{OverlayMetadata, OverlayRepo};
+pub(crate) use crate::init::overlay::{OverlayMetadata, OverlayRepo};
 
-mod remotes;
+pub(crate) mod remotes;
 
 mod overlay;
 mod post;
@@ -629,15 +629,10 @@ impl Graph {
             }
         };
 
-        let mut graph = Self::from_commit_traversal_inner(
-            tip,
-            maybe_name,
-            None::<Tip>,
-            meta,
-            project_meta,
-            worktree_tips,
-            options,
-        )?;
+        let _ = (maybe_name, worktree_tips, options);
+        let (overlay_repo, overlay_meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
+        let mut graph = crate::nosegment::graph(repo, meta, vec![tip.detach()], None)?
+            .to_segment_graph(repo, &overlay_repo, &overlay_meta, project_meta)?;
         if is_detached {
             graph.detach_entrypoint_segment()?;
         }
