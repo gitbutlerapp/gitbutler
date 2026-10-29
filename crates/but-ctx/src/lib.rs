@@ -1003,7 +1003,19 @@ fn new_ondemand_repo(gitdir: PathBuf, repo_open_mode: RepoOpenMode) -> OnDemand<
 /// Discover the Git repository containing `directory`, resolving a linked worktree to the repository
 /// of its main worktree so that callers see the same workspace no matter which checkout they run in.
 pub fn discover_main_repo(directory: impl AsRef<Path>) -> anyhow::Result<gix::Repository> {
-    let repo = gix::discover(directory)?;
+    #[cfg_attr(not(unix), allow(unused_mut))]
+    let mut trust = gix::sec::trust::Mapping::<gix::open::Options>::default();
+    #[cfg(unix)]
+    {
+        trust.full = trust
+            .full
+            .credential_cache_daemon(but_utils::credential_cache::daemon_command());
+        trust.reduced = trust
+            .reduced
+            .credential_cache_daemon(but_utils::credential_cache::daemon_command());
+    }
+    let repo = gix::ThreadSafeRepository::discover_opts(directory, Default::default(), trust)?
+        .to_thread_local();
     if repo.git_dir() == repo.common_dir() {
         return Ok(repo);
     }
@@ -1021,6 +1033,8 @@ fn open_repo(gitdir: &Path, repo_open_mode: RepoOpenMode) -> anyhow::Result<gix:
         gix::config::tree::gitoxide::Committer::EMAIL_FALLBACK
             .validated_assignment("gitbutler@gitbutler.com".into())?,
     ]);
+    #[cfg(unix)]
+    let options = options.credential_cache_daemon(but_utils::credential_cache::daemon_command());
     Ok(gix::open_opts(gitdir, options)?)
 }
 

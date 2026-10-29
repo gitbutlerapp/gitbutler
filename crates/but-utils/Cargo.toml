@@ -19,5 +19,8 @@ gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 walkdir = "2.5.0"
 toml.workspace = true
 
+[target.'cfg(unix)'.dependencies]
+signal-hook = "0.4"
+
 [lints]
 workspace = true

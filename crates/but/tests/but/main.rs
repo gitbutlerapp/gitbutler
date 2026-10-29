@@ -5,6 +5,8 @@ use std::collections::VecDeque;
 use crate::utils::{assert_ignored_tests_have_linear_ticket, make_absolute};
 
 mod command;
+#[cfg(unix)]
+mod credential_cache;
 mod journey;
 pub mod utils;
 

@@ -29,6 +29,7 @@ but = { workspace = true, optional = true }
 but-feedback.workspace = true
 but-error.workspace = true
 but-secret.workspace = true
+but-utils.workspace = true
 but-db.workspace = true
 but-settings.workspace = true
 but-core.workspace = true

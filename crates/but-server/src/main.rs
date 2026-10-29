@@ -17,8 +17,16 @@ struct Args {
     base_path: Option<String>,
 }
 
+fn main() -> anyhow::Result<()> {
+    #[cfg(unix)]
+    if but_utils::credential_cache::initialize(std::env::current_exe()?, std::env::args_os())? {
+        return Ok(());
+    }
+    run()
+}
+
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn run() -> anyhow::Result<()> {
     trace::init()?;
     // In debug builds, prefer git-credential-backed secret storage when platform keychains are
     // either noisy (macOS rebuild prompts) or unavailable (headless e2e Linux containers).

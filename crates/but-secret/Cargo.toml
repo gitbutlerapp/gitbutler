@@ -24,6 +24,7 @@ sha2.workspace = true
 nix = { workspace = true, features = ["user"] }
 
 [dev-dependencies]
+gix-testtools.workspace = true
 serial_test = "3.2.0"
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt", "rt-multi-thread"] }

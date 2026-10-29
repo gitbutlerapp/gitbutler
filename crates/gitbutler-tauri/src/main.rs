@@ -25,6 +25,10 @@ use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_log::{Target, TargetKind};
 
 fn main() -> anyhow::Result<()> {
+    #[cfg(unix)]
+    if but_utils::credential_cache::initialize(std::env::current_exe()?, std::env::args_os())? {
+        return Ok(());
+    }
     // The native client relaunches this as the web app when its window can't open, and to
     // install an update. Both are taken out of the environment, which the relaunches after
     // them pass on: the web app's after installing, and the Windows installer's once done.

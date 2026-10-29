@@ -3,10 +3,15 @@
 // A release build on Windows opens no console window beside the app's.
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
-fn main() {
+fn main() -> anyhow::Result<()> {
+    #[cfg(unix)]
+    if but_utils::credential_cache::initialize(std::env::current_exe()?, std::env::args_os())? {
+        return Ok(());
+    }
     use_production_server();
     but_gpui::init_logging();
     but_gpui::run(None);
+    Ok(())
 }
 
 /// Sign in, and use the account, on GitButler's production server, where people's accounts

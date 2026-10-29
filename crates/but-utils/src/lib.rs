@@ -12,6 +12,9 @@ use walkdir::WalkDir;
 mod on_demand;
 mod on_demand_cache;
 
+#[cfg(unix)]
+pub mod credential_cache;
+
 pub use on_demand::OnDemand;
 pub use on_demand_cache::OnDemandCache;
 

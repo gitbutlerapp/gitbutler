@@ -331,6 +331,34 @@ pub mod git_credentials {
 
     pub(super) struct Store(gix::config::File);
 
+    #[cfg(all(test, unix))]
+    #[test]
+    fn native_credential_cache_launcher_reaches_secret_helpers() -> Result<()> {
+        if gix_testtools::run_in_isolated_process().map_err(anyhow::Error::from_boxed)? {
+            return Ok(());
+        }
+        let command = gix::credentials::program::cache::DaemonCommand {
+            executable: std::env::temp_dir().join("explicit helper"),
+            args: vec!["--credential-cache-daemon".into()],
+        };
+        but_utils::credential_cache::set_daemon(command.clone())?;
+        let store = Store("[credential]\nhelper = cache\n".parse()?);
+        let (cascade, _, _) = store.credentials("example", Some("secret"))?;
+        let actual = cascade.programs[0]
+            .cache_daemon
+            .as_ref()
+            .expect("secret storage uses the executable-selected launcher");
+        assert_eq!(
+            actual.executable, command.executable,
+            "the host selects the executable"
+        );
+        assert_eq!(
+            actual.args, command.args,
+            "daemon arguments remain separate"
+        );
+        Ok(())
+    }
+
     impl Store {
         /// Create an instance from the effective global Git configuration.
         fn from_globals() -> Result<Self> {
@@ -370,6 +398,10 @@ pub mod git_credentials {
                 true, /* use http path by default */
             )
             .map(|mut t| {
+                #[cfg(unix)]
+                for program in &mut t.0.programs {
+                    program.cache_daemon = but_utils::credential_cache::daemon_command();
+                }
                 let ctx = t.1.context_mut().expect("get always has context");
                 // Assure the context has fields for all parts in the URL, even
                 // if later we choose to use store or erase actions.

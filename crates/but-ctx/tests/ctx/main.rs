@@ -12,6 +12,48 @@ use but_testsupport::{
     writable_scenario_slow,
 };
 
+#[cfg(unix)]
+#[test]
+fn native_credential_cache_launcher_reaches_contexts() -> anyhow::Result<()> {
+    if but_testsupport::gix_testtools::run_in_isolated_process()
+        .map_err(anyhow::Error::from_boxed)?
+    {
+        return Ok(());
+    }
+    but_testsupport::isolated_app_data_dir(|| {
+        let tmp = TempDir::new()?;
+        let repo = gix::init(tmp.path().join("repo"))?;
+        fs::write(
+            repo.git_dir().join("config"),
+            "[credential]\nhelper = cache\n",
+        )?;
+        let command = gix::credentials::program::cache::DaemonCommand {
+            executable: tmp.path().join("explicit helper"),
+            args: vec!["--credential-cache-daemon".into()],
+        };
+        but_utils::credential_cache::set_daemon(command.clone())?;
+        let ctx = Context::open(repo.path())?;
+        let discovered = but_ctx::discover_main_repo(repo.workdir().expect("non-bare"))?;
+        for repo in [&*ctx.repo.get()?, &discovered] {
+            let (cascade, _, _) = repo
+                .config_snapshot()
+                .credential_helpers("https://example.com".try_into()?)?;
+            let actual = cascade.programs[0].cache_daemon.as_ref().expect(
+                "both Context opening and CLI discovery preserve the executable-selected launcher",
+            );
+            assert_eq!(
+                actual.executable, command.executable,
+                "the host selects the executable"
+            );
+            assert_eq!(
+                actual.args, command.args,
+                "daemon arguments remain separate"
+            );
+        }
+        Ok(())
+    })
+}
+
 #[test]
 fn new_from_project_handle_uses_repo_gitdir() -> anyhow::Result<()> {
     but_testsupport::isolated_app_data_dir(|| {
