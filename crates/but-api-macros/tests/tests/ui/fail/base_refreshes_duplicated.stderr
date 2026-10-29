@@ -1,0 +1,5 @@
+error: `refreshes` may be specified only once
+ --> tests/ui/fail/base_refreshes_duplicated.rs:8:22
+  |
+8 | #[but_api(refreshes, refreshes)]
+  |                      ^^^^^^^^^

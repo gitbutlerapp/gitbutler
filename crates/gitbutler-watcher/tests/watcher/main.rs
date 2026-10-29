@@ -149,7 +149,7 @@ fn linked_worktrees_archived_while_watching_are_not_watched() -> anyhow::Result<
         watched.settle().await?;
 
         ctx.set_worktree_archived("linked".into(), true)?;
-        but_project_handle::write_invalidation_sentinel(&ctx.project_data_dir, &["Worktrees"]);
+        but_project_handle::write_refresh_sentinel(&ctx.project_data_dir);
         watched.settle().await?;
 
         invoke_bash_at_dir("git switch --detach", &tmp.path().join("linked"));

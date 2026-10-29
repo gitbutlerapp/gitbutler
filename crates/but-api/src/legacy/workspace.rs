@@ -345,7 +345,7 @@ pub fn stash_into_branch(
 }
 
 /// Push a branch and any parent references that lie within the current workspace projection.
-#[but_api(json::PushResult, invalidates = [Workspace, Reviews, MergeStatus, Checks, ReviewTimeline])]
+#[but_api(json::PushResult, refreshes)]
 #[instrument(err(Debug))]
 pub async fn workspace_branch_and_ancestors_push(
     ctx: ThreadSafeContext,

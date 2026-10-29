@@ -19,16 +19,12 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 ///     - `Result<Vec<T>>` converts each `T` into `JSONReturnType`.
 ///     - Controls how the actual return value is fallibly converted for JSON serialization in `func_json` and `func_cmd`.
 ///
-/// * `invalidates = [CacheTag, ..]`
-///     - Use it on a mutation like `but_api(invalidates = [Reviews])` to declare which tags
-///       it makes stale, so clients drop those caches when the call succeeds.
-///     - Only for state the repository watcher cannot observe: forge, app, and config writes. A
-///       mutation that writes to the repository declares nothing — the watcher reports the change
-///       and the event carries the invalidation.
-///     - A successful call also records the tags in the project's invalidation sentinel, so the
-///       watcher of another process can drop the same caches. `<FN_NAME>_INVALIDATES` names the
-///       list for a primitive that stands in for the endpoint out of process.
-///     - Naming a tag that does not exist in `crate::tags::CacheTag` is a compile error.
+/// * `refreshes`
+///     - Use it on a mutation like `but_api(refreshes)` whose effects other GitButler processes
+///       can't observe in the repository: forge, app, and config writes.
+///     - A successful call writes the project's refresh sentinel, so the watchers of other
+///       processes re-read the workspace. A failed call writes nothing.
+///     - The function must take a context, which locates the project's storage directory.
 ///
 /// # Parameter Attributes
 ///
@@ -44,7 +40,7 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 /// These permission-bearing variants are more composable for Rust callers because they reuse a
 /// caller-held lock instead of acquiring one themselves.
 ///
-/// These can be combined with commas, e.g. `#[but_api(try_from = json::CommitDetails, invalidates = [Reviews])]`.
+/// These can be combined with commas, e.g. `#[but_api(try_from = json::CommitDetails, refreshes)]`.
 ///
 /// # Generated Functions
 ///
@@ -94,24 +90,12 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
-    let sanitized_input_fn = match &opts.invalidates {
-        Some(tags) if !tags.is_empty() => signal_invalidation_on_success(sanitized_input_fn, tags),
-        _ => sanitized_input_fn,
-    };
-    let invalidates_const = match &opts.invalidates {
-        Some(tags) if !tags.is_empty() => {
-            let ident = format_ident!("{}_INVALIDATES", fn_name.to_string().to_uppercase());
-            let names: Vec<String> = tags.iter().map(|tag| tag.to_string()).collect();
-            let doc = format!(
-                "The tags `{fn_name}` declares stale, for a primitive that stands in for it out of process."
-            );
-            quote! {
-                #[doc = #doc]
-                #[allow(dead_code)]
-                #vis const #ident: &[&str] = &[#(#names),*];
-            }
-        }
-        _ => quote! {},
+    let sanitized_input_fn = match opts.refreshes {
+        Some(span) => match refresh_on_success(sanitized_input_fn, span) {
+            Ok(input_fn) => input_fn,
+            Err(err) => return err.into_compile_error().into(),
+        },
+        None => sanitized_input_fn,
     };
 
     let wrapper_params = match build_wrapper_params(input.iter()) {
@@ -214,17 +198,7 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         quote! {}
     };
 
-    // Naming a tag that does not exist fails here rather than shipping a name
-    // nothing ever matches.
-    let tag_checks = opts.invalidates.iter().flatten().map(|tag| {
-        quote! {
-            const _: crate::tags::CacheTag = crate::tags::CacheTag::#tag;
-        }
-    });
-
     let expanded = quote! {
-        #(#tag_checks)*
-
         // Generated struct
         #[cfg(feature = "legacy")]
         #[derive(::serde::Deserialize)]
@@ -235,8 +209,6 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         // Original function stays
         #sanitized_input_fn
-
-        #invalidates_const
 
         const _: () = {
             #[expect(dead_code)]
@@ -281,11 +253,10 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     expanded.into()
 }
 
-/// Wrap the body so a successful call records its declared tags in the
-/// project's invalidation sentinel, for the watchers of other processes. The
-/// storage directory comes from the context parameter; an endpoint without
-/// one is left alone.
-fn signal_invalidation_on_success(mut input_fn: ItemFn, tags: &[syn::Ident]) -> ItemFn {
+/// Wrap the body so a successful call writes the project's refresh sentinel,
+/// for the watchers of other processes. The storage directory comes from the
+/// context parameter, so an endpoint without one is an error at `span`.
+fn refresh_on_success(mut input_fn: ItemFn, span: proc_macro2::Span) -> syn::Result<ItemFn> {
     let Some(ctx_ident) = input_fn.sig.inputs.iter().find_map(|arg| {
         let FnArg::Typed(pat_ty) = arg else {
             return None;
@@ -296,12 +267,14 @@ fn signal_invalidation_on_success(mut input_fn: ItemFn, tags: &[syn::Ident]) -> 
             _ => None,
         }
     }) else {
-        return input_fn;
+        return Err(syn::Error::new(
+            span,
+            "`refreshes` needs a context parameter to find the project's storage directory",
+        ));
     };
     let syn::ReturnType::Type(_, output_ty) = &input_fn.sig.output else {
-        return input_fn;
+        return Ok(input_fn);
     };
-    let names: Vec<String> = tags.iter().map(|tag| tag.to_string()).collect();
     let body = &input_fn.block;
     // A closure or async block keeps `?` and `return` inside the body meaning
     // what they did, with the fn's own return type.
@@ -317,12 +290,12 @@ fn signal_invalidation_on_success(mut input_fn: ItemFn, tags: &[syn::Ident]) -> 
         let __but_api_project_data_dir = #ctx_ident.project_data_dir.clone();
         #run_body
         if __but_api_result.is_ok() {
-            crate::tags::signal_invalidation(&__but_api_project_data_dir, &[#(#names),*]);
+            ::but_project_handle::write_refresh_sentinel(&__but_api_project_data_dir);
         }
         __but_api_result
     }};
     input_fn.block = Box::new(block);
-    input_fn
+    Ok(input_fn)
 }
 
 struct WrapperParamsInfo {
@@ -880,9 +853,9 @@ struct Options {
     /// It's `None` if the result type converts to JSON naturally.
     /// Otherwise, we convert to it.
     result_conversion: Option<ResultConversion>,
-    /// `CacheTag` variants this mutation makes stale, written
-    /// `#[but_api(invalidates = [Reviews])]`.
-    invalidates: Option<Vec<syn::Ident>>,
+    /// Where `refreshes` was written, if it was: a successful call writes the
+    /// refresh sentinel.
+    refreshes: Option<proc_macro2::Span>,
 }
 
 struct ResultConversion {
@@ -901,36 +874,28 @@ fn parse_options(
     container: ResultContainer,
 ) -> syn::Result<Options> {
     let mut conversion_path: Option<(FromMode, syn::Path)> = None;
-    let mut invalidates: Option<Vec<syn::Ident>> = None;
+    let mut refreshes: Option<proc_macro2::Span> = None;
 
     while !input.is_empty() {
-        if input.peek(syn::Ident) && input.peek2(syn::Token![=]) {
-            // try_from = Path, or invalidates = [Tag, ..]
+        let is_refreshes = input.peek(syn::Ident)
+            && (input.peek2(syn::Token![,]) || input.peek2(syn::parse::End))
+            && input.fork().parse::<syn::Ident>()? == "refreshes";
+        if is_refreshes {
             let ident: syn::Ident = input.parse()?;
-            if ident == "invalidates" {
-                input.parse::<syn::Token![=]>()?;
-                let content;
-                syn::bracketed!(content in input);
-                let tags =
-                    syn::punctuated::Punctuated::<syn::Ident, syn::Token![,]>::parse_terminated(
-                        &content,
-                    )?;
-                if invalidates.is_some() {
-                    return Err(syn::Error::new_spanned(
-                        &ident,
-                        "Only one `invalidates` list may be specified",
-                    ));
-                }
-                invalidates = Some(tags.into_iter().collect());
-                if !input.is_empty() {
-                    input.parse::<syn::Token![,]>()?;
-                }
-                continue;
+            if refreshes.is_some() {
+                return Err(syn::Error::new_spanned(
+                    &ident,
+                    "`refreshes` may be specified only once",
+                ));
             }
+            refreshes = Some(ident.span());
+        } else if input.peek(syn::Ident) && input.peek2(syn::Token![=]) {
+            // try_from = Path
+            let ident: syn::Ident = input.parse()?;
             if ident != "try_from" {
                 return Err(syn::Error::new_spanned(
                     ident,
-                    "Expected `try_from = Type` or `invalidates = [Tag, ..]`",
+                    "Expected `try_from = Type` or `refreshes`",
                 ));
             }
             input.parse::<syn::Token![=]>()?;
@@ -978,7 +943,7 @@ fn parse_options(
 
     Ok(Options {
         result_conversion,
-        invalidates,
+        refreshes,
     })
 }
 

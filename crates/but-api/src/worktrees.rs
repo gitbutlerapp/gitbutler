@@ -208,7 +208,7 @@ pub fn worktrees_list_with_perm(
 /// Archived worktrees are hidden from graph traversal and only minimally listed,
 /// which is how projects that predate GitButler's worktree support avoid showing
 /// every worktree ever created.
-#[but_api(invalidates = [Worktrees, Workspace])]
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub fn worktree_set_archived(
     ctx: &mut but_ctx::Context,
@@ -244,7 +244,7 @@ pub fn worktree_set_archived_with_perm(
 /// A locked worktree is removed like any other.
 ///
 /// This works on archived worktrees as well.
-#[but_api(invalidates = [Worktrees, Workspace])]
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub fn worktree_remove(ctx: &mut but_ctx::Context, name: String, force: bool) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
@@ -318,7 +318,7 @@ but_schemars::register_sdk_type!(NewWorktree);
 /// if empty. If the directory is taken, creation retries up to five times with a random ASCII suffix.
 /// This fails without a target to base the worktree on, and refuses an existing branch, see
 /// [`worktree_new_on_branch_with_perm()`] for that.
-#[but_api(invalidates = [Worktrees, Workspace])]
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub fn worktree_new(
     ctx: &mut but_ctx::Context,

@@ -1049,7 +1049,7 @@ pub fn branch_create_with_perm(
 /// worktree access from `ctx` and records an oplog snapshot on success. For
 /// lower-level implementation details, see
 /// [`but_workspace::branch::name_segment()`].
-#[but_api(try_from = json::BranchCreateResult, invalidates = [Branches, Workspace])]
+#[but_api(try_from = json::BranchCreateResult, refreshes)]
 #[instrument(err(Debug))]
 pub fn branch_name_segment(
     ctx: &mut but_ctx::Context,
@@ -1127,7 +1127,7 @@ pub fn branch_name_segment_with_perm(
 /// the local target branch, and deletes the workspace reference. For lower-level
 /// implementation details, see
 /// [`but_workspace::branch::remove_reference()`].
-#[but_api(try_from = json::BranchRemoveResult, invalidates = [Branches, Workspace])]
+#[but_api(try_from = json::BranchRemoveResult, refreshes)]
 #[instrument(err(Debug))]
 pub fn branch_remove(
     ctx: &mut but_ctx::Context,
@@ -1322,7 +1322,7 @@ pub fn branch_remove_only_with_perm(
 /// an oplog snapshot on success, and returns the post-operation workspace view.
 /// It requires no stack id and works in both managed and ad-hoc/single-branch
 /// workspaces.
-#[but_api(try_from = json::BranchRenameResult, invalidates = [Branches, Workspace])]
+#[but_api(try_from = json::BranchRenameResult, refreshes)]
 #[instrument(err(Debug))]
 pub fn branch_rename(
     ctx: &mut but_ctx::Context,

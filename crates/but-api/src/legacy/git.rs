@@ -73,7 +73,7 @@ pub fn git_index_size(ctx: &but_ctx::Context) -> Result<usize> {
     Ok(size)
 }
 
-#[but_api(invalidates = [Projects])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn delete_all_data() -> Result<()> {
     for project in gitbutler_project::dangerously_list_projects_without_migration()

@@ -553,11 +553,11 @@ mod spawn {
         };
         let listed_again = |event: &InternalEvent| match event {
             InternalEvent::GitFilesChange(_, Checkout::Main, paths) => {
-                contains_path(paths, Path::new("gitbutler/INVALIDATE"))
+                contains_path(paths, Path::new("gitbutler/REFRESH"))
             }
             _ => false,
         };
-        let sentinel = workdir.join(".git/gitbutler/INVALIDATE");
+        let sentinel = workdir.join(".git/gitbutler/REFRESH");
 
         std::fs::create_dir(linked_workdir.join("dir"))?;
         monitor.flush()?;
