@@ -288,6 +288,12 @@ pub struct Detail {
     /// A list page's list, the project's, Branches' or Operations history's, which a click
     /// on one of its rows focuses.
     side_focus: FocusHandle,
+    /// The Changes and pull request tabs', which ↑ from the top of the files under them
+    /// reaches, and where ← and → switch tabs.
+    tabs_focus: FocusHandle,
+    /// The keys went left out of the tabs, so coming back from the left lands on them again
+    /// rather than on the files under them. Another page forgets it.
+    tabs_kept: bool,
     /// A People card's, which a click on it takes and a click anywhere else gives back to the
     /// list it's under: its person picked shows as a focused selection only then.
     people_focus: FocusHandle,
@@ -691,6 +697,8 @@ impl Detail {
             focus: cx.focus_handle(),
             files_focus: cx.focus_handle(),
             side_focus: cx.focus_handle(),
+            tabs_focus: cx.focus_handle(),
+            tabs_kept: false,
             people_focus: cx.focus_handle(),
             people_open: false,
             people_scroll: ScrollHandle::new(),
@@ -924,6 +932,7 @@ impl Detail {
     /// far the pull request was scrolled. For a new selection, or another
     /// item picked on the same page.
     fn reset_view(&mut self) {
+        self.tabs_kept = false;
         self.text_selection = None;
         self.file_picks.clear();
         self.line_picks = None;
@@ -1886,6 +1895,14 @@ impl Detail {
             self.reveal_cursor(cx);
             cx.notify();
         }
+        // Up from its top, the diff's keys go to the tabs over it, as the file list's do.
+        if stop.is_none()
+            && !forward
+            && self.focus.is_focused(window)
+            && self.selected_review(cx).is_some()
+        {
+            return self.focus_tabs(window, cx);
+        }
         // From the file list too: the diff takes the keys, so the hunk or header shows solid
         // and the keys after act on it.
         if stop.is_some() || self.cursor.at != Stop::File {
@@ -2715,15 +2732,26 @@ impl Render for Detail {
                     Selection::Commit(project, id) => {
                         Some(self.render_commit_header(project, *id, &theme, window, cx))
                     }
-                    Selection::Branch(project, ref_name) => {
-                        Some(self.render_branch_header(project, ref_name.as_ref(), &theme, cx))
-                    }
+                    Selection::Branch(project, ref_name) => Some(self.render_branch_header(
+                        project,
+                        ref_name.as_ref(),
+                        &theme,
+                        window,
+                        cx,
+                    )),
                     Selection::Stack(project, bottom) => {
                         Some(self.render_stack_header(project, bottom.as_ref(), &theme, cx))
                     }
-                    Selection::Upstream(project, ref_name, id) => Some(
-                        self.render_upstream_header(project, ref_name.as_ref(), *id, &theme, cx),
-                    ),
+                    Selection::Upstream(project, ref_name, id) => {
+                        Some(self.render_upstream_header(
+                            project,
+                            ref_name.as_ref(),
+                            *id,
+                            &theme,
+                            window,
+                            cx,
+                        ))
+                    }
                     Selection::Project(project) => {
                         Some(self.render_project_header(project, &theme, cx))
                     }
@@ -2742,7 +2770,7 @@ impl Render for Detail {
                     Selection::Project(project) if self.showing_target_commit(project, cx) => {
                         let message = (self.shown_target_commit(project, cx))
                             .map(|commit| self.render_target_message(commit, &theme, cx));
-                        Some(self.list_beside(project, message, &theme, cx))
+                        Some(self.list_beside(project, message, &theme, window, cx))
                     }
                     // An opened branch: its header, its files and its pull request, as a merge
                     // on the project's page has them, and a commit of it picked shows its
@@ -2755,7 +2783,7 @@ impl Render for Detail {
                             Some(commit) => Some(self.render_target_message(commit, &theme, cx)),
                             None => self.render_other_branch_header(project, &theme, cx),
                         };
-                        Some(self.list_beside(project, header, &theme, cx))
+                        Some(self.list_beside(project, header, &theme, window, cx))
                     }
                     // A target several local branches track is picked where what shipped shows.
                     Selection::Project(project)
@@ -2861,19 +2889,32 @@ impl Render for Detail {
             .key_context(context)
             .when(context != "Diff", |el| resolve::conflict_keys(el, cx))
             .track_focus(&self.focus)
-            .on_action(cx.listener(|this, _: &NextFile, _, cx| this.move_file(1, cx)))
-            .on_action(cx.listener(|this, _: &PreviousFile, _, cx| this.move_file(-1, cx)))
+            .on_action(cx.listener(|this, _: &NextFile, window, cx| {
+                if !this.down_from_tabs(window, cx) {
+                    this.move_file(1, cx)
+                }
+            }))
+            .on_action(cx.listener(|this, _: &PreviousFile, window, cx| {
+                if !this.up_to_tabs(window, cx) {
+                    this.move_file(-1, cx)
+                }
+            }))
             .on_action(cx.listener(|this, _: &FirstFile, _, cx| this.move_file(isize::MIN / 2, cx)))
             .on_action(cx.listener(|this, _: &LastFile, _, cx| this.move_file(isize::MAX / 2, cx)))
             .on_action(cx.listener(|this, _: &PickNextFile, _, cx| this.pick_step(1, cx)))
             .on_action(cx.listener(|this, _: &PickPreviousFile, _, cx| this.pick_step(-1, cx)))
             .on_action(cx.listener(|this, _: &PickAllFiles, _, cx| this.pick_all_files(cx)))
-            .on_action(
-                cx.listener(|this, _: &NextHunk, window, cx| this.move_hunk(true, window, cx)),
-            )
-            .on_action(
-                cx.listener(|this, _: &PreviousHunk, window, cx| this.move_hunk(false, window, cx)),
-            )
+            .on_action(cx.listener(|this, _: &NextHunk, window, cx| {
+                if !this.down_from_tabs(window, cx) {
+                    this.move_hunk(true, window, cx)
+                }
+            }))
+            // Nothing is over the tabs.
+            .on_action(cx.listener(|this, _: &PreviousHunk, window, cx| {
+                if !this.tabs_focus.is_focused(window) {
+                    this.move_hunk(false, window, cx)
+                }
+            }))
             // Picked lines go first, as ⌘X takes them first. The cursor's file only while it's
             // shown, not under a checkout's overview, where no row says which it is. Only with
             // the diff's keys: elsewhere its hunk shows faint, and a discard mustn't land on it.

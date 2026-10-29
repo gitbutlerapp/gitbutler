@@ -693,6 +693,7 @@ impl Detail {
         ref_name: Option<&FullName>,
         id: backend::CommitId,
         theme: &Theme,
+        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
@@ -740,7 +741,8 @@ impl Detail {
             }));
         let message = self.message(title, body.clone(), theme);
         let target = Selection::Upstream(project.clone(), ref_name.cloned(), id);
-        let tabs = (self.selected_review(cx)).map(|review| self.review_tabs(review, theme, cx));
+        let tabs =
+            (self.selected_review(cx)).map(|review| self.review_tabs(review, theme, window, cx));
         self.page_header(message, meta, target, None, tabs, theme, cx)
     }
 
@@ -818,6 +820,7 @@ impl Detail {
         project: &ProjectId,
         ref_name: Option<&FullName>,
         theme: &Theme,
+        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
@@ -869,7 +872,8 @@ impl Detail {
             .child(div().flex_1())
             .child(h_flex().gap(dp(8.)).children(create).child(push));
         let title = page_title(Icon::Branch, theme).child(title_text(name.to_owned()));
-        let tabs = (branch.review.as_ref()).map(|review| self.review_tabs(review, theme, cx));
+        let tabs =
+            (branch.review.as_ref()).map(|review| self.review_tabs(review, theme, window, cx));
         self.page_header(title, meta, target, None, tabs, theme, cx)
     }
 
