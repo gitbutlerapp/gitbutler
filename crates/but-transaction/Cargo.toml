@@ -9,9 +9,20 @@ rust-version.workspace = true
 [lib]
 doctest = true
 
+[features]
+## Switch [`WorkspaceState`] from the legacy `RefInfo` projection to the
+## graph-based `DetailedGraphWorkspace` projection.
+##
+## This changes the shape of a public type, so it must stay coherent across one
+## build: never enable it in any crate's default features. Enable it through
+## `but-api`'s `graph-workspace` feature, which forwards here; enabling only this
+## one leaves `but-api`'s JSON types on the other shape and fails to compile.
+graph-workspace = []
+
 [dependencies]
-but-api.workspace = true
 but-ctx.workspace = true
+but-db.workspace = true
+but-forge.workspace = true
 but-oplog.workspace = true
 but-core.workspace = true
 but-workspace.workspace = true

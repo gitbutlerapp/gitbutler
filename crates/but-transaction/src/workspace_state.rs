@@ -1,9 +1,35 @@
-use super::WorkspaceState;
 use std::collections::{BTreeMap, HashMap};
 
 use but_core::{ChangeId, DryRun, RefMetadata};
 use but_rebase::graph_rebase::{MaterializeOutcome, SuccessfulRebase};
+#[cfg(not(feature = "graph-workspace"))]
+use but_workspace::RefInfo;
 use but_workspace::ref_info::SegmentIdentity;
+
+/// Represents the workspace for the frontend
+///
+/// This describes the post-operation workspace view that mutations should
+/// return regardless of whether they executed for real or as a dry-run.
+#[derive(Debug, Clone)]
+pub struct WorkspaceState {
+    /// Commits that were replaced by the operation. Maps `old_id -> new_id`.
+    pub replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
+    /// Conflicted commits that were created.
+    pub conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
+    /// The workspace presented for the frontend. See [`RefInfo`] for more
+    /// detail.
+    #[cfg(not(feature = "graph-workspace"))]
+    pub head_info: RefInfo,
+    /// The workspace presented for the frontend, as the rendered graph
+    /// projection. See
+    /// [`DetailedGraphWorkspace`](but_workspace::ui::workspace::DetailedGraphWorkspace)
+    /// for more detail.
+    #[cfg(feature = "graph-workspace")]
+    pub graph_workspace: but_workspace::ui::workspace::DetailedGraphWorkspace,
+    /// True if a checkout occurred, and a conflict occurred during that
+    /// checkout.
+    pub checkout_conflict_occurred: bool,
+}
 
 impl WorkspaceState {
     /// Map each projected segment that can be told apart to whether its commits contain conflicts.
@@ -206,7 +232,7 @@ impl WorkspaceState {
     /// This is the API-facing preview constructor: it reads PR associations from
     /// the forge review cache through the database handle the rebase carries,
     /// before projecting the preview state.
-    pub(crate) fn from_rebase_preview<M: RefMetadata>(
+    pub fn from_rebase_preview<M: RefMetadata>(
         rebase: &mut SuccessfulRebase<'_, '_, M>,
     ) -> anyhow::Result<WorkspaceState> {
         let prs_by_head = but_forge::review_associations_by_head(rebase.db(), rebase.repo())?;

@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 
 use anyhow::Context as _;
 use bstr::{BStr, BString, ByteVec};
-use but_api::WorkspaceState;
 use but_core::{
     DiffSpec, DryRun, RefMetadata,
     commit::CommitIdentifiers,
@@ -33,6 +32,9 @@ use gix::{
 
 #[cfg(test)]
 mod tests;
+
+mod workspace_state;
+pub use workspace_state::WorkspaceState;
 
 /// Run a workspace transaction.
 ///

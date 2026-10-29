@@ -1,4 +1,4 @@
-use but_api::WorkspaceState;
+use crate::WorkspaceState;
 use but_core::{DiffSpec, DryRun, RefMetadata};
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
