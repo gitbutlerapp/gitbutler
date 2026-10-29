@@ -463,6 +463,9 @@ pub struct Detail {
     _history_load: Task<()>,
     /// The file list beside the diff is hidden, for more room.
     files_hidden: bool,
+    /// The files between a list page's list and the diff are hidden, as they are at first: the
+    /// page's own list already takes the room the file list has elsewhere.
+    beside_files_hidden: bool,
     /// Since when the pointer is on the files button over the diff, and whether it's on the
     /// popover of the files the button opens, [`FILES_POPOVER_DELAY`] on, while they aren't
     /// beside the diff.
@@ -771,6 +774,7 @@ impl Detail {
             history_scroll: panes::side_list_state(),
             _history_load: Task::ready(()),
             files_hidden: false,
+            beside_files_hidden: true,
             files_hover: (None, false),
             files_popover_shown: Cell::new(false),
             _files_popover_delay: Task::ready(()),
@@ -1347,7 +1351,7 @@ impl Detail {
     pub fn focus_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let side_list = self.list_page(cx);
         // Not the file list under a pull request's tab, which draws none.
-        let files = !side_list && self.files_shown(window, cx) && !self.showing_review(cx);
+        let files = !side_list && self.files_shown(cx) && !self.showing_review(cx);
         // A checkout's overview has nothing for the keys, so the list takes them on its first
         // file, which opens in the overview's place, as the first step down would.
         if files
@@ -2488,13 +2492,11 @@ impl Detail {
 
     /// Whether the column beside the diff shows. On a page whose column is its list
     /// (Branches, Operations history, the project's) it always does: without the list,
-    /// nothing says what the diff is of. A window too narrow to leave the diff 320 points
-    /// beside the list and the navigator at their narrowest hides the files, as `f` does,
-    /// though not a checkout's, over Commit… or the composer, nor one being filtered. A
-    /// checkout's overview shows beside them, or alone with them hidden, as its diff does.
-    pub fn files_shown(&self, window: &Window, cx: &App) -> bool {
-        !self.overview_only(cx)
-            && (self.list_page(cx) || (!self.files_hidden && self.files_fit(window, cx)))
+    /// nothing says what the diff is of. Elsewhere the files show unless `f` hid them, however
+    /// narrow the window. A checkout's overview shows beside them, or alone with them hidden,
+    /// as its diff does.
+    pub fn files_shown(&self, cx: &App) -> bool {
+        !self.overview_only(cx) && (self.list_page(cx) || !self.files_hidden)
     }
 
     /// Whether the page is an overview with no column beside it: Inactive and Network
@@ -2506,40 +2508,27 @@ impl Detail {
         )
     }
 
-    /// Show or hide the file list beside the diff or a checkout's overview, as `f` does.
+    /// Show or hide the file list beside the diff or a checkout's overview, or a list page's
+    /// files beside its list, as `f` does.
     pub(super) fn toggle_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.overview_only(cx) || (self.list_page(cx) && !self.has_files_beside(cx)) {
+        let list_page = self.list_page(cx);
+        if self.overview_only(cx) || (list_page && !self.has_files_beside(cx)) {
             return;
         }
-        if !self.files_fit(window, cx) {
-            let why = "The window is too narrow to show the files beside the diff. Rest the \
-                       pointer on the file count over the diff to list them";
-            return snack(&self.store, why, cx);
-        }
-        self.files_hidden = !self.files_hidden;
+        let hidden = match list_page {
+            true => &mut self.beside_files_hidden,
+            false => &mut self.files_hidden,
+        };
+        *hidden = !*hidden;
         // Keys go on to the diff once the list they went to is gone, and its filter goes with
         // it, so no file stays out of the diff unseen.
-        if self.files_hidden && self.files_focus.is_focused(window) {
-            window.focus(&self.focus, cx);
-        }
-        if self.files_hidden {
+        if *hidden {
+            if self.files_focus.is_focused(window) {
+                window.focus(&self.focus, cx);
+            }
             self.close_open_filter(window, cx);
         }
         cx.notify();
-    }
-
-    /// Whether the window leaves the diff room beside the file list, or the list holds what
-    /// it can't do without.
-    fn files_fit(&self, window: &Window, cx: &App) -> bool {
-        // A list page's files go between its list and the diff.
-        if self.list_page(cx) {
-            return self.beside_files_width(cx) > 0.;
-        }
-        let viewport = f32::from(window.viewport_size().width) / Theme::get(cx).scale;
-        let navigator = (!self.beside_traffic_lights)
-            .then(|| (self.store.read(cx)).fitted_width(Pane::Navigator, viewport, true, true));
-        let room = viewport - self.files_width(window, cx) - navigator.unwrap_or(0.) >= 320.;
-        room || self.filtering || self.selected_checkout(cx).is_some()
     }
 
     pub(super) fn list_page(&self, cx: &App) -> bool {
@@ -2704,8 +2693,8 @@ impl Render for Detail {
                     }
                     _ => None,
                 };
-                let (files_shown, list_page) = (self.files_shown(window, cx), self.list_page(cx));
-                // A list the window narrowed away hands its keys to the diff, as `f` does.
+                let (files_shown, list_page) = (self.files_shown(cx), self.list_page(cx));
+                // A list that went while it had the keys hands them to the diff, as `f` does.
                 if !files_shown && self.files_focus.is_focused(window) {
                     let focus = self.focus.clone();
                     window.defer(cx, move |window, cx| window.focus(&focus, cx));

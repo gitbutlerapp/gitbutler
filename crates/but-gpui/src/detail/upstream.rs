@@ -61,8 +61,8 @@ const PAGE: u32 = 50;
 /// fetch time.
 const STALE_AFTER: Duration = Duration::from_secs(60);
 
-/// How wide the diff has to stay for the files beside a list page's list to show there
-/// rather than behind the button over the diff.
+/// How wide the files beside a list page's list leave the diff, until they're at their
+/// narrowest.
 const MIN_DIFF: f32 = 560.;
 
 /// What's picked on the page: what landed lately, or a commit of the target.
@@ -498,22 +498,14 @@ impl Detail {
         shows && !self.showing_review(cx)
     }
 
-    /// How wide the files beside a list page's list are drawn: as dragged, narrowed to leave
-    /// the diff its room, or 0 when even their narrowest doesn't.
-    pub(super) fn beside_files_width(&self, cx: &gpui::App) -> f32 {
+    /// How far right of a list page's list the diff starts: past the files when they're shown,
+    /// as wide as dragged, narrowed to leave the diff its room down to their narrowest; 0 when
+    /// they're hidden, as they are at first, or there are none.
+    pub fn beside_offset(&self, cx: &gpui::App) -> f32 {
         let room = self.beside_width.get() - MIN_DIFF;
         let width = self.store.read(cx).width(Pane::BesideFiles).min(room);
-        match width >= Pane::BesideFiles.limits().0 {
-            true => width,
-            false => 0.,
-        }
-    }
-
-    /// How far right of a list page's list the diff starts: past the files, when they're shown
-    /// and there's room for them; 0 when they're left to the button over the diff.
-    pub fn beside_offset(&self, cx: &gpui::App) -> f32 {
-        match self.has_files_beside(cx) && !self.files_hidden {
-            true => self.beside_files_width(cx),
+        match self.has_files_beside(cx) && !self.beside_files_hidden {
+            true => width.max(Pane::BesideFiles.limits().0),
             false => 0.,
         }
     }
@@ -551,7 +543,7 @@ impl Detail {
 
     /// Beside a list page's list, what's selected in it: its `header`, a commit's message or a
     /// branch's, if any; tabs when it has a pull request; and under them the pull request, or
-    /// the files when there's room, the window drawing the diff over the rest.
+    /// the files unless they're hidden, the window drawing the diff over the rest.
     pub(super) fn list_beside(
         &self,
         project: &ProjectId,
@@ -589,8 +581,8 @@ impl Detail {
             .into_any_element()
     }
 
-    /// Under a list page's tabs: the files, when there's room for them beside the diff, which
-    /// the window draws over the rest.
+    /// Under a list page's tabs: the files unless they're hidden, beside the diff, which the
+    /// window draws over the rest.
     fn render_files_beside(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
         let offset = self.beside_offset(cx);
         h_flex()

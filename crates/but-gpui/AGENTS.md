@@ -109,7 +109,7 @@ unseen is what a laptop's battery pays for.
   if a focused one goes anyway, keys reach nothing, so `on_focus_lost` sends them to the navigator,
   or to the diff while a message is being written, as fewer letters act there (not r or b). A
   modal keeps what had the keys and gives them back. Whether the file list is drawn is
-  `Detail::files_shown(window, cx)`, which a narrow window turns false, not `files_hidden` alone.
+  `Detail::files_shown(cx)`, which list pages and overviews decide too, not `files_hidden` alone.
 - A drag's payload stays as the drag began. Drop targets read `Store::dragging`, which reloads
   follow as they follow the cut.
 - A cached view redraws only on its own notify. `window.focus` doesn't notify it, and a drag let

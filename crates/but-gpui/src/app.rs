@@ -155,7 +155,7 @@ impl AppView {
         let store = self.store.read(cx);
         let detail = self.detail.read(cx);
         let has_diff = store.selection.is_some() && !detail.diff_hidden(cx);
-        has_diff.then(|| match detail.files_shown(window, cx) {
+        has_diff.then(|| match detail.files_shown(cx) {
             false => 0.,
             true => detail.files_width(window, cx) + detail.beside_offset(cx),
         })
@@ -725,7 +725,7 @@ impl AppView {
         // A page that's an overview alone has no pane past the navigator to take the keys.
         let shown = [
             self.navigator_open,
-            detail.files_shown(window, cx),
+            detail.files_shown(cx),
             !detail.overview_only(cx),
         ];
         let next = |n: usize| (at + if forward { n } else { 3 - n }) % 3;
@@ -1186,7 +1186,7 @@ impl Render for AppView {
                     .map(|el| self.edit_actions(el, cx))
                     .on_drag_move(resize_pane(Pane::Navigator, self.store.clone()))
                     .when(self.navigator_open, |el| {
-                        let files = self.detail.read(cx).files_shown(window, cx);
+                        let files = self.detail.read(cx).files_shown(cx);
                         let width = self.store.read(cx).fitted_width(
                             Pane::Navigator,
                             f32::from(window.viewport_size().width) / theme.scale,
