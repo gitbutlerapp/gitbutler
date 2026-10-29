@@ -208,14 +208,14 @@ bstr = "1.12.1"
 zip = { version = "4", default-features = false, features = ["bzip2"] }
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
 # When adjusting this, update `gix-testtools` as well!
-gix = { version = "0.90.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "4dc73c31afa936828fca5bbf69ada5a94c480d43", default-features = false, features = [
+gix = { version = "0.90.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "grix", default-features = false, features = [
     "sha1",
     "sha256",
     "anyhow",
     "auto-chain-error",
     "zlib-sirocco"
 ] }
-gix-testtools = { version = "0.22.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "4dc73c31afa936828fca5bbf69ada5a94c480d43" }
+gix-testtools = { version = "0.22.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "grix" }
 
 
 git2 = { version = "0.21.0", features = [
@@ -313,16 +313,15 @@ crossterm = "0.29"
 unicode-segmentation = "1.13.2"
 urlencoding = "2.1"
 inventory = "0.3"
-# ponytail: git-meta keeps released gix until it supports main's optional merge-base results.
 git-meta-lib = { git = "https://github.com/git-meta/git-meta", rev = "335159aa4db1231d5bbea88184455638ac68b5b5" }
 smallvec = "1.15.1"
 
 sapling-renderdag = "0.1.0"
 
 [patch.crates-io]
-# Keep workspace crates that use the `gix 0.89` line on the same git revision.
+# Keep workspace crates that use the `gix 0.90` line on the same git revision.
 # This is relevant to force `git-meta` to use our version.
-gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "4dc73c31afa936828fca5bbf69ada5a94c480d43" }
+gix = { git = "https://github.com/GitoxideLabs/gitoxide", branch = "grix" }
 git2 = { git = "https://github.com/gitbutlerapp/git2-rs", rev = "a87a7bb3f6843504339fe7434ee0732a3e968f3e" }
 # GPUI's Linux event loop, as Zed patches it: each turn runs queued tasks for about 10ms, then
 # lets input and frames through, rather than run them all. Only GPUI uses it.
