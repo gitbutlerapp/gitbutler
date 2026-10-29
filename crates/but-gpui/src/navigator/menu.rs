@@ -73,7 +73,7 @@ fn new_branch_items(store: &Store, project: &ProjectId, cx: &App) -> Vec<MenuIte
 
 /// Updating `project` from its target, when that would change anything.
 fn update_item(store: &Store, project: &ProjectId, cx: &App) -> Option<MenuItem> {
-    let target = (store.workspace(project)?.target.as_ref()).filter(|t| t.needs_update)?;
+    let target = (store.workspace(project)?.target.as_ref()).filter(|t| t.needs_update())?;
     let label = format!("Update from {}", target.name);
     Some(MenuItem::action(label, &UpdateFromTarget, cx))
 }

@@ -7,6 +7,7 @@ use gpui::{
     prelude::*,
 };
 
+use crate::backend::upstream::UpdateScope;
 use crate::backend::{self, short_ref};
 use crate::detail::{Detail, DiffPane};
 use crate::navigator::Navigator;
@@ -73,7 +74,16 @@ actions!(
         RenameSelection,
     ]
 );
-actions!(remote, [Fetch, UpdateFromTarget, Push]);
+actions!(
+    remote,
+    [
+        Fetch,
+        UpdateFromTarget,
+        UpdateWorkspace,
+        UpdateWorktrees,
+        Push
+    ]
+);
 actions!(pr, [OpenPullRequest]);
 
 pub struct AppView {
@@ -918,31 +928,37 @@ impl AppView {
         snack(&self.store, message, cx);
     }
 
-    fn update_selected_project(
-        &mut self,
-        _: &UpdateFromTarget,
-        _: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn update_selected_project(&mut self, scope: UpdateScope, cx: &mut Context<Self>) {
         if let Some(project) = self.selected_project(cx) {
-            self.update_from_target(project, cx);
+            self.update_from_target(project, scope, cx);
         }
     }
 
-    /// Rebase onto the target. When that would leave commits conflicted that aren't now, the
-    /// card saying so offers to go ahead.
-    pub fn update_from_target(&mut self, project: ProjectId, cx: &mut Context<Self>) {
+    /// Rebase what `scope` picks onto the target. When that would leave commits conflicted
+    /// that aren't now, the card saying so offers to go ahead.
+    pub fn update_from_target(
+        &mut self,
+        project: ProjectId,
+        scope: UpdateScope,
+        cx: &mut Context<Self>,
+    ) {
         let store = self.store.read(cx);
         let Some(target) = store.workspace(&project).and_then(|ws| ws.target.as_ref()) else {
             return;
         };
-        if !target.needs_update {
-            let message = format!("Already up to date with {}", target.name);
+        let (behind, what) = match scope {
+            UpdateScope::All => (target.needs_update(), "Already"),
+            UpdateScope::Workspace => (target.workspace_behind, "The workspace is already"),
+            UpdateScope::Worktrees => (target.worktrees_behind, "The worktrees are already"),
+        };
+        if !behind {
+            let message = format!("{what} up to date with {}", target.name);
             snack(&self.store, message, cx);
             return;
         }
-        self.store
-            .update(cx, |store, cx| store.update_from_target(&project, None, cx));
+        self.store.update(cx, |store, cx| {
+            store.update_from_target(&project, scope, None, cx)
+        });
     }
 
     fn toggle_navigator(
@@ -1093,7 +1109,15 @@ impl Render for AppView {
             .on_action(cx.listener(Self::operations_history))
             .on_action(cx.listener(Self::close_window))
             .on_action(cx.listener(Self::start_commit))
-            .on_action(cx.listener(Self::update_selected_project))
+            .on_action(cx.listener(|this, _: &UpdateFromTarget, _, cx| {
+                this.update_selected_project(UpdateScope::All, cx)
+            }))
+            .on_action(cx.listener(|this, _: &UpdateWorkspace, _, cx| {
+                this.update_selected_project(UpdateScope::Workspace, cx)
+            }))
+            .on_action(cx.listener(|this, _: &UpdateWorktrees, _, cx| {
+                this.update_selected_project(UpdateScope::Worktrees, cx)
+            }))
             .on_action(cx.listener(Self::toggle_navigator))
             .on_action(cx.listener(Self::command_palette))
             // The composer's keys, pressed with the focus elsewhere, like the navigator.

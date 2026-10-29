@@ -980,11 +980,32 @@ pub enum UpdateOutcome {
     },
 }
 
-/// Rebase every stack, and every linked worktree on the target's history with work of its
-/// own, onto the target as it is now, as `but pull` does. Doesn't fetch first; see [`Fetch`].
-/// A dry run goes first, and when the rebase would leave anything conflicted that isn't now,
-/// it stops there, unless that's what was `accepted`: a fetch since can bring more.
+/// What an [`Update`] rebases, as `but pull --update` picks it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UpdateScope {
+    /// The workspace and the worktrees, as `but pull` does.
+    All,
+    /// The stacks, with the linked worktrees resting on them, as they move with them.
+    Workspace,
+    /// The linked worktrees on the target's history with work of their own.
+    Worktrees,
+}
+
+impl UpdateScope {
+    pub fn workspace(self) -> bool {
+        matches!(self, UpdateScope::All | UpdateScope::Workspace)
+    }
+
+    pub fn worktrees(self) -> bool {
+        matches!(self, UpdateScope::All | UpdateScope::Worktrees)
+    }
+}
+
+/// Rebase what `scope` picks onto the target as it is now. Doesn't fetch first; see
+/// [`Fetch`]. A dry run goes first, and when the rebase would leave anything conflicted that
+/// isn't now, it stops there, unless that's what was `accepted`: a fetch since can bring more.
 pub struct Update {
+    pub scope: UpdateScope,
     pub accepted: Option<UpdateConflicts>,
 }
 
@@ -994,7 +1015,7 @@ impl Intent for Update {
     fn apply(self, run: &mut Run) -> Result<UpdateOutcome> {
         run.locked(|ctx, perm| {
             let info = but_api::legacy::workspace::head_info(ctx)?;
-            let preview = integrate_upstream(ctx, &info, DryRun::Yes, perm)?;
+            let preview = integrate_upstream(ctx, &info, self.scope, DryRun::Yes, perm)?;
             let found = UpdateConflicts {
                 branches: newly_conflicted(&info, &preview.workspace_state.conflicted_commits),
                 files: (preview.worktree_conflicts.iter())
@@ -1006,7 +1027,7 @@ impl Intent for Update {
             {
                 return Ok(UpdateOutcome::WouldConflict(found));
             }
-            let updated = integrate_upstream(ctx, &info, DryRun::No, perm)?;
+            let updated = integrate_upstream(ctx, &info, self.scope, DryRun::No, perm)?;
             let after = but_api::legacy::workspace::head_info(ctx)?;
             let names = |info: &but_workspace::RefInfo| -> Vec<super::FullName> {
                 (info.lanes())
@@ -1062,15 +1083,19 @@ pub(super) fn newly_conflicted(
 fn integrate_upstream(
     ctx: &mut but_ctx::Context,
     info: &but_workspace::RefInfo,
+    scope: UpdateScope,
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> Result<but_api::workspace::WorkspaceIntegrateUpstreamOutcome> {
     // The linked worktrees resting on a stack go with it, and those on the target's history
     // with work of their own go on their own, as `but pull` takes them.
+    let stacks = (info.stacks.iter())
+        .filter(|_| scope.workspace())
+        .map(|s| s.lane());
     let worktrees = (info.worktrees.iter())
-        .filter(|worktree| worktree.rebasable_base().is_some())
+        .filter(|worktree| scope.worktrees() && worktree.rebasable_base().is_some())
         .map(but_workspace::worktrees::WorktreeInfo::lane);
-    let lanes = info.stacks.iter().map(|s| s.lane()).chain(worktrees);
+    let lanes = stacks.chain(worktrees);
     let updates = but_api::workspace::rebase_lane_bottoms(lanes);
     but_api::workspace::workspace_integrate_upstream_with_perm(ctx, updates, dry_run, perm)
 }
@@ -1152,13 +1177,58 @@ pub struct Landed {
 #[cfg(test)]
 mod tests {
     use super::{
-        ACTIVITY_DAYS, DAY, Update, UpdateOutcome, day_of, overview, push_refusal, pushed_with,
+        ACTIVITY_DAYS, DAY, Update, UpdateOutcome, UpdateScope, day_of, overview, push_refusal,
+        pushed_with,
     };
     use crate::backend::model::build::full;
+    use crate::backend::ops::tests::git;
+
+    /// A commit on `origin/main` as a fetch brings it.
+    fn new_on_target(path: &std::path::Path, message: &str) {
+        let tip = git(
+            path,
+            &[
+                "commit-tree",
+                "origin/main^{tree}",
+                "-p",
+                "origin/main",
+                "-m",
+                message,
+            ],
+        );
+        git(
+            path,
+            &["update-ref", "refs/remotes/origin/main", tip.trim()],
+        );
+    }
+
+    /// An `agent` worktree started from `from` with a commit of its own, in a directory
+    /// dropping the guard deletes.
+    fn agent_worktree(path: &std::path::Path, from: &str) -> tempfile::TempDir {
+        let outside = tempfile::tempdir().unwrap();
+        let agent = outside.path().join("agent");
+        let agent_dir = agent.to_str().unwrap();
+        git(
+            path,
+            &["worktree", "add", "-q", "-b", "agent", agent_dir, from],
+        );
+        git(
+            &agent,
+            &["commit", "-q", "--allow-empty", "-m", "agent work"],
+        );
+        outside
+    }
+
+    fn update(path: &std::path::Path, scope: UpdateScope) -> UpdateOutcome {
+        let update = Update {
+            scope,
+            accepted: None,
+        };
+        crate::backend::apply(path, update).unwrap().0
+    }
 
     #[test]
     fn an_update_that_would_conflict_a_worktree_branch_names_it() {
-        use crate::backend::ops::tests::git;
         crate::backend::lane_tests::linked_workspace(|path| {
             let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
             let wt = &(workspace.worktrees.iter())
@@ -1173,7 +1243,7 @@ mod tests {
             std::fs::write(wt.join("file"), "wt\n").unwrap();
             git(wt, &["commit", "-q", "-am", "wt edit"]);
 
-            let (outcome, _) = crate::backend::apply(path, Update { accepted: None }).unwrap();
+            let outcome = update(path, UpdateScope::All);
             let UpdateOutcome::WouldConflict(found) = outcome else {
                 panic!("{outcome:?}");
             };
@@ -1187,56 +1257,60 @@ mod tests {
 
     #[test]
     fn an_update_rebases_a_worktree_on_the_target_too() {
-        use crate::backend::ops::tests::git;
         crate::backend::lane_tests::linked_workspace(|path| {
-            let tip = git(
-                path,
-                &[
-                    "commit-tree",
-                    "origin/main^{tree}",
-                    "-p",
-                    "origin/main",
-                    "-m",
-                    "new on target",
-                ],
-            );
-            git(
-                path,
-                &["update-ref", "refs/remotes/origin/main", tip.trim()],
-            );
-            crate::backend::apply(path, Update { accepted: None }).unwrap();
+            new_on_target(path, "new on target");
+            update(path, UpdateScope::All);
             // As an agent starts one from the target as it was, the workspace up to date.
-            let outside = tempfile::tempdir().unwrap();
-            let agent = outside.path().join("agent");
-            let agent_dir = agent.to_str().unwrap();
-            git(
-                path,
-                &[
-                    "worktree",
-                    "add",
-                    "-q",
-                    "-b",
-                    "agent",
-                    agent_dir,
-                    "origin/main~",
-                ],
-            );
-            git(
-                &agent,
-                &["commit", "-q", "--allow-empty", "-m", "agent work"],
-            );
+            let _agent = agent_worktree(path, "origin/main~");
 
             let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
             assert!(
-                workspace.target.as_ref().is_some_and(|t| t.needs_update),
+                workspace.target.as_ref().is_some_and(|t| t.needs_update()),
                 "only agent lacks the target's newest commit, which is still something to update"
             );
-            crate::backend::apply(path, Update { accepted: None }).unwrap();
+            update(path, UpdateScope::All);
             assert_eq!(
                 git(path, &["rev-parse", "agent~"]),
                 git(path, &["rev-parse", "origin/main"]),
                 "agent's work now sits on the target's newest commit"
             );
+        })
+    }
+
+    #[test]
+    fn the_workspace_and_the_worktrees_update_on_their_own() {
+        crate::backend::lane_tests::linked_workspace(|path| {
+            let _agent = agent_worktree(path, "origin/main");
+            let old = git(path, &["rev-parse", "origin/main"]);
+            new_on_target(path, "new on target");
+            let new = git(path, &["rev-parse", "origin/main"]);
+            let behind = || {
+                let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+                let target = workspace.target.expect("main is the target");
+                (target.workspace_behind, target.worktrees_behind)
+            };
+            // `bottom` has one commit, on the target's commit it started from.
+            let bases = || {
+                let base = |branch: &str| git(path, &["rev-parse", &format!("{branch}~")]);
+                (base("bottom"), base("agent"))
+            };
+            assert_eq!(behind(), (true, true), "both lack the new commit");
+
+            update(path, UpdateScope::Worktrees);
+            assert_eq!(
+                bases(),
+                (old, new.clone()),
+                "only agent went onto the new commit"
+            );
+            assert_eq!(behind(), (true, false), "the workspace is left to update");
+
+            update(path, UpdateScope::Workspace);
+            assert_eq!(
+                bases(),
+                (new.clone(), new),
+                "the stacks followed, agent where it was"
+            );
+            assert_eq!(behind(), (false, false), "nothing is left to update");
         })
     }
 
@@ -1248,7 +1322,6 @@ mod tests {
 
     #[test]
     fn a_worktree_branch_pushes_the_stack_branches_it_rests_on() {
-        use crate::backend::ops::tests::git;
         without_askpass();
         crate::backend::lane_tests::linked_workspace(|path| {
             let remote = tempfile::tempdir().unwrap();
@@ -1285,7 +1358,6 @@ refs/heads/wt
 
     #[test]
     fn a_worktree_started_on_the_workspace_commit_isnt_pushed() {
-        use crate::backend::ops::tests::git;
         without_askpass();
         crate::backend::lane_tests::linked_workspace(|path| {
             let remote = tempfile::tempdir().unwrap();

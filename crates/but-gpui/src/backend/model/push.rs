@@ -150,7 +150,8 @@ mod tests {
                     untracked: None,
                     behind: 0,
                     commits_behind: 0,
-                    needs_update: false,
+                    workspace_behind: false,
+                    worktrees_behind: false,
                     incoming: Vec::new(),
                 }),
                 ..workspace(

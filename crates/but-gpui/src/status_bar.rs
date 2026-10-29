@@ -213,7 +213,7 @@ impl AppView {
                 ) => {
                     let behind = (store.workspace(project))
                         .and_then(|ws| ws.target.as_ref())
-                        .is_some_and(|target| target.needs_update);
+                        .is_some_and(|target| target.needs_update());
                     [(&Fetch as &dyn Action, "fetch")]
                         .into_iter()
                         .chain(behind.then_some((&UpdateFromTarget as &dyn Action, "update")))

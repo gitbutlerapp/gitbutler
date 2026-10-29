@@ -437,7 +437,11 @@ fn target(
     info: &but_workspace::RefInfo,
     cached: &HashMap<u64, but_forge::ForgeReview>,
 ) -> Result<(Option<Target>, Option<String>)> {
+    // Linked worktrees' lanes count as behind too, but they update on their own.
     let target_commit = info.target_commit.as_ref().map(|target| target.commit_id);
+    let stacks_behind = info.has_lanes_behind_target
+        && (info.stacks.iter())
+            .any(|stack| stack.base.is_some_and(|base| Some(base) != target_commit));
     // What's new is what the target branch's upstream has that what's checked out doesn't:
     // what a pull brings in. Without an upstream, it's what the local target branch itself
     // gained, as from a land or a `git merge` into it.
@@ -481,11 +485,13 @@ fn target(
         behind: first_parent_run(&repo, tip, &new),
         commits_behind,
         // The stored commit can be past what's checked out, as when main is added behind its
-        // upstream, which an update fast-forwards. A lane behind it can be a linked
-        // worktree's, which an update rebases too.
-        needs_update: ahead.is_some_and(|ahead| ahead > 0)
+        // upstream, which an update fast-forwards.
+        workspace_behind: ahead.is_some_and(|ahead| ahead > 0)
             || commits_behind > 0
-            || info.has_lanes_behind_target,
+            || stacks_behind,
+        // Against the tip, as the update rebases them onto it, as `but pull` tells.
+        worktrees_behind: (info.worktrees.iter())
+            .any(|worktree| worktree.rebasable_base().is_some_and(|base| base != tip)),
         incoming: match commits_behind {
             0 => Vec::new(),
             _ => upstream::incoming(ctx, cached, model::UPSTREAM_SHOWN).unwrap_or_else(|err| {

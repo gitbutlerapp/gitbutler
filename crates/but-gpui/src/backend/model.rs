@@ -276,11 +276,21 @@ pub struct Target {
     pub behind: usize,
     /// Every commit the workspace doesn't have, those the merges brought in too.
     pub commits_behind: usize,
-    /// Whether updating from the target would change anything.
-    pub needs_update: bool,
+    /// Whether updating the workspace from the target would change anything.
+    pub workspace_behind: bool,
+    /// Whether a linked worktree on the target's history with work of its own lacks the
+    /// target's newest commit, which updating the worktrees rebases it onto.
+    pub worktrees_behind: bool,
     /// The newest of the `behind` commits, up to [`UPSTREAM_SHOWN`], named as the project's
     /// page names them.
     pub incoming: Vec<RemoteCommit>,
+}
+
+impl Target {
+    /// Whether updating from the target would change anything, the workspace or a worktree.
+    pub fn needs_update(&self) -> bool {
+        self.workspace_behind || self.worktrees_behind
+    }
 }
 
 /// How many of the target's commits the workspace doesn't have yet are read with it.
@@ -1372,7 +1382,8 @@ mod tests {
                 untracked: None,
                 behind: 1,
                 commits_behind: 1,
-                needs_update: true,
+                workspace_behind: true,
+                worktrees_behind: false,
                 incoming: Vec::new(),
             }),
             ..super::Workspace::default()
