@@ -25,6 +25,10 @@ dev-script = ["gpui/test-support", "gpui_platform/test-support"]
 # Build and restart's Cancel stops the build's whole process group.
 libc.workspace = true
 
+[target.'cfg(windows)'.dependencies]
+# The embedded terminals' pseudoconsole and the shell started on it.
+windows = { version = "0.62.0", features = ["Win32_Security", "Win32_System_Console", "Win32_System_Pipes", "Win32_System_Threading"] }
+
 [target.'cfg(target_os = "macos")'.dependencies]
 # Text drawn as the web apps draw it and the Dock icon (see `run`), scripted runs kept out of
 # App Nap, the cursor shown again when the window becomes key, and the window's least width

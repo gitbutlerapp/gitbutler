@@ -1752,6 +1752,7 @@ dependencies = [
  "two-face",
  "unicode-segmentation",
  "uuid",
+ "windows 0.62.2",
 ]
 
 [[package]]
