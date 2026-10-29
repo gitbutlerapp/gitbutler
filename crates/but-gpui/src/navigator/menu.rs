@@ -1,13 +1,16 @@
 //! The navigator's right-click menus.
 
+use std::path::Path;
+
 use gpui::{Action, App};
 
 use super::{ClickOpened, Navigator};
 use crate::app::{
-    Collapse, CopySelection, CutSelection, DeleteSelection, Expand, Fetch, MarkAllRead, NewBranch,
-    NewBranchOnTop, OpenPullRequest, Push, RenameSelection, StartCommit, ToggleRead,
-    UncommitSelection, UpdateFromTarget,
+    BuildAndRestartFromHere, Collapse, CopySelection, CutSelection, DeleteSelection, Expand, Fetch,
+    MarkAllRead, NewBranch, NewBranchOnTop, OpenPullRequest, Push, RenameSelection, StartCommit,
+    ToggleRead, UncommitSelection, UpdateFromTarget,
 };
+use crate::backend::rebuild::Rebuild;
 use crate::backend::{Checkout, CommitId, short_ref, worktrees};
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, BranchEdits, CherryPick, CommitEdits, CopyChangeId,
@@ -76,6 +79,14 @@ fn update_item(store: &Store, project: &ProjectId, cx: &App) -> Option<MenuItem>
     let target = (store.workspace(project)?.target.as_ref()).filter(|t| t.needs_update())?;
     let label = format!("Update from {}", target.name);
     Some(MenuItem::action(label, &UpdateFromTarget, cx))
+}
+
+/// Build and restart from checkout `dir`, the row right-clicked and so selected, in a client
+/// `cargo run` started, when `dir` has the client to build.
+fn build_item(dir: &Path, cx: &App) -> Option<MenuItem> {
+    let builds = cx.try_global::<Rebuild>().is_some_and(|r| r.builds_in(dir));
+    let item = MenuItem::action("Build and restart from here", &BuildAndRestartFromHere, cx);
+    builds.then(|| item.separated())
 }
 
 impl Navigator {
@@ -291,11 +302,11 @@ impl Navigator {
                 items.extend(update_item(store, project, cx));
                 if store
                     .workspace(project)
-                    .is_none_or(|ws| ws.uncommitted.is_empty())
+                    .is_some_and(|ws| !ws.uncommitted.is_empty())
                 {
-                    return items;
+                    items.extend(self.changes_items(project, Checkout::Main, cx));
                 }
-                items.extend(self.changes_items(project, Checkout::Main, cx));
+                items.extend(store.path(project).and_then(|path| build_item(&path, cx)));
                 items
             }
             Selection::Branch(project, ref_name) => {
@@ -531,6 +542,7 @@ impl Navigator {
                 };
                 let path = worktree.path.clone();
                 let copied = path.display().to_string();
+                let build = build_item(&path, cx);
                 // A detached `HEAD` has no branch to keep what was committed there.
                 let after = match worktree.branch {
                     Some(_) => "Its branch stays.",
@@ -616,6 +628,7 @@ impl Navigator {
                 items.splice(3..3, changes.into_iter().flatten());
                 let archive = items.len() - 2;
                 items.splice(archive..archive, moves);
+                items.extend(build);
                 items
             }
             Selection::Stack(project, bottom) => {

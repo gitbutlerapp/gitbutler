@@ -20,7 +20,8 @@ const ASKPASS_BIN: &str = "gitbutler-git-askpass";
 /// modal showing it.
 const PROGRESS_WIDTH: u16 = 100;
 
-/// How this binary was built, to build it again.
+/// How this binary was built, to build it again. A global once the app starts, when `cargo
+/// run` started it.
 #[derive(Clone)]
 pub struct Rebuild {
     /// The `cargo` that ran it, of the toolchain that built it.
@@ -34,6 +35,8 @@ pub struct Rebuild {
     /// The build's profile, by the folder its binary is in: `debug` for `dev`.
     profile: Option<String>,
 }
+
+impl gpui::Global for Rebuild {}
 
 /// A worktree of the repository to build from.
 pub struct Source {
@@ -74,6 +77,12 @@ impl Rebuild {
         &self.checkout
     }
 
+    /// Whether checkout `dir` has the client to build: it may be deleted without Git, or on a
+    /// branch from before the client.
+    pub fn builds_in(&self, dir: &Path) -> bool {
+        dir.join(&self.crate_dir).join("Cargo.toml").is_file()
+    }
+
     /// The repository's worktrees that have the client to build, the main one first.
     pub fn sources(&self) -> Result<Vec<Source>> {
         let repo = gix::open(&self.common_dir)?;
@@ -85,14 +94,10 @@ impl Rebuild {
             .filter_map(|repo| {
                 let dir = repo.workdir()?.to_owned();
                 let branch = repo.head_name().ok().flatten();
-                // Deleted without Git, or on a branch from before the client.
-                dir.join(&self.crate_dir)
-                    .join("Cargo.toml")
-                    .is_file()
-                    .then(|| Source {
-                        dir,
-                        branch: branch.map(|name| name.shorten().to_string()),
-                    })
+                self.builds_in(&dir).then(|| Source {
+                    dir,
+                    branch: branch.map(|name| name.shorten().to_string()),
+                })
             })
             .collect())
     }

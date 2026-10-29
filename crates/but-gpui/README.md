@@ -31,7 +31,7 @@ The app is built for watching what coding agents change. Reading their changes c
 
 ## Development
 
-- Started with `cargo run` on macOS or Linux, the status bar has a Build and restart button, which rebuilds the client and restarts it in place.
+- Started with `cargo run` on macOS or Linux, the status bar has a Build and restart button, which rebuilds the client and restarts it in place. Right-clicking a worktree in the navigator offers Build and restart from here, to build from that one, and so does the palette, from the checkout of whatever is selected.
 - `GITBUTLER_GPUI_APPEARANCE=dark` (or `light`) overrides the system appearance.
 - `E2E_TEST_APP_DATA_DIR=<dir>` points GitButler's app data and settings at a sandbox.
 - `GITBUTLER_API_URL` signs in to another GitButler server than production, as staging.
