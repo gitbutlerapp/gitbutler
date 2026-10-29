@@ -770,6 +770,20 @@ impl AppView {
         } else {
             3
         };
+        self.focus_pane_from(at, forward, wrap, window, cx);
+    }
+
+    /// Focus the pane after `at`, or before it going back, of those [`AppView::focus_pane`]
+    /// steps through, numbered from the navigator's 0. Says whether one took the keys.
+    fn focus_pane_from(
+        &mut self,
+        at: usize,
+        forward: bool,
+        wrap: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let detail = self.detail.read(cx);
         // A page that's an overview alone has no pane past the navigator to take the keys.
         let list_page = detail.list_page(cx);
         let shown = [
@@ -794,7 +808,17 @@ impl AppView {
             // A list page's list, or the file list.
             Some(1 | 2) => (self.detail).update(cx, |detail, cx| detail.focus_files(window, cx)),
             Some(_) => (self.detail).update(cx, |detail, cx| detail.focus(window, cx)),
-            None => {}
+            None => return false,
+        }
+        true
+    }
+
+    /// Move the keys off the navigator as it goes, to the leftmost pane beside it, as → from
+    /// it does: a list page's list, else the file list, else the diff. A page that's an
+    /// overview alone has none, so the detail takes them.
+    fn focus_past_navigator(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.focus_pane_from(0, true, false, window, cx) {
+            (self.detail).update(cx, |detail, cx| detail.focus(window, cx));
         }
     }
 
@@ -1046,7 +1070,7 @@ impl AppView {
         }
         self.navigator_open = navigator_open;
         if !navigator_open && self.navigator.focus_handle(cx).contains_focused(window, cx) {
-            self.focus_main(window, cx);
+            self.focus_past_navigator(window, cx);
         }
         cx.notify();
     }
@@ -1108,7 +1132,7 @@ impl AppView {
         self.peek.open = false;
         self.peek.slide.start(false, cx);
         if self.navigator.focus_handle(cx).contains_focused(window, cx) {
-            self.focus_main(window, cx);
+            self.focus_past_navigator(window, cx);
         }
         cx.notify();
     }
