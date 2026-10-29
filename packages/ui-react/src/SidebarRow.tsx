@@ -520,6 +520,7 @@ export const TargetItem: FC<{ target: string; count: number } & Omit<RowProps, "
 		{...props}
 		name={`New on ${target}`}
 		layout="compact"
+		rowClassName={styles.target}
 		icon={<Icon name="arrow-in-box" />}
 		label={
 			<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>

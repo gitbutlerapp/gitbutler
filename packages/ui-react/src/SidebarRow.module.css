@@ -223,6 +223,12 @@
 	align-items: center;
 }
 
+/* A TargetItem keeps Update beside its count rather than in its place: a step more room tells the
+   button from the count. */
+.target .meta {
+	column-gap: var(--space-lg);
+}
+
 /* compact: the name takes the line and the state sits at the end, where it stays: the menu follows
    it under the pointer, on keyboard focus and on a selected row, and the name gives way. The
    actions, a next step for what the state counts (Update for ↓, Push for ↑), take the state's
