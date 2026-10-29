@@ -912,6 +912,7 @@ fn follow_cut(cut: &mut Cut, old: Option<&Workspace>, new: &Workspace) -> bool {
             })
         }
         Cut::Branch(_, ref_name) => new.find_branch(Some(ref_name)).is_some(),
+        Cut::Worktree(_, name) => new.find_worktree(name.as_ref()).is_some(),
     }
 }
 
@@ -956,7 +957,7 @@ fn watch(
 }
 
 /// Move `item` in `order` before `before`, or last, and whether it was there to move.
-fn move_before<T: PartialEq>(order: &mut Vec<T>, item: &T, before: Option<&T>) -> bool {
+pub(crate) fn move_before<T: PartialEq>(order: &mut Vec<T>, item: &T, before: Option<&T>) -> bool {
     let Some(from) = order.iter().position(|other| other == item) else {
         return false;
     };

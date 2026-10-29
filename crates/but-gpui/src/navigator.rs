@@ -1211,8 +1211,10 @@ impl Navigator {
             None | Some(Row::Gap) => return div().h(dp(12.)).into_any_element(),
             _ if hidden => div().into_any_element(),
             Some(Row::Item(_)) => self.render_item(&self.rows, ix, inset, window, theme, cx),
-            // A dashed line, as ui-react's WorktreeDivider.
+            // A dashed line, as ui-react's WorktreeDivider. What's dropped between the
+            // worktrees either side of it shows its line here.
             Some(Row::WorktreeDivider) => h_flex()
+                .relative()
                 .h(dp(12.))
                 .px(dp(12.))
                 .child(
@@ -1222,6 +1224,12 @@ impl Navigator {
                         .border_dashed()
                         .border_color(theme.border_3),
                 )
+                .when(self.lands_at_divider(ix, cx), |el| {
+                    el.child(insertion_line(true, theme.pop).top(dp(5.)))
+                })
+                .when(cx.has_active_drag(), |el| {
+                    el.child(self.divider_zone(ix, cx))
+                })
                 .into_any_element(),
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
             // As made at once, set in as a commit row is, a stand-in title quiet as one's;
@@ -2024,14 +2032,20 @@ impl Navigator {
             .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
             .when(folds, |el| el.on_click(double_click(toggle, cx)));
         // The worktree's checked files while it's shown, else all of them, but not conflicted
-        // ones: with only those, there's nothing to drag.
+        // ones: with only those, there's nothing to drag. A linked worktree with none drags
+        // itself; with some, where they land says whether they or it moves.
         let files = match uncommitted.is_empty() {
             true => Vec::new(),
             false => self.detail.read(cx).files_to_move(id, checkout.clone(), cx),
         };
-        Some(
-            row.when(!files.is_empty(), |el| {
-                let label: SharedString = match files.as_slice() {
+        let dragged = match (files.as_slice(), checkout.linked()) {
+            ([], None) => None,
+            ([], Some(name)) => Some((
+                Cut::Worktree(id.clone(), name.to_owned()),
+                name.to_string().into(),
+            )),
+            (files, _) => {
+                let label: SharedString = match files {
                     [file] => file.file.path.clone().into(),
                     files => format!("{} files", files.len()).into(),
                 };
@@ -2041,6 +2055,11 @@ impl Navigator {
                     worktree: checkout,
                     files: files.into(),
                 };
+                Some((payload, label))
+            }
+        };
+        Some(
+            row.when_some(dragged, |el, (payload, label)| {
                 el.on_drag(payload, drag_preview(self.store.clone(), label))
             })
             .into_any_element(),
