@@ -194,10 +194,12 @@ pub fn heads(repo: &gix::Repository) -> Heads {
     Heads(heads.collect())
 }
 
-/// Make a linked worktree on a new branch at the workspace's base, named or with a made-up
-/// name, as `but worktree new` does. Done is the worktree's name.
+/// Make a linked worktree, as `but worktree new` does: on a new branch at the workspace's base,
+/// named or with a made-up name, or on an existing local branch outside the workspace. Done is
+/// the worktree's name.
 pub enum CreateWorktree {
     New(Option<String>),
+    On(super::FullName),
 }
 
 impl Intent for CreateWorktree {
@@ -211,6 +213,9 @@ impl Intent for CreateWorktree {
                     but_api::worktrees::worktree_new_with_perm(ctx, ref_name, perm)
                 })?
             }
+            Self::On(branch) => run.locked(|ctx, perm| {
+                but_api::worktrees::worktree_new_on_branch_with_perm(ctx, branch, perm)
+            })?,
         };
         Ok(created.name)
     }

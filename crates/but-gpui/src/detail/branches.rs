@@ -963,6 +963,13 @@ impl Detail {
                 (app.detail).update(cx, |detail, cx| detail.apply_branch(&p, &r, window, cx))
             },
         )];
+        if branch.local {
+            let (p, r) = (project.clone(), ref_name.to_owned());
+            items.push(MenuItem::new("Create worktree", move |app, _, cx| {
+                let create = backend::worktrees::CreateWorktree::On(r.clone());
+                (app.store).update(cx, |store, cx| store.create_worktree(&p, create, cx))
+            }));
+        }
         if let Some(url) = (branch.review.as_ref()).and_then(|r| r.url.clone()) {
             items.push(MenuItem::new("Open pull request", move |_, _, cx| {
                 cx.open_url(&url)
