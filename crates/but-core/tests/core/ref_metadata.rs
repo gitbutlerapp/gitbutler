@@ -1120,10 +1120,6 @@ mod project_meta {
             None,
             "local-only targets are supported"
         );
-        assert!(
-            meta.remote_target_ref_or_err(&repo).is_err(),
-            "remote-required operations reject local-only targets"
-        );
         Ok(())
     }
 
@@ -1136,13 +1132,13 @@ mod project_meta {
             None,
             "no target means no upstream"
         );
-        let err = meta.remote_target_ref_or_err(&repo).unwrap_err();
+        let err = meta.target_remote_url(&repo).unwrap_err();
         assert!(
             matches!(
                 err.downcast_ref::<but_error::Code>(),
                 Some(but_error::Code::DefaultTargetNotFound)
             ),
-            "the required accessor preserves the missing-target error code"
+            "forge lookups report the missing-target error code"
         );
         Ok(())
     }
@@ -1176,6 +1172,23 @@ mod project_meta {
             meta.target_remote_url(&repo)?,
             "https://example.com/upstream.git",
             "target fetch URL ignores the publishing override"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn target_without_upstream_uses_push_remote_url() -> anyhow::Result<()> {
+        let repo = repo()?;
+        let mut meta = local_target("refs/heads/other")?;
+        assert!(
+            meta.target_remote_url(&repo).is_err(),
+            "a target without upstream or push remote has no remote to pick"
+        );
+        meta.push_remote = Some("fork".into());
+        assert_eq!(
+            meta.target_remote_url(&repo)?,
+            "https://example.com/fork.git",
+            "the push remote chosen at setup names the forge when the target has no upstream"
         );
         Ok(())
     }
