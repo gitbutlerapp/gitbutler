@@ -34,10 +34,10 @@ use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, reordered};
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    BLINK, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, above_drag, ago, blink_once,
-    button, commit_title, count_badge, dot, dp, faint, field, fixed, fold_button, fold_glyph,
-    fold_row, glow_once, guide, h_flex, icon, icon_button, list_row, meta_count, plural, pulsing,
-    relative_time, resize_handle, review, section_label, small_icon, v_flex,
+    BLINK, ButtonStyle, HEADER_HEIGHT, Icon, POPOVER_RADIUS, ROW_HEIGHT, Tooltip, above_drag, ago,
+    blink_once, button, commit_title, count_badge, dot, dp, faint, field, fixed, fold_button,
+    fold_glyph, fold_row, glow_once, guide, h_flex, icon, icon_button, list_row, meta_count,
+    plural, pulsing, relative_time, resize_handle, review, section_label, small_icon, v_flex,
 };
 
 mod account;
@@ -344,6 +344,9 @@ pub struct Navigator {
     first_hit: Option<Selection>,
     /// Whether the pointer is over the navigator.
     pointer_over: bool,
+    /// Drawn out over the detail while it's closed, as a card of its own, which the app
+    /// sizes, rather than beside it.
+    floating: bool,
     /// The watched projects' order by activity as it was when the pointer came over the
     /// list, kept until it leaves, so a project an agent wakes doesn't move the row about to
     /// be clicked.
@@ -487,6 +490,7 @@ impl Navigator {
             filter,
             first_hit: None,
             pointer_over: false,
+            floating: false,
             held_order: None,
             watch_hovered: None,
             project_drop: None,
@@ -590,6 +594,14 @@ impl Navigator {
         self.store
             .update(cx, |store, cx| store.reopen(selection, cx));
         window.focus(&self.focus, cx);
+    }
+
+    /// Draw the navigator as a card out over the detail, or beside it again.
+    pub(crate) fn set_floating(&mut self, floating: bool, cx: &mut Context<Navigator>) {
+        if self.floating != floating {
+            self.floating = floating;
+            cx.notify();
+        }
     }
 
     /// The rows that can be selected, in order: the cards', then the drawer's, but not
@@ -1550,6 +1562,8 @@ impl Navigator {
         v_flex()
             .relative()
             .bg(theme.bg_1)
+            // Along the bottom of a card, inside its border.
+            .when(self.floating, |el| el.rounded_b(dp(POPOVER_RADIUS - 1.)))
             .map(|el| match alone {
                 true => el.flex_1().min_h_0(),
                 false => (el.flex_none())
@@ -3069,12 +3083,13 @@ impl Render for Navigator {
                 false => gpui::transparent_black(),
             })
             // Room for macOS's traffic lights; elsewhere the window's buttons are at its other end.
-            .map(|el| match cfg!(target_os = "macos") {
+            // A card out over the detail has them out of its way, and isn't the window's title bar.
+            .map(|el| match cfg!(target_os = "macos") && !self.floating {
                 true => el.pl(fixed(84.)),
                 false => el.pl(dp(8.)),
             })
             .pr(dp(8.))
-            .map(crate::ui::drags_window)
+            .when(!self.floating, crate::ui::drags_window)
             .gap(dp(6.))
             // Its clear button inside it, so typing the first letter doesn't narrow it.
             .child(
@@ -3154,8 +3169,12 @@ impl Render for Navigator {
             .size_full()
             .relative()
             .bg(theme.bg_2)
-            .border_r_1()
-            .border_color(theme.border_3)
+            // Out over the detail, it's a popover's card. GPUI cuts what's inside to a
+            // rectangle, so the drawer along its bottom rounds its own corners.
+            .map(|el| match self.floating {
+                true => (el.rounded(dp(POPOVER_RADIUS)).border_1()).border_color(theme.border_2),
+                false => el.border_r_1().border_color(theme.border_3),
+            })
             .child(header)
             .map(|el| {
                 // With no projects, the welcome beside it says what to do.
@@ -3195,6 +3214,10 @@ impl Render for Navigator {
                     cx.notify();
                 }
             }))
-            .child(resize_handle(Pane::Navigator, self.store.clone(), &theme))
+            // A card out over the detail goes back once the pointer leaves it, so it's resized
+            // only beside the detail.
+            .when(!self.floating, |el| {
+                el.child(resize_handle(Pane::Navigator, self.store.clone(), &theme))
+            })
     }
 }

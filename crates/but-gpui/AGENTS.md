@@ -146,6 +146,11 @@ unseen is what a laptop's battery pays for.
   opaque and taking the pointer: the detail over the navigator, the diff over the file list at
   `Detail::diff_left`. The detail's header and its file list's fitted width follow the
   navigator's share, `Detail::navigator_shown`, which the app sets before the detail draws.
+  The closed navigator out over the detail (`Peek` in `app.rs`) has nothing over it to move,
+  so it moves itself and draws again every frame of its slide, about what ↓ in it costs.
+- An element's own mouse listeners run only while its hitbox is hovered, which anything
+  occluding above it takes. What follows the pointer over the whole window, as the peek's
+  edge does, registers with `window.on_mouse_event` from a `canvas`, as the scrollbar does.
 - `InteractiveText` maps a click on centered text (`text_center`) as if each line were
   left-aligned, so its links miss. Let the parent center a block that fits its text instead.
 

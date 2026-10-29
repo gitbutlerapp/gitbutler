@@ -1,12 +1,12 @@
 //! The window's root: the project navigator on the left, details on the right, the keys,
 //! and the actions that work anywhere in the window. `overlays.rs` draws what opens above.
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use gpui::{
-    AnyView, App, ClipboardItem, Context, Entity, FocusHandle, Focusable, FontFeatures, Pixels,
-    Point, PromptLevel, Role, StyleRefinement, Subscription, WeakEntity, Window, actions, div,
-    prelude::*,
+    AnyView, App, ClipboardItem, Context, DispatchPhase, Entity, FocusHandle, Focusable,
+    FontFeatures, MouseMoveEvent, Pixels, Point, PromptLevel, Role, StyleRefinement, Subscription,
+    Task, WeakEntity, Window, actions, div, prelude::*,
 };
 
 use crate::backend::upstream::UpdateScope;
@@ -20,7 +20,7 @@ use crate::state::{Cut, MeshPick, Pane, ProjectId, Selection, Store, StoreEvent,
 use crate::theme::{Theme, UiScale};
 use crate::transfer::{Place, Transfer};
 use crate::ui::fold::{Slide, edge, inert};
-use crate::ui::{HEADER_HEIGHT, dp, fixed, resize_pane};
+use crate::ui::{HEADER_HEIGHT, POPOVER_RADIUS, dp, fixed, resize_pane};
 
 // Named in the keymap as area::Action, by where they act.
 actions!(
@@ -101,6 +101,11 @@ pub struct AppView {
     pub navigator_open: bool,
     /// The navigator sliding open or shut.
     navigator_slide: Slide,
+    /// The navigator out over the detail while it's closed.
+    peek: Peek,
+    /// macOS's traffic lights are out of the way of the navigator out over the detail.
+    #[cfg(target_os = "macos")]
+    lights_away: bool,
     pub palette: Option<Palette>,
     /// The modal on screen, if any, what takes its keys, its card's own, which Tab keeps
     /// to, the subscription that closes it, and what had the keys before it opened, to give
@@ -121,6 +126,29 @@ pub struct AppView {
     /// The frames drawn each second, drawn over everything while `Prefs::show_fps` is on.
     fps: Entity<crate::fps::Fps>,
     _subscriptions: Vec<Subscription>,
+}
+
+/// How near the window's left edge the pointer brings the closed navigator out over the
+/// detail, as Arc's sidebar comes out.
+const PEEK_EDGE: f32 = 6.;
+/// How far the navigator out over the detail floats from the window's edges.
+const PEEK_INSET: f32 = 6.;
+/// How far past its card the shadow of the navigator out over the detail reaches, which goes
+/// off the window with it as it slides away.
+const PEEK_SHADOW: f32 = 16.;
+/// How long the pointer can stray past the navigator out over the detail before it goes back,
+/// so overshooting its edge a little leaves it out.
+const PEEK_GRACE: Duration = Duration::from_millis(300);
+
+/// The closed navigator out over the detail, as the pointer at the window's left edge brings
+/// it, until the pointer strays from it.
+#[derive(Default)]
+struct Peek {
+    open: bool,
+    /// It sliding in from the window's edge or back off it.
+    slide: Slide,
+    /// Sends it back once the pointer has strayed from it for [`PEEK_GRACE`].
+    leaving: Option<Task<()>>,
 }
 
 /// The app, as the views it owns reach it: only once the update running now is over. Reached
@@ -177,7 +205,7 @@ impl AppView {
     pub fn new(store: Entity<Store>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         cx.set_global(theme_for(store.read(cx), window));
         #[cfg(target_os = "macos")]
-        place_traffic_lights(window, cx);
+        place_traffic_lights(false, window, cx);
         let app = AppHandle::of(cx);
         let detail = cx.new(|cx| Detail::new(store.clone(), app.clone(), window, cx));
         let diff = cx.new(|cx| DiffPane::new(&detail, window, cx));
@@ -214,7 +242,9 @@ impl AppView {
                 this.apply_appearance(window, cx)
             }),
             #[cfg(target_os = "macos")]
-            cx.observe_global_in::<Theme>(window, |_, window, cx| place_traffic_lights(window, cx)),
+            cx.observe_global_in::<Theme>(window, |this, window, cx| {
+                place_traffic_lights(this.lights_away, window, cx)
+            }),
             // A scripted window opens off screen, which isn't where the user left theirs.
             cx.observe_window_bounds(window, |this, window, cx| {
                 if !scripted() {
@@ -267,6 +297,9 @@ impl AppView {
             icon_picker: None,
             navigator_open: true,
             navigator_slide: Slide::default(),
+            peek: Peek::default(),
+            #[cfg(target_os = "macos")]
+            lights_away: false,
             palette: None,
             modal: None,
             recent_commands: Vec::new(),
@@ -689,9 +722,9 @@ impl AppView {
     }
 
     /// Focus the navigator, or the changes while the navigator isn't on screen, so keys
-    /// always reach something visible.
+    /// always reach something visible. Out over the detail, it's on screen.
     pub(crate) fn focus_main(&self, window: &mut Window, cx: &mut App) {
-        if self.navigator_open {
+        if self.navigator_open || self.peek.open {
             window.focus(&self.navigator.focus_handle(cx), cx);
         } else {
             self.detail
@@ -993,14 +1026,22 @@ impl AppView {
     }
 
     /// Show or hide the navigator, sliding it there. When it goes, focus moves off it, and it
-    /// comes back with it, as hiding it took it away.
+    /// comes back with it, as hiding it took it away. Out over the detail already, it shows
+    /// beside it at once rather than sliding in again.
     pub(crate) fn set_navigator(
         &mut self,
         navigator_open: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if navigator_open != self.navigator_open {
+        let peeking = self.peek.open || self.peek.slide.closing(Instant::now());
+        if navigator_open {
+            self.peek = Peek::default();
+            (self.navigator).update(cx, |navigator, cx| navigator.set_floating(false, cx));
+        }
+        if navigator_open && peeking {
+            self.navigator_slide = Slide::default();
+        } else if navigator_open != self.navigator_open {
             self.navigator_slide.start(navigator_open, cx);
         }
         self.navigator_open = navigator_open;
@@ -1010,6 +1051,113 @@ impl AppView {
             self.focus_main(window, cx);
         }
         cx.notify();
+    }
+
+    /// Bring the closed navigator out over the detail as the pointer, `at` from the panes' top
+    /// left, reaches the window's left edge below the location bar, so going for macOS's
+    /// traffic lights doesn't send them out of its way, and send it back once the pointer has
+    /// strayed past it for [`PEEK_GRACE`], unless [`AppView::peek_held`].
+    fn follow_pointer(
+        &mut self,
+        at: Point<Pixels>,
+        window: &mut Window,
+        cx: &mut Context<AppView>,
+    ) {
+        let now = Instant::now();
+        if self.navigator_open || self.navigator_slide.closing(now) {
+            return;
+        }
+        let Point { x, y } = at;
+        if !self.peek.open {
+            let beside = y >= Theme::get(cx).scaled(HEADER_HEIGHT);
+            if x <= fixed(PEEK_EDGE) && beside && !self.covered() {
+                self.peek.open = true;
+                self.peek.slide.start(true, cx);
+                (self.navigator).update(cx, |navigator, cx| navigator.set_floating(true, cx));
+                cx.notify();
+            }
+            return;
+        }
+        let width = self.detail.read(cx).navigator_width(now, window, cx);
+        let strayed = x > Theme::get(cx).scaled(PEEK_INSET + width);
+        if !strayed {
+            self.peek.leaving = None;
+        } else if self.peek.leaving.is_none() && !self.peek_held(window, cx) {
+            self.peek.leaving = Some(cx.spawn_in(window, async move |this, cx| {
+                cx.background_executor().timer(PEEK_GRACE).await;
+                this.update_in(cx, |this, window, cx| this.close_peek(window, cx))
+                    .ok();
+            }));
+        }
+    }
+
+    /// Whether the navigator out over the detail stays though the pointer strayed from it:
+    /// what was opened from it is over the window, a drag may be headed for it, or its filter
+    /// has the keys. The pointer's next move looks again.
+    fn peek_held(&self, window: &Window, cx: &App) -> bool {
+        let navigator = self.navigator.focus_handle(cx);
+        let typing = navigator.contains_focused(window, cx) && !navigator.is_focused(window);
+        self.covered() || cx.has_active_drag() || typing
+    }
+
+    /// Send the navigator out over the detail back, unless [`AppView::peek_held`], moving the
+    /// keys off it, as it takes no more.
+    fn close_peek(&mut self, window: &mut Window, cx: &mut Context<AppView>) {
+        self.peek.leaving = None;
+        if !self.peek.open || self.peek_held(window, cx) {
+            return;
+        }
+        self.peek.open = false;
+        self.peek.slide.start(false, cx);
+        if self.navigator.focus_handle(cx).contains_focused(window, cx) {
+            self.focus_main(window, cx);
+        }
+        cx.notify();
+    }
+
+    /// Follows the pointer anywhere over the panes, over what takes it too, for the closed
+    /// navigator to come out over the detail: in from their left edge, which is the window's
+    /// but for the frame a desktop that leaves it to the app has drawn around them.
+    fn watch_pointer(&self, cx: &Context<AppView>) -> impl IntoElement {
+        let this = cx.entity().downgrade();
+        gpui::canvas(
+            |_, _, _| {},
+            move |bounds, (), window, _| {
+                window.on_mouse_event(move |event: &MouseMoveEvent, phase, window, cx| {
+                    if phase == DispatchPhase::Capture {
+                        let at = event.position - bounds.origin;
+                        this.update(cx, |this, cx| this.follow_pointer(at, window, cx))
+                            .ok();
+                    }
+                });
+            },
+        )
+        .absolute()
+        .inset_0()
+    }
+
+    /// The navigator out over the detail: a card sliding in from past the window's edge,
+    /// shadow and all, keeping its width as it goes.
+    fn render_peek(&self, now: Instant, window: &Window, cx: &App) -> impl IntoElement {
+        let width = self.detail.read(cx).navigator_width(now, window, cx);
+        let away = PEEK_INSET + width + PEEK_SHADOW;
+        let left = PEEK_INSET - away * (1. - self.peek.slide.share(self.peek.open, now));
+        let navigator = div().size_full().child(
+            self.navigator
+                .clone()
+                .cached(StyleRefinement::default().size_full()),
+        );
+        div()
+            .absolute()
+            .top(dp(PEEK_INSET))
+            .bottom(dp(PEEK_INSET))
+            .left(dp(left))
+            .w(dp(width))
+            .rounded(dp(POPOVER_RADIUS))
+            .shadow_lg()
+            // Over the detail, taking the pointer from it.
+            .occlude()
+            .child(inert(navigator, !self.peek.open))
     }
 }
 
@@ -1035,8 +1183,19 @@ impl Render for AppView {
         let detail = self.detail.read(cx);
         detail.navigator_shown.set(navigator_share);
         let files_sliding = detail.sliding(now);
-        if navigator_sliding || files_sliding {
+        let peek_sliding = self.peek.slide.openness(now).is_some();
+        if navigator_sliding || files_sliding || peek_sliding {
             window.request_animation_frame();
+        }
+        // The navigator out over the detail goes over where macOS's traffic lights are, and
+        // AppKit draws them over everything the app does, so they make way while it's drawn.
+        #[cfg(target_os = "macos")]
+        {
+            let away = self.peek.open || self.peek.slide.closing(now);
+            if away != self.lights_away {
+                self.lights_away = away;
+                place_traffic_lights(away, window, cx);
+            }
         }
         let has_update_feed = cx
             .try_global::<crate::Embedded>()
@@ -1234,6 +1393,7 @@ impl Render for AppView {
                     .flex_row()
                     .flex_1()
                     .min_h_0()
+                    .relative()
                     // What the navigator's menus and keys, and the commit header's menu, do to
                     // the selection.
                     .map(|el| self.edit_actions(el, cx))
@@ -1297,7 +1457,13 @@ impl Render for AppView {
                             .when(navigator_sliding, |el| {
                                 el.child(edge(theme.border_3).left(fixed(-1.)))
                             }),
-                    ),
+                    )
+                    // Closed, the navigator comes out over the detail as the pointer reaches
+                    // the window's left edge, as Arc's sidebar does.
+                    .when(!self.navigator_open, |el| el.child(self.watch_pointer(cx)))
+                    .when(self.peek.open || self.peek.slide.closing(now), |el| {
+                        el.child(self.render_peek(now, window, cx))
+                    }),
             )
             .child(self.render_status_bar(window, cx))
             .children(self.render_modal(cx))
@@ -1319,15 +1485,22 @@ impl Render for AppView {
 }
 
 /// Puts macOS's traffic lights, which keep their size at every interface scale, halfway down
-/// the header, however tall the scale draws it.
+/// the header, however tall the scale draws it. While `away`, they're past the window's left
+/// edge, where AppKit doesn't draw them.
 #[cfg(target_os = "macos")]
-fn place_traffic_lights(window: &Window, cx: &App) {
+fn place_traffic_lights(away: bool, window: &Window, cx: &App) {
     use crate::ui::fixed;
     use gpui::point;
 
     const LIGHTS: f32 = 14.;
+    // Further than the three of them reach.
+    const AWAY: f32 = -100.;
     let top = (Theme::get(cx).scaled(HEADER_HEIGHT) - fixed(LIGHTS)) / 2.;
-    window.set_traffic_light_position(point(fixed(14.), top));
+    let left = match away {
+        true => fixed(AWAY),
+        false => fixed(14.),
+    };
+    window.set_traffic_light_position(point(left, top));
 }
 
 /// The theme the appearance setting and the system call for.
