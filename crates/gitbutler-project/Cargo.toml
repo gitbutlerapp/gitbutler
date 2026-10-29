@@ -24,7 +24,6 @@ but-schemars = { workspace = true, optional = true }
 anyhow.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
-# git2.workspace = true
 gix = { workspace = true, features = [
     "dirwalk",
     "credentials",

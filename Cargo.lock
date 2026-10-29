@@ -2018,7 +2018,6 @@ name = "but-serde"
 version = "0.0.0"
 dependencies = [
  "bstr",
- "git2",
  "gix",
  "serde",
 ]
@@ -2187,7 +2186,6 @@ dependencies = [
  "but-testsupport",
  "but-workspace",
  "chrono",
- "git2",
  "gitbutler-commit",
  "gitbutler-git",
  "gitbutler-reference",

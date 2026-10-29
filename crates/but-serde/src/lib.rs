@@ -239,23 +239,6 @@ where
     vec.serialize(s)
 }
 
-#[cfg(feature = "legacy")]
-/// Use on legacy `git2::Time` fields that should serialize as Unix seconds.
-///
-/// ```rust
-/// #[derive(serde::Serialize)]
-/// struct Example {
-///     #[serde(serialize_with = "but_serde::as_time_seconds_from_unix_epoch")]
-///     created_at: git2::Time,
-/// }
-/// ```
-pub fn as_time_seconds_from_unix_epoch<S>(v: &git2::Time, s: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    v.seconds().serialize(s)
-}
-
 /// Use on `gix::date::Time` fields that should serialize as Unix milliseconds.
 ///
 /// ```rust
@@ -270,39 +253,6 @@ where
     S: serde::Serializer,
 {
     (v.seconds as i128 * 1000).serialize(s)
-}
-
-#[cfg(feature = "legacy")]
-/// Use on `Option<git2::Oid>` fields serialized as `string | null`.
-///
-/// ```rust
-/// #[derive(serde::Serialize, serde::Deserialize)]
-/// struct Example {
-///     #[serde(with = "but_serde::oid_opt")]
-///     base: Option<git2::Oid>,
-/// }
-/// ```
-pub mod oid_opt {
-    use serde::{Deserialize, Deserializer, Serialize};
-
-    pub fn serialize<S>(v: &Option<git2::Oid>, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        v.as_ref().map(|v| v.to_string()).serialize(s)
-    }
-
-    pub fn deserialize<'de, D>(d: D) -> Result<Option<git2::Oid>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let hex = <Option<String> as Deserialize>::deserialize(d)?;
-        hex.map(|v| {
-            v.parse()
-                .map_err(|err: git2::Error| serde::de::Error::custom(err.to_string()))
-        })
-        .transpose()
-    }
 }
 
 /// Use on `Option<gix::ObjectId>` fields serialized as `string | null`.
@@ -402,72 +352,5 @@ pub mod object_id_vec {
             })
             .collect();
         hex
-    }
-}
-
-#[cfg(feature = "legacy")]
-/// Use on `Vec<git2::Oid>` fields serialized as `string[]`.
-///
-/// ```rust
-/// #[derive(serde::Serialize, serde::Deserialize)]
-/// struct Example {
-///     #[serde(with = "but_serde::oid_vec")]
-///     parent_ids: Vec<git2::Oid>,
-/// }
-/// ```
-pub mod oid_vec {
-    use serde::{Deserialize, Deserializer, Serialize};
-
-    pub fn serialize<S>(v: &[git2::Oid], s: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let vec: Vec<String> = v.iter().map(|v| v.to_string()).collect();
-        vec.serialize(s)
-    }
-
-    pub fn deserialize<'de, D>(d: D) -> Result<Vec<git2::Oid>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let hex = <Vec<String> as Deserialize>::deserialize(d)?;
-        let hex: Result<Vec<git2::Oid>, D::Error> = hex
-            .into_iter()
-            .map(|v| {
-                git2::Oid::from_str(v.as_str())
-                    .map_err(|err: git2::Error| serde::de::Error::custom(err.to_string()))
-            })
-            .collect();
-        hex
-    }
-}
-
-#[cfg(feature = "legacy")]
-/// Use on `git2::Oid` fields serialized as hex string.
-///
-/// ```rust
-/// #[derive(serde::Serialize, serde::Deserialize)]
-/// struct Example {
-///     #[serde(with = "but_serde::oid")]
-///     id: git2::Oid,
-/// }
-/// ```
-pub mod oid {
-    use serde::{Deserialize, Deserializer, Serialize};
-
-    pub fn serialize<S>(v: &git2::Oid, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        v.to_string().serialize(s)
-    }
-
-    pub fn deserialize<'de, D>(d: D) -> Result<git2::Oid, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let hex = String::deserialize(d)?;
-        hex.parse()
-            .map_err(|err: git2::Error| serde::de::Error::custom(err.to_string()))
     }
 }

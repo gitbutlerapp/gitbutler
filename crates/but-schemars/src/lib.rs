@@ -206,20 +206,6 @@ pub fn default_true(generate: &mut schemars::SchemaGenerator) -> schemars::Schem
     generate.subschema_for::<bool>()
 }
 
-/// Use on legacy `git2::Oid` fields serialized with `but_serde::oid`.
-///
-/// ```rust,ignore
-/// #[derive(serde::Serialize, schemars::JsonSchema)]
-/// struct Example {
-///     #[serde(with = "but_serde::oid")]
-///     #[schemars(schema_with = "but_schemars::oid")]
-///     id: git2::Oid,
-/// }
-/// ```
-pub fn oid(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
-    generate.subschema_for::<String>()
-}
-
 /// Use on `Option<gix::ObjectId>` fields serialized with `but_serde::object_id_opt`.
 ///
 /// ```rust,ignore

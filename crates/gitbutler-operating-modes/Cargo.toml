@@ -13,7 +13,7 @@ export-schema = ["dep:schemars", "dep:but-schemars"]
 doctest = false
 
 [dependencies]
-but-serde = { workspace = true, features = ["legacy"] }
+but-serde.workspace = true
 but-workspace = { workspace = true, features = ["legacy"] }
 but-core.workspace = true
 but-utils.workspace = true
