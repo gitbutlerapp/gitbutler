@@ -9,7 +9,7 @@ use futures::StreamExt;
 use gpui::{
     App, Context, Entity, EventEmitter, FocusHandle, Focusable, FontWeight, HighlightStyle, Hsla,
     KeyDownEvent, Pixels, Rgba, ScrollWheelEvent, SharedString, StrikethroughStyle, StyledText,
-    Task, UnderlineStyle, WeakEntity, Window, canvas, div, prelude::*,
+    Task, UnderlineStyle, WeakEntity, Window, actions, canvas, div, prelude::*,
 };
 use libghostty_vt::key::{self, Key, Mods};
 use libghostty_vt::render::{CellIterator, Dirty, RowIterator};
@@ -22,6 +22,8 @@ use crate::backend::terminal::{Ghostty, Opened, Pty, Size};
 use crate::state::Store;
 use crate::theme::Theme;
 use crate::ui::{dp, fixed};
+
+actions!(terminal, [NewTerminal]);
 
 /// A terminal, numbered in the order the session opened them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

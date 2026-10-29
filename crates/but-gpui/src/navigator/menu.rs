@@ -19,6 +19,7 @@ use crate::edits::{
 };
 use crate::overlays::MenuItem;
 use crate::state::{Cut, ProjectId, Seeable, Selection, Store, WatchedOrder};
+use crate::terminal::NewTerminal;
 use crate::ui::{commit_title, plural, quoted};
 
 /// Marking `commits` of `project` read, the ones that aren't, and unread, the ones that
@@ -295,7 +296,7 @@ impl Navigator {
             }
             Selection::Uncommitted(project) => {
                 let mut items = new_branch_items(store, project, cx);
-                items.push(new_terminal_item(project, Checkout::Main).separated());
+                items.push(new_terminal_item(project, Checkout::Main, cx).separated());
                 items.push(action("Fetch", &Fetch).separated());
                 items.extend(update_item(store, project, cx));
                 if store
@@ -586,7 +587,7 @@ impl Navigator {
                     MenuItem::keyed("Copy path", &CopySelection, cx, move |this, _, cx| {
                         this.copy_text(copied.clone(), cx)
                     }),
-                    new_terminal_item(&project, Checkout::Linked(name.clone())).separated(),
+                    new_terminal_item(&project, Checkout::Linked(name.clone()), cx).separated(),
                     // Not Update: it rebases the workspace's stacks, not this worktree's.
                     action("Fetch", &Fetch),
                     MenuItem::new("Archive", move |this, _, cx| {
@@ -696,9 +697,9 @@ impl Navigator {
 }
 
 /// Opens a terminal on `project`'s `checkout`, listed under its heading.
-fn new_terminal_item(project: &ProjectId, checkout: Checkout) -> MenuItem {
+fn new_terminal_item(project: &ProjectId, checkout: Checkout, cx: &App) -> MenuItem {
     let project = project.clone();
-    MenuItem::new("New terminal", move |this, _, cx| {
+    MenuItem::keyed("New terminal", &NewTerminal, cx, move |this, _, cx| {
         let (project, checkout) = (project.clone(), checkout.clone());
         (this.store).update(cx, |store, cx| store.open_terminal(project, checkout, cx))
     })

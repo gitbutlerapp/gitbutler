@@ -10,7 +10,7 @@ use gpui::{
 };
 
 use crate::backend::upstream::UpdateScope;
-use crate::backend::{self, short_ref};
+use crate::backend::{self, Checkout, short_ref};
 use crate::detail::{Detail, DiffPane};
 use crate::navigator::Navigator;
 use crate::overlays::{ContextMenu, MenuItem, Prompt};
@@ -19,6 +19,7 @@ use crate::projects::pick_folder;
 use crate::state::{
     Cut, MeshPick, Pane, ProjectId, Selection, Store, StoreEvent, snack, up_to_date,
 };
+use crate::terminal::NewTerminal;
 use crate::theme::{Theme, UiScale};
 use crate::transfer::{Place, Transfer};
 use crate::ui::fold::{Slide, edge, inert};
@@ -801,6 +802,17 @@ impl AppView {
             self.set_navigator(true, window, cx);
         }
         window.focus(&self.navigator.focus_handle(cx), cx);
+    }
+
+    /// Open a terminal on the checkout the selection is in, the main one when it's in none.
+    fn new_terminal(&mut self, _: &NewTerminal, _: &mut Window, cx: &mut Context<Self>) {
+        self.store.update(cx, |store, cx| {
+            let Some(selection) = store.selection.clone() else {
+                return;
+            };
+            let checkout = store.checkout_of(&selection).unwrap_or(Checkout::Main);
+            store.open_terminal(selection.project().clone(), checkout, cx);
+        });
     }
 
     /// The terminal the detail's place shows, while one is selected.
@@ -1692,6 +1704,7 @@ impl Render for AppView {
             .on_action(cx.listener(Self::show_actions))
             .on_action(cx.listener(Self::copy_more))
             .on_action(cx.listener(Self::open_selected_in_terminal))
+            .on_action(cx.listener(Self::new_terminal))
             // The selection doesn't decide: an operation that finished in another project is
             // still the last thing done.
             .on_action(cx.listener(|this, _: &Undo, _, cx| this.store.update(cx, Store::undo_last)))
