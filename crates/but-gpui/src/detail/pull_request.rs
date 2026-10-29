@@ -78,10 +78,84 @@ impl Detail {
         }
     }
 
+    /// Show the pull request's tab, or the changes'. The tabs keep the keys when they have
+    /// them; from anywhere else the keys go to what the tab shows.
     fn set_review_tab(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {
         self.review_tab = on;
-        self.focus_files(window, cx);
+        match self.tabs_focus.is_focused(window) {
+            true => cx.notify(),
+            false => self.focus_files(window, cx),
+        }
         self.ask_forge(cx);
+    }
+
+    /// Whether the tabs have the keys.
+    pub(crate) fn tabs_focused(&self, window: &Window) -> bool {
+        self.tabs_focus.is_focused(window)
+    }
+
+    /// Give the keys to the tabs. Whether the page keeps them for coming back from the left
+    /// is up to how the keys next leave.
+    pub(crate) fn focus_tabs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.tabs_kept = false;
+        window.focus(&self.tabs_focus, cx);
+        cx.notify();
+    }
+
+    /// Whether coming back from the left lands on the tabs, as the keys last went left out of
+    /// them on this page.
+    pub(crate) fn tabs_kept(&self, cx: &App) -> bool {
+        self.tabs_kept && self.selected_review(cx).is_some()
+    }
+
+    /// Keep the tabs for coming back from the left, or forget them.
+    pub(crate) fn keep_tabs(&mut self, kept: bool) {
+        self.tabs_kept = kept;
+    }
+
+    /// ← or → on the tabs: the tab on that side, if there is one. Says whether there was.
+    pub(crate) fn step_tab(
+        &mut self,
+        forward: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        // The pull request's tab is the right one.
+        if self.review_tab == forward {
+            return false;
+        }
+        self.set_review_tab(forward, window, cx);
+        true
+    }
+
+    /// ↑ on the tabs stays there, and from the top of the files under them goes up to them,
+    /// as it does from the top of the diff. Says whether it did either.
+    pub(super) fn up_to_tabs(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.tabs_focus.is_focused(window) {
+            return true;
+        }
+        let top = (self.listed_files(cx).first()).is_none_or(|&file| file == self.cursor.file);
+        let up = self.files_focus.is_focused(window) && top && self.selected_review(cx).is_some();
+        if up {
+            self.focus_tabs(window, cx);
+        }
+        up
+    }
+
+    /// ↓ from the tabs: down to the files under Changes, the file list or the files beside a
+    /// list page's list, or the diff while they're hidden. The pull request's tab has nothing
+    /// under it to take the keys. Says whether the tabs had them.
+    pub(super) fn down_from_tabs(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if !self.tabs_focus.is_focused(window) {
+            return false;
+        }
+        match (self.review_tab, self.list_page(cx)) {
+            (true, _) => {}
+            (false, true) if self.beside_files_shown(cx) => self.focus_beside_files(window, cx),
+            (false, true) => self.focus(window, cx),
+            (false, false) => self.focus_files(window, cx),
+        }
+        true
     }
 
     /// The selected branch and its pull request, while the tab shows it open: what the merge
@@ -231,16 +305,20 @@ impl Detail {
     }
 
     /// A branch or commit's tabs: its changes, with how many files, and its pull request,
-    /// with a glyph while its checks fail or run.
+    /// with a glyph while its checks fail or run. They take the keys as the panes do.
     pub(super) fn review_tabs(
         &self,
         review: &Review,
         theme: &Theme,
+        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let files = (self.shown_diff().map(|diff| diff.files.len())).filter(|n| *n > 0);
         let checks = review.checks.filter(|c| c.failed > 0 || c.running > 0);
+        let solid = self.tabs_focus.is_focused(window);
         h_flex()
+            .track_focus(&self.tabs_focus)
+            .key_context("Tabs")
             // The first tab's label, not its hover ground, lines up with the text above.
             .ml(dp(-8.))
             .child(
@@ -249,6 +327,7 @@ impl Detail {
                     Icon::Diff,
                     "Changes",
                     !self.review_tab,
+                    solid,
                     theme,
                 )
                 .children(files.map(|n| count_badge(n, theme)))
@@ -266,6 +345,7 @@ impl Detail {
                         _ => format!("PR #{}", review.number),
                     },
                     self.review_tab,
+                    solid,
                     theme,
                 )
                 .children(checks.map(|checks| {
@@ -1182,12 +1262,14 @@ fn check_row(ix: usize, run: &CheckRun, theme: &Theme) -> Stateful<Div> {
 }
 
 /// A tab of a page's header, as ui-react's and but.dev's: its glyph, its label faded unless
-/// it's selected or under the pointer, and under the selected one a bar along the header's edge.
+/// it's selected or under the pointer, and under the selected one a bar along the header's edge,
+/// solid while the tabs have the keys, as a list's selected row is.
 fn tab(
     id: &'static str,
     glyph: Icon,
     label: impl Into<SharedString>,
     selected: bool,
+    solid: bool,
     theme: &Theme,
 ) -> Stateful<Div> {
     let hover = theme.hover();
@@ -1221,7 +1303,10 @@ fn tab(
                     .left(dp(8.))
                     .right(dp(8.))
                     .h(dp(4.))
-                    .bg(theme.fill_gray),
+                    .bg(match solid {
+                        true => theme.fill_gray,
+                        false => theme.selected_unfocused(),
+                    }),
             )
         })
 }

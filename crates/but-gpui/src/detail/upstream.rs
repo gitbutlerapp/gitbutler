@@ -552,6 +552,7 @@ impl Detail {
         project: &ProjectId,
         header: Option<AnyElement>,
         theme: &Theme,
+        window: &gpui::Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let below = match self.showing_review(cx) {
@@ -566,7 +567,7 @@ impl Detail {
                 .items_end()
                 .border_b_1()
                 .border_color(theme.border_3)
-                .child(self.review_tabs(review, theme, cx))
+                .child(self.review_tabs(review, theme, window, cx))
         });
         // How wide it is, for whether the files fit beside the diff.
         let width = measured(&self.beside_width, &self.app, |bounds| {

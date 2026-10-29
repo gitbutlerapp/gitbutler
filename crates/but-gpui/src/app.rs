@@ -748,8 +748,9 @@ impl AppView {
     }
 
     /// Tab, or ⇧Tab going back: the next of the navigator, a Branches, Operations history or
-    /// project page's list, the file list, or the files beside that list, and the diff that
-    /// show, round again. Without `wrap`, as → and ← go, only the panes on that side.
+    /// project page's list, the files beside that list, a page's Changes and pull request
+    /// tabs, the file list and the diff that show, round again. Without `wrap`, as → and ←
+    /// go, only the panes on that side, and on the tabs, the tab on that side first.
     fn focus_pane(
         &mut self,
         forward: bool,
@@ -765,16 +766,36 @@ impl AppView {
             0
         } else if detail.side_list_focused(window) {
             1
-        } else if detail.files_focused(window) {
+        } else if detail.files_focused(window) && detail.list_page(cx) {
             2
-        } else {
+        } else if detail.tabs_focused(window) {
             3
+        } else if detail.files_focused(window) {
+            4
+        } else {
+            5
         };
-        self.focus_pane_from(at, forward, wrap, window, cx);
+        if at == 3 && !wrap {
+            let stepped =
+                (self.detail).update(cx, |detail, cx| detail.step_tab(forward, window, cx));
+            // Right of the last tab is nothing: what the tabs show is under them.
+            if stepped || forward {
+                return;
+            }
+        }
+        let moved = self.focus_pane_from(at, forward, wrap, window, cx);
+        // Going left out of the tabs, the page keeps them for coming back from the left, and
+        // going out of what's under them, it forgets them.
+        if moved && at >= 3 {
+            let kept = at == 3 && !forward;
+            (self.detail).update(cx, |detail, _| detail.keep_tabs(kept));
+        }
     }
 
     /// Focus the pane after `at`, or before it going back, of those [`AppView::focus_pane`]
-    /// steps through, numbered from the navigator's 0. Says whether one took the keys.
+    /// steps through, numbered from the navigator's 0. The tabs count only while the page
+    /// keeps them, as ↑ from the files under them reaches them otherwise. Says whether one
+    /// took the keys.
     fn focus_pane_from(
         &mut self,
         at: usize,
@@ -791,11 +812,9 @@ impl AppView {
         let shown = [
             self.navigator_open,
             list_page,
-            changes
-                && match list_page {
-                    true => detail.beside_files_shown(cx),
-                    false => detail.files_shown(cx),
-                },
+            changes && list_page && detail.beside_files_shown(cx),
+            detail.tabs_kept(cx),
+            changes && !list_page && detail.files_shown(cx),
             changes && !detail.overview_only(cx),
         ];
         let next = |n: usize| (at + if forward { n } else { shown.len() - n }) % shown.len();
@@ -805,11 +824,10 @@ impl AppView {
             .find(|&pane| shown.get(pane) == Some(&true))
         {
             Some(0) => window.focus(&self.navigator.focus_handle(cx), cx),
-            Some(2) if list_page => {
-                (self.detail).update(cx, |detail, cx| detail.focus_beside_files(window, cx))
-            }
+            Some(2) => (self.detail).update(cx, |detail, cx| detail.focus_beside_files(window, cx)),
+            Some(3) => (self.detail).update(cx, |detail, cx| detail.focus_tabs(window, cx)),
             // A list page's list, or the file list.
-            Some(1 | 2) => (self.detail).update(cx, |detail, cx| detail.focus_files(window, cx)),
+            Some(1 | 4) => (self.detail).update(cx, |detail, cx| detail.focus_files(window, cx)),
             Some(_) => (self.detail).update(cx, |detail, cx| detail.focus(window, cx)),
             None => return false,
         }
@@ -817,8 +835,9 @@ impl AppView {
     }
 
     /// Move the keys off the navigator as it goes, to the leftmost pane beside it, as → from
-    /// it does: a list page's list, else the file list, else the diff. A page with none, as an
-    /// overview alone or a branch with no commits, gives them to the detail.
+    /// it does: a list page's list, else the tabs the page kept, else the file list, else the
+    /// diff. A page with none, as an overview alone or a branch with no commits, gives them to
+    /// the detail.
     fn focus_past_navigator(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if !self.focus_pane_from(0, true, false, window, cx) {
             (self.detail).update(cx, |detail, cx| detail.focus(window, cx));
