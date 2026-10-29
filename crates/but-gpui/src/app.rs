@@ -1183,6 +1183,12 @@ impl Render for AppView {
                 this.detail.update(cx, |detail, cx| detail.toggle_wrap(cx))
             }))
             .on_action(
+                cx.listener(|this, _: &crate::detail::ToggleFiles, window, cx| {
+                    this.detail
+                        .update(cx, |detail, cx| detail.toggle_files(window, cx))
+                }),
+            )
+            .on_action(
                 cx.listener(|this, _: &crate::detail::NextHunk, window, cx| {
                     this.detail
                         .update(cx, |detail, cx| detail.move_hunk(true, window, cx))

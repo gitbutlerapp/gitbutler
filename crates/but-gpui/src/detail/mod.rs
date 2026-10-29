@@ -2560,7 +2560,7 @@ impl Detail {
 
     /// Show or hide the file list beside the diff or a checkout's overview, or a list page's
     /// files beside its list, as `f` does.
-    pub(super) fn toggle_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn toggle_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let list_page = self.list_page(cx);
         if self.overview_only(cx) || (list_page && !self.has_files_beside(cx)) {
             return;
