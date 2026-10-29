@@ -361,6 +361,37 @@ fn pre_push_hook_not_configured() -> anyhow::Result<()> {
 }
 
 #[test]
+fn pre_push_preserves_literal_hook_paths_and_arguments() -> anyhow::Result<()> {
+    let fixture = RepoWithOrigin::default();
+    let mut repo = fixture.local_repo;
+    let workdir = repo.workdir().expect("fixture has a worktree");
+    let hooks = workdir.join("hooks $@ with spaces");
+    fs::create_dir_all(&hooks)?;
+    let hook = hooks.join("pre-push");
+    fs::write(
+        &hook,
+        "#!/bin/sh\nprintf '%s\\n' \"$1\" \"$2\" >&2\nexit 23\n",
+    )?;
+    #[cfg(unix)]
+    fs::set_permissions(&hook, fs::Permissions::from_mode(0o755))?;
+    repo.config_snapshot_mut()
+        .set_raw_value("core.hooksPath", "hooks $@ with spaces")?;
+    let result = pre_push(
+        &repo,
+        "origin $@",
+        "ssh://host/path with spaces",
+        repo.head_id()?.detach(),
+        &gitbutler_reference::RemoteRefname::new("origin", "master"),
+        false,
+    )?;
+    assert!(
+        matches!(result, HookResult::Failure(error) if error.error == "origin $@\nssh://host/path with spaces\n"),
+        "configured paths and remote arguments are never interpreted as shell fragments"
+    );
+    Ok(())
+}
+
+#[test]
 fn pre_push_hook_success() -> anyhow::Result<()> {
     let test_project = RepoWithOrigin::default();
 

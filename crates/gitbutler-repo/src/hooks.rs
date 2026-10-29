@@ -1,16 +1,12 @@
 use std::{
     ffi::OsStr,
-    io::Write,
     path::{Path, PathBuf},
-    process::Stdio,
 };
 
 use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
 use but_ctx::Context;
 use serde::Serialize;
-
-use crate::managed_hooks::get_hooks_dir;
 
 #[derive(Serialize, PartialEq, Debug, Clone)]
 pub struct MessageData {
@@ -272,67 +268,41 @@ pub fn pre_push(
     remote_tracking_branch: &gitbutler_reference::RemoteRefname,
     run_husky_hooks: bool,
 ) -> Result<HookResult> {
-    let hooks_dir = get_hooks_dir(repo);
-    let hooks_path = hooks_dir.join("pre-push");
-    let husky_path = run_husky_hooks.then(|| {
-        repo.workdir()
-            .map(|workdir| workdir.join(".husky").join("pre-push"))
-    });
-
-    // Check for hook in .git/hooks/pre-push first, then ../.husky/pre-push
-    let hook_path = hooks_path
-        .exists()
-        .then_some(hooks_path)
-        .filter(|path| run_husky_hooks || !path_is_in_husky_dir(repo, path))
-        .or_else(|| husky_path.flatten().filter(|path| path.exists()));
+    let mut hook_path = repo
+        .find_hook("pre-push")?
+        .filter(|path| run_husky_hooks || !path_is_in_husky_dir(repo, path));
+    if hook_path.is_none()
+        && run_husky_hooks
+        && !repo.hooks_directory()?.join("pre-push").try_exists()?
+        && let Some(workdir) = repo.workdir()
+    {
+        let path = repo.current_dir().join(workdir).join(".husky/pre-push");
+        hook_path = gix::sec::identity::is_path_executable_by_current_user(&path)?.then_some(path);
+    }
 
     let Some(hook_path) = hook_path else {
         return Ok(HookResult::NotConfigured);
     };
 
-    // Execute the pre-push hook with remote name and URL as arguments
-    let mut child = std::process::Command::try_from({
-        let mut prep = gix::command::prepare(&hook_path);
-        if cfg!(windows) {
-            prep.use_shell = true;
-            prep.allow_manual_arg_splitting = false;
-            // Need unix separators for the unix bash to not swallow the backslash!
-            let with_slashes_for_bash = gix::path::to_unix_separators_on_windows(
-                gix::path::os_str_into_bstr(&prep.command)?,
-            );
-            prep.command = gix::path::from_bstring(with_slashes_for_bash.into_owned())?.into();
-        }
-        prep.arg(remote_name).arg(remote_url)
-    })?
-    .current_dir(repo.workdir().unwrap_or(repo.git_dir()))
-    .stdin(Stdio::piped())
-    .stderr(Stdio::piped())
-    .spawn()?;
-
-    {
-        let remote_commit = repo
-            .try_find_reference(&remote_tracking_branch.to_string())?
-            .map(|mut reference| reference.peel_to_id().map(|id| id.detach()))
-            .transpose()?
-            .unwrap_or_else(|| repo.object_hash().null());
-        // THIS IS WRONG: but is correct in the common case. This also is an issue when the ref is actually pushed,
-        // but we can fix it when moving everything to `gix`.
-        let local_tracking_branch_deduced =
-            format!("refs/heads/{}", remote_tracking_branch.branch());
-        let stdin = child.stdin.as_mut().expect("configured");
-        let refspec = format!(
-            "{local_tracking_branch_deduced} {local_commit} {remote_tracking_branch} {remote_commit}\n"
-        );
-        // Hooks may exit before reading stdin if they don't need the refspec info.
-        // The actual success/failure is determined by the exit code via wait_with_output() below.
-        if let Err(err) = stdin.write_all(refspec.as_bytes())
-            && err.kind() != std::io::ErrorKind::BrokenPipe
-        {
-            return Err(err.into());
-        }
-    }
-
-    let output = child.wait_with_output()?;
+    let remote_commit = repo
+        .try_find_reference(&remote_tracking_branch.to_string())?
+        .map(|mut reference| reference.peel_to_id().map(|id| id.detach()))
+        .transpose()?
+        .unwrap_or_else(|| repo.object_hash().null());
+    // THIS IS WRONG: but is correct in the common case. This also is an issue when the ref is actually pushed,
+    // but we can fix it when moving everything to `gix`.
+    let local_tracking_branch_deduced = format!("refs/heads/{}", remote_tracking_branch.branch());
+    let refspec = format!(
+        "{local_tracking_branch_deduced} {local_commit} {remote_tracking_branch} {remote_commit}\n"
+    );
+    let output = repo.run_hook(
+        hook_path,
+        gix::hook::Options {
+            arguments: &[OsStr::new(remote_name), OsStr::new(remote_url)],
+            stdin: Some(refspec.as_bytes()),
+            ..Default::default()
+        },
+    )?;
     if output.status.success() {
         Ok(HookResult::Success)
     } else {
@@ -350,8 +320,9 @@ fn path_is_in_husky_dir(repo: &gix::Repository, path: &Path) -> bool {
         return false;
     };
 
-    let husky_dir = canonicalize_fallback(workdir.join(".husky"), workdir);
-    let path = canonicalize_fallback(path, workdir);
+    let workdir = repo.current_dir().join(workdir);
+    let husky_dir = canonicalize_fallback(workdir.join(".husky"), &workdir);
+    let path = canonicalize_fallback(path, &workdir);
     path.starts_with(husky_dir)
 }
 
