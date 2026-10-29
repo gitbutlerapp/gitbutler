@@ -1582,4 +1582,47 @@ fn cancelling_consumed_changes_keeps_a_concurrent_edit() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn skipping_index_update_materializes_consumption_without_writing_staging() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("adjacent-line-additions");
+    let path = repo.workdir_path("separated").unwrap();
+    let consumed = build_commit(
+        &repo,
+        |tree| {
+            tree.upsert(
+                "separated",
+                EntryKind::Blob,
+                repo.write_blob(b"line1\nadded-a\nunchanged\nline2\nline3\n")?,
+            )?;
+            Ok(())
+        },
+        "consume added-a",
+    )?
+    .tree_id()?
+    .detach();
+    let index_before = std::fs::read(repo.index_path())?;
+
+    safe_checkout_from_head(
+        repo.head_id()?.detach(),
+        &repo,
+        checkout::Options {
+            merge_base_override: Some(consumed),
+            skip_index_update: true,
+            ..Default::default()
+        },
+    )?;
+
+    assert_eq!(
+        std::fs::read_to_string(path)?,
+        "line1\nunchanged\nadded-b\nline2\nline3\n",
+        "consumed changes are removed from the worktree"
+    );
+    assert_eq!(
+        std::fs::read(repo.index_path())?,
+        index_before,
+        "the temporary index is never persisted"
+    );
+    Ok(())
+}
+
 mod utils {}

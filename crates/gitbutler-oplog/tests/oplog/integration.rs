@@ -499,6 +499,13 @@ fn snapshot_creation_works_with_unmerged_index() -> anyhow::Result<()> {
         guard.write_permission(),
     )?;
 
+    // Undo must also work while the currently checked-out index remains unresolved.
+    ctx.restore_snapshot(
+        snapshot_id,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+
     {
         let git2_repo = ctx.git2_repo.get()?;
         let mut index = git2_repo.index()?;

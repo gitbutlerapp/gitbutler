@@ -11,7 +11,7 @@ use super::{Options, Outcome};
 /// `new_head_id^{tree}`.
 ///
 /// If `new_head_id` is a *commit*, we will also set `HEAD` (or the ref it points to if symbolic) to the `new_head_id`.
-/// We will also update the `.git/index` to match the `new_head_id^{tree}`.
+/// The index is updated to reflect checkout unless [`Options::skip_index_update`] leaves it to the caller.
 /// GitButler-conflicted commits are rejected by default before any worktree, index, or ref update.
 ///
 /// We will always handle changes in the worktree safely to avoid loss of uncommitted information. This also means that deletions
@@ -28,6 +28,7 @@ pub fn safe_checkout_from_head(
     repo: &gix::Repository,
     Options {
         skip_head_update,
+        skip_index_update,
         merge_base_override,
         allow_conflicted_commit_checkout,
         allow_uncommitted_changes_to_conflict_with_new_head,
@@ -54,9 +55,10 @@ pub fn safe_checkout_from_head(
         // Also write the index.
         let tree = git2_repo.find_object(id.to_git2(), None)?.peel_to_tree()?;
         let diff = git2_repo.diff_tree_to_tree(Some(&head_tree), Some(&tree), Some(&mut opts))?;
-        if git2_repo
-            .apply(&diff, git2::ApplyLocation::Index, None)
-            .is_err()
+        if !skip_index_update
+            && git2_repo
+                .apply(&diff, git2::ApplyLocation::Index, None)
+                .is_err()
         {
             // Just overwrite the index.
             let mut index = git2_repo.index()?;
@@ -132,6 +134,9 @@ pub fn safe_checkout_from_head(
 
         let baseline = repo.index_from_tree(&wd_tree_id)?;
         let mut index = repo.index_or_empty()?.into_owned_or_cloned();
+        if skip_index_update {
+            index = repo.index_from_tree_with_index(&old_tree.id().to_gix(), &index)?;
+        }
         let mut index_changed = remove_index_entries_deleted_on_both_sides(
             &repo,
             &mut index,
@@ -171,7 +176,7 @@ pub fn safe_checkout_from_head(
             }
             index_changed |= edit.finish();
         }
-        if index_changed {
+        if index_changed && !skip_index_update {
             index.write(Default::default())?;
         }
     }

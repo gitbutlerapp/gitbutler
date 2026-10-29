@@ -5,6 +5,12 @@ pub struct Options {
     ///
     /// This is typically to be avoided, but may be used if you want to change the HEAD location yourself.
     pub skip_head_update: bool,
+    /// If `true`, leave the persisted index unchanged while materializing the worktree.
+    ///
+    /// Use this when the caller supplies and persists the final index afterward, as snapshot restore
+    /// does. Checkout uses a temporary in-memory index and never writes it; staged changes and
+    /// unresolved stages are left for the caller to replace. Worktree safety checks still apply.
+    pub skip_index_update: bool,
     /// If set, use this tree instead of `HEAD^{tree}` as the merge base when
     /// resolving the worktree snapshot against the new HEAD.
     ///

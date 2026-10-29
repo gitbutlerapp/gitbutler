@@ -1382,7 +1382,7 @@ fn restore_snapshot_tree(
     }
 
     let gix_repo = ctx.clone_repo_for_merging()?;
-    // The checkout below rewrites the index, so keep the stat it has now for the final index.
+    // Keep the current stat data for the snapshot's replacement index.
     let index_before_checkout = repo.index_or_empty()?;
 
     // Check out the snapshot's worktree while HEAD still points at the pre-restore commit:
@@ -1392,6 +1392,9 @@ fn restore_snapshot_tree(
         workdir_tree_id,
         &gix_repo,
         but_core::worktree::checkout::Options {
+            // Snapshot restore supplies the final refs and index after the worktree is ready.
+            skip_head_update: true,
+            skip_index_update: true,
             // `workdir_tree_id` is the restored snapshot's full workdir tree, so it already
             // contains the uncommitted changes captured at that point. `safe_checkout_from_head`
             // otherwise re-applies the current uncommitted changes on top via a 3-way merge whose
