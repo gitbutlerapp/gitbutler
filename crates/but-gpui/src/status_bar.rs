@@ -10,6 +10,7 @@ use crate::app::{
     AppView, CommandPalette, CutSelection, Fetch, FocusDiff, OpenPullRequest, PasteHere, Push,
     RenameSelection, StartCommit, UncommitSelection, Undo, UpdateFromTarget,
 };
+use crate::backend::rebuild::Rebuild;
 use crate::backend::{Branch, Checkout, CommitId, FileChange, ReviewState, Workspace};
 use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
 use crate::pr::{CreatePullRequest, create_offer};
@@ -303,7 +304,7 @@ impl AppView {
                     })
                     .on_click(|_, window, cx| window.dispatch_action(Box::new(CommandPalette), cx)),
             )
-            .children(self.rebuild.is_some().then(|| self.build_button(cx)))
+            .children((cx.has_global::<Rebuild>()).then(|| self.build_button(cx)))
     }
 
     /// The bar's left while nothing is under way, picked or cut: what in the selected project

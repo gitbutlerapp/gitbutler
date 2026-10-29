@@ -129,6 +129,10 @@ pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
     // The menu bar's, for Windows, which has none.
     ("Check for updates…", &CheckForUpdates),
     ("Rebuild and restart", &crate::app::BuildAndRestart),
+    (
+        "Build and restart from here",
+        &crate::app::BuildAndRestartFromHere,
+    ),
     ("GitButler docs", &crate::help::OpenDocs),
     ("What's new (release notes)", &crate::help::OpenReleaseNotes),
     ("Report an issue…", &crate::help::ReportIssue),

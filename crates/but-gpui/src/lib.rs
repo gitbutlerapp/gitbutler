@@ -229,6 +229,9 @@ pub fn run(embedded: Option<Embedded>) {
                 #[cfg(not(target_os = "macos"))]
                 None => {}
             }
+            if let Some(rebuild) = backend::rebuild::Rebuild::detect() {
+                cx.set_global(rebuild);
+            }
             // GPUI has no alerts of its own on Linux, and its stand-in cuts long text off.
             #[cfg(target_os = "linux")]
             cx.set_prompt_builder(ui::alert::alert);

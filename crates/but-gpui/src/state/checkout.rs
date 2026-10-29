@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::path::PathBuf;
 
 use gpui::SharedString;
 
@@ -67,6 +68,23 @@ impl Store {
         let name = checkout.linked()?;
         let workspace = self.workspace(selection.project())?;
         workspace.worktrees.iter().find(|wt| *wt.name == *name)
+    }
+
+    /// The folder of the checkout `selection` is in: a linked worktree's, or the main one's.
+    /// `None` for another machine's checkout.
+    pub fn checkout_dir(&self, selection: &Selection) -> Option<PathBuf> {
+        let project = selection.project();
+        match selection {
+            Selection::Worktree(_, name) => {
+                let worktree = self.workspace(project)?.find_worktree(name.as_ref())?;
+                Some(worktree.path.clone())
+            }
+            Selection::Mesh(..) => None,
+            _ => match self.worktree_for(selection) {
+                Some(worktree) => Some(worktree.path.clone()),
+                None => self.path(project),
+            },
+        }
     }
 
     /// Where an action on `at` happens, for a prompt or a confirmation to say, named as the
