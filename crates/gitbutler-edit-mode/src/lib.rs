@@ -44,7 +44,7 @@ fn commit_title_to_merge_conflict_label(commit: &gix::Commit<'_>) -> String {
 /// Returns an index of the tree of `commit` if it is unconflicted, *or* produce a merged tree
 /// if `commit` is conflicted. That tree is turned into an index that records the conflicts that occurred
 /// during the merge.
-fn get_commit_index(ctx: &Context, commit_id: gix::ObjectId) -> Result<git2::Index> {
+fn get_commit_index(ctx: &Context, commit_id: gix::ObjectId) -> Result<gix::index::File> {
     let repo = &*ctx.repo.get()?;
     let commit = Commit::from_id(commit_id.attach(repo))?;
 
@@ -70,11 +70,10 @@ fn get_commit_index(ctx: &Context, commit_id: gix::ObjectId) -> Result<git2::Ind
                 "There must be an issue with conflict-commit creation as re-merging the conflicting trees didn't yield a conflicting index."
             );
         }
-        gix_to_git2_index(&index)
+        Ok(index)
     } else {
         let commit_tree_id = commit.tree_id_or_auto_resolution()?;
-        let index = repo.index_from_tree(&commit_tree_id)?;
-        gix_to_git2_index(&index)
+        Ok(repo.index_from_tree(&commit_tree_id)?)
     }
 }
 
@@ -165,7 +164,7 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
 
     // Checkout the commit as unstaged changes
     // TODO this may not be necessary if the commit is unconflicted
-    let mut index = get_commit_index(ctx, commit_id)?;
+    let mut index = gix_to_git2_index(&*get_commit_index(ctx, commit_id)?)?;
 
     let their_commit_msg = commit_title_to_merge_conflict_label(&commit);
     let their_label = format!("Current commit: {their_commit_msg}");
@@ -473,30 +472,27 @@ pub(crate) fn starting_index_state(
 
     let index = get_commit_index(ctx, metadata.commit_oid)?;
 
-    let conflicts = index
-        .conflicts()?
-        .filter_map(|conflict| {
-            let Ok(conflict) = conflict else {
-                return None;
-            };
-
-            let path = conflict
-                .ancestor
-                .as_ref()
-                .or(conflict.our.as_ref())
-                .or(conflict.their.as_ref())
-                .map(|entry| BString::new(entry.path.clone()))?;
-
-            Some((
-                path,
-                ConflictEntryPresence {
-                    ours: conflict.our.is_some(),
-                    theirs: conflict.their.is_some(),
-                    ancestor: conflict.ancestor.is_some(),
-                },
-            ))
-        })
-        .collect::<HashMap<BString, ConflictEntryPresence>>();
+    let mut conflicts = HashMap::<BString, ConflictEntryPresence>::new();
+    for entry in index.entries() {
+        use gix::index::entry::Stage;
+        if entry.stage() == Stage::Unconflicted {
+            continue;
+        }
+        let presence =
+            conflicts
+                .entry(entry.path(&index).to_owned())
+                .or_insert(ConflictEntryPresence {
+                    ours: false,
+                    theirs: false,
+                    ancestor: false,
+                });
+        match entry.stage() {
+            Stage::Base => presence.ancestor = true,
+            Stage::Ours => presence.ours = true,
+            Stage::Theirs => presence.theirs = true,
+            Stage::Unconflicted => unreachable!("unconflicted entries were skipped"),
+        }
+    }
 
     let repo = ctx.repo.get()?;
 

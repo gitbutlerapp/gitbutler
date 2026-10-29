@@ -11,6 +11,7 @@ use but_meta::VirtualBranchesTomlMetadata;
 use but_testsupport::{gix_testtools, open_repo, visualize_commit_graph};
 use gitbutler_edit_mode::commands::{
     abort_and_return_to_workspace, enter_edit_mode, save_and_return_to_workspace,
+    starting_index_state,
 };
 use gitbutler_operating_modes::{
     EditModeMetadata, INTEGRATION_BRANCH_REF, read_edit_mode_metadata, write_edit_mode_metadata,
@@ -596,6 +597,17 @@ fn enter_edit_mode_checks_out_conflicted_commit() -> Result<()> {
         stack_id,
         guard.write_permission(),
     )?;
+
+    let initial_changes = starting_index_state(&ctx, guard.read_permission())?;
+    assert_eq!(initial_changes.len(), 1, "one path is conflicted");
+    let presence = initial_changes[0]
+        .1
+        .as_ref()
+        .context("the initial change has conflict stages")?;
+    assert!(
+        presence.ancestor && presence.ours && presence.theirs,
+        "all three conflict stages are reported to the UI"
+    );
 
     let repo = ctx.repo.get()?;
     snapbox::assert_data_eq!(
