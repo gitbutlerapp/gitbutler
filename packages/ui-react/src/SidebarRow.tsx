@@ -502,7 +502,7 @@ export const CommitItem: FC<{ message: string; pushed?: boolean; merge?: boolean
 
 /**
  * What the repository's target (`target`, such as `master`) has that its workspace doesn't: the
- * first row under the repository, over its worktrees and a {@link WorktreeDivider}. It says how many
+ * first row under the repository, between two {@link WorktreeDivider}s. It says how many
  * commits (`count`) and keeps Update (`actions`) beside them rather than in their place under the
  * pointer, since taking them in is what the row is for. Open, the commits sit under it one level
  * deeper as {@link CommitItem}s, a merge's own one more. Leave it out while there are none.
@@ -664,6 +664,42 @@ export const MoreItem: FC<
 			),
 		}),
 	});
+
+/**
+ * Where rows should be and can't show, in their place: what failed (`message`, one sentence) under
+ * the warning glyph, in grey, and the way out (`action`, such as Try again) as a link after it. The
+ * reason, when there is one beyond the message, goes in `tooltip`. Rows that load from somewhere
+ * the card's own data doesn't, such as a {@link TargetItem}'s commits, use it rather than open onto
+ * nothing.
+ *
+ * @import import { NoticeItem } from "@gitbutler/ui-react/SidebarRow.tsx";
+ */
+export const NoticeItem: FC<
+	{ message: string; action?: { label: string; onClick: () => void } } & Omit<
+		RowProps,
+		"folded" | "onToggleFolded" | "meta" | "actions" | "menu" | "busy"
+	>
+> = ({ message, action, tooltip, ...props }) => (
+	<Row
+		{...props}
+		name={message}
+		layout="compact"
+		icon={<Icon name="warning" />}
+		label={
+			<Name tooltip={tooltip} className={classes("text-13", styles.name, styles.notice)}>
+				{message}
+				{action && (
+					<>
+						{" "}
+						<button type="button" className={styles.noticeAction} onClick={action.onClick}>
+							{action.label}
+						</button>
+					</>
+				)}
+			</Name>
+		}
+	/>
+);
 
 /**
  * The line between the worktrees of one repository. A stack needs none: its branches sit one level

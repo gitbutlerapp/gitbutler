@@ -8,6 +8,7 @@ import {
 	CommitItem,
 	MachineItem,
 	MoreItem,
+	NoticeItem,
 	RepoItem,
 	StackCaption,
 	TargetItem,
@@ -1317,12 +1318,35 @@ export const NewOnTarget = meta.story({
 	render: () => <NewOnTargetTree />,
 });
 
+/**
+ * A {@link TargetItem} whose commits couldn't load: a NoticeItem says so in their place, with the
+ * reason over it and Try again after it.
+ */
+export const NewOnTargetFailed = meta.story({
+	parameters: { design: { type: "figma", url: core("4300-233475") } },
+	render: () => (
+		<div>
+			<WorktreeDivider depth={1} />
+			<TargetItem target="master" count={2} depth={1} folded={false} actions={update} />
+			<NoticeItem
+				message="Can’t show the commits."
+				tooltip="The machine didn’t answer"
+				action={{ label: "Try again", onClick: () => {} }}
+				depth={2}
+			/>
+			<WorktreeDivider depth={1} />
+			<WorktreeItem name="Main worktree" main depth={1} folded />
+		</div>
+	),
+});
+
 /** {@link NewOnTarget}'s rows, folding as the sidebar's do. */
 const NewOnTargetTree: FC = () => {
 	const [open, setOpen] = useState(true);
 	const [merge, setMerge] = useState(true);
 	return (
 		<div>
+			<WorktreeDivider depth={1} />
 			<TargetItem
 				target="master"
 				count={74}
