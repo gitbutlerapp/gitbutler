@@ -103,14 +103,8 @@ impl Render for DiffPane {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx).clone();
         let drawn = self.detail.update(cx, |detail, cx| {
-            let rebuilt = detail.follow_folds(window, cx);
+            detail.follow_folds(window, cx);
             detail.follow_glide(window, cx);
-            // Rows just rebuilt have no place on screen yet, so the cursor's would count as
-            // scrolled out of sight, as when a fold settles while a press in the diff has let
-            // the cursor go: it would flash to the file at the top until the click placed it.
-            if !rebuilt {
-                detail.follow_scroll(cx);
-            }
             detail.follow_drag(window, cx);
             let top = detail.list.logical_scroll_top();
             (
@@ -128,18 +122,13 @@ impl Render for DiffPane {
             self.top = top;
             window.request_animation_frame();
         }
-        // A press in the diff, as on its scrollbar, hands the cursor back to its scroll, and
-        // stops a glide, which would move the diff from under the pointer; what was pressed
-        // may then place the cursor again.
-        let unpin = self.detail.clone();
+        // A press in the diff, as on its scrollbar, stops a glide, which would move the diff
+        // from under the pointer.
+        let stop_glide = self.detail.clone();
         v_flex()
             .size_full()
             .capture_any_mouse_down(move |_, _, cx| {
-                (unpin.update(cx, |detail, _| {
-                    detail.pinned = false;
-                    detail.glide = None;
-                }))
-                .ok();
+                (stop_glide.update(cx, |detail, _| detail.glide = None)).ok();
             })
             // Keys go to the detail, as when the diff was drawn inside it.
             .on_mouse_down(MouseButton::Left, move |_, window, cx| {
@@ -447,7 +436,7 @@ impl Detail {
             _ => None,
         };
         if let Some(cursor) = cursor {
-            self.place_cursor(cursor);
+            self.cursor = cursor;
         }
         window.focus(&self.focus, cx);
         cx.notify();
@@ -479,11 +468,9 @@ impl Detail {
     }
 
     /// Draw the files folding or unfolding as far as they've got, and once one's there, the
-    /// rows it has then: its header alone, or all its lines. Whether that rebuilt the rows,
-    /// which the list knows no place on screen for until it lays them out.
-    pub(super) fn follow_folds(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        let arrived = self.file_folds.frame();
-        if arrived {
+    /// rows it has then: its header alone, or all its lines.
+    pub(super) fn follow_folds(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.file_folds.frame() {
             // A file that turned back open gets the rows it left out back above the lines
             // that stayed, which stay where they are.
             let back = self.reopened();
@@ -500,13 +487,13 @@ impl Detail {
             }
         }
         if !self.file_folds.any() {
-            return arrived;
+            return;
         }
         window.request_animation_frame();
         // How far the diff shows below each header, as last drawn, here, as a row can't ask
         // the list while it draws.
         let (Some(diff), view) = (&self.diff, self.list.viewport_bounds()) else {
-            return arrived;
+            return;
         };
         for (path, rows) in &mut self.fold_rows {
             let file = diff.files.iter().position(|f| f.file.path == *path);
@@ -515,7 +502,6 @@ impl Detail {
             rows.room = (header.and_then(|row| self.list.bounds_for_item(row)))
                 .map(|header| (view.bottom() - header.bottom()).max(Pixels::ZERO));
         }
-        arrived
     }
 
     /// The rows under file `file`'s header past the first `passed`, as many as move when it
@@ -1310,7 +1296,7 @@ impl Detail {
                         let open = menu(cut, file_diff, None, entity.clone());
                         move |event, _, cx| {
                             (entity.update(cx, |detail, cx| {
-                                detail.place_cursor(at);
+                                detail.cursor = at;
                                 cx.notify();
                             }))
                             .ok();
@@ -1667,7 +1653,7 @@ impl Detail {
         // rather than typing into the message.
         let toggle = Rc::new(move |window: &mut Window, cx: &mut App| {
             (entity.update(cx, |detail, cx| {
-                detail.place_cursor(cursor);
+                detail.cursor = cursor;
                 window.focus(&detail.focus, cx);
                 detail.toggle_line(&path, key, line, cx)
             }))
@@ -1792,7 +1778,7 @@ fn press_off(
         (entity.update(cx, |detail, cx| {
             detail.press_off_picks(cx);
             if let Some(cursor) = cursor {
-                detail.place_cursor(cursor);
+                detail.cursor = cursor;
                 cx.notify();
             }
         }))
@@ -1926,10 +1912,10 @@ impl Detail {
             let at = At::File(file_diff.file.path.clone(), line);
             self.clear_text_selection(cx);
             // So the hunk shows marked as what the menu acts on.
-            self.place_cursor(Cursor {
+            self.cursor = Cursor {
                 file,
                 at: hunk.map_or(Stop::File, Stop::Hunk),
-            });
+            };
             self.changes_menu(menu, at, blamed, position, cx);
             return;
         };
