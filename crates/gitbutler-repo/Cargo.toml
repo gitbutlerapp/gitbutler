@@ -12,14 +12,11 @@ doctest = false
 [dependencies]
 but-core = { workspace = true, features = ["legacy"] }
 but-gerrit.workspace = true
-but-oxidize.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
 
 gitbutler-project.workspace = true
 gitbutler-reference.workspace = true
 
-git2.workspace = true
-git2-hooks.workspace = true
 gix = { workspace = true, features = ["merge", "status"] }
 anyhow.workspace = true
 bstr.workspace = true

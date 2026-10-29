@@ -207,6 +207,118 @@ fn pre_commit_keeps_the_index_modified_time() -> anyhow::Result<()> {
 
 #[cfg(unix)]
 #[test]
+fn pre_commit_restores_conflicts_or_absent_index_after_rejection()
+-> but_testsupport::gix_testtools::TestResult {
+    use but_testsupport::gix_testtools;
+    use gix::index::entry::{Flags, Mode, Stage};
+    if gix_testtools::run_in_isolated_process()? {
+        return Ok(());
+    }
+    for had_index in [true, false] {
+        let fixture = RepoWithOrigin::default();
+        let repo = &fixture.local_repo;
+        let workdir = repo.workdir().expect("fixture has a worktree");
+        let index_path = repo.index_path();
+        if had_index {
+            let mut index = repo.open_index()?;
+            for (stage, contents) in [
+                (Stage::Base, "base"),
+                (Stage::Ours, "ours"),
+                (Stage::Theirs, "theirs"),
+            ] {
+                index.dangerously_push_entry(
+                    Default::default(),
+                    repo.write_blob(contents)?.detach(),
+                    Flags::from_stage(stage),
+                    Mode::FILE,
+                    "conflicted".into(),
+                );
+            }
+            index.sort_entries();
+            index.write(Default::default())?;
+            fs::set_permissions(&index_path, fs::Permissions::from_mode(0o600))?;
+        } else {
+            fs::remove_file(&index_path)?;
+        }
+        let original = fs::read(&index_path).ok();
+        let tree_id = repo.head_tree_id()?.detach();
+        let expected = repo.index_from_tree(&tree_id)?;
+        let hook = repo.hooks_directory()?.join("pre-commit");
+        fs::create_dir_all(hook.parent().expect("hook has a directory"))?;
+        fs::write(
+            &hook,
+            "#!/bin/sh\n/bin/cp \"${GIT_INDEX_FILE:-.git/index}\" observed-index\nprintf 'rejected'\nexit 19\n",
+        )?;
+        fs::set_permissions(&hook, fs::Permissions::from_mode(0o755))?;
+        let ctx = context_for_repo(workdir);
+        #[expect(
+            deprecated,
+            reason = "verify remaining legacy callers observe the restored index"
+        )]
+        let cached = ctx.git2_repo.get()?.index()?;
+        let empty_path = tempfile::tempdir()?;
+        let result = {
+            let _environment =
+                gix_testtools::Env::new().set("PATH", empty_path.path().display().to_string());
+            pre_commit_with_tree(&ctx, tree_id)?
+        };
+        assert!(
+            matches!(result, HookResult::Failure(error) if error.error == "rejected"),
+            "a failed hook still restores the user's index"
+        );
+        assert_eq!(
+            fs::read(&index_path).ok(),
+            original,
+            "the original bytes or absence of the index are preserved"
+        );
+        let observed = gix::index::File::at(
+            workdir.join("observed-index"),
+            repo.object_hash(),
+            false,
+            Default::default(),
+        )?;
+        let content = |index: &gix::index::State| {
+            index
+                .entries()
+                .iter()
+                .map(|entry| {
+                    (
+                        entry.path(index).to_owned(),
+                        entry.id,
+                        entry.mode,
+                        entry.stage(),
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            content(&observed),
+            content(&expected),
+            "the hook sees exactly the requested tree"
+        );
+        assert_eq!(
+            cached.has_conflicts(),
+            had_index,
+            "cached legacy handles see the original conflicts"
+        );
+        if had_index {
+            assert_eq!(
+                fs::metadata(&index_path)?.permissions().mode() & 0o777,
+                0o600,
+                "index permissions survive the swap"
+            );
+        } else {
+            assert!(
+                cached.is_empty(),
+                "a previously absent index remains empty in legacy handles"
+            );
+        }
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
 fn pre_commit_propagates_index_restore_failure() -> anyhow::Result<()> {
     let test_project = RepoWithOrigin::default();
     let workdir = test_project.local_repo.workdir().expect("non-bare");

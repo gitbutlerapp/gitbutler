@@ -1,4 +1,5 @@
 use std::{
+    ffi::OsStr,
     io::Write,
     path::{Path, PathBuf},
     process::Stdio,
@@ -7,8 +8,6 @@ use std::{
 use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
 use but_ctx::Context;
-use but_oxidize::ObjectIdExt;
-use git2_hooks::{self, HookResult as H, HookRunResponse};
 use serde::Serialize;
 
 use crate::managed_hooks::get_hooks_dir;
@@ -43,14 +42,6 @@ pub enum MessageHookResult {
     NotConfigured,
     Message(MessageData),
     Failure(ErrorData),
-}
-
-fn husky_search_paths(ctx: &Context) -> Option<&'static [&'static str]> {
-    if ctx.legacy_project.husky_hooks_enabled {
-        Some(&["../.husky"])
-    } else {
-        None
-    }
 }
 
 pub fn commit_msg(ctx: &Context, message: String) -> Result<MessageHookResult> {
@@ -90,17 +81,12 @@ pub fn commit_msg(ctx: &Context, message: String) -> Result<MessageHookResult> {
 }
 
 pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<HookResult> {
-    #[expect(deprecated, reason = "libgit2 hook/index adapter boundary")]
-    let repo = &*ctx.git2_repo.get()?;
+    let repo = ctx.repo.get()?;
     // Back up the index file byte for byte; a round-trip through a tree would fail
     // on an index with unmerged entries (a conflict in an uncommitted file) and
     // could not bring those entries back. A sibling file copy keeps memory flat and
     // lets the restore be a single atomic rename that also keeps the permissions.
-    let index_path = repo
-        .index()?
-        .path()
-        .context("repository index has no backing file")?
-        .to_owned();
+    let index_path = repo.current_dir().join(repo.index_path());
     let backup_path = index_path.with_extension("gitbutler-hook-backup");
     let backup_tmp_path = index_path.with_extension("gitbutler-hook-backup.tmp");
     let mut transaction_lock =
@@ -147,46 +133,49 @@ pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<Hoo
 
     // Panic fallback; normal restoration below can report failures to the caller.
     let guard = scopeguard::guard((), |_| {
-        if let Err(err) = restore_index(repo, &index_path, &backup_path, had_index) {
+        if let Err(err) = restore_index(ctx, &index_path, &backup_path, had_index) {
             tracing::error!("Failed to reset index: {}", err);
         }
     });
 
     let hook_result = (|| -> Result<HookResult> {
         {
-            let mut index = repo.index()?;
-            index.read_tree(&repo.find_tree(tree_id.to_git2())?)?;
-            index.write()?;
+            let previous = repo.index_or_empty()?;
+            repo.index_from_tree_with_index(&tree_id, &previous)?
+                .write(Default::default())?;
         }
-
+        let Some(hook) =
+            find_commit_hook(&repo, "pre-commit", ctx.legacy_project.husky_hooks_enabled)?
+        else {
+            return Ok(HookResult::NotConfigured);
+        };
+        let output = repo.run_hook(
+            hook,
+            gix::hook::Options {
+                environment: &[(OsStr::new("GIT_INDEX_FILE"), index_path.as_os_str())],
+                ..Default::default()
+            },
+        )?;
+        // Older GitButler hooks blocked commits on gitbutler/workspace with this marker.
         Ok(
-            match git2_hooks::hooks_pre_commit(repo, husky_search_paths(ctx))? {
-                H::NoHookFound => HookResult::NotConfigured,
-                H::Run(HookRunResponse {
-                    stdout,
-                    stderr,
-                    code,
-                    ..
-                }) => {
-                    if code == 0 {
-                        HookResult::Success
-                    } else {
-                        // If the output contains GITBUTLER_ERROR, it's the hook an older GitButler
-                        // installed to block commits on gitbutler/workspace - not a failure
-                        if stdout.contains("GITBUTLER_ERROR") || stderr.contains("GITBUTLER_ERROR")
-                        {
-                            HookResult::Success
-                        } else {
-                            let error = join_output(stdout, stderr, Some(code));
-                            HookResult::Failure(ErrorData { error })
-                        }
-                    }
-                }
+            if output.status.success()
+                || output.stdout.contains_str("GITBUTLER_ERROR")
+                || output.stderr.contains_str("GITBUTLER_ERROR")
+            {
+                HookResult::Success
+            } else {
+                HookResult::Failure(ErrorData {
+                    error: join_output(
+                        output.stdout.to_str_lossy().into_owned(),
+                        output.stderr.to_str_lossy().into_owned(),
+                        output.status.code(),
+                    ),
+                })
             },
         )
     })();
 
-    if let Err(err) = restore_index(repo, &index_path, &backup_path, had_index) {
+    if let Err(err) = restore_index(ctx, &index_path, &backup_path, had_index) {
         drop(guard); // Retry once through the fallback before returning the original error.
         return Err(err);
     }
@@ -195,17 +184,13 @@ pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<Hoo
 }
 
 fn restore_index(
-    repo: &git2::Repository,
+    ctx: &Context,
     index_path: &Path,
     backup_path: &Path,
     had_index: bool,
 ) -> Result<()> {
     if had_index {
         std::fs::rename(backup_path, index_path).context("failed to restore pre-commit index")?;
-        // Refresh the in-memory index from the restored file.
-        repo.index()?
-            .read(true)
-            .context("failed to reload restored pre-commit index")?;
     } else {
         match std::fs::remove_file(index_path) {
             Err(err) if err.kind() != std::io::ErrorKind::NotFound => {
@@ -213,7 +198,17 @@ fn restore_index(
             }
             _ => {}
         }
-        repo.index()?.clear()?;
+    }
+    // Remaining legacy callers may hold the same cached libgit2 index.
+    #[expect(deprecated, reason = "keep existing legacy index handles synchronized")]
+    if let Some(repo) = ctx.git2_repo.get_opt().as_ref() {
+        if had_index {
+            repo.index()?
+                .read(true)
+                .context("failed to reload restored pre-commit index")?;
+        } else {
+            repo.index()?.clear()?;
+        }
     }
     Ok(())
 }
@@ -266,9 +261,7 @@ fn find_commit_hook(
     Ok(gix::sec::identity::is_path_executable_by_current_user(&path)?.then_some(path))
 }
 
-// TODO: double-check this with what should happen according to Git; contribute to `git2-hooks` possibly.
-/// Since git2-hooks doesn't support pre-push yet, we implement it ourselves
-/// following the same pattern as the existing hooks
+/// Run pre-push with refspec information inferred from a remote-tracking branch.
 /// Use `local_commit` and `remote_tracking_branch` to deduce the refspec information. Note that
 /// this isn't general, but should work for us.
 pub fn pre_push(
