@@ -10,6 +10,7 @@ import {
 	MoreItem,
 	RepoItem,
 	StackCaption,
+	TargetItem,
 	UncommittedItem,
 	WorktreeDivider,
 	WorktreeItem,
@@ -1305,3 +1306,51 @@ export const Updating = meta.story({
 		/>
 	),
 });
+
+/**
+ * What the target has that the workspace doesn't, over the repository's worktrees: how many
+ * commits, with Update beside them. Open, its commits sit under it; a merge opens to the commits
+ * it brought in.
+ */
+export const NewOnTarget = meta.story({
+	parameters: { design: { type: "figma", url: core("4275-219045") } },
+	render: () => <NewOnTargetTree />,
+});
+
+/** {@link NewOnTarget}'s rows, folding as the sidebar's do. */
+const NewOnTargetTree: FC = () => {
+	const [open, setOpen] = useState(true);
+	const [merge, setMerge] = useState(true);
+	return (
+		<div>
+			<TargetItem
+				target="master"
+				count={74}
+				depth={1}
+				folded={!open}
+				onToggleFolded={() => setOpen(!open)}
+				actions={update}
+			/>
+			{open && (
+				<>
+					<CommitItem
+						message="chore: separator tokens"
+						merge
+						depth={2}
+						folded={!merge}
+						onToggleFolded={() => setMerge(!merge)}
+					/>
+					{merge && (
+						<>
+							<CommitItem message="chore: separator tokens" depth={3} />
+							<CommitItem message="feature: user authentication" depth={3} />
+						</>
+					)}
+					<CommitItem message="fix: retry stalled transfers" depth={2} />
+				</>
+			)}
+			<WorktreeDivider depth={1} />
+			<WorktreeItem name="Main worktree" main depth={1} folded />
+		</div>
+	);
+};

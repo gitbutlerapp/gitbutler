@@ -475,11 +475,15 @@ const TwoLineBranch: FC<
  * A commit under an expanded branch: the hollow glyph while it is only here, the solid one once it
  * is pushed. Its `menu` shows under the pointer, on keyboard focus and when selected.
  *
+ * Under a {@link TargetItem}, a `merge` takes the merge glyph and, with `folded`, opens to the
+ * commits it brought in, one level deeper.
+ *
  * @import import { CommitItem } from "@gitbutler/ui-react/SidebarRow.tsx";
  */
-export const CommitItem: FC<{ message: string; pushed?: boolean } & RowProps> = ({
+export const CommitItem: FC<{ message: string; pushed?: boolean; merge?: boolean } & RowProps> = ({
 	message,
 	pushed = true,
+	merge = false,
 	tooltip,
 	...props
 }) => (
@@ -487,11 +491,46 @@ export const CommitItem: FC<{ message: string; pushed?: boolean } & RowProps> = 
 		{...props}
 		name={message}
 		layout="compact"
-		icon={<Icon name={pushed ? "commit-fill" : "commit"} />}
+		icon={<Icon name={merge ? "branch-merge" : pushed ? "commit-fill" : "commit"} />}
 		label={
 			<Name tooltip={tooltip} className={classes("text-13", styles.name)}>
 				{message}
 			</Name>
+		}
+	/>
+);
+
+/**
+ * What the repository's target (`target`, such as `master`) has that its workspace doesn't: the
+ * first row under the repository, over its worktrees and a {@link WorktreeDivider}. It says how many
+ * commits (`count`) and keeps Update (`actions`) beside them rather than in their place under the
+ * pointer, since taking them in is what the row is for. Open, the commits sit under it one level
+ * deeper as {@link CommitItem}s, a merge's own one more. Leave it out while there are none.
+ *
+ * @import import { TargetItem } from "@gitbutler/ui-react/SidebarRow.tsx";
+ */
+export const TargetItem: FC<{ target: string; count: number } & Omit<RowProps, "meta">> = ({
+	target,
+	count,
+	actions,
+	tooltip,
+	...props
+}) => (
+	<Row
+		{...props}
+		name={`New on ${target}`}
+		layout="compact"
+		icon={<Icon name="arrow-in-box" />}
+		label={
+			<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
+				New on {target}
+			</Name>
+		}
+		meta={
+			<>
+				<MetaCount type="behind">{count}</MetaCount>
+				{filled(actions)}
+			</>
 		}
 	/>
 );
