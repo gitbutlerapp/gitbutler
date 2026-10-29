@@ -903,7 +903,6 @@ async fn dispatch_subcommand(
         | Subcommands::Amend(..)
         | Subcommands::Pick(..)
         | Subcommands::Unapply(..)
-        | Subcommands::Open(..)
         | Subcommands::Apply(..) => setup::init_ctx(
             &args,
             InitCtxOptions {
@@ -1753,15 +1752,6 @@ async fn dispatch_subcommand(
                 IntermediateChannel::new(out),
                 unapply_args,
             )?;
-            out.print_cli_output(outcome)?;
-            None
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Open(open_args) => {
-            use crate::utils::IntermediateChannel;
-
-            let outcome =
-                command::legacy::open::open(&mut ctx, IntermediateChannel::new(out), open_args)?;
             out.print_cli_output(outcome)?;
             None
         }

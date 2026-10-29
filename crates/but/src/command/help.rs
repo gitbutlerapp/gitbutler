@@ -120,8 +120,6 @@ pub(crate) fn grouped_subcommands(cmd: &clap::Command) -> IndexMap<Group, Vec<&c
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Apply => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
-                SubcommandDiscriminant::Open => Group::Inspection,
-                #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Clean => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Pick => Group::BranchingAndCommitting,
@@ -385,7 +383,6 @@ Inspection:
   status       Show an overview of the workspace state
   diff         Show the diff of changes in the repo
   show         Show details of a commit or branch
-  open         Open the project in GitButler
 
 Branching and Committing:
   commit       Create a commit

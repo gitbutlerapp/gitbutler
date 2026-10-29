@@ -19,7 +19,6 @@ pub mod forge;
 pub mod init;
 pub mod merge;
 pub mod r#move;
-pub mod open;
 pub mod oplog;
 pub mod pick;
 pub mod pull;

@@ -13,7 +13,6 @@ use crate::{args::Args, command::help::grouped_subcommands};
 const SKIPPED: &[&str] = &[
     "but gui",
     "but tui",
-    "but open",
     "but alias",
     "but completions",
     "but skill",
