@@ -53,20 +53,26 @@ fn read_marks<'a, C: Seeable + 'a>(
 
 /// Starting a branch from a project or its main worktree: a new one beside the others, or on
 /// top of the default branch when that's checked out on its own; or one in a new linked
-/// worktree, as `but worktree new` makes.
+/// worktree, as `but worktree new` makes, with a made-up name or one asked for.
 fn new_branch_items(store: &Store, project: &ProjectId, cx: &App) -> Vec<MenuItem> {
     let managed = store.workspace(project).is_some_and(|ws| ws.managed);
     let mut items = vec![MenuItem::action("New branch", &NewBranch, cx)];
     if managed {
-        let project = project.clone();
+        let (created, named) = (project.clone(), project.clone());
+        items.push(MenuItem::new("Create worktree", move |app, _, cx| {
+            let project = created.clone();
+            (app.store).update(cx, |store, cx| {
+                store.create_worktree(&project, worktrees::CreateWorktree::New(None), cx)
+            })
+        }));
         items.push(MenuItem::new("New worktree…", move |app, window, cx| {
-            let selected = project.clone();
+            let selected = named.clone();
             app.prompt_branch(
-                Selection::Project(project.clone()),
+                Selection::Project(named.clone()),
                 "New worktree",
                 window,
                 cx,
-                |name| worktrees::CreateWorktree { name },
+                |name| worktrees::CreateWorktree::New(Some(name)),
                 move |store, name, cx| store.select(Some(Selection::Worktree(selected, name)), cx),
             )
         }));
