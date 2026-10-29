@@ -8,10 +8,12 @@ use std::rc::Rc;
 use futures::StreamExt;
 use gpui::{
     App, Context, Entity, EventEmitter, FocusHandle, Focusable, FontWeight, HighlightStyle, Hsla,
-    KeyDownEvent, Pixels, Rgba, ScrollWheelEvent, SharedString, StrikethroughStyle, StyledText,
-    Task, UnderlineStyle, WeakEntity, Window, actions, canvas, div, prelude::*,
+    KeyDownEvent, Modifiers, Pixels, Point, Rgba, ScrollWheelEvent, SharedString,
+    StrikethroughStyle, StyledText, Task, UnderlineStyle, WeakEntity, Window, actions, canvas, div,
+    prelude::*,
 };
 use libghostty_vt::key::{self, Key, Mods};
+use libghostty_vt::mouse;
 use libghostty_vt::render::{CellIterator, Dirty, RowIterator};
 use libghostty_vt::screen::CellWide;
 use libghostty_vt::style::{RgbColor, Underline};
@@ -49,6 +51,8 @@ pub struct Terminal {
     dark: Option<bool>,
     /// Pixels scrolled that don't make a whole line yet.
     scrolled: Pixels,
+    /// Where the grid's first cell was last drawn, in the window.
+    origin: Rc<Cell<Point<Pixels>>>,
     focus: FocusHandle,
     /// It takes the keys once it's first drawn, as it opens.
     focus_when_drawn: bool,
@@ -93,6 +97,7 @@ impl Terminal {
             size: Self::OPENING,
             dark: None,
             scrolled: fixed(0.),
+            origin: Rc::default(),
             focus: cx.focus_handle(),
             focus_when_drawn: true,
             store,
@@ -203,14 +208,12 @@ impl Terminal {
             cx.stop_propagation();
             return;
         }
-        let mut mods = Mods::empty();
-        mods.set(Mods::SHIFT, modifiers.shift);
-        mods.set(Mods::ALT, modifiers.alt);
-        mods.set(Mods::CTRL, modifiers.control);
         let text = (keystroke.key_char.clone()).filter(|text| !text.chars().any(char::is_control));
         let mut chars = keystroke.key.chars();
         let unshifted = chars.next().filter(|_| chars.next().is_none());
-        let bytes = self.vt.key(key_for(&keystroke.key), mods, text, unshifted);
+        let bytes = self
+            .vt
+            .key(key_for(&keystroke.key), mods(modifiers), text, unshifted);
         self.input(&bytes, cx);
         cx.stop_propagation();
     }
@@ -221,8 +224,15 @@ impl Terminal {
         let lines = (self.scrolled / line).trunc();
         if lines != 0. {
             self.scrolled -= line * lines;
-            // ponytail: scrolls the scrollback only; programs that track the mouse get no wheel.
-            (self.vt.term).scroll_viewport(ScrollViewport::Delta(-(lines as isize)));
+            if self.vt.term.is_mouse_tracking().unwrap_or(false) {
+                let at = event.position - self.origin.get();
+                let bytes = self.vt.wheel(lines, at, self.size, mods(event.modifiers));
+                self.pty.write(&bytes).ok();
+            } else {
+                // ponytail: an alternate screen without mouse tracking (less, man) gets no wheel;
+                // send it arrows under DECSET 1007 as Ghostty does if that's missed.
+                (self.vt.term).scroll_viewport(ScrollViewport::Delta(-(lines as isize)));
+            }
             cx.notify();
         }
     }
@@ -248,8 +258,10 @@ impl Render for Terminal {
         let frame = self.vt.frame().unwrap_or_default();
         let this = cx.entity().downgrade();
         let measured = Rc::new(Cell::new(self.size));
+        let origin = self.origin.clone();
         let grid = canvas(
             move |bounds, window, cx| {
+                origin.set(bounds.origin);
                 let size = Size {
                     cols: ((bounds.size.width / cell_width).floor() as u16).max(2),
                     rows: ((bounds.size.height / cell_height).floor() as u16).max(1),
@@ -336,6 +348,8 @@ struct Vt {
     cells: CellIterator<'static>,
     keys: key::Encoder<'static>,
     key: key::Event<'static>,
+    mouse: mouse::Encoder<'static>,
+    wheel: mouse::Event<'static>,
     /// What the emulator answers the shell's queries with, to send it.
     replies: Rc<Cell<Vec<u8>>>,
     retitled: Rc<Cell<bool>>,
@@ -383,6 +397,8 @@ impl Vt {
             cells: CellIterator::new()?,
             keys: key::Encoder::new()?,
             key: key::Event::new()?,
+            mouse: mouse::Encoder::new()?,
+            wheel: mouse::Event::new()?,
             replies,
             retitled,
         })
@@ -407,6 +423,40 @@ impl Vt {
         }
         let mut bytes = Vec::new();
         self.keys.encode_to_vec(&self.key, &mut bytes).ok();
+        bytes
+    }
+
+    /// The wheel turned `lines` up, or down if negative, over `at` on the grid, for a program
+    /// tracking the mouse.
+    fn wheel(&mut self, lines: f32, at: Point<Pixels>, size: Size, mods: Mods) -> Vec<u8> {
+        let (cell_width, cell_height) = (u32::from(size.cell_width), u32::from(size.cell_height));
+        (self.mouse.set_options_from_terminal(&self.term)).set_size(mouse::EncoderSize {
+            screen_width: u32::from(size.cols) * cell_width,
+            screen_height: u32::from(size.rows) * cell_height,
+            cell_width: cell_width.max(1),
+            cell_height: cell_height.max(1),
+            padding_top: 0,
+            padding_bottom: 0,
+            padding_right: 0,
+            padding_left: 0,
+        });
+        let button = if lines > 0. {
+            mouse::Button::Four
+        } else {
+            mouse::Button::Five
+        };
+        (self.wheel)
+            .set_action(mouse::Action::Press)
+            .set_button(Some(button))
+            .set_mods(mods)
+            .set_position(mouse::Position {
+                x: f32::from(at.x),
+                y: f32::from(at.y),
+            });
+        let mut bytes = Vec::new();
+        for _ in 0..lines.abs() as usize {
+            self.mouse.encode_to_vec(&self.wheel, &mut bytes).ok();
+        }
         bytes
     }
 
@@ -498,6 +548,14 @@ impl Vt {
         snapshot.set_dirty(Dirty::Clean)?;
         Ok(frame)
     }
+}
+
+fn mods(modifiers: Modifiers) -> Mods {
+    let mut mods = Mods::empty();
+    mods.set(Mods::SHIFT, modifiers.shift);
+    mods.set(Mods::ALT, modifiers.alt);
+    mods.set(Mods::CTRL, modifiers.control);
+    mods
 }
 
 fn hsla(color: RgbColor) -> Hsla {
@@ -622,5 +680,27 @@ fn key_for(key: &str) -> Key {
             .and_then(|n| n.parse::<usize>().ok())
             .and_then(|n| FUNCTION.get(n.wrapping_sub(1)).copied())
             .unwrap_or(Key::Unidentified),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wheel_reports_to_a_program_tracking_the_mouse() {
+        let mut vt = Vt::new(Terminal::OPENING).unwrap();
+        vt.term.vt_write(b"\x1b[?1003h\x1b[?1006h");
+        let at = gpui::point(fixed(20.), fixed(40.));
+        let up = vt.wheel(2., at, Terminal::OPENING, Mods::empty());
+        let down = vt.wheel(-1., at, Terminal::OPENING, Mods::empty());
+        assert_eq!(
+            (up, down),
+            (
+                b"\x1b[<64;3;3M\x1b[<64;3;3M".to_vec(),
+                b"\x1b[<65;3;3M".to_vec()
+            ),
+            "two notches up then one down over cell 3,3 are SGR wheel buttons 64 and 65"
+        );
     }
 }
