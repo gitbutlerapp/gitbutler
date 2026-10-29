@@ -59,6 +59,7 @@ pub struct Theme {
     /// The interface scale, 1 at 100%: the window's rem follows it, and [`Theme::scaled`]
     /// gives sizes the layout doesn't, as for scroll and pointer maths.
     pub scale: f32,
+    pub dark: bool,
     syntax: [Hsla; 7],
 }
 
@@ -193,6 +194,7 @@ impl Theme {
             code_text,
             code_line,
             scale: 1.,
+            dark,
             bg_1: pick(0xffffff, 0x292929),
             bg_2: pick(0xf2f2f2, 0x1e1e1e),
             text_1: pick(0x1e1e1e, 0xf8f8f8),
