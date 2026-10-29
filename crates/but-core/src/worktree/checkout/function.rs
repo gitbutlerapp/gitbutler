@@ -146,6 +146,8 @@ pub fn safe_checkout_from_head(
                 gix::progress::Discard,
                 &Default::default(),
                 gix::worktree::checkout::Options {
+                    // The merge above already reconciled local changes into the checkout target.
+                    overwrite_staged: true,
                     overwrite_ignored: true,
                     ..Default::default()
                 },
