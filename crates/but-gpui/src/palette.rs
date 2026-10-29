@@ -61,6 +61,8 @@ pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Update worktrees", &UpdateWorktrees),
     ("New branch", &NewBranch),
     ("New branch on top", &NewBranchOnTop),
+    ("New worktree", &crate::app::NewWorktree),
+    ("New worktree with name…", &crate::app::NewWorktreeWithName),
     ("Reword", &RenameSelection),
     ("Uncommit", &UncommitSelection),
     ("Cherry-pick commit", &CherryPick),

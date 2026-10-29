@@ -68,6 +68,8 @@ actions!(
         MarkAllRead,
         NewBranch,
         NewBranchOnTop,
+        NewWorktree,
+        NewWorktreeWithName,
         SelectPrevious,
         SelectNext,
         Expand,
@@ -469,6 +471,34 @@ impl AppView {
         };
         let create = backend::CreateBranch { name: None };
         self.new_branch_at(project, true, None, None, window, cx, create);
+    }
+
+    fn new_worktree(&mut self, _: &NewWorktree, _: &mut Window, cx: &mut Context<Self>) {
+        let Some(project) = self.project_to_start_in(cx) else {
+            return;
+        };
+        let create = backend::worktrees::CreateWorktree::New(None);
+        (self.store).update(cx, |store, cx| store.create_worktree(&project, create, cx))
+    }
+
+    fn new_worktree_with_name(
+        &mut self,
+        _: &NewWorktreeWithName,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(project) = self.project_to_start_in(cx) else {
+            return;
+        };
+        let selected = project.clone();
+        self.prompt_branch(
+            Selection::Project(project),
+            "New worktree",
+            window,
+            cx,
+            |name| backend::worktrees::CreateWorktree::New(Some(name)),
+            move |store, name, cx| store.select(Some(Selection::Worktree(selected, name)), cx),
+        )
     }
 
     /// Ask the desktop app's update feed now: show the update card for the newer version it
@@ -1634,6 +1664,8 @@ impl Render for AppView {
             .on_action(cx.listener(Self::fetch))
             .on_action(cx.listener(Self::pull))
             .on_action(cx.listener(Self::new_branch))
+            .on_action(cx.listener(Self::new_worktree))
+            .on_action(cx.listener(Self::new_worktree_with_name))
             .on_action(cx.listener(Self::push_selected))
             .on_action(cx.listener(Self::cut_selection))
             // Only while something is cut, so ⌘K doesn't offer it with nothing to paste.
