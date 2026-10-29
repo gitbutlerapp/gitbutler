@@ -1394,7 +1394,7 @@ impl Detail {
     }
 
     /// Select the target commit `delta` rows from the selected one, keeping it in view.
-    fn step_upstream(&mut self, delta: isize, cx: &mut Context<Self>) {
+    pub(super) fn step_upstream(&mut self, delta: isize, cx: &mut Context<Self>) {
         let Some(project) = self.selected_project(cx) else {
             return;
         };
