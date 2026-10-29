@@ -745,6 +745,39 @@ pub fn selected_lanes(
     stacks.chain(worktrees).collect()
 }
 
+/// Whether updating what `scope` selects onto `target_tip` would change anything. The workspace
+/// would when `target_commit`, the stored one, isn't the tip, the local target can fast-forward to
+/// it, or `HEAD` is behind it. The worktrees would when one the update rebases is behind it.
+pub fn is_behind_target(
+    repo: &gix::Repository,
+    head_info: &but_workspace::RefInfo,
+    scope: UpdateScope,
+    target_tip: gix::ObjectId,
+    target_commit: gix::ObjectId,
+) -> anyhow::Result<bool> {
+    let behind = |head: gix::ObjectId| -> anyhow::Result<bool> {
+        let mut missing = repo.rev_walk([target_tip]).with_hidden([head]).all()?;
+        Ok(missing.next().transpose()?.is_some())
+    };
+    let workspace_behind = || -> anyhow::Result<bool> {
+        Ok(target_commit != target_tip
+            || head_info.can_fast_forward_local_target
+            || match repo.head_id() {
+                Ok(head) => behind(head.detach())?,
+                Err(_) => false,
+            })
+    };
+    let worktrees_behind = || -> anyhow::Result<bool> {
+        for worktree in &head_info.worktrees {
+            if worktree.rebasable_base().is_some() && behind(worktree.head)? {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    };
+    Ok((scope.workspace() && workspace_behind()?) || (scope.worktrees() && worktrees_behind()?))
+}
+
 /// The name of the target branch within its remote, like `main` for `refs/remotes/origin/main`.
 ///
 /// Errors if no target is set, or if its remote cannot be determined.

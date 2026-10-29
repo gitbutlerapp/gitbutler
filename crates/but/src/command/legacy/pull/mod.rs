@@ -92,19 +92,24 @@ pub async fn handle(
     }
 }
 
-/// Whether selected lanes need `incoming` commits or the workspace's local target can advance.
+/// Whether updating the lanes `update` selects would change anything, as
+/// [`but_api::workspace::is_behind_target()`] tells.
 fn is_behind(
+    ctx: &Context,
     head_info: &but_workspace::RefInfo,
     update: &[PullUpdate],
     base_branch: &gitbutler_branch_actions::BaseBranch,
-    incoming: &[UpstreamCommit],
 ) -> anyhow::Result<bool> {
     let tip = base_branch
         .current_sha
         .context("The configured target upstream ref is unavailable")?;
-    Ok((update.contains(&PullUpdate::Workspace)
-        && (!incoming.is_empty() || head_info.can_fast_forward_local_target))
-        || upstream::has_worktree_behind(head_info, update, tip))
+    but_api::workspace::is_behind_target(
+        &*ctx.repo.get()?,
+        head_info,
+        upstream::scope(update),
+        tip,
+        base_branch.base_sha,
+    )
 }
 
 /// Whether the target branch has an upstream. Without one, for example in a repository without a
@@ -186,7 +191,7 @@ async fn handle_check(
     let incoming = incoming_commits(ctx, &base_branch)?;
 
     let current_head_info = but_api::legacy::workspace::head_info(ctx)?;
-    let behind = is_behind(&current_head_info, update, &base_branch, &incoming)?;
+    let behind = is_behind(ctx, &current_head_info, update, &base_branch)?;
     let should_check_integration =
         behind || upstream::has_cleanup_candidate(&current_head_info, update);
     let (has_worktree_conflicts, statuses) = if should_check_integration {
@@ -431,7 +436,7 @@ async fn handle_pull(
     }
 
     let current_head_info = but_api::legacy::workspace::head_info(ctx)?;
-    let behind = is_behind(&current_head_info, update, &base_branch, &incoming)?;
+    let behind = is_behind(ctx, &current_head_info, update, &base_branch)?;
     if !behind && !upstream::has_cleanup_candidate(&current_head_info, update) {
         pull_result.status = "up_to_date".to_string();
         if let Some(out) = out.for_human() {

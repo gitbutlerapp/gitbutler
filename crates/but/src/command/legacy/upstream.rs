@@ -112,20 +112,6 @@ fn rebased_lanes<'a>(head_info: &'a RefInfo, update: &[PullUpdate]) -> Vec<Lane<
         .collect()
 }
 
-/// Whether a worktree selected by `update` rests on anything but `target_tip`.
-pub(crate) fn has_worktree_behind(
-    head_info: &RefInfo,
-    update: &[PullUpdate],
-    target_tip: gix::ObjectId,
-) -> bool {
-    update.contains(&PullUpdate::Worktrees)
-        && head_info.worktrees.iter().any(|worktree| {
-            worktree
-                .rebasable_base()
-                .is_some_and(|base| base != target_tip)
-        })
-}
-
 pub(crate) fn classify(
     current: &RefInfo,
     update: &[PullUpdate],

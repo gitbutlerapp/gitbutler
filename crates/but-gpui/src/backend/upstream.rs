@@ -1319,6 +1319,37 @@ mod tests {
         })
     }
 
+    fn needs_update(path: &std::path::Path) -> bool {
+        let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+        workspace.target.expect("main is the target").needs_update()
+    }
+
+    #[test]
+    fn a_local_target_behind_its_upstream_needs_an_update() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = crate::backend::ops::tests::repo_with("one\n");
+            let path = dir.path();
+            crate::backend::ops::tests::target_origin_main(path);
+            crate::backend::apply(path, crate::backend::ops::tests::branch_named("feature"))
+                .unwrap();
+            let old = git(path, &["rev-parse", "main"]);
+            new_on_target(path, "new on target");
+            update(path, UpdateScope::All);
+            assert!(!needs_update(path), "the workspace is on the new commit");
+
+            git(path, &["update-ref", "refs/heads/main", old.trim()]);
+            assert!(needs_update(path), "main can fast-forward to origin/main");
+
+            update(path, UpdateScope::All);
+            assert_eq!(
+                git(path, &["rev-parse", "main"]),
+                git(path, &["rev-parse", "origin/main"]),
+                "the update fast-forwarded main"
+            );
+            assert!(!needs_update(path), "nothing is left to update");
+        })
+    }
+
     /// Pushes go without the app's askpass broker, which a process can turn off only once.
     fn without_askpass() {
         static ASKPASS: std::sync::Once = std::sync::Once::new();

@@ -278,8 +278,7 @@ pub struct Target {
     pub commits_behind: usize,
     /// Whether updating the workspace from the target would change anything.
     pub workspace_behind: bool,
-    /// Whether a linked worktree on the target's history with work of its own lacks the
-    /// target's newest commit, which updating the worktrees rebases it onto.
+    /// Whether updating the linked worktrees resting on the target would change anything.
     pub worktrees_behind: bool,
     /// The newest of the `behind` commits, up to [`UPSTREAM_SHOWN`], named as the project's
     /// page names them.
