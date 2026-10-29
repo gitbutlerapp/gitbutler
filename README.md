@@ -64,22 +64,6 @@ Works instantly in any existing Git repo as a friendlier and more powerful drop-
 
 Why use GitButler instead of vanilla Git? What a great question.
 
-- **Stacked Branches** ([gui](https://docs.gitbutler.com/features/branch-management/stacked-branches), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/branching-and-commiting#stacked-branches))
-  - Effortlessly create branches stacked on other branches. Amend or edit any commit easily with automatic restacking.
-- **Parallel Branches** ([gui](https://docs.gitbutler.com/features/branch-management/virtual-branches), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/branching-and-commiting#parallel-branches))
-  - Organize work on multiple branches simultaneously, rather than constantly switching branches.
-- **Easy Commit Management** ([gui](https://docs.gitbutler.com/features/branch-management/commits), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/rubbing))
-  - Uncommit, reword, amend, move, split and squash commits by dragging and dropping or simple CLI commands. Forget about `rebase -i`, you don't need it anymore.
-- **Undo Timeline** ([gui](https://docs.gitbutler.com/features/timeline), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/operations-log))
-  - Logs all operations and changes and allows you to easily undo or revert any operation.
-- **First Class Conflicts** ([gui](https://docs.gitbutler.com/overview#conflicting-branches), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/conflict-resolution))
-  - Rebases always succeed. Commits can be marked as conflicted and resolved at any time, in any order.
-- **Forge Integration** ([gui](https://docs.gitbutler.com/features/forge-integration/github-integration), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/forges))
-  - Authenticate to GitHub, GitLab, or Bitbucket to easily open and update Pull Requests, list branches, get CI statuses and more. No other tools required.
-- **AI Tooling** ([gui](https://docs.gitbutler.com/features/ai-integration/ai-overview), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/ai-stuff))
-  - Use built-in AI handlers to help create commit messages, branch names, PR descriptions and more.
-  - Easily install hooks or skills for all modern agent systems to level up their Git management.
-
 ## Tech
 
 The GitButler desktop app is a [Tauri](https://tauri.app/)-based application. Its UI is written in [Svelte](https://svelte.dev/) using [TypeScript](https://www.typescriptlang.org) and its backend is written in [Rust](https://www.rust-lang.org/).
