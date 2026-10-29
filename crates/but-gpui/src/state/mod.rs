@@ -29,6 +29,7 @@ mod saved;
 mod seen;
 
 pub use activity::{Activity, QUARTER, SeenCommit};
+pub(crate) use load::move_before;
 use load::{Change, Reload};
 pub use mesh::{MeshBranch, MeshPick, MeshState};
 use mutation::Running;
@@ -141,6 +142,8 @@ pub enum Cut {
         /// Shared, since every row a drag passes over works out what a drop would do.
         files: Arc<[Selected]>,
     },
+    /// A linked worktree to put elsewhere among the others, by name.
+    Worktree(ProjectId, bstr::BString),
 }
 
 impl Cut {
@@ -149,7 +152,8 @@ impl Cut {
             Cut::Commit(project, _)
             | Cut::CherryPick(project, _)
             | Cut::Branch(project, _)
-            | Cut::Files { project, .. } => project,
+            | Cut::Files { project, .. }
+            | Cut::Worktree(project, _) => project,
         }
     }
 
@@ -184,6 +188,7 @@ impl Cut {
                 },
                 files => format!("{} files", files.len()),
             },
+            Cut::Worktree(_, name) => name.to_string(),
         }
     }
 }

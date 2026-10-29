@@ -11,7 +11,7 @@ use gpui::{Context, SharedString, Task};
 use super::{Cut, ProjectEntry, ProjectId, Selection, Store, StoreEvent};
 use crate::backend::watch::Watcher;
 use crate::backend::{
-    self, Checkout, CommitId, FileChange, FullName, Project, Selected, Workspace,
+    self, Checkout, CommitId, FileChange, FullName, Project, Selected, Workspace, Worktree,
 };
 
 /// A watcher's event: the project, whether its git directory changed, the checkout whose
@@ -416,20 +416,67 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let mut order = self.expanded_ids();
-        let Some(from) = order.iter().position(|other| other == id) else {
-            return;
-        };
-        if before == Some(id) {
+        if !move_before(&mut order, id, before) {
             return;
         }
-        let id = order.remove(from);
-        let at = before
-            .and_then(|before| order.iter().position(|other| other == before))
-            .unwrap_or(order.len());
-        order.insert(at, id);
         self.order_projects(&order);
         self.save_soon(cx);
         cx.notify();
+    }
+
+    /// Move project `id`'s linked worktree `name` before `before`, or after the others.
+    pub fn move_worktree(
+        &mut self,
+        id: &ProjectId,
+        name: &bstr::BStr,
+        before: Option<&bstr::BStr>,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(order) = self.prefs.worktree_order.get_mut(id.as_ref()) else {
+            return;
+        };
+        let before = before.map(ToString::to_string);
+        if move_before(order, &name.to_string(), before.as_ref()) {
+            self.save_soon(cx);
+            cx.notify();
+        }
+    }
+
+    /// `workspace`'s linked worktrees in the order project `id` keeps for them.
+    pub fn worktrees_in_order<'a>(
+        &self,
+        id: &ProjectId,
+        workspace: &'a Workspace,
+    ) -> Vec<&'a Worktree> {
+        let order = (self.prefs.worktree_order.get(id.as_ref())).map_or(&[][..], Vec::as_slice);
+        let mut worktrees: Vec<&Worktree> = workspace.worktrees.iter().collect();
+        worktrees.sort_by_cached_key(|wt| {
+            let name = wt.name.to_string();
+            order
+                .iter()
+                .position(|kept| *kept == name)
+                .unwrap_or(usize::MAX)
+        });
+        worktrees
+    }
+
+    /// Keep project `id`'s order to the linked worktrees `workspace` lists, with new ones
+    /// last. None listed, as with worktree support off, is more likely than every one
+    /// removed, so it keeps the order for when they're back.
+    fn order_worktrees(&mut self, id: &ProjectId, workspace: &Workspace, cx: &mut Context<Self>) {
+        let listed: Vec<String> = (workspace.worktrees.iter().map(|wt| &wt.name))
+            .chain(workspace.archived_worktrees.iter().map(|(name, _)| name))
+            .map(ToString::to_string)
+            .collect();
+        if listed.is_empty() {
+            return;
+        }
+        let order = self.prefs.worktree_order.entry(id.to_string()).or_default();
+        let next = ordered(order, &listed);
+        if next != *order {
+            *order = next;
+            self.save_soon(cx);
+        }
     }
 
     /// List the watched projects as `order` has them, and the others by name.
@@ -764,6 +811,7 @@ impl Store {
             old.editing.is_none() && names(old) != names(&workspace)
         });
         self.remember_commits(id, &workspace, cx);
+        self.order_worktrees(id, &workspace, cx);
         if let Some(entry) = self.project_mut(id) {
             entry.workspace = Some(workspace);
             entry.read();
@@ -864,6 +912,7 @@ fn follow_cut(cut: &mut Cut, old: Option<&Workspace>, new: &Workspace) -> bool {
             })
         }
         Cut::Branch(_, ref_name) => new.find_branch(Some(ref_name)).is_some(),
+        Cut::Worktree(_, name) => new.find_worktree(name.as_ref()).is_some(),
     }
 }
 
@@ -907,10 +956,44 @@ fn watch(
     })
 }
 
+/// Move `item` in `order` before `before`, or last, and whether it was there to move.
+pub(crate) fn move_before<T: PartialEq>(order: &mut Vec<T>, item: &T, before: Option<&T>) -> bool {
+    let Some(from) = order.iter().position(|other| other == item) else {
+        return false;
+    };
+    if before == Some(item) {
+        return false;
+    }
+    let item = order.remove(from);
+    let at = before
+        .and_then(|before| order.iter().position(|other| other == before))
+        .unwrap_or(order.len());
+    order.insert(at, item);
+    true
+}
+
+/// `order` with only the names `listed`, then those of them new to it, as `listed` has them.
+fn ordered(order: &[String], listed: &[String]) -> Vec<String> {
+    let kept = order.iter().filter(|name| listed.contains(name));
+    let new = listed.iter().filter(|name| !order.contains(name));
+    kept.chain(new).cloned().collect()
+}
+
 #[cfg(test)]
 mod tests {
     use crate::backend::CommitId;
     use crate::backend::model::build::{branch, full, workspace, worktree};
+
+    #[test]
+    fn worktrees_keep_their_order_with_new_ones_last() {
+        let names =
+            |names: &[&str]| -> Vec<String> { names.iter().map(|n| n.to_string()).collect() };
+        assert_eq!(
+            super::ordered(&names(&["a", "b", "c"]), &names(&["d", "c", "a"])),
+            names(&["a", "c", "d"]),
+            "listed newest first, the kept ones stay put, the gone one goes and the new one is last"
+        );
+    }
 
     #[test]
     fn picks_show_together_only_as_one_run_in_one_lane() {

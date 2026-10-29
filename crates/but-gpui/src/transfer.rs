@@ -10,7 +10,9 @@ use gpui::{
 use crate::backend::{
     self, Checkout, CommitId, CommitTo, Destination, FullName, Selected, short_ref,
 };
-use crate::state::{Cut, Label, NewAt, Overlay, ProjectId, Selection, Store, branch_moved};
+use crate::state::{
+    Cut, Label, NewAt, Overlay, ProjectId, Selection, Store, branch_moved, move_before,
+};
 use crate::theme::Theme;
 use crate::ui::{Icon, dp, popover, small_icon};
 
@@ -66,6 +68,11 @@ pub enum Transfer {
         branch: FullName,
         files: Arc<[Selected]>,
         worktree: Checkout,
+    },
+    /// Put a linked worktree before another in the navigator, or after them all.
+    MoveWorktree {
+        name: bstr::BString,
+        before: Option<bstr::BString>,
     },
 }
 
@@ -251,6 +258,9 @@ impl Transfer {
                     onto: onto.clone(),
                 }
             }
+            (Cut::Worktree(project, name), Selection::Worktree(_, onto)) => {
+                worktree_move(store, project, name.as_ref(), onto.as_ref(), place)?
+            }
             (
                 Cut::Files {
                     project,
@@ -289,6 +299,10 @@ impl Transfer {
                         files: files.clone(),
                     }
                 }
+                // The worktree's own files, from its heading or its list, move it as it would.
+                (None, Selection::Worktree(_, onto)) => {
+                    worktree_move(store, project, worktree.linked()?, onto.as_ref(), place)?
+                }
                 (Some(from), Selection::Commit(_, to)) if from != *to && !conflicted(*to) => {
                     Transfer::MoveFiles {
                         from,
@@ -323,6 +337,7 @@ impl Transfer {
             Transfer::MoveFiles { .. } => "Move into",
             Transfer::StageOnBranch { .. } => "Start a commit here",
             Transfer::CommitOnBranch { .. } => "Commit here",
+            Transfer::MoveWorktree { .. } => "Move here",
         }
     }
 
@@ -343,6 +358,7 @@ impl Transfer {
             Transfer::CommitOnBranch { branch, .. } => {
                 format!("Commit to {}", short_ref(branch)).into()
             }
+            Transfer::MoveWorktree { name, .. } => format!("Move {name}").into(),
         }
     }
 
@@ -444,6 +460,12 @@ impl Transfer {
                 cx,
             ),
             Transfer::StageOnBranch { branch, files } => return Some((branch, files)),
+            Transfer::MoveWorktree { name, before } => store.move_worktree(
+                project,
+                name.as_ref(),
+                before.as_ref().map(|b| b.as_ref()),
+                cx,
+            ),
             Transfer::CommitOnBranch {
                 branch,
                 files,
@@ -537,6 +559,39 @@ pub fn drag_preview(
 
 /// The pill that follows the pointer while dragging, what it carries, and what letting go
 /// there does.
+/// Linked worktree `name` landing above or below linked worktree `onto` at `place`, as the
+/// navigator lists them, unless it's there already or `onto` is listed apart from it, one
+/// active and the other inactive.
+fn worktree_move(
+    store: &Store,
+    project: &ProjectId,
+    name: &bstr::BStr,
+    onto: &bstr::BStr,
+    place: Place,
+) -> Option<Transfer> {
+    let workspace = store.workspace(project)?;
+    let inactive = |name| workspace.find_worktree(name).map(|wt| wt.is_inactive());
+    if inactive(name)? != inactive(onto)? {
+        return None;
+    }
+    let order: Vec<&bstr::BString> = (store.worktrees_in_order(project, workspace).into_iter())
+        .map(|wt| &wt.name)
+        .collect();
+    let at = order.iter().position(|other| *other == onto)?;
+    let before = match place {
+        Place::Above => order.get(at).copied(),
+        Place::Below => order.get(at + 1).copied(),
+        Place::Into => return None,
+    };
+    let dragged = order.iter().find(|other| **other == name).copied()?;
+    let mut moved = order.clone();
+    let moves = move_before(&mut moved, &dragged, before.as_ref()) && moved != order;
+    moves.then(|| Transfer::MoveWorktree {
+        name: name.to_owned(),
+        before: before.cloned(),
+    })
+}
+
 pub struct DragPreview {
     pub label: SharedString,
     pub payload: Cut,
@@ -550,16 +605,22 @@ impl Render for DragPreview {
         let theme = Theme::get(cx);
         let store = self.store.read(cx);
         // What's dragged as the store followed it, as an agent may have rewritten it.
-        let hint = (store.drop_at.as_ref()).and_then(|(target, place)| {
+        let transfer = (store.drop_at.as_ref()).and_then(|(target, place)| {
             let payload = store.dragging.as_ref()?;
-            Transfer::resolve(payload, target, *place, store).map(|t| t.verb())
+            Transfer::resolve(payload, target, *place, store)
         });
-        let glyph = match self.payload {
-            Cut::Commit(..) | Cut::CherryPick(..) => Icon::Commit,
-            Cut::Branch(..) => Icon::Branch,
-            Cut::Files { .. } => Icon::File,
+        let hint = transfer.as_ref().map(Transfer::verb);
+        // A worktree's files landing where they move it name the worktree.
+        let (glyph, label) = match (&transfer, &self.payload) {
+            (Some(Transfer::MoveWorktree { name, .. }), _) => {
+                (Icon::FolderCopy, name.to_string().into())
+            }
+            (_, Cut::Commit(..) | Cut::CherryPick(..)) => (Icon::Commit, self.label.clone()),
+            (_, Cut::Branch(..)) => (Icon::Branch, self.label.clone()),
+            (_, Cut::Files { .. }) => (Icon::File, self.label.clone()),
+            (_, Cut::Worktree(..)) => (Icon::FolderCopy, self.label.clone()),
         };
-        drag_pill(self.offset, glyph, self.label.clone(), hint, theme)
+        drag_pill(self.offset, glyph, label, hint, theme)
     }
 }
 

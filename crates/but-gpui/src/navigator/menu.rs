@@ -522,8 +522,8 @@ impl Navigator {
                 items
             }
             Selection::Worktree(project, name) => {
-                let Some(worktree) =
-                    (store.workspace(project)).and_then(|ws| ws.find_worktree(name.as_ref()))
+                let Some((ws, worktree)) = (store.workspace(project))
+                    .and_then(|ws| Some((ws, ws.find_worktree(name.as_ref())?)))
                 else {
                     return Vec::new();
                 };
@@ -538,6 +538,33 @@ impl Navigator {
                 let lost: Vec<(String, Option<i64>, Option<u64>)> = (worktree.uncommitted.iter())
                     .map(|f| (f.path.clone(), f.modified, f.size))
                     .collect();
+                // It swaps places with the one above or below among those listed with it, the
+                // active or the inactive ones, as a watched project's card does.
+                let beside: Vec<&bstr::BString> =
+                    (store.worktrees_in_order(project, ws).into_iter())
+                        .filter(|wt| wt.is_inactive() == worktree.is_inactive())
+                        .filter(|wt| !store.hides_worktree(project, wt.name.as_ref()))
+                        .map(|wt| &wt.name)
+                        .collect();
+                let at = beside.iter().position(|other| *other == name).unwrap_or(0);
+                let up = at.checked_sub(1).map(|above| beside.get(above));
+                let down = (at + 1 < beside.len()).then(|| beside.get(at + 2));
+                let moves = [("Move up", up), ("Move down", down)]
+                    .into_iter()
+                    .filter_map(|(label, before)| Some((label, before?.map(|b| (*b).clone()))))
+                    .map(|(label, before)| {
+                        let (project, name) = (project.clone(), name.clone());
+                        MenuItem::new(label, move |this, _, cx| {
+                            (this.store).update(cx, |store, cx| {
+                                let before = before.as_ref().map(|b| b.as_ref());
+                                store.move_worktree(&project, name.as_ref(), before, cx)
+                            })
+                        })
+                    });
+                let mut moves: Vec<MenuItem> = moves.collect();
+                if let Some(first) = moves.first_mut() {
+                    first.separated = true;
+                }
                 let (project, name) = (project.clone(), name.clone());
                 let (deleted_project, deleted) = (project.clone(), name.clone());
                 let linked = Checkout::Linked(name.clone());
@@ -585,6 +612,8 @@ impl Navigator {
                 ];
                 // As Main worktree's, after Fetch and before what happens to it.
                 items.splice(3..3, changes.into_iter().flatten());
+                let archive = items.len() - 2;
+                items.splice(archive..archive, moves);
                 items
             }
             Selection::Stack(project, bottom) => {

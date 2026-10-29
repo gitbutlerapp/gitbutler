@@ -1,12 +1,13 @@
 //! The navigator's tree of rows as it's built, before any is drawn: every card's
 //! projects, worktrees, stacks, branches and commits, and under the filter, what it finds.
 
+use std::collections::HashMap;
 use std::time::Duration;
 
 use gpui::{App, SharedString};
 
 use super::{BranchKey, ClickOpened, Navigator, STEP, upstream_chevrons};
-use crate::backend::{Branch, Checkout, Commit, FullName, Lane, Workspace, Worktree};
+use crate::backend::{Branch, Checkout, Commit, CommitId, FullName, Lane, Workspace, Worktree};
 use crate::edits::BranchEdits;
 use crate::state::{Cut, NewAt, ProjectEntry, ProjectId, Section, Selection, Store};
 use crate::ui::ROW_HEIGHT;
@@ -31,9 +32,9 @@ pub(super) enum Row {
     More(ProjectId, Option<FullName>, usize),
     /// The end of a branch's commits unfolded, which folds them again.
     Fewer(ProjectId, Option<FullName>),
-    /// A commit a mutation is making, by its title, and whether it's been long enough to
-    /// show it's still on its way.
-    Pending(SharedString, bool),
+    /// A commit a mutation is making, by its title, whether it's been long enough to show
+    /// it's still on its way, and the commit it stands in for, when it moves one.
+    Pending(SharedString, bool, Option<RowKey>),
     /// Where a commit of the project being dragged lands in a new branch of its own, or a
     /// stacked branch in a stack of its own.
     NewBranch(ProjectId),
@@ -46,9 +47,51 @@ pub(super) enum Row {
     RestsOn(Selection, Option<Checkout>),
 }
 
+/// What a row is across rebuilds, for a reorder to slide it from where it was.
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub(super) enum RowKey {
+    Item(Selection),
+    /// A commit by its key, which outlives the rewrites that move it.
+    Commit(ProjectId, String),
+    RestsOn(Selection),
+    /// A branch's commits folded away or unfolded, whichever it shows.
+    Fold(ProjectId, Option<FullName>),
+    NewBranch(ProjectId),
+    /// A row of no other kind, by the one before it, which it moves with.
+    After(Box<RowKey>),
+}
+
+/// Each of `rows`' keys, as [`RowKey`] says.
+pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
+    let commits: HashMap<CommitId, &str> = (store.projects.iter())
+        .filter_map(|entry| entry.workspace.as_ref())
+        .flat_map(|workspace| workspace.commits())
+        .map(|commit| (commit.id, commit.key.as_str()))
+        .collect();
+    let mut keys: Vec<Option<RowKey>> = Vec::with_capacity(rows.len());
+    for row in rows {
+        let key = match row {
+            Row::Item(Selection::Commit(project, id)) => Some(match commits.get(id) {
+                Some(key) => RowKey::Commit(project.clone(), key.to_string()),
+                None => RowKey::Item(Selection::Commit(project.clone(), *id)),
+            }),
+            Row::Item(item) => Some(RowKey::Item(item.clone())),
+            Row::RestsOn(item, _) => Some(RowKey::RestsOn(item.clone())),
+            Row::More(project, branch, _) | Row::Fewer(project, branch) => {
+                Some(RowKey::Fold(project.clone(), branch.clone()))
+            }
+            Row::NewBranch(project) => Some(RowKey::NewBranch(project.clone())),
+            Row::Pending(_, _, Some(moved)) => Some(moved.clone()),
+            _ => (keys.last().cloned().flatten()).map(|before| RowKey::After(Box::new(before))),
+        };
+        keys.push(key);
+    }
+    keys
+}
+
 impl Row {
     /// How tall the row is drawn, near enough for a fold moving it to count by.
-    fn height(&self) -> f32 {
+    pub(super) fn height(&self) -> f32 {
         match self {
             Row::Gap | Row::WorktreeDivider => 12.,
             Row::More(..) | Row::Fewer(..) | Row::UpstreamMore(..) | Row::RestsOn(..) => 24.,
@@ -340,7 +383,7 @@ impl Navigator {
             };
             // The inactive ones wait under a heading of their own, folded unless opened or
             // the selection's in one.
-            let (inactive, active): (Vec<_>, Vec<_>) = (self.worktrees(id, workspace))
+            let (inactive, active): (Vec<_>, Vec<_>) = (store.worktrees_in_order(id, workspace))
                 .into_iter()
                 .filter(|wt| !store.hides_worktree(id, wt.name.as_ref()))
                 .partition(|wt| wt.is_inactive());
@@ -404,7 +447,7 @@ impl Navigator {
                 if rows.rows.len() == heading_end {
                     rows.truncate(main);
                 }
-                let worktrees = (self.worktrees(id, workspace).into_iter())
+                let worktrees = (store.worktrees_in_order(id, workspace).into_iter())
                     .filter(|wt| !store.hides_worktree(id, wt.name.as_ref()));
                 for wt in worktrees {
                     let wt_start = rows.rows.len();
@@ -562,8 +605,13 @@ impl Navigator {
                 self.upstream_rows(store, workspace, id, Some(ref_name), rows);
             }
             let pending = |at: &dyn Fn(&NewAt) -> bool| {
-                (store.new_commit(id, at).into_iter())
-                    .map(|(title, slow)| Row::Pending(title, slow))
+                (store.new_commit(id, at).into_iter()).map(|(title, slow, moved)| {
+                    Row::Pending(
+                        title,
+                        slow,
+                        moved.map(|key| RowKey::Commit(id.clone(), key)),
+                    )
+                })
             };
             rows.extend(pending(
                 &|at| matches!(at, NewAt::Top(ref_name) if branch.ref_name.as_ref() == Some(ref_name)),
@@ -614,18 +662,6 @@ impl Navigator {
         let open = (store.selection.as_ref()).is_some_and(|s| s.project() == id && s.under(branch))
             || self.is_open(&ClickOpened::Here(key.clone()));
         rows.fold(Fold::Under(item), open, &self.folds, inside);
-    }
-
-    /// `workspace`'s linked worktrees, in the order they had when the pointer came over the
-    /// list, while it's there; a new one goes last.
-    fn worktrees<'a>(&self, id: &ProjectId, workspace: &'a Workspace) -> Vec<&'a Worktree> {
-        let mut worktrees: Vec<&Worktree> = workspace.worktrees.iter().collect();
-        if let Some(held) = self.held_worktrees.get(id) {
-            worktrees.sort_by_key(|wt| {
-                (held.iter().position(|name| *name == wt.name)).unwrap_or(usize::MAX)
-            });
-        }
-        worktrees
     }
 
     /// A linked worktree's heading, its uncommitted changes, and, unless it's folded without

@@ -10,7 +10,7 @@ use gpui::{
     AnyElement, App, ClickEvent, Context, CursorStyle, Div, DragMoveEvent, ElementId, EmptyView,
     Entity, FocusHandle, Focusable, Hsla, ListAlignment, ListOffset, ListState, MouseButton,
     MouseDownEvent, Pixels, Point, ScrollWheelEvent, SharedString, Stateful, Subscription, Task,
-    Window, actions, div, list, prelude::*, relative,
+    Window, actions, deferred, div, list, prelude::*, relative,
 };
 
 use crate::app::{
@@ -30,7 +30,7 @@ use crate::state::{
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
 use crate::ui::emoji::{Colour, ProjectIcon};
-use crate::ui::fold::{self, Folds, clipped, curtain, inert};
+use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, reordered};
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -51,8 +51,8 @@ mod rows;
 use drop::insertion_line;
 use order::{CardSlot, ProjectDrag};
 use rows::{
-    COMMIT_INDENT, Drawer, Fold, GUIDE_AT, Moving, ROW_LEFT, Row, Rows, in_inactive, inactive_open,
-    last_active, within,
+    COMMIT_INDENT, Drawer, Fold, GUIDE_AT, Moving, ROW_LEFT, Row, RowKey, Rows, in_inactive,
+    inactive_open, last_active, row_keys, within,
 };
 
 /// How tall the drawer's handle is, level with the commit footer beside it, and the space
@@ -295,6 +295,9 @@ pub struct Navigator {
     moving: Vec<Option<Moving>>,
     /// The folds opening or closing now.
     folds: Folds<Fold>,
+    /// The rows sliding to where a reorder put them, and each row's key, to tell which.
+    reorder: Reorder<RowKey>,
+    row_keys: Vec<Option<RowKey>>,
     /// Whether each fold the rows were last built through showed what it holds, to tell
     /// which opened or shut since.
     folds_seen: HashMap<Fold, bool>,
@@ -345,9 +348,6 @@ pub struct Navigator {
     /// list, kept until it leaves, so a project an agent wakes doesn't move the row about to
     /// be clicked.
     held_order: Option<Vec<ProjectId>>,
-    /// Each project's linked worktrees in the order they had then, most recently used first,
-    /// which an agent committing in one would change under the pointer as well.
-    held_worktrees: HashMap<ProjectId, Vec<bstr::BString>>,
     /// The project whose watch button the pointer is on, which shows what a click makes it.
     watch_hovered: Option<ProjectId>,
     /// Where a dragged project card would go, while one is over a card's heading.
@@ -466,6 +466,8 @@ impl Navigator {
             guides: Vec::new(),
             moving: Vec::new(),
             folds: Folds::default(),
+            reorder: Reorder::default(),
+            row_keys: Vec::new(),
             folds_seen: HashMap::new(),
             list: ListState::new(0, ListAlignment::Top, fixed(56.)),
             drawer: Drawer::default(),
@@ -486,7 +488,6 @@ impl Navigator {
             first_hit: None,
             pointer_over: false,
             held_order: None,
-            held_worktrees: HashMap::new(),
             watch_hovered: None,
             project_drop: None,
             hold_still: false,
@@ -1141,6 +1142,13 @@ impl Navigator {
         if at_top && changed {
             self.list.scroll_to(ListOffset::default());
         }
+        if self.rows != rows {
+            let keys = row_keys(&rows, self.store.read(cx));
+            let held = anchor.map(|(old_ix, new_ix, _)| (old_ix, new_ix));
+            let offsets = self.slides(&rows, &keys, held);
+            self.reorder.start(offsets, cx);
+            self.row_keys = keys;
+        }
         self.rows = rows;
         if changed {
             // The clone shares the list's state.
@@ -1175,6 +1183,34 @@ impl Navigator {
                 }
             }
         }
+    }
+
+    /// How far each of the rows slides as the list goes from its rows to `rows`, keyed by `keys`,
+    /// from where it was on screen. With the row under the pointer `held` still, from its index
+    /// before to after, as a load holds it, the list scrolls by as far as that row moved, so
+    /// the rows on screen slide that far too, but only with a reorder.
+    fn slides(
+        &self,
+        rows: &[Row],
+        keys: &[Option<RowKey>],
+        held: Option<(usize, usize)>,
+    ) -> HashMap<RowKey, f32> {
+        let sized = |keys: &[Option<RowKey>], rows: &[Row]| -> Vec<(Option<RowKey>, f32)> {
+            keys.iter()
+                .cloned()
+                .zip(rows.iter().map(Row::height))
+                .collect()
+        };
+        let mut offsets = reordered(&sized(&self.row_keys, &self.rows), &sized(keys, rows));
+        let top = |rows: &[Row], ix: usize| rows.iter().take(ix).map(Row::height).sum::<f32>();
+        if let Some((old_ix, new_ix)) = held.filter(|_| !offsets.is_empty()) {
+            let scrolled = top(rows, new_ix) - top(&self.rows, old_ix);
+            let before: HashSet<&RowKey> = self.row_keys.iter().flatten().collect();
+            for key in keys.iter().flatten().filter(|key| before.contains(key)) {
+                *offsets.entry(key.clone()).or_default() += scrolled;
+            }
+        }
+        offsets
     }
 
     /// The row under the pointer, if it's over the list, and how far below the list's top.
@@ -1215,8 +1251,10 @@ impl Navigator {
             None | Some(Row::Gap) => return div().h(dp(12.)).into_any_element(),
             _ if hidden => div().into_any_element(),
             Some(Row::Item(_)) => self.render_item(&self.rows, ix, inset, window, theme, cx),
-            // A dashed line, as ui-react's WorktreeDivider.
+            // A dashed line, as ui-react's WorktreeDivider. What's dropped between the
+            // worktrees either side of it shows its line here.
             Some(Row::WorktreeDivider) => h_flex()
+                .relative()
                 .h(dp(12.))
                 .px(dp(12.))
                 .child(
@@ -1226,11 +1264,17 @@ impl Navigator {
                         .border_dashed()
                         .border_color(theme.border_3),
                 )
+                .when(self.lands_at_divider(ix, cx), |el| {
+                    el.child(insertion_line(true, theme.pop).top(dp(5.)))
+                })
+                .when(cx.has_active_drag(), |el| {
+                    el.child(self.divider_zone(ix, cx))
+                })
                 .into_any_element(),
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
             // As made at once, set in as a commit row is, a stand-in title quiet as one's;
             // dimmed, with an ellipsis, only once it's taking a while.
-            Some(Row::Pending(title, slow)) => h_flex()
+            Some(Row::Pending(title, slow, _)) => h_flex()
                 .min_h(dp(ROW_HEIGHT))
                 .mx(dp(3.))
                 .pl(dp(8. + COMMIT_INDENT))
@@ -1320,6 +1364,9 @@ impl Navigator {
             }
             _ => None,
         };
+        // A row a reorder moved slides to its place over the card, which stays.
+        let slid = (self.row_keys.get(ix).and_then(Option::as_ref))
+            .map_or(0., |key| self.reorder.offset(key));
         // Padded, not margined: a list lays its rows out from their left edge.
         div()
             .px(dp(10.))
@@ -1337,6 +1384,10 @@ impl Navigator {
                             div().relative().child(el).children(guides),
                             dp(height),
                             closing,
+                        )),
+                        // Painted last, as the slices of the card it crosses would cover it.
+                        None if slid != 0. => card.child(deferred(
+                            div().relative().top(dp(slid)).child(el).children(guides),
                         )),
                         None => card.child(el).children(guides),
                     }),
@@ -2028,14 +2079,20 @@ impl Navigator {
             .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
             .when(folds, |el| el.on_click(double_click(toggle, cx)));
         // The worktree's checked files while it's shown, else all of them, but not conflicted
-        // ones: with only those, there's nothing to drag.
+        // ones: with only those, there's nothing to drag. A linked worktree with none drags
+        // itself; with some, where they land says whether they or it moves.
         let files = match uncommitted.is_empty() {
             true => Vec::new(),
             false => self.detail.read(cx).files_to_move(id, checkout.clone(), cx),
         };
-        Some(
-            row.when(!files.is_empty(), |el| {
-                let label: SharedString = match files.as_slice() {
+        let dragged = match (files.as_slice(), checkout.linked()) {
+            ([], None) => None,
+            ([], Some(name)) => Some((
+                Cut::Worktree(id.clone(), name.to_owned()),
+                name.to_string().into(),
+            )),
+            (files, _) => {
+                let label: SharedString = match files {
                     [file] => file.file.path.clone().into(),
                     files => format!("{} files", files.len()).into(),
                 };
@@ -2045,6 +2102,11 @@ impl Navigator {
                     worktree: checkout,
                     files: files.into(),
                 };
+                Some((payload, label))
+            }
+        };
+        Some(
+            row.when_some(dragged, |el, (payload, label)| {
                 el.on_drag(payload, drag_preview(self.store.clone(), label))
             })
             .into_any_element(),
@@ -2965,12 +3027,13 @@ impl Focusable for Navigator {
 impl Render for Navigator {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.folds.frame();
+        self.reorder.frame();
         let mut built = self.build_rows(cx);
         // A fold that just opened or shut is drawn moving from this frame on.
         if self.follow_folds(&built.folds, cx) {
             built = self.build_rows(cx);
         }
-        if self.folds.any() {
+        if self.folds.any() || self.reorder.any() {
             window.request_animation_frame();
         }
         let Rows {
@@ -3048,13 +3111,8 @@ impl Render for Navigator {
                 // GPUI calls a drag's start a leave, and the drop has to land where it's aimed.
                 if !*hovered && !cx.has_active_drag() {
                     this.held_order = None;
-                    this.held_worktrees.clear();
                 } else if this.held_order.is_none() {
                     let watched = this.watched(this.store.read(cx));
-                    this.held_worktrees = (watched.iter())
-                        .filter_map(|e| Some((e.id.clone(), e.workspace.as_ref()?)))
-                        .map(|(id, ws)| (id, ws.worktrees.iter().map(|w| w.name.clone()).collect()))
-                        .collect();
                     this.held_order = Some(watched.into_iter().map(|e| e.id.clone()).collect());
                 }
                 cx.notify();
