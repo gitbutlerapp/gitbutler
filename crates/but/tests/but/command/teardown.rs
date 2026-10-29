@@ -3,6 +3,172 @@ use snapbox::str;
 
 use crate::utils::{CommandExt, Sandbox};
 
+#[test]
+fn teardown_checks_out_without_git() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("--json teardown --checkout-to A")
+        .env("PATH", "")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(str![]);
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref HEAD"),
+        "refs/heads/A",
+        "HEAD follows the selected branch"
+    );
+    assert!(
+        env.projects_root().join("A").exists(),
+        "the selected branch's file remains"
+    );
+    assert!(
+        !env.projects_root().join("B").exists(),
+        "the other branch's clean file is removed"
+    );
+    assert_eq!(
+        env.invoke_git("status --porcelain"),
+        "",
+        "checkout updates the index too"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse --symbolic-full-name @{-1}"),
+        "refs/heads/gitbutler/workspace",
+        "the checkout reflog records the previous branch"
+    );
+}
+
+#[test]
+fn teardown_preserves_local_changes_in_its_soft_fallback_without_git() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.file("B", "local changes");
+    let staged_before = env.invoke_git("ls-files --stage");
+
+    env.but("--json teardown --checkout-to A")
+        .env("PATH", "")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(str![]);
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref HEAD"),
+        "refs/heads/A",
+        "the fallback changes HEAD"
+    );
+    assert_eq!(
+        env.invoke_git("ls-files --stage"),
+        staged_before,
+        "the fallback preserves staged content"
+    );
+    assert_eq!(
+        std::fs::read_to_string(env.projects_root().join("B")).unwrap(),
+        "local changes",
+        "the fallback preserves dirty worktree content"
+    );
+}
+
+#[test]
+fn teardown_preserves_staged_changes_in_its_soft_fallback_without_git() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.file("B", "staged-only changes");
+    env.invoke_git("add B");
+    env.invoke_git("restore --source=HEAD --worktree B");
+    let staged_before = env.invoke_git("ls-files --stage");
+    let worktree_before = std::fs::read(env.projects_root().join("B")).unwrap();
+
+    env.but("--json teardown --checkout-to A")
+        .env("PATH", "")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(str![]);
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref HEAD"),
+        "refs/heads/A",
+        "the fallback changes HEAD"
+    );
+    assert_eq!(
+        env.invoke_git("ls-files --stage"),
+        staged_before,
+        "a clean worktree must not hide staged changes from checkout protection"
+    );
+    assert_eq!(
+        std::fs::read(env.projects_root().join("B")).unwrap(),
+        worktree_before,
+        "the fallback leaves the worktree untouched"
+    );
+}
+
+#[test]
+fn teardown_does_not_modify_the_worktree_when_the_index_is_locked() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.file(".git/index.lock", "another operation");
+
+    env.but("teardown --checkout-to main").assert().failure();
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref HEAD"),
+        "refs/heads/gitbutler/workspace",
+        "an IO failure must not trigger a soft fallback"
+    );
+    assert!(
+        env.projects_root().join("A").exists(),
+        "the worktree remains untouched when locking fails"
+    );
+    assert!(
+        env.projects_root().join("B").exists(),
+        "all original worktree files remain"
+    );
+    assert_eq!(
+        std::fs::read_to_string(env.projects_root().join(".git/index.lock")).unwrap(),
+        "another operation",
+        "the other operation's lock is preserved"
+    );
+}
+
+#[test]
+fn teardown_runs_post_checkout_without_git_and_reports_hook_failure() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    let old_head = env.invoke_git("rev-parse HEAD");
+    let target = env.invoke_git("rev-parse A");
+    env.file(
+        ".git/hooks/post-checkout",
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" > .git/checkout-args\necho hook-failed >&2\nexit 3\n",
+    );
+    env.invoke_bash("chmod +x .git/hooks/post-checkout");
+
+    env.but("teardown --checkout-to A")
+        .env("PATH", "")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Failed to teardown GitButler project.
+
+Caused by:
+    Post-checkout hook failed (exit status: 3): hook-failed
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref HEAD"),
+        "refs/heads/A",
+        "hook failure does not undo checkout"
+    );
+    assert_eq!(
+        std::fs::read_to_string(env.projects_root().join(".git/checkout-args")).unwrap(),
+        format!("{old_head}\n{target}\n1\n"),
+        "the hook receives the completed checkout's arguments"
+    );
+}
+
 /// Test 1: Simple case of a single branch
 /// - Teardown should return HEAD to that branch
 #[test]

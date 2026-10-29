@@ -183,7 +183,6 @@ pub(crate) fn teardown(
         }
     }
 
-    // Check out the target branch using Git directly
     if let Some(out) = out.for_human() {
         writeln!(
             out,
@@ -193,42 +192,89 @@ pub(crate) fn teardown(
         )?;
     }
 
-    // Use git checkout via command
-    let repo = ctx.repo.get()?;
-    let workdir = repo
-        .workdir()
-        .ok_or_else(|| anyhow::anyhow!("Repository has no workdir"))?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let hook_result = {
+        let repo = ctx.repo.get()?;
+        let branch_name = Category::LocalBranch.to_full_name(target_branch_name.as_str())?;
+        let target = repo
+            .find_reference(branch_name.as_ref())?
+            .peel_to_commit()?;
+        let old_head = repo.head_id()?.detach();
+        let baseline = repo.index_from_tree(&repo.head_tree_id()?)?;
+        let mut target_index = repo.index_from_tree(&target.tree_id()?)?;
+        let checked_out = {
+            // Lock before worktree writes so another index writer cannot leave a partial checkout.
+            let mut index_lock = gix::lock::File::acquire_to_update_resource(
+                repo.index_path(),
+                gix::lock::acquire::Fail::Immediately,
+                None,
+                0,
+            )
+            .context("Could not lock the index for checkout")?;
+            let mut index = repo.index_or_empty()?.into_owned_or_cloned();
+            match repo.checkout_index_with_baseline(
+                &baseline,
+                &mut target_index,
+                &mut index,
+                gix::progress::Discard,
+                &Default::default(),
+                gix::worktree::checkout::Options {
+                    overwrite_ignored: true,
+                    ..Default::default()
+                },
+            ) {
+                Ok(outcome) => {
+                    if outcome.index_changed {
+                        let mut buffered = std::io::BufWriter::new(&mut index_lock);
+                        index.write_to(&mut buffered, Default::default())?;
+                        std::io::Write::flush(&mut buffered)?;
+                        drop(buffered);
+                        index_lock.commit()?;
+                    }
+                    true
+                }
+                Err(err)
+                    if err
+                        .downcast_any_ref::<gix::worktree::checkout::Conflict>()
+                        .is_some() =>
+                {
+                    false
+                }
+                Err(err) => return Err(anyhow::Error::from(err).context("Checkout failed").into()),
+            }
+        };
 
-    let output = std::process::Command::new(gix::path::env::exe_invocation())
-        .arg("-C")
-        .arg(workdir)
-        .arg("checkout")
-        .arg(&target_branch_name)
-        .output()
-        .context("Failed to execute git checkout")?;
-
-    if !output.status.success() {
-        // Checkout failed (likely due to local changes), try soft reset instead
-        if let Some(out) = out.for_human() {
+        if !checked_out && let Some(out) = out.for_human() {
             writeln!(
                 out,
                 "  {}",
                 t.attention.paint("⚠ Checkout failed, trying soft reset...\n  ⚠ This will leave changes from multiple branches in your working directory.\n  ⚠ You will have to manually remove, stash or re-commit the changes.")
             )?;
         }
-
-        // Also update HEAD to be a symbolic ref to the branch
-        std::process::Command::new(gix::path::env::exe_invocation())
-            .arg("-C")
-            .arg(workdir)
-            .args([
-                "symbolic-ref",
-                "HEAD",
-                &format!("refs/heads/{target_branch_name}"),
-            ])
-            .output()
-            .context("Failed to set symbolic ref")?;
-    }
+        let mut reflog_message = gix::bstr::BString::default();
+        if checked_out {
+            reflog_message.extend_from_slice(b"checkout: moving from ");
+            reflog_message.extend_from_slice(&head_name);
+            reflog_message.extend_from_slice(b" to ");
+            reflog_message.extend_from_slice(target_branch_name.as_bytes());
+        }
+        repo.edit_reference(
+            gix::refs::transaction::RefEdit::update(
+                "HEAD".try_into()?,
+                gix::refs::Target::Symbolic(branch_name),
+                PreviousValue::Any,
+                reflog_message,
+            )
+            .with_deref(false),
+        )?;
+        if checked_out {
+            but_core::hooks::post_checkout(&repo, old_head, target.id)
+        } else {
+            Ok(())
+        }
+    };
+    ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
+    hook_result?;
 
     if let Some(out) = out.for_human() {
         writeln!(

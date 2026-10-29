@@ -288,6 +288,11 @@ Enter it with `but resolve <commit-id>` (oldest conflicted commit first), edit t
 
 **Conflicted submodules:** a conflicted submodule has no markers, and `but resolve finish` refuses while it is unresolved, even to keep the commit's own side. Select it explicitly: check out the wanted commit inside the submodule (or write the file that replaces it) and run `git add -- <path>`, or drop it with `git rm -- <path>`. These are the only git write commands allowed during resolution, and only for the paths `finish` names; never `git commit`. If the submodule directory is empty or missing, do not `git add` it (for a missing one that stages its removal): keep any resolution edits you want and report the conflict. `but resolve cancel --force` abandons the resolution and discards its edits; use it only when those edits can be discarded.
 
+To leave the workspace, use `but teardown --checkout-to <local-branch>`. If local
+changes prevent checkout, teardown moves `HEAD` to that branch while preserving
+the index and working files; inspect the remaining changes before committing.
+A post-checkout hook failure is reported after the branch has switched.
+
 ## Read-Only Git Commands
 
 Git commands that don't modify state are safe to use:
