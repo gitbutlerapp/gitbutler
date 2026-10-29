@@ -16,7 +16,9 @@ use crate::navigator::Navigator;
 use crate::overlays::{ContextMenu, MenuItem, Prompt};
 use crate::palette::Palette;
 use crate::projects::pick_folder;
-use crate::state::{Cut, MeshPick, Pane, ProjectId, Selection, Store, StoreEvent, snack};
+use crate::state::{
+    Cut, MeshPick, Pane, ProjectId, Selection, Store, StoreEvent, snack, up_to_date,
+};
 use crate::theme::{Theme, UiScale};
 use crate::transfer::{Place, Transfer};
 use crate::ui::fold::{Slide, edge, inert};
@@ -83,6 +85,7 @@ actions!(
     remote,
     [
         Fetch,
+        Pull,
         UpdateFromTarget,
         UpdateWorkspace,
         UpdateWorktrees,
@@ -430,7 +433,17 @@ impl AppView {
     fn fetch(&mut self, _: &Fetch, _: &mut Window, cx: &mut Context<Self>) {
         if let Some(project) = self.selected_project(cx) {
             self.store.update(cx, |store, cx| {
-                store.fetch(&project, cx);
+                store.fetch(&project, None, cx);
+                store.refresh_forge(&project);
+            });
+        }
+    }
+
+    /// Fetch the selected project, then update its workspace and worktrees, as `but pull` does.
+    fn pull(&mut self, _: &Pull, _: &mut Window, cx: &mut Context<Self>) {
+        if let Some(project) = self.selected_project(cx) {
+            self.store.update(cx, |store, cx| {
+                store.fetch(&project, Some(UpdateScope::All), cx);
                 store.refresh_forge(&project);
             });
         }
@@ -1084,14 +1097,13 @@ impl AppView {
         let Some(target) = store.workspace(&project).and_then(|ws| ws.target.as_ref()) else {
             return;
         };
-        let (behind, what) = match scope {
-            UpdateScope::All => (target.needs_update(), "Already"),
-            UpdateScope::Workspace => (target.workspace_behind, "The workspace is already"),
-            UpdateScope::Worktrees => (target.worktrees_behind, "The worktrees are already"),
+        let behind = match scope {
+            UpdateScope::All => target.needs_update(),
+            UpdateScope::Workspace => target.workspace_behind,
+            UpdateScope::Worktrees => target.worktrees_behind,
         };
         if !behind {
-            let message = format!("{what} up to date with {}", target.name);
-            snack(&self.store, message, cx);
+            snack(&self.store, up_to_date(scope, &target.name), cx);
             return;
         }
         self.store.update(cx, |store, cx| {
@@ -1617,6 +1629,7 @@ impl Render for AppView {
             .on_action(cx.listener(|this, _: &Undo, _, cx| this.store.update(cx, Store::undo_last)))
             .on_action(cx.listener(|this, _: &Redo, _, cx| this.store.update(cx, Store::redo_last)))
             .on_action(cx.listener(Self::fetch))
+            .on_action(cx.listener(Self::pull))
             .on_action(cx.listener(Self::new_branch))
             .on_action(cx.listener(Self::push_selected))
             .on_action(cx.listener(Self::cut_selection))

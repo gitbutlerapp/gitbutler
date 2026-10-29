@@ -11,7 +11,7 @@ use gpui::{
 use crate::app::{
     ActualSize, AddProject, AppView, CheckForUpdates, CopySelection, CutSelection, DeleteSelection,
     Fetch, FocusChanges, FocusDiff, FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest,
-    PasteHere, Push, Quit, Redo, RenameSelection, StartCommit, ToggleDetail, ToggleFileTree,
+    PasteHere, Pull, Push, Quit, Redo, RenameSelection, StartCommit, ToggleDetail, ToggleFileTree,
     ToggleNavigator, UncommitSelection, Undo, UpdateFromTarget, UpdateWorkspace, UpdateWorktrees,
     ZoomIn, ZoomOut,
 };
@@ -55,6 +55,7 @@ pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Push branch", &Push),
     ("Open pull request", &OpenPullRequest),
     ("Fetch", &Fetch),
+    ("Pull", &Pull),
     ("Update workspace and worktrees", &UpdateFromTarget),
     ("Update workspace", &UpdateWorkspace),
     ("Update worktrees", &UpdateWorktrees),

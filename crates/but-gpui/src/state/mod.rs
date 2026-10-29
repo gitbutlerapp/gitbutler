@@ -33,7 +33,9 @@ pub(crate) use load::move_before;
 use load::{Change, Reload};
 pub use mesh::{MeshBranch, MeshPick, MeshState};
 use mutation::Running;
-pub use mutation::{Label, NewAt, Overlay, Rereads, SLOW, branch_moved, conflicted_parts};
+pub use mutation::{
+    Label, NewAt, Overlay, Rereads, SLOW, branch_moved, conflicted_parts, up_to_date,
+};
 pub use picks::Picks;
 pub use saved::{BranchStatus, FileSort, Pane, Prefs, ScopeLines, WatchedOrder};
 use saved::{Restored, Saved};

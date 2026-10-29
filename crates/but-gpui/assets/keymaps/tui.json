@@ -1,7 +1,7 @@
 // A keymap like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming
 // and adding an empty commit, Return to fold and unfold, f, ⇧F and ⌃F to show and hide the files,
-// the navigator and the details, and the keys the app's lists and overlays need, as GitButler's
-// keymap has them.
+// the navigator and the details, ⌘R to fetch and ⇧⌘R to pull, and the keys the app's lists and
+// overlays need, as GitButler's keymap has them.
 // `base.json`, which macOS gives every app, binds after these. `secondary` is cmd on macOS and
 // ctrl elsewhere; a section with "os" binds only there. Order matters: within a context the
 // binding added last wins, and the last binding for an action is the key menus and tooltips
@@ -28,6 +28,14 @@
       "l": "app::FocusPaneRight",
       "left": "app::FocusPaneLeft",
       "h": "app::FocusPaneLeft"
+    }
+  },
+  // ⌘R fetches, as in GitButler's keymap, and ⇧⌘R pulls: fetches, then updates the workspace
+  // and the worktrees, as `but pull` does.
+  {
+    "bindings": {
+      "secondary-r": "remote::Fetch",
+      "secondary-shift-r": "remote::Pull"
     }
   },
   // The TUI's status list: up and down, ⇧J and ⇧K between sections, g and ⇧G to either end. r
