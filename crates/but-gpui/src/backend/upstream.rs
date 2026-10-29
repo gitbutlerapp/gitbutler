@@ -969,6 +969,8 @@ fn integrate_remote(
 /// What [`Update`] did.
 #[derive(Debug)]
 pub enum UpdateOutcome {
+    /// Nothing it picks is behind the target, so nothing changed.
+    UpToDate,
     /// It would have left these conflicted that aren't now, so nothing changed.
     WouldConflict(UpdateConflicts),
     Updated {
@@ -984,8 +986,9 @@ pub enum UpdateOutcome {
 pub use but_api::workspace::UpdateScope;
 
 /// Rebase what `scope` picks onto the target as it is now. Doesn't fetch first; see
-/// [`Fetch`]. A dry run goes first, and when the rebase would leave anything conflicted that
-/// isn't now, it stops there, unless that's what was `accepted`: a fetch since can bring more.
+/// [`Fetch`]. Nothing behind, it does nothing, as `but pull` doesn't. A dry run goes first,
+/// and when the rebase would leave anything conflicted that isn't now, it stops there, unless
+/// that's what was `accepted`: a fetch since can bring more.
 pub struct Update {
     pub scope: UpdateScope,
     pub accepted: Option<UpdateConflicts>,
@@ -997,6 +1000,26 @@ impl Intent for Update {
     fn apply(self, run: &mut Run) -> Result<UpdateOutcome> {
         run.locked(|ctx, perm| {
             let info = but_api::legacy::workspace::head_info(ctx)?;
+            let behind = {
+                let repo = ctx.repo.get()?;
+                let meta = ctx.project_meta()?;
+                match super::target_source(&repo, &meta)
+                    .and_then(|source| super::ref_tip(&repo, source.as_ref()))
+                {
+                    Some(tip) => but_api::workspace::is_behind_target(
+                        &repo,
+                        &info,
+                        self.scope,
+                        tip,
+                        meta.resolve_target_commit(&repo)?,
+                    )?,
+                    // Without a target to read, the update says what's wrong.
+                    None => true,
+                }
+            };
+            if !behind {
+                return Ok(UpdateOutcome::UpToDate);
+            }
             let preview = but_api::workspace::workspace_integrate_upstream_scoped_with_perm(
                 ctx,
                 &info,
@@ -1322,6 +1345,29 @@ mod tests {
     fn needs_update(path: &std::path::Path) -> bool {
         let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
         workspace.target.expect("main is the target").needs_update()
+    }
+
+    #[test]
+    fn an_update_with_nothing_behind_records_nothing() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = crate::backend::ops::tests::repo_with("one\n");
+            let path = dir.path();
+            crate::backend::ops::tests::target_origin_main(path);
+            crate::backend::apply(path, crate::backend::ops::tests::branch_named("feature"))
+                .unwrap();
+            assert!(!needs_update(path), "nothing new on the target");
+
+            let update = Update {
+                scope: UpdateScope::All,
+                accepted: None,
+            };
+            let (outcome, ran) = crate::backend::apply(path, update).unwrap();
+            assert!(matches!(outcome, UpdateOutcome::UpToDate), "{outcome:?}");
+            assert!(
+                ran.recorded.is_none(),
+                "no undo step for an update that did nothing"
+            );
+        })
     }
 
     #[test]

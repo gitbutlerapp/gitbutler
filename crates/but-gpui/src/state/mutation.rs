@@ -593,8 +593,14 @@ impl Store {
         );
     }
 
-    /// Fetch `project`'s remotes.
-    pub fn fetch(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+    /// Fetch `project`'s remotes, then, as `but pull` does, rebase what `update` picks onto
+    /// the target, if it picks anything.
+    pub fn fetch(
+        &mut self,
+        project: &ProjectId,
+        update: Option<UpdateScope>,
+        cx: &mut Context<Self>,
+    ) {
         let fetched = project.clone();
         self.apply(
             project,
@@ -604,6 +610,10 @@ impl Store {
             move |store, fetched_or_not, cx| match fetched_or_not {
                 Ok(any_remote) => {
                     store.fetched_now(&fetched, any_remote);
+                    // The update's card says what came of both.
+                    if let Some(scope) = update {
+                        return store.update_from_target(&fetched, scope, None, cx);
+                    }
                     let what = match any_remote {
                         true => "Fetched",
                         false => "No remote to fetch from",
@@ -640,6 +650,7 @@ impl Store {
                 let target = (store.workspace(&updated).and_then(|ws| ws.target.as_ref()))
                     .map_or_else(|| "the target".to_owned(), |target| target.name.clone());
                 match outcome {
+                    UpdateOutcome::UpToDate => store.snack(up_to_date(scope, &target), cx),
                     UpdateOutcome::WouldConflict(found) => {
                         let again = updated.clone();
                         let title = store.card_title(&updated, "Updating leaves conflicts".into());
@@ -1766,6 +1777,16 @@ fn update_conflicts_detail(
         format!("{resolve}, or undo the update.")
     });
     detail.join(" ")
+}
+
+/// That nothing `scope` picks is behind `target`.
+pub fn up_to_date(scope: UpdateScope, target: &str) -> String {
+    let what = match scope {
+        UpdateScope::All => "Already",
+        UpdateScope::Workspace => "The workspace is already",
+        UpdateScope::Worktrees => "The worktrees are already",
+    };
+    format!("{what} up to date with {target}")
 }
 
 /// What an update from `target` did: the branches (full refs) it left `conflicted`, and
