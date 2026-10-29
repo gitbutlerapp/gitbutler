@@ -986,11 +986,11 @@ impl Intent for NameBranch {
     }
 }
 
-/// Delete `branch`, keeping its commits, and its description with it. With `tip`, one whose
-/// newest commit moved since stays: its new commits would go with it.
+/// Delete `branch`, one outside the workspace, and its description with it. One whose newest
+/// commit is no longer `tip` stays: its new commits would go with it.
 pub struct RemoveBranch {
     pub branch: FullName,
-    pub tip: Option<CommitId>,
+    pub tip: CommitId,
 }
 
 impl Intent for RemoveBranch {
@@ -1003,7 +1003,7 @@ impl Intent for RemoveBranch {
             // after an agent renamed the branch while the confirmation was up.
             match super::ref_tip(&*ctx.repo.get()?, branch.as_ref()) {
                 None => bail!("{} was renamed or deleted meanwhile", short_ref(&branch)),
-                Some(at) if tip.is_some_and(|tip| tip.0 != at) => {
+                Some(at) if tip.0 != at => {
                     bail!(
                         "{} changed since you asked, so it wasn't deleted",
                         short_ref(&branch)
@@ -3669,7 +3669,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
 
             let remove = RemoveBranch {
                 branch: full("refs/heads/side"),
-                tip: Some(asked),
+                tip: asked,
             };
             let refused = crate::backend::apply(path, remove).unwrap_err();
             assert!(
