@@ -143,7 +143,7 @@ impl WorkspaceState {
             )?;
 
             // Same pass the `head_info` read command runs, so mutation
-            // responses (which Lite renders directly) carry the same
+            // responses (which desktop reads directly) carry the same
             // associations: open reviews from the forge cache for active
             // branches, durable stored identity for integrated ones.
             head_info.apply_forge_review_associations(prs_by_head);
