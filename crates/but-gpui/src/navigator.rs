@@ -1274,7 +1274,7 @@ impl Navigator {
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
             // As made at once, set in as a commit row is, a stand-in title quiet as one's;
             // dimmed, with an ellipsis, only once it's taking a while.
-            Some(Row::Pending(title, slow)) => h_flex()
+            Some(Row::Pending(title, slow, _)) => h_flex()
                 .min_h(dp(ROW_HEIGHT))
                 .mx(dp(3.))
                 .pl(dp(8. + COMMIT_INDENT))

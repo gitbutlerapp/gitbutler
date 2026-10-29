@@ -32,9 +32,9 @@ pub(super) enum Row {
     More(ProjectId, Option<FullName>, usize),
     /// The end of a branch's commits unfolded, which folds them again.
     Fewer(ProjectId, Option<FullName>),
-    /// A commit a mutation is making, by its title, and whether it's been long enough to
-    /// show it's still on its way.
-    Pending(SharedString, bool),
+    /// A commit a mutation is making, by its title, whether it's been long enough to show
+    /// it's still on its way, and the commit it stands in for, when it moves one.
+    Pending(SharedString, bool, Option<RowKey>),
     /// Where a commit of the project being dragged lands in a new branch of its own, or a
     /// stacked branch in a stack of its own.
     NewBranch(ProjectId),
@@ -81,6 +81,7 @@ pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
                 Some(RowKey::Fold(project.clone(), branch.clone()))
             }
             Row::NewBranch(project) => Some(RowKey::NewBranch(project.clone())),
+            Row::Pending(_, _, Some(moved)) => Some(moved.clone()),
             _ => (keys.last().cloned().flatten()).map(|before| RowKey::After(Box::new(before))),
         };
         keys.push(key);
@@ -604,8 +605,13 @@ impl Navigator {
                 self.upstream_rows(store, workspace, id, Some(ref_name), rows);
             }
             let pending = |at: &dyn Fn(&NewAt) -> bool| {
-                (store.new_commit(id, at).into_iter())
-                    .map(|(title, slow)| Row::Pending(title, slow))
+                (store.new_commit(id, at).into_iter()).map(|(title, slow, moved)| {
+                    Row::Pending(
+                        title,
+                        slow,
+                        moved.map(|key| RowKey::Commit(id.clone(), key)),
+                    )
+                })
             };
             rows.extend(pending(
                 &|at| matches!(at, NewAt::Top(ref_name) if branch.ref_name.as_ref() == Some(ref_name)),

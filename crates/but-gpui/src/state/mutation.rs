@@ -1571,15 +1571,20 @@ impl Store {
     }
 
     /// The title of the commit a pending operation will make where `at` says, with whether
-    /// it's been on its way long enough to show it's still pending.
+    /// it's been on its way long enough to show it's still pending, and the key of the commit
+    /// it stands in for, when it moves one.
     pub fn new_commit(
         &self,
         project: &ProjectId,
         at: impl Fn(&NewAt) -> bool,
-    ) -> Option<(SharedString, bool)> {
+    ) -> Option<(SharedString, bool, Option<String>)> {
         self.running_in(project).find_map(|r| {
             let (place, title) = r.overlay.new_commit.as_ref()?;
-            at(place).then(|| (title.clone(), r.started.elapsed() >= PENDING_AFTER))
+            let moved = match r.overlay.commits.iter().collect::<Vec<_>>()[..] {
+                [key] => Some(key.clone()),
+                _ => None,
+            };
+            at(place).then(|| (title.clone(), r.started.elapsed() >= PENDING_AFTER, moved))
         })
     }
 
