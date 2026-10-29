@@ -35,8 +35,8 @@ pub(super) struct ConversationRead {
 
 impl Store {
     /// Fetch the expanded projects as often as GitButler's shared setting says, so what the
-    /// target and remotes have stays current. Quietly: a failed fetch only logs, and the
-    /// next one tries again.
+    /// target and remotes have stays current, and sooner once their forge reports a pull
+    /// request merged. Quietly: a failed fetch only logs, and the next one tries again.
     pub(super) fn fetch_in_background(cx: &mut Context<Self>) -> Task<()> {
         cx.spawn(async move |this, cx| {
             // A few seconds after launch, by when the projects have usually loaded, as the
@@ -167,6 +167,7 @@ impl Store {
     /// Note that a fetch of `project` worked, or with `any_remote` false that it found no
     /// remote to fetch from, which isn't a fetch and holds off the next one a while.
     pub(super) fn fetched_now(&mut self, project: &ProjectId, any_remote: bool) {
+        self.fetch_soon.remove(project);
         match any_remote {
             true => {
                 self.fetched.insert(project.clone(), SystemTime::now());
@@ -188,9 +189,8 @@ impl Store {
                 (self.fetch_failed.get(&entry.id)).is_none_or(|at| since(at) >= AFTER_FAILING)
             })
             .filter(|entry| {
-                self.fetched
-                    .get(&entry.id)
-                    .is_none_or(|at| since(at) >= interval)
+                self.fetch_soon.contains(&entry.id)
+                    || (self.fetched.get(&entry.id)).is_none_or(|at| since(at) >= interval)
             })
             .map(|entry| (entry.id.clone(), entry.project.path.clone()))
             .collect()
@@ -425,11 +425,15 @@ impl Store {
                 let refreshed = backend::run(move || backend::refresh_reviews(&reviews_path)).await;
                 // The pull requests show without waiting for their checks.
                 let Ok(_) = this.update(cx, |store, cx| match &refreshed {
-                    Ok(changed) => {
+                    Ok(refreshed) => {
                         store.forge_failed.remove(&id);
                         store.forge_synced.insert(id.clone(), crate::ui::now());
+                        let known = store.last_merged.insert(id.clone(), refreshed.last_merged);
+                        if merged_since(known, refreshed.last_merged) {
+                            store.fetch_soon.insert(id.clone());
+                        }
                         // The forge's answers are in the commits and branches, not the files.
-                        if *changed {
+                        if refreshed.changed {
                             store.load(&id, Reload::commits(), cx);
                         }
                     }
@@ -466,4 +470,39 @@ impl Store {
 /// How long ago `at` was, by the wall clock; long ago when the clock was set back past it.
 fn since(at: &SystemTime) -> Duration {
     at.elapsed().unwrap_or(Duration::MAX)
+}
+
+/// Whether the forge's last merge, `last`, is newer than at its previous report, `known`.
+/// Without a previous report it isn't: the fetch at opening brings in what merged before.
+fn merged_since(known: Option<Option<i64>>, last: Option<i64>) -> bool {
+    known.is_some_and(|known| last > known)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::merged_since;
+
+    #[test]
+    fn a_merge_on_the_forge_calls_for_a_fetch_once_it_s_news() {
+        assert!(
+            !merged_since(None, Some(10)),
+            "the first report is where merges stand, which the fetch at opening brings in"
+        );
+        assert!(
+            !merged_since(Some(Some(10)), Some(10)),
+            "nothing merged since"
+        );
+        assert!(
+            merged_since(Some(Some(10)), Some(20)),
+            "a pull request merged since"
+        );
+        assert!(
+            merged_since(Some(None), Some(20)),
+            "the first to merge at all"
+        );
+        assert!(
+            !merged_since(Some(Some(10)), None),
+            "the cache forgetting its merges isn't one"
+        );
+    }
 }
