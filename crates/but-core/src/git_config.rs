@@ -81,10 +81,18 @@ pub fn edit_repo_config(
 /// Set the entry in `config` identified by the dotted `key` (like `section.value` or `section.subsection.value`) to `value`.
 /// This will create sections as needed, and remove all previous values under the same section with the same name.
 pub fn set_config_value(config: &mut gix::config::File, key: &str, value: &str) -> Result<()> {
-    remove_config_value(config, key)?;
     let key = key
         .try_as_key()
         .with_context(|| format!("invalid git config key: {key}"))?;
+    match config.raw_values_mut_by(key.section_name, key.subsection_name, key.value_name) {
+        Ok(mut values) => {
+            let indices = (0..values.len()).collect::<Vec<_>>();
+            values.replace_at_indices(&indices, value)?;
+            return Ok(());
+        }
+        Err(err) if err.is_not_found() => {}
+        Err(err) => return Err(err.into()),
+    }
     config
         .section_mut_or_create_new(key.section_name, key.subsection_name)?
         .set(key.value_name, value)?;
@@ -113,16 +121,17 @@ pub fn ensure_config_value(config: &mut gix::config::File, key: &str, value: &st
     Ok(true)
 }
 
-/// Remove the Git entry in `config` identified by the dotted `key`
+/// Remove all occurrences of the Git entry in `config` identified by the dotted `key`
 /// (like `section.value` or `section.subsection.value`) if it exists.
 /// It's no error if it doesn't exist.
 pub fn remove_config_value(config: &mut gix::config::File, key: &str) -> Result<()> {
     let key = key
         .try_as_key()
         .with_context(|| format!("invalid git config key: {key}"))?;
-    config
-        .section_mut(key.section_name, key.subsection_name)
-        .ok()
-        .and_then(|mut section| section.remove(key.value_name));
+    match config.raw_values_mut_by(key.section_name, key.subsection_name, key.value_name) {
+        Ok(mut values) => values.delete_all(),
+        Err(err) if err.is_not_found() => {}
+        Err(err) => return Err(err.into()),
+    }
     Ok(())
 }
