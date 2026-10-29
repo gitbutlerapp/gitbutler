@@ -777,10 +777,7 @@ D  to-be-deleted-in-index
         |tree| {
             let empty_blob = repo.empty_blob();
             tree.upsert("to-be-deleted/a", EntryKind::Blob, empty_blob.id)?;
-            // TODO(gix): needs `gix` impl of checkout as `git2` fails, trying to access a null object
-            //            The issue is that it should checkout a file inside of a directory, which was previously
-            //            a file that is deleted from the index and the worktree.
-            // tree.upsert("to-be-deleted-in-index/a", EntryKind::Blob, empty_blob.id)?;
+            tree.upsert("to-be-deleted-in-index/a", EntryKind::Blob, empty_blob.id)?;
             Ok(())
         },
         "turn changed file into a directory",
@@ -791,7 +788,7 @@ D  to-be-deleted-in-index
         out.to_debug(),
         snapbox::str![[r#"
 Outcome {
-    head_update: "Update refs/heads/main to Some(Object(Sha1(24f802a1250d2f84e1f49094e3b8bb1e5c0d29ad)))",
+    head_update: "Update refs/heads/main to Some(Object(Sha1(592f565e72fcaf73d619310f8b04e884825103cc)))",
 }
 
 "#]]
@@ -801,7 +798,7 @@ Outcome {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 24f802a (HEAD -> main) turn changed file into a directory
+* 592f565 (HEAD -> main) turn changed file into a directory
 * 226d5ea init
 
 "#]]
@@ -810,17 +807,16 @@ Outcome {
         visualize_index(&*repo.index()?),
         snapbox::str![[r#"
 100644:3e75765 added-to-index
+100644:e69de29 to-be-deleted-in-index/a
 100644:e69de29 to-be-deleted/a
 
 "#]]
     );
-    // `to-be-deleted-in-index` was staged for deletion (`git rm`) and is no longer
-    // restored by the checkout — the checkout only touches `to-be-deleted` → `to-be-deleted/a`.
+    // Both deleted paths become directories while unrelated staging and untracked files remain.
     snapbox::assert_data_eq!(
         git_status(&repo)?,
         snapbox::str![[r#"
 A  added-to-index
-D  to-be-deleted-in-index
 ?? untracked
 
 "#]]
@@ -1170,13 +1166,6 @@ Outcome {
 
 #[test]
 fn checkout_handles_directory_and_file_replacements() -> anyhow::Result<()> {
-    if but_testsupport::gix_testtools::is_ci::cached() {
-        // TODO(gix): remove this once `gitoxide` unconditional reset/checkout is available.
-        // Fails on checkout on CI Linux as it can't deal with `file`.
-        // Probably the `git2` OS error code handling isn't working cross-platform?
-        eprintln!("SKIPPING TEST KNOWN TO FAIL ON CI ONLY");
-        return Ok(());
-    }
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
