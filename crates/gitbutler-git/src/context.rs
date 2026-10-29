@@ -37,7 +37,7 @@ pub trait GitContextExt {
 
     /// Push the given commit to the provided remote branch.
     ///
-    /// Returns the stderr output of the Git executable if used.
+    /// Returns output received from the remote during the push.
     fn push<B>(
         &self,
         head: gix::ObjectId,
@@ -220,7 +220,7 @@ fn needs_authorization_message(prompt: &str) -> &'static str {
 
 /// Push the given commit to the provided remote branch.
 ///
-/// Returns the stderr output of the Git executable if used.
+/// Returns output received from the remote during the push.
 #[allow(clippy::too_many_arguments)]
 pub fn push_with_askpass<B>(
     repo: &gix::Repository,

@@ -1,20 +1,12 @@
-use std::{collections::HashMap, path::Path};
+use std::path::Path;
 
 #[cfg(any(test, feature = "tokio"))]
 pub mod tokio;
 
-/// Provides a means for executing Git CLI commands.
+/// Creates authentication sockets and checks helper executable identities.
 ///
-/// There is no `arg0` passed; it's up to the implementation
-/// to decide how to execute the command. For example,
-/// `git status` would be passed as `["status"]`.
-///
-/// The executor also provides a means for spinning up
-/// ad-hoc socket servers, necessary for the authorization
-/// utilities that are passed to Git and SSH to communicate
-/// with the host process to exchange credentials. We also
-/// implement a simple layer of security over this communication
-/// layer to avoid unintended leakage of credentials.
+/// Native Git operations and SSH use these sockets to exchange credentials with the
+/// host process. Peer identity checks prevent unintended connections and credential leakage.
 ///
 /// Note that this security layer is _not_ impervious
 /// to determined attackers. It is merely a means to
@@ -36,58 +28,11 @@ pub mod tokio;
 /// up to the implementer to ensure that the invariants are upheld.
 #[expect(unsafe_code)]
 pub unsafe trait GitExecutor {
-    /// The error type returned by this executor,
-    /// specifically in cases where the execution fails.
-    ///
-    /// Otherwise, `Ok` is returned in call cases, even when
-    /// the exit code is non-zero.
+    /// The error type returned by authentication socket and filesystem operations.
     type Error: std::error::Error + core::fmt::Debug + Send + Sync + 'static;
 
     /// The type of the handle returned by [`GitExecutor::create_askpass_server`].
     type ServerHandle: AskpassServer + Send + Sync + 'static;
-
-    /// Executes the given Git command with the given arguments.
-    /// `git` is never passed as the first argument (arg 0).
-    ///
-    /// Returns a tuple of `(exit_code, stdout, stderr)`.
-    ///
-    /// To the best of their abilities, child processes should
-    /// be killed if the future is dropped.
-    ///
-    /// `Err` is returned if the command could not be executed,
-    /// **not** if the command returned a non-zero exit code.
-    async fn execute_raw<P: AsRef<Path>>(
-        &self,
-        args: &[&str],
-        cwd: P,
-        envs: Option<HashMap<String, String>>,
-    ) -> Result<(usize, String, String), Self::Error>;
-
-    /// Executes the given Git command with sane defaults.
-    /// `git` is never passed as the first argument (arg 0).
-    ///
-    /// Implementers should use this method over [`Self::execute_raw`]
-    /// when possible.
-    async fn execute<P: AsRef<Path>>(
-        &self,
-        args: &[&str],
-        cwd: P,
-        envs: Option<HashMap<String, String>>,
-    ) -> Result<(usize, String, String), Self::Error> {
-        let mut args = args.as_ref().to_vec();
-
-        args.insert(0, "--no-pager");
-        // '-c' arguments must be inserted in reverse order; Git does not support
-        // shortflags for '-c' arguments, so they must be separated.
-        args.insert(0, "protocol.version=2");
-        args.insert(0, "-c");
-
-        let mut envs = envs.unwrap_or_default();
-        envs.insert("GIT_TERMINAL_PROMPT".into(), "0".into());
-        envs.insert("LC_ALL".into(), "C".into()); // Force English. We need this for parsing output.
-
-        self.execute_raw(&args, cwd, Some(envs)).await
-    }
 
     /// Creates a named pipe server that is compatible with
     /// the `askpass` utility (see `bin/askpass.rs` and platform-specific
