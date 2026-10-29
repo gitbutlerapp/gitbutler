@@ -1,10 +1,9 @@
-use std::{collections::BTreeMap, io::Read, path::PathBuf};
+use std::{collections::BTreeMap, path::PathBuf};
 
 use anyhow::{Context as _, bail};
 use bstr::{BStr, BString, ByteSlice, ByteVec};
 use gix::{
     dir::{entry, walk::EmissionMode},
-    filter::plumbing::pipeline::convert::ToGitOutcome,
     object::tree::EntryKind,
     status,
     status::{
@@ -525,9 +524,6 @@ fn worktree_changes_inner(
     let mut changes =
         Vec::<TreeChange>::with_capacity(tree_index_by_path.len() + index_worktree_changes.len());
     let (mut filter, index) = repo.filter_pipeline(None)?;
-    let mut path_check = gix::status::plumbing::SymlinkCheck::new(
-        repo.workdir().map(ToOwned::to_owned).context("non-bare")?,
-    );
     for index_wt_change in index_worktree_changes {
         // Claim the tree/index change this one continues: the entry at its index-side path,
         // or for an untracked file, the rename that left its path behind. A claim removes
@@ -563,7 +559,6 @@ fn worktree_changes_inner(
                 &mut ignored_changes,
                 &mut filter,
                 &index,
-                &mut path_check,
             )?,
             None => Some(index_wt_change),
         };
@@ -592,7 +587,6 @@ fn worktree_changes_inner(
                         &mut ignored_changes,
                         &mut filter,
                         &index,
-                        &mut path_check,
                     )?;
                 }
                 _ => changes.push(change),
@@ -622,16 +616,9 @@ fn merge_pair(
     ignored_changes: &mut Vec<IgnoredWorktreeChange>,
     filter: &mut gix::filter::Pipeline<'_>,
     index: &gix::index::State,
-    path_check: &mut gix::status::plumbing::SymlinkCheck,
 ) -> anyhow::Result<Option<TreeChange>> {
     let change_path = tree_index_change.path.clone();
-    let (merged, status) = match merge_changes(
-        tree_index_change,
-        index_wt_change,
-        filter,
-        index,
-        path_check,
-    )? {
+    let (merged, status) = match merge_changes(tree_index_change, index_wt_change, filter, index)? {
         [None, None] => (
             None,
             IgnoredWorktreeTreeChangeStatus::TreeIndexWorktreeChangeIneffective,
@@ -691,7 +678,6 @@ fn merge_changes(
     mut index_wt: TreeChange,
     filter: &mut gix::filter::Pipeline<'_>,
     index: &gix::index::State,
-    path_check: &mut gix::status::plumbing::SymlinkCheck,
 ) -> anyhow::Result<[Option<TreeChange>; 2]> {
     fn single(change: TreeChange) -> [Option<TreeChange>; 2] {
         [Some(change), None]
@@ -769,7 +755,7 @@ fn merge_changes(
                 },
             };
             return Ok(
-                if merged_change_is_effective(&destination, filter, index, path_check)? {
+                if merged_change_is_effective(&destination, filter, index)? {
                     [Some(destination), Some(source_deletion)]
                 } else {
                     single(source_deletion)
@@ -895,13 +881,11 @@ fn merge_changes(
         }
     };
 
-    Ok(
-        if merged_change_is_effective(&merged, filter, index, path_check)? {
-            single(merged)
-        } else {
-            [None, None]
-        },
-    )
+    Ok(if merged_change_is_effective(&merged, filter, index)? {
+        single(merged)
+    } else {
+        [None, None]
+    })
 }
 
 /// A merged change is ineffective when its current state matches its previous state in both
@@ -911,7 +895,6 @@ fn merged_change_is_effective(
     merged: &TreeChange,
     filter: &mut gix::filter::Pipeline<'_>,
     index: &gix::index::State,
-    path_check: &mut gix::status::plumbing::SymlinkCheck,
 ) -> anyhow::Result<bool> {
     let state = merged.status.state();
     let (prev_state, prev_path) = merged
@@ -922,28 +905,23 @@ fn merged_change_is_effective(
     if state.map(|s| s.kind) != prev_state.map(|s| s.kind) {
         return Ok(true);
     }
-    let current =
-        id_or_hash_from_worktree(state, merged.path.as_bstr(), filter, index, path_check)?;
+    let current = id_or_hash_from_worktree(state, merged.path.as_bstr(), filter, index)?;
     let previous = id_or_hash_from_worktree(
         prev_state,
         prev_path.unwrap_or(merged.path.as_bstr()),
         filter,
         index,
-        path_check,
     )?;
     Ok(current != previous)
 }
 
-// TODO(gix): worktree-status already can do hashing and to-git conversions while dealing with links, but it's not exposed.
-//            Make this easier in Gix.
 /// Produces hashes for comparing states, or produce a hash from what's on disk if no hash is available.
-/// Note that null-hash will be returned if no directory entry is available.
+/// No state returns a null hash; errors reading an existing state remain errors.
 fn id_or_hash_from_worktree(
     change: Option<ChangeState>,
     rela_path: &BStr,
     filter: &mut gix::filter::Pipeline<'_>,
     index: &gix::index::State,
-    path_check: &mut gix::status::plumbing::SymlinkCheck,
 ) -> anyhow::Result<gix::ObjectId> {
     let Some(change) = change else {
         return Ok(index.object_hash().null());
@@ -952,42 +930,20 @@ fn id_or_hash_from_worktree(
         return Ok(change.id);
     }
 
-    let path = path_check.verified_path_allow_nonexisting(rela_path)?;
-    let md = path.symlink_metadata()?;
-    let repo = filter.repo;
-    let id = if md.is_file() {
-        let to_git = filter.convert_to_git(
-            std::fs::File::open(path)?,
-            // TODO(gix): definitely use `ToCompoents` here to avoid these conversions.
-            //            Whatever you do, it's never right, so must be abstract.
-            &gix::path::from_bstr(rela_path)?,
-            index,
-        )?;
-        match to_git {
-            ToGitOutcome::Unchanged(mut stream) => gix::objs::compute_stream_hash(
-                repo.object_hash(),
-                gix::object::Kind::Blob,
-                &mut stream,
-                md.len(),
-                &mut gix::progress::Discard,
-                &gix::interrupt::IS_INTERRUPTED,
-            )?,
-            ToGitOutcome::Process(mut stream) => {
-                let mut buf = repo.empty_reusable_buffer();
-                stream.read_to_end(&mut buf)?;
-                gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Blob, &buf)?
-            }
-            ToGitOutcome::Buffer(buf) => {
-                gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Blob, buf)?
-            }
+    let (id, kind, _) = filter
+        .worktree_file_to_id(rela_path, index, &gix::interrupt::IS_INTERRUPTED)?
+        .ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("No hashable worktree entry at {rela_path:?}"),
+            )
+        })?;
+    match kind {
+        EntryKind::Blob | EntryKind::BlobExecutable | EntryKind::Link => Ok(id),
+        EntryKind::Tree | EntryKind::Commit => {
+            bail!("Cannot hash directory entries that aren't files or symlinks")
         }
-    } else if md.is_symlink() {
-        let bytes = gix::path::os_string_into_bstring(std::fs::read_link(path)?.into())?;
-        gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Blob, &bytes)?
-    } else {
-        bail!("Cannot hash directory entries that aren't files or symlinks");
-    };
-    Ok(id)
+    }
 }
 
 fn into_tree_entry_kind(mode: gix::index::entry::Mode) -> anyhow::Result<EntryKind> {
