@@ -194,9 +194,6 @@ pub(crate) fn update_workspace_commit_from_workspace(
     let previous = repo.index_or_empty()?;
     let mut index = repo.index_from_tree_with_index(&workspace_tree, &previous)?;
     index.write(Default::default())?;
-    // Keep existing libgit2 index handles in sync until their callers are migrated.
-    #[expect(deprecated, reason = "index cache compatibility boundary")]
-    ctx.git2_repo.get()?.index()?.read(true)?;
 
     // Everything is written out already, so if we fail here, we do so to surface the error
     // that prevented the checkout to be performed. The operation is still successful, on reload.

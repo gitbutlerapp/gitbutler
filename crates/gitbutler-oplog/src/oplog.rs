@@ -521,9 +521,6 @@ fn reset_index_to_tree(
     std::io::Write::flush(&mut buffered)?;
     drop(buffered);
     index_lock.commit()?;
-    // Keep the legacy libgit2 handle in sync with the index written through gix.
-    #[expect(deprecated, reason = "index cache compatibility boundary")]
-    ctx.git2_repo.get()?.index()?.read(true)?;
     Ok(())
 }
 

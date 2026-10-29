@@ -129,7 +129,7 @@ pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<Hoo
 
     // Panic fallback; normal restoration below can report failures to the caller.
     let guard = scopeguard::guard((), |_| {
-        if let Err(err) = restore_index(ctx, &index_path, &backup_path, had_index) {
+        if let Err(err) = restore_index(&index_path, &backup_path, had_index) {
             tracing::error!("Failed to reset index: {}", err);
         }
     });
@@ -171,7 +171,7 @@ pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<Hoo
         )
     })();
 
-    if let Err(err) = restore_index(ctx, &index_path, &backup_path, had_index) {
+    if let Err(err) = restore_index(&index_path, &backup_path, had_index) {
         drop(guard); // Retry once through the fallback before returning the original error.
         return Err(err);
     }
@@ -179,12 +179,7 @@ pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<Hoo
     hook_result
 }
 
-fn restore_index(
-    ctx: &Context,
-    index_path: &Path,
-    backup_path: &Path,
-    had_index: bool,
-) -> Result<()> {
+fn restore_index(index_path: &Path, backup_path: &Path, had_index: bool) -> Result<()> {
     if had_index {
         std::fs::rename(backup_path, index_path).context("failed to restore pre-commit index")?;
     } else {
@@ -193,17 +188,6 @@ fn restore_index(
                 return Err(err).context("failed to remove temporary pre-commit index");
             }
             _ => {}
-        }
-    }
-    // Remaining legacy callers may hold the same cached libgit2 index.
-    #[expect(deprecated, reason = "keep existing legacy index handles synchronized")]
-    if let Some(repo) = ctx.git2_repo.get_opt().as_ref() {
-        if had_index {
-            repo.index()?
-                .read(true)
-                .context("failed to reload restored pre-commit index")?;
-        } else {
-            repo.index()?.clear()?;
         }
     }
     Ok(())

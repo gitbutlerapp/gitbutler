@@ -4,8 +4,8 @@ use tracing::instrument;
 
 use crate::{
     CacheMode, Context, LegacyProjectId, ProjectHandleOrLegacyProjectId, RepoOpenMode,
-    ThreadSafeContext, app_settings, new_ondemand_app_cache, new_ondemand_db,
-    new_ondemand_git2_repo, new_ondemand_repo, open_repo,
+    ThreadSafeContext, app_settings, new_ondemand_app_cache, new_ondemand_db, new_ondemand_repo,
+    open_repo,
 };
 
 pub(crate) mod types {
@@ -35,10 +35,6 @@ impl Context {
 
     /// Open the repository identified by `legacy_project` and `settings`, while controlling
     /// how the repository sources configuration via `repo_open_mode`.
-    #[allow(
-        deprecated,
-        reason = "Context owns the deprecated boundary cache and must initialize it."
-    )]
     pub fn new_from_legacy_project_and_settings_with_repo_open_mode(
         legacy_project: &gitbutler_project::Project,
         settings: AppSettings,
@@ -56,8 +52,7 @@ impl Context {
             cache_mode,
             repo_open_mode,
             legacy_project: legacy_project.clone(),
-            repo: new_ondemand_repo(gitdir.clone(), repo_open_mode),
-            git2_repo: new_ondemand_git2_repo(gitdir),
+            repo: new_ondemand_repo(gitdir, repo_open_mode),
             db: new_ondemand_db(project_data_dir),
             app_cache: new_ondemand_app_cache(app_cache_dir.clone(), cache_mode),
             app_cache_dir,

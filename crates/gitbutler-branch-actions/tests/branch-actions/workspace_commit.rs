@@ -81,23 +81,18 @@ fn workspace_commit_keeps_unchanged_index_cache_and_sparse_marks() -> Result<()>
         previous
     };
 
-    #[expect(deprecated, reason = "cached legacy index compatibility boundary")]
-    let legacy_index = ctx.git2_repo.get()?.index()?;
-    assert!(
-        legacy_index.get_path("c".as_ref(), 0).is_some()
-            && legacy_index.get_path("z".as_ref(), 0).is_none(),
-        "the cached legacy index starts with the previous workspace tree"
-    );
-
     gitbutler_branch_actions::update_workspace_commit(&mut ctx, false)?;
 
-    assert!(
-        legacy_index.get_path("z".as_ref(), 0).is_some()
-            && legacy_index.get_path("c".as_ref(), 0).is_none(),
-        "existing legacy index handles observe the updated workspace tree"
-    );
-
     let index = ctx.repo.get()?.open_index()?;
+    assert!(
+        index
+            .entry_by_path_and_stage("z".into(), Stage::Unconflicted)
+            .is_some()
+            && index
+                .entry_by_path_and_stage("c".into(), Stage::Unconflicted)
+                .is_none(),
+        "the index tracks the updated workspace tree"
+    );
     let entry = index
         .entry_by_path_and_stage("x".into(), Stage::Unconflicted)
         .expect("the workspace still tracks x");

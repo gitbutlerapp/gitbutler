@@ -86,7 +86,6 @@ members = [
     # Mostly supporting legacy code.
     # In big parts replaced by other crates.
     "crates/but-utils",   # 📄filesystem and general utilities; formerly `but-fs`.
-    "crates/but-oxidize", # 📄Utilities to help translate between `git2` and `gix`. 👉Shouldn't be needed once `git2` is gone.
 
     ##
     ### but-api - it's very own thing
@@ -174,7 +173,6 @@ but-askpass = { path = "crates/but-askpass" }
 but-project-handle = { path = "crates/but-project-handle" }
 but-forge-storage = { path = "crates/but-forge-storage" }
 but-settings = { path = "crates/but-settings" }
-but-oxidize = { path = "crates/but-oxidize" }
 but-utils = { path = "crates/but-utils" }
 but-forge = { path = "crates/but-forge" }
 but-oplog = { path = "crates/but-oplog" }
@@ -216,11 +214,6 @@ gix = { version = "0.90.0", git = "https://github.com/GitoxideLabs/gitoxide", br
 gix-testtools = { version = "0.22.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "grix" }
 
 
-git2 = { version = "0.21.0", features = [
-    "unstable-sha256",
-    "vendored-openssl",
-    "vendored-libgit2",
-] }
 uuid = { version = "1.23", features = ["v4", "serde"] }
 serde = { version = "1.0", features = ["derive", "std"] }
 serde_json = "1.0.148"
@@ -319,7 +312,6 @@ sapling-renderdag = "0.1.0"
 # Keep workspace crates that use the `gix 0.90` line on the same git revision.
 # This is relevant to force `git-meta` to use our version.
 gix = { git = "https://github.com/GitoxideLabs/gitoxide", branch = "grix" }
-git2 = { git = "https://github.com/gitbutlerapp/git2-rs", rev = "a87a7bb3f6843504339fe7434ee0732a3e968f3e" }
 # GPUI's Linux event loop, as Zed patches it: each turn runs queued tasks for about 10ms, then
 # lets input and frames through, rather than run them all. Only GPUI uses it.
 calloop = { git = "https://github.com/zed-industries/calloop", rev = "3759371fee14c40066d64777e2a36b6ffcc22590" }

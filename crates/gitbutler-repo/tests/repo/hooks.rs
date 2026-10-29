@@ -251,11 +251,6 @@ fn pre_commit_restores_conflicts_or_absent_index_after_rejection()
         )?;
         fs::set_permissions(&hook, fs::Permissions::from_mode(0o755))?;
         let ctx = context_for_repo(workdir);
-        #[expect(
-            deprecated,
-            reason = "verify remaining legacy callers observe the restored index"
-        )]
-        let cached = ctx.git2_repo.get()?.index()?;
         let empty_path = tempfile::tempdir()?;
         let result = {
             let _environment =
@@ -296,21 +291,11 @@ fn pre_commit_restores_conflicts_or_absent_index_after_rejection()
             content(&expected),
             "the hook sees exactly the requested tree"
         );
-        assert_eq!(
-            cached.has_conflicts(),
-            had_index,
-            "cached legacy handles see the original conflicts"
-        );
         if had_index {
             assert_eq!(
                 fs::metadata(&index_path)?.permissions().mode() & 0o777,
                 0o600,
                 "index permissions survive the swap"
-            );
-        } else {
-            assert!(
-                cached.is_empty(),
-                "a previously absent index remains empty in legacy handles"
             );
         }
     }
