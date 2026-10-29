@@ -22,8 +22,7 @@ fn post_commit_hook_rejection() -> anyhow::Result<()> {
     case.ctx.legacy_project.husky_hooks_enabled = true;
     let ctx = &case.ctx;
 
-    let hook = b"
-#!/bin/sh
+    let hook = b"#!/bin/sh
 echo 'rejected'
 exit 1
 ";
@@ -44,8 +43,7 @@ fn message_hook_rejection() -> anyhow::Result<()> {
     case.ctx.legacy_project.husky_hooks_enabled = true;
     let ctx = &case.ctx;
 
-    let hook = b"
-#!/bin/sh
+    let hook = b"#!/bin/sh
 echo 'rejected'
 exit 1
 ";
@@ -67,8 +65,7 @@ fn rewrite_message() -> anyhow::Result<()> {
     case.ctx.legacy_project.husky_hooks_enabled = true;
     let ctx = &case.ctx;
 
-    let hook = b"
-#!/bin/sh
+    let hook = b"#!/bin/sh
 echo 'rewritten message' > $1
 ";
     write_hook(ctx, "commit-msg", hook)?;
@@ -89,8 +86,7 @@ fn keep_message() -> anyhow::Result<()> {
     case.ctx.legacy_project.husky_hooks_enabled = true;
     let ctx = &case.ctx;
 
-    let hook = b"
-#!/bin/sh
+    let hook = b"#!/bin/sh
 echo 'commit message' > $1
 ";
     write_hook(ctx, "commit-msg", hook)?;

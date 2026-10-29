@@ -53,32 +53,40 @@ fn husky_search_paths(ctx: &Context) -> Option<&'static [&'static str]> {
     }
 }
 
-pub fn commit_msg(ctx: &Context, mut message: String) -> Result<MessageHookResult> {
-    let original_message = message.clone();
-    #[expect(deprecated, reason = "libgit2 hook adapter boundary")]
-    match git2_hooks::hooks_commit_msg(
-        &*ctx.git2_repo.get()?,
-        husky_search_paths(ctx),
-        &mut message,
-    )? {
-        H::NoHookFound => Ok(MessageHookResult::NotConfigured),
-        H::Run(HookRunResponse {
-            stdout,
-            stderr,
-            code,
-            ..
-        }) => {
-            if code == 0 {
-                match message == original_message {
-                    true => Ok(MessageHookResult::Success),
-                    false => Ok(MessageHookResult::Message(MessageData { message })),
-                }
-            } else {
-                let error = join_output(stdout, stderr, Some(code));
-                Ok(MessageHookResult::Failure(ErrorData { error }))
-            }
-        }
+pub fn commit_msg(ctx: &Context, message: String) -> Result<MessageHookResult> {
+    let repo = ctx.repo.get()?;
+    let Some(hook) = find_commit_hook(&repo, "commit-msg", ctx.legacy_project.husky_hooks_enabled)?
+    else {
+        return Ok(MessageHookResult::NotConfigured);
+    };
+    let message_path = repo
+        .current_dir()
+        .join(repo.git_dir())
+        .join("COMMIT_EDITMSG");
+    std::fs::write(&message_path, &message).context("failed to prepare commit hook message")?;
+    let output = repo.run_hook(
+        hook,
+        gix::hook::Options {
+            arguments: &[message_path.as_os_str()],
+            ..Default::default()
+        },
+    )?;
+    let edited = std::fs::read_to_string(&message_path)
+        .context("failed to read message after commit hook")?;
+    if !output.status.success() {
+        return Ok(MessageHookResult::Failure(ErrorData {
+            error: join_output(
+                output.stdout.to_str_lossy().into_owned(),
+                output.stderr.to_str_lossy().into_owned(),
+                output.status.code(),
+            ),
+        }));
     }
+    Ok(if edited == message {
+        MessageHookResult::Success
+    } else {
+        MessageHookResult::Message(MessageData { message: edited })
+    })
 }
 
 pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<HookResult> {
@@ -211,23 +219,51 @@ fn restore_index(
 }
 
 pub fn post_commit(ctx: &Context) -> Result<HookResult> {
-    #[expect(deprecated, reason = "libgit2 hook adapter boundary")]
-    match git2_hooks::hooks_post_commit(&*ctx.git2_repo.get()?, husky_search_paths(ctx))? {
-        H::NoHookFound => Ok(HookResult::NotConfigured),
-        H::Run(HookRunResponse {
-            stdout,
-            stderr,
-            code,
-            ..
-        }) => {
-            if code == 0 {
-                Ok(HookResult::Success)
-            } else {
-                let error = join_output(stdout, stderr, Some(code));
-                Ok(HookResult::Failure(ErrorData { error }))
-            }
-        }
+    let repo = ctx.repo.get()?;
+    let Some(hook) =
+        find_commit_hook(&repo, "post-commit", ctx.legacy_project.husky_hooks_enabled)?
+    else {
+        return Ok(HookResult::NotConfigured);
+    };
+    let output = repo.run_hook(hook, Default::default())?;
+    Ok(if output.status.success() {
+        HookResult::Success
+    } else {
+        HookResult::Failure(ErrorData {
+            error: join_output(
+                output.stdout.to_str_lossy().into_owned(),
+                output.stderr.to_str_lossy().into_owned(),
+                output.status.code(),
+            ),
+        })
+    })
+}
+
+fn find_commit_hook(
+    repo: &gix::Repository,
+    name: &str,
+    husky_enabled: bool,
+) -> Result<Option<PathBuf>> {
+    let hook = repo.find_hook(name)?;
+    if hook.is_some()
+        || !husky_enabled
+        || repo
+            .config_snapshot()
+            .plumbing()
+            .string_implicit("core.hooksPath")
+            .is_some()
+    {
+        return Ok(hook);
     }
+    // An inactive default hook still takes precedence over the optional Husky fallback.
+    if repo.hooks_directory()?.join(name).try_exists()? {
+        return Ok(None);
+    }
+    let Some(workdir) = repo.workdir() else {
+        return Ok(None);
+    };
+    let path = repo.current_dir().join(workdir).join(".husky").join(name);
+    Ok(gix::sec::identity::is_path_executable_by_current_user(&path)?.then_some(path))
 }
 
 // TODO: double-check this with what should happen according to Git; contribute to `git2-hooks` possibly.

@@ -7,7 +7,10 @@ use crate::support::RepoWithOrigin;
 use but_ctx::{Context, RepoOpenMode};
 use but_settings::AppSettings;
 use but_testsupport::open_repo;
-use gitbutler_repo::hooks::{HookResult, pre_commit_with_tree, pre_push};
+use gitbutler_repo::hooks::{
+    HookResult, MessageData, MessageHookResult, commit_msg, post_commit, pre_commit_with_tree,
+    pre_push,
+};
 
 fn context_for_repo(workdir: &Path) -> Context {
     let project = gitbutler_project::Project::from_path(workdir).expect("valid test project");
@@ -18,6 +21,110 @@ fn context_for_repo(workdir: &Path) -> Context {
     )
     .expect("can create context")
     .with_memory_app_cache()
+}
+
+#[cfg(unix)]
+#[test]
+fn commit_hooks_use_common_hooks_in_linked_worktrees_without_git()
+-> but_testsupport::gix_testtools::TestResult {
+    use but_testsupport::gix_testtools;
+    if gix_testtools::run_in_isolated_process()? {
+        return Ok(());
+    }
+    let fixture = RepoWithOrigin::default();
+    let main = fixture
+        .local_repo
+        .workdir()
+        .expect("fixture has a worktree");
+    gix_testtools::git(main, "worktree add --detach ../linked")?;
+    let linked = main.parent().expect("fixture has a parent").join("linked");
+    let hooks = fixture.local_repo.common_dir().join("hooks");
+    fs::create_dir_all(&hooks)?;
+    for (name, script) in [
+        (
+            "commit-msg",
+            "#!/bin/sh\nprintf 'rewritten message\\n' > \"$1\"\nprintf '%s' \"$GIT_DIR\" > hook-git-dir\n",
+        ),
+        ("post-commit", "#!/bin/sh\nprintf 'ran' > post-commit-ran\n"),
+    ] {
+        let path = hooks.join(name);
+        fs::write(&path, script)?;
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o755))?;
+    }
+    let empty_path = tempfile::tempdir()?;
+    let _environment =
+        gix_testtools::Env::new().set("PATH", empty_path.path().display().to_string());
+    for workdir in [main, linked.as_path()] {
+        let ctx = context_for_repo(workdir);
+        assert_eq!(
+            commit_msg(&ctx, "original message".into())?,
+            MessageHookResult::Message(MessageData {
+                message: "rewritten message\n".into(),
+            }),
+            "both worktrees execute their common commit-message hook without Git"
+        );
+        assert_eq!(
+            fs::read(workdir.join("hook-git-dir"))?,
+            gix::path::into_bstr(ctx.repo.get()?.git_dir())?.as_ref(),
+            "hooks receive their worktree's repository context"
+        );
+        assert_eq!(post_commit(&ctx)?, HookResult::Success);
+        assert_eq!(
+            fs::read(workdir.join("post-commit-ran"))?,
+            b"ran",
+            "post-commit runs in the caller's worktree"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn commit_hooks_preserve_husky_fallback_and_explicit_directory_precedence() -> anyhow::Result<()> {
+    let fixture = RepoWithOrigin::default();
+    let workdir = fixture
+        .local_repo
+        .workdir()
+        .expect("fixture has a worktree");
+    let mut ctx = context_for_repo(workdir);
+    let husky = workdir.join(".husky");
+    fs::create_dir_all(&husky)?;
+    let hook = husky.join("post-commit");
+    fs::write(&hook, "#!/bin/sh\nprintf 'husky hook'\nexit 19\n")?;
+    #[cfg(unix)]
+    fs::set_permissions(&hook, fs::Permissions::from_mode(0o755))?;
+    assert_eq!(
+        post_commit(&ctx)?,
+        HookResult::NotConfigured,
+        "the optional Husky directory is disabled by default"
+    );
+    ctx.legacy_project.husky_hooks_enabled = true;
+    assert!(
+        matches!(post_commit(&ctx)?, HookResult::Failure(error) if error.error == "husky hook"),
+        "enabled Husky hooks run when the default hook is absent"
+    );
+    #[cfg(unix)]
+    {
+        let inactive = ctx.repo.get()?.hooks_directory()?.join("post-commit");
+        fs::create_dir_all(inactive.parent().expect("hook has a directory"))?;
+        fs::write(&inactive, "#!/bin/sh\nexit 0\n")?;
+        fs::set_permissions(&inactive, fs::Permissions::from_mode(0o644))?;
+        assert_eq!(
+            post_commit(&ctx)?,
+            HookResult::NotConfigured,
+            "an inactive default hook does not fall through to Husky"
+        );
+        fs::remove_file(inactive)?;
+    }
+    ctx.repo
+        .get_mut()?
+        .config_snapshot_mut()
+        .set_raw_value("core.hooksPath", "absent-hooks")?;
+    assert_eq!(
+        post_commit(&ctx)?,
+        HookResult::NotConfigured,
+        "an explicit hook directory suppresses fallback even when it is absent"
+    );
+    Ok(())
 }
 
 #[test]
@@ -105,6 +212,7 @@ fn pre_commit_propagates_index_restore_failure() -> anyhow::Result<()> {
     let workdir = test_project.local_repo.workdir().expect("non-bare");
     let ctx = context_for_repo(workdir);
     let hook_path = ctx.gitdir.join("hooks/pre-commit");
+    fs::create_dir_all(hook_path.parent().expect("hook has a directory"))?;
     fs::write(
         &hook_path,
         "#!/bin/sh\nrm -f \"$(git rev-parse --git-path index).gitbutler-hook-backup\"\n",
