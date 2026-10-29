@@ -954,8 +954,7 @@ fn into_tree_entry_kind(mode: gix::index::entry::Mode) -> anyhow::Result<EntryKi
 }
 
 /// Most importantly, this function allows to skip over untrackable entries, like named pipes, sockets and character devices, just like Git.
-/// `path` is needed for now while we have to stat the file again to learn about the executable bits.
-// TODO: remove `path` and provide the stat information or at least executable info with `gitoxide` - it has that info.
+/// Directory-walk entry kinds don't carry executable bits, so regular files need a metadata lookup.
 fn disk_kind_to_entry_kind(
     disk_kind: Option<gix::dir::entry::Kind>,
     index_kind: Option<gix::dir::entry::Kind>,
