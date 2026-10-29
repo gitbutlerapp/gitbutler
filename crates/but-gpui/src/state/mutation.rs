@@ -804,7 +804,9 @@ impl Store {
     }
 
     /// Open `ref_name`'s pull request, pushing it and the branches below it first where they
-    /// have anything to push. A failure's card tries again with the same title and description.
+    /// have anything to push, and with `auto_merge` turn its auto-merge on. A failure's card
+    /// tries again with the same title and description.
+    #[expect(clippy::too_many_arguments)]
     pub fn publish(
         &mut self,
         project: &ProjectId,
@@ -812,6 +814,7 @@ impl Store {
         title: String,
         body: String,
         draft: bool,
+        auto_merge: bool,
         cx: &mut Context<Self>,
     ) {
         let again = {
@@ -819,7 +822,15 @@ impl Store {
             let (title, body) = (title.clone(), body.clone());
             move |store: &mut Store, cx: &mut Context<Store>| {
                 let (title, body) = (title.clone(), body.clone());
-                store.publish(&project, ref_name.clone(), title, body, draft, cx)
+                store.publish(
+                    &project,
+                    ref_name.clone(),
+                    title,
+                    body,
+                    draft,
+                    auto_merge,
+                    cx,
+                )
             }
         };
         // An operation is turned down with only a snackbar while a commit is being
@@ -846,6 +857,7 @@ impl Store {
                 title,
                 body,
                 draft,
+                auto_merge,
                 run_hooks,
             },
             move |store, made, cx| {
@@ -854,11 +866,20 @@ impl Store {
                 match made {
                     Ok(made) => {
                         store.pushed(&published);
-                        let said = format!("Created pull request #{}", made.number);
+                        let said = match auto_merge && made.auto_merge_failed.is_none() {
+                            true => {
+                                format!("Created pull request #{} with auto-merge on", made.number)
+                            }
+                            false => format!("Created pull request #{}", made.number),
+                        };
                         store.snack(store.card_title(&published, said), cx);
                         if let Some(message) = made.sync_failed {
                             let said = "The stack's other pull requests weren't updated";
                             store.error(said, message, cx);
+                        }
+                        if let Some(err) = made.auto_merge_failed {
+                            let said = format!("Auto-merge isn't on for #{}", made.number);
+                            store.failed(store.card_title(&published, said), &err, cx);
                         }
                     }
                     Err(err) => {

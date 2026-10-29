@@ -662,12 +662,25 @@ pub struct Switch {
     on: bool,
     el: Stateful<Div>,
     grounds: [gpui::Rgba; 2],
+    disabled: bool,
 }
 
 /// An on/off switch, for a setting that applies at once.
 pub fn switch(id: impl Into<ElementId>, on: bool, theme: &Theme) -> Switch {
     let id = id.into();
-    let el = tab_stop(h_flex().id(id.clone()), theme)
+    Switch {
+        el: tab_stop(switch_track(id.clone(), on), theme).hover(|el| el.opacity(0.9)),
+        id,
+        on,
+        grounds: switch_grounds(theme),
+        disabled: false,
+    }
+}
+
+/// A switch's track, before it takes the keys or the pointer.
+fn switch_track(id: ElementId, on: bool) -> Stateful<Div> {
+    h_flex()
+        .id(id)
         .role(Role::Switch)
         .aria_toggled(if on { Toggled::True } else { Toggled::False })
         .flex_none()
@@ -675,21 +688,28 @@ pub fn switch(id: impl Into<ElementId>, on: bool, theme: &Theme) -> Switch {
         .h(dp(18.))
         .p(dp(2.))
         .rounded_full()
-        .hover(|el| el.opacity(0.9));
-    Switch {
-        id,
-        on,
-        el,
-        grounds: switch_grounds(theme),
-    }
 }
 
 impl Switch {
+    /// Dimmed, out of the tab order and taking no clicks, with `why` in its tooltip, as a
+    /// disabled [`button`] is.
+    pub fn disabled_because(mut self, why: Option<impl Into<SharedString>>) -> Self {
+        if let Some(why) = why {
+            self.el = switch_track(self.id.clone(), self.on)
+                .opacity(0.5)
+                .tooltip(Tooltip::text(why));
+            self.disabled = true;
+        }
+        self
+    }
+
     pub fn on_click(
         mut self,
         handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
     ) -> Self {
-        self.el = self.el.on_click(handler);
+        if !self.disabled {
+            self.el = self.el.on_click(handler);
+        }
         self
     }
 }
