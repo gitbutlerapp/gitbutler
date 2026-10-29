@@ -302,6 +302,8 @@ impl Built {
             .env("CARGO_MANIFEST_DIR", &self.crate_dir)
             .env("CARGO_MANIFEST_PATH", self.crate_dir.join("Cargo.toml"));
         #[cfg(unix)]
+        close_on_exec();
+        #[cfg(unix)]
         let err: anyhow::Error = std::os::unix::process::CommandExt::exec(&mut new).into();
         #[cfg(not(unix))]
         let err = anyhow::anyhow!("restarting in place needs exec");
@@ -309,9 +311,59 @@ impl Built {
     }
 }
 
+/// Mark the files this process has open, past stdin, stdout and stderr, to close as it runs
+/// the new binary in its place. Rust opens its own so, but not every framework does: Metal
+/// keeps its shader caches open without, so each restart carried four more into the next
+/// process, until a burst of reads hit the limit on open files and whatever opened one next
+/// failed.
+#[cfg(unix)]
+fn close_on_exec() {
+    let dir = match cfg!(target_os = "macos") {
+        true => "/dev/fd",
+        false => "/proc/self/fd",
+    };
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    // Listed first, as reading the folder holds a descriptor of its own.
+    let open: Vec<libc::c_int> = entries
+        .filter_map(|entry| entry.ok()?.file_name().to_str()?.parse().ok())
+        .filter(|fd| *fd > 2)
+        .collect();
+    for fd in open {
+        // SAFETY: `F_GETFD` and `F_SETFD` only read and set a descriptor's flags, and one
+        // closed since it was listed, as the folder's own, makes them fail and change nothing.
+        unsafe {
+            let flags = libc::fcntl(fd, libc::F_GETFD);
+            if flags >= 0 {
+                libc::fcntl(fd, libc::F_SETFD, flags | libc::FD_CLOEXEC);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Printed, built_binary, read_printed};
+
+    #[test]
+    #[cfg(unix)]
+    fn a_restart_takes_no_file_along_that_was_opened_to_stay_open() {
+        use std::os::fd::AsRawFd as _;
+        let file = tempfile::tempfile().unwrap();
+        let fd = file.as_raw_fd();
+        // SAFETY: only the flags of `file`'s descriptor change, which it keeps open throughout.
+        let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+        // SAFETY: as above, opened to stay open across an exec, as Metal opens its caches.
+        unsafe { libc::fcntl(fd, libc::F_SETFD, flags & !libc::FD_CLOEXEC) };
+        super::close_on_exec();
+        // SAFETY: as above.
+        let after = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+        assert!(
+            after & libc::FD_CLOEXEC != 0,
+            "it closes as the new binary starts rather than staying open in it"
+        );
+    }
 
     /// Whether process `pid` is still running, as `kill -0` says.
     #[cfg(unix)]
