@@ -2555,6 +2555,18 @@ impl Detail {
         self.files_slide.openness(now).is_some() || self.beside_slide.openness(now).is_some()
     }
 
+    /// Whether what's selected has no changes to list or diff, as a branch with no commits, a
+    /// checkout with none uncommitted or a list page with nothing opened, so neither the file
+    /// list nor the diff has anything for the keys. Not while its diff loads, which may.
+    pub(crate) fn without_changes(&self, cx: &App) -> bool {
+        match self.key_for_selection(cx) {
+            None => true,
+            Some(key) => {
+                (self.diff.as_ref()).is_some_and(|diff| diff.key == key && diff.files.is_empty())
+            }
+        }
+    }
+
     /// Whether the page is an overview with no column beside it: Inactive and Network
     /// worktrees', as the navigator lists what they sum up.
     pub fn overview_only(&self, cx: &App) -> bool {

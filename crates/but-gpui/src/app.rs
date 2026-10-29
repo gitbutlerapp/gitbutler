@@ -784,16 +784,19 @@ impl AppView {
         cx: &mut Context<Self>,
     ) -> bool {
         let detail = self.detail.read(cx);
-        // A page that's an overview alone has no pane past the navigator to take the keys.
+        // A page that's an overview alone has no pane past the navigator to take the keys, nor
+        // has the file list or the diff without changes to show.
         let list_page = detail.list_page(cx);
+        let changes = !detail.without_changes(cx);
         let shown = [
             self.navigator_open,
             list_page,
-            match list_page {
-                true => detail.beside_files_shown(cx),
-                false => detail.files_shown(cx),
-            },
-            !detail.overview_only(cx),
+            changes
+                && match list_page {
+                    true => detail.beside_files_shown(cx),
+                    false => detail.files_shown(cx),
+                },
+            changes && !detail.overview_only(cx),
         ];
         let next = |n: usize| (at + if forward { n } else { shown.len() - n }) % shown.len();
         match (1..shown.len())
@@ -814,8 +817,8 @@ impl AppView {
     }
 
     /// Move the keys off the navigator as it goes, to the leftmost pane beside it, as → from
-    /// it does: a list page's list, else the file list, else the diff. A page that's an
-    /// overview alone has none, so the detail takes them.
+    /// it does: a list page's list, else the file list, else the diff. A page with none, as an
+    /// overview alone or a branch with no commits, gives them to the detail.
     fn focus_past_navigator(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if !self.focus_pane_from(0, true, false, window, cx) {
             (self.detail).update(cx, |detail, cx| detail.focus(window, cx));
