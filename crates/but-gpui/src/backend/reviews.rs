@@ -310,21 +310,24 @@ pub fn new_review(path: &Path, branch: &super::FullName) -> Result<NewReview> {
     Ok(NewReview { target, template })
 }
 
-/// A pull request just opened, and why updating the other pull requests of its stack failed,
-/// if it did.
+/// A pull request just opened, why updating the other pull requests of its stack failed, if it
+/// did, and why turning its auto-merge on failed, if it was asked for and did.
 pub struct Published {
     pub number: u64,
     pub sync_failed: Option<String>,
+    pub auto_merge_failed: Option<anyhow::Error>,
 }
 
 /// Push `ref_name` and the branches below it, those that have anything to push, then open a
-/// pull request for it. `run_hooks` runs the pre-push hook first. Done says why it failed, a
-/// refused push included, so the card can offer to try again.
+/// pull request for it, with `auto_merge` turning its auto-merge on. `run_hooks` runs the
+/// pre-push hook first. Done says why it failed, a refused push included, so the card can offer
+/// to try again.
 pub struct Publish {
     pub ref_name: super::FullName,
     pub title: String,
     pub body: String,
     pub draft: bool,
+    pub auto_merge: bool,
     pub run_hooks: bool,
 }
 
@@ -347,6 +350,7 @@ impl Publish {
             title,
             body,
             draft,
+            auto_merge,
             run_hooks,
         } = self;
         // The pull request's head is the branch as the remote names it: what a push reports,
@@ -359,7 +363,7 @@ impl Publish {
             None => tracked_name(&ctx, &ref_name)?,
         };
         let outcome = runtime().handle().block_on(forge::publish_review(
-            ctx.into_sync(),
+            ctx.to_sync(),
             forge::PublishReviewInput {
                 title,
                 body,
@@ -368,9 +372,16 @@ impl Publish {
                 draft,
             },
         ))?;
+        let number = outcome.review.number as u64;
+        // It's open by now, so a failure here only says so, as trying again would open another.
+        let auto_merge_failed = match auto_merge {
+            true => set_auto_merge(&ctx, number, true).err(),
+            false => None,
+        };
         Ok(Published {
-            number: outcome.review.number as u64,
+            number,
             sync_failed: sync_failure(outcome.review_sync).or(push_sync_failed),
+            auto_merge_failed,
         })
     }
 }
@@ -443,8 +454,7 @@ pub fn merge_status(path: &Path, number: u64) -> Result<MergeStatus> {
     (runtime().handle()).block_on(forge::get_review_merge_status(ctx, number as usize))
 }
 
-/// Turn auto-merge of pull request `number` on or off. Asking for the request again records
-/// that in the cache, so the reload after shows it.
+/// Turn auto-merge of pull request `number` on or off.
 pub struct SetAutoMerge {
     pub number: u64,
     pub on: bool,
@@ -454,25 +464,29 @@ impl Intent for SetAutoMerge {
     type Done = ();
 
     fn apply(self, run: &mut Run) -> Result<()> {
-        let Self { number, on } = self;
-        let ctx = run.ctx();
-        (runtime().handle()).block_on(forge::set_review_auto_merge(
-            ctx.to_sync(),
-            number as usize,
-            on,
-        ))?;
-        if let Err(err) = forge::get_review(ctx, number as usize) {
-            tracing::warn!(
-                ?err,
-                "set auto-merge, but couldn't read the pull request back"
-            );
-        }
-        Ok(())
+        set_auto_merge(run.ctx(), self.number, self.on)
     }
 
     fn kind(&self) -> OpKind {
         OpKind::Forge
     }
+}
+
+/// Turn auto-merge of pull request `number` on or off. Asking for the request again records
+/// that in the cache, so the reload after shows it.
+fn set_auto_merge(ctx: &Context, number: u64, on: bool) -> Result<()> {
+    (runtime().handle()).block_on(forge::set_review_auto_merge(
+        ctx.to_sync(),
+        number as usize,
+        on,
+    ))?;
+    if let Err(err) = forge::get_review(ctx, number as usize) {
+        tracing::warn!(
+            ?err,
+            "set auto-merge, but couldn't read the pull request back"
+        );
+    }
+    Ok(())
 }
 
 /// A review's verdict, as the forge gives it.

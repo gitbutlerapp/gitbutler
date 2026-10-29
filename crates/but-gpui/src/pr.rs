@@ -38,6 +38,9 @@ pub struct ReviewView {
     /// The branch it would merge into, once known.
     target: Option<String>,
     draft: bool,
+    /// Turn its auto-merge on once it's created. A draft can't, so turning `draft` on turns
+    /// this off.
+    auto_merge: bool,
     /// The title and description being written with AI, streaming into the fields.
     writing: Option<Task<()>>,
 }
@@ -131,8 +134,20 @@ impl ReviewView {
             body_scroll,
             target: None,
             draft: false,
+            auto_merge: false,
             writing: None,
         }
+    }
+
+    /// Whether its auto-merge can be turned on as it's created: on a forge that has auto-merge,
+    /// into the workspace's target, as one stacked on another merges only from the bottom.
+    fn offers_auto_merge(&self, cx: &App) -> bool {
+        let Some(ws) = self.store.read(cx).workspace(&self.project) else {
+            return false;
+        };
+        matches!(ws.forge, Some(Forge::GitHub | Forge::GitLab))
+            && (self.target.as_deref())
+                .is_some_and(|into| (ws.target.as_ref()).is_none_or(|target| target.branch == into))
     }
 
     /// Write the title and description with AI from the branch's commit messages, streaming
@@ -200,8 +215,9 @@ impl ReviewView {
         }
         let body = self.body.read(cx).text().trim().to_owned();
         let (project, branch, draft) = (self.project.clone(), self.branch.clone(), self.draft);
+        let auto_merge = self.auto_merge && self.offers_auto_merge(cx);
         (self.store).update(cx, |store, cx| {
-            store.publish(&project, branch, title, body, draft, cx)
+            store.publish(&project, branch, title, body, draft, auto_merge, cx)
         });
         cx.emit(DismissEvent);
     }
@@ -244,6 +260,7 @@ impl Render for ReviewView {
             "Create pull request"
         };
         let empty_title = self.title.read(cx).text().trim().is_empty();
+        let no_auto_merge = self.draft.then_some("A draft can't auto-merge");
         modal(ModalSize::Medium, &theme)
             .id("pull-request")
             .child(
@@ -315,6 +332,7 @@ impl Render for ReviewView {
                             .child(switch("pr-draft", self.draft, &theme).on_click(cx.listener(
                                 |this, _, _, cx| {
                                     this.draft = !this.draft;
+                                    this.auto_merge &= !this.draft;
                                     cx.notify();
                                 },
                             )))
@@ -323,7 +341,31 @@ impl Render for ReviewView {
                                     .child(div().text_size(dp(13.)).child("Draft"))
                                     .child(muted("Not ready for review yet", &theme)),
                             ),
-                    ),
+                    )
+                    .when(self.offers_auto_merge(cx), |el| {
+                        el.child(
+                            h_flex()
+                                .gap(dp(10.))
+                                .child(
+                                    switch("pr-auto-merge", self.auto_merge, &theme)
+                                        .disabled_because(no_auto_merge)
+                                        .on_click(cx.listener(|this, _, _, cx| {
+                                            this.auto_merge = !this.auto_merge;
+                                            cx.notify();
+                                        })),
+                                )
+                                .child(
+                                    v_flex()
+                                        .child(div().text_size(dp(13.)).child("Auto-merge"))
+                                        .child(muted(
+                                            no_auto_merge.unwrap_or(
+                                                "Merges once its required checks and reviews pass",
+                                            ),
+                                            &theme,
+                                        )),
+                                ),
+                        )
+                    }),
             )
             .child(
                 h_flex()
