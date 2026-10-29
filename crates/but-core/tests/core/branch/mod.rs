@@ -8,6 +8,33 @@ mod safe_delete {
     use but_testsupport::{gix_testtools, gix_testtools::Creation};
 
     #[test]
+    fn main_and_linked_callers_find_each_occupied_worktree_once() -> anyhow::Result<()> {
+        let root = gix_testtools::scripted_fixture_read_only("delete-references.sh")
+            .map_err(anyhow::Error::from_boxed)?;
+        for caller in ["prime", "worktree-one"] {
+            let repo = gix::open_opts(root.join(caller), gix::open::Options::isolated())?;
+            let state = branch::SafeDelete::new(&repo)?;
+            for (name, worktree) in [
+                ("main", "prime"),
+                ("worktree-one", "worktree-one"),
+                ("worktree-without-checkout", "worktree-without-checkout"),
+            ] {
+                let reference = repo.find_reference(name)?;
+                let paths = state
+                    .worktree_dirs_with_ref(&reference)
+                    .expect("every occupied branch remains protected");
+                assert_eq!(paths.len(), 1, "{caller}: each worktree is counted once");
+                assert_eq!(
+                    paths[0].file_name().expect("worktree path has a name"),
+                    worktree,
+                    "{caller}: the branch identifies its occupied worktree"
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
     fn delete_reference_journey() -> anyhow::Result<()> {
         let root = gix_testtools::scripted_fixture_writable_with_args(
             "delete-references.sh",
