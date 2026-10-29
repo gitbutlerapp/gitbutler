@@ -31,7 +31,7 @@ clap = { workspace = true, features = [
     "usage",
     "suggestions",
 ] }
-gix = { workspace = true, features = ["excludes", "interrupt", "pack-creation"] }
+gix = { workspace = true, features = ["excludes", "interrupt", "pack-generate"] }
 open.workspace = true
 prodash = { version = "31.0.0", default-features = false, features = [
     "progress-tree",
