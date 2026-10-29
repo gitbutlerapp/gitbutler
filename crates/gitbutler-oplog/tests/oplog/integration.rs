@@ -1032,6 +1032,36 @@ fn restore_repoints_workspace_and_worktree() -> anyhow::Result<()> {
     )?;
     fs::remove_file(repo.projects_root().join("second"))?;
 
+    let index_before = fs::read(gix_repo.index_path())?;
+    let lock_path = gix_repo.git_dir().join("index.lock");
+    fs::write(&lock_path, b"another writer\n")?;
+    ctx.restore_snapshot(
+        snapshot,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )
+    .expect_err("restore must respect the existing index lock");
+    assert_eq!(
+        fs::read(gix_repo.index_path())?,
+        index_before,
+        "a locked index is unchanged"
+    );
+    assert_eq!(
+        gix_repo.head_id()?.detach(),
+        workspace_one,
+        "a locked index prevents moving HEAD"
+    );
+    assert!(
+        !repo.projects_root().join("second").exists(),
+        "a locked index prevents worktree changes"
+    );
+    assert_eq!(
+        fs::read(&lock_path)?,
+        b"another writer\n",
+        "another writer's lock is preserved"
+    );
+    fs::remove_file(lock_path)?;
+
     ctx.restore_snapshot(
         snapshot,
         RestoreKind::RestoreFromSnapshotViaUndo,

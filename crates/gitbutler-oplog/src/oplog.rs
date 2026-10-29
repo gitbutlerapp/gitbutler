@@ -509,13 +509,18 @@ fn reset_index_to_tree(
     tree_id: gix::ObjectId,
     conflicts_tree_id: Option<gix::ObjectId>,
     previous: &gix::index::State,
+    mut index_lock: gix::lock::File,
 ) -> Result<()> {
     let repo = ctx.repo.get()?;
     let mut index = repo.index_from_tree_with_index(&tree_id, previous)?;
     if let Some(conflicts_tree_id) = conflicts_tree_id {
         restore_index_conflicts(&mut index, repo.find_tree(conflicts_tree_id)?.id())?;
     }
-    index.write(Default::default())?;
+    let mut buffered = std::io::BufWriter::new(&mut index_lock);
+    index.write_to(&mut buffered, Default::default())?;
+    std::io::Write::flush(&mut buffered)?;
+    drop(buffered);
+    index_lock.commit()?;
     // Keep the legacy libgit2 handle in sync with the index written through gix.
     #[expect(deprecated, reason = "index cache compatibility boundary")]
     ctx.git2_repo.get()?.index()?.read(true)?;
@@ -1287,6 +1292,14 @@ fn restore_snapshot_tree(
         .filter(|reference| reference.checked_out_elsewhere)
         .map(|reference| reference.ref_name.as_ref())
         .collect();
+    // Own the index across worktree restoration and its final replacement.
+    let index_lock = gix::lock::File::acquire_to_update_resource(
+        repo.index_path(),
+        gix::lock::acquire::Fail::Immediately,
+        None,
+        0,
+    )
+    .context("Could not lock the index for snapshot restore")?;
     let before_restore_snapshot_tree_id = prepare_snapshot_with_target_and_refs(
         ctx,
         exclusive_access.read_permission(),
@@ -1476,6 +1489,7 @@ fn restore_snapshot_tree(
         index_tree_entry.id().detach(),
         index_conflicts_tree_id,
         &index_before_checkout,
+        index_lock,
     )?;
 
     if let Some(checkout) = restored_checkout {

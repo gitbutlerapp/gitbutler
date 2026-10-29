@@ -1602,6 +1602,13 @@ fn skipping_index_update_materializes_consumption_without_writing_staging() -> a
     .detach();
     let index_before = std::fs::read(repo.index_path())?;
 
+    let index_lock = gix::lock::File::acquire_to_update_resource(
+        repo.index_path(),
+        gix::lock::acquire::Fail::Immediately,
+        None,
+        0,
+    )?;
+
     safe_checkout_from_head(
         repo.head_id()?.detach(),
         &repo,
@@ -1621,6 +1628,10 @@ fn skipping_index_update_materializes_consumption_without_writing_staging() -> a
         std::fs::read(repo.index_path())?,
         index_before,
         "the temporary index is never persisted"
+    );
+    assert!(
+        index_lock.lock_path().exists(),
+        "checkout leaves the caller's index lock intact"
     );
     Ok(())
 }
