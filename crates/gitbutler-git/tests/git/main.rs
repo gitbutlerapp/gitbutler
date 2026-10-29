@@ -5,6 +5,8 @@ mod native_clone;
 
 #[cfg(unix)]
 mod native_fetch;
+#[cfg(unix)]
+mod native_push;
 
 /// Uses a shell script as `remote.origin.uploadpack`, so unix only.
 #[cfg(unix)]
