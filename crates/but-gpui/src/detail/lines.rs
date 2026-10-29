@@ -121,7 +121,7 @@ impl Detail {
             };
         // Dragging on over the same line picks nothing new.
         if self.line_picks.as_ref().map(|picks| &picks.lines) != before.as_ref() {
-            self.place_cursor(cursor);
+            self.cursor = cursor;
             self.refresh_grip();
             cx.notify();
         }

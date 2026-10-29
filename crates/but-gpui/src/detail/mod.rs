@@ -301,9 +301,6 @@ pub struct Detail {
     /// The People card lists everyone, scrolling within it, rather than the busiest few.
     people_open: bool,
     people_scroll: ScrollHandle,
-    /// The cursor was put where it is on purpose, by a key or a click: scrolling the diff
-    /// moves it again only once the user scrolls.
-    pinned: bool,
     /// Where the diff is gliding to, a step each frame, after the keys moved its cursor.
     glide: Option<Glide>,
     diff: Option<LoadedDiff>,
@@ -623,7 +620,7 @@ impl Detail {
                         if let Some(file) = first
                             && !shown.contains(&this.cursor.file)
                         {
-                            this.place_cursor(Cursor::on_file(file));
+                            this.cursor = Cursor::on_file(file);
                             if let Some(row) = this.row_of(|row| *row == DiffRow::File(file)) {
                                 this.scroll_to_row(row, false);
                             }
@@ -706,7 +703,6 @@ impl Detail {
             people_focus: cx.focus_handle(),
             people_open: false,
             people_scroll: ScrollHandle::new(),
-            pinned: false,
             glide: None,
             diff: None,
             diff_error: None,
@@ -803,15 +799,10 @@ impl Detail {
             graph,
             _subscriptions: subscriptions,
         };
-        // A wheel scroll is the user's, after which the cursor follows the diff again, and the
-        // diff stops gliding where the keys sent it.
+        // A wheel scroll is the user's, so the diff stops gliding where the keys sent it.
         let this = cx.weak_entity();
         detail.list.set_scroll_handler(move |_, _, cx| {
-            (this.update(cx, |detail, _| {
-                detail.pinned = false;
-                detail.glide = None;
-            }))
-            .ok();
+            (this.update(cx, |detail, _| detail.glide = None)).ok();
         });
         detail.refresh_diff(true, cx);
         detail
@@ -1430,13 +1421,6 @@ impl Detail {
         self.side_focus.is_focused(window)
     }
 
-    /// Put the cursor at `cursor` on purpose, as a key or a click does: scrolling the diff
-    /// moves it again only once the user scrolls.
-    fn place_cursor(&mut self, cursor: Cursor) {
-        self.cursor = cursor;
-        self.pinned = true;
-    }
-
     /// The row the cursor is on: on a hunk, the first of its changes, else the box above them,
     /// as when a pending operation takes them; its file's header where its hunk isn't drawn, as
     /// when folded.
@@ -1450,33 +1434,6 @@ impl Detail {
             self.row_of(|row| *row == DiffRow::Hunk { file, hunk })
         };
         (changes.or_else(gap)).or_else(|| self.row_of(|row| *row == DiffRow::File(file)))
-    }
-
-    /// While the user scrolls the diff, the file at its top, the one its sticky header names,
-    /// is the current one, and the file list marks it, as in but.dev. Not while the cursor is
-    /// still in sight, so a nudge of the wheel doesn't take away the hunk the keys act on; once
-    /// it's out of sight, its hunk goes too, so no key acts on a hunk that can't be seen.
-    pub(super) fn follow_scroll(&mut self, cx: &mut Context<Self>) {
-        let Some(diff) = self.diff.as_ref().filter(|_| !self.pinned) else {
-            return;
-        };
-        let view = self.list.viewport_bounds();
-        if (self.cursor_row())
-            .and_then(|row| self.list.bounds_for_item(row))
-            .is_some_and(|row| row.bottom() > view.top() && row.top() < view.bottom())
-        {
-            return;
-        }
-        let top = self.list.logical_scroll_top().item_ix;
-        let Some(file) = (diff.rows.get(top..)).and_then(|rows| rows.iter().find_map(|r| r.file()))
-        else {
-            return;
-        };
-        let followed = Cursor::on_file(file);
-        if self.cursor != followed {
-            self.cursor = followed;
-            cx.notify();
-        }
     }
 
     pub fn is_focused(&self, window: &Window, cx: &App) -> bool {
@@ -1616,7 +1573,6 @@ impl Detail {
                 (app.navigator).update(cx, |navigator, cx| navigator.read_on(window, cx))
             });
         }
-        self.pinned = false;
         self.glide = None;
         let height = self.list.viewport_bounds().size.height;
         self.list.scroll_by(height * by);
@@ -1875,29 +1831,13 @@ impl Detail {
         let Some(diff) = &self.diff else {
             return;
         };
+        // From the cursor, even scrolled out of sight: the diff glides back to where it went.
         let at = self.cursor_row().unwrap_or(0);
-        // After a scroll, the keys go on from the edge of the view the cursor went past, as
-        // vim keeps its cursor on screen, rather than jump back to a hunk out of sight.
-        let view = (!self.pinned).then(|| {
-            let top = self.list.logical_scroll_top().item_ix;
-            let bottom = self.list.viewport_bounds().bottom();
-            let last = (top..diff.rows.len())
-                .take_while(|&row| {
-                    (self.list.bounds_for_item(row)).is_some_and(|b| b.top() < bottom)
-                })
-                .last()
-                .unwrap_or(top);
-            (top, last)
-        });
-        let from = match forward {
-            true => view.map_or(at, |(top, last)| at.clamp(top.saturating_sub(1), last)),
-            false => view.map_or(at, |(top, last)| at.clamp(top, last + 1)),
-        };
-        let stop = next_stop(&diff.rows, from, forward, |row, entry| {
+        let stop = next_stop(&diff.rows, at, forward, |row, entry| {
             self.stop_at(row, entry)
         });
         if let Some((cursor, _)) = stop {
-            self.place_cursor(cursor);
+            self.cursor = cursor;
             self.reveal_cursor(cx);
             cx.notify();
         }
@@ -1977,10 +1917,10 @@ impl Detail {
             .filter(|(_, hunk)| hunk.is_some() == file_shown)
             .collect();
         if let Some(&(file, hunk)) = places.iter().find(|place| **place > at).or(places.last()) {
-            self.place_cursor(Cursor {
+            self.cursor = Cursor {
                 file,
                 at: hunk.map_or(Stop::File, Stop::Hunk),
-            });
+            };
         }
     }
 
@@ -2207,7 +2147,7 @@ impl Detail {
             (None, true) => shows.then_some((0, None)),
             (None, false) => self.close_from(file_ix, cx),
         };
-        self.place_cursor(Cursor::on_file(file_ix));
+        self.cursor = Cursor::on_file(file_ix);
         let Some((left_out, stuck)) = start else {
             self.file_folds.stop(&path);
             self.fold_rows.remove(&path);
@@ -2268,10 +2208,10 @@ impl Detail {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.place_cursor(Cursor {
+        self.cursor = Cursor {
             file: file_ix,
             at: hunk.map_or(Stop::File, Stop::Hunk),
-        });
+        };
         let Some(diff) = (self.diff.as_ref()).filter(|diff| diff.key.source.live()) else {
             return self.not_live(window, cx);
         };
@@ -2495,7 +2435,7 @@ impl Detail {
     fn scroll_to_file(&mut self, file_ix: usize, glide: bool, cx: &mut Context<Self>) {
         // A file picked on a checkout's page shows its diff in place of the overview.
         self.now_open = false;
-        self.place_cursor(Cursor::on_file(file_ix));
+        self.cursor = Cursor::on_file(file_ix);
         if let Some(row) = self.row_of(|row| matches!(row, DiffRow::File(ix) if *ix == file_ix)) {
             self.scroll_to_row(row, glide);
             cx.notify();
