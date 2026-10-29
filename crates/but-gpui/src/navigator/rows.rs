@@ -340,7 +340,7 @@ impl Navigator {
             };
             // The inactive ones wait under a heading of their own, folded unless opened or
             // the selection's in one.
-            let (inactive, active): (Vec<_>, Vec<_>) = (self.worktrees(id, workspace))
+            let (inactive, active): (Vec<_>, Vec<_>) = (store.worktrees_in_order(id, workspace))
                 .into_iter()
                 .filter(|wt| !store.hides_worktree(id, wt.name.as_ref()))
                 .partition(|wt| wt.is_inactive());
@@ -404,7 +404,7 @@ impl Navigator {
                 if rows.rows.len() == heading_end {
                     rows.truncate(main);
                 }
-                let worktrees = (self.worktrees(id, workspace).into_iter())
+                let worktrees = (store.worktrees_in_order(id, workspace).into_iter())
                     .filter(|wt| !store.hides_worktree(id, wt.name.as_ref()));
                 for wt in worktrees {
                     let wt_start = rows.rows.len();
@@ -614,18 +614,6 @@ impl Navigator {
         let open = (store.selection.as_ref()).is_some_and(|s| s.project() == id && s.under(branch))
             || self.is_open(&ClickOpened::Here(key.clone()));
         rows.fold(Fold::Under(item), open, &self.folds, inside);
-    }
-
-    /// `workspace`'s linked worktrees, in the order they had when the pointer came over the
-    /// list, while it's there; a new one goes last.
-    fn worktrees<'a>(&self, id: &ProjectId, workspace: &'a Workspace) -> Vec<&'a Worktree> {
-        let mut worktrees: Vec<&Worktree> = workspace.worktrees.iter().collect();
-        if let Some(held) = self.held_worktrees.get(id) {
-            worktrees.sort_by_key(|wt| {
-                (held.iter().position(|name| *name == wt.name)).unwrap_or(usize::MAX)
-            });
-        }
-        worktrees
     }
 
     /// A linked worktree's heading, its uncommitted changes, and, unless it's folded without

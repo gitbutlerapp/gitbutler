@@ -116,6 +116,7 @@ impl Store {
         }
         prefs.project_icons.retain(|id, _| listed(id));
         prefs.merge_methods.retain(|id, _| listed(id));
+        prefs.worktree_order.retain(|id, _| listed(id));
     }
 
     pub fn runs_hooks(&self, project: &super::ProjectId) -> bool {
@@ -426,6 +427,9 @@ pub struct Prefs {
     pub shown_inactive: HashSet<String>,
     /// The order the watched projects go in.
     pub watched_order: WatchedOrder,
+    /// Each project's linked worktrees by name, archived ones too, by project id, in the
+    /// order the navigator lists them: as the user moved them, with new ones last.
+    pub worktree_order: HashMap<String, Vec<String>>,
     /// The Branches page leaves out the branches only a remote has.
     pub branches_local_only: bool,
     /// Which branches the Branches page lists by their pull request.
