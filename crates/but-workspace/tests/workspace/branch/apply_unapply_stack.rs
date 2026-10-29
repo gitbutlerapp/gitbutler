@@ -307,6 +307,199 @@ branch.remote-only.merge refs/heads/remote-only
 }
 
 #[test]
+fn remote_tracking_uses_the_configured_local_branch() -> anyhow::Result<()> {
+    for legacy_apply in [false, true] {
+        let (_tmp, mut repo, mut meta, mut db) = two_stacks(Options {
+            unapplied_branch: true,
+            ..Default::default()
+        })?;
+        git(&repo)
+            .args(["update-ref", "refs/remotes/origin/topic", "C"])
+            .run();
+        git(&repo).args(["branch", "topic", "main"]).run();
+        {
+            let mut config = repo.config_snapshot_mut();
+            config.set_raw_value("branch.C.remote", "origin")?;
+            config.set_raw_value("branch.C.merge", "refs/heads/topic")?;
+            config.set_raw_value("branch.topic.remote", "origin")?;
+            config.set_raw_value("branch.topic.merge", "refs/heads/elsewhere")?;
+        }
+        let before = visualize_commit_graph_all(&repo)?;
+        assert_eq!(
+            but_workspace::branch::local_tracking_branch(&repo, r("refs/remotes/origin/topic"))?,
+            "refs/heads/C",
+            "checkout selects the configured tracker, not the unrelated same-name branch"
+        );
+        assert_eq!(
+            visualize_commit_graph_all(&repo)?,
+            before,
+            "looking up an existing tracker changes no refs"
+        );
+        let ws = workspace(&repo, &meta, &mut db)?;
+        let out = if legacy_apply {
+            but_workspace::branch::apply(
+                r("refs/remotes/origin/topic"),
+                ws,
+                &repo,
+                &mut meta,
+                Default::default(),
+            )?
+        } else {
+            but_workspace::branch::apply_stack(
+                r("refs/remotes/origin/topic"),
+                ws,
+                &repo,
+                &mut meta,
+                &mut db,
+            )?
+        };
+        assert_eq!(
+            out.applied_branches,
+            [r("refs/heads/C").to_owned()],
+            "both apply paths select the configured tracker"
+        );
+        assert_eq!(
+            repo.find_reference("refs/heads/topic")?.id(),
+            repo.find_reference("refs/heads/main")?.id(),
+            "the unrelated local branch is untouched"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn remote_tracking_rejects_ambiguous_trackers_without_writing() -> anyhow::Result<()> {
+    for legacy_apply in [false, true] {
+        let (_tmp, mut repo, mut meta, mut db) = two_stacks(Options {
+            unapplied_branch: true,
+            ..Default::default()
+        })?;
+        git(&repo)
+            .args(["update-ref", "refs/remotes/origin/topic", "C"])
+            .run();
+        git(&repo).args(["branch", "other", "C"]).run();
+        {
+            let mut config = repo.config_snapshot_mut();
+            for branch in ["C", "other"] {
+                config.set_raw_value(&format!("branch.{branch}.remote"), "origin")?;
+                config.set_raw_value(&format!("branch.{branch}.merge"), "refs/heads/topic")?;
+            }
+        }
+        let before = visualize_commit_graph_all(&repo)?;
+        let config_before = std::fs::read(repo.common_dir().join("config"))?;
+        assert!(
+            but_workspace::branch::local_tracking_branch(&repo, r("refs/remotes/origin/topic"))
+                .is_err(),
+            "checkout must not select an arbitrary tracker"
+        );
+        let ws = workspace(&repo, &meta, &mut db)?;
+        let result = if legacy_apply {
+            but_workspace::branch::apply(
+                r("refs/remotes/origin/topic"),
+                ws,
+                &repo,
+                &mut meta,
+                Default::default(),
+            )
+        } else {
+            but_workspace::branch::apply_stack(
+                r("refs/remotes/origin/topic"),
+                ws,
+                &repo,
+                &mut meta,
+                &mut db,
+            )
+        };
+        assert!(
+            result.is_err(),
+            "apply must not select an arbitrary tracker"
+        );
+        assert_eq!(
+            visualize_commit_graph_all(&repo)?,
+            before,
+            "ambiguity is rejected before references change"
+        );
+        assert_eq!(
+            std::fs::read(repo.common_dir().join("config"))?,
+            config_before,
+            "ambiguity leaves tracking configuration unchanged"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn remote_tracking_rejects_a_same_name_branch_tracking_elsewhere() -> anyhow::Result<()> {
+    for legacy_apply in [false, true] {
+        let (_tmp, mut repo, mut meta, mut db) = two_stacks(Options {
+            unapplied_branch: true,
+            ..Default::default()
+        })?;
+        git(&repo)
+            .args(["update-ref", "refs/remotes/origin/topic", "C"])
+            .run();
+        git(&repo).args(["branch", "topic", "main"]).run();
+        {
+            let mut config = repo.config_snapshot_mut();
+            config.set_raw_value("branch.topic.remote", "origin")?;
+            config.set_raw_value("branch.topic.merge", "refs/heads/elsewhere")?;
+        }
+        let before = visualize_commit_graph_all(&repo)?;
+        let expected = "Local branch refs/heads/topic tracks refs/remotes/origin/elsewhere; choose a local branch for refs/remotes/origin/topic";
+        assert_eq!(
+            but_workspace::branch::local_tracking_branch(&repo, r("refs/remotes/origin/topic"))
+                .expect_err("an unrelated upstream prevents selecting the same-name branch")
+                .to_string(),
+            expected
+        );
+        let ws = workspace(&repo, &meta, &mut db)?;
+        let result = if legacy_apply {
+            but_workspace::branch::apply(
+                r("refs/remotes/origin/topic"),
+                ws,
+                &repo,
+                &mut meta,
+                Default::default(),
+            )
+        } else {
+            but_workspace::branch::apply_stack(
+                r("refs/remotes/origin/topic"),
+                ws,
+                &repo,
+                &mut meta,
+                &mut db,
+            )
+        };
+        assert_eq!(
+            result
+                .expect_err("apply rejects the same collision")
+                .to_string(),
+            expected
+        );
+        assert_eq!(
+            visualize_commit_graph_all(&repo)?,
+            before,
+            "an unrelated tracking branch cannot change the workspace"
+        );
+        repo.config_snapshot_mut()
+            .set_raw_value("branch.topic.remote", "missing-remote")?;
+        assert!(
+            but_workspace::branch::local_tracking_branch(&repo, r("refs/remotes/origin/topic"))
+                .expect_err("a missing configured remote does not make a branch unconfigured")
+                .to_string()
+                .contains("cannot be resolved"),
+            "complete but unresolved upstream configuration prevents fallback too"
+        );
+        assert_eq!(
+            visualize_commit_graph_all(&repo)?,
+            before,
+            "unresolved upstreams leave references unchanged"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn apply_of_a_conflicting_branch_returns_error_payload() -> anyhow::Result<()> {
     let (_tmp, repo, mut meta, mut db) = two_stacks(Options {
         unapplied_conflicting_branch: true,

@@ -571,10 +571,66 @@ pub(crate) fn setup_local_tracking_configuration(
     Ok((config, remote_tracking_commit_id.into()))
 }
 
+/// Select an existing configured tracker, or a prospective local name from the fetch mapping.
+/// Unconfigured same-name branches remain usable; branches tracking elsewhere are not selected.
+pub(crate) fn local_tracking_branch_name(
+    repo: &gix::Repository,
+    remote_tracking_ref: &gix::refs::FullNameRef,
+) -> anyhow::Result<gix::refs::FullName> {
+    use but_core::ref_metadata::{LocalTrackingBranchMatch, find_local_tracking_branch};
+
+    match find_local_tracking_branch(remote_tracking_ref, repo)? {
+        LocalTrackingBranchMatch::Unique(name) => {
+            return Ok(name.as_local_full_name_ref().to_owned());
+        }
+        LocalTrackingBranchMatch::Ambiguous { first, second } => but_error::bail_precondition!(
+            "Multiple local branches track {remote_tracking_ref}: {first} and {second}; choose a local branch"
+        ),
+        LocalTrackingBranchMatch::None => {}
+    }
+    let Some((local_name, _remote)) =
+        repo.upstream_branch_and_remote_for_tracking_branch(remote_tracking_ref)?
+    else {
+        but_error::bail_precondition!(
+            "Couldn't find remote refspecs that would match {remote_tracking_ref}"
+        );
+    };
+    if local_name.category() != Some(gix::refs::Category::LocalBranch) {
+        but_error::bail_precondition!(
+            "Remote refspecs map {remote_tracking_ref} to {local_name}, which is not a local branch"
+        );
+    }
+    if repo.try_find_reference(local_name.as_ref())?.is_some() {
+        if let Some(upstream) = repo
+            .branch_remote_tracking_ref_name(local_name.as_ref(), gix::remote::Direction::Fetch)
+            .transpose()?
+        {
+            if upstream.as_ref() != remote_tracking_ref {
+                but_error::bail_precondition!(
+                    "Local branch {local_name} tracks {upstream}; choose a local branch for {remote_tracking_ref}"
+                );
+            }
+        } else if repo
+            .branch_remote_name(local_name.shorten(), gix::remote::Direction::Fetch)
+            .is_some()
+            && repo
+                .branch_remote_ref_name(local_name.as_ref(), gix::remote::Direction::Fetch)
+                .transpose()?
+                .is_some()
+        {
+            but_error::bail_precondition!(
+                "Local branch {local_name} has an upstream that cannot be resolved to {remote_tracking_ref}"
+            );
+        }
+    }
+    Ok(local_name)
+}
+
 /// Return the local tracking branch of `remote_tracking_ref`, creating it at the remote-tracking
 /// commit with tracking configuration if it doesn't exist yet, like `git checkout <name>` does.
 ///
 /// An existing local tracking branch is returned as is, even if it diverged from the remote.
+/// Configured trackers may have different names; ambiguous matches are rejected.
 pub fn local_tracking_branch(
     repo: &gix::Repository,
     remote_tracking_ref: &gix::refs::FullNameRef,
@@ -586,14 +642,7 @@ pub fn local_tracking_branch(
             remote_tracking_ref.as_bstr()
         );
     }
-    let Some((local_tracking_ref, _remote)) =
-        repo.upstream_branch_and_remote_for_tracking_branch(remote_tracking_ref)?
-    else {
-        anyhow::bail!(
-            "Couldn't find remote refspecs that would match {}",
-            remote_tracking_ref.as_bstr()
-        );
-    };
+    let local_tracking_ref = local_tracking_branch_name(repo, remote_tracking_ref)?;
     if repo
         .try_find_reference(local_tracking_ref.as_ref())?
         .is_some()

@@ -25,7 +25,9 @@ use gix::{
 };
 use tracing::instrument;
 
-use crate::branch::{setup_local_tracking_configuration, try_find_validated_ref};
+use crate::branch::{
+    local_tracking_branch_name, setup_local_tracking_configuration, try_find_validated_ref,
+};
 use crate::{
     WorkspaceCommit,
     branch::{anon_stacks, ensure_no_missing_stacks},
@@ -189,11 +191,7 @@ pub fn apply_stack(
         if try_find_validated_ref(repo, branch, "apply")?.is_none() {
             bail!("Cannot apply non-existing branch '{}'", branch.shorten());
         }
-        let Some((local_tracking_branch, _remote)) =
-            repo.upstream_branch_and_remote_for_tracking_branch(branch)?
-        else {
-            bail_precondition!("Couldn't find remote refspecs that would match '{branch}'");
-        };
+        let local_tracking_branch = local_tracking_branch_name(repo, branch)?;
         (local_tracking_branch, Some(branch))
     } else if branch.category() == Some(Category::LocalBranch) {
         (branch.to_owned(), None)
@@ -382,7 +380,8 @@ fn commits_in(
 /// Apply `branch` to the given `workspace`, and possibly create the workspace reference in `repo`
 /// along with its `meta`-data if it doesn't exist yet.
 /// The changed workspace will be checked out.
-/// If `branch` is a remote tracking branch, we will instead apply the local tracking branch if it exists or fail otherwise.
+/// If `branch` is a remote tracking branch, apply its configured local tracker, or create one from
+/// the fetch mapping if needed. Ambiguous local trackers are rejected.
 /// Otherwise, add it to the existing `workspace`, and update its metadata accordingly.
 /// **This means that the contents of `branch` is observable from the new state of `repo`**.
 ///
@@ -424,18 +423,9 @@ pub fn apply(
         .category()
         .is_some_and(|c| c == Category::RemoteBranch)
     {
-        // TODO(gix): we really want to have a function to return the local tracking branch
-        //            fix this in other places, too.
-        let Some((upstream_branch_name, _remote_name)) =
-            repo.upstream_branch_and_remote_for_tracking_branch(branch.as_ref())?
-        else {
-            // TODO: actually create a local trakcing branch with proper configuration.
-            bail!("Couldn't find remote refspecs that would match {branch}");
-        };
-        // Pretend the upstream branch is also the local tracking name.
-        incoming_branch_is_remote_tracking_without_local_tracking = true;
-        branch = upstream_branch_name;
+        branch = local_tracking_branch_name(repo, branch.as_ref())?;
         branch_ref = try_find_validated_ref(repo, branch.as_ref(), "apply")?;
+        incoming_branch_is_remote_tracking_without_local_tracking = branch_ref.is_none();
     }
     let head_ref_name = repo.head_name()?;
     let head_on_managed_workspace_ref = match &ws.kind {

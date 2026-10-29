@@ -1191,18 +1191,10 @@ pub fn find_local_tracking_branch(
     remote_ref: &FullNameRef,
     repo: &gix::Repository,
 ) -> Result<LocalTrackingBranchMatch> {
-    let references = repo.references()?;
     let mut first = None;
     let mut second = None;
-    for reference in references.local_branches()? {
-        let reference = reference?;
+    for reference in repo.local_branches_tracking_ref(remote_ref)? {
         let local_ref = reference.name();
-        let upstream = repo
-            .branch_remote_tracking_ref_name(local_ref, gix::remote::Direction::Fetch)
-            .transpose()?;
-        if upstream.as_ref().map(AsRef::as_ref) != Some(remote_ref) {
-            continue;
-        }
         let ref_on_remote = repo
             .branch_remote_ref_name(local_ref, gix::remote::Direction::Fetch)
             .transpose()?;
