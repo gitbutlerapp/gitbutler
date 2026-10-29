@@ -17,10 +17,11 @@
 	const routes = inject(WEB_ROUTES_SERVICE);
 	const userService = inject(USER_SERVICE);
 	const user = userService.user;
+	const userLoaded = userService.loaded;
 
 	// If there is no user (user not logged in), redirect to home
 	$effect(() => {
-		if ($user === undefined) {
+		if ($user === undefined && $userLoaded) {
 			goto(routes.homePath());
 		}
 	});
