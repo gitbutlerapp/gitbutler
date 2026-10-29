@@ -803,12 +803,30 @@ impl AppView {
         window.focus(&self.navigator.focus_handle(cx), cx);
     }
 
+    /// The terminal the detail's place shows, while one is selected.
+    fn shown_terminal(&self, cx: &App) -> Option<Entity<crate::terminal::Terminal>> {
+        let store = self.store.read(cx);
+        match store.selection.as_ref()? {
+            Selection::Terminal(_, id) => store.terminals.get(*id).cloned(),
+            _ => None,
+        }
+    }
+
+    /// Give the keys to the terminal shown, which covers the detail, if one is.
+    fn focus_terminal(&self, window: &mut Window, cx: &mut App) -> bool {
+        let terminal = self.shown_terminal(cx);
+        if let Some(terminal) = &terminal {
+            window.focus(&terminal.focus_handle(cx), cx);
+        }
+        terminal.is_some()
+    }
+
     /// Focus the navigator, or the changes while the navigator isn't on screen, so keys
     /// always reach something visible. Out over the detail, it's on screen.
     pub(crate) fn focus_main(&self, window: &mut Window, cx: &mut App) {
         if self.navigator_open || self.peek.open {
             window.focus(&self.navigator.focus_handle(cx), cx);
-        } else {
+        } else if !self.focus_terminal(window, cx) {
             self.detail
                 .update(cx, |detail, cx| detail.focus(window, cx));
         }
@@ -842,6 +860,13 @@ impl AppView {
     ) {
         // With the detail hidden, the navigator is the only pane.
         if self.covered() || !self.detail_open {
+            return;
+        }
+        // A terminal takes every key it's given, so only the navigator moves to it.
+        if let Some(terminal) = self.shown_terminal(cx) {
+            if self.navigator.focus_handle(cx).contains_focused(window, cx) {
+                window.focus(&terminal.focus_handle(cx), cx);
+            }
             return;
         }
         let detail = self.detail.read(cx);
@@ -924,7 +949,7 @@ impl AppView {
     /// kept them, else the file list, else the diff. A page with none, as an overview alone or
     /// a branch with no commits, gives them to the detail.
     fn focus_past_navigator(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.focus_pane_from(0, true, false, window, cx) {
+        if !self.focus_terminal(window, cx) && !self.focus_pane_from(0, true, false, window, cx) {
             (self.detail).update(cx, |detail, cx| detail.focus(window, cx));
         }
     }
@@ -948,7 +973,7 @@ impl AppView {
     }
 
     fn focus_changes(&mut self, _: &FocusChanges, window: &mut Window, cx: &mut Context<Self>) {
-        if self.covered() {
+        if self.covered() || self.focus_terminal(window, cx) {
             return;
         }
         // Asking for what's in the detail brings it back.
@@ -958,7 +983,7 @@ impl AppView {
     }
 
     fn focus_diff(&mut self, _: &FocusDiff, window: &mut Window, cx: &mut Context<Self>) {
-        if self.covered() {
+        if self.covered() || self.focus_terminal(window, cx) {
             return;
         }
         self.set_detail(true, window, cx);
@@ -1044,6 +1069,7 @@ impl AppView {
                 })
             }
             Selection::Upstream(_, _, id) => Some(id.0.to_string()),
+            Selection::Terminal(..) => None,
             Selection::Branch(_, ref_name) => {
                 ref_name.map(|ref_name| short_ref(&ref_name).into_owned())
             }
@@ -1438,6 +1464,15 @@ impl AppView {
                         ),
                 )
             })
+            .children(self.shown_terminal(cx).map(|terminal| {
+                div()
+                    .absolute()
+                    .top(dp(HEADER_HEIGHT))
+                    .bottom_0()
+                    .left_0()
+                    .right_0()
+                    .child(terminal.cached(StyleRefinement::default().size_full()))
+            }))
             .when(navigator_sliding, |el| {
                 el.child(edge(theme.border_3).left(fixed(-1.)))
             })

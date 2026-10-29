@@ -28,12 +28,16 @@ impl Store {
             | Selection::Worktree(..)
             | Selection::Mesh(..)
             | Selection::Upstream(_, None, _)
-            | Selection::Section(..) => None,
+            | Selection::Section(..)
+            | Selection::Terminal(..) => None,
         }
     }
 
     /// The checkout of the lane `selection` is in.
     pub fn checkout_of(&self, selection: &Selection) -> Option<Checkout> {
+        if let Some(checkout) = self.terminals.checkout_of(selection) {
+            return Some(checkout.clone());
+        }
         Some(self.lane_for(selection)?.0.checkout.clone())
     }
 

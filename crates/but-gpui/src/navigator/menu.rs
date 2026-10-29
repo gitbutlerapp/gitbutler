@@ -143,6 +143,12 @@ impl Navigator {
         let action =
             |label: &'static str, action: &dyn gpui::Action| MenuItem::action(label, action, cx);
         match target {
+            Selection::Terminal(_, id) => {
+                let id = *id;
+                vec![MenuItem::new("Close terminal", move |this, _, cx| {
+                    (this.store).update(cx, |store, cx| store.close_terminal(id, cx))
+                })]
+            }
             // A remote's commit can be copied into a branch here, or its ID copied, and a
             // branch's marked read or unread.
             Selection::Upstream(project, ref_name, id) => {
@@ -289,6 +295,7 @@ impl Navigator {
             }
             Selection::Uncommitted(project) => {
                 let mut items = new_branch_items(store, project, cx);
+                items.push(new_terminal_item(project, Checkout::Main).separated());
                 items.push(action("Fetch", &Fetch).separated());
                 items.extend(update_item(store, project, cx));
                 if store
@@ -579,8 +586,9 @@ impl Navigator {
                     MenuItem::keyed("Copy path", &CopySelection, cx, move |this, _, cx| {
                         this.copy_text(copied.clone(), cx)
                     }),
+                    new_terminal_item(&project, Checkout::Linked(name.clone())).separated(),
                     // Not Update: it rebases the workspace's stacks, not this worktree's.
-                    action("Fetch", &Fetch).separated(),
+                    action("Fetch", &Fetch),
                     MenuItem::new("Archive", move |this, _, cx| {
                         let (project, name) = (project.clone(), name.clone());
                         this.store.update(cx, |store, cx| {
@@ -616,7 +624,7 @@ impl Navigator {
                     .danger(),
                 ];
                 // As Main worktree's, after Fetch and before what happens to it.
-                items.splice(3..3, changes.into_iter().flatten());
+                items.splice(4..4, changes.into_iter().flatten());
                 let archive = items.len() - 2;
                 items.splice(archive..archive, moves);
                 items.extend(build);
@@ -685,4 +693,13 @@ impl Navigator {
             | Selection::Section(..) => Vec::new(),
         }
     }
+}
+
+/// Opens a terminal on `project`'s `checkout`, listed under its heading.
+fn new_terminal_item(project: &ProjectId, checkout: Checkout) -> MenuItem {
+    let project = project.clone();
+    MenuItem::new("New terminal", move |this, _, cx| {
+        let (project, checkout) = (project.clone(), checkout.clone());
+        (this.store).update(cx, |store, cx| store.open_terminal(project, checkout, cx))
+    })
 }

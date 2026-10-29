@@ -409,7 +409,8 @@ fn copies(store: &Store, selection: &Selection) -> Vec<(&'static str, String)> {
         | Selection::History(_)
         | Selection::Graph(_)
         | Selection::Stack(..)
-        | Selection::Section(..) => {}
+        | Selection::Section(..)
+        | Selection::Terminal(..) => {}
     }
     copies
 }

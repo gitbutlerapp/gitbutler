@@ -43,6 +43,7 @@ mod rebuild;
 mod settings;
 mod state;
 mod status_bar;
+mod terminal;
 mod theme;
 mod transfer;
 mod ui;

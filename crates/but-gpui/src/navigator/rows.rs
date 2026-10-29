@@ -355,13 +355,14 @@ impl Navigator {
         let headed = !workspace.worktrees.is_empty();
         let selection = store.selection.as_ref().filter(|s| s.project() == id);
         let main_selected =
-            selection.is_some_and(|s| within(s, workspace.branches_in(&Checkout::Main)));
+            selection.is_some_and(|s| in_checkout(store, s, workspace, &Checkout::Main));
         let main_open = self.worktree_open(id, Checkout::Main, main_selected);
         // Always listed, with nothing uncommitted too, so where to commit is always there.
         let heading = Selection::Uncommitted(id.clone());
         rows.push(Row::Item(heading.clone()));
         rows.open_in(STEP);
         rows.fold(Fold::Under(heading), main_open, &self.folds, |rows| {
+            terminal_rows(store, id, &Checkout::Main, rows);
             // A stack being unapplied leaves at once.
             let stacks = workspace.lanes_in(&Checkout::Main).filter(|stack| {
                 !(stack.branches.iter())
@@ -379,7 +380,7 @@ impl Navigator {
             rows.push(Row::WorktreeDivider);
             let on_branches = |wt: &Worktree| {
                 let checkout = Checkout::Linked(wt.name.clone());
-                selection.is_some_and(|s| within(s, workspace.branches_in(&checkout)))
+                selection.is_some_and(|s| in_checkout(store, s, workspace, &checkout))
             };
             // The inactive ones wait under a heading of their own, folded unless opened or
             // the selection's in one.
@@ -681,6 +682,7 @@ impl Navigator {
         let open = self.worktree_open(id, Checkout::Linked(name.clone()), selected);
         rows.fold(Fold::Under(heading), open, &self.folds, |rows| {
             rows.open_in(STEP);
+            terminal_rows(store, id, &Checkout::Linked(name.clone()), rows);
             let workspace = store.workspace(id);
             let lane = workspace.and_then(|ws| ws.worktree_lane(name.as_ref()));
             self.lane_rows(store, id, lane.map_or(&[][..], |lane| &lane.branches), rows);
@@ -800,7 +802,7 @@ pub(super) fn in_inactive(store: &Store, id: &ProjectId, inactive: &[&Worktree])
             (inactive.iter()).any(|wt| {
                 let checkout = Checkout::Linked(wt.name.clone());
                 matches!(s, Selection::Worktree(_, name) if *name == wt.name)
-                    || within(s, workspace.iter().flat_map(|ws| ws.branches_in(&checkout)))
+                    || workspace.is_some_and(|ws| in_checkout(store, s, ws, &checkout))
             })
         })
 }
@@ -809,6 +811,24 @@ pub(super) fn in_inactive(store: &Store, id: &ProjectId, inactive: &[&Worktree])
 /// opened, and while the selection's in one.
 pub(super) fn inactive_open(store: &Store, id: &ProjectId, inactive: &[&Worktree]) -> bool {
     in_inactive(store, id, inactive) || store.prefs.shown_inactive.contains(id.as_ref())
+}
+
+/// Whether `selection` is in `checkout`, which folding its heading hides: a branch, commit or
+/// stack in its lane, or a terminal open on it.
+pub(super) fn in_checkout(
+    store: &Store,
+    selection: &Selection,
+    workspace: &Workspace,
+    checkout: &Checkout,
+) -> bool {
+    within(selection, workspace.branches_in(checkout))
+        || store.terminals.checkout_of(selection) == Some(checkout)
+}
+
+/// The terminals open on `project`'s `checkout`, first under its heading.
+fn terminal_rows(store: &Store, project: &ProjectId, checkout: &Checkout, rows: &mut Rows) {
+    let terminals = store.terminals.on(project, checkout);
+    rows.extend(terminals.map(|(id, _)| Row::Item(Selection::Terminal(project.clone(), id))));
 }
 
 /// Whether `selection` is one of `branches`, a commit on one, or a stack of them.
