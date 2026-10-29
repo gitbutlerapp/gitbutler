@@ -287,6 +287,164 @@ UD x
 }
 
 #[test]
+fn allowed_text_conflicts_keep_markers_stages_and_unrelated_staged_content() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-modification-the-target-deletes");
+    let target = build_commit(
+        &repo,
+        |tree| {
+            tree.upsert("x", EntryKind::Blob, repo.write_blob(b"three\n")?)?;
+            Ok(())
+        },
+        "conflicting target",
+    )?
+    .id;
+    let staged_blob_id = repo.write_blob(b"staged\n")?.detach();
+    git_at_dir(repo.workdir().expect("non-bare"))
+        .args([
+            "update-index",
+            "--cacheinfo",
+            &format!("100644,{staged_blob_id},keep"),
+        ])
+        .run();
+
+    let out = safe_checkout_from_head(
+        target,
+        &repo,
+        checkout::Options {
+            allow_uncommitted_changes_to_conflict_with_new_head: true,
+            ..Default::default()
+        },
+    )?;
+
+    assert!(
+        out.conflict_occurred,
+        "the overlapping worktree change remains unresolved"
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(repo.workdir().expect("non-bare").join("x"))?,
+        snapbox::str![[r#"
+<<<<<<< ours
+two
+=======
+three
+>>>>>>> theirs
+
+"#]]
+    );
+    let index = repo.index()?;
+    for (stage, contents) in [
+        (gix::index::entry::Stage::Base, "one\n"),
+        (gix::index::entry::Stage::Ours, "two\n"),
+        (gix::index::entry::Stage::Theirs, "three\n"),
+    ] {
+        let entry = index
+            .entry_by_path_and_stage("x".into(), stage)
+            .expect("conflict stage exists");
+        assert_eq!(
+            entry.id,
+            repo.write_blob(contents)?.detach(),
+            "the original content survives at {stage:?}"
+        );
+    }
+    assert!(
+        index
+            .entry_by_path_and_stage("x".into(), gix::index::entry::Stage::Unconflicted)
+            .is_none(),
+        "conflict markers are not staged as ordinary content"
+    );
+    assert_eq!(
+        index
+            .entry_by_path("keep".into())
+            .expect("unrelated path remains staged")
+            .id,
+        staged_blob_id,
+        "unrelated staged content survives conflict materialization"
+    );
+    Ok(())
+}
+
+#[test]
+fn allowed_text_conflicts_honor_diff3_configuration() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-modification-the-target-deletes");
+    git_at_dir(repo.workdir().expect("non-bare"))
+        .args(["config", "merge.conflictstyle", "diff3"])
+        .run();
+    let repo = open_repo(repo.git_dir())?;
+    let target = build_commit(
+        &repo,
+        |tree| {
+            tree.upsert("x", EntryKind::Blob, repo.write_blob(b"three\n")?)?;
+            Ok(())
+        },
+        "conflicting target",
+    )?
+    .id;
+    safe_checkout_from_head(
+        target,
+        &repo,
+        checkout::Options {
+            allow_uncommitted_changes_to_conflict_with_new_head: true,
+            ..Default::default()
+        },
+    )?;
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(repo.workdir().expect("non-bare").join("x"))?,
+        snapbox::str![[r#"
+<<<<<<< ours
+two
+||||||| ancestor
+one
+=======
+three
+>>>>>>> theirs
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn failed_checkout_does_not_persist_prepared_index_deletions() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let target = build_commit(
+        &repo,
+        |tree| {
+            tree.remove("x")?;
+            tree.upsert("blocked", EntryKind::Blob, repo.write_blob(b"target\n")?)?;
+            Ok(())
+        },
+        "remove missing file and add blocked path",
+    )?
+    .id;
+    let workdir = repo.workdir().expect("non-bare");
+    std::fs::write(workdir.join(".gitignore"), b"blocked\n")?;
+    git_at_dir(workdir).args(["init", "blocked"]).run();
+    std::fs::write(workdir.join("blocked/keep"), b"preserve\n")?;
+    let index_before = std::fs::read(repo.index_path())?;
+    let head_before = repo.head_id()?.detach();
+
+    safe_checkout_from_head(target, &repo, Default::default())
+        .expect_err("an ignored repository prevents materializing the target");
+
+    assert_eq!(
+        std::fs::read(repo.index_path())?,
+        index_before,
+        "index deletions prepared before preflight remain unpersisted on failure"
+    );
+    assert_eq!(
+        repo.head_id()?.detach(),
+        head_before,
+        "a failed checkout does not advance HEAD"
+    );
+    assert_eq!(
+        std::fs::read(workdir.join("blocked/keep"))?,
+        b"preserve\n",
+        "the obstructing file remains intact"
+    );
+    Ok(())
+}
+
+#[test]
 fn deleting_below_a_directory_the_worktree_turned_into_a_file_leaves_no_index_entry()
 -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-dir-turned-file-the-target-deletes");

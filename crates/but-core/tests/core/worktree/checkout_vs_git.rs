@@ -1,6 +1,8 @@
 //! Check out every combination of what `HEAD`, the target, the index and the worktree hold at
 //! one path, `p`, with `git checkout`, with `git checkout -m` and with GitButler, and list the
 //! cases where GitButler differs from both.
+//! Notes mark the safety differences introduced by native checkout; unannotated differences
+//! retain previously recorded GitButler behavior.
 //!
 //! The lists are the snapshots. Nothing reads them: a change to checkout changes them, so their
 //! diff shows which cases it changes. Run with `SNAPSHOTS=overwrite` to record them.
@@ -386,6 +388,7 @@ fn change_worktree(worktree: Worktree, on_disk: OnDisk) -> &'static str {
 /// A combination, checked out three ways.
 struct Case {
     name: String,
+    preservation_note: Option<&'static str>,
     before: State,
     git: Checkout,
     git_m: Checkout,
@@ -422,18 +425,38 @@ else
 fi
 "#
             )?;
-            variants.push(format!(
+            let name = format!(
                 "{}; index {}; worktree {}",
                 pair.describe(),
                 index.describe(),
                 worktree.describe()
-            ));
+            );
+            let preservation_note = match (index, pair.target, worktree) {
+                (
+                    Index::Staged,
+                    Entry::Directory,
+                    Worktree::Deleted
+                    | Worktree::DirectoryWithUntrackedFile
+                    | Worktree::IgnoredDirectory,
+                ) => Some(
+                    "Preserves the staged parent file instead of discarding it for target descendants.",
+                ),
+                (
+                    Index::LikeHead,
+                    Entry::File | Entry::Executable | Entry::Symlink,
+                    Worktree::DirectoryWithUntrackedFile,
+                ) if pair.head == Entry::Submodule => {
+                    Some("Preserves untracked files inside an uninitialized gitlink.")
+                }
+                _ => None,
+            };
+            variants.push((name, preservation_note));
         }
     }
     invoke_bash_at_dir(&script, tmp.path());
     let names = Names::read(tmp.path())?;
     let mut cases = Vec::new();
-    for (at, name) in variants.into_iter().enumerate() {
+    for (at, (name, preservation_note)) in variants.into_iter().enumerate() {
         let dir = tmp.path().join(at.to_string());
         let git = Checkout::by_git(&dir, "git", &names)?;
         // Where `git checkout` succeeds, `git checkout -m` does the same.
@@ -443,6 +466,7 @@ fi
         };
         cases.push(Case {
             name,
+            preservation_note,
             before: State::read(&dir.join("repo"), &names)?,
             git,
             git_m,
@@ -724,6 +748,11 @@ fn report(cases: Vec<Case>) -> String {
                 case.git_m.describe(before),
                 case.gitbutler.describe(before)
             ));
+            if !case.gitbutler.checked_out
+                && let Some(note) = case.preservation_note
+            {
+                writeln!(out, "  note: {note}").expect("writing to a string cannot fail");
+            }
         }
     }
     out

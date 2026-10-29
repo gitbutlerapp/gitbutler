@@ -1,11 +1,6 @@
-use bstr::BStr;
 use but_error::bail_precondition;
 use but_oxidize::{ObjectIdExt, OidExt as _};
-use gix::{
-    merge::{plumbing::tree::ConflictIndexEntry, tree::TreatAsUnresolved},
-    prelude::ObjectIdExt as _,
-    refs::Target,
-};
+use gix::{merge::tree::TreatAsUnresolved, prelude::ObjectIdExt as _, refs::Target};
 use tracing::instrument;
 
 use crate::{RepositoryExt, update_head_reference};
@@ -83,23 +78,22 @@ pub fn safe_checkout_from_head(
         let mut repo = gix::open(repo.git_dir())?;
         #[allow(deprecated)]
         let wd_tree_id = repo.create_wd_tree(u64::MAX)?;
-        let wd_tree = git2_repo
-            .find_object(wd_tree_id.to_git2(), None)?
-            .peel_to_tree()?;
         repo.config_snapshot_mut()
             .set_value(&gix::config::tree::Merge::RENORMALIZE, "true")?;
         let mut outcome = repo.merge_trees(
             old_tree.id().to_gix(),
             wd_tree_id,
             new_tree.id().to_gix(),
-            Default::default(),
+            gix::merge::blob::builtin_driver::text::Labels {
+                ancestor: Some("ancestor".into()),
+                current: Some("ours".into()),
+                other: Some("theirs".into()),
+            },
             repo.tree_merge_options()?.with_rewrites(None),
         )?;
         let checkout_target_base_id = outcome.tree.write()?.detach();
 
-        let checkout_target_base = git2_repo.find_tree(checkout_target_base_id.to_git2())?;
-        let mut checkout_target = git2::Index::new()?;
-        checkout_target.read_tree(&checkout_target_base)?;
+        let mut checkout_target = repo.index_from_tree(&checkout_target_base_id)?;
 
         let unresolved = TreatAsUnresolved::git();
         if outcome.has_unresolved_conflicts(unresolved) {
@@ -119,36 +113,6 @@ pub fn safe_checkout_from_head(
                             conflict.ours.location()
                         );
                     }
-                    fn to_git2_index_entry(
-                        entry: &ConflictIndexEntry,
-                        path: &BStr,
-                    ) -> git2::IndexEntry {
-                        git2::IndexEntry {
-                            ctime: git2::IndexTime::new(0, 0),
-                            mtime: git2::IndexTime::new(0, 0),
-                            dev: 0,
-                            ino: 0,
-                            mode: entry.mode.value() as u32,
-                            uid: 0,
-                            gid: 0,
-                            file_size: 0,
-                            id: entry.id.to_git2(),
-                            flags: 0,
-                            flags_extended: 0,
-                            path: path.to_vec(),
-                        }
-                    }
-                    let base_index_entry =
-                        base.map(|c| to_git2_index_entry(&c, conflict.ours.location()));
-                    let ours_index_entry =
-                        ours.map(|c| to_git2_index_entry(&c, conflict.ours.location()));
-                    let theirs_index_entry =
-                        theirs.map(|c| to_git2_index_entry(&c, conflict.ours.location()));
-                    checkout_target.conflict_add(
-                        base_index_entry.as_ref(),
-                        ours_index_entry.as_ref(),
-                        theirs_index_entry.as_ref(),
-                    )?;
                 }
             } else {
                 let mut paths = outcome
@@ -166,9 +130,48 @@ pub fn safe_checkout_from_head(
             }
         }
 
-        let mut checkout_opts = git2::build::CheckoutBuilder::new();
-        checkout_opts.baseline(&wd_tree);
-        git2_repo.checkout_index(Some(&mut checkout_target), Some(&mut checkout_opts))?;
+        let baseline = repo.index_from_tree(&wd_tree_id)?;
+        let mut index = repo.index_or_empty()?.into_owned_or_cloned();
+        let mut index_changed = remove_index_entries_deleted_on_both_sides(
+            &repo,
+            &mut index,
+            old_tree.id().to_gix(),
+            new_tree.id().to_gix(),
+        )?;
+        index_changed |= repo
+            .checkout_index_with_baseline(
+                &baseline,
+                &mut checkout_target,
+                &mut index,
+                gix::progress::Discard,
+                &Default::default(),
+                gix::worktree::checkout::Options {
+                    overwrite_ignored: true,
+                    ..Default::default()
+                },
+            )?
+            .index_changed;
+        if conflict_occurred {
+            outcome.index_changed_after_applying_conflicts(
+                &mut checkout_target,
+                unresolved,
+                gix::merge::tree::apply_index_entries::RemovalMode::Prune,
+            );
+            let mut edit = crate::index::Edit::new(&mut index);
+            for entry in checkout_target.entries() {
+                let stage = match entry.stage() {
+                    gix::index::entry::Stage::Unconflicted => continue,
+                    gix::index::entry::Stage::Base => crate::index::ConflictStage::Base,
+                    gix::index::entry::Stage::Ours => crate::index::ConflictStage::Ours,
+                    gix::index::entry::Stage::Theirs => crate::index::ConflictStage::Theirs,
+                };
+                edit.set_conflict_stage(entry.path(&checkout_target), stage, entry.mode, entry.id);
+            }
+            index_changed |= edit.finish();
+        }
+        if index_changed {
+            index.write(Default::default())?;
+        }
     }
 
     let mut head_update = None;
@@ -192,14 +195,6 @@ pub fn safe_checkout_from_head(
         }
     }
 
-    if old_tree.id() != new_tree.id() {
-        remove_index_entries_deleted_on_both_sides(
-            repo,
-            old_tree.id().to_gix(),
-            new_tree.id().to_gix(),
-        )?;
-    }
-
     Ok(Outcome {
         head_update,
         conflict_occurred,
@@ -211,22 +206,22 @@ pub fn safe_checkout_from_head(
 /// The checkout never touches them, as they aren't in the worktree snapshot.
 fn remove_index_entries_deleted_on_both_sides(
     repo: &gix::Repository,
+    index: &mut gix::index::State,
     old_tree: gix::ObjectId,
     new_tree: gix::ObjectId,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<bool> {
     let workdir = repo
         .workdir()
         .ok_or_else(|| anyhow::anyhow!("checkout needs a worktree"))?;
     let old_tree = repo.index_from_tree(&old_tree)?;
     let new_tree = repo.index_from_tree(&new_tree)?;
-    let mut index = repo.index_or_empty()?.into_owned_or_cloned();
     let mut path_check = gix::status::plumbing::SymlinkCheck::new(workdir.to_owned());
     let mut deleted_on_both_sides = Vec::<bstr::BString>::new();
     for entry in index.entries() {
         if entry.stage() != gix::index::entry::Stage::Unconflicted {
             continue;
         }
-        let path = entry.path(&index);
+        let path = entry.path(index);
         let staged = old_tree
             .entry_by_path(path)
             .is_none_or(|old| old.id != entry.id || old.mode != entry.mode);
@@ -254,14 +249,11 @@ fn remove_index_entries_deleted_on_both_sides(
             deleted_on_both_sides.push(path.to_owned());
         }
     }
-    let mut edit = crate::index::Edit::new(&mut index);
+    let mut edit = crate::index::Edit::new(index);
     for path in &deleted_on_both_sides {
         edit.remove(path.as_ref());
     }
-    if edit.finish() {
-        index.write(Default::default())?;
-    }
-    Ok(())
+    Ok(edit.finish())
 }
 
 /// `SymlinkCheck` reports a symlinked parent directory as its only validation error.
