@@ -64,33 +64,6 @@ impl ManagedHookType {
     }
 }
 
-fn hooks_dir_from_git_dir_and_config_path_for_run_dir(
-    git_dir: &Path,
-    hook_run_dir: &Path,
-    hooks_path: Option<PathBuf>,
-) -> PathBuf {
-    let hooks_path = hooks_path.map(|path| {
-        if path.is_relative() {
-            hook_run_dir.join(path)
-        } else {
-            path
-        }
-    });
-    hooks_path.unwrap_or_else(|| git_dir.join("hooks"))
-}
-
-/// Get the hooks directory for a `gix` repository, respecting `core.hooksPath`.
-pub(crate) fn get_hooks_dir(repo: &gix::Repository) -> PathBuf {
-    hooks_dir_from_git_dir_and_config_path_for_run_dir(
-        repo.git_dir(),
-        repo.workdir().unwrap_or(repo.git_dir()),
-        repo.config_snapshot()
-            .trusted_path("core.hooksPath")
-            .ok()
-            .flatten(),
-    )
-}
-
 /// Directory holding GitButler's config-registered hook scripts.
 fn config_scripts_dir(repo: &gix::Repository) -> PathBuf {
     repo.common_dir().join(CONFIG_HOOK_SCRIPTS_SUBDIR)
@@ -143,7 +116,11 @@ pub fn uninstall_managed_hooks(repo: &gix::Repository) -> Result<HookInstallatio
         warnings.push(format!("Failed to remove config-based hooks: {e}"));
     }
 
-    match uninstall_managed_hooks_at(&get_hooks_dir(repo)) {
+    match repo
+        .hooks_directory()
+        .map_err(anyhow::Error::from)
+        .and_then(|directory| uninstall_managed_hooks_at(&directory))
+    {
         Ok(HookInstallationResult::PartialSuccess { warnings: w }) => warnings.extend(w),
         Ok(_) => {}
         Err(e) => warnings.push(format!("Failed to remove hooks from hooks directory: {e}")),

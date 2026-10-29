@@ -248,6 +248,50 @@ fn test_uninstall_respects_relative_core_hooks_path() -> Result<()> {
 }
 
 #[test]
+fn uninstall_from_linked_worktree_uses_the_common_hook_directory()
+-> but_testsupport::gix_testtools::TestResult {
+    let fixture = crate::support::RepoWithOrigin::default();
+    let main = fixture
+        .local_repo
+        .workdir()
+        .expect("fixture has a worktree");
+    but_testsupport::gix_testtools::git(main, "worktree add --detach ../linked")?;
+    let linked = main.parent().expect("fixture has a parent").join("linked");
+    let common_hooks = fixture.local_repo.common_dir().join("hooks");
+    plant_file_based_hooks(&common_hooks)?;
+    let repo = but_testsupport::open_repo(&linked)?;
+    uninstall_managed_hooks(&repo)?;
+    for name in ["pre-commit", "post-checkout"] {
+        assert!(
+            !common_hooks.join(name).exists(),
+            "linked worktrees clean up common hook files, including inactive hooks"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn invalid_hooks_path_reports_a_warning_without_cleaning_up_default_hooks() -> Result<()> {
+    let (_temp, mut repo) = create_test_repo()?;
+    let default_hooks = hooks_dir(&repo);
+    plant_file_based_hooks(&default_hooks)?;
+    repo.config_snapshot_mut()
+        .append_config(["core.hooksPath"], gix::config::Source::Local)?;
+    let outcome = uninstall_managed_hooks(&repo)?;
+    assert!(
+        matches!(outcome, HookInstallationResult::PartialSuccess { warnings } if warnings.iter().any(|warning| warning.contains("core.hooksPath"))),
+        "an invalid configured path is reported instead of silently selecting the default"
+    );
+    for name in ["pre-commit", "post-checkout"] {
+        assert!(
+            default_hooks.join(name).exists(),
+            "invalid configuration cannot redirect cleanup"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn test_uninstall_removes_config_hooks_and_scripts() -> Result<()> {
     let (_tmp, repo) = create_test_repo()?;
     let dir = workdir(&repo);
