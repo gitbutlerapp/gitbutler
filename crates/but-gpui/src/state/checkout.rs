@@ -23,6 +23,7 @@ impl Store {
             | Selection::Uncommitted(_)
             | Selection::Branches(_)
             | Selection::History(_)
+            | Selection::Graph(_)
             | Selection::Worktree(..)
             | Selection::Mesh(..)
             | Selection::Upstream(_, None, _)

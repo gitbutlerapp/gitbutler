@@ -675,7 +675,10 @@ impl Navigator {
                 items
             }
             Selection::Mesh(..) => self.mesh_menu(target, cx),
-            Selection::Branches(_) | Selection::History(_) | Selection::Section(..) => Vec::new(),
+            Selection::Branches(_)
+            | Selection::History(_)
+            | Selection::Graph(_)
+            | Selection::Section(..) => Vec::new(),
         }
     }
 }

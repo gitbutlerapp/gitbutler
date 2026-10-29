@@ -413,6 +413,7 @@ impl Navigator {
         rows.rule_off();
         rows.push(Row::Item(Selection::Branches(id.clone())));
         rows.push(Row::Item(Selection::History(id.clone())));
+        rows.push(Row::Item(Selection::Graph(id.clone())));
     }
 
     /// The rows while the filter has words in it: every project, worktree, branch and commit

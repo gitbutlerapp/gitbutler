@@ -1025,7 +1025,10 @@ impl Navigator {
             Selection::Upstream(project, ref_name, id) => {
                 self.toggle_merge(&project, ref_name, id, window, cx)
             }
-            Selection::Commit(..) | Selection::Branches(_) | Selection::History(_) => {}
+            Selection::Commit(..)
+            | Selection::Branches(_)
+            | Selection::History(_)
+            | Selection::Graph(_) => {}
         }
     }
 
@@ -1490,6 +1493,10 @@ impl Navigator {
             Selection::History(_) => {
                 let label = "Operations history";
                 Some(self.page_row(item, Icon::Clock, label, None, style, cx))
+            }
+            Selection::Graph(_) => {
+                let tip = Some("The commits as a graph");
+                Some(self.page_row(item, Icon::Fork, "Graph", tip, style, cx))
             }
             Selection::Stack(id, bottom) => {
                 self.stack_row(ix, item, id, bottom.as_ref(), style, cx)

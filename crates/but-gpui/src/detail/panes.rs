@@ -108,6 +108,7 @@ impl Detail {
                     crumbs.push(heading(selection));
                     crumbs.push((format!("Stack of {n}").into(), None));
                 }
+                Selection::Graph(_) => crumbs.push(("Graph".into(), None)),
                 // Then the operation picked, as the Branches page names its branch.
                 Selection::History(project) => {
                     let operation = self.selected_operation(project);

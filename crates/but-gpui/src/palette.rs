@@ -398,6 +398,7 @@ fn copies(store: &Store, selection: &Selection) -> Vec<(&'static str, String)> {
         | Selection::Mesh(..)
         | Selection::Branches(_)
         | Selection::History(_)
+        | Selection::Graph(_)
         | Selection::Stack(..)
         | Selection::Section(..) => {}
     }
@@ -425,7 +426,7 @@ fn project_choice(entry: &ProjectEntry) -> Choice {
 }
 
 /// Go to anything's rows for a loaded project's pages, as the navigator names them.
-fn page_choices(entry: &ProjectEntry, several: bool) -> [Choice; 2] {
+fn page_choices(entry: &ProjectEntry, several: bool) -> [Choice; 3] {
     let id = &entry.id;
     let pages = [
         (Selection::Branches(id.clone()), "Branches", Icon::Branch),
@@ -434,6 +435,7 @@ fn page_choices(entry: &ProjectEntry, several: bool) -> [Choice; 2] {
             "Operations history",
             Icon::Clock,
         ),
+        (Selection::Graph(id.clone()), "Graph", Icon::Fork),
     ];
     let project = several.then_some(entry.project.name.as_str());
     pages.map(|(page, label, icon)| {

@@ -23,6 +23,7 @@
 //! release 120 500         # let go without moving there first, as a hand does
 //! scroll 900 400 300      # scroll by 300 logical pixels at a window position
 //! scroll 900 400 0 200    # and by 200 to the right
+//! pinch 900 400 0.5       # pinch a trackpad there, zooming in by half again, out below 0
 //! add /path/to/repo       # add a project, as Add a repository does with the folder picked
 //! sh but commit -m x      # run a shell command, as an agent or another app would
 //! size 900 500           # resize the window, in logical pixels
@@ -47,8 +48,8 @@ use std::time::{Duration, Instant};
 use anyhow::{Context as _, Result, bail};
 use gpui::{
     AnyWindowHandle, App, AppContext as _, KeyUpEvent, Keystroke, Modifiers, ModifiersChangedEvent,
-    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, PlatformInput, Point,
-    ScrollDelta, ScrollWheelEvent, TouchPhase, Window, point,
+    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PinchEvent, Pixels, PlatformInput,
+    Point, ScrollDelta, ScrollWheelEvent, TouchPhase, Window, point,
 };
 use parking_lot::Mutex;
 
@@ -374,6 +375,20 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                     delta: ScrollDelta::Pixels(point(Pixels::from(-dx), Pixels::from(-dy))),
                     modifiers: Modifiers::default(),
                     touch_phase: TouchPhase::Moved,
+                }),
+                cx,
+            );
+        }
+        "pinch" => {
+            let [x, y, delta] = numbers()?[..] else {
+                bail!("pinch takes x y and how much it zooms by");
+            };
+            window.dispatch_event(
+                PlatformInput::Pinch(PinchEvent {
+                    position: point(Pixels::from(x), Pixels::from(y)),
+                    delta,
+                    modifiers: Modifiers::default(),
+                    phase: TouchPhase::Moved,
                 }),
                 cx,
             );

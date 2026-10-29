@@ -976,6 +976,7 @@ impl AppView {
             | Selection::Mesh(..)
             | Selection::Branches(_)
             | Selection::History(_)
+            | Selection::Graph(_)
             | Selection::Stack(..)
             | Selection::Section(..) => None,
         });
