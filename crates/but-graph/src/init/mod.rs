@@ -629,10 +629,18 @@ impl Graph {
             }
         };
 
-        let _ = (maybe_name, worktree_tips, options);
+        let _ = (maybe_name, options);
         let (overlay_repo, overlay_meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
-        let mut graph = crate::nosegment::graph(repo, meta, vec![tip.detach()], None)?
-            .to_segment_graph(repo, &overlay_repo, &overlay_meta, project_meta)?;
+        let heads = std::iter::once(tip.detach())
+            .chain(worktree_tips.iter().map(|tip| tip.id))
+            .collect();
+        let mut graph = crate::nosegment::graph(repo, meta, heads, None)?.to_segment_graph(
+            repo,
+            &overlay_repo,
+            &overlay_meta,
+            project_meta,
+        )?;
+        graph.worktree_tips = worktree_tips;
         if is_detached {
             graph.detach_entrypoint_segment()?;
         }
