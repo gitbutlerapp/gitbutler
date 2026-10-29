@@ -10,6 +10,7 @@ pub mod cli;
 pub mod conflicts;
 mod diff;
 pub mod edit;
+pub mod graph;
 mod highlight;
 pub mod history;
 pub mod images;

@@ -10,6 +10,7 @@ mod diff_view;
 mod file_list;
 mod file_tree;
 mod find;
+mod graph;
 pub use find::FindInDiff;
 mod history;
 mod lines;
@@ -487,6 +488,8 @@ pub struct Detail {
     /// How much of the navigator shows beside the detail, from 0 to 1, as the app last drew
     /// it. Its sliding changes the detail's width, so the detail draws again as it changes.
     pub navigator_shown: Cell<f32>,
+    /// The Graph page, which draws itself as it pans and zooms.
+    graph: Entity<graph::GraphView>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -513,6 +516,7 @@ impl Detail {
         let target_filter = cx.new(|cx| TextInput::new("Filter commits", false, cx));
         let history_filter = cx.new(|cx| TextInput::new("Filter operations", false, cx));
         let file_filter = cx.new(|cx| TextInput::new("Filter files", false, cx));
+        let graph = cx.new(|cx| graph::GraphView::new(store.clone(), cx));
         let subscriptions = vec![
             cx.subscribe(&store, |this, _, event, cx| match event {
                 StoreEvent::SelectionChanged => {
@@ -796,6 +800,7 @@ impl Detail {
             files_popover_shown: Cell::new(false),
             _files_popover_delay: Task::ready(()),
             navigator_shown: Cell::new(1.),
+            graph,
             _subscriptions: subscriptions,
         };
         // A wheel scroll is the user's, after which the cursor follows the diff again, and the
@@ -853,6 +858,7 @@ impl Detail {
             Selection::Project(project) => self.upstream_source(project, cx)?,
             Selection::History(project) => self.history_source(project)?,
             Selection::Branches(project) => self.branches_source(project)?,
+            Selection::Graph(_) => return None,
             Selection::Uncommitted(_) => DiffSource::Worktree,
             Selection::Worktree(_, name) => DiffSource::Linked(name.clone()),
             Selection::Mesh(project, id, pick) => self.machine_source(project, id, pick)?,
@@ -2591,11 +2597,11 @@ impl Detail {
     }
 
     /// Whether the page is an overview with no column beside it: Inactive and Network
-    /// worktrees', as the navigator lists what they sum up.
+    /// worktrees', as the navigator lists what they sum up, and the Graph's.
     pub fn overview_only(&self, cx: &App) -> bool {
         matches!(
             self.selection(cx),
-            Some(Selection::Section(_, Section::Inactive | Section::Mesh))
+            Some(Selection::Graph(_) | Selection::Section(_, Section::Inactive | Section::Mesh))
         )
     }
 
@@ -2696,7 +2702,8 @@ impl Render for Detail {
                         self.render_diff_file_list(&theme, cx)
                     }
                     // No column: the overview takes the page.
-                    Selection::Section(_, Section::Inactive | Section::Mesh) => {
+                    Selection::Graph(_)
+                    | Selection::Section(_, Section::Inactive | Section::Mesh) => {
                         div().into_any_element()
                     }
                     Selection::Mesh(project, id, pick) => {
@@ -2801,6 +2808,17 @@ impl Render for Detail {
                     Selection::Section(project, Section::Mesh) => {
                         Some(self.render_machines_overview(project, &theme, cx))
                     }
+                    Selection::Graph(_) => Some(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .h_full()
+                            .child(
+                                (self.graph.clone())
+                                    .cached(gpui::StyleRefinement::default().size_full()),
+                            )
+                            .into_any_element(),
+                    ),
                     // What the selected operation did, over the files it changed.
                     Selection::History(project) => {
                         self.render_operation_header(project, &theme, cx)

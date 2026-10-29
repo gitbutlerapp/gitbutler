@@ -53,6 +53,8 @@ pub enum Selection {
     Branches(ProjectId),
     /// The operation log, to look back at and restore.
     History(ProjectId),
+    /// The project's commits drawn as a graph, the workspace's and the history below them.
+    Graph(ProjectId),
     /// A linked worktree, by name, and its uncommitted changes.
     Worktree(ProjectId, bstr::BString),
     /// A stack of two or more branches, by its bottom branch, and what they change together.
@@ -95,6 +97,7 @@ impl Selection {
             | Selection::Commit(project, _)
             | Selection::Branches(project)
             | Selection::History(project)
+            | Selection::Graph(project)
             | Selection::Worktree(project, _)
             | Selection::Stack(project, _)
             | Selection::Mesh(project, ..)
@@ -661,6 +664,7 @@ impl Store {
             | Selection::Uncommitted(_)
             | Selection::Branches(_)
             | Selection::History(_)
+            | Selection::Graph(_)
             | Selection::Worktree(..)
             | Selection::Stack(..)
             | Selection::Mesh(..)
@@ -752,7 +756,8 @@ impl Store {
             Selection::Project(_)
             | Selection::Uncommitted(_)
             | Selection::Branches(_)
-            | Selection::History(_) => true,
+            | Selection::History(_)
+            | Selection::Graph(_) => true,
             Selection::Branch(_, ref_name) => workspace.find_branch(ref_name.as_ref()).is_some(),
             Selection::Commit(_, id) => workspace.find_commit(*id).is_some(),
             Selection::Worktree(_, name) => workspace.worktrees.iter().any(|w| w.name == *name),
@@ -864,6 +869,7 @@ impl Store {
             Selection::Commit(..) => "commit",
             Selection::Branches(_) => "branches",
             Selection::History(_) => "history",
+            Selection::Graph(_) => "graph",
             Selection::Worktree(..) => "worktree",
             Selection::Stack(..) => "stack",
             Selection::Mesh(..) => "mesh",
