@@ -116,8 +116,6 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Apply { .. } => BranchApply,
             #[cfg(feature = "legacy")]
-            Subcommands::Open { .. } => Open,
-            #[cfg(feature = "legacy")]
             Subcommands::Switch(..) => Switch,
             Subcommands::Gui { .. } => Gui,
             #[cfg(feature = "nightly")]
