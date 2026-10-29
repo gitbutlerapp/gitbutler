@@ -707,6 +707,44 @@ pub fn rebase_lane_bottoms<'a>(
         .collect()
 }
 
+/// What an update from the target rebases onto it, as `but pull --update` picks it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UpdateScope {
+    /// The workspace and the worktrees, as `but pull` does.
+    All,
+    /// The stacks, with the linked worktrees resting on them, as they move with them, and the
+    /// target's own branch when it's checked out with no commits of its own.
+    Workspace,
+    /// The linked worktrees on the target's history with work of their own.
+    Worktrees,
+}
+
+impl UpdateScope {
+    /// Whether it updates the workspace.
+    pub fn workspace(self) -> bool {
+        matches!(self, UpdateScope::All | UpdateScope::Workspace)
+    }
+
+    /// Whether it updates the linked worktrees resting on the target.
+    pub fn worktrees(self) -> bool {
+        matches!(self, UpdateScope::All | UpdateScope::Worktrees)
+    }
+}
+
+/// The lanes of `head_info` resting on the target that `scope` selects for rebasing.
+pub fn selected_lanes(
+    head_info: &but_workspace::RefInfo,
+    scope: UpdateScope,
+) -> Vec<but_workspace::ref_info::Lane<'_>> {
+    let stacks = (head_info.stacks.iter())
+        .filter(|_| scope.workspace())
+        .map(but_workspace::branch::Stack::lane);
+    let worktrees = (head_info.worktrees.iter())
+        .filter(|worktree| scope.worktrees() && worktree.rebasable_base().is_some())
+        .map(but_workspace::worktrees::WorktreeInfo::lane);
+    stacks.chain(worktrees).collect()
+}
+
 /// The name of the target branch within its remote, like `main` for `refs/remotes/origin/main`.
 ///
 /// Errors if no target is set, or if its remote cannot be determined.
@@ -801,6 +839,7 @@ pub fn workspace_integrate_upstream_only(
     workspace_integrate_upstream_only_with_perm(
         ctx,
         updates.into_iter().map(Into::into).collect(),
+        true,
         dry_run,
         guard.write_permission(),
     )
@@ -847,6 +886,27 @@ pub fn workspace_integrate_upstream_with_perm(
     workspace_integrate_upstream_with_details_and_perm(
         ctx,
         updates,
+        true,
+        dry_run,
+        SnapshotDetails::new(OperationKind::MergeUpstream),
+        perm,
+    )
+}
+
+/// Like [`workspace_integrate_upstream_with_perm()`], but rebases the lanes of `head_info`, the
+/// workspace as it is now, that `scope` selects. Unless `scope` includes the workspace, the
+/// target's own branch stays where it is when checked out, as the stacks do.
+pub fn workspace_integrate_upstream_scoped_with_perm(
+    ctx: &mut but_ctx::Context,
+    head_info: &but_workspace::RefInfo,
+    scope: UpdateScope,
+    dry_run: DryRun,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
+    workspace_integrate_upstream_with_details_and_perm(
+        ctx,
+        rebase_lane_bottoms(selected_lanes(head_info, scope)),
+        scope.workspace(),
         dry_run,
         SnapshotDetails::new(OperationKind::MergeUpstream),
         perm,
@@ -855,9 +915,11 @@ pub fn workspace_integrate_upstream_with_perm(
 
 /// Like [`workspace_integrate_upstream_with_perm()`], but records the oplog snapshot with
 /// `details`, for operations that integrate as one of their steps, like landing a branch.
+/// `follow_checked_out_target` is as [`but_workspace::integrate_upstream_with_hints()`] takes it.
 pub(crate) fn workspace_integrate_upstream_with_details_and_perm(
     ctx: &mut but_ctx::Context,
     updates: Vec<but_workspace::BottomUpdate>,
+    follow_checked_out_target: bool,
     dry_run: DryRun,
     details: SnapshotDetails,
     perm: &mut RepoExclusive,
@@ -901,7 +963,13 @@ pub(crate) fn workspace_integrate_upstream_with_details_and_perm(
         dry_run,
     );
 
-    let result = workspace_integrate_upstream_only_with_perm(ctx, updates, dry_run, perm);
+    let result = workspace_integrate_upstream_only_with_perm(
+        ctx,
+        updates,
+        follow_checked_out_target,
+        dry_run,
+        perm,
+    );
     if let Some(snapshot) = maybe_oplog_entry
         && result.is_ok()
     {
@@ -916,10 +984,12 @@ pub(crate) fn workspace_integrate_upstream_with_details_and_perm(
 /// This delegates to [`but_workspace::integrate_upstream()`] and returns the
 /// resulting workspace state plus worktree conflicts info.
 /// When `dry_run` is enabled, it returns a preview of the resulting workspace
-/// without materializing the rebase.
+/// without materializing the rebase. `follow_checked_out_target` is as
+/// [`but_workspace::integrate_upstream_with_hints()`] takes it.
 pub fn workspace_integrate_upstream_only_with_perm(
     ctx: &mut but_ctx::Context,
     updates: Vec<but_workspace::BottomUpdate>,
+    follow_checked_out_target: bool,
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
@@ -956,6 +1026,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
             updates,
             &review_hints,
             sign_commit,
+            follow_checked_out_target,
         )?;
         let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&rebase)?;
 

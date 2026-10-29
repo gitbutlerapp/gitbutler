@@ -1106,7 +1106,8 @@ pub mod worktree;
 pub enum PullUpdate {
     /// The linked worktrees that are based on the target rather than on an applied branch.
     Worktrees,
-    /// The applied branches, along with the linked worktrees based on them.
+    /// The applied branches, along with the linked worktrees based on them, and the target
+    /// branch itself when it's checked out.
     Workspace,
 }
 

@@ -1831,6 +1831,7 @@ fn local_only_empty_direct_checkout_is_preserved() -> Result<()> {
             source_branch: "topic".into(),
         }],
         SignCommit::IfSignCommitsEnabled,
+        true,
     )?;
     rebase.materialize(Default::default())?;
 
@@ -1970,6 +1971,7 @@ fn empty_direct_checkout_with_merged_review_for_pushed_branch_is_replaced() -> R
             source_branch: "pushed-topic".into(),
         }],
         SignCommit::IfSignCommitsEnabled,
+        true,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -2024,6 +2026,7 @@ fn empty_direct_checkout_ignores_same_named_review_for_different_head() -> Resul
             source_branch: "pushed-topic".into(),
         }],
         SignCommit::IfSignCommitsEnabled,
+        true,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -2557,6 +2560,7 @@ fn fully_integrated_two_stacks_checkout_local_target_at_target_tip() -> Result<(
         ],
         &[],
         SignCommit::IfSignCommitsEnabled,
+        true,
     )?;
 
     let preview = out.rebase.overlayed_graph()?.into_workspace()?;
@@ -3136,6 +3140,7 @@ fn fully_integrated_two_stacks_checkout_local_target_at_merge_target() -> Result
         ],
         &[],
         SignCommit::IfSignCommitsEnabled,
+        true,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -3192,6 +3197,7 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
             source_branch: "A".into(),
         }],
         SignCommit::IfSignCommitsEnabled,
+        true,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -3286,6 +3292,7 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
             source_branch: "A".into(),
         }],
         SignCommit::IfSignCommitsEnabled,
+        true,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -3414,6 +3421,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
             source_branch: "A".into(),
         }],
         SignCommit::IfSignCommitsEnabled,
+        true,
     )?;
     out.rebase.materialize(Default::default())?;
     let graph =
@@ -3637,6 +3645,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
             source_branch: "A".into(),
         }],
         SignCommit::IfSignCommitsEnabled,
+        true,
     )?;
     rebase.materialize(Default::default())?;
 
@@ -3728,6 +3737,7 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
             source_branch: "A".into(),
         }],
         SignCommit::IfSignCommitsEnabled,
+        true,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -3800,6 +3810,7 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
         updates,
         review_hints,
         SignCommit::IfSignCommitsEnabled,
+        true,
     )?;
     let materialized = rebase.materialize(Default::default())?;
     drop(materialized);

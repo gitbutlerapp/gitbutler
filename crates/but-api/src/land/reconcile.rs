@@ -52,6 +52,7 @@ pub(super) fn reconcile_after_land(ctx: &mut but_ctx::Context) -> anyhow::Result
     match crate::workspace::workspace_integrate_upstream_with_details_and_perm(
         ctx,
         updates,
+        true,
         DryRun::No,
         SnapshotDetails::new(OperationKind::MergeBranch),
         guard.write_permission(),
@@ -83,6 +84,7 @@ pub(super) fn reconcile_after_land_only_with_perm(
         crate::workspace::workspace_integrate_upstream_only_with_perm(
             ctx,
             updates,
+            true,
             DryRun::No,
             perm,
         )?

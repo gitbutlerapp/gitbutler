@@ -2156,6 +2156,45 @@ To undo this operation:
 }
 
 #[test]
+fn single_branch_pull_update_worktrees_leaves_main_checked_out_for_later() {
+    let env = single_branch_integration_scenario();
+    add_worktree_with_commit(&env, "wt-outside", "main");
+    let main = rev_parse(&env, "main");
+    // A remote whose `main` has a commit `main` lacks, for the next fetch to find.
+    let upstream = env.invoke_git(&format!(
+        "commit-tree {main}^{{tree}} -p {main} -m upstream-change"
+    ));
+    let remote = env.app_data_dir().join("remote.git");
+    let remote = shell_words::quote(&remote.display().to_string()).into_owned();
+    env.invoke_git(&format!("init -q --bare {remote}"));
+    env.invoke_git(&format!("push -q {remote} {upstream}:refs/heads/main"));
+    env.invoke_git(&format!("remote set-url origin {remote}"));
+    assert_ne!(
+        rev_parse(&env, "origin/main"),
+        upstream,
+        "the commit is only on the remote until a fetch"
+    );
+
+    env.but("pull --update=worktrees").assert().success();
+    assert!(
+        contains_target(&env, "wt-outside"),
+        "a worktree resting on the target was rebased"
+    );
+    assert_eq!(
+        rev_parse(&env, "HEAD"),
+        main,
+        "main is the checkout here, which only updating the workspace moves"
+    );
+
+    env.but("pull --update=workspace").assert().success();
+    assert_eq!(
+        rev_parse(&env, "HEAD"),
+        upstream,
+        "main follows the target once the workspace is updated"
+    );
+}
+
+#[test]
 fn pull_check_previews_only_what_update_selects() {
     let env = worktrees_behind_target_scenario();
 

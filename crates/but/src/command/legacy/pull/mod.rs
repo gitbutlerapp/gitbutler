@@ -511,15 +511,12 @@ async fn handle_pull(
     // Step 3: Actually perform the integration
     if let Some(statuses) = statuses_to_apply {
         let integration_result = {
-            let updates = but_api::workspace::rebase_lane_bottoms(upstream::selected_lanes(
-                &current_head_info,
-                update,
-            ));
             let mut ctx = ctx.to_sync().into_thread_local();
             let mut guard = ctx.exclusive_worktree_access();
-            but_api::workspace::workspace_integrate_upstream_with_perm(
+            but_api::workspace::workspace_integrate_upstream_scoped_with_perm(
                 &mut ctx,
-                updates,
+                &current_head_info,
+                upstream::scope(update),
                 DryRun::No,
                 guard.write_permission(),
             )

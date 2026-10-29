@@ -1,12 +1,10 @@
-use but_api::workspace::WorkspaceIntegrateUpstreamOutcome;
+use but_api::workspace::{UpdateScope, WorkspaceIntegrateUpstreamOutcome};
 use but_core::{DryRun, sync::RepoExclusive};
 use but_ctx::Context;
 use but_workspace::{
     RefInfo,
-    branch::Stack,
     ref_info::{Lane, LocalCommitRelation, Segment, SegmentIdentity},
     ui::PushStatus,
-    worktrees::WorktreeInfo,
 };
 
 use crate::args::PullUpdate;
@@ -62,11 +60,10 @@ pub(crate) fn dry_run_integration_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<IntegrationPreview> {
     let current_head_info = but_api::legacy::workspace::head_info(ctx)?;
-    let updates =
-        but_api::workspace::rebase_lane_bottoms(selected_lanes(&current_head_info, update));
-    let preview = but_api::workspace::workspace_integrate_upstream_with_perm(
+    let preview = but_api::workspace::workspace_integrate_upstream_scoped_with_perm(
         ctx,
-        updates,
+        &current_head_info,
+        scope(update),
         DryRun::Yes,
         perm,
     )?;
@@ -86,27 +83,23 @@ pub(crate) fn dry_run_integration_with_perm(
     })
 }
 
-/// The lanes resting on the target that `update` selects for rebasing.
-pub(crate) fn selected_lanes<'a>(head_info: &'a RefInfo, update: &[PullUpdate]) -> Vec<Lane<'a>> {
-    let stacks = head_info
-        .stacks
-        .iter()
-        .filter(|_| update.contains(&PullUpdate::Workspace))
-        .map(Stack::lane);
-    let worktrees = head_info
-        .worktrees
-        .iter()
-        .filter(|worktree| {
-            update.contains(&PullUpdate::Worktrees) && worktree.rebasable_base().is_some()
-        })
-        .map(WorktreeInfo::lane);
-    stacks.chain(worktrees).collect()
+/// What `update` picks for rebasing onto the target. `--update` takes one value at least, and
+/// without any it would be its default, both.
+pub(crate) fn scope(update: &[PullUpdate]) -> UpdateScope {
+    match (
+        update.contains(&PullUpdate::Workspace),
+        update.contains(&PullUpdate::Worktrees),
+    ) {
+        (true, false) => UpdateScope::Workspace,
+        (false, true) => UpdateScope::Worktrees,
+        (true, true) | (false, false) => UpdateScope::All,
+    }
 }
 
 /// The lanes `update` selects along with every lane stacked on one of them, as rebasing a lane
 /// carries those along.
 fn rebased_lanes<'a>(head_info: &'a RefInfo, update: &[PullUpdate]) -> Vec<Lane<'a>> {
-    let selected = selected_lanes(head_info, update);
+    let selected = but_api::workspace::selected_lanes(head_info, scope(update));
     head_info
         .lanes()
         .filter(|lane| {
