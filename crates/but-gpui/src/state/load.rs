@@ -424,6 +424,24 @@ impl Store {
         cx.notify();
     }
 
+    /// Move project `id`'s linked worktree `name` before `before`, or after the others.
+    pub fn move_worktree(
+        &mut self,
+        id: &ProjectId,
+        name: &bstr::BStr,
+        before: Option<&bstr::BStr>,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(order) = self.prefs.worktree_order.get_mut(id.as_ref()) else {
+            return;
+        };
+        let before = before.map(ToString::to_string);
+        if move_before(order, &name.to_string(), before.as_ref()) {
+            self.save_soon(cx);
+            cx.notify();
+        }
+    }
+
     /// `workspace`'s linked worktrees in the order project `id` keeps for them.
     pub fn worktrees_in_order<'a>(
         &self,
