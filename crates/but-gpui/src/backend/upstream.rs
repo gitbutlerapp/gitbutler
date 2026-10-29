@@ -980,7 +980,8 @@ pub enum UpdateOutcome {
     },
 }
 
-/// Rebase every stack onto the target as it is now. Doesn't fetch first; see [`Fetch`].
+/// Rebase every stack, and every linked worktree on the target's history with work of its
+/// own, onto the target as it is now, as `but pull` does. Doesn't fetch first; see [`Fetch`].
 /// A dry run goes first, and when the rebase would leave anything conflicted that isn't now,
 /// it stops there, unless that's what was `accepted`: a fetch since can bring more.
 pub struct Update {
@@ -1064,7 +1065,13 @@ fn integrate_upstream(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> Result<but_api::workspace::WorkspaceIntegrateUpstreamOutcome> {
-    let updates = but_api::workspace::rebase_lane_bottoms(info.stacks.iter().map(|s| s.lane()));
+    // The linked worktrees resting on a stack go with it, and those on the target's history
+    // with work of their own go on their own, as `but pull` takes them.
+    let worktrees = (info.worktrees.iter())
+        .filter(|worktree| worktree.rebasable_base().is_some())
+        .map(but_workspace::worktrees::WorktreeInfo::lane);
+    let lanes = info.stacks.iter().map(|s| s.lane()).chain(worktrees);
+    let updates = but_api::workspace::rebase_lane_bottoms(lanes);
     but_api::workspace::workspace_integrate_upstream_with_perm(ctx, updates, dry_run, perm)
 }
 
@@ -1174,6 +1181,61 @@ mod tests {
                 found.branches,
                 [(Some(full("refs/heads/wt")), 1)],
                 "the update rebases wt with middle, and its edit of `file` meets the target's"
+            );
+        })
+    }
+
+    #[test]
+    fn an_update_rebases_a_worktree_on_the_target_too() {
+        use crate::backend::ops::tests::git;
+        crate::backend::lane_tests::linked_workspace(|path| {
+            let tip = git(
+                path,
+                &[
+                    "commit-tree",
+                    "origin/main^{tree}",
+                    "-p",
+                    "origin/main",
+                    "-m",
+                    "new on target",
+                ],
+            );
+            git(
+                path,
+                &["update-ref", "refs/remotes/origin/main", tip.trim()],
+            );
+            crate::backend::apply(path, Update { accepted: None }).unwrap();
+            // As an agent starts one from the target as it was, the workspace up to date.
+            let outside = tempfile::tempdir().unwrap();
+            let agent = outside.path().join("agent");
+            let agent_dir = agent.to_str().unwrap();
+            git(
+                path,
+                &[
+                    "worktree",
+                    "add",
+                    "-q",
+                    "-b",
+                    "agent",
+                    agent_dir,
+                    "origin/main~",
+                ],
+            );
+            git(
+                &agent,
+                &["commit", "-q", "--allow-empty", "-m", "agent work"],
+            );
+
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            assert!(
+                workspace.target.as_ref().is_some_and(|t| t.needs_update),
+                "only agent lacks the target's newest commit, which is still something to update"
+            );
+            crate::backend::apply(path, Update { accepted: None }).unwrap();
+            assert_eq!(
+                git(path, &["rev-parse", "agent~"]),
+                git(path, &["rev-parse", "origin/main"]),
+                "agent's work now sits on the target's newest commit"
             );
         })
     }
