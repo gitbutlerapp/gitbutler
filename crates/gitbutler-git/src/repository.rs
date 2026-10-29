@@ -25,6 +25,12 @@ pub enum RepositoryError<
 > {
     #[error("failed to execute git command: {0}")]
     Exec(Eexec),
+    #[error(transparent)]
+    Native(#[from] gix::Error),
+    #[error("could not start native Git worker: {0}")]
+    WorkerStart(std::io::Error),
+    #[error("native Git worker stopped unexpectedly")]
+    WorkerStopped,
     #[error("failed to accept connection to askpass server: {0}")]
     AskpassServer(Easkpass),
     #[error("i/o error communicating with askpass utility: {0}")]
@@ -112,10 +118,35 @@ where
         .chain(args.iter().copied())
         .collect();
 
+    let cwd = match harness_env {
+        HarnessEnv::Repo(p) | HarnessEnv::Global(p) => p,
+    };
+    with_authentication(executor, envs, on_prompt, |envs| async move {
+        executor
+            .execute(&args, cwd, Some(envs))
+            .await
+            .map_err(Error::<E>::Exec)
+    })
+    .await
+}
+
+async fn with_authentication<F, Fut, E, Run, RunFuture, T>(
+    executor: &E,
+    envs: HashMap<String, String>,
+    on_prompt: Option<F>,
+    run: Run,
+) -> Result<T, Error<E>>
+where
+    E: GitExecutor,
+    F: FnMut(String) -> Fut,
+    Fut: std::future::Future<Output = Option<String>>,
+    Run: FnOnce(HashMap<String, String>) -> RunFuture,
+    RunFuture: std::future::Future<Output = Result<T, Error<E>>>,
+{
     if let Some(on_prompt) = on_prompt {
-        execute_with_indirect_askpass(harness_env, executor, &args, envs, on_prompt).await
+        execute_with_indirect_askpass(executor, envs, on_prompt, run).await
     } else {
-        execute_direct(harness_env, executor, &args, envs).await
+        run(envs).await
     }
 }
 
@@ -155,18 +186,18 @@ where
 
 /// Askpass-aware execution of Git commands, allowing the GUI to communicate with the askpass
 /// process over a pipe or socket.
-async fn execute_with_indirect_askpass<P, F, Fut, E>(
-    harness_env: HarnessEnv<P>,
+async fn execute_with_indirect_askpass<F, Fut, E, Run, RunFuture, T>(
     executor: &E,
-    args: &[&str],
     mut envs: HashMap<String, String>,
     mut on_prompt: F,
-) -> Result<(usize, String, String), Error<E>>
+    run: Run,
+) -> Result<T, Error<E>>
 where
-    P: AsRef<Path>,
     E: GitExecutor,
     F: FnMut(String) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
+    Run: FnOnce(HashMap<String, String>) -> RunFuture,
+    RunFuture: std::future::Future<Output = Result<T, Error<E>>>,
 {
     let mut current_exe = std::env::current_exe().map_err(Error::<E>::NoSelfExe)?;
     // On Windows, we get these \\? prefix that have issues. Let's do nothing there for now,
@@ -256,17 +287,7 @@ where
     envs.insert("SSH_ASKPASS".into(), askpath_path.display().to_string());
     envs.insert("SSH_ASKPASS_REQUIRE".into(), "force".into());
 
-    let cwd = match harness_env {
-        HarnessEnv::Repo(p) | HarnessEnv::Global(p) => p,
-    };
-    let mut child_process = core::pin::pin! {
-        async {
-            executor
-                .execute(args, cwd, Some(envs))
-                .await
-                .map_err(Error::<E>::Exec)
-        }.fuse()
-    };
+    let mut child_process = core::pin::pin!(run(envs).fuse());
 
     loop {
         select! {
@@ -334,31 +355,6 @@ where
             }
         }
     }
-}
-
-/// Directly execute the Git command without invoking the askpass pipe machinery. This is useful
-/// for the CLI, as the child process simply inherits stdin from the parent process and therefore
-/// doesn't need the askpass mechanism.
-///
-/// It's doubly useful in the sense that the CLI then does not need the askpass binary.
-async fn execute_direct<P, E>(
-    harness_env: HarnessEnv<P>,
-    executor: &E,
-    args: &[&str],
-    envs: HashMap<String, String>,
-) -> Result<(usize, String, String), Error<E>>
-where
-    P: AsRef<Path>,
-    E: GitExecutor,
-{
-    let cwd = match harness_env {
-        HarnessEnv::Repo(p) | HarnessEnv::Global(p) => p,
-    };
-
-    executor
-        .execute(args, cwd, Some(envs))
-        .await
-        .map_err(Error::<E>::Exec)
 }
 
 /// Create an environment variable mapping that is guaranteed to have the Git SSH command configured
@@ -628,9 +624,6 @@ where
 /// ferry prompts and responses between the SSH process and this process. This should be used
 /// carefully as it will unceremoniously override any askpass configuration the user might have,
 /// making it unsuitable for use in e.g. the CLI. It is designed to be used with a GUI/TUI.
-///
-/// Unlike fetch/push, this function always uses the Git CLI regardless of any
-/// backend selection, as it needs to work before a repository exists.
 pub async fn clone<P, F, Fut, E>(
     repository_url: &str,
     target_dir: P,
@@ -643,48 +636,105 @@ where
     F: FnMut(String) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
 {
-    let target_dir = target_dir.as_ref();
+    let target_dir = target_dir.as_ref().to_owned();
+    let destination = target_dir.display().to_string();
+    let repository_url = repository_url.to_owned();
+    let work_dir = target_dir.parent().unwrap_or(Path::new(".")).to_owned();
+    let harness_env = HarnessEnv::Global(&work_dir);
+    let mut envs = new_env_with_git_ssh_configured(&harness_env);
+    envs.insert("GIT_TERMINAL_PROMPT".into(), "0".into());
+    let overrides: Vec<_> = http_stall_limit_args(&harness_env)
+        .into_iter()
+        .skip(1)
+        .step_by(2)
+        .collect();
+    with_authentication(&executor, envs, on_prompt, |envs| async move {
+        run_native::<E>(move |interrupt| {
+            use gix::error::ResultExt;
+            let work_dir = std::path::absolute(work_dir).or_error()?;
+            let mut repository_url = gix::Url::try_from(repository_url.as_str())?;
+            repository_url.canonicalize(&work_dir)?;
+            let options = gix::open::Options::default().config_overrides(overrides);
+            #[cfg(unix)]
+            let options = options.credential_cache_daemon(but_utils::credential_cache::daemon_command());
+            let environment: Vec<_> = envs.into_iter().map(|(key, value)| (key.into(), value.into())).collect();
+            let mut clone = gix::clone::PrepareFetch::new(
+                repository_url,
+                &target_dir,
+                gix::create::Kind::WithWorktree,
+                Default::default(),
+                options,
+            )?.configure_remote({
+                let environment = environment.clone();
+                move |remote| Ok(remote.with_working_dir(&work_dir)?.with_command_environment(environment.clone()))
+            });
+            let (checkout, _) = clone.fetch_then_checkout(gix::progress::Discard, interrupt)?;
+            let (repo, outcome) = checkout.with_command_environment(environment.clone())
+                .main_worktree(gix::progress::Discard, interrupt)?;
+            gix::error::ensure!(
+                !interrupt.load(std::sync::atomic::Ordering::Relaxed),
+                gix::error::cancelled("Clone checkout was interrupted")
+            );
+            gix::error::ensure!(
+                outcome.errors.is_empty() && outcome.collisions.is_empty(),
+                gix::error::message!("Clone checkout failed: {:?}, collisions: {:?}", outcome.errors, outcome.collisions)
+            );
+            if let Some(head_id) = repo.head()?.try_peel_to_id()? {
+                use std::ffi::OsStr;
+                let old_head = repo.object_hash().null().to_string();
+                let new_head = head_id.to_string();
+                let environment: Vec<_> = environment.iter()
+                    .map(|(key, value)| (key.as_os_str(), value.as_os_str())).collect();
+                for output in repo.run_hook_event_serially("post-checkout", gix::hook::Options {
+                    arguments: &[OsStr::new(&old_head), OsStr::new(&new_head), OsStr::new("1")],
+                    environment: &environment,
+                    ..Default::default()
+                })? {
+                    gix::error::ensure!(output.status.success(),
+                        gix::error::message!("Post-checkout hook failed: {}{}", output.stdout.as_bstr(), output.stderr.as_bstr()));
+                }
+            }
+            Ok(())
+        }).await
+    }).await.map_err(|error| {
+        if matches!(&error, RepositoryError::Native(source) if source.is_unauthenticated() || source.is_permission_denied()) {
+            crate::Error::AuthorizationFailed(error)
+        } else if matches!(&error, RepositoryError::Native(source) if source.is_validation()
+            && source.metadata().any(|metadata| metadata.get("input")
+                == Some(&gix::error::MetadataValue::from(destination.as_bytes())))) {
+            crate::Error::RemoteExists(destination, error)
+        } else {
+            crate::Error::Backend(error)
+        }
+    })
+}
 
-    // For clone, we run from the parent directory of the target
-    let work_dir = target_dir.parent().unwrap_or(Path::new("."));
-
-    let target_dir_str = target_dir.to_string_lossy();
-    let args = vec!["clone", "--", repository_url, &target_dir_str];
-
-    let (status, stdout, stderr) =
-        execute_with_auth_harness(HarnessEnv::Global(work_dir), &executor, &args, on_prompt)
-            .await?;
-
-    if status == 0 {
-        Ok(())
-    } else if stderr.to_lowercase().contains("permission denied") {
-        Err(crate::Error::AuthorizationFailed(Error::<E>::Failed {
-            status,
-            args: args.into_iter().map(Into::into).collect(),
-            stdout,
-            stderr,
-        }))?
-    } else if stderr
-        .to_lowercase()
-        .contains("already exists and is not an empty directory")
-    {
-        Err(crate::Error::RemoteExists(
-            target_dir.display().to_string(),
-            Error::<E>::Failed {
-                status,
-                args: args.into_iter().map(Into::into).collect(),
-                stdout,
-                stderr,
-            },
-        ))?
-    } else {
-        Err(Error::<E>::Failed {
-            status,
-            args: args.into_iter().map(Into::into).collect(),
-            stdout,
-            stderr,
-        })?
+async fn run_native<E: GitExecutor>(
+    run: impl FnOnce(&std::sync::atomic::AtomicBool) -> gix::Result<()> + Send + 'static,
+) -> Result<(), Error<E>> {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
+    struct Cancel(Arc<AtomicBool>);
+    impl Drop for Cancel {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::Relaxed);
+        }
     }
+    let cancel = Cancel(Arc::new(AtomicBool::new(false)));
+    let interrupt = Arc::clone(&cancel.0);
+    let (sender, receiver) = futures::channel::oneshot::channel();
+    std::thread::Builder::new()
+        .name("gitbutler.git".into())
+        .spawn(move || {
+            let _ = sender.send(run(&interrupt));
+        })
+        .map_err(Error::<E>::WorkerStart)?;
+    receiver
+        .await
+        .map_err(|_| Error::<E>::WorkerStopped)?
+        .map_err(Error::<E>::Native)
 }
 
 #[cfg(test)]

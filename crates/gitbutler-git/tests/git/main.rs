@@ -1,5 +1,8 @@
 mod refspec;
 
+#[cfg(unix)]
+mod native_clone;
+
 /// Uses a shell script as `remote.origin.uploadpack`, so unix only.
 #[cfg(unix)]
 mod slow_fetch {

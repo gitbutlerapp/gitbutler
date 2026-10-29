@@ -27,6 +27,7 @@ but-askpass.workspace = true
 but-core.workspace = true
 but-ctx.workspace = true
 but-error.workspace = true
+but-utils.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
@@ -41,7 +42,7 @@ tokio = { workspace = true, optional = true, features = [
 rand.workspace = true
 futures.workspace = true
 sysinfo = { workspace = true, features = ["system"] }
-gix.workspace = true
+gix = { workspace = true, features = ["blocking-http-transport-curl-rustls", "worktree-mutation"] }
 serde.workspace = true
 
 [target."cfg(unix)".dependencies]
