@@ -52,7 +52,7 @@ fn parse_github_oauth_response<T: serde::de::DeserializeOwned>(body: &str) -> Re
 
 /// A static, code-bearing context for terminal device-flow statuses, so the API serializes
 /// guidance instead of GitHub's description. Pending statuses stay as they are: callers poll
-/// through them, and the provider text remains the inner error for the CLI and Lite.
+/// through them, and the provider text remains the inner error for the CLI.
 fn device_flow_context(status: &str) -> Option<but_error::Context> {
     use but_error::{Code, Context};
     match status {
@@ -595,7 +595,7 @@ mod tests {
                     "{status}: pending statuses keep today's message"
                 );
             }
-            // Alternate display (Lite, CLI) keeps the provider status as the inner error.
+            // Alternate display (the CLI's) keeps the provider status as the inner error.
             let display = format!("{err:#}");
             assert!(
                 display.contains(&format!("GitHub returned an error: {status} (")),

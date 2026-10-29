@@ -1,4 +1,4 @@
-/* The one surface every overlay in Lite wears — modals, dropdowns and the toolbox alike. A modal
+/* The one surface every overlay in the library wears — modals, dropdowns and the toolbox alike. A modal
    adds a backdrop and centres itself in the window; a dropdown anchors to its trigger. Nothing
    else about the container differs between them. */
 .popup {

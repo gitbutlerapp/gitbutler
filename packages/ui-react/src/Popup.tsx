@@ -20,8 +20,8 @@ import {
 } from "react";
 
 /**
- * The container every overlay in Lite is built from: modals, dropdowns and the toolbox all wear
- * this one surface. Use it directly only for something that floats without opening — a toolbox, a
+ * The container every overlay in the library is built from: modals, dropdowns and the toolbox all
+ * wear this one surface. Use it directly only for something that floats without opening — a toolbox, a
  * hover card. Anything that opens over the app wants {@link Modal} or {@link Dropdown}, which wrap
  * this in the Base UI primitive carrying the focus and dismissal behaviour.
  *
@@ -464,8 +464,7 @@ export const PopupSearch: FC<{ onClear?: () => void } & useRender.ComponentProps
  * filtered on — the deferred one, where the caller defers — so the block and the rows it stands in
  * for agree.
  *
- * Both lines are one short line, no full stop, like every other line of their length in Lite:
- * "No hotkeys found", "Nothing to restore yet".
+ * Both lines are one short line, no full stop: "No hotkeys found", "Nothing to restore yet".
  *
  * For a popup as wide as a picker. A dropdown no wider than its trigger — the commit target
  * combobox — keeps a plain line.

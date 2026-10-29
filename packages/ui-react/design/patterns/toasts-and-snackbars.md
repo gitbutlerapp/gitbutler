@@ -26,7 +26,7 @@ of its own and raise one with `add({ title, type })`. They sit one below
 another, 8px apart, the newest at the bottom; each rises in and sinks out while
 the rest close the gap, and past three the oldest recedes until there is room. A
 busy one is a `loading` snackbar, updated to its result. A host with its own
-furniture at the bottom centre, as Lite's operation toolbox, lifts the stack
+furniture at the bottom centre, such as an operation toolbox, lifts the stack
 above it with `--snackbars-bottom` rather than letting the two overlap.
 
 **Pick by whether the surface is still there.** If the user is in front of the
@@ -53,7 +53,7 @@ background — shows a snackbar with a spinner while it runs ("Rewording on
 macbook…"), and that same snackbar turns into the result ("Commit reworded")
 before it goes. It stays for as long as the work runs, then leaves like any
 other. A change made here that the screen shows at once — the commit in the
-list, the branch on screen — needs neither. Lite's absorb does the first
+list, the branch on screen — needs neither. An absorb does the first
 ("Absorbing…", then "Changes absorbed into 3 commits"). A failure with a raw
 error leaves the snackbar for a toast; see below.
 

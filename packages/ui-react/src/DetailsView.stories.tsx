@@ -53,7 +53,7 @@ const lines: Array<Line> = [
 
 const lineBackground = { " ": undefined, "+": "var(--bg-safe)", "-": "var(--bg-danger)" };
 
-/** Stands in for the host's diff renderer (Pierre in Lite and but.dev). */
+/** Stands in for the host's diff renderer (Pierre in but.dev). */
 const SampleDiff: FC = () => (
 	<pre
 		className="text-12"

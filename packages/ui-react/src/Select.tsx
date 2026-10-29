@@ -45,8 +45,8 @@ export type SelectProps<Value extends string> = {
 	/** Identifies the field when a form is submitted. */
 	name?: string;
 	/**
-	 * Leads the list with the search row every other long list in Lite leads with — the branch
-	 * and commit target pickers — and filters the rows as the query is typed. For a list too long
+	 * Leads the list with the search row long lists such as branch pickers lead with, and filters
+	 * the rows as the query is typed. For a list too long
 	 * to scan, such as the syntax themes. The list opens below the trigger rather than over it,
 	 * since the query row, not the chosen row, is what takes the trigger's place.
 	 *

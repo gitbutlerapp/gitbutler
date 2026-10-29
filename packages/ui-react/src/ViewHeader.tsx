@@ -23,8 +23,8 @@ type Props = {
 	 */
 	avatar?: ReactNode;
 	/**
-	 * Ahead of the title on its line, for the app's own window controls: Lite's sidebar toggle
-	 * and the room it leaves for the traffic lights in full-window mode. Only the title's line
+	 * Ahead of the title on its line, for the app's own window controls: a sidebar toggle and
+	 * the room the macOS traffic lights take in full-window mode. Only the title's line
 	 * makes room for it; the meta line under it starts at the header's edge.
 	 */
 	leading?: ReactNode;
