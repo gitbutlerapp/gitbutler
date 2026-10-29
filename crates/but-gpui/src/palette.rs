@@ -422,6 +422,30 @@ fn project_choice(entry: &ProjectEntry) -> Choice {
     choice.icon(Icon::Repo)
 }
 
+/// Go to anything's rows for a loaded project's pages, as the navigator names them.
+fn page_choices(entry: &ProjectEntry, several: bool) -> [Choice; 2] {
+    let id = &entry.id;
+    let pages = [
+        (Selection::Branches(id.clone()), "Branches", Icon::Branch),
+        (
+            Selection::History(id.clone()),
+            "Operations history",
+            Icon::Clock,
+        ),
+    ];
+    let project = several.then_some(entry.project.name.as_str());
+    pages.map(|(page, label, icon)| {
+        let gone = format!("{} was removed meanwhile", entry.project.name);
+        let choice = Choice::new(label, move |this, window, cx| {
+            if this.store.read(cx).project(page.project()).is_none() {
+                return snack(&this.store, gone, cx);
+            }
+            this.select(page, window, cx)
+        });
+        choice.icon(icon).details(project)
+    })
+}
+
 /// Go to anything's row for a linked worktree, the branch it has checked out beside it.
 fn worktree_choice(entry: &ProjectEntry, worktree: &Worktree, several: bool) -> Choice {
     let (id, name) = (entry.id.clone(), worktree.name.clone());
@@ -560,8 +584,8 @@ impl AppView {
         self.open_picker(None, "Search commands", "Run", choices, window, cx);
     }
 
-    /// Pick a project, or a linked worktree, branch or commit of a loaded one, by name, pull
-    /// request title or commit id, and select it.
+    /// Pick a project, or a page, linked worktree, branch or commit of a loaded one, by name,
+    /// pull request title or commit id, and select it.
     pub fn go_to(&mut self, _: &GoTo, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         // Only expanded projects' insides: a collapsed one's rows aren't drawn, or kept current.
@@ -572,6 +596,10 @@ impl AppView {
         let several = open.len() > 1;
         // Broadest first, which an equal match keeps: a project before a branch of its name.
         let projects = store.projects.iter().map(project_choice);
+        // Not while a commit is checked out, which the navigator hides them for.
+        let pages = (open.iter())
+            .filter(|(_, workspace)| workspace.editing.is_none())
+            .flat_map(|(entry, _)| page_choices(entry, several));
         let worktrees = open.iter().flat_map(|(entry, workspace)| {
             (workspace.worktrees.iter())
                 .filter(move |wt| !store.hides_worktree(&entry.id, wt.name.as_ref()))
@@ -589,7 +617,9 @@ impl AppView {
                     .map(move |commit| commit_choice(store, entry, branch, commit, several))
             })
         });
-        let choices = (projects.chain(worktrees).chain(branches).chain(commits)).collect();
+        let choices = (projects.chain(pages).chain(worktrees))
+            .chain(branches.chain(commits))
+            .collect();
         let placeholder = "Go to a project, worktree, branch or commit";
         self.open_picker(None, placeholder, "Go", choices, window, cx);
         if let Some(palette) = &mut self.palette {
