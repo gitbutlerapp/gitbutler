@@ -4,6 +4,8 @@ use anyhow::Result;
 use bstr::BString;
 use but_core::RefMetadata;
 use gix::refs::{FullName, FullNameRef};
+use itertools::Itertools;
+use petgraph::visit::EdgeRef;
 
 use crate::{CommitFlags, SegmentMetadata, init::Overlay};
 
@@ -528,6 +530,8 @@ impl WorkspaceGraph {
             }
         }
 
+        order_workspace_stacks(&mut inner_graph);
+
         Ok(crate::Graph {
             inner: inner_graph,
             entrypoint,
@@ -535,5 +539,42 @@ impl WorkspaceGraph {
             project_meta,
             ..Default::default()
         })
+    }
+}
+
+fn order_workspace_stacks(graph: &mut crate::init::PetGraph) {
+    let workspaces: Vec<_> = graph
+        .node_indices()
+        .filter(|&sidx| graph[sidx].workspace_metadata().is_some())
+        .collect();
+    for ws in workspaces {
+        let Some(metadata) = graph[ws].workspace_metadata() else {
+            continue;
+        };
+        let stack_position = |sidx: crate::SegmentIndex| {
+            let name = graph[sidx].ref_name()?;
+            metadata.stacks.iter().position(|stack| {
+                stack.is_in_workspace()
+                    && stack
+                        .branches
+                        .iter()
+                        .any(|branch| branch.ref_name.as_ref() == name)
+            })
+        };
+        let edges_in_stack_order: Vec<_> = graph
+            .edges_directed(ws, petgraph::Direction::Outgoing)
+            .map(|edge| {
+                (
+                    stack_position(edge.target()).unwrap_or(usize::MAX),
+                    edge.weight().parent_order,
+                    edge.id(),
+                )
+            })
+            .sorted()
+            .map(|(_, _, edge)| edge)
+            .collect();
+        for (workspace_parent_order, edge) in (0u32..).zip(edges_in_stack_order) {
+            graph[edge].workspace_parent_order = Some(workspace_parent_order);
+        }
     }
 }
