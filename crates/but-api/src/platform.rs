@@ -35,7 +35,7 @@ pub fn build_type() -> Result<String> {
 /// Applications embedding the SDK should call this once during startup before
 /// invoking APIs that read or write forge credentials. If `identifier` is
 /// `None`, the namespace defaults to the SDK's compiled GitButler app channel.
-#[but_api(napi)]
+#[but_api]
 pub fn init_application_namespace(identifier: Option<String>) -> Result<()> {
     let identifier = identifier.unwrap_or_else(|| but_path::identifier().to_string());
     but_secret::secret::set_application_namespace(identifier);

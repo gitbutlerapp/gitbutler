@@ -468,7 +468,7 @@ mod tests {
 ///
 /// See [`unapply_stack_with_perm()`] for how assigned changes are collected before
 /// delegating to the underlying mutation.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn unapply_stack(ctx: &mut Context, stack_id: StackId) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
@@ -709,7 +709,7 @@ fn commit_assigned_diffspec(
     Ok(())
 }
 
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn list_branches(
     ctx: &Context,

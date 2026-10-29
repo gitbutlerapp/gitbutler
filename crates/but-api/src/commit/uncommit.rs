@@ -112,7 +112,7 @@ impl SurfacedHunks {
 /// When `dry_run` is enabled, the returned workspace previews the result
 /// without materializing the rewrite or persisting an oplog entry.
 /// See [`commit_uncommit_only_with_perm()`] for details.
-#[but_api(napi, try_from = crate::commit::json::UncommitResult)]
+#[but_api(try_from = crate::commit::json::UncommitResult)]
 #[instrument(err(Debug))]
 pub fn commit_uncommit(
     ctx: &mut but_ctx::Context,
@@ -375,7 +375,7 @@ pub fn commit_uncommit_changes_only_with_perm(
 /// When `dry_run` is enabled, the returned workspace previews the extracted
 /// changes and no oplog entry is persisted. See
 /// [`commit_uncommit_changes_with_perm()`] for details.
-#[but_api(napi, try_from = crate::commit::json::MoveChangesResult)]
+#[but_api(try_from = crate::commit::json::MoveChangesResult)]
 #[instrument(err(Debug))]
 pub fn commit_uncommit_changes(
     ctx: &mut but_ctx::Context,
@@ -567,10 +567,7 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
 
 /// Uncommit specific changes from multiple commits and record an oplog
 /// snapshot on success.
-#[but_api(
-    napi,
-    try_from = crate::commit::json::UncommitChangesFromCommitsResult
-)]
+#[but_api(try_from = crate::commit::json::UncommitChangesFromCommitsResult)]
 #[instrument(err(Debug))]
 pub fn commit_uncommit_changes_from_commits(
     ctx: &mut but_ctx::Context,

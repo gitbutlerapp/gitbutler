@@ -109,7 +109,7 @@ pub(crate) fn commit_create_only_impl(
 /// the returned workspace previews the inserted commit and no oplog entry is
 /// persisted. For lower-level implementation details, see
 /// [`but_workspace::commit::commit_create()`].
-#[but_api(napi, try_from = crate::commit::json::CommitCreateResult)]
+#[but_api(try_from = crate::commit::json::CommitCreateResult)]
 #[instrument(skip_all, fields(relative_to, side, message), err(Debug))]
 #[expect(clippy::too_many_arguments)]
 pub fn commit_create(

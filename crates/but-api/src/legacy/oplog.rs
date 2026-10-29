@@ -130,7 +130,7 @@ pub mod json {
 ///
 /// # Errors
 /// Returns an error if the project cannot be found or if there is an issue accessing the oplog.
-#[but_api(napi, try_from = json::Snapshot, provides = [Workspace])]
+#[but_api(try_from = json::Snapshot)]
 #[instrument(err(Debug))]
 pub fn list_snapshots(
     ctx: &but_ctx::Context,
@@ -169,7 +169,7 @@ pub fn snapshots_iter(
 /// Get the snapshot that an undo operation should restore to.
 ///
 /// This handles multiple consecutive undos.
-#[but_api(napi, try_from = json::Snapshot)]
+#[but_api(try_from = json::Snapshot)]
 #[instrument(err(Debug))]
 pub fn get_undo_target_snapshot(ctx: &but_ctx::Context) -> Result<Option<Snapshot>> {
     // Undo snapshots are bookkeeping entries, not operations we should restore to directly. Walk
@@ -215,7 +215,7 @@ pub fn get_undo_target_snapshot(ctx: &but_ctx::Context) -> Result<Option<Snapsho
 /// Get the snapshot that a redo operation should restore to.
 ///
 /// This handles multiple consecutive redos.
-#[but_api(napi, try_from = json::Snapshot)]
+#[but_api(try_from = json::Snapshot)]
 #[instrument(err(Debug))]
 pub fn get_redo_target_snapshot(ctx: &but_ctx::Context) -> Result<Option<Snapshot>> {
     // Redo snapshots are bookkeeping entries, not operations we should restore to directly. Walk
@@ -321,7 +321,7 @@ pub fn restore_snapshot(ctx: &mut but_ctx::Context, sha: gix::ObjectId) -> Resul
 
 /// Restores the project to a specific snapshot using a specific kind of restore. This operation
 /// also creates a new snapshot in the oplog.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn restore_snapshot_with_kind(
     ctx: &mut but_ctx::Context,
@@ -380,7 +380,7 @@ pub fn snapshot_diff(
 /// and `peel_restore_snapshot` will return the snapshot for `bd1724b`.
 ///
 /// If the given snapshot is not a restore snapshot then the same snapshot will be returned.
-#[but_api(napi, try_from = json::Snapshot)]
+#[but_api(try_from = json::Snapshot)]
 #[instrument(err(Debug))]
 pub fn peel_restore_snapshot(
     ctx: &but_ctx::Context,

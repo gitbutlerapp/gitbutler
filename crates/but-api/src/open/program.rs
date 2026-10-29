@@ -31,7 +31,6 @@ pub mod json {
     #[derive(Serialize, Clone)]
     #[serde(rename_all = "camelCase")]
     #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[cfg_attr(feature = "napi", napi_derive::napi(object))]
     pub struct Editor {
         /// Identifier used to refer to the editor.
         pub id: String,

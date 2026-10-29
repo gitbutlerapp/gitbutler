@@ -39,7 +39,7 @@ const TARGET_COMMITS_PAGE_SIZE: usize = 50;
 /// [`but_forge::merged_review_from_message`]). Enrichment reads only local
 /// state and performs no network requests or diffs, and its failures degrade
 /// to unannotated commits.
-#[but_api(napi, provides = [TargetCommits])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn workspace_target_commits(
     ctx: &but_ctx::Context,

@@ -95,7 +95,7 @@ pub(crate) fn commit_amend_only_impl(
 /// the returned workspace previews the amended commit and no oplog entry is
 /// persisted. For lower-level implementation details, see
 /// [`but_workspace::commit::commit_amend()`].
-#[but_api(napi, try_from = crate::commit::json::CommitCreateResult)]
+#[but_api(try_from = crate::commit::json::CommitCreateResult)]
 #[instrument(err(Debug))]
 pub fn commit_amend(
     ctx: &mut but_ctx::Context,

@@ -75,7 +75,7 @@ pub fn comments_list_with_perm(
 
 /// Archive the comment with the given `id`, hiding it from all future listings.
 /// Returns `false` if the comment does not exist or was already archived.
-#[but_api(napi)]
+#[but_api]
 #[instrument(skip(ctx), err(Debug))]
 pub fn comment_archive(ctx: &Context, id: String) -> anyhow::Result<bool> {
     let archived = but_comments::archive_comment(&store(ctx), &id, now_ms())?;

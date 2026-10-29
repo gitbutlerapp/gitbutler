@@ -879,7 +879,7 @@ pub fn apply_only_with_perm(
 ///
 /// This acquires exclusive worktree access from `ctx`, applies
 /// `existing_branch`, and records an oplog snapshot on success.
-#[but_api(napi, json::ApplyOutcome)]
+#[but_api(json::ApplyOutcome)]
 #[instrument(err(Debug))]
 pub fn apply(
     ctx: &mut but_ctx::Context,
@@ -929,7 +929,7 @@ pub fn apply_with_perm(
 /// exists. Uniqueness only holds at the time of the call: the name is
 /// deduplicated against local branches and the short names of remote-tracking
 /// branches, both of which can change afterwards.
-#[but_api(napi, provides = [Branches])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn branch_canned_name(ctx: &Context) -> anyhow::Result<String> {
     let _guard = ctx.shared_worktree_access();
@@ -944,7 +944,7 @@ pub fn branch_canned_name(ctx: &Context) -> anyhow::Result<String> {
 /// checks out the new branch when it was created directly above the currently
 /// checked-out local branch. For lower-level implementation details, see
 /// [`but_workspace::branch::create_reference()`].
-#[but_api(napi, try_from = json::BranchCreateResult)]
+#[but_api(try_from = json::BranchCreateResult)]
 #[instrument(err(Debug))]
 pub fn branch_create(
     ctx: &mut but_ctx::Context,
@@ -1049,11 +1049,7 @@ pub fn branch_create_with_perm(
 /// worktree access from `ctx` and records an oplog snapshot on success. For
 /// lower-level implementation details, see
 /// [`but_workspace::branch::name_segment()`].
-#[but_api(
-    napi,
-    try_from = json::BranchCreateResult,
-    invalidates = [Branches, Workspace]
-)]
+#[but_api(try_from = json::BranchCreateResult, invalidates = [Branches, Workspace])]
 #[instrument(err(Debug))]
 pub fn branch_name_segment(
     ctx: &mut but_ctx::Context,
@@ -1131,11 +1127,7 @@ pub fn branch_name_segment_with_perm(
 /// the local target branch, and deletes the workspace reference. For lower-level
 /// implementation details, see
 /// [`but_workspace::branch::remove_reference()`].
-#[but_api(
-    napi,
-    try_from = json::BranchRemoveResult,
-    invalidates = [Branches, Workspace]
-)]
+#[but_api(try_from = json::BranchRemoveResult, invalidates = [Branches, Workspace])]
 #[instrument(err(Debug))]
 pub fn branch_remove(
     ctx: &mut but_ctx::Context,
@@ -1330,11 +1322,7 @@ pub fn branch_remove_only_with_perm(
 /// an oplog snapshot on success, and returns the post-operation workspace view.
 /// It requires no stack id and works in both managed and ad-hoc/single-branch
 /// workspaces.
-#[but_api(
-    napi,
-    try_from = json::BranchRenameResult,
-    invalidates = [Branches, Workspace]
-)]
+#[but_api(try_from = json::BranchRenameResult, invalidates = [Branches, Workspace])]
 #[instrument(err(Debug))]
 pub fn branch_rename(
     ctx: &mut but_ctx::Context,
@@ -1478,7 +1466,7 @@ pub fn branch_rename_with_perm(
 /// name under `refs/heads/`, or a remote-tracking branch under `refs/remotes/`,
 /// in which case its local tracking branch is checked out, created at the
 /// remote-tracking commit first if it doesn't exist yet.
-#[but_api(napi, try_from = json::BranchCheckoutResult)]
+#[but_api(try_from = json::BranchCheckoutResult)]
 #[instrument(err(Debug))]
 pub fn branch_checkout(
     ctx: &mut but_ctx::Context,
@@ -1605,7 +1593,7 @@ pub fn branch_checkout_with_perm_only(
 /// `branch` is resolved by name in the repository referenced by `ctx`, and the
 /// diff is computed against the current workspace state. For lower-level
 /// implementation details, see [`but_workspace::ui::diff::changes_in_branch()`].
-#[but_api(napi, provides = [Branches])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges> {
     let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
@@ -1622,7 +1610,7 @@ pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges>
 /// ordered most recently updated first; group by `status` to lead with the
 /// workspace-related ones. Ahead-counts are relative to the
 /// project's configured target branch, which clients know from the project APIs.
-#[but_api(napi, json::ListedStack, provides = [Branches])]
+#[but_api(json::ListedStack)]
 #[instrument(err(Debug))]
 pub fn branch_list(ctx: &Context) -> anyhow::Result<Vec<ListedStack>> {
     let guard = ctx.shared_worktree_access();
@@ -1698,7 +1686,7 @@ pub struct ListedBranch {
 }
 
 /// Get the initial upstream integration script for `branch`.
-#[but_api(napi, try_from = json::InitialBranchIntegration)]
+#[but_api(try_from = json::InitialBranchIntegration)]
 #[instrument(err(Debug))]
 pub fn get_initial_branch_integration(
     ctx: &Context,
@@ -1735,7 +1723,7 @@ pub fn get_initial_branch_integration_with_perm(
 /// steps to the branch, and records an oplog snapshot on success. When
 /// `dry_run` is enabled, the returned workspace previews the integration
 /// result and no oplog entry is persisted.
-#[but_api(napi, try_from = json::IntegrateBranchResult)]
+#[but_api(try_from = json::IntegrateBranchResult)]
 #[instrument(err(Debug))]
 pub fn apply_branch_integration(
     ctx: &mut but_ctx::Context,
@@ -1792,7 +1780,7 @@ pub fn apply_branch_integration_with_perm(
 /// to `side` of `relative_to`, and records an oplog snapshot on success. When
 /// `dry_run` is enabled, the returned workspace previews the move and no oplog
 /// entry is persisted.
-#[but_api(napi, try_from = json::MoveBranchResult)]
+#[but_api(try_from = json::MoveBranchResult)]
 #[instrument(err(Debug))]
 pub fn move_branch(
     ctx: &mut but_ctx::Context,
@@ -1859,7 +1847,7 @@ pub fn move_branch_with_perm(
 /// out of its current stack, and records an oplog snapshot on success. When
 /// `dry_run` is enabled, the returned workspace previews the tear-off and no
 /// oplog entry is persisted.
-#[but_api(napi, try_from = json::MoveBranchResult)]
+#[but_api(try_from = json::MoveBranchResult)]
 #[instrument(err(Debug))]
 pub fn tear_off_branch(
     ctx: &mut but_ctx::Context,

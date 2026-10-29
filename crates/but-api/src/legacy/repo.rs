@@ -46,7 +46,7 @@ pub mod json {
     }
 }
 
-#[but_api(napi, provides = [SigningSettings])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn check_signing_settings(ctx: &Context) -> Result<bool> {
     ctx.check_signing_settings()
@@ -90,7 +90,7 @@ pub fn get_commit_file(
     ctx.read_file_from_commit(commit_id, &relative_path)
 }
 
-#[but_api(napi, json::FileInfo, provides = [])]
+#[but_api(json::FileInfo)]
 #[instrument(err(Debug))]
 pub fn get_workspace_file(ctx: &Context, relative_path: String) -> Result<FileInfo> {
     ctx.read_file_from_workspace(relative_path.as_ref())
@@ -104,7 +104,7 @@ pub fn get_workspace_file(ctx: &Context, relative_path: String) -> Result<FileIn
 ///
 /// # Arguments
 /// * `blob_id` - Git blob object ID as a hexadecimal string
-#[but_api(napi, json::FileInfo, provides = [])]
+#[but_api(json::FileInfo)]
 #[instrument(err(Debug))]
 pub fn get_blob_file(
     ctx: &but_ctx::Context,

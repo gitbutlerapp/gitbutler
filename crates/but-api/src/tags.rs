@@ -1,14 +1,13 @@
 //! The tag vocabulary clients cache API results under.
 //!
-//! A tag names one kind of cached state. Three declarations, all in Rust,
-//! describe everything that happens to it:
+//! A tag names one kind of cached state. Two declarations, both in Rust,
+//! say what makes it stale:
 //!
-//! * a read endpoint says what its result is made of: `#[but_api(provides = [Reviews])]`
-//! * a mutation says what it makes stale: `#[but_api(invalidates = [Reviews])]`
-//! * a watcher event says what it makes stale: [`crate::watcher::WatcherEventKind::invalidates`]
+//! * a mutation: `#[but_api(invalidates = [Reviews])]`
+//! * a watcher event: [`crate::watcher::WatcherEventKind::invalidates`]
 //!
-//! Clients derive every cache refresh from those three, so which caches to
-//! drop after a mutation or an event is never guessed on the frontend.
+//! Clients derive cache refreshes from those two, so which caches to drop
+//! after a mutation or an event is never guessed on the frontend.
 //! Mutations that only write to the repository declare nothing: the watcher
 //! observes the repository, and the event carries the invalidation.
 
@@ -120,7 +119,7 @@ mod tests {
     use but_api_macros::but_api;
     use but_testsupport::{CommandExt, git_at_dir, open_repo};
 
-    #[but_api(napi, invalidates = [Reviews, Checks])]
+    #[but_api(invalidates = [Reviews, Checks])]
     pub fn probe(_ctx: &but_ctx::Context, succeed: bool) -> anyhow::Result<()> {
         if succeed {
             Ok(())

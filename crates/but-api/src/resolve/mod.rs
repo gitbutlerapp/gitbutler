@@ -84,7 +84,7 @@ but_schemars::register_sdk_type!(ConflictedFile);
 /// result. Fails for commits whose conflicts have no hunk representation
 /// (deletions/renames, binaries, oversized files, marker-like content) — those
 /// need manual resolution in edit mode.
-#[but_api(napi, try_from = crate::resolve::json::CommitConflicts, provides = [])]
+#[but_api(try_from = crate::resolve::json::CommitConflicts)]
 #[instrument(err(Debug))]
 pub fn commit_conflicts(
     ctx: &but_ctx::Context,
@@ -299,7 +299,7 @@ pub struct HunkResolutionResult {
 /// [`HunkResolution::Ai`] specs are sent to the configured LLM first (no
 /// worktree lock is held during the model call); AI configuration is only
 /// required when such a spec is present.
-#[but_api(napi, try_from = crate::resolve::json::HunkResolutionResult)]
+#[but_api(try_from = crate::resolve::json::HunkResolutionResult)]
 #[instrument(skip(specs), err(Debug))]
 pub fn resolve_commit_conflict_hunks(
     ctx: &mut but_ctx::Context,

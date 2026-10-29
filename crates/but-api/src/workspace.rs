@@ -284,7 +284,7 @@ impl TryFrom<but_db::FetchStatus> for WorkspaceFetchStatus {
 /// reacts to updated remote refs. Within this process, overlapping fetch calls for the same
 /// repository serialize among themselves so concurrent `git fetch` runs cannot trip over Git's
 /// per-ref locks; fetches from other processes are not affected.
-#[but_api(napi, provides = [])]
+#[but_api]
 #[instrument(skip_all, err(Debug))]
 pub fn workspace_fetch_from_remotes(
     ctx: &mut but_ctx::Context,
@@ -449,7 +449,7 @@ pub(crate) fn prune_missing_branch_stack_order(ctx: &but_ctx::Context) -> anyhow
 ///
 /// A project that hasn't used the workspace fetch API returns an empty status. Legacy fetch state
 /// is intentionally not imported.
-#[but_api(napi, provides = [FetchStatus])]
+#[but_api]
 #[instrument(skip_all, err(Debug))]
 pub fn workspace_fetch_status(ctx: &but_ctx::Context) -> anyhow::Result<WorkspaceFetchStatus> {
     ctx.db
@@ -466,7 +466,7 @@ pub fn workspace_fetch_status(ctx: &but_ctx::Context) -> anyhow::Result<Workspac
 ///
 /// This is a read-only projection of the current workspace graph. It does not
 /// mutate the cached [`WorkspaceState`] returned by mutation APIs.
-#[but_api(napi)]
+#[but_api]
 #[instrument(skip_all, err(Debug))]
 pub fn get_workspace(
     ctx: &but_ctx::Context,
@@ -487,7 +487,7 @@ pub fn get_workspace(
 /// validated against `HEAD`; an unreachable stored target commit is replaced by their merge-base.
 /// An omitted `push_remote` preserves its current value. It deliberately records no oplog snapshot
 /// because only project metadata changes, not repository state.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn set_target_ref_and_init_project(
     ctx: &mut but_ctx::Context,
@@ -509,7 +509,7 @@ pub fn set_target_ref_and_init_project(
 ///
 /// This acquires exclusive repository access, updates project metadata through
 /// [`but_workspace::init::set_push_remote()`], and invalidates the cached workspace projection.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn set_push_remote(ctx: &mut but_ctx::Context, push_remote: String) -> anyhow::Result<()> {
     let guard = ctx.exclusive_worktree_access();
@@ -526,7 +526,7 @@ pub fn set_push_remote(ctx: &mut but_ctx::Context, push_remote: String) -> anyho
 /// taking the current worktree content (or the file's absence) as the resolution.
 ///
 /// For lower-level details, see [`but_workspace::resolve_worktree_conflicts()`].
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn resolve_worktree_conflicts(
     ctx: &mut but_ctx::Context,
@@ -814,7 +814,7 @@ pub fn workspace_integrate_upstream_only(
 /// when the integration succeeds. When `dry_run` is enabled, the returned
 /// workspace previews the integration and no oplog entry is persisted. See
 /// [`workspace_integrate_upstream_with_perm()`] for lower-level details.
-#[but_api(napi, try_from = json::WorkspaceIntegrateUpstreamOutcome)]
+#[but_api(try_from = json::WorkspaceIntegrateUpstreamOutcome)]
 #[instrument(err(Debug))]
 pub fn workspace_integrate_upstream(
     ctx: &mut but_ctx::Context,

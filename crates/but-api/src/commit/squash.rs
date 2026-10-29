@@ -82,7 +82,7 @@ pub fn commit_squash_only_with_perm(
 ///
 /// When `dry_run` is enabled, the returned workspace previews the squashed
 /// result and no oplog entry is persisted. For details, see [`commit_squash_with_perm()`].
-#[but_api(napi, try_from = crate::commit::json::CommitSquashResult)]
+#[but_api(try_from = crate::commit::json::CommitSquashResult)]
 #[instrument(err(Debug))]
 pub fn commit_squash(
     ctx: &mut but_ctx::Context,

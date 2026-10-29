@@ -60,7 +60,7 @@ pub(crate) fn commit_insert_blank_only_impl(
 /// When `dry_run` is enabled, the returned workspace previews the inserted
 /// commit and no oplog entry is persisted. For details, see
 /// [`commit_insert_blank_with_perm()`].
-#[but_api(napi, try_from = crate::commit::json::CommitInsertBlankResult)]
+#[but_api(try_from = crate::commit::json::CommitInsertBlankResult)]
 #[instrument(err(Debug))]
 pub fn commit_insert_blank(
     ctx: &mut but_ctx::Context,

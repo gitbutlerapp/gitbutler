@@ -67,7 +67,7 @@ pub fn commit_cherry_pick_only_with_perm(
 
 /// Cherry-picks `source_commit_ids` to `side` of `relative_to` and records an
 /// oplog snapshot on success.
-#[but_api(napi, try_from = crate::commit::json::CommitCherryPickResult)]
+#[but_api(try_from = crate::commit::json::CommitCherryPickResult)]
 #[instrument(err(Debug))]
 pub fn commit_cherry_pick(
     ctx: &mut but_ctx::Context,

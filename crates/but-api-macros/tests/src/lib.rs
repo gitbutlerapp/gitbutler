@@ -15,7 +15,7 @@ use std::str::FromStr;
 
 pub mod tags {
     /// Stand-in for `but_api::tags::CacheTag`, holding just enough variants
-    /// for the `provides`/`invalidates` expansion checks.
+    /// for the `invalidates` expansion checks.
     pub enum CacheTag {
         Reviews,
         Checks,

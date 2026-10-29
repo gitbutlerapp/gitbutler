@@ -35,7 +35,7 @@ use but_core::DryRun;
 /// snapshot and rewriting commits.
 ///
 /// Before applying the plan, this records an `Absorb` oplog snapshot.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyhow::Result<usize> {
     let mut guard = ctx.exclusive_worktree_access();
@@ -90,7 +90,7 @@ pub fn absorb_with_perm(
 
 /// Build an absorption plan for `target` using the behavior documented by
 /// [`absorption_plan_with_perm()`].
-#[but_api(napi, provides = [AbsorptionPlan])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn absorption_plan(
     ctx: &mut Context,
