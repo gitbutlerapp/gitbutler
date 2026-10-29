@@ -195,8 +195,8 @@ pub fn heads(repo: &gix::Repository) -> Heads {
 }
 
 /// Make a linked worktree, as `but worktree new` does: on a new branch at the workspace's base,
-/// named or with a made-up name, or on an existing local branch outside the workspace. Done is
-/// the worktree's name.
+/// named or with a made-up name, or on a branch outside the workspace, a remote one's local
+/// tracking branch made first as `git checkout` does. Done is the worktree's name.
 pub enum CreateWorktree {
     New(Option<String>),
     On(super::FullName),
@@ -214,7 +214,16 @@ impl Intent for CreateWorktree {
                 })?
             }
             Self::On(branch) => run.locked(|ctx, perm| {
-                but_api::worktrees::worktree_new_on_branch_with_perm(ctx, branch, perm)
+                let local = match branch.category() {
+                    Some(gix::refs::Category::RemoteBranch) => {
+                        but_workspace::branch::local_tracking_branch(
+                            &*ctx.repo.get()?,
+                            branch.as_ref(),
+                        )?
+                    }
+                    _ => branch,
+                };
+                but_api::worktrees::worktree_new_on_branch_with_perm(ctx, local, perm)
             })?,
         };
         Ok(created.name)
