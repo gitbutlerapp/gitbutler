@@ -813,7 +813,7 @@ impl Detail {
 
     /// ↓ or ↑ (`delta`) in the list: the next or previous stack, branch or commit shown, kept
     /// in view.
-    fn step_branches(&mut self, delta: isize, cx: &mut Context<Self>) {
+    pub(super) fn step_branches(&mut self, delta: isize, cx: &mut Context<Self>) {
         let Some(branches) = self.page_branches(cx) else {
             return;
         };

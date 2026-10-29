@@ -1356,6 +1356,13 @@ impl Detail {
         {
             self.scroll_to_file(first, true, cx);
         }
+        // So has what the project's page opens on, what landed lately, and the Branches page's
+        // overview: their lists take them on their first row, as the first step down would.
+        if self.showing_shipped(cx) {
+            self.step_upstream(1, cx);
+        } else if self.showing_branches_overview(cx) {
+            self.step_branches(1, cx);
+        }
         let handle = match (side_list, files) {
             (true, _) => &self.side_focus,
             (false, true) => &self.files_focus,
