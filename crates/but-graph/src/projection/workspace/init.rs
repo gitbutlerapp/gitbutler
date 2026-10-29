@@ -16,6 +16,7 @@ use crate::{
     Workspace,
     init::WorktreeTip,
     utils::SegmentTable,
+    workspace::commit::is_managed_workspace_by_message,
     workspace::{
         Stack, StackCommit, StackCommitFlags, StackSegment, TargetCommit, TargetRef, WorkspaceKind,
         WorktreeBase, WorktreeStack, workspace::WorkspaceState,
@@ -142,12 +143,12 @@ impl Graph {
 
     pub(crate) fn to_workspace_state(
         &self,
-        _repo: &gix::Repository,
+        repo: &gix::Repository,
     ) -> anyhow::Result<WorkspaceState> {
-        Ok(self.project(self.frame(self.entrypoint()?.segment.id)?))
+        Ok(self.project(self.frame(self.entrypoint()?.segment.id, repo)?))
     }
 
-    fn frame(&self, ws: SegmentIndex) -> anyhow::Result<Frame<'_>> {
+    fn frame(&self, ws: SegmentIndex, repo: &gix::Repository) -> anyhow::Result<Frame<'_>> {
         let segment = &self[ws];
         let metadata = segment.workspace_metadata();
         let kind = match metadata {
@@ -156,10 +157,16 @@ impl Graph {
                     .ref_info
                     .clone()
                     .context("BUG: managed workspaces must always be on a named segment")?;
-                if segment.commits.is_empty() {
-                    WorkspaceKind::ManagedMissingWorkspaceCommit { ref_info }
-                } else {
+                let has_managed_commit = match segment.commits.first() {
+                    Some(commit) => {
+                        is_managed_workspace_by_message(repo.find_commit(commit.id)?.message_raw()?)
+                    }
+                    None => false,
+                };
+                if has_managed_commit {
                     WorkspaceKind::Managed { ref_info }
+                } else {
+                    WorkspaceKind::ManagedMissingWorkspaceCommit { ref_info }
                 }
             }
             None => WorkspaceKind::AdHoc,
@@ -382,7 +389,9 @@ impl Graph {
     }
 
     fn stack_tips(&self, frame: &Frame<'_>) -> Vec<SegmentIndex> {
-        if !frame.kind.has_managed_ref() {
+        if !frame.kind.has_managed_ref()
+            || (!frame.kind.has_managed_commit() && !self[frame.ws].commits.is_empty())
+        {
             return vec![frame.ws];
         }
         self.inner
