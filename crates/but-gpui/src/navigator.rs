@@ -1,6 +1,7 @@
 //! The left column: every project as a card, each listing its uncommitted changes,
 //! stacks, branches and commits as one tree of rows.
 
+use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::f32::consts::PI;
 use std::sync::Arc;
@@ -34,10 +35,11 @@ use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, reordered};
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    BLINK, ButtonStyle, HEADER_HEIGHT, Icon, POPOVER_RADIUS, ROW_HEIGHT, Tooltip, above_drag, ago,
-    blink_once, button, commit_title, count_badge, dot, dp, faint, field, fixed, fold_button,
-    fold_glyph, fold_row, glow_once, guide, h_flex, icon, icon_button, list_row, meta_count,
-    plural, pulsing, relative_time, resize_handle, review, section_label, small_icon, v_flex,
+    BLINK, ButtonStyle, HEADER_HEIGHT, Icon, POPOVER_RADIUS, ROW_HEIGHT, Tooltip,
+    WINDOW_CONTROLS_WIDTH, above_drag, ago, blink_once, button, commit_title, count_badge, dot, dp,
+    faint, field, fixed, fold_button, fold_glyph, fold_row, glow_once, guide, h_flex, icon,
+    icon_button, list_row, meta_count, plural, pulsing, relative_time, resize_handle, review,
+    section_label, small_icon, v_flex,
 };
 
 mod account;
@@ -347,6 +349,10 @@ pub struct Navigator {
     /// Drawn out over the detail while it's closed, as a card of its own, which the app
     /// sizes, rather than beside it.
     floating: bool,
+    /// How much of the detail beside it shows, from 0 hidden to 1, as it slides: the app sets
+    /// it before this draws. Hidden, the navigator takes the window, with nothing beside it
+    /// to edge or resize it against.
+    pub detail_shown: Cell<f32>,
     /// The watched projects' order by activity as it was when the pointer came over the
     /// list, kept until it leaves, so a project an agent wakes doesn't move the row about to
     /// be clicked.
@@ -491,6 +497,7 @@ impl Navigator {
             first_hit: None,
             pointer_over: false,
             floating: false,
+            detail_shown: Cell::new(1.),
             held_order: None,
             watch_hovered: None,
             project_drop: None,
@@ -3077,6 +3084,11 @@ impl Render for Navigator {
         let empty = store.projects_loaded && store.projects.is_empty();
         let filter_focused = self.filter.focus_handle(cx).is_focused(window);
         let filtering = !self.filter.read(cx).text().is_empty();
+        let detail_shown = self.detail_shown.get();
+        // As the location bar's toggle shows and hides the navigator, at the other end.
+        let toggle_detail = icon_button("toggle-detail", Icon::SidebarRight)
+            .tooltip("Toggle details")
+            .dispatch(&crate::app::ToggleDetail);
 
         // Once the cards scroll under it, a rule along its bottom, as but.dev draws one, and
         // level with the location bar's: the same height and border, from the window's top.
@@ -3095,7 +3107,16 @@ impl Render for Navigator {
                 true => el.pl(fixed(84.)),
                 false => el.pl(dp(8.)),
             })
-            .pr(dp(8.))
+            // Clear of the window's buttons, where the app draws them over its right end, as the
+            // detail slides away from under them.
+            .map(
+                |el| match crate::ui::draws_window_controls(window) && detail_shown < 1. {
+                    true => {
+                        el.pr(theme.scaled(8.) + fixed(WINDOW_CONTROLS_WIDTH * (1. - detail_shown)))
+                    }
+                    false => el.pr(dp(8.)),
+                },
+            )
             .when(!self.floating, crate::ui::drags_window)
             .gap(dp(6.))
             // Its clear button inside it, so typing the first letter doesn't narrow it.
@@ -3121,7 +3142,9 @@ impl Render for Navigator {
             )
             .children(self.update_button(cx).map(|el| above_drag(div().child(el))))
             .child(above_drag(div().child(self.view_button(cx))))
-            .child(above_drag(div().child(self.account(&theme, cx))));
+            .child(above_drag(div().child(self.account(&theme, cx))))
+            .child(div().flex_none().w(fixed(1.)).h(dp(16.)).bg(theme.border_3))
+            .child(above_drag(div().child(toggle_detail)));
 
         v_flex()
             .id("navigator")
@@ -3180,7 +3203,12 @@ impl Render for Navigator {
             // rectangle, so the drawer along its bottom rounds its own corners.
             .map(|el| match self.floating {
                 true => (el.rounded(dp(POPOVER_RADIUS)).border_1()).border_color(theme.border_2),
-                false => el.border_r_1().border_color(theme.border_3),
+                // Without the detail, nothing to edge against, but the room it took stays, so
+                // what's against the right doesn't move as the detail goes.
+                false => el.border_r_1().border_color(match detail_shown > 0. {
+                    true => theme.border_3,
+                    false => gpui::transparent_black(),
+                }),
             })
             .child(header)
             .map(|el| {
@@ -3222,8 +3250,8 @@ impl Render for Navigator {
                 }
             }))
             // A card out over the detail goes back once the pointer leaves it, so it's resized
-            // only beside the detail.
-            .when(!self.floating, |el| {
+            // only beside the detail, once it's all there.
+            .when(!self.floating && detail_shown >= 1., |el| {
                 el.child(resize_handle(Pane::Navigator, self.store.clone(), &theme))
             })
     }

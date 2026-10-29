@@ -485,6 +485,10 @@ pub struct Detail {
     /// How much of the navigator shows beside the detail, from 0 to 1, as the app last drew
     /// it. Its sliding changes the detail's width, so the detail draws again as it changes.
     pub navigator_shown: Cell<f32>,
+    /// The window's width to lay out for, in unscaled pixels, while the window narrows to the
+    /// navigator or widens back as the detail slides, so it isn't laid out again at every
+    /// width; otherwise the window's own.
+    pub window_width: Cell<Option<f32>>,
     /// The Graph page, which draws itself as it pans and zooms.
     graph: Entity<graph::GraphView>,
     _subscriptions: Vec<Subscription>,
@@ -796,6 +800,7 @@ impl Detail {
             files_popover_shown: Cell::new(false),
             _files_popover_delay: Task::ready(()),
             navigator_shown: Cell::new(1.),
+            window_width: Cell::new(None),
             graph,
             _subscriptions: subscriptions,
         };
@@ -2041,17 +2046,26 @@ impl Detail {
     /// How wide the file list is drawn while it's shown, beside the navigator as much as that
     /// shows.
     pub(crate) fn files_width(&self, window: &Window, cx: &App) -> f32 {
-        let window = f32::from(window.viewport_size().width) / Theme::get(cx).scale;
+        let window = self.laid_out_width(window, cx);
         let navigator = self.navigator_shown.get();
         (self.store.read(cx)).fitted_width(Pane::Files, window, navigator, 1.)
     }
 
     /// How wide the navigator is drawn while it's open, beside the file list as much as that
-    /// shows at `now`.
+    /// shows at `now`. To the point, as AppKit sizes the window, so the window narrowed to it
+    /// fits it.
     pub(crate) fn navigator_width(&self, now: Instant, window: &Window, cx: &App) -> f32 {
-        let window = f32::from(window.viewport_size().width) / Theme::get(cx).scale;
+        let window = self.laid_out_width(window, cx);
         let files = self.files_share(now, cx);
-        (self.store.read(cx)).fitted_width(Pane::Navigator, window, 1., files)
+        let width = (self.store.read(cx)).fitted_width(Pane::Navigator, window, 1., files);
+        let scale = Theme::get(cx).scale;
+        (width * scale).round() / scale
+    }
+
+    /// The window's width the panes are laid out for, in unscaled pixels.
+    fn laid_out_width(&self, window: &Window, cx: &App) -> f32 {
+        (self.window_width.get())
+            .unwrap_or_else(|| f32::from(window.viewport_size().width) / Theme::get(cx).scale)
     }
 
     /// Where the diff's cursor is, as an editor's status bar says the line: the place of the

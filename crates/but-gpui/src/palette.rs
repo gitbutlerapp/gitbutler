@@ -11,8 +11,9 @@ use gpui::{
 use crate::app::{
     ActualSize, AddProject, AppView, CheckForUpdates, CopySelection, CutSelection, DeleteSelection,
     Fetch, FocusChanges, FocusDiff, FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest,
-    PasteHere, Push, Quit, Redo, RenameSelection, StartCommit, ToggleFileTree, ToggleNavigator,
-    UncommitSelection, Undo, UpdateFromTarget, UpdateWorkspace, UpdateWorktrees, ZoomIn, ZoomOut,
+    PasteHere, Push, Quit, Redo, RenameSelection, StartCommit, ToggleDetail, ToggleFileTree,
+    ToggleNavigator, UncommitSelection, Undo, UpdateFromTarget, UpdateWorkspace, UpdateWorktrees,
+    ZoomIn, ZoomOut,
 };
 use crate::backend::{Branch, Checkout, Commit, Workspace, Worktree, short_ref};
 use crate::detail::{
@@ -89,6 +90,7 @@ pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Cut", &CutSelection),
     ("Paste here", &PasteHere),
     ("Toggle navigator", &ToggleNavigator),
+    ("Toggle details", &ToggleDetail),
     ("Zoom in", &ZoomIn),
     ("Zoom out", &ZoomOut),
     ("Actual size", &ActualSize),
