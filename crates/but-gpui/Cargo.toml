@@ -102,6 +102,8 @@ image = { version = "0.25.1", default-features = false, features = ["png", "jpeg
 deltoids = { git = "https://github.com/juanibiapina/deltoids", rev = "b797d011ecc6b733025461cc98fae6f9f8719429" }
 # Pull request descriptions as formatted text. Only its parser: none of its HTML output.
 pulldown-cmark = { version = "0.13.4", default-features = false }
+# Terminal emulation for the embedded terminals. Its build compiles Ghostty with Zig 0.15.
+libghostty-vt = "0.2.2"
 
 [build-dependencies]
 # The Windows executable's icon; it adds nothing to builds for elsewhere.
