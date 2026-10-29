@@ -1596,6 +1596,14 @@ export declare function askpassSubmitPromptResponse(id: string, response?: strin
 /** The target node of this link line is the child of this column. */
 export const CHILD: number
 
+/**
+ * Register the SDK's packaged credential-cache executable before opening repositories.
+ *
+ * The JavaScript entry point calls this with an absolute path. On Windows, where Git's
+ * Unix credential cache is unavailable, this does nothing.
+ */
+export declare function credentialCacheInit(executable: string): void
+
 /** Get the application settings. */
 export declare function getAppSettings(): Promise<AppSettings>
 

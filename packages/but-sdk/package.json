@@ -3,23 +3,24 @@
 	"version": "0.0.1",
 	"description": "GitButler JS but SDK",
 	"type": "module",
-	"main": "./src/generated/linear/index.js",
+	"main": "./src/linear.js",
 	"types": "./src/generated/linear/index.d.ts",
 	"scripts": {
-		"artifacts": "napi artifacts",
+		"artifacts": "node ./scripts/artifacts.mjs",
 		"build:types": "cargo run -p but-ts -- --output ./src/generated/linear/index.d.ts",
 		"build:types:graph": "cargo run -p but-ts --features graph-workspace -- --output ./src/generated/graph/index.d.ts",
-		"build:napi": "napi build --platform --esm --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir ./src/generated/linear",
-		"build:napi:graph": "napi build --platform --esm --features graph-workspace --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir ./src/generated/graph",
-		"build:napi:release": "napi build --platform --release --esm --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir ./src/generated/linear",
-		"build:napi:graph:release": "napi build --platform --release --esm --features graph-workspace --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir ./src/generated/graph",
+		"build:napi": "node ./scripts/build-napi.mjs --platform --esm --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir ./src/generated/linear",
+		"build:napi:graph": "node ./scripts/build-napi.mjs --platform --esm --features graph-workspace --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir ./src/generated/graph",
+		"build:napi:release": "node ./scripts/build-napi.mjs --platform --release --esm --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir ./src/generated/linear",
+		"build:napi:graph:release": "node ./scripts/build-napi.mjs --platform --release --esm --features graph-workspace --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir ./src/generated/graph",
 		"build": "pnpm build:napi && pnpm build:types && pnpm build:napi:graph && pnpm build:types:graph",
 		"build:release": "pnpm build:napi:release && pnpm build:types && pnpm build:napi:graph:release && pnpm build:types:graph",
-		"build:debug": "napi build --platform --esm --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir . --verbose",
+		"build:debug": "node ./scripts/build-napi.mjs --platform --esm --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir . --verbose",
 		"check": "tsc -p tsconfig.generated.json --noEmit",
 		"prepublishOnly": "napi prepublish -t npm",
 		"testTypes": "ts-node ./src/test.ts",
-		"universal": "napi universal"
+		"universal": "napi universal",
+		"test:packaging": "node --test ./scripts/credential-cache.test.mjs"
 	},
 	"napi": {
 		"binaryName": "gitbutler-sdk",
@@ -68,7 +69,12 @@
 		"./src/generated/linear/cacheTags.js",
 		"./src/generated/linear/cacheTags.d.ts",
 		"./src/generated/graph/cacheTags.js",
-		"./src/generated/graph/cacheTags.d.ts"
+		"./src/generated/graph/cacheTags.d.ts",
+		"./src/linear.js",
+		"./src/graph.js",
+		"./src/credentialCache.js",
+		"./src/generated/linear/but-credential-cache.*",
+		"./src/generated/graph/but-credential-cache.*"
 	],
 	"exports": {
 		".": {
@@ -78,11 +84,11 @@
 			},
 			"import": {
 				"types": "./src/generated/linear/index.d.ts",
-				"default": "./src/generated/linear/index.js"
+				"default": "./src/linear.js"
 			},
 			"require": {
 				"types": "./src/generated/linear/index.d.ts",
-				"default": "./src/generated/linear/index.js"
+				"default": "./src/linear.js"
 			}
 		},
 		"./linear": {
@@ -92,11 +98,11 @@
 			},
 			"import": {
 				"types": "./src/generated/linear/index.d.ts",
-				"default": "./src/generated/linear/index.js"
+				"default": "./src/linear.js"
 			},
 			"require": {
 				"types": "./src/generated/linear/index.d.ts",
-				"default": "./src/generated/linear/index.js"
+				"default": "./src/linear.js"
 			}
 		},
 		"./graph": {
@@ -106,11 +112,11 @@
 			},
 			"import": {
 				"types": "./src/generated/graph/index.d.ts",
-				"default": "./src/generated/graph/index.js"
+				"default": "./src/graph.js"
 			},
 			"require": {
 				"types": "./src/generated/graph/index.d.ts",
-				"default": "./src/generated/graph/index.js"
+				"default": "./src/graph.js"
 			}
 		},
 		"./api-param-names": {

@@ -185,6 +185,8 @@ jobs:
         run: ./scripts/generate-sdk-types.sh
       - name: Check but-sdk
         run: pnpm --filter @gitbutler/but-sdk check
+      - name: Test SDK packaging
+        run: pnpm --filter @gitbutler/but-sdk test:packaging
 
   rust-lint:
     needs: changes

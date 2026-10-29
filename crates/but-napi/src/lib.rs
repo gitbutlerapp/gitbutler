@@ -37,6 +37,23 @@ pub mod settings;
 
 type EventCallback = ThreadsafeFunction<WatcherEvent>;
 
+/// Register the SDK's packaged credential-cache executable before opening repositories.
+///
+/// The JavaScript entry point calls this with an absolute path. On Windows, where Git's
+/// Unix credential cache is unavailable, this does nothing.
+#[napi]
+pub fn credential_cache_init(executable: String) -> napi::Result<()> {
+    #[cfg(unix)]
+    but_utils::credential_cache::set_daemon(gix::credentials::program::cache::DaemonCommand {
+        executable: executable.into(),
+        args: vec![but_utils::credential_cache::DAEMON_ARGUMENT.into()],
+    })
+    .map_err(to_napi_err)?;
+    #[cfg(not(unix))]
+    let _ = executable;
+    Ok(())
+}
+
 /// This cell contains a horizontal line that connects to a parent.
 #[napi]
 pub const HORIZ_PARENT: u16 = 0b0_0000_0000_0001;

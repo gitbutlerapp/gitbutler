@@ -1894,6 +1894,7 @@ dependencies = [
  "but-llm",
  "but-path",
  "but-settings",
+ "but-utils",
  "gitbutler-watcher",
  "gix",
  "napi",

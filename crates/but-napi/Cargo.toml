@@ -42,6 +42,7 @@ but-ctx.workspace = true
 but-llm.workspace = true
 but-path.workspace = true
 but-settings.workspace = true
+but-utils.workspace = true
 gix.workspace = true
 gitbutler-watcher.workspace = true
 napi = { version = "3", features = ["serde-json", "tokio_rt"] }

@@ -1,5 +1,6 @@
 # Ignore build artifacts
 *.node
+but-credential-cache.*
 *.tsbuildinfo
 
 # Ignore platform-specific directories

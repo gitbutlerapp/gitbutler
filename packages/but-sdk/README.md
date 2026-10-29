@@ -19,7 +19,11 @@ The generated SDK surface is produced in two parts and merged into a single decl
    - These emitted type aliases are appended to the flavor folder's `index.d.ts`.
 
 
-This package ships only generated artifacts (`browser.js` plus each flavor's `index.js`, `index.d.ts`, `*.node`) and re-exports them through package `exports`.
+The package entry points load these generated artifacts and initialize the native
+credential cache on Unix. Each Unix build includes a `but-credential-cache.*`
+executable beside its `.node` add-on, built for the same target and profile. It
+also travels with the add-on in optional platform packages. Node and Electron
+register this executable explicitly; the cache never relaunches the JavaScript host.
 
 ## Workspace-projection flavors
 
@@ -116,6 +120,10 @@ pnpm --filter @gitbutler/but-sdk testTypes
 ## Usage in Electron
 
 Use native bindings in the Electron **main process**, then expose only typed IPC APIs to the renderer.
+
+Keep `**/but-credential-cache.*` unpacked alongside native add-ons in your
+packager's `asarUnpack` configuration. The SDK resolves the executable under
+`app.asar.unpacked` when it is available.
 
 ### Main process model
 
