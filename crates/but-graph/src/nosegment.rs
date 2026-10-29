@@ -329,9 +329,15 @@ impl WorkspaceGraph {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct Predecessor {
+    segment_index: crate::SegmentIndex,
+    parent_order: u32,
+}
+
 #[derive(Debug, Default)]
 struct PredecessorSegmentInfo {
-    segment_indexes: Vec<crate::SegmentIndex>,
+    predecessors: Vec<Predecessor>,
     must_start_new_segment: bool,
     commit_flags: CommitFlags,
 }
@@ -384,7 +390,8 @@ impl WorkspaceGraph {
                 }
             }
             let segment_index = if !predecessor_segment_info.must_start_new_segment
-                && let [segment_index] = predecessor_segment_info.segment_indexes[..]
+                && let [Predecessor { segment_index, .. }] =
+                    predecessor_segment_info.predecessors[..]
                 && !matches!(node.weight, NodeWeight::Ref { .. })
             {
                 segment_index
@@ -408,20 +415,22 @@ impl WorkspaceGraph {
                     ..Default::default()
                 });
                 inner_graph[segment_index].id = segment_index;
-                for (i, predecessor_segment_index) in
-                    predecessor_segment_info.segment_indexes.iter().enumerate()
+                for Predecessor {
+                    segment_index: predecessor_segment_index,
+                    parent_order,
+                } in predecessor_segment_info.predecessors.iter().copied()
                 {
-                    let predecessor_segment = &inner_graph[*predecessor_segment_index];
+                    let predecessor_segment = &inner_graph[predecessor_segment_index];
                     let src = predecessor_segment.last_commit_index();
                     inner_graph.add_edge(
-                        *predecessor_segment_index,
+                        predecessor_segment_index,
                         segment_index,
                         crate::Edge {
                             src,
                             src_id: predecessor_segment.commit_id_by_index(src),
                             dst: None,
                             dst_id: None,
-                            parent_order: i as u32,
+                            parent_order,
                             workspace_parent_order: None,
                         },
                     );
@@ -482,13 +491,16 @@ impl WorkspaceGraph {
                     ));
                 }
             }
-            for parent in &node.parents {
+            for (parent_order, parent) in (0u32..).zip(&node.parents) {
                 let parent_predecessor_segment_info = node_index_to_predecessor_segment_info
                     .entry(*parent)
                     .or_default();
                 parent_predecessor_segment_info
-                    .segment_indexes
-                    .push(segment_index);
+                    .predecessors
+                    .push(Predecessor {
+                        segment_index,
+                        parent_order,
+                    });
                 if node.parents.len() > 1 {
                     parent_predecessor_segment_info.must_start_new_segment = true;
                 }
