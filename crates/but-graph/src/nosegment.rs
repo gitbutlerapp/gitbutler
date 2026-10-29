@@ -279,7 +279,7 @@ impl WorkspaceGraph {
         }
         for (i, node) in self.nodes.iter().enumerate() {
             for j in &node.parents {
-                out.push_str(&format!(" n{} -> n{}\n", i, j));
+                out.push_str(&format!(" n{i} -> n{j}\n"));
             }
         }
         out.push_str("}\n");
@@ -470,7 +470,7 @@ impl WorkspaceGraph {
                     }
                 }
                 NodeWeight::Ref { full_name } => {
-                    let ref_name = gix::refs::FullName::try_from(full_name.clone())?;
+                    let ref_name = full_name.clone();
                     if full_name.as_bstr().starts_with(b"refs/heads/") {
                         local_branch_infos.push(LocalBranchInfo {
                             segment_index,
@@ -518,15 +518,13 @@ impl WorkspaceGraph {
                     overlay_repo,
                     local_branch_info.full_name.as_ref(),
                 )?
-            {
-                if let Some(remote_tracking_segment_index) =
+                && let Some(remote_tracking_segment_index) =
                     remote_tracking_branch_name_to_segment_index
                         .remove(remote_tracking_branch_name.as_ref())
-                {
-                    let segment = &mut inner_graph[local_branch_info.segment_index];
-                    segment.remote_tracking_branch_segment_id = Some(remote_tracking_segment_index);
-                    segment.remote_tracking_ref_name = Some(remote_tracking_branch_name);
-                }
+            {
+                let segment = &mut inner_graph[local_branch_info.segment_index];
+                segment.remote_tracking_branch_segment_id = Some(remote_tracking_segment_index);
+                segment.remote_tracking_ref_name = Some(remote_tracking_branch_name);
             }
         }
 

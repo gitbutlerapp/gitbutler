@@ -93,10 +93,10 @@ pub fn walk(
                 // Propagate to all known ancestors (untraversed or traversed)
                 let mut ancestor_ids = vec![*parent_id];
                 while let Some(ancestor_id) = ancestor_ids.pop() {
-                    if excluded.insert(ancestor_id) {
-                        if let Some(traversed) = id_to_traversed.get(&ancestor_id) {
-                            ancestor_ids.extend(traversed.parents.iter().cloned());
-                        }
+                    if excluded.insert(ancestor_id)
+                        && let Some(traversed) = id_to_traversed.get(&ancestor_id)
+                    {
+                        ancestor_ids.extend(traversed.parents.iter().cloned());
                     }
                 }
             }
@@ -124,10 +124,8 @@ pub fn walk(
                 *id_to_child_count.get_mut(&parent_id).context(
                     "BUG: traversed without corresponding entry in `id_to_child_count`",
                 )? -= 1;
-                if !excluded.contains(&parent_id) {
-                    if pushed_to_heads.insert(parent_id) {
-                        heads.push_front(parent_id);
-                    }
+                if !excluded.contains(&parent_id) && pushed_to_heads.insert(parent_id) {
+                    heads.push_front(parent_id);
                 }
             }
         }
