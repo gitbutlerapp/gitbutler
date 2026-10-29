@@ -1,12 +1,13 @@
 //! The navigator's tree of rows as it's built, before any is drawn: every card's
 //! projects, worktrees, stacks, branches and commits, and under the filter, what it finds.
 
+use std::collections::HashMap;
 use std::time::Duration;
 
 use gpui::{App, SharedString};
 
 use super::{BranchKey, ClickOpened, Navigator, STEP, upstream_chevrons};
-use crate::backend::{Branch, Checkout, Commit, FullName, Lane, Workspace, Worktree};
+use crate::backend::{Branch, Checkout, Commit, CommitId, FullName, Lane, Workspace, Worktree};
 use crate::edits::BranchEdits;
 use crate::state::{Cut, NewAt, ProjectEntry, ProjectId, Section, Selection, Store};
 use crate::ui::ROW_HEIGHT;
@@ -46,9 +47,50 @@ pub(super) enum Row {
     RestsOn(Selection, Option<Checkout>),
 }
 
+/// What a row is across rebuilds, for a reorder to slide it from where it was.
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub(super) enum RowKey {
+    Item(Selection),
+    /// A commit by its key, which outlives the rewrites that move it.
+    Commit(ProjectId, String),
+    RestsOn(Selection),
+    /// A branch's commits folded away or unfolded, whichever it shows.
+    Fold(ProjectId, Option<FullName>),
+    NewBranch(ProjectId),
+    /// A row of no other kind, by the one before it, which it moves with.
+    After(Box<RowKey>),
+}
+
+/// Each of `rows`' keys, as [`RowKey`] says.
+pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
+    let commits: HashMap<CommitId, &str> = (store.projects.iter())
+        .filter_map(|entry| entry.workspace.as_ref())
+        .flat_map(|workspace| workspace.commits())
+        .map(|commit| (commit.id, commit.key.as_str()))
+        .collect();
+    let mut keys: Vec<Option<RowKey>> = Vec::with_capacity(rows.len());
+    for row in rows {
+        let key = match row {
+            Row::Item(Selection::Commit(project, id)) => Some(match commits.get(id) {
+                Some(key) => RowKey::Commit(project.clone(), key.to_string()),
+                None => RowKey::Item(Selection::Commit(project.clone(), *id)),
+            }),
+            Row::Item(item) => Some(RowKey::Item(item.clone())),
+            Row::RestsOn(item, _) => Some(RowKey::RestsOn(item.clone())),
+            Row::More(project, branch, _) | Row::Fewer(project, branch) => {
+                Some(RowKey::Fold(project.clone(), branch.clone()))
+            }
+            Row::NewBranch(project) => Some(RowKey::NewBranch(project.clone())),
+            _ => (keys.last().cloned().flatten()).map(|before| RowKey::After(Box::new(before))),
+        };
+        keys.push(key);
+    }
+    keys
+}
+
 impl Row {
     /// How tall the row is drawn, near enough for a fold moving it to count by.
-    fn height(&self) -> f32 {
+    pub(super) fn height(&self) -> f32 {
         match self {
             Row::Gap | Row::WorktreeDivider => 12.,
             Row::More(..) | Row::Fewer(..) | Row::UpstreamMore(..) | Row::RestsOn(..) => 24.,

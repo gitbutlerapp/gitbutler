@@ -10,7 +10,7 @@ use gpui::{
     AnyElement, App, ClickEvent, Context, CursorStyle, Div, DragMoveEvent, ElementId, EmptyView,
     Entity, FocusHandle, Focusable, Hsla, ListAlignment, ListOffset, ListState, MouseButton,
     MouseDownEvent, Pixels, Point, ScrollWheelEvent, SharedString, Stateful, Subscription, Task,
-    Window, actions, div, list, prelude::*, relative,
+    Window, actions, deferred, div, list, prelude::*, relative,
 };
 
 use crate::app::{
@@ -30,7 +30,7 @@ use crate::state::{
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
 use crate::ui::emoji::{Colour, ProjectIcon};
-use crate::ui::fold::{self, Folds, clipped, curtain, inert};
+use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, reordered};
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -51,8 +51,8 @@ mod rows;
 use drop::insertion_line;
 use order::{CardSlot, ProjectDrag};
 use rows::{
-    COMMIT_INDENT, Drawer, Fold, GUIDE_AT, Moving, ROW_LEFT, Row, Rows, in_inactive, inactive_open,
-    last_active, within,
+    COMMIT_INDENT, Drawer, Fold, GUIDE_AT, Moving, ROW_LEFT, Row, RowKey, Rows, in_inactive,
+    inactive_open, last_active, row_keys, within,
 };
 
 /// How tall the drawer's handle is, level with the commit footer beside it, and the space
@@ -295,6 +295,9 @@ pub struct Navigator {
     moving: Vec<Option<Moving>>,
     /// The folds opening or closing now.
     folds: Folds<Fold>,
+    /// The rows sliding to where a reorder put them, and each row's key, to tell which.
+    reorder: Reorder<RowKey>,
+    row_keys: Vec<Option<RowKey>>,
     /// Whether each fold the rows were last built through showed what it holds, to tell
     /// which opened or shut since.
     folds_seen: HashMap<Fold, bool>,
@@ -463,6 +466,8 @@ impl Navigator {
             guides: Vec::new(),
             moving: Vec::new(),
             folds: Folds::default(),
+            reorder: Reorder::default(),
+            row_keys: Vec::new(),
             folds_seen: HashMap::new(),
             list: ListState::new(0, ListAlignment::Top, fixed(56.)),
             drawer: Drawer::default(),
@@ -1137,6 +1142,13 @@ impl Navigator {
         if at_top && changed {
             self.list.scroll_to(ListOffset::default());
         }
+        if self.rows != rows {
+            let keys = row_keys(&rows, self.store.read(cx));
+            let held = anchor.map(|(old_ix, new_ix, _)| (old_ix, new_ix));
+            let offsets = self.slides(&rows, &keys, held);
+            self.reorder.start(offsets, cx);
+            self.row_keys = keys;
+        }
         self.rows = rows;
         if changed {
             // The clone shares the list's state.
@@ -1171,6 +1183,34 @@ impl Navigator {
                 }
             }
         }
+    }
+
+    /// How far each of the rows slides as the list goes from its rows to `rows`, keyed by `keys`,
+    /// from where it was on screen. With the row under the pointer `held` still, from its index
+    /// before to after, as a load holds it, the list scrolls by as far as that row moved, so
+    /// the rows on screen slide that far too, but only with a reorder.
+    fn slides(
+        &self,
+        rows: &[Row],
+        keys: &[Option<RowKey>],
+        held: Option<(usize, usize)>,
+    ) -> HashMap<RowKey, f32> {
+        let sized = |keys: &[Option<RowKey>], rows: &[Row]| -> Vec<(Option<RowKey>, f32)> {
+            keys.iter()
+                .cloned()
+                .zip(rows.iter().map(Row::height))
+                .collect()
+        };
+        let mut offsets = reordered(&sized(&self.row_keys, &self.rows), &sized(keys, rows));
+        let top = |rows: &[Row], ix: usize| rows.iter().take(ix).map(Row::height).sum::<f32>();
+        if let Some((old_ix, new_ix)) = held.filter(|_| !offsets.is_empty()) {
+            let scrolled = top(rows, new_ix) - top(&self.rows, old_ix);
+            let before: HashSet<&RowKey> = self.row_keys.iter().flatten().collect();
+            for key in keys.iter().flatten().filter(|key| before.contains(key)) {
+                *offsets.entry(key.clone()).or_default() += scrolled;
+            }
+        }
+        offsets
     }
 
     /// The row under the pointer, if it's over the list, and how far below the list's top.
@@ -1324,6 +1364,9 @@ impl Navigator {
             }
             _ => None,
         };
+        // A row a reorder moved slides to its place over the card, which stays.
+        let slid = (self.row_keys.get(ix).and_then(Option::as_ref))
+            .map_or(0., |key| self.reorder.offset(key));
         // Padded, not margined: a list lays its rows out from their left edge.
         div()
             .px(dp(10.))
@@ -1341,6 +1384,10 @@ impl Navigator {
                             div().relative().child(el).children(guides),
                             dp(height),
                             closing,
+                        )),
+                        // Painted last, as the slices of the card it crosses would cover it.
+                        None if slid != 0. => card.child(deferred(
+                            div().relative().top(dp(slid)).child(el).children(guides),
                         )),
                         None => card.child(el).children(guides),
                     }),
@@ -2980,12 +3027,13 @@ impl Focusable for Navigator {
 impl Render for Navigator {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.folds.frame();
+        self.reorder.frame();
         let mut built = self.build_rows(cx);
         // A fold that just opened or shut is drawn moving from this frame on.
         if self.follow_folds(&built.folds, cx) {
             built = self.build_rows(cx);
         }
-        if self.folds.any() {
+        if self.folds.any() || self.reorder.any() {
             window.request_animation_frame();
         }
         let Rows {
