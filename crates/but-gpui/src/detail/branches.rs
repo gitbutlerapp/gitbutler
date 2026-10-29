@@ -964,7 +964,7 @@ impl Detail {
             },
         )];
         let (p, r) = (project.clone(), ref_name.to_owned());
-        items.push(MenuItem::new("Create worktree", move |app, _, cx| {
+        items.push(MenuItem::new("New worktree", move |app, _, cx| {
             let create = backend::worktrees::CreateWorktree::On(r.clone());
             (app.store).update(cx, |store, cx| store.create_worktree(&p, create, cx))
         }));
