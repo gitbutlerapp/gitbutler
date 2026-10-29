@@ -102,7 +102,7 @@ The Help menu's What's New (the palette finds it by "release notes" too) opens G
 |---|---|
 | ⌘K | command palette (⌘⇧P works too, and : outside a text field); ↑ ↓ or ⌃P ⌃N move through it |
 | ⌘/, ? | Settings › Keyboard, every command and its keys, to change them (? outside a text field) |
-| ⌘P, t | go to anything: a project, a linked worktree, or an applied branch or commit, by name, pull request title or commit id, in any watched project (the Branches page finds the other branches) |
+| ⌘P, t | go to anything: a project, its Branches or Operations history page, a linked worktree, or an applied branch or commit, by name, pull request title or commit id, in any watched project (the Branches page finds the other branches) |
 | M | what right-clicking the selected row, or the file under the cursor in the file list or the diff, offers, to pick from by typing; on Windows and Linux, Shift+F10 and the Menu key too |
 | ⌘1, ⌘2, ⌘3 | focus the navigator, the file list (or the diff while it's hidden), the diff |
 | ⌘B, . | show or hide the navigator |
