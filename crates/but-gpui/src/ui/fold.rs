@@ -5,7 +5,7 @@
 //! moment ([`Slide`]). Under reduced motion, folds and slides open and close at once.
 
 use std::cell::Cell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::f32::consts::FRAC_PI_2;
 use std::hash::Hash;
 use std::rc::Rc;
@@ -405,9 +405,124 @@ fn solve(target: f32, f: impl Fn(f32) -> f32) -> f32 {
     (low + high) / 2.
 }
 
+/// How far each row of a list sits from where it's laid out, as it starts sliding there,
+/// after the rows went from `old` to `new`: each by its key, if it keeps one, and its height.
+/// The rows whose order changed slide from where they were. The rest slide as far as those
+/// moved them, as rows only added or removed move nothing, and rows without a key stay put.
+pub fn reordered<'a, K: Eq + Hash + Clone>(
+    old: &'a [(Option<K>, f32)],
+    new: &'a [(Option<K>, f32)],
+) -> HashMap<K, f32> {
+    let counts = |rows: &'a [(Option<K>, f32)]| {
+        let mut counts: HashMap<&K, usize> = HashMap::new();
+        for key in rows.iter().filter_map(|(key, _)| key.as_ref()) {
+            *counts.entry(key).or_default() += 1;
+        }
+        counts
+    };
+    let (in_old, in_new) = (counts(old), counts(new));
+    let kept = |key: &'a K| in_old.get(key) == Some(&1) && in_new.get(key) == Some(&1);
+    let rank: HashMap<&K, usize> = (old.iter().filter_map(|(key, _)| key.as_ref()))
+        .filter(|key| kept(key))
+        .enumerate()
+        .map(|(rank, key)| (key, rank))
+        .collect();
+    let along_new: Vec<&K> = (new.iter().filter_map(|(key, _)| key.as_ref()))
+        .filter(|key| kept(key))
+        .collect();
+    let ranks: Vec<usize> = along_new
+        .iter()
+        .filter_map(|key| rank.get(key).copied())
+        .collect();
+    let stayed: HashSet<&K> = (longest_rise(&ranks).into_iter())
+        .filter_map(|ix| along_new.get(ix).copied())
+        .collect();
+    // Where each kept row starts, and how tall the rows only on that side above it are.
+    let places = |rows: &'a [(Option<K>, f32)]| {
+        let (mut top, mut alone) = (0., 0.);
+        let mut places: HashMap<&K, (f32, f32)> = HashMap::new();
+        for (key, height) in rows {
+            match key {
+                Some(key) if kept(key) => _ = places.insert(key, (top, alone)),
+                Some(_) => alone += height,
+                None => {}
+            }
+            top += height;
+        }
+        places
+    };
+    let (was, is) = (places(old), places(new));
+    (is.iter())
+        .filter_map(|(key, (top, added))| {
+            let (was_top, removed) = was.get(key)?;
+            let by = match stayed.contains(key) {
+                true => was_top - top + added - removed,
+                false => was_top - top,
+            };
+            (by != 0.).then(|| ((*key).clone(), by))
+        })
+        .collect()
+}
+
+/// The indexes of a longest strictly rising run of `seq`, in order.
+fn longest_rise(seq: &[usize]) -> Vec<usize> {
+    let value = |ix: usize| seq.get(ix).copied().unwrap_or_default();
+    let (mut tails, mut before): (Vec<usize>, Vec<Option<usize>>) = (Vec::new(), Vec::new());
+    for (ix, &x) in seq.iter().enumerate() {
+        let at = tails.partition_point(|&tail| value(tail) < x);
+        before.push(at.checked_sub(1).and_then(|at| tails.get(at).copied()));
+        match tails.get_mut(at) {
+            Some(tail) => *tail = ix,
+            None => tails.push(ix),
+        }
+    }
+    let mut run = Vec::with_capacity(tails.len());
+    let mut at = tails.last().copied();
+    while let Some(ix) = at {
+        run.push(ix);
+        at = before.get(ix).copied().flatten();
+    }
+    run.reverse();
+    run
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rows_slide_only_where_their_order_changed() {
+        let rows = |keys: &[&'static str]| -> Vec<(Option<&'static str>, f32)> {
+            keys.iter()
+                .map(|key| ((*key != "-").then_some(*key), 10.))
+                .collect()
+        };
+        let sorted = |offsets: HashMap<&'static str, f32>| {
+            let mut offsets: Vec<_> = offsets.into_iter().collect();
+            offsets.sort_by(|a, b| a.0.cmp(b.0));
+            offsets
+        };
+        assert_eq!(
+            sorted(reordered(
+                &rows(&["a1", "a2", "-", "b1", "b2"]),
+                &rows(&["b1", "b2", "-", "a1", "a2"])
+            )),
+            [("a1", -30.), ("a2", -30.), ("b1", 30.), ("b2", 30.)],
+            "a swap slides both sections from where they were, the keyless row between snapping"
+        );
+        assert!(
+            reordered(&rows(&["a", "b"]), &rows(&["x", "a", "b"])).is_empty(),
+            "a row added above moves nothing"
+        );
+        assert_eq!(
+            sorted(reordered(
+                &rows(&["a", "b", "c"]),
+                &rows(&["x", "c", "a", "b"])
+            )),
+            [("a", -10.), ("b", -10.), ("c", 10.)],
+            "the moved row slides from its old place, and those it passed by its height alone"
+        );
+    }
 
     #[test]
     fn ease_runs_from_shut_to_open_as_css_does() {
