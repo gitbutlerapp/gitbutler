@@ -143,7 +143,13 @@ fn build_base_url(remote_url: &str, repo_info: &ForgeRepoInfo, accounts: &[Forge
     let parsed = crate::remote_url::RemoteUrl::parse(remote_url);
     let host = parsed
         .as_ref()
-        .map(|url| url.host.clone())
+        .map(|url| {
+            if rewrote_scheme {
+                crate::canonical_repository_host(&repo_info.forge, &url.host).to_owned()
+            } else {
+                url.host.clone()
+            }
+        })
         .unwrap_or_else(|| match repo_info.forge {
             ForgeName::GitHub => "github.com".into(),
             ForgeName::GitLab => "gitlab.com".into(),
