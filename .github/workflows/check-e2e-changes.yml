@@ -38,6 +38,5 @@ jobs:
               - '!apps/web/**'
               - '!crates/but/**'
               - '!crates/but-clap/**'
-              - '!crates/but-debugging/**'
               - '!crates/but-gpui/**'
               - '!crates/but-installer/**'

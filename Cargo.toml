@@ -121,7 +121,6 @@ members = [
     "crates/but-ts",
     # Node.js SDK via napi-rs
     "crates/but-napi",
-    "crates/but-debugging",
 
 
     ##
@@ -142,7 +141,6 @@ rust-version = "1.95"
 [workspace.dependencies]
 but-debug = { path = "crates/but-debug" }
 but = { path = "crates/but" }
-but-debugging = { path = "crates/but-debugging" }
 but-testsupport = { path = "crates/but-testsupport" }
 but-rebase = { path = "crates/but-rebase" }
 but-core = { path = "crates/but-core" }
