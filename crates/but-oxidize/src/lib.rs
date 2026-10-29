@@ -1,9 +1,6 @@
 //! A crate with various utilities to make the migration to `gitoxide` less cumbersome and repetitive.
 
-use std::{borrow::Borrow, path::Path};
-
-use anyhow::Context as _;
-use gix::bstr::ByteSlice;
+use std::path::Path;
 
 /// Open the repository at `git_dir` with `git2` so that it finds every tree `gix` refers to.
 ///
@@ -18,10 +15,6 @@ pub fn open_git2_repo(git_dir: &Path) -> anyhow::Result<git2::Repository> {
 
 fn store_empty_tree(repo: &git2::Repository) -> Result<git2::Oid, git2::Error> {
     repo.treebuilder(None)?.write()
-}
-
-pub fn gix_time_to_git2(time: gix::date::Time) -> git2::Time {
-    git2::Time::new(time.seconds, time.offset / 60)
 }
 
 fn git2_to_gix_object_id(id: git2::Oid) -> gix::ObjectId {
@@ -42,16 +35,6 @@ fn gix_to_git2_oid(id: impl Into<gix::ObjectId>) -> git2::Oid {
     git2::Oid::from_bytes(id.into().as_bytes()).expect("always valid")
 }
 
-pub trait TimeExt {
-    fn to_gix(self) -> gix::date::Time;
-}
-
-impl TimeExt for git2::Time {
-    fn to_gix(self) -> gix::date::Time {
-        gix::date::Time::new(self.seconds(), self.offset_minutes() * 60)
-    }
-}
-
 pub trait ObjectIdExt {
     fn to_git2(self) -> git2::Oid;
 }
@@ -66,65 +49,6 @@ impl ObjectIdExt for gix::Id<'_> {
     fn to_git2(self) -> git2::Oid {
         gix_to_git2_oid(self.detach())
     }
-}
-
-pub trait RepoExt {
-    /// Reopen a `git2` repository as a `gix` repository with the normal Git configuration chain.
-    ///
-    /// Use this for helpers that inspect worktree state or run filters and therefore must see
-    /// global ignores, `core.autocrlf`, and globally configured filters like Git LFS.
-    fn to_gix_repo(&self) -> anyhow::Result<gix::Repository>;
-
-    /// Reopen a `git2` repository as an isolated `gix` repository for helpers that only need
-    /// object access and repository-local configuration.
-    fn to_isolated_gix_repo(&self) -> anyhow::Result<gix::Repository>;
-}
-
-impl RepoExt for &git2::Repository {
-    fn to_gix_repo(&self) -> anyhow::Result<gix::Repository> {
-        let repo = gix::open(self.path())?;
-        Ok(repo)
-    }
-
-    fn to_isolated_gix_repo(&self) -> anyhow::Result<gix::Repository> {
-        let repo = gix::open_opts(self.path(), gix::open::Options::isolated())?;
-        Ok(repo)
-    }
-}
-
-pub fn git2_signature_to_gix_signature<'a>(
-    input: impl Borrow<git2::Signature<'a>>,
-) -> gix::actor::Signature {
-    let input = input.borrow();
-    gix::actor::Signature {
-        name: input.name_bytes().into(),
-        email: input.email_bytes().into(),
-        time: gix::date::Time {
-            seconds: input.when().seconds(),
-            offset: input.when().offset_minutes() * 60,
-        },
-    }
-}
-
-/// Convert `actor` to a `git2` representation or fail if that's not possible.
-/// Note that the current time as provided by `gix` is also used as it.
-pub fn gix_to_git2_signature(
-    actor: gix::actor::SignatureRef<'_>,
-) -> anyhow::Result<git2::Signature<'static>> {
-    let time = actor.time()?;
-    let offset_in_minutes = time.offset / 60;
-    let time = git2::Time::new(time.seconds, offset_in_minutes);
-    Ok(git2::Signature::new(
-        actor
-            .name
-            .to_str()
-            .with_context(|| format!("Could not process actor name: {}", actor.name))?,
-        actor
-            .email
-            .to_str()
-            .with_context(|| format!("Could not process actor email: {}", actor.email))?,
-        &time,
-    )?)
 }
 
 /// Convert a `gix` index into a `git2` one, while skipping over entries that are marked for removal.
