@@ -787,7 +787,7 @@ impl AppView {
                 Some(tip) => {
                     let delete = backend::DeleteBranchAndCommits {
                         branch: ref_name,
-                        tip,
+                        tip: Some(tip),
                     };
                     store.apply(&project, "Delete branch", overlay, delete, done, cx)
                 }
