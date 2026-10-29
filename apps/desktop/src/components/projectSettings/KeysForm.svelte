@@ -32,8 +32,8 @@
 					Git authentication
 				{/snippet}
 				{#snippet caption()}
-					GitButler authenticates with your Git remote provider through the Git executable available
-					on your PATH.
+					GitButler authenticates with your Git remote provider using your configured credential
+					helpers and SSH settings.
 				{/snippet}
 				<CredentialCheck
 					{disabled}

@@ -183,10 +183,6 @@ fn main() -> anyhow::Result<()> {
                 inherit_interactive_login_shell_environment_if_not_launched_from_terminal();
                 migrate_projects().ok();
 
-                tracing::info!(
-                    "system git executable for fetch/push: {git:?}",
-                    git = gix::path::env::exe_invocation(),
-                );
                 if cfg!(windows) {
                     tracing::info!("system git bash: {bash:?}", bash = gix::path::env::shell());
                 } else {
