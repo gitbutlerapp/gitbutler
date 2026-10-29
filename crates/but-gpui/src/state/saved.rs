@@ -174,7 +174,7 @@ impl Store {
         match pane {
             Pane::Files => list_fit,
             Pane::Navigator => (nav - (over - (list - list_fit))).max(MIN_NAVIGATOR.min(nav)),
-            // Fitted to what the list page leaves it, by `Detail::beside_files_width`.
+            // Fitted to what the list page leaves it, by `Detail::beside_offset`.
             Pane::BesideFiles => self.width(pane),
         }
     }
