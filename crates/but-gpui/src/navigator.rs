@@ -17,6 +17,7 @@ use crate::app::{
     AddProject, AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious, ToggleFold,
     UpdateFromTarget,
 };
+use crate::backend::upstream::UpdateScope;
 use crate::backend::{
     Branch, Checkout, CommitId, CommitState, FileChange, FullName, PushState, Review, ReviewState,
     Target,
@@ -1700,7 +1701,7 @@ impl Navigator {
             false => last_active(entry),
         };
         let needs_update =
-            (workspace.and_then(|ws| ws.target.as_ref())).is_some_and(|t| t.needs_update);
+            (workspace.and_then(|ws| ws.target.as_ref())).is_some_and(|t| t.needs_update());
         // The eye and the card's chevron, whose clicks don't select the row.
         let button = |name: &str, click: fn(&mut Self, &ProjectId, &mut Context<Self>)| {
             let id = id.clone();
@@ -2602,8 +2603,8 @@ impl Navigator {
         });
     }
 
-    /// Update, which rebases `project`'s branches onto its target's new commits; `inverted`
-    /// on a solid selection. Pressing it leaves the selection where it is.
+    /// Update, which rebases `project`'s branches and worktrees onto its target's new commits;
+    /// `inverted` on a solid selection. Pressing it leaves the selection where it is.
     fn target_update_button(&self, project: &ProjectId, inverted: bool, cx: &Context<Self>) -> Div {
         let updating = self.store.read(cx).updating(project);
         let project = project.clone();
@@ -2616,13 +2617,13 @@ impl Navigator {
         .inverted(inverted)
         .disabled_because(updating.then_some("Updating already"))
         .tooltip_for(
-            "Rebase your branches onto the target's new commits",
+            "Rebase your branches and worktrees onto the target's new commits",
             &UpdateFromTarget,
         )
         .on_click(cx.listener(move |this, _, window, cx| {
             let project = project.clone();
             this.app.update_later(window, cx, move |app, _, cx| {
-                app.update_from_target(project, cx)
+                app.update_from_target(project, UpdateScope::All, cx)
             });
         }));
         div()
@@ -2670,7 +2671,7 @@ impl Navigator {
                 (label, count, tip)
             }
         };
-        let update = ref_name.is_none() && target.is_some_and(|t| t.needs_update);
+        let update = ref_name.is_none() && target.is_some_and(|t| t.needs_update());
         // Only a branch's are marked read.
         let unread = (ref_name.zip(workspace)).is_some_and(|(ref_name, ws)| {
             (ws.upstream(Some(ref_name)).iter()).any(|commit| store.is_unread(project, commit))

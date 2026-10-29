@@ -12,7 +12,7 @@ use crate::app::{
     ActualSize, AddProject, AppView, CheckForUpdates, CopySelection, CutSelection, DeleteSelection,
     Fetch, FocusChanges, FocusDiff, FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest,
     PasteHere, Push, Quit, Redo, RenameSelection, StartCommit, ToggleFileTree, ToggleNavigator,
-    UncommitSelection, Undo, UpdateFromTarget, ZoomIn, ZoomOut,
+    UncommitSelection, Undo, UpdateFromTarget, UpdateWorkspace, UpdateWorktrees, ZoomIn, ZoomOut,
 };
 use crate::backend::{Branch, Checkout, Commit, Workspace, Worktree, short_ref};
 use crate::detail::{
@@ -54,7 +54,9 @@ pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Push branch", &Push),
     ("Open pull request", &OpenPullRequest),
     ("Fetch", &Fetch),
-    ("Update from target", &UpdateFromTarget),
+    ("Update workspace and worktrees", &UpdateFromTarget),
+    ("Update workspace", &UpdateWorkspace),
+    ("Update worktrees", &UpdateWorktrees),
     ("New branch", &NewBranch),
     ("New branch on top", &NewBranchOnTop),
     ("Reword", &RenameSelection),

@@ -1159,7 +1159,7 @@ impl AppView {
             return;
         };
         let Some((target, behind, local)) =
-            (workspace.target.as_ref()).map(|t| (t.name.clone(), t.needs_update, t.local))
+            (workspace.target.as_ref()).map(|t| (t.name.clone(), t.workspace_behind, t.local))
         else {
             return;
         };

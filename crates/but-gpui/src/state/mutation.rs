@@ -11,7 +11,7 @@ use gpui::{Context, SharedString, Task};
 
 use super::{Notice, ProjectId, Reload, Selection, Store, StoreEvent};
 use crate::backend::history::Undone;
-use crate::backend::upstream::{UpdateConflicts, UpdateOutcome};
+use crate::backend::upstream::{UpdateConflicts, UpdateOutcome, UpdateScope};
 use crate::backend::{
     self, Branch, Checkout, Commit, CommitId, Destination, FileChange, FullName, HunkKey, OpKind,
     Review, ReviewState, Selected, SnapshotId, Workspace, short_ref,
@@ -620,12 +620,13 @@ impl Store {
         );
     }
 
-    /// Rebase the project's branches onto its target's latest commits. It stops short of
-    /// leaving anything conflicted that isn't now, with a card that offers to update anyway,
-    /// unless that's what was `accepted` there.
+    /// Rebase what `scope` picks of the project onto its target's latest commits. It stops
+    /// short of leaving anything conflicted that isn't now, with a card that offers to update
+    /// anyway, unless that's what was `accepted` there.
     pub fn update_from_target(
         &mut self,
         project: &ProjectId,
+        scope: UpdateScope,
         accepted: Option<backend::upstream::UpdateConflicts>,
         cx: &mut Context<Self>,
     ) {
@@ -634,7 +635,7 @@ impl Store {
             project,
             "Update",
             Overlay::default(),
-            backend::upstream::Update { accepted },
+            backend::upstream::Update { scope, accepted },
             move |store, outcome, cx| {
                 let target = (store.workspace(&updated).and_then(|ws| ws.target.as_ref()))
                     .map_or_else(|| "the target".to_owned(), |target| target.name.clone());
@@ -642,14 +643,14 @@ impl Store {
                     UpdateOutcome::WouldConflict(found) => {
                         let again = updated.clone();
                         let title = store.card_title(&updated, "Updating leaves conflicts".into());
-                        let detail =
-                            update_conflicts_detail(&target, &found, store.workspace(&updated));
+                        let workspace = store.workspace(&updated);
+                        let detail = update_conflicts_detail(&target, &found, workspace, scope);
                         store.error_with_retry(
                             title,
                             detail,
                             "Update anyway",
                             move |store, cx| {
-                                store.update_from_target(&again, Some(found.clone()), cx)
+                                store.update_from_target(&again, scope, Some(found.clone()), cx)
                             },
                             cx,
                         )
@@ -1689,11 +1690,13 @@ impl Store {
     }
 }
 
-/// What an update onto `target` would leave conflicted that isn't now in `workspace`.
+/// What an update of what `scope` picks onto `target` would leave conflicted that isn't now
+/// in `workspace`.
 fn update_conflicts_detail(
     target: &str,
     found: &UpdateConflicts,
     workspace: Option<&Workspace>,
+    scope: UpdateScope,
 ) -> String {
     let linked = |ref_name: Option<&FullName>| {
         (workspace.and_then(|ws| ws.lane_of(ref_name)))
@@ -1722,14 +1725,17 @@ fn update_conflicts_detail(
     } else {
         "You can resolve them afterwards"
     };
+    // A linked worktree resting on a stack moves with it, and one on the target's history
+    // onto its new commits.
     let moves_worktrees = workspace.is_some_and(|ws| {
-        (ws.lanes.iter()).any(|lane| ws.beneath(lane).any(|link| !link.lane.checkout.is_linked()))
+        (ws.lanes.iter()).any(|lane| {
+            let on_target = lane.checkout.is_linked() && lane.rests_on.is_none();
+            let on_stack = || ws.beneath(lane).any(|link| !link.lane.checkout.is_linked());
+            (scope.worktrees() && on_target) || (scope.workspace() && on_stack())
+        })
     });
     detail.push(if moves_worktrees {
-        format!(
-            "{resolve}. The update moves the linked worktrees resting on your branches too, \
-             so it can't be undone."
-        )
+        format!("{resolve}. The update moves linked worktrees too, so it can't be undone.")
     } else {
         format!("{resolve}, or undo the update.")
     });
@@ -1896,7 +1902,7 @@ mod tests {
         };
         let alone = workspace(vec![vec![branch("middle", &[2])]], vec![]);
         assert_eq!(
-            update_conflicts_detail("main", &found(&["middle"]), Some(&alone)),
+            update_conflicts_detail("main", &found(&["middle"]), Some(&alone), UpdateScope::All),
             "Rebasing onto main leaves conflicted commits in middle (1 commit). \
              You can resolve them afterwards, or undo the update.",
             "nothing rests on the stack"
@@ -1906,10 +1912,15 @@ mod tests {
             vec![worktree("wt", Some(2), vec![branch("wt", &[5])])],
         );
         assert_eq!(
-            update_conflicts_detail("main", &found(&["middle", "wt"]), Some(&rested_on)),
+            update_conflicts_detail(
+                "main",
+                &found(&["middle", "wt"]),
+                Some(&rested_on),
+                UpdateScope::All
+            ),
             "Rebasing onto main leaves conflicted commits in middle (1 commit), wt (1 commit). \
              You can resolve them afterwards, a linked worktree's in that worktree. The update \
-             moves the linked worktrees resting on your branches too, so it can't be undone.",
+             moves linked worktrees too, so it can't be undone.",
             "wt moves with middle, and its conflicts resolve in it"
         );
         let on_a_worktree = workspace(
@@ -1920,10 +1931,38 @@ mod tests {
             ],
         );
         assert_eq!(
-            update_conflicts_detail("main", &found(&["middle"]), Some(&on_a_worktree)),
+            update_conflicts_detail(
+                "main",
+                &found(&["middle"]),
+                Some(&on_a_worktree),
+                UpdateScope::All
+            ),
+            "Rebasing onto main leaves conflicted commits in middle (1 commit). \
+             You can resolve them afterwards. The update moves linked worktrees too, so it \
+             can't be undone.",
+            "a rests on the target, which the update moves it onto, b with it"
+        );
+        assert_eq!(
+            update_conflicts_detail(
+                "main",
+                &found(&["middle"]),
+                Some(&on_a_worktree),
+                UpdateScope::Workspace
+            ),
             "Rebasing onto main leaves conflicted commits in middle (1 commit). \
              You can resolve them afterwards, or undo the update.",
-            "b rests on a, which the update leaves where it is"
+            "updating only the workspace leaves a, on the target, where it is"
+        );
+        assert_eq!(
+            update_conflicts_detail(
+                "main",
+                &found(&["a"]),
+                Some(&rested_on),
+                UpdateScope::Worktrees
+            ),
+            "Rebasing onto main leaves conflicted commits in a (1 commit). \
+             You can resolve them afterwards, or undo the update.",
+            "updating only the worktrees leaves wt, on middle, where it is"
         );
     }
 }

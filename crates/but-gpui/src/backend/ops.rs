@@ -2796,7 +2796,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
             let target = workspace.target.as_ref().expect("main is the target");
             assert_eq!(
-                (target.name.as_str(), target.local, target.needs_update),
+                (target.name.as_str(), target.local, target.needs_update()),
                 ("main", true, true),
                 "the local branch is the target, with something new to update from"
             );
