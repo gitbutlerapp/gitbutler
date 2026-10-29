@@ -297,18 +297,11 @@ mod file {
                         .submodules()?
                         .into_iter()
                         .flatten()
-                        .find_map(|sm| {
-                            let is_active = sm.is_active().ok()?;
-                            is_active.then(|| -> anyhow::Result<_> {
-                                Ok(
-                                    if sm.path().ok().is_some_and(|sm_path| sm_path == rela_path) {
-                                        sm.open()?
-                                    } else {
-                                        None
-                                    },
-                                )
-                            })
+                        .find(|sm| {
+                            sm.path().ok().is_some_and(|sm_path| sm_path == rela_path)
+                                && sm.is_active().unwrap_or(false)
                         })
+                        .map(|sm| sm.open())
                         .transpose()?
                         .flatten();
                     match sm_repo {

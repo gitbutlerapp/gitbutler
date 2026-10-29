@@ -600,6 +600,41 @@ fn modified_submodule_and_embedded_repo_in_worktree() -> anyhow::Result<()> {
 }
 
 #[test]
+fn deleted_submodule_is_found_after_another_active_submodule() -> anyhow::Result<()> {
+    let (mut repo, _tmp) = writable_scenario("modified-submodule-and-embedded-repo");
+    git(&repo)
+        .args([
+            "submodule",
+            "add",
+            "./embedded-repository",
+            "second-submodule",
+        ])
+        .run();
+    git(&repo).args(["commit", "-am", "second submodule"]).run();
+    repo.reload()?;
+    let path = repo
+        .workdir()
+        .expect("fixture worktree")
+        .join("second-submodule");
+    let expected = std::fs::read(path.join("file"))?;
+    std::fs::remove_dir_all(&path)?;
+
+    let dropped =
+        discard_workspace_changes(&repo, Some(file_to_spec("second-submodule")), CONTEXT_LINES)?;
+    assert!(dropped.is_empty(), "the requested deletion was restored");
+    assert!(
+        path.join("file").is_file(),
+        "the matching local clone was checked out"
+    );
+    assert_eq!(
+        std::fs::read(path.join("file"))?,
+        expected,
+        "the second submodule's content is restored"
+    );
+    Ok(())
+}
+
+#[test]
 #[cfg(unix)]
 fn modified_submodule_and_embedded_repo_in_index() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("modified-submodule-and-embedded-repo");
