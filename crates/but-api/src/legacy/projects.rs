@@ -1,9 +1,8 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use but_api_macros::but_api;
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
-use but_error::Code;
 use tracing::instrument;
 
 #[but_api]
@@ -178,24 +177,9 @@ fn delete_project_at_app_data_dir(
 ///
 /// This repairs missing target metadata in freshly selected storage locations.
 pub fn prepare_project_for_activation(ctx: &mut Context) -> Result<()> {
-    assure_repo_ownership(&*ctx.repo.get()?)?;
     let _guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::base::bootstrap_default_target_if_missing(ctx)?;
     Ok(())
-}
-
-// TODO(gix): remove this once there is no `git2` as `gix` provides safety by not trusting Git configuration instead.
-fn assure_repo_ownership(repo: &gix::Repository) -> Result<()> {
-    if repo.git_dir_trust() == gix::sec::Trust::Full {
-        return Ok(());
-    }
-
-    let path = repo.workdir().unwrap_or(repo.git_dir());
-    Err(anyhow!(
-        "The git directory is considered unsafe as it's not owned by the current user. Use `git config --global --add safe.directory '{}'` to allow it",
-        path.display()
-    )
-    .context(Code::RepoOwnership))
 }
 
 #[but_api]
@@ -283,6 +267,40 @@ pub mod json {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn activation_keeps_gitoxide_reduced_trust_protections() -> Result<()> {
+        let repo_dir = tempfile::tempdir()?;
+        let repo = gix::init(repo_dir.path())?;
+        let mut config = repo.config_file_mut(repo.git_dir().join("config"))?;
+        config.set_raw_value("core.hooksPath", "untrusted-hooks")?;
+        config.commit()?;
+        let repo = gix::open_opts(
+            repo.git_dir(),
+            gix::open::Options::isolated().with(gix::sec::Trust::Reduced),
+        )?;
+        let mut ctx = Context::from_repo_for_testing(repo)?;
+
+        prepare_project_for_activation(&mut ctx)?;
+
+        let repo = ctx.repo.get()?;
+        assert_eq!(
+            repo.git_dir_trust(),
+            gix::sec::Trust::Reduced,
+            "activation does not promote repository trust"
+        );
+        assert!(
+            repo.config_snapshot()
+                .trusted_path("core.hooksPath")?
+                .is_none(),
+            "untrusted repository configuration cannot redirect hooks"
+        );
+        assert!(
+            repo.find_hook("pre-commit").is_err(),
+            "repository hooks still require full trust"
+        );
+        Ok(())
+    }
 
     #[test]
     fn delete_project_is_idempotent() -> Result<()> {
