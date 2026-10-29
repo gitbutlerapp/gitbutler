@@ -27,6 +27,8 @@ pub struct Rebuild {
     cargo: PathBuf,
     /// The checkout it was built from: the worktree's root.
     checkout: PathBuf,
+    /// The repository's common Git folder, which outlives the checkout when that's deleted.
+    common_dir: PathBuf,
     /// The crate's folder within a checkout, `crates/but-gpui`.
     crate_dir: PathBuf,
     /// The build's profile, by the folder its binary is in: `debug` for `dev`.
@@ -52,6 +54,7 @@ impl Rebuild {
         }
         let checkout = manifest_dir.ancestors().nth(2)?.to_owned();
         let crate_dir = manifest_dir.strip_prefix(&checkout).ok()?.to_owned();
+        let common_dir = gix::open(&checkout).ok()?.common_dir().to_owned();
         let exe = std::env::current_exe().ok()?;
         let profile = match exe.parent()?.file_name()?.to_str()? {
             "debug" => None,
@@ -60,6 +63,7 @@ impl Rebuild {
         Some(Self {
             cargo,
             checkout,
+            common_dir,
             crate_dir,
             profile,
         })
@@ -72,7 +76,7 @@ impl Rebuild {
 
     /// The repository's worktrees that have the client to build, the main one first.
     pub fn sources(&self) -> Result<Vec<Source>> {
-        let repo = gix::open(&self.checkout)?;
+        let repo = gix::open(&self.common_dir)?;
         let main = repo.main_repo()?;
         let linked =
             (repo.worktrees()?.into_iter()).filter_map(|worktree| worktree.into_repo().ok());
@@ -392,6 +396,7 @@ mod tests {
         let rebuild = Rebuild {
             cargo,
             checkout: dir.path().to_owned(),
+            common_dir: dir.path().join(".git"),
             crate_dir: "crate".into(),
             profile: None,
         };
@@ -419,12 +424,54 @@ mod tests {
     }
 
     #[test]
+    fn a_deleted_checkout_still_lists_the_worktrees_left() {
+        use super::Rebuild;
+
+        let dir = tempfile::tempdir().unwrap();
+        let (main, linked) = (dir.path().join("main"), dir.path().join("linked"));
+        let git = |args: &[&str]| {
+            let status = std::process::Command::new("git")
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(args)
+                .current_dir(dir.path())
+                .output()
+                .unwrap()
+                .status;
+            assert!(status.success(), "git {args:?}");
+        };
+        git(&["init", "-q", "main"]);
+        std::fs::create_dir_all(main.join("crate")).unwrap();
+        std::fs::write(main.join("crate/Cargo.toml"), "").unwrap();
+        git(&["-C", "main", "add", "."]);
+        git(&["-C", "main", "commit", "-qm", "client"]);
+        git(&["-C", "main", "worktree", "add", "-q", "../linked"]);
+        let rebuild = Rebuild {
+            cargo: "cargo".into(),
+            common_dir: gix::open(&linked).unwrap().common_dir().to_owned(),
+            checkout: linked.clone(),
+            crate_dir: "crate".into(),
+            profile: None,
+        };
+        std::fs::remove_dir_all(&linked).unwrap();
+
+        let sources: Vec<_> = (rebuild.sources().unwrap().into_iter())
+            .map(|source| source.dir.canonicalize().unwrap())
+            .collect();
+        assert_eq!(
+            sources,
+            [main.canonicalize().unwrap()],
+            "the main worktree is still there to build from, the deleted one isn't offered"
+        );
+    }
+
+    #[test]
     fn the_build_makes_the_askpass_helper_too() {
         use super::Rebuild;
 
         let rebuild = Rebuild {
             cargo: "cargo".into(),
             checkout: "/checkout".into(),
+            common_dir: "/checkout/.git".into(),
             crate_dir: "crates/but-gpui".into(),
             profile: None,
         };

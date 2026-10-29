@@ -77,7 +77,9 @@ impl AppView {
             sources.sort_by_key(|source| source.dir != rebuild.checkout());
             this.update_in(cx, |app, window, cx| {
                 if sources.len() < 2 {
-                    let dir = rebuild.checkout().to_owned();
+                    let dir = sources
+                        .pop()
+                        .map_or_else(|| rebuild.checkout().to_owned(), |source| source.dir);
                     return app.start_build(rebuild, dir, window, cx);
                 }
                 let choices = (sources.into_iter())
