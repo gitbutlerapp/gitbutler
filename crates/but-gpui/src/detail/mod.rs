@@ -2567,6 +2567,12 @@ impl Detail {
         }
     }
 
+    /// Whether the keys are on the diff while it has nothing for them, as they are on a
+    /// checkout with no changes once the navigator has gone.
+    pub(crate) fn keys_stranded(&self, window: &Window, cx: &App) -> bool {
+        self.focus.is_focused(window) && self.without_changes(cx)
+    }
+
     /// Whether the page is an overview with no column beside it: Inactive and Network
     /// worktrees', as the navigator lists what they sum up.
     pub fn overview_only(&self, cx: &App) -> bool {
