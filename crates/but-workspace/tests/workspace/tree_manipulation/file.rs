@@ -681,6 +681,41 @@ MM submodule
 
 #[test]
 #[cfg(unix)]
+fn deleted_submodule_rebuilds_its_index_without_git() -> anyhow::Result<()> {
+    use but_testsupport::gix_testtools;
+
+    if gix_testtools::run_in_isolated_process().map_err(anyhow::Error::from_boxed)? {
+        return Ok(());
+    }
+    let (repo, _tmp) = writable_scenario("modified-submodule-and-embedded-repo");
+    let path = repo.workdir().expect("fixture worktree").join("submodule");
+    let submodule = gix::open_opts(&path, gix::open::Options::isolated())?;
+    let head_commit_id = submodule.head_id()?.detach();
+    let expected_index = visualize_index(&*submodule.index_from_tree(&submodule.head_tree_id()?)?);
+    std::fs::remove_dir_all(&path)?;
+    let _environment = gix_testtools::Env::new().set("PATH", "");
+
+    let dropped = discard_workspace_changes(&repo, Some(file_to_spec("submodule")), CONTEXT_LINES)?;
+    assert!(
+        dropped.is_empty(),
+        "the submodule's deleted worktree is restored"
+    );
+    let restored = gix::open_opts(&path, gix::open::Options::isolated())?;
+    assert_eq!(
+        restored.head_id()?,
+        head_commit_id,
+        "the local clone stays on its current HEAD"
+    );
+    assert_eq!(
+        visualize_index(&*restored.open_index()?),
+        expected_index,
+        "restoration replaces stale staging with the checked-out HEAD tree"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
 fn modified_submodules_are_reset_and_cleaned_without_git() -> anyhow::Result<()> {
     use but_testsupport::gix_testtools;
 
