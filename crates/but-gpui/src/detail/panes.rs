@@ -3,6 +3,7 @@
 
 use std::cell::Cell;
 use std::rc::Rc;
+use std::time::Instant;
 
 use gpui::{
     AnyElement, App, Bounds, ClickEvent, Context, Div, Entity, FocusHandle, Focusable as _,
@@ -212,10 +213,13 @@ impl Detail {
             .h(dp(HEADER_HEIGHT))
             .flex_none()
             .px(dp(12.))
-            .when(
-                self.beside_traffic_lights && cfg!(target_os = "macos"),
-                |el| el.pl(fixed(84.)),
-            )
+            // Clear of macOS's traffic lights while the navigator leaves them over the header,
+            // the toggle gliding up to them as it slides away.
+            .when(cfg!(target_os = "macos"), |el| {
+                let navigator =
+                    self.navigator_shown.get() * self.navigator_width(Instant::now(), window, cx);
+                el.pl((fixed(84.) - theme.scaled(navigator)).max(theme.scaled(12.)))
+            })
             // Clear of the window's buttons, where the app draws them over its right end.
             .when(crate::ui::draws_window_controls(window), |el| {
                 el.pr(fixed(WINDOW_CONTROLS_WIDTH + 12.))

@@ -161,20 +161,20 @@ impl Store {
     }
 
     /// `pane`'s width in a window `window` wide, beside the navigator and the file list as
-    /// they're shown: as set, unless that leaves the diff too narrow to read. Then the file
-    /// list gives way first, down to its limit, then the navigator, down to what its header
-    /// needs.
-    pub fn fitted_width(&self, pane: Pane, window: f32, navigator: bool, files: bool) -> f32 {
+    /// much as each shows, from 0 hidden to 1, as they slide: as set, unless that leaves the
+    /// diff too narrow to read. Then the file list gives way first, down to its limit, then the
+    /// navigator, down to what its header needs.
+    pub fn fitted_width(&self, pane: Pane, window: f32, navigator: f32, files: f32) -> f32 {
         const MIN_DIFF: f32 = 400.;
         const MIN_NAVIGATOR: f32 = 300.;
-        let shown = |pane: Pane, on: bool| if on { self.width(pane) } else { 0. };
+        let shown = |pane: Pane, share: f32| self.width(pane) * share;
         let (nav, list) = (shown(Pane::Navigator, navigator), shown(Pane::Files, files));
         let over = (nav + list + MIN_DIFF - window).max(0.);
         let list_fit = (list - over).max(Pane::Files.limits().0.min(list));
         match pane {
             Pane::Files => list_fit,
             Pane::Navigator => (nav - (over - (list - list_fit))).max(MIN_NAVIGATOR.min(nav)),
-            // Fitted to what the list page leaves it, by `Detail::beside_offset`.
+            // Fitted to what the list page leaves it, by `Detail::beside_files_width`.
             Pane::BesideFiles => self.width(pane),
         }
     }

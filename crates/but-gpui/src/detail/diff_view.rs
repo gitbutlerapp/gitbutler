@@ -1010,7 +1010,7 @@ impl Detail {
         let toggles = !list_page || self.has_files_beside(cx);
         // The files aren't beside the diff: hidden, or a list page has none.
         let hidden = match list_page {
-            true => self.beside_offset(cx) == 0.,
+            true => !self.beside_files_shown(cx),
             false => !self.files_shown(cx),
         };
         let files_key = shortcut(&ToggleFiles, cx);

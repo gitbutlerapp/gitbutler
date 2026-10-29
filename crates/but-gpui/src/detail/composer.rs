@@ -557,7 +557,7 @@ impl Detail {
         self.composing = true;
         self.line_picks = None;
         // The composer sits under the file list, so a hidden list comes back with it.
-        self.files_hidden = false;
+        self.hide_files(false, false, cx);
         window.focus(&message, cx);
         cx.notify();
     }
