@@ -699,105 +699,68 @@ impl AppView {
         else {
             return;
         };
-        // A linked worktree keeps the branch it has checked out; the ones stacked under it
-        // can go, their commits joining it.
         let selection = Selection::Branch(project.clone(), Some(ref_name.clone()));
-        let linked = store.in_linked(&selection);
-        if at == 0 && linked {
-            let message = format!("{name} is checked out in a worktree, which keeps it");
+        let named = |b: &&Branch| b.ref_name.is_some();
+        let only_named = lane.iter().filter(named).count() < 2;
+        if only_named && store.in_linked(&selection) {
+            let message = format!("{name} is its worktree's last branch, which keeps it");
             return snack(&self.store, message, cx);
         }
-        // Only the ref goes. Its commits stay in the stack while another named branch can hold
-        // them: the one above, or below when there's none above. Otherwise they go with it.
-        let named = |b: &&Branch| b.ref_name.is_some();
+        // Unnamed commits in its stack aren't its own to take along.
         let commits = lane.get(at).map_or(&[][..], |b| &b.commits);
         let lane_commits: usize = lane.iter().map(|b| b.commits.len()).sum();
-        let with_commits = lane.iter().filter(named).count() < 2 && lane_commits > 0;
-        // Checked out on its own, it can't be unapplied, only switched away from.
-        let managed = store.workspace(&project).is_some_and(|ws| ws.managed);
-        let target = (store.workspace(&project).filter(|ws| !ws.managed))
-            .and_then(|ws| ws.target_branch.as_ref())
-            .map(short_ref)
-            .filter(|target| *target != name);
-        // So does one checked out without GitButler's workspace. Unnamed commits in its stack,
-        // or a linked worktree's, aren't its own to take along.
-        if with_commits && (!managed || linked || commits.len() < lane_commits) {
-            let message = match target {
-                Some(target) => format!(
-                    "To delete {name}, check out another branch, as with `git switch {target}`, \
-                     then delete it from Branches"
-                ),
-                None => format!(
-                    "To delete {name} and its commits, unapply it, then delete it from Branches"
-                ),
-            };
+        if only_named && commits.len() < lane_commits {
+            let message = format!(
+                "To delete {name} and its commits, unapply it, then delete it from Branches"
+            );
             return snack(&self.store, message, cx);
         }
         // Dropping them would rewrite a linked worktree resting on them too, which undo can't
         // bring back.
         let ids: Vec<CommitId> = commits.iter().map(|c| c.id).collect();
         let moved = store.moved_by(&project, &ids);
-        if with_commits && let Some(worktree) = moved.iter().find_map(Checkout::linked) {
+        if let Some(worktree) = moved.iter().find_map(Checkout::linked) {
             let message = format!("The {worktree} worktree rests on {name}, which keeps it");
             return snack(&self.store, message, cx);
         }
         // The oplog doesn't keep a linked worktree's branches, so it can't bring one back.
         let undoable = store.undoable(&project, store.checkout_of(&selection));
-        let above = at.checked_sub(1).and_then(|ix| lane.get(ix));
-        let joins = (above.filter(named).or(lane.get(at + 1)))
-            .filter(|_| !with_commits && !commits.is_empty())
-            .map(|next| next.name.clone());
-        let (detail, deleted) = match joins {
-            _ if with_commits => match commits.len() {
-                1 => (
-                    "Its commit goes too. This can't be undone.".to_owned(),
-                    format!("Deleted {name} and its commit"),
-                ),
-                n => (
-                    format!("Its {n} commits go too. This can't be undone."),
-                    format!("Deleted {name} and its {n} commits"),
-                ),
-            },
-            Some(next) => (
-                format!("Its commits stay, as part of {next}. This can't be undone."),
-                format!("Deleted {name}, its commits joining {next}"),
-            ),
-            None => (
+        let (detail, deleted) = match commits.len() {
+            0 => (
                 "This can't be undone.".to_owned(),
                 format!("Deleted {name}"),
             ),
+            1 => (
+                "Its commit goes too. This can't be undone.".to_owned(),
+                format!("Deleted {name} and its commit"),
+            ),
+            n => (
+                format!("Its {n} commits go too. This can't be undone."),
+                format!("Deleted {name} and its {n} commits"),
+            ),
         };
-        let overlay = match with_commits {
+        let overlay = match only_named {
             true => Overlay {
                 branches: HashSet::from([ref_name.clone()]),
                 ..Overlay::rewriting_main()
             },
             false => Overlay {
+                commits: commits.iter().map(|c| c.key.clone()).collect(),
                 deleted_branches: HashSet::from([ref_name.clone()]),
-                ..Overlay::default()
+                ..Overlay::rewriting_main()
             },
         };
         // What the user saw on top, so new commits made meanwhile aren't dropped unseen.
-        let tip = (commits.first()).filter(|_| with_commits).map(|c| c.id);
+        let delete = backend::DeleteBranchAndCommits {
+            branch: ref_name,
+            tip: commits.first().map(|c| c.id),
+        };
         let run = move |this: &mut AppView, cx: &mut Context<AppView>| {
             let done = move |store: &mut Store, (), cx: &mut Context<Store>| {
                 store.snack_after(undoable, deleted, cx)
             };
-            this.store.update(cx, |store, cx| match tip {
-                Some(tip) => {
-                    let delete = backend::DeleteBranchAndCommits {
-                        branch: ref_name,
-                        tip,
-                    };
-                    store.apply(&project, "Delete branch", overlay, delete, done, cx)
-                }
-                None => {
-                    let remove = backend::RemoveBranch {
-                        branch: ref_name,
-                        tip: None,
-                    };
-                    store.apply(&project, "Delete branch", overlay, remove, done, cx)
-                }
+            this.store.update(cx, |store, cx| {
+                store.apply(&project, "Delete branch", overlay, delete, done, cx)
             })
         };
         if undoable {

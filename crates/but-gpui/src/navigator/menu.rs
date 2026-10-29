@@ -311,7 +311,6 @@ impl Navigator {
                 {
                     items.push(action(workspace.push_label(ref_name), &Push));
                 }
-                let linked = store.in_linked(target);
                 if named.is_some_and(|ref_name| workspace.can_pull(ref_name)) {
                     items.extend([
                         MenuItem::action(
@@ -395,12 +394,15 @@ impl Navigator {
                         app.copy_text(name.clone(), cx)
                     }),
                 ]);
-                // A linked worktree keeps the branch it has checked out, its lane's top one.
-                let checked_out = linked
-                    && workspace
-                        .lane_of(Some(ref_name))
-                        .is_some_and(|(_, at)| at == 0);
-                if !checked_out {
+                // A linked worktree keeps its last branch.
+                let last_in_worktree = store.in_linked(target)
+                    && workspace.lane_of(Some(ref_name)).is_some_and(|(lane, _)| {
+                        (lane.branches.iter())
+                            .filter(|b| b.ref_name.is_some())
+                            .count()
+                            < 2
+                    });
+                if !last_in_worktree {
                     items.push(action("Delete branch", &DeleteSelection).danger());
                 }
                 items

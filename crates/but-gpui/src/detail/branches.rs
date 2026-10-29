@@ -1177,7 +1177,7 @@ impl Detail {
                             ..Overlay::default()
                         };
                         let (gone, listed_in) = (ref_name.clone(), project.clone());
-                        let remove = backend::RemoveBranch {
+                        let remove = backend::DeleteBranchAndCommits {
                             branch: ref_name,
                             tip: Some(tip),
                         };

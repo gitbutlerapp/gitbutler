@@ -951,7 +951,7 @@ impl Intent for RenameBranch {
             let moved = super::branches::move_description(
                 &*ctx.repo.get()?,
                 branch.shorten(),
-                Some(outcome.new_ref.shorten()),
+                outcome.new_ref.shorten(),
             );
             if let Err(err) = moved {
                 tracing::warn!(?err, "couldn't move the renamed branch's description");
@@ -986,51 +986,14 @@ impl Intent for NameBranch {
     }
 }
 
-/// Delete `branch`, keeping its commits, and its description with it. With `tip`, one whose
-/// newest commit moved since stays: its new commits would go with it.
-pub struct RemoveBranch {
-    pub branch: FullName,
-    pub tip: Option<CommitId>,
-}
-
-impl Intent for RemoveBranch {
-    type Done = ();
-
-    fn apply(self, run: &mut Run) -> Result<()> {
-        let Self { branch, tip } = self;
-        run.locked(|ctx, perm| {
-            // Removing a ref that's gone does nothing, so say so rather than that it went, as
-            // after an agent renamed the branch while the confirmation was up.
-            match super::ref_tip(&*ctx.repo.get()?, branch.as_ref()) {
-                None => bail!("{} was renamed or deleted meanwhile", short_ref(&branch)),
-                Some(at) if tip.is_some_and(|tip| tip.0 != at) => {
-                    bail!(
-                        "{} changed since you asked, so it wasn't deleted",
-                        short_ref(&branch)
-                    )
-                }
-                Some(_) => {}
-            }
-            but_api::branch::branch_remove_with_perm(ctx, branch.clone(), perm)?;
-            // So a branch made later under its name starts without its description.
-            let dropped =
-                super::branches::move_description(&*ctx.repo.get()?, branch.shorten(), None);
-            if let Err(err) = dropped {
-                tracing::warn!(?err, "couldn't drop the deleted branch's description");
-            }
-            Ok(())
-        })
-    }
-}
-
 /// Delete `branch` with its commits, in one step that one undo takes back, as `but branch
-/// delete` does: for the only named branch of its stack, as [`RemoveBranch`] keeps the
-/// commits, which need another branch to hold them. A workspace left with one stack checks
-/// that out, as unapplying does. One whose newest commit is no longer `tip` stays: its new
-/// commits would go too.
+/// delete` does. A checkout on it moves to the branch below, or the target. A workspace left
+/// with one stack checks that out, as unapplying does. Outside the workspace only its ref goes,
+/// its commits with it unless another ref has them. One whose newest commit is no longer `tip`,
+/// `None` when it had none, stays: its new commits would go too.
 pub struct DeleteBranchAndCommits {
     pub branch: FullName,
-    pub tip: CommitId,
+    pub tip: Option<CommitId>,
 }
 
 impl Intent for DeleteBranchAndCommits {
@@ -1039,17 +1002,31 @@ impl Intent for DeleteBranchAndCommits {
     fn apply(self, run: &mut Run) -> Result<()> {
         let Self { branch, tip } = self;
         run.locked(|ctx, perm| {
-            let commits: Vec<gix::ObjectId> = {
+            // The target is what a checkout on a deleted branch falls back to.
+            let target = ctx.project_meta()?.target_ref;
+            if target.is_some_and(|target| target.as_local_full_name_ref() == branch.as_ref()) {
+                bail!("{} is the target branch", short_ref(&branch));
+            }
+            let commits: Option<Vec<gix::ObjectId>> = {
                 let (_, ws, _) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
-                // Checked out on its own, HEAD would be left on nothing.
-                if !ws.kind.has_managed_ref() {
-                    bail!("{} is checked out on its own", short_ref(&branch));
-                }
-                let segment = (ws.try_find_segment_by_refname(branch.as_ref()))
-                    .with_context(|| format!("{} isn't applied any more", short_ref(&branch)))?;
-                segment.commits.iter().map(|commit| commit.id).collect()
+                (ws.find_segment_by_refname(branch.as_ref()))
+                    .map(|segment| segment.commits.iter().map(|commit| commit.id).collect())
             };
-            if commits.first() != Some(&tip.0) {
+            let Some(commits) = commits else {
+                // Removing a ref that's gone does nothing, so say so rather than that it went, as
+                // after an agent renamed the branch while the confirmation was up.
+                match super::ref_tip(&*ctx.repo.get()?, branch.as_ref()) {
+                    None => bail!("{} was renamed or deleted meanwhile", short_ref(&branch)),
+                    Some(at) if tip.is_none_or(|tip| tip.0 != at) => bail!(
+                        "{} changed since you asked, so it wasn't deleted",
+                        short_ref(&branch)
+                    ),
+                    Some(_) => {}
+                }
+                but_api::branch::branch_remove_with_perm(ctx, branch, perm)?;
+                return Ok(());
+            };
+            if commits.first().copied() != tip.map(|tip| tip.0) {
                 bail!(
                     "{} changed since you asked, so it wasn't deleted",
                     short_ref(&branch)
@@ -1065,7 +1042,9 @@ impl Intent for DeleteBranchAndCommits {
                 &[branch.as_ref()],
                 DryRun::No,
                 |mut tx| {
-                    tx.discard_commits(commits)?;
+                    if !commits.is_empty() {
+                        tx.discard_commits(commits)?;
+                    }
                     tx.remove_reference(branch.as_ref())?;
                     Ok(())
                 },
@@ -1944,6 +1923,7 @@ pub(super) mod tests {
             target_origin_main(path);
             git(path, &["checkout", "-q", "-b", "topic"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "Topic"]);
+            let topic = head(path);
             git(path, &["checkout", "-q", "main"]);
 
             describe(path, "refs/heads/topic", "  Why it's there \n").unwrap();
@@ -1964,20 +1944,25 @@ pub(super) mod tests {
                     .string(format!("branch.{name}.description").as_str())
                     .map(|d| d.to_string())
             };
-            move_description(&repo, "topic".into(), Some("renamed".into())).unwrap();
+            move_description(&repo, "topic".into(), "renamed".into()).unwrap();
             assert_eq!(
                 (kept("topic"), kept("renamed").as_deref()),
                 (None, Some("Why it's there")),
                 "it moves to the new name, as `git branch -m` moves it"
             );
-            move_description(&repo, "renamed".into(), None).unwrap();
+            move_description(&repo, "renamed".into(), "topic".into()).unwrap();
+            let delete = DeleteBranchAndCommits {
+                branch: full("refs/heads/topic"),
+                tip: Some(topic),
+            };
+            crate::backend::apply(path, delete).unwrap();
             assert_eq!(
-                kept("renamed"),
+                kept("topic"),
                 None,
                 "and goes with the branch, as `git branch -d` drops it"
             );
             assert!(
-                describe(path, "refs/heads/renamed", "Lost?").is_err(),
+                describe(path, "refs/heads/topic", "Lost?").is_err(),
                 "a branch that's gone isn't given one, for a later branch by its name to take up"
             );
         })
@@ -3665,7 +3650,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             git(path, &["commit", "-q", "--allow-empty", "-m", "an agent's"]);
             git(path, &["branch", "-f", "side", "HEAD"]);
 
-            let remove = RemoveBranch {
+            let remove = DeleteBranchAndCommits {
                 branch: full("refs/heads/side"),
                 tip: Some(asked),
             };
@@ -3704,7 +3689,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
 
             let delete = DeleteBranchAndCommits {
                 branch: full("refs/heads/feature"),
-                tip: work,
+                tip: Some(work),
             };
             crate::backend::apply(path, delete).unwrap();
             assert!(
@@ -3744,7 +3729,84 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     }
 
     #[test]
-    fn a_branch_checked_out_on_its_own_keeps_its_commits() {
+    fn a_linked_worktrees_top_branch_goes_and_leaves_it_on_the_one_below() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            let (_outside, linked) = agent_worktree(path);
+            let shown = crate::backend::worktrees::SetArchived {
+                name: "agent".into(),
+                archived: false,
+            };
+            crate::backend::apply(path, shown).unwrap();
+            std::fs::write(linked.join("lower.txt"), "lower\n").unwrap();
+            git(&linked, &["add", "lower.txt"]);
+            git(&linked, &["commit", "-q", "-m", "lower"]);
+            git(&linked, &["checkout", "-q", "-b", "upper"]);
+            std::fs::write(linked.join("upper.txt"), "upper\n").unwrap();
+            git(&linked, &["add", "upper.txt"]);
+            git(&linked, &["commit", "-q", "-m", "upper"]);
+
+            let delete = DeleteBranchAndCommits {
+                branch: full("refs/heads/upper"),
+                tip: Some(head(&linked)),
+            };
+            crate::backend::apply(path, delete).unwrap();
+            assert!(
+                git(path, &["branch", "--list", "upper"]).is_empty(),
+                "the branch is gone"
+            );
+            assert_eq!(
+                git(&linked, &["symbolic-ref", "HEAD"]).trim(),
+                "refs/heads/agent",
+                "the worktree is on the branch below"
+            );
+            assert!(
+                !linked.join("upper.txt").exists() && linked.join("lower.txt").exists(),
+                "only its own commit went"
+            );
+            assert!(
+                git(&linked, &["status", "--porcelain"]).is_empty(),
+                "the worktree's files follow"
+            );
+        })
+    }
+
+    #[test]
+    fn an_empty_branch_checked_out_on_its_own_goes_and_leaves_head_below() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "feature"]);
+            git(
+                path,
+                &["commit", "-q", "--allow-empty", "-m", "feature work"],
+            );
+            let work = head(path);
+            let above = CreateDependentBranch {
+                below: full("refs/heads/feature"),
+            };
+            let (tip, _) = crate::backend::apply(path, above).unwrap();
+            assert_eq!(git(path, &["symbolic-ref", "HEAD"]).trim(), tip.to_string());
+
+            let delete = DeleteBranchAndCommits {
+                branch: tip,
+                tip: None,
+            };
+            crate::backend::apply(path, delete).unwrap();
+            assert_eq!(
+                git(path, &["symbolic-ref", "HEAD"]).trim(),
+                "refs/heads/feature",
+                "HEAD is back on the branch it was made on"
+            );
+            assert_eq!(head(path), work, "whose commit stays");
+        })
+    }
+
+    #[test]
+    fn the_target_branch_isnt_deleted() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
             let path = dir.path();
@@ -3754,13 +3816,12 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
 
             let delete = DeleteBranchAndCommits {
                 branch: full("refs/heads/main"),
-                tip,
+                tip: Some(tip),
             };
-            let refused =
-                crate::backend::apply(path, delete).expect_err("main is checked out on its own");
+            let refused = crate::backend::apply(path, delete).expect_err("main is the target");
             assert!(
-                format!("{refused:#}").contains("checked out on its own"),
-                "there's no workspace to leave it for: {refused:#}"
+                format!("{refused:#}").contains("is the target branch"),
+                "a checkout on it would have nothing to fall back to: {refused:#}"
             );
             assert_eq!(head(path), tip, "main and its commit stay");
             assert_eq!(
