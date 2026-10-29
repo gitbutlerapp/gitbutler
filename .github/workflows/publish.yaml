@@ -137,6 +137,8 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: app-release-build-${{ github.event.inputs.channel || 'nightly' }}${{ matrix.target }}${{ matrix.platform }}
+      - name: Install Zig
+        uses: ./.github/actions/setup-zig
       - name: Init Node Environment
         uses: ./.github/actions/init-env-node
 

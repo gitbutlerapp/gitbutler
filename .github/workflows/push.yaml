@@ -206,6 +206,8 @@ jobs:
         with:
           shared-key: lint
           save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Install Zig
+        uses: ./.github/actions/setup-zig
       - run: cargo fmt --check --all
       - run: cargo check --workspace --all-targets
       - run: |
@@ -279,6 +281,8 @@ jobs:
         with:
           shared-key: cargo-doc
           save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Install Zig
+        uses: ./.github/actions/setup-zig
       - name: Dependencies for 'keyring'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
       # fontconfig's build script looks it up with pkg-config.
@@ -326,6 +330,8 @@ jobs:
         with:
           shared-key: cargo-test-no-tauri-${{ runner.os }}
           save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Install Zig
+        uses: ./.github/actions/setup-zig
       - name: Dependencies for 'keyring'
         if: runner.os == 'Linux'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
@@ -485,6 +491,8 @@ jobs:
         with:
           shared-key: cargo-check-windows
           save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Install Zig
+        uses: ./.github/actions/setup-zig
       - name: "cargo check"
         run: cargo check --workspace --all-targets --features windows
       # The GPUI client's Windows code: the lint job runs on Linux, which builds it as a stub.
@@ -508,6 +516,8 @@ jobs:
         with:
           shared-key: cargo-test
           save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Install Zig
+        uses: ./.github/actions/setup-zig
       - name: "cargo test -p but-gpui"
         run: cargo test -p but-gpui
       # The desktop app with the native client, as Windows builds ship it: GPUI's and Tauri's

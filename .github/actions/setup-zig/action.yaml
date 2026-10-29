@@ -1,0 +1,12 @@
+name: setup-zig
+description: Install the Zig compiler libghostty-vt-sys builds Ghostty with
+runs:
+  using: "composite"
+  steps:
+    - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+      name: Install Zig
+      with:
+        # Ghostty's minimum_zig_version at the commit libghostty-vt-sys pins.
+        version: 0.15.2
+        # Rust Cache already keeps Zig's build output, which lives in libghostty-vt-sys's OUT_DIR.
+        use-cache: false
