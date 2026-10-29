@@ -195,19 +195,6 @@ fn assert_locked_index_rejects_enter_edit_mode(symlink_index: bool) -> Result<()
     } else {
         index_path.clone()
     };
-    #[expect(deprecated)]
-    let git2_index_path = ctx
-        .git2_repo
-        .get()?
-        .index()?
-        .path()
-        .map(std::fs::canonicalize)
-        .transpose()?;
-    assert_eq!(
-        git2_index_path,
-        Some(index_path.canonicalize()?),
-        "the probe must lock the index that checkout writes"
-    );
     let index_before = std::fs::read(&index_path)?;
     let head_name_before = repo.head_name()?.context("symbolic HEAD")?;
     let head_id_before = repo.head_id()?.detach();
@@ -234,7 +221,7 @@ fn assert_locked_index_rejects_enter_edit_mode(symlink_index: bool) -> Result<()
     );
 
     let repo = ctx.repo.get()?;
-    let unchanged = "the probe fails before anything is written";
+    let unchanged = "the lock fails before anything is written";
     assert_eq!(
         std::fs::read(&worktree_file)?,
         worktree_before,
@@ -277,6 +264,12 @@ fn assert_locked_index_rejects_enter_edit_mode(symlink_index: bool) -> Result<()
             .is_some(),
         "the retry creates the edit branch"
     );
+    if symlink_index {
+        assert!(
+            index_path.symlink_metadata()?.file_type().is_symlink(),
+            "writing the resolved index preserves its symlink"
+        );
+    }
     drop(repo);
     assert_eq!(
         read_edit_mode_metadata(&ctx)?.commit_oid,
@@ -575,6 +568,181 @@ Some(
 }
 
 #[test]
+fn abort_restores_untracked_files_and_preserves_ignored_files_and_repositories() -> Result<()> {
+    let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
+    let repo = ctx.repo.get()?;
+    let commit_to_edit = repo
+        .head_commit()?
+        .parent_ids()
+        .next()
+        .context("parent")?
+        .detach();
+    let workdir = repo.workdir().context("worktree")?.to_owned();
+    std::fs::create_dir_all(workdir.join("before-edit"))?;
+    std::fs::write(workdir.join("before-edit/untracked"), "before edit\n")?;
+    std::fs::write(repo.git_dir().join("info/exclude"), "ignored\n")?;
+    std::fs::write(workdir.join("ignored"), "keep ignored\n")?;
+    let nested = gix::init(workdir.join("nested"))?;
+    std::fs::write(
+        nested.workdir().context("nested worktree")?.join("file"),
+        "keep nested\n",
+    )?;
+    drop(nested);
+    drop(repo);
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_id = {
+        let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        stack_id(&ws)?
+    };
+    enter_edit_mode(&mut ctx, commit_to_edit, stack_id, guard.write_permission())?;
+    assert!(
+        !workdir.join("before-edit/untracked").exists(),
+        "the saved untracked file is removed while editing"
+    );
+    std::fs::write(workdir.join("during-edit"), "discard edit\n")?;
+
+    abort_and_return_to_workspace(&mut ctx, true, guard.write_permission())?;
+    assert_eq!(
+        std::fs::read(workdir.join("before-edit/untracked"))?,
+        b"before edit\n",
+        "abort restores the saved untracked file"
+    );
+    assert!(
+        !workdir.join("during-edit").exists(),
+        "abort removes files created while editing"
+    );
+    assert_eq!(
+        std::fs::read(workdir.join("ignored"))?,
+        b"keep ignored\n",
+        "ignored content survives both checkouts"
+    );
+    assert_eq!(
+        std::fs::read(workdir.join("nested/file"))?,
+        b"keep nested\n",
+        "nested repository content survives both checkouts"
+    );
+    assert!(
+        workdir.join("nested/.git").is_dir(),
+        "the nested repository metadata remains intact"
+    );
+    Ok(())
+}
+
+#[test]
+fn save_restores_conflicting_uncommitted_changes_as_unstaged() -> Result<()> {
+    let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
+    let repo = ctx.repo.get()?;
+    let commit_to_edit = repo
+        .head_commit()?
+        .parent_ids()
+        .next()
+        .context("parent")?
+        .detach();
+    let file = repo.workdir().context("worktree")?.join("file");
+    std::fs::write(&file, "pending\n")?;
+    drop(repo);
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_id = {
+        let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        stack_id(&ws)?
+    };
+    enter_edit_mode(&mut ctx, commit_to_edit, stack_id, guard.write_permission())?;
+    std::fs::write(&file, "edited\n")?;
+    save_and_return_to_workspace(&mut ctx, guard.write_permission())?;
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(&file)?,
+        snapbox::str![[r#"
+<<<<<<< ours
+pending
+||||||| ancestor
+b
+=======
+edited
+>>>>>>> theirs
+
+"#]]
+    );
+    let repo = ctx.repo.get()?;
+    assert_eq!(
+        repo.write_index_tree(&*repo.open_index()?)?.detach(),
+        repo.head_tree_id()?.detach(),
+        "restored worktree conflicts do not become staged changes"
+    );
+    Ok(())
+}
+
+#[test]
+fn locked_index_rejects_leaving_edit_mode_without_changes() -> Result<()> {
+    for save in [false, true] {
+        let (mut ctx, _tempdir) =
+            command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
+        let commit_to_edit = ctx
+            .repo
+            .get()?
+            .head_commit()?
+            .parent_ids()
+            .next()
+            .context("parent")?
+            .detach();
+        let mut guard = ctx.exclusive_worktree_access();
+        let stack_id = {
+            let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+            stack_id(&ws)?
+        };
+        enter_edit_mode(&mut ctx, commit_to_edit, stack_id, guard.write_permission())?;
+        let repo = ctx.repo.get()?;
+        let file = repo.workdir().context("worktree")?.join("file");
+        std::fs::write(&file, "edited during edit mode\n")?;
+        let head_before = repo.head_name()?;
+        let workspace_before = repo
+            .find_reference("refs/heads/gitbutler/workspace")?
+            .id()
+            .detach();
+        let index_before = std::fs::read(repo.index_path())?;
+        let external_lock = gix::lock::File::acquire_to_update_resource(
+            repo.index_path(),
+            gix::lock::acquire::Fail::Immediately,
+            None,
+            0,
+        )?;
+        drop(repo);
+
+        let result = if save {
+            save_and_return_to_workspace(&mut ctx, guard.write_permission())
+        } else {
+            abort_and_return_to_workspace(&mut ctx, true, guard.write_permission())
+        };
+        assert!(result.is_err(), "the index lock prevents leaving edit mode");
+        let repo = ctx.repo.get()?;
+        assert_eq!(repo.head_name()?, head_before, "HEAD stays in edit mode");
+        assert_eq!(
+            repo.find_reference("refs/heads/gitbutler/workspace")?
+                .id()
+                .detach(),
+            workspace_before,
+            "the workspace is not rewritten before acquiring the index lock"
+        );
+        assert_eq!(
+            std::fs::read(repo.index_path())?,
+            index_before,
+            "the persisted index stays intact"
+        );
+        assert_eq!(
+            std::fs::read(&file)?,
+            b"edited during edit mode\n",
+            "worktree edits stay intact"
+        );
+        assert!(
+            read_edit_mode_metadata(&ctx).is_ok(),
+            "edit metadata stays intact"
+        );
+        drop(external_lock);
+    }
+    Ok(())
+}
+
+#[test]
 fn enter_edit_mode_checks_out_conflicted_commit() -> Result<()> {
     let (mut ctx, _tempdir) = command_ctx("enter_edit_mode_with_conflicted_commit")?;
     let repo = ctx.repo.get()?;
@@ -610,6 +778,22 @@ fn enter_edit_mode_checks_out_conflicted_commit() -> Result<()> {
     );
 
     let repo = ctx.repo.get()?;
+    let index = repo.open_index()?;
+    let stages = index
+        .entries()
+        .iter()
+        .filter(|entry| entry.path(&index) == b"conflict")
+        .map(|entry| entry.stage())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        stages,
+        [
+            gix::index::entry::Stage::Base,
+            gix::index::entry::Stage::Ours,
+            gix::index::entry::Stage::Theirs,
+        ],
+        "checkout persists conflict stages without a stage-zero marker blob"
+    );
     snapbox::assert_data_eq!(
         repo.head_name()?.to_debug(),
         snapbox::str![[r#"
