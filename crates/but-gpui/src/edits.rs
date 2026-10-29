@@ -702,10 +702,8 @@ impl AppView {
         let selection = Selection::Branch(project.clone(), Some(ref_name.clone()));
         let named = |b: &&Branch| b.ref_name.is_some();
         let only_named = lane.iter().filter(named).count() < 2;
-        // A linked worktree keeps the branch it has checked out; the ones stacked under it
-        // can go.
-        if at == 0 && store.in_linked(&selection) {
-            let message = format!("{name} is checked out in a worktree, which keeps it");
+        if only_named && store.in_linked(&selection) {
+            let message = format!("{name} is its worktree's last branch, which keeps it");
             return snack(&self.store, message, cx);
         }
         // Unnamed commits in its stack aren't its own to take along.
