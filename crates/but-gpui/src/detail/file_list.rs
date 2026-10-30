@@ -7,7 +7,7 @@ use std::ops::Range;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, ElementId, MouseButton, MouseDownEvent, Pixels,
-    Point, SharedString, Stateful, Toggled, div, img, prelude::*,
+    Point, SharedString, Stateful, Toggled, div, prelude::*,
 };
 
 use super::blame::Blamed;
@@ -19,8 +19,9 @@ use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, 
 use crate::overlays::MenuItem;
 use crate::state::{Cut, FileSort, Overlay, ProjectId, Rereads, Selection};
 use crate::theme::Theme;
+use crate::transfer::Chip;
 use crate::ui::diff;
-use crate::ui::file_icons::file_icon;
+use crate::ui::file_icons::{file_icon, folder_icon};
 use crate::ui::fold;
 use crate::ui::illustration::Illustration;
 use crate::ui::{
@@ -763,6 +764,7 @@ impl Detail {
             return None;
         };
         let (added, removed) = self.folder_stats(source, &path, cx);
+        let chip = Chip::Folder(name.clone().into());
         let fold = PageFold::Dir(path.clone());
         let open = !collapsed && !self.page_folds.closing(&fold);
         let chevron = fold::chevron("fold", open, theme.text_3).into_any_element();
@@ -773,14 +775,7 @@ impl Detail {
             theme,
         )
         .child(steps(depth, Some(chevron), theme))
-        // In colour and at its own 17 by 14 points, as ui-react's FolderIcon draws it, in the
-        // box a file's icon has, which it runs a little past.
-        .child(
-            div()
-                .flex_none()
-                .size(dp(14.))
-                .child(img(Icon::FolderFill.path()).w(dp(17.)).h(dp(14.))),
-        )
+        .child(folder_icon())
         // Cut in the middle: a chain of folders, `ios/App/Resources/de.lproj`, ends in the one
         // that tells it from its siblings. Folded, how many files it holds follows the name, so
         // its end lines up with the files'.
@@ -803,10 +798,9 @@ impl Detail {
         })
         .child(div().flex_none().w(dp(MARK_WIDTH)))
         .when_some(self.folder_drag(source, &path, cx), |el, dragged| {
-            let label: SharedString = dragged.describe(self.store.read(cx)).into();
             el.on_drag(
                 dragged,
-                self.drag_preview(label, false, cx.entity().downgrade()),
+                self.drag_preview(chip, false, cx.entity().downgrade()),
             )
         })
         .on_mouse_down(

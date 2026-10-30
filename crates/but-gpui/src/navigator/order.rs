@@ -15,7 +15,7 @@ use crate::app::AppView;
 use crate::overlays::MenuItem;
 use crate::state::{Prefs, ProjectEntry, ProjectId, Store, WatchedOrder};
 use crate::theme::Theme;
-use crate::transfer::drag_pill;
+use crate::transfer::{drag_pill, pill_label};
 use crate::ui::{Icon, dp, icon_button, small_icon};
 
 impl Navigator {
@@ -211,6 +211,12 @@ impl Render for ProjectPill {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
         let mark = small_icon(Icon::Eye).text_color(theme.pop);
-        drag_pill(self.offset, mark, self.name.clone(), None, theme)
+        drag_pill(
+            self.offset,
+            mark,
+            pill_label(self.name.clone()),
+            None,
+            theme,
+        )
     }
 }

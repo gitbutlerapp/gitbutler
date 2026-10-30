@@ -5,9 +5,9 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
 
-use gpui::{App, ImageSource, Img, RenderImage, SvgRenderer, img, prelude::*};
+use gpui::{App, Div, ImageSource, Img, RenderImage, SvgRenderer, div, img, prelude::*};
 
-use super::dp;
+use super::{Icon, dp};
 
 include!(concat!(env!("OUT_DIR"), "/file_icons.rs"));
 
@@ -53,6 +53,15 @@ pub fn file_icon(path: &str, cx: &App) -> Img {
         drawn.entry(icon).or_insert_with(draw).clone()
     });
     img(ImageSource::Render(drawn)).size(dp(14.)).flex_none()
+}
+
+/// A folder's mark, in colour and at its own 17 by 14 points, as ui-react's FolderIcon draws
+/// it, in the box a file's mark has, which it runs a little past.
+pub fn folder_icon() -> Div {
+    div()
+        .flex_none()
+        .size(dp(14.))
+        .child(img(Icon::FolderFill.path()).w(dp(17.)).h(dp(14.)))
 }
 
 /// Mark `icon` drawn as `img` draws an SVG asset.

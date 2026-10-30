@@ -15,8 +15,8 @@ use crate::state::{
 };
 use crate::theme::Theme;
 use crate::ui::diff::split_path;
-use crate::ui::file_icons::file_icon;
-use crate::ui::{Icon, dp, popover, small_icon};
+use crate::ui::file_icons::{file_icon, folder_icon};
+use crate::ui::{Icon, count_badge, dp, h_flex, popover, small_icon};
 
 /// What a drop or paste does. Commits move, squash and uncommit as many as were picked.
 pub enum Transfer {
@@ -526,19 +526,35 @@ fn place(to: &Destination) -> String {
     }
 }
 
-/// Start a drag of a `Cut` labelled `label`, letting the store know what's in flight so
-/// the rows can say what a drop would do.
+/// What a drag's pill names, which what it carries can't say.
+#[derive(Clone)]
+pub enum Chip {
+    /// A row, by its label, beside the glyph of what it carries.
+    Row(SharedString),
+    /// A folder, by its name, which its files go together as.
+    Folder(SharedString),
+}
+
+impl From<SharedString> for Chip {
+    fn from(label: SharedString) -> Self {
+        Chip::Row(label)
+    }
+}
+
+/// Start a drag of a `Cut` shown as `chip`, letting the store know what's in flight so the
+/// rows can say what a drop would do.
 pub fn drag_preview(
     store: Entity<Store>,
-    label: SharedString,
+    chip: impl Into<Chip>,
 ) -> impl Fn(&Cut, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static {
+    let chip = chip.into();
     move |payload, offset, _, cx| {
         store.update(cx, |store, cx| {
             store.dragging = Some(payload.clone());
             cx.notify()
         });
         let preview = cx.new(|_| DragPreview {
-            label: label.clone(),
+            chip: chip.clone(),
             payload: payload.clone(),
             store: store.clone(),
             offset,
@@ -595,7 +611,7 @@ fn worktree_move(
 }
 
 pub struct DragPreview {
-    pub label: SharedString,
+    pub chip: Chip,
     pub payload: Cut,
     store: Entity<Store>,
     /// Where the pointer pressed the dragged row, which GPUI draws the pill from.
@@ -614,27 +630,51 @@ impl Render for DragPreview {
         let hint = transfer.as_ref().map(Transfer::verb);
         let glyph = |icon| small_icon(icon).text_color(theme.pop).into_any_element();
         // A worktree's files landing where they move it name the worktree.
-        let (mark, label) = match (&transfer, &self.payload) {
-            (Some(Transfer::MoveWorktree { name, .. }), _) => {
-                (glyph(Icon::FolderCopy), name.to_string().into())
+        let named = |name: SharedString| pill_label(name).into_any_element();
+        let (mark, label) = match (&transfer, &self.chip, &self.payload) {
+            (Some(Transfer::MoveWorktree { name, .. }), ..) => {
+                (glyph(Icon::FolderCopy), named(name.to_string().into()))
             }
-            (_, Cut::Commit(..) | Cut::CherryPick(..)) => (glyph(Icon::Commit), self.label.clone()),
-            (_, Cut::Branch(..)) => (glyph(Icon::Branch), self.label.clone()),
-            (_, Cut::Files { files, .. }) => match &**files {
+            (_, Chip::Folder(name), payload) => (
+                folder_icon().into_any_element(),
+                h_flex()
+                    .min_w_0()
+                    .gap(dp(6.))
+                    .child(pill_label(name.clone()))
+                    .children(match payload {
+                        Cut::Files { files, .. } if files.len() > 1 => {
+                            Some(count_badge(files.len(), theme))
+                        }
+                        _ => None,
+                    })
+                    .into_any_element(),
+            ),
+            (_, Chip::Row(label), Cut::Commit(..) | Cut::CherryPick(..)) => {
+                (glyph(Icon::Commit), named(label.clone()))
+            }
+            (_, Chip::Row(label), Cut::Branch(..)) => (glyph(Icon::Branch), named(label.clone())),
+            (_, Chip::Row(label), Cut::Files { files, .. }) => match &**files {
                 // All of a file goes by its name, as its folder says little while dragging.
                 [file] => (
                     file_icon(&file.file.path, cx).into_any_element(),
-                    match file.hunks {
+                    named(match file.hunks {
                         None => split_path(&file.file.path).0.to_owned().into(),
-                        Some(_) => self.label.clone(),
-                    },
+                        Some(_) => label.clone(),
+                    }),
                 ),
-                _ => (glyph(Icon::File), self.label.clone()),
+                _ => (glyph(Icon::File), named(label.clone())),
             },
-            (_, Cut::Worktree(..)) => (glyph(Icon::FolderCopy), self.label.clone()),
+            (_, Chip::Row(label), Cut::Worktree(..)) => {
+                (glyph(Icon::FolderCopy), named(label.clone()))
+            }
         };
         drag_pill(self.offset, mark, label, hint, theme)
     }
+}
+
+/// A pill's label, cut short where it won't fit.
+pub fn pill_label(label: SharedString) -> Div {
+    div().truncate().child(label)
 }
 
 /// What a dragged row shows under the pointer: a pill with its `mark`, `label` and what
@@ -644,7 +684,7 @@ impl Render for DragPreview {
 pub fn drag_pill(
     offset: Point<Pixels>,
     mark: impl IntoElement,
-    label: SharedString,
+    label: impl IntoElement,
     hint: Option<&'static str>,
     theme: &Theme,
 ) -> Div {
@@ -660,7 +700,7 @@ pub fn drag_pill(
         .text_size(dp(12.))
         .text_color(theme.text_1)
         .child(mark)
-        .child(div().truncate().child(label))
+        .child(label)
         .when_some(hint, |el, hint| {
             el.child(div().flex_none().text_color(theme.text_2).child(hint))
         });
