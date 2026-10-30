@@ -39,6 +39,9 @@ pub struct Ghostty {
     /// The OpenType features `font-feature` sets, by tag.
     pub font_features: Vec<(String, u32)>,
     pub font_size: Option<f32>,
+    /// Whether `font-style-bold = false` turned bold off, so bold text draws in the regular
+    /// style.
+    pub bold_disabled: bool,
     pub light: Colors,
     pub dark: Colors,
 }
@@ -56,6 +59,7 @@ struct Settings {
     font_families: Vec<String>,
     font_features: Vec<(String, u32)>,
     font_size: Option<f32>,
+    bold_disabled: bool,
     theme: Option<Theme>,
     colors: Colors,
 }
@@ -116,6 +120,7 @@ impl Ghostty {
             font_size: settings.font_size,
             font_families: settings.font_families,
             font_features: settings.font_features,
+            bold_disabled: settings.bold_disabled,
         }
     }
 }
@@ -133,6 +138,8 @@ impl Settings {
                 let size = value.parse().ok().filter(|size: &f32| *size > 0.0);
                 self.font_size = size.or(self.font_size);
             }
+            // A named bold style is looked up only in `font-family-bold`, which isn't followed.
+            "font-style-bold" => self.bold_disabled = value == "false",
             "theme" => self.theme = Theme::parse(value).or(self.theme.take()),
             _ => self.colors.set(key, value),
         }
@@ -372,6 +379,27 @@ mod tests {
                 ("zero", 1),
             ],
             "tags that aren't four letters and values that aren't numbers are ignored"
+        );
+    }
+
+    #[test]
+    fn font_style_bold_false_turns_bold_off() {
+        let ghostty = Ghostty::parse(["font-style-bold = false"], |_| None);
+        assert!(
+            ghostty.bold_disabled,
+            "bold text draws in the regular style"
+        );
+    }
+
+    #[test]
+    fn a_later_bold_style_turns_bold_on_again() {
+        let ghostty = Ghostty::parse(
+            ["font-style-bold = false", "font-style-bold = Heavy"],
+            |_| None,
+        );
+        assert!(
+            !ghostty.bold_disabled,
+            "a named or default bold style overrides an earlier `false`"
         );
     }
 
