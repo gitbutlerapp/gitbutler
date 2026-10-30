@@ -10,7 +10,8 @@ code's layout in it, and leave it alone when behaviour changes.
   `theme.mono_font`). GPUI looks a family up among the embedded fonts first and falls back to
   the system only when it isn't there. A family that isn't embedded then resolves to whatever
   the machine has installed, and one it doesn't have to GPUI's fallback stack, which ends in
-  Helvetica.
+  Helvetica. Only fonts the user picks leave them: `theme.diff_font` and `theme.terminal_font`,
+  checked with `ui::digit_advance` first.
 - A font with an optical size axis (`opsz`) is slow to lay out, as CoreText sets up its shaping
   again for each sized copy GPUI makes, one per text run. With variable Inter installed, frames
   went from about 10ms to 70-120ms: a line took 227µs against 20µs with `opsz` pinned. Being

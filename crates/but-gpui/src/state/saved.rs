@@ -393,6 +393,8 @@ pub struct Prefs {
     pub diff_font: Option<String>,
     /// The size text shows in the app's own terminals, or `None` for Ghostty's.
     pub terminal_text: Option<u8>,
+    /// The family the app's own terminals show in, or `None` for Ghostty's.
+    pub terminal_font: Option<String>,
     /// How large the whole interface draws, as ⌘+ and ⌘− set it.
     pub ui_scale: crate::theme::UiScale,
     /// The keys the app binds, as Settings › Keyboard picks them.

@@ -3,7 +3,9 @@
 //! draw with too.
 
 use but_tty::{Colors, Ghostty, RgbColor};
-use gpui::{App, Global, Hsla, Pixels, Rgba, SharedString, WindowAppearance, rgb};
+use gpui::{
+    App, Font, FontFeatures, Global, Hsla, Pixels, Rgba, SharedString, WindowAppearance, rgb,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::backend::Token;
@@ -57,12 +59,13 @@ pub struct Theme {
     pub person: [[Hsla; 2]; 5],
     pub ui_font: SharedString,
     pub mono_font: SharedString,
-    /// Geist Mono with Nerd Font icons and box drawing, for TUIs in the terminals.
-    pub terminal_font: SharedString,
     /// What code in diffs shows in: `mono_font` unless another was picked.
     pub diff_font: SharedString,
     /// How wide a digit of `diff_font` is, in ems.
     pub diff_digit: f32,
+    /// What terminals show in: Geist Mono with Nerd Font icons and box drawing, for TUIs, unless
+    /// another was picked or Ghostty has one.
+    pub terminal_font: Font,
     /// Code in diffs: its size and the height of a line of it.
     pub code_text: f32,
     pub code_line: f32,
@@ -201,6 +204,24 @@ impl Theme {
         self
     }
 
+    /// This theme with terminals in `family`, or with none picked, in the first family of
+    /// `ghostty`'s that `installed` says the machine has, with `ghostty`'s font features.
+    pub fn with_terminal_font(
+        mut self,
+        family: Option<&str>,
+        ghostty: &Ghostty,
+        installed: impl Fn(&str) -> bool,
+    ) -> Self {
+        let configured = (ghostty.font_families.iter()).map(String::as_str);
+        if let Some(found) = family.into_iter().chain(configured).find(|f| installed(f)) {
+            self.terminal_font = gpui::font(found.to_owned());
+        }
+        if family.is_none() {
+            self.terminal_font.features = FontFeatures(ghostty.font_features.clone().into());
+        }
+        self
+    }
+
     /// This theme at interface scale `scale`.
     pub fn with_scale(mut self, scale: UiScale) -> Self {
         self.scale = scale.factor();
@@ -326,9 +347,9 @@ impl Theme {
             // Embedded by `ui::fonts`.
             ui_font: "Inter".into(),
             mono_font: "Geist Mono".into(),
-            terminal_font: "GeistMono Nerd Font Mono".into(),
             diff_font: "Geist Mono".into(),
             diff_digit: 0.6,
+            terminal_font: gpui::font("GeistMono Nerd Font Mono"),
             // Shiki's GitHub light and dark, as but.dev highlights diffs. In `Token` order:
             // comment, string, constant, keyword, function, type, tag.
             syntax: [
@@ -727,6 +748,47 @@ mod tests {
             (gone.diff_font, gone.diff_digit),
             (gone.mono_font, 0.6),
             "a font that's gone keeps the app's own, and its width"
+        );
+    }
+
+    #[test]
+    fn terminals_follow_ghostty_until_a_font_is_picked() {
+        let ghostty = Ghostty {
+            font_families: vec!["Gone".into(), "Menlo".into()],
+            font_features: vec![("calt".into(), 0)],
+            ..Ghostty::default()
+        };
+        let installed = |family: &str| family != "Gone";
+
+        let followed = gitbutler_theme().with_terminal_font(None, &ghostty, installed);
+        assert_eq!(
+            (
+                followed.terminal_font.family.as_ref(),
+                followed.terminal_font.features.tag_value_list()
+            ),
+            ("Menlo", &[("calt".to_owned(), 0)][..]),
+            "the first family the machine has, with Ghostty's features"
+        );
+
+        let picked = gitbutler_theme().with_terminal_font(Some("Monaco"), &ghostty, installed);
+        assert_eq!(
+            (
+                picked.terminal_font.family.as_ref(),
+                picked.terminal_font.features.tag_value_list()
+            ),
+            ("Monaco", &[][..]),
+            "a picked font wins, and Ghostty's features were written for Ghostty's font"
+        );
+
+        let nothing = Ghostty {
+            font_families: vec!["Gone".into()],
+            ..Ghostty::default()
+        };
+        let fallen_back = gitbutler_theme().with_terminal_font(None, &nothing, installed);
+        assert_eq!(
+            fallen_back.terminal_font.family,
+            gitbutler_theme().terminal_font.family,
+            "with none of Ghostty's fonts here, the app's own"
         );
     }
 
