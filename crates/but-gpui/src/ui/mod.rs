@@ -254,15 +254,17 @@ icons! {
 pub fn fonts() -> Vec<Cow<'static, [u8]>> {
     macro_rules! fonts {
         ($($name:literal),* $(,)?) => {
-            vec![$(Cow::Borrowed(include_bytes!(concat!("../../assets/fonts/", $name, ".ttf")).as_slice()),)*]
+            vec![$(Cow::Borrowed(include_bytes!(concat!("../../assets/fonts/", $name)).as_slice()),)*]
         };
     }
     fonts!(
-        "Inter-Regular",
-        "Inter-Medium",
-        "Inter-SemiBold",
-        "GeistMono-Regular",
-        "GeistMono-SemiBold",
+        "Inter-Regular.ttf",
+        "Inter-Medium.ttf",
+        "Inter-SemiBold.ttf",
+        "GeistMono-Regular.ttf",
+        "GeistMono-SemiBold.ttf",
+        "GeistMonoNerdFontMono-Regular.otf",
+        "GeistMonoNerdFontMono-SemiBold.otf",
     )
 }
 
