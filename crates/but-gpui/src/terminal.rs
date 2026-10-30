@@ -8,8 +8,9 @@ use std::rc::Rc;
 use futures::StreamExt;
 use futures::channel::mpsc;
 use gpui::{
-    App, Context, Entity, EventEmitter, FocusHandle, Focusable, FontWeight, HighlightStyle, Hsla,
-    KeyDownEvent, Modifiers, MouseDownEvent, Pixels, Point, Rgba, ScrollWheelEvent, SharedString,
+    App, Context, DispatchPhase, Entity, EventEmitter, FocusHandle, Focusable, FontWeight,
+    HighlightStyle, HitboxBehavior, Hsla, KeyDownEvent, Modifiers, MouseButton, MouseDownEvent,
+    MouseMoveEvent, MouseUpEvent, Pixels, Point, Rgba, ScrollWheelEvent, SharedString,
     StrikethroughStyle, StyledText, Task, UnderlineStyle, WeakEntity, Window, actions, canvas, div,
     prelude::*,
 };
@@ -56,12 +57,20 @@ pub struct Terminal {
     /// Pixels scrolled that don't make a whole line yet.
     scrolled: Pixels,
     grid: Rc<Cell<Grid>>,
+    held: Option<Held>,
     focus: FocusHandle,
     /// It takes the keys once it's first drawn, as it opens.
     focus_when_drawn: bool,
     store: WeakEntity<Store>,
     output: Rc<RefCell<mpsc::UnboundedReceiver<Vec<u8>>>>,
     _output: Task<()>,
+}
+
+/// What a button pressed over the terminal does until it's let go.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Held {
+    /// The program tracking the mouse is told where it goes.
+    Reported,
 }
 
 impl EventEmitter<TerminalEvent> for Terminal {}
@@ -105,6 +114,7 @@ impl Terminal {
             dark: None,
             scrolled: fixed(0.),
             grid: Rc::new(Cell::new(Grid::opening(size))),
+            held: None,
             focus: cx.focus_handle(),
             focus_when_drawn: true,
             store,
@@ -156,7 +166,7 @@ impl Terminal {
     }
 
     fn feed(&mut self, output: &[u8], cx: &mut Context<Self>) {
-        self.vt.term.vt_write(output);
+        self.vt.write(output);
         let replies = self.vt.replies.take();
         if !replies.is_empty() {
             self.pty.write(&replies).ok();
@@ -176,11 +186,7 @@ impl Terminal {
             return;
         }
         self.size = size;
-        let cell = (u32::from(size.cell_width), u32::from(size.cell_height));
-        self.vt
-            .term
-            .resize(size.cols, size.rows, cell.0, cell.1)
-            .ok();
+        self.vt.resize(size);
         self.pty.resize(size).ok();
         cx.notify();
     }
@@ -258,8 +264,80 @@ impl Terminal {
         cx.stop_propagation();
     }
 
-    fn mouse_down(&mut self, _: &MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+    fn mouse_down(&mut self, event: &MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         window.focus(&self.focus, cx);
+        if self.reports(event.modifiers) {
+            let button = button(event.button);
+            self.report(
+                mouse::Action::Press,
+                button,
+                event.position,
+                event.modifiers,
+            );
+            self.held = Some(Held::Reported);
+        }
+    }
+
+    /// While a button pressed over the terminal is held it follows the pointer anywhere, first
+    /// in line so nothing under the pointer reacts; otherwise only over the terminal.
+    fn mouse_move(
+        &mut self,
+        event: &MouseMoveEvent,
+        phase: DispatchPhase,
+        hovered: bool,
+        cx: &mut Context<Self>,
+    ) {
+        match (self.held, phase) {
+            (Some(Held::Reported), DispatchPhase::Capture) => {
+                let button = event.pressed_button.and_then(button);
+                self.report(
+                    mouse::Action::Motion,
+                    button,
+                    event.position,
+                    event.modifiers,
+                );
+                cx.stop_propagation();
+            }
+            (None, DispatchPhase::Bubble) if hovered && self.reports(event.modifiers) => {
+                self.report(mouse::Action::Motion, None, event.position, event.modifiers);
+            }
+            _ => {}
+        }
+    }
+
+    fn mouse_up(&mut self, event: &MouseUpEvent, phase: DispatchPhase) {
+        if phase != DispatchPhase::Capture {
+            return;
+        }
+        if let Some(Held::Reported) = self.held.take() {
+            let button = button(event.button);
+            self.report(
+                mouse::Action::Release,
+                button,
+                event.position,
+                event.modifiers,
+            );
+        }
+    }
+
+    /// Whether the program tracking the mouse is told of it. ⇧ keeps it for selecting, as
+    /// Ghostty's `mouse-shift-capture` does by default.
+    fn reports(&self, modifiers: Modifiers) -> bool {
+        !modifiers.shift && self.vt.term.is_mouse_tracking().unwrap_or(false)
+    }
+
+    fn report(
+        &mut self,
+        action: mouse::Action,
+        button: Option<mouse::Button>,
+        position: Point<Pixels>,
+        modifiers: Modifiers,
+    ) {
+        let at = self.grid.get().surface(position, self.size);
+        let bytes = self.vt.mouse(action, button, at, mods(modifiers));
+        if !bytes.is_empty() {
+            self.pty.write(&bytes).ok();
+        }
     }
 
     fn scroll(&mut self, event: &ScrollWheelEvent, _: &mut Window, cx: &mut Context<Self>) {
@@ -270,7 +348,7 @@ impl Terminal {
             self.scrolled -= line * lines;
             if self.vt.term.is_mouse_tracking().unwrap_or(false) {
                 let at = self.grid.get().surface(event.position, self.size);
-                let bytes = self.vt.wheel(lines, at, self.size, mods(event.modifiers));
+                let bytes = self.vt.wheel(lines, at, mods(event.modifiers));
                 self.pty.write(&bytes).ok();
             } else {
                 // ponytail: an alternate screen without mouse tracking (less, man) gets no wheel;
@@ -303,6 +381,7 @@ impl Render for Terminal {
         let this = cx.entity().downgrade();
         let measured = Rc::new(Cell::new(self.size));
         let drawn = self.grid.clone();
+        let pointer = this.clone();
         let grid = canvas(
             move |bounds, window, cx| {
                 drawn.set(Grid {
@@ -323,8 +402,23 @@ impl Render for Terminal {
                         this.update(cx, |this, cx| this.resize(size, cx)).ok();
                     });
                 }
+                window.insert_hitbox(bounds, HitboxBehavior::Normal)
             },
-            |_, _, _, _| {},
+            move |_, hitbox, window, _| {
+                window.on_mouse_event({
+                    let this = pointer.clone();
+                    move |event: &MouseMoveEvent, phase, window, cx| {
+                        let hovered = hitbox.is_hovered(window);
+                        (this.update(cx, |this, cx| this.mouse_move(event, phase, hovered, cx)))
+                            .ok();
+                    }
+                });
+                window.on_mouse_event(move |event: &MouseUpEvent, phase, _, cx| {
+                    pointer
+                        .update(cx, |this, _| this.mouse_up(event, phase))
+                        .ok();
+                });
+            },
         )
         .absolute()
         .size_full();
@@ -427,7 +521,7 @@ struct Vt {
     keys: key::Encoder<'static>,
     key: key::Event<'static>,
     mouse: mouse::Encoder<'static>,
-    wheel: mouse::Event<'static>,
+    pointer: mouse::Event<'static>,
     /// What the emulator answers the shell's queries with, to send it.
     replies: Rc<Cell<Vec<u8>>>,
     retitled: Rc<Cell<bool>>,
@@ -468,6 +562,8 @@ impl Vt {
                 tertiary: TertiaryDeviceAttributes { unit_id: 0 },
             })
         })?;
+        let mut mouse = mouse::Encoder::new()?;
+        mouse.set_track_last_cell(true).set_size(encoder_size(size));
         Ok(Self {
             term,
             state: RenderState::new()?,
@@ -475,8 +571,8 @@ impl Vt {
             cells: CellIterator::new()?,
             keys: key::Encoder::new()?,
             key: key::Event::new()?,
-            mouse: mouse::Encoder::new()?,
-            wheel: mouse::Event::new()?,
+            mouse,
+            pointer: mouse::Event::new()?,
             replies,
             retitled,
         })
@@ -504,35 +600,58 @@ impl Vt {
         bytes
     }
 
+    /// Takes what the program wrote, and the mouse tracking it may have asked for with it.
+    /// Taking that clears which cell motion was last told of, so it's taken here rather than
+    /// with each motion.
+    // ponytail: a program that writes as it's told of motion is told of each move within a cell;
+    // take the tracking per event once Ghostty's setopt_from_terminal keeps the cell, as setopt
+    // does, when nothing changed.
+    fn write(&mut self, bytes: &[u8]) {
+        self.term.vt_write(bytes);
+        self.mouse.set_options_from_terminal(&self.term);
+    }
+
+    /// Sizes the emulator and, so motion is told of once a cell, the mouse encoder only when
+    /// the size changes.
+    fn resize(&mut self, size: Size) {
+        let cell = (u32::from(size.cell_width), u32::from(size.cell_height));
+        (self.term)
+            .resize(size.cols, size.rows, cell.0, cell.1)
+            .ok();
+        self.mouse.set_size(encoder_size(size));
+    }
+
+    /// `button` going `action` over `at` on the grid, for a program tracking the mouse; nothing
+    /// for what it doesn't track, or motion within the cell it was last told of.
+    fn mouse(
+        &mut self,
+        action: mouse::Action,
+        button: Option<mouse::Button>,
+        at: mouse::Position,
+        mods: Mods,
+    ) -> Vec<u8> {
+        (self.mouse).set_any_button_pressed(action != mouse::Action::Release && button.is_some());
+        (self.pointer)
+            .set_action(action)
+            .set_button(button)
+            .set_mods(mods)
+            .set_position(at);
+        let mut bytes = Vec::new();
+        self.mouse.encode_to_vec(&self.pointer, &mut bytes).ok();
+        bytes
+    }
+
     /// The wheel turned `lines` up, or down if negative, over `at` on the grid, for a program
     /// tracking the mouse.
-    fn wheel(&mut self, lines: f32, at: mouse::Position, size: Size, mods: Mods) -> Vec<u8> {
-        let (cell_width, cell_height) = (u32::from(size.cell_width), u32::from(size.cell_height));
-        (self.mouse.set_options_from_terminal(&self.term)).set_size(mouse::EncoderSize {
-            screen_width: u32::from(size.cols) * cell_width,
-            screen_height: u32::from(size.rows) * cell_height,
-            cell_width: cell_width.max(1),
-            cell_height: cell_height.max(1),
-            padding_top: 0,
-            padding_bottom: 0,
-            padding_right: 0,
-            padding_left: 0,
-        });
+    fn wheel(&mut self, lines: f32, at: mouse::Position, mods: Mods) -> Vec<u8> {
         let button = if lines > 0. {
             mouse::Button::Four
         } else {
             mouse::Button::Five
         };
-        (self.wheel)
-            .set_action(mouse::Action::Press)
-            .set_button(Some(button))
-            .set_mods(mods)
-            .set_position(at);
-        let mut bytes = Vec::new();
-        for _ in 0..lines.abs() as usize {
-            self.mouse.encode_to_vec(&self.wheel, &mut bytes).ok();
-        }
-        bytes
+        (0..lines.abs() as usize)
+            .flat_map(|_| self.mouse(mouse::Action::Press, Some(button), at, mods))
+            .collect()
     }
 
     fn paste(&self, text: &str) -> Vec<u8> {
@@ -643,6 +762,29 @@ impl Vt {
         }
         snapshot.set_dirty(Dirty::Clean)?;
         Ok(frame)
+    }
+}
+
+fn encoder_size(size: Size) -> mouse::EncoderSize {
+    let (cell_width, cell_height) = (u32::from(size.cell_width), u32::from(size.cell_height));
+    mouse::EncoderSize {
+        screen_width: u32::from(size.cols) * cell_width,
+        screen_height: u32::from(size.rows) * cell_height,
+        cell_width: cell_width.max(1),
+        cell_height: cell_height.max(1),
+        padding_top: 0,
+        padding_bottom: 0,
+        padding_right: 0,
+        padding_left: 0,
+    }
+}
+
+fn button(button: MouseButton) -> Option<mouse::Button> {
+    match button {
+        MouseButton::Left => Some(mouse::Button::Left),
+        MouseButton::Right => Some(mouse::Button::Right),
+        MouseButton::Middle => Some(mouse::Button::Middle),
+        MouseButton::Navigate(_) => None,
     }
 }
 
@@ -786,10 +928,10 @@ mod tests {
     #[test]
     fn wheel_reports_to_a_program_tracking_the_mouse() {
         let mut vt = Vt::new(Terminal::OPENING).unwrap();
-        vt.term.vt_write(b"\x1b[?1003h\x1b[?1006h");
+        vt.write(b"\x1b[?1003h\x1b[?1006h");
         let at = mouse::Position { x: 20., y: 40. };
-        let up = vt.wheel(2., at, Terminal::OPENING, Mods::empty());
-        let down = vt.wheel(-1., at, Terminal::OPENING, Mods::empty());
+        let up = vt.wheel(2., at, Mods::empty());
+        let down = vt.wheel(-1., at, Mods::empty());
         assert_eq!(
             (up, down),
             (
@@ -801,9 +943,36 @@ mod tests {
     }
 
     #[test]
+    fn a_drag_reports_its_press_each_cell_it_crosses_and_its_release() {
+        let mut vt = Vt::new(Terminal::OPENING).unwrap();
+        vt.write(b"\x1b[?1002h\x1b[?1006h");
+        let cell = |col: f32, row: f32| mouse::Position {
+            x: col * 8. + 4.,
+            y: row * 16. + 8.,
+        };
+        let left = Some(mouse::Button::Left);
+        let mut send = |action, button, at| {
+            String::from_utf8(vt.mouse(action, button, at, Mods::empty())).unwrap()
+        };
+        let sent = [
+            send(mouse::Action::Motion, None, cell(1., 1.)),
+            send(mouse::Action::Press, left, cell(2., 1.)),
+            send(mouse::Action::Motion, left, cell(5., 1.)),
+            send(mouse::Action::Motion, left, cell(5.2, 1.)),
+            send(mouse::Action::Release, left, cell(5., 1.)),
+        ];
+        assert_eq!(
+            sent,
+            ["", "\x1b[<0;3;2M", "\x1b[<32;6;2M", "", "\x1b[<0;6;2m"],
+            "button tracking (1002) hears no motion without a button, and a drag only as it \
+             reaches another cell"
+        );
+    }
+
+    #[test]
     fn the_wheel_reports_the_cell_drawn_under_it_when_cells_are_fractional() {
         let mut vt = Vt::new(Terminal::OPENING).unwrap();
-        vt.term.vt_write(b"\x1b[?1003h\x1b[?1006h");
+        vt.write(b"\x1b[?1003h\x1b[?1006h");
         let grid = Grid {
             origin: gpui::point(fixed(100.), fixed(50.)),
             cell: gpui::size(fixed(7.8), fixed(16.)),
@@ -811,7 +980,7 @@ mod tests {
         let over_column_61 = gpui::point(fixed(100. + 7.8 * 60.5), fixed(58.));
         let at = grid.surface(over_column_61, Terminal::OPENING);
         assert_eq!(
-            vt.wheel(1., at, Terminal::OPENING, Mods::empty()),
+            vt.wheel(1., at, Mods::empty()),
             b"\x1b[<64;61;1M".to_vec(),
             "7.8px cells drawn report as the 8px cells the encoder counts in, not 59"
         );
@@ -834,15 +1003,14 @@ mod tests {
             ..Terminal::OPENING
         };
         let mut vt = Vt::new(size).unwrap();
-        vt.term.vt_write(b"\x1b[31mred\x1b[0m\r\n");
+        vt.write(b"\x1b[31mred\x1b[0m\r\n");
         for n in 0..10 {
-            vt.term.vt_write(format!("line {n}\r\n").as_bytes());
+            vt.write(format!("line {n}\r\n").as_bytes());
         }
-        vt.term
-            .vt_write(b"\x1b]2;working\x07\x1b[?2004h\x1b[2;5Hhere");
+        vt.write(b"\x1b]2;working\x07\x1b[?2004h\x1b[2;5Hhere");
 
         let mut fresh = Vt::new(size).unwrap();
-        fresh.term.vt_write(&vt.screen().unwrap());
+        fresh.write(&vt.screen().unwrap());
 
         assert_eq!(
             plain(&fresh),
