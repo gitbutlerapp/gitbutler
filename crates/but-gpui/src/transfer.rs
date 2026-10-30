@@ -14,7 +14,9 @@ use crate::state::{
     Cut, Label, NewAt, Overlay, ProjectId, Selection, Store, branch_moved, move_before,
 };
 use crate::theme::Theme;
-use crate::ui::{Icon, dp, popover, small_icon};
+use crate::ui::diff::split_path;
+use crate::ui::file_icons::{file_icon, folder_icon};
+use crate::ui::{Icon, count_badge, dp, h_flex, popover, small_icon};
 
 /// What a drop or paste does. Commits move, squash and uncommit as many as were picked.
 pub enum Transfer {
@@ -101,12 +103,79 @@ impl Place {
     }
 }
 
+/// Commits being moved with the keys: the navigator steps through the places they can land,
+/// and Return lands them where it's at.
+#[derive(Debug, Clone)]
+pub struct Move {
+    pub project: ProjectId,
+    /// As listed, newest first.
+    pub commits: Arc<[CommitId]>,
+    pub at: Stop,
+}
+
+/// A place commits being moved can land.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Stop {
+    /// In a branch: at its top, or right below one of its commits.
+    In(Destination),
+    /// In a new branch right above `beside` in its stack, or right below it with `below`.
+    NewBranch { beside: FullName, below: bool },
+    /// In a new branch in a stack of its own.
+    NewStack,
+}
+
+impl Move {
+    /// Landing in a branch as a drop: the commits as what's dropped, and the row and the place
+    /// on it they're dropped at. `None` in a new branch, which has no row yet.
+    pub fn drop(&self) -> Option<(Cut, Selection, Place)> {
+        let Stop::In(to) = &self.at else {
+            return None;
+        };
+        let project = self.project.clone();
+        let (target, place) = match to {
+            Destination::Branch(branch) => (
+                Selection::Branch(project.clone(), Some(branch.clone())),
+                Place::Into,
+            ),
+            Destination::AboveCommit(id) => (Selection::Commit(project.clone(), *id), Place::Above),
+            Destination::BelowCommit(id) => (Selection::Commit(project.clone(), *id), Place::Below),
+        };
+        Some((Cut::Commit(project, self.commits.clone()), target, place))
+    }
+
+    /// Whether landing moves the commits, as it doesn't where they already are.
+    pub fn lands(&self, store: &Store) -> bool {
+        self.drop().is_none_or(|(payload, target, place)| {
+            Transfer::resolve(&payload, &target, place, store).is_some()
+        })
+    }
+
+    /// Where landing puts them, said after a verb: "to a new branch below feature-x".
+    pub fn place(&self) -> String {
+        match &self.at {
+            Stop::In(Destination::Branch(branch)) => {
+                format!("to the top of {}", short_ref(branch))
+            }
+            Stop::In(to) => place(to),
+            Stop::NewBranch { beside, below } => {
+                let side = if *below { "below" } else { "above" };
+                format!("to a new branch {side} {}", short_ref(beside))
+            }
+            Stop::NewStack => "to a new stack".into(),
+        }
+    }
+}
+
 impl Transfer {
     /// What `payload` does when it lands on `target` at `place`, if anything. A commit landing
     /// on another goes above or below it, or squashes into it. A branch landing on another
     /// stacks on it, or goes below it.
     pub fn resolve(payload: &Cut, target: &Selection, place: Place, store: &Store) -> Option<Self> {
         if payload.project() != target.project() {
+            return None;
+        }
+        // A folder with nothing in it that can move carries nothing.
+        if matches!(payload, Cut::Files { files, .. } if files.is_empty()) {
             return None;
         }
         // An unnamed branch has no ref to put things on or stack onto.
@@ -524,19 +593,35 @@ fn place(to: &Destination) -> String {
     }
 }
 
-/// Start a drag of a `Cut` labelled `label`, letting the store know what's in flight so
-/// the rows can say what a drop would do.
+/// What a drag's pill names, which what it carries can't say.
+#[derive(Clone)]
+pub enum Chip {
+    /// A row, by its label, beside the glyph of what it carries.
+    Row(SharedString),
+    /// A folder, by its name, which its files go together as.
+    Folder(SharedString),
+}
+
+impl From<SharedString> for Chip {
+    fn from(label: SharedString) -> Self {
+        Chip::Row(label)
+    }
+}
+
+/// Start a drag of a `Cut` shown as `chip`, letting the store know what's in flight so the
+/// rows can say what a drop would do.
 pub fn drag_preview(
     store: Entity<Store>,
-    label: SharedString,
+    chip: impl Into<Chip>,
 ) -> impl Fn(&Cut, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static {
+    let chip = chip.into();
     move |payload, offset, _, cx| {
         store.update(cx, |store, cx| {
             store.dragging = Some(payload.clone());
             cx.notify()
         });
         let preview = cx.new(|_| DragPreview {
-            label: label.clone(),
+            chip: chip.clone(),
             payload: payload.clone(),
             store: store.clone(),
             offset,
@@ -593,7 +678,7 @@ fn worktree_move(
 }
 
 pub struct DragPreview {
-    pub label: SharedString,
+    pub chip: Chip,
     pub payload: Cut,
     store: Entity<Store>,
     /// Where the pointer pressed the dragged row, which GPUI draws the pill from.
@@ -610,31 +695,79 @@ impl Render for DragPreview {
             Transfer::resolve(payload, target, *place, store)
         });
         let hint = transfer.as_ref().map(Transfer::verb);
+        let glyph = |icon| small_icon(icon).text_color(theme.pop).into_any_element();
+        let named = |name: SharedString| pill_label(name).into_any_element();
         // A worktree's files landing where they move it name the worktree.
-        let (glyph, label) = match (&transfer, &self.payload) {
-            (Some(Transfer::MoveWorktree { name, .. }), _) => {
-                (Icon::FolderCopy, name.to_string().into())
+        let (mark, label) = match (&transfer, &self.chip, &self.payload) {
+            (Some(Transfer::MoveWorktree { name, .. }), ..) => {
+                (glyph(Icon::FolderCopy), named(name.to_string().into()))
             }
-            (_, Cut::Commit(..) | Cut::CherryPick(..)) => (Icon::Commit, self.label.clone()),
-            (_, Cut::Branch(..)) => (Icon::Branch, self.label.clone()),
-            (_, Cut::Files { .. }) => (Icon::File, self.label.clone()),
-            (_, Cut::Worktree(..)) => (Icon::FolderCopy, self.label.clone()),
+            (_, Chip::Folder(name), payload) => (
+                folder_icon().into_any_element(),
+                h_flex()
+                    .min_w_0()
+                    .gap(dp(6.))
+                    .child(pill_label(name.clone()))
+                    .children(match payload {
+                        Cut::Files { files, .. } if files.len() > 1 => {
+                            Some(count_badge(files.len(), theme))
+                        }
+                        _ => None,
+                    })
+                    .into_any_element(),
+            ),
+            (_, Chip::Row(label), Cut::Commit(..) | Cut::CherryPick(..)) => {
+                (glyph(Icon::Commit), named(label.clone()))
+            }
+            (_, Chip::Row(label), Cut::Branch(..)) => (glyph(Icon::Branch), named(label.clone())),
+            (_, Chip::Row(label), Cut::Files { files, .. }) => match &**files {
+                // All of a file goes by its name, as its folder says little while dragging.
+                [file] => (
+                    file_icon(&file.file.path, cx).into_any_element(),
+                    named(match file.hunks {
+                        None => split_path(&file.file.path).0.to_owned().into(),
+                        Some(_) => label.clone(),
+                    }),
+                ),
+                _ => (glyph(Icon::File), named(label.clone())),
+            },
+            (_, Chip::Row(label), Cut::Worktree(..)) => {
+                (glyph(Icon::FolderCopy), named(label.clone()))
+            }
         };
-        drag_pill(self.offset, glyph, label, hint, theme)
+        let carried = match &self.payload {
+            Cut::Files { files, .. } => files.len(),
+            _ => 1,
+        };
+        drag_pill(self.offset, mark, label, hint, carried, theme)
     }
 }
 
-/// What a dragged row shows under the pointer: a pill with its glyph, `label` and what
-/// letting go does there (`hint`), below and right of the pointer as a tooltip sits, clear of
-/// the row it's over and the line or outline that row shows. `offset` is where the pointer
-/// pressed the row, which GPUI draws from.
+/// A pill's label, cut short where it won't fit.
+pub fn pill_label(label: SharedString) -> Div {
+    div().truncate().child(label)
+}
+
+/// What a dragged row shows under the pointer: a pill with its `mark`, `label` and what
+/// letting go does there (`hint`), on a stack of cards when it's `carried` more than one
+/// thing, below and right of the pointer as a tooltip sits, clear of the row it's over and the
+/// line or outline that row shows. `offset` is where the pointer pressed the row, which GPUI
+/// draws from.
 pub fn drag_pill(
     offset: Point<Pixels>,
-    glyph: Icon,
-    label: SharedString,
+    mark: impl IntoElement,
+    label: impl IntoElement,
     hint: Option<&'static str>,
+    carried: usize,
     theme: &Theme,
 ) -> Div {
+    let cards = ([6., 12.].into_iter())
+        .take(carried.saturating_sub(1))
+        .rev()
+        .map(|inset| {
+            let card = popover(theme).absolute().size_full();
+            card.top(dp(inset)).left(dp(inset))
+        });
     let pill = popover(theme)
         .flex_row()
         .items_center()
@@ -646,20 +779,21 @@ pub fn drag_pill(
         .font_family(theme.ui_font.clone())
         .text_size(dp(12.))
         .text_color(theme.text_1)
-        .child(small_icon(glyph).text_color(theme.pop))
-        .child(div().truncate().child(label))
+        .child(mark)
+        .child(label)
         .when_some(hint, |el, hint| {
             el.child(div().flex_none().text_color(theme.text_2).child(hint))
         });
     div()
         .pl(offset.x + theme.scaled(14.))
         .pt(offset.y + theme.scaled(16.))
-        .child(pill)
+        .child(div().relative().children(cards).child(pill))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::backend::FileChange;
 
     #[test]
     fn a_paste_on_a_commit_puts_files_into_it_and_commits_above_it() {
@@ -681,6 +815,36 @@ mod tests {
             Place::from_keys(held, &Cut::Commit(project, Arc::from([id])), &commit),
             Place::Above,
             "a commit goes above it"
+        );
+    }
+
+    #[test]
+    fn what_cant_land_is_left_out_of_a_cut() {
+        let cut = |paths: &[(&str, bool)]| Cut::Files {
+            project: ProjectId::from("p"),
+            from: None,
+            worktree: Checkout::Main,
+            files: (paths.iter())
+                .map(|(path, conflicted)| {
+                    Selected::whole(&FileChange {
+                        conflicted: *conflicted,
+                        ..FileChange::bare(path)
+                    })
+                })
+                .collect(),
+        };
+        let Some(Cut::Files { files, .. }) = cut(&[("a", false), ("b", true)]).movable() else {
+            panic!("the clean file can land");
+        };
+        let kept: Vec<&str> = files.iter().map(|f| f.file.path.as_str()).collect();
+        assert_eq!(
+            kept,
+            ["a"],
+            "a commit would refuse them all for the conflicted one"
+        );
+        assert!(
+            cut(&[("b", true)]).movable().is_none(),
+            "with only conflicted files there's nothing to carry"
         );
     }
 }

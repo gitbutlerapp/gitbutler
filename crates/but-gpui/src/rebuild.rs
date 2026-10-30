@@ -341,6 +341,9 @@ impl BuildOutput {
                 // this one doesn't: built in another worktree, the new binary would get a
                 // tile of its own beside it, left there for good. Out of the Dock first.
                 cx.set_activation_policy(gpui::ActivationPolicy::Accessory);
+                #[cfg(unix)]
+                let err = built.restart(store.update(cx, |store, cx| store.hand_off_terminals(cx)));
+                #[cfg(not(unix))]
                 let err = built.restart();
                 tracing::error!("couldn't restart on the new build: {err:#}");
                 cx.quit();

@@ -308,7 +308,8 @@ impl GraphView {
             StoreEvent::Renamed(..)
             | StoreEvent::MeshRead(_)
             | StoreEvent::Pending(_)
-            | StoreEvent::AuthorMissing(_) => {}
+            | StoreEvent::AuthorMissing(_)
+            | StoreEvent::TerminalOpened => {}
         })]);
         GraphView {
             store,
@@ -1117,7 +1118,7 @@ fn labels_of(name: &str, tint: Tint, worktree: Option<&BStr>, lane_ix: usize) ->
     labels
 }
 
-/// The colour of `branch` on lane `lane_ix`: purple once it's landed, with a pull request or
+/// The colour of `branch` on lane `lane_ix`: purple once it's merged, with a pull request or
 /// without, as the navigator's glyph says.
 fn tint_of(project: &ProjectId, store: &Store, lane_ix: usize, branch: &Branch) -> Tint {
     let merged = (branch.review.as_ref())

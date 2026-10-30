@@ -1428,17 +1428,27 @@ impl Intent for SplitOff {
     }
 }
 
-/// Move `commits` into a new branch of their own, beside the other stacks.
+/// Move `commits` into a new branch of their own: beside the other stacks, or in the stack of
+/// branch `beside`, right above it, or right below it with `true`.
 /// Done is what moved, and the new branch's full name.
 pub struct MoveToNewBranch {
     pub commits: Arc<[CommitId]>,
+    pub beside: Option<(FullName, bool)>,
 }
 
 impl Intent for MoveToNewBranch {
     type Done = (Rewritten, FullName);
 
     fn apply(self, run: &mut Run) -> Result<(Rewritten, FullName)> {
-        let Self { commits } = self;
+        use but_workspace::branch::create_reference::{Anchor, Position};
+        let Self { commits, beside } = self;
+        let anchor = beside.as_ref().map(|(branch, below)| {
+            let position = match below {
+                true => Position::Below,
+                false => Position::Above,
+            };
+            Anchor::at_segment(branch.as_ref(), position)
+        });
         run.locked(|ctx, perm| {
             let name = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
             let mut meta = ctx.meta()?;
@@ -1450,7 +1460,7 @@ impl Intent for MoveToNewBranch {
                 &[name.as_ref()],
                 DryRun::No,
                 |mut tx| {
-                    tx.create_reference(name.as_ref(), None, None)?;
+                    tx.create_reference(name.as_ref(), anchor, None)?;
                     tx.move_commits(
                         commits.iter().map(|commit| commit.0),
                         RelativeTo::Reference(name.clone()),
@@ -2764,7 +2774,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     }
 
     #[test]
-    fn a_target_without_a_remote_is_its_own_branch_to_update_from_and_land_on() {
+    fn a_target_without_a_remote_is_its_own_branch_to_update_from_and_merge_into() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
             let path = dir.path();
@@ -2798,12 +2808,12 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 .unwrap()
                 .commits[0]
                 .id;
-            let land = crate::backend::upstream::Land {
+            let merge = crate::backend::upstream::MergeIntoTarget {
                 branch: full("refs/heads/feature"),
                 tip,
                 whole_stack: false,
             };
-            crate::backend::apply(path, land).unwrap();
+            crate::backend::apply(path, merge).unwrap();
             assert!(
                 git(path, &["log", "--format=%s", "main"])
                     .lines()
@@ -3167,6 +3177,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let path = dir.path();
             let moving = MoveToNewBranch {
                 commits: [commit].into(),
+                beside: None,
             };
             let ((_, name), _) = crate::backend::apply(path, moving).unwrap();
             let moved = newest_entry(path);
@@ -3177,6 +3188,51 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 "{name} would be listed beside the commit back in place"
             );
         })
+    }
+
+    #[test]
+    fn a_move_to_a_new_branch_beside_another_stacks_it_above_or_below() {
+        let mut said = String::new();
+        for below in [false, true] {
+            but_testsupport::isolated_app_data_dir(|| {
+                let (dir, edit, ..) = workspace_with_an_edit();
+                let path = dir.path();
+                git(path, &["commit", "-q", "--allow-empty", "-m", "second"]);
+                let second = head(path);
+                crate::backend::apply(path, name_at(second, "feature")).unwrap();
+                // The commit at the far end from where the new branch goes, so it crosses
+                // feature's other commit to get there.
+                let moved = match below {
+                    true => second,
+                    false => edit,
+                };
+                let moving = MoveToNewBranch {
+                    commits: [moved].into(),
+                    beside: Some((full("refs/heads/feature"), below)),
+                };
+                let ((_, new), _) = crate::backend::apply(path, moving).unwrap();
+                let titles = |branch: &str| {
+                    let range = format!("origin/main..{branch}");
+                    let log = git(path, &["log", "--format=%s", &range]);
+                    log.lines().collect::<Vec<_>>().join(", ")
+                };
+                said += &format!(
+                    "below {below}: feature [{}], <new> [{}]\n",
+                    titles("feature"),
+                    titles(&new.to_string()),
+                );
+            });
+        }
+        // Each branch lists its commits newest first, down to the target. Above feature, the
+        // new branch holds feature's commits under its own; below, feature holds the new one's.
+        snapbox::assert_data_eq!(
+            said,
+            snapbox::str![[r#"
+below false: feature [second], <new> [edit, second]
+below true: feature [edit, second], <new> [second]
+
+"#]]
+        );
     }
 
     #[test]

@@ -22,7 +22,7 @@ use crate::app::{AppHandle, AppView, SelectNext, SelectPrevious};
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
 use crate::overlays::MenuItem;
 use crate::state::{Prefs, ProjectEntry, ProjectId, ScopeLines, Store};
-use crate::theme::{Appearance, CodeSize, Theme, UiScale};
+use crate::theme::{Appearance, CodeSize, ColorScheme, Theme, UiScale};
 use crate::ui::fold::{self, Folds};
 use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
@@ -34,7 +34,7 @@ use crate::ui::{
 
 pub use cli::welcome_card;
 
-actions!(settings, [OpenSettings, OpenKeyboardShortcuts]);
+actions!(settings, [OpenSettings, OpenKeyboardShortcuts, FocusSearch]);
 
 /// " ⌥Z in a diff turns it on and off.", with the keys bound to `action`, or nothing when no key
 /// is, as the user's keymap can leave it.
@@ -550,9 +550,27 @@ impl SettingsView {
         );
         let appearance = Row::new(
             "Appearance",
-            "Light, dark, or whichever macOS is set to.",
+            match &prefs.color_scheme {
+                ColorScheme::Named(_) => "Your colour scheme is light or dark itself.",
+                ColorScheme::GitButler | ColorScheme::Ghostty => {
+                    "Light, dark, or whichever macOS is set to."
+                }
+            },
             appearance,
         );
+        let app = self.app.clone();
+        let scheme = dropdown("color-scheme", prefs.color_scheme.label().to_owned(), theme)
+            .on_click(move |_, window, cx| {
+                app.update_later(window, cx, |app, window, cx| {
+                    app.pick_color_scheme(window, cx)
+                })
+            });
+        let scheme = Row::new(
+            "Colour scheme",
+            "GitButler's colours, or a Ghostty theme for the app and its terminals alike.",
+            scheme,
+        )
+        .with_keywords("color theme ghostty");
         let percent = |scale: UiScale| format!("{}%", scale.percent());
         let size = self.choice(
             "ui-scale",
@@ -570,14 +588,24 @@ impl SettingsView {
             ),
             size,
         );
+        let app = self.app.clone();
+        let diff_font = (prefs.diff_font.clone()).unwrap_or_else(|| theme.mono_font.to_string());
+        let diff_font = dropdown("diff-font", diff_font, theme).on_click(move |_, window, cx| {
+            app.update_later(window, cx, |app, window, cx| app.pick_diff_font(window, cx))
+        });
+        let app = self.app.clone();
         let mut diff = vec![
             Row::new("Code size", "How large code shows in diffs.", code),
+            Row::new("Font", "The font of code in diffs.", diff_font),
             Row::new(
                 "Font ligatures",
                 "Code joins pairs of characters like != and == into one symbol.",
                 self.pref_switch("ligatures", prefs.ligatures, |p| p.ligatures ^= true, cx)
-                    // The diff is a cached view, which only a refresh draws again.
-                    .on_click(|_, _, cx| cx.refresh_windows()),
+                    .on_click(move |_, window, cx| {
+                        app.update_later(window, cx, |app, window, cx| {
+                            app.apply_appearance(window, cx)
+                        })
+                    }),
             ),
             Row::new(
                 "Wrap long lines",
@@ -674,10 +702,43 @@ impl SettingsView {
                 ),
             ),
         ];
+        let text_label = |size: Option<u8>| match size {
+            Some(size) => format!("{size} pt"),
+            None => "As Ghostty's".to_owned(),
+        };
+        let sizes = std::iter::once(None).chain((9..=28).map(Some));
+        let terminal_text = self.choice(
+            "terminal-text",
+            text_label(prefs.terminal_text),
+            sizes.map(|size| (size, text_label(size))),
+            |this, size, _, cx| {
+                (this.store).update(cx, |store, cx| store.set_terminal_text(size, cx))
+            },
+            cx,
+        );
+        let terminal_text = Row::new(
+            "Text size",
+            "How large text shows in terminals opened here. Their colours follow the colour scheme.",
+            terminal_text,
+        );
+        let app = self.app.clone();
+        let terminal_font = (prefs.terminal_font.clone()).unwrap_or_else(|| "As Ghostty's".into());
+        let terminal_font =
+            dropdown("terminal-font", terminal_font, theme).on_click(move |_, window, cx| {
+                app.update_later(window, cx, |app, window, cx| {
+                    app.pick_terminal_font(window, cx)
+                })
+            });
+        let terminal_font = Row::new(
+            "Font",
+            "The font of terminals opened here. As Ghostty's follows your Ghostty config.",
+            terminal_font,
+        );
         vec![
-            Card::new(None, vec![appearance, size]),
+            Card::new(None, vec![scheme, appearance, size]),
             Card::new(Some("Navigator"), navigator),
             Card::new(Some("Diff"), diff),
+            Card::new(Some("Terminal"), vec![terminal_font, terminal_text]),
         ]
     }
 
@@ -1246,6 +1307,12 @@ impl Render for SettingsView {
             );
         modal(ModalSize::Large, &theme)
             .id("settings")
+            .key_context("Settings")
+            // From a page link or a control, as / goes to the navigator's filter.
+            .on_action(cx.listener(|this, _: &FocusSearch, window, cx| {
+                (this.search).update(cx, |search, cx| search.select_all_text(cx));
+                this.back_to_search(window, cx);
+            }))
             .h(dp(height))
             .flex_row()
             .child(

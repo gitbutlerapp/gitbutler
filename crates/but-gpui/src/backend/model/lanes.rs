@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use super::{Branch, Commit, CommitId, Workspace};
 
 /// The checkout a lane's branches are worked on in.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Checkout {
     #[default]
     Main,

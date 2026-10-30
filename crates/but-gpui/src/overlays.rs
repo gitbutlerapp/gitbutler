@@ -5,13 +5,17 @@ use std::rc::Rc;
 
 use anyhow::Result;
 use gpui::{
-    Action, AnyElement, App, ClickEvent, Context, DismissEvent, Div, Entity, FocusHandle,
-    Focusable as _, ManagedView, MouseButton, Pixels, Point, Role, SharedString, Stateful,
-    Subscription, Window, anchored, deferred, div, prelude::*, relative,
+    Action, AnyElement, App, Bounds, ClickEvent, Context, DismissEvent, Div, Entity, FocusHandle,
+    Focusable as _, ManagedView, MouseButton, MouseMoveEvent, Pixels, Point, Role, SharedString,
+    Stateful, Subscription, Window, anchored, deferred, div, point, prelude::*, relative,
 };
 
-use crate::app::{AppView, Cancel, FocusNextPane, FocusPreviousPane};
+use crate::app::{
+    AppView, Cancel, Confirm, FocusNextPane, FocusPreviousPane, SelectNext, SelectPrevious,
+    ShowContextMenu,
+};
 use crate::backend::{self, FullName, short_ref};
+use crate::commands::Command;
 use crate::help::OpenReleaseNotes;
 use crate::state::{Notice, Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
@@ -21,12 +25,17 @@ use crate::ui::{
     fixed, h_flex, icon, keycap, list_row, muted, popover, shortcut, small_icon, v_flex,
 };
 
-/// A right-click menu.
+/// A right-click menu. It takes the keys while it's open, as ⌘K does, so ↑ and ↓ go through
+/// its items and Return runs one.
 pub struct ContextMenu {
     pub position: Point<Pixels>,
     pub items: Vec<MenuItem>,
     /// What it opened on: see [`Store::acting_on`].
     pub acting_on: (Option<Selection>, Vec<backend::CommitId>),
+    /// The item the keys or the pointer are on, which Return runs: none until either moves.
+    highlighted: Option<usize>,
+    /// What had the keys before it took them, which its items run from.
+    restore_focus: Option<FocusHandle>,
 }
 
 type MenuHandler = Rc<dyn Fn(&mut AppView, &mut Window, &mut Context<AppView>)>;
@@ -41,13 +50,20 @@ pub struct MenuItem {
     pub key: Option<SharedString>,
     /// A word on it, quieter, before the keys: how many it would show, say.
     pub detail: Option<SharedString>,
+    /// Shown as destructive, in red.
     pub danger: bool,
+    /// What [`Command::risky`] says of the command it runs, so a list typed into finds it by
+    /// its words, not by letters scattered through it.
+    pub risky: bool,
     /// Starts a new group, with a line above it.
     pub separated: bool,
     /// Starts a new group under this heading, as a choice of one does: "Sort by".
     pub heading: Option<SharedString>,
     /// The choice its group stands at, which carries a tick.
     pub ticked: bool,
+    /// The command it runs, which says when it's offered and how it reads for the selection
+    /// once the menu opens.
+    pub command: Option<&'static dyn Command>,
     pub handler: MenuHandler,
 }
 
@@ -61,9 +77,11 @@ impl MenuItem {
             key: None,
             detail: None,
             danger: false,
+            risky: false,
             separated: false,
             heading: None,
             ticked: false,
+            command: None,
             handler: Rc::new(handler),
         }
     }
@@ -82,16 +100,37 @@ impl MenuItem {
         }
     }
 
-    /// An item that dispatches `action` where focus is, showing the keys bound to it.
+    /// An item that dispatches `action` where focus is, showing the keys bound to it, and risky
+    /// when the command it is says so, whatever the item calls it.
     pub fn action(label: impl Into<SharedString>, action: &dyn Action, cx: &App) -> Self {
         let key = shortcut(action, cx);
+        let risky =
+            (crate::commands::COMMANDS.iter()).any(|c| c.name() == action.name() && c.risky());
         let action = action.boxed_clone();
         Self {
             key,
+            risky,
             ..Self::new(label, move |_, window, cx| {
                 window.dispatch_action(action.boxed_clone(), cx)
             })
         }
+    }
+
+    /// An item that dispatches `command` where focus is, showing the keys bound to it. It's
+    /// there when the menu opens only where the command is offered, worded as the command says
+    /// for the selection then, or by its title.
+    pub fn command(command: &'static dyn Command, cx: &App) -> Self {
+        Self {
+            command: Some(command),
+            ..Self::action(command.title(), command, cx)
+        }
+    }
+
+    /// Shows the keys of `action` instead, which does the same here: ⌘C beside the one copy
+    /// it makes.
+    pub fn keys(mut self, action: &dyn Action, cx: &App) -> Self {
+        self.key = shortcut(action, cx);
+        self
     }
 
     pub fn danger(mut self) -> Self {
@@ -214,12 +253,160 @@ impl AppView {
         if items.is_empty() {
             return;
         }
-        self.menu = Some(ContextMenu {
+        // Which commands are offered shows once the selection a right-click just moved has
+        // registered its actions, when the frame it changed is drawn.
+        self.pending_menu = Some(ContextMenu {
             position,
             items,
             acting_on: self.store.read(cx).acting_on(),
+            highlighted: None,
+            restore_focus: None,
         });
         cx.notify();
+    }
+
+    /// Open the menu waiting on the frame drawn since, with only the commands offered now,
+    /// and give it the keys.
+    pub(crate) fn open_pending_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(mut menu) = self.pending_menu.take() else {
+            return;
+        };
+        menu.items = self.offered(menu.items, window, cx);
+        if menu.items.is_empty() {
+            return;
+        }
+        // In place of one open still, back to where that one came from.
+        menu.restore_focus = match self.menu_focus.is_focused(window) {
+            true => self.menu.take().and_then(|open| open.restore_focus),
+            false => window.focused(cx),
+        };
+        window.focus(&self.menu_focus, cx);
+        self.menu = Some(menu);
+        cx.notify();
+    }
+
+    /// Close the menu, giving the keys back to what had them while it still has them.
+    pub(crate) fn close_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(menu) = self.menu.take() else {
+            return;
+        };
+        if self.menu_focus.is_focused(window) {
+            self.give_back_focus(menu.restore_focus, window, cx);
+        }
+        cx.notify();
+    }
+
+    /// Run the menu's item `ix` from where the keys were before it opened, closing it.
+    fn run_menu_item(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let handler = (self.menu.as_ref())
+            .and_then(|menu| menu.items.get(ix))
+            .map(|item| item.handler.clone());
+        self.close_menu(window, cx);
+        if let Some(handler) = handler {
+            Self::once_drawn(window, cx, move |this, window, cx| {
+                handler(this, window, cx)
+            });
+        }
+    }
+
+    /// Run `run` once the window has drawn since now. An action goes to the handlers of the
+    /// frame drawn last, so a command run as the keys come back from a menu or ⌘K would miss
+    /// those registered only while what gets them has them, as copying the cursor's path.
+    pub(crate) fn once_drawn(
+        window: &Window,
+        cx: &Context<Self>,
+        run: impl FnOnce(&mut Self, &mut Window, &mut Context<Self>) + 'static,
+    ) {
+        let this = cx.entity().downgrade();
+        // A frame's callbacks run before it draws, so the next frame's, after the one between.
+        window.on_next_frame(move |window, _| {
+            window.on_next_frame(move |window, cx| {
+                (this.update(cx, |this, cx| run(this, window, cx))).ok();
+            })
+        });
+    }
+
+    /// Move the menu's highlight by `delta` items, from the first or the last when none is.
+    fn step_menu(&mut self, delta: isize, cx: &mut Context<Self>) {
+        let Some(menu) = &mut self.menu else {
+            return;
+        };
+        let last = menu.items.len().saturating_sub(1);
+        menu.highlighted = Some(match (menu.highlighted, delta < 0) {
+            (None, false) => 0,
+            (None, true) => last,
+            (Some(at), _) => at.saturating_add_signed(delta).min(last),
+        });
+        cx.notify();
+    }
+
+    /// ⇧F10: what right-clicking the selected row offers, open at that row, or in the middle
+    /// of the window while it isn't on screen.
+    pub(crate) fn show_context_menu(
+        &mut self,
+        _: &ShowContextMenu,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let (items, row) = self.selection_menu(window, cx);
+        let position = match row {
+            Some(row) => point(row.left() + fixed(16.), row.bottom()),
+            None => {
+                let size = window.viewport_size();
+                point(size.width / 2., size.height / 3.)
+            }
+        };
+        self.open_menu(position, items, cx);
+    }
+
+    /// What right-clicking the selection offers, as ⌘K starts with and ⇧F10 opens, and where
+    /// its row is while it's on screen: in the detail with the keys, the file under the
+    /// cursor, or what its page's list has selected; else the navigator's row.
+    pub(crate) fn selection_menu(
+        &mut self,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> (Vec<MenuItem>, Option<Bounds<Pixels>>) {
+        let detail = (self.detail.read(cx).is_focused(window, cx))
+            .then(|| (self.detail).update(cx, |detail, cx| detail.selected_menu(window, cx)))
+            .flatten();
+        if let Some(menu) = detail {
+            return menu;
+        }
+        let Some(selection) = self.store.read(cx).selection.clone() else {
+            return (Vec::new(), None);
+        };
+        let navigator = self.navigator.read(cx);
+        (
+            navigator.menu_items(&selection, cx),
+            navigator.row_bounds(&selection),
+        )
+    }
+
+    /// `items` without the commands not offered where the keys are, and the rest worded for the
+    /// selection, keeping a line above where a group starts.
+    pub(crate) fn offered(&self, items: Vec<MenuItem>, window: &Window, cx: &App) -> Vec<MenuItem> {
+        let mut separated = false;
+        (items.into_iter())
+            .filter_map(|mut item| {
+                if let Some(command) = item.command {
+                    if !self.offers(command, window, cx) {
+                        separated |= item.separated;
+                        return None;
+                    }
+                    if let Some(phrase) = command.phrase(self, cx) {
+                        item.label = phrase.into();
+                    }
+                }
+                item.separated |= std::mem::take(&mut separated);
+                Some(item)
+            })
+            .collect()
+    }
+
+    /// Whether ⌘K and the menus offer `command` where the keys are.
+    pub(crate) fn offers(&self, command: &dyn Command, window: &Window, cx: &App) -> bool {
+        window.is_action_available(command, cx) && command.listed(self, cx)
     }
 
     /// Ask for a new branch's name, then apply the intent `op` makes of it and hand `done` what
@@ -286,6 +473,7 @@ impl AppView {
             }
             return;
         }
+        self.close_menu(window, cx);
         // Opened from a picker or over another prompt, as Git asking for a passphrase, go back
         // to where that one came from.
         let restore_focus = match (&self.prompt, &self.palette) {
@@ -294,8 +482,9 @@ impl AppView {
             (None, None) => window.focused(cx),
         };
         // It takes the focus, so nothing else that would take the keys stays over it.
-        self.palette = None;
-        self.menu = None;
+        if self.palette.take().is_some() {
+            (self.navigator).update(cx, |navigator, cx| navigator.stop_going(true, cx));
+        }
         let subscription =
             cx.subscribe_in(
                 &input,
@@ -411,6 +600,7 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.close_menu(window, cx);
         let subscription =
             cx.subscribe_in(&view, window, |this, _, _: &DismissEvent, window, cx| {
                 this.close_modal(window, cx)
@@ -449,7 +639,6 @@ impl AppView {
         let menu = self.menu.as_ref()?;
         let theme = Theme::get(cx);
         let items = menu.items.iter().enumerate().flat_map(|(ix, item)| {
-            let handler = item.handler.clone();
             let line = (item.separated && ix > 0).then(|| {
                 div()
                     .h(fixed(1.))
@@ -469,7 +658,7 @@ impl AppView {
                     .child(heading)
                     .into_any_element()
             });
-            let row = list_row(("menu-item", ix), false, theme)
+            let row = list_row(("menu-item", ix), menu.highlighted == Some(ix), theme)
                 .mx(dp(4.))
                 .gap(dp(16.))
                 .text_size(dp(13.))
@@ -490,10 +679,15 @@ impl AppView {
                         false => gpui::transparent_black(),
                     }))
                 })
+                // The pointer moves the highlight too, so only one item is lit.
+                .on_mouse_move(cx.listener(move |this, _: &MouseMoveEvent, _, cx| {
+                    if let Some(menu) = this.menu.as_mut().filter(|m| m.highlighted != Some(ix)) {
+                        menu.highlighted = Some(ix);
+                        cx.notify();
+                    }
+                }))
                 .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                    this.menu = None;
-                    handler(this, window, cx);
-                    cx.notify();
+                    this.run_menu_item(ix, window, cx)
                 }))
                 .into_any_element();
             line.into_iter().chain(heading).chain([row])
@@ -501,13 +695,19 @@ impl AppView {
         // A menu taller than the window, as one of many projects is, scrolls inside the margins
         // `floating` keeps it in.
         let card = (popover(theme).id("context-menu").min_w(dp(180.)))
+            .track_focus(&self.menu_focus)
+            .key_context("ContextMenu")
+            .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.step_menu(1, cx)))
+            .on_action(cx.listener(|this, _: &SelectPrevious, _, cx| this.step_menu(-1, cx)))
+            .on_action(cx.listener(|this, _: &Confirm, window, cx| {
+                if let Some(ix) = this.menu.as_ref().and_then(|menu| menu.highlighted) {
+                    this.run_menu_item(ix, window, cx)
+                }
+            }))
             .max_h(window.viewport_size().height - fixed(16.))
             .overflow_y_scroll()
             .child(v_flex().py(dp(4.)).children(items));
-        Some(floating(menu.position, card, cx, |this, _, cx| {
-            this.menu = None;
-            cx.notify();
-        }))
+        Some(floating(menu.position, card, cx, Self::close_menu))
     }
 
     pub(crate) fn render_prompt(

@@ -23,8 +23,6 @@ use super::{
 fn forge_from(ctx: &Context, overridden: Option<ForgeName>) -> Option<ForgeName> {
     let meta = ctx.project_meta().ok()?;
     let repo = ctx.repo.get().ok()?;
-    // A target branch with no upstream has no remote to name a forge.
-    meta.remote_target_ref(&repo).ok()??;
     let url = forge::remote_url(&meta, &repo).ok()?;
     Some(but_forge::derive_forge_repo_info(&url, overridden)?.forge)
 }

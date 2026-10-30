@@ -43,6 +43,27 @@ base["glyf"].glyphOrder = base.getGlyphOrder()
 base.save("Inter-Regular.ttf")
 ```
 
-GPUI picks a weight by choosing between font files and doesn't vary a variable font, hence static
-files. Both fonts are under the SIL Open Font License 1.1 (https://openfontlicense.org); each
+GPUI keeps a font added as bytes at its default instance, so it never reaches a variable file's
+other weights, hence static files. Both fonts are under the SIL Open Font License 1.1 (https://openfontlicense.org); each
 file carries its copyright notice and license link in its name table.
+
+## Terminal font
+
+The terminals draw with Geist Mono Nerd Font Mono (`GeistMonoNerdFontMono-*.otf`), Geist Mono
+1.702 patched by Nerd Fonts v3.5.1, unmodified:
+
+```bash
+gh release download v3.5.1 -R ryanoasis/nerd-fonts -p GeistMono.tar.xz
+tar xf GeistMono.tar.xz GeistMonoNerdFontMono-Regular.otf GeistMonoNerdFontMono-SemiBold.otf LICENSE
+```
+
+TUIs draw borders with box-drawing characters and file icons from the Private Use Area, which
+design-core's Geist Mono leaves out. CoreText takes those from other fonts with other widths,
+so rows drift off the grid, borders gap, and icons show as missing glyphs. The Mono variant
+keeps every glyph, icons included, one cell wide. Nerd Fonts ships only these fixed weights, so
+the terminal's bold is 600 rather than 540. CoreText names the family "GeistMono Nerd Font
+Mono", not the "GeistMono NFM" in the files' legacy names.
+
+Nerd Fonts' patched fonts are under the SIL Open Font License 1.1
+([licensing](https://github.com/ryanoasis/nerd-fonts/blob/v3.5.1/LICENSE)), and
+`LICENSE-GeistMonoNerdFont.txt` is the license from the release archive.

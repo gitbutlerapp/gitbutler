@@ -1,5 +1,5 @@
-//! The project page's overview of what landed on its target, beside the history until a commit
-//! is opened: over the days picked off the activity or the last 30, only what landed the
+//! The project page's overview of what merged into its target, beside the history until a commit
+//! is opened: over the days picked off the activity or the last 30, only what merged the
 //! commits of the person picked, and only what changed the area picked. What's under way is
 //! on the Branches page.
 
@@ -9,7 +9,7 @@ use gpui::{AnyElement, Context, MouseButton, Window, div, prelude::*};
 
 use super::{Upstream, days_said, noon};
 use crate::backend::CommitId;
-use crate::backend::upstream::{ACTIVITY_DAYS, Landing, Overview};
+use crate::backend::upstream::{ACTIVITY_DAYS, Merge, Overview};
 use crate::detail::Detail;
 use crate::detail::panes::{
     OVERVIEW_COUNT_WIDTH, OVERVIEW_TIME_WIDTH, and_more, back_to_list, clear_button, grouped,
@@ -24,28 +24,28 @@ use crate::ui::{Icon, dp, faint, keep_focus_on_press, list_row, plural, small_ic
 
 /// How many of the newest releases are listed.
 const RELEASES_SHOWN: usize = 3;
-/// How many of the areas most landed in are listed.
+/// How many of the areas most merged in are listed.
 const AREAS_SHOWN: usize = 6;
-/// How many of the largest landings are listed.
+/// How many of the largest merges are listed.
 const LARGEST_SHOWN: usize = 5;
 
-/// What of `landings` landed on `days`, or on any of the activity's while none is picked, and
-/// landed commits of whoever `theirs` lists the landings of, if someone's picked.
-fn landed_then<'a>(
-    landings: &'a [Landing],
+/// What of `merges` merged on `days`, or on any of the activity's while none is picked, and
+/// merged commits of whoever `theirs` lists the merges of, if someone's picked.
+fn merged_then<'a>(
+    merges: &'a [Merge],
     days: Option<&BTreeSet<i64>>,
     theirs: Option<&HashSet<CommitId>>,
-) -> Vec<&'a Landing> {
-    (landings.iter())
+) -> Vec<&'a Merge> {
+    (merges.iter())
         .filter(|l| days.is_none_or(|days| days.contains(&l.day)))
         .filter(|l| theirs.is_none_or(|theirs| theirs.contains(&l.id)))
         .collect()
 }
 
-/// How many of `landed` changed each area, most first.
-fn area_counts(landed: &[&Landing]) -> Vec<(String, usize)> {
+/// How many of `merged` changed each area, most first.
+fn area_counts(merged: &[&Merge]) -> Vec<(String, usize)> {
     let mut counts: HashMap<&str, usize> = HashMap::new();
-    for area in landed.iter().flat_map(|l| &l.areas) {
+    for area in merged.iter().flat_map(|l| &l.areas) {
         *counts.entry(area).or_default() += 1;
     }
     let mut counts: Vec<_> = (counts.into_iter())
@@ -55,10 +55,10 @@ fn area_counts(landed: &[&Landing]) -> Vec<(String, usize)> {
     counts
 }
 
-/// The middle of how long the pull requests of `landed` took to land, from their first
+/// The middle of how long the pull requests of `merged` took to merge, from their first
 /// commit being written, in seconds.
-fn median_took(landed: &[&Landing]) -> Option<i64> {
-    let mut took: Vec<i64> = (landed.iter())
+fn median_took(merged: &[&Merge]) -> Option<i64> {
+    let mut took: Vec<i64> = (merged.iter())
         .filter(|l| l.pull)
         .filter_map(|l| l.took)
         .collect();
@@ -66,15 +66,15 @@ fn median_took(landed: &[&Landing]) -> Option<i64> {
     took.get(took.len() / 2).copied()
 }
 
-/// How many pull requests of `kept` each release of `releases` carried: those landed since
-/// the release before it, on `landings`' order, newest first; and whether that release is
-/// among `landings`, or the count stops where they do, short of it.
+/// How many pull requests of `kept` each release of `releases` carried: those merged since
+/// the release before it, on `merges`' order, newest first; and whether that release is
+/// among `merges`, or the count stops where they do, short of it.
 fn carried(
     releases: &[CommitId],
-    landings: &[Landing],
+    merges: &[Merge],
     kept: &HashSet<CommitId>,
 ) -> Vec<(usize, bool)> {
-    let at: HashMap<CommitId, usize> = (landings.iter().enumerate())
+    let at: HashMap<CommitId, usize> = (merges.iter().enumerate())
         .map(|(ix, l)| (l.id, ix))
         .collect();
     let starts: Vec<usize> = releases
@@ -85,7 +85,7 @@ fn carried(
         .map(|(ix, &start)| {
             // Tags on one commit carried the same, back to the release before them all.
             let end = (starts.iter().skip(ix + 1)).find(|&&next| next != start);
-            let count = (landings.iter().take(end.map_or(landings.len(), |end| *end)))
+            let count = (merges.iter().take(end.map_or(merges.len(), |end| *end)))
                 .skip(start)
                 .filter(|l| l.pull && kept.contains(&l.id))
                 .count();
@@ -104,9 +104,9 @@ fn took_said(seconds: i64) -> String {
 }
 
 impl Detail {
-    /// Open commit `id` of what landed lately in the history, which takes the focus, as the
+    /// Open commit `id` of what merged lately in the history, which takes the focus, as the
     /// list it's picked in would.
-    fn open_landed(
+    fn open_merged(
         &mut self,
         project: &ProjectId,
         id: CommitId,
@@ -114,10 +114,10 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         window.focus(&self.side_focus, cx);
-        self.pick_landed(project, id, cx);
+        self.pick_merged(project, id, cx);
     }
 
-    /// Beside the history until a commit is opened: how much landed and how
+    /// Beside the history until a commit is opened: how much merged and how
     /// fast; the releases that carried it; the areas it changed, each a filter of its own;
     /// and the largest pull requests. Clicking a release or one of those opens it.
     pub(in crate::detail) fn render_shipped(
@@ -135,22 +135,22 @@ impl Detail {
         let days = upstream.picked_days();
         let (who, area) = (upstream.view.person.as_ref(), upstream.view.area.as_ref());
         let person = upstream.picked_person();
-        // A person picked who's no longer among those who landed anything matches nothing.
+        // A person picked who's no longer among those who merged anything matches nothing.
         let nobody = HashSet::new();
-        let theirs = who.map(|_| person.map_or(&nobody, |p| &p.landed));
-        let by_who = landed_then(&summary.landings, days, theirs);
-        let kept: Vec<&Landing> = (by_who.iter().copied())
+        let theirs = who.map(|_| person.map_or(&nobody, |p| &p.merged));
+        let by_who = merged_then(&summary.merges, days, theirs);
+        let kept: Vec<&Merge> = (by_who.iter().copied())
             .filter(|l| area.is_none_or(|area| l.areas.contains(area)))
             .collect();
         let kept_ids: HashSet<CommitId> = kept.iter().map(|l| l.id).collect();
         let people = (summary.people.iter())
-            .filter(|p| !p.landed.is_disjoint(&kept_ids))
+            .filter(|p| !p.merged.is_disjoint(&kept_ids))
             .count();
         let tiles = [
             (
                 "Pull requests",
                 grouped(kept.iter().filter(|l| l.pull).count()),
-                "Pull requests that landed then",
+                "Pull requests that merged then",
             ),
             (
                 "Commits",
@@ -159,9 +159,9 @@ impl Detail {
             ),
             ("People", grouped(people), "Who wrote them"),
             (
-                "Time to land",
+                "Time to merge",
                 median_took(&kept).map_or("–".to_owned(), took_said),
-                "The middle time from a pull request's first commit being written to it landing",
+                "The middle time from a pull request's first commit being written to it merging",
             ),
         ];
         let scope = [
@@ -198,9 +198,9 @@ impl Detail {
                         el.child(
                             faint(
                                 match filtered {
-                                    true => "Nothing landed that the filters keep".to_owned(),
+                                    true => "Nothing merged that the filters keep".to_owned(),
                                     false => {
-                                        format!("Nothing landed in the last {ACTIVITY_DAYS} days")
+                                        format!("Nothing merged in the last {ACTIVITY_DAYS} days")
                                     }
                                 },
                                 theme,
@@ -231,7 +231,7 @@ impl Detail {
     ) -> Option<AnyElement> {
         let (summary, days) = (upstream.summary.as_ref()?, upstream.picked_days());
         let ids: Vec<CommitId> = summary.releases.iter().map(|r| r.id).collect();
-        let counts = carried(&ids, &summary.landings, kept);
+        let counts = carried(&ids, &summary.merges, kept);
         let releases: Vec<_> = (summary.releases.iter().zip(counts))
             .filter(|(r, _)| days.is_none_or(|days| days.contains(&r.day)))
             .collect();
@@ -251,7 +251,7 @@ impl Detail {
                         .truncate()
                         .child(release.name.clone()),
                 )
-                // At least, when the release before it landed before the days read.
+                // At least, when the release before it merged before the days read.
                 .child(overview_column(
                     match n {
                         (n, true) => plural(*n, "pull request"),
@@ -267,7 +267,7 @@ impl Detail {
                 ))
                 .on_mouse_down(MouseButton::Left, keep_focus_on_press)
                 .on_click(cx.listener(move |this, _, window, cx| {
-                    this.open_landed(&project, id, window, cx)
+                    this.open_merged(&project, id, window, cx)
                 }))
         });
         Some(
@@ -283,25 +283,25 @@ impl Detail {
         )
     }
 
-    /// The parts of the repository what landed changed, most first, each with a bar of how
-    /// much landed there. Clicking one filters the history and the rest of this to it,
+    /// The parts of the repository what merged changed, most first, each with a bar of how
+    /// much merged there. Clicking one filters the history and the rest of this to it,
     /// shown as a selection, solid while this has the focus; Clear lets go of it.
     fn areas(
         &self,
         project: &ProjectId,
-        landed: &[&Landing],
+        merged: &[&Merge],
         picked: Option<&String>,
         solid: bool,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let theme = Theme::get(cx);
-        let counts = area_counts(landed);
+        let counts = area_counts(merged);
         // While one's picked, its Clear stays, whatever's left to count.
         if counts.is_empty() && picked.is_none() {
             return None;
         }
         let most = counts.first().map_or(1, |(_, n)| (*n).max(1));
-        // The one picked stays listed, however little landed there.
+        // The one picked stays listed, however little merged there.
         let listed = |ix: usize, area: &String| ix < AREAS_SHOWN || picked == Some(area);
         let rest = (counts.iter().enumerate())
             .filter(|(ix, (area, _))| !listed(*ix, area))
@@ -326,11 +326,11 @@ impl Detail {
                     )
                     .into_any_element()
             }
-            None => faint("how many landed there", theme).into_any_element(),
+            None => faint("how many merged there", theme).into_any_element(),
         };
         Some(
             v_flex()
-                .child(overview_heading("Where it landed", detail, theme))
+                .child(overview_heading("Where it merged", detail, theme))
                 .children(rows)
                 .children(and_more(rest, theme))
                 .into_any_element(),
@@ -338,22 +338,22 @@ impl Detail {
     }
 
     /// The pull requests of `kept` that brought in the most commits, each with who and how
-    /// long it took to land.
+    /// long it took to merge.
     fn largest(
         &self,
         project: &ProjectId,
         summary: &Overview,
-        kept: &[&Landing],
+        kept: &[&Merge],
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
-        let mut largest: Vec<&Landing> = kept.iter().copied().filter(|l| l.pull).collect();
+        let mut largest: Vec<&Merge> = kept.iter().copied().filter(|l| l.pull).collect();
         largest.sort_by(|a, b| b.commits.cmp(&a.commits).then(b.day.cmp(&a.day)));
         largest.first()?;
-        let rows = (largest.into_iter().take(LARGEST_SHOWN).enumerate()).map(|(ix, landing)| {
-            let by = (landing.by.as_ref())
+        let rows = (largest.into_iter().take(LARGEST_SHOWN).enumerate()).map(|(ix, merge)| {
+            let by = (merge.by.as_ref())
                 .and_then(|email| summary.people.iter().find(|p| p.email == *email));
-            let (project, id) = (project.clone(), landing.id);
+            let (project, id) = (project.clone(), merge.id);
             list_row(("largest", ix), false, theme)
                 .child(small_icon(Icon::BranchMerge).text_color(theme.purple))
                 .child(
@@ -361,29 +361,29 @@ impl Detail {
                         .flex_1()
                         .min_w_0()
                         .truncate()
-                        .child(landing.title.clone()),
+                        .child(merge.title.clone()),
                 )
                 .children(by.map(|p| author_avatar(&p.name, &p.email, 16., theme).flex_none()))
                 .child(overview_column(
-                    plural(landing.commits as usize, "commit"),
+                    plural(merge.commits as usize, "commit"),
                     OVERVIEW_COUNT_WIDTH,
                     theme,
                 ))
                 .child(overview_column(
-                    landing.took.map_or(String::new(), took_said),
+                    merge.took.map_or(String::new(), took_said),
                     OVERVIEW_TIME_WIDTH,
                     theme,
                 ))
                 .on_mouse_down(MouseButton::Left, keep_focus_on_press)
                 .on_click(cx.listener(move |this, _, window, cx| {
-                    this.open_landed(&project, id, window, cx)
+                    this.open_merged(&project, id, window, cx)
                 }))
         });
         Some(
             v_flex()
                 .child(overview_heading(
                     "Largest",
-                    faint("commits · time to land", theme),
+                    faint("commits · time to merge", theme),
                     theme,
                 ))
                 .children(rows)
@@ -396,19 +396,19 @@ impl Detail {
 mod tests {
     use std::collections::{BTreeSet, HashSet};
 
-    use super::{area_counts, carried, landed_then, median_took};
+    use super::{area_counts, carried, median_took, merged_then};
     use crate::backend::CommitId;
-    use crate::backend::upstream::Landing;
+    use crate::backend::upstream::Merge;
 
     fn id(n: u8) -> CommitId {
         CommitId(gix::ObjectId::from_bytes_or_panic(&[n; 20]))
     }
 
-    /// Landing `n` on `day`, a pull request when `pull`, taking `took` hours, changing `areas`.
-    fn landing(n: u8, day: i64, pull: bool, took: i64, areas: &[&str]) -> Landing {
-        Landing {
+    /// Merge `n` on `day`, a pull request when `pull`, taking `took` hours, changing `areas`.
+    fn merge(n: u8, day: i64, pull: bool, took: i64, areas: &[&str]) -> Merge {
+        Merge {
             id: id(n),
-            title: format!("landing {n}"),
+            title: format!("merge {n}"),
             day,
             pull,
             commits: n as u32,
@@ -419,15 +419,15 @@ mod tests {
     }
 
     #[test]
-    fn sums_up_what_landed_on_the_days_and_by_the_person_picked() {
+    fn sums_up_what_merged_on_the_days_and_by_the_person_picked() {
         // Newest first, as the target's line has them.
-        let landings = [
-            landing(1, 10, true, 2, &["crates/but", "apps/lite"]),
-            landing(2, 9, true, 30, &["crates/but"]),
-            landing(3, 9, false, 100, &["Top level"]),
-            landing(4, 5, true, 50, &["apps/lite"]),
+        let merges = [
+            merge(1, 10, true, 2, &["crates/but", "apps/lite"]),
+            merge(2, 9, true, 30, &["crates/but"]),
+            merge(3, 9, false, 100, &["Top level"]),
+            merge(4, 5, true, 50, &["apps/lite"]),
         ];
-        let all = landed_then(&landings, None, None);
+        let all = merged_then(&merges, None, None);
         assert_eq!(all.len(), 4, "nothing picked keeps everything");
         assert_eq!(
             area_counts(&all),
@@ -436,7 +436,7 @@ mod tests {
                 ("crates/but".to_owned(), 2),
                 ("Top level".to_owned(), 1)
             ],
-            "landings per area, most first, then by name"
+            "merges per area, most first, then by name"
         );
         assert_eq!(
             median_took(&all),
@@ -446,26 +446,26 @@ mod tests {
 
         let days: BTreeSet<i64> = [9, 10].into();
         let theirs: HashSet<CommitId> = [id(2), id(3), id(4)].into();
-        let picked = landed_then(&landings, Some(&days), Some(&theirs));
+        let picked = merged_then(&merges, Some(&days), Some(&theirs));
         let ids: Vec<_> = picked.iter().map(|l| l.id).collect();
         assert_eq!(ids, [id(2), id(3)], "on the days picked, and theirs");
 
-        // Releases at landings 1 and 3: the newer carries 1 and 2, the older 3 and 4.
-        let kept: HashSet<CommitId> = landings.iter().map(|l| l.id).collect();
+        // Releases at merges 1 and 3: the newer carries 1 and 2, the older 3 and 4.
+        let kept: HashSet<CommitId> = merges.iter().map(|l| l.id).collect();
         assert_eq!(
-            carried(&[id(1), id(3)], &landings, &kept),
+            carried(&[id(1), id(3)], &merges, &kept),
             [(2, true), (1, false)],
             "pull requests since the release before, the direct commit left out, and the \
-             oldest's only back to where the landings read stop"
+             oldest's only back to where the merges read stop"
         );
         assert_eq!(
-            carried(&[id(1), id(1), id(3)], &landings, &kept),
+            carried(&[id(1), id(1), id(3)], &merges, &kept),
             [(2, true), (2, true), (1, false)],
             "two tags on one commit carried the same"
         );
         let crates: HashSet<CommitId> = [id(2)].into();
         assert_eq!(
-            carried(&[id(1), id(3)], &landings, &crates),
+            carried(&[id(1), id(3)], &merges, &crates),
             [(1, true), (0, false)],
             "only those the filters keep"
         );

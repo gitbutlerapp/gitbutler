@@ -9,11 +9,18 @@ code's layout in it, and leave it alone when behaviour changes.
 - Use only the font families the app embeds (`assets/fonts`, `theme.ui_font` and
   `theme.mono_font`). GPUI looks a family up among the embedded fonts first and falls back to
   the system only when it isn't there. A family that isn't embedded then resolves to whatever
-  the machine has installed. If that's a variable font, like Inter in `~/Library/Fonts`,
-  CoreText calls the font daemon for every line it lays out, and frames go from about 10ms to
-  70-120ms, only on that machine.
-- GPUI picks a weight by choosing between font files and doesn't vary a variable font, so add
-  static instances, never a variable file. `assets/fonts/README.md` has the recipe.
+  the machine has installed, and one it doesn't have to GPUI's fallback stack, which ends in
+  Helvetica. Only fonts the user picks leave them: `theme.diff_font` and `theme.terminal_font`,
+  checked with `ui::digit_advance` first.
+- A font with an optical size axis (`opsz`) is slow to lay out, as CoreText sets up its shaping
+  again for each sized copy GPUI makes, one per text run. With variable Inter installed, frames
+  went from about 10ms to 70-120ms: a line took 227µs against 20µs with `opsz` pinned. Being
+  variable isn't the cost, as JetBrains Mono, Fira Code and Source Code Pro match their static
+  cuts.
+- Add static instances, never a variable file: GPUI keeps a font added as bytes at its default
+  instance, so it never reaches the other weights (Fira Code's file stays Light). An installed
+  variable font reaches them through its named instances, so never load a user's font with
+  `add_fonts`. `assets/fonts/README.md` has the recipe.
 - A character the embedded Inter lacks is drawn from another font, heavier and off the
   baseline. Design-core's Inter has only 230, so before writing a new symbol into the UI, check
   it's in `assets/fonts` and add it from the full Inter if not, as the key symbols were.
@@ -56,6 +63,9 @@ code's layout in it, and leave it alone when behaviour changes.
   only the diff shows shouldn't go through `Store::set_prefs`, which redraws the whole window.
 - A cached view that misses its cache renders all its descendants with caching off, so a
   cached child inside a view that notifies often saves nothing.
+- Reading an entity in `render` has the window draw on its every notify, even if it's never
+  mounted, and no view re-renders to show why. Keep what a row shows of something that notifies
+  often where the row already looks, as `Terminals::title` does.
 - Text shaping dominates frames with new content: GPUI's CoreText layout creates a sized font
   copy per text run, so fewer text elements per row is the lever, and a new diff draws a frame
   after the rest of the detail (`DiffPane`) so the two don't share one frame.
@@ -170,8 +180,9 @@ unseen is what a laptop's battery pays for.
   `StoreEvent::Renamed`), or close or refuse once it's gone; never act on the stale one. An
   operation gets the commit ids it was asked with, and the rebase editor refuses one that's no
   longer in the workspace.
-- A confirmation that can't be undone (a linked worktree's discard or delete, Land) carries what it
-  asked about, as a file's `modified` time or a branch's tip, and refuses if that moved meanwhile.
+- A confirmation that can't be undone (a linked worktree's discard or delete, a merge into the
+  target) carries what it asked about, as a file's `modified` time or a branch's tip, and refuses
+  if that moved meanwhile.
 - Hunk and line selections in uncommitted files are positional, and an agent's edit slides them.
   Commit, amend and discard compare each file's `modified` time and base with the diff the user
   saw and refuse if either moved. Core takes any selection in an added file as the whole file,
@@ -187,9 +198,9 @@ unseen is what a laptop's battery pays for.
   `Store::apply`. One that writes the workspace does so in one `Run::locked` call, one
   transaction or `_with_perm` call, so it is one oplog entry and one ⌘Z step, and the oplog and
   linked-worktree heads are read under the same lock. `Run::watched` is only for work that takes
-  GitButler's lock itself, as Land and mesh apply do. Fetches, pushes and the forge's merges
-  call neither: they write no workspace state and record no undo step, and `but-api` locks for
-  fetching and pushing itself.
+  GitButler's lock itself, as merging into the target and mesh apply do. Fetches, pushes and the
+  forge's merges call neither: they write no workspace state and record no undo step, and
+  `but-api` locks for fetching and pushing itself.
 - A project runs one operation at a time, until the reload after it lands, and `Store::apply`
   turns down another asked for meanwhile, so each acts on the state the user saw the one before
   leave; nothing queues. Fetches, pushes and deleting a linked worktree (`OpKind::beside`) run
@@ -238,9 +249,9 @@ Like the mesh, metrics must never break or slow anything else.
 
 - Its code stays in `backend/metrics.rs` and `backend/metrics/crashes.rs`; the rest calls
   `backend::metrics::*` at a few places: launch and quit in `lib.rs`, `Store::start` for each
-  operation, `Store::failed` for each error card, `Store::count_view` for what's opened,
-  `ProjectEntry::failed` for a project that stops reading, signing in and out, and the Metrics
-  card's switches in `settings/metrics.rs`.
+  operation, `Store::open_terminal` for each terminal the user opens, `Store::failed` for each
+  error card, `Store::count_view` for what's opened, `ProjectEntry::failed` for a project that
+  stops reading, signing in and out, and the Metrics card's switches in `settings/metrics.rs`.
 - A property the desktop app sends too keeps its name and values (`totalLanesInWorkspace`,
   `theme`, `error_code`), so one chart covers both apps.
 - Nothing sent may name a branch, file, project or anything the user wrote. An operation's label

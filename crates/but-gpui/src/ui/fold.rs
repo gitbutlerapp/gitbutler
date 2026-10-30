@@ -13,8 +13,9 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnimationExt as _, AnyElement, App, Div, ElementId, Hsla, Length, Pixels,
-    SpringAnimationElement, Svg, Transformation, div, prelude::*, radians,
+    AnimationExt as _, AnyElement, App, Bounds, Div, Element, ElementId, GlobalElementId, Hsla,
+    InspectorElementId, LayoutId, Length, Pixels, SpringAnimationElement, Style, Svg,
+    Transformation, Window, div, prelude::*, radians,
 };
 
 use super::{Icon, fixed, small_icon, switch_spring};
@@ -350,6 +351,90 @@ pub fn inert(el: Div, closing: bool) -> Div {
     })
 }
 
+/// `child` drawn over what's drawn after it, as `gpui::deferred` draws it, but cut to what
+/// clips it where it's laid out, as a list clips its rows: a row sliding over the rows it passes
+/// stays inside its list. Those with a higher [`OnTop::priority`] are drawn over the rest.
+pub fn on_top(child: impl IntoElement) -> OnTop {
+    OnTop {
+        child: Some(child.into_any_element()),
+        priority: 0,
+    }
+}
+
+pub struct OnTop {
+    child: Option<AnyElement>,
+    priority: usize,
+}
+
+impl OnTop {
+    pub fn priority(mut self, priority: usize) -> Self {
+        self.priority = priority;
+        self
+    }
+}
+
+impl Element for OnTop {
+    type RequestLayoutState = ();
+    type PrepaintState = ();
+
+    fn id(&self) -> Option<ElementId> {
+        None
+    }
+
+    fn source_location(&self) -> Option<&'static core::panic::Location<'static>> {
+        None
+    }
+
+    fn request_layout(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> (LayoutId, ()) {
+        let layout_id = match &mut self.child {
+            Some(child) => child.request_layout(window, cx),
+            None => window.request_layout(Style::default(), None, cx),
+        };
+        (layout_id, ())
+    }
+
+    fn prepaint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        window: &mut Window,
+        _: &mut App,
+    ) {
+        if let Some(child) = self.child.take() {
+            let (offset, mask) = (window.element_offset(), window.content_mask());
+            window.defer_draw(child, offset, self.priority, Some(mask));
+        }
+    }
+
+    fn paint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        _: &mut (),
+        _: &mut Window,
+        _: &mut App,
+    ) {
+    }
+}
+
+impl IntoElement for OnTop {
+    type Element = Self;
+
+    fn into_element(self) -> Self::Element {
+        self
+    }
+}
+
 /// A fold's chevron, in `color`: pointing right, or down while `open`, turning between the
 /// two on the spring a switch's knob slides on, which settles in about [`FOLD`]. One clicked
 /// again mid-turn turns back from where it is.
@@ -539,6 +624,36 @@ pub fn reordered<'a, K: Eq + Hash + Clone>(
         .collect()
 }
 
+/// How far each row of a list sits from where it's laid out, as it starts sliding there,
+/// after the rows went from `old` to `new`, as [`reordered`] says, but with every row that keeps
+/// its key sliding from where it was, those a row added or taken away pushed along too: the
+/// room that row takes or leaves opens or closes rather than jumps.
+pub fn shifted<'a, K: Eq + Hash + Clone>(
+    old: &'a [(Option<K>, f32)],
+    new: &'a [(Option<K>, f32)],
+) -> HashMap<K, f32> {
+    // Where each row starts by its key, `None` for a key more than one row has.
+    let tops = |rows: &'a [(Option<K>, f32)]| {
+        let (mut top, mut tops) = (0., HashMap::<&K, Option<f32>>::new());
+        for (key, height) in rows {
+            if let Some(key) = key {
+                (tops.entry(key))
+                    .and_modify(|at| *at = None)
+                    .or_insert(Some(top));
+            }
+            top += height;
+        }
+        tops
+    };
+    let was = tops(old);
+    (tops(new).into_iter())
+        .filter_map(|(key, top)| {
+            let by = (*was.get(key)?)? - top?;
+            (by != 0.).then(|| (key.clone(), by))
+        })
+        .collect()
+}
+
 /// The indexes of a longest strictly rising run of `seq`, in order.
 fn longest_rise(seq: &[usize]) -> Vec<usize> {
     let value = |ix: usize| seq.get(ix).copied().unwrap_or_default();
@@ -584,18 +699,21 @@ mod tests {
         assert_eq!(reorder.offset(&"b"), 0., "where it's laid out");
     }
 
+    /// Rows 10 tall by their keys, `-` for one without.
+    fn rows(keys: &[&'static str]) -> Vec<(Option<&'static str>, f32)> {
+        keys.iter()
+            .map(|key| ((*key != "-").then_some(*key), 10.))
+            .collect()
+    }
+
+    fn sorted(offsets: HashMap<&'static str, f32>) -> Vec<(&'static str, f32)> {
+        let mut offsets: Vec<_> = offsets.into_iter().collect();
+        offsets.sort_by(|a, b| a.0.cmp(b.0));
+        offsets
+    }
+
     #[test]
     fn rows_slide_only_where_their_order_changed() {
-        let rows = |keys: &[&'static str]| -> Vec<(Option<&'static str>, f32)> {
-            keys.iter()
-                .map(|key| ((*key != "-").then_some(*key), 10.))
-                .collect()
-        };
-        let sorted = |offsets: HashMap<&'static str, f32>| {
-            let mut offsets: Vec<_> = offsets.into_iter().collect();
-            offsets.sort_by(|a, b| a.0.cmp(b.0));
-            offsets
-        };
         assert_eq!(
             sorted(reordered(
                 &rows(&["a1", "a2", "-", "b1", "b2"]),
@@ -615,6 +733,36 @@ mod tests {
             )),
             [("a", -10.), ("b", -10.), ("c", 10.)],
             "the moved row slides from its old place, and those it passed by its height alone"
+        );
+    }
+
+    #[test]
+    fn shifted_rows_slide_from_where_they_were_past_rows_added_and_taken_away() {
+        assert_eq!(
+            sorted(shifted(&rows(&["a", "b"]), &rows(&["x", "a", "b"]))),
+            [("a", -10.), ("b", -10.)],
+            "a row added above pushes them down, sliding"
+        );
+        // `k` moves two down, leaving `l` where it was.
+        assert_eq!(
+            sorted(shifted(
+                &rows(&["k", "a", "b"]),
+                &rows(&["l", "a", "k", "b"])
+            )),
+            [("b", -10.), ("k", -20.)],
+            "the moved row slides from its old place, the row it made room above slides down"
+        );
+        assert_eq!(
+            sorted(shifted(
+                &rows(&["l", "a", "k", "b"]),
+                &rows(&["k", "a", "b"])
+            )),
+            [("b", 10.), ("k", 20.)],
+            "back again, it slides home and the room it took closes"
+        );
+        assert!(
+            shifted(&rows(&["a", "a", "-"]), &rows(&["-", "a", "a"])).is_empty(),
+            "a key more than one row has stays put, as the keyless do with a reorder"
         );
     }
 

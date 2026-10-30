@@ -11,8 +11,10 @@ use gpui::{Context, SharedString, Task};
 use super::{Cut, ProjectEntry, ProjectId, Selection, Store, StoreEvent};
 use crate::backend::watch::Watcher;
 use crate::backend::{
-    self, Checkout, CommitId, FileChange, FullName, Project, Selected, Workspace, Worktree,
+    self, Checkout, CommitId, Destination, FileChange, FullName, Project, Selected, Workspace,
+    Worktree,
 };
+use crate::transfer::{Move, Stop};
 
 /// A watcher's event: the project, whether its git directory changed, the checkout whose
 /// files changed, and which of its files.
@@ -142,6 +144,8 @@ impl Store {
         let shown = self.hidden && visible;
         self.hidden = !visible;
         if self.hidden {
+            // Drawn once more, for what moves on screen to stop.
+            cx.notify();
             return;
         }
         for (id, reload) in std::mem::take(&mut self.unseen) {
@@ -257,6 +261,7 @@ impl Store {
             self.save_soon(cx);
         }
         // A selected project that went, as when removed, leaves the first open one selected.
+        self.close_terminals_gone(cx);
         if (self.selection.as_ref()).is_some_and(|s| self.project(s.project()).is_none()) {
             let first = (self.projects.iter()).find(|entry| entry.expanded);
             self.select(first.map(|entry| self.opening(&entry.id)), cx);
@@ -674,6 +679,7 @@ impl Store {
                 }
                 // Checking against a stale one could drop a selection the operation just made.
                 if fresh {
+                    store.close_terminals_gone(cx);
                     store.validate_selection(&id, cx);
                 }
                 // A project just added opens on its page while it has no target: that's
@@ -793,6 +799,14 @@ impl Store {
                 false => self.snack("What's being dragged changed, so it won't land", cx),
             }
         }
+        // A move follows its commits the same way, and the commit or branch they'd land at,
+        // and ends once one is gone rather than land them elsewhere.
+        if let Some(mut moving) = self.moving.take_if(|moving| moving.project == *id) {
+            match follow_move(&mut moving, self.workspace(id), &workspace) {
+                true => self.moving = Some(moving),
+                false => self.snack("What was being moved changed, so the move ended", cx),
+            }
+        }
         // The commit a drag is held over follows too, so letting go there without moving
         // still drops on it.
         if let Some((Selection::Commit(project, commit), place)) = self.drop_at.clone()
@@ -862,6 +876,27 @@ fn renamed(old: Option<&Workspace>, new: &Workspace) -> Vec<(Option<FullName>, F
             Some((branch.ref_name.clone(), to))
         })
         .collect()
+}
+
+/// Follow the commits `moving` moves, and where it lands them, from `old` to `new`, saying
+/// whether they're all still there.
+fn follow_move(moving: &mut Move, old: Option<&Workspace>, new: &Workspace) -> bool {
+    let followed: Option<Arc<[CommitId]>> = (moving.commits.iter())
+        .map(|commit| follow_by_key(old, new, *commit))
+        .collect();
+    let Some(followed) = followed else {
+        return false;
+    };
+    moving.commits = followed;
+    match &mut moving.at {
+        Stop::In(Destination::AboveCommit(commit) | Destination::BelowCommit(commit)) => {
+            (follow_by_key(old, new, *commit).map(|followed| *commit = followed)).is_some()
+        }
+        Stop::In(Destination::Branch(branch)) | Stop::NewBranch { beside: branch, .. } => {
+            new.find_branch(Some(branch)).is_some()
+        }
+        Stop::NewStack => true,
+    }
 }
 
 /// Follow what's cut or dragged from `old` to where its commits are in `new`. False once it

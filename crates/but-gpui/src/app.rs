@@ -5,21 +5,22 @@ use std::time::{Duration, Instant};
 
 use gpui::{
     AnyView, App, ClipboardItem, Context, DispatchPhase, Div, Entity, FocusHandle, Focusable,
-    FontFeatures, MouseMoveEvent, Pixels, Point, PromptLevel, Role, StyleRefinement, Subscription,
-    Task, WeakEntity, Window, actions, div, prelude::*, relative,
+    FontFeatures, MouseMoveEvent, Pixels, Point, PromptLevel, Role, SharedString, StyleRefinement,
+    Subscription, Task, WeakEntity, Window, actions, div, prelude::*, relative,
 };
 
 use crate::backend::upstream::UpdateScope;
-use crate::backend::{self, short_ref};
+use crate::backend::{self, Checkout, short_ref};
 use crate::detail::{Detail, DiffPane};
 use crate::navigator::Navigator;
 use crate::overlays::{ContextMenu, MenuItem, Prompt};
-use crate::palette::Palette;
+use crate::palette::{Choice, Palette};
 use crate::projects::pick_folder;
 use crate::state::{
-    Cut, MeshPick, Pane, ProjectId, Selection, Store, StoreEvent, snack, up_to_date,
+    Cut, MeshPick, Pane, Prefs, ProjectId, Selection, Store, StoreEvent, snack, up_to_date,
 };
-use crate::theme::{Theme, UiScale};
+use crate::terminal::NewTerminal;
+use crate::theme::{ColorScheme, Theme, UiScale};
 use crate::transfer::{Place, Transfer};
 use crate::ui::fold::{Slide, edge, inert};
 use crate::ui::{HEADER_HEIGHT, POPOVER_RADIUS, dp, fixed, resize_pane};
@@ -53,6 +54,7 @@ actions!(
         ToggleNavigator,
         ToggleDetail,
         CommandPalette,
+        ShowContextMenu,
         CheckForUpdates,
         BuildAndRestart,
         BuildAndRestartFromHere,
@@ -78,9 +80,8 @@ actions!(
         Confirm,
         CutSelection,
         PasteHere,
-        DeleteSelection,
-        UncommitSelection,
-        RenameSelection,
+        MoveSelection,
+        MoveHere,
     ]
 );
 actions!(
@@ -95,6 +96,28 @@ actions!(
     ]
 );
 actions!(pr, [OpenPullRequest]);
+actions!(
+    copy,
+    [
+        CopyCommitId,
+        CopyBranchName,
+        CopyPullRequestLink,
+        CopySnapshotId,
+        CopyPath,
+        CopyRelativePath,
+        CopyAbsolutePath,
+        CopyErrorMessage,
+    ]
+);
+
+/// Register `A` on `el` as copying `text`.
+fn copy_on<A: gpui::Action>(
+    el: gpui::Stateful<gpui::Div>,
+    text: String,
+    cx: &Context<AppView>,
+) -> gpui::Stateful<gpui::Div> {
+    el.on_action(cx.listener(move |this, _: &A, _, cx| this.copy_text(text.clone(), cx)))
+}
 
 pub struct AppView {
     pub store: Entity<Store>,
@@ -102,6 +125,11 @@ pub struct AppView {
     diff: Entity<DiffPane>,
     pub(crate) navigator: Entity<Navigator>,
     pub menu: Option<ContextMenu>,
+    /// A menu with commands in it, waiting for the frame that registers the actions of the
+    /// selection it opened on, to say which it offers.
+    pub pending_menu: Option<ContextMenu>,
+    /// The open menu's, which takes the keys from what had them.
+    pub(crate) menu_focus: FocusHandle,
     pub prompt: Option<Prompt>,
     /// The emoji picker open on a project's icon.
     pub icon_picker: Option<crate::projects::IconPicker>,
@@ -252,28 +280,31 @@ impl AppView {
             // A menu's items and the palette's commands act on the selection and the picks, so
             // when an agent's change moves them off what they opened on, they go rather than
             // act on something else. Menu items can hold the commit they opened on, so a menu
-            // goes when an agent only rewrote it too, as does M's list of them; the palette's
+            // goes when an agent only rewrote it too, as ⌘K does while it lists such items;
             // commands read the selection when run.
             cx.observe_in(&store, window, |this, store, window, cx| {
                 let store = store.read(cx);
                 let menu_gone =
                     (this.menu.as_ref()).is_some_and(|m| m.acting_on != store.acting_on());
+                if (this.pending_menu.as_ref()).is_some_and(|m| m.acting_on != store.acting_on()) {
+                    this.pending_menu = None;
+                }
                 let palette_gone = (this.palette.as_ref()).is_some_and(|p| match p.holds_ids {
                     true => p.acting_on != store.acting_on(),
                     false => !store.still_acting_on(&p.acting_on),
                 });
                 if menu_gone {
-                    this.menu = None;
+                    this.close_menu(window, cx);
                 }
                 if palette_gone {
                     this.close_palette(window, cx);
                 }
                 cx.notify()
             }),
-            cx.subscribe_in(&store, window, |this, _, event, window, cx| {
-                if let StoreEvent::AuthorMissing(project) = event {
-                    this.ask_author(project.clone(), window, cx);
-                }
+            cx.subscribe_in(&store, window, |this, _, event, window, cx| match event {
+                StoreEvent::AuthorMissing(project) => this.ask_author(project.clone(), window, cx),
+                StoreEvent::TerminalOpened => this.enter_terminal(window, cx),
+                _ => {}
             }),
             cx.observe_window_appearance(window, |this, window, cx| {
                 this.apply_appearance(window, cx)
@@ -331,6 +362,8 @@ impl AppView {
             diff,
             navigator,
             menu: None,
+            pending_menu: None,
+            menu_focus: cx.focus_handle(),
             prompt: None,
             icon_picker: None,
             navigator_open: true,
@@ -355,6 +388,99 @@ impl AppView {
     pub fn apply_appearance(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         cx.set_global(theme_for(self.store.read(cx), window));
         cx.refresh_windows();
+    }
+
+    /// List the colour schemes, GitButler's, the Ghostty config's and every Ghostty theme, to
+    /// pick one to draw the app and its terminals in.
+    pub fn pick_color_scheme(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let current = self.store.read(cx).prefs.color_scheme.clone();
+        let named = but_tty::Ghostty::themes()
+            .into_iter()
+            .map(ColorScheme::Named);
+        let choices = ([ColorScheme::GitButler, ColorScheme::Ghostty].into_iter())
+            .chain(named)
+            .map(|scheme| {
+                let detail = match &scheme {
+                    _ if scheme == current => Some("In use"),
+                    ColorScheme::GitButler => Some("Light or dark, as Appearance says"),
+                    ColorScheme::Ghostty => Some("The themes your Ghostty config sets"),
+                    ColorScheme::Named(_) => None,
+                };
+                let choice = Choice::new(scheme.label().to_owned(), move |app, window, cx| {
+                    (app.store).update(cx, |store, cx| {
+                        store.set_prefs(|prefs| prefs.color_scheme = scheme, cx)
+                    });
+                    app.apply_appearance(window, cx);
+                });
+                match detail {
+                    Some(detail) => choice.detail(detail),
+                    None => choice,
+                }
+            })
+            .collect();
+        self.open_picker(None, "Search colour schemes", "Use", choices, window, cx);
+    }
+
+    /// List the fonts to pick the one code in diffs shows in.
+    pub fn pick_diff_font(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let current = self.store.read(cx).prefs.diff_font.clone();
+        let own = Theme::get(cx).mono_font.clone();
+        let set = |prefs: &mut Prefs, font| prefs.diff_font = font;
+        self.pick_font(own, "GitButler's own".into(), current, set, window, cx);
+    }
+
+    /// List the fonts to pick the one terminals show in.
+    pub fn pick_terminal_font(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let current = self.store.read(cx).prefs.terminal_font.clone();
+        let ghostty = but_tty::Ghostty::load();
+        let detail = (ghostty.font_families.into_iter().next())
+            .map_or("Your Ghostty config sets none".into(), SharedString::from);
+        let set = |prefs: &mut Prefs, font| prefs.terminal_font = font;
+        self.pick_font("As Ghostty's".into(), detail, current, set, window, cx);
+    }
+
+    /// List `unpicked`, which `detail` explains and leaves no font picked, then the installed
+    /// fonts, for `set` to keep the one chosen. `current` is the one in use.
+    fn pick_font(
+        &mut self,
+        unpicked: SharedString,
+        detail: SharedString,
+        current: Option<String>,
+        set: fn(&mut Prefs, Option<String>),
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let text_system = cx.text_system().clone();
+        cx.spawn_in(window, async move |this, cx| {
+            let families = (cx.background_spawn(async move { text_system.all_font_names() })).await;
+            let families = families
+                .into_iter()
+                .filter(|family| !family.starts_with('.'));
+            let fonts = families.map(|family| (family.clone().into(), Some(family), None));
+            let choices: Vec<Choice> = std::iter::once((unpicked, None, Some(detail)))
+                .chain(fonts)
+                .map(|(label, font, detail)| {
+                    let in_use = font == current;
+                    let choice = Choice::new(label, move |app, window, cx| {
+                        (app.store).update(cx, |store, cx| {
+                            store.set_prefs(|prefs| set(prefs, font), cx)
+                        });
+                        app.apply_appearance(window, cx);
+                        (app.detail).update(cx, |detail, cx| detail.remeasure(cx));
+                    });
+                    match detail {
+                        _ if in_use => choice.detail("In use"),
+                        Some(detail) => choice.detail(detail),
+                        None => choice,
+                    }
+                })
+                .collect();
+            this.update_in(cx, |this, window, cx| {
+                this.open_picker(None, "Search fonts", "Use", choices, window, cx)
+            })
+            .ok();
+        })
+        .detach();
     }
 
     /// Select `selection`. Asked for again, as a crumb naming the page shown is clicked, the
@@ -721,12 +847,17 @@ impl AppView {
             return;
         }
         // The menu first, as it can be open over a modal.
-        if self.menu.take().is_some() {
-            cx.notify();
-            return;
+        if self.menu.is_some() {
+            return self.close_menu(window, cx);
         }
         if self.modal.is_some() {
             return self.close_modal(window, cx);
+        }
+        // A move under way, before what's in the pane with the keys, as it's what they do.
+        if self.store.read(cx).moving.is_some() {
+            return self
+                .store
+                .update(cx, |store, cx| store.set_moving(None, cx));
         }
         if self.detail.read(cx).is_focused(window, cx) {
             // Undo the nearest thing first: a text selection, then the file filter.
@@ -803,12 +934,52 @@ impl AppView {
         window.focus(&self.navigator.focus_handle(cx), cx);
     }
 
+    /// Open a terminal on the checkout the selection is in, the main one when it's in none.
+    fn new_terminal(&mut self, _: &NewTerminal, _: &mut Window, cx: &mut Context<Self>) {
+        self.store.update(cx, |store, cx| {
+            let Some(selection) = store.selection.clone() else {
+                return;
+            };
+            let checkout = store.checkout_of(&selection).unwrap_or(Checkout::Main);
+            store.open_terminal(selection.project().clone(), checkout, cx);
+        });
+    }
+
+    /// The terminal the detail's place shows, while one is selected.
+    fn shown_terminal(&self, cx: &App) -> Option<Entity<crate::terminal::Terminal>> {
+        let store = self.store.read(cx);
+        match store.selection.as_ref()? {
+            Selection::Terminal(_, id) => store.terminals.get(*id).cloned(),
+            _ => None,
+        }
+    }
+
+    /// Give the keys to the terminal shown, which covers the detail, if one is.
+    fn focus_terminal(&self, window: &mut Window, cx: &mut App) -> bool {
+        let terminal = self.shown_terminal(cx);
+        if let Some(terminal) = &terminal {
+            window.focus(&terminal.focus_handle(cx), cx);
+        }
+        terminal.is_some()
+    }
+
+    /// Go into the selected terminal, to type in: the detail it shows in comes back, and it
+    /// takes the keys. Selecting it alone leaves them where they were, so ↑ and ↓ go past it.
+    pub(crate) fn enter_terminal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // Not from under what's open over it, as when a prompt opened while its shell started.
+        if self.covered() || self.shown_terminal(cx).is_none() {
+            return;
+        }
+        self.set_detail(true, window, cx);
+        self.focus_terminal(window, cx);
+    }
+
     /// Focus the navigator, or the changes while the navigator isn't on screen, so keys
     /// always reach something visible. Out over the detail, it's on screen.
     pub(crate) fn focus_main(&self, window: &mut Window, cx: &mut App) {
         if self.navigator_open || self.peek.open {
             window.focus(&self.navigator.focus_handle(cx), cx);
-        } else {
+        } else if !self.focus_terminal(window, cx) {
             self.detail
                 .update(cx, |detail, cx| detail.focus(window, cx));
         }
@@ -842,6 +1013,13 @@ impl AppView {
     ) {
         // With the detail hidden, the navigator is the only pane.
         if self.covered() || !self.detail_open {
+            return;
+        }
+        // A terminal takes every key it's given, so only the navigator moves to it.
+        if let Some(terminal) = self.shown_terminal(cx) {
+            if self.navigator.focus_handle(cx).contains_focused(window, cx) {
+                window.focus(&terminal.focus_handle(cx), cx);
+            }
             return;
         }
         let detail = self.detail.read(cx);
@@ -924,7 +1102,7 @@ impl AppView {
     /// kept them, else the file list, else the diff. A page with none, as an overview alone or
     /// a branch with no commits, gives them to the detail.
     fn focus_past_navigator(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.focus_pane_from(0, true, false, window, cx) {
+        if !self.focus_terminal(window, cx) && !self.focus_pane_from(0, true, false, window, cx) {
             (self.detail).update(cx, |detail, cx| detail.focus(window, cx));
         }
     }
@@ -948,7 +1126,7 @@ impl AppView {
     }
 
     fn focus_changes(&mut self, _: &FocusChanges, window: &mut Window, cx: &mut Context<Self>) {
-        if self.covered() {
+        if self.covered() || self.focus_terminal(window, cx) {
             return;
         }
         // Asking for what's in the detail brings it back.
@@ -958,7 +1136,7 @@ impl AppView {
     }
 
     fn focus_diff(&mut self, _: &FocusDiff, window: &mut Window, cx: &mut Context<Self>) {
-        if self.covered() {
+        if self.covered() || self.focus_terminal(window, cx) {
             return;
         }
         self.set_detail(true, window, cx);
@@ -1006,16 +1184,68 @@ impl AppView {
 
     /// Open the pull request of the selected branch, or of the branch the selected commit
     /// is on, in the browser. Without one, start one where that's possible.
+    /// The pull request of the selected branch, or of what a page has picked: the branch
+    /// opened on the Branches page, or the target's merge.
+    pub(crate) fn pull_request_url(&self, cx: &App) -> Option<String> {
+        let store = self.store.read(cx);
+        match store.branch_for(store.selection.as_ref()?) {
+            Some(branch) => branch.review.as_ref()?.url.clone(),
+            None => self.detail.read(cx).page_pull_request(cx),
+        }
+    }
+
+    /// Register a copy of each thing the selection has to copy, as its menu offers them:
+    /// its pull request's link, a commit's ID, a branch's name, a checkout's path, and why a
+    /// project can't be read. The pages' own picks are the detail's.
+    pub(crate) fn copy_actions(
+        &self,
+        el: gpui::Stateful<gpui::Div>,
+        cx: &Context<Self>,
+    ) -> gpui::Stateful<gpui::Div> {
+        let store = self.store.read(cx);
+        let el = el.when_some(self.pull_request_url(cx), |el, url| {
+            copy_on::<CopyPullRequestLink>(el, url, cx)
+        });
+        let path = |path: &std::path::Path| path.display().to_string();
+        match store.selection.as_ref() {
+            Some(Selection::Commit(_, id) | Selection::Upstream(_, _, id)) => {
+                copy_on::<CopyCommitId>(el, id.0.to_string(), cx)
+            }
+            Some(Selection::Branch(_, Some(ref_name))) => {
+                copy_on::<CopyBranchName>(el, short_ref(ref_name).into_owned(), cx)
+            }
+            Some(Selection::Project(project)) => {
+                let error =
+                    (store.project(project)).and_then(|p| Some(p.error.clone()?.to_string()));
+                el.when_some(store.path(project), |el, dir| {
+                    copy_on::<CopyPath>(el, path(&dir), cx)
+                })
+                .when_some(error, |el, error| {
+                    copy_on::<CopyErrorMessage>(el, error, cx)
+                })
+            }
+            Some(Selection::Worktree(project, name)) => {
+                let worktree =
+                    (store.workspace(project)).and_then(|ws| ws.find_worktree(name.as_ref()));
+                el.when_some(worktree, |el, worktree| {
+                    copy_on::<CopyPath>(el, path(&worktree.path), cx)
+                })
+            }
+            Some(Selection::Mesh(project, id, MeshPick::Checkout)) => el
+                .when_some(store.mesh_checkout(project, id), |el, checkout| {
+                    copy_on::<CopyPath>(el, checkout.path.clone(), cx)
+                }),
+            _ => el,
+        }
+    }
+
     fn open_pull_request(
         &mut self,
         _: &OpenPullRequest,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let url = self.selection(cx).and_then(|selection| {
-            let branch = self.store.read(cx).branch_for(&selection)?;
-            branch.review.as_ref()?.url.clone()
-        });
+        let url = self.pull_request_url(cx);
         let create = crate::pr::CreatePullRequest;
         match url {
             Some(url) => cx.open_url(&url),
@@ -1044,6 +1274,7 @@ impl AppView {
                 })
             }
             Selection::Upstream(_, _, id) => Some(id.0.to_string()),
+            Selection::Terminal(..) => None,
             Selection::Branch(_, ref_name) => {
                 ref_name.map(|ref_name| short_ref(&ref_name).into_owned())
             }
@@ -1438,6 +1669,15 @@ impl AppView {
                         ),
                 )
             })
+            .children(self.shown_terminal(cx).map(|terminal| {
+                div()
+                    .absolute()
+                    .top(dp(HEADER_HEIGHT))
+                    .bottom_0()
+                    .left_0()
+                    .right_0()
+                    .child(terminal.cached(StyleRefinement::default().size_full()))
+            }))
             .when(navigator_sliding, |el| {
                 el.child(edge(theme.border_3).left(fixed(-1.)))
             })
@@ -1576,6 +1816,13 @@ impl Render for AppView {
         // Every `dp` size is in rems, so this scales the whole window.
         window.set_rem_size(Theme::get(cx).scaled(crate::ui::BASE_REM));
         crate::ui::Covered::note(self.covered(), window, cx);
+        // After this frame, whose actions are the selection's now.
+        if self.pending_menu.is_some() {
+            let this = cx.entity().downgrade();
+            window.on_next_frame(move |window, cx| {
+                (this.update(cx, |this, cx| this.open_pending_menu(window, cx))).ok();
+            });
+        }
         let theme = Theme::get(cx).clone();
         let ligatures = self.store.read(cx).prefs.ligatures;
         let show_fps = self.store.read(cx).prefs.show_fps;
@@ -1652,11 +1899,15 @@ impl Render for AppView {
             .on_action(cx.listener(Self::clone_repository))
             // Here rather than around the navigator, so the details pane's buttons reach them.
             .map(|el| self.pr_actions(el, cx))
+            .map(|el| self.copy_actions(el, cx))
+            .map(|el| self.navigator_actions(el, cx))
+            .map(|el| self.project_list_actions(el, cx))
             .map(|el| self.resolve_actions(el, cx))
             .on_action(cx.listener(Self::go_to))
-            .on_action(cx.listener(Self::show_actions))
+            .on_action(cx.listener(Self::show_context_menu))
             .on_action(cx.listener(Self::copy_more))
             .on_action(cx.listener(Self::open_selected_in_terminal))
+            .on_action(cx.listener(Self::new_terminal))
             // The selection doesn't decide: an operation that finished in another project is
             // still the last thing done.
             .on_action(cx.listener(|this, _: &Undo, _, cx| this.store.update(cx, Store::undo_last)))
@@ -1911,8 +2162,15 @@ fn place_traffic_lights(away: bool, window: &Window, cx: &App) {
 /// The theme the appearance setting and the system call for.
 fn theme_for(store: &Store, window: &Window) -> Theme {
     let prefs = &store.prefs;
-    Theme::for_appearance(prefs.appearance, window.appearance(), prefs.code_size)
+    let (scheme, system) = (&prefs.color_scheme, window.appearance());
+    let ghostty = but_tty::Ghostty::load();
+    let digit = |family: &str| crate::ui::digit_advance(family, window.text_system());
+    let installed = |family: &str| digit(family).is_some();
+    Theme::new(prefs.appearance, scheme, system, prefs.code_size, &ghostty)
         .with_scale(prefs.ui_scale)
+        .with_diff_font(prefs.diff_font.as_deref(), digit)
+        .with_ligatures(prefs.ligatures)
+        .with_terminal_font(prefs.terminal_font.as_deref(), &ghostty, installed)
 }
 
 /// What the snackbar says after copying `text`: the text itself when it's short.

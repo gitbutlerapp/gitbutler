@@ -8,7 +8,7 @@ use gpui::{App, Context, Entity, Modifiers, Pixels, Point, SharedString, WeakEnt
 use super::Detail;
 use crate::backend::{FileDiff, Hunk, HunkKey, LineKind, Selected};
 use crate::state::Cut;
-use crate::transfer::DragPreview;
+use crate::transfer::{Chip, DragPreview};
 
 /// Lines picked in one file of the diff.
 pub(super) struct LinePicks {
@@ -146,16 +146,16 @@ impl Detail {
         self.clear_line_picks(cx);
     }
 
-    /// The preview of a drag of `label` from the diff or its files, which lets the picked
+    /// The preview of a drag of `chip` from the diff or its files, which lets the picked
     /// lines go as it starts unless it `carries_picks`: dragging anything else passes them
     /// over.
     pub(super) fn drag_preview(
         &self,
-        label: SharedString,
+        chip: impl Into<Chip>,
         carries_picks: bool,
         detail: WeakEntity<Detail>,
     ) -> impl Fn(&Cut, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static {
-        let preview = crate::transfer::drag_preview(self.store.clone(), label);
+        let preview = crate::transfer::drag_preview(self.store.clone(), chip);
         move |payload, offset, window, cx| {
             // Nor does it pick the lines whose numbers it passes over, nor keep the grip it
             // started from, which hears nothing more while dragging.

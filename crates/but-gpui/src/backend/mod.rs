@@ -440,7 +440,7 @@ fn target(
 ) -> Result<(Option<Target>, Option<String>)> {
     // What's new is what the target branch's upstream has that what's checked out doesn't:
     // what a pull brings in. Without an upstream, it's what the local target branch itself
-    // gained, as from a land or a `git merge` into it.
+    // gained, as from merging a branch or a `git merge` into it.
     let repo = ctx.repo.get()?;
     let Some((meta, source)) = meta.and_then(|meta| Some((meta, target_source(&repo, meta)?)))
     else {

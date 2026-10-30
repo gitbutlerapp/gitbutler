@@ -1172,15 +1172,29 @@ impl Detail {
                 let whole = self.whole_button(ix, file, file_diff, on, entity.clone());
                 let drawn = self.drawing_button(ix, file, file_diff, on, entity.clone());
                 let toggle = entity.clone();
-                // What right-clicking the header offers, behind a ⋯ as well.
+                // What right-clicking the header offers, behind a ⋯ as well, for the file alone,
+                // which the cursor goes to and the diff takes the keys for, as the commands act
+                // there.
                 let cut = self.diff_cut(file, None, cx);
-                let open = menu(cut, file_diff, None, entity.clone());
+                let open = {
+                    let (open, entity) =
+                        (menu(cut, file_diff, None, entity.clone()), entity.clone());
+                    move |position: Point<Pixels>, window: &mut Window, cx: &mut App| {
+                        (entity.update(cx, |detail, cx| {
+                            detail.right_click_on(Cursor::on_file(file), cx);
+                            window.focus(&detail.focus, cx);
+                        }))
+                        .ok();
+                        open(position, cx)
+                    }
+                };
+                let open = std::rc::Rc::new(open);
                 let more = icon_button(("file-more", ix), Icon::Kebab)
                     .small()
                     .inverted(on)
                     .on_click({
                         let open = open.clone();
-                        move |event, _, cx| open(event.position(), cx)
+                        move |event, window, cx| open(event.position(), window, cx)
                     });
                 // Of commits shown one after another, which one it's from.
                 let from = (file_diff.commit).and_then(|id| {
@@ -1228,8 +1242,8 @@ impl Detail {
                     .id(("file-header", ix))
                     .child(header)
                     .on_mouse_down(MouseButton::Left, press_off(entity, None))
-                    .on_mouse_down(MouseButton::Right, move |event, _, cx| {
-                        open(event.position, cx)
+                    .on_mouse_down(MouseButton::Right, move |event, window, cx| {
+                        open(event.position, window, cx)
                     })
                     .on_click(move |_, _, cx| {
                         toggle
@@ -1295,11 +1309,7 @@ impl Detail {
                         let cut = self.diff_cut(file, None, cx);
                         let open = menu(cut, file_diff, None, entity.clone());
                         move |event, _, cx| {
-                            (entity.update(cx, |detail, cx| {
-                                detail.cursor = at;
-                                cx.notify();
-                            }))
-                            .ok();
+                            (entity.update(cx, |detail, cx| detail.right_click_on(at, cx))).ok();
                             open(event.position, cx)
                         }
                     })
@@ -1911,11 +1921,16 @@ impl Detail {
             let blamed = added.map(Blamed::Line).or(key.map(Blamed::Hunk));
             let at = At::File(file_diff.file.path.clone(), line);
             self.clear_text_selection(cx);
-            // So the hunk shows marked as what the menu acts on.
-            self.cursor = Cursor {
+            // So the hunk shows marked as what the menu acts on, without picks elsewhere,
+            // which its commands would act on instead.
+            let cursor = Cursor {
                 file,
                 at: hunk.map_or(Stop::File, Stop::Hunk),
             };
+            match picked {
+                true => self.cursor = cursor,
+                false => self.right_click_on(cursor, cx),
+            }
             self.changes_menu(menu, at, blamed, position, cx);
             return;
         };

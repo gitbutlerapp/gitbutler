@@ -11,7 +11,10 @@ mod file_list;
 mod file_tree;
 mod find;
 mod graph;
+pub use branches::{ApplyBranch, EditDescription, NewWorktreeFromBranch, ShowOnlyLocalBranches};
+pub use file_list::{DiscardFromCommit, MarkResolved, SplitIntoNewCommit, UncommitChanges};
 pub use find::FindInDiff;
+pub use history::RestoreOperation;
 mod history;
 mod lines;
 mod machine;
@@ -35,12 +38,12 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, ListAlignment,
+    AnyElement, App, Bounds, Context, Entity, EventEmitter, FocusHandle, Focusable, ListAlignment,
     ListOffset, ListState, Pixels, Point, RenderImage, ScrollHandle, SharedString, Subscription,
     Task, Window, actions, div, prelude::*,
 };
 
-use crate::app::{AddProject, AppHandle};
+use crate::app::{AddProject, AppHandle, CopyAbsolutePath, CopyRelativePath};
 use crate::backend::edit::Editing;
 use crate::backend::{
     self, Checkout, CommitId, DiffLine, DiffSource, FileChange, FileDiff, FullName, HunkKey,
@@ -257,6 +260,9 @@ const SHOW_LOADING: Duration = Duration::from_millis(150);
 /// How tall the uncommitted changes' commit footer is, and the composer's row of buttons.
 pub const FOOTER_HEIGHT: f32 = 33.;
 
+/// How wide Commit… and the composer's Commit are at least, so the one covers the other.
+const COMMIT_BUTTON_WIDTH: f32 = 72.;
+
 struct LoadedDiff {
     key: DiffKey,
     /// In the file list's order: as picked, and in a tree, folder by folder.
@@ -325,6 +331,9 @@ pub struct Detail {
     /// The cursor's file the file list last scrolled to show, so it follows the cursor's
     /// moves but not its own scrolling.
     listed_cursor: std::cell::RefCell<Option<String>>,
+    /// The file list's row holding the cursor's file as last drawn, and the list: where ⇧F10
+    /// opens its menu.
+    listed_cursor_row: std::cell::RefCell<Option<(ListState, usize)>>,
     message: Entity<TextInput>,
     /// The branch (full ref) new commits go to; `None` creates a branch.
     commit_target: Option<FullName>,
@@ -374,8 +383,6 @@ pub struct Detail {
     checks_worktree: Checkout,
     /// The commit message box is open; until then there are no checkboxes.
     composing: bool,
-    /// The checkout had changes when the composer opened, so it isn't for an empty commit.
-    composing_on_changes: bool,
     /// The branch the composer showed the commit going to, which mustn't change unseen.
     composing_target: Option<FullName>,
     /// Where the focus was when writing a commit message started, to go back to after.
@@ -399,7 +406,7 @@ pub struct Detail {
     /// file being read into the commit an agent made of it.
     pending_file: Option<String>,
     /// The page a click on a commit of a branch that left a checkout picked, and that commit,
-    /// whose landing or branch it opens once it has read its list.
+    /// whose merge or branch it opens once it has read its list.
     opening: Option<(Selection, crate::state::SeenCommit)>,
     /// Whether the pull request's checks that passed are listed, not just counted.
     passed_checks_open: bool,
@@ -607,8 +614,8 @@ impl Detail {
                         this.skip_taken(cx);
                     }
                 }
-                // The app view asks for it.
-                StoreEvent::AuthorMissing(_) => {}
+                // The app view asks for it, and gives a terminal opened the keys.
+                StoreEvent::AuthorMissing(_) | StoreEvent::TerminalOpened => {}
             }),
             cx.subscribe_in(
                 &file_filter,
@@ -630,7 +637,9 @@ impl Detail {
                             }
                         }
                     }
-                    InputEvent::Submit => window.focus(&this.focus, cx),
+                    // On to the list as filtered, to step through it, as a side list's filter
+                    // goes on to its list. The field heads the list, so the list is drawn.
+                    InputEvent::Submit => window.focus(&this.files_focus, cx),
                     InputEvent::Cancel => this.close_filter(window, cx),
                 },
             ),
@@ -721,6 +730,7 @@ impl Detail {
             uncommitted_files: panes::side_list_state(),
             diff_files: panes::side_list_state(),
             listed_cursor: Default::default(),
+            listed_cursor_row: Default::default(),
             message,
             commit_target: None,
             checks: Default::default(),
@@ -743,7 +753,6 @@ impl Detail {
             checks_project: None,
             checks_worktree: Checkout::Main,
             composing: false,
-            composing_on_changes: false,
             composing_target: None,
             composer_back: None,
             message_scroll,
@@ -822,6 +831,34 @@ impl Detail {
         self.selection(cx).map(|s| s.project().clone())
     }
 
+    /// Register `A` on `el` as copying `text`, as the app copies it.
+    fn copy_on<A: gpui::Action>(
+        el: gpui::Stateful<gpui::Div>,
+        text: String,
+        cx: &Context<Self>,
+    ) -> gpui::Stateful<gpui::Div> {
+        el.on_action(cx.listener(move |this, _: &A, window, cx| {
+            let text = text.clone();
+            this.app
+                .update_later(window, cx, move |app, _, cx| app.copy_text(text, cx))
+        }))
+    }
+
+    /// The pull request of what a page has picked: the branch opened on the Branches page, or
+    /// the target's merge.
+    pub(crate) fn page_pull_request(&self, cx: &App) -> Option<String> {
+        match self.selection(cx)? {
+            Selection::Branches(project) => self
+                .selected_other_branch(&project)?
+                .review
+                .as_ref()?
+                .url
+                .clone(),
+            Selection::Section(project, Section::Upstream(_)) => self.target_pull_request(&project),
+            _ => None,
+        }
+    }
+
     /// The menu `items` makes from this view, open at `at` once the update running now is over.
     fn open_menu(
         &self,
@@ -890,7 +927,7 @@ impl Detail {
                     behind: target.commits_behind,
                 }
             }
-            Selection::Section(..) => return None,
+            Selection::Section(..) | Selection::Terminal(..) => return None,
             Selection::Branch(project, ref_name) => {
                 let branch = store.workspace(project)?.find_branch(ref_name.as_ref())?;
                 let newest = branch.commits.first()?.id;
@@ -1339,8 +1376,7 @@ impl Detail {
 
     /// What dragging or cutting the uncommitted changes of `project`'s checkout `worktree`
     /// carries: the checked files and hunks when they're shown here, otherwise all of them, but
-    /// not conflicted files, which a commit refuses until they're resolved, nor a repository
-    /// cloned inside, which isn't a submodule yet.
+    /// only what's [`Selected::movable`].
     pub fn files_to_move(
         &self,
         project: &ProjectId,
@@ -1355,9 +1391,7 @@ impl Detail {
                     files.iter().map(Selected::whole).collect()
                 }),
         };
-        (files.into_iter())
-            .filter(|s| !s.file.conflicted && !s.file.nested_repository())
-            .collect()
+        files.into_iter().filter(Selected::movable).collect()
     }
 
     /// Focus the diff.
@@ -1380,7 +1414,7 @@ impl Detail {
         {
             self.scroll_to_file(first, true, cx);
         }
-        // So has what the project's page opens on, what landed lately, and the Branches page's
+        // So has what the project's page opens on, what merged lately, and the Branches page's
         // overview: their lists take them on their first row, as the first step down would.
         if self.showing_shipped(cx) {
             self.step_upstream(1, cx);
@@ -1443,6 +1477,32 @@ impl Detail {
 
     pub fn is_focused(&self, window: &Window, cx: &App) -> bool {
         self.focus.contains_focused(window, cx)
+    }
+
+    /// What right-clicking what has the keys here offers, and where its row is while it shows:
+    /// the file under the cursor in the file list or the diff, else what the Branches,
+    /// Operations history or target's page has selected in its list.
+    pub(crate) fn selected_menu(
+        &mut self,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> Option<(Vec<MenuItem>, Option<Bounds<Pixels>>)> {
+        if let Some(items) = self.focused_file_items(window, cx) {
+            let row = match self.files_focus.is_focused(window) {
+                true => (self.listed_cursor_row.borrow().as_ref())
+                    .and_then(|(list, row)| crate::ui::shown_row(list, *row)),
+                false => (self.cursor_row()).and_then(|row| crate::ui::shown_row(&self.list, row)),
+            };
+            return Some((items, row));
+        }
+        match self.store.read(cx).selection.clone()? {
+            Selection::Branches(project) => self.branches_page_menu(&project, cx),
+            Selection::History(project) => self.operation_page_menu(&project, cx),
+            Selection::Section(project, Section::Upstream(_)) => {
+                self.target_page_menu(&project, cx)
+            }
+            _ => None,
+        }
     }
 
     /// The rows `files` show: files folded by hand show only their header, and uncommitted
@@ -1517,8 +1577,10 @@ impl Detail {
     }
 
     fn open_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        // The project, Branches and History pages filter their lists, as the navigator does.
+        // The project, Branches and History pages filter their lists, as the navigator does,
+        // unless the files beside the list have the keys.
         let page = match self.selection(cx) {
+            _ if self.files_focused(window) => None,
             Some(Selection::Branches(_)) => Some(self.branch_filter.clone()),
             Some(Selection::History(_)) => Some(self.history_filter.clone()),
             Some(Selection::Project(_)) => Some(self.target_filter.clone()),
@@ -1528,9 +1590,14 @@ impl Detail {
             input.update(cx, |input, cx| input.select_all_text(cx));
             return window.focus(&input.focus_handle(cx), cx);
         }
+        self.open_file_filter(window, cx)
+    }
+
+    /// Open the field heading the file list, beside the diff or beside a list page's list.
+    fn open_file_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.filtering = true;
         // Its field heads the file list, so a hidden list comes back with it.
-        self.hide_files(false, false, cx);
+        self.hide_files(self.list_page(cx), false, cx);
         self.file_filter
             .update(cx, |input, cx| input.select_all_text(cx));
         window.focus(&self.file_filter.focus_handle(cx), cx);
@@ -1548,9 +1615,17 @@ impl Detail {
 
     fn close_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.filtering = false;
+        // The keys the field had go to the list it heads, or to the diff when that's going too.
+        // Elsewhere they stay where they are.
+        if self.file_filter.focus_handle(cx).is_focused(window) {
+            let to = match self.files_shown(cx) {
+                true => &self.files_focus,
+                false => &self.focus,
+            };
+            window.focus(to, cx);
+        }
         self.file_filter
             .update(cx, |input, cx| input.set_text("", cx));
-        window.focus(&self.focus, cx);
         self.rebuild_rows(cx);
     }
 
@@ -2555,7 +2630,11 @@ impl Detail {
     pub fn overview_only(&self, cx: &App) -> bool {
         matches!(
             self.selection(cx),
-            Some(Selection::Graph(_) | Selection::Section(_, Section::Inactive | Section::Mesh))
+            Some(
+                Selection::Graph(_)
+                    | Selection::Section(_, Section::Inactive | Section::Mesh)
+                    | Selection::Terminal(..)
+            )
         )
     }
 
@@ -2657,9 +2736,8 @@ impl Render for Detail {
                     }
                     // No column: the overview takes the page.
                     Selection::Graph(_)
-                    | Selection::Section(_, Section::Inactive | Section::Mesh) => {
-                        div().into_any_element()
-                    }
+                    | Selection::Section(_, Section::Inactive | Section::Mesh)
+                    | Selection::Terminal(..) => div().into_any_element(),
                     Selection::Mesh(project, id, pick) => {
                         self.render_mesh_side(project, id, pick, &theme, cx)
                     }
@@ -2859,6 +2937,21 @@ impl Render for Detail {
         v_flex()
             .id("detail")
             .key_context(context)
+            .map(|el| self.branches_page_actions(el, cx))
+            .map(|el| self.history_actions(el, cx))
+            .map(|el| self.upstream_page_actions(el, cx))
+            .map(|el| self.change_actions(el, cx))
+            // The file under the cursor, while the file list or the diff has the keys.
+            .when_some(
+                self.focused_file_paths(window, cx),
+                |el, (relative, absolute)| {
+                    let revealed = std::path::PathBuf::from(&absolute);
+                    let el = Self::copy_on::<CopyRelativePath>(el, relative, cx);
+                    Self::copy_on::<CopyAbsolutePath>(el, absolute, cx).on_action(cx.listener(
+                        move |_, _: &crate::navigator::Reveal, _, cx| cx.reveal_path(&revealed),
+                    ))
+                },
+            )
             .when(context != "Diff", |el| resolve::conflict_keys(el, cx))
             .track_focus(&self.focus)
             .on_action(cx.listener(|this, _: &NextFile, window, cx| {

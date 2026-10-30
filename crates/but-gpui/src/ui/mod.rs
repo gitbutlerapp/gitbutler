@@ -212,6 +212,7 @@ icons! {
     Settings => "settings",
     Sidebar => "sidebar",
     SidebarNarrow => "sidebar-narrow",
+    Spinner => "spinner",
     Stack => "stack",
     Tag => "tag",
     TextBlock => "text-block",
@@ -224,6 +225,9 @@ icons! {
     own: FolderFill => "folder-fill",
     // ui-svelte's keyboard, which ui-react doesn't have.
     Keyboard => "keyboard",
+    // ui-svelte's push and its stack of two, which ui-react doesn't have.
+    Push => "push",
+    PushAll => "push-all",
     // ui-react's sidebar, mirrored, for the detail on the window's right.
     SidebarRight => "sidebar-right",
     // ui-react's eye, struck through, for a project not watched.
@@ -245,21 +249,31 @@ icons! {
 }
 
 /// GitButler's fonts, compiled into the binary so the client looks the same everywhere.
-/// Embedded fonts are as fast as system ones; a user-installed variable font isn't, as
-/// CoreText asks the font daemon about it for every line it lays out.
 pub fn fonts() -> Vec<Cow<'static, [u8]>> {
     macro_rules! fonts {
         ($($name:literal),* $(,)?) => {
-            vec![$(Cow::Borrowed(include_bytes!(concat!("../../assets/fonts/", $name, ".ttf")).as_slice()),)*]
+            vec![$(Cow::Borrowed(include_bytes!(concat!("../../assets/fonts/", $name)).as_slice()),)*]
         };
     }
     fonts!(
-        "Inter-Regular",
-        "Inter-Medium",
-        "Inter-SemiBold",
-        "GeistMono-Regular",
-        "GeistMono-SemiBold",
+        "Inter-Regular.ttf",
+        "Inter-Medium.ttf",
+        "Inter-SemiBold.ttf",
+        "GeistMono-Regular.ttf",
+        "GeistMono-SemiBold.ttf",
+        "GeistMonoNerdFontMono-Regular.otf",
+        "GeistMonoNerdFontMono-SemiBold.otf",
     )
+}
+
+/// How wide a digit of `family` is in ems, or `None` when the machine hasn't got it, as GPUI
+/// would quietly draw it in its own fallback.
+pub fn digit_advance(family: &str, text_system: &gpui::TextSystem) -> Option<f32> {
+    let id = text_system.resolve_font(&gpui::font(family.to_owned()));
+    (text_system.get_font_for_id(id)?.family == family).then_some(())?;
+    let size = fixed(100.);
+    let advance = text_system.advance(id, size, '0').ok()?;
+    Some(advance.width / size)
 }
 
 /// Match each of `fonts`' faces against the installed fonts in the background, as Zed does.
@@ -545,6 +559,13 @@ pub fn quiet(el: Div, on: bool, theme: &Theme) -> Div {
         .when(on, |el| el.text_color(theme.muted_on_solid()))
 }
 
+/// Where row `ix` of `list` was last drawn, while some of it shows: where ⇧F10 opens the menu
+/// of the row selected.
+pub fn shown_row(list: &gpui::ListState, ix: usize) -> Option<gpui::Bounds<Pixels>> {
+    let (row, view) = (list.bounds_for_item(ix)?, list.viewport_bounds());
+    (row.bottom() > view.top() && row.top() < view.bottom()).then_some(row)
+}
+
 /// A row of a list or menu, shaded when `selected` and otherwise under the pointer.
 pub fn list_row(id: impl Into<ElementId>, selected: bool, theme: &Theme) -> Stateful<Div> {
     h_flex()
@@ -756,9 +777,9 @@ pub fn checkbox(id: impl Into<ElementId>, check: Toggled, theme: &Theme) -> Stat
             Toggled::True => el.child(
                 small_icon(Icon::Tick)
                     .size(dp(10.))
-                    .text_color(gpui::white()),
+                    .text_color(theme.on_pop),
             ),
-            Toggled::Mixed => el.child(div().w(dp(8.)).h(dp(2.)).rounded(dp(1.)).bg(gpui::white())),
+            Toggled::Mixed => el.child(div().w(dp(8.)).h(dp(2.)).rounded(dp(1.)).bg(theme.on_pop)),
             Toggled::False => el,
         })
 }
@@ -843,6 +864,8 @@ pub struct Button {
     /// Why it can't be pressed now, shown in place of its tooltip.
     disabled: Option<SharedString>,
     small: bool,
+    /// At least this wide, its label centred.
+    min_width: Option<Rems>,
     /// On an inverted ground, like a selected row.
     inverted: bool,
     /// The colour of the ground it sits on, as a banner's action takes its banner's.
@@ -872,6 +895,7 @@ pub fn button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Butto
         style: ButtonStyle::Outline,
         disabled: None,
         small: false,
+        min_width: None,
         inverted: false,
         tint: None,
         on_click: None,
@@ -920,6 +944,12 @@ impl Button {
 
     pub fn small(mut self) -> Self {
         self.small = true;
+        self
+    }
+
+    /// At least `width` wide, so buttons that stand in for each other cover the same place.
+    pub fn min_width(mut self, width: Rems) -> Self {
+        self.min_width = Some(width);
         self
     }
 
@@ -990,7 +1020,7 @@ impl RenderOnce for Button {
                 theme.fill_gray.opacity(0.16),
             ),
             ButtonStyle::Pop => (
-                gpui::white(),
+                theme.on_pop,
                 Some(theme.pop_button),
                 None,
                 theme.pop_button.opacity(0.9),
@@ -1028,6 +1058,7 @@ impl RenderOnce for Button {
             .gap(dp(if self.small { 4. } else { 6. }))
             .when(has_label, |el| el.px(dp(if self.small { 6. } else { 10. })))
             .when(!has_label, |el| el.w(width).justify_center())
+            .when_some(self.min_width, |el, width| el.min_w(width).justify_center())
             .text_size(dp(if self.small { 12. } else { 13. }))
             .font_weight(gpui::FontWeight::SEMIBOLD)
             .whitespace_nowrap()
@@ -1214,12 +1245,22 @@ pub fn bindings_of(action: &dyn gpui::Action, cx: &App) -> Vec<(SharedString, Op
 }
 
 /// The keys that run `action` where the keys go now, unless the same keys do something else
-/// there, as [`shortcut`] writes them.
+/// there, as [`shortcut`] writes them. Keys bound to several actions there run the first one
+/// handled, so one with no handler here doesn't take them: r is Reword's on a commit and Rename
+/// branch's on a branch.
 pub fn shortcut_here(action: &dyn gpui::Action, window: &Window, cx: &App) -> Option<SharedString> {
-    let focused = window.focused(cx)?;
-    Some(keys_of(&window.highest_precedence_binding_for_action_in(
-        action, &focused,
-    )?))
+    window.focused(cx)?;
+    let context = window.context_stack();
+    let keymap = cx.key_bindings();
+    let keymap = keymap.borrow();
+    let runs = |binding: &gpui::KeyBinding| {
+        let (bound, _) = keymap.bindings_for_input(binding.keystrokes(), &context);
+        (bound.iter())
+            .find(|b| b.action().partial_eq(action) || window.is_action_available(b.action(), cx))
+            .is_some_and(|b| b.action().partial_eq(action))
+    };
+    let binding = keymap.bindings_for_action(action).rev().find(|b| runs(b))?;
+    Some(keys_of(binding))
 }
 
 fn keys_of(binding: &gpui::KeyBinding) -> SharedString {
@@ -1394,6 +1435,16 @@ pub fn pulsing<E: IntoElement + Styled + 'static>(el: E) -> impl IntoElement {
             .repeat()
             .with_easing(gpui::pulsating_between(0.35, 1.)),
         |el, delta| el.opacity(delta),
+    )
+}
+
+/// `el` turning, as ui-react's spinning icons do, while what it stands for is under way.
+pub fn spinning(el: Svg) -> impl IntoElement {
+    use gpui::{Animation, AnimationExt as _, Transformation, percentage};
+    el.with_animation(
+        "spinning",
+        Animation::new(std::time::Duration::from_millis(800)).repeat(),
+        |el, delta| el.with_transformation(Transformation::rotate(percentage(delta))),
     )
 }
 

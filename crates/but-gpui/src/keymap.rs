@@ -24,9 +24,10 @@ pub enum Keymap {
     /// GitButler's own, after macOS's and vim's.
     #[default]
     GitButler,
-    /// Like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming and
-    /// adding an empty commit, Return to fold and unfold, f and ⇧F to show and hide the files
-    /// and the navigator, and ⌘R and ⇧⌘R to fetch and pull.
+    /// Like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming,
+    /// moving commits and adding an empty commit, Return to fold and unfold, f and ⇧F to show and
+    /// hide the files and the navigator, / to filter or find, ⌘K for the command palette, and ⌘R
+    /// and ⇧⌘R to fetch and pull.
     Tui,
 }
 
@@ -187,9 +188,12 @@ mod tests {
                     for keystroke in entry.keys.split_whitespace() {
                         Keystroke::parse(keystroke).expect(&at);
                     }
+                    // A key bound to several actions in one place runs the first of them that's
+                    // handled, as r rewords a commit and renames a branch; bound to the same one
+                    // twice, the first is never shown.
                     assert!(
-                        keys.insert((entry.context, entry.keys)),
-                        "{at}: bound twice, so the first does nothing"
+                        keys.insert((entry.context, entry.keys, name.to_owned())),
+                        "{at}: bound twice to {name:?}"
                     );
                 }
             }
@@ -280,8 +284,8 @@ mod tests {
                     ("app::CommandPalette", "secondary-k"),
                     ("app::ToggleNavigator", "secondary-b"),
                     ("palette::GoTo", "secondary-p"),
-                    ("palette::ShowActions", "m"),
-                    ("navigator::RenameSelection", "r"),
+                    ("edits::Reword", "r"),
+                    ("edits::RenameBranch", "r"),
                     ("navigator::CopySelection", "secondary-c"),
                     ("palette::CopyMore", "secondary-shift-c"),
                     ("diff::NextHunk", "down"),
@@ -290,7 +294,7 @@ mod tests {
                 // The TUI's letters, which come after the arrows.
                 Keymap::Tui => &[
                     ("app::CommandPalette", ":"),
-                    ("palette::GoTo", "/"),
+                    ("palette::GoTo", "t"),
                     ("navigator::SelectNext", "j"),
                     ("navigator::SelectPrevious", "k"),
                     ("diff::NextHunk", "j"),

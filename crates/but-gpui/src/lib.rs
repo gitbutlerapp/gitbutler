@@ -22,6 +22,7 @@
 mod app;
 #[expect(clippy::disallowed_methods, reason = "its work runs off the UI thread")]
 mod backend;
+mod commands;
 mod detail;
 #[cfg(feature = "dev-script")]
 #[expect(
@@ -43,6 +44,7 @@ mod rebuild;
 mod settings;
 mod state;
 mod status_bar;
+mod terminal;
 mod theme;
 mod transfer;
 mod ui;
@@ -204,6 +206,10 @@ pub fn run(embedded: Option<Embedded>) {
     #[cfg(target_os = "macos")]
     draw_text_unsmoothed();
 
+    // Before anything starts a process that would inherit their masters.
+    #[cfg(unix)]
+    let handed = but_tty::handed();
+
     gpui_platform::application()
         .with_assets(ui::Assets)
         .with_quit_mode(QuitMode::LastWindowClosed)
@@ -250,12 +256,12 @@ pub fn run(embedded: Option<Embedded>) {
             let set_menus = move |cx: &mut App| {
                 let mut app_menu = vec![MenuItem::action("About GitButler", help::About)];
                 if has_update_feed {
-                    app_menu.push(MenuItem::action("Check for Updates…", app::CheckForUpdates));
+                    app_menu.push(MenuItem::action("Check for Updates", app::CheckForUpdates));
                 }
                 cx.set_menus([
                     Menu::new("GitButler").items(app_menu.into_iter().chain([
                         MenuItem::separator(),
-                        MenuItem::action("Settings…", settings::OpenSettings),
+                        MenuItem::action("Settings", settings::OpenSettings),
                         MenuItem::separator(),
                         MenuItem::os_submenu("Services", SystemMenuType::Services),
                         MenuItem::separator(),
@@ -266,8 +272,9 @@ pub fn run(embedded: Option<Embedded>) {
                         MenuItem::action("Quit GitButler", app::Quit),
                     ])),
                     Menu::new("File").items([
-                        MenuItem::action("Add Project…", app::AddProject),
-                        MenuItem::action("Clone Repository…", projects::CloneRepository),
+                        MenuItem::action("Add Project", app::AddProject),
+                        MenuItem::action("Clone Repository", projects::CloneRepository),
+                        MenuItem::action("New Terminal", terminal::NewTerminal),
                         MenuItem::separator(),
                         MenuItem::action("Close Window", app::CloseWindow),
                     ]),
@@ -285,7 +292,7 @@ pub fn run(embedded: Option<Embedded>) {
                         MenuItem::action("What's New", help::OpenReleaseNotes),
                         MenuItem::action("Keyboard Shortcuts", settings::OpenKeyboardShortcuts),
                         MenuItem::separator(),
-                        MenuItem::action("Report an Issue…", help::ReportIssue),
+                        MenuItem::action("Report an Issue", help::ReportIssue),
                         MenuItem::action("Show Settings Folder", help::ShowConfigFolder),
                         MenuItem::action("Show Logs Folder", help::ShowLogsFolder),
                     ]),
@@ -300,6 +307,8 @@ pub fn run(embedded: Option<Embedded>) {
             }
             // Before the window, which opens where the saved state says.
             let store = cx.new(state::Store::new);
+            #[cfg(unix)]
+            store.update(cx, |store, cx| store.adopt_terminals(handed, cx));
             keymap::bind(&store, set_menus, cx);
             let default_size = size(fixed(1360.), fixed(860.));
             let (display_id, bounds) = match store.read(cx).window_place(cx) {

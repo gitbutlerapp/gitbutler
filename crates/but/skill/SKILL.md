@@ -183,6 +183,8 @@ If you do create a PR for a stacked branch, use `but pr` — not `gh pr create` 
 
 When `but pr new` prints a `<pr-created>` line, copy that line into the text of your reply. It tells the app running you that this session opened the PR.
 
+If you run in the Claude desktop app, end the `but pr new` line with the shell comment `# gh pr create`, for example `but pr new <branch-name> -F - <<'EOF' # gh pr create`. While `gitbutler/workspace` is checked out, the app counts a PR as opened by this session only when the command text contains `gh pr create`.
+
 ### Dependency conflict with another branch
 
 Changes that build on another branch's commits cannot land on an independent branch. `but commit` and `but amend` fail atomically ("Cannot commit: N changes could not be applied"), naming the branch and commit each rejected change depends on — nothing is committed and no `-b` branch is created.

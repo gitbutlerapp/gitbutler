@@ -666,7 +666,7 @@ impl Store {
                             cx,
                         )
                     }
-                    UpdateOutcome::Updated { conflicted, landed } => {
+                    UpdateOutcome::Updated { conflicted, merged } => {
                         // Its "Resolve the oldest…" bar is the next step, which a linked
                         // worktree's branch doesn't have, as its conflicts resolve in it.
                         let resolvable = (conflicted.iter())
@@ -676,7 +676,7 @@ impl Store {
                         if let Some(branch) = resolvable {
                             store.select(Some(branch), cx);
                         }
-                        store.snack_undoable(updated_message(&target, &conflicted, &landed), cx)
+                        store.snack_undoable(updated_message(&target, &conflicted, &merged), cx)
                     }
                 }
             },
@@ -750,11 +750,7 @@ impl Store {
         let name = short_ref(&ref_name).into_owned();
         // The branches below it with commits to send go along, down the lanes it rests on,
         // which the snackbar says.
-        let below = self.workspace(project).map_or(0, |ws| {
-            (ws.pushed_with(&ref_name).skip(1))
-                .filter(|b| b.ref_name.is_some() && b.can_push())
-                .count()
-        });
+        let below = (self.workspace(project)).map_or(0, |ws| ws.parents_to_push(&ref_name).count());
         let all = match below {
             0 => name.clone(),
             1 => format!("{name} and the branch below it"),
@@ -987,11 +983,13 @@ impl Store {
         );
     }
 
-    /// Move commits `ids` into a new branch of their own, and select that branch.
+    /// Move commits `ids` into a new branch of their own, in a stack of its own or `beside` a
+    /// branch in its stack, as [`backend::MoveToNewBranch`] says, and select that branch.
     pub fn move_to_new_branch(
         &mut self,
         project: &ProjectId,
         ids: Arc<[CommitId]>,
+        beside: Option<(FullName, bool)>,
         cx: &mut Context<Self>,
     ) {
         let shown = project.clone();
@@ -1000,7 +998,10 @@ impl Store {
             project,
             "Move to a new branch",
             Overlay::commits(keys.collect::<Vec<_>>()),
-            backend::MoveToNewBranch { commits: ids },
+            backend::MoveToNewBranch {
+                commits: ids,
+                beside,
+            },
             move |store, (_, branch), cx| {
                 store.select(Some(Selection::Branch(shown, Some(branch))), cx);
                 store.snack_undoable("Moved to a new branch", cx)
@@ -1697,9 +1698,16 @@ impl Store {
             .unwrap_or_else(|| self.name_of(project, branch))
     }
 
-    /// Whether a pending operation pushes `ref_name`, on its own or to open its pull request.
+    /// Whether a pending operation sends `ref_name`: pushing it, on its own or to open its pull
+    /// request, or a branch above that takes it along.
     pub fn pushing(&self, project: &ProjectId, ref_name: &FullName) -> bool {
-        (self.running_in(project)).any(|r| matches!(&r.kind, OpKind::Push(to) if to == ref_name))
+        let sends = |to: &FullName| {
+            to == ref_name
+                || (self.workspace(project)).is_some_and(|ws| {
+                    (ws.parents_to_push(to)).any(|b| b.ref_name.as_ref() == Some(ref_name))
+                })
+        };
+        (self.running_in(project)).any(|r| matches!(&r.kind, OpKind::Push(to) if sends(to)))
     }
 
     /// Whether a pending operation opens `ref_name`'s pull request.
@@ -1811,20 +1819,20 @@ pub fn up_to_date(scope: UpdateScope, target: &str) -> String {
 }
 
 /// What an update from `target` did: the branches (full refs) it left `conflicted`, and
-/// the ones that `landed` and went. Several landed branches are counted, not named, to
+/// the ones that `merged` and went. Several merged branches are counted, not named, to
 /// keep the snackbar to one line.
 fn updated_message(
     target: &str,
     conflicted: &[(Option<FullName>, usize)],
-    landed: &[FullName],
+    merged: &[FullName],
 ) -> String {
     let mut said = vec![format!("Updated from {target}")];
     said.extend(conflicted_parts(conflicted));
-    match landed {
+    match merged {
         [] => {}
-        [only] => said.push(format!("{} landed and was removed", short_ref(only))),
+        [only] => said.push(format!("{} was merged and removed", short_ref(only))),
         several => said.push(format!(
-            "{} branches landed and were removed",
+            "{} branches were merged and removed",
             several.len()
         )),
     }
@@ -1929,7 +1937,7 @@ mod tests {
     }
 
     #[test]
-    fn an_update_says_what_conflicted_and_what_landed() {
+    fn an_update_says_what_conflicted_and_what_merged() {
         assert_eq!(
             updated_message(
                 "origin/main",
@@ -1937,7 +1945,7 @@ mod tests {
                 &[full("refs/heads/feature-b")]
             ),
             "Updated from origin/main, feature-a has 2 conflicted commits, \
-             feature-b landed and was removed",
+             feature-b was merged and removed",
             "each branch by its short name"
         );
         assert_eq!(
@@ -1955,7 +1963,7 @@ mod tests {
                     full("refs/heads/c")
                 ]
             ),
-            "Updated from origin/main, 3 branches landed and were removed",
+            "Updated from origin/main, 3 branches were merged and removed",
             "several are counted so the snackbar stays one line"
         );
     }

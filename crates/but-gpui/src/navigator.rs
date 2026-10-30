@@ -1,5 +1,5 @@
 //! The left column: every project as a card, each listing its uncommitted changes,
-//! stacks, branches and commits as one tree of rows.
+//! branches and commits as one tree of rows.
 
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
@@ -7,11 +7,12 @@ use std::f32::consts::PI;
 use std::sync::Arc;
 use std::time::Instant;
 
+use but_tty::Status;
 use gpui::{
-    AnyElement, App, ClickEvent, Context, CursorStyle, Div, DragMoveEvent, ElementId, EmptyView,
-    Entity, FocusHandle, Focusable, Hsla, ListAlignment, ListOffset, ListState, MouseButton,
-    MouseDownEvent, Pixels, Point, ScrollWheelEvent, SharedString, Stateful, Subscription, Task,
-    Window, actions, deferred, div, list, prelude::*, relative,
+    AnyElement, App, Bounds, ClickEvent, Context, CursorStyle, Div, DragMoveEvent, ElementId,
+    EmptyView, Entity, FocusHandle, Focusable, Hsla, ListAlignment, ListOffset, ListState,
+    MouseButton, MouseDownEvent, Pixels, Point, ScrollWheelEvent, SharedString, Stateful,
+    Subscription, Task, Window, actions, div, list, prelude::*, relative,
 };
 
 use crate::app::{
@@ -20,32 +21,41 @@ use crate::app::{
 };
 use crate::backend::upstream::UpdateScope;
 use crate::backend::{
-    Branch, Checkout, CommitId, CommitState, FileChange, FullName, PushState, Review, ReviewState,
-    Target,
+    Branch, Checkout, Commit, CommitId, CommitState, FileChange, FullName, PushState, Review,
+    ReviewState, Target,
 };
 use crate::detail::{ChecksChanged, Detail};
 use crate::overlays::MenuItem;
 use crate::state::{
     Cut, Pane, Prefs, ProjectId, Section, Selection, Store, StoreEvent, WatchedOrder,
 };
+use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
 use crate::ui::emoji::{Colour, ProjectIcon};
-use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, reordered};
+use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, on_top, reordered, shifted};
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     BLINK, ButtonStyle, HEADER_HEIGHT, Icon, POPOVER_RADIUS, ROW_HEIGHT, Tooltip,
-    WINDOW_CONTROLS_WIDTH, above_drag, ago, blink_once, button, commit_title, count_badge, dot, dp,
-    faint, field, fixed, fold_button, fold_glyph, fold_row, glow_once, guide, h_flex, icon,
-    icon_button, list_row, meta_count, plural, pulsing, relative_time, resize_handle, review,
-    section_label, small_icon, v_flex,
+    WINDOW_CONTROLS_WIDTH, above_drag, ago, blink_once, button, commit_title, dot, dp, faint,
+    field, fixed, fold_button, fold_glyph, fold_row, glow_once, guide, h_flex, icon, icon_button,
+    list_row, meta_count, plural, pulsing, relative_time, resize_handle, review, section_label,
+    small_icon, spinning, v_flex,
 };
 
 mod account;
 mod drop;
 mod menu;
+pub(crate) use menu::{
+    ArchiveWorktree, CloseTerminal, DeleteWorktree, MoveDown, MoveUp, OpenProjectSettings, Reveal,
+    ShowArchivedWorktree, StopWatching, Watch,
+};
+pub(crate) use order::{
+    ShowActiveProjects, ShowAllProjects, SortProjectsByActivity, SortProjectsByName,
+};
 mod mesh;
+mod moving;
 mod order;
 mod rename;
 mod rows;
@@ -53,9 +63,14 @@ mod rows;
 use drop::insertion_line;
 use order::{CardSlot, ProjectDrag};
 use rows::{
-    COMMIT_INDENT, Drawer, Fold, GUIDE_AT, Moving, ROW_LEFT, Row, RowKey, Rows, in_inactive,
-    inactive_open, last_active, row_keys, within,
+    COMMIT_INDENT, Drawer, Fold, GUIDE_AT, Moving, ROW_LEFT, Row, RowKey, Rows, in_checkout,
+    in_inactive, inactive_open, last_active, row_keys,
 };
+
+const BRANCH_ROW: &str = "branch-row";
+
+/// How far the cards sit in from the list's sides.
+const CARD_MARGIN: f32 = 10.;
 
 /// How tall the drawer's handle is, level with the commit footer beside it, and the space
 /// under its rows.
@@ -70,9 +85,9 @@ const DRAWER_SHARES: (f32, f32) = (0.15, 0.85);
 /// The open drawer's top edge being dragged, to resize it.
 struct DrawerResize;
 
-/// How far a worktree's or a stack's rows sit in from its heading, as ui-react's SidebarRow
-/// steps them: their chevrons' middle under the heading's 16-point glyph's, the chevron's step,
-/// 14, the gap, 8, and half the glyph past the chevron's half.
+/// How far a worktree's rows sit in from its heading, as ui-react's SidebarRow steps them:
+/// their chevrons' middle under the heading's 16-point glyph's, the chevron's step, 14, the
+/// gap, 8, and half the glyph past the chevron's half.
 const STEP: f32 = 14. + 8. + 1.;
 
 /// The eye of a project the app watches, or struck through for one it doesn't.
@@ -108,13 +123,15 @@ enum ClickOpened {
 }
 
 /// How an item row draws: `solid` is the selection while the navigator has focus, `cut` is
-/// the row waiting for ⌘V, and `inset` is how far in its section or stack sets it.
+/// the row waiting for ⌘V or moving elsewhere, `held` a commit being moved while the move is
+/// at where it is, and `inset` is how far in its section sets it.
 #[derive(Clone, Copy)]
 struct RowStyle<'a> {
     theme: &'a Theme,
     selected: bool,
     solid: bool,
     cut: bool,
+    held: bool,
     inset: f32,
     /// The rows above and below are picked with it: see [`crate::ui::joined`].
     joined: (bool, bool),
@@ -122,6 +139,8 @@ struct RowStyle<'a> {
     glow: bool,
     /// The selection just copied, by which blink it is: see [`crate::ui::blink_once`].
     blink: Option<usize>,
+    /// Where Go to anything goes: see [`Navigator::going_to`].
+    goes_here: bool,
 }
 
 /// How far a remote's commits sit in: the target's as a branch's commits do, a branch's a
@@ -179,13 +198,34 @@ fn click_opens(
     })
 }
 
-impl RowStyle<'_> {
+impl<'a> RowStyle<'a> {
+    /// A row set in by `inset` that nothing selects, picks or marks.
+    fn plain(theme: &'a Theme, inset: f32) -> Self {
+        RowStyle {
+            theme,
+            selected: false,
+            solid: false,
+            cut: false,
+            held: false,
+            inset,
+            joined: (false, false),
+            glow: false,
+            blink: None,
+            goes_here: false,
+        }
+    }
+
     fn row(&self, id: String, indent: f32) -> Stateful<Div> {
         let theme = self.theme;
         list_row(ElementId::Name(id.into()), self.selected, theme)
             .when_some(self.blink, |el, n| {
                 let shape = div().absolute().inset_0().rounded(dp(4.));
                 el.relative().child(blink_once(("blink", n), shape, theme))
+            })
+            // A pop wash, as a commit that just showed up glows: quieter than a drop's outline.
+            .when(self.goes_here, |el| {
+                let wash = div().absolute().inset_0().rounded(dp(4.));
+                el.relative().child(wash.bg(theme.pop.opacity(0.1)))
             })
             .mx(dp(3.))
             .pl(dp(8. + indent + self.inset))
@@ -196,6 +236,12 @@ impl RowStyle<'_> {
                 el.opacity(0.5)
                     .border_1()
                     .border_dashed()
+                    .border_color(theme.pop)
+            })
+            // As the copies of what's moving are drawn where it would land.
+            .when(self.held, |el| {
+                el.bg(theme.pop.opacity(0.14))
+                    .border_1()
                     .border_color(theme.pop)
             })
             .map(|el| crate::ui::joined(el, self.joined, self.solid, theme))
@@ -243,15 +289,6 @@ impl RowStyle<'_> {
         }
     }
 
-    /// How long ago `at` (seconds since the epoch) was, at a row's end.
-    fn age(&self, at: i64) -> Div {
-        div()
-            .flex_none()
-            .text_size(dp(11.))
-            .text_color(self.muted())
-            .child(relative_time(at))
-    }
-
     /// A commit's row, `indent` in: `glyph`, its title, and a dot while it's unread. The dot
     /// alone says it's unread; only a missing title is quieter.
     fn commit_line(
@@ -280,6 +317,31 @@ impl RowStyle<'_> {
             )
             .when(unread, |el| el.child(dot(self.meta(self.theme.pop))))
     }
+
+    /// `commit` of `project` as its row draws it, `id` the row's: its glyph by its state, and
+    /// its title as last reworded.
+    fn commit(
+        &self,
+        id: String,
+        project: &ProjectId,
+        commit: &Commit,
+        store: &Store,
+    ) -> Stateful<Div> {
+        let theme = self.theme;
+        let (glyph, color) = if commit.conflicted {
+            (Icon::Warning, theme.warn)
+        } else {
+            match commit.state {
+                CommitState::Local => (Icon::Commit, theme.blue),
+                CommitState::Pushed => (Icon::CommitFill, self.muted()),
+                CommitState::Integrated => (Icon::CommitFill, theme.purple),
+            }
+        };
+        let glyph = small_icon(glyph).text_color(self.meta(color));
+        let (title, _) = store.message_of(project, commit);
+        let unread = store.is_unread(project, commit);
+        self.commit_line(id, COMMIT_INDENT, glyph, title.to_owned().into(), unread)
+    }
 }
 
 pub struct Navigator {
@@ -300,6 +362,9 @@ pub struct Navigator {
     /// The rows sliding to where a reorder put them, and each row's key, to tell which.
     reorder: Reorder<RowKey>,
     row_keys: Vec<Option<RowKey>>,
+    /// Commits going back to where a move left them, as it returns there or ends: their
+    /// stand-ins stay there till they're back, so the two meet.
+    homing: Vec<(ProjectId, CommitId)>,
     /// Whether each fold the rows were last built through showed what it holds, to tell
     /// which opened or shut since.
     folds_seen: HashMap<Fold, bool>,
@@ -307,8 +372,11 @@ pub struct Navigator {
     /// The projects not watched as last drawn, and the list the drawer draws them in.
     drawer: Drawer,
     pub(crate) drawer_list: ListState,
-    /// The selection changed: scroll to it once the rows are up to date.
+    /// The selection changed, or where it'd be moved: scroll to it once the rows are up to
+    /// date, to the copies of commits being moved where they'd land rather than to them.
     reveal_selection: bool,
+    /// Commits were being moved when the rows were last brought up to date.
+    moved: bool,
     /// Branches showing all their commits, or the first few, against how Settings say open
     /// branches list them: the first few, unless they say all.
     flipped_folds: HashSet<BranchKey>,
@@ -324,8 +392,6 @@ pub struct Navigator {
     branches_start_open: bool,
     /// Checkouts showing only their heading.
     folded_worktrees: HashSet<(ProjectId, Checkout)>,
-    /// Stacks showing only their caption, by their bottom branch.
-    folded_stacks: HashSet<BranchKey>,
     /// Checkouts on other machines showing only their heading, by the mesh's id.
     folded_checkouts: HashSet<(ProjectId, Arc<str>)>,
     /// The commits only a remote has listed under their heading, a branch's (by its full
@@ -374,6 +440,14 @@ pub struct Navigator {
     renaming: Option<rename::Renaming>,
     /// How many times the selection's row has blinked, and when it last did.
     blinked: (usize, Option<Instant>),
+    /// Where the choice Go to anything has selected goes, while it's open.
+    going_to: Option<Selection>,
+    /// The row outlined for [`Self::going_to`]: its own, or while that's folded away, the one
+    /// holding it. The list scrolls to show it as it changes.
+    going_row: Option<Selection>,
+    /// Where the list and the drawer were scrolled to before Go to anything scrolled them,
+    /// which closing it without going anywhere puts back.
+    scrolled_from: Option<(ListOffset, ListOffset)>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -433,10 +507,8 @@ impl Navigator {
                 // A renamed branch stays open or folded as it was.
                 StoreEvent::Renamed(project, from, to) => {
                     let to = Some(to.clone());
-                    for set in [&mut this.flipped_folds, &mut this.folded_stacks] {
-                        if set.remove(&(project.clone(), from.clone())) {
-                            set.insert((project.clone(), to.clone()));
-                        }
+                    if this.flipped_folds.remove(&(project.clone(), from.clone())) {
+                        this.flipped_folds.insert((project.clone(), to.clone()));
                     }
                     let here = |ref_name: &Option<FullName>| {
                         ClickOpened::Here((project.clone(), ref_name.clone()))
@@ -477,11 +549,13 @@ impl Navigator {
             folds: Folds::default(),
             reorder: Reorder::default(),
             row_keys: Vec::new(),
+            homing: Vec::new(),
             folds_seen: HashMap::new(),
             list: ListState::new(0, ListAlignment::Top, fixed(56.)),
             drawer: Drawer::default(),
             drawer_list: ListState::new(0, ListAlignment::Top, fixed(56.)),
             reveal_selection: false,
+            moved: false,
             flipped_folds: HashSet::new(),
             all_branch_commits,
             flipped: HashSet::new(),
@@ -492,7 +566,6 @@ impl Navigator {
             folded_checkouts: HashSet::new(),
             branches_start_open,
             folded_worktrees: HashSet::new(),
-            folded_stacks: HashSet::new(),
             filter,
             first_hit: None,
             pointer_over: false,
@@ -506,6 +579,9 @@ impl Navigator {
             edge_scrolling: None,
             renaming: None,
             blinked: (0, None),
+            going_to: None,
+            going_row: None,
+            scrolled_from: None,
             _subscriptions: subscriptions,
         }
     }
@@ -562,6 +638,33 @@ impl Navigator {
     pub(crate) fn blink_selection(&mut self, cx: &mut Context<Self>) {
         self.blinked = (self.blinked.0 + 1, Some(Instant::now()));
         cx.notify();
+    }
+
+    /// Outline the row where the choice Go to anything has selected goes, `target`, scrolling
+    /// to show it, or with `None` no row.
+    pub(crate) fn go_toward(&mut self, target: Option<Selection>, cx: &mut Context<Self>) {
+        if self.going_to == target {
+            return;
+        }
+        if target.is_some() && self.scrolled_from.is_none() {
+            let lists = (&self.list, &self.drawer_list);
+            self.scrolled_from = Some((lists.0.logical_scroll_top(), lists.1.logical_scroll_top()));
+        }
+        self.going_to = target;
+        cx.notify();
+    }
+
+    /// Go to anything closed: no row is outlined, and when it went nowhere (`back`), the lists
+    /// scroll back to where they were.
+    pub(crate) fn stop_going(&mut self, back: bool, cx: &mut Context<Self>) {
+        self.go_toward(None, cx);
+        if let Some((list, drawer)) = self.scrolled_from.take()
+            && back
+        {
+            self.list.scroll_to(list);
+            self.drawer_list.scroll_to(drawer);
+            cx.notify();
+        }
     }
 
     /// The filter's words changed: its rows show from the top, and once it's empty, the
@@ -658,6 +761,10 @@ impl Navigator {
     }
 
     fn step(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
+        // While commits move, the keys step through where they can land.
+        if self.store.read(cx).moving.is_some() {
+            return self.step_move(delta, cx);
+        }
         // ↓ onto a fold of commits shows the rest and goes on into them, as a feed loads more:
         // the fold is no stop of its own.
         let built = (delta > 0 && self.unfold_after_selection(cx)).then(|| self.build_rows(cx));
@@ -703,6 +810,10 @@ impl Navigator {
     /// commit, it's a plain step.
     fn pick_step(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
+        // What's moving was picked when the move started.
+        if store.moving.is_some() {
+            return;
+        }
         let (project, id) = match &store.selection {
             Some(Selection::Commit(project, id)) => (project.clone(), *id),
             _ => return self.step(delta, window, cx),
@@ -733,6 +844,9 @@ impl Navigator {
     /// Select the first item before (`forward` false) or after the selection that starts a
     /// section: a project or a branch.
     fn jump_section(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.store.read(cx).moving.is_some() {
+            return self.jump_move(forward, cx);
+        }
         let items = self.items();
         let current = self.store.read(cx).selection.as_ref();
         let at = current.and_then(|s| items.iter().position(|item| *item == s));
@@ -863,10 +977,6 @@ impl Navigator {
                     .remove(&(project, Checkout::Linked(name)));
                 cx.notify();
             }
-            Some(Selection::Stack(project, bottom)) => {
-                self.folded_stacks.remove(&(project, bottom));
-                cx.notify();
-            }
             Some(Selection::Mesh(project, id, pick)) => self.expand_mesh(project, id, pick, cx),
             Some(Selection::Section(project, section)) => {
                 if !self.heading_open(&project, &section, cx) {
@@ -886,8 +996,8 @@ impl Navigator {
         }
     }
 
-    /// Step out the way a tree does: a commit to its branch, an open branch, stack or worktree
-    /// closed, a branch up to its stack or worktree, and anything else up to its project.
+    /// Step out the way a tree does: a commit to its branch, an open branch or worktree
+    /// closed, a branch up to its worktree, and anything else up to its project.
     /// While the filter lists what it finds, nothing folds, so ⇧← only goes up.
     fn collapse(&mut self, _: &Collapse, window: &mut Window, cx: &mut Context<Self>) {
         let filtering = self.filtering(cx);
@@ -952,9 +1062,6 @@ impl Navigator {
                 let heading = Selection::Section(project, Section::Inactive);
                 self.select(heading, window, cx)
             }
-            Some(Selection::Stack(project, bottom)) if folds => {
-                self.toggle_stack(&project, bottom.as_ref(), true, window, cx)
-            }
             Some(Selection::Mesh(project, id, pick)) => {
                 self.collapse_mesh(project, id, pick, window, cx)
             }
@@ -993,16 +1100,26 @@ impl Navigator {
                 self.detail
                     .update(cx, |detail, cx| detail.focus_message(window, cx));
             }
+            Some(Selection::Terminal(..)) => self.enter_terminal(window, cx),
             _ => {}
         }
     }
 
+    /// Go into the selected terminal, to type in, once the update running now is over.
+    fn enter_terminal(&self, window: &mut Window, cx: &mut Context<Self>) {
+        (self.app).update_later(window, cx, |app, window, cx| app.enter_terminal(window, cx));
+    }
+
     /// Return in the TUI's keymap: fold or unfold the rows the selected one heads, as its
-    /// chevron does. A row that heads none stays as it is, as every row does under the filter.
+    /// chevron does, or go into a terminal. A row that heads none stays as it is, as every row
+    /// does under the filter.
     fn toggle_fold(&mut self, _: &ToggleFold, window: &mut Window, cx: &mut Context<Self>) {
         let Some(selection) = self.store.read(cx).selection.clone() else {
             return;
         };
+        if let Selection::Terminal(..) = selection {
+            return self.enter_terminal(window, cx);
+        }
         let fold = Fold::Under(selection.clone());
         let Some(open) = (self.build_rows(cx).folds.into_iter())
             .find_map(|(f, open, _)| (f == fold).then_some(open))
@@ -1023,9 +1140,6 @@ impl Navigator {
             Selection::Worktree(project, name) => {
                 self.toggle_section(&project, Checkout::Linked(name), open, window, cx)
             }
-            Selection::Stack(project, bottom) => {
-                self.toggle_stack(&project, bottom.as_ref(), open, window, cx)
-            }
             Selection::Mesh(project, id, pick) => {
                 self.toggle_mesh(project, id, pick, open, window, cx)
             }
@@ -1033,9 +1147,11 @@ impl Navigator {
                 self.toggle_merge(&project, ref_name, id, window, cx)
             }
             Selection::Commit(..)
+            | Selection::Stack(..)
             | Selection::Branches(_)
             | Selection::History(_)
-            | Selection::Graph(_) => {}
+            | Selection::Graph(_)
+            | Selection::Terminal(..) => {}
         }
     }
 
@@ -1164,11 +1280,24 @@ impl Navigator {
         if at_top && changed {
             self.list.scroll_to(ListOffset::default());
         }
+        // While commits are being moved, and as the move ends, every row slides from where it
+        // was, so the room their copies take or leave opens and closes rather than jumps.
+        let moving = self.store.read(cx).moving.is_some();
+        let every = moving || self.moved;
+        self.moved = moving;
         if self.rows != rows {
             let keys = row_keys(&rows, self.store.read(cx));
             let held = anchor.map(|(old_ix, new_ix, _)| (old_ix, new_ix));
-            let offsets = self.slides(&rows, &keys, held);
+            let offsets = self.slides(&rows, &keys, held, every);
             self.reorder.start(offsets, cx);
+            self.homing = (self.row_keys.iter().flatten())
+                .filter_map(|key| match key {
+                    RowKey::Left(project, id) if !keys.contains(&Some(key.clone())) => {
+                        Some((project.clone(), *id))
+                    }
+                    _ => None,
+                })
+                .collect();
             self.row_keys = keys;
         }
         self.rows = rows;
@@ -1184,38 +1313,80 @@ impl Navigator {
             }
         }
         let store = self.store.read(cx);
+        // Commits being moved show where they'd land, if that's elsewhere.
+        let ghost = |row: &Row| matches!(row, Row::Ghost(..) | Row::GhostBranch(_));
         if std::mem::take(&mut self.reveal_selection)
             && let Some(selection) = &store.selection
+            && !self.scroll_to_row(ghost, row)
+            && !self.scroll_to_row(|row| matches!(row, Row::Item(it) if it == selection), row)
         {
-            let at = |rows: &[Row]| {
-                (rows.iter()).position(|row| matches!(row, Row::Item(item) if item == selection))
-            };
-            match (at(&self.rows), at(&self.drawer.rows)) {
-                (Some(ix), _) => {
-                    // Rows not drawn since the list's width changed, as zooming changes it,
-                    // count as one row tall rather than none, so the reveal lands on it.
-                    self.list.clone().with_uniform_item_height(row);
-                    self.list.scroll_to_reveal_item(ix)
-                }
-                (None, Some(ix)) => self.drawer_list.scroll_to_reveal_item(ix),
-                // A project just added has its rows once it's loaded.
-                (None, None) => {
-                    self.reveal_selection =
-                        (store.project(selection.project())).is_some_and(|entry| entry.is_loading())
-                }
+            // A project just added has its rows once it's loaded.
+            self.reveal_selection =
+                (store.project(selection.project())).is_some_and(|entry| entry.is_loading())
+        }
+        // Up from where Go to anything goes, as ⇧← steps, to the first row listed.
+        let going_row = (self.going_to.clone()).and_then(|to| {
+            std::iter::successors(Some(to), |item| holder(store, item))
+                .find(|item| self.listed(item))
+        });
+        if going_row != self.going_row {
+            if let Some(item) = &going_row {
+                self.scroll_to_row(|row| matches!(row, Row::Item(it) if it == item), row);
             }
+            self.going_row = going_row;
+        }
+    }
+
+    /// Where `item`'s row, in the cards or the drawer, was last drawn while it shows.
+    pub(crate) fn row_bounds(&self, item: &Selection) -> Option<Bounds<Pixels>> {
+        let at = |rows: &[Row]| {
+            rows.iter()
+                .position(|row| matches!(row, Row::Item(it) if it == item))
+        };
+        match (at(&self.rows), at(&self.drawer.rows)) {
+            (Some(ix), _) => crate::ui::shown_row(&self.list, ix),
+            (None, Some(ix)) => crate::ui::shown_row(&self.drawer_list, ix),
+            (None, None) => None,
+        }
+    }
+
+    /// Whether `item` has a row in the cards or the drawer.
+    fn listed(&self, item: &Selection) -> bool {
+        (self.rows.iter().chain(&self.drawer.rows))
+            .any(|row| matches!(row, Row::Item(it) if it == item))
+    }
+
+    /// Scroll the first row `wanted` finds into view, in the cards or else the drawer, rows
+    /// `row` tall until drawn, saying whether it found one.
+    fn scroll_to_row(&self, wanted: impl Fn(&Row) -> bool, row: Pixels) -> bool {
+        let at = |rows: &[Row]| rows.iter().position(&wanted);
+        match (at(&self.rows), at(&self.drawer.rows)) {
+            (Some(ix), _) => {
+                // Rows not drawn since the list's width changed, as zooming changes it,
+                // count as one row tall rather than none, so the reveal lands on it.
+                self.list.clone().with_uniform_item_height(row);
+                self.list.scroll_to_reveal_item(ix);
+                true
+            }
+            (None, Some(ix)) => {
+                self.drawer_list.scroll_to_reveal_item(ix);
+                true
+            }
+            (None, None) => false,
         }
     }
 
     /// How far each of the rows slides as the list goes from its rows to `rows`, keyed by `keys`,
-    /// from where it was on screen. With the row under the pointer `held` still, from its index
-    /// before to after, as a load holds it, the list scrolls by as far as that row moved, so
-    /// the rows on screen slide that far too, but only with a reorder.
+    /// from where it was on screen: those a reorder moved, or with `every`, all of them, as
+    /// [`shifted`] says. With the row under the pointer `held` still, from its index before to
+    /// after, as a load holds it, the list scrolls by as far as that row moved, so the rows on
+    /// screen slide that far too, but only with a reorder.
     fn slides(
         &self,
         rows: &[Row],
         keys: &[Option<RowKey>],
         held: Option<(usize, usize)>,
+        every: bool,
     ) -> HashMap<RowKey, f32> {
         let sized = |keys: &[Option<RowKey>], rows: &[Row]| -> Vec<(Option<RowKey>, f32)> {
             keys.iter()
@@ -1223,8 +1394,34 @@ impl Navigator {
                 .zip(rows.iter().map(Row::height))
                 .collect()
         };
-        let mut offsets = reordered(&sized(&self.row_keys, &self.rows), &sized(keys, rows));
+        let (old, new) = (sized(&self.row_keys, &self.rows), sized(keys, rows));
+        let mut offsets = match every {
+            true => shifted(&old, &new),
+            false => reordered(&old, &new),
+        };
         let top = |rows: &[Row], ix: usize| rows.iter().take(ix).map(Row::height).sum::<f32>();
+        // A commit's own row is keyed apart while a move leaves it, as its copy takes its key,
+        // but it's the same row: as the move leaves it, it comes out from under the copy, from
+        // where the commit was, rather than showing up in place, and going back, where it's
+        // left slides with the rows around it to where the commit's row goes, as rows above it
+        // may go too, and its stand-in with it.
+        let lefts = |keys: &'_ [Option<RowKey>]| -> HashSet<RowKey> {
+            let left = |key: &&RowKey| matches!(key, RowKey::Left(..));
+            keys.iter().flatten().filter(left).cloned().collect()
+        };
+        for key in lefts(&self.row_keys).symmetric_difference(&lefts(keys)) {
+            let RowKey::Left(project, id) = key else {
+                continue;
+            };
+            let at = |rows: &[Row]| {
+                (rows.iter()).position(
+                    |row| matches!(row, Row::Item(Selection::Commit(p, c)) if p == project && c == id),
+                )
+            };
+            if let (Some(was), Some(is)) = (at(&self.rows), at(rows)) {
+                offsets.insert(key.clone(), top(&self.rows, was) - top(rows, is));
+            }
+        }
         if let Some((old_ix, new_ix)) = held.filter(|_| !offsets.is_empty()) {
             let scrolled = top(rows, new_ix) - top(&self.rows, old_ix);
             let before: HashSet<&RowKey> = self.row_keys.iter().flatten().collect();
@@ -1255,14 +1452,14 @@ impl Navigator {
         // A row a fold is moving shows as far as the fold's open: inside its card, so the
         // card's edges stay where they are, and taking no clicks while it goes. Under the
         // curtain, it isn't drawn at all.
-        let moving = (self.moving.get(ix).and_then(Option::as_ref)).and_then(|m| {
+        let folding = (self.moving.get(ix).and_then(Option::as_ref)).and_then(|m| {
             let open = self.folds.openness(&m.fold)?;
             Some((
                 curtain(open, m.extent, m.top, m.height),
                 self.folds.closing(&m.fold),
             ))
         });
-        let hidden = moving.is_some_and(|(height, _)| height <= 0.);
+        let hidden = folding.is_some_and(|(height, _)| height <= 0.);
         // A fold row at the end of commits: its glyph under theirs, its words under their
         // titles, past the glyph and the commit row's gap.
         let under_commits = |id: &'static str, glyph| {
@@ -1317,6 +1514,21 @@ impl Navigator {
                 })
                 .into_any_element(),
             Some(Row::NewBranch(project)) => self.new_branch_zone(ix, project, theme, cx),
+            Some(Row::Ghost(project, id)) => {
+                moving::ghost_row(project, *id, inset, self.store.read(cx), theme)
+            }
+            // A line from under the branches' glyphs, clear of their commits' guides, drawn as
+            // the guides are where a worktree's is dashed, so it reads as part of the worktree
+            // rather than the end of it.
+            Some(Row::Between(_)) => h_flex()
+                .h(dp(12.))
+                .pl(dp(ROW_LEFT + inset))
+                .pr(dp(12.))
+                .child(div().flex_1().h(fixed(1.)).bg(theme.text_2.opacity(0.2)))
+                .into_any_element(),
+            Some(Row::GhostBranch(_)) => {
+                moving::ghost_branch_row(inset, self.store.read(cx), theme)
+            }
             Some(Row::UpstreamMore(project, more)) => {
                 let page = Selection::Project(project.clone());
                 under_commits("upstream-more", Icon::Kebab)
@@ -1362,8 +1574,13 @@ impl Navigator {
                     .into_any_element()
             }
         };
-        // Items step in by their style, keeping the highlight full width; the rest as a whole.
-        let el = match inset > 0. && !matches!(self.rows.get(ix), Some(Row::Item(_))) {
+        // Items and the copies of what's moving step in by their style, keeping the highlight
+        // full width; the rest as a whole.
+        let full_width = matches!(
+            self.rows.get(ix),
+            Some(Row::Item(_) | Row::Ghost(..) | Row::GhostBranch(_))
+        );
+        let el = match inset > 0. && !full_width {
             true => div().pl(dp(inset)).child(el).into_any_element(),
             false => el,
         };
@@ -1375,7 +1592,7 @@ impl Navigator {
             .is_none_or(|next| matches!(next, Row::Gap));
         // A guide for each row it's under, joining those of the rows above and below into
         // one line, as but.dev's sidebar draws them.
-        let guides = (self.guides.get(ix).into_iter().flatten()).map(|at| guide(*at, theme));
+        let guides = || (self.guides.get(ix).into_iter().flatten()).map(|at| guide(*at, theme));
         // A watched project's card takes a dragged project card before it.
         let slot = match self.rows.get(ix) {
             _ if self.store.read(cx).prefs.watched_order != WatchedOrder::Manual => None,
@@ -1386,46 +1603,110 @@ impl Navigator {
             }
             _ => None,
         };
-        // A row a reorder moved slides to its place over the card, which stays.
-        let slid = (self.row_keys.get(ix).and_then(Option::as_ref))
-            .map_or(0., |key| self.reorder.offset(key));
+        // How far row `ix` is drawn from where it's laid out: as far as a reorder slid it, but
+        // not while a fold moves it, which draws it as far as the fold's open.
+        let slid_at = |ix: usize| match self.moving.get(ix).and_then(Option::as_ref) {
+            Some(m) if self.folds.openness(&m.fold).is_some() => 0.,
+            _ => (self.row_keys.get(ix).and_then(Option::as_ref))
+                .map_or(0., |key| self.reorder.offset(key)),
+        };
+        // A row slides with its slice of the card, so the card's edges follow its rows. Its
+        // slice also stretches over the room between it and where it's laid out, and down to
+        // the next row of its card where that's drawn further down, so the card holds together
+        // as they slide, even where the list doesn't draw the row that would cover it, past
+        // its top or bottom. While rows slide, what's in every row is drawn over all that, so
+        // no stretch covers it, on the card's ground so the rows it passes don't show through,
+        // the copies of commits being moved over the rest, inside the list.
+        let slid = slid_at(ix);
+        let below = match last {
+            true => 0.,
+            false => (slid_at(ix + 1) - slid).max(-slid).max(0.),
+        };
+        let above = match first {
+            true => 0.,
+            false => slid.max(0.),
+        };
+        // The copies of what's moving go over everything, and the selected row, which moves,
+        // over the rows it passes.
+        let selection = self.store.read(cx).selection.as_ref();
+        let over_rank = match self.rows.get(ix) {
+            Some(Row::Ghost(..) | Row::GhostBranch(_)) => 2,
+            Some(Row::Item(item)) if selection == Some(item) => 1,
+            _ => 0,
+        };
+        // A commit going back to where a move left it meets its stand-in there, which slides
+        // to where the row goes with the rows around it.
+        let stand_in = match self.rows.get(ix) {
+            Some(Row::Item(Selection::Commit(project, id)))
+                if self.homing.iter().any(|(p, c)| p == project && c == id) =>
+            {
+                let left = self.reorder.offset(&RowKey::Left(project.clone(), *id));
+                match slid != 0. || left != 0. {
+                    true => {
+                        let store = self.store.read(cx);
+                        moving::stand_in(project, *id, inset, left - slid, store, theme)
+                    }
+                    false => None,
+                }
+            }
+            _ => None,
+        };
+        let card = div()
+            .relative()
+            .bg(theme.bg_1)
+            .border_color(theme.border_3)
+            .border_l_1()
+            .border_r_1()
+            .when(first, |el| el.border_t_1().rounded_t(dp(6.)).pt(dp(3.)))
+            .when(last, |el| el.border_b_1().rounded_b(dp(6.)).pb(dp(3.)))
+            .map(|card| match folding {
+                Some((height, closing)) => card.child(clipped(
+                    div().relative().child(el).children(guides()),
+                    dp(height),
+                    closing,
+                )),
+                None if self.reorder.any() => {
+                    let over = div().relative().bg(theme.bg_1).child(el);
+                    let over = on_top(over.children(guides())).priority(over_rank);
+                    card.children(guides()).child(over)
+                }
+                None => card.child(el).children(guides()),
+            });
+        let stretched = |height: f32| {
+            div()
+                .absolute()
+                .left(dp(CARD_MARGIN))
+                .right(dp(CARD_MARGIN))
+                .h(dp(height))
+                .bg(theme.bg_1)
+                .border_color(theme.border_3)
+                .border_l_1()
+                .border_r_1()
+                .children(guides())
+        };
+        let below = (below > 0.).then(|| stretched(below).top(relative(1.)));
+        let above = (above > 0.).then(|| stretched(above).top(dp(-above)));
         // Padded, not margined: a list lays its rows out from their left edge.
-        div()
-            .px(dp(10.))
-            .child(
-                div()
-                    .relative()
-                    .bg(theme.bg_1)
-                    .border_color(theme.border_3)
-                    .border_l_1()
-                    .border_r_1()
-                    .when(first, |el| el.border_t_1().rounded_t(dp(6.)).pt(dp(3.)))
-                    .when(last, |el| el.border_b_1().rounded_b(dp(6.)).pb(dp(3.)))
-                    .map(|card| match moving {
-                        Some((height, closing)) => card.child(clipped(
-                            div().relative().child(el).children(guides),
-                            dp(height),
-                            closing,
-                        )),
-                        // Painted last, as the slices of the card it crosses would cover it.
-                        None if slid != 0. => card.child(deferred(
-                            div().relative().top(dp(slid)).child(el).children(guides),
-                        )),
-                        None => card.child(el).children(guides),
-                    }),
-            )
+        let row = div()
+            .relative()
+            .top(dp(slid))
+            .px(dp(CARD_MARGIN))
+            .child(card)
+            .children(below)
+            .children(above)
+            .children(stand_in)
             .when_some(slot.filter(|_| first), |el, slot| {
                 let lit = self.project_drop.as_ref() == Some(&slot);
-                el.relative()
-                    .child(self.card_drop(slot, cx))
+                el.child(self.card_drop(slot, cx))
                     // In the middle of the gap between the cards; over the first card's top
                     // edge, which has no gap above it in the list.
                     .when(lit, |el| {
                         let line = insertion_line(true, theme.pop).right(dp(10.));
                         el.child(line.when(ix > 0, |line| line.top(dp(-6.))))
                     })
-            })
-            .into_any_element()
+            });
+        // The list lays out the row it's given where it goes, so what slides is inside it.
+        div().child(row).into_any_element()
     }
 
     /// Item row `ix` of `rows`, the cards' or the drawer's.
@@ -1446,7 +1727,9 @@ impl Navigator {
             store.selection.as_ref() == Some(item)
                 || matches!(item, Selection::Commit(project, id) if store.is_picked(project, *id))
         };
-        let selected = lit(item);
+        // A commit being moved shows where the move is, rather than that it's selected.
+        let moving = moving::moving_away(store, item);
+        let selected = lit(item) && moving.is_none();
         // Picked commits next to each other join up.
         let lit_at = |ix: usize| matches!(rows.get(ix), Some(Row::Item(other)) if lit(other));
         let joined = match selected && !store.picked.is_empty() {
@@ -1462,7 +1745,7 @@ impl Navigator {
                 Selection::Commit(project, commit),
             ) => p == project && ids.contains(commit),
             _ => false,
-        };
+        } || moving == Some(true);
         let style = RowStyle {
             theme,
             selected,
@@ -1471,6 +1754,7 @@ impl Navigator {
                 && self.focus.contains_focused(window, cx)
                 && !self.filter.focus_handle(cx).is_focused(window),
             cut,
+            held: moving == Some(false),
             inset,
             joined,
             glow: !selected && matches!(item, Selection::Commit(_, commit) if store.glows(*commit)),
@@ -1478,6 +1762,7 @@ impl Navigator {
             blink: (self.blinked.1.is_some_and(|at| at.elapsed() < BLINK)
                 && store.selection.as_ref() == Some(item))
             .then_some(self.blinked.0),
+            goes_here: self.going_row.as_ref() == Some(item),
         };
         let el = match item {
             Selection::Project(id) => self.project_row(item, id, style, cx),
@@ -1505,9 +1790,9 @@ impl Navigator {
                 let tip = Some("The commits as a graph");
                 Some(self.page_row(item, Icon::Fork, "Graph", tip, style, cx))
             }
-            Selection::Stack(id, bottom) => {
-                self.stack_row(ix, item, id, bottom.as_ref(), style, cx)
-            }
+            Selection::Terminal(_, id) => self.terminal_row(item, *id, style, cx),
+            // The rows list a stack's branches, not the stack.
+            Selection::Stack(..) => None,
             Selection::Mesh(..) => self.mesh_row(ix, item, style, cx),
             Selection::Upstream(id, ref_name, commit) => {
                 self.upstream_row(item, id, ref_name.as_ref(), commit, style, cx)
@@ -1974,6 +2259,27 @@ impl Navigator {
             .into_any_element()
     }
 
+    /// A terminal open on the worktree it's under, by the title its shell gave it.
+    fn terminal_row(
+        &self,
+        item: &Selection,
+        id: TerminalId,
+        style: RowStyle,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        let store = self.store.read(cx);
+        let title = store.terminals.title(id)?.clone();
+        let status = store.terminals.status(id)?;
+        let row = style
+            .row(format!("terminal-{}", id.0), 6.)
+            .text_color(style.muted())
+            .child(icon(Icon::TextCode).text_color(style.muted()))
+            .child(div().flex_1().min_w_0().truncate().child(title))
+            .children(status_mark(status, !store.hidden(), style))
+            .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx));
+        Some(row.into_any_element())
+    }
+
     /// The commit being edited, whose files are listed where the uncommitted ones are, and
     /// go nowhere else until it's finished.
     fn editing_row(
@@ -2068,7 +2374,8 @@ impl Navigator {
         };
         let lane = (checkout.linked()).and_then(|name| workspace.worktree_lane(name));
         let rests = lane.is_some_and(|lane| workspace.beneath(lane).next().is_some());
-        let folds = !branches.is_empty() || rests;
+        let terminals = store.terminals.on(id, &checkout).next().is_some();
+        let folds = !branches.is_empty() || rests || terminals;
         let step = self.fold(
             ("worktree-fold", ix),
             folds.then_some(open),
@@ -2159,7 +2466,7 @@ impl Navigator {
         let store = self.store.read(cx);
         let inside = (store.selection.as_ref())
             .zip(store.workspace(project))
-            .is_some_and(|(s, ws)| s.project() == project && within(s, ws.branches_in(&key.1)));
+            .is_some_and(|(s, ws)| s.project() == project && in_checkout(store, s, ws, &key.1));
         let heading = Selection::uncommitted_in(project.clone(), key.1.clone());
         self.folded_worktrees.insert(key);
         match inside {
@@ -2172,136 +2479,6 @@ impl Navigator {
     fn section_open(&self, ix: usize) -> bool {
         let next = self.insets.get(ix + 1);
         (next.zip(self.insets.get(ix))).is_some_and(|(next, this)| next > this)
-    }
-
-    /// Over a stack of two or more branches, as ui-react's StackCaption: a chevron, its
-    /// glyph and how many. Selecting it shows what its branches change together; its chevron,
-    /// or a double-click, folds them away, and folded, it says how many commits they have to
-    /// push, whether any is unread and when they last changed.
-    fn stack_row(
-        &self,
-        ix: usize,
-        item: &Selection,
-        id: &ProjectId,
-        bottom: Option<&FullName>,
-        style: RowStyle,
-        cx: &Context<Self>,
-    ) -> Option<AnyElement> {
-        let store = self.store.read(cx);
-        let theme = style.theme;
-        // Find the stack by its bottom branch as drawn, after pending deletes.
-        let branches = (store.workspace(id)?.lanes.iter())
-            .map(|lane| store.after_deletes(id, &lane.branches))
-            .find(|lane| {
-                lane.last()
-                    .is_some_and(|branch| branch.ref_name.as_ref() == bottom)
-            })?;
-        // Open even when folded while the selection's in it.
-        let open = self.section_open(ix);
-        let names: Vec<&str> = (branches.iter())
-            .map(|branch| store.label_of(id, branch))
-            .collect();
-        let unpushed_n = unpushed(branches.iter());
-        let unread = (branches.iter()).any(|branch| store.branch_unread(id, branch));
-        let latest = (branches.iter().flat_map(|branch| &branch.commits))
-            .map(|commit| commit.time)
-            .max();
-        let label = format!("Stack of {}", branches.len());
-        let toggle = {
-            let (project, bottom) = (id.clone(), bottom.cloned());
-            move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
-                this.toggle_stack(&project, bottom.as_ref(), open, window, cx)
-            }
-        };
-        let step = self.fold(
-            ("stack-fold", ix),
-            Some(open),
-            style.quiet(),
-            cx,
-            toggle.clone(),
-        );
-        // As ui-react's StackCaption: quiet, so it doesn't read as one more branch, with
-        // "Stack" a step above the rest.
-        let (word, quiet) = match style.solid {
-            true => (theme.text_inverted, style.muted()),
-            false => (theme.text_2, theme.text_3),
-        };
-        Some(
-            style
-                .row(
-                    format!(
-                        "stack-{id}-{}",
-                        bottom.map(ToString::to_string).unwrap_or_default()
-                    ),
-                    6.,
-                )
-                .aria_label(label)
-                .aria_expanded(open)
-                .child(step)
-                .child(icon(Icon::Stack).text_color(quiet))
-                .child(
-                    h_flex()
-                        .id(("stack-name", ix))
-                        .flex_1()
-                        .min_w_0()
-                        .gap(dp(6.))
-                        .tooltip(Tooltip::text(format!("Stack: {}", names.join(" ← "))))
-                        .child(count_badge(branches.len(), theme).when(style.solid, |el| {
-                            el.bg(theme.text_inverted.opacity(0.15)).text_color(quiet)
-                        }))
-                        .child(div().flex_none().text_color(word).child("Stack"))
-                        // Folded, its top branch, the one that gets pushed, tells it from
-                        // another stack as tall, and gives way first; open, that row is right
-                        // under it.
-                        .children(branches.first().filter(|_| !open).map(|top| {
-                            div()
-                                .min_w_0()
-                                .truncate()
-                                .text_color(quiet)
-                                .child(store.label_of(id, top).to_owned())
-                        })),
-                )
-                .when(!open, |el| {
-                    el.children(style.unpushed(unpushed_n))
-                        .when(unread, |el| el.child(dot(style.meta(theme.pop))))
-                        .children(latest.map(|at| style.age(at)))
-                })
-                .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
-                .on_click(double_click(toggle, cx))
-                .into_any_element(),
-        )
-    }
-
-    /// Fold the stack over `bottom` away, or unfold it. Folding it over the selection takes
-    /// the selection up to the stack.
-    fn toggle_stack(
-        &mut self,
-        project: &ProjectId,
-        bottom: Option<&FullName>,
-        open: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let key = (project.clone(), bottom.cloned());
-        if !open {
-            self.folded_stacks.remove(&key);
-            return cx.notify();
-        }
-        let store = self.store.read(cx);
-        let inside = (store.selection.as_ref())
-            .zip(store.workspace(project).and_then(|ws| ws.lane(bottom)))
-            .is_some_and(|(s, lane)| {
-                s.project() == project && lane.branches.iter().any(|b| s.on(b))
-            });
-        self.folded_stacks.insert(key);
-        match inside {
-            true => self.select(
-                Selection::Stack(project.clone(), bottom.cloned()),
-                window,
-                cx,
-            ),
-            false => cx.notify(),
-        }
     }
 
     fn branch_row(
@@ -2325,7 +2502,7 @@ impl Navigator {
         let (glyph, glyph_color) = match (&branch.review, branch.push) {
             (Some(review), _) => review::state_glyph(store.review_state(id, review), theme),
             (None, _) if publishing => review::state_glyph(ReviewState::Open, theme),
-            // Landed without a pull request, as one that landed with one shows.
+            // Merged without a pull request, as one that merged with one shows.
             (None, PushState::Integrated) => (Icon::BranchMerge, theme.purple),
             (None, _) => (Icon::Branch, style.muted()),
         };
@@ -2373,16 +2550,22 @@ impl Navigator {
         // An unread commit marks its branch with a dot too, folded or not.
         let unread = store.branch_unread(id, branch);
         let review = (branch.review.as_ref()).map(|r| (r, store.review_state(id, r)));
+        let rename = self.rename_field(id, ref_name, theme);
+        let pushing = ref_name.is_some_and(|r| store.pushing(id, r));
+        let push = (self.push_button(id, ref_name, &row_id, pushing, style, cx))
+            .filter(|_| rename.is_none());
         Some(
             style
                 .row(format!("branch-{id}-{row_id}"), 6.)
+                .group(BRANCH_ROW)
+                .relative()
                 .aria_label(format!("Branch {name}"))
                 .child(step)
                 .child(match icon(glyph).text_color(style.meta(glyph_color)) {
                     glyph if publishing => pulsing(glyph).into_any_element(),
                     glyph => glyph.into_any_element(),
                 })
-                .child(match self.rename_field(id, ref_name, theme) {
+                .child(match rename {
                     Some(field) => field,
                     None => branch_name(name, review, &style)
                         .id(ElementId::Name(format!("name-{id}-{row_id}").into()))
@@ -2434,16 +2617,11 @@ impl Navigator {
                         ),
                     ))
                 })
-                // While it pushes, its count pulses where it is.
-                .children(style.unpushed(unpushed_n).map(|count| {
-                    match ref_name.is_some_and(|r| store.pushing(id, r)) {
-                        true => pulsing(count).into_any_element(),
-                        false => count.into_any_element(),
-                    }
-                }))
+                .children(style.unpushed(unpushed_n))
                 // Folded, how many commits it holds; open, they're listed under it.
                 .when(!open, |el| el.children(style.commits(branch.commits.len())))
                 .when(unread, |el| el.child(dot(style.meta(theme.pop))))
+                .children(push)
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
                 // A click looks inside, opening its commits; the chevron, a double-click, ⇧←
                 // and ⇧→ fold them.
@@ -2451,9 +2629,72 @@ impl Navigator {
                 .when_some(ref_name, |el, ref_name| {
                     let payload = Cut::Branch(id.clone(), ref_name.clone());
                     let label = store.label_of(id, branch).to_owned();
-                    el.on_drag(payload, drag_preview(self.store.clone(), label.into()))
+                    el.on_drag(
+                        payload,
+                        drag_preview(self.store.clone(), SharedString::from(label)),
+                    )
                 })
                 .into_any_element(),
+        )
+    }
+
+    /// Floats over the end of the branch row under the pointer, or of one `pushing`, pulsing.
+    /// Pressing it pushes without selecting the branch, and pressing it disabled does nothing
+    /// to the row either.
+    fn push_button(
+        &self,
+        project: &ProjectId,
+        ref_name: Option<&FullName>,
+        row_id: &str,
+        pushing: bool,
+        style: RowStyle,
+        cx: &Context<Self>,
+    ) -> Option<Div> {
+        let ws = self.store.read(cx).workspace(project)?;
+        let glyph = match ref_name.is_some_and(|r| ws.parents_to_push(r).next().is_some()) {
+            true => Icon::PushAll,
+            false => Icon::Push,
+        };
+        let pushed = (project.clone(), ref_name.cloned());
+        let button = icon_button(ElementId::Name(format!("push-{row_id}").into()), glyph)
+            .small()
+            .style(ButtonStyle::Outline)
+            .inverted(style.solid)
+            .tooltip(match (pushing, ref_name) {
+                (true, _) => "Pushing",
+                (false, Some(ref_name)) => ws.push_tooltip(ref_name),
+                (false, None) => "Push",
+            })
+            // Pushing it pulses at full strength, rather than faded as a disabled button is.
+            .disabled_because(ws.push_blocked(ref_name).filter(|_| !pushing))
+            .on_click(cx.listener(move |this, _, window, cx| {
+                if pushing {
+                    return;
+                }
+                let (project, ref_name) = pushed.clone();
+                this.app.update_later(window, cx, move |app, window, cx| {
+                    app.push_branch(project, ref_name, window, cx)
+                });
+            }));
+        let theme = style.theme;
+        Some(
+            div()
+                .absolute()
+                .top(dp(4.))
+                .right(dp(4.))
+                .rounded(dp(4.))
+                .bg(match style.solid {
+                    true => theme.fill_gray,
+                    false => theme.bg_2,
+                })
+                .when(!pushing, |el| {
+                    el.opacity(0.).group_hover(BRANCH_ROW, |el| el.opacity(1.))
+                })
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .child(match pushing {
+                    true => pulsing(div().child(button)).into_any_element(),
+                    false => button.into_any_element(),
+                }),
         )
     }
 
@@ -2466,36 +2707,18 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let store = self.store.read(cx);
-        let theme = style.theme;
         let (_, commit) = store.find_commit(id, *commit_id)?;
-        let (glyph, color) = if commit.conflicted {
-            (Icon::Warning, theme.warn)
-        } else {
-            match commit.state {
-                CommitState::Local => (Icon::Commit, theme.blue),
-                CommitState::Pushed => (Icon::CommitFill, style.muted()),
-                CommitState::Integrated => (Icon::CommitFill, theme.purple),
-            }
-        };
         // A picked commit takes the other picks along.
         let moved = store.with_picks(id, *commit_id);
-        let (title, _) = store.message_of(id, commit);
-        let label: SharedString = title.to_owned().into();
         let several = moved.len() > 1;
         let dragged: SharedString = match several {
-            false => label.clone(),
+            false => store.message_of(id, commit).0.to_owned().into(),
             true => format!("{} commits", moved.len()).into(),
         };
         let payload = Cut::Commit(id.clone(), moved);
         Some(
             style
-                .commit_line(
-                    format!("commit-{id}-{}", commit_id.0),
-                    COMMIT_INDENT,
-                    small_icon(glyph).text_color(style.meta(color)),
-                    label,
-                    store.is_unread(id, commit),
-                )
+                .commit(format!("commit-{id}-{}", commit_id.0), id, commit, store)
                 // Selected but on its way out.
                 .when(store.hides_commit(id, &commit.key), |el| el.opacity(0.5))
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
@@ -2920,30 +3143,39 @@ fn same_place(old: &Row, new: &Row) -> bool {
     }
 }
 
-/// What ⇧← goes up to from `selection`, a branch or a stack: a branch in a stack to the stack,
-/// and a stack, or a branch alone, to its worktree's heading.
+/// What ⇧← goes up to from `selection`, a branch or a terminal: its worktree's heading.
 fn parent(store: &Store, selection: &Selection) -> Option<Selection> {
     let project = selection.project().clone();
-    let workspace = store.workspace(&project)?;
-    let bottom = match selection {
-        Selection::Branch(_, ref_name) => {
-            let (lane, _) = workspace.lane_of(ref_name.as_ref())?;
-            match &lane.branches[..] {
-                [_, .., bottom] => {
-                    return Some(Selection::Stack(project, bottom.ref_name.clone()));
-                }
-                _ => ref_name.clone(),
-            }
+    if let Some(checkout) = store.terminals.checkout_of(selection) {
+        return Some(Selection::uncommitted_in(project, checkout.clone()));
+    }
+    match selection {
+        Selection::Branch(..) => Some(Selection::uncommitted_in(
+            project,
+            store.checkout_of(selection)?,
+        )),
+        _ => None,
+    }
+}
+
+/// The row folding hides `item` under, as ⇧← goes up to it, up to its project's: a commit's
+/// branch, an inactive worktree's heading, else as [`parent`] says.
+fn holder(store: &Store, item: &Selection) -> Option<Selection> {
+    let project = item.project().clone();
+    let up = match item {
+        Selection::Project(_) => return None,
+        Selection::Commit(_, id) => (store.find_commit(&project, *id))
+            .map(|(branch, _)| Selection::Branch(project.clone(), branch.ref_name.clone())),
+        Selection::Worktree(_, name)
+            if (store.workspace(&project))
+                .and_then(|ws| ws.find_worktree(name.as_ref()))
+                .is_some_and(|wt| wt.is_inactive()) =>
+        {
+            Some(Selection::Section(project.clone(), Section::Inactive))
         }
-        Selection::Stack(_, bottom) => bottom.clone(),
-        _ => return None,
+        _ => parent(store, item),
     };
-    Some(
-        match store.worktree_for(&Selection::Branch(project.clone(), bottom)) {
-            Some(worktree) => Selection::Worktree(project, worktree.name.clone()),
-            None => Selection::Uncommitted(project),
-        },
-    )
+    Some(up.unwrap_or(Selection::Project(project)))
 }
 
 /// How many uncommitted files a checkout has, how many of them a merge left conflicted, and
@@ -2962,6 +3194,47 @@ fn tally(files: &[FileChange]) -> Tally {
 
 /// What a checkout's uncommitted files count: what a merge left conflicted, as an update can,
 /// first, then the lines they add and remove, or with none counted, how many there are.
+/// What a terminal's program is at, in colour only where the user is wanted, turning while
+/// it works and `seen`.
+fn status_mark(status: &Status, seen: bool, style: RowStyle) -> Option<Stateful<Div>> {
+    let theme = style.theme;
+    let said = |reason: &str, otherwise: &str| -> SharedString {
+        match reason {
+            "" => otherwise.to_owned().into(),
+            reason => reason.to_owned().into(),
+        }
+    };
+    let (glyph, color, tip) = match status {
+        Status::Idle => return None,
+        Status::Working => (Icon::Spinner, style.muted(), "Working".into()),
+        Status::Blocked(reason) => (
+            Icon::Warning,
+            style.meta(theme.warn),
+            said(reason, "Waiting for you"),
+        ),
+        Status::Done => (Icon::Tick, style.meta(theme.safe), "Finished".into()),
+        Status::Failed(reason) => (
+            Icon::Cross,
+            style.meta(theme.danger),
+            said(reason, "Failed"),
+        ),
+    };
+    let drawn = small_icon(glyph).text_color(color);
+    // ponytail: turning redraws the navigator every display frame, 0.5ms each on a small repo;
+    // step it on a timer if that shows up on the battery.
+    let drawn = match status {
+        Status::Working if seen => spinning(drawn).into_any_element(),
+        _ => drawn.into_any_element(),
+    };
+    let mark = div()
+        .id("terminal-status")
+        .flex_none()
+        .aria_label(tip.clone())
+        .child(drawn)
+        .tooltip(Tooltip::text(tip));
+    Some(mark)
+}
+
 fn change_counts(
     (n, conflicted, (added, removed)): Tally,
     style: RowStyle,
@@ -3021,11 +3294,9 @@ pub(crate) fn with_merged(target: &Target) -> String {
     }
 }
 
-/// How many of `branches`' commits are only local.
+/// How many commits `branches` are ahead of their remote branches by.
 fn unpushed<'a>(branches: impl Iterator<Item = &'a Branch>) -> usize {
-    (branches.flat_map(|branch| &branch.commits))
-        .filter(|commit| commit.state == CommitState::Local)
-        .count()
+    branches.map(Branch::unpushed_commits).sum()
 }
 
 /// A branch as the navigator names it: its pull request's title once the forge cache has one,
@@ -3061,9 +3332,6 @@ impl Render for Navigator {
         if self.follow_folds(&built.folds, cx) {
             built = self.build_rows(cx);
         }
-        if self.folds.any() || self.reorder.any() {
-            window.request_animation_frame();
-        }
         let Rows {
             rows,
             insets,
@@ -3078,6 +3346,11 @@ impl Render for Navigator {
         self.moving = moving;
         self.sync_list(rows, drawer, window, cx);
         self.fit_folds(cx);
+        // After the rows are up to date, as a reorder of them starts sliding there, and nothing
+        // else may draw the next frame.
+        if self.folds.any() || self.reorder.any() {
+            window.request_animation_frame();
+        }
         let theme = Theme::get(cx).clone();
         self.first_hit = first_hit;
         let store = self.store.read(cx);
@@ -3145,10 +3418,19 @@ impl Render for Navigator {
             .child(above_drag(div().child(self.account(&theme, cx))))
             .child(div().flex_none().w(fixed(1.)).h(dp(16.)).bg(theme.border_3))
             .child(above_drag(div().child(toggle_detail)));
+        let store = self.store.read(cx);
+        let moving = store.moving.is_some();
+        // A commit of a workspace, not one only a remote or another machine has.
+        let movable = matches!(&store.selection,
+            Some(Selection::Commit(project, id)) if store.find_commit(project, *id).is_some());
 
         v_flex()
             .id("navigator")
-            .key_context("Navigator")
+            // While commits move, Return lands them.
+            .key_context(match moving {
+                true => "Navigator Moving",
+                false => "Navigator",
+            })
             .on_drag_move(cx.listener(Self::resize_drawer))
             .track_focus(&self.focus)
             .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
@@ -3196,6 +3478,10 @@ impl Render for Navigator {
             .on_action(cx.listener(Self::collapse))
             .on_action(cx.listener(Self::confirm))
             .on_action(cx.listener(Self::toggle_fold))
+            .when(movable && !moving, |el| {
+                el.on_action(cx.listener(Self::start_move))
+            })
+            .when(moving, |el| el.on_action(cx.listener(Self::move_here)))
             .size_full()
             .relative()
             .bg(theme.bg_2)

@@ -7,12 +7,13 @@ use gpui::{
 };
 
 use crate::app::{
-    AppView, CommandPalette, CutSelection, Fetch, FocusDiff, OpenPullRequest, PasteHere, Push,
-    RenameSelection, StartCommit, UncommitSelection, Undo, UpdateFromTarget,
+    AppView, CommandPalette, CutSelection, Fetch, FocusDiff, MoveHere, OpenPullRequest, PasteHere,
+    Push, StartCommit, Undo, UpdateFromTarget,
 };
 use crate::backend::rebuild::Rebuild;
 use crate::backend::{Branch, Checkout, CommitId, FileChange, ReviewState, Workspace};
 use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
+use crate::edits::{NameBranch, RenameBranch, Reword, Uncommit};
 use crate::pr::{CreatePullRequest, create_offer};
 use crate::state::{Cut, ProjectId, SLOW, Section, Selection};
 use crate::theme::Theme;
@@ -66,6 +67,26 @@ impl AppView {
                 .child(small_icon(Icon::Clock).text_color(theme.pop))
                 .child(working);
             (working.into_any_element(), Vec::new())
+        } else if let Some(moving) = &store.moving {
+            // What's moving, and where Return lands it, unless that's where it is.
+            let lands = moving.lands(store);
+            let what = Cut::Commit(moving.project.clone(), moving.commits.clone()).describe(store);
+            let what = match lands {
+                true => format!("{what} {}", moving.place()),
+                false => what,
+            };
+            let state = h_flex()
+                .gap(dp(6.))
+                .min_w_0()
+                .overflow_hidden()
+                .child(div().flex_none().text_color(theme.pop).child("Moving"))
+                .child(div().min_w_0().truncate().child(what));
+            let keys = [("↑↓".into(), "choose where")]
+                .into_iter()
+                .chain((shortcut(&MoveHere, cx).filter(|_| lands)).map(|keys| (keys, "move here")))
+                .chain([("esc".into(), "cancel")])
+                .collect();
+            (state.into_any_element(), keys)
         } else if let Some(cut) = &store.cut {
             // On another commit, a commit goes above it, below it with ⇧, or one that's cut
             // rather than copied into it with ⌥.
@@ -107,8 +128,10 @@ impl AppView {
                 store.picked.len(),
                 "commit",
                 Some(match picks_conflicted {
-                    true => "drag them together, or press M to squash or discard them",
-                    false => "drag them together, or press M to squash, uncommit or discard them",
+                    true => "drag them together, or right-click to squash or discard them",
+                    false => {
+                        "drag them together, or right-click to squash, uncommit or discard them"
+                    }
                 }),
             ),
             (
@@ -228,21 +251,22 @@ impl AppView {
                         .is_some_and(|branch| branch.review.is_some());
                     let create = (create_offer(store, selection) == Some(Ok(())))
                         .then_some((&CreatePullRequest as &dyn Action, "create pull request"));
+                    let rename: (&dyn Action, _) = match ref_name {
+                        Some(_) => (&RenameBranch, "rename"),
+                        None => (&NameBranch, "name"),
+                    };
                     (push.then_some((&Push as &dyn Action, "push")).into_iter())
                         .chain(review.then_some((&OpenPullRequest as &dyn Action, "pull request")))
                         .chain(create)
-                        .chain([(&RenameSelection as &dyn Action, "rename")])
+                        .chain([rename])
                         .collect()
                 }
                 Some(Selection::Commit(_, id)) => {
                     let conflicted = picks_conflicted || conflicted(id);
-                    [
-                        (&CutSelection as &dyn Action, "cut"),
-                        (&RenameSelection, "edit message"),
-                    ]
-                    .into_iter()
-                    .chain((!conflicted).then_some((&UncommitSelection as &dyn Action, "uncommit")))
-                    .collect()
+                    [(&CutSelection as &dyn Action, "cut"), (&Reword, "reword")]
+                        .into_iter()
+                        .chain((!conflicted).then_some((&Uncommit as &dyn Action, "uncommit")))
+                        .collect()
                 }
                 Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => {
                     vec![(&StartCommit, "commit")]

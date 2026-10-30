@@ -1,5 +1,7 @@
 //! The command palette (⌘K): every action that applies where focus was, with its keys,
-//! filtered as you type. It doubles as the list of shortcuts, as in Lite and Zed.
+//! filtered as you type. It doubles as the list of shortcuts, as in Lite and Zed. With nothing
+//! typed, the command run last comes first while it still applies, then what right-clicking
+//! the selection offers, worded as there.
 
 use std::ops::Range;
 
@@ -8,23 +10,12 @@ use gpui::{
     SharedString, Subscription, Window, actions, div, prelude::*, relative,
 };
 
-use crate::app::{
-    ActualSize, AddProject, AppView, CheckForUpdates, CopySelection, CutSelection, DeleteSelection,
-    Fetch, FocusChanges, FocusDiff, FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest,
-    PasteHere, Pull, Push, Quit, Redo, RenameSelection, StartCommit, ToggleDetail, ToggleFileTree,
-    ToggleNavigator, UncommitSelection, Undo, UpdateFromTarget, UpdateWorkspace, UpdateWorktrees,
-    ZoomIn, ZoomOut,
-};
+use crate::app::AppView;
 use crate::backend::{Branch, Checkout, Commit, Workspace, Worktree, short_ref};
-use crate::detail::{
-    DiscardFile, DiscardHunk, FoldFile, NextFile, NextHunk, PreviousFile, PreviousHunk, UnfoldFile,
-};
-use crate::edits::{
-    AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CopyChangeId, CopyMessage,
-    NewBranchBelow, NewBranchHere, RewrapMessage, SquashAll, UnapplyStack, Unstack,
-};
+use crate::commands::{COMMANDS, Command};
 use crate::overlays::backdrop;
-use crate::state::{Notice, ProjectEntry, Selection, Store, snack};
+use crate::state::{Notice, ProjectEntry, Section, Selection, Store, snack};
+use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -33,134 +24,7 @@ use crate::ui::{
     shortcut_here, small_icon, v_flex,
 };
 
-actions!(
-    palette,
-    [PaletteUp, PaletteDown, GoTo, ShowActions, CopyMore]
-);
-
-/// Every command, in the order they're listed before anything is typed.
-pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
-    ("Next hunk", &NextHunk),
-    ("Previous hunk", &PreviousHunk),
-    ("Next file", &NextFile),
-    ("Previous file", &PreviousFile),
-    ("Fold file", &FoldFile),
-    ("Unfold file", &UnfoldFile),
-    ("Show files as a tree or a list", &ToggleFileTree),
-    ("Discard hunk", &DiscardHunk),
-    ("Discard file", &DiscardFile),
-    ("Commit…", &StartCommit),
-    ("Undo", &Undo),
-    ("Redo", &Redo),
-    ("Push branch", &Push),
-    ("Open pull request", &OpenPullRequest),
-    ("Fetch", &Fetch),
-    ("Pull", &Pull),
-    ("Update workspace and worktrees", &UpdateFromTarget),
-    ("Update workspace", &UpdateWorkspace),
-    ("Update worktrees", &UpdateWorktrees),
-    ("New branch", &NewBranch),
-    ("New branch on top", &NewBranchOnTop),
-    ("New worktree", &crate::app::NewWorktree),
-    ("New worktree with name…", &crate::app::NewWorktreeWithName),
-    ("Reword", &RenameSelection),
-    ("Uncommit", &UncommitSelection),
-    ("Cherry-pick commit", &CherryPick),
-    ("Add empty commit above", &AddEmptyCommitAbove),
-    ("Add empty commit below", &AddEmptyCommitBelow),
-    ("Squash all commits", &SquashAll),
-    ("Squash the picked commits", &crate::edits::SquashPicked),
-    (
-        "Move commit to a new branch",
-        &crate::edits::MoveToNewBranch,
-    ),
-    ("Pull from the remote", &crate::edits::PullRemote),
-    (
-        "Replace with the remote's version",
-        &crate::edits::TakeRemote,
-    ),
-    ("New branch below", &NewBranchBelow),
-    ("New branch ending here", &NewBranchHere),
-    ("Unstack branch", &Unstack),
-    ("Unapply branch or stack", &UnapplyStack),
-    ("Land on target", &crate::edits::LandBranch),
-    ("Rewrap commit message", &RewrapMessage),
-    ("Copy change ID", &CopyChangeId),
-    ("Copy commit message", &CopyMessage),
-    ("Discard", &DeleteSelection),
-    ("Copy", &CopySelection),
-    ("Copy more", &CopyMore),
-    ("Cut", &CutSelection),
-    ("Paste here", &PasteHere),
-    ("Toggle navigator", &ToggleNavigator),
-    ("Toggle details", &ToggleDetail),
-    ("Zoom in", &ZoomIn),
-    ("Zoom out", &ZoomOut),
-    ("Actual size", &ActualSize),
-    ("Go to navigator", &FocusNavigator),
-    ("Go to files", &FocusChanges),
-    ("Go to diff", &FocusDiff),
-    ("Add project…", &AddProject),
-    ("Clone a repository…", &crate::projects::CloneRepository),
-    ("Settings", &crate::settings::OpenSettings),
-    (
-        "Keyboard shortcuts",
-        &crate::settings::OpenKeyboardShortcuts,
-    ),
-    ("Operations history", &crate::app::OperationsHistory),
-    ("Next pane", &crate::app::FocusNextPane),
-    ("Previous pane", &crate::app::FocusPreviousPane),
-    ("Pane to the right", &crate::app::FocusPaneRight),
-    ("Pane to the left", &crate::app::FocusPaneLeft),
-    (
-        "Switch between Changes and Pull request",
-        &crate::detail::SwitchTab,
-    ),
-    ("Close window", &crate::app::CloseWindow),
-    ("Go to anything", &GoTo),
-    ("Find in diff", &crate::detail::FindInDiff),
-    ("Filter files", &crate::detail::FilterFiles),
-    ("Wrap long lines", &crate::detail::ToggleWrap),
-    ("Toggle diff backgrounds", &crate::detail::TogglePlainLines),
-    ("Side-by-side diff", &crate::detail::ToggleSplit),
-    ("Show or hide the files", &crate::detail::ToggleFiles),
-    ("Create pull request", &crate::pr::CreatePullRequest),
-    ("Merge pull request", &crate::pr::MergePullRequest),
-    ("Enable auto-merge", &crate::pr::EnableAutoMerge),
-    ("Disable auto-merge", &crate::pr::DisableAutoMerge),
-    ("Resolve conflicts", &crate::detail::ResolveConflicts),
-    ("Open in editor", &crate::open_in::OpenInEditor),
-    ("Open in terminal", &crate::open_in::OpenInTerminal),
-    // The menu bar's, for Windows, which has none.
-    ("Check for updates…", &CheckForUpdates),
-    ("Rebuild and restart", &crate::app::BuildAndRestart),
-    (
-        "Build and restart from here",
-        &crate::app::BuildAndRestartFromHere,
-    ),
-    ("GitButler docs", &crate::help::OpenDocs),
-    ("What's new (release notes)", &crate::help::OpenReleaseNotes),
-    ("Report an issue…", &crate::help::ReportIssue),
-    ("GitButler Discord", &crate::help::OpenDiscord),
-    ("Show settings folder", &crate::help::ShowConfigFolder),
-    ("Show logs folder", &crate::help::ShowLogsFolder),
-    ("About GitButler", &crate::help::About),
-    ("Quit", &Quit),
-];
-
-const RISKY: &[&str] = &[
-    "Discard hunk",
-    "Discard file",
-    "Discard",
-    "Uncommit",
-    "Squash all commits",
-    "Squash the picked commits",
-    "Replace with the remote's version",
-    "Unapply branch or stack",
-    "Land on target",
-    "Push branch",
-    "Merge pull request",
-];
+actions!(palette, [PaletteUp, PaletteDown, GoTo, CopyMore]);
 
 /// What picking a choice does, given what's typed.
 type Run = Box<dyn FnOnce(&mut AppView, &str, &mut Window, &mut Context<AppView>)>;
@@ -170,7 +34,10 @@ type Run = Box<dyn FnOnce(&mut AppView, &str, &mut Window, &mut Context<AppView>
 pub struct Choice {
     /// What kind of thing it is, before its label, where one list holds several kinds.
     icon: Option<Icon>,
+    /// What typing finds it by, and what it shows once something is typed.
     label: SharedString,
+    /// What it shows instead while nothing is typed, as the selection's menu words it.
+    phrase: Option<SharedString>,
     key: Option<SharedString>,
     detail: Option<SharedString>,
     /// It throws work away, so letters scattered through its label don't find it.
@@ -182,6 +49,8 @@ pub struct Choice {
     /// give it, though its detail shows less. Never by letters scattered through it, which
     /// would find every commit.
     id: Option<SharedString>,
+    /// Where picking it goes, which the navigator outlines while it's selected.
+    goes_to: Option<Selection>,
     run: Run,
 }
 
@@ -193,11 +62,13 @@ impl Choice {
         Self {
             icon: None,
             label: label.into(),
+            phrase: None,
             key: None,
             detail: None,
             risky: false,
             names: false,
             id: None,
+            goes_to: None,
             run: Box::new(move |this, _, window, cx| run(this, window, cx)),
         }
     }
@@ -232,6 +103,11 @@ impl Choice {
         self.icon = Some(icon);
         self
     }
+
+    fn goes_to(mut self, selection: Selection) -> Choice {
+        self.goes_to = Some(selection);
+        self
+    }
 }
 
 /// The command palette, or another list to pick from the same way.
@@ -242,6 +118,8 @@ pub struct Palette {
     choices: Vec<Choice>,
     /// What Enter does, for the hint at the bottom.
     verb: &'static str,
+    /// What the query finds, best first, worked out as it changes: nothing else changes it.
+    found: Vec<Found>,
     selected: usize,
     /// The rows' scroll, which follows the selection.
     scroll: ScrollHandle,
@@ -261,6 +139,69 @@ impl Palette {
     fn select(&mut self, row: usize) {
         self.selected = row;
         self.scroll.scroll_to_item(row);
+    }
+
+    /// Select the first row, or while nothing's typed the first that doesn't throw work away,
+    /// so Return alone never runs one.
+    fn select_first(&mut self, cx: &gpui::App) {
+        let typed = !self.input.read(cx).text().trim().is_empty();
+        let safe = (self.found.iter())
+            .position(|found| typed || self.choices.get(found.ix).is_some_and(|c| !c.risky));
+        self.select(safe.unwrap_or(0));
+    }
+
+    /// The choices the query finds, best first.
+    fn find(&self, cx: &gpui::App) -> Vec<Found> {
+        let query = self.input.read(cx).text().trim().to_owned();
+        let taken = (self.choices.iter()).any(|c| !c.names && c.label.eq_ignore_ascii_case(&query));
+        let mut scored: Vec<(i32, Found)> = self
+            .choices
+            .iter()
+            .enumerate()
+            .filter_map(|(ix, choice)| {
+                // Last, under what the text finds.
+                if choice.names && !query.is_empty() {
+                    let found = Found {
+                        ix,
+                        label: Vec::new(),
+                        detail: Vec::new(),
+                    };
+                    return (!taken).then_some((-1, found));
+                }
+                let label = score(&choice.label, &query);
+                // The label first on a tie, as a branch named as another's detail says.
+                let detail = (choice.detail.as_ref())
+                    .and_then(|detail| detail_score(detail, choice.id.as_deref(), &query))
+                    .map(|(score, found)| (score - 1, found))
+                    .filter(|(score, _)| label.as_ref().is_none_or(|(label, _)| score > label));
+                let (score, found) = match (label, detail) {
+                    (_, Some((score, detail))) => (
+                        score,
+                        Found {
+                            ix,
+                            label: Vec::new(),
+                            detail,
+                        },
+                    ),
+                    (Some((score, label)), None) => (
+                        score,
+                        Found {
+                            ix,
+                            label,
+                            detail: Vec::new(),
+                        },
+                    ),
+                    (None, None) => return None,
+                };
+                // One that throws work away shows for its words, not for letters scattered
+                // through it, so typing a command missing here doesn't land on it.
+                let scattered = score == 0 && !query.is_empty();
+                (!scattered || !choice.risky).then_some((score, found))
+            })
+            .collect();
+        // Stable, so equal scores keep the recent-first order.
+        scored.sort_by_key(|(score, _)| -score);
+        scored.into_iter().map(|(_, found)| found).collect()
     }
 }
 
@@ -409,7 +350,8 @@ fn copies(store: &Store, selection: &Selection) -> Vec<(&'static str, String)> {
         | Selection::History(_)
         | Selection::Graph(_)
         | Selection::Stack(..)
-        | Selection::Section(..) => {}
+        | Selection::Section(..)
+        | Selection::Terminal(..) => {}
     }
     copies
 }
@@ -431,7 +373,9 @@ fn project_choice(entry: &ProjectEntry) -> Choice {
         }
         this.select(Selection::Project(id), window, cx)
     });
-    choice.icon(Icon::Repo)
+    choice
+        .icon(Icon::Repo)
+        .goes_to(Selection::Project(entry.id.clone()))
 }
 
 /// Go to anything's rows for a loaded project's pages, as the navigator names them.
@@ -449,19 +393,44 @@ fn page_choices(entry: &ProjectEntry, several: bool) -> [Choice; 3] {
     let project = several.then_some(entry.project.name.as_str());
     pages.map(|(page, label, icon)| {
         let gone = format!("{} was removed meanwhile", entry.project.name);
+        let goes_to = page.clone();
         let choice = Choice::new(label, move |this, window, cx| {
             if this.store.read(cx).project(page.project()).is_none() {
                 return snack(&this.store, gone, cx);
             }
             this.select(page, window, cx)
         });
-        choice.icon(icon).details(project)
+        choice.icon(icon).details(project).goes_to(goes_to)
     })
+}
+
+/// Go to anything's row for the heading over what's new on a loaded project's target, as the
+/// navigator names it, while there's anything.
+fn upstream_choice(entry: &ProjectEntry, workspace: &Workspace, several: bool) -> Option<Choice> {
+    if workspace.upstream(None).is_empty() {
+        return None;
+    }
+    let target = &workspace.target.as_ref()?.name;
+    let id = entry.id.clone();
+    let heading = Selection::Section(id.clone(), Section::Upstream(None));
+    let goes_to = heading.clone();
+    let gone = format!("Nothing new on {target} anymore");
+    let choice = Choice::new(format!("New on {target}"), move |this, window, cx| {
+        // Taken in since the picker opened, as by an update.
+        if (this.store.read(cx).workspace(&id)).is_none_or(|ws| ws.upstream(None).is_empty()) {
+            return snack(&this.store, gone, cx);
+        }
+        this.select(heading, window, cx)
+    });
+    let project = several.then_some(entry.project.name.as_str());
+    let choice = choice.icon(Icon::ArrowLineDown).details(project);
+    Some(choice.goes_to(goes_to))
 }
 
 /// Go to anything's row for a linked worktree, the branch it has checked out beside it.
 fn worktree_choice(entry: &ProjectEntry, worktree: &Worktree, several: bool) -> Choice {
     let (id, name) = (entry.id.clone(), worktree.name.clone());
+    let goes_to = Selection::Worktree(id.clone(), name.clone());
     let gone = format!("{name} was archived or deleted meanwhile");
     let branch = worktree.branch.as_ref().map(short_ref);
     let project = several.then_some(entry.project.name.as_str());
@@ -474,13 +443,67 @@ fn worktree_choice(entry: &ProjectEntry, worktree: &Worktree, several: bool) -> 
         this.select(Selection::Worktree(id, name), window, cx)
     });
     let details = branch.as_deref().into_iter().chain(project);
-    choice.icon(Icon::FolderCopy).details(details)
+    choice
+        .icon(Icon::FolderCopy)
+        .details(details)
+        .goes_to(goes_to)
+}
+
+/// Go to anything's rows for the terminals open on a loaded project's worktrees, the main
+/// one's first, as the navigator lists them under each.
+fn terminal_choices(
+    store: &Store,
+    entry: &ProjectEntry,
+    workspace: &Workspace,
+    several: bool,
+) -> Vec<Choice> {
+    let linked = (workspace.worktrees.iter())
+        .filter(|wt| !store.hides_worktree(&entry.id, wt.name.as_ref()))
+        .map(|wt| Checkout::Linked(wt.name.clone()));
+    let mut choices = Vec::new();
+    for checkout in std::iter::once(Checkout::Main).chain(linked) {
+        for (id, _) in store.terminals.on(&entry.id, &checkout) {
+            if let Some(title) = store.terminals.title(id) {
+                choices.push(terminal_choice(entry, &checkout, id, title, several));
+            }
+        }
+    }
+    choices
+}
+
+/// Go to anything's row for a terminal, by its title, the worktree it's open on beside it.
+fn terminal_choice(
+    entry: &ProjectEntry,
+    checkout: &Checkout,
+    id: TerminalId,
+    title: &SharedString,
+    several: bool,
+) -> Choice {
+    let goes_to = Selection::Terminal(entry.id.clone(), id);
+    let selection = goes_to.clone();
+    let gone = format!("{title} was closed meanwhile");
+    let worktree = (checkout.linked()).map_or("Main worktree".to_owned(), |name| name.to_string());
+    let project = several.then_some(entry.project.name.as_str());
+    let choice = Choice::new(title.clone(), move |this, window, cx| {
+        // Closed since the picker opened, as when its shell exited.
+        if this.store.read(cx).terminals.get(id).is_none() {
+            return snack(&this.store, gone, cx);
+        }
+        this.select(selection, window, cx);
+        this.enter_terminal(window, cx);
+    });
+    let details = std::iter::once(worktree.as_str()).chain(project);
+    choice
+        .icon(Icon::TextCode)
+        .details(details)
+        .goes_to(goes_to)
 }
 
 /// Go to anything's row for a branch, as the navigator names it: a pull request by its title,
 /// its branch's name beside it, where typing either finds it.
 fn branch_choice(store: &Store, entry: &ProjectEntry, branch: &Branch, several: bool) -> Choice {
     let (id, ref_name) = (entry.id.clone(), branch.ref_name.clone());
+    let goes_to = Selection::Branch(id.clone(), ref_name.clone());
     let label = store.label_of(&entry.id, branch).to_owned();
     let name = (label != branch.name).then_some(branch.name.as_str());
     let project = several.then_some(entry.project.name.as_str());
@@ -500,6 +523,7 @@ fn branch_choice(store: &Store, entry: &ProjectEntry, branch: &Branch, several: 
     choice
         .icon(Icon::Branch)
         .details(name.into_iter().chain(project))
+        .goes_to(goes_to)
 }
 
 /// Go to anything's row for a commit, by its title, its short id and branch beside it, where
@@ -512,6 +536,7 @@ fn commit_choice(
     several: bool,
 ) -> Choice {
     let (id, key) = (entry.id.clone(), commit.key.clone());
+    let goes_to = Selection::Commit(id.clone(), commit.id);
     let short = commit.id.0.to_hex_with_len(7).to_string();
     let gone = format!("Commit {short} left the workspace meanwhile");
     let project = several.then_some(entry.project.name.as_str());
@@ -526,7 +551,9 @@ fn commit_choice(
             None => snack(&this.store, gone, cx),
         }
     });
-    let choice = (choice.icon(Icon::Commit)).details(details.into_iter().chain(project));
+    let choice = (choice.icon(Icon::Commit))
+        .details(details.into_iter().chain(project))
+        .goes_to(goes_to);
     Choice {
         id: Some(commit.id.0.to_string().into()),
         ..choice
@@ -535,43 +562,101 @@ fn commit_choice(
 
 impl AppView {
     pub fn open_palette(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // What's offered is where the keys were before a menu took them.
+        self.close_menu(window, cx);
+        let (items, _) = self.selection_menu(window, cx);
+        let items = self.offered(items, window, cx);
+        let type_of = |command: &dyn Command| {
+            let action: &dyn Action = command;
+            action.as_any().type_id()
+        };
+        let in_menu: Vec<std::any::TypeId> = (items.iter())
+            .filter_map(|item| item.command.map(type_of))
+            .collect();
         // Commands the app handles everywhere, as the Help menu's, count too.
         // `is_action_available` only looks at the focused element's.
         let available: Vec<std::any::TypeId> = (window.available_actions(cx).iter())
             .map(|action| action.as_any().type_id())
             .collect();
-        let mut commands: Vec<(&'static str, &dyn Action)> = (COMMANDS.iter().copied())
-            .filter(|(_, action)| available.contains(&action.as_any().type_id()))
-            .collect();
-        // Recently run commands first, as in Zed.
-        commands.sort_by_key(|(label, _)| {
-            self.recent_commands
-                .iter()
-                .position(|recent| recent == label)
-                .unwrap_or(usize::MAX)
-        });
-        let mut choices: Vec<Choice> = commands
-            .into_iter()
-            .map(|(label, action)| {
-                // What pressing it would run from where the keys were, not another place's.
-                let key = shortcut_here(action, window, cx);
-                let action = action.boxed_clone();
-                let risky = RISKY.contains(&label);
-                Choice {
-                    key,
-                    risky,
-                    ..Choice::new(label, move |this, window, cx| {
-                        // Recent commands come first, so ⌘K then Enter repeats one; never
-                        // one that throws work away.
-                        if !risky {
-                            this.recent_commands.retain(|recent| *recent != label);
-                            this.recent_commands.insert(0, label);
-                        }
-                        window.dispatch_action(action, cx);
-                    })
-                }
+        let mut commands: Vec<&'static dyn Command> = (COMMANDS.iter().copied())
+            .filter(|&command| {
+                let ty = type_of(command);
+                available.contains(&ty) && !in_menu.contains(&ty) && command.listed(self, cx)
             })
             .collect();
+        // Recently run commands first, as in Zed.
+        commands.sort_by_key(|command| {
+            self.recent_commands
+                .iter()
+                .position(|recent| *recent == command.title())
+                .unwrap_or(usize::MAX)
+        });
+        let command_choice = |command: &'static dyn Command, key: Option<SharedString>| {
+            let (label, risky) = (command.title(), command.risky());
+            let action = command.boxed_clone();
+            Choice {
+                key,
+                risky,
+                ..Choice::new(label, move |this, window, cx| {
+                    // The last one run comes first, so ⌘K then Return runs it again; never one
+                    // that throws work away.
+                    if !risky {
+                        this.recent_commands.retain(|recent| *recent != label);
+                        this.recent_commands.insert(0, label);
+                    }
+                    window.dispatch_action(action, cx);
+                })
+            }
+        };
+        // An item that isn't a command holds what it acts on, as the menu's do.
+        let holds_ids = items.iter().any(|item| item.command.is_none());
+        let place = (!items.is_empty())
+            .then(|| self.store.read(cx).selection.clone())
+            .flatten()
+            .map(|selection| self.store.read(cx).place(&selection));
+        // What right-clicking the selection offers, worded as there until something's typed,
+        // which finds a command by its title.
+        let selected = items.into_iter().map(|item| match item.command {
+            Some(command) => {
+                let phrase = (item.label != command.title()).then_some(item.label);
+                let risky = item.danger || command.risky();
+                let choice = command_choice(command, item.key);
+                (
+                    Some(command.title()),
+                    Choice {
+                        phrase,
+                        risky,
+                        ..choice
+                    },
+                )
+            }
+            None => {
+                let handler = item.handler;
+                let choice = Choice {
+                    key: item.key,
+                    detail: item.detail,
+                    risky: item.danger || item.risky,
+                    ..Choice::new(item.label, move |this, window, cx| {
+                        handler(this, window, cx)
+                    })
+                };
+                (None, choice)
+            }
+        });
+        let rest = commands.into_iter().map(|command| {
+            // What pressing it would run from where the keys were, not another place's.
+            let key = shortcut_here(command, window, cx);
+            (Some(command.title()), command_choice(command, key))
+        });
+        let mut choices: Vec<(Option<&str>, Choice)> = selected.chain(rest).collect();
+        // The command run last before them, while it's offered.
+        if let Some(&last) = self.recent_commands.first()
+            && let Some(at) = choices.iter().position(|(title, _)| *title == Some(last))
+        {
+            let choice = choices.remove(at);
+            choices.insert(0, choice);
+        }
+        let mut choices: Vec<Choice> = choices.into_iter().map(|(_, choice)| choice).collect();
         // What an error card offers to try instead, as Update anyway, found by typing: last,
         // so ⌘K then Enter never runs one.
         choices.extend((self.store.read(cx).toasts.iter()).filter_map(
@@ -594,11 +679,14 @@ impl AppView {
                 _ => None,
             },
         ));
-        self.open_picker(None, "Search commands", "Run", choices, window, cx);
+        self.open_picker(place, "Search commands", "Run", choices, window, cx);
+        if let Some(palette) = &mut self.palette {
+            palette.holds_ids = holds_ids;
+        }
     }
 
-    /// Pick a project, or a page, linked worktree, branch or commit of a loaded one, by name,
-    /// pull request title or commit id, and select it.
+    /// Pick a project, or a page, what's new on the target, linked worktree, terminal, branch or
+    /// commit of a loaded one, by name, pull request title or commit id, and select it.
     pub fn go_to(&mut self, _: &GoTo, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         // Only expanded projects' insides: a collapsed one's rows aren't drawn, or kept current.
@@ -613,11 +701,17 @@ impl AppView {
         let pages = (open.iter())
             .filter(|(_, workspace)| workspace.editing.is_none())
             .flat_map(|(entry, _)| page_choices(entry, several));
+        let upstream = (open.iter())
+            .filter_map(|(entry, workspace)| upstream_choice(entry, workspace, several));
         let worktrees = open.iter().flat_map(|(entry, workspace)| {
             (workspace.worktrees.iter())
                 .filter(move |wt| !store.hides_worktree(&entry.id, wt.name.as_ref()))
                 .map(move |wt| worktree_choice(entry, wt, several))
         });
+        // Not while a commit is checked out either, which the navigator hides them for too.
+        let terminals = (open.iter())
+            .filter(|(_, workspace)| workspace.editing.is_none())
+            .flat_map(|(entry, workspace)| terminal_choices(store, entry, workspace, several));
         let branches = open.iter().flat_map(|(entry, workspace)| {
             (workspace.all_branches())
                 .filter(|branch| branch.ref_name.is_some())
@@ -630,59 +724,19 @@ impl AppView {
                     .map(move |commit| commit_choice(store, entry, branch, commit, several))
             })
         });
-        let choices = (projects.chain(pages).chain(worktrees))
-            .chain(branches.chain(commits))
+        let choices = (projects.chain(pages).chain(upstream).chain(worktrees))
+            .chain(terminals.chain(branches).chain(commits))
             .collect();
-        let placeholder = "Go to a project, worktree, branch or commit";
+        let placeholder = "Go to a project, worktree, terminal, branch or commit";
         self.open_picker(None, placeholder, "Go", choices, window, cx);
         if let Some(palette) = &mut self.palette {
             palette.wide = true;
         }
     }
 
-    /// What right-clicking the selected row offers, to pick from with the keys.
-    pub fn show_actions(&mut self, _: &ShowActions, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(selection) = self.store.read(cx).selection.clone() else {
-            return;
-        };
-        // The file under the cursor while the file list or the diff has the keys.
-        let file = (self.detail).update(cx, |detail, cx| detail.focused_file_items(window, cx));
-        // On the Branches and Operations history pages, what's opened there.
-        let detail = self.detail.read(cx);
-        let items = file.or_else(|| match &selection {
-            Selection::Branches(project) => (detail.selected_other_branch(project))
-                .map(|branch| detail.branch_menu_items(project, &branch.ref_name, cx)),
-            Selection::History(project) => (detail.selected_operation(project)).map(|operation| {
-                crate::detail::Detail::operation_menu_items(project, operation.id, cx)
-            }),
-            _ => None,
-        });
-        let items = items.unwrap_or_else(|| self.navigator.read(cx).menu_items(&selection, cx));
-        let choices: Vec<Choice> = (items.into_iter())
-            .map(|item| Choice {
-                icon: None,
-                label: item.label,
-                key: item.key,
-                detail: item.detail,
-                risky: item.danger,
-                names: false,
-                id: None,
-                run: Box::new(move |this, _, window, cx| (item.handler)(this, window, cx)),
-            })
-            .collect();
-        if choices.is_empty() {
-            return;
-        }
-        let place = self.store.read(cx).place(&selection);
-        self.open_picker(Some(place), "Actions", "Run", choices, window, cx);
-        if let Some(palette) = &mut self.palette {
-            palette.holds_ids = true;
-        }
-    }
-
     /// What can be copied from the selection, to pick from with the keys, as the TUI's ⇧Y
-    /// offers: the file under the cursor while the file list or the diff has the keys, as M
-    /// takes it. The first is what y copies, unless text is selected in the diff.
+    /// offers: the file under the cursor while the file list or the diff has the keys, as
+    /// right-clicking takes it. The first is what y copies, unless text is selected in the diff.
     pub fn copy_more(&mut self, _: &CopyMore, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         let Some(selection) = store.selection.clone() else {
@@ -716,6 +770,7 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.close_menu(window, cx);
         // Opened from another picker, go back to where that one came from.
         let restore_focus = match &self.palette {
             Some(open) => open.restore_focus.clone(),
@@ -726,20 +781,22 @@ impl AppView {
             cx.subscribe_in(&input, window, |this, _, event, window, cx| match event {
                 InputEvent::Changed => {
                     if let Some(palette) = &mut this.palette {
-                        palette.select(0);
+                        palette.found = palette.find(cx);
+                        palette.select_first(cx);
                     }
+                    this.outline_choice(cx);
                     cx.notify();
                 }
                 InputEvent::Submit => this.run_selected(window, cx),
                 InputEvent::Cancel => this.close_palette(window, cx),
             });
         window.focus(&input.focus_handle(cx), cx);
-        self.menu = None;
-        self.palette = Some(Palette {
+        let mut palette = Palette {
             input,
             place,
             choices,
             verb,
+            found: Vec::new(),
             selected: 0,
             scroll: ScrollHandle::new(),
             restore_focus,
@@ -747,7 +804,11 @@ impl AppView {
             holds_ids: false,
             wide: false,
             _subscription: subscription,
-        });
+        };
+        palette.found = palette.find(cx);
+        palette.select_first(cx);
+        self.palette = Some(palette);
+        self.outline_choice(cx);
         cx.notify();
     }
 
@@ -757,70 +818,25 @@ impl AppView {
         {
             window.focus(&focus, cx);
         }
+        (self.navigator).update(cx, |navigator, cx| navigator.stop_going(true, cx));
         cx.notify();
     }
 
-    fn matches(&self, cx: &gpui::App) -> Vec<Found> {
-        let Some(palette) = &self.palette else {
-            return Vec::new();
-        };
-        let query = palette.input.read(cx).text().trim().to_owned();
-        let taken =
-            (palette.choices.iter()).any(|c| !c.names && c.label.eq_ignore_ascii_case(&query));
-        let mut scored: Vec<(i32, Found)> = palette
-            .choices
-            .iter()
-            .enumerate()
-            .filter_map(|(ix, choice)| {
-                // Last, under what the text finds.
-                if choice.names && !query.is_empty() {
-                    let found = Found {
-                        ix,
-                        label: Vec::new(),
-                        detail: Vec::new(),
-                    };
-                    return (!taken).then_some((-1, found));
-                }
-                let label = score(&choice.label, &query);
-                // The label first on a tie, as a branch named as another's detail says.
-                let detail = (choice.detail.as_ref())
-                    .and_then(|detail| detail_score(detail, choice.id.as_deref(), &query))
-                    .map(|(score, found)| (score - 1, found))
-                    .filter(|(score, _)| label.as_ref().is_none_or(|(label, _)| score > label));
-                let (score, found) = match (label, detail) {
-                    (_, Some((score, detail))) => (
-                        score,
-                        Found {
-                            ix,
-                            label: Vec::new(),
-                            detail,
-                        },
-                    ),
-                    (Some((score, label)), None) => (
-                        score,
-                        Found {
-                            ix,
-                            label,
-                            detail: Vec::new(),
-                        },
-                    ),
-                    (None, None) => return None,
-                };
-                // One that throws work away shows for its words, not for letters scattered
-                // through it, so typing a command missing here doesn't land on it.
-                let scattered = score == 0 && !query.is_empty();
-                (!scattered || !choice.risky).then_some((score, found))
-            })
-            .collect();
-        // Stable, so equal scores keep the recent-first order.
-        scored.sort_by_key(|(score, _)| -score);
-        scored.into_iter().map(|(_, found)| found).collect()
+    /// Have the navigator outline where the selected choice goes, if it goes anywhere.
+    fn outline_choice(&mut self, cx: &mut Context<Self>) {
+        let goes_to = self.palette.as_ref().and_then(|palette| {
+            let found = palette.found.get(palette.selected)?;
+            palette.choices.get(found.ix)?.goes_to.clone()
+        });
+        (self.navigator).update(cx, |navigator, cx| navigator.go_toward(goes_to, cx));
     }
 
     fn run_command(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) {
         let Some(palette) = self.palette.take() else {
             return;
         };
+        // Where it goes shows as the selection, from where the navigator scrolled to.
+        (self.navigator).update(cx, |navigator, cx| navigator.stop_going(false, cx));
         let typed = palette.input.read(cx).text().trim().to_owned();
         let Some(choice) = palette.choices.into_iter().nth(ix) else {
             return;
@@ -829,28 +845,32 @@ impl AppView {
         if let Some(focus) = palette.restore_focus {
             window.focus(&focus, cx);
         }
-        (choice.run)(self, &typed, window, cx);
+        Self::once_drawn(window, cx, move |this, window, cx| {
+            (choice.run)(this, &typed, window, cx)
+        });
         cx.notify();
     }
 
     fn run_selected(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let selected = self.palette.as_ref().map_or(0, |p| p.selected);
-        if let Some(found) = self.matches(cx).get(selected) {
-            self.run_command(found.ix, window, cx);
+        let found = (self.palette.as_ref()).and_then(|p| p.found.get(p.selected));
+        if let Some(ix) = found.map(|found| found.ix) {
+            self.run_command(ix, window, cx);
         }
     }
 
     fn palette_up(&mut self, _: &PaletteUp, _: &mut Window, cx: &mut Context<Self>) {
         if let Some(palette) = &mut self.palette {
             palette.select(palette.selected.saturating_sub(1));
+            self.outline_choice(cx);
             cx.notify();
         }
     }
 
     fn palette_down(&mut self, _: &PaletteDown, _: &mut Window, cx: &mut Context<Self>) {
-        let count = self.matches(cx).len();
         if let Some(palette) = &mut self.palette {
-            palette.select((palette.selected + 1).min(count.saturating_sub(1)));
+            let last = palette.found.len().saturating_sub(1);
+            palette.select((palette.selected + 1).min(last));
+            self.outline_choice(cx);
             cx.notify();
         }
     }
@@ -859,27 +879,33 @@ impl AppView {
     pub fn render_palette(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let palette = self.palette.as_ref()?;
         let theme = Theme::get(cx).clone();
-        let matches = self.matches(cx);
         let typed = palette.input.read(cx).text().trim().to_owned();
-        let rows: Vec<AnyElement> = matches
-            .into_iter()
+        let rows: Vec<AnyElement> = (palette.found.iter())
             .enumerate()
             .filter_map(|(row, found)| {
                 let ix = found.ix;
                 let choice = palette.choices.get(ix)?;
                 let selected = row == palette.selected;
-                let label: SharedString = match choice.names && !typed.is_empty() {
-                    true => format!("{} \"{typed}\"", choice.label).into(),
-                    false => choice.label.clone(),
+                let label: SharedString = match (&choice.phrase, typed.is_empty()) {
+                    (Some(phrase), true) => phrase.clone(),
+                    _ if choice.names && !typed.is_empty() => {
+                        format!("{} \"{typed}\"", choice.label).into()
+                    }
+                    _ => choice.label.clone(),
                 };
                 let el = list_row(("command", ix), selected, &theme)
                     .gap(dp(12.))
                     .when_some(choice.icon, |el, icon| {
                         el.child(small_icon(icon).text_color(theme.text_2))
                     })
-                    .child(div().flex_1().truncate().child(matched(label, found.label)))
+                    .child(
+                        div()
+                            .flex_1()
+                            .truncate()
+                            .child(matched(label, found.label.iter().cloned())),
+                    )
                     .when_some(choice.detail.clone(), |el, detail| {
-                        let detail = muted(matched(detail, found.detail), &theme);
+                        let detail = muted(matched(detail, found.detail.iter().cloned()), &theme);
                         el.child(detail.when(palette.wide, |detail| {
                             detail.min_w_0().max_w(relative(0.4)).truncate()
                         }))
@@ -979,7 +1005,7 @@ impl AppView {
 
 #[cfg(test)]
 mod tests {
-    use super::{COMMANDS, RISKY, detail_score, id_starts, score, shared_start};
+    use super::{detail_score, id_starts, score, shared_start};
 
     const ID: &str = "3a79334c0b5e8f1d2a6b7c9e0f1a2b3c4d5e6f70";
 
@@ -1092,15 +1118,5 @@ mod tests {
             Some(vec!["Ü", "Änd"]),
             "ranges are bytes of the label as shown, so a letter two bytes long stays whole"
         );
-    }
-
-    #[test]
-    fn every_risky_name_is_a_command() {
-        for risky in RISKY {
-            assert!(
-                COMMANDS.iter().any(|(label, _)| label == risky),
-                "{risky:?} must match a command's label, or ⌘K then Enter could repeat it"
-            );
-        }
     }
 }

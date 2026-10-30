@@ -27,6 +27,7 @@ mod mutation;
 mod picks;
 mod saved;
 mod seen;
+mod terminals;
 
 pub use activity::{Activity, QUARTER, SeenCommit};
 pub(crate) use load::move_before;
@@ -41,6 +42,7 @@ pub use saved::{BranchStatus, FileSort, Pane, Prefs, ScopeLines, WatchedOrder};
 use saved::{Restored, Saved};
 use seen::Seen;
 pub use seen::{GLOW, Seeable};
+pub use terminals::Terminals;
 
 pub type ProjectId = SharedString;
 
@@ -69,6 +71,8 @@ pub enum Selection {
     Upstream(ProjectId, Option<FullName>, CommitId),
     /// The heading over a section of a project's card, whose page shows what it folds away.
     Section(ProjectId, Section),
+    /// A terminal open on one of the project's worktrees.
+    Terminal(ProjectId, crate::terminal::TerminalId),
 }
 
 /// A section of a project's card that folds away under its heading.
@@ -104,7 +108,8 @@ impl Selection {
             | Selection::Stack(project, _)
             | Selection::Mesh(project, ..)
             | Selection::Upstream(project, ..)
-            | Selection::Section(project, _) => project,
+            | Selection::Section(project, _)
+            | Selection::Terminal(project, _) => project,
         }
     }
 
@@ -162,6 +167,29 @@ impl Cut {
         }
     }
 
+    /// Without the files that can't land ([`Selected::movable`]), if any can.
+    pub fn movable(self) -> Option<Self> {
+        match self {
+            Cut::Files {
+                project,
+                from,
+                worktree,
+                files,
+            } => {
+                let files: Arc<[Selected]> = (files.iter().filter(|file| file.movable()))
+                    .cloned()
+                    .collect();
+                (!files.is_empty()).then_some(Cut::Files {
+                    project,
+                    from,
+                    worktree,
+                    files,
+                })
+            }
+            cut => Some(cut),
+        }
+    }
+
     /// "Cherry-picking" for a cherry-pick, which leaves the commit where it is; "Cut"
     /// otherwise. Not "Copied", which ⌘C says of the clipboard.
     pub fn verb(&self) -> &'static str {
@@ -216,6 +244,8 @@ pub enum StoreEvent {
     /// Git has no author to record commits with in a project: ask for the user's name and
     /// email.
     AuthorMissing(ProjectId),
+    /// A terminal was opened and selected, to type in.
+    TerminalOpened,
 }
 
 /// An error card's button: its label, and what it runs.
@@ -322,6 +352,9 @@ pub struct Store {
     pub dragging: Option<Cut>,
     /// The row the drag is over and where on it a drop lands, when it takes the drop.
     pub drop_at: Option<(Selection, crate::transfer::Place)>,
+    /// Commits being moved with the keys, followed as agents rewrite them, until they land or
+    /// the selection goes elsewhere.
+    pub moving: Option<crate::transfer::Move>,
     /// Pane widths the user dragged away from their defaults.
     widths: HashMap<Pane, f32>,
     /// Where the window is, saved for the next launch.
@@ -354,6 +387,7 @@ pub struct Store {
     /// The user's other machines, and what they have of the watched projects. Everything the
     /// mesh does lives in `state/mesh.rs`; see the crate's AGENTS.md for its rules.
     pub mesh: mesh::Mesh,
+    pub terminals: Terminals,
     /// Each project's operation in flight, one at a time until the reload after it lands, so
     /// the next sees what it did, plus those that run beside it ([`backend::OpKind::beside`]).
     /// Projects don't wait on each other.
@@ -485,6 +519,7 @@ impl Store {
             asked_author: false,
             dragging: None,
             drop_at: None,
+            moving: None,
             toasts: Vec::new(),
             account: account::Account::default(),
             cli: None,
@@ -493,6 +528,7 @@ impl Store {
             updating: None,
             update_put_off: None,
             mesh: mesh::Mesh::start(cx),
+            terminals: Terminals::default(),
             running: Vec::new(),
             ops_started: 0,
             own_writes: HashMap::new(),
@@ -671,7 +707,8 @@ impl Store {
             | Selection::Stack(..)
             | Selection::Mesh(..)
             | Selection::Upstream(..)
-            | Selection::Section(..) => None,
+            | Selection::Section(..)
+            | Selection::Terminal(..) => None,
         }
     }
 
@@ -763,6 +800,7 @@ impl Store {
             Selection::Branch(_, ref_name) => workspace.find_branch(ref_name.as_ref()).is_some(),
             Selection::Commit(_, id) => workspace.find_commit(*id).is_some(),
             Selection::Worktree(_, name) => workspace.worktrees.iter().any(|w| w.name == *name),
+            Selection::Terminal(_, id) => self.terminals.get(*id).is_some(),
             Selection::Stack(_, bottom) => workspace
                 .lane(bottom.as_ref())
                 .is_some_and(|lane| lane.branches.len() > 1),
@@ -801,12 +839,25 @@ impl Store {
         }
     }
 
+    /// Whether no part of the window shows.
+    pub fn hidden(&self) -> bool {
+        self.hidden
+    }
+
     pub fn select(&mut self, selection: Option<Selection>, cx: &mut Context<Self>) {
         if self.staying {
             return;
         }
         self.followed = None;
         self.made = None;
+        // A move is of what's selected, so it ends once the selection goes elsewhere, as a
+        // click on another row takes it.
+        if let Some(moving) = &self.moving
+            && !matches!(&selection, Some(Selection::Commit(project, id))
+                if *project == moving.project && moving.commits.contains(id))
+        {
+            self.set_moving(None, cx);
+        }
         if !self.picked.is_empty() {
             self.picked.clear();
             cx.notify();
@@ -816,6 +867,9 @@ impl Store {
         }
         if let Some(selection) = &selection {
             self.count_view(selection);
+        }
+        if let Some(Selection::Terminal(_, id)) = &selection {
+            self.terminals.seen(*id, cx);
         }
         // Opened, it's read, by both ids, so a rebase by Git keeps it read, as does pulling
         // one only its branch's remote had.
@@ -877,12 +931,18 @@ impl Store {
             Selection::Mesh(..) => "mesh",
             Selection::Upstream(..) => "upstream",
             Selection::Section(..) => "section",
+            Selection::Terminal(..) => "terminal",
         };
         backend::metrics::viewed(view, || backend::metrics::State {
             theme: match self.prefs.appearance {
                 crate::theme::Appearance::System => "system",
                 crate::theme::Appearance::Light => "light",
                 crate::theme::Appearance::Dark => "dark",
+            },
+            color_scheme: match self.prefs.color_scheme {
+                crate::theme::ColorScheme::GitButler => "gitbutler",
+                crate::theme::ColorScheme::Ghostty => "ghostty",
+                crate::theme::ColorScheme::Named(_) => "named",
             },
             zoom: f64::from(self.prefs.ui_scale.percent()) / 100.,
             editor: self.prefs.editor.as_deref(),
@@ -958,7 +1018,7 @@ impl Store {
     }
 
     /// Keep ⌘Z, and the snackbar's Undo, from taking back the mutation that just ran, as a
-    /// land, which the target keeps; History can still restore to before it.
+    /// merge, which the target keeps; History can still restore to before it.
     pub fn drop_last_step(&mut self) -> Option<(ProjectId, SnapshotId)> {
         let (project, snapshot) = self.last_snapshot.take()?;
         (self.undo_steps).retain(|step| step.project != project || step.snapshot != snapshot);
@@ -1176,6 +1236,11 @@ impl Store {
                 .retain(|toast| !matches!(toast.notice, Notice::Snackbar { undo: None, .. }));
         }
         self.cut = cut;
+        cx.notify();
+    }
+
+    pub fn set_moving(&mut self, moving: Option<crate::transfer::Move>, cx: &mut Context<Self>) {
+        self.moving = moving;
         cx.notify();
     }
 }

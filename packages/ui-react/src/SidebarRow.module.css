@@ -223,6 +223,12 @@
 	align-items: center;
 }
 
+/* A TargetItem keeps Update beside its count rather than in its place: a step more room tells the
+   button from the count. */
+.target .meta {
+	column-gap: var(--space-lg);
+}
+
 /* compact: the name takes the line and the state sits at the end, where it stays: the menu follows
    it under the pointer, on keyboard focus and on a selected row, and the name gives way. The
    actions, a next step for what the state counts (Update for ↓, Push for ↑), take the state's
@@ -492,4 +498,32 @@
 .line {
 	flex-grow: 1;
 	border-top: 1px dashed var(--border-3);
+}
+
+/* A NoticeItem says what its rows would have, in the quiet grey of a hint. */
+.notice {
+	color: var(--text-2);
+}
+
+/* Its way out reads as a link, as TextLink does, though it stays in the app. */
+.noticeAction {
+	padding: 0;
+	border: none;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-decoration: underline;
+	text-decoration-color: color-mix(in srgb, currentcolor 40%, transparent);
+	text-underline-position: from-font;
+	cursor: pointer;
+
+	&:hover {
+		color: var(--text-1);
+		text-decoration-color: currentcolor;
+	}
+
+	&:focus-visible {
+		border-radius: var(--radius-control);
+		outline: var(--focus-ring);
+	}
 }

@@ -14,7 +14,7 @@ use gpui::{
 use super::upstream::noon;
 use super::{Detail, PageFold, machine};
 use crate::app::{
-    AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious, StartCommit, ToggleFold,
+    AppHandle, Collapse, Expand, SelectNext, SelectPrevious, StartCommit, ToggleFold,
 };
 use crate::backend::upstream::{self, ACTIVITY_DAYS};
 use crate::backend::{self, Checkout, CommitId, CommitState, FullName, PushState, short_ref};
@@ -30,8 +30,8 @@ use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     Button, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, WINDOW_CONTROLS_WIDTH,
     above_drag, age_column, button, commit_title, dp, empty_state, faint, field, fixed, fold_row,
-    h_flex, icon, icon_button, list_row, plural, quiet, section_label, side_row, small_icon,
-    v_flex,
+    h_flex, icon, icon_button, list_row, plural, pulsing, quiet, section_label, side_row,
+    small_icon, v_flex,
 };
 
 impl Detail {
@@ -69,6 +69,18 @@ impl Detail {
             };
             match selection {
                 Selection::Project(project) => self.upstream_crumbs(project, &mut crumbs, cx),
+                Selection::Terminal(project, id) => {
+                    if let Some(checkout) = store.terminals.checkout_of(selection) {
+                        let name = checkout
+                            .linked()
+                            .map_or("Main worktree".into(), |name| name.to_string().into());
+                        let worktree = Selection::uncommitted_in(project.clone(), checkout.clone());
+                        crumbs.push((name, Some(worktree.into())));
+                    }
+                    if let Some(title) = store.terminals.title(*id) {
+                        crumbs.push((title.clone(), None));
+                    }
+                }
                 Selection::Uncommitted(_) => match workspace.and_then(|ws| ws.editing.as_ref()) {
                     Some(editing) => {
                         let title = commit_title(&editing.title);
@@ -450,6 +462,7 @@ impl Detail {
             };
             let open = button("open-composer", "Commit…")
                 .small()
+                .min_width(dp(super::COMMIT_BUTTON_WIDTH))
                 .tooltip_for("Write a commit message", &StartCommit)
                 .on_click(cx.listener(|this, _, window, cx| this.focus_message(window, cx)));
             footer(target, [open], theme)
@@ -866,9 +879,14 @@ impl Detail {
             .tooltip(match force {
                 true => "Replace the remote's version",
                 false => "Push to the remote",
-            })
-            .dispatch(&crate::app::Push)
-            .disabled_because(ws.push_blocked(ref_name));
+            });
+        // Pushing it pulses at full strength, rather than faded as a disabled button is.
+        let push = match ref_name.is_some_and(|r| store.pushing(project, r)) {
+            true => pulsing(div().child(push.tooltip("Pushing"))).into_any_element(),
+            false => (push.dispatch(&crate::app::Push))
+                .disabled_because(ws.push_blocked(ref_name))
+                .into_any_element(),
+        };
         let meta = meta
             .child(div().flex_1())
             .child(h_flex().gap(dp(8.)).children(create).child(push));
@@ -1245,6 +1263,18 @@ pub(super) fn side_header(theme: &Theme) -> Div {
         .border_color(theme.border_3)
 }
 
+/// The bar along the bottom of a checkout's uncommitted changes, and the composer's row of
+/// buttons, so Commit opens where Commit… was and a double click commits. Its top rule takes
+/// its room in both, drawn only where given a colour.
+pub(super) fn footer_bar() -> Div {
+    h_flex()
+        .flex_none()
+        .h(dp(super::FOOTER_HEIGHT))
+        .px(dp(12.))
+        .gap(dp(8.))
+        .border_t_1()
+}
+
 /// The bar along the bottom of a checkout's uncommitted changes: what committing there does,
 /// in `label`, and the buttons that do it.
 fn footer(
@@ -1252,12 +1282,7 @@ fn footer(
     actions: impl IntoIterator<Item = impl IntoElement>,
     theme: &Theme,
 ) -> AnyElement {
-    h_flex()
-        .flex_none()
-        .h(dp(super::FOOTER_HEIGHT))
-        .px(dp(12.))
-        .gap(dp(8.))
-        .border_t_1()
+    footer_bar()
         .border_color(theme.border_3)
         .child(
             div()
@@ -1511,11 +1536,6 @@ impl Detail {
                     (None, None) => {}
                 }
             }))
-            .when_some(confirm, |el, confirm| {
-                el.on_action(
-                    cx.listener(move |this, _: &Confirm, window, cx| confirm(this, window, cx)),
-                )
-            })
     }
 
     /// A People card, under a list, with a focus of its own: a click in it takes the focus,
@@ -1814,7 +1834,7 @@ pub(super) fn overview_column(text: String, width: f32, theme: &Theme) -> Div {
     faint(text, theme).flex_none().w(dp(width)).text_right()
 }
 
-/// A row of an overview's counted list, as the files committed most or the areas landed in:
+/// A row of an overview's counted list, as the files committed most or the areas merged in:
 /// its `label`, a bar of its `n` against the `most` any has in `bar`'s box, then `n`. Picked,
 /// it's a filter on, its selection `solid` while its list has the focus.
 pub(super) fn share_row(

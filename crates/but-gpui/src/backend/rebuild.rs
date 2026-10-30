@@ -183,7 +183,9 @@ pub enum Printed {
 
 /// A binary a build made, to restart on.
 pub struct Built {
+    #[cfg_attr(not(unix), expect(dead_code))]
     exe: PathBuf,
+    #[cfg_attr(not(unix), expect(dead_code))]
     crate_dir: PathBuf,
 }
 
@@ -302,31 +304,40 @@ fn built_binary(stdout: impl Read) -> Option<PathBuf> {
 
 impl Built {
     /// Run the new binary in this process's place, with this one's arguments and environment,
-    /// so `cargo run` and its terminal keep it. The manifest's folder is the one it was built
-    /// from, as `cargo run` would have set it, so it offers Build and restart too. Returns only
-    /// when that fails.
-    pub fn restart(&self) -> anyhow::Error {
+    /// so `cargo run` and its terminal keep it, and `terminals` with it. The manifest's folder
+    /// is the one it was built from, as `cargo run` would have set it, so it offers Build and
+    /// restart too. Returns only when that fails.
+    #[cfg(unix)]
+    pub fn restart<T: serde::Serialize>(
+        &self,
+        terminals: Vec<(T, but_tty::Detached)>,
+    ) -> anyhow::Error {
         let mut new = Command::new(&self.exe);
         new.args(std::env::args_os().skip(1))
             .env("CARGO_MANIFEST_DIR", &self.crate_dir)
             .env("CARGO_MANIFEST_PATH", self.crate_dir.join("Cargo.toml"));
-        #[cfg(unix)]
-        close_on_exec();
-        #[cfg(unix)]
+        let keep = but_tty::hand_over(terminals, &mut new).unwrap_or_else(|err| {
+            tracing::error!("couldn't hand the terminals over: {err:#}");
+            Vec::new()
+        });
+        close_on_exec(&keep);
         let err: anyhow::Error = std::os::unix::process::CommandExt::exec(&mut new).into();
-        #[cfg(not(unix))]
-        let err = anyhow::anyhow!("restarting in place needs exec");
         err.context(format!("couldn't start {}", self.exe.display()))
+    }
+
+    #[cfg(not(unix))]
+    pub fn restart(&self) -> anyhow::Error {
+        anyhow::anyhow!("restarting in place needs exec")
     }
 }
 
 /// Mark the files this process has open, past stdin, stdout and stderr, to close as it runs
-/// the new binary in its place. Rust opens its own so, but not every framework does: Metal
+/// the new binary in its place, but for `keep`, which it takes along. Rust opens its own so, but not every framework does: Metal
 /// keeps its shader caches open without, so each restart carried four more into the next
 /// process, until a burst of reads hit the limit on open files and whatever opened one next
 /// failed.
 #[cfg(unix)]
-fn close_on_exec() {
+fn close_on_exec(keep: &[std::os::fd::RawFd]) {
     let dir = match cfg!(target_os = "macos") {
         true => "/dev/fd",
         false => "/proc/self/fd",
@@ -345,7 +356,11 @@ fn close_on_exec() {
         unsafe {
             let flags = libc::fcntl(fd, libc::F_GETFD);
             if flags >= 0 {
-                libc::fcntl(fd, libc::F_SETFD, flags | libc::FD_CLOEXEC);
+                let flags = match keep.contains(&fd) {
+                    true => flags & !libc::FD_CLOEXEC,
+                    false => flags | libc::FD_CLOEXEC,
+                };
+                libc::fcntl(fd, libc::F_SETFD, flags);
             }
         }
     }
@@ -365,12 +380,27 @@ mod tests {
         let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
         // SAFETY: as above, opened to stay open across an exec, as Metal opens its caches.
         unsafe { libc::fcntl(fd, libc::F_SETFD, flags & !libc::FD_CLOEXEC) };
-        super::close_on_exec();
+        super::close_on_exec(&[]);
         // SAFETY: as above.
         let after = unsafe { libc::fcntl(fd, libc::F_GETFD) };
         assert!(
             after & libc::FD_CLOEXEC != 0,
             "it closes as the new binary starts rather than staying open in it"
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn a_restart_takes_along_what_it_is_told_to_keep() {
+        use std::os::fd::AsRawFd as _;
+        let file = tempfile::tempfile().unwrap();
+        let fd = file.as_raw_fd();
+        super::close_on_exec(&[fd]);
+        // SAFETY: only reads the flags of `file`'s descriptor, which it keeps open throughout.
+        let after = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+        assert!(
+            after & libc::FD_CLOEXEC == 0,
+            "it stays open in the new binary, though Rust opened it to close"
         );
     }
 

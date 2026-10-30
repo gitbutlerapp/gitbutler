@@ -252,9 +252,7 @@ impl Workspace {
     }
 
     pub fn unpushed_commits(&self) -> usize {
-        self.commits()
-            .filter(|commit| commit.state == CommitState::Local)
-            .count()
+        self.all_branches().map(Branch::unpushed_commits).sum()
     }
 }
 
@@ -266,7 +264,7 @@ pub struct Target {
     /// into.
     pub branch: String,
     /// It's the local target branch itself, like `main`, as it has no upstream, as in a
-    /// repository with no remote: a land moves it rather than pushing it.
+    /// repository with no remote: merging into it moves it rather than pushing it.
     pub local: bool,
     /// The remote branch of its name a `local` one doesn't track, like `origin/main` after
     /// `git push origin main` without `-u`: what others push there doesn't count here.
@@ -465,6 +463,17 @@ impl Branch {
                 && (self.commits.iter()).any(|c| c.state == CommitState::Pushed))
     }
 
+    /// How many commits it's ahead of its remote branch by: none until it has one, as a count
+    /// of every commit on a branch never pushed says nothing.
+    pub fn unpushed_commits(&self) -> usize {
+        if self.push == PushState::NeverPushed {
+            return 0;
+        }
+        (self.commits.iter())
+            .filter(|c| c.state == CommitState::Local)
+            .count()
+    }
+
     /// What its header says of it against its remote, short of being in the target: what's
     /// to pull and to push, or that it was rewritten since it was pushed. Git can't push one
     /// behind its remote without force either, but pulling is what it needs.
@@ -506,7 +515,7 @@ pub struct RemoteCommit {
     pub time: i64,
     /// It has more than one parent, bringing in the commits of the others.
     pub merge: bool,
-    /// The pull request a target's commit landed, as the project's page names it.
+    /// The pull request a target's commit merged, as the project's page names it.
     pub review: Option<Review>,
 }
 
@@ -1057,6 +1066,12 @@ impl Selected {
             hunks: None,
         }
     }
+
+    /// Whether a commit takes it: not a conflicted file, refused until it's resolved, nor a
+    /// repository cloned inside, which isn't a submodule yet.
+    pub fn movable(&self) -> bool {
+        !self.file.conflicted && !self.file.nested_repository()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -1236,13 +1251,14 @@ mod tests {
             review: None,
         };
         use CommitState::{Integrated, Local, Pushed};
-        for (push, states, incoming, said, can_push, why) in [
+        for (push, states, incoming, said, can_push, unpushed, why) in [
             (
                 PushState::NothingToPush,
                 &[Pushed][..],
                 0,
                 "on the remote",
                 false,
+                0,
                 "in step",
             ),
             (
@@ -1251,6 +1267,7 @@ mod tests {
                 0,
                 "1 to push",
                 true,
+                1,
                 "ahead",
             ),
             (
@@ -1259,6 +1276,7 @@ mod tests {
                 2,
                 "2 to pull",
                 false,
+                0,
                 "only behind",
             ),
             (
@@ -1267,6 +1285,7 @@ mod tests {
                 2,
                 "2 to pull, 1 to push",
                 true,
+                1,
                 "diverged",
             ),
             (
@@ -1275,6 +1294,7 @@ mod tests {
                 0,
                 "rewritten, needs a force push",
                 true,
+                1,
                 "rewritten",
             ),
             (
@@ -1283,6 +1303,7 @@ mod tests {
                 0,
                 "never pushed",
                 true,
+                0,
                 "renamed since it was pushed, its commits there under the old name",
             ),
             (
@@ -1291,7 +1312,17 @@ mod tests {
                 0,
                 "never pushed",
                 false,
+                0,
                 "merged, its remote branch deleted",
+            ),
+            (
+                PushState::NeverPushed,
+                &[Local, Local],
+                0,
+                "never pushed",
+                true,
+                0,
+                "never pushed, with nothing on the remote to be ahead of",
             ),
         ] {
             let branch = branch(push, states, incoming);
@@ -1300,6 +1331,11 @@ mod tests {
                 branch.can_push(),
                 can_push,
                 "{why}: whether it has commits to send"
+            );
+            assert_eq!(
+                branch.unpushed_commits(),
+                unpushed,
+                "{why}: how many commits it's ahead of its remote branch by"
             );
         }
     }

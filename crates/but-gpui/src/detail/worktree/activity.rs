@@ -45,8 +45,8 @@ fn quarters_said(quarters: &BTreeSet<i64>, now: i64) -> Option<String> {
     (!runs.is_empty()).then(|| said.collect::<Vec<_>>().join(", "))
 }
 
-/// `commits` by how far they've got, as a bar, glyphed as the navigator's commits are: landed
-/// on the target, pushed, and only here; it reads as how far along. Commits only here fill in
+/// `commits` by how far they've got, as a bar, glyphed as the navigator's commits are: merged
+/// into the target, pushed, and only here; it reads as how far along. Commits only here fill in
 /// grey, darker than pushed ones, so the page adds no colour beside the edits' teal. With none, an
 /// empty bar holds its place, so picking a quiet quarter moves nothing under it.
 fn commits_split(commits: &[Made], theme: &Theme) -> gpui::AnyElement {
@@ -57,7 +57,7 @@ fn commits_split(commits: &[Made], theme: &Theme) -> gpui::AnyElement {
                 Icon::CommitFill,
                 theme.purple,
                 theme.purple,
-                "landed".to_owned(),
+                "merged".to_owned(),
                 count(CommitState::Integrated),
             ),
             (
@@ -140,7 +140,7 @@ impl Detail {
             .map(|(_, (n, _))| n)
             .sum();
         let busy = quarters()
-            .filter(|(ix, (n, landed))| in_view(*ix) && (*n > 0 || *landed > 0))
+            .filter(|(ix, (n, merged))| in_view(*ix) && (*n > 0 || *merged > 0))
             .count();
         // Once every commit's files are read, so the count doesn't climb as they come in.
         let changed: Option<HashSet<&String>> = (scoped.iter())
@@ -184,18 +184,18 @@ impl Detail {
                 cx.notify()
             }))
         });
-        let columns = quarters().map(|(ix, (n, landed))| {
+        let columns = quarters().map(|(ix, (n, merged))| {
             let quarter = first + ix as i64;
             let start = quarter * QUARTER;
             let inside = span.keeps(quarter);
             let mut tip = format!("{}–{}", local_clock(start), local_clock(start + QUARTER));
-            match (n, landed) {
+            match (n, merged) {
                 (0, 0) => tip.push_str(" · quiet"),
                 (0, _) => {}
                 (n, _) => tip.push_str(&format!(" · {}", plural(n as usize, "edit"))),
             }
-            if landed > 0 {
-                tip.push_str(&format!(" · {}", plural(landed, "commit")));
+            if merged > 0 {
+                tip.push_str(&format!(" · {}", plural(merged, "commit")));
             }
             let (edit, commit) = match inside {
                 true => (theme.pop, theme.text_2),
@@ -238,8 +238,8 @@ impl Detail {
                     .h(dp(COMMITS_HEIGHT))
                     .pt(dp(2.))
                     .px(dp(1.))
-                    .when(landed > 0, |el| {
-                        let share = landed as f32 / most_commits as f32;
+                    .when(merged > 0, |el| {
+                        let share = merged as f32 / most_commits as f32;
                         el.child(
                             div()
                                 .w_full()

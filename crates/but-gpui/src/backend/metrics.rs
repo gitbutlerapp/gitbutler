@@ -87,6 +87,8 @@ struct Active {
 pub struct State<'a> {
     /// `system`, `light` or `dark`.
     pub theme: &'static str,
+    /// `gitbutler`, `ghostty` or `named`, without the name.
+    pub color_scheme: &'static str,
     /// The interface's scale, 1 at 100%.
     pub zoom: f64,
     /// The editor files open in, by the id the desktop app uses too, if one was picked.
@@ -238,6 +240,7 @@ pub fn viewed<'a>(view: &'static str, state: impl FnOnce() -> State<'a>) {
     let state = state();
     let mut props = Props::new();
     props.insert("theme".into(), state.theme.into());
+    props.insert("colorScheme".into(), state.color_scheme.into());
     props.insert("zoom".into(), state.zoom.into());
     if let Some(editor) = state.editor {
         props.insert("defaultCodeEditor".into(), editor.into());

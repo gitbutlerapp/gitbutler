@@ -25,6 +25,8 @@
       "secondary-o": "app::AddProject",
       "secondary-shift-o": "projects::CloneRepository",
       "secondary-n": "navigator::NewBranch",
+      // From a terminal too, as a terminal app opens a tab.
+      "secondary-t": "terminal::NewTerminal",
       // VS Code's and Zed's key works too; ⌘K, Linear's and GitHub's, is the one shown.
       "secondary-shift-p": "app::CommandPalette",
       "secondary-k": "app::CommandPalette",
@@ -133,20 +135,61 @@
       "shift-space": "diff::PageUp",
       "ctrl-d": "diff::HalfPageDown",
       "ctrl-u": "diff::HalfPageUp",
-      // F2 is the rename key on Windows and Linux, and Lite's; r is the one shown.
-      "f2": "navigator::RenameSelection",
-      "r": "navigator::RenameSelection",
       "b": "navigator::NewBranchOnTop",
       "o": "pr::OpenPullRequest",
       "u": "navigator::ToggleRead",
-      "shift-u": "navigator::MarkAllRead",
-      "secondary-backspace": "navigator::DeleteSelection"
+      "shift-u": "navigator::MarkAllRead"
     }
+  },
+  // While commits move, the keys above step through where they can land, and Return lands
+  // them there. After the navigator's Return, so it wins.
+  {
+    "context": "Navigator && Moving && !TextInput",
+    "bindings": { "enter": "navigator::MoveHere" }
+  },
+  // Renaming, deleting and taking out do what fits the selection, so each key is bound once for
+  // each of those, a section apiece, and runs the one the selection has. F2 is the rename key on
+  // Windows and Linux, and Lite's; r is the one shown. A commit's:
+  {
+    "context": "Navigator && !TextInput",
+    "bindings": {
+      "f2": "edits::Reword",
+      "r": "edits::Reword",
+      "secondary-backspace": "edits::DiscardCommit"
+    }
+  },
+  // A branch's:
+  {
+    "context": "Navigator && !TextInput",
+    "bindings": {
+      "f2": "edits::RenameBranch",
+      "r": "edits::RenameBranch",
+      "secondary-backspace": "edits::DeleteBranch"
+    }
+  },
+  // The unnamed branch's, which gets a name at its newest commit:
+  {
+    "context": "Navigator && !TextInput",
+    "bindings": {
+      "f2": "edits::NameBranch",
+      "r": "edits::NameBranch"
+    }
+  },
+  // Uncommitted changes':
+  {
+    "context": "Navigator && !TextInput",
+    "bindings": { "secondary-backspace": "edits::DiscardChanges" }
+  },
+  // A commit comes out of its branch, and a branch's stack out of the workspace.
+  {
+    "os": ["macos"],
+    "context": "Navigator && !TextInput",
+    "bindings": { "secondary-alt-backspace": "edits::Uncommit" }
   },
   {
     "os": ["macos"],
     "context": "Navigator && !TextInput",
-    "bindings": { "secondary-alt-backspace": "navigator::UncommitSelection" }
+    "bindings": { "secondary-alt-backspace": "edits::UnapplyStack" }
   },
   // Ctrl+Alt+Backspace kills the X server where that's still on, and Ctrl+Alt is AltGr on
   // many European layouts. Delete deletes as Explorer and Files do, last so it's shown.
@@ -154,9 +197,22 @@
     "os": ["windows", "linux"],
     "context": "Navigator && !TextInput",
     "bindings": {
-      "ctrl-shift-backspace": "navigator::UncommitSelection",
-      "delete": "navigator::DeleteSelection"
+      "ctrl-shift-backspace": "edits::Uncommit",
+      "delete": "edits::DiscardCommit"
     }
+  },
+  {
+    "os": ["windows", "linux"],
+    "context": "Navigator && !TextInput",
+    "bindings": {
+      "ctrl-shift-backspace": "edits::UnapplyStack",
+      "delete": "edits::DeleteBranch"
+    }
+  },
+  {
+    "os": ["windows", "linux"],
+    "context": "Navigator && !TextInput",
+    "bindings": { "delete": "edits::DiscardChanges" }
   },
   // Jumps through the tree: to either end, and between branches and projects. ⇧ with an
   // arrow picks commits, as ⇧-click does.
@@ -273,11 +329,18 @@
       "shift-l": "navigator::Expand",
       "shift-right": "navigator::Expand",
       "shift-h": "navigator::Collapse",
-      "shift-left": "navigator::Collapse",
-      // Applies the branch on Branches, restores to before the operation on Operations
-      // history, after asking.
-      "enter": "navigator::Confirm"
+      "shift-left": "navigator::Collapse"
     }
+  },
+  // Return applies the branch on Branches, and restores to before the operation on Operations
+  // history, after asking: a section apiece, as the key runs the one the page has.
+  {
+    "context": "List && !TextInput",
+    "bindings": { "enter": "branches::ApplyBranch" }
+  },
+  {
+    "context": "List && !TextInput",
+    "bindings": { "enter": "history::RestoreOperation" }
   },
   // While committing, with the focus anywhere, typing the message too, as ⌘↩ commits.
   {
@@ -332,14 +395,10 @@
     "context": "Picked && !TextInput",
     "bindings": { "secondary-enter": "conflict::ApplyResolutions" }
   },
-  // The keys that open a context menu on Windows and Linux, first so menus show M.
+  // ⇧F10 opens the selected row's right-click menu, as on Windows and Linux and in VS Code.
   {
-    "os": ["windows", "linux"],
     "context": "Workspace && !TextInput",
-    "bindings": {
-      "shift-f10": "palette::ShowActions",
-      "menu": "palette::ShowActions"
-    }
+    "bindings": { "shift-f10": "app::ShowContextMenu" }
   },
   {
     "context": "Workspace && !TextInput",
@@ -347,10 +406,6 @@
   },
   {
     "bindings": { "secondary-p": "palette::GoTo" }
-  },
-  {
-    "context": "Workspace && !TextInput",
-    "bindings": { "m": "palette::ShowActions" }
   },
   // After the text field's own keys, so these win inside the palette.
   {
@@ -360,6 +415,17 @@
       "down": "palette::PaletteDown",
       "ctrl-p": "palette::PaletteUp",
       "ctrl-n": "palette::PaletteDown"
+    }
+  },
+  // A right-click menu's items, as Settings' pages: Return runs the one the keys are on.
+  {
+    "context": "ContextMenu",
+    "bindings": {
+      "up": "navigator::SelectPrevious",
+      "k": "navigator::SelectPrevious",
+      "down": "navigator::SelectNext",
+      "j": "navigator::SelectNext",
+      "enter": "navigator::Confirm"
     }
   },
   // Settings' pages, from its search box too, as the palette's list is.
@@ -378,6 +444,11 @@
       "down": "navigator::SelectNext",
       "j": "navigator::SelectNext"
     }
+  },
+  // Back to the search box from a page link or a control, as / goes to the navigator's filter.
+  {
+    "context": "Settings && !TextInput",
+    "bindings": { "/": "settings::FocusSearch" }
   },
   // After the text field's own keys, so these win in the search field.
   {
