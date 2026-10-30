@@ -69,8 +69,8 @@
     "context": "Navigator && Moving && !TextInput",
     "bindings": { "enter": "navigator::MoveHere" }
   },
-  // r rewords a commit, renames a branch and names the unnamed one, where the TUI's squashes: a
-  // section apiece, as the key runs the one the selection has.
+  // r rewords a commit or a terminal, renames a branch and names the unnamed one, where the
+  // TUI's squashes: a section apiece, as the key runs the one the selection has.
   {
     "context": "Navigator && !TextInput",
     "bindings": { "r": "edits::Reword" }
