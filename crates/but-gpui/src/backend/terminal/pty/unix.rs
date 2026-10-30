@@ -4,6 +4,7 @@ use std::ffi::OsString;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -16,15 +17,24 @@ use futures::channel::mpsc;
 
 use super::Size;
 
-/// A shell running on a pseudo-terminal, hung up when dropped.
+/// A shell running on a pseudo-terminal, hung up when dropped unless it was kept.
 pub struct Pty {
-    master: File,
+    /// Taken once the shell is kept.
+    master: Option<File>,
     /// What to send the shell, written on a thread of its own, as a shell that isn't reading
     /// leaves a write waiting.
     input: sync::mpsc::Sender<Vec<u8>>,
-    /// The shell's process group, which `setsid` made it lead.
-    group: libc::pid_t,
+    /// The shell, which `setsid` made lead its own process group.
+    shell: libc::pid_t,
     exited: Arc<AtomicBool>,
+    stop_reading: UnixStream,
+    reader: Option<thread::JoinHandle<()>>,
+}
+
+/// A shell's pseudo-terminal, still open, with no one reading it.
+pub struct Kept {
+    pub master: OwnedFd,
+    pub shell: libc::pid_t,
 }
 
 impl Size {
@@ -53,22 +63,33 @@ impl Pty {
             .with_context(|| format!("Couldn't start {}", shell.display()))?;
         drop(slave);
 
-        let master = File::from(master);
-        let group = child.id() as libc::pid_t;
+        Ok(Self::start(File::from(master), child.id() as libc::pid_t)?)
+    }
+
+    /// Takes over a shell kept by [`Pty::keep`], in this process or one it became by exec.
+    pub fn adopt(kept: Kept) -> io::Result<(Pty, mpsc::UnboundedReceiver<Vec<u8>>)> {
+        set_cloexec(&kept.master)?;
+        Self::start(File::from(kept.master), kept.shell)
+    }
+
+    fn start(
+        master: File,
+        shell: libc::pid_t,
+    ) -> io::Result<(Pty, mpsc::UnboundedReceiver<Vec<u8>>)> {
         let (sender, receiver) = mpsc::unbounded();
+        let (stop_reading, stopped) = UnixStream::pair()?;
         let reader = master.try_clone()?;
         let ended = sender.clone();
-        thread::Builder::new()
+        let reader = thread::Builder::new()
             .name("pty reader".into())
-            .spawn(move || read_until_hangup(reader, sender))?;
+            .spawn(move || read_until_hangup(reader, stopped, sender))?;
 
         let exited = Arc::new(AtomicBool::new(false));
         let waited = exited.clone();
-        let mut child = child;
         thread::Builder::new()
             .name("pty waiter".into())
             .spawn(move || {
-                child.wait().ok();
+                wait_for(shell);
                 waited.store(true, Ordering::SeqCst);
                 ended.close_channel();
             })?;
@@ -86,12 +107,28 @@ impl Pty {
             })?;
 
         let pty = Pty {
-            master,
+            master: Some(master),
             input,
-            group,
+            shell,
             exited,
+            stop_reading,
+            reader: Some(reader),
         };
         Ok((pty, receiver))
+    }
+
+    /// Stops reading, leaving what the shell writes from now on to whoever adopts it. What was
+    /// read before is all in the receiver once this returns.
+    pub fn keep(mut self) -> io::Result<Kept> {
+        (&self.stop_reading).write_all(&[0])?;
+        if let Some(reader) = self.reader.take() {
+            reader.join().ok();
+        }
+        let master = self.master.take().ok_or(io::ErrorKind::NotFound)?;
+        Ok(Kept {
+            master: master.into(),
+            shell: self.shell,
+        })
     }
 
     /// Sends input to the shell, once it reads what was sent before.
@@ -100,9 +137,10 @@ impl Pty {
     }
 
     pub fn resize(&self, size: Size) -> io::Result<()> {
+        let master = self.master.as_ref().ok_or(io::ErrorKind::NotFound)?;
         let winsize = size.winsize();
-        // SAFETY: the master is open while `self` is, and `winsize` outlives the call.
-        check(unsafe { libc::ioctl(self.master.as_raw_fd(), libc::TIOCSWINSZ, &winsize) })?;
+        // SAFETY: `master` is open while it's borrowed, and `winsize` outlives the call.
+        check(unsafe { libc::ioctl(master.as_raw_fd(), libc::TIOCSWINSZ, &winsize) })?;
         Ok(())
     }
 }
@@ -110,14 +148,17 @@ impl Pty {
 impl Drop for Pty {
     fn drop(&mut self) {
         // The waiter reaps the shell once it has exited, and the group's id is free again then.
+        let Some(master) = &self.master else {
+            return;
+        };
         if self.exited.load(Ordering::SeqCst) {
             return;
         }
         // As a terminal hanging up does: the job in front, which the shell runs in a group of
         // its own, then the shell.
-        // SAFETY: the master is open while `self` is.
-        let front = unsafe { libc::tcgetpgrp(self.master.as_raw_fd()) };
-        for group in [front, self.group] {
+        // SAFETY: `master` is open while it's borrowed.
+        let front = unsafe { libc::tcgetpgrp(master.as_raw_fd()) };
+        for group in [front, self.shell] {
             if group > 0 {
                 // SAFETY: a plain signal to a group on this terminal, whose leader isn't reaped.
                 unsafe { libc::killpg(group, libc::SIGHUP) };
@@ -183,9 +224,27 @@ fn shell_command(shell: &OsString, cwd: &Path, slave: &OwnedFd) -> io::Result<Co
     Ok(command)
 }
 
-fn read_until_hangup(mut master: File, sender: mpsc::UnboundedSender<Vec<u8>>) {
+fn read_until_hangup(
+    mut master: File,
+    stopped: UnixStream,
+    sender: mpsc::UnboundedSender<Vec<u8>>,
+) {
     let mut buffer = vec![0; 64 * 1024];
+    let mut ready = [master.as_raw_fd(), stopped.as_raw_fd()].map(|fd| libc::pollfd {
+        fd,
+        events: libc::POLLIN,
+        revents: 0,
+    });
     loop {
+        // SAFETY: `ready` is two live entries, for descriptors open throughout.
+        match check(unsafe { libc::poll(ready.as_mut_ptr(), 2, -1) }) {
+            Ok(_) => {}
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            Err(_) => return,
+        }
+        if ready[1].revents != 0 {
+            return;
+        }
         match master.read(&mut buffer) {
             Ok(0) => return,
             Ok(n) => {
@@ -198,6 +257,14 @@ fn read_until_hangup(mut master: File, sender: mpsc::UnboundedSender<Vec<u8>>) {
             Err(_) => return,
         }
     }
+}
+
+/// Reaps `shell`, or returns at once if another waiter already has.
+fn wait_for(shell: libc::pid_t) {
+    // SAFETY: a null status pointer asks for no status.
+    while unsafe { libc::waitpid(shell, ptr::null_mut(), 0) } == -1
+        && io::Error::last_os_error().kind() == io::ErrorKind::Interrupted
+    {}
 }
 
 fn set_cloexec(fd: &OwnedFd) -> io::Result<()> {
@@ -213,5 +280,63 @@ fn check(result: libc::c_int) -> io::Result<libc::c_int> {
         Err(io::Error::last_os_error())
     } else {
         Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{Duration, Instant};
+
+    use futures::channel::mpsc;
+
+    use super::{Pty, Size};
+
+    fn wait_for_text(output: &mut mpsc::UnboundedReceiver<Vec<u8>>, text: &str) -> String {
+        let started = Instant::now();
+        let mut read = Vec::new();
+        while !String::from_utf8_lossy(&read).contains(text) {
+            assert!(
+                started.elapsed() < Duration::from_secs(20),
+                "{text:?} never came, only {:?}",
+                String::from_utf8_lossy(&read)
+            );
+            match output.try_recv() {
+                Ok(chunk) => read.extend(chunk),
+                Err(_) => std::thread::sleep(Duration::from_millis(20)),
+            }
+        }
+        String::from_utf8_lossy(&read).into_owned()
+    }
+
+    #[test]
+    fn a_kept_shell_answers_whoever_adopts_it() {
+        let size = Size {
+            cols: 80,
+            rows: 24,
+            cell_width: 8,
+            cell_height: 16,
+        };
+        let (pty, mut output) = Pty::spawn(&std::env::temp_dir(), size).unwrap();
+        pty.write(b"echo $$-$((40+2))\n").unwrap();
+        let before = wait_for_text(&mut output, "-42");
+
+        let kept = pty.keep().unwrap();
+        let (pty, mut output) = Pty::adopt(kept).unwrap();
+        pty.write(b"echo $$-$((50+8))\n").unwrap();
+        let after = wait_for_text(&mut output, "-58");
+
+        let pid = |read: &str, sum: &str| {
+            let end = read.find(&format!("-{sum}\r")).unwrap();
+            read[..end]
+                .rsplit(|c: char| !c.is_ascii_digit())
+                .next()
+                .unwrap()
+                .to_owned()
+        };
+        assert_eq!(
+            pid(&before, "42"),
+            pid(&after, "58"),
+            "the same shell answers"
+        );
     }
 }
