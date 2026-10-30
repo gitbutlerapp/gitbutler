@@ -24,6 +24,8 @@ pub struct Colors {
     pub background: Option<RgbColor>,
     pub foreground: Option<RgbColor>,
     pub cursor: Option<RgbColor>,
+    pub selection_background: Option<RgbColor>,
+    pub selection_foreground: Option<RgbColor>,
     pub palette: Vec<(u8, RgbColor)>,
 }
 
@@ -156,6 +158,12 @@ impl Colors {
             "background" => self.background = rgb(value).or(self.background),
             "foreground" => self.foreground = rgb(value).or(self.foreground),
             "cursor-color" => self.cursor = rgb(value).or(self.cursor),
+            "selection-background" => {
+                self.selection_background = rgb(value).or(self.selection_background)
+            }
+            "selection-foreground" => {
+                self.selection_foreground = rgb(value).or(self.selection_foreground)
+            }
             "palette" => {
                 let entry = value.split_once('=').and_then(|(index, color)| {
                     Some((index.trim().parse().ok()?, rgb(color.trim())?))
@@ -178,6 +186,8 @@ impl Colors {
         self.background = over.background.or(self.background);
         self.foreground = over.foreground.or(self.foreground);
         self.cursor = over.cursor.or(self.cursor);
+        self.selection_background = over.selection_background.or(self.selection_background);
+        self.selection_foreground = over.selection_foreground.or(self.selection_foreground);
         for &(index, color) in &over.palette {
             self.set_palette(index, color);
         }
@@ -242,7 +252,9 @@ mod tests {
     #[test]
     fn theme_picks_by_appearance_and_direct_keys_override_it() {
         let ghostty = Ghostty::parse(
-            ["theme = dark:Night, light: Day\ncursor-color = #010203"],
+            [
+                "theme = dark:Night, light: Day\ncursor-color = #010203\nselection-background = #040506",
+            ],
             |name| match name {
                 "Night" => Some("background = #000000\ncursor-color = #ffffff".into()),
                 "Day" => Some("background = #ffffff\nforeground = #000000".into()),
@@ -254,6 +266,7 @@ mod tests {
             &Colors {
                 background: Some(c(0, 0, 0)),
                 cursor: Some(c(1, 2, 3)),
+                selection_background: Some(c(4, 5, 6)),
                 ..Colors::default()
             },
             "dark takes its theme, with the config's cursor over the theme's"
@@ -264,7 +277,8 @@ mod tests {
                 background: Some(c(255, 255, 255)),
                 foreground: Some(c(0, 0, 0)),
                 cursor: Some(c(1, 2, 3)),
-                palette: Vec::new(),
+                selection_background: Some(c(4, 5, 6)),
+                ..Colors::default()
             },
             "light takes its own theme, with the same config override"
         );

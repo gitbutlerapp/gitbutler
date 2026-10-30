@@ -8,7 +8,7 @@ use std::path::Path;
 
 use futures::channel::mpsc;
 
-pub use ghostty::Ghostty;
+pub use ghostty::{Colors, Ghostty};
 #[cfg(unix)]
 pub use pty::Kept;
 pub use pty::{Pty, Size};

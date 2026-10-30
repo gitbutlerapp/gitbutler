@@ -25,7 +25,7 @@ use libghostty_vt::{RenderState, TerminalOptions, paste};
 
 #[cfg(unix)]
 use crate::backend::terminal::Kept;
-use crate::backend::terminal::{Ghostty, Opened, Pty, Size};
+use crate::backend::terminal::{Colors, Ghostty, Opened, Pty, Size};
 use crate::state::Store;
 use crate::theme::Theme;
 use crate::ui::{dp, fixed};
@@ -377,7 +377,7 @@ impl Render for Terminal {
             .map_or(font_size * 0.6, |advance| advance.width);
         let cell_height = theme.scaled(line);
         let focused = self.focus.is_focused(window);
-        let frame = self.vt.frame().unwrap_or_default();
+        let frame = (self.vt.frame(self.ghostty.colors(theme.dark))).unwrap_or_default();
         let this = cx.entity().downgrade();
         let measured = Rc::new(Cell::new(self.size));
         let drawn = self.grid.clone();
@@ -684,7 +684,9 @@ impl Vt {
         Ok(screen)
     }
 
-    fn frame(&mut self) -> libghostty_vt::error::Result<Frame> {
+    /// What to draw, with what's selected in `chosen`'s selection colours, or the default
+    /// colours swapped where it sets none, as Ghostty does.
+    fn frame(&mut self, chosen: &Colors) -> libghostty_vt::error::Result<Frame> {
         let snapshot = self.state.update(&self.term)?;
         let colors = snapshot.colors()?;
         let cursor = match snapshot.cursor_visible()? {
@@ -697,12 +699,15 @@ impl Vt {
             cursor_color: hsla(colors.cursor.unwrap_or(colors.foreground)),
             ..Frame::default()
         };
+        let selected_bg = chosen.selection_background.unwrap_or(colors.foreground);
+        let selected_fg = chosen.selection_foreground.unwrap_or(colors.background);
         let mut rows = self.rows.update(&snapshot)?;
         let mut cell_text = String::new();
         let mut y = 0;
         while let Some(row) = rows.next() {
             let mut text = String::new();
             let mut runs = Runs::new();
+            let selected = row.selection()?.map(|range| range.start_x..=range.end_x);
             let mut cells = self.cells.update(row)?;
             let mut x = 0;
             while let Some(cell) = cells.next() {
@@ -725,6 +730,9 @@ impl Vt {
                 let mut bg = cell.bg_color()?.unwrap_or(colors.background);
                 if style.inverse {
                     std::mem::swap(&mut fg, &mut bg);
+                }
+                if selected.as_ref().is_some_and(|range| range.contains(&at)) {
+                    (fg, bg) = (selected_fg, selected_bg);
                 }
                 if style.invisible {
                     fg = bg;
@@ -983,6 +991,31 @@ mod tests {
             vt.wheel(1., at, Mods::empty()),
             b"\x1b[<64;61;1M".to_vec(),
             "7.8px cells drawn report as the 8px cells the encoder counts in, not 59"
+        );
+    }
+
+    #[test]
+    fn selected_cells_draw_in_the_default_colours_swapped() {
+        let mut vt = Vt::new(Terminal::OPENING).unwrap();
+        vt.write(b"hello world");
+        let cell = |x| {
+            let point = libghostty_vt::terminal::PointCoordinate { x, y: 0 };
+            vt.term
+                .grid_ref(libghostty_vt::terminal::Point::Viewport(point))
+                .unwrap()
+        };
+        let hello = libghostty_vt::selection::Selection::new(cell(0), cell(4), false);
+        vt.term.set_selection(Some(&hello)).unwrap();
+        let frame = vt.frame(&Colors::default()).unwrap();
+        let (text, runs) = &frame.rows[0];
+        let backgrounds: Vec<_> = (runs.iter())
+            .map(|(range, style)| (text[range.clone()].trim_end(), style.background_color))
+            .take(2)
+            .collect();
+        assert_eq!(
+            backgrounds,
+            [("hello", Some(frame.foreground)), (" world", None)],
+            "only the selection is drawn, on the foreground colour"
         );
     }
 
