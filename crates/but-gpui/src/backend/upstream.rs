@@ -333,10 +333,10 @@ pub fn overview(path: &Path, now: i64) -> Result<Option<Overview>> {
     // personal email is one person.
     let mailmap = repo.open_mailmap();
     // A walk of first parents only ignores a time cutoff, so it stops itself rather than
-    // reading the whole history: at a run of commits from before the window, as one can be
-    // dated wrong, say by a test's fixed clock, with the window going on past it. Those of a
-    // run the window goes on past stay in the line, so a later merge doesn't take what they
-    // brought.
+    // reading the whole history. One commit from before the window doesn't stop it, as a
+    // test's fixed clock can date one wrong with the window going on past it, but a run of
+    // `OLD_RUN` does. One with a commit from the window after it stays in the line, so a later
+    // merge doesn't take what it brought.
     const OLD_RUN: usize = 64;
     let mut line = Vec::new();
     let mut old = 0;
@@ -352,15 +352,14 @@ pub fn overview(path: &Path, now: i64) -> Result<Option<Overview>> {
     }
     line.truncate(line.len() - old);
     let mut brought = brought_in(&repo, tip.id, &line)?;
-    // The day the one merged after it did, as one dated before the window merged by then.
+    // One dated before the window, or with no date to read, counts on the day the commit
+    // after it merged, as it was on the line by then.
     let mut later = ACTIVITY_DAYS - 1;
     for merged in &line {
-        let day = merged.time().map_or(first_day, |time| day_of(time.seconds)) - first_day;
-        // A clock ahead of this one counts as today.
-        let day = match usize::try_from(day) {
-            Ok(day) => day.min(ACTIVITY_DAYS - 1),
-            Err(_) => later,
-        };
+        let day = (merged.time().ok())
+            .and_then(|time| usize::try_from(day_of(time.seconds) - first_day).ok())
+            // A clock ahead of this one counts as today.
+            .map_or(later, |day| day.min(ACTIVITY_DAYS - 1));
         later = day;
         if let Some(count) = daily.get_mut(day) {
             *count += 1;
@@ -544,10 +543,12 @@ fn merge_of(
     let written = (own.clone())
         .filter_map(|c| Some(c.author().ok()?.time().ok()?.seconds))
         .min();
+    // None for a merge a wrong clock dated before what it brought.
     let took = (merged.time().ok())
         .zip(written)
         .filter(|_| merge)
-        .map(|(t, w)| t.seconds - w);
+        .map(|(t, w)| t.seconds - w)
+        .filter(|took| *took >= 0);
     let by = (own.clone().next())
         .and_then(|c| super::commit_byline(mailmap, c).ok())
         .map(|((_, email), _)| email.to_lowercase());
@@ -1550,8 +1551,11 @@ refs/heads/wt
             git(&["init", "-q", "-b", "main"], now);
             commit(now - 40 * DAY);
             commit(now - 20 * DAY);
-            // Written by a test's fixed clock, after the one 20 days ago.
-            commit(100);
+            git(&["checkout", "-q", "-b", "side"], now - 10 * DAY);
+            commit(now - 10 * DAY);
+            git(&["checkout", "-q", "main"], now - 10 * DAY);
+            // Merged by a test's fixed clock, after the one 20 days ago.
+            git(&["merge", "-q", "--no-ff", "-m", "merge side", "side"], 100);
             commit(now - 5 * DAY);
 
             crate::backend::settings::set_target(path, &full("refs/heads/main")).unwrap();
@@ -1562,8 +1566,14 @@ refs/heads/wt
             assert_eq!(
                 counted,
                 [(ACTIVITY_DAYS - 21, 1), (ACTIVITY_DAYS - 6, 2)],
-                "the walk goes on past the commit dated 1970, which counts on the day the one \
-                 after it landed, and stops before the commit from before the window"
+                "the walk goes on past the merge dated 1970, which counts on the day the one \
+                 after it merged, and stops before the commit from before the window"
+            );
+            let merge = &summed.merges[1];
+            assert_eq!(
+                (merge.title.as_str(), merge.commits, merge.took),
+                ("merge side", 1, None),
+                "the merge dated 1970 keeps what it brought, and took no time it can say"
             );
         })
     }
