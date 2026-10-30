@@ -420,6 +420,17 @@ impl AppView {
         let Some((project, ref_name)) = branch else {
             return;
         };
+        self.push_branch(project, ref_name, window, cx)
+    }
+
+    /// Push `ref_name`, asking first if that forces away commits or the target branch.
+    pub fn push_branch(
+        &mut self,
+        project: ProjectId,
+        ref_name: Option<FullName>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(ws) = self.store.read(cx).workspace(&project) else {
             return;
         };

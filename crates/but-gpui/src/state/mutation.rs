@@ -750,11 +750,7 @@ impl Store {
         let name = short_ref(&ref_name).into_owned();
         // The branches below it with commits to send go along, down the lanes it rests on,
         // which the snackbar says.
-        let below = self.workspace(project).map_or(0, |ws| {
-            (ws.pushed_with(&ref_name).skip(1))
-                .filter(|b| b.ref_name.is_some() && b.can_push())
-                .count()
-        });
+        let below = (self.workspace(project)).map_or(0, |ws| ws.parents_to_push(&ref_name).count());
         let all = match below {
             0 => name.clone(),
             1 => format!("{name} and the branch below it"),
@@ -1697,9 +1693,16 @@ impl Store {
             .unwrap_or_else(|| self.name_of(project, branch))
     }
 
-    /// Whether a pending operation pushes `ref_name`, on its own or to open its pull request.
+    /// Whether a pending operation sends `ref_name`: pushing it, on its own or to open its pull
+    /// request, or a branch above that takes it along.
     pub fn pushing(&self, project: &ProjectId, ref_name: &FullName) -> bool {
-        (self.running_in(project)).any(|r| matches!(&r.kind, OpKind::Push(to) if to == ref_name))
+        let sends = |to: &FullName| {
+            to == ref_name
+                || (self.workspace(project)).is_some_and(|ws| {
+                    (ws.parents_to_push(to)).any(|b| b.ref_name.as_ref() == Some(ref_name))
+                })
+        };
+        (self.running_in(project)).any(|r| matches!(&r.kind, OpKind::Push(to) if sends(to)))
     }
 
     /// Whether a pending operation opens `ref_name`'s pull request.

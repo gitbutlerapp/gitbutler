@@ -59,6 +59,8 @@ use rows::{
     in_inactive, inactive_open, last_active, row_keys,
 };
 
+const BRANCH_ROW: &str = "branch-row";
+
 /// How tall the drawer's handle is, level with the commit footer beside it, and the space
 /// under its rows.
 const DRAWER_BAR_HEIGHT: f32 = crate::detail::FOOTER_HEIGHT;
@@ -2399,16 +2401,22 @@ impl Navigator {
         // An unread commit marks its branch with a dot too, folded or not.
         let unread = store.branch_unread(id, branch);
         let review = (branch.review.as_ref()).map(|r| (r, store.review_state(id, r)));
+        let rename = self.rename_field(id, ref_name, theme);
+        let pushing = ref_name.is_some_and(|r| store.pushing(id, r));
+        let push = (self.push_button(id, ref_name, &row_id, pushing, style, cx))
+            .filter(|_| rename.is_none());
         Some(
             style
                 .row(format!("branch-{id}-{row_id}"), 6.)
+                .group(BRANCH_ROW)
+                .relative()
                 .aria_label(format!("Branch {name}"))
                 .child(step)
                 .child(match icon(glyph).text_color(style.meta(glyph_color)) {
                     glyph if publishing => pulsing(glyph).into_any_element(),
                     glyph => glyph.into_any_element(),
                 })
-                .child(match self.rename_field(id, ref_name, theme) {
+                .child(match rename {
                     Some(field) => field,
                     None => branch_name(name, review, &style)
                         .id(ElementId::Name(format!("name-{id}-{row_id}").into()))
@@ -2460,16 +2468,11 @@ impl Navigator {
                         ),
                     ))
                 })
-                // While it pushes, its count pulses where it is.
-                .children(style.unpushed(unpushed_n).map(|count| {
-                    match ref_name.is_some_and(|r| store.pushing(id, r)) {
-                        true => pulsing(count).into_any_element(),
-                        false => count.into_any_element(),
-                    }
-                }))
+                .children(style.unpushed(unpushed_n))
                 // Folded, how many commits it holds; open, they're listed under it.
                 .when(!open, |el| el.children(style.commits(branch.commits.len())))
                 .when(unread, |el| el.child(dot(style.meta(theme.pop))))
+                .children(push)
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
                 // A click looks inside, opening its commits; the chevron, a double-click, ⇧←
                 // and ⇧→ fold them.
@@ -2483,6 +2486,66 @@ impl Navigator {
                     )
                 })
                 .into_any_element(),
+        )
+    }
+
+    /// Floats over the end of the branch row under the pointer, or of one `pushing`, pulsing.
+    /// Pressing it pushes without selecting the branch, and pressing it disabled does nothing
+    /// to the row either.
+    fn push_button(
+        &self,
+        project: &ProjectId,
+        ref_name: Option<&FullName>,
+        row_id: &str,
+        pushing: bool,
+        style: RowStyle,
+        cx: &Context<Self>,
+    ) -> Option<Div> {
+        let ws = self.store.read(cx).workspace(project)?;
+        let glyph = match ref_name.is_some_and(|r| ws.parents_to_push(r).next().is_some()) {
+            true => Icon::PushAll,
+            false => Icon::Push,
+        };
+        let pushed = (project.clone(), ref_name.cloned());
+        let button = icon_button(ElementId::Name(format!("push-{row_id}").into()), glyph)
+            .small()
+            .style(ButtonStyle::Outline)
+            .inverted(style.solid)
+            .tooltip(match (pushing, ref_name) {
+                (true, _) => "Pushing",
+                (false, Some(ref_name)) => ws.push_tooltip(ref_name),
+                (false, None) => "Push",
+            })
+            // Pushing it pulses at full strength, rather than faded as a disabled button is.
+            .disabled_because(ws.push_blocked(ref_name).filter(|_| !pushing))
+            .on_click(cx.listener(move |this, _, window, cx| {
+                if pushing {
+                    return;
+                }
+                let (project, ref_name) = pushed.clone();
+                this.app.update_later(window, cx, move |app, window, cx| {
+                    app.push_branch(project, ref_name, window, cx)
+                });
+            }));
+        let theme = style.theme;
+        Some(
+            div()
+                .absolute()
+                .top(dp(4.))
+                .right(dp(4.))
+                .rounded(dp(4.))
+                .bg(match style.solid {
+                    true => theme.fill_gray,
+                    false => theme.bg_2,
+                })
+                .when(!pushing, |el| {
+                    el.opacity(0.).group_hover(BRANCH_ROW, |el| el.opacity(1.))
+                })
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .child(match pushing {
+                    true => pulsing(div().child(button)).into_any_element(),
+                    false => button.into_any_element(),
+                }),
         )
     }
 
