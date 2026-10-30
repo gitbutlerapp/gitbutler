@@ -63,6 +63,8 @@ pub struct Theme {
     pub diff_font: SharedString,
     /// How wide a digit of `diff_font` is, in ems.
     pub diff_digit: f32,
+    /// What turns `diff_font`'s ligatures off, if they are.
+    pub diff_features: FontFeatures,
     /// What terminals show in: Geist Mono with Nerd Font icons and box drawing, for TUIs, unless
     /// another was picked or Ghostty has one.
     pub terminal_font: Font,
@@ -201,6 +203,13 @@ impl Theme {
             self.diff_font = family.to_owned().into();
             self.diff_digit = width;
         }
+        self
+    }
+
+    /// This theme with `diff_font`'s ligatures on or off. Fonts keep them under `liga` or `calt`.
+    pub fn with_ligatures(mut self, on: bool) -> Self {
+        let off = [("liga".to_owned(), 0), ("calt".to_owned(), 0)];
+        self.diff_features = FontFeatures(if on { vec![] } else { off.to_vec() }.into());
         self
     }
 
@@ -349,6 +358,7 @@ impl Theme {
             mono_font: "Geist Mono".into(),
             diff_font: "Geist Mono".into(),
             diff_digit: 0.6,
+            diff_features: FontFeatures::default(),
             terminal_font: gpui::font("GeistMono Nerd Font Mono"),
             // Shiki's GitHub light and dark, as but.dev highlights diffs. In `Token` order:
             // comment, string, constant, keyword, function, type, tag.

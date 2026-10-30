@@ -2067,6 +2067,7 @@ fn theme_for(store: &Store, window: &Window) -> Theme {
     Theme::new(prefs.appearance, scheme, system, prefs.code_size, &ghostty)
         .with_scale(prefs.ui_scale)
         .with_diff_font(prefs.diff_font.as_deref(), digit)
+        .with_ligatures(prefs.ligatures)
         .with_terminal_font(prefs.terminal_font.as_deref(), &ghostty, installed)
 }
 

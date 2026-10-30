@@ -735,6 +735,7 @@ pub fn hunk_header(
         (0, None) if hunk.scope.is_empty() => Some(
             div()
                 .font_family(theme.diff_font.clone())
+                .font_features(theme.diff_features.clone())
                 .child(hunk.header.clone())
                 .into_any_element(),
         ),
@@ -1081,6 +1082,7 @@ pub(super) fn line_card(
         })
         .line_height(dp(theme.code_line))
         .font_family(theme.diff_font.clone())
+        .font_features(theme.diff_features.clone())
         .text_size(dp(theme.code_text))
         .when(last, |el| el.border_b_1().rounded_b(dp(6.)))
         .overflow_hidden()
@@ -1099,6 +1101,7 @@ pub fn excerpt(lines: &[DiffLine], theme: &Theme) -> gpui::Div {
         .border_color(theme.border_3)
         .overflow_hidden()
         .font_family(theme.diff_font.clone())
+        .font_features(theme.diff_features.clone())
         .text_size(dp(theme.code_text))
         .line_height(dp(theme.code_line))
         .children(lines.iter().map(|line| {
@@ -1353,6 +1356,7 @@ fn scopes(scope: &[String], on: bool, theme: &Theme) -> Option<AnyElement> {
         .gap(dp(6.))
         .overflow_hidden()
         .font_family(theme.diff_font.clone())
+        .font_features(theme.diff_features.clone())
         .children(outer.iter().map(|scope| {
             h_flex()
                 .flex_shrink(1.)

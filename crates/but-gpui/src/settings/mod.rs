@@ -593,6 +593,7 @@ impl SettingsView {
         let diff_font = dropdown("diff-font", diff_font, theme).on_click(move |_, window, cx| {
             app.update_later(window, cx, |app, window, cx| app.pick_diff_font(window, cx))
         });
+        let app = self.app.clone();
         let mut diff = vec![
             Row::new("Code size", "How large code shows in diffs.", code),
             Row::new("Font", "The font of code in diffs.", diff_font),
@@ -600,8 +601,11 @@ impl SettingsView {
                 "Font ligatures",
                 "Code joins pairs of characters like != and == into one symbol.",
                 self.pref_switch("ligatures", prefs.ligatures, |p| p.ligatures ^= true, cx)
-                    // The diff is a cached view, which only a refresh draws again.
-                    .on_click(|_, _, cx| cx.refresh_windows()),
+                    .on_click(move |_, window, cx| {
+                        app.update_later(window, cx, |app, window, cx| {
+                            app.apply_appearance(window, cx)
+                        })
+                    }),
             ),
             Row::new(
                 "Wrap long lines",
