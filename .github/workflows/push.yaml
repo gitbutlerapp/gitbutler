@@ -360,6 +360,7 @@ jobs:
           # cargo-nextest-<VERSION>-universal-apple-darwin.sha256 artifact.
           curl -LsSf https://get.nexte.st/0.9.143/mac -o cargo-nextest.tar.gz
           echo "4830d430411148d17602a75cc880bfb4dc8dac153dea59a48a2ef4cc93577f07  cargo-nextest.tar.gz" | shasum -a 256 -c -
+          mkdir -p ${CARGO_HOME:-~/.cargo}/bin
           tar -xzf cargo-nextest.tar.gz -C ${CARGO_HOME:-~/.cargo}/bin
           rm cargo-nextest.tar.gz
       - name: Run workspace tests
