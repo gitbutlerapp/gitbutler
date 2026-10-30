@@ -19,7 +19,7 @@ use libghostty_vt::fmt::{Format, Formatter, FormatterOptions};
 use libghostty_vt::key::{self, Key, Mods};
 use libghostty_vt::mouse;
 use libghostty_vt::render::{CellIterator, Dirty, RowIterator};
-use libghostty_vt::screen::CellWide;
+use libghostty_vt::screen::{CellWide, Screen};
 use libghostty_vt::selection::gesture::{self, Gesture};
 use libghostty_vt::style::{RgbColor, Underline};
 use libghostty_vt::terminal::{Mode, PointCoordinate, ScrollViewport};
@@ -375,9 +375,9 @@ impl Terminal {
                 let at = self.grid.get().surface(event.position, self.size);
                 let bytes = self.vt.wheel(lines, at, mods(event.modifiers));
                 self.pty.write(&bytes).ok();
+            } else if let Some(arrows) = self.vt.alternate_scroll(lines) {
+                self.pty.write(&arrows).ok();
             } else {
-                // ponytail: an alternate screen without mouse tracking (less, man) gets no wheel;
-                // send it arrows under DECSET 1007 as Ghostty does if that's missed.
                 (self.vt.term).scroll_viewport(ScrollViewport::Delta(-(lines as isize)));
             }
             cx.notify();
@@ -693,6 +693,24 @@ impl Vt {
         (0..lines.abs() as usize)
             .flat_map(|_| self.mouse(mouse::Action::Press, Some(button), at, mods))
             .collect()
+    }
+
+    /// The arrows the wheel turning `lines` up, or down if negative, sends a program on the
+    /// alternate screen that asks for them (1007), as less and man do, or none.
+    fn alternate_scroll(&mut self, lines: f32) -> Option<Vec<u8>> {
+        let alternate = matches!(self.term.active_screen(), Ok(Screen::Alternate));
+        if !(alternate && self.term.mode(Mode::ALT_SCROLL).unwrap_or(false)) {
+            return None;
+        }
+        let arrow = if lines > 0. {
+            Key::ArrowUp
+        } else {
+            Key::ArrowDown
+        };
+        let arrows = (0..lines.abs() as usize)
+            .flat_map(|_| self.key(arrow, Mods::empty(), None, None))
+            .collect();
+        Some(arrows)
     }
 
     /// A left press over `at` on the surface, `repeated` when the platform counts it the next
@@ -1129,6 +1147,30 @@ mod tests {
             [("hello", Some(frame.foreground)), (" world", None)],
             "only the selection is drawn, on the foreground colour"
         );
+    }
+
+    #[test]
+    fn the_wheel_sends_arrows_to_an_alternate_screen() {
+        let mut vt = Vt::new(Terminal::OPENING).unwrap();
+        assert_eq!(
+            vt.alternate_scroll(1.),
+            None,
+            "the primary screen scrolls its own history"
+        );
+        vt.write(b"\x1b[?1049h");
+        assert_eq!(
+            vt.alternate_scroll(2.),
+            Some(b"\x1b[A\x1b[A".to_vec()),
+            "an alternate screen asks for arrows (1007) unless it says otherwise, as in Ghostty"
+        );
+        vt.write(b"\x1b[?1h");
+        assert_eq!(
+            vt.alternate_scroll(-1.),
+            Some(b"\x1bOB".to_vec()),
+            "in application cursor mode the arrows are the application's"
+        );
+        vt.write(b"\x1b[?1007l");
+        assert_eq!(vt.alternate_scroll(1.), None, "unless it turns them off");
     }
 
     /// The text of each run on the first row drawn on a background of its own.
