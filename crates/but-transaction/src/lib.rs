@@ -19,11 +19,12 @@ use but_rebase::graph_rebase::{
 };
 #[cfg(not(feature = "graph-workspace"))]
 use but_workspace::RefInfo;
-use but_workspace::branch::{create_reference::Anchor, dissolve_unnecessary_workspace};
+use but_workspace::branch::create_reference::Anchor;
 use but_workspace::commit::{
     ChangeSource, MoveChangesOutcome, SquashCommitsOutcome,
     squash_commits::MessageCombinationStrategy,
 };
+use but_workspace::editor_workspace::{leave_unnecessary_workspace, workspace_tips};
 use gix::{
     ObjectId,
     refs::{
@@ -192,7 +193,6 @@ where
             pending_branch_metadata: Vec::new(),
             pending_ref_changes: PendingRefChanges::default(),
             pending_checkout: None,
-            pending_workspace_exit: None,
             context_lines,
         };
 
@@ -216,7 +216,6 @@ where
             pending_branch_metadata,
             mut pending_ref_changes,
             pending_checkout,
-            pending_workspace_exit,
             context_lines: _,
         } = inner;
         let rebase = rebase.take().expect("rebase is always Some(_)");
@@ -233,7 +232,6 @@ where
                 pending_branch_metadata,
                 FinalizeOptions {
                     checkout: pending_checkout,
-                    workspace_exit: pending_workspace_exit,
                     dry_run,
                 },
             )
@@ -285,8 +283,6 @@ where
     pending_ref_changes: PendingRefChanges,
     // A checkout cannot happen until the in-memory rebase and its references are materialized.
     pending_checkout: Option<FullName>,
-    // Whether the workspace still has a purpose can't be told until everything is materialized.
-    pending_workspace_exit: Option<WorkspaceExit>,
     // Commits given to `squash_commits`, `reword_commit`, etc are allowed to be the original
     // commits from live repo. This is used to map those to the rebased in-memory commits.
     //
@@ -314,7 +310,7 @@ where
         target: ObjectId,
         how_to_combine_messages: MessageCombinationStrategy,
     ) -> anyhow::Result<CommitIdentifiers> {
-        self.rebase(|editor, commit_mappings| {
+        self.rebase_losing_tips(|editor, commit_mappings| {
             let SquashCommitsOutcome {
                 rebase,
                 commit_selector,
@@ -349,7 +345,7 @@ where
         &mut self,
         subjects: impl IntoIterator<Item = gix::ObjectId>,
     ) -> anyhow::Result<()> {
-        self.rebase(|editor, commit_mappings| {
+        self.rebase_losing_tips(|editor, commit_mappings| {
             let rebase = but_workspace::commit::discard_commits(
                 editor,
                 subjects
@@ -364,7 +360,7 @@ where
         &mut self,
         subjects: impl IntoIterator<Item = gix::ObjectId>,
     ) -> anyhow::Result<()> {
-        self.rebase(|editor, commit_mappings| {
+        self.rebase_losing_tips(|editor, commit_mappings| {
             let mut rebase = but_workspace::commit::discard_commits(
                 editor,
                 subjects
@@ -424,9 +420,8 @@ where
         Ok(())
     }
 
-    /// Remove `ref_name` when the transaction commits, checking out what remains of a managed
-    /// workspace that is left without purpose, as unapplying does.
     pub fn remove_reference(&mut self, ref_name: &FullNameRef) -> anyhow::Result<()> {
+        let checkout_is_pending = self.inner.pending_checkout.is_some();
         self.rebase(|mut editor, _| {
             let ref_selector = editor.select_reference(ref_name)?;
 
@@ -506,6 +501,11 @@ where
                 editor.remove_edges(must_disconnect_child, ref_selector)?;
             }
             let rebase = editor.rebase()?;
+            let rebase = if checkout_is_pending {
+                rebase
+            } else {
+                leave_unnecessary_workspace(rebase.into_editor())?
+            };
             Ok(((), rebase))
         })?;
         let repo = self.repo().clone();
@@ -515,7 +515,6 @@ where
         self.inner
             .pending_metadata_removals
             .push(ref_name.to_owned());
-        self.inner.pending_workspace_exit = Some(WorkspaceExit::WhenUnnecessary);
         Ok(())
     }
 
@@ -528,7 +527,7 @@ where
         relative_to: RelativeTo,
         side: InsertSide,
     ) -> anyhow::Result<()> {
-        self.rebase(|editor, commit_mappings| {
+        self.rebase_losing_tips(|editor, commit_mappings| {
             let relative_to = match relative_to {
                 RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
                 RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
@@ -777,7 +776,7 @@ where
         relative_to: RelativeTo,
         side: InsertSide,
     ) -> anyhow::Result<()> {
-        self.rebase(|editor, commit_mappings| {
+        self.rebase_losing_tips(|editor, commit_mappings| {
             let subject_commit_ids = subject_commit_ids
                 .into_iter()
                 .map(|commit| commit_mappings.map(commit));
@@ -900,19 +899,32 @@ where
         self.inner.rebase = Some(new_rebase);
         Ok(outcome)
     }
+
+    fn rebase_losing_tips<F, T>(&mut self, f: F) -> anyhow::Result<T>
+    where
+        F: FnOnce(
+            Editor<'rebase, 'rebase, M>,
+            &CommitMappings,
+        ) -> anyhow::Result<(T, SuccessfulRebase<'rebase, 'rebase, M>)>,
+    {
+        let checkout_is_pending = self.inner.pending_checkout.is_some();
+        self.rebase(|editor, commit_mappings| {
+            let tips_before = workspace_tips(&editor)?.len();
+            let (outcome, rebase) = f(editor, commit_mappings)?;
+            let editor = rebase.into_editor();
+            let rebase = if !checkout_is_pending && workspace_tips(&editor)?.len() < tips_before {
+                leave_unnecessary_workspace(editor)?
+            } else {
+                editor.rebase()?
+            };
+            Ok((outcome, rebase))
+        })
+    }
 }
 
 struct FinalizeOptions {
     checkout: Option<FullName>,
-    workspace_exit: Option<WorkspaceExit>,
     dry_run: DryRun,
-}
-
-/// When a committed transaction gives up the managed workspace reference.
-#[derive(Clone, Copy)]
-enum WorkspaceExit {
-    /// With at most one stack left, which then gets checked out.
-    WhenUnnecessary,
 }
 
 #[derive(Debug, Default)]
@@ -1092,7 +1104,6 @@ fn workspace_state_from_rebase<M: RefMetadata>(
 ) -> anyhow::Result<WorkspaceState> {
     let FinalizeOptions {
         checkout: pending_checkout,
-        workspace_exit,
         dry_run,
     } = options;
     if dry_run.into() {
@@ -1128,10 +1139,8 @@ fn workspace_state_from_rebase<M: RefMetadata>(
     for ref_name in pending_metadata_removals {
         materialized.meta.remove(ref_name.as_ref())?;
     }
-    if let Some(branch) = &pending_checkout {
+    if let Some(branch) = pending_checkout {
         checkout_reference(repo, branch.as_ref())?;
-    }
-    if pending_checkout.is_some() || workspace_exit.is_some() {
         let project_meta = materialized.workspace.graph.project_meta.clone();
         materialized.workspace.refresh_from_head(
             repo,
@@ -1139,16 +1148,6 @@ fn workspace_state_from_rebase<M: RefMetadata>(
             project_meta,
             &mut *materialized.db,
         )?;
-    }
-    if workspace_exit.is_some()
-        && let Some((workspace, _)) = dissolve_unnecessary_workspace(
-            materialized.workspace,
-            repo,
-            &*materialized.meta,
-            Default::default(),
-        )?
-    {
-        *materialized.workspace = workspace;
     }
 
     WorkspaceState::from_materialized(materialized, repo)

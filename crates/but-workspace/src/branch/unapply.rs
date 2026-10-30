@@ -833,8 +833,7 @@ pub(crate) mod function {
     ///
     /// `ws` is the source of truth for the stack shape, including virtual stacks, so it must be
     /// projected from the workspace reference as it is now. `overlay` is applied when reprojecting
-    /// from the new checkout. Workspace metadata is kept, so switching back to the workspace can
-    /// reapply the stacks it remembers.
+    /// from the new checkout. Workspace metadata goes with the reference.
     ///
     /// Return the reprojected workspace and the checked-out ref, or `None` if `ws` isn't managed,
     /// still needs its reference, or the checkout is refused because the destination is a
@@ -842,7 +841,7 @@ pub(crate) mod function {
     pub fn dissolve_unnecessary_workspace(
         ws: &but_graph::Workspace,
         repo: &gix::Repository,
-        meta: &impl RefMetadata,
+        meta: &mut impl RefMetadata,
         overlay: Overlay,
     ) -> anyhow::Result<Option<(but_graph::Workspace, FullName)>> {
         let Some(workspace_ref_name) = ws.ref_name().filter(|_| ws.kind.has_managed_ref()) else {
@@ -874,8 +873,7 @@ pub(crate) mod function {
                 .context("BUG: unborn should be impossible here")?
                 .id,
         )?;
-        // Keep the workspace metadata, so switching back to the workspace can reapply the stacks
-        // it remembers. The target doesn't depend on it, as it is stored in Git configuration.
+        meta.remove(workspace_ref_name)?;
 
         let overlay = overlay.with_entrypoint(
             ref_to_switch_to.commit_id,
