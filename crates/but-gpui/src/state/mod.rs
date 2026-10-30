@@ -791,7 +791,33 @@ impl Store {
         let Some(workspace) = self.workspace(selection.project()) else {
             return;
         };
-        let still_there = match &selection {
+        if !self.still_there(&selection) {
+            // A remote's commit, pulled or brought in by an update, goes up to its branch, or
+            // the target's to the project's page, as does a section emptied.
+            let project = selection.project().clone();
+            let home = match selection {
+                Selection::Upstream(_, Some(ref_name), _)
+                | Selection::Section(_, Section::Upstream(Some(ref_name)))
+                    if workspace.find_branch(Some(&ref_name)).is_some() =>
+                {
+                    Selection::Branch(project, Some(ref_name))
+                }
+                Selection::Upstream(_, None, _) | Selection::Section(..) => {
+                    Selection::Project(project)
+                }
+                _ => Selection::Uncommitted(project),
+            };
+            self.select(Some(home), cx);
+        }
+    }
+
+    /// Whether `selection` points at something its project's last read still has, or at
+    /// something in a project not read yet.
+    pub fn still_there(&self, selection: &Selection) -> bool {
+        let Some(workspace) = self.workspace(selection.project()) else {
+            return true;
+        };
+        match selection {
             Selection::Project(_)
             | Selection::Uncommitted(_)
             | Selection::Branches(_)
@@ -818,24 +844,6 @@ impl Store {
                         .merged_upstream(project, ref_name.as_ref(), *id)
                         .is_some()
             }
-        };
-        if !still_there {
-            // A remote's commit, pulled or brought in by an update, goes up to its branch, or
-            // the target's to the project's page, as does a section emptied.
-            let project = selection.project().clone();
-            let home = match selection {
-                Selection::Upstream(_, Some(ref_name), _)
-                | Selection::Section(_, Section::Upstream(Some(ref_name)))
-                    if workspace.find_branch(Some(&ref_name)).is_some() =>
-                {
-                    Selection::Branch(project, Some(ref_name))
-                }
-                Selection::Upstream(_, None, _) | Selection::Section(..) => {
-                    Selection::Project(project)
-                }
-                _ => Selection::Uncommitted(project),
-            };
-            self.select(Some(home), cx);
         }
     }
 
