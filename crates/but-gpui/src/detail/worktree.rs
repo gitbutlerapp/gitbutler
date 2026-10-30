@@ -1,6 +1,6 @@
-//! A checkout's overview, its page's Now: what's going on in it and what just happened
-//! there, as the project's page has what shipped and Branches what's cooking. It shows beside
-//! the checkout's files and commit box until a file is picked, whose diff takes its place.
+//! A checkout's overview, its heading's page, Now: what's going on in it and what just
+//! happened there, as the project's page has what shipped and Branches what's cooking. Its
+//! files and their diff are its uncommitted changes' page.
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -11,7 +11,6 @@ use gpui::{
 };
 
 use super::Detail;
-use super::diff_view::files_toggle;
 use super::panes::{
     and_more, clear_button, meta_item, meta_row, overview_column, overview_heading, page_title,
     share_row, title_text,
@@ -29,8 +28,7 @@ use crate::ui::review::state_glyph;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
     ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dp, faint, glow_once, h_flex,
-    keep_focus_on_press, list_row, relative_time, short_path, shortcut, small_icon, unread_line,
-    v_flex,
+    keep_focus_on_press, list_row, relative_time, short_path, small_icon, unread_line, v_flex,
 };
 
 mod activity;
@@ -143,50 +141,25 @@ fn span_said(seconds: i64) -> String {
 }
 
 impl Detail {
-    /// Whether the selected checkout's page shows its overview beside its files rather than
-    /// their diff: until a file is picked, as the project's page shows what shipped until a
-    /// commit is, and always with no changes, an empty commit's box included. Not while
-    /// committing changes, which picks them in the diff, nor editing a commit.
-    pub fn showing_now(&self, cx: &App) -> bool {
-        let Some((project, worktree)) = self.selected_checkout(cx) else {
-            return false;
+    /// The checkout whose heading or uncommitted changes are selected, which the overview
+    /// is read for: on its changes too, to tell the commits made since. Not while editing a
+    /// commit.
+    fn now_checkout(&self, cx: &App) -> Option<(ProjectId, Checkout)> {
+        let (project, checkout) = match self.selection(cx)? {
+            Selection::Checkout(project, checkout) => (project, checkout),
+            _ => self.selected_checkout(cx)?,
         };
-        if self.editing(&project, cx).is_some() {
-            return false;
-        }
-        let none = (self.store.read(cx).workspace(&project))
-            .and_then(|ws| ws.uncommitted_in(&worktree))
-            .is_none_or(<[_]>::is_empty);
-        none || (self.now_open && !self.composing)
-    }
-
-    /// Go from a checkout's changes back to its overview, as Esc and its crumb do, unless
-    /// committing. Says whether it did.
-    pub fn close_changes(&mut self, cx: &mut Context<Self>) -> bool {
-        let back = self.selected_checkout(cx).is_some() && !self.composing && !self.showing_now(cx);
-        if back {
-            self.now_open = true;
-            // Lines picked in the diff go with it, rather than stay for keys to act on unseen.
-            self.line_picks = None;
-            cx.notify();
-        }
-        back
+        self.editing(&project, cx)
+            .is_none()
+            .then_some((project, checkout))
     }
 
     /// Read what the selected checkout's overview needs beyond the workspace: a linked
     /// worktree's moves lately, and which files its commits change. `opened` as it's picked.
     pub(super) fn load_now(&mut self, opened: bool, cx: &mut Context<Self>) {
-        let Some(checkout) = self.selected_checkout(cx) else {
+        let Some(checkout) = self.now_checkout(cx) else {
             return;
         };
-        // With its changes gone, as committed, the page settles on the overview, so changes
-        // showing up again don't bring a diff over it.
-        let none = (self.store.read(cx).workspace(&checkout.0))
-            .and_then(|ws| ws.uncommitted_in(&checkout.1))
-            .is_some_and(<[_]>::is_empty);
-        if none && !self.composing {
-            self.now_open = true;
-        }
         if self.now.checkout.as_ref() != Some(&checkout) {
             self.now = Now {
                 checkout: Some(checkout.clone()),
@@ -250,7 +223,7 @@ impl Detail {
     /// Follow the file being read in a checkout's changes into the commit an agent just made
     /// of it, as the workspace loads again, with the file still under the cursor. Only when
     /// that's the one commit made, as of several it can't tell which took the file; not a
-    /// commit of the app's own, which is seen, nor while committing or with the overview picked.
+    /// commit of the app's own, which is seen, nor while committing.
     pub(super) fn follow_into_commit(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
         let Some((_, worktree)) = self.selected_checkout(cx).filter(|(p, _)| p == project) else {
             return;
@@ -270,8 +243,7 @@ impl Detail {
         let Some(path) = self.cursor_path().filter(|_| reading) else {
             return;
         };
-        // The tab picked, as with the changes gone the overview shows in any case.
-        if self.composing || self.now_open {
+        if self.composing {
             return;
         }
         let still = (ws.uncommitted_in(&worktree))
@@ -293,11 +265,13 @@ impl Detail {
     }
 
     /// A checkout's header: its name, the branch it has checked out or how many are applied,
-    /// and its folder.
+    /// and its folder. Over its uncommitted changes (`changes`), it's theirs: which checkout
+    /// they're in, as their file list counts them already.
     pub(super) fn render_checkout_header(
         &self,
         project: &ProjectId,
         checkout: &Checkout,
+        changes: bool,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
@@ -306,7 +280,7 @@ impl Detail {
             return div().into_any_element();
         };
         let ws = entry.workspace.as_ref();
-        let (title, branch, folder, target) = match checkout {
+        let (name, branch, folder) = match checkout {
             Checkout::Linked(name) => {
                 let linked = ws.and_then(|ws| ws.find_worktree(name.as_ref()));
                 (
@@ -316,7 +290,6 @@ impl Detail {
                             backend::short_ref(b).into_owned()
                         }),
                     linked.map(|w| short_path(&w.path)),
-                    Selection::Worktree(project.clone(), name.clone()),
                 )
             }
             Checkout::Main => (
@@ -336,9 +309,18 @@ impl Detail {
                     },
                 },
                 Some(short_path(&entry.project.path)),
-                Selection::Uncommitted(project.clone()),
             ),
         };
+        let folder_icon = match checkout.is_linked() {
+            true => Icon::FolderCopy,
+            false => Icon::Folder,
+        };
+        if changes {
+            let meta = meta_row(theme).child(meta_item(folder_icon, theme).child(name));
+            let title = page_title(Icon::FileDiff, theme).child(title_text("Uncommitted changes"));
+            let target = Selection::Uncommitted(project.clone(), checkout.clone());
+            return self.page_header(title, meta, target, None, None, theme, cx);
+        }
         let rests_on = ws.zip(checkout.linked()).and_then(|(ws, name)| {
             let (branch, from) = ws.beneath(ws.worktree_lane(name)?).next()?.top()?;
             let at = from.map_or(String::new(), |id| format!(" at {}", id.short()));
@@ -357,7 +339,8 @@ impl Detail {
                             .child(folder),
                     )
             }));
-        let title = page_title(Icon::Folder, theme).child(title_text(title));
+        let title = page_title(folder_icon, theme).child(title_text(name));
+        let target = Selection::Checkout(project.clone(), checkout.clone());
         self.page_header(title, meta, target, None, None, theme, cx)
     }
 
@@ -414,14 +397,12 @@ impl Detail {
             ),
         ];
         // The page holds still: hot files and the commits scroll within what's left under the
-        // activity. Over it, the bar a file's diff has, its toggle for the file list where the
-        // diff's is, so opening a file moves it not.
+        // activity.
         v_flex()
             .id("now")
             .flex_1()
             .h_full()
             .min_w_0()
-            .child(self.now_bar(files, theme, cx))
             .child(
                 v_flex()
                     .w_full()
@@ -445,30 +426,6 @@ impl Detail {
                     ),
             )
             .into_any_element()
-    }
-
-    /// The bar over the overview, as over a file's diff: the file list's toggle, counting the
-    /// `files` and their lines while the list is hidden, which shows the overview alone.
-    fn now_bar(&self, files: &[FileChange], theme: &Theme, cx: &Context<Self>) -> Div {
-        let (added, removed) = (files.iter().filter_map(|file| file.lines))
-            .fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr));
-        let hidden = self.files_hidden;
-        let (glyph, tip) = match hidden {
-            true => (Icon::SidebarNarrow, "Show the files"),
-            false => (Icon::FilesSidebar, "Hide the files"),
-        };
-        let counts = (hidden && !files.is_empty()).then_some((files.len(), added, removed));
-        h_flex()
-            .flex_none()
-            .h(dp(40.))
-            .px(dp(12.))
-            .bg(theme.bg_1)
-            .child(
-                files_toggle("now-files", glyph, counts, theme)
-                    .tooltip(Tooltip::keyed(tip, shortcut(&super::ToggleFiles, cx)))
-                    .on_mouse_down(MouseButton::Left, keep_focus_on_press)
-                    .on_click(cx.listener(|this, _, window, cx| this.toggle_files(window, cx))),
-            )
     }
 
     /// Where `checkout` is, in a line: whether files are being written or how long it's

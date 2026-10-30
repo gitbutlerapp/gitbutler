@@ -671,7 +671,12 @@ impl AppView {
             window,
             cx,
             |name| backend::worktrees::CreateWorktree::New(Some(name)),
-            move |store, name, cx| store.select(Some(Selection::Worktree(selected, name)), cx),
+            move |store, name, cx| {
+                store.select(
+                    Some(Selection::Checkout(selected, Checkout::Linked(name))),
+                    cx,
+                )
+            },
         )
     }
 
@@ -852,12 +857,10 @@ impl AppView {
             }
             // From the diff, the lines, hunk or file under the cursor; from the navigator or
             // the composer, what's checked.
-            Some(Selection::Uncommitted(_) | Selection::Worktree(..))
-                if in_diff && !self.detail.read(cx).composing() =>
-            {
+            Some(Selection::Uncommitted(..)) if in_diff && !self.detail.read(cx).composing() => {
                 self.detail.read(cx).cursor_cut(cx)
             }
-            Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => {
+            Some(Selection::Uncommitted(..)) => {
                 let detail = self.detail.read(cx);
                 (detail.selected_checkout(cx)).and_then(|(project, worktree)| {
                     let files = detail.files_to_move(&project, worktree.clone(), cx);
@@ -932,7 +935,10 @@ impl AppView {
             (self.store).update(cx, |store, cx| transfer.perform(&project, lands, store, cx));
         if let Some((branch, files)) = staged {
             self.store.update(cx, |store, cx| {
-                store.select(Some(Selection::Uncommitted(project.clone())), cx)
+                store.select(
+                    Some(Selection::Uncommitted(project.clone(), Checkout::Main)),
+                    cx,
+                )
             });
             self.detail
                 .update(cx, |detail, cx| detail.stage(branch, &files, window, cx));
@@ -979,7 +985,6 @@ impl AppView {
                     || detail.close_open_filter(window, cx)
                     || detail.close_opened_branch(cx)
                     || detail.close_opened_target(cx)
-                    || detail.close_changes(cx)
             });
             if handled {
                 return cx.notify();
@@ -1005,9 +1010,7 @@ impl AppView {
         if store.cut.is_none()
             && store.picked.is_empty()
             && self.detail.update(cx, |detail, cx| {
-                detail.close_opened_branch(cx)
-                    || detail.close_opened_target(cx)
-                    || detail.close_changes(cx)
+                detail.close_opened_branch(cx) || detail.close_opened_target(cx)
             })
         {
             return cx.notify();
@@ -1315,10 +1318,12 @@ impl AppView {
         // Only what's on screen gets committed: from another page, ⌘↩ shows the changes
         // first, a linked worktree's from its branches and commits.
         let project = selection.project().clone();
-        let checkout = match (&selection, self.store.read(cx).worktree_for(&selection)) {
-            (Selection::Uncommitted(_) | Selection::Worktree(..), _) => selection.clone(),
-            (_, Some(worktree)) => Selection::Worktree(project.clone(), worktree.name.clone()),
-            (_, None) => Selection::Uncommitted(project.clone()),
+        let checkout = match &selection {
+            Selection::Uncommitted(..) => selection.clone(),
+            _ => {
+                let checkout = self.store.read(cx).checkout_of(&selection);
+                Selection::Uncommitted(project.clone(), checkout.unwrap_or_default())
+            }
         };
         let Some(worktree) = self.store.read(cx).checkout_of(&checkout) else {
             return;
@@ -1395,7 +1400,7 @@ impl AppView {
                     copy_on::<CopyErrorMessage>(el, error, cx)
                 })
             }
-            Some(Selection::Worktree(project, name)) => {
+            Some(Selection::Checkout(project, Checkout::Linked(name))) => {
                 let worktree =
                     (store.workspace(project)).and_then(|ws| ws.find_worktree(name.as_ref()));
                 el.when_some(worktree, |el, worktree| {
@@ -1446,10 +1451,10 @@ impl AppView {
                 ref_name.map(|ref_name| short_ref(&ref_name).into_owned())
             }
             // The main worktree's folder is the project's.
-            Selection::Project(project) | Selection::Uncommitted(project) => {
+            Selection::Project(project) | Selection::Checkout(project, Checkout::Main) => {
                 Some(self.store.read(cx).path(&project)?.display().to_string())
             }
-            Selection::Worktree(project, name) => {
+            Selection::Checkout(project, Checkout::Linked(name)) => {
                 let path =
                     (self.store.read(cx)).checkout_path(&project, &Checkout::Linked(name))?;
                 Some(path.display().to_string())
@@ -1461,7 +1466,8 @@ impl AppView {
                     .path
                     .clone(),
             ),
-            Selection::Mesh(..)
+            Selection::Uncommitted(..)
+            | Selection::Mesh(..)
             | Selection::Branches(_)
             | Selection::History(_)
             | Selection::Graph(_)
@@ -2148,9 +2154,7 @@ impl Render for AppView {
             .when(
                 matches!(
                     self.store.read(cx).selection,
-                    Some(
-                        Selection::Commit(..) | Selection::Uncommitted(_) | Selection::Worktree(..)
-                    )
+                    Some(Selection::Commit(..) | Selection::Uncommitted(..))
                 ),
                 |el| el.on_action(cx.listener(Self::squash_from_detail)),
             )

@@ -176,7 +176,7 @@ impl Overlay {
                 .and_then(|branch| branch.ref_name.as_ref()),
         };
         let worktree = match selection {
-            Selection::Worktree(_, name) => Some(name),
+            Selection::Uncommitted(_, Checkout::Linked(name)) => Some(name),
             _ => store.worktree_for(selection).map(|wt| &wt.name),
         };
         let deleted = match selection {
@@ -959,7 +959,8 @@ impl Store {
             ..Overlay::default()
         };
         // One shown again is selected, as one created is.
-        let shown = (!archived).then(|| Selection::Worktree(project.clone(), name.clone()));
+        let shown = (!archived)
+            .then(|| Selection::Checkout(project.clone(), Checkout::Linked(name.clone())));
         self.apply(
             project,
             label,
@@ -990,7 +991,10 @@ impl Store {
             create,
             move |store, name, cx| {
                 store.snack(format!("Created worktree {name}"), cx);
-                store.select(Some(Selection::Worktree(selected, name)), cx)
+                store.select(
+                    Some(Selection::Checkout(selected, Checkout::Linked(name))),
+                    cx,
+                )
             },
             cx,
         );
@@ -1218,7 +1222,7 @@ impl Store {
                         .key_of(selected, *id)
                         .is_some_and(|key| keys.contains(&key))
                 {
-                    store.select(Some(Selection::uncommitted_in(project, home)), cx);
+                    store.select(Some(Selection::Uncommitted(project, home)), cx);
                 }
                 store.snack_undoable("Uncommitted", cx)
             },
@@ -1261,7 +1265,7 @@ impl Store {
             .map(|s| {
                 let instead = match overlay.in_place_of(s, self) {
                     Some(branch) => Selection::Branch(project.clone(), branch.ref_name.clone()),
-                    None => Selection::Uncommitted(project.clone()),
+                    None => Selection::Checkout(project.clone(), Checkout::Main),
                 };
                 (s.clone(), instead)
             });

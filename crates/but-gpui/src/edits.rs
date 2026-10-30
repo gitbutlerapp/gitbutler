@@ -349,17 +349,10 @@ impl AppView {
                     )
             }
             // With changes to discard.
-            Some(Selection::Uncommitted(project)) => {
-                let changes =
-                    (store.workspace(project)).is_some_and(|ws| !ws.uncommitted.is_empty());
-                el.when(changes, |el| {
-                    el.on_action(cx.listener(Self::discard_changes))
-                })
-            }
-            Some(Selection::Worktree(project, name)) => {
+            Some(Selection::Uncommitted(project, checkout)) => {
                 let changes = (store.workspace(project))
-                    .and_then(|ws| ws.find_worktree(name.as_ref()))
-                    .is_some_and(|worktree| !worktree.uncommitted.is_empty());
+                    .and_then(|ws| ws.uncommitted_in(checkout))
+                    .is_some_and(|files| !files.is_empty());
                 el.when(changes, |el| {
                     el.on_action(cx.listener(Self::discard_changes))
                 })
@@ -446,14 +439,17 @@ impl AppView {
         let branch = match self.selection(cx) {
             // A message starts with a capital letter, which typed where the keys act, as after
             // clicking the diff, would push the branch it's for.
-            Some(Selection::Uncommitted(_)) if self.detail.read(cx).composing() => {
+            Some(Selection::Uncommitted(_, Checkout::Main)) if self.detail.read(cx).composing() => {
                 return snack(
                     &self.store,
                     "Not while writing a commit: push from its branch",
                     cx,
                 );
             }
-            Some(Selection::Uncommitted(project)) => {
+            Some(
+                Selection::Uncommitted(project, Checkout::Main)
+                | Selection::Checkout(project, Checkout::Main),
+            ) => {
                 let target = self.detail.read(cx).effective_target(&project, cx);
                 let Some(target) = target else {
                     return snack(&self.store, "Select a branch to push", cx);
@@ -564,8 +560,7 @@ impl AppView {
     /// Discard the selected checkout's changes the composer has checked, or all of them.
     fn discard_changes(&mut self, _: &DiscardChanges, window: &mut Window, cx: &mut Context<Self>) {
         let checkout = match self.selection(cx) {
-            Some(Selection::Uncommitted(project)) => (project, Checkout::Main),
-            Some(Selection::Worktree(project, name)) => (project, Checkout::Linked(name)),
+            Some(Selection::Uncommitted(project, checkout)) => (project, checkout),
             _ => return,
         };
         let changes = self.detail.read(cx).selected_changes(cx);
@@ -966,7 +961,7 @@ impl AppView {
             }
         };
         let undoable = lasting.is_none();
-        let at = Selection::uncommitted_in(project.clone(), worktree.clone());
+        let at = Selection::Uncommitted(project.clone(), worktree.clone());
         let overlay = Overlay {
             rereads: Rereads::Files,
             files_in: worktree.clone(),

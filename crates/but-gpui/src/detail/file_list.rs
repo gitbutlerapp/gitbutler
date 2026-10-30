@@ -622,8 +622,7 @@ impl Detail {
         if !self.file_picks.is_empty() {
             return self.owned_cut(self.picked_changes(), cx);
         }
-        // Not the cursor's file under a checkout's overview, where no row says which it is.
-        if !self.shown_files().contains(&self.cursor.file) || self.showing_now(cx) {
+        if !self.shown_files().contains(&self.cursor.file) {
             return None;
         }
         let file = self.diff.as_ref()?.files.get(self.cursor.file)?;
@@ -1081,8 +1080,7 @@ impl Detail {
         let path = file.path.clone();
         let diff_ix = extras.diff_ix;
         let stats = (diff_ix.and_then(|ix| self.diff.as_ref()?.files.get(ix))).map(FileDiff::stats);
-        // None while a checkout's overview shows: no file is picked then.
-        let current = diff_ix == Some(self.current_file()) && !self.showing_now(cx);
+        let current = diff_ix == Some(self.current_file());
         let picked = extras.picked;
         let solid = (current || picked) && solid;
         // On the solid ground, as ui-react's FileList inverts a selected row's contents.
@@ -1475,10 +1473,11 @@ impl Detail {
                     let store = app.store.read(cx);
                     let uncommitted =
                         match store.worktree_for(&Selection::Commit(project.clone(), commit)) {
-                            Some(worktree) => {
-                                Selection::Worktree(project.clone(), worktree.name.clone())
-                            }
-                            None => Selection::Uncommitted(project.clone()),
+                            Some(worktree) => Selection::Uncommitted(
+                                project.clone(),
+                                Checkout::Linked(worktree.name.clone()),
+                            ),
+                            None => Selection::Uncommitted(project.clone(), Checkout::Main),
                         };
                     app.transfer(
                         &payload,

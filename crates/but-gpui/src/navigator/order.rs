@@ -390,7 +390,7 @@ impl Navigator {
             return true;
         };
         let own = match item {
-            Selection::Worktree(_, heading) => heading == name,
+            Selection::Checkout(_, Checkout::Linked(heading)) => heading == name,
             _ => (store.workspace(project))
                 .is_some_and(|ws| in_checkout(store, item, ws, &Checkout::Linked(name.clone()))),
         };
@@ -499,7 +499,7 @@ impl Navigator {
         }
         let (project, name) = self.held_worktree_name.as_ref()?;
         let heading = (self.rows.iter()).position(
-            |row| matches!(row, Row::Item(Selection::Worktree(p, n)) if p == project && n == name),
+            |row| matches!(row, Row::Item(Selection::Checkout(p, Checkout::Linked(n))) if p == project && n == name),
         )?;
         Some(heading..worktree_end(&self.rows, heading))
     }
@@ -568,7 +568,7 @@ fn worktree_end(rows: &[Row], heading: usize) -> usize {
     (rows.iter().enumerate().skip(heading + 1))
         .find_map(|(ix, row)| match row {
             Row::WorktreeDivider => Some(ix + 1),
-            Row::Item(Selection::Worktree(..)) | Row::Gap => Some(ix),
+            Row::Item(Selection::Checkout(_, Checkout::Linked(_))) | Row::Gap => Some(ix),
             _ => None,
         })
         .unwrap_or(rows.len())
@@ -641,7 +641,9 @@ fn worktree_slot(
     // it is, down through the divider below it.
     let shown: Vec<(&BString, f32, f32)> = card
         .filter_map(|ix| match rows.get(ix)? {
-            Row::Item(Selection::Worktree(p, n)) if p == project && order.contains(n) => {
+            Row::Item(Selection::Checkout(p, Checkout::Linked(n)))
+                if p == project && order.contains(n) =>
+            {
                 let end = worktree_end(rows, ix);
                 Some((n, span_height(rows, 0..ix), span_height(rows, ix..end)))
             }
@@ -708,6 +710,8 @@ fn terminal_slot(
                     places.push((at, (Checkout::clone(on), Slot::Before(*terminal))));
                 }
             }
+            // A worktree's uncommitted changes sit between its heading and its terminals.
+            Row::Item(Selection::Uncommitted(p, _)) if p == project => {}
             row => {
                 if let Some((on, _)) = under.take() {
                     places.push((at, (Checkout::clone(on), Slot::End)));
@@ -746,7 +750,7 @@ mod tests {
         let p = ProjectId::from("p");
         let mut rows = vec![
             Row::Item(Selection::Project(p.clone())),
-            Row::Item(Selection::Uncommitted(p.clone())),
+            Row::Item(Selection::Uncommitted(p.clone(), Checkout::Main)),
             Row::WorktreeDivider,
         ];
         let mut tops = Vec::new();
@@ -755,7 +759,10 @@ mod tests {
                 BString::from(name),
                 super::span_height(&rows, 0..rows.len()),
             ));
-            rows.push(Row::Item(Selection::Worktree(p.clone(), name.into())));
+            rows.push(Row::Item(Selection::Checkout(
+                p.clone(),
+                Checkout::Linked(name.into()),
+            )));
             if name == "b" {
                 let branch = Selection::Branch(p.clone(), None);
                 rows.extend([Row::Item(branch.clone()), Row::Item(branch)]);
@@ -799,7 +806,12 @@ mod tests {
     fn under_the_filter_a_dragged_worktree_still_ends_at_the_next_one() {
         let order: Vec<BString> = ["a", "b"].map(BString::from).into();
         let p = ProjectId::from("p");
-        let worktree = |name: &str| Row::Item(Selection::Worktree(p.clone(), name.into()));
+        let worktree = |name: &str| {
+            Row::Item(Selection::Checkout(
+                p.clone(),
+                Checkout::Linked(name.into()),
+            ))
+        };
         let branch = || Row::Item(Selection::Branch(p.clone(), None));
         // The filter lists no dividers between worktrees, and another card follows.
         let rows = [
@@ -906,14 +918,21 @@ mod tests {
         let branch = || Row::Item(Selection::Branch(p.clone(), None));
         let mut rows = vec![
             Row::Item(Selection::Project(p.clone())),
-            Row::Item(Selection::Uncommitted(p.clone())),
+            Row::Item(Selection::Checkout(p.clone(), Checkout::Main)),
+            Row::Item(Selection::Uncommitted(p.clone(), Checkout::Main)),
         ];
         rows.extend(main.iter().map(terminal));
         rows.extend([branch(), branch(), Row::WorktreeDivider]);
-        rows.push(Row::Item(Selection::Worktree(p.clone(), "w".into())));
+        rows.push(Row::Item(Selection::Checkout(
+            p.clone(),
+            Checkout::Linked("w".into()),
+        )));
         rows.extend(linked.iter().map(terminal));
         rows.extend([branch(), Row::WorktreeDivider]);
-        rows.push(Row::Item(Selection::Worktree(p.clone(), "f".into())));
+        rows.push(Row::Item(Selection::Checkout(
+            p.clone(),
+            Checkout::Linked("f".into()),
+        )));
         rows.extend([
             Row::WorktreeDivider,
             Row::Item(Selection::Branches(p.clone())),
@@ -938,25 +957,25 @@ mod tests {
         let goes = |depth| terminal_slot(&rows, &p, TerminalId(2), &lists, depth);
         let (main, w) = (Checkout::Main, Checkout::Linked("w".into()));
         assert!(
-            goes(middle(2)) == Some((main.clone(), Slot::Before(TerminalId(1)))),
+            goes(middle(3)) == Some((main.clone(), Slot::Before(TerminalId(1)))),
             "over terminal 1 it goes before it"
         );
         assert!(
-            goes(middle(3)) == Some((main, Slot::End)),
+            goes(middle(4)) == Some((main, Slot::End)),
             "over its own row it stays where it is, after 1"
         );
         assert!(
-            goes(middle(7)) == Some((w.clone(), Slot::Before(TerminalId(3)))),
+            goes(middle(8)) == Some((w.clone(), Slot::Before(TerminalId(3)))),
             "over w's heading it goes first under it, as its row would be there once it's gone \
              from the main worktree"
         );
         assert!(
-            goes(middle(8)) == Some((w.clone(), Slot::End)),
+            goes(middle(9)) == Some((w.clone(), Slot::End)),
             "over terminal 3 it goes after it, as 3 moves up a row once it's gone from the main \
              worktree"
         );
         assert!(
-            goes(middle(11)) == Some((w, Slot::End)),
+            goes(middle(12)) == Some((w, Slot::End)),
             "folded f lists no terminals to go among, so the nearest place is under w"
         );
         assert!(
@@ -990,7 +1009,7 @@ mod tests {
         let (a, b) = (ProjectId::from("a"), ProjectId::from("b"));
         let rows = [
             Row::Item(Selection::Project(a.clone())),
-            Row::Item(Selection::Uncommitted(a.clone())),
+            Row::Item(Selection::Uncommitted(a.clone(), Checkout::Main)),
             Row::Item(Selection::History(a.clone())),
             Row::Gap,
             Row::Item(Selection::Project(b.clone())),

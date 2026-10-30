@@ -291,7 +291,7 @@ impl Store {
     fn opening(&self, project: &ProjectId) -> Selection {
         match self.prefs.folded_projects.contains(project.as_ref()) {
             true => Selection::Project(project.clone()),
-            false => Selection::Uncommitted(project.clone()),
+            false => Selection::Checkout(project.clone(), Checkout::Main),
         }
     }
 
@@ -310,7 +310,7 @@ impl Store {
                     let id = ProjectId::from(id);
                     store.set_projects(projects, cx);
                     store.set_expanded(&id, true, cx);
-                    store.select(Some(Selection::Uncommitted(id.clone())), cx);
+                    store.select(Some(Selection::Checkout(id.clone(), Checkout::Main)), cx);
                     match (existed, store.project(&id)) {
                         (true, Some(entry)) => {
                             let name = entry.project.name.clone();
@@ -677,7 +677,7 @@ impl Store {
                     .is_some_and(|ws| ws.target.is_none() && ws.tree.is_some());
                 if store.added.take_if(|added| *added == id).is_some()
                     && untargeted
-                    && store.selection == Some(Selection::Uncommitted(id.clone()))
+                    && store.selection == Some(Selection::Checkout(id.clone(), Checkout::Main))
                 {
                     store.select(Some(Selection::Project(id.clone())), cx);
                 }
@@ -711,10 +711,14 @@ impl Store {
                 entry.read();
             }
             let elsewhere = (self.selection.as_ref()).is_some_and(|s| {
-                s.project() == id && !matches!(s, Selection::Project(_) | Selection::Uncommitted(_))
+                s.project() == id
+                    && !matches!(
+                        s,
+                        Selection::Project(_) | Selection::Uncommitted(_, Checkout::Main)
+                    )
             });
             if elsewhere {
-                self.select(Some(Selection::Uncommitted(id.clone())), cx);
+                self.select(Some(Selection::Uncommitted(id.clone(), Checkout::Main)), cx);
             }
             return;
         }
@@ -845,7 +849,10 @@ impl Store {
             self.select(Some(instead), cx);
         }
         if let Some(name) = home {
-            self.select(Some(Selection::Worktree(id.clone(), name)), cx);
+            self.select(
+                Some(Selection::Checkout(id.clone(), Checkout::Linked(name))),
+                cx,
+            );
         }
         // A stack goes by its bottom branch, so it follows that one's rename.
         if let Some(Selection::Stack(project, bottom)) = &self.selection

@@ -476,7 +476,6 @@ impl Detail {
         self.showing_review(cx)
             || self.showing_shipped(cx)
             || self.showing_branches_overview(cx)
-            || self.showing_now(cx)
             || self.choosing_target(cx)
             || self.overview_only(cx)
     }

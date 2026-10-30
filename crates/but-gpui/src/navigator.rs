@@ -1064,13 +1064,8 @@ impl Navigator {
             Some(Selection::Branch(project, ref_name)) => {
                 self.set_open(ClickOpened::Here((project, ref_name)), true, cx)
             }
-            Some(Selection::Uncommitted(project)) => {
-                self.folded_worktrees.remove(&(project, Checkout::Main));
-                cx.notify();
-            }
-            Some(Selection::Worktree(project, name)) => {
-                self.folded_worktrees
-                    .remove(&(project, Checkout::Linked(name)));
+            Some(Selection::Checkout(project, checkout)) => {
+                self.folded_worktrees.remove(&(project, checkout));
                 cx.notify();
             }
             Some(Selection::Mesh(project, id, pick)) => self.expand_mesh(project, id, pick, cx),
@@ -1144,13 +1139,10 @@ impl Navigator {
                 let heading = Selection::Section(project, Section::Upstream(ref_name));
                 self.select(heading, window, cx)
             }
-            Some(Selection::Uncommitted(project)) if folds => {
-                self.toggle_section(&project, Checkout::Main, true, window, cx)
+            Some(Selection::Checkout(project, checkout)) if folds => {
+                self.toggle_section(&project, checkout, true, window, cx)
             }
-            Some(Selection::Worktree(project, name)) if folds => {
-                self.toggle_section(&project, Checkout::Linked(name), true, window, cx)
-            }
-            Some(Selection::Worktree(project, name))
+            Some(Selection::Checkout(project, Checkout::Linked(name)))
                 if (store.workspace(&project))
                     .and_then(|ws| ws.find_worktree(name.as_ref()))
                     .is_some_and(|wt| wt.is_inactive(store.prefs.inactive_after)) =>
@@ -1193,7 +1185,7 @@ impl Navigator {
                 self.toggle_heading(project, section, open, window, cx)
             }
             // A commit, placed as c places it.
-            Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => {
+            Some(Selection::Uncommitted(..)) => {
                 window.dispatch_action(Box::new(crate::app::StartCommit), cx)
             }
             Some(Selection::Terminal(..)) => self.enter_terminal(window, cx),
@@ -1230,11 +1222,8 @@ impl Navigator {
             Selection::Branch(project, ref_name) => {
                 self.set_open(ClickOpened::Here((project, ref_name)), !open, cx)
             }
-            Selection::Uncommitted(project) => {
-                self.toggle_section(&project, Checkout::Main, open, window, cx)
-            }
-            Selection::Worktree(project, name) => {
-                self.toggle_section(&project, Checkout::Linked(name), open, window, cx)
+            Selection::Checkout(project, checkout) => {
+                self.toggle_section(&project, checkout, open, window, cx)
             }
             Selection::Mesh(project, id, pick) => {
                 self.toggle_mesh(project, id, pick, open, window, cx)
@@ -1243,6 +1232,7 @@ impl Navigator {
                 self.toggle_merge(&project, ref_name, id, window, cx)
             }
             Selection::Commit(..)
+            | Selection::Uncommitted(..)
             | Selection::Stack(..)
             | Selection::Branches(_)
             | Selection::History(_)
@@ -2045,14 +2035,15 @@ impl Navigator {
         };
         let el = match item {
             Selection::Project(id) => self.project_row(item, id, style, cx),
-            Selection::Uncommitted(id)
+            Selection::Uncommitted(id, Checkout::Main)
                 if store.workspace(id).is_some_and(|ws| ws.editing.is_some()) =>
             {
                 Some(self.editing_row(item, id, style, cx))
             }
-            Selection::Uncommitted(_) | Selection::Worktree(..) => {
-                self.worktree_heading(ix, item, style, cx)
+            Selection::Checkout(_, checkout) => {
+                self.worktree_heading(ix, item, checkout, style, cx)
             }
+            Selection::Uncommitted(..) => self.changes_row(item, style, cx),
             Selection::Branch(id, ref_name) => {
                 self.branch_row(item, id, ref_name.as_ref(), style, cx)
             }
@@ -2635,24 +2626,20 @@ impl Navigator {
         Some(format!("{name}{below_tip}{checkout}"))
     }
 
-    /// A worktree's heading, which selects its uncommitted changes: the main one's for
-    /// [`Selection::Uncommitted`], a linked one's for [`Selection::Worktree`]. With linked
-    /// worktrees, its chevron or a double-click folds its branches; folded, it also counts
-    /// their unpushed commits. Without, the main one's branches sit beside it, and still fold.
+    /// A worktree's heading, which selects its overview. Its chevron or a double-click folds
+    /// its uncommitted changes and branches away; folded, it counts the changes and the
+    /// branches' unpushed commits.
     fn worktree_heading(
         &self,
         ix: usize,
         item: &Selection,
+        checkout: &Checkout,
         style: RowStyle,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let store = self.store.read(cx);
         let id = item.project();
         let (entry, workspace) = (store.project(id)?, store.workspace(id)?);
-        let checkout = match item {
-            Selection::Worktree(_, name) => Checkout::Linked(name.clone()),
-            _ => Checkout::Main,
-        };
         let worktree = (checkout.linked()).and_then(|name| workspace.find_worktree(name));
         let (label, path, uncommitted) = match worktree {
             Some(wt) => (wt.name.to_string(), &wt.path, &wt.uncommitted),
@@ -2662,8 +2649,8 @@ impl Navigator {
                 &workspace.uncommitted,
             ),
         };
-        let uncommitted = store.uncommitted_shown(id, &checkout, uncommitted);
-        let branches: Vec<_> = workspace.branches_in(&checkout).collect();
+        let uncommitted = store.uncommitted_shown(id, checkout, uncommitted);
+        let branches: Vec<_> = workspace.branches_in(checkout).collect();
         let unpushed_n = unpushed(branches.iter().copied());
         let unread = (branches.iter()).any(|branch| store.branch_unread(id, branch));
         // Open even when folded while the selection's in it.
@@ -2674,13 +2661,10 @@ impl Navigator {
                 this.toggle_section(&project, checkout.clone(), open, window, cx)
             }
         };
-        let lane = (checkout.linked()).and_then(|name| workspace.worktree_lane(name));
-        let rests = lane.is_some_and(|lane| workspace.beneath(lane).next().is_some());
-        let terminals = store.terminals.on(id, &checkout).next().is_some();
-        let folds = !branches.is_empty() || rests || terminals;
+        // Its uncommitted changes are always listed under it, so it always folds.
         let step = self.fold(
             ("worktree-fold", ix),
-            folds.then_some(open),
+            Some(open),
             style.quiet(),
             cx,
             toggle.clone(),
@@ -2711,49 +2695,74 @@ impl Navigator {
                     .tooltip(Tooltip::text(path.display().to_string()))
                     .child(label.clone()),
             )
-            .children(change_counts(tally(&uncommitted), style))
-            .when(!open, |el| el.children(style.unpushed(unpushed_n)))
+            .when(!open, |el| {
+                el.children(change_counts(tally(&uncommitted), style))
+                    .children(style.unpushed(unpushed_n))
+            })
             .map(|el| self.selectable(el, item, cx))
-            .when(folds, |el| el.on_click(double_click(toggle, cx)));
-        // The worktree's checked files while it's shown, else all of them, but not conflicted
-        // ones: with only those, there's nothing to drag. A linked worktree with none drags
-        // itself; with some, they land on its own rows, and it moves anywhere else.
-        let files = match uncommitted.is_empty() {
-            true => Vec::new(),
-            false => self.detail.read(cx).files_to_move(id, checkout.clone(), cx),
-        };
-        let linked = checkout.linked().map(ToOwned::to_owned);
-        let dragged = match (files.as_slice(), checkout.linked()) {
-            ([], None) => None,
-            ([], Some(name)) => Some((
-                Cut::Worktree(id.clone(), name.to_owned()),
-                name.to_string().into(),
-            )),
-            (files, _) => {
-                let label: SharedString = match files {
-                    [file] => file.file.path.clone().into(),
-                    files => format!("{} files", files.len()).into(),
-                };
-                let payload = Cut::Files {
-                    project: id.clone(),
-                    from: None,
-                    worktree: checkout,
-                    files: files.into(),
-                };
-                Some((payload, label))
+            .on_click(double_click(toggle, cx));
+        // A linked worktree drags itself, its changes going with it.
+        let row = match checkout.linked() {
+            Some(name) => {
+                let payload = Cut::Worktree(id.clone(), name.to_owned());
+                self.worktree_drag(row, id, name, payload, name.to_string().into(), cx)
             }
-        };
-        let row = match (dragged, linked) {
-            (Some((payload, chip)), Some(name)) => {
-                self.worktree_drag(row, id, name.as_ref(), payload, chip, cx)
-            }
-            (Some((payload, chip)), None) => {
-                row.on_drag(payload, drag_preview(self.store.clone(), chip))
-            }
-            // The main worktree with no files to drag drags its folder, for a terminal to paste.
-            (None, _) => self.project_drag(row, id, label.into(), false, cx),
+            // The main worktree drags its folder, for a terminal to paste.
+            None => self.project_drag(row, id, label.into(), false, cx),
         };
         Some(row.into_any_element())
+    }
+
+    /// A worktree's uncommitted changes, first under its heading, which select their files and
+    /// diff as [`Selection::Uncommitted`]. Listed only while there are some.
+    fn changes_row(
+        &self,
+        item: &Selection,
+        style: RowStyle,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        let store = self.store.read(cx);
+        let id = item.project();
+        let workspace = store.workspace(id)?;
+        let checkout = store.checkout_of(item)?;
+        let uncommitted = match checkout.linked() {
+            Some(name) => &workspace.find_worktree(name)?.uncommitted,
+            None => &workspace.uncommitted,
+        };
+        let uncommitted = store.uncommitted_shown(id, &checkout, uncommitted);
+        let label = "Uncommitted changes";
+        let row = style
+            .row(
+                format!("changes-{id}-{}", checkout.linked().unwrap_or_default()),
+                6.,
+            )
+            .aria_label(label)
+            .child(icon(Icon::FileDiff).text_color(style.muted()))
+            .child(div().flex_1().min_w_0().truncate().child(label))
+            .children(change_counts(tally(&uncommitted), style))
+            .map(|el| self.selectable(el, item, cx));
+        // The checked files while they're shown, else all of them, but not conflicted ones:
+        // with only those, there's nothing to drag.
+        let files = self.detail.read(cx).files_to_move(id, checkout.clone(), cx);
+        let dragged = (!files.is_empty()).then(|| {
+            let label: SharedString = match files.as_slice() {
+                [file] => file.file.path.clone().into(),
+                files => format!("{} files", files.len()).into(),
+            };
+            let payload = Cut::Files {
+                project: id.clone(),
+                from: None,
+                worktree: checkout,
+                files: files.into(),
+            };
+            (payload, label)
+        });
+        Some(
+            row.when_some(dragged, |el, (payload, label)| {
+                el.on_drag(payload, drag_preview(self.store.clone(), label))
+            })
+            .into_any_element(),
+        )
     }
 
     /// Fold `checkout`'s branches, or unfold them. Folding them over the selection takes it
@@ -2775,7 +2784,7 @@ impl Navigator {
         let inside = (store.selection.as_ref())
             .zip(store.workspace(project))
             .is_some_and(|(s, ws)| s.project() == project && in_checkout(store, s, ws, &key.1));
-        let heading = Selection::uncommitted_in(project.clone(), key.1.clone());
+        let heading = Selection::Checkout(project.clone(), key.1.clone());
         self.folded_worktrees.insert(key);
         match inside {
             true => self.select(heading, window, cx),
@@ -3449,9 +3458,9 @@ fn headings_reordered(old: &[Row], new: &[Row]) -> bool {
     fn headings(rows: &[Row]) -> Vec<&Selection> {
         (rows.iter())
             .filter_map(|row| match row {
-                Row::Item(heading @ (Selection::Project(_) | Selection::Worktree(..))) => {
-                    Some(heading)
-                }
+                Row::Item(
+                    heading @ (Selection::Project(_) | Selection::Checkout(_, Checkout::Linked(_))),
+                ) => Some(heading),
                 _ => None,
             })
             .collect()
@@ -3506,17 +3515,17 @@ fn same_place(old: &Row, new: &Row) -> bool {
     }
 }
 
-/// What ⇧← goes up to from `selection`, a branch or a terminal: its worktree's heading.
+/// What ⇧← goes up to from `selection`, a branch, a terminal or uncommitted changes: its
+/// worktree's heading. Not while a commit is edited, which lists its files without one.
 fn parent(store: &Store, selection: &Selection) -> Option<Selection> {
-    let project = selection.project().clone();
-    if let Some(checkout) = store.terminals.checkout_of(selection) {
-        return Some(Selection::uncommitted_in(project, checkout.clone()));
+    let project = selection.project();
+    if store.workspace(project)?.editing.is_some() {
+        return None;
     }
     match selection {
-        Selection::Branch(..) => Some(Selection::uncommitted_in(
-            project,
-            store.checkout_of(selection)?,
-        )),
+        Selection::Branch(..) | Selection::Terminal(..) | Selection::Uncommitted(..) => Some(
+            Selection::Checkout(project.clone(), store.checkout_of(selection)?),
+        ),
         _ => None,
     }
 }
@@ -3529,7 +3538,7 @@ fn holder(store: &Store, item: &Selection) -> Option<Selection> {
         Selection::Project(_) => return None,
         Selection::Commit(_, id) => (store.find_commit(&project, *id))
             .map(|(branch, _)| Selection::Branch(project.clone(), branch.ref_name.clone())),
-        Selection::Worktree(_, name)
+        Selection::Checkout(_, Checkout::Linked(name))
             if (store.workspace(&project))
                 .and_then(|ws| ws.find_worktree(name.as_ref()))
                 .is_some_and(|wt| wt.is_inactive(store.prefs.inactive_after)) =>
@@ -3832,17 +3841,16 @@ impl Render for Navigator {
                 Some(Selection::Project(project)) => {
                     store.project(project).is_some_and(|p| p.expanded)
                 }
-                Some(Selection::Worktree(project, name)) => (store.workspace(project))
-                    .is_some_and(|ws| ws.find_worktree(name.as_ref()).is_some()),
+                Some(Selection::Checkout(project, Checkout::Linked(name))) => (store
+                    .workspace(project))
+                .is_some_and(|ws| ws.find_worktree(name.as_ref()).is_some()),
                 Some(Selection::Terminal(..)) => true,
                 _ => false,
             };
         // Those, or a worktree's uncommitted changes.
         let squashable = commits
             || match &store.selection {
-                Some(
-                    item @ (Selection::Uncommitted(project) | Selection::Worktree(project, _)),
-                ) => (store.checkout_of(item))
+                Some(item @ Selection::Uncommitted(project, _)) => (store.checkout_of(item))
                     .and_then(|checkout| store.workspace(project)?.uncommitted_in(&checkout))
                     .is_some_and(|files| !files.is_empty()),
                 _ => false,
@@ -4004,14 +4012,20 @@ impl Render for Navigator {
 #[cfg(test)]
 mod tests {
     use super::{Row, headings_reordered};
+    use crate::backend::Checkout;
     use crate::state::{ProjectId, Selection};
 
     #[test]
     fn cards_or_worktrees_trading_places_are_a_reorder() {
         let (a, b) = (ProjectId::from("a"), ProjectId::from("b"));
         let card = |id: &ProjectId| Row::Item(Selection::Project(id.clone()));
-        let worktree = |name: &str| Row::Item(Selection::Worktree(a.clone(), name.into()));
-        let commit = || Row::Item(Selection::Uncommitted(a.clone()));
+        let worktree = |name: &str| {
+            Row::Item(Selection::Checkout(
+                a.clone(),
+                Checkout::Linked(name.into()),
+            ))
+        };
+        let commit = || Row::Item(Selection::Uncommitted(a.clone(), Checkout::Main));
         let listed = [
             card(&a),
             worktree("x"),

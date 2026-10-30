@@ -199,10 +199,10 @@ impl Target {
         Some(match item {
             Selection::Commit(_, id) => Target::Commit(*id),
             Selection::Branch(_, Some(name)) => Target::Branch(name.clone()),
-            Selection::Uncommitted(_) => Target::Uncommitted(Checkout::Main),
-            Selection::Worktree(_, name) => Target::Uncommitted(Checkout::Linked(name.clone())),
+            Selection::Uncommitted(_, checkout) => Target::Uncommitted(checkout.clone()),
             Selection::Branch(_, None)
             | Selection::Project(_)
+            | Selection::Checkout(..)
             | Selection::Stack(..)
             | Selection::Upstream(..)
             | Selection::Section(..)
@@ -220,7 +220,7 @@ impl Target {
             Target::Commit(id) => Selection::Commit(project.clone(), *id),
             Target::Branch(name) => Selection::Branch(project.clone(), Some(name.clone())),
             Target::Uncommitted(checkout) => {
-                Selection::uncommitted_in(project.clone(), checkout.clone())
+                Selection::Uncommitted(project.clone(), checkout.clone())
             }
         }
     }
@@ -359,9 +359,10 @@ impl Move {
                 *project == self.project && name == branch
             }
             (Moving::Project(_), Selection::Project(project)) => *project == self.project,
-            (Moving::Worktree { name, .. }, Selection::Worktree(project, other)) => {
-                *project == self.project && other == name
-            }
+            (
+                Moving::Worktree { name, .. },
+                Selection::Checkout(project, Checkout::Linked(other)),
+            ) => *project == self.project && other == name,
             (Moving::Terminal { id, .. }, Selection::Terminal(project, terminal)) => {
                 *project == self.project && terminal == id
             }
@@ -378,7 +379,7 @@ impl Move {
                     worktree,
                     ..
                 },
-                Selection::Uncommitted(_) | Selection::Worktree(..),
+                Selection::Uncommitted(..),
             ) => {
                 *item.project() == self.project
                     && Target::of(item) == Some(Target::Uncommitted(worktree.clone()))
@@ -507,7 +508,7 @@ impl Move {
                 }
             }
             Target::Uncommitted(checkout) => {
-                Selection::uncommitted_in(project.clone(), checkout.clone())
+                Selection::Uncommitted(project.clone(), checkout.clone())
             }
         };
         let into_commit = match &into {
@@ -825,7 +826,7 @@ impl Transfer {
             let side = |s: &Selection| store.worktree_for(s).map(|wt| wt.name.clone());
             let from = side(&Selection::Branch(project.clone(), Some(branch.clone())));
             let stays = match target {
-                Selection::Worktree(..) => from.is_none(),
+                Selection::Checkout(_, Checkout::Linked(_)) => from.is_none(),
                 _ => from == side(target),
             };
             if !stays {
@@ -843,7 +844,8 @@ impl Transfer {
         let conflicted =
             |id: CommitId| workspace.find_commit(id).is_some_and(|(_, c)| c.conflicted);
         Some(match (payload, target) {
-            (Cut::Commit(project, ids), Selection::Uncommitted(_) | Selection::Worktree(..))
+            // Into a checkout's uncommitted changes, or onto its heading, there with none.
+            (Cut::Commit(project, ids), Selection::Uncommitted(..) | Selection::Checkout(..))
                 if ids
                     .iter()
                     .all(|id| uncommits_into(store, project, *id, target) && !conflicted(*id)) =>
@@ -920,10 +922,12 @@ impl Transfer {
                     commit: lane.branches.get(at)?.commits.last()?.id,
                 }
             }
-            (Cut::Branch(_, branch), Selection::Worktree(_, name)) => Transfer::BranchBelow {
-                branch: branch.clone(),
-                commit: workspace.worktree_lane(name.as_ref())?.end()?,
-            },
+            (Cut::Branch(_, branch), Selection::Checkout(_, Checkout::Linked(name))) => {
+                Transfer::BranchBelow {
+                    branch: branch.clone(),
+                    commit: workspace.worktree_lane(name.as_ref())?.end()?,
+                }
+            }
             (Cut::Branch(_, branch), Selection::Branch(_, Some(onto))) if branch != onto => {
                 // Already right on top of it.
                 let (lane, at) = workspace.lane_of(Some(branch))?;
@@ -969,7 +973,7 @@ impl Transfer {
                     files: files.clone(),
                     worktree: worktree.clone(),
                 },
-                (Some(from), Selection::Uncommitted(_) | Selection::Worktree(..))
+                (Some(from), Selection::Uncommitted(..) | Selection::Checkout(..))
                     if uncommits_into(store, project, from, target) =>
                 {
                     Transfer::UncommitFiles {
@@ -1058,7 +1062,7 @@ impl Transfer {
             Transfer::UncommitFiles { from, files } => {
                 // Where they land is selected, as the TUI goes on to it.
                 let landed = (store.checkout_of(&Selection::Commit(project.clone(), from)))
-                    .map(|checkout| Selection::uncommitted_in(project.clone(), checkout));
+                    .map(|checkout| Selection::Uncommitted(project.clone(), checkout));
                 store.apply(
                     project,
                     label,
@@ -1211,14 +1215,19 @@ impl Transfer {
     }
 }
 
-/// Whether `target` is the checkout commit `id`'s changes uncommit into: a linked worktree's
-/// commit's go into that worktree, as that's where their checkout is, and the rest into the
-/// main one.
+/// Whether `target` is the checkout commit `id`'s changes uncommit into, by its heading or its
+/// uncommitted changes: a linked worktree's commit's go into that worktree, as that's where
+/// their checkout is, and the rest into the main one.
 fn uncommits_into(store: &Store, project: &ProjectId, id: CommitId, target: &Selection) -> bool {
     let home = store.worktree_for(&Selection::Commit(project.clone(), id));
     match target {
-        Selection::Uncommitted(_) => home.is_none(),
-        Selection::Worktree(_, name) => home.is_some_and(|worktree| worktree.name == *name),
+        Selection::Uncommitted(_, Checkout::Main) | Selection::Checkout(_, Checkout::Main) => {
+            home.is_none()
+        }
+        Selection::Uncommitted(_, Checkout::Linked(name))
+        | Selection::Checkout(_, Checkout::Linked(name)) => {
+            home.is_some_and(|worktree| worktree.name == *name)
+        }
         _ => false,
     }
 }

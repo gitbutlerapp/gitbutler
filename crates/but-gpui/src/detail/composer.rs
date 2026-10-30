@@ -1564,7 +1564,7 @@ impl Detail {
 
     /// Pick the branch the next commit goes to, or make a new one for it, typing to filter.
     pub(crate) fn pick_commit_target(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(Selection::Uncommitted(project)) = self.selection(cx) else {
+        let Some(Selection::Uncommitted(project, Checkout::Main)) = self.selection(cx) else {
             return;
         };
         let current = self.effective_target(&project, cx);
@@ -1573,7 +1573,7 @@ impl Detail {
             return;
         };
         let store = self.store.read(cx);
-        let place = store.place(&Selection::Uncommitted(project.clone()));
+        let place = store.place(&Selection::Uncommitted(project.clone(), Checkout::Main));
         let mut choices: Vec<Choice> = (workspace.branches_in(&Checkout::Main))
             .filter(|branch| takes_commits(store, &project, branch))
             .filter_map(|branch| {

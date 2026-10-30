@@ -4,7 +4,7 @@
 use gpui::{AnyElement, Context, prelude::*};
 
 use super::span_said;
-use crate::backend::{self, Branch, CommitState, PushState};
+use crate::backend::{self, Branch, Checkout, CommitState, PushState};
 use crate::detail::Detail;
 use crate::detail::panes::{
     Lane, grouped, overview_split, overview_tiles, overview_title, worktree_lanes,
@@ -127,7 +127,7 @@ impl Detail {
         .map(|(glyph, color, fill, said, n)| (glyph, color, fill, said.to_owned(), n));
         let shown = worktrees.iter().zip(&lefts).zip(&branches);
         let lanes = shown.map(|((wt, left), branches)| Lane {
-            at: Selection::Worktree(project.clone(), wt.name.clone()),
+            at: Selection::Checkout(project.clone(), Checkout::Linked(wt.name.clone())),
             glyph: Icon::FolderCopy,
             name: wt.name.to_string(),
             tag: Some(match left {

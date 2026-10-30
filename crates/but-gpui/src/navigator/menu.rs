@@ -89,7 +89,7 @@ impl AppView {
                     checkout_actions(el, path, main, cx)
                 })
             }
-            Some(Selection::Worktree(project, name)) => {
+            Some(Selection::Checkout(project, Checkout::Linked(name))) => {
                 let worktree =
                     (store.workspace(&project)).and_then(|ws| ws.find_worktree(name.as_ref()));
                 let Some(path) = worktree.map(|w| w.path.clone()) else {
@@ -351,18 +351,18 @@ impl Navigator {
                 ]);
                 items
             }
-            Selection::Uncommitted(project) => {
+            Selection::Checkout(project, Checkout::Main) => {
                 let mut items = new_branch_items(cx);
                 items.push(command(&NewTerminal).separated());
                 items.extend([command(&Fetch).separated(), command(&UpdateFromTarget)]);
-                if store
-                    .workspace(project)
-                    .is_some_and(|ws| !ws.uncommitted.is_empty())
-                {
-                    items.extend(changes_items(cx));
-                }
                 items.extend(store.path(project).and_then(|path| build_item(&path, cx)));
                 items
+            }
+            Selection::Uncommitted(project, checkout) => {
+                match (store.workspace(project)).and_then(|ws| ws.uncommitted_in(checkout)) {
+                    Some(files) if !files.is_empty() => changes_items(cx).into(),
+                    _ => Vec::new(),
+                }
             }
             Selection::Branch(_, ref_name) => {
                 let mut items = Vec::new();
@@ -456,7 +456,7 @@ impl Navigator {
                 ]);
                 items
             }
-            Selection::Worktree(project, name) => {
+            Selection::Checkout(project, Checkout::Linked(name)) => {
                 let Some(worktree) =
                     (store.workspace(project)).and_then(|ws| ws.find_worktree(name.as_ref()))
                 else {
@@ -469,10 +469,6 @@ impl Navigator {
                     // Not Update: it rebases the workspace's stacks, not this worktree's.
                     command(&Fetch),
                 ];
-                // As Main worktree's, after Fetch and before what happens to it.
-                if !worktree.uncommitted.is_empty() {
-                    items.extend(changes_items(cx));
-                }
                 items.extend([
                     command(&MoveSelection).separated(),
                     command(&ArchiveWorktree),

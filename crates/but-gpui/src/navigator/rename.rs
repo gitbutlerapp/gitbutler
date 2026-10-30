@@ -223,11 +223,11 @@ impl Navigator {
             Selection::Terminal(..) => None,
             // Not renamed in their row.
             Selection::Project(_)
-            | Selection::Uncommitted(_)
+            | Selection::Checkout(..)
+            | Selection::Uncommitted(..)
             | Selection::Branches(_)
             | Selection::History(_)
             | Selection::Graph(_)
-            | Selection::Worktree(..)
             | Selection::Stack(..)
             | Selection::Mesh(..)
             | Selection::Upstream(..)
