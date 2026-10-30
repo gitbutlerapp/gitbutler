@@ -257,6 +257,9 @@ const SHOW_LOADING: Duration = Duration::from_millis(150);
 /// How tall the uncommitted changes' commit footer is, and the composer's row of buttons.
 pub const FOOTER_HEIGHT: f32 = 33.;
 
+/// How wide Commit… and the composer's Commit are at least, so the one covers the other.
+const COMMIT_BUTTON_WIDTH: f32 = 72.;
+
 struct LoadedDiff {
     key: DiffKey,
     /// In the file list's order: as picked, and in a tree, folder by folder.
@@ -374,8 +377,6 @@ pub struct Detail {
     checks_worktree: Checkout,
     /// The commit message box is open; until then there are no checkboxes.
     composing: bool,
-    /// The checkout had changes when the composer opened, so it isn't for an empty commit.
-    composing_on_changes: bool,
     /// The branch the composer showed the commit going to, which mustn't change unseen.
     composing_target: Option<FullName>,
     /// Where the focus was when writing a commit message started, to go back to after.
@@ -743,7 +744,6 @@ impl Detail {
             checks_project: None,
             checks_worktree: Checkout::Main,
             composing: false,
-            composing_on_changes: false,
             composing_target: None,
             composer_back: None,
             message_scroll,

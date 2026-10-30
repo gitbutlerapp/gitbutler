@@ -22,10 +22,6 @@ use crate::ui::{
     small_icon, v_flex,
 };
 
-/// Why the commit box, opened on changes something else committed since, as an agent can,
-/// doesn't make an empty commit instead.
-const COMMITTED_MEANWHILE: &str = "What was here to commit was committed meanwhile";
-
 /// What the next commit leaves out of the uncommitted changes; the rest goes in.
 #[derive(Default)]
 pub(super) struct Checks {
@@ -546,7 +542,6 @@ impl Detail {
                 .map(|file| file.path.clone());
             self.checks.unchecked.extend(left_out.collect::<Vec<_>>());
             self.checks.known = Some(files.iter().map(|file| file.path.clone()).collect());
-            self.composing_on_changes = !files.is_empty();
             self.composing_target = (self.checks_project.clone())
                 .and_then(|project| self.effective_target(&project, cx));
         }
@@ -819,21 +814,8 @@ impl Detail {
         if self.choices_loading(&project, cx) {
             return;
         }
+        // With nothing checked, or nothing to check, it's an empty commit.
         let files = self.selected_changes(cx);
-        // A checkout with no changes at all commits an empty commit.
-        let nothing_changed = (self.store.read(cx).workspace(&project))
-            .and_then(|ws| ws.uncommitted_in(&worktree))
-            .is_none_or(<[_]>::is_empty);
-        // Opened on changes that all went meanwhile, as an agent committed them, an empty
-        // commit isn't what was being written.
-        if nothing_changed && self.composing_on_changes {
-            snack(&self.store, COMMITTED_MEANWHILE, cx);
-            return;
-        }
-        if files.is_empty() && !nothing_changed {
-            snack(&self.store, "Nothing checked to commit", cx);
-            return;
-        }
         let target = self.effective_target(&project, cx);
         if self.target_went(&project, &target, cx) {
             return;
@@ -1165,13 +1147,10 @@ impl Detail {
             });
         let target = self.effective_target(project, cx);
         let message_focused = self.message.focus_handle(cx).is_focused(window);
-        v_flex()
-            .flex_none()
+        let compose = v_flex()
             .p(dp(12.))
+            .pb_0()
             .gap(dp(8.))
-            .border_t_1()
-            .border_color(theme.border_3)
-            .bg(theme.bg_1)
             .child(
                 h_flex()
                     .gap(dp(6.))
@@ -1237,9 +1216,15 @@ impl Detail {
                             })),
                         ),
                     ),
-            )
+            );
+        v_flex()
+            .flex_none()
+            .border_t_1()
+            .border_color(theme.border_3)
+            .bg(theme.bg_1)
+            .child(compose)
             .child(
-                h_flex()
+                super::panes::footer_bar()
                     .gap(dp(6.))
                     .child(
                         // Every line of them, said shorter, so a narrow pane cuts at most the
@@ -1293,13 +1278,10 @@ impl Detail {
                     .child(
                         button("commit", "Commit")
                             .small()
+                            .min_width(dp(super::COMMIT_BUTTON_WIDTH))
                             .style(ButtonStyle::Pop)
-                            .disabled_because(match files.is_empty() {
-                                true => self.composing_on_changes.then_some(COMMITTED_MEANWHILE),
-                                false => (checked == 0).then_some("Check some changes first"),
-                            })
                             .tooltip_with_key(
-                                if files.is_empty() {
+                                if checked == 0 {
                                     "Make an empty commit"
                                 } else {
                                     "Commit the checked changes"
