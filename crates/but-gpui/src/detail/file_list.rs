@@ -686,6 +686,36 @@ impl Detail {
         matches!(&cut, Cut::Files { files, .. } if !files.is_empty()).then_some(cut)
     }
 
+    /// What dragging the folder `dir` in `source` carries: its [`Selected::movable`] files,
+    /// each as its row would drag it. Not at all while what's checked of one is unknown.
+    fn folder_drag(&self, source: &FileSource, dir: &str, cx: &App) -> Option<Cut> {
+        let Cut::Files {
+            project,
+            from,
+            worktree,
+            files,
+        } = self.folder_payload(source, dir, cx)?
+        else {
+            return None;
+        };
+        let checked = self.composing && matches!(source, FileSource::Uncommitted(..));
+        let files: Vec<Selected> = (files.iter().filter(|file| file.movable()))
+            .map(|whole| {
+                let path = &whole.file.path;
+                match checked && self.checks.file_check(path) == Toggled::Mixed {
+                    true => self.selected_change(&whole.file, self.loaded_file(path)),
+                    false => Some(whole.clone()),
+                }
+            })
+            .collect::<Option<_>>()?;
+        (!files.is_empty()).then(|| Cut::Files {
+            project,
+            from,
+            worktree,
+            files: files.into(),
+        })
+    }
+
     /// The diff the files of `source` take their line counts from.
     fn counted_diff(&self, source: &FileSource) -> Option<&LoadedDiff> {
         match source {
@@ -772,6 +802,13 @@ impl Detail {
             el.child(diff::column_stats(added, removed, columns, theme))
         })
         .child(div().flex_none().w(dp(MARK_WIDTH)))
+        .when_some(self.folder_drag(source, &path, cx), |el, dragged| {
+            let label: SharedString = dragged.describe(self.store.read(cx)).into();
+            el.on_drag(
+                dragged,
+                self.drag_preview(label, false, cx.entity().downgrade()),
+            )
+        })
         .on_mouse_down(
             MouseButton::Right,
             cx.listener({
