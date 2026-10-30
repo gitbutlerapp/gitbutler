@@ -56,6 +56,9 @@ code's layout in it, and leave it alone when behaviour changes.
   only the diff shows shouldn't go through `Store::set_prefs`, which redraws the whole window.
 - A cached view that misses its cache renders all its descendants with caching off, so a
   cached child inside a view that notifies often saves nothing.
+- Reading an entity in `render` has the window draw on its every notify, even if it's never
+  mounted, and no view re-renders to show why. Keep what a row shows of something that notifies
+  often where the row already looks, as `Terminals::title` does.
 - Text shaping dominates frames with new content: GPUI's CoreText layout creates a sized font
   copy per text run, so fewer text elements per row is the lever, and a new diff draws a frame
   after the rest of the detail (`DiffPane`) so the two don't share one frame.
