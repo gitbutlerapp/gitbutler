@@ -3,7 +3,9 @@
 //! draw with too.
 
 use but_tty::{Colors, Ghostty, RgbColor};
-use gpui::{App, Global, Hsla, Pixels, Rgba, SharedString, WindowAppearance, rgb};
+use gpui::{
+    App, Font, FontFeatures, Global, Hsla, Pixels, Rgba, SharedString, WindowAppearance, rgb,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::backend::Token;
@@ -57,8 +59,15 @@ pub struct Theme {
     pub person: [[Hsla; 2]; 5],
     pub ui_font: SharedString,
     pub mono_font: SharedString,
-    /// Geist Mono with Nerd Font icons and box drawing, for TUIs in the terminals.
-    pub terminal_font: SharedString,
+    /// What code in diffs shows in: `mono_font` unless another was picked.
+    pub diff_font: SharedString,
+    /// How wide a digit of `diff_font` is, in ems.
+    pub diff_digit: f32,
+    /// What turns `diff_font`'s ligatures off, if they are.
+    pub diff_features: FontFeatures,
+    /// What terminals show in: Geist Mono with Nerd Font icons and box drawing, for TUIs, unless
+    /// another was picked or Ghostty has one.
+    pub terminal_font: Font,
     /// Code in diffs: its size and the height of a line of it.
     pub code_text: f32,
     pub code_line: f32,
@@ -180,6 +189,45 @@ impl Theme {
     /// This theme with code in diffs at `size`.
     pub fn with_code(mut self, size: CodeSize) -> Self {
         (self.code_text, self.code_line) = size.metrics();
+        self
+    }
+
+    /// This theme with code in diffs in `family`, unless `digit`, which gives how wide a family's
+    /// digits are in ems, finds the machine hasn't got it.
+    pub fn with_diff_font(
+        mut self,
+        family: Option<&str>,
+        digit: impl Fn(&str) -> Option<f32>,
+    ) -> Self {
+        if let Some((family, width)) = family.and_then(|family| Some((family, digit(family)?))) {
+            self.diff_font = family.to_owned().into();
+            self.diff_digit = width;
+        }
+        self
+    }
+
+    /// This theme with `diff_font`'s ligatures on or off. Fonts keep them under `liga` or `calt`.
+    pub fn with_ligatures(mut self, on: bool) -> Self {
+        let off = [("liga".to_owned(), 0), ("calt".to_owned(), 0)];
+        self.diff_features = FontFeatures(if on { vec![] } else { off.to_vec() }.into());
+        self
+    }
+
+    /// This theme with terminals in `family`, or with none picked, in the first family of
+    /// `ghostty`'s that `installed` says the machine has, with `ghostty`'s font features.
+    pub fn with_terminal_font(
+        mut self,
+        family: Option<&str>,
+        ghostty: &Ghostty,
+        installed: impl Fn(&str) -> bool,
+    ) -> Self {
+        let configured = (ghostty.font_families.iter()).map(String::as_str);
+        if let Some(found) = family.into_iter().chain(configured).find(|f| installed(f)) {
+            self.terminal_font = gpui::font(found.to_owned());
+        }
+        if family.is_none() {
+            self.terminal_font.features = FontFeatures(ghostty.font_features.clone().into());
+        }
         self
     }
 
@@ -308,7 +356,10 @@ impl Theme {
             // Embedded by `ui::fonts`.
             ui_font: "Inter".into(),
             mono_font: "Geist Mono".into(),
-            terminal_font: "GeistMono Nerd Font Mono".into(),
+            diff_font: "Geist Mono".into(),
+            diff_digit: 0.6,
+            diff_features: FontFeatures::default(),
+            terminal_font: gpui::font("GeistMono Nerd Font Mono"),
             // Shiki's GitHub light and dark, as but.dev highlights diffs. In `Token` order:
             // comment, string, constant, keyword, function, type, tag.
             syntax: [
@@ -571,9 +622,9 @@ mod tests {
     /// `colors`, asked for in `choice`.
     fn ghostty_theme(colors: Colors, choice: Appearance) -> Theme {
         let ghostty = Ghostty {
-            font_size: None,
             light: colors.clone(),
             dark: colors,
+            ..Ghostty::default()
         };
         let system = WindowAppearance::Light;
         Theme::new(
@@ -654,9 +705,9 @@ mod tests {
     #[test]
     fn gitbutlers_terminals_draw_in_its_colours_whatever_ghostty_sets() {
         let ghostty = Ghostty {
-            font_size: None,
             light: palette(0x000000, 0xffffff, [0x123456; 8]),
             dark: palette(0x000000, 0xffffff, [0x123456; 8]),
+            ..Ghostty::default()
         };
         let system = WindowAppearance::Light;
         for choice in [Appearance::Light, Appearance::Dark] {
@@ -681,6 +732,74 @@ mod tests {
             );
             assert_eq!(terminal.palette.len(), 16, "every ANSI colour is set");
         }
+    }
+
+    fn gitbutler_theme() -> Theme {
+        Theme::new(
+            Appearance::Dark,
+            &ColorScheme::GitButler,
+            WindowAppearance::Light,
+            CodeSize::Medium,
+            &Ghostty::default(),
+        )
+    }
+
+    #[test]
+    fn diffs_show_a_picked_font_only_when_the_machine_has_it() {
+        let digit = |family: &str| (family == "Menlo").then_some(0.5);
+        let picked = gitbutler_theme().with_diff_font(Some("Menlo"), digit);
+        assert_eq!(
+            (picked.diff_font.as_ref(), picked.diff_digit),
+            ("Menlo", 0.5),
+            "the picked font draws, with its own digit width"
+        );
+        let gone = gitbutler_theme().with_diff_font(Some("Gone"), digit);
+        assert_eq!(
+            (gone.diff_font, gone.diff_digit),
+            (gone.mono_font, 0.6),
+            "a font that's gone keeps the app's own, and its width"
+        );
+    }
+
+    #[test]
+    fn terminals_follow_ghostty_until_a_font_is_picked() {
+        let ghostty = Ghostty {
+            font_families: vec!["Gone".into(), "Menlo".into()],
+            font_features: vec![("calt".into(), 0)],
+            ..Ghostty::default()
+        };
+        let installed = |family: &str| family != "Gone";
+
+        let followed = gitbutler_theme().with_terminal_font(None, &ghostty, installed);
+        assert_eq!(
+            (
+                followed.terminal_font.family.as_ref(),
+                followed.terminal_font.features.tag_value_list()
+            ),
+            ("Menlo", &[("calt".to_owned(), 0)][..]),
+            "the first family the machine has, with Ghostty's features"
+        );
+
+        let picked = gitbutler_theme().with_terminal_font(Some("Monaco"), &ghostty, installed);
+        assert_eq!(
+            (
+                picked.terminal_font.family.as_ref(),
+                picked.terminal_font.features.tag_value_list()
+            ),
+            ("Monaco", &[][..]),
+            "a picked font wins, and Ghostty's features were written for Ghostty's font"
+        );
+
+        let nothing = Ghostty {
+            font_families: vec!["Gone".into()],
+            ..Ghostty::default()
+        };
+        let fallen_back = gitbutler_theme().with_terminal_font(None, &nothing, installed);
+        assert_eq!(
+            fallen_back.terminal_font.family,
+            gitbutler_theme().terminal_font.family,
+            "with none of Ghostty's fonts here, the app's own"
+        );
     }
 
     #[test]

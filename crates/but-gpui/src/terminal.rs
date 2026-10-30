@@ -411,7 +411,7 @@ impl Render for Terminal {
         }
         let text_size = self.text_size(cx);
         let line = (text_size * 1.3).round();
-        let font = gpui::font(theme.terminal_font.clone());
+        let font = theme.terminal_font.clone();
         let text_system = window.text_system();
         let font_size = theme.scaled(text_size);
         let cell_width = (text_system.advance(text_system.resolve_font(&font), font_size, 'm'))
@@ -494,7 +494,10 @@ impl Render for Terminal {
             .p(dp(8.))
             .bg(background)
             .text_color(foreground)
-            .font_family(theme.terminal_font.clone())
+            .font_family(font.family)
+            .when(!font.features.tag_value_list().is_empty(), |el| {
+                el.font_features(font.features)
+            })
             .text_size(dp(text_size))
             .line_height(dp(line))
             .child(

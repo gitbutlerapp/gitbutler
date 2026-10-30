@@ -5,8 +5,8 @@ use std::time::{Duration, Instant};
 
 use gpui::{
     AnyView, App, ClipboardItem, Context, DispatchPhase, Div, Entity, FocusHandle, Focusable,
-    FontFeatures, MouseMoveEvent, Pixels, Point, PromptLevel, Role, StyleRefinement, Subscription,
-    Task, WeakEntity, Window, actions, div, prelude::*, relative,
+    FontFeatures, MouseMoveEvent, Pixels, Point, PromptLevel, Role, SharedString, StyleRefinement,
+    Subscription, Task, WeakEntity, Window, actions, div, prelude::*, relative,
 };
 
 use crate::backend::upstream::UpdateScope;
@@ -17,7 +17,7 @@ use crate::overlays::{ContextMenu, MenuItem, Prompt};
 use crate::palette::{Choice, Palette};
 use crate::projects::pick_folder;
 use crate::state::{
-    Cut, MeshPick, Pane, ProjectId, Selection, Store, StoreEvent, snack, up_to_date,
+    Cut, MeshPick, Pane, Prefs, ProjectId, Selection, Store, StoreEvent, snack, up_to_date,
 };
 use crate::terminal::NewTerminal;
 use crate::theme::{ColorScheme, Theme, UiScale};
@@ -389,6 +389,68 @@ impl AppView {
             })
             .collect();
         self.open_picker(None, "Search colour schemes", "Use", choices, window, cx);
+    }
+
+    /// List the fonts to pick the one code in diffs shows in.
+    pub fn pick_diff_font(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let current = self.store.read(cx).prefs.diff_font.clone();
+        let own = Theme::get(cx).mono_font.clone();
+        let set = |prefs: &mut Prefs, font| prefs.diff_font = font;
+        self.pick_font(own, "GitButler's own".into(), current, set, window, cx);
+    }
+
+    /// List the fonts to pick the one terminals show in.
+    pub fn pick_terminal_font(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let current = self.store.read(cx).prefs.terminal_font.clone();
+        let ghostty = but_tty::Ghostty::load();
+        let detail = (ghostty.font_families.into_iter().next())
+            .map_or("Your Ghostty config sets none".into(), SharedString::from);
+        let set = |prefs: &mut Prefs, font| prefs.terminal_font = font;
+        self.pick_font("As Ghostty's".into(), detail, current, set, window, cx);
+    }
+
+    /// List `unpicked`, which `detail` explains and leaves no font picked, then the installed
+    /// fonts, for `set` to keep the one chosen. `current` is the one in use.
+    fn pick_font(
+        &mut self,
+        unpicked: SharedString,
+        detail: SharedString,
+        current: Option<String>,
+        set: fn(&mut Prefs, Option<String>),
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let text_system = cx.text_system().clone();
+        cx.spawn_in(window, async move |this, cx| {
+            let families = (cx.background_spawn(async move { text_system.all_font_names() })).await;
+            let families = families
+                .into_iter()
+                .filter(|family| !family.starts_with('.'));
+            let fonts = families.map(|family| (family.clone().into(), Some(family), None));
+            let choices: Vec<Choice> = std::iter::once((unpicked, None, Some(detail)))
+                .chain(fonts)
+                .map(|(label, font, detail)| {
+                    let in_use = font == current;
+                    let choice = Choice::new(label, move |app, window, cx| {
+                        (app.store).update(cx, |store, cx| {
+                            store.set_prefs(|prefs| set(prefs, font), cx)
+                        });
+                        app.apply_appearance(window, cx);
+                        (app.detail).update(cx, |detail, cx| detail.remeasure(cx));
+                    });
+                    match detail {
+                        _ if in_use => choice.detail("In use"),
+                        Some(detail) => choice.detail(detail),
+                        None => choice,
+                    }
+                })
+                .collect();
+            this.update_in(cx, |this, window, cx| {
+                this.open_picker(None, "Search fonts", "Use", choices, window, cx)
+            })
+            .ok();
+        })
+        .detach();
     }
 
     /// Select `selection`. Asked for again, as a crumb naming the page shown is clicked, the
@@ -2000,8 +2062,13 @@ fn theme_for(store: &Store, window: &Window) -> Theme {
     let prefs = &store.prefs;
     let (scheme, system) = (&prefs.color_scheme, window.appearance());
     let ghostty = but_tty::Ghostty::load();
+    let digit = |family: &str| crate::ui::digit_advance(family, window.text_system());
+    let installed = |family: &str| digit(family).is_some();
     Theme::new(prefs.appearance, scheme, system, prefs.code_size, &ghostty)
         .with_scale(prefs.ui_scale)
+        .with_diff_font(prefs.diff_font.as_deref(), digit)
+        .with_ligatures(prefs.ligatures)
+        .with_terminal_font(prefs.terminal_font.as_deref(), &ghostty, installed)
 }
 
 /// What the snackbar says after copying `text`: the text itself when it's short.

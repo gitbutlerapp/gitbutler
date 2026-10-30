@@ -588,14 +588,24 @@ impl SettingsView {
             ),
             size,
         );
+        let app = self.app.clone();
+        let diff_font = (prefs.diff_font.clone()).unwrap_or_else(|| theme.mono_font.to_string());
+        let diff_font = dropdown("diff-font", diff_font, theme).on_click(move |_, window, cx| {
+            app.update_later(window, cx, |app, window, cx| app.pick_diff_font(window, cx))
+        });
+        let app = self.app.clone();
         let mut diff = vec![
             Row::new("Code size", "How large code shows in diffs.", code),
+            Row::new("Font", "The font of code in diffs.", diff_font),
             Row::new(
                 "Font ligatures",
                 "Code joins pairs of characters like != and == into one symbol.",
                 self.pref_switch("ligatures", prefs.ligatures, |p| p.ligatures ^= true, cx)
-                    // The diff is a cached view, which only a refresh draws again.
-                    .on_click(|_, _, cx| cx.refresh_windows()),
+                    .on_click(move |_, window, cx| {
+                        app.update_later(window, cx, |app, window, cx| {
+                            app.apply_appearance(window, cx)
+                        })
+                    }),
             ),
             Row::new(
                 "Wrap long lines",
@@ -706,16 +716,29 @@ impl SettingsView {
             },
             cx,
         );
-        let terminal = Row::new(
+        let terminal_text = Row::new(
             "Text size",
             "How large text shows in terminals opened here. Their colours follow the colour scheme.",
             terminal_text,
+        );
+        let app = self.app.clone();
+        let terminal_font = (prefs.terminal_font.clone()).unwrap_or_else(|| "As Ghostty's".into());
+        let terminal_font =
+            dropdown("terminal-font", terminal_font, theme).on_click(move |_, window, cx| {
+                app.update_later(window, cx, |app, window, cx| {
+                    app.pick_terminal_font(window, cx)
+                })
+            });
+        let terminal_font = Row::new(
+            "Font",
+            "The font of terminals opened here. As Ghostty's follows your Ghostty config.",
+            terminal_font,
         );
         vec![
             Card::new(None, vec![scheme, appearance, size]),
             Card::new(Some("Navigator"), navigator),
             Card::new(Some("Diff"), diff),
-            Card::new(Some("Terminal"), vec![terminal]),
+            Card::new(Some("Terminal"), vec![terminal_font, terminal_text]),
         ]
     }
 
