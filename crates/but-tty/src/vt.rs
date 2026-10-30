@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use libghostty_vt::fmt::{Format, Formatter, FormatterOptions};
 use libghostty_vt::key::{self, Key, Mods};
 use libghostty_vt::mouse;
-use libghostty_vt::render::{CellIterator, Dirty, RowId, RowIterator};
+use libghostty_vt::render::{CellIterator, CursorVisualStyle, Dirty, RowId, RowIterator};
 use libghostty_vt::screen::{CellWide, Screen};
 use libghostty_vt::selection::gesture::{self, Gesture};
 use libghostty_vt::style::{RgbColor, Underline};
@@ -51,12 +51,14 @@ pub struct Run {
     pub style: Style,
 }
 
-/// The cursor's cell, by column and row, with the text under it.
+/// The cursor's cell, by column and row, with the text under it and the shape the program
+/// last set (DECSCUSR), as nvim's bar in insert mode.
 #[derive(Clone)]
 pub struct Cursor {
     pub x: u16,
     pub y: u16,
     pub text: String,
+    pub style: CursorVisualStyle,
 }
 
 /// What a frame draws. A row that didn't change is the one the frame before drew.
@@ -618,6 +620,7 @@ impl Drawer {
             true => snapshot.cursor_viewport()?,
             false => None,
         };
+        let cursor_style = snapshot.cursor_visual_style()?;
         let mut frame = Frame {
             background: colors.background,
             foreground: colors.foreground,
@@ -630,10 +633,11 @@ impl Drawer {
         let recoloured = (frame.background, frame.foreground) != (last.background, last.foreground);
         let full =
             std::mem::take(&mut self.redraw_all) || recoloured || snapshot.dirty()? == Dirty::Full;
-        let cursor_moved = cursor.map(|cursor| (cursor.x, cursor.y))
-            != (last.cursor.as_ref()).map(|cursor| (cursor.x, cursor.y));
+        // Nor does the cursor moving, or the program reshaping it.
+        let cursor_changed = cursor.map(|cursor| (cursor.x, cursor.y, cursor_style))
+            != (last.cursor.as_ref()).map(|cursor| (cursor.x, cursor.y, cursor.style));
         if !full
-            && !cursor_moved
+            && !cursor_changed
             && frame.cursor_color == last.cursor_color
             && snapshot.dirty()? == Dirty::Clean
         {
@@ -700,6 +704,7 @@ impl Drawer {
                         x: at,
                         y,
                         text: cell_text.clone(),
+                        style: cursor_style,
                     });
                 }
                 let start = drawn.text.len();
@@ -1036,6 +1041,26 @@ mod tests {
             (moved.cursor.as_ref()).map(|cursor| (cursor.x, cursor.y)),
             Some((0, 0)),
             "the cursor moving is drawn, though it marks no row"
+        );
+    }
+
+    #[test]
+    fn the_cursor_takes_the_shape_the_program_sets() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.write(b"hello");
+        let block = vt.frame(&Colors::default()).unwrap();
+        assert_eq!(
+            block.cursor.as_ref().map(|cursor| cursor.style),
+            Some(CursorVisualStyle::Block),
+            "a block until the program says otherwise"
+        );
+        // As nvim does entering insert mode.
+        vt.write(b"\x1b[6 q");
+        let bar = vt.frame(&Colors::default()).unwrap();
+        assert_eq!(
+            bar.cursor.as_ref().map(|cursor| cursor.style),
+            Some(CursorVisualStyle::Bar),
+            "the new shape is drawn, though it marks no row and the cursor stays put"
         );
     }
 
