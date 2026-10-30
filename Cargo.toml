@@ -404,6 +404,9 @@ zune-jpeg = { opt-level = 3 }
 syntect = { opt-level = 3 }
 fancy-regex = { opt-level = 3 }
 regex-automata = { opt-level = 3 }
+# Its build script picks Zig's Debug mode from `debug`, whatever `opt-level` says, and that
+# verifies the whole page for every cell a terminal prints in a hyperlink.
+libghostty-vt-sys = { opt-level = 3, debug = false }
 # This one is special as we can run into debug assertions otherwise.
 # They have a time, but let's chose the time instead of always being hit by it.
 gix-merge = { opt-level = 3, debug-assertions = false }
@@ -418,6 +421,7 @@ strip = true    # Strip symbols from binary
 # CLI's highlighting shares any of them, which only gets faster.
 [profile.release.package]
 but-gpui = { opt-level = 3 }
+libghostty-vt-sys = { opt-level = 3, debug = false }
 gpui = { opt-level = 3 }
 gpui_apple = { opt-level = 3 }
 gpui_macos = { opt-level = 3 }
