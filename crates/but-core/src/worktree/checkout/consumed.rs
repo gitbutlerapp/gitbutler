@@ -2,7 +2,7 @@
 //! [`carry_into_index()`].
 
 use anyhow::Context as _;
-use bstr::{BStr, BString};
+use bstr::{BStr, BString, ByteSlice as _};
 use gix::{index::entry::Mode, objs::Write as _};
 
 use crate::{
@@ -31,7 +31,78 @@ pub(super) fn carry_into_index(
             Carry::Set(None) => edit.remove(path),
         }
     }
-    Ok(edit.finish())
+    let changed = edit.finish();
+    if changed {
+        forget_racily_clean_stats(repo, index)?;
+    }
+    Ok(changed)
+}
+
+/// Clear the stat of every entry that is racy against the timestamp `index` was read with and
+/// whose file can't be shown to hold the entry's content, like Git does before writing an index. Rewriting the index
+/// moves its timestamp past such a stat, which then vouches for an edit made within the same
+/// tick.
+fn forget_racily_clean_stats(
+    repo: &gix::Repository,
+    index: &mut gix::index::State,
+) -> anyhow::Result<()> {
+    use gix::index::entry::{Stage, Stat};
+    let (timestamp, options) = (index.timestamp(), repo.stat_options()?);
+    let racy: Vec<usize> = index
+        .entries()
+        .iter()
+        .enumerate()
+        .filter(|(_, entry)| {
+            entry.stage() == Stage::Unconflicted
+                && entry.mode != Mode::COMMIT
+                && entry.stat != Stat::default()
+                && entry.stat.is_racy(timestamp, options)
+        })
+        .map(|(idx, _)| idx)
+        .collect();
+    if racy.is_empty() {
+        return Ok(());
+    }
+    let workdir = repo
+        .workdir()
+        .context("moving the index forward needs a worktree")?;
+    let (mut pipeline, _) = repo.filter_pipeline(None)?;
+    let mut path_check = gix::status::plumbing::SymlinkCheck::new(workdir.to_owned());
+    for idx in racy {
+        let entry = &index.entries()[idx];
+        let rela_path = entry.path(index).to_owned();
+        // A path beneath a symlink, or one without metadata, can't vouch for the content.
+        let Some((path, md)) = path_check
+            .verified_path(rela_path.as_bstr())
+            .ok()
+            .map(ToOwned::to_owned)
+            .and_then(|path| {
+                let md = gix::index::fs::Metadata::from_path_no_follow(&path).ok()?;
+                Some((path, md))
+            })
+        else {
+            index.entries_mut()[idx].stat = Stat::default();
+            continue;
+        };
+        if !entry.stat.matches(&Stat::from_fs(&md)?, options) {
+            continue;
+        }
+        // Never open what isn't a file or symlink, like a FIFO, and keep a stat only if the
+        // content proves it.
+        let holds_entry = (md.is_file() || md.is_symlink())
+            && crate::worktree::hash_worktree_file_in_git_form(
+                &md,
+                rela_path.as_bstr(),
+                &path,
+                &mut pipeline,
+                index,
+            )
+            .is_ok_and(|id| id == entry.id);
+        if !holds_entry {
+            index.entries_mut()[idx].stat = Stat::default();
+        }
+    }
+    Ok(())
 }
 
 /// What an index or tree entry holds.
