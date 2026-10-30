@@ -833,6 +833,11 @@ impl Store {
         }
     }
 
+    /// Whether no part of the window shows.
+    pub fn hidden(&self) -> bool {
+        self.hidden
+    }
+
     pub fn select(&mut self, selection: Option<Selection>, cx: &mut Context<Self>) {
         if self.staying {
             return;
@@ -848,6 +853,9 @@ impl Store {
         }
         if let Some(selection) = &selection {
             self.count_view(selection);
+        }
+        if let Some(Selection::Terminal(_, id)) = &selection {
+            self.terminals.seen(*id, cx);
         }
         // Opened, it's read, by both ids, so a rebase by Git keeps it read, as does pulling
         // one only its branch's remote had.

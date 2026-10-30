@@ -142,6 +142,8 @@ impl Store {
         let shown = self.hidden && visible;
         self.hidden = !visible;
         if self.hidden {
+            // Drawn once more, for what moves on screen to stop.
+            cx.notify();
             return;
         }
         for (id, reload) in std::mem::take(&mut self.unseen) {

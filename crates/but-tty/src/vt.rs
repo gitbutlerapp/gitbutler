@@ -13,7 +13,9 @@ use libghostty_vt::render::{CellIterator, Dirty, RowIterator};
 use libghostty_vt::screen::{CellWide, Screen};
 use libghostty_vt::selection::gesture::{self, Gesture};
 use libghostty_vt::style::{RgbColor, Underline};
-use libghostty_vt::terminal::{Mode, Point as GridPoint, PointCoordinate, ScrollViewport};
+use libghostty_vt::terminal::{
+    Mode, Point as GridPoint, PointCoordinate, ProgramStatus, ProgramStatusState, ScrollViewport,
+};
 use libghostty_vt::{RenderState, paste};
 
 use super::{Colors, Size};
@@ -53,6 +55,38 @@ pub struct Frame {
     pub cursor_color: RgbColor,
 }
 
+/// What the program running says it's doing, by OSC 7501.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum Status {
+    #[default]
+    Idle,
+    Working,
+    /// It can't go on until the user acts, for the reason given, if it gave one.
+    Blocked(String),
+    /// It finished, for the user to look at.
+    Done,
+    /// It stopped, for the reason given, if it gave one.
+    Failed(String),
+}
+
+impl Status {
+    /// The root record of a report; records beneath it are parts of the work.
+    fn reported(report: ProgramStatus<'_>) -> Option<Self> {
+        if !report.id().is_empty() {
+            return None;
+        }
+        let message = || String::from_utf8_lossy(report.message()).into_owned();
+        match report.state().ok()? {
+            ProgramStatusState::Idle | ProgramStatusState::Clear => Some(Self::Idle),
+            ProgramStatusState::Working => Some(Self::Working),
+            ProgramStatusState::Blocked => Some(Self::Blocked(message())),
+            ProgramStatusState::Done => Some(Self::Done),
+            ProgramStatusState::Error => Some(Self::Failed(message())),
+            _ => None,
+        }
+    }
+}
+
 /// The emulator and what it's read and written with.
 pub(crate) struct Vt {
     term: libghostty_vt::Terminal<'static, 'static>,
@@ -73,6 +107,7 @@ pub(crate) struct Vt {
     /// What the emulator answers the shell's queries with, to send it.
     replies: Rc<Cell<Vec<u8>>>,
     retitled: Rc<Cell<bool>>,
+    reported: Rc<Cell<Option<Status>>>,
     size: Size,
 }
 
@@ -87,13 +122,20 @@ impl Vt {
         term.set_scrollback_max_bytes(Some(10_000_000))?;
         let replies = Rc::new(Cell::new(Vec::new()));
         let retitled = Rc::new(Cell::new(false));
-        let (sent, titled) = (replies.clone(), retitled.clone());
+        let reported = Rc::new(Cell::new(None));
+        let (sent, titled, heard) = (replies.clone(), retitled.clone(), reported.clone());
         term.on_pty_write(move |_, bytes| {
             let mut all = sent.take();
             all.extend_from_slice(bytes);
             sent.set(all);
         })?
         .on_title_changed(move |_| titled.set(true))?
+        // Set, it has the terminal tell programs that ask that it listens.
+        .on_program_status(move |_, report| {
+            if let Some(status) = Status::reported(report) {
+                heard.set(Some(status));
+            }
+        })?
         // Shells and editors wait on the answer to which terminal this is.
         .on_device_attributes(|_| {
             Some(DeviceAttributes {
@@ -128,6 +170,7 @@ impl Vt {
             pressed: Duration::ZERO,
             replies,
             retitled,
+            reported,
             size,
         })
     }
@@ -175,6 +218,11 @@ impl Vt {
     /// The title, if the shell set one since this was last asked.
     pub(crate) fn retitled(&mut self) -> Option<String> {
         self.retitled.take().then(|| self.title())
+    }
+
+    /// What the program running last reported, if it did since this was last asked.
+    pub(crate) fn reported(&mut self) -> Option<Status> {
+        self.reported.take()
     }
 
     /// What the emulator answered the shell's queries with since this was last asked.
@@ -553,6 +601,37 @@ mod tests {
         cell_width: 8,
         cell_height: 16,
     };
+
+    #[test]
+    fn a_program_asking_for_status_is_answered_before_what_it_asked_after() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.write(b"\x1b]7501;?\x07\x1b[c");
+        let replies = String::from_utf8(vt.take_replies()).unwrap();
+        assert!(
+            replies.starts_with("\x1b]7501;?:states=") && replies.contains("\x1b[?"),
+            "Claude Code takes the attributes as the end of the replies, so these come first: {replies:?}"
+        );
+    }
+
+    #[test]
+    fn reports_on_the_root_record_are_the_status() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.write(b"\x1b]7501;state=working:app=claude-code\x07");
+        assert_eq!(vt.reported(), Some(Status::Working));
+        assert_eq!(vt.reported(), None, "a report is told once");
+
+        vt.write(b"\x1b]7501;state=done:id=build\x07\x1b]7501;state=clear:id=build\x07");
+        assert_eq!(vt.reported(), None, "a part of the work isn't the status");
+
+        vt.write(b"\x1b]7501;state=blocked:kind=permission:msg=QXBwbHk/\x07");
+        assert_eq!(vt.reported(), Some(Status::Blocked("Apply?".into())));
+
+        vt.write(b"\x1b]7501;state=error\x07");
+        assert_eq!(vt.reported(), Some(Status::Failed(String::new())));
+
+        vt.write(b"\x1b]7501;state=done\x07\x1bc");
+        assert_eq!(vt.reported(), Some(Status::Idle), "a full reset forgets it");
+    }
 
     #[test]
     fn a_key_without_an_unshifted_codepoint_does_not_take_the_last_keys() {
