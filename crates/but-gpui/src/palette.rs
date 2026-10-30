@@ -134,6 +134,9 @@ pub struct Palette {
     /// Go to anything's: wider, for commit and pull request titles, with each detail cut short
     /// before its label is.
     wide: bool,
+    /// The terminal picker's: what was selected and whether the details showed when it
+    /// opened. The row it selects shows behind it until Esc puts these back.
+    previewed_from: Option<(Option<Selection>, bool)>,
     _subscription: Subscription,
 }
 
@@ -759,10 +762,24 @@ impl AppView {
         if choices.is_empty() {
             return snack(&self.store, "No terminals open", cx);
         }
+        let selection = store.selection.clone();
         self.open_picker(None, "Go to a terminal", "Go", choices, window, cx);
         if let Some(palette) = &mut self.palette {
             palette.wide = true;
+            // On the terminal shown, so opening it shows no other.
+            let shown = (palette.found.iter()).position(|found| {
+                let goes_to = palette
+                    .choices
+                    .get(found.ix)
+                    .and_then(|c| c.goes_to.as_ref());
+                goes_to.is_some() && goes_to == selection.as_ref()
+            });
+            if let Some(row) = shown {
+                palette.select(row);
+            }
+            palette.previewed_from = Some((selection, self.detail_open));
         }
+        self.outline_choice(window, cx);
     }
 
     /// What can be copied from the selection, to pick from with the keys, as the TUI's ⇧Y
@@ -815,7 +832,7 @@ impl AppView {
                         palette.found = palette.find(cx);
                         palette.select_first(cx);
                     }
-                    this.outline_choice(cx);
+                    this.outline_choice(window, cx);
                     cx.notify();
                 }
                 InputEvent::Submit => this.run_selected(window, cx),
@@ -834,32 +851,62 @@ impl AppView {
             acting_on: self.store.read(cx).acting_on(),
             holds_ids: false,
             wide: false,
+            previewed_from: None,
             _subscription: subscription,
         };
         palette.found = palette.find(cx);
         palette.select_first(cx);
         self.palette = Some(palette);
-        self.outline_choice(cx);
+        self.outline_choice(window, cx);
         cx.notify();
     }
 
     pub fn close_palette(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(palette) = self.palette.take()
-            && let Some(focus) = palette.restore_focus
-        {
-            window.focus(&focus, cx);
+        if let Some(palette) = self.palette.take() {
+            // Back to what the terminal picker opened over.
+            if let Some((selection, detail_open)) = palette.previewed_from {
+                self.select_behind(selection, cx);
+                self.set_detail(detail_open, window, cx);
+            }
+            if let Some(focus) = palette.restore_focus {
+                window.focus(&focus, cx);
+            }
         }
         (self.navigator).update(cx, |navigator, cx| navigator.stop_going(true, cx));
         cx.notify();
     }
 
-    /// Have the navigator outline where the selected choice goes, if it goes anywhere.
-    fn outline_choice(&mut self, cx: &mut Context<Self>) {
-        let goes_to = self.palette.as_ref().and_then(|palette| {
-            let found = palette.found.get(palette.selected)?;
-            palette.choices.get(found.ix)?.goes_to.clone()
-        });
+    /// Have the navigator outline where the selected choice goes, if it goes anywhere, and the
+    /// terminal picker select it behind, the details showing, while the keys stay in it.
+    fn outline_choice(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(palette) = &self.palette else {
+            return (self.navigator).update(cx, |navigator, cx| navigator.go_toward(None, cx));
+        };
+        let goes_to = (palette.found.get(palette.selected))
+            .and_then(|found| palette.choices.get(found.ix)?.goes_to.clone());
+        if palette.previewed_from.is_some()
+            && let Some(selection) = goes_to.clone()
+        {
+            self.select_behind(Some(selection), cx);
+            self.set_detail(true, window, cx);
+            // It moved the selection itself, so it isn't what closes the palette as an agent's
+            // move would.
+            let acting_on = self.store.read(cx).acting_on();
+            if let Some(palette) = &mut self.palette {
+                palette.acting_on = acting_on;
+            }
+        }
         (self.navigator).update(cx, |navigator, cx| navigator.go_toward(goes_to, cx));
+    }
+
+    /// Select `selection` behind the palette, the keys staying in it. Not again once it's
+    /// selected, which would drop the commits picked with it.
+    fn select_behind(&mut self, selection: Option<Selection>, cx: &mut Context<Self>) {
+        (self.store).update(cx, |store, cx| {
+            if store.selection != selection {
+                store.select(selection, cx);
+            }
+        });
     }
 
     fn run_command(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) {
@@ -889,19 +936,19 @@ impl AppView {
         }
     }
 
-    fn palette_up(&mut self, _: &PaletteUp, _: &mut Window, cx: &mut Context<Self>) {
+    fn palette_up(&mut self, _: &PaletteUp, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(palette) = &mut self.palette {
             palette.select(palette.selected.saturating_sub(1));
-            self.outline_choice(cx);
+            self.outline_choice(window, cx);
             cx.notify();
         }
     }
 
-    fn palette_down(&mut self, _: &PaletteDown, _: &mut Window, cx: &mut Context<Self>) {
+    fn palette_down(&mut self, _: &PaletteDown, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(palette) = &mut self.palette {
             let last = palette.found.len().saturating_sub(1);
             palette.select((palette.selected + 1).min(last));
-            self.outline_choice(cx);
+            self.outline_choice(window, cx);
             cx.notify();
         }
     }

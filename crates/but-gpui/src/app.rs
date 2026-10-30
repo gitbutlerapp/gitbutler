@@ -138,7 +138,7 @@ pub struct AppView {
     navigator_slide: Slide,
     /// Whether the detail shows beside the navigator. Hidden, the navigator takes the window;
     /// the two are never both hidden.
-    detail_open: bool,
+    pub(crate) detail_open: bool,
     /// The detail sliding in from the window's right edge or back off it.
     detail_slide: Slide,
     /// The window narrowed to the navigator while the detail is hidden, or narrowing to it or
