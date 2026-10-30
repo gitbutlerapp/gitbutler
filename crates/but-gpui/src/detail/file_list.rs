@@ -6,8 +6,8 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, ElementId, MouseButton, MouseDownEvent, Pixels,
-    Point, SharedString, Stateful, Toggled, div, img, prelude::*,
+    AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, MouseButton, MouseDownEvent,
+    Pixels, Point, SharedString, Stateful, Toggled, Window, div, prelude::*,
 };
 
 use super::blame::Blamed;
@@ -17,10 +17,11 @@ use super::{Copied, Detail, FilterFiles, LoadedDiff, PageFold, keeps_path, merge
 use crate::app::AppView;
 use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::MenuItem;
-use crate::state::{Cut, FileSort, Overlay, ProjectId, Rereads, Selection};
+use crate::state::{Cut, FileSort, Overlay, ProjectId, Rereads, Selection, Store};
 use crate::theme::Theme;
+use crate::transfer::{Chip, DragPreview};
 use crate::ui::diff;
-use crate::ui::file_icons::file_icon;
+use crate::ui::file_icons::{file_icon, folder_icon};
 use crate::ui::fold;
 use crate::ui::illustration::Illustration;
 use crate::ui::{
@@ -405,6 +406,28 @@ impl Detail {
                 })
                 .collect(),
         };
+        // What's being dragged out of the list steps back: a file, and a folder once all it
+        // holds is going.
+        let carried = self.dragged_paths(&source, store, cx);
+        let leaving: Vec<bool> = match carried.is_empty() {
+            true => Vec::new(),
+            false => {
+                let stays: HashSet<&str> = (paths.iter().copied())
+                    .filter(|path| !carried.contains(path))
+                    .flat_map(|path| {
+                        (path.match_indices('/')).filter_map(move |(end, _)| path.get(..end))
+                    })
+                    .collect();
+                (rows.iter())
+                    .map(|row| match row {
+                        TreeRow::File { pos, .. } => {
+                            paths.get(*pos).is_some_and(|path| carried.contains(path))
+                        }
+                        TreeRow::Dir { path, .. } => !stays.contains(path.as_str()),
+                    })
+                    .collect()
+            }
+        };
         let count = rows.len();
         let list = side_list(
             count,
@@ -412,31 +435,37 @@ impl Detail {
             "files-scrollbar",
             cx,
             move |this, ix| (this.page_folds).moved(places.get(ix).and_then(Option::as_ref)),
-            move |this, ix, theme, window, cx| match rows.get(ix)? {
-                dir @ TreeRow::Dir { .. } => {
-                    let found = found.get(ix)?;
-                    let holds_cursor = cursor_row == Some(ix);
-                    this.render_dir_row(dir, holds_cursor, &source, found, columns, theme, cx)
-                }
-                TreeRow::File { pos, depth } => {
-                    let lit = |ix: usize| lit.get(ix).copied().unwrap_or(false);
-                    let row = FileRow {
-                        depth: tree.then_some(*depth),
-                        joined: match lit(ix) {
-                            true => (ix > 0 && lit(ix - 1), lit(ix + 1)),
-                            false => (false, false),
-                        },
-                        picked: lit(ix),
-                        menu: picked.clone().filter(|_| lit(ix)),
-                        found: found.get(ix)?.clone(),
-                        columns,
-                        ..Default::default()
-                    };
-                    // The current file is solid while the list holds the focus, as the
-                    // navigator's selection is while it does.
-                    let solid = this.files_focus.is_focused(window);
-                    this.render_source_file(&source, *index.get(*pos)?, row, solid, theme, cx)
-                }
+            move |this, ix, theme, window, cx| {
+                let row = match rows.get(ix)? {
+                    dir @ TreeRow::Dir { .. } => {
+                        let found = found.get(ix)?;
+                        let holds_cursor = cursor_row == Some(ix);
+                        this.render_dir_row(dir, holds_cursor, &source, found, columns, theme, cx)
+                    }
+                    TreeRow::File { pos, depth } => {
+                        let lit = |ix: usize| lit.get(ix).copied().unwrap_or(false);
+                        let row = FileRow {
+                            depth: tree.then_some(*depth),
+                            joined: match lit(ix) {
+                                true => (ix > 0 && lit(ix - 1), lit(ix + 1)),
+                                false => (false, false),
+                            },
+                            picked: lit(ix),
+                            menu: picked.clone().filter(|_| lit(ix)),
+                            found: found.get(ix)?.clone(),
+                            columns,
+                            ..Default::default()
+                        };
+                        // The current file is solid while the list holds the focus, as the
+                        // navigator's selection is while it does.
+                        let solid = this.files_focus.is_focused(window);
+                        this.render_source_file(&source, *index.get(*pos)?, row, solid, theme, cx)
+                    }
+                }?;
+                Some(match leaving.get(ix) {
+                    Some(true) => div().opacity(0.5).child(row).into_any_element(),
+                    _ => row,
+                })
             },
         );
         // Once the list has its rows.
@@ -490,6 +519,37 @@ impl Detail {
                 Some(self.render_file_row(pos, &file.file, extras, solid, theme, cx))
             }
         }
+    }
+
+    /// The paths of the files of `source` being dragged, whole: some of a file leaves the rest
+    /// behind.
+    fn dragged_paths<'a>(
+        &self,
+        source: &FileSource,
+        store: &'a Store,
+        cx: &App,
+    ) -> HashSet<&'a str> {
+        let Some(Cut::Files {
+            project,
+            from,
+            worktree,
+            files,
+        }) = &store.dragging
+        else {
+            return HashSet::new();
+        };
+        let here = match source {
+            FileSource::Uncommitted(p, w) => from.is_none() && (p, w) == (project, worktree),
+            FileSource::Diff => matches!(
+                self.owned_cut(Vec::new(), cx),
+                Some(Cut::Files { project: p, from: f, worktree: w, .. })
+                    if (&p, &f, &w) == (project, from, worktree)
+            ),
+        };
+        (files.iter())
+            .filter(|file| here && file.hunks.is_none())
+            .map(|file| file.file.path.as_str())
+            .collect()
     }
 
     /// `files` of the loaded diff as they'd be cut, to move or take out of where they are:
@@ -686,6 +746,71 @@ impl Detail {
         matches!(&cut, Cut::Files { files, .. } if !files.is_empty()).then_some(cut)
     }
 
+    /// What dragging the folder `dir` in `source` carries: its [`Selected::movable`] files,
+    /// each as its row would drag it. Not at all while what's checked of one is unknown.
+    fn folder_drag(&self, source: &FileSource, dir: &str, cx: &App) -> Option<Cut> {
+        let Cut::Files {
+            project,
+            from,
+            worktree,
+            files,
+        } = self.folder_payload(source, dir, cx)?.movable()?
+        else {
+            return None;
+        };
+        let checked = self.composing && matches!(source, FileSource::Uncommitted(..));
+        let files = (files.iter())
+            .map(|whole| {
+                let path = &whole.file.path;
+                match checked && self.checks.file_check(path) == Toggled::Mixed {
+                    true => self.selected_change(&whole.file, self.loaded_file(path)),
+                    false => Some(whole.clone()),
+                }
+            })
+            .collect::<Option<_>>()?;
+        Some(Cut::Files {
+            project,
+            from,
+            worktree,
+            files,
+        })
+    }
+
+    /// `files` of `source` as they'd be cut, if they're the workspace's to change.
+    fn cut_from(&self, source: &FileSource, files: Vec<Selected>, cx: &App) -> Option<Cut> {
+        match source {
+            FileSource::Uncommitted(project, worktree) => Some(Cut::Files {
+                project: project.clone(),
+                from: None,
+                worktree: worktree.clone(),
+                files: files.into(),
+            }),
+            FileSource::Diff => self.owned_cut(files, cx),
+        }
+    }
+
+    /// The preview of a drag of the folder `dir` in `source`, which works out what it carries
+    /// as it starts: every row drawn would otherwise copy all its files, for a drag that rarely
+    /// comes. What GPUI holds goes unread, as drops read [`Store::dragging`].
+    fn folder_preview(
+        &self,
+        source: &FileSource,
+        dir: &str,
+        chip: Chip,
+        cx: &Context<Self>,
+    ) -> impl Fn(&Cut, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static {
+        let detail = cx.entity().downgrade();
+        let preview = self.drag_preview(chip, false, detail.clone());
+        let (source, dir) = (source.clone(), dir.to_owned());
+        move |nothing, offset, window, cx| {
+            let carried = (detail
+                .read_with(cx, |detail, cx| detail.folder_drag(&source, &dir, cx)))
+            .ok()
+            .flatten();
+            preview(carried.as_ref().unwrap_or(nothing), offset, window, cx)
+        }
+    }
+
     /// The diff the files of `source` take their line counts from.
     fn counted_diff(&self, source: &FileSource) -> Option<&LoadedDiff> {
         match source {
@@ -733,6 +858,7 @@ impl Detail {
             return None;
         };
         let (added, removed) = self.folder_stats(source, &path, cx);
+        let chip = Chip::Folder(name.clone().into());
         let fold = PageFold::Dir(path.clone());
         let open = !collapsed && !self.page_folds.closing(&fold);
         let chevron = fold::chevron("fold", open, theme.text_3).into_any_element();
@@ -743,14 +869,7 @@ impl Detail {
             theme,
         )
         .child(steps(depth, Some(chevron), theme))
-        // In colour and at its own 17 by 14 points, as ui-react's FolderIcon draws it, in the
-        // box a file's icon has, which it runs a little past.
-        .child(
-            div()
-                .flex_none()
-                .size(dp(14.))
-                .child(img(Icon::FolderFill.path()).w(dp(17.)).h(dp(14.))),
-        )
+        .child(folder_icon())
         // Cut in the middle: a chain of folders, `ios/App/Resources/de.lproj`, ends in the one
         // that tells it from its siblings. Folded, how many files it holds follows the name, so
         // its end lines up with the files'.
@@ -772,6 +891,9 @@ impl Detail {
             el.child(diff::column_stats(added, removed, columns, theme))
         })
         .child(div().flex_none().w(dp(MARK_WIDTH)))
+        .when_some(self.cut_from(source, Vec::new(), cx), |el, nothing| {
+            el.on_drag(nothing, self.folder_preview(source, &path, chip, cx))
+        })
         .on_mouse_down(
             MouseButton::Right,
             cx.listener({
@@ -1204,13 +1326,16 @@ impl Detail {
             (false, false, 1) => "file",
             (false, false, _) => "files",
         };
-        let cut = payload.clone();
-        let mut items = vec![MenuItem::keyed(
-            "Cut",
-            &crate::app::CutSelection,
-            cx,
-            move |this: &mut AppView, _, cx| this.cut(cut.clone(), cx),
-        )];
+        let mut items: Vec<MenuItem> = (payload.clone().movable().into_iter())
+            .map(|cut| {
+                MenuItem::keyed(
+                    "Cut",
+                    &crate::app::CutSelection,
+                    cx,
+                    move |this: &mut AppView, _, cx| this.cut(cut.clone(), cx),
+                )
+            })
+            .collect();
         match from {
             None => {
                 let conflicted: Vec<bstr::BString> = (files.iter())

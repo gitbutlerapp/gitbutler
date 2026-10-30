@@ -2473,7 +2473,10 @@ impl Navigator {
                 .when_some(ref_name, |el, ref_name| {
                     let payload = Cut::Branch(id.clone(), ref_name.clone());
                     let label = store.label_of(id, branch).to_owned();
-                    el.on_drag(payload, drag_preview(self.store.clone(), label.into()))
+                    el.on_drag(
+                        payload,
+                        drag_preview(self.store.clone(), SharedString::from(label)),
+                    )
                 })
                 .into_any_element(),
         )

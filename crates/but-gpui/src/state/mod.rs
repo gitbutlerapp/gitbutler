@@ -167,6 +167,29 @@ impl Cut {
         }
     }
 
+    /// Without the files that can't land ([`Selected::movable`]), if any can.
+    pub fn movable(self) -> Option<Self> {
+        match self {
+            Cut::Files {
+                project,
+                from,
+                worktree,
+                files,
+            } => {
+                let files: Arc<[Selected]> = (files.iter().filter(|file| file.movable()))
+                    .cloned()
+                    .collect();
+                (!files.is_empty()).then_some(Cut::Files {
+                    project,
+                    from,
+                    worktree,
+                    files,
+                })
+            }
+            cut => Some(cut),
+        }
+    }
+
     /// "Cherry-picking" for a cherry-pick, which leaves the commit where it is; "Cut"
     /// otherwise. Not "Copied", which ⌘C says of the clipboard.
     pub fn verb(&self) -> &'static str {

@@ -1341,8 +1341,7 @@ impl Detail {
 
     /// What dragging or cutting the uncommitted changes of `project`'s checkout `worktree`
     /// carries: the checked files and hunks when they're shown here, otherwise all of them, but
-    /// not conflicted files, which a commit refuses until they're resolved, nor a repository
-    /// cloned inside, which isn't a submodule yet.
+    /// only what's [`Selected::movable`].
     pub fn files_to_move(
         &self,
         project: &ProjectId,
@@ -1357,9 +1356,7 @@ impl Detail {
                     files.iter().map(Selected::whole).collect()
                 }),
         };
-        (files.into_iter())
-            .filter(|s| !s.file.conflicted && !s.file.nested_repository())
-            .collect()
+        files.into_iter().filter(Selected::movable).collect()
     }
 
     /// Focus the diff.

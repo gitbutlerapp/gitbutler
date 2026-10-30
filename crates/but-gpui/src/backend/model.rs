@@ -1057,6 +1057,12 @@ impl Selected {
             hunks: None,
         }
     }
+
+    /// Whether a commit takes it: not a conflicted file, refused until it's resolved, nor a
+    /// repository cloned inside, which isn't a submodule yet.
+    pub fn movable(&self) -> bool {
+        !self.file.conflicted && !self.file.nested_repository()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
