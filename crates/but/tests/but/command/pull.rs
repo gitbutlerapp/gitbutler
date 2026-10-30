@@ -1538,6 +1538,45 @@ Hint: run `but branch new` to create a new branch to work on
 }
 
 #[test]
+fn pull_checks_out_main_after_the_last_stack_integrates() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "pull-one-of-two-stacks-integrated",
+    );
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
+
+    env.but("pull").assert().success();
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "gitbutler/workspace",
+        "B still needs the workspace after A integrated"
+    );
+
+    env.invoke_bash(
+        r#"
+        merged=$(git commit-tree "$(git merge-tree --write-tree main B)" -p main -p B -m "merge B")
+        git update-ref refs/heads/main "$merged"
+        git update-ref refs/remotes/origin/main "$merged"
+        "#,
+    );
+
+    env.but("pull").assert().success();
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "main",
+        "integrating the last stack must not leave an empty managed workspace checked out"
+    );
+    assert_eq!(rev_parse(&env, "HEAD"), rev_parse(&env, "origin/main"));
+    assert!(
+        env.open_repo()
+            .try_find_reference(but_core::WORKSPACE_REF_NAME)
+            .unwrap()
+            .is_none(),
+        "the empty managed workspace reference should be removed"
+    );
+}
+
+#[test]
 fn pull_reparents_empty_workspace_when_target_advances() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata_at_target(&[], "origin/main");

@@ -1108,12 +1108,12 @@ fn merge_whole_stack_without_remote_is_undoable() {
 
     env.but("merge B --whole-stack").assert().success();
     let log_after = env.git_log();
-    // Both segments are gone, and main points at the top of the landed stack.
+    // Both segments are gone, and with no branches left, HEAD moves to main at the top of the
+    // landed stack.
     snapbox::assert_data_eq!(
         log_after.clone(),
         str![[r#"
-* [..] (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* [..] (main) add B
+* [..] (HEAD -> main) add B
 * [..] add A
 * [..] (gitbutler/target) Initial commit
 
@@ -1207,6 +1207,7 @@ fn merge_target_without_upstream_lands_locally() {
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
 Landed topic onto main
+Checked out main.
 
 "#]]);
 

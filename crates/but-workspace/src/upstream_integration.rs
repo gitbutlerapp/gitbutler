@@ -157,8 +157,7 @@ struct Stack {
 /// - We replace all steps marked as `content_integrated` that are not
 ///   `historically_integrated` with `None` steps.
 ///
-/// This variant uses no review hints and never swaps an emptied managed workspace for a canned
-/// branch; see [`integrate_upstream_with_hints()`] for both.
+/// This variant uses no review hints; see [`integrate_upstream_with_hints()`] for those.
 pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
     workspace: &'ws mut but_graph::Workspace,
     meta: &'meta mut M,
@@ -520,10 +519,10 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     *parent_order,
                 )?;
             }
-            [] if !fully_integrated_workspace_parents.is_empty() && stacks.len() > 1 => {
-                // In single-branch mode a managed workspace must not become empty. Prefer the
-                // local target for its checkout, falling back to a uniquely named canned branch,
-                // just like a fully integrated direct checkout.
+            [] if !fully_integrated_workspace_parents.is_empty() => {
+                // A managed workspace must not become empty. Prefer the local target for its
+                // checkout, falling back to a uniquely named canned branch, just like a fully
+                // integrated direct checkout.
                 let workspace_ref_name = workspace_ref_name
                     .as_ref()
                     .map(|name| name.as_ref())
@@ -535,10 +534,6 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     target_ref_commit_selector,
                     local_target_ref.as_ref().map(|name| name.as_ref()),
                 )?;
-            }
-            [] if !fully_integrated_workspace_parents.is_empty() => {
-                // Otherwise the existing empty managed workspace is retained.
-                editor.add_edge(workspace_commit_selector, target_ref_selector, 0)?;
             }
             _ => {}
         }
