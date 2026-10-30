@@ -1,5 +1,5 @@
-//! What the embedded terminal takes from the user's Ghostty config: its font size, and the
-//! colours of its light and dark themes. Ghostty's theme files can also be listed and read by
+//! What the embedded terminal takes from the user's Ghostty config: its font, and the colours
+//! of its light and dark themes. Ghostty's theme files can also be listed and read by
 //! name, to colour the app as a whole.
 
 use std::collections::BTreeSet;
@@ -34,6 +34,10 @@ pub struct Colors {
 /// What the user's Ghostty config sets that the embedded terminal follows.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Ghostty {
+    /// The families `font-family` lists, the first wanted most.
+    pub font_families: Vec<String>,
+    /// The OpenType features `font-feature` sets, by tag.
+    pub font_features: Vec<(String, u32)>,
     pub font_size: Option<f32>,
     pub light: Colors,
     pub dark: Colors,
@@ -49,6 +53,8 @@ struct Theme {
 /// The config's keys as read, before its theme is looked up.
 #[derive(Debug, Default)]
 struct Settings {
+    font_families: Vec<String>,
+    font_features: Vec<(String, u32)>,
     font_size: Option<f32>,
     theme: Option<Theme>,
     colors: Colors,
@@ -105,9 +111,11 @@ impl Ghostty {
             colors
         };
         Self {
-            font_size: settings.font_size,
             light: colors(settings.theme.as_ref().map(|theme| theme.light.as_str())),
             dark: colors(settings.theme.as_ref().map(|theme| theme.dark.as_str())),
+            font_size: settings.font_size,
+            font_families: settings.font_families,
+            font_features: settings.font_features,
         }
     }
 }
@@ -115,6 +123,12 @@ impl Ghostty {
 impl Settings {
     fn set(&mut self, key: &str, value: &str) {
         match key {
+            "font-family" if value.is_empty() => self.font_families.clear(),
+            "font-family" => self.font_families.push(value.to_owned()),
+            "font-feature" if value.is_empty() => self.font_features.clear(),
+            "font-feature" => {
+                (self.font_features).extend(value.split(',').filter_map(font_feature))
+            }
             "font-size" => {
                 let size = value.parse().ok().filter(|size: &f32| *size > 0.0);
                 self.font_size = size.or(self.font_size);
@@ -254,6 +268,26 @@ fn entries(text: &str) -> impl Iterator<Item = (&str, &str)> {
         })
 }
 
+/// A feature as Ghostty writes it, `-calt`, `+calt`, `calt=2` or `calt off`, its name quoted or
+/// not. Anything else is ignored, as Ghostty does.
+fn font_feature(setting: &str) -> Option<(String, u32)> {
+    let setting = setting.trim();
+    let (tag, value) = match setting.strip_prefix('-') {
+        Some(tag) => (tag, "off"),
+        None => {
+            let setting = setting.strip_prefix('+').unwrap_or(setting);
+            (setting.split_once(['=', ' '])).unwrap_or((setting, "on"))
+        }
+    };
+    let value = match value.trim_matches(['=', ' ']) {
+        "on" => 1,
+        "off" => 0,
+        value => value.parse().ok()?,
+    };
+    let tag = tag.trim_matches(['"', '\'']);
+    (tag.len() == 4 && tag.is_ascii()).then(|| (tag.to_owned(), value))
+}
+
 /// `#rrggbb` or `rrggbb`.
 fn rgb(value: &str) -> Option<RgbColor> {
     let hex = value.strip_prefix('#').unwrap_or(value);
@@ -294,6 +328,50 @@ mod tests {
             ghostty.dark.palette,
             [(2, c(0, 255, 0)), (1, c(0, 0, 255))],
             "palette entries accumulate and a later index replaces an earlier one"
+        );
+    }
+
+    #[test]
+    fn font_families_add_up_until_a_blank_one_resets_them() {
+        let ghostty = Ghostty::parse(
+            [
+                "font-family = Old\nfont-family = \"\"\nfont-family = \"Commit Mono\"",
+                "font-family = Menlo",
+            ],
+            |_| None,
+        );
+        assert_eq!(
+            ghostty.font_families,
+            ["Commit Mono", "Menlo"],
+            "a blank clears what came before, and later configs add fallbacks"
+        );
+    }
+
+    #[test]
+    fn font_features_read_every_way_ghostty_writes_them() {
+        let ghostty = Ghostty::parse(
+            [
+                "font-feature = -calt\nfont-feature = liga, +dlig\nfont-feature = ss01 off\n\
+                 font-feature = ss02=0\nfont-feature = cv01 = 3\nfont-feature = \"zero\" on\n\
+                 font-feature = toolong\nfont-feature = ss03=nope",
+            ],
+            |_| None,
+        );
+        let features: Vec<_> = (ghostty.font_features.iter())
+            .map(|(tag, value)| (tag.as_str(), *value))
+            .collect();
+        assert_eq!(
+            features,
+            [
+                ("calt", 0),
+                ("liga", 1),
+                ("dlig", 1),
+                ("ss01", 0),
+                ("ss02", 0),
+                ("cv01", 3),
+                ("zero", 1),
+            ],
+            "tags that aren't four letters and values that aren't numbers are ignored"
         );
     }
 
