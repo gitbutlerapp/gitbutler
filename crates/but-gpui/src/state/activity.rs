@@ -43,7 +43,7 @@ pub struct SeenCommit {
     pub authored: String,
     pub title: String,
     pub time: i64,
-    /// Landed once its branch's pull request merged.
+    /// Merged into the target once its branch's pull request is.
     pub state: CommitState,
     /// The branch it was on, by full ref name or `None` when unnamed, and that branch's pull
     /// request.
@@ -274,7 +274,7 @@ mod tests {
                 ("change-3", "refs/heads/b", CommitState::Local),
                 ("change-1", "refs/heads/a", CommitState::Integrated),
             ],
-            "b left with its commit; a lost one, as squashed away, and landed once merged"
+            "b left with its commit; a lost one, as squashed away, and in the target once merged"
         );
 
         let renamed = branch("b2", &[(3, now - 10)], None);

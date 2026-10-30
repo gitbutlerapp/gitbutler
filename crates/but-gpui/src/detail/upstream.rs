@@ -1,6 +1,6 @@
 //! A project's page: where it is, when it last fetched, how busy the target has been and
 //! who's been committing to it, and its history, the commits the workspace doesn't have yet
-//! first, each with the pull request that landed it. Selecting a commit shows its diff.
+//! first, each with the pull request that merged it. Selecting a commit shows its diff.
 
 use std::cell::Cell;
 use std::collections::{BTreeSet, HashSet};
@@ -39,14 +39,14 @@ use crate::ui::{
 /// chevron's step.
 const FOLD_MIDDLE: f32 = 8. + 7.;
 
-/// What the page opens on: what landed lately, even when nothing did, once the target's
+/// What the page opens on: what merged lately, even when nothing did, once the target's
 /// summed up, else the newest commit.
 fn opening(summary: Option<&Overview>, commits: &[TargetCommit]) -> Option<Picked> {
     (summary.is_some().then_some(Picked::Shipped))
         .or_else(|| commits.first().map(|c| Picked::Commit(c.id)))
 }
 
-/// What a target commit is called: the pull request it landed, by its title, as Lite names
+/// What a target commit is called: the pull request it merged, by its title, as Lite names
 /// it, or else the commit's own title.
 fn label(commit: &TargetCommit) -> SharedString {
     match (commit.review.as_ref()).filter(|review| !review.title.is_empty()) {
@@ -66,7 +66,7 @@ const STALE_AFTER: Duration = Duration::from_secs(60);
 /// narrowest.
 const MIN_DIFF: f32 = 560.;
 
-/// What's picked on the page: what landed lately, or a commit of the target.
+/// What's picked on the page: what merged lately, or a commit of the target.
 #[derive(Clone, Copy, PartialEq)]
 enum Picked {
     Shipped,
@@ -79,7 +79,7 @@ pub(super) struct Upstream {
     selected: Option<Picked>,
     /// The commit of the selected merge shown in place of everything it brought in.
     merged_pick: Option<CommitId>,
-    /// What landed lately and the activity, read with the newest page; `None` until read, or
+    /// What merged lately and the activity, read with the newest page; `None` until read, or
     /// when there's no target to read them from.
     summary: Option<Overview>,
     /// When the project last fetched successfully, and why the last fetch failed; `None`
@@ -93,7 +93,7 @@ pub(super) struct Upstream {
     failed: Option<String>,
     /// Reading the next page, which starts once its row scrolls into view, or on Show older.
     paging: Cell<Paging>,
-    /// A commit picked off what landed lately, not listed yet: the pages are read until it is.
+    /// A commit picked off what merged lately, not listed yet: the pages are read until it is.
     pending: Option<CommitId>,
     view: View,
 }
@@ -113,7 +113,7 @@ impl Upstream {
 }
 
 /// What the history is filtered to, by the activity's days, whose commits by email and the
-/// part of the repository by what landed there, and the merges whose commits show under them.
+/// part of the repository by what merged there, and the merges whose commits show under them.
 /// A reload keeps it.
 #[derive(Default)]
 struct View {
@@ -194,7 +194,7 @@ impl Detail {
         let project = project.clone();
         let workspace = self.store.read(cx).workspace(&project);
         let forge = workspace.and_then(|ws| ws.forge);
-        // What landed lately, only with the newest page: paging further back keeps what was
+        // What merged lately, only with the newest page: paging further back keeps what was
         // read.
         let newest = after.is_none();
         let now = crate::ui::now();
@@ -205,7 +205,7 @@ impl Detail {
         }
         self._upstream_load = cx.spawn(async move |this, cx| {
             let result = backend::run(move || {
-                // What landed lately takes longest, so it's read beside the page rather than
+                // What merged lately takes longest, so it's read beside the page rather than
                 // after it.
                 std::thread::scope(|scope| {
                     let summary = newest.then(|| scope.spawn(|| upstream::overview(&path, now)));
@@ -225,7 +225,7 @@ impl Detail {
                     });
                     let fetch = upstream::fetch_status(&path)?;
                     let summary = summary
-                        .and_then(|s| joined(s.join(), "what landed"))
+                        .and_then(|s| joined(s.join(), "what merged"))
                         .flatten();
                     Ok((page, fetch, forge.filter(|_| !connected), summary))
                 })
@@ -324,7 +324,7 @@ impl Detail {
                         Picked::Commit(id) => list.iter().any(|c| c.id == *id),
                     })
                     .or_else(|| opening(summary.as_ref(), &list));
-                // A commit picked before it was listed, once it is, while it can be: what landed
+                // A commit picked before it was listed, once it is, while it can be: what merged
                 // lately goes back no further than the summary's first day.
                 let found = pending.filter(|id| list.iter().any(|c| c.id == *id));
                 let within = (summary.as_ref().zip(list.last()))
@@ -467,7 +467,7 @@ impl Detail {
         (self.merged_commit(project, cx)).or_else(|| self.selected_target_commit(project))
     }
 
-    /// Whether the window leaves the diff out, as a pull request and what landed take its
+    /// Whether the window leaves the diff out, as a pull request and what merged take its
     /// place.
     pub fn diff_hidden(&self, cx: &gpui::App) -> bool {
         self.showing_review(cx)
@@ -635,7 +635,7 @@ impl Detail {
         let own = (commit.body.lines())
             .filter(|line| !names_review(line))
             .any(|line| !line.trim().is_empty());
-        // A merge with no more to say than the pull request it landed says what that does, in
+        // A merge with no more to say than the pull request it merged says what that does, in
         // its description's words.
         let described;
         let text = match (own, &commit.review) {
@@ -725,7 +725,7 @@ impl Detail {
             .into_any_element()
     }
 
-    /// Whether the project's page shows what landed lately, in place of a diff.
+    /// Whether the project's page shows what merged lately, in place of a diff.
     pub fn showing_shipped(&self, cx: &gpui::App) -> bool {
         match &self.selection(cx) {
             Some(Selection::Project(project)) => {
@@ -737,7 +737,7 @@ impl Detail {
         }
     }
 
-    /// Esc on the project's page with a commit shown: back to what landed
+    /// Esc on the project's page with a commit shown: back to what merged
     /// lately, whether it did.
     pub fn close_opened_target(&mut self, cx: &mut Context<Self>) -> bool {
         let Some(Selection::Project(project)) = self.selection(cx) else {
@@ -761,12 +761,12 @@ impl Detail {
         // letting go of the filter unseen.
         let who = upstream.view.person.as_ref();
         let person = upstream.picked_person();
-        // What landed in the area picked, of what the summary has; with no summary to say, the
+        // What merged in the area picked, of what the summary has; with no summary to say, the
         // area doesn't filter.
         let area = (upstream.view.area.as_ref()).filter(|_| upstream.summary.is_some());
         let in_area: HashSet<CommitId> = (area.zip(upstream.summary.as_ref()))
             .map(|(area, summary)| {
-                (summary.landings.iter())
+                (summary.merges.iter())
                     .filter(|l| l.areas.iter().any(|a| a == area))
                     .map(|l| l.id)
                     .collect()
@@ -789,7 +789,7 @@ impl Detail {
         let filtered = !query.is_empty();
         let shown = |commit: &TargetCommit| {
             picked.is_none_or(|(d, today)| d.contains(&upstream::day_of(commit.time).min(today)))
-                && who.is_none_or(|_| person.is_some_and(|p| p.landed.contains(&commit.id)))
+                && who.is_none_or(|_| person.is_some_and(|p| p.merged.contains(&commit.id)))
                 && area.is_none_or(|_| in_area.contains(&commit.id))
                 && found(commit)
         };
@@ -1033,8 +1033,8 @@ impl Detail {
         cx.notify();
     }
 
-    /// Filter the history to what landed `email`'s commits, or not at all.
-    fn filter_landed(
+    /// Filter the history to what merged `email`'s commits, or not at all.
+    fn filter_merged(
         &mut self,
         project: &ProjectId,
         email: Option<String>,
@@ -1047,7 +1047,7 @@ impl Detail {
         cx.notify();
     }
 
-    /// Filter the history to what landed in `area`, or let go of the area.
+    /// Filter the history to what merged in `area`, or let go of the area.
     fn filter_area(&mut self, project: &ProjectId, area: Option<String>, cx: &mut Context<Self>) {
         if let Some(upstream) = self.upstream.get_mut(project) {
             upstream.view.area = area;
@@ -1061,9 +1061,9 @@ impl Detail {
         self.upstream_scroll.scroll_to(Default::default());
     }
 
-    /// Whose commits landed on the target, the most landings first, counted on the days
+    /// Whose commits merged into the target, the most merges first, counted on the days
     /// picked or all the activity's, and only those that changed the area picked; the one picked
-    /// stays, however few they have then. Clicking one filters the history to what landed theirs.
+    /// stays, however few they have then. Clicking one filters the history to what merged theirs.
     fn render_people(
         &self,
         project: &ProjectId,
@@ -1076,16 +1076,16 @@ impl Detail {
         if summary.people.is_empty() && who.is_none() {
             return None;
         }
-        // What landed in the area picked on those days, while one is.
+        // What merged in the area picked on those days, while one is.
         let in_area: Option<HashSet<CommitId>> = (upstream.view.area.as_ref()).map(|area| {
-            (summary.landings.iter())
+            (summary.merges.iter())
                 .filter(|l| l.areas.contains(area) && days.is_none_or(|d| d.contains(&l.day)))
                 .map(|l| l.id)
                 .collect()
         });
         let on_days = |person: &Person| -> usize {
             if let Some(in_area) = &in_area {
-                return person.landed.intersection(in_area).count();
+                return person.merged.intersection(in_area).count();
             }
             (person.daily.iter().enumerate())
                 .filter(|(ix, _)| {
@@ -1100,17 +1100,17 @@ impl Detail {
             .map(|(p, n)| (p.email.clone(), p.name.clone(), p.email.clone(), n))
             .collect();
         people.sort_by_key(|(.., n)| std::cmp::Reverse(*n));
-        // Landings, as a merge bringing in several of someone's commits counts once.
+        // Merges, as a merge commit bringing in several of someone's commits counts once.
         let counted = match days {
-            None => format!("landings · {ACTIVITY_DAYS} days"),
-            Some(_) => "landings · days picked".to_owned(),
+            None => format!("merges · {ACTIVITY_DAYS} days"),
+            Some(_) => "merges · days picked".to_owned(),
         };
         let project = project.clone();
         Some(self.people_card(
             people,
             who.map(String::as_str),
-            (counted, "No commits landed then"),
-            move |this, email, cx| this.filter_landed(&project, email, cx),
+            (counted, "No commits merged then"),
+            move |this, email, cx| this.filter_merged(&project, email, cx),
             window,
             cx,
         ))
@@ -1126,7 +1126,7 @@ impl Detail {
         let Some(upstream) = self.upstream_for(project) else {
             return;
         };
-        // Over what landed lately, the target names the page, last.
+        // Over what merged lately, the target names the page, last.
         let target = (self.store.read(cx).workspace(project)).and_then(|ws| ws.target_name());
         if upstream.selected == Some(Picked::Shipped) {
             return crumbs.push((target.unwrap_or("Target".into()).into_owned().into(), None));
@@ -1152,7 +1152,7 @@ impl Detail {
         }
     }
 
-    /// Opening the project's page, wherever from: it shows what landed lately, rather than
+    /// Opening the project's page, wherever from: it shows what merged lately, rather than
     /// what was picked on it last, as the Branches page shows its overview.
     pub(super) fn open_on_shipped(&mut self, project: &ProjectId) {
         let Some(upstream) = self.upstream.get_mut(project) else {
@@ -1185,10 +1185,10 @@ impl Detail {
         }
     }
 
-    /// Open the commit on `project`'s history that landed a branch: the one that landed its
-    /// pull request `pull`, else its commit `id` itself, as when it landed as it was. Says
+    /// Open the commit on `project`'s history that merged a branch: the one that merged its
+    /// pull request `pull`, else its commit `id` itself, as when it merged as it was. Says
     /// whether the history lists either.
-    pub(super) fn open_landing(
+    pub(super) fn open_merge(
         &mut self,
         project: &ProjectId,
         pull: Option<u64>,
@@ -1196,13 +1196,13 @@ impl Detail {
         cx: &mut Context<Self>,
     ) -> bool {
         let commits = self.upstream_for(project).map_or(&[][..], |u| &u.commits);
-        let landed = (commits.iter())
+        let merged = (commits.iter())
             .find(|c| c.id == id || (c.review.as_ref()).is_some_and(|r| Some(r.number) == pull))
             .map(|c| c.id);
-        if let Some(landed) = landed {
-            self.pick_landed(project, landed, cx);
+        if let Some(merged) = merged {
+            self.pick_merged(project, merged, cx);
         }
-        landed.is_some()
+        merged.is_some()
     }
 
     /// Read the next page of `project`'s history, while its oldest read is no older than
@@ -1221,9 +1221,9 @@ impl Detail {
         older
     }
 
-    /// Open commit `id` of what landed lately, reading older pages of the history until
+    /// Open commit `id` of what merged lately, reading older pages of the history until
     /// it's listed.
-    fn pick_landed(&mut self, project: &ProjectId, id: CommitId, cx: &mut Context<Self>) {
+    fn pick_merged(&mut self, project: &ProjectId, id: CommitId, cx: &mut Context<Self>) {
         let Some(upstream) = self.upstream.get_mut(project) else {
             return;
         };
@@ -1417,7 +1417,7 @@ impl Detail {
                 _ => None,
             })
             .collect();
-        // From what landed lately, which sits over the list, only down.
+        // From what merged lately, which sits over the list, only down.
         if upstream.selected == Some(Picked::Shipped) && delta < 0 {
             return;
         }
@@ -1432,7 +1432,7 @@ impl Detail {
     }
 
     /// How busy the target has been: a bar for each day, the last week's stronger, counting
-    /// only what landed the person picked's commits and changed the area picked, as the history
+    /// only what merged the person picked's commits and changed the area picked, as the history
     /// lists them. Clicking a day, shift-clicking another or dragging across them filters the
     /// history to them.
     fn render_activity(
@@ -1443,15 +1443,15 @@ impl Detail {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let summary = upstream.summary.as_ref()?;
-        // A person picked who's no longer among those who landed anything keeps nothing.
+        // A person picked who's no longer among those who merged anything keeps nothing.
         let (who, area) = (upstream.view.person.as_ref(), upstream.view.area.as_ref());
-        let theirs = upstream.picked_person().map(|p| &p.landed);
+        let theirs = upstream.picked_person().map(|p| &p.merged);
         let mut daily = vec![0; summary.daily.len()];
-        for landing in (summary.landings.iter())
+        for merge in (summary.merges.iter())
             .filter(|l| who.is_none() || theirs.is_some_and(|theirs| theirs.contains(&l.id)))
             .filter(|l| area.is_none_or(|area| l.areas.contains(area)))
         {
-            let at = usize::try_from(landing.day - summary.first_day).ok();
+            let at = usize::try_from(merge.day - summary.first_day).ok();
             if let Some(n) = at.and_then(|at| daily.get_mut(at)) {
                 *n += 1;
             }
@@ -1824,14 +1824,14 @@ impl Detail {
                             let selected = upstream.selected == Some(Picked::Commit(merge))
                                 && upstream.merged_pick == merged;
                             let on = selected && solid;
-                            // Landed, as everything here has, in purple, as the app marks what
-                            // landed; amber while the workspace doesn't have it yet.
+                            // Merged, as everything here has, in purple, as the app marks what
+                            // merged; amber while the workspace doesn't have it yet.
                             let glyph = match (on, incoming) {
                                 (true, _) => theme.text_inverted,
                                 (false, true) => theme.warn,
                                 (false, false) => theme.purple,
                             };
-                            // One that landed a pull request by the request, as Lite names it,
+                            // One that merged a pull request by the request, as Lite names it,
                             // its number, merge commit and ID on hover.
                             let tip = (commit.review.as_ref()).map(|review| {
                                 let short = id.short();

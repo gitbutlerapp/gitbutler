@@ -2353,7 +2353,7 @@ impl Navigator {
         let (glyph, glyph_color) = match (&branch.review, branch.push) {
             (Some(review), _) => review::state_glyph(store.review_state(id, review), theme),
             (None, _) if publishing => review::state_glyph(ReviewState::Open, theme),
-            // Landed without a pull request, as one that landed with one shows.
+            // Merged without a pull request, as one that merged with one shows.
             (None, PushState::Integrated) => (Icon::BranchMerge, theme.purple),
             (None, _) => (Icon::Branch, style.muted()),
         };

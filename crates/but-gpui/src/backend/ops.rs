@@ -2764,7 +2764,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     }
 
     #[test]
-    fn a_target_without_a_remote_is_its_own_branch_to_update_from_and_land_on() {
+    fn a_target_without_a_remote_is_its_own_branch_to_update_from_and_merge_into() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
             let path = dir.path();
@@ -2798,12 +2798,12 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 .unwrap()
                 .commits[0]
                 .id;
-            let land = crate::backend::upstream::Land {
+            let merge = crate::backend::upstream::MergeIntoTarget {
                 branch: full("refs/heads/feature"),
                 tip,
                 whole_stack: false,
             };
-            crate::backend::apply(path, land).unwrap();
+            crate::backend::apply(path, merge).unwrap();
             assert!(
                 git(path, &["log", "--format=%s", "main"])
                     .lines()

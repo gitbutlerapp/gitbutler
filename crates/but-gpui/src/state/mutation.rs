@@ -666,7 +666,7 @@ impl Store {
                             cx,
                         )
                     }
-                    UpdateOutcome::Updated { conflicted, landed } => {
+                    UpdateOutcome::Updated { conflicted, merged } => {
                         // Its "Resolve the oldest…" bar is the next step, which a linked
                         // worktree's branch doesn't have, as its conflicts resolve in it.
                         let resolvable = (conflicted.iter())
@@ -676,7 +676,7 @@ impl Store {
                         if let Some(branch) = resolvable {
                             store.select(Some(branch), cx);
                         }
-                        store.snack_undoable(updated_message(&target, &conflicted, &landed), cx)
+                        store.snack_undoable(updated_message(&target, &conflicted, &merged), cx)
                     }
                 }
             },
@@ -1814,20 +1814,20 @@ pub fn up_to_date(scope: UpdateScope, target: &str) -> String {
 }
 
 /// What an update from `target` did: the branches (full refs) it left `conflicted`, and
-/// the ones that `landed` and went. Several landed branches are counted, not named, to
+/// the ones that `merged` and went. Several merged branches are counted, not named, to
 /// keep the snackbar to one line.
 fn updated_message(
     target: &str,
     conflicted: &[(Option<FullName>, usize)],
-    landed: &[FullName],
+    merged: &[FullName],
 ) -> String {
     let mut said = vec![format!("Updated from {target}")];
     said.extend(conflicted_parts(conflicted));
-    match landed {
+    match merged {
         [] => {}
-        [only] => said.push(format!("{} landed and was removed", short_ref(only))),
+        [only] => said.push(format!("{} was merged and removed", short_ref(only))),
         several => said.push(format!(
-            "{} branches landed and were removed",
+            "{} branches were merged and removed",
             several.len()
         )),
     }
@@ -1932,7 +1932,7 @@ mod tests {
     }
 
     #[test]
-    fn an_update_says_what_conflicted_and_what_landed() {
+    fn an_update_says_what_conflicted_and_what_merged() {
         assert_eq!(
             updated_message(
                 "origin/main",
@@ -1940,7 +1940,7 @@ mod tests {
                 &[full("refs/heads/feature-b")]
             ),
             "Updated from origin/main, feature-a has 2 conflicted commits, \
-             feature-b landed and was removed",
+             feature-b was merged and removed",
             "each branch by its short name"
         );
         assert_eq!(
@@ -1958,7 +1958,7 @@ mod tests {
                     full("refs/heads/c")
                 ]
             ),
-            "Updated from origin/main, 3 branches landed and were removed",
+            "Updated from origin/main, 3 branches were merged and removed",
             "several are counted so the snackbar stays one line"
         );
     }

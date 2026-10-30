@@ -83,7 +83,7 @@ pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
     ("New branch ending here", &NewBranchHere),
     ("Unstack branch", &Unstack),
     ("Unapply branch or stack", &UnapplyStack),
-    ("Land on target", &crate::edits::LandBranch),
+    ("Merge into target", &crate::edits::MergeBranch),
     ("Rewrap commit message", &RewrapMessage),
     ("Copy change ID", &CopyChangeId),
     ("Copy commit message", &CopyMessage),
@@ -158,7 +158,7 @@ const RISKY: &[&str] = &[
     "Squash the picked commits",
     "Replace with the remote's version",
     "Unapply branch or stack",
-    "Land on target",
+    "Merge into target",
     "Push branch",
     "Merge pull request",
 ];

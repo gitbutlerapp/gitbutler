@@ -39,7 +39,7 @@ const STALE_AFTER: i64 = 30 * 60;
 impl Detail {
     /// The selected branch's pull request, if it has one: the branch page's, the Branches
     /// page's, or the one the target commit selected, on the project page or in the
-    /// navigator, landed.
+    /// navigator, merged.
     pub(super) fn selected_review<'a>(&'a self, cx: &'a App) -> Option<&'a Review> {
         let store = self.store.read(cx);
         match &self.selection(cx)? {

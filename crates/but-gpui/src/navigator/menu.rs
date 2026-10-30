@@ -378,13 +378,13 @@ impl Navigator {
                 if edits.stacked {
                     items.push(action("Unstack", &Unstack));
                 }
-                if let (Some(target), Some(whole)) = (workspace.target.as_ref(), edits.land) {
+                if let (Some(target), Some(whole)) = (workspace.target.as_ref(), edits.merge) {
                     let label = if whole {
-                        format!("Land the stack on {}…", target.name)
+                        format!("Merge the stack into {}…", target.name)
                     } else {
-                        format!("Land on {}…", target.name)
+                        format!("Merge into {}…", target.name)
                     };
-                    items.push(MenuItem::action(label, &crate::edits::LandBranch, cx));
+                    items.push(MenuItem::action(label, &crate::edits::MergeBranch, cx));
                 }
                 // Only the workspace has stacks to take out of it.
                 if workspace.managed && workspace.stack_of(Some(ref_name)).is_some() {
@@ -672,11 +672,11 @@ impl Navigator {
                 let named = top.is_some();
                 if let Some(target) = workspace.target.as_ref()
                     && let Some(top) = top
-                    && BranchEdits::of(workspace, top).land == Some(true)
+                    && BranchEdits::of(workspace, top).merge == Some(true)
                 {
                     items.push(MenuItem::action(
-                        format!("Land the stack on {}…", target.name),
-                        &crate::edits::LandBranch,
+                        format!("Merge the stack into {}…", target.name),
+                        &crate::edits::MergeBranch,
                         cx,
                     ));
                 }

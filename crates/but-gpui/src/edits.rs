@@ -1,5 +1,5 @@
 //! The actions on the selected commits, branches and changes, besides cut and paste: push,
-//! rename, delete and discard, move, squash and split commits, new branches, land, pull,
+//! rename, delete and discard, move, squash and split commits, new branches, merge, pull,
 //! unstack and unapply. `edit_actions` registers them around the navigator; Push is on the
 //! window instead, so the branch page's button reaches it.
 
@@ -34,7 +34,7 @@ actions!(
         RewrapMessage,
         CopyChangeId,
         CopyMessage,
-        LandBranch,
+        MergeBranch,
         PullRemote,
         TakeRemote,
         MoveToNewBranch,
@@ -133,24 +133,24 @@ fn target_force_detail(target: &backend::Target) -> String {
     )
 }
 
-/// Whether `ref_name` can land, and if so whether with the branches below it: the bottom
-/// branch of a stack lands alone, the top one of a taller stack lands the whole stack. What
-/// lands needs commits, and none conflicted, which the engine won't land.
-fn land_scope(workspace: &Workspace, ref_name: &FullName) -> Option<bool> {
+/// Whether `ref_name` can merge into the target, and if so whether with the branches below
+/// it: the bottom branch of a stack merges alone, the top one of a taller stack merges the
+/// whole stack. What merges needs commits, and none conflicted, which the engine won't merge.
+fn merge_scope(workspace: &Workspace, ref_name: &FullName) -> Option<bool> {
     let (stack, at) = workspace.stack_of(Some(ref_name))?;
     let whole = match (at, at + 1 == stack.branches.len()) {
         (_, true) => false,
         (0, false) => true,
         _ => return None,
     };
-    let landing: Vec<_> = (stack.branches.get(at..)?.iter())
+    let merging: Vec<_> = (stack.branches.get(at..)?.iter())
         .flat_map(|branch| &branch.commits)
         .collect();
     // Not when all of it is in the target already, as a branch merged there is.
-    let new = landing
+    let new = merging
         .iter()
         .any(|c| c.state != crate::backend::CommitState::Integrated);
-    (new && !landing.iter().any(|c| c.conflicted)).then_some(whole)
+    (new && !merging.iter().any(|c| c.conflicted)).then_some(whole)
 }
 
 /// Which edits of a named branch have something to do, so its menu and the palette offer
@@ -164,8 +164,8 @@ pub struct BranchEdits {
     pub squash_all: bool,
     /// Other branches share its stack, so it can be unstacked.
     pub stacked: bool,
-    /// It can land on the target, and whether with the branches below it.
-    pub land: Option<bool>,
+    /// It can merge into the target, and whether with the branches below it.
+    pub merge: Option<bool>,
 }
 
 impl BranchEdits {
@@ -183,7 +183,7 @@ impl BranchEdits {
             new_below: commits > 0,
             squash_all: commits > 1 && !conflicted,
             stacked: stack && lane.branches.len() > 1,
-            land: land_scope(workspace, ref_name).filter(|_| workspace.target.is_some()),
+            merge: merge_scope(workspace, ref_name).filter(|_| workspace.target.is_some()),
         }
     }
 }
@@ -298,11 +298,11 @@ impl AppView {
                     workspace.managed && workspace.stack_of(Some(ref_name)).is_some(),
                     |el| el.on_action(cx.listener(Self::unapply_stack)),
                 )
-                .when(edits.land.is_some(), |el| {
-                    el.on_action(cx.listener(Self::land_branch))
+                .when(edits.merge.is_some(), |el| {
+                    el.on_action(cx.listener(Self::merge_branch))
                 })
             }
-            // Through its top branch: landing it lands the whole stack, and unapplying any
+            // Through its top branch: merging it merges the whole stack, and unapplying any
             // branch takes the whole stack out.
             Some(Selection::Stack(project, bottom)) => {
                 let Some(workspace) = store.workspace(project) else {
@@ -311,9 +311,9 @@ impl AppView {
                 let top = (workspace.lane(bottom.as_ref()))
                     .and_then(|lane| lane.branches.first())
                     .and_then(|top| top.ref_name.as_ref());
-                let lands =
-                    top.is_some_and(|top| BranchEdits::of(workspace, top).land == Some(true));
-                el.when(lands, |el| el.on_action(cx.listener(Self::land_branch)))
+                let merges =
+                    top.is_some_and(|top| BranchEdits::of(workspace, top).merge == Some(true));
+                el.when(merges, |el| el.on_action(cx.listener(Self::merge_branch)))
                     .when(
                         workspace.managed
                             && top.is_some()
@@ -1123,8 +1123,8 @@ impl AppView {
 
     /// Put the selected branch onto the target and push it there, after asking: the push
     /// can't be undone. A target with no upstream just moves, which can be. The bottom branch
-    /// of a stack lands alone; the top one with the branches below it.
-    fn land_branch(&mut self, _: &LandBranch, window: &mut Window, cx: &mut Context<Self>) {
+    /// of a stack merges alone; the top one with the branches below it.
+    fn merge_branch(&mut self, _: &MergeBranch, window: &mut Window, cx: &mut Context<Self>) {
         let Some((project, ref_name)) = self.selected_named_branch(cx) else {
             return;
         };
@@ -1137,10 +1137,10 @@ impl AppView {
         else {
             return;
         };
-        let Some(whole_stack) = land_scope(workspace, &ref_name) else {
+        let Some(whole_stack) = merge_scope(workspace, &ref_name) else {
             return;
         };
-        // What lands leaves at once: the whole stack, each branch of it listed so a selection
+        // What merges leaves at once: the whole stack, each branch of it listed so a selection
         // on any, or on its caption, moves off; or the bottom branch and its commits.
         let overlay = match whole_stack {
             true => Overlay {
@@ -1159,20 +1159,20 @@ impl AppView {
         };
         // The branch and those below it, where its ref is even when it has no commits of its
         // own.
-        let landing: Vec<&Branch> = (workspace.stack_of(Some(&ref_name)).into_iter())
+        let merging: Vec<&Branch> = (workspace.stack_of(Some(&ref_name)).into_iter())
             .flat_map(|(stack, at)| stack.branches.get(at..).unwrap_or_default())
             .collect();
-        // What the question shows, to land only that: the newest commit among them.
-        let Some(tip) = landing.iter().flat_map(|branch| &branch.commits).next() else {
+        // What the question shows, to merge only that: the newest commit among them.
+        let Some(tip) = merging.iter().flat_map(|branch| &branch.commits).next() else {
             return;
         };
         let tip = tip.id;
-        // Commits only the landing branches' remotes have, as a teammate's not pulled yet.
-        let remote_only: usize = landing.iter().map(|branch| branch.incoming.len()).sum();
-        let (name, landed) = (short_ref(&ref_name).into_owned(), project.clone());
+        // Commits only the merging branches' remotes have, as a teammate's not pulled yet.
+        let remote_only: usize = merging.iter().map(|branch| branch.incoming.len()).sum();
+        let (name, merged) = (short_ref(&ref_name).into_owned(), project.clone());
         let (what, whose, remotes) = match whole_stack {
             true => (
-                match landing.len() {
+                match merging.len() {
                     2 => format!("{name} and the branch below it"),
                     _ => format!("{name} and the branches below it"),
                 },
@@ -1183,10 +1183,10 @@ impl AppView {
         };
         let left_behind = match remote_only {
             0 => String::new(),
-            1 => format!(" 1 commit on {remotes} isn't pulled yet, so it won't land."),
-            n => format!(" {n} commits on {remotes} aren't pulled yet, so they won't land."),
+            1 => format!(" 1 commit on {remotes} isn't pulled yet, so it won't be merged."),
+            n => format!(" {n} commits on {remotes} aren't pulled yet, so they won't be merged."),
         };
-        // Landing brings the target's new commits into the workspace, as Update does.
+        // Merging brings the target's new commits into the workspace, as Update does.
         let update = match behind {
             true => format!(
                 " Your other branches and changes then update onto {target}, which can leave \
@@ -1196,7 +1196,7 @@ impl AppView {
         };
         self.confirm_then(
             Some(Selection::Branch(project.clone(), Some(ref_name.clone()))),
-            format!("Land {what} on {target}?"),
+            format!("Merge {what} into {target}?"),
             &match local {
                 true => format!("{whose} commits go straight onto {target}.{left_behind}{update}"),
                 false => format!(
@@ -1204,14 +1204,14 @@ impl AppView {
                      review. A push can't be undone.{left_behind}{update}"
                 ),
             },
-            "Land",
+            "Merge",
             window,
             cx,
             then_run(
                 project,
-                Label::new("Land", format!("Land {name}")),
+                Label::new("Merge", format!("Merge {name}")),
                 overlay,
-                backend::upstream::Land {
+                backend::upstream::MergeIntoTarget {
                     branch: ref_name.clone(),
                     tip,
                     whole_stack,
@@ -1220,7 +1220,8 @@ impl AppView {
                     // Undo would bring the branch back here while the target keeps it.
                     store.drop_last_step();
                     // What the update after it left conflicted, as Update says.
-                    let mut said = vec![format!("Landed on {target}{}", store.in_project(&landed))];
+                    let mut said =
+                        vec![format!("Merged into {target}{}", store.in_project(&merged))];
                     said.extend(crate::state::conflicted_parts(&left.conflicted));
                     if left.marked {
                         said.push("uncommitted changes got conflict markers".to_owned());

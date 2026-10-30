@@ -400,7 +400,7 @@ pub struct Detail {
     /// file being read into the commit an agent made of it.
     pending_file: Option<String>,
     /// The page a click on a commit of a branch that left a checkout picked, and that commit,
-    /// whose landing or branch it opens once it has read its list.
+    /// whose merge or branch it opens once it has read its list.
     opening: Option<(Selection, crate::state::SeenCommit)>,
     /// Whether the pull request's checks that passed are listed, not just counted.
     passed_checks_open: bool,
@@ -1379,7 +1379,7 @@ impl Detail {
         {
             self.scroll_to_file(first, true, cx);
         }
-        // So has what the project's page opens on, what landed lately, and the Branches page's
+        // So has what the project's page opens on, what merged lately, and the Branches page's
         // overview: their lists take them on their first row, as the first step down would.
         if self.showing_shipped(cx) {
             self.step_upstream(1, cx);

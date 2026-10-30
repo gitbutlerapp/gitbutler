@@ -264,7 +264,7 @@ pub struct Target {
     /// into.
     pub branch: String,
     /// It's the local target branch itself, like `main`, as it has no upstream, as in a
-    /// repository with no remote: a land moves it rather than pushing it.
+    /// repository with no remote: merging into it moves it rather than pushing it.
     pub local: bool,
     /// The remote branch of its name a `local` one doesn't track, like `origin/main` after
     /// `git push origin main` without `-u`: what others push there doesn't count here.
@@ -515,7 +515,7 @@ pub struct RemoteCommit {
     pub time: i64,
     /// It has more than one parent, bringing in the commits of the others.
     pub merge: bool,
-    /// The pull request a target's commit landed, as the project's page names it.
+    /// The pull request a target's commit merged, as the project's page names it.
     pub review: Option<Review>,
 }
 

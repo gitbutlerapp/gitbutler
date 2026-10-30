@@ -112,7 +112,7 @@ fn describe(kind: Option<OperationKind>) -> (Icon, Group) {
         | K::GenericBranchUpdate => (Icon::Branch, Group::Branches),
         K::SetBaseBranch => (Icon::Branch, Group::Updates),
         K::MergeUpstream | K::UpdateWorkspaceBase => (Icon::ArrowLineDown, Group::Updates),
-        // A branch landed on the target, as a land onto a target without a remote records.
+        // A branch merged into the target, as merging into a target without a remote records.
         K::MergeBranch => (Icon::BranchMerge, Group::Updates),
         K::SyncWorkspace => (Icon::Refresh, Group::Updates),
         // A restore picked here wears the history's clock, apart from ⌘Z and ⇧⌘Z's steps.

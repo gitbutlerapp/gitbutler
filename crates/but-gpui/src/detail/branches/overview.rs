@@ -1,6 +1,6 @@
 //! The Branches page's overview, beside the list until a branch is opened: the work under way
 //! in the branches the filters keep, over the last activity they pick or the last 30 days,
-//! counting only the commits of the person picked, if one is. What landed is on the project's
+//! counting only the commits of the person picked, if one is. What merged is on the project's
 //! page.
 
 use std::collections::HashSet;
