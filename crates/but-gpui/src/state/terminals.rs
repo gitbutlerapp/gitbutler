@@ -26,6 +26,9 @@ pub struct Handed {
     project: String,
     checkout: Checkout,
     id: u64,
+    /// Missing from what a build from before names handed over.
+    #[serde(default)]
+    named: Option<String>,
 }
 
 struct Open {
@@ -33,7 +36,10 @@ struct Open {
     project: ProjectId,
     checkout: Checkout,
     terminal: Entity<Terminal>,
+    /// What the shell titled it, kept while the user's name shows in its place.
     title: SharedString,
+    /// The name the user gave it, if they did.
+    named: Option<SharedString>,
     status: Status,
     _events: Subscription,
 }
@@ -45,12 +51,13 @@ impl Terminals {
             .map(|open| &open.terminal)
     }
 
-    /// Kept here so rows can show a terminal without reading it, which would have the window
-    /// draw on all it prints, shown or not.
+    /// The name the user gave it, else what its shell titled it. Kept here so rows can show a
+    /// terminal without reading it, which would have the window draw on all it prints, shown
+    /// or not.
     pub fn title(&self, id: TerminalId) -> Option<&SharedString> {
         (self.open.iter())
             .find(|open| open.id == id)
-            .map(|open| &open.title)
+            .map(|open| open.named.as_ref().unwrap_or(&open.title))
     }
 
     /// Kept here as `title` is.
@@ -141,7 +148,7 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let id = TerminalId(self.terminals.opened + 1);
-        self.insert_terminal(id, project.clone(), checkout, terminal, cx);
+        self.insert_terminal(id, project.clone(), checkout, terminal, None, cx);
         self.select(Some(Selection::Terminal(project, id)), cx);
         cx.emit(StoreEvent::TerminalOpened);
     }
@@ -152,6 +159,7 @@ impl Store {
         project: ProjectId,
         checkout: Checkout,
         terminal: Entity<Terminal>,
+        named: Option<SharedString>,
         cx: &mut Context<Self>,
     ) {
         self.terminals.opened = self.terminals.opened.max(id.0);
@@ -167,9 +175,23 @@ impl Store {
             checkout,
             terminal,
             title,
+            named,
             status,
             _events: events,
         });
+    }
+
+    /// Show `name` for terminal `id` in place of what its shell titles it, or with an empty
+    /// one, the shell's title again.
+    pub fn name_terminal(&mut self, id: TerminalId, name: &str, cx: &mut Context<Self>) {
+        let name = name.trim();
+        let named = (!name.is_empty()).then(|| SharedString::from(name.to_owned()));
+        if let Some(open) = self.terminals.open.iter_mut().find(|open| open.id == id)
+            && open.named != named
+        {
+            open.named = named;
+            cx.notify();
+        }
     }
 
     fn retitle_terminal(&mut self, id: TerminalId, title: SharedString, cx: &mut Context<Self>) {
@@ -177,7 +199,10 @@ impl Store {
             && open.title != title
         {
             open.title = title;
-            cx.notify();
+            // Under the user's name it doesn't show, and agents retitle often.
+            if open.named.is_none() {
+                cx.notify();
+            }
         }
     }
 
@@ -205,6 +230,7 @@ impl Store {
                     project: open.project.to_string(),
                     checkout: open.checkout.clone(),
                     id: open.id.0,
+                    named: open.named.as_ref().map(ToString::to_string),
                 };
                 Some((handed, detached))
             })
@@ -219,11 +245,13 @@ impl Store {
                 project,
                 checkout,
                 id,
+                named,
             } = handed;
             let store = cx.weak_entity();
             match Terminal::adopt(detached, store, cx) {
                 Ok(terminal) => {
-                    self.insert_terminal(TerminalId(id), project.into(), checkout, terminal, cx)
+                    let (id, named) = (TerminalId(id), named.map(Into::into));
+                    self.insert_terminal(id, project.into(), checkout, terminal, named, cx)
                 }
                 Err(err) => tracing::error!("couldn't adopt a terminal: {err:#}"),
             }
@@ -275,5 +303,39 @@ impl Store {
         for open in &self.terminals.open {
             open.terminal.update(cx, |_, cx| cx.notify());
         }
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::Handed;
+    use crate::backend::Checkout;
+
+    fn handed(named: Option<&str>) -> Handed {
+        Handed {
+            project: "project".into(),
+            checkout: Checkout::Main,
+            id: 1,
+            named: named.map(Into::into),
+        }
+    }
+
+    #[test]
+    fn the_next_build_keeps_a_terminals_name() {
+        let json = serde_json::to_string(&handed(Some("My agent"))).unwrap();
+        let adopted: Handed = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            adopted.named.as_deref(),
+            Some("My agent"),
+            "the name is handed over with the shell"
+        );
+    }
+
+    #[test]
+    fn a_build_from_before_names_hands_over_terminals_without_one() {
+        let mut json = serde_json::to_value(handed(None)).unwrap();
+        json.as_object_mut().unwrap().remove("named");
+        let adopted: Handed = serde_json::from_value(json).unwrap();
+        assert_eq!(adopted.named, None, "they show their shell's title");
     }
 }

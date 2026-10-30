@@ -364,6 +364,8 @@ impl AppView {
                     el.on_action(cx.listener(Self::discard_changes))
                 })
             }
+            // Its name, in place of what its shell titles it.
+            Some(Selection::Terminal(..)) => el.on_action(cx.listener(Self::reword)),
             _ => el,
         }
     }
@@ -570,9 +572,21 @@ impl AppView {
         self.discard(checkout.0, checkout.1, changes, window, cx);
     }
 
+    /// Edit the selected commit's message, or the selected terminal's name in its row.
     fn reword(&mut self, _: &Reword, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(Selection::Commit(..)) = self.selection(cx) {
-            (self.detail).update(cx, |detail, cx| detail.start_reword(window, cx))
+        match self.selection(cx) {
+            Some(Selection::Commit(..)) => {
+                (self.detail).update(cx, |detail, cx| detail.start_reword(window, cx))
+            }
+            Some(Selection::Terminal(project, id)) => {
+                if !self.navigator_open {
+                    self.set_navigator(true, window, cx);
+                }
+                (self.navigator).update(cx, |navigator, cx| {
+                    navigator.rename_terminal(project, id, window, cx)
+                })
+            }
+            _ => {}
         }
     }
 

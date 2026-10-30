@@ -1,4 +1,4 @@
-//! A branch's name edited in its row, as Lite does, rather than in a prompt.
+//! A branch's or a terminal's name edited in its row, as Lite does, rather than in a prompt.
 
 use gpui::{
     AnyElement, App, Context, Entity, Focusable as _, MouseButton, Subscription, Window, div,
@@ -9,14 +9,15 @@ use super::Navigator;
 use crate::backend::{FullName, short_ref};
 use crate::overlays::branch_name;
 use crate::state::{ProjectId, Selection, snack};
+use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{dp, field};
 
-/// The branch whose name is being edited, by its full ref, `None` for one without a name yet,
-/// and the field it's edited in.
+/// The row whose name is being edited, a branch's or a terminal's, and the field it's edited
+/// in.
 pub(super) struct Renaming {
-    branch: super::BranchKey,
+    item: Selection,
     input: Entity<TextInput>,
     _subscriptions: [Subscription; 3],
 }
@@ -66,6 +67,53 @@ impl Navigator {
                 InputEvent::Changed => {}
             }
         });
+        let item = Selection::Branch(project, ref_name);
+        self.edit_in_row(item, input, typed, window, cx)
+    }
+
+    /// Edit the name of terminal `id` in its row. Enter names it what's typed, even the title it
+    /// shows, which its shell's titles then don't change; with nothing typed, the shell's title
+    /// shows again. Escape, or a click anywhere else, leaves it as it was.
+    pub(crate) fn rename_terminal(
+        &mut self,
+        project: ProjectId,
+        id: TerminalId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(current) = self.store.read(cx).terminals.title(id).cloned() else {
+            return;
+        };
+        let input = cx.new(|cx| {
+            let mut input = TextInput::new("Terminal name", false, cx);
+            input.load(current.to_string(), cx);
+            input.select_all_text(cx);
+            input
+        });
+        let typed = cx.subscribe_in(&input, window, move |this, input, event, window, cx| {
+            let name = match event {
+                InputEvent::Submit => Some(input.read(cx).text().to_owned()),
+                InputEvent::Cancel => None,
+                InputEvent::Changed => return,
+            };
+            this.renaming = None;
+            this.focus_list(window, cx);
+            if let Some(name) = name {
+                (this.store).update(cx, |store, cx| store.name_terminal(id, &name, cx))
+            }
+        });
+        self.edit_in_row(Selection::Terminal(project, id), input, typed, window, cx)
+    }
+
+    /// Edit the name of `item`, the selection, in `input` in its row, `typed` taking its keys.
+    fn edit_in_row(
+        &mut self,
+        item: Selection,
+        input: Entity<TextInput>,
+        typed: Subscription,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         // The keys go where the click went. GPUI blurs it as another app comes in front too,
         // which leaves it as it is for when the window's back.
         let left = cx.on_blur(&input.focus_handle(cx), window, |this, window, cx| {
@@ -76,39 +124,52 @@ impl Navigator {
         });
         let moved = cx.observe(&self.store, |this, _, cx| this.end_rename_if_moved(cx));
         window.focus(&input.focus_handle(cx), cx);
-        // The branch is the selection: scrolled to, its field is drawn to take the keys. A
-        // filter that hides it goes first, as the palette can rename it from there.
-        let item = Selection::Branch(project.clone(), ref_name.clone());
+        // The row is the selection: scrolled to, its field is drawn to take the keys. A filter
+        // that hides it goes first, as the palette can rename it from there.
         if self.filtering(cx) && !self.items().contains(&&item) {
             self.filter.update(cx, |input, cx| input.set_text("", cx));
             self.filter_changed(cx);
         }
         self.reveal_selection = true;
         self.renaming = Some(Renaming {
-            branch: (project, ref_name),
+            item,
             input,
             _subscriptions: [typed, left, moved],
         });
         cx.notify();
     }
 
-    /// Stop editing a branch's name once something else is selected, as a click on another
-    /// row or the window coming back from another app with a click elsewhere does, or once the
-    /// branch is gone, as when an agent renamed it, saying so.
+    /// Stop editing a name once something else is selected, as a click on another row or the
+    /// window coming back from another app with a click elsewhere does, or once a branch is
+    /// gone, as when an agent renamed it, saying so. A terminal that closes takes the selection
+    /// with it.
     fn end_rename_if_moved(&mut self, cx: &mut Context<Self>) {
-        let Some((project, ref_name)) = self.renaming.as_ref().map(|r| &r.branch) else {
+        let Some(item) = self.renaming.as_ref().map(|r| &r.item) else {
             return;
         };
         let store = self.store.read(cx);
-        let gone = (store.workspace(project))
-            .is_some_and(|ws| ws.find_branch(ref_name.as_ref()).is_none());
-        let selected = matches!(&store.selection,
-            Some(Selection::Branch(p, r)) if p == project && r == ref_name);
-        let why = gone.then(|| {
-            let name = ref_name.as_ref().map_or("The branch".into(), short_ref);
-            format!("{name} was renamed or left the workspace meanwhile")
-        });
-        if selected && why.is_none() {
+        let why = match item {
+            Selection::Branch(project, ref_name) => (store.workspace(project))
+                .is_some_and(|ws| ws.find_branch(ref_name.as_ref()).is_none())
+                .then(|| {
+                    let name = ref_name.as_ref().map_or("The branch".into(), short_ref);
+                    format!("{name} was renamed or left the workspace meanwhile")
+                }),
+            Selection::Terminal(..) => None,
+            // Not renamed in their row.
+            Selection::Project(_)
+            | Selection::Uncommitted(_)
+            | Selection::Commit(..)
+            | Selection::Branches(_)
+            | Selection::History(_)
+            | Selection::Graph(_)
+            | Selection::Worktree(..)
+            | Selection::Stack(..)
+            | Selection::Mesh(..)
+            | Selection::Upstream(..)
+            | Selection::Section(..) => None,
+        };
+        if store.selection.as_ref() == Some(item) && why.is_none() {
             return;
         }
         self.renaming = None;
@@ -117,15 +178,9 @@ impl Navigator {
         }
     }
 
-    /// The field the name of branch `ref_name` is being edited in, in place of the name.
-    pub(super) fn rename_field(
-        &self,
-        project: &ProjectId,
-        ref_name: Option<&FullName>,
-        theme: &Theme,
-    ) -> Option<AnyElement> {
-        let renaming = (self.renaming.as_ref())
-            .filter(|r| r.branch.0 == *project && r.branch.1.as_ref() == ref_name)?;
+    /// The field the name of `item`'s row is being edited in, in place of the name.
+    pub(super) fn rename_field(&self, item: &Selection, theme: &Theme) -> Option<AnyElement> {
+        let renaming = self.renaming.as_ref().filter(|r| r.item == *item)?;
         Some(
             div()
                 .flex_grow(1.)
@@ -140,7 +195,10 @@ impl Navigator {
                         .px(dp(4.))
                         .py(dp(1.))
                         .text_color(theme.text_1)
-                        .font_weight(gpui::FontWeight::SEMIBOLD),
+                        // As a branch's name is.
+                        .when(matches!(item, Selection::Branch(..)), |field| {
+                            field.font_weight(gpui::FontWeight::SEMIBOLD)
+                        }),
                 )
                 .into_any_element(),
         )

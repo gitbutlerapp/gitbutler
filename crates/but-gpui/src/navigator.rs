@@ -2259,7 +2259,8 @@ impl Navigator {
             .into_any_element()
     }
 
-    /// A terminal open on the worktree it's under, by the title its shell gave it.
+    /// A terminal open on the worktree it's under, by the name the user gave it, else the title
+    /// its shell did.
     fn terminal_row(
         &self,
         item: &Selection,
@@ -2274,7 +2275,10 @@ impl Navigator {
             .row(format!("terminal-{}", id.0), 6.)
             .text_color(style.muted())
             .child(icon(Icon::TextCode).text_color(style.muted()))
-            .child(div().flex_1().min_w_0().truncate().child(title))
+            .child(match self.rename_field(item, style.theme) {
+                Some(field) => field,
+                None => (div().flex_1().min_w_0().truncate().child(title)).into_any_element(),
+            })
             .children(status_mark(status, !store.hidden(), style))
             .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx));
         Some(row.into_any_element())
@@ -2550,7 +2554,7 @@ impl Navigator {
         // An unread commit marks its branch with a dot too, folded or not.
         let unread = store.branch_unread(id, branch);
         let review = (branch.review.as_ref()).map(|r| (r, store.review_state(id, r)));
-        let rename = self.rename_field(id, ref_name, theme);
+        let rename = self.rename_field(item, theme);
         let pushing = ref_name.is_some_and(|r| store.pushing(id, r));
         let push = (self.push_button(id, ref_name, &row_id, pushing, style, cx))
             .filter(|_| rename.is_none());

@@ -149,7 +149,8 @@
   },
   // Renaming, deleting and taking out do what fits the selection, so each key is bound once for
   // each of those, a section apiece, and runs the one the selection has. F2 is the rename key on
-  // Windows and Linux, and Lite's; r is the one shown. A commit's:
+  // Windows and Linux, and Lite's; r is the one shown. A commit's, where rewording a terminal
+  // names it:
   {
     "context": "Navigator && !TextInput",
     "bindings": {

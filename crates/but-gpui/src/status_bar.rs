@@ -271,6 +271,7 @@ impl AppView {
                 Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => {
                     vec![(&StartCommit, "commit")]
                 }
+                Some(Selection::Terminal(..)) => vec![(&Reword, "reword")],
                 _ => Vec::new(),
             };
             if store.can_undo() {
