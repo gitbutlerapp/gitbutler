@@ -34,7 +34,7 @@ use crate::ui::{
 
 pub use cli::welcome_card;
 
-actions!(settings, [OpenSettings, OpenKeyboardShortcuts]);
+actions!(settings, [OpenSettings, OpenKeyboardShortcuts, FocusSearch]);
 
 /// " ⌥Z in a diff turns it on and off.", with the keys bound to `action`, or nothing when no key
 /// is, as the user's keymap can leave it.
@@ -1266,6 +1266,12 @@ impl Render for SettingsView {
             );
         modal(ModalSize::Large, &theme)
             .id("settings")
+            .key_context("Settings")
+            // From a page link or a control, as / goes to the navigator's filter.
+            .on_action(cx.listener(|this, _: &FocusSearch, window, cx| {
+                (this.search).update(cx, |search, cx| search.select_all_text(cx));
+                this.back_to_search(window, cx);
+            }))
             .h(dp(height))
             .flex_row()
             .child(

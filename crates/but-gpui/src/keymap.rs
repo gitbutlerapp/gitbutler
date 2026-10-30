@@ -26,7 +26,8 @@ pub enum Keymap {
     GitButler,
     /// Like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming and
     /// adding an empty commit, Return to fold and unfold, f and ⇧F to show and hide the files
-    /// and the navigator, ⌘K for the command palette, and ⌘R and ⇧⌘R to fetch and pull.
+    /// and the navigator, / to filter or find, ⌘K for the command palette, and ⌘R and ⇧⌘R to
+    /// fetch and pull.
     Tui,
 }
 
