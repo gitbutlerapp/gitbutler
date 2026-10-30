@@ -1118,23 +1118,17 @@ async fn display_authenticated_github_accounts(
     let mut some_accounts_invalid = false;
 
     for account in known_gh_accounts {
-        let account_status = but_api::github::check_github_credentials(account.clone())
-            .await
-            .ok();
-
-        let message = match account_status {
-            Some(but_github::CredentialCheckResult::Valid) => {
-                t.success.paint("(valid credentials)")
-            }
-            Some(but_github::CredentialCheckResult::Invalid) => {
+        let message = match but_api::github::check_github_credentials(account.clone()).await {
+            Ok(but_github::CredentialCheckResult::Valid) => t.success.paint("(valid credentials)"),
+            Ok(but_github::CredentialCheckResult::Invalid) => {
                 some_accounts_invalid = true;
                 t.attention.paint("(invalid credentials)")
             }
-            Some(but_github::CredentialCheckResult::NoCredentials) => {
+            Ok(but_github::CredentialCheckResult::NoCredentials) => {
                 some_accounts_invalid = true;
                 t.attention.paint("(no credentials)")
             }
-            None => t.error.paint("(unknown status)"),
+            Err(err) => t.error.paint(format!("(unknown status: {err:#})")),
         };
 
         writeln!(out, "  • {account} {message}")?;
@@ -1162,23 +1156,17 @@ async fn display_authenticated_gitlab_accounts(
     let mut some_accounts_invalid = false;
 
     for account in known_gl_accounts {
-        let account_status = but_api::gitlab::check_gitlab_credentials(account.clone())
-            .await
-            .ok();
-
-        let message = match account_status {
-            Some(but_gitlab::CredentialCheckResult::Valid) => {
-                t.success.paint("(valid credentials)")
-            }
-            Some(but_gitlab::CredentialCheckResult::Invalid) => {
+        let message = match but_api::gitlab::check_gitlab_credentials(account.clone()).await {
+            Ok(but_gitlab::CredentialCheckResult::Valid) => t.success.paint("(valid credentials)"),
+            Ok(but_gitlab::CredentialCheckResult::Invalid) => {
                 some_accounts_invalid = true;
                 t.attention.paint("(invalid credentials)")
             }
-            Some(but_gitlab::CredentialCheckResult::NoCredentials) => {
+            Ok(but_gitlab::CredentialCheckResult::NoCredentials) => {
                 some_accounts_invalid = true;
                 t.attention.paint("(no credentials)")
             }
-            None => t.error.paint("(unknown status)"),
+            Err(err) => t.error.paint(format!("(unknown status: {err:#})")),
         };
 
         writeln!(out, "  • {account} {message}")?;
@@ -1206,23 +1194,19 @@ async fn display_authenticated_bitbucket_accounts(
     let mut some_accounts_invalid = false;
 
     for account in known_bb_accounts {
-        let account_status = but_api::bitbucket::check_bitbucket_credentials(account.clone())
-            .await
-            .ok();
-
-        let message = match account_status {
-            Some(but_bitbucket::CredentialCheckResult::Valid) => {
+        let message = match but_api::bitbucket::check_bitbucket_credentials(account.clone()).await {
+            Ok(but_bitbucket::CredentialCheckResult::Valid) => {
                 t.success.paint("(valid credentials)")
             }
-            Some(but_bitbucket::CredentialCheckResult::Invalid) => {
+            Ok(but_bitbucket::CredentialCheckResult::Invalid) => {
                 some_accounts_invalid = true;
                 t.attention.paint("(invalid credentials)")
             }
-            Some(but_bitbucket::CredentialCheckResult::NoCredentials) => {
+            Ok(but_bitbucket::CredentialCheckResult::NoCredentials) => {
                 some_accounts_invalid = true;
                 t.attention.paint("(no credentials)")
             }
-            None => t.error.paint("(unknown status)"),
+            Err(err) => t.error.paint(format!("(unknown status: {err:#})")),
         };
 
         writeln!(out, "  • {account} {message}")?;
