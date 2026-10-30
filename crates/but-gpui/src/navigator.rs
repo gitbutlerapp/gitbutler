@@ -2398,8 +2398,9 @@ impl Navigator {
         let unread = store.branch_unread(id, branch);
         let review = (branch.review.as_ref()).map(|r| (r, store.review_state(id, r)));
         let rename = self.rename_field(id, ref_name, theme);
-        let push =
-            (self.push_button(id, ref_name, &row_id, style, cx)).filter(|_| rename.is_none());
+        let pushing = ref_name.is_some_and(|r| store.pushing(id, r));
+        let push = (self.push_button(id, ref_name, &row_id, pushing, style, cx))
+            .filter(|_| rename.is_none());
         Some(
             style
                 .row(format!("branch-{id}-{row_id}"), 6.)
@@ -2464,11 +2465,9 @@ impl Navigator {
                     ))
                 })
                 // While it pushes, its count pulses where it is.
-                .children(style.unpushed(unpushed_n).map(|count| {
-                    match ref_name.is_some_and(|r| store.pushing(id, r)) {
-                        true => pulsing(count).into_any_element(),
-                        false => count.into_any_element(),
-                    }
+                .children(style.unpushed(unpushed_n).map(|count| match pushing {
+                    true => pulsing(count).into_any_element(),
+                    false => count.into_any_element(),
                 }))
                 // Folded, how many commits it holds; open, they're listed under it.
                 .when(!open, |el| el.children(style.commits(branch.commits.len())))
@@ -2487,13 +2486,15 @@ impl Navigator {
         )
     }
 
-    /// Floats over the end of the branch row under the pointer. Pressing it pushes without
-    /// selecting the branch, and pressing it disabled does nothing to the row either.
+    /// Floats over the end of the branch row under the pointer, or of one `pushing`, pulsing.
+    /// Pressing it pushes without selecting the branch, and pressing it disabled does nothing
+    /// to the row either.
     fn push_button(
         &self,
         project: &ProjectId,
         ref_name: Option<&FullName>,
         row_id: &str,
+        pushing: bool,
         style: RowStyle,
         cx: &Context<Self>,
     ) -> Option<Div> {
@@ -2507,9 +2508,17 @@ impl Navigator {
             .small()
             .style(ButtonStyle::Outline)
             .inverted(style.solid)
-            .tooltip(ref_name.map_or("Push", |r| ws.push_tooltip(r)))
-            .disabled_because(ws.push_blocked(ref_name))
+            .tooltip(match (pushing, ref_name) {
+                (true, _) => "Pushing",
+                (false, Some(ref_name)) => ws.push_tooltip(ref_name),
+                (false, None) => "Push",
+            })
+            // Pushing it pulses at full strength, rather than faded as a disabled button is.
+            .disabled_because(ws.push_blocked(ref_name).filter(|_| !pushing))
             .on_click(cx.listener(move |this, _, window, cx| {
+                if pushing {
+                    return;
+                }
                 let (project, ref_name) = pushed.clone();
                 this.app.update_later(window, cx, move |app, window, cx| {
                     app.push_branch(project, ref_name, window, cx)
@@ -2526,10 +2535,14 @@ impl Navigator {
                     true => theme.fill_gray,
                     false => theme.bg_2,
                 })
-                .opacity(0.)
-                .group_hover(BRANCH_ROW, |el| el.opacity(1.))
+                .when(!pushing, |el| {
+                    el.opacity(0.).group_hover(BRANCH_ROW, |el| el.opacity(1.))
+                })
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .child(button),
+                .child(match pushing {
+                    true => pulsing(div().child(button)).into_any_element(),
+                    false => button.into_any_element(),
+                }),
         )
     }
 
