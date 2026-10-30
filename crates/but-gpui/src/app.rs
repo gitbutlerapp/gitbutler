@@ -2000,8 +2000,10 @@ fn theme_for(store: &Store, window: &Window) -> Theme {
     let prefs = &store.prefs;
     let (scheme, system) = (&prefs.color_scheme, window.appearance());
     let ghostty = but_tty::Ghostty::load();
+    let digit = |family: &str| crate::ui::digit_advance(family, window.text_system());
     Theme::new(prefs.appearance, scheme, system, prefs.code_size, &ghostty)
         .with_scale(prefs.ui_scale)
+        .with_diff_font(prefs.diff_font.as_deref(), digit)
 }
 
 /// What the snackbar says after copying `text`: the text itself when it's short.

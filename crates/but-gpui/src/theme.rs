@@ -59,6 +59,10 @@ pub struct Theme {
     pub mono_font: SharedString,
     /// Geist Mono with Nerd Font icons and box drawing, for TUIs in the terminals.
     pub terminal_font: SharedString,
+    /// What code in diffs shows in: `mono_font` unless another was picked.
+    pub diff_font: SharedString,
+    /// How wide a digit of `diff_font` is, in ems.
+    pub diff_digit: f32,
     /// Code in diffs: its size and the height of a line of it.
     pub code_text: f32,
     pub code_line: f32,
@@ -180,6 +184,20 @@ impl Theme {
     /// This theme with code in diffs at `size`.
     pub fn with_code(mut self, size: CodeSize) -> Self {
         (self.code_text, self.code_line) = size.metrics();
+        self
+    }
+
+    /// This theme with code in diffs in `family`, unless `digit`, which gives how wide a family's
+    /// digits are in ems, finds the machine hasn't got it.
+    pub fn with_diff_font(
+        mut self,
+        family: Option<&str>,
+        digit: impl Fn(&str) -> Option<f32>,
+    ) -> Self {
+        if let Some((family, width)) = family.and_then(|family| Some((family, digit(family)?))) {
+            self.diff_font = family.to_owned().into();
+            self.diff_digit = width;
+        }
         self
     }
 
@@ -309,6 +327,8 @@ impl Theme {
             ui_font: "Inter".into(),
             mono_font: "Geist Mono".into(),
             terminal_font: "GeistMono Nerd Font Mono".into(),
+            diff_font: "Geist Mono".into(),
+            diff_digit: 0.6,
             // Shiki's GitHub light and dark, as but.dev highlights diffs. In `Token` order:
             // comment, string, constant, keyword, function, type, tag.
             syntax: [
@@ -571,9 +591,9 @@ mod tests {
     /// `colors`, asked for in `choice`.
     fn ghostty_theme(colors: Colors, choice: Appearance) -> Theme {
         let ghostty = Ghostty {
-            font_size: None,
             light: colors.clone(),
             dark: colors,
+            ..Ghostty::default()
         };
         let system = WindowAppearance::Light;
         Theme::new(
@@ -654,9 +674,9 @@ mod tests {
     #[test]
     fn gitbutlers_terminals_draw_in_its_colours_whatever_ghostty_sets() {
         let ghostty = Ghostty {
-            font_size: None,
             light: palette(0x000000, 0xffffff, [0x123456; 8]),
             dark: palette(0x000000, 0xffffff, [0x123456; 8]),
+            ..Ghostty::default()
         };
         let system = WindowAppearance::Light;
         for choice in [Appearance::Light, Appearance::Dark] {
@@ -681,6 +701,33 @@ mod tests {
             );
             assert_eq!(terminal.palette.len(), 16, "every ANSI colour is set");
         }
+    }
+
+    fn gitbutler_theme() -> Theme {
+        Theme::new(
+            Appearance::Dark,
+            &ColorScheme::GitButler,
+            WindowAppearance::Light,
+            CodeSize::Medium,
+            &Ghostty::default(),
+        )
+    }
+
+    #[test]
+    fn diffs_show_a_picked_font_only_when_the_machine_has_it() {
+        let digit = |family: &str| (family == "Menlo").then_some(0.5);
+        let picked = gitbutler_theme().with_diff_font(Some("Menlo"), digit);
+        assert_eq!(
+            (picked.diff_font.as_ref(), picked.diff_digit),
+            ("Menlo", 0.5),
+            "the picked font draws, with its own digit width"
+        );
+        let gone = gitbutler_theme().with_diff_font(Some("Gone"), digit);
+        assert_eq!(
+            (gone.diff_font, gone.diff_digit),
+            (gone.mono_font, 0.6),
+            "a font that's gone keeps the app's own, and its width"
+        );
     }
 
     #[test]

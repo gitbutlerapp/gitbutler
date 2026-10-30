@@ -734,7 +734,7 @@ pub fn hunk_header(
         // unless the lines around it name its scopes.
         (0, None) if hunk.scope.is_empty() => Some(
             div()
-                .font_family(theme.mono_font.clone())
+                .font_family(theme.diff_font.clone())
                 .child(hunk.header.clone())
                 .into_any_element(),
         ),
@@ -902,9 +902,9 @@ pub(super) fn look(kind: LineKind, plain: bool, theme: &Theme) -> Look {
     }
 }
 
-/// The width of a digit of code: Geist Mono's are 0.6em wide.
+/// The width of a digit of code.
 pub fn digit_width(theme: &Theme) -> f32 {
-    theme.code_text * 0.6
+    theme.code_text * theme.diff_digit
 }
 
 /// A line's number, in a column that fits `digits`, at least three, as on but.dev: with two
@@ -1080,7 +1080,7 @@ pub(super) fn line_card(
             }
         })
         .line_height(dp(theme.code_line))
-        .font_family(theme.mono_font.clone())
+        .font_family(theme.diff_font.clone())
         .text_size(dp(theme.code_text))
         .when(last, |el| el.border_b_1().rounded_b(dp(6.)))
         .overflow_hidden()
@@ -1098,7 +1098,7 @@ pub fn excerpt(lines: &[DiffLine], theme: &Theme) -> gpui::Div {
         .border_1()
         .border_color(theme.border_3)
         .overflow_hidden()
-        .font_family(theme.mono_font.clone())
+        .font_family(theme.diff_font.clone())
         .text_size(dp(theme.code_text))
         .line_height(dp(theme.code_line))
         .children(lines.iter().map(|line| {
@@ -1352,7 +1352,7 @@ fn scopes(scope: &[String], on: bool, theme: &Theme) -> Option<AnyElement> {
         .min_w_0()
         .gap(dp(6.))
         .overflow_hidden()
-        .font_family(theme.mono_font.clone())
+        .font_family(theme.diff_font.clone())
         .children(outer.iter().map(|scope| {
             h_flex()
                 .flex_shrink(1.)

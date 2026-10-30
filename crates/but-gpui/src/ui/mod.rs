@@ -266,6 +266,16 @@ pub fn fonts() -> Vec<Cow<'static, [u8]>> {
     )
 }
 
+/// How wide a digit of `family` is in ems, or `None` when the machine hasn't got it, as GPUI
+/// would quietly draw it in its own fallback.
+pub fn digit_advance(family: &str, text_system: &gpui::TextSystem) -> Option<f32> {
+    let id = text_system.resolve_font(&gpui::font(family.to_owned()));
+    (text_system.get_font_for_id(id)?.family == family).then_some(())?;
+    let size = fixed(100.);
+    let advance = text_system.advance(id, size, '0').ok()?;
+    Some(advance.width / size)
+}
+
 /// Match each of `fonts`' faces against the installed fonts in the background, as Zed does.
 /// cosmic-text otherwise does it on the main thread the first time it lays out text in a face,
 /// and it walks every installed font to do so.

@@ -120,9 +120,9 @@ mod tests {
             ..Default::default()
         };
         let ghostty = but_tty::Ghostty {
-            font_size: None,
             light: Default::default(),
             dark: dark_scheme,
+            ..but_tty::Ghostty::default()
         };
         for (choice, scheme) in [
             (Appearance::Light, ColorScheme::GitButler),
