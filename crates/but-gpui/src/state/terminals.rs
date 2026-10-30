@@ -155,7 +155,9 @@ impl Store {
     }
 
     fn retitle_terminal(&mut self, id: TerminalId, title: SharedString, cx: &mut Context<Self>) {
-        if let Some(open) = self.terminals.open.iter_mut().find(|open| open.id == id) {
+        if let Some(open) = self.terminals.open.iter_mut().find(|open| open.id == id)
+            && open.title != title
+        {
             open.title = title;
             cx.notify();
         }
