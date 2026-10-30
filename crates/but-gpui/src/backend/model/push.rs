@@ -7,6 +7,14 @@ impl Workspace {
         self.chain(ref_name).flat_map(|link| link.branches())
     }
 
+    /// The branches below `ref_name` that pushing it sends commits for.
+    pub(crate) fn parents_to_push(
+        &self,
+        ref_name: &super::FullName,
+    ) -> impl Iterator<Item = &Branch> {
+        (self.pushed_with(ref_name).skip(1)).filter(|b| b.ref_name.is_some() && b.can_push())
+    }
+
     /// Whether pushing `ref_name` takes GitButler's workspace commit along, which merges every
     /// applied branch: the lanes it goes down end on a commit no lane holds, as one started
     /// on the main checkout's `HEAD` does.
@@ -86,7 +94,7 @@ impl Workspace {
         };
         match self.can_push(ref_name) {
             true => self.push_refused(ref_name),
-            false => Some("Nothing to push yet"),
+            false => Some("Nothing to push"),
         }
     }
 
@@ -95,6 +103,17 @@ impl Workspace {
         match self.needs_force(ref_name) {
             true => "Force push",
             false => "Push",
+        }
+    }
+
+    /// What pushing `ref_name` does, in a tooltip: whether it forces, and takes its parents along.
+    pub fn push_tooltip(&self, ref_name: &super::FullName) -> &'static str {
+        let with_parents = self.parents_to_push(ref_name).next().is_some();
+        match (self.needs_force(ref_name), with_parents) {
+            (false, false) => "Push",
+            (false, true) => "Push with parents",
+            (true, false) => "Force push",
+            (true, true) => "Force push with parents",
         }
     }
 
@@ -182,6 +201,59 @@ wt with wt pushed, middle rewritten, bottom pushed: force push
 wt with wt pushed, middle pushed, bottom new: push
 wt with wt new, middle conflicted, bottom pushed: Resolve the conflicted commits first
 middle with wt new, middle pushed, bottom pushed: nothing to push
+
+"#]]
+        );
+    }
+
+    #[test]
+    fn a_branch_says_it_pushes_with_parents_only_while_they_have_commits_to_send() {
+        let standing = |name: &str, commits: &[u8], push: PushState, state: CommitState| {
+            let mut branch = branch(name, commits);
+            branch.push = push;
+            for commit in &mut branch.commits {
+                commit.state = state;
+            }
+            branch
+        };
+        let new =
+            |name: &str, commit| standing(name, &[commit], PushState::Unpushed, CommitState::Local);
+        let pushed = |name: &str, commit| {
+            standing(
+                name,
+                &[commit],
+                PushState::NothingToPush,
+                CommitState::Pushed,
+            )
+        };
+        let rewritten = |name: &str, commit| {
+            standing(name, &[commit], PushState::NeedsForce, CommitState::Local)
+        };
+        let says: String = [
+            ("both new", new("a", 1), new("b", 2)),
+            ("b pushed", new("a", 1), pushed("b", 2)),
+            ("a rewritten", rewritten("a", 1), pushed("b", 2)),
+            ("b rewritten", new("a", 1), rewritten("b", 2)),
+            ("only b new", pushed("a", 1), new("b", 2)),
+        ]
+        .map(|(state, a, b)| {
+            let ws = workspace(vec![vec![a, b]], Vec::new());
+            format!(
+                "{state}: a {}, b {}\n",
+                ws.push_tooltip(&full("refs/heads/a")),
+                ws.push_tooltip(&full("refs/heads/b")),
+            )
+        })
+        .concat();
+        // The bottom branch has no parents, and a parent counts only with something to send.
+        snapbox::assert_data_eq!(
+            says,
+            snapbox::str![[r#"
+both new: a Push with parents, b Push
+b pushed: a Push, b Push
+a rewritten: a Force push, b Push
+b rewritten: a Force push with parents, b Force push
+only b new: a Push with parents, b Push
 
 "#]]
         );

@@ -750,11 +750,7 @@ impl Store {
         let name = short_ref(&ref_name).into_owned();
         // The branches below it with commits to send go along, down the lanes it rests on,
         // which the snackbar says.
-        let below = self.workspace(project).map_or(0, |ws| {
-            (ws.pushed_with(&ref_name).skip(1))
-                .filter(|b| b.ref_name.is_some() && b.can_push())
-                .count()
-        });
+        let below = (self.workspace(project)).map_or(0, |ws| ws.parents_to_push(&ref_name).count());
         let all = match below {
             0 => name.clone(),
             1 => format!("{name} and the branch below it"),
