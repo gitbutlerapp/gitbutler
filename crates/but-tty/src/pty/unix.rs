@@ -337,7 +337,7 @@ mod tests {
     fn a_shell_outrunning_its_reader_waits_and_nothing_is_lost_when_its_kept() {
         let (mut pty, mut output) = Pty::spawn(&std::env::temp_dir(), SIZE).unwrap();
         const LAST: u32 = 400_000;
-        pty.write(format!("seq 1 {LAST}; echo done-$((1+1))\n").as_bytes())
+        pty.write(format!("echo; seq 1 {LAST}; echo done-$((1+1))\n").as_bytes())
             .unwrap();
         let started = Instant::now();
         while output.queued.load(Ordering::SeqCst) < MOST_QUEUED {
