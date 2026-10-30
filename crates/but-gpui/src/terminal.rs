@@ -4,23 +4,25 @@
 use std::cell::{Cell, RefCell};
 use std::ops::Range;
 use std::rc::Rc;
+use std::time::Duration;
 
 use futures::StreamExt;
 use futures::channel::mpsc;
 use gpui::{
-    App, Context, DispatchPhase, Entity, EventEmitter, FocusHandle, Focusable, FontWeight,
-    HighlightStyle, HitboxBehavior, Hsla, KeyDownEvent, Modifiers, MouseButton, MouseDownEvent,
-    MouseMoveEvent, MouseUpEvent, Pixels, Point, Rgba, ScrollWheelEvent, SharedString,
-    StrikethroughStyle, StyledText, Task, UnderlineStyle, WeakEntity, Window, actions, canvas, div,
-    prelude::*,
+    App, Context, CursorStyle, DispatchPhase, Entity, EventEmitter, FocusHandle, Focusable,
+    FontWeight, HighlightStyle, HitboxBehavior, Hsla, KeyDownEvent, Modifiers, MouseButton,
+    MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, Point, Rgba, ScrollWheelEvent,
+    SharedString, StrikethroughStyle, StyledText, Task, UnderlineStyle, WeakEntity, Window,
+    actions, canvas, div, prelude::*,
 };
 use libghostty_vt::fmt::{Format, Formatter, FormatterOptions};
 use libghostty_vt::key::{self, Key, Mods};
 use libghostty_vt::mouse;
 use libghostty_vt::render::{CellIterator, Dirty, RowIterator};
 use libghostty_vt::screen::CellWide;
+use libghostty_vt::selection::gesture::{self, Gesture};
 use libghostty_vt::style::{RgbColor, Underline};
-use libghostty_vt::terminal::{Mode, ScrollViewport};
+use libghostty_vt::terminal::{Mode, PointCoordinate, ScrollViewport};
 use libghostty_vt::{RenderState, TerminalOptions, paste};
 
 #[cfg(unix)]
@@ -71,6 +73,8 @@ pub struct Terminal {
 enum Held {
     /// The program tracking the mouse is told where it goes.
     Reported,
+    /// It selects, as Ghostty does.
+    Selecting,
 }
 
 impl EventEmitter<TerminalEvent> for Terminal {}
@@ -196,6 +200,7 @@ impl Terminal {
             return;
         }
         self.vt.term.scroll_viewport(ScrollViewport::Bottom);
+        self.vt.term.set_selection(None).ok();
         self.scrolled = fixed(0.);
         self.pty.write(bytes).ok();
         cx.notify();
@@ -275,6 +280,12 @@ impl Terminal {
                 event.modifiers,
             );
             self.held = Some(Held::Reported);
+        } else if event.button == MouseButton::Left {
+            let at = self.grid.get().surface(event.position, self.size);
+            let repeated = event.click_count > 1;
+            self.vt.select_press(at, self.size, repeated).ok();
+            self.held = Some(Held::Selecting);
+            cx.notify();
         }
     }
 
@@ -298,6 +309,13 @@ impl Terminal {
                 );
                 cx.stop_propagation();
             }
+            (Some(Held::Selecting), DispatchPhase::Capture) => {
+                let at = self.grid.get().surface(event.position, self.size);
+                let rectangle = rectangle(event.modifiers);
+                self.vt.select_drag(at, self.size, rectangle).ok();
+                cx.notify();
+                cx.stop_propagation();
+            }
             (None, DispatchPhase::Bubble) if hovered && self.reports(event.modifiers) => {
                 self.report(mouse::Action::Motion, None, event.position, event.modifiers);
             }
@@ -309,14 +327,21 @@ impl Terminal {
         if phase != DispatchPhase::Capture {
             return;
         }
-        if let Some(Held::Reported) = self.held.take() {
-            let button = button(event.button);
-            self.report(
-                mouse::Action::Release,
-                button,
-                event.position,
-                event.modifiers,
-            );
+        match self.held.take() {
+            Some(Held::Reported) => {
+                let button = button(event.button);
+                self.report(
+                    mouse::Action::Release,
+                    button,
+                    event.position,
+                    event.modifiers,
+                );
+            }
+            Some(Held::Selecting) => {
+                let at = self.grid.get().surface(event.position, self.size);
+                self.vt.select_release(at, self.size).ok();
+            }
+            None => {}
         }
     }
 
@@ -377,6 +402,10 @@ impl Render for Terminal {
             .map_or(font_size * 0.6, |advance| advance.width);
         let cell_height = theme.scaled(line);
         let focused = self.focus.is_focused(window);
+        let pointer_style = match self.vt.term.is_mouse_tracking().unwrap_or(false) {
+            true => CursorStyle::Arrow,
+            false => CursorStyle::IBeam,
+        };
         let frame = (self.vt.frame(self.ghostty.colors(theme.dark))).unwrap_or_default();
         let this = cx.entity().downgrade();
         let measured = Rc::new(Cell::new(self.size));
@@ -444,6 +473,7 @@ impl Render for Terminal {
             .on_key_down(cx.listener(Self::key_down))
             .on_any_mouse_down(cx.listener(Self::mouse_down))
             .on_scroll_wheel(cx.listener(Self::scroll))
+            .cursor(pointer_style)
             .size_full()
             .p(dp(8.))
             .bg(frame.background)
@@ -522,6 +552,12 @@ struct Vt {
     key: key::Event<'static>,
     mouse: mouse::Encoder<'static>,
     pointer: mouse::Event<'static>,
+    selecting: Gesture<'static>,
+    press: gesture::PressEvent<'static>,
+    drag: gesture::DragEvent<'static>,
+    release: gesture::ReleaseEvent<'static>,
+    /// When the gesture was last told a press was, by clicks rather than the clock.
+    pressed: Duration,
     /// What the emulator answers the shell's queries with, to send it.
     replies: Rc<Cell<Vec<u8>>>,
     retitled: Rc<Cell<bool>>,
@@ -573,6 +609,11 @@ impl Vt {
             key: key::Event::new()?,
             mouse,
             pointer: mouse::Event::new()?,
+            selecting: Gesture::new()?,
+            press: gesture::PressEvent::new()?,
+            drag: gesture::DragEvent::new()?,
+            release: gesture::ReleaseEvent::new()?,
+            pressed: Duration::ZERO,
             replies,
             retitled,
         })
@@ -652,6 +693,61 @@ impl Vt {
         (0..lines.abs() as usize)
             .flat_map(|_| self.mouse(mouse::Action::Press, Some(button), at, mods))
             .collect()
+    }
+
+    /// A left press over `at` on the surface, `repeated` when the platform counts it the next
+    /// click in a row. Those are given the gesture at the time of the click before and others
+    /// a gap later, so double and triple clicks keep to the system's speed, as Ghostty's do.
+    fn select_press(
+        &mut self,
+        at: mouse::Position,
+        size: Size,
+        repeated: bool,
+    ) -> libghostty_vt::error::Result<()> {
+        const REPEAT: Duration = Duration::from_secs(1);
+        if !repeated {
+            self.pressed += 2 * REPEAT;
+        }
+        (self.press)
+            .set_position(f64::from(at.x), f64::from(at.y))?
+            .set_time(self.pressed)?
+            .set_repeat_interval(REPEAT)?;
+        let cell = self.term.grid_ref(viewport(at, size))?;
+        let selection = self.press.apply(&mut self.selecting, &self.term, cell)?;
+        self.term.set_selection(selection.as_ref())?;
+        Ok(())
+    }
+
+    /// The press dragged to `at` on the surface; a block between it and where it began if
+    /// `rectangle`.
+    fn select_drag(
+        &mut self,
+        at: mouse::Position,
+        size: Size,
+        rectangle: bool,
+    ) -> libghostty_vt::error::Result<()> {
+        (self.drag)
+            .set_position(f64::from(at.x), f64::from(at.y))?
+            .set_rectangle(rectangle)?;
+        let cell = self.term.grid_ref(viewport(at, size))?;
+        let geometry = gesture::Geometry {
+            columns: u32::from(size.cols),
+            cell_width: u32::from(size.cell_width.max(1)),
+            padding_left: 0,
+            screen_height: u32::from(size.rows) * u32::from(size.cell_height),
+        };
+        let selection = (self.drag).apply(&mut self.selecting, &self.term, cell, geometry)?;
+        self.term.set_selection(selection.as_ref())?;
+        Ok(())
+    }
+
+    fn select_release(
+        &mut self,
+        at: mouse::Position,
+        size: Size,
+    ) -> libghostty_vt::error::Result<()> {
+        let cell = self.term.grid_ref(viewport(at, size))?;
+        (self.release).apply(&mut self.selecting, &self.term, Some(cell))
     }
 
     fn paste(&self, text: &str) -> Vec<u8> {
@@ -771,6 +867,22 @@ impl Vt {
         snapshot.set_dirty(Dirty::Clean)?;
         Ok(frame)
     }
+}
+
+/// The viewport cell under `at` on the surface, or the nearest one when it's outside.
+fn viewport(at: mouse::Position, size: Size) -> libghostty_vt::terminal::Point {
+    let index = |at: f32, cell: u16, count: u16| {
+        ((at / f32::from(cell.max(1))).max(0.) as u16).min(count.saturating_sub(1))
+    };
+    libghostty_vt::terminal::Point::Viewport(PointCoordinate {
+        x: index(at.x, size.cell_width, size.cols),
+        y: u32::from(index(at.y, size.cell_height, size.rows)),
+    })
+}
+
+/// Whether a drag selects a block, with ⌥ on macOS and ⌃⌥ elsewhere, as in Ghostty.
+fn rectangle(modifiers: Modifiers) -> bool {
+    modifiers.alt && (cfg!(target_os = "macos") || modifiers.control)
 }
 
 fn encoder_size(size: Size) -> mouse::EncoderSize {
@@ -1016,6 +1128,53 @@ mod tests {
             backgrounds,
             [("hello", Some(frame.foreground)), (" world", None)],
             "only the selection is drawn, on the foreground colour"
+        );
+    }
+
+    /// The text of each run on the first row drawn on a background of its own.
+    fn highlighted(vt: &mut Vt) -> Vec<String> {
+        let frame = vt.frame(&Colors::default()).unwrap();
+        let (text, runs) = &frame.rows[0];
+        (runs.iter())
+            .filter(|(_, style)| style.background_color.is_some())
+            .map(|(range, _)| text[range.clone()].to_owned())
+            .collect()
+    }
+
+    #[test]
+    fn a_double_click_dragged_selects_by_word() {
+        let mut vt = Vt::new(Terminal::OPENING).unwrap();
+        vt.write(b"hello brave new world");
+        let size = Terminal::OPENING;
+        let over = |col: f32| mouse::Position {
+            x: col * 8. + 4.,
+            y: 8.,
+        };
+        vt.select_press(over(7.), size, false).unwrap();
+        vt.select_release(over(7.), size).unwrap();
+        assert_eq!(
+            highlighted(&mut vt),
+            Vec::<String>::new(),
+            "a click selects nothing"
+        );
+        vt.select_press(over(7.), size, true).unwrap();
+        assert_eq!(
+            highlighted(&mut vt),
+            ["brave"],
+            "a second click in a row takes the word"
+        );
+        vt.select_drag(over(18.), size, false).unwrap();
+        assert_eq!(
+            highlighted(&mut vt),
+            ["brave new world"],
+            "dragging from it takes whole words up to the one under the pointer"
+        );
+        vt.select_release(over(18.), size).unwrap();
+        vt.select_press(over(7.), size, false).unwrap();
+        assert_eq!(
+            highlighted(&mut vt),
+            Vec::<String>::new(),
+            "a click a while later is a first click again, and clears it"
         );
     }
 
