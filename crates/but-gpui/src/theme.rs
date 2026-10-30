@@ -53,6 +53,8 @@ pub struct Theme {
     pub person: [[Hsla; 2]; 5],
     pub ui_font: SharedString,
     pub mono_font: SharedString,
+    /// Geist Mono with Nerd Font icons and box drawing, for TUIs in the terminals.
+    pub terminal_font: SharedString,
     /// Code in diffs: its size and the height of a line of it.
     pub code_text: f32,
     pub code_line: f32,
@@ -246,6 +248,7 @@ impl Theme {
             // Embedded by `ui::fonts`.
             ui_font: "Inter".into(),
             mono_font: "Geist Mono".into(),
+            terminal_font: "GeistMono Nerd Font Mono".into(),
             // Shiki's GitHub light and dark, as but.dev highlights diffs. In `Token` order:
             // comment, string, constant, keyword, function, type, tag.
             syntax: [
