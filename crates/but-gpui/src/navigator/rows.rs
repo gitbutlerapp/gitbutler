@@ -1,12 +1,12 @@
 //! The navigator's tree of rows as it's built, before any is drawn: every card's
-//! projects, worktrees, stacks, branches and commits, and under the filter, what it finds.
+//! projects, worktrees, branches and commits, and under the filter, what it finds.
 
 use std::collections::HashMap;
 use std::time::Duration;
 
 use gpui::{App, SharedString};
 
-use super::moving::{landing_at, moving_away, parts};
+use super::moving::{landing_at, moving_away};
 use super::{BranchKey, ClickOpened, Navigator, STEP, upstream_chevrons};
 use crate::backend::{
     Branch, Checkout, Commit, CommitId, Destination, FullName, Lane, Workspace, Worktree,
@@ -20,9 +20,6 @@ use crate::ui::fold::{Folds, MOVING_ROWS};
 /// Commits shown per branch before folding the rest into "N more".
 const FOLD_AFTER: usize = 8;
 
-/// How tall [`Row::Between`] is.
-pub(super) const BETWEEN: f32 = 20.;
-
 /// How recently a project was last active for "Active in the last 7 days" to keep it.
 const ACTIVE_WITHIN: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 
@@ -31,7 +28,7 @@ const ACTIVE_WITHIN: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 pub(super) enum Row {
     /// The space between two cards.
     Gap,
-    /// Whatever the [`Selection`] names: a project, a worktree, a stack, a branch, a commit,
+    /// Whatever the [`Selection`] names: a project, a worktree, a branch, a commit,
     /// one of a project's pages, a section's heading, or one of these on another machine.
     Item(Selection),
     Note(SharedString, bool),
@@ -49,9 +46,9 @@ pub(super) enum Row {
     Ghost(ProjectId, CommitId),
     /// The new branch commits being moved would land in, over their copies.
     GhostBranch(ProjectId),
-    /// Room between two stacks, or the last and a new one, while commits being moved would land
-    /// in a new branch next to it: under one stack's last branch and on the next's first are
-    /// otherwise the same place, and it shows which stack the new branch joins.
+    /// The line between two stacks, which tells where one ends and the next starts, and between
+    /// the last and a new one commits being moved would land in: so a new branch landing under
+    /// one stack's last branch or on the next's first shows which it joins.
     Between(ProjectId),
     /// The line after a worktree's section.
     WorktreeDivider,
@@ -120,8 +117,7 @@ impl Row {
     /// How tall the row is drawn, near enough for a fold moving it to count by.
     pub(super) fn height(&self) -> f32 {
         match self {
-            Row::Gap | Row::WorktreeDivider => 12.,
-            Row::Between(_) => BETWEEN,
+            Row::Gap | Row::WorktreeDivider | Row::Between(_) => 12.,
             Row::More(..) | Row::Fewer(..) | Row::UpstreamMore(..) | Row::RestsOn(..) => 24.,
             Row::Item(_)
             | Row::Note(..)
@@ -154,10 +150,10 @@ pub(super) struct Moving {
     pub(super) above: Option<usize>,
 }
 
-/// The rows as they're built, each with how far in it sits: a worktree's section and a
-/// stack's branches step in from what holds them. Each also has the guides it draws, as
-/// but.dev's sidebar does: a line down from under the chevron of each row it's under, and
-/// while a fold holding it moves, its place in that.
+/// The rows as they're built, each with how far in it sits: a worktree's section steps in
+/// from what holds it. Each also has the guides it draws, as but.dev's sidebar does: a line
+/// down from under the chevron of each row it's under, and while a fold holding it moves, its
+/// place in that.
 #[derive(Default)]
 pub(super) struct Rows {
     pub(super) rows: Vec<Row>,
@@ -396,27 +392,28 @@ impl Navigator {
         rows.open_in(STEP);
         rows.fold(Fold::Under(heading), main_open, &self.folds, |rows| {
             terminal_rows(store, id, &Checkout::Main, rows);
-            // A stack being unapplied leaves at once.
+            // A stack being unapplied leaves at once, as one whose branches are all being
+            // deleted does.
             let stacks = workspace.lanes_in(&Checkout::Main).filter(|stack| {
                 !(stack.branches.iter())
                     .any(|b| (b.ref_name.as_ref()).is_some_and(|r| store.hides_branch(id, r)))
+                    && !store.after_deletes(id, &stack.branches).is_empty()
             });
             // Whether a branch is checked out on its own or several share the workspace,
-            // they're listed alike; with none, as on the default branch, there's nothing to
-            // list, and the next commit starts one.
-            let mut upper: Option<&[Branch]> = None;
+            // they're listed alike, a line between each stack and the next; with none, as on
+            // the default branch, there's nothing to list, and the next commit starts one.
+            let mut listed = false;
             for stack in stacks {
-                let lower = Some(stack.branches.as_slice());
-                if upper.is_some_and(|upper| parts(store, id, upper, lower)) {
+                if listed {
                     rows.push(Row::Between(id.clone()));
                 }
                 self.lane_rows(store, id, &stack.branches, rows);
-                upper = lower;
-            }
-            if upper.is_some_and(|upper| parts(store, id, upper, None)) {
-                rows.push(Row::Between(id.clone()));
+                listed = true;
             }
             if let Some(moving) = landing_at(store, id, |at| *at == Stop::NewStack) {
+                if listed {
+                    rows.push(Row::Between(id.clone()));
+                }
                 rows.push_ghosts(moving, true);
             }
         });
@@ -488,7 +485,16 @@ impl Navigator {
                 rows.open_in(STEP);
                 let heading_end = rows.rows.len();
                 for stack in workspace.lanes_in(&Checkout::Main) {
+                    // A line between two stacks, taken back when nothing in the next matches.
+                    let start = rows.rows.len();
+                    if start > heading_end {
+                        rows.push(Row::Between(id.clone()));
+                    }
+                    let lane = rows.rows.len();
                     self.filtered_lane(store, id, &stack.branches, terms, own, &mut rows);
+                    if rows.rows.len() == lane {
+                        rows.truncate(start);
+                    }
                 }
                 rows.close();
                 if rows.rows.len() == heading_end {
@@ -539,8 +545,7 @@ impl Navigator {
     }
 
     /// [`Self::lane_rows`] under the filter, with `held` the words found in what holds the
-    /// lane: the branches that match or have commits that do, with those commits, under
-    /// their stack's caption when there are two or more.
+    /// lane: the branches that match or have commits that do, with those commits.
     fn filtered_lane(
         &self,
         store: &Store,
@@ -557,16 +562,6 @@ impl Navigator {
             return;
         }
         let branches = &*store.after_deletes(id, branches);
-        let start = rows.rows.len();
-        let stacked = branches.len() > 1;
-        if let [_, .., bottom] = branches {
-            rows.push(Row::Item(Selection::Stack(
-                id.clone(),
-                bottom.ref_name.clone(),
-            )));
-            rows.open_in(STEP);
-        }
-        let caption_end = rows.rows.len();
         for branch in branches {
             let own = found(
                 terms,
@@ -592,38 +587,13 @@ impl Navigator {
             }
             rows.close();
         }
-        if stacked {
-            rows.close();
-        }
-        if rows.rows.len() == caption_end {
-            rows.truncate(start);
-        }
     }
 
-    /// A stack's or a linked worktree's branches: over two or more a caption, which folds
-    /// them away unless the selection's in them, and they step in under it; then each branch
-    /// with its commits, up to the fold, unless it's closed.
+    /// A stack's or a linked worktree's branches, each with its commits, up to the fold,
+    /// unless it's closed, and copies of commits being moved where they'd land in a new branch
+    /// above one of them, or below the last.
     fn lane_rows(&self, store: &Store, id: &ProjectId, branches: &[Branch], rows: &mut Rows) {
         let branches = &*store.after_deletes(id, branches);
-        let [_, .., bottom] = branches else {
-            return self.stacked_rows(store, id, branches, rows);
-        };
-        let key = (id.clone(), bottom.ref_name.clone());
-        let selected = (store.selection.as_ref())
-            .is_some_and(|s| s.project() == id && branches.iter().any(|b| s.on(b)));
-        let caption = Selection::Stack(key.0.clone(), key.1.clone());
-        rows.push(Row::Item(caption.clone()));
-        let open = !self.folded_stacks.contains(&key) || selected;
-        rows.fold(Fold::Under(caption), open, &self.folds, |rows| {
-            rows.open_in(STEP);
-            self.stacked_rows(store, id, branches, rows);
-            rows.close();
-        });
-    }
-
-    /// The rows of a lane's `branches`, and copies of commits being moved where they'd land
-    /// in a new branch above one of them, or below the last.
-    fn stacked_rows(&self, store: &Store, id: &ProjectId, branches: &[Branch], rows: &mut Rows) {
         let new_branch = |branch: &Branch, side: bool| {
             landing_at(store, id, |at| {
                 matches!(at, Stop::NewBranch { beside, below }

@@ -633,64 +633,10 @@ impl Navigator {
                 items.extend(build);
                 items
             }
-            Selection::Stack(project, bottom) => {
-                let key = (project.clone(), bottom.clone());
-                let folded = self.folded_stacks.contains(&key);
-                let (label, keys): (_, &dyn Action) = match folded {
-                    true => ("Show branches", &Expand),
-                    false => ("Hide branches", &Collapse),
-                };
-                let (fold_project, fold_bottom) = key;
-                let mut items = vec![MenuItem::keyed(label, keys, cx, move |this, window, cx| {
-                    (this.navigator).update(cx, |nav, cx| {
-                        nav.toggle_stack(&fold_project, fold_bottom.as_ref(), !folded, window, cx)
-                    })
-                })];
-                let Some(workspace) = store.workspace(project) else {
-                    return items;
-                };
-                // Through its top branch, which takes the ones below it along.
-                let Some(top) = workspace
-                    .lane(bottom.as_ref())
-                    .and_then(|lane| lane.branches.first())
-                else {
-                    return items;
-                };
-                let top = top.ref_name.as_ref();
-                if let Some(top) = top
-                    && workspace.push_blocked(Some(top)).is_none()
-                {
-                    items.push(
-                        action(
-                            match workspace.needs_force(top) {
-                                true => "Force push stack",
-                                false => "Push stack",
-                            },
-                            &Push,
-                        )
-                        .separated(),
-                    );
-                }
-                let named = top.is_some();
-                if let Some(target) = workspace.target.as_ref()
-                    && let Some(top) = top
-                    && BranchEdits::of(workspace, top).merge == Some(true)
-                {
-                    items.push(MenuItem::action(
-                        format!("Merge the stack into {}…", target.name),
-                        &crate::edits::MergeBranch,
-                        cx,
-                    ));
-                }
-                items.push(action("New branch on top", &NewBranchOnTop).separated());
-                // A linked worktree's lane stays applied while it has it checked out.
-                if workspace.managed && named && workspace.stack_of(bottom.as_ref()).is_some() {
-                    items.push(action("Unapply stack", &UnapplyStack));
-                }
-                items
-            }
             Selection::Mesh(..) => self.mesh_menu(target, cx),
-            Selection::Branches(_)
+            // The rows list a stack's branches, not the stack.
+            Selection::Stack(..)
+            | Selection::Branches(_)
             | Selection::History(_)
             | Selection::Graph(_)
             | Selection::Section(..) => Vec::new(),

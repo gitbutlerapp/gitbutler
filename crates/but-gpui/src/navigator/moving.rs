@@ -6,7 +6,7 @@ use gpui::{AnyElement, App, Context, Div, Window, div, prelude::*};
 use super::rows::{Fold, Row, Rows};
 use super::{CARD_MARGIN, Navigator, RowStyle};
 use crate::app::{MoveHere, MoveSelection};
-use crate::backend::{Branch, CommitId, Destination, FullName, Workspace, short_ref};
+use crate::backend::{CommitId, Destination, FullName, Workspace, short_ref};
 use crate::state::{ProjectId, Section, Selection, Store, snack};
 use crate::theme::Theme;
 use crate::transfer::{Move, Stop};
@@ -22,28 +22,6 @@ pub(super) fn landing_at<'a>(
 ) -> Option<&'a Move> {
     (store.moving.as_ref())
         .filter(|moving| moving.project == *project && at(&moving.at) && moving.lands(store))
-}
-
-/// Whether the move under way in `project` parts stacks `upper` and `lower`, given by their
-/// branches, `None` for a new stack after them all: when it would land in a new branch under
-/// `upper`'s last branch or on `lower`'s first, which are the same place but for that.
-pub(super) fn parts(
-    store: &Store,
-    project: &ProjectId,
-    upper: &[Branch],
-    lower: Option<&[Branch]>,
-) -> bool {
-    let last = upper.last().and_then(|branch| branch.ref_name.as_ref());
-    let first = (lower.and_then(|lower| lower.first())).and_then(|branch| branch.ref_name.as_ref());
-    landing_at(store, project, |at| match at {
-        Stop::NewBranch { beside, below } => match below {
-            true => last == Some(beside),
-            false => first == Some(beside),
-        },
-        Stop::NewStack => lower.is_none(),
-        Stop::In(_) => false,
-    })
-    .is_some()
 }
 
 /// Whether `item`, a commit being moved, would land elsewhere: `false` while the move is at
@@ -73,9 +51,9 @@ impl Rows {
 
 /// The places `commits` of `project` can land, in the order `rows` list them, and which of
 /// them is where they are: the one just above the first of them. A folded branch has only its
-/// top and the new branches either side of it, and a folded stack none, so what's folded is
-/// stepped over and stays folded. `main_open` says whether the main checkout's stacks show,
-/// which a new stack goes after.
+/// top and the new branches either side of it, so what's folded is stepped over and stays
+/// folded. `main_open` says whether the main checkout's stacks show, which a new stack goes
+/// after.
 pub(super) fn stops<'a>(
     rows: impl IntoIterator<Item = &'a Row>,
     project: &ProjectId,
@@ -105,10 +83,6 @@ pub(super) fn stops<'a>(
                 end_stack(&mut stops, &mut bottom);
                 in_branch = false;
                 in_main = main_open;
-            }
-            Row::Item(Selection::Stack(p, _)) if p == project => {
-                end_stack(&mut stops, &mut bottom);
-                in_branch = false;
             }
             // Not an unnamed branch, which has no ref to land on, nor the default branch,
             // which work stays off.
@@ -369,9 +343,7 @@ pub(super) fn stand_in(
 }
 
 /// The new branch commits being moved would land in, over their copies, set in by `inset` as
-/// an item row is. It names the branch it goes above or below in their stack, as between two
-/// stacks the new branch under one's last branch and the one on the next's first are in the
-/// same place.
+/// an item row is. It names the branch it goes above or below in their stack.
 pub(super) fn ghost_branch_row(inset: f32, store: &Store, theme: &Theme) -> AnyElement {
     let beside = match store.moving.as_ref().map(|moving| &moving.at) {
         Some(Stop::NewBranch { beside, below }) => {
@@ -461,13 +433,12 @@ mod tests {
         let rows = vec![
             Row::Item(Selection::Project(p())),
             Row::Item(Selection::Uncommitted(p())),
-            Row::Item(Selection::Stack(p(), named("api"))),
             Row::Item(Selection::Branch(p(), named("ui"))),
             Row::Item(Selection::Commit(p(), id(3))),
             Row::Item(Selection::Branch(p(), named("api"))),
             Row::Item(Selection::Commit(p(), id(2))),
             Row::Item(Selection::Commit(p(), id(1))),
-            // As a move opens room between stacks, which parts nothing it walks.
+            // The line between stacks, which parts nothing it walks.
             Row::Between(p()),
             Row::Item(Selection::Branch(p(), named("typo"))),
             Row::WorktreeDivider,
