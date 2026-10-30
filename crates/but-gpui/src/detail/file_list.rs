@@ -694,12 +694,12 @@ impl Detail {
             from,
             worktree,
             files,
-        } = self.folder_payload(source, dir, cx)?
+        } = self.folder_payload(source, dir, cx)?.movable()?
         else {
             return None;
         };
         let checked = self.composing && matches!(source, FileSource::Uncommitted(..));
-        let files: Vec<Selected> = (files.iter().filter(|file| file.movable()))
+        let files = (files.iter())
             .map(|whole| {
                 let path = &whole.file.path;
                 match checked && self.checks.file_check(path) == Toggled::Mixed {
@@ -708,11 +708,11 @@ impl Detail {
                 }
             })
             .collect::<Option<_>>()?;
-        (!files.is_empty()).then(|| Cut::Files {
+        Some(Cut::Files {
             project,
             from,
             worktree,
-            files: files.into(),
+            files,
         })
     }
 
@@ -1241,13 +1241,16 @@ impl Detail {
             (false, false, 1) => "file",
             (false, false, _) => "files",
         };
-        let cut = payload.clone();
-        let mut items = vec![MenuItem::keyed(
-            "Cut",
-            &crate::app::CutSelection,
-            cx,
-            move |this: &mut AppView, _, cx| this.cut(cut.clone(), cx),
-        )];
+        let mut items: Vec<MenuItem> = (payload.clone().movable().into_iter())
+            .map(|cut| {
+                MenuItem::keyed(
+                    "Cut",
+                    &crate::app::CutSelection,
+                    cx,
+                    move |this: &mut AppView, _, cx| this.cut(cut.clone(), cx),
+                )
+            })
+            .collect();
         match from {
             None => {
                 let conflicted: Vec<bstr::BString> = (files.iter())

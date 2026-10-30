@@ -660,6 +660,7 @@ pub fn drag_pill(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::backend::FileChange;
 
     #[test]
     fn a_paste_on_a_commit_puts_files_into_it_and_commits_above_it() {
@@ -681,6 +682,36 @@ mod tests {
             Place::from_keys(held, &Cut::Commit(project, Arc::from([id])), &commit),
             Place::Above,
             "a commit goes above it"
+        );
+    }
+
+    #[test]
+    fn what_cant_land_is_left_out_of_a_cut() {
+        let cut = |paths: &[(&str, bool)]| Cut::Files {
+            project: ProjectId::from("p"),
+            from: None,
+            worktree: Checkout::Main,
+            files: (paths.iter())
+                .map(|(path, conflicted)| {
+                    Selected::whole(&FileChange {
+                        conflicted: *conflicted,
+                        ..FileChange::bare(path)
+                    })
+                })
+                .collect(),
+        };
+        let Some(Cut::Files { files, .. }) = cut(&[("a", false), ("b", true)]).movable() else {
+            panic!("the clean file can land");
+        };
+        let kept: Vec<&str> = files.iter().map(|f| f.file.path.as_str()).collect();
+        assert_eq!(
+            kept,
+            ["a"],
+            "a commit would refuse them all for the conflicted one"
+        );
+        assert!(
+            cut(&[("b", true)]).movable().is_none(),
+            "with only conflicted files there's nothing to carry"
         );
     }
 }
