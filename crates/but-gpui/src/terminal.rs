@@ -466,6 +466,7 @@ impl Render for Terminal {
         self.set_colors(&theme);
         let text_size = self.text_size(cx);
         let font = theme.terminal_font.clone();
+        let bold = theme.terminal_bold;
         let text_system = window.text_system();
         let font_size = theme.scaled(text_size);
         let font_id = text_system.resolve_font(&font);
@@ -510,7 +511,7 @@ impl Render for Terminal {
             },
             move |bounds, hitbox, window, cx| {
                 let cell = gpui::size(cell_width, cell_height);
-                paint_rows(&rows.rows, bounds.origin, cell, window, cx);
+                paint_rows(&rows.rows, bounds.origin, cell, bold, window, cx);
                 window.on_mouse_event({
                     let this = pointer.clone();
                     move |event: &MouseMoveEvent, phase, window, cx| {
@@ -638,15 +639,16 @@ fn shown_title(title: &str) -> SharedString {
     }
 }
 
-/// Paints `rows` on the grid from `origin`, every background before any text so no cell's
-/// covers a glyph reaching into it. Each run's text is shaped on its own and placed at its
-/// column, as Ghostty does. GPUI keeps a shaped line while it's drawn frame after frame, so a
-/// run is shaped again only when it changes, not whenever anything on its row does, as a
-/// relative line number does at every move.
+/// Paints `rows` on the grid from `origin`, bold text at `bold`, every background before any
+/// text so no cell's covers a glyph reaching into it. Each run's text is shaped on its own and
+/// placed at its column, as Ghostty does. GPUI keeps a shaped line while it's drawn frame after
+/// frame, so a run is shaped again only when it changes, not whenever anything on its row
+/// does, as a relative line number does at every move.
 fn paint_rows(
     rows: &[Arc<Row>],
     origin: Point<Pixels>,
     cell: gpui::Size<Pixels>,
+    bold: FontWeight,
     window: &mut Window,
     cx: &mut App,
 ) {
@@ -670,7 +672,7 @@ fn paint_rows(
     let font_size = text_style.font_size.to_pixels(window.rem_size());
     let regular = text_style.font();
     let bold = Font {
-        weight: FontWeight::SEMIBOLD,
+        weight: bold,
         ..regular.clone()
     };
     for (y, row) in rows.iter().enumerate() {

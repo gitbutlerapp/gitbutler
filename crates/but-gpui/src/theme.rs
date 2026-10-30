@@ -4,7 +4,8 @@
 
 use but_tty::{Colors, Ghostty, RgbColor};
 use gpui::{
-    App, Font, FontFeatures, Global, Hsla, Pixels, Rgba, SharedString, WindowAppearance, rgb,
+    App, Font, FontFeatures, FontWeight, Global, Hsla, Pixels, Rgba, SharedString,
+    WindowAppearance, rgb,
 };
 use serde::{Deserialize, Serialize};
 
@@ -68,6 +69,8 @@ pub struct Theme {
     /// What terminals show in: Geist Mono with Nerd Font icons and box drawing, for TUIs, unless
     /// another was picked or Ghostty has one.
     pub terminal_font: Font,
+    /// How heavy terminals draw bold text in `terminal_font`.
+    pub terminal_bold: FontWeight,
     /// Code in diffs: its size and the height of a line of it.
     pub code_text: f32,
     pub code_line: f32,
@@ -214,7 +217,8 @@ impl Theme {
     }
 
     /// This theme with terminals in `family`, or with none picked, in the first family of
-    /// `ghostty`'s that `installed` says the machine has, with `ghostty`'s font features.
+    /// `ghostty`'s that `installed` says the machine has, with `ghostty`'s font features and
+    /// bold.
     pub fn with_terminal_font(
         mut self,
         family: Option<&str>,
@@ -227,6 +231,9 @@ impl Theme {
         }
         if family.is_none() {
             self.terminal_font.features = FontFeatures(ghostty.font_features.clone().into());
+            if ghostty.bold_disabled {
+                self.terminal_bold = self.terminal_font.weight;
+            }
         }
         self
     }
@@ -360,6 +367,7 @@ impl Theme {
             diff_digit: 0.6,
             diff_features: FontFeatures::default(),
             terminal_font: gpui::font("GeistMono Nerd Font Mono"),
+            terminal_bold: FontWeight::SEMIBOLD,
             // Shiki's GitHub light and dark, as but.dev highlights diffs. In `Token` order:
             // comment, string, constant, keyword, function, type, tag.
             syntax: [
@@ -600,7 +608,7 @@ fn rgb_hex(color: Hsla) -> u32 {
 #[cfg(test)]
 mod tests {
     use but_tty::{Colors, Ghostty, RgbColor};
-    use gpui::WindowAppearance;
+    use gpui::{FontWeight, WindowAppearance};
 
     use super::{Appearance, CodeSize, ColorScheme, Theme, contrast, rgb_hex};
 
@@ -799,6 +807,29 @@ mod tests {
             fallen_back.terminal_font.family,
             gitbutler_theme().terminal_font.family,
             "with none of Ghostty's fonts here, the app's own"
+        );
+    }
+
+    #[test]
+    fn terminals_draw_bold_in_the_regular_weight_when_ghostty_turns_it_off() {
+        let ghostty = Ghostty {
+            font_families: vec!["Menlo".into()],
+            bold_disabled: true,
+            ..Ghostty::default()
+        };
+        let installed = |family: &str| family == "Menlo";
+
+        let followed = gitbutler_theme().with_terminal_font(None, &ghostty, installed);
+        assert_eq!(
+            followed.terminal_bold, followed.terminal_font.weight,
+            "bold text draws as regular text does"
+        );
+
+        let picked = gitbutler_theme().with_terminal_font(Some("Menlo"), &ghostty, installed);
+        assert_eq!(
+            picked.terminal_bold,
+            FontWeight::SEMIBOLD,
+            "a picked font draws bold as the app does, as with Ghostty's features"
         );
     }
 
