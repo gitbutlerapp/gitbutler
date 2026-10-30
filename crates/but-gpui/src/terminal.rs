@@ -513,7 +513,9 @@ impl Render for Terminal {
         )
         .absolute()
         .size_full();
-        let cursor = frame.cursor.map(|(x, y, text)| {
+        let (background, foreground) = (hsla(frame.background), hsla(frame.foreground));
+        let cursor_color = hsla(frame.cursor_color);
+        let cursor = frame.cursor.map(|Cursor { x, y, text }| {
             let at = div()
                 .absolute()
                 .left(cell_width * f32::from(x))
@@ -521,11 +523,9 @@ impl Render for Terminal {
                 .w(cell_width)
                 .h(cell_height);
             if focused {
-                at.bg(frame.cursor_color)
-                    .text_color(frame.background)
-                    .child(text)
+                at.bg(cursor_color).text_color(background).child(text)
             } else {
-                at.border_1().border_color(frame.cursor_color)
+                at.border_1().border_color(cursor_color)
             }
         });
         div()
@@ -538,8 +538,8 @@ impl Render for Terminal {
             .cursor(pointer_style)
             .size_full()
             .p(dp(8.))
-            .bg(frame.background)
-            .text_color(frame.foreground)
+            .bg(background)
+            .text_color(foreground)
             .font_family(theme.mono_font.clone())
             .text_size(dp(text_size))
             .line_height(dp(line))
@@ -549,11 +549,13 @@ impl Render for Terminal {
                     .size_full()
                     .overflow_hidden()
                     .child(grid)
-                    .children(frame.rows.into_iter().map(|(text, runs)| {
+                    .children(frame.rows.into_iter().map(|row| {
+                        let runs =
+                            (row.runs.into_iter()).map(|(range, style)| (range, highlight(style)));
                         div()
                             .h(dp(line))
                             .whitespace_nowrap()
-                            .child(StyledText::new(text).with_highlights(runs))
+                            .child(StyledText::new(row.text).with_highlights(runs))
                     }))
                     .children(cursor),
             )
@@ -590,18 +592,39 @@ impl Grid {
     }
 }
 
-/// A row's text's colours and styles, by the bytes they cover.
-type Runs = Vec<(Range<usize>, HighlightStyle)>;
+/// How a run of cells draws; its background only where it isn't the default.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Style {
+    fg: RgbColor,
+    bg: Option<RgbColor>,
+    bold: bool,
+    underline: Underline,
+    strikethrough: bool,
+    faint: bool,
+}
 
-/// What a frame draws: each row's text with its colours and styles, and the cursor's cell,
-/// by column and row, with the text under it.
+/// A row's text, with how each run of it draws by the bytes it covers.
+#[derive(Default)]
+struct Row {
+    text: String,
+    runs: Vec<(Range<usize>, Style)>,
+}
+
+/// The cursor's cell, by column and row, with the text under it.
+struct Cursor {
+    x: u16,
+    y: u16,
+    text: String,
+}
+
+/// What a frame draws.
 #[derive(Default)]
 struct Frame {
-    rows: Vec<(SharedString, Runs)>,
-    cursor: Option<(u16, u16, SharedString)>,
-    background: Hsla,
-    foreground: Hsla,
-    cursor_color: Hsla,
+    rows: Vec<Row>,
+    cursor: Option<Cursor>,
+    background: RgbColor,
+    foreground: RgbColor,
+    cursor_color: RgbColor,
 }
 
 /// The emulator and what it's read and written with.
@@ -918,9 +941,9 @@ impl Vt {
             false => None,
         };
         let mut frame = Frame {
-            background: hsla(colors.background),
-            foreground: hsla(colors.foreground),
-            cursor_color: hsla(colors.cursor.unwrap_or(colors.foreground)),
+            background: colors.background,
+            foreground: colors.foreground,
+            cursor_color: colors.cursor.unwrap_or(colors.foreground),
             ..Frame::default()
         };
         let selected_bg = chosen.selection_background.unwrap_or(colors.foreground);
@@ -929,8 +952,7 @@ impl Vt {
         let mut cell_text = String::new();
         let mut y = 0;
         while let Some(row) = rows.next() {
-            let mut text = String::new();
-            let mut runs = Runs::new();
+            let mut drawn = Row::default();
             let selected = row.selection()?.map(|range| range.start_x..=range.end_x);
             let mut cells = self.cells.update(row)?;
             let mut x = 0;
@@ -949,47 +971,42 @@ impl Vt {
                 } else {
                     cell_text.push(' ');
                 }
-                let style = cell.style()?;
+                let attributes = cell.style()?;
                 let mut fg = cell.fg_color()?.unwrap_or(colors.foreground);
                 let mut bg = cell.bg_color()?.unwrap_or(colors.background);
-                if style.inverse {
+                if attributes.inverse {
                     std::mem::swap(&mut fg, &mut bg);
                 }
                 if selected.as_ref().is_some_and(|range| range.contains(&at)) {
                     (fg, bg) = (selected_fg, selected_bg);
                 }
-                if style.invisible {
+                if attributes.invisible {
                     fg = bg;
                 }
-                let color = hsla(fg);
-                let highlight = HighlightStyle {
-                    color: Some(color),
-                    background_color: (bg != colors.background).then(|| hsla(bg)),
-                    font_weight: style.bold.then_some(FontWeight::SEMIBOLD),
-                    underline: (style.underline != Underline::None).then(|| UnderlineStyle {
-                        thickness: fixed(1.),
-                        color: Some(color),
-                        wavy: style.underline == Underline::Curly,
-                    }),
-                    strikethrough: style.strikethrough.then(|| StrikethroughStyle {
-                        thickness: fixed(1.),
-                        color: Some(color),
-                    }),
-                    fade_out: style.faint.then_some(0.4),
-                    ..HighlightStyle::default()
+                let style = Style {
+                    fg,
+                    bg: (bg != colors.background).then_some(bg),
+                    bold: attributes.bold,
+                    underline: attributes.underline,
+                    strikethrough: attributes.strikethrough,
+                    faint: attributes.faint,
                 };
                 if cursor.is_some_and(|c| c.x == at && c.y == y) {
-                    frame.cursor = Some((at, y, cell_text.clone().into()));
+                    frame.cursor = Some(Cursor {
+                        x: at,
+                        y,
+                        text: cell_text.clone(),
+                    });
                 }
-                let start = text.len();
-                text.push_str(&cell_text);
-                match runs.last_mut() {
-                    Some((range, last)) if *last == highlight => range.end = text.len(),
-                    _ => runs.push((start..text.len(), highlight)),
+                let start = drawn.text.len();
+                drawn.text.push_str(&cell_text);
+                match drawn.runs.last_mut() {
+                    Some((range, last)) if *last == style => range.end = drawn.text.len(),
+                    _ => drawn.runs.push((start..drawn.text.len(), style)),
                 }
             }
             row.set_dirty(false)?;
-            frame.rows.push((text.into(), runs));
+            frame.rows.push(drawn);
             y += 1;
         }
         snapshot.set_dirty(Dirty::Clean)?;
@@ -1052,6 +1069,26 @@ fn mods(modifiers: Modifiers) -> Mods {
     mods.set(Mods::ALT, modifiers.alt);
     mods.set(Mods::CTRL, modifiers.control);
     mods
+}
+
+fn highlight(style: Style) -> HighlightStyle {
+    let color = hsla(style.fg);
+    HighlightStyle {
+        color: Some(color),
+        background_color: style.bg.map(hsla),
+        font_weight: style.bold.then_some(FontWeight::SEMIBOLD),
+        underline: (style.underline != Underline::None).then(|| UnderlineStyle {
+            thickness: fixed(1.),
+            color: Some(color),
+            wavy: style.underline == Underline::Curly,
+        }),
+        strikethrough: style.strikethrough.then(|| StrikethroughStyle {
+            thickness: fixed(1.),
+            color: Some(color),
+        }),
+        fade_out: style.faint.then_some(0.4),
+        ..HighlightStyle::default()
+    }
 }
 
 fn hsla(color: RgbColor) -> Hsla {
@@ -1270,9 +1307,9 @@ mod tests {
         let hello = libghostty_vt::selection::Selection::new(cell(0), cell(4), false);
         vt.term.set_selection(Some(&hello)).unwrap();
         let frame = vt.frame(&Colors::default()).unwrap();
-        let (text, runs) = &frame.rows[0];
-        let backgrounds: Vec<_> = (runs.iter())
-            .map(|(range, style)| (text[range.clone()].trim_end(), style.background_color))
+        let row = &frame.rows[0];
+        let backgrounds: Vec<_> = (row.runs.iter())
+            .map(|(range, style)| (row.text[range.clone()].trim_end(), style.bg))
             .take(2)
             .collect();
         assert_eq!(
@@ -1309,10 +1346,10 @@ mod tests {
     /// The text of each run on the first row drawn on a background of its own.
     fn highlighted(vt: &mut Vt) -> Vec<String> {
         let frame = vt.frame(&Colors::default()).unwrap();
-        let (text, runs) = &frame.rows[0];
-        (runs.iter())
-            .filter(|(_, style)| style.background_color.is_some())
-            .map(|(range, _)| text[range.clone()].trim_end().to_owned())
+        let row = &frame.rows[0];
+        (row.runs.iter())
+            .filter(|(_, style)| style.bg.is_some())
+            .map(|(range, _)| row.text[range.clone()].trim_end().to_owned())
             .collect()
     }
 
@@ -1366,7 +1403,7 @@ mod tests {
         };
         let first_row = |vt: &mut Vt| {
             vt.frame(&Colors::default()).unwrap().rows[0]
-                .0
+                .text
                 .trim_end()
                 .to_owned()
         };
