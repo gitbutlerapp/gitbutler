@@ -810,6 +810,11 @@ impl Store {
         }
     }
 
+    /// Whether no part of the window shows.
+    pub fn hidden(&self) -> bool {
+        self.hidden
+    }
+
     pub fn select(&mut self, selection: Option<Selection>, cx: &mut Context<Self>) {
         if self.staying {
             return;

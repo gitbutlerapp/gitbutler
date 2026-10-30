@@ -41,7 +41,7 @@ use crate::ui::{
     WINDOW_CONTROLS_WIDTH, above_drag, ago, blink_once, button, commit_title, count_badge, dot, dp,
     faint, field, fixed, fold_button, fold_glyph, fold_row, glow_once, guide, h_flex, icon,
     icon_button, list_row, meta_count, plural, pulsing, relative_time, resize_handle, review,
-    section_label, small_icon, v_flex,
+    section_label, small_icon, spinning, v_flex,
 };
 
 mod account;
@@ -1986,15 +1986,15 @@ impl Navigator {
         style: RowStyle,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
-        let terminals = &self.store.read(cx).terminals;
-        let title = terminals.title(id)?.clone();
-        let status = terminals.status(id)?;
+        let store = self.store.read(cx);
+        let title = store.terminals.title(id)?.clone();
+        let status = store.terminals.status(id)?;
         let row = style
             .row(format!("terminal-{}", id.0), 6.)
             .text_color(style.muted())
             .child(icon(Icon::TextCode).text_color(style.muted()))
             .child(div().flex_1().min_w_0().truncate().child(title))
-            .children(status_mark(status, style))
+            .children(status_mark(status, !store.hidden(), style))
             .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx));
         Some(row.into_any_element())
     }
@@ -2991,9 +2991,9 @@ fn tally(files: &[FileChange]) -> Tally {
 
 /// What a checkout's uncommitted files count: what a merge left conflicted, as an update can,
 /// first, then the lines they add and remove, or with none counted, how many there are.
-/// What a terminal's program is at, in colour only where the user is wanted. Nothing moves, as
-/// agents work for hours and an animation would have the window draw all that while.
-fn status_mark(status: &Status, style: RowStyle) -> Option<Stateful<Div>> {
+/// What a terminal's program is at, in colour only where the user is wanted, turning while
+/// it works and `seen`.
+fn status_mark(status: &Status, seen: bool, style: RowStyle) -> Option<Stateful<Div>> {
     let theme = style.theme;
     let said = |reason: &str, otherwise: &str| -> SharedString {
         match reason {
@@ -3003,7 +3003,7 @@ fn status_mark(status: &Status, style: RowStyle) -> Option<Stateful<Div>> {
     };
     let (glyph, color, tip) = match status {
         Status::Idle => return None,
-        Status::Working => (Icon::BulletDisc, style.muted(), "Working".into()),
+        Status::Working => (Icon::Spinner, style.muted(), "Working".into()),
         Status::Blocked(reason) => (
             Icon::Warning,
             style.meta(theme.warn),
@@ -3016,11 +3016,18 @@ fn status_mark(status: &Status, style: RowStyle) -> Option<Stateful<Div>> {
             said(reason, "Failed"),
         ),
     };
+    let drawn = small_icon(glyph).text_color(color);
+    // ponytail: turning redraws the navigator every display frame, 0.5ms each on a small repo;
+    // step it on a timer if that shows up on the battery.
+    let drawn = match status {
+        Status::Working if seen => spinning(drawn).into_any_element(),
+        _ => drawn.into_any_element(),
+    };
     let mark = div()
         .id("terminal-status")
         .flex_none()
         .aria_label(tip.clone())
-        .child(small_icon(glyph).text_color(color))
+        .child(drawn)
         .tooltip(Tooltip::text(tip));
     Some(mark)
 }

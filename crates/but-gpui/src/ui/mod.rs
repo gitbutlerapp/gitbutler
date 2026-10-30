@@ -212,6 +212,7 @@ icons! {
     Settings => "settings",
     Sidebar => "sidebar",
     SidebarNarrow => "sidebar-narrow",
+    Spinner => "spinner",
     Stack => "stack",
     Tag => "tag",
     TextBlock => "text-block",
@@ -1394,6 +1395,16 @@ pub fn pulsing<E: IntoElement + Styled + 'static>(el: E) -> impl IntoElement {
             .repeat()
             .with_easing(gpui::pulsating_between(0.35, 1.)),
         |el, delta| el.opacity(delta),
+    )
+}
+
+/// `el` turning, as ui-react's spinning icons do, while what it stands for is under way.
+pub fn spinning(el: Svg) -> impl IntoElement {
+    use gpui::{Animation, AnimationExt as _, Transformation, percentage};
+    el.with_animation(
+        "spinning",
+        Animation::new(std::time::Duration::from_millis(800)).repeat(),
+        |el, delta| el.with_transformation(Transformation::rotate(percentage(delta))),
     )
 }
 
