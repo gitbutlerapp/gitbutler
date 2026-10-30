@@ -17,7 +17,7 @@ use super::{Copied, Detail, FilterFiles, LoadedDiff, PageFold, keeps_path, merge
 use crate::app::AppView;
 use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::MenuItem;
-use crate::state::{Cut, FileSort, Overlay, ProjectId, Rereads, Selection};
+use crate::state::{Cut, FileSort, Overlay, ProjectId, Rereads, Selection, Store};
 use crate::theme::Theme;
 use crate::transfer::Chip;
 use crate::ui::diff;
@@ -406,6 +406,28 @@ impl Detail {
                 })
                 .collect(),
         };
+        // What's being dragged out of the list steps back: a file, and a folder once all it
+        // holds is going.
+        let carried = self.dragged_paths(&source, store, cx);
+        let leaving: Vec<bool> = match carried.is_empty() {
+            true => Vec::new(),
+            false => {
+                let stays: HashSet<&str> = (paths.iter().copied())
+                    .filter(|path| !carried.contains(path))
+                    .flat_map(|path| {
+                        (path.match_indices('/')).filter_map(move |(end, _)| path.get(..end))
+                    })
+                    .collect();
+                (rows.iter())
+                    .map(|row| match row {
+                        TreeRow::File { pos, .. } => {
+                            paths.get(*pos).is_some_and(|path| carried.contains(path))
+                        }
+                        TreeRow::Dir { path, .. } => !stays.contains(path.as_str()),
+                    })
+                    .collect()
+            }
+        };
         let count = rows.len();
         let list = side_list(
             count,
@@ -413,31 +435,37 @@ impl Detail {
             "files-scrollbar",
             cx,
             move |this, ix| (this.page_folds).moved(places.get(ix).and_then(Option::as_ref)),
-            move |this, ix, theme, window, cx| match rows.get(ix)? {
-                dir @ TreeRow::Dir { .. } => {
-                    let found = found.get(ix)?;
-                    let holds_cursor = cursor_row == Some(ix);
-                    this.render_dir_row(dir, holds_cursor, &source, found, columns, theme, cx)
-                }
-                TreeRow::File { pos, depth } => {
-                    let lit = |ix: usize| lit.get(ix).copied().unwrap_or(false);
-                    let row = FileRow {
-                        depth: tree.then_some(*depth),
-                        joined: match lit(ix) {
-                            true => (ix > 0 && lit(ix - 1), lit(ix + 1)),
-                            false => (false, false),
-                        },
-                        picked: lit(ix),
-                        menu: picked.clone().filter(|_| lit(ix)),
-                        found: found.get(ix)?.clone(),
-                        columns,
-                        ..Default::default()
-                    };
-                    // The current file is solid while the list holds the focus, as the
-                    // navigator's selection is while it does.
-                    let solid = this.files_focus.is_focused(window);
-                    this.render_source_file(&source, *index.get(*pos)?, row, solid, theme, cx)
-                }
+            move |this, ix, theme, window, cx| {
+                let row = match rows.get(ix)? {
+                    dir @ TreeRow::Dir { .. } => {
+                        let found = found.get(ix)?;
+                        let holds_cursor = cursor_row == Some(ix);
+                        this.render_dir_row(dir, holds_cursor, &source, found, columns, theme, cx)
+                    }
+                    TreeRow::File { pos, depth } => {
+                        let lit = |ix: usize| lit.get(ix).copied().unwrap_or(false);
+                        let row = FileRow {
+                            depth: tree.then_some(*depth),
+                            joined: match lit(ix) {
+                                true => (ix > 0 && lit(ix - 1), lit(ix + 1)),
+                                false => (false, false),
+                            },
+                            picked: lit(ix),
+                            menu: picked.clone().filter(|_| lit(ix)),
+                            found: found.get(ix)?.clone(),
+                            columns,
+                            ..Default::default()
+                        };
+                        // The current file is solid while the list holds the focus, as the
+                        // navigator's selection is while it does.
+                        let solid = this.files_focus.is_focused(window);
+                        this.render_source_file(&source, *index.get(*pos)?, row, solid, theme, cx)
+                    }
+                }?;
+                Some(match leaving.get(ix) {
+                    Some(true) => div().opacity(0.5).child(row).into_any_element(),
+                    _ => row,
+                })
             },
         );
         // Once the list has its rows.
@@ -491,6 +519,37 @@ impl Detail {
                 Some(self.render_file_row(pos, &file.file, extras, solid, theme, cx))
             }
         }
+    }
+
+    /// The paths of the files of `source` being dragged, whole: some of a file leaves the rest
+    /// behind.
+    fn dragged_paths<'a>(
+        &self,
+        source: &FileSource,
+        store: &'a Store,
+        cx: &App,
+    ) -> HashSet<&'a str> {
+        let Some(Cut::Files {
+            project,
+            from,
+            worktree,
+            files,
+        }) = &store.dragging
+        else {
+            return HashSet::new();
+        };
+        let here = match source {
+            FileSource::Uncommitted(p, w) => from.is_none() && (p, w) == (project, worktree),
+            FileSource::Diff => matches!(
+                self.owned_cut(Vec::new(), cx),
+                Some(Cut::Files { project: p, from: f, worktree: w, .. })
+                    if (&p, &f, &w) == (project, from, worktree)
+            ),
+        };
+        (files.iter())
+            .filter(|file| here && file.hunks.is_none())
+            .map(|file| file.file.path.as_str())
+            .collect()
     }
 
     /// `files` of the loaded diff as they'd be cut, to move or take out of where they are:
