@@ -68,6 +68,8 @@ actions!(
         MarkAllRead,
         NewBranch,
         NewBranchOnTop,
+        NewWorktree,
+        NewWorktreeWithName,
         SelectPrevious,
         SelectNext,
         Expand,
@@ -449,23 +451,54 @@ impl AppView {
         }
     }
 
-    fn new_branch(&mut self, _: &NewBranch, window: &mut Window, cx: &mut Context<Self>) {
-        // Not while a prompt or picker is open: the branch would be made out of sight behind it.
+    /// The selected project, else the first watched one, to start a branch or worktree in. None
+    /// while a prompt or picker is open: it would be made out of sight behind it.
+    fn project_to_start_in(&self, cx: &App) -> Option<ProjectId> {
         if self.covered() {
-            return;
+            return None;
         }
-        let Some(project) = self.selected_project(cx).or_else(|| {
-            self.store
-                .read(cx)
-                .projects
-                .iter()
+        self.selected_project(cx).or_else(|| {
+            let store = self.store.read(cx);
+            (store.projects.iter())
                 .find(|p| p.expanded)
                 .map(|p| p.id.clone())
-        }) else {
+        })
+    }
+
+    fn new_branch(&mut self, _: &NewBranch, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(project) = self.project_to_start_in(cx) else {
             return;
         };
         let create = backend::CreateBranch { name: None };
         self.new_branch_at(project, true, None, None, window, cx, create);
+    }
+
+    fn new_worktree(&mut self, _: &NewWorktree, _: &mut Window, cx: &mut Context<Self>) {
+        let Some(project) = self.project_to_start_in(cx) else {
+            return;
+        };
+        let create = backend::worktrees::CreateWorktree::New(None);
+        (self.store).update(cx, |store, cx| store.create_worktree(&project, create, cx))
+    }
+
+    fn new_worktree_with_name(
+        &mut self,
+        _: &NewWorktreeWithName,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(project) = self.project_to_start_in(cx) else {
+            return;
+        };
+        let selected = project.clone();
+        self.prompt_branch(
+            Selection::Project(project),
+            "New worktree",
+            window,
+            cx,
+            |name| backend::worktrees::CreateWorktree::New(Some(name)),
+            move |store, name, cx| store.select(Some(Selection::Worktree(selected, name)), cx),
+        )
     }
 
     /// Ask the desktop app's update feed now: show the update card for the newer version it
@@ -1631,6 +1664,8 @@ impl Render for AppView {
             .on_action(cx.listener(Self::fetch))
             .on_action(cx.listener(Self::pull))
             .on_action(cx.listener(Self::new_branch))
+            .on_action(cx.listener(Self::new_worktree))
+            .on_action(cx.listener(Self::new_worktree_with_name))
             .on_action(cx.listener(Self::push_selected))
             .on_action(cx.listener(Self::cut_selection))
             // Only while something is cut, so ⌘K doesn't offer it with nothing to paste.

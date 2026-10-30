@@ -7,11 +7,11 @@ use gpui::{Action, App};
 use super::{ClickOpened, Navigator};
 use crate::app::{
     BuildAndRestartFromHere, Collapse, CopySelection, CutSelection, DeleteSelection, Expand, Fetch,
-    MarkAllRead, NewBranch, NewBranchOnTop, OpenPullRequest, Push, RenameSelection, StartCommit,
-    ToggleRead, UncommitSelection, UpdateFromTarget,
+    MarkAllRead, NewBranch, NewBranchOnTop, NewWorktree, OpenPullRequest, Push, RenameSelection,
+    StartCommit, ToggleRead, UncommitSelection, UpdateFromTarget,
 };
 use crate::backend::rebuild::Rebuild;
-use crate::backend::{Checkout, CommitId, short_ref, worktrees};
+use crate::backend::{Checkout, CommitId, short_ref};
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, BranchEdits, CherryPick, CommitEdits, CopyChangeId,
     CopyMessage, MoveToNewBranch, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage,
@@ -55,21 +55,12 @@ fn read_marks<'a, C: Seeable + 'a>(
 /// top of the default branch when that's checked out on its own; or one in a new linked
 /// worktree, as `but worktree new` makes.
 fn new_branch_items(store: &Store, project: &ProjectId, cx: &App) -> Vec<MenuItem> {
-    let managed = store.workspace(project).is_some_and(|ws| ws.managed);
+    let based = store
+        .workspace(project)
+        .is_some_and(|ws| ws.target.is_some());
     let mut items = vec![MenuItem::action("New branch", &NewBranch, cx)];
-    if managed {
-        let project = project.clone();
-        items.push(MenuItem::new("New worktree…", move |app, window, cx| {
-            let selected = project.clone();
-            app.prompt_branch(
-                Selection::Project(project.clone()),
-                "New worktree",
-                window,
-                cx,
-                |name| worktrees::CreateWorktree { name },
-                move |store, name, cx| store.select(Some(Selection::Worktree(selected, name)), cx),
-            )
-        }));
+    if based {
+        items.push(MenuItem::action("New worktree", &NewWorktree, cx));
     }
     items
 }

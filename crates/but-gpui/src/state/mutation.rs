@@ -941,6 +941,27 @@ impl Store {
         );
     }
 
+    /// Make the linked worktree `create` says, and select it.
+    pub fn create_worktree(
+        &mut self,
+        project: &ProjectId,
+        create: backend::worktrees::CreateWorktree,
+        cx: &mut Context<Self>,
+    ) {
+        let selected = project.clone();
+        self.apply(
+            project,
+            "Create worktree",
+            Overlay::default(),
+            create,
+            move |store, name, cx| {
+                store.snack(format!("Created worktree {name}"), cx);
+                store.select(Some(Selection::Worktree(selected, name)), cx)
+            },
+            cx,
+        );
+    }
+
     /// Delete linked worktree `name` from disk, with its uncommitted files `lost`, by their
     /// write times and sizes, which the user agreed to lose. Its branch stays. Undo can't
     /// bring the folder back.
