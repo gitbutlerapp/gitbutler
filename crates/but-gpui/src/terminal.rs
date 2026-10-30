@@ -403,13 +403,18 @@ impl Render for Terminal {
         let theme = Theme::get(cx).clone();
         self.set_colors(&theme);
         let text_size = self.text_size(cx);
-        let line = (text_size * 1.3).round();
         let font = theme.terminal_font.clone();
         let text_system = window.text_system();
         let font_size = theme.scaled(text_size);
-        let cell_width = (text_system.advance(text_system.resolve_font(&font), font_size, 'm'))
+        let font_id = text_system.resolve_font(&font);
+        let cell_width = (text_system.advance(font_id, font_size, 'm'))
             .map_or(font_size * 0.6, |advance| advance.width);
-        let cell_height = theme.scaled(line);
+        // A row is as tall as the font, to the device pixel, as in Ghostty, so the font's box
+        // drawing joins up from row to row.
+        let font_height =
+            text_system.ascent(font_id, font_size) + text_system.descent(font_id, font_size).abs();
+        let scale = window.scale_factor();
+        let cell_height = (font_height * scale).round() / scale;
         let focused = self.focus.is_focused(window);
         let pointer_style = match self.tty.tracks_mouse() {
             true => CursorStyle::Arrow,
@@ -492,7 +497,7 @@ impl Render for Terminal {
                 el.font_features(font.features)
             })
             .text_size(dp(text_size))
-            .line_height(dp(line))
+            .line_height(cell_height)
             .child(
                 div()
                     .relative()
@@ -503,7 +508,7 @@ impl Render for Terminal {
                         let runs =
                             (row.runs.into_iter()).map(|(range, style)| (range, highlight(style)));
                         div()
-                            .h(dp(line))
+                            .h(cell_height)
                             .whitespace_nowrap()
                             .child(StyledText::new(row.text).with_highlights(runs))
                     }))
