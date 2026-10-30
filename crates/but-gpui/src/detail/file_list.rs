@@ -6,8 +6,8 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, ElementId, MouseButton, MouseDownEvent, Pixels,
-    Point, SharedString, Stateful, Toggled, div, prelude::*,
+    AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, MouseButton, MouseDownEvent,
+    Pixels, Point, SharedString, Stateful, Toggled, Window, div, prelude::*,
 };
 
 use super::blame::Blamed;
@@ -19,7 +19,7 @@ use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, 
 use crate::overlays::MenuItem;
 use crate::state::{Cut, FileSort, Overlay, ProjectId, Rereads, Selection, Store};
 use crate::theme::Theme;
-use crate::transfer::Chip;
+use crate::transfer::{Chip, DragPreview};
 use crate::ui::diff;
 use crate::ui::file_icons::{file_icon, folder_icon};
 use crate::ui::fold;
@@ -776,6 +776,41 @@ impl Detail {
         })
     }
 
+    /// `files` of `source` as they'd be cut, if they're the workspace's to change.
+    fn cut_from(&self, source: &FileSource, files: Vec<Selected>, cx: &App) -> Option<Cut> {
+        match source {
+            FileSource::Uncommitted(project, worktree) => Some(Cut::Files {
+                project: project.clone(),
+                from: None,
+                worktree: worktree.clone(),
+                files: files.into(),
+            }),
+            FileSource::Diff => self.owned_cut(files, cx),
+        }
+    }
+
+    /// The preview of a drag of the folder `dir` in `source`, which works out what it carries
+    /// as it starts: every row drawn would otherwise copy all its files, for a drag that rarely
+    /// comes. What GPUI holds goes unread, as drops read [`Store::dragging`].
+    fn folder_preview(
+        &self,
+        source: &FileSource,
+        dir: &str,
+        chip: Chip,
+        cx: &Context<Self>,
+    ) -> impl Fn(&Cut, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static {
+        let detail = cx.entity().downgrade();
+        let preview = self.drag_preview(chip, false, detail.clone());
+        let (source, dir) = (source.clone(), dir.to_owned());
+        move |nothing, offset, window, cx| {
+            let carried = (detail
+                .read_with(cx, |detail, cx| detail.folder_drag(&source, &dir, cx)))
+            .ok()
+            .flatten();
+            preview(carried.as_ref().unwrap_or(nothing), offset, window, cx)
+        }
+    }
+
     /// The diff the files of `source` take their line counts from.
     fn counted_diff(&self, source: &FileSource) -> Option<&LoadedDiff> {
         match source {
@@ -856,11 +891,8 @@ impl Detail {
             el.child(diff::column_stats(added, removed, columns, theme))
         })
         .child(div().flex_none().w(dp(MARK_WIDTH)))
-        .when_some(self.folder_drag(source, &path, cx), |el, dragged| {
-            el.on_drag(
-                dragged,
-                self.drag_preview(chip, false, cx.entity().downgrade()),
-            )
+        .when_some(self.cut_from(source, Vec::new(), cx), |el, nothing| {
+            el.on_drag(nothing, self.folder_preview(source, &path, chip, cx))
         })
         .on_mouse_down(
             MouseButton::Right,

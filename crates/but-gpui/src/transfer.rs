@@ -111,6 +111,10 @@ impl Transfer {
         if payload.project() != target.project() {
             return None;
         }
+        // A folder with nothing in it that can move carries nothing.
+        if matches!(payload, Cut::Files { files, .. } if files.is_empty()) {
+            return None;
+        }
         // An unnamed branch has no ref to put things on or stack onto.
         if matches!(target, Selection::Branch(_, None)) {
             return None;
