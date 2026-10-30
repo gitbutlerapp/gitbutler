@@ -9,7 +9,7 @@ use futures::StreamExt;
 use futures::channel::mpsc;
 use gpui::{
     App, Context, Entity, EventEmitter, FocusHandle, Focusable, FontWeight, HighlightStyle, Hsla,
-    KeyDownEvent, Modifiers, Pixels, Point, Rgba, ScrollWheelEvent, SharedString,
+    KeyDownEvent, Modifiers, MouseDownEvent, Pixels, Point, Rgba, ScrollWheelEvent, SharedString,
     StrikethroughStyle, StyledText, Task, UnderlineStyle, WeakEntity, Window, actions, canvas, div,
     prelude::*,
 };
@@ -258,6 +258,10 @@ impl Terminal {
         cx.stop_propagation();
     }
 
+    fn mouse_down(&mut self, _: &MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        window.focus(&self.focus, cx);
+    }
+
     fn scroll(&mut self, event: &ScrollWheelEvent, _: &mut Window, cx: &mut Context<Self>) {
         let line = fixed(f32::from(self.size.cell_height.max(1)));
         self.scrolled += event.delta.pixel_delta(line).y;
@@ -344,6 +348,7 @@ impl Render for Terminal {
             .key_context("Terminal TextInput")
             .track_focus(&self.focus)
             .on_key_down(cx.listener(Self::key_down))
+            .on_any_mouse_down(cx.listener(Self::mouse_down))
             .on_scroll_wheel(cx.listener(Self::scroll))
             .size_full()
             .p(dp(8.))
