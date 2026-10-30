@@ -219,6 +219,9 @@ impl Emulator {
         let title = self.vt.retitled();
         let reported = self.vt.reported();
         let shell_in_front = self.pty.shell_in_front();
+        if shell_in_front {
+            self.vt.reporter_gone();
+        }
         let tracks_mouse = self.vt.tracks_mouse();
         let due = self.unshown || hold_ended;
         let (draw, mut changed) = {
