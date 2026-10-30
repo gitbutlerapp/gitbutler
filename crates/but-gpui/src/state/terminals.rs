@@ -2,6 +2,8 @@
 //! Nothing saves them: they end with the app, but for Build and restart, which hands them to
 //! the new build.
 
+use std::time::Instant;
+
 use gpui::{Context, Entity, Subscription};
 
 use super::{ProjectId, Selection, Store};
@@ -80,6 +82,7 @@ impl Store {
         let Some(cwd) = cwd else {
             return;
         };
+        let asked = Instant::now();
         cx.spawn(async move |this, cx| {
             let started =
                 backend::run(move || Ok((Shell::spawn(&cwd, Terminal::OPENING)?, Ghostty::load())))
@@ -89,7 +92,15 @@ impl Store {
                 let opened = started
                     .and_then(|(shell, ghostty)| Terminal::new(shell, ghostty, store_handle, cx));
                 match opened {
-                    Ok(terminal) => store.add_terminal(project, checkout, terminal, cx),
+                    Ok(terminal) => {
+                        backend::metrics::operation(
+                            "New terminal",
+                            asked.elapsed(),
+                            None,
+                            store.workspace(&project),
+                        );
+                        store.add_terminal(project, checkout, terminal, cx);
+                    }
                     Err(err) => store.failed("Couldn't open a terminal", &err, cx),
                 }
             })

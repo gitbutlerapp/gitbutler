@@ -238,9 +238,9 @@ Like the mesh, metrics must never break or slow anything else.
 
 - Its code stays in `backend/metrics.rs` and `backend/metrics/crashes.rs`; the rest calls
   `backend::metrics::*` at a few places: launch and quit in `lib.rs`, `Store::start` for each
-  operation, `Store::failed` for each error card, `Store::count_view` for what's opened,
-  `ProjectEntry::failed` for a project that stops reading, signing in and out, and the Metrics
-  card's switches in `settings/metrics.rs`.
+  operation, `Store::open_terminal` for each terminal the user opens, `Store::failed` for each
+  error card, `Store::count_view` for what's opened, `ProjectEntry::failed` for a project that
+  stops reading, signing in and out, and the Metrics card's switches in `settings/metrics.rs`.
 - A property the desktop app sends too keeps its name and values (`totalLanesInWorkspace`,
   `theme`, `error_code`), so one chart covers both apps.
 - Nothing sent may name a branch, file, project or anything the user wrote. An operation's label
