@@ -59,6 +59,7 @@ pub struct Terminal {
     /// It takes the keys once it's first drawn, as it opens.
     focus_when_drawn: bool,
     store: WeakEntity<Store>,
+    #[cfg_attr(not(unix), expect(dead_code))]
     output: Rc<RefCell<Output>>,
     _output: Task<()>,
 }

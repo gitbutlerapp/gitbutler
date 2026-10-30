@@ -183,7 +183,9 @@ pub enum Printed {
 
 /// A binary a build made, to restart on.
 pub struct Built {
+    #[cfg_attr(not(unix), expect(dead_code))]
     exe: PathBuf,
+    #[cfg_attr(not(unix), expect(dead_code))]
     crate_dir: PathBuf,
 }
 
