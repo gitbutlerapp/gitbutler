@@ -273,10 +273,10 @@ impl AppView {
                 }
                 cx.notify()
             }),
-            cx.subscribe_in(&store, window, |this, _, event, window, cx| {
-                if let StoreEvent::AuthorMissing(project) = event {
-                    this.ask_author(project.clone(), window, cx);
-                }
+            cx.subscribe_in(&store, window, |this, _, event, window, cx| match event {
+                StoreEvent::AuthorMissing(project) => this.ask_author(project.clone(), window, cx),
+                StoreEvent::TerminalOpened => this.enter_terminal(window, cx),
+                _ => {}
             }),
             cx.observe_window_appearance(window, |this, window, cx| {
                 this.apply_appearance(window, cx)
@@ -932,6 +932,17 @@ impl AppView {
             window.focus(&terminal.focus_handle(cx), cx);
         }
         terminal.is_some()
+    }
+
+    /// Go into the selected terminal, to type in: the detail it shows in comes back, and it
+    /// takes the keys. Selecting it alone leaves them where they were, so ↑ and ↓ go past it.
+    pub(crate) fn enter_terminal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // Not from under what's open over it, as when a prompt opened while its shell started.
+        if self.covered() || self.shown_terminal(cx).is_none() {
+            return;
+        }
+        self.set_detail(true, window, cx);
+        self.focus_terminal(window, cx);
     }
 
     /// Focus the navigator, or the changes while the navigator isn't on screen, so keys

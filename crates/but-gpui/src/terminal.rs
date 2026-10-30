@@ -58,8 +58,6 @@ pub struct Terminal {
     /// Scrolling a selection dragged past the top or bottom, a row a tick.
     autoscrolling: Option<Task<()>>,
     focus: FocusHandle,
-    /// It takes the keys once it's first drawn, as it opens.
-    focus_when_drawn: bool,
     store: WeakEntity<Store>,
     #[cfg_attr(not(unix), expect(dead_code))]
     output: Rc<RefCell<Output>>,
@@ -137,7 +135,6 @@ impl Terminal {
             held: None,
             autoscrolling: None,
             focus: cx.focus_handle(),
-            focus_when_drawn: true,
             store,
             output,
             _output: cx.spawn(async move |this, cx| {
@@ -405,10 +402,6 @@ impl Render for Terminal {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx).clone();
         self.set_colors(&theme);
-        if std::mem::take(&mut self.focus_when_drawn) {
-            let focus = self.focus.clone();
-            window.defer(cx, move |window, cx| window.focus(&focus, cx));
-        }
         let text_size = self.text_size(cx);
         let line = (text_size * 1.3).round();
         let font = theme.terminal_font.clone();

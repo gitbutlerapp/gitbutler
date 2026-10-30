@@ -608,8 +608,8 @@ impl Detail {
                         this.skip_taken(cx);
                     }
                 }
-                // The app view asks for it.
-                StoreEvent::AuthorMissing(_) => {}
+                // The app view asks for it, and gives a terminal opened the keys.
+                StoreEvent::AuthorMissing(_) | StoreEvent::TerminalOpened => {}
             }),
             cx.subscribe_in(
                 &file_filter,
