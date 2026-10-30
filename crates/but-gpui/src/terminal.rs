@@ -23,7 +23,7 @@ use libghostty_vt::screen::{CellWide, Screen};
 use libghostty_vt::selection::gesture::{self, Gesture};
 use libghostty_vt::style::{RgbColor, Underline};
 use libghostty_vt::terminal::{Mode, Point as GridPoint, PointCoordinate, ScrollViewport};
-use libghostty_vt::{RenderState, TerminalOptions, paste};
+use libghostty_vt::{RenderState, paste};
 
 #[cfg(unix)]
 use crate::backend::terminal::Kept;
@@ -182,7 +182,8 @@ impl Terminal {
             self.pty.write(&replies).ok();
         }
         if self.vt.retitled.take() {
-            let title = self.vt.term.title().unwrap_or_default().trim();
+            let title = String::from_utf8_lossy(self.vt.term.title().unwrap_or_default());
+            let title = title.trim();
             self.title = if title.is_empty() { "Terminal" } else { title }
                 .to_owned()
                 .into();
@@ -617,11 +618,9 @@ impl Vt {
             ConformanceLevel, DeviceAttributeFeature, DeviceAttributes, DeviceType,
             PrimaryDeviceAttributes, SecondaryDeviceAttributes, TertiaryDeviceAttributes,
         };
-        let mut term = libghostty_vt::Terminal::new(TerminalOptions {
-            cols: size.cols,
-            rows: size.rows,
-            max_scrollback: 10_000,
-        })?;
+        let mut term = libghostty_vt::Terminal::new(size.cols, size.rows)?;
+        // Ghostty's default `scrollback-limit`.
+        term.set_scrollback_max_bytes(Some(10_000_000))?;
         let replies = Rc::new(Cell::new(Vec::new()));
         let retitled = Rc::new(Cell::new(false));
         let (sent, titled) = (replies.clone(), retitled.clone());
@@ -868,7 +867,9 @@ impl Vt {
             .with_kitty_keyboard(true)
             .with_charsets(true);
         let title = self.term.title().unwrap_or_default();
-        let mut screen = format!("\x1b]2;{title}\x1b\\").into_bytes();
+        let mut screen = b"\x1b]2;".to_vec();
+        screen.extend_from_slice(title);
+        screen.extend_from_slice(b"\x1b\\");
         screen.extend_from_slice(&Formatter::new(&self.term, options)?.format_alloc(None)?);
         Ok(screen)
     }
@@ -1386,7 +1387,7 @@ mod tests {
         assert_eq!(cursor(&fresh), cursor(&vt), "the cursor is where it was");
         assert_eq!(
             fresh.term.title().unwrap(),
-            "working",
+            b"working",
             "the title carries over"
         );
         assert!(

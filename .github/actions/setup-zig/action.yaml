@@ -7,6 +7,6 @@ runs:
       name: Install Zig
       with:
         # Ghostty's minimum_zig_version at the commit libghostty-vt-sys pins.
-        version: 0.15.2
+        version: 0.17.0
         # Rust Cache already keeps Zig's build output, which lives in libghostty-vt-sys's OUT_DIR.
         use-cache: false
