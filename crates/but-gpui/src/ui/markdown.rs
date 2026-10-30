@@ -10,8 +10,7 @@
 //! [`MAX_BYTES`] isn't parsed, and nesting past [`MAX_DEPTH`] steps in no further.
 //!
 //! Emphasis shows in the medium weight, not slanted: the app embeds no italic face, and
-//! asking for one could pick a variable font installed on the machine, which is slow to
-//! draw (see the crate's AGENTS.md).
+//! asking for one would draw whatever the machine has installed (see the crate's AGENTS.md).
 
 use std::cell::Cell;
 use std::ops::Range;

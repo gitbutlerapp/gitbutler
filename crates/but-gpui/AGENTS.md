@@ -9,11 +9,17 @@ code's layout in it, and leave it alone when behaviour changes.
 - Use only the font families the app embeds (`assets/fonts`, `theme.ui_font` and
   `theme.mono_font`). GPUI looks a family up among the embedded fonts first and falls back to
   the system only when it isn't there. A family that isn't embedded then resolves to whatever
-  the machine has installed. If that's a variable font, like Inter in `~/Library/Fonts`,
-  CoreText calls the font daemon for every line it lays out, and frames go from about 10ms to
-  70-120ms, only on that machine.
-- GPUI picks a weight by choosing between font files and doesn't vary a variable font, so add
-  static instances, never a variable file. `assets/fonts/README.md` has the recipe.
+  the machine has installed, and one it doesn't have to GPUI's fallback stack, which ends in
+  Helvetica.
+- A font with an optical size axis (`opsz`) is slow to lay out, as CoreText sets up its shaping
+  again for each sized copy GPUI makes, one per text run. With variable Inter installed, frames
+  went from about 10ms to 70-120ms: a line took 227µs against 20µs with `opsz` pinned. Being
+  variable isn't the cost, as JetBrains Mono, Fira Code and Source Code Pro match their static
+  cuts.
+- Add static instances, never a variable file: GPUI keeps a font added as bytes at its default
+  instance, so it never reaches the other weights (Fira Code's file stays Light). An installed
+  variable font reaches them through its named instances, so never load a user's font with
+  `add_fonts`. `assets/fonts/README.md` has the recipe.
 - A character the embedded Inter lacks is drawn from another font, heavier and off the
   baseline. Design-core's Inter has only 230, so before writing a new symbol into the UI, check
   it's in `assets/fonts` and add it from the full Inter if not, as the key symbols were.

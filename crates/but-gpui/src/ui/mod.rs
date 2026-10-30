@@ -249,8 +249,6 @@ icons! {
 }
 
 /// GitButler's fonts, compiled into the binary so the client looks the same everywhere.
-/// Embedded fonts are as fast as system ones; a user-installed variable font isn't, as
-/// CoreText asks the font daemon about it for every line it lays out.
 pub fn fonts() -> Vec<Cow<'static, [u8]>> {
     macro_rules! fonts {
         ($($name:literal),* $(,)?) => {

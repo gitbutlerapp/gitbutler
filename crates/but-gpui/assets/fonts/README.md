@@ -43,8 +43,8 @@ base["glyf"].glyphOrder = base.getGlyphOrder()
 base.save("Inter-Regular.ttf")
 ```
 
-GPUI picks a weight by choosing between font files and doesn't vary a variable font, hence static
-files. Both fonts are under the SIL Open Font License 1.1 (https://openfontlicense.org); each
+GPUI keeps a font added as bytes at its default instance, so it never reaches a variable file's
+other weights, hence static files. Both fonts are under the SIL Open Font License 1.1 (https://openfontlicense.org); each
 file carries its copyright notice and license link in its name table.
 
 ## Terminal font
