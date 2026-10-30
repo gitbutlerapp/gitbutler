@@ -843,6 +843,8 @@ pub struct Button {
     /// Why it can't be pressed now, shown in place of its tooltip.
     disabled: Option<SharedString>,
     small: bool,
+    /// At least this wide, its label centred.
+    min_width: Option<Rems>,
     /// On an inverted ground, like a selected row.
     inverted: bool,
     /// The colour of the ground it sits on, as a banner's action takes its banner's.
@@ -872,6 +874,7 @@ pub fn button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Butto
         style: ButtonStyle::Outline,
         disabled: None,
         small: false,
+        min_width: None,
         inverted: false,
         tint: None,
         on_click: None,
@@ -920,6 +923,12 @@ impl Button {
 
     pub fn small(mut self) -> Self {
         self.small = true;
+        self
+    }
+
+    /// At least `width` wide, so buttons that stand in for each other cover the same place.
+    pub fn min_width(mut self, width: Rems) -> Self {
+        self.min_width = Some(width);
         self
     }
 
@@ -1028,6 +1037,7 @@ impl RenderOnce for Button {
             .gap(dp(if self.small { 4. } else { 6. }))
             .when(has_label, |el| el.px(dp(if self.small { 6. } else { 10. })))
             .when(!has_label, |el| el.w(width).justify_center())
+            .when_some(self.min_width, |el, width| el.min_w(width).justify_center())
             .text_size(dp(if self.small { 12. } else { 13. }))
             .font_weight(gpui::FontWeight::SEMIBOLD)
             .whitespace_nowrap()

@@ -450,6 +450,7 @@ impl Detail {
             };
             let open = button("open-composer", "Commit…")
                 .small()
+                .min_width(dp(super::COMMIT_BUTTON_WIDTH))
                 .tooltip_for("Write a commit message", &StartCommit)
                 .on_click(cx.listener(|this, _, window, cx| this.focus_message(window, cx)));
             footer(target, [open], theme)
@@ -1245,6 +1246,18 @@ pub(super) fn side_header(theme: &Theme) -> Div {
         .border_color(theme.border_3)
 }
 
+/// The bar along the bottom of a checkout's uncommitted changes, and the composer's row of
+/// buttons, so Commit opens where Commit… was and a double click commits. Its top rule takes
+/// its room in both, drawn only where given a colour.
+pub(super) fn footer_bar() -> Div {
+    h_flex()
+        .flex_none()
+        .h(dp(super::FOOTER_HEIGHT))
+        .px(dp(12.))
+        .gap(dp(8.))
+        .border_t_1()
+}
+
 /// The bar along the bottom of a checkout's uncommitted changes: what committing there does,
 /// in `label`, and the buttons that do it.
 fn footer(
@@ -1252,12 +1265,7 @@ fn footer(
     actions: impl IntoIterator<Item = impl IntoElement>,
     theme: &Theme,
 ) -> AnyElement {
-    h_flex()
-        .flex_none()
-        .h(dp(super::FOOTER_HEIGHT))
-        .px(dp(12.))
-        .gap(dp(8.))
-        .border_t_1()
+    footer_bar()
         .border_color(theme.border_3)
         .child(
             div()
