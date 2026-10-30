@@ -1,22 +1,26 @@
 // A keymap like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming
 // and adding an empty commit, Return to fold and unfold, f, ⇧F and ⌃F to show and hide the files,
-// the navigator and the details, ⌘R to fetch and ⇧⌘R to pull, and the keys the app's lists and
-// overlays need, as GitButler's keymap has them.
+// the navigator and the details, / to filter or find, ⌘K for the command palette, ⌘R to fetch
+// and ⇧⌘R to pull, and the keys the app's lists and overlays need, as GitButler's keymap has them.
 // `base.json`, which macOS gives every app, binds after these. `secondary` is cmd on macOS and
 // ctrl elsewhere; a section with "os" binds only there. Order matters: within a context the
 // binding added last wins, and the last binding for an action is the key menus and tooltips
 // show, so the TUI's letters come after the arrows.
 [
-  // : for the TUI's command line, ? for its help, / for its jump and Esc to go back. y copies the
-  // selection and ⇧Y picks what else of it to copy. u undoes and ⇧U redoes. ← and →, or h and l,
-  // go to the pane on that side, as l focuses the TUI's details and h its status. ⇧F shows or
-  // hides the navigator, and ⌃F the details.
+  // ⌘K opens the command palette too, as in GitButler's keymap, first so : is the key shown.
+  {
+    "bindings": { "secondary-k": "app::CommandPalette" }
+  },
+  // : for the TUI's command line, ? for its help, t for its branch picker and Esc to go back. y
+  // copies the selection and ⇧Y picks what else of it to copy. u undoes and ⇧U redoes. ← and →,
+  // or h and l, go to the pane on that side, as l focuses the TUI's details and h its status. ⇧F
+  // shows or hides the navigator, and ⌃F the details.
   {
     "context": "Workspace && !TextInput",
     "bindings": {
       ":": "app::CommandPalette",
       "?": "settings::OpenKeyboardShortcuts",
-      "/": "palette::GoTo",
+      "t": "palette::GoTo",
       "escape": "app::Cancel",
       "y": "navigator::CopySelection",
       "shift-y": "palette::CopyMore",
@@ -79,6 +83,21 @@
   {
     "context": "(Navigator || Diff) && !TextInput",
     "bindings": { "f": "diff::ToggleFiles" }
+  },
+  // / searches what has the keys: the navigator with its filter, the diff with its find bar, and
+  // the file list or a list with its filter, as the project page's commits, Branches and
+  // Operations history have. Those are inside the diff's context, so theirs wins there.
+  {
+    "context": "Navigator && !TextInput",
+    "bindings": { "/": "navigator::FocusFilter" }
+  },
+  {
+    "context": "Diff && !TextInput",
+    "bindings": { "/": "find::FindInDiff" }
+  },
+  {
+    "context": "(Files || List) && !TextInput",
+    "bindings": { "/": "diff::FilterFiles" }
   },
   // The file list, inside the diff's context, steps through its files rather than going on to
   // the diff's hunks, which would take the keys there.
@@ -146,6 +165,11 @@
       "down": "navigator::SelectNext",
       "j": "navigator::SelectNext"
     }
+  },
+  // Back to the search box from a page link or a control, as / goes to the navigator's filter.
+  {
+    "context": "Settings && !TextInput",
+    "bindings": { "/": "settings::FocusSearch" }
   },
   // After the text field's own keys, so these win in the search field.
   {

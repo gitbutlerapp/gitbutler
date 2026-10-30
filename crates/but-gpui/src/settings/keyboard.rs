@@ -171,6 +171,7 @@ fn place(context: &str) -> Option<&'static str> {
         "Conflicts" | "Picked" => "Conflicts",
         "FindBar" => "Find bar",
         "Palette" => "Palette",
+        "Settings" => "Settings",
         _ => return None,
     })
 }

@@ -381,6 +381,11 @@
       "j": "navigator::SelectNext"
     }
   },
+  // Back to the search box from a page link or a control, as / goes to the navigator's filter.
+  {
+    "context": "Settings && !TextInput",
+    "bindings": { "/": "settings::FocusSearch" }
+  },
   // After the text field's own keys, so these win in the search field.
   {
     "context": "WhatsNew > TextInput",

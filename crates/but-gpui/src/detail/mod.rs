@@ -631,7 +631,9 @@ impl Detail {
                             }
                         }
                     }
-                    InputEvent::Submit => window.focus(&this.focus, cx),
+                    // On to the list as filtered, to step through it, as a side list's filter
+                    // goes on to its list. The field heads the list, so the list is drawn.
+                    InputEvent::Submit => window.focus(&this.files_focus, cx),
                     InputEvent::Cancel => this.close_filter(window, cx),
                 },
             ),
@@ -1548,9 +1550,17 @@ impl Detail {
 
     fn close_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.filtering = false;
+        // The keys the field had go to the list it heads, or to the diff when that's going too.
+        // Elsewhere they stay where they are.
+        if self.file_filter.focus_handle(cx).is_focused(window) {
+            let to = match self.files_shown(cx) {
+                true => &self.files_focus,
+                false => &self.focus,
+            };
+            window.focus(to, cx);
+        }
         self.file_filter
             .update(cx, |input, cx| input.set_text("", cx));
-        window.focus(&self.focus, cx);
         self.rebuild_rows(cx);
     }
 
