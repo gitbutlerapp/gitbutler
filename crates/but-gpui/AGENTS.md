@@ -69,6 +69,11 @@ code's layout in it, and leave it alone when behaviour changes.
 - Text shaping dominates frames with new content: GPUI's CoreText layout creates a sized font
   copy per text run, so fewer text elements per row is the lever, and a new diff draws a frame
   after the rest of the detail (`DiffPane`) so the two don't share one frame.
+- GPUI keeps a shaped line only while the same text, in the same fonts, is drawn the frame
+  after. A line that changes anywhere is shaped whole again, so text that changes a little
+  every frame is shaped in pieces that keep. The terminal shapes each run of a row on its own,
+  without the blanks around it: whole rows, which nvim's relative line numbers change at every
+  move, cost 10ms a keypress, and reflowed blanks reshaped every row at each step of a resize.
 - Layout costs per element, and a flex row of many small ones costs most. The Branches
   overview's thirty day cells a lane were a quarter of that page's frame; placing them with
   `absolute` and `relative` insets halved that, and wording their tooltips in the tooltip's

@@ -143,6 +143,7 @@ impl Store {
         tracing::debug!(visible, unseen = self.unseen.len(), "window visibility");
         let shown = self.hidden && visible;
         self.hidden = !visible;
+        self.show_terminals(cx);
         if self.hidden {
             // Drawn once more, for what moves on screen to stop.
             cx.notify();

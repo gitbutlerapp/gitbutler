@@ -17,11 +17,12 @@ libc.workspace = true
 [target.'cfg(windows)'.dependencies]
 # The pseudoconsole and the shell started on it.
 windows = { version = "0.62.0", features = ["Win32_Security", "Win32_System_Console", "Win32_System_Pipes", "Win32_System_Threading"] }
-parking_lot.workspace = true
 
 [dependencies]
 anyhow.workspace = true
 futures.workspace = true
+# What the emulator's thread shows, read by the UI's: a lock that can't be poisoned.
+parking_lot.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true

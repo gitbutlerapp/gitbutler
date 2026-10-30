@@ -1,15 +1,17 @@
 //! The emulator: libghostty-vt's terminal, with the encoders that turn keys, the mouse and
 //! pastes into what the shell reads, and the frames drawn from it.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::ops::Range;
 use std::rc::Rc;
-use std::time::Duration;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use libghostty_vt::fmt::{Format, Formatter, FormatterOptions};
 use libghostty_vt::key::{self, Key, Mods};
 use libghostty_vt::mouse;
-use libghostty_vt::render::{CellIterator, Dirty, RowIterator};
+use libghostty_vt::render::{CellIterator, Dirty, RowId, RowIterator};
 use libghostty_vt::screen::{CellWide, Screen};
 use libghostty_vt::selection::gesture::{self, Gesture};
 use libghostty_vt::style::{RgbColor, Underline};
@@ -31,24 +33,36 @@ pub struct Style {
     pub faint: bool,
 }
 
-/// A row's text, with how each run of it draws by the bytes it covers.
-#[derive(Default)]
+/// A row's text, in runs of cells that draw alike.
+#[derive(Clone, Default)]
 pub struct Row {
     pub text: String,
-    pub runs: Vec<(Range<usize>, Style)>,
+    pub runs: Vec<Run>,
+}
+
+/// Cells side by side that draw alike. A wide character is a run of its own, so each of a
+/// run's characters takes one column but for that one.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Run {
+    /// The bytes of the row's text it covers.
+    pub text: Range<usize>,
+    /// The column it starts at, and those it takes.
+    pub columns: Range<u16>,
+    pub style: Style,
 }
 
 /// The cursor's cell, by column and row, with the text under it.
+#[derive(Clone)]
 pub struct Cursor {
     pub x: u16,
     pub y: u16,
     pub text: String,
 }
 
-/// What a frame draws.
-#[derive(Default)]
+/// What a frame draws. A row that didn't change is the one the frame before drew.
+#[derive(Clone, Default)]
 pub struct Frame {
-    pub rows: Vec<Row>,
+    pub rows: Vec<Arc<Row>>,
     pub cursor: Option<Cursor>,
     pub background: RgbColor,
     pub foreground: RgbColor,
@@ -87,12 +101,20 @@ impl Status {
     }
 }
 
+/// How long a program may hold the screen on the frame it began updating from before it's
+/// drawn as it is, as one that crashed or forgot never ends the hold. Ghostty's too.
+const HOLD_TIMEOUT: Duration = Duration::from_secs(1);
+
 /// The emulator and what it's read and written with.
 pub(crate) struct Vt {
     term: libghostty_vt::Terminal<'static, 'static>,
-    state: RenderState<'static>,
-    rows: RowIterator<'static>,
-    cells: CellIterator<'static>,
+    drawer: Rc<RefCell<Drawer>>,
+    /// The frame shown while the program updates the screen in one go (synchronized output,
+    /// 2026), as nvim redraws, so a half-drawn screen never shows.
+    hold: Rc<Cell<Option<Hold>>>,
+    /// Whether a hold takes the frame it began from: only while the terminal is on screen, as
+    /// one out of sight draws nothing to keep.
+    capturing: Rc<Cell<bool>>,
     keys: key::Encoder<'static>,
     key: key::Event<'static>,
     mouse: mouse::Encoder<'static>,
@@ -124,7 +146,30 @@ impl Vt {
         let retitled = Rc::new(Cell::new(false));
         let reported = Rc::new(Cell::new(None));
         let (sent, titled, heard) = (replies.clone(), retitled.clone(), reported.clone());
-        term.on_pty_write(move |_, bytes| {
+        let drawer = Rc::new(RefCell::new(Drawer {
+            state: RenderState::new()?,
+            rows: RowIterator::new()?,
+            cells: CellIterator::new()?,
+            chosen: Colors::default(),
+            drawn: HashMap::new(),
+            last: Arc::default(),
+            redraw_all: true,
+        }));
+        let hold = Rc::new(Cell::new(None));
+        let capturing = Rc::new(Cell::new(true));
+        let (capture, held, shown) = (drawer.clone(), hold.clone(), capturing.clone());
+        // Called as a hold begins, before anything the program wrote after, so the frame taken
+        // is the one it means to leave up. It runs inside libghostty, where a panic aborts.
+        term.on_render_hold(move |term, holds| {
+            let frame = (holds && shown.get())
+                .then(|| capture.try_borrow_mut().ok()?.frame(term).ok())
+                .flatten();
+            held.set(frame.map(|frame| Hold {
+                frame,
+                since: Instant::now(),
+            }));
+        })?
+        .on_pty_write(move |_, bytes| {
             let mut all = sent.take();
             all.extend_from_slice(bytes);
             sent.set(all);
@@ -155,9 +200,9 @@ impl Vt {
         mouse.set_track_last_cell(true).set_size(encoder_size(size));
         Ok(Self {
             term,
-            state: RenderState::new()?,
-            rows: RowIterator::new()?,
-            cells: CellIterator::new()?,
+            drawer,
+            hold,
+            capturing,
             keys: key::Encoder::new()?,
             key: key::Event::new()?,
             mouse,
@@ -265,14 +310,16 @@ impl Vt {
     }
 
     /// Sizes the emulator and, so motion is told of once a cell, the mouse encoder only when
-    /// the size changes.
-    pub(crate) fn resize(&mut self, size: Size) {
+    /// the size changes. Returns the new size as reported to a program that asked to be told
+    /// in-band (2048), as nvim does, which then redraws only once it's told.
+    pub(crate) fn resize(&mut self, size: Size) -> Vec<u8> {
         self.size = size;
         let cell = (u32::from(size.cell_width), u32::from(size.cell_height));
         (self.term)
             .resize(size.cols, size.rows, cell.0, cell.1)
             .ok();
         self.mouse.set_size(encoder_size(size));
+        self.take_replies()
     }
 
     /// `button` going `action` over `at` on the grid, for a program tracking the mouse; nothing
@@ -417,6 +464,7 @@ impl Vt {
     }
 
     /// Whether the selection's drag went past the top or bottom, for the viewport to follow.
+    #[cfg(test)]
     pub(crate) fn autoscrolling(&self) -> bool {
         (self.selecting.autoscroll(&self.term)).is_ok_and(|to| to != gesture::Autoscroll::None)
     }
@@ -474,9 +522,97 @@ impl Vt {
     }
 
     /// What to draw, with what's selected in `chosen`'s selection colours, or the default
-    /// colours swapped where it sets none, as Ghostty does.
-    pub(crate) fn frame(&mut self, chosen: &Colors) -> libghostty_vt::error::Result<Frame> {
-        let snapshot = self.state.update(&self.term)?;
+    /// colours swapped where it sets none, as Ghostty does. While the program holds the screen,
+    /// the frame it began updating from, until it's done or the hold times out.
+    /// The frame before, the same one, when nothing changed.
+    pub(crate) fn frame(&mut self, chosen: &Colors) -> libghostty_vt::error::Result<Arc<Frame>> {
+        self.end_timed_out_hold();
+        let hold = self.hold.take();
+        if let Some(frame) = hold.as_ref().map(|hold| hold.frame.clone()) {
+            self.hold.set(hold);
+            return Ok(frame);
+        }
+        let mut drawer = self.drawer.borrow_mut();
+        if drawer.chosen != *chosen {
+            drawer.chosen = chosen.clone();
+            // libghostty doesn't know these colours, so every row is drawn in them again.
+            drawer.redraw_all = true;
+        }
+        drawer.frame(&self.term)
+    }
+
+    /// Ends the program's hold on the screen if it timed out, drawn or not, and returns whether
+    /// it did.
+    pub(crate) fn end_timed_out_hold(&mut self) -> bool {
+        let hold = self.hold.take();
+        if hold
+            .as_ref()
+            .is_some_and(|hold| hold.since.elapsed() < HOLD_TIMEOUT)
+        {
+            self.hold.set(hold);
+            return false;
+        }
+        // Setting the mode doesn't call back, so the hold is over here.
+        hold.is_some() && self.term.set_mode(Mode::SYNC_OUTPUT, false).is_ok()
+    }
+
+    /// When the program's hold on the screen times out, if it holds it.
+    pub(crate) fn hold_deadline(&self) -> Option<Instant> {
+        let hold = self.hold.take();
+        let deadline = hold.as_ref().map(|hold| hold.since + HOLD_TIMEOUT);
+        self.hold.set(hold);
+        deadline
+    }
+
+    /// Whether the terminal is on screen, for holds to take the frame they began from.
+    pub(crate) fn set_capturing(&self, shown: bool) {
+        self.capturing.set(shown);
+    }
+}
+
+/// What frames are drawn from, shared with the callback that takes one as a hold begins.
+struct Drawer {
+    state: RenderState<'static>,
+    rows: RowIterator<'static>,
+    cells: CellIterator<'static>,
+    /// The selection colours frames draw in: those the last frame drawn was asked for.
+    chosen: Colors,
+    /// The rows the last frame drew, by id. libghostty marks those that changed since, so the
+    /// rest are drawn as they were, as Ghostty's renderer does: a program rewriting a line
+    /// many times a second draws that line, not the screen.
+    drawn: HashMap<RowId, Arc<Row>>,
+    /// The last frame drawn, again while nothing changed.
+    last: Arc<Frame>,
+    /// Whether every row is to be drawn again, as libghostty can't tell.
+    redraw_all: bool,
+}
+
+/// The frame a program's hold on the screen began from, and when.
+struct Hold {
+    frame: Arc<Frame>,
+    since: Instant,
+}
+
+impl Drawer {
+    /// The frame now, as [`Vt::frame`]. One that fails partway leaves rows marked drawn that
+    /// it didn't keep, so the next draws them all.
+    fn frame(
+        &mut self,
+        term: &libghostty_vt::Terminal<'static, '_>,
+    ) -> libghostty_vt::error::Result<Arc<Frame>> {
+        let frame = self.draw(term);
+        match &frame {
+            Ok(frame) => self.last = frame.clone(),
+            Err(_) => self.redraw_all = true,
+        }
+        frame
+    }
+
+    fn draw(
+        &mut self,
+        term: &libghostty_vt::Terminal<'static, '_>,
+    ) -> libghostty_vt::error::Result<Arc<Frame>> {
+        let snapshot = self.state.update(term)?;
         let colors = snapshot.colors()?;
         let cursor = match snapshot.cursor_visible()? {
             true => snapshot.cursor_viewport()?,
@@ -488,25 +624,51 @@ impl Vt {
             cursor_color: colors.cursor.unwrap_or(colors.foreground),
             ..Frame::default()
         };
-        let selected_bg = chosen.selection_background.unwrap_or(colors.foreground);
-        let selected_fg = chosen.selection_foreground.unwrap_or(colors.background);
+        let last = &self.last;
+        // A program setting the default colours (OSC 10 and 11) marks no row, but a row is
+        // drawn in them. The palette, the selection and the size mark every row.
+        let recoloured = (frame.background, frame.foreground) != (last.background, last.foreground);
+        let full =
+            std::mem::take(&mut self.redraw_all) || recoloured || snapshot.dirty()? == Dirty::Full;
+        let cursor_moved = cursor.map(|cursor| (cursor.x, cursor.y))
+            != (last.cursor.as_ref()).map(|cursor| (cursor.x, cursor.y));
+        if !full
+            && !cursor_moved
+            && frame.cursor_color == last.cursor_color
+            && snapshot.dirty()? == Dirty::Clean
+        {
+            return Ok(self.last.clone());
+        }
+        let selected_bg = (self.chosen.selection_background).unwrap_or(colors.foreground);
+        let selected_fg = (self.chosen.selection_foreground).unwrap_or(colors.background);
         let mut rows = self.rows.update(&snapshot)?;
         let mut cell_text = String::new();
+        let mut drawn_now = HashMap::with_capacity(self.drawn.len());
         let mut y = 0;
         while let Some(row) = rows.next() {
+            let id = row.id()?;
+            // The cursor's row is drawn again for the text under it.
+            let cursor_here = cursor.is_some_and(|cursor| cursor.y == y);
+            let unchanged = !full && !cursor_here && !row.dirty()?;
+            if let Some(drawn) = unchanged.then(|| self.drawn.get(&id)).flatten() {
+                drawn_now.insert(id, drawn.clone());
+                frame.rows.push(drawn.clone());
+                y += 1;
+                continue;
+            }
             let mut drawn = Row::default();
             let selected = row.selection()?.map(|range| range.start_x..=range.end_x);
             let mut cells = self.cells.update(row)?;
             let mut x = 0;
+            let mut after_wide = false;
             while let Some(cell) = cells.next() {
                 let at = x;
                 x += 1;
-                if matches!(
-                    cell.raw_cell()?.wide()?,
-                    CellWide::SpacerTail | CellWide::SpacerHead
-                ) {
-                    continue;
-                }
+                let wide = match cell.raw_cell()?.wide()? {
+                    CellWide::Narrow => false,
+                    CellWide::Wide => true,
+                    CellWide::SpacerTail | CellWide::SpacerHead => continue,
+                };
                 cell_text.clear();
                 if cell.graphemes_len()? > 0 {
                     cell.graphemes_utf8(&mut cell_text)?;
@@ -542,17 +704,28 @@ impl Vt {
                 }
                 let start = drawn.text.len();
                 drawn.text.push_str(&cell_text);
+                let end = (drawn.text.len(), at + if wide { 2 } else { 1 });
                 match drawn.runs.last_mut() {
-                    Some((range, last)) if *last == style => range.end = drawn.text.len(),
-                    _ => drawn.runs.push((start..drawn.text.len(), style)),
+                    Some(last) if last.style == style && !wide && !after_wide => {
+                        (last.text.end, last.columns.end) = end;
+                    }
+                    _ => drawn.runs.push(Run {
+                        text: start..end.0,
+                        columns: at..end.1,
+                        style,
+                    }),
                 }
+                after_wide = wide;
             }
             row.set_dirty(false)?;
+            let drawn = Arc::new(drawn);
+            drawn_now.insert(id, drawn.clone());
             frame.rows.push(drawn);
             y += 1;
         }
+        self.drawn = drawn_now;
         snapshot.set_dirty(Dirty::Clean)?;
-        Ok(frame)
+        Ok(Arc::new(frame))
     }
 }
 
@@ -634,6 +807,84 @@ mod tests {
     }
 
     #[test]
+    fn a_program_asking_for_in_band_size_reports_is_told_each_resize() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        let wider = Size { cols: 100, ..SIZE };
+        assert_eq!(vt.resize(wider), b"", "unasked, the shell has SIGWINCH");
+        vt.write(b"\x1b[?2048h");
+        vt.take_replies();
+        assert_eq!(
+            String::from_utf8(vt.resize(SIZE)).unwrap(),
+            "\x1b[48;24;80;384;640t",
+            "nvim asks for 2048 and redraws only once it reads the new rows, columns and pixels"
+        );
+    }
+
+    fn first_row(vt: &mut Vt) -> String {
+        let frame = vt.frame(&Colors::default()).unwrap();
+        frame.rows[0].text.trim_end().to_owned()
+    }
+
+    #[test]
+    fn a_synchronized_update_shows_the_frame_from_before_until_it_is_done() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.write(b"before");
+        vt.write(b"\x1b[?2026h\x1b[2J\x1b[Hhalf");
+        assert_eq!(
+            first_row(&mut vt),
+            "before",
+            "a redraw half done never shows"
+        );
+        vt.write(b" done\x1b[?2026l");
+        assert_eq!(
+            first_row(&mut vt),
+            "half done",
+            "it shows at once when done"
+        );
+
+        vt.write(b"\x1b[?2026h\x1b[2J\x1b[Hnext\x1b[?2026l\x1b[?2026h\x1b[2J\x1b[Hpart");
+        assert_eq!(
+            first_row(&mut vt),
+            "next",
+            "a redraw done between two frames shows, though the next began before them"
+        );
+        vt.resize(Size { cols: 100, ..SIZE });
+        assert_eq!(
+            (vt.hold_deadline(), first_row(&mut vt).as_str()),
+            (None, "part"),
+            "a resize ends the hold, so the screen shows as it is, as nvim redraws for it"
+        );
+    }
+
+    #[test]
+    fn out_of_sight_a_hold_keeps_no_frame() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.set_capturing(false);
+        vt.write(b"before\x1b[?2026hafter");
+        assert_eq!(
+            (vt.hold_deadline(), first_row(&mut vt).as_str()),
+            (None, "beforeafter"),
+            "a terminal out of sight draws nothing, so there's no frame to keep"
+        );
+    }
+
+    #[test]
+    fn a_hold_never_ended_times_out() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.write(b"before\x1b[?2026hafter");
+        assert!(vt.hold_deadline().is_some(), "the program holds the screen");
+        let mut hold = vt.hold.take().unwrap();
+        hold.since -= HOLD_TIMEOUT;
+        vt.hold.set(Some(hold));
+        assert_eq!(
+            first_row(&mut vt),
+            "beforeafter",
+            "a program that never says it's done is drawn as it is once the hold times out"
+        );
+        assert_eq!(vt.hold_deadline(), None, "and the hold is over");
+    }
+
+    #[test]
     fn a_key_without_an_unshifted_codepoint_does_not_take_the_last_keys() {
         let mut vt = Vt::new(SIZE).unwrap();
         vt.write(b"\x1b[>1u");
@@ -705,13 +956,109 @@ mod tests {
         let frame = vt.frame(&Colors::default()).unwrap();
         let row = &frame.rows[0];
         let backgrounds: Vec<_> = (row.runs.iter())
-            .map(|(range, style)| (row.text[range.clone()].trim_end(), style.bg))
+            .map(|run| (row.text[run.text.clone()].trim_end(), run.style.bg))
             .take(2)
             .collect();
         assert_eq!(
             backgrounds,
             [("hello", Some(frame.foreground)), (" world", None)],
             "only the selection is drawn, on the foreground colour"
+        );
+    }
+
+    #[test]
+    fn runs_take_their_columns_and_a_wide_character_has_one_of_its_own() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.write("ab漢cd".as_bytes());
+        let frame = vt.frame(&Colors::default()).unwrap();
+        let row = &frame.rows[0];
+        let runs: Vec<_> = (row.runs.iter())
+            .map(|run| (row.text[run.text.clone()].trim_end(), run.columns.clone()))
+            .collect();
+        assert_eq!(
+            runs,
+            [("ab", 0..2), ("漢", 2..4), ("cd", 4..80)],
+            "the wide character takes two columns, so what follows it starts two on"
+        );
+    }
+
+    #[test]
+    fn only_rows_that_changed_are_drawn_again() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        let text = |frame: &Frame| -> Vec<String> {
+            (frame.rows.iter())
+                .map(|row| row.text.trim_end().to_owned())
+                .collect()
+        };
+        vt.write(b"first\r\nsecond\r\n");
+        let before = vt.frame(&Colors::default()).unwrap();
+        vt.write(b"third");
+        let after = vt.frame(&Colors::default()).unwrap();
+        assert!(
+            Arc::ptr_eq(&before.rows[0], &after.rows[0]),
+            "a row that didn't change is the one drawn before"
+        );
+        assert_eq!(
+            text(&after)[..3],
+            ["first", "second", "third"],
+            "the changed one is drawn"
+        );
+
+        for n in 0..29 {
+            vt.write(format!("\r\nline {n}").as_bytes());
+        }
+        vt.frame(&Colors::default()).unwrap();
+        vt.write(b"\r\nline 29");
+        let scrolled = vt.frame(&Colors::default()).unwrap();
+        let expected: Vec<String> = (6..30).map(|n| format!("line {n}")).collect();
+        assert_eq!(
+            text(&scrolled),
+            expected,
+            "scrolled, each row shows what it should"
+        );
+    }
+
+    #[test]
+    fn a_screen_that_did_not_change_is_the_frame_before() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.write(b"hello");
+        let before = vt.frame(&Colors::default()).unwrap();
+        let motion = mouse::Position { x: 4., y: 8. };
+        vt.mouse(mouse::Action::Motion, None, motion, Mods::empty());
+        let after = vt.frame(&Colors::default()).unwrap();
+        assert!(
+            Arc::ptr_eq(&before, &after),
+            "the mouse over a program not tracking it changes nothing to draw"
+        );
+        vt.write(b"\x1b[H");
+        let moved = vt.frame(&Colors::default()).unwrap();
+        assert_eq!(
+            (moved.cursor.as_ref()).map(|cursor| (cursor.x, cursor.y)),
+            Some((0, 0)),
+            "the cursor moving is drawn, though it marks no row"
+        );
+    }
+
+    #[test]
+    fn rows_are_drawn_again_in_colours_a_program_sets() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        let (black, white) = (
+            RgbColor { r: 0, g: 0, b: 0 },
+            RgbColor {
+                r: 255,
+                g: 255,
+                b: 255,
+            },
+        );
+        vt.set_colors(&Colors::default(), black, white);
+        vt.write(b"hello\r\n");
+        vt.frame(&Colors::default()).unwrap();
+        vt.write(b"\x1b]10;rgb:ff/00/00\x07");
+        let frame = vt.frame(&Colors::default()).unwrap();
+        assert_eq!(
+            frame.rows[0].runs[0].style.fg,
+            RgbColor { r: 255, g: 0, b: 0 },
+            "text in the default colour turns red with it, though OSC 10 marks no row"
         );
     }
 
@@ -744,8 +1091,8 @@ mod tests {
         let frame = vt.frame(&Colors::default()).unwrap();
         let row = &frame.rows[0];
         (row.runs.iter())
-            .filter(|(_, style)| style.bg.is_some())
-            .map(|(range, _)| row.text[range.clone()].trim_end().to_owned())
+            .filter(|run| run.style.bg.is_some())
+            .map(|run| row.text[run.text.clone()].trim_end().to_owned())
             .collect()
     }
 
