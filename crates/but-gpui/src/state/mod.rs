@@ -905,6 +905,7 @@ impl Store {
             .detach();
         }
         self.selection = selection;
+        self.show_terminals(cx);
         self.save_soon(cx);
         cx.emit(StoreEvent::SelectionChanged);
         cx.notify();

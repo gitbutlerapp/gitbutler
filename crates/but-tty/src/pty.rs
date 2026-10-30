@@ -37,7 +37,7 @@ pub struct Output {
 
 impl Output {
     /// All that's waiting now, without waiting for more.
-    #[cfg(unix)]
+    #[cfg(all(unix, test))]
     pub(crate) fn waiting(&mut self) -> Vec<u8> {
         let waiting: Vec<u8> = std::iter::from_fn(|| self.chunks.try_recv().ok())
             .flatten()

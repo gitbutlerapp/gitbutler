@@ -150,6 +150,8 @@ impl Store {
         let id = TerminalId(self.terminals.opened + 1);
         self.insert_terminal(id, project.clone(), checkout, terminal, None, cx);
         self.select(Some(Selection::Terminal(project, id)), cx);
+        // A selection that stays put leaves the new one out of sight.
+        self.show_terminals(cx);
         cx.emit(StoreEvent::TerminalOpened);
     }
 
@@ -255,6 +257,21 @@ impl Store {
                 }
                 Err(err) => tracing::error!("couldn't adopt a terminal: {err:#}"),
             }
+        }
+        self.show_terminals(cx);
+    }
+
+    /// Tells each terminal whether it's on screen: the one selected, while the window shows.
+    /// Those out of sight read and answer their shells but don't draw.
+    pub(super) fn show_terminals(&mut self, cx: &mut Context<Self>) {
+        let on_screen = match &self.selection {
+            Some(Selection::Terminal(_, id)) if !self.hidden() => Some(*id),
+            _ => None,
+        };
+        for open in &self.terminals.open {
+            let shown = on_screen == Some(open.id);
+            open.terminal
+                .update(cx, |terminal, _| terminal.set_shown(shown));
         }
     }
 
