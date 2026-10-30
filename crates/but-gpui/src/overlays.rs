@@ -294,7 +294,9 @@ impl AppView {
             (None, None) => window.focused(cx),
         };
         // It takes the focus, so nothing else that would take the keys stays over it.
-        self.palette = None;
+        if self.palette.take().is_some() {
+            (self.navigator).update(cx, |navigator, cx| navigator.stop_going(true, cx));
+        }
         self.menu = None;
         let subscription =
             cx.subscribe_in(

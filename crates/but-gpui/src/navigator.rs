@@ -132,6 +132,8 @@ struct RowStyle<'a> {
     glow: bool,
     /// The selection just copied, by which blink it is: see [`crate::ui::blink_once`].
     blink: Option<usize>,
+    /// Where Go to anything goes: see [`Navigator::going_to`].
+    goes_here: bool,
 }
 
 /// How far a remote's commits sit in: the target's as a branch's commits do, a branch's a
@@ -202,6 +204,7 @@ impl<'a> RowStyle<'a> {
             joined: (false, false),
             glow: false,
             blink: None,
+            goes_here: false,
         }
     }
 
@@ -211,6 +214,11 @@ impl<'a> RowStyle<'a> {
             .when_some(self.blink, |el, n| {
                 let shape = div().absolute().inset_0().rounded(dp(4.));
                 el.relative().child(blink_once(("blink", n), shape, theme))
+            })
+            // A pop wash, as a commit that just showed up glows: quieter than a drop's outline.
+            .when(self.goes_here, |el| {
+                let wash = div().absolute().inset_0().rounded(dp(4.));
+                el.relative().child(wash.bg(theme.pop.opacity(0.1)))
             })
             .mx(dp(3.))
             .pl(dp(8. + indent + self.inset))
@@ -436,6 +444,14 @@ pub struct Navigator {
     renaming: Option<rename::Renaming>,
     /// How many times the selection's row has blinked, and when it last did.
     blinked: (usize, Option<Instant>),
+    /// Where the choice Go to anything has selected goes, while it's open.
+    going_to: Option<Selection>,
+    /// The row outlined for [`Self::going_to`]: its own, or while that's folded away, the one
+    /// holding it. The list scrolls to show it as it changes.
+    going_row: Option<Selection>,
+    /// Where the list and the drawer were scrolled to before Go to anything scrolled them,
+    /// which closing it without going anywhere puts back.
+    scrolled_from: Option<(ListOffset, ListOffset)>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -570,6 +586,9 @@ impl Navigator {
             edge_scrolling: None,
             renaming: None,
             blinked: (0, None),
+            going_to: None,
+            going_row: None,
+            scrolled_from: None,
             _subscriptions: subscriptions,
         }
     }
@@ -626,6 +645,33 @@ impl Navigator {
     pub(crate) fn blink_selection(&mut self, cx: &mut Context<Self>) {
         self.blinked = (self.blinked.0 + 1, Some(Instant::now()));
         cx.notify();
+    }
+
+    /// Outline the row where the choice Go to anything has selected goes, `target`, scrolling
+    /// to show it, or with `None` no row.
+    pub(crate) fn go_toward(&mut self, target: Option<Selection>, cx: &mut Context<Self>) {
+        if self.going_to == target {
+            return;
+        }
+        if target.is_some() && self.scrolled_from.is_none() {
+            let lists = (&self.list, &self.drawer_list);
+            self.scrolled_from = Some((lists.0.logical_scroll_top(), lists.1.logical_scroll_top()));
+        }
+        self.going_to = target;
+        cx.notify();
+    }
+
+    /// Go to anything closed: no row is outlined, and when it went nowhere (`back`), the lists
+    /// scroll back to where they were.
+    pub(crate) fn stop_going(&mut self, back: bool, cx: &mut Context<Self>) {
+        self.go_toward(None, cx);
+        if let Some((list, drawer)) = self.scrolled_from.take()
+            && back
+        {
+            self.list.scroll_to(list);
+            self.drawer_list.scroll_to(drawer);
+            cx.notify();
+        }
     }
 
     /// The filter's words changed: its rows show from the top, and once it's empty, the
@@ -1273,29 +1319,53 @@ impl Navigator {
             }
         }
         let store = self.store.read(cx);
+        // Commits being moved show where they'd land, if that's elsewhere.
+        let ghost = |row: &Row| matches!(row, Row::Ghost(..) | Row::GhostBranch(_));
         if std::mem::take(&mut self.reveal_selection)
             && let Some(selection) = &store.selection
+            && !self.scroll_to_row(ghost, row)
+            && !self.scroll_to_row(|row| matches!(row, Row::Item(it) if it == selection), row)
         {
-            let at = |rows: &[Row]| {
-                (rows.iter()).position(|row| matches!(row, Row::Item(item) if item == selection))
-            };
-            // Commits being moved show where they'd land, if that's elsewhere.
-            let ghost = (self.rows.iter())
-                .position(|row| matches!(row, Row::Ghost(..) | Row::GhostBranch(_)));
-            match (ghost.or_else(|| at(&self.rows)), at(&self.drawer.rows)) {
-                (Some(ix), _) => {
-                    // Rows not drawn since the list's width changed, as zooming changes it,
-                    // count as one row tall rather than none, so the reveal lands on it.
-                    self.list.clone().with_uniform_item_height(row);
-                    self.list.scroll_to_reveal_item(ix)
-                }
-                (None, Some(ix)) => self.drawer_list.scroll_to_reveal_item(ix),
-                // A project just added has its rows once it's loaded.
-                (None, None) => {
-                    self.reveal_selection =
-                        (store.project(selection.project())).is_some_and(|entry| entry.is_loading())
-                }
+            // A project just added has its rows once it's loaded.
+            self.reveal_selection =
+                (store.project(selection.project())).is_some_and(|entry| entry.is_loading())
+        }
+        // Up from where Go to anything goes, as ⇧← steps, to the first row listed.
+        let going_row = (self.going_to.clone()).and_then(|to| {
+            std::iter::successors(Some(to), |item| holder(store, item))
+                .find(|item| self.listed(item))
+        });
+        if going_row != self.going_row {
+            if let Some(item) = &going_row {
+                self.scroll_to_row(|row| matches!(row, Row::Item(it) if it == item), row);
             }
+            self.going_row = going_row;
+        }
+    }
+
+    /// Whether `item` has a row in the cards or the drawer.
+    fn listed(&self, item: &Selection) -> bool {
+        (self.rows.iter().chain(&self.drawer.rows))
+            .any(|row| matches!(row, Row::Item(it) if it == item))
+    }
+
+    /// Scroll the first row `wanted` finds into view, in the cards or else the drawer, rows
+    /// `row` tall until drawn, saying whether it found one.
+    fn scroll_to_row(&self, wanted: impl Fn(&Row) -> bool, row: Pixels) -> bool {
+        let at = |rows: &[Row]| rows.iter().position(&wanted);
+        match (at(&self.rows), at(&self.drawer.rows)) {
+            (Some(ix), _) => {
+                // Rows not drawn since the list's width changed, as zooming changes it,
+                // count as one row tall rather than none, so the reveal lands on it.
+                self.list.clone().with_uniform_item_height(row);
+                self.list.scroll_to_reveal_item(ix);
+                true
+            }
+            (None, Some(ix)) => {
+                self.drawer_list.scroll_to_reveal_item(ix);
+                true
+            }
+            (None, None) => false,
         }
     }
 
@@ -1677,6 +1747,7 @@ impl Navigator {
             blink: (self.blinked.1.is_some_and(|at| at.elapsed() < BLINK)
                 && store.selection.as_ref() == Some(item))
             .then_some(self.blinked.0),
+            goes_here: self.going_row.as_ref() == Some(item),
         };
         let el = match item {
             Selection::Project(id) => self.project_row(item, id, style, cx),
@@ -3215,6 +3286,26 @@ fn parent(store: &Store, selection: &Selection) -> Option<Selection> {
             None => Selection::Uncommitted(project),
         },
     )
+}
+
+/// The row folding hides `item` under, as ⇧← goes up to it, up to its project's: a commit's
+/// branch, an inactive worktree's heading, else as [`parent`] says.
+fn holder(store: &Store, item: &Selection) -> Option<Selection> {
+    let project = item.project().clone();
+    let up = match item {
+        Selection::Project(_) => return None,
+        Selection::Commit(_, id) => (store.find_commit(&project, *id))
+            .map(|(branch, _)| Selection::Branch(project.clone(), branch.ref_name.clone())),
+        Selection::Worktree(_, name)
+            if (store.workspace(&project))
+                .and_then(|ws| ws.find_worktree(name.as_ref()))
+                .is_some_and(|wt| wt.is_inactive()) =>
+        {
+            Some(Selection::Section(project.clone(), Section::Inactive))
+        }
+        _ => parent(store, item),
+    };
+    Some(up.unwrap_or(Selection::Project(project)))
 }
 
 /// How many uncommitted files a checkout has, how many of them a merge left conflicted, and
