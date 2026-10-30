@@ -691,10 +691,8 @@ impl Vt {
             .set_action(key::Action::Press)
             .set_key(key)
             .set_mods(mods)
-            .set_utf8(text);
-        if let Some(unshifted) = unshifted {
-            event.set_unshifted_codepoint(unshifted);
-        }
+            .set_utf8(text)
+            .set_unshifted_codepoint(unshifted.unwrap_or('\0'));
         let mut bytes = Vec::new();
         self.keys.encode_to_vec(&self.key, &mut bytes).ok();
         bytes
@@ -1181,6 +1179,19 @@ fn key_for(key: &str) -> Key {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_key_without_an_unshifted_codepoint_does_not_take_the_last_keys() {
+        let mut vt = Vt::new(Terminal::OPENING).unwrap();
+        vt.write(b"\x1b[>1u");
+        vt.key(Key::A, Mods::empty(), Some("a".into()), Some('a'));
+        let sent = vt.key(Key::Space, Mods::SHIFT, Some(" ".into()), None);
+        assert_eq!(
+            String::from_utf8(sent).unwrap(),
+            " ",
+            "shift+space after an a types a space, not the a's kitty report with shift"
+        );
+    }
 
     #[test]
     fn wheel_reports_to_a_program_tracking_the_mouse() {
