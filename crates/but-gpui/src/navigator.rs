@@ -7,6 +7,7 @@ use std::f32::consts::PI;
 use std::sync::Arc;
 use std::time::Instant;
 
+use but_tty::Status;
 use gpui::{
     AnyElement, App, ClickEvent, Context, CursorStyle, Div, DragMoveEvent, ElementId, EmptyView,
     Entity, FocusHandle, Focusable, Hsla, ListAlignment, ListOffset, ListState, MouseButton,
@@ -1985,12 +1986,15 @@ impl Navigator {
         style: RowStyle,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
-        let title = self.store.read(cx).terminals.title(id)?.clone();
+        let terminals = &self.store.read(cx).terminals;
+        let title = terminals.title(id)?.clone();
+        let status = terminals.status(id)?;
         let row = style
             .row(format!("terminal-{}", id.0), 6.)
             .text_color(style.muted())
             .child(icon(Icon::TextCode).text_color(style.muted()))
             .child(div().flex_1().min_w_0().truncate().child(title))
+            .children(status_mark(status, style))
             .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx));
         Some(row.into_any_element())
     }
@@ -2987,6 +2991,40 @@ fn tally(files: &[FileChange]) -> Tally {
 
 /// What a checkout's uncommitted files count: what a merge left conflicted, as an update can,
 /// first, then the lines they add and remove, or with none counted, how many there are.
+/// What a terminal's program is at, in colour only where the user is wanted. Nothing moves, as
+/// agents work for hours and an animation would have the window draw all that while.
+fn status_mark(status: &Status, style: RowStyle) -> Option<Stateful<Div>> {
+    let theme = style.theme;
+    let said = |reason: &str, otherwise: &str| -> SharedString {
+        match reason {
+            "" => otherwise.to_owned().into(),
+            reason => reason.to_owned().into(),
+        }
+    };
+    let (glyph, color, tip) = match status {
+        Status::Idle => return None,
+        Status::Working => (Icon::BulletDisc, style.muted(), "Working".into()),
+        Status::Blocked(reason) => (
+            Icon::Warning,
+            style.meta(theme.warn),
+            said(reason, "Waiting for you"),
+        ),
+        Status::Done => (Icon::Tick, style.meta(theme.safe), "Finished".into()),
+        Status::Failed(reason) => (
+            Icon::Cross,
+            style.meta(theme.danger),
+            said(reason, "Failed"),
+        ),
+    };
+    let mark = div()
+        .id("terminal-status")
+        .flex_none()
+        .aria_label(tip.clone())
+        .child(small_icon(glyph).text_color(color))
+        .tooltip(Tooltip::text(tip));
+    Some(mark)
+}
+
 fn change_counts(
     (n, conflicted, (added, removed)): Tally,
     style: RowStyle,

@@ -4,14 +4,14 @@
 
 use std::time::Instant;
 
-use gpui::{Context, Entity, SharedString, Subscription};
+use gpui::{App, Context, Entity, SharedString, Subscription};
 
 use super::{ProjectId, Selection, Store};
 use crate::backend::{self, Checkout};
 use crate::terminal::{Terminal, TerminalEvent, TerminalId};
 #[cfg(unix)]
 use but_tty::Detached;
-use but_tty::{Ghostty, Shell};
+use but_tty::{Ghostty, Shell, Status};
 
 #[derive(Default)]
 pub struct Terminals {
@@ -34,6 +34,7 @@ struct Open {
     checkout: Checkout,
     terminal: Entity<Terminal>,
     title: SharedString,
+    status: Status,
     _events: Subscription,
 }
 
@@ -50,6 +51,20 @@ impl Terminals {
         (self.open.iter())
             .find(|open| open.id == id)
             .map(|open| &open.title)
+    }
+
+    /// Kept here as `title` is.
+    pub fn status(&self, id: TerminalId) -> Option<&Status> {
+        (self.open.iter())
+            .find(|open| open.id == id)
+            .map(|open| &open.status)
+    }
+
+    /// The user is looking at terminal `id`, so a result it showed is no news.
+    pub(super) fn seen(&mut self, id: TerminalId, cx: &mut App) {
+        if let Some(open) = self.open.iter_mut().find(|open| open.id == id) {
+            open.status = open.terminal.update(cx, |terminal, _| terminal.seen());
+        }
     }
 
     /// Those open on `project`'s `checkout`, in the order they opened.
@@ -141,15 +156,17 @@ impl Store {
         self.terminals.opened = self.terminals.opened.max(id.0);
         let events = cx.subscribe(&terminal, move |store, _, event, cx| match event {
             TerminalEvent::Retitled(title) => store.retitle_terminal(id, title.clone(), cx),
+            TerminalEvent::Restatused(status) => store.restatus_terminal(id, status.clone(), cx),
             TerminalEvent::Exited => store.close_terminal(id, cx),
         });
-        let title = terminal.read(cx).title();
+        let (title, status) = (terminal.read(cx).title(), terminal.read(cx).status());
         self.terminals.open.push(Open {
             id,
             project,
             checkout,
             terminal,
             title,
+            status,
             _events: events,
         });
     }
@@ -161,6 +178,16 @@ impl Store {
             open.title = title;
             cx.notify();
         }
+    }
+
+    fn restatus_terminal(&mut self, id: TerminalId, status: Status, cx: &mut Context<Self>) {
+        if let Some(open) = self.terminals.open.iter_mut().find(|open| open.id == id) {
+            open.status = status;
+        }
+        if matches!(&self.selection, Some(Selection::Terminal(_, shown)) if *shown == id) {
+            self.terminals.seen(id, cx);
+        }
+        cx.notify();
     }
 
     /// Hands each terminal's shell over, for the build exec runs next to adopt. One that can't

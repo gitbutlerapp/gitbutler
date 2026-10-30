@@ -8,8 +8,8 @@ use std::time::Duration;
 #[cfg(unix)]
 use but_tty::Detached;
 use but_tty::{
-    Cursor, Ghostty, Key, Mods, Output, RgbColor, Shell, Size, Style, Terminal as Tty, Underline,
-    mouse,
+    Cursor, Ghostty, Key, Mods, Output, RgbColor, Shell, Size, Status, Style, Terminal as Tty,
+    Underline, mouse,
 };
 use futures::StreamExt;
 use gpui::{
@@ -33,6 +33,8 @@ pub struct TerminalId(pub(crate) u64);
 pub enum TerminalEvent {
     /// The shell named the terminal this.
     Retitled(SharedString),
+    /// The program running is at this now.
+    Restatused(Status),
     /// The shell exited.
     Exited,
 }
@@ -156,6 +158,15 @@ impl Terminal {
         shown_title(&self.tty.title())
     }
 
+    pub fn status(&self) -> Status {
+        self.tty.status().clone()
+    }
+
+    /// The status once the user has seen this.
+    pub fn seen(&mut self) -> Status {
+        self.tty.seen()
+    }
+
     /// Stops reading the shell, for another to adopt it, with what it showed until then.
     #[cfg(unix)]
     pub fn detach(&mut self) -> anyhow::Result<Detached> {
@@ -165,6 +176,9 @@ impl Terminal {
     fn feed(&mut self, output: &[u8], cx: &mut Context<Self>) {
         if let Some(title) = self.tty.feed(output) {
             cx.emit(TerminalEvent::Retitled(shown_title(&title)));
+        }
+        if let Some(status) = self.tty.restatused() {
+            cx.emit(TerminalEvent::Restatused(status));
         }
         cx.notify();
     }
