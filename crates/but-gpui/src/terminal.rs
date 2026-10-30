@@ -22,7 +22,7 @@ use libghostty_vt::render::{CellIterator, Dirty, RowIterator};
 use libghostty_vt::screen::{CellWide, Screen};
 use libghostty_vt::selection::gesture::{self, Gesture};
 use libghostty_vt::style::{RgbColor, Underline};
-use libghostty_vt::terminal::{Mode, PointCoordinate, ScrollViewport};
+use libghostty_vt::terminal::{Mode, Point as GridPoint, PointCoordinate, ScrollViewport};
 use libghostty_vt::{RenderState, TerminalOptions, paste};
 
 #[cfg(unix)]
@@ -60,6 +60,8 @@ pub struct Terminal {
     scrolled: Pixels,
     grid: Rc<Cell<Grid>>,
     held: Option<Held>,
+    /// Scrolling a selection dragged past the top or bottom, a row a tick.
+    autoscrolling: Option<Task<()>>,
     focus: FocusHandle,
     /// It takes the keys once it's first drawn, as it opens.
     focus_when_drawn: bool,
@@ -73,8 +75,11 @@ pub struct Terminal {
 enum Held {
     /// The program tracking the mouse is told where it goes.
     Reported,
-    /// It selects, as Ghostty does.
-    Selecting,
+    /// It selects, as Ghostty does, from the pointer last over `at` with `modifiers` held.
+    Selecting {
+        at: Point<Pixels>,
+        modifiers: Modifiers,
+    },
 }
 
 impl EventEmitter<TerminalEvent> for Terminal {}
@@ -119,6 +124,7 @@ impl Terminal {
             scrolled: fixed(0.),
             grid: Rc::new(Cell::new(Grid::opening(size))),
             held: None,
+            autoscrolling: None,
             focus: cx.focus_handle(),
             focus_when_drawn: true,
             store,
@@ -284,7 +290,10 @@ impl Terminal {
             let at = self.grid.get().surface(event.position, self.size);
             let repeated = event.click_count > 1;
             self.vt.select_press(at, self.size, repeated).ok();
-            self.held = Some(Held::Selecting);
+            self.held = Some(Held::Selecting {
+                at: event.position,
+                modifiers: event.modifiers,
+            });
             cx.notify();
         }
     }
@@ -309,10 +318,15 @@ impl Terminal {
                 );
                 cx.stop_propagation();
             }
-            (Some(Held::Selecting), DispatchPhase::Capture) => {
+            (Some(Held::Selecting { .. }), DispatchPhase::Capture) => {
+                self.held = Some(Held::Selecting {
+                    at: event.position,
+                    modifiers: event.modifiers,
+                });
                 let at = self.grid.get().surface(event.position, self.size);
                 let rectangle = rectangle(event.modifiers);
                 self.vt.select_drag(at, self.size, rectangle).ok();
+                self.autoscroll(cx);
                 cx.notify();
                 cx.stop_propagation();
             }
@@ -337,12 +351,45 @@ impl Terminal {
                     event.modifiers,
                 );
             }
-            Some(Held::Selecting) => {
+            Some(Held::Selecting { .. }) => {
                 let at = self.grid.get().surface(event.position, self.size);
                 self.vt.select_release(at, self.size).ok();
+                self.autoscrolling = None;
             }
             None => {}
         }
+    }
+
+    /// Ticks while the selection's drag asks to scroll, about as often as Ghostty's do.
+    fn autoscroll(&mut self, cx: &mut Context<Self>) {
+        if !self.vt.autoscrolling() {
+            self.autoscrolling = None;
+            return;
+        }
+        if self.autoscrolling.is_some() {
+            return;
+        }
+        self.autoscrolling = Some(cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor()
+                    .timer(Duration::from_millis(15))
+                    .await;
+                let ticked = this.update(cx, |this, cx| {
+                    let Some(Held::Selecting { at, modifiers }) = this.held else {
+                        return false;
+                    };
+                    let at = this.grid.get().surface(at, this.size);
+                    let rectangle = rectangle(modifiers);
+                    cx.notify();
+                    (this.vt.select_autoscroll(at, this.size, rectangle)).is_ok()
+                        && this.vt.autoscrolling()
+                });
+                if !ticked.unwrap_or(false) {
+                    break;
+                }
+            }
+            (this.update(cx, |this, _| this.autoscrolling = None)).ok();
+        }));
     }
 
     /// Whether the program tracking the mouse is told of it. ⇧ keeps it for selecting, as
@@ -556,6 +603,7 @@ struct Vt {
     press: gesture::PressEvent<'static>,
     drag: gesture::DragEvent<'static>,
     release: gesture::ReleaseEvent<'static>,
+    tick: gesture::AutoscrollTickEvent<'static>,
     /// When the gesture was last told a press was, by clicks rather than the clock.
     pressed: Duration,
     /// What the emulator answers the shell's queries with, to send it.
@@ -613,6 +661,7 @@ impl Vt {
             press: gesture::PressEvent::new()?,
             drag: gesture::DragEvent::new()?,
             release: gesture::ReleaseEvent::new()?,
+            tick: gesture::AutoscrollTickEvent::new()?,
             pressed: Duration::ZERO,
             replies,
             retitled,
@@ -730,7 +779,9 @@ impl Vt {
             .set_position(f64::from(at.x), f64::from(at.y))?
             .set_time(self.pressed)?
             .set_repeat_interval(REPEAT)?;
-        let cell = self.term.grid_ref(viewport(at, size))?;
+        let cell = self
+            .term
+            .grid_ref(GridPoint::Viewport(viewport(at, size)))?;
         let selection = self.press.apply(&mut self.selecting, &self.term, cell)?;
         self.term.set_selection(selection.as_ref())?;
         Ok(())
@@ -747,14 +798,12 @@ impl Vt {
         (self.drag)
             .set_position(f64::from(at.x), f64::from(at.y))?
             .set_rectangle(rectangle)?;
-        let cell = self.term.grid_ref(viewport(at, size))?;
-        let geometry = gesture::Geometry {
-            columns: u32::from(size.cols),
-            cell_width: u32::from(size.cell_width.max(1)),
-            padding_left: 0,
-            screen_height: u32::from(size.rows) * u32::from(size.cell_height),
-        };
-        let selection = (self.drag).apply(&mut self.selecting, &self.term, cell, geometry)?;
+        let cell = self
+            .term
+            .grid_ref(GridPoint::Viewport(viewport(at, size)))?;
+        let selection = self
+            .drag
+            .apply(&mut self.selecting, &self.term, cell, geometry(size))?;
         self.term.set_selection(selection.as_ref())?;
         Ok(())
     }
@@ -764,8 +813,34 @@ impl Vt {
         at: mouse::Position,
         size: Size,
     ) -> libghostty_vt::error::Result<()> {
-        let cell = self.term.grid_ref(viewport(at, size))?;
+        let cell = self
+            .term
+            .grid_ref(GridPoint::Viewport(viewport(at, size)))?;
         (self.release).apply(&mut self.selecting, &self.term, Some(cell))
+    }
+
+    /// Whether the selection's drag went past the top or bottom, for the viewport to follow.
+    fn autoscrolling(&self) -> bool {
+        (self.selecting.autoscroll(&self.term)).is_ok_and(|to| to != gesture::Autoscroll::None)
+    }
+
+    /// Scrolls a row the way the drag went past, and takes the selection on to `at` on the
+    /// surface. A press the scrolling lost leaves the selection as it was.
+    fn select_autoscroll(
+        &mut self,
+        at: mouse::Position,
+        size: Size,
+        rectangle: bool,
+    ) -> libghostty_vt::error::Result<()> {
+        (self.tick)
+            .set_position(f64::from(at.x), f64::from(at.y))?
+            .set_rectangle(rectangle)?;
+        let cell = viewport(at, size);
+        let selection = (self.tick).apply(&mut self.selecting, &self.term, cell, geometry(size))?;
+        if let Some(selection) = selection {
+            self.term.set_selection(Some(&selection))?;
+        }
+        Ok(())
     }
 
     fn paste(&self, text: &str) -> Vec<u8> {
@@ -888,14 +963,24 @@ impl Vt {
 }
 
 /// The viewport cell under `at` on the surface, or the nearest one when it's outside.
-fn viewport(at: mouse::Position, size: Size) -> libghostty_vt::terminal::Point {
+fn viewport(at: mouse::Position, size: Size) -> PointCoordinate {
     let index = |at: f32, cell: u16, count: u16| {
         ((at / f32::from(cell.max(1))).max(0.) as u16).min(count.saturating_sub(1))
     };
-    libghostty_vt::terminal::Point::Viewport(PointCoordinate {
+    PointCoordinate {
         x: index(at.x, size.cell_width, size.cols),
         y: u32::from(index(at.y, size.cell_height, size.rows)),
-    })
+    }
+}
+
+/// The surface the selection gesture measures drags and edges on.
+fn geometry(size: Size) -> gesture::Geometry {
+    gesture::Geometry {
+        columns: u32::from(size.cols),
+        cell_width: u32::from(size.cell_width.max(1)),
+        padding_left: 0,
+        screen_height: u32::from(size.rows) * u32::from(size.cell_height),
+    }
 }
 
 /// Whether a drag selects a block, with ⌥ on macOS and ⌃⌥ elsewhere, as in Ghostty.
@@ -1179,7 +1264,7 @@ mod tests {
         let (text, runs) = &frame.rows[0];
         (runs.iter())
             .filter(|(_, style)| style.background_color.is_some())
-            .map(|(range, _)| text[range.clone()].to_owned())
+            .map(|(range, _)| text[range.clone()].trim_end().to_owned())
             .collect()
     }
 
@@ -1218,6 +1303,48 @@ mod tests {
             Vec::<String>::new(),
             "a click a while later is a first click again, and clears it"
         );
+    }
+
+    #[test]
+    fn a_selection_dragged_above_the_top_scrolls_up_a_row_a_tick() {
+        let mut vt = Vt::new(Terminal::OPENING).unwrap();
+        for n in 0..60 {
+            vt.write(format!("line {n}\r\n").as_bytes());
+        }
+        let size = Terminal::OPENING;
+        let row = |row: f32| mouse::Position {
+            x: 4.,
+            y: row * 16. + 8.,
+        };
+        let first_row = |vt: &mut Vt| {
+            vt.frame(&Colors::default()).unwrap().rows[0]
+                .0
+                .trim_end()
+                .to_owned()
+        };
+        assert_eq!(
+            first_row(&mut vt),
+            "line 37",
+            "the screen shows the last lines"
+        );
+        vt.select_press(row(5.), size, false).unwrap();
+        vt.select_drag(row(-1.), size, false).unwrap();
+        assert!(vt.autoscrolling(), "above the top it asks to scroll");
+        for _ in 0..3 {
+            vt.select_autoscroll(row(-1.), size, false).unwrap();
+        }
+        assert_eq!(
+            first_row(&mut vt),
+            "line 34",
+            "three ticks scroll three rows"
+        );
+        assert_eq!(
+            highlighted(&mut vt),
+            ["line 34"],
+            "the selection follows to the top"
+        );
+        vt.select_release(row(-1.), size).unwrap();
+        assert!(!vt.autoscrolling(), "letting go stops it");
     }
 
     fn plain(vt: &Vt) -> String {
