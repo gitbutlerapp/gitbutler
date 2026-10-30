@@ -403,6 +403,7 @@ impl Vt {
 
     /// The screen with its scrollback, modes and title, as what builds the same in a fresh one.
     /// An alternate screen comes without the one behind it.
+    #[cfg(unix)]
     pub(crate) fn screen(&self) -> libghostty_vt::error::Result<Vec<u8>> {
         let options = FormatterOptions::new()
             .with_format(Format::Vt)
@@ -764,6 +765,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
     fn plain(vt: &Vt) -> String {
         let options = FormatterOptions::new().with_format(Format::Plain);
         let text = Formatter::new(&vt.term, options)
@@ -773,6 +775,7 @@ mod tests {
         String::from_utf8(text.to_vec()).unwrap()
     }
 
+    #[cfg(unix)]
     #[test]
     fn a_screen_written_into_a_fresh_terminal_builds_the_same() {
         let size = Size {
