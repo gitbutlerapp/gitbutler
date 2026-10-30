@@ -1713,6 +1713,7 @@ dependencies = [
  "but-settings",
  "but-testsupport",
  "but-transaction",
+ "but-tty",
  "but-workspace",
  "chrono",
  "deltoids",
@@ -1728,7 +1729,6 @@ dependencies = [
  "image",
  "indexmap 2.14.0",
  "libc",
- "libghostty-vt",
  "md5",
  "objc2 0.6.4",
  "objc2-foundation 0.3.2",
@@ -1752,7 +1752,6 @@ dependencies = [
  "two-face",
  "unicode-segmentation",
  "uuid",
- "windows 0.62.2",
 ]
 
 [[package]]
@@ -2108,6 +2107,21 @@ dependencies = [
  "serde",
  "serde_json",
  "snapbox",
+]
+
+[[package]]
+name = "but-tty"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "futures",
+ "libc",
+ "libghostty-vt",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "tracing",
+ "windows 0.62.2",
 ]
 
 [[package]]

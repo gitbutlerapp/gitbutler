@@ -109,6 +109,7 @@ members = [
     # Should be reviewed to mostly use `but-api`, to be renamed to `but-tauri` or something.
     "crates/gitbutler-tauri",
     "crates/but-gpui", # An experimental native client on GPUI.
+    "crates/but-tty",  # The GPUI client's embedded terminals, without a screen.
     # GitButler installation binary
     "crates/but-installer",
     # Documentation binary
@@ -182,6 +183,7 @@ but-llm = { path = "crates/but-llm" }
 but-server = { path = "crates/but-server" }
 but-agentlog = { path = "crates/but-agentlog" }
 but-transaction = { path = "crates/but-transaction" }
+but-tty = { path = "crates/but-tty" }
 
 gitbutler-git = { path = "crates/gitbutler-git" }
 gitbutler-watcher = { path = "crates/gitbutler-watcher" }

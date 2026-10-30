@@ -10,9 +10,6 @@ use std::sync::Arc;
 use anyhow::{Context as _, Result, bail};
 use parking_lot::Mutex;
 
-#[cfg(unix)]
-use super::terminal;
-
 /// The binary `cargo build` makes, as `Cargo.toml` names it.
 const BIN: &str = "gitbutler-gpui";
 
@@ -311,13 +308,13 @@ impl Built {
     #[cfg(unix)]
     pub fn restart<T: serde::Serialize>(
         &self,
-        terminals: Vec<(T, terminal::Detached)>,
+        terminals: Vec<(T, but_tty::Detached)>,
     ) -> anyhow::Error {
         let mut new = Command::new(&self.exe);
         new.args(std::env::args_os().skip(1))
             .env("CARGO_MANIFEST_DIR", &self.crate_dir)
             .env("CARGO_MANIFEST_PATH", self.crate_dir.join("Cargo.toml"));
-        let keep = terminal::hand_over(terminals, &mut new).unwrap_or_else(|err| {
+        let keep = but_tty::hand_over(terminals, &mut new).unwrap_or_else(|err| {
             tracing::error!("couldn't hand the terminals over: {err:#}");
             Vec::new()
         });

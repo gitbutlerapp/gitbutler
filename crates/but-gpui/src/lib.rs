@@ -207,7 +207,7 @@ pub fn run(embedded: Option<Embedded>) {
 
     // Before anything starts a process that would inherit their masters.
     #[cfg(unix)]
-    let handed = backend::terminal::handed();
+    let handed = but_tty::handed();
 
     gpui_platform::application()
         .with_assets(ui::Assets)

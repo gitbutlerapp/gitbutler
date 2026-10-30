@@ -5,6 +5,12 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
 
+#[cfg(unix)]
+use but_tty::Detached;
+use but_tty::{
+    Cursor, Ghostty, Key, Mods, Output, RgbColor, Shell, Size, Style, Terminal as Tty, Underline,
+    mouse,
+};
 use futures::StreamExt;
 use gpui::{
     App, ClipboardItem, Context, CursorStyle, DispatchPhase, Entity, EventEmitter, FocusHandle,
@@ -13,13 +19,7 @@ use gpui::{
     ScrollWheelEvent, SharedString, StrikethroughStyle, StyledText, Task, UnderlineStyle,
     WeakEntity, Window, actions, canvas, div, prelude::*,
 };
-use libghostty_vt::key::{Key, Mods};
-use libghostty_vt::mouse;
-use libghostty_vt::style::{RgbColor, Underline};
 
-#[cfg(unix)]
-use crate::backend::terminal::Detached;
-use crate::backend::terminal::{Cursor, Ghostty, Output, Shell, Size, Style, Terminal as Tty};
 use crate::state::Store;
 use crate::theme::Theme;
 use crate::ui::{dp, fixed};

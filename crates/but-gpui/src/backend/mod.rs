@@ -25,7 +25,6 @@ pub mod rebuild;
 pub mod reviews;
 pub mod saved;
 pub mod settings;
-pub mod terminal;
 pub mod upstream;
 pub mod watch;
 pub mod worktrees;

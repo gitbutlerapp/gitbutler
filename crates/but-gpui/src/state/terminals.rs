@@ -5,11 +5,11 @@
 use gpui::{Context, Entity, Subscription};
 
 use super::{ProjectId, Selection, Store};
-#[cfg(unix)]
-use crate::backend::terminal::Detached;
-use crate::backend::terminal::{Ghostty, Shell};
 use crate::backend::{self, Checkout};
 use crate::terminal::{Terminal, TerminalEvent, TerminalId};
+#[cfg(unix)]
+use but_tty::Detached;
+use but_tty::{Ghostty, Shell};
 
 #[derive(Default)]
 pub struct Terminals {

@@ -11,9 +11,6 @@ mod vt;
 use std::path::Path;
 
 use futures::channel::mpsc;
-use libghostty_vt::key::{Key, Mods};
-use libghostty_vt::mouse;
-use libghostty_vt::style::RgbColor;
 
 pub use ghostty::{Colors, Ghostty};
 #[cfg(unix)]
@@ -23,7 +20,11 @@ use pty::Kept;
 use pty::Pty;
 pub use pty::Size;
 use vt::Vt;
-pub use vt::{Cursor, Frame, Style};
+pub use vt::{Cursor, Frame, Row, Style};
+
+pub use libghostty_vt::key::{Key, Mods};
+pub use libghostty_vt::mouse;
+pub use libghostty_vt::style::{RgbColor, Underline};
 
 /// What the shell writes, in chunks, ending once it exits.
 pub type Output = mpsc::UnboundedReceiver<Vec<u8>>;

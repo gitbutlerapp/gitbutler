@@ -40,4 +40,5 @@ jobs:
               - '!crates/but-clap/**'
               - '!crates/but-debugging/**'
               - '!crates/but-gpui/**'
+              - '!crates/but-tty/**'
               - '!crates/but-installer/**'
