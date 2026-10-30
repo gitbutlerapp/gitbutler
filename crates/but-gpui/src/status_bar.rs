@@ -7,8 +7,8 @@ use gpui::{
 };
 
 use crate::app::{
-    AppView, CommandPalette, CutSelection, Fetch, FocusDiff, OpenPullRequest, PasteHere, Push,
-    RenameSelection, StartCommit, UncommitSelection, Undo, UpdateFromTarget,
+    AppView, CommandPalette, CutSelection, Fetch, FocusDiff, MoveHere, OpenPullRequest, PasteHere,
+    Push, RenameSelection, StartCommit, UncommitSelection, Undo, UpdateFromTarget,
 };
 use crate::backend::rebuild::Rebuild;
 use crate::backend::{Branch, Checkout, CommitId, FileChange, ReviewState, Workspace};
@@ -66,6 +66,26 @@ impl AppView {
                 .child(small_icon(Icon::Clock).text_color(theme.pop))
                 .child(working);
             (working.into_any_element(), Vec::new())
+        } else if let Some(moving) = &store.moving {
+            // What's moving, and where Return lands it, unless that's where it is.
+            let lands = moving.lands(store);
+            let what = Cut::Commit(moving.project.clone(), moving.commits.clone()).describe(store);
+            let what = match lands {
+                true => format!("{what} {}", moving.place()),
+                false => what,
+            };
+            let state = h_flex()
+                .gap(dp(6.))
+                .min_w_0()
+                .overflow_hidden()
+                .child(div().flex_none().text_color(theme.pop).child("Moving"))
+                .child(div().min_w_0().truncate().child(what));
+            let keys = [("↑↓".into(), "choose where")]
+                .into_iter()
+                .chain((shortcut(&MoveHere, cx).filter(|_| lands)).map(|keys| (keys, "move here")))
+                .chain([("esc".into(), "cancel")])
+                .collect();
+            (state.into_any_element(), keys)
         } else if let Some(cut) = &store.cut {
             // On another commit, a commit goes above it, below it with ⇧, or one that's cut
             // rather than copied into it with ⌥.

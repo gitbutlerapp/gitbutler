@@ -92,6 +92,7 @@ pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Copy more", &CopyMore),
     ("Cut", &CutSelection),
     ("Paste here", &PasteHere),
+    ("Move", &crate::app::MoveSelection),
     ("Toggle navigator", &ToggleNavigator),
     ("Toggle details", &ToggleDetail),
     ("Zoom in", &ZoomIn),

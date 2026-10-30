@@ -6,15 +6,22 @@ use std::time::Duration;
 
 use gpui::{App, SharedString};
 
+use super::moving::{landing_at, moving_away, parts};
 use super::{BranchKey, ClickOpened, Navigator, STEP, upstream_chevrons};
-use crate::backend::{Branch, Checkout, Commit, CommitId, FullName, Lane, Workspace, Worktree};
+use crate::backend::{
+    Branch, Checkout, Commit, CommitId, Destination, FullName, Lane, Workspace, Worktree,
+};
 use crate::edits::BranchEdits;
 use crate::state::{Cut, NewAt, ProjectEntry, ProjectId, Section, Selection, Store};
+use crate::transfer::Stop;
 use crate::ui::ROW_HEIGHT;
 use crate::ui::fold::{Folds, MOVING_ROWS};
 
 /// Commits shown per branch before folding the rest into "N more".
 const FOLD_AFTER: usize = 8;
+
+/// How tall [`Row::Between`] is.
+pub(super) const BETWEEN: f32 = 20.;
 
 /// How recently a project was last active for "Active in the last 7 days" to keep it.
 const ACTIVE_WITHIN: Duration = Duration::from_secs(7 * 24 * 60 * 60);
@@ -38,6 +45,14 @@ pub(super) enum Row {
     /// Where a commit of the project being dragged lands in a new branch of its own, or a
     /// stacked branch in a stack of its own.
     NewBranch(ProjectId),
+    /// A copy of a commit being moved, where landing would put it.
+    Ghost(ProjectId, CommitId),
+    /// The new branch commits being moved would land in, over their copies.
+    GhostBranch(ProjectId),
+    /// Room between two stacks, or the last and a new one, while commits being moved would land
+    /// in a new branch next to it: under one stack's last branch and on the next's first are
+    /// otherwise the same place, and it shows which stack the new branch joins.
+    Between(ProjectId),
     /// The line after a worktree's section.
     WorktreeDivider,
     /// After the target's new commits listed, how many more its page lists.
@@ -57,6 +72,10 @@ pub(super) enum RowKey {
     /// A branch's commits folded away or unfolded, whichever it shows.
     Fold(ProjectId, Option<FullName>),
     NewBranch(ProjectId),
+    /// A commit being moved, where it's left while its copy, which takes its key, shows where
+    /// it'd land: so it slides out from there, from place to place, and back.
+    Left(ProjectId, CommitId),
+    GhostBranch(ProjectId),
     /// A row of no other kind, by the one before it, which it moves with.
     After(Box<RowKey>),
 }
@@ -71,16 +90,24 @@ pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
     let mut keys: Vec<Option<RowKey>> = Vec::with_capacity(rows.len());
     for row in rows {
         let key = match row {
-            Row::Item(Selection::Commit(project, id)) => Some(match commits.get(id) {
-                Some(key) => RowKey::Commit(project.clone(), key.to_string()),
-                None => RowKey::Item(Selection::Commit(project.clone(), *id)),
-            }),
+            Row::Item(item @ Selection::Commit(project, id))
+                if moving_away(store, item) == Some(true) =>
+            {
+                Some(RowKey::Left(project.clone(), *id))
+            }
+            Row::Item(Selection::Commit(project, id)) | Row::Ghost(project, id) => {
+                Some(match commits.get(id) {
+                    Some(key) => RowKey::Commit(project.clone(), key.to_string()),
+                    None => RowKey::Item(Selection::Commit(project.clone(), *id)),
+                })
+            }
             Row::Item(item) => Some(RowKey::Item(item.clone())),
             Row::RestsOn(item, _) => Some(RowKey::RestsOn(item.clone())),
             Row::More(project, branch, _) | Row::Fewer(project, branch) => {
                 Some(RowKey::Fold(project.clone(), branch.clone()))
             }
             Row::NewBranch(project) => Some(RowKey::NewBranch(project.clone())),
+            Row::GhostBranch(project) => Some(RowKey::GhostBranch(project.clone())),
             Row::Pending(_, _, Some(moved)) => Some(moved.clone()),
             _ => (keys.last().cloned().flatten()).map(|before| RowKey::After(Box::new(before))),
         };
@@ -94,8 +121,14 @@ impl Row {
     pub(super) fn height(&self) -> f32 {
         match self {
             Row::Gap | Row::WorktreeDivider => 12.,
+            Row::Between(_) => BETWEEN,
             Row::More(..) | Row::Fewer(..) | Row::UpstreamMore(..) | Row::RestsOn(..) => 24.,
-            Row::Item(_) | Row::Note(..) | Row::Pending(..) | Row::NewBranch(_) => ROW_HEIGHT,
+            Row::Item(_)
+            | Row::Note(..)
+            | Row::Pending(..)
+            | Row::NewBranch(_)
+            | Row::Ghost(..)
+            | Row::GhostBranch(_) => ROW_HEIGHT,
         }
     }
 }
@@ -371,8 +404,20 @@ impl Navigator {
             // Whether a branch is checked out on its own or several share the workspace,
             // they're listed alike; with none, as on the default branch, there's nothing to
             // list, and the next commit starts one.
+            let mut upper: Option<&[Branch]> = None;
             for stack in stacks {
+                let lower = Some(stack.branches.as_slice());
+                if upper.is_some_and(|upper| parts(store, id, upper, lower)) {
+                    rows.push(Row::Between(id.clone()));
+                }
                 self.lane_rows(store, id, &stack.branches, rows);
+                upper = lower;
+            }
+            if upper.is_some_and(|upper| parts(store, id, upper, None)) {
+                rows.push(Row::Between(id.clone()));
+            }
+            if let Some(moving) = landing_at(store, id, |at| *at == Stop::NewStack) {
+                rows.push_ghosts(moving, true);
             }
         });
         rows.close();
@@ -561,10 +606,7 @@ impl Navigator {
     fn lane_rows(&self, store: &Store, id: &ProjectId, branches: &[Branch], rows: &mut Rows) {
         let branches = &*store.after_deletes(id, branches);
         let [_, .., bottom] = branches else {
-            for branch in branches {
-                self.branch_rows(store, id, branch, rows);
-            }
-            return;
+            return self.stacked_rows(store, id, branches, rows);
         };
         let key = (id.clone(), bottom.ref_name.clone());
         let selected = (store.selection.as_ref())
@@ -574,11 +616,29 @@ impl Navigator {
         let open = !self.folded_stacks.contains(&key) || selected;
         rows.fold(Fold::Under(caption), open, &self.folds, |rows| {
             rows.open_in(STEP);
-            for branch in branches {
-                self.branch_rows(store, id, branch, rows);
-            }
+            self.stacked_rows(store, id, branches, rows);
             rows.close();
         });
+    }
+
+    /// The rows of a lane's `branches`, and copies of commits being moved where they'd land
+    /// in a new branch above one of them, or below the last.
+    fn stacked_rows(&self, store: &Store, id: &ProjectId, branches: &[Branch], rows: &mut Rows) {
+        let new_branch = |branch: &Branch, side: bool| {
+            landing_at(store, id, |at| {
+                matches!(at, Stop::NewBranch { beside, below }
+                    if *below == side && branch.ref_name.as_ref() == Some(beside))
+            })
+        };
+        for branch in branches {
+            if let Some(moving) = new_branch(branch, false) {
+                rows.push_ghosts(moving, true);
+            }
+            self.branch_rows(store, id, branch, rows);
+        }
+        if let Some(moving) = branches.last().and_then(|bottom| new_branch(bottom, true)) {
+            rows.push_ghosts(moving, true);
+        }
     }
 
     /// A branch's row and, unless it's closed, its remote's commits and its own, up to the
@@ -600,6 +660,7 @@ impl Navigator {
         };
         let item = Selection::Branch(key.0.clone(), key.1.clone());
         rows.push(Row::Item(item.clone()));
+        let at_top = |at: &Stop| matches!(at, Stop::In(Destination::Branch(top)) if branch.ref_name.as_ref() == Some(top));
         let inside = |rows: &mut Rows| {
             rows.open();
             // `None` there is the target's: an unnamed branch has no remote of its own.
@@ -618,6 +679,9 @@ impl Navigator {
             rows.extend(pending(
                 &|at| matches!(at, NewAt::Top(ref_name) if branch.ref_name.as_ref() == Some(ref_name)),
             ));
+            if let Some(moving) = landing_at(store, id, at_top) {
+                rows.push_ghosts(moving, false);
+            }
             // Commits a pending operation takes away go, unless selected and going nowhere
             // else, as a moved one shows twice otherwise; ones it makes show where they go.
             let commits: Vec<_> = (branch.commits.iter().enumerate())
@@ -629,14 +693,19 @@ impl Navigator {
                 .collect();
             let count = commits.len();
             let commit_rows = |commits: &[&Commit], rows: &mut Rows| {
-                rows.extend(commits.iter().flat_map(|commit| {
-                    let item = Row::Item(Selection::Commit(id.clone(), commit.id));
-                    (pending(&|at| matches!(at, NewAt::Above(key) if *key == commit.key)))
-                        .chain([item])
-                        .chain(pending(
-                            &|at| matches!(at, NewAt::Below(key) if *key == commit.key),
-                        ))
-                }));
+                for commit in commits {
+                    rows.extend(pending(
+                        &|at| matches!(at, NewAt::Above(key) if *key == commit.key),
+                    ));
+                    rows.push(Row::Item(Selection::Commit(id.clone(), commit.id)));
+                    let below = |at: &Stop| matches!(at, Stop::In(Destination::BelowCommit(c)) if *c == commit.id);
+                    if let Some(moving) = landing_at(store, id, below) {
+                        rows.push_ghosts(moving, false);
+                    }
+                    rows.extend(pending(
+                        &|at| matches!(at, NewAt::Below(key) if *key == commit.key),
+                    ));
+                }
             };
             let (first, rest) = commits.split_at(fold_at.min(count));
             commit_rows(first, rows);
@@ -663,7 +732,15 @@ impl Navigator {
         }
         let open = (store.selection.as_ref()).is_some_and(|s| s.project() == id && s.under(branch))
             || self.is_open(&ClickOpened::Here(key.clone()));
-        rows.fold(Fold::Under(item), open, &self.folds, inside);
+        let fold = Fold::Under(item);
+        let shown = self.folds.shows(&fold, open);
+        rows.fold(fold, open, &self.folds, inside);
+        // Folded, its commits stay out of sight, but not those landing on top of it.
+        if !shown && let Some(moving) = landing_at(store, id, at_top) {
+            rows.open();
+            rows.push_ghosts(moving, false);
+            rows.close();
+        }
     }
 
     /// A linked worktree's heading, its uncommitted changes, and, unless it's folded without

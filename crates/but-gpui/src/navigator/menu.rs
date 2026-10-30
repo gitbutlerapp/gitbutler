@@ -7,8 +7,8 @@ use gpui::{Action, App};
 use super::{ClickOpened, Navigator};
 use crate::app::{
     BuildAndRestartFromHere, Collapse, CopySelection, CutSelection, DeleteSelection, Expand, Fetch,
-    MarkAllRead, NewBranch, NewBranchOnTop, NewWorktree, OpenPullRequest, Push, RenameSelection,
-    StartCommit, ToggleRead, UncommitSelection, UpdateFromTarget,
+    MarkAllRead, MoveSelection, NewBranch, NewBranchOnTop, NewWorktree, OpenPullRequest, Push,
+    RenameSelection, StartCommit, ToggleRead, UncommitSelection, UpdateFromTarget,
 };
 use crate::backend::rebuild::Rebuild;
 use crate::backend::{Checkout, CommitId, short_ref};
@@ -436,6 +436,7 @@ impl Navigator {
                         cx,
                         move |app, _, cx| app.cut(Cut::Commit(cut.0.clone(), cut.1.clone()), cx),
                     ),
+                    MenuItem::action(format!("Move {n} commits"), &MoveSelection, cx),
                     MenuItem::action(format!("Cherry-pick {n} commits"), &CherryPick, cx),
                     MenuItem::action(
                         format!(
@@ -495,6 +496,7 @@ impl Navigator {
                 });
                 items.extend([
                     cut.separated(),
+                    action("Move", &MoveSelection),
                     action("Cherry-pick", &CherryPick),
                     action("Edit message…", &RenameSelection).separated(),
                 ]);

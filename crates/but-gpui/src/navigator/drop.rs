@@ -280,9 +280,11 @@ impl Navigator {
                     return;
                 }
                 match store.dragging.clone() {
-                    Some(Cut::Commit(from, ids)) if from == project => this
-                        .store
-                        .update(cx, |store, cx| store.move_to_new_branch(&from, ids, cx)),
+                    Some(Cut::Commit(from, ids)) if from == project => {
+                        this.store.update(cx, |store, cx| {
+                            store.move_to_new_branch(&from, ids, None, cx)
+                        })
+                    }
                     Some(Cut::Branch(from, branch)) if from == project => this
                         .store
                         .update(cx, |store, cx| store.unstack(&from, branch, cx)),

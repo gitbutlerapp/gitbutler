@@ -145,6 +145,12 @@
       "secondary-backspace": "navigator::DeleteSelection"
     }
   },
+  // While commits move, the keys above step through where they can land, and Return lands
+  // them there. After the navigator's Return, so it wins.
+  {
+    "context": "Navigator && Moving && !TextInput",
+    "bindings": { "enter": "navigator::MoveHere" }
+  },
   {
     "os": ["macos"],
     "context": "Navigator && !TextInput",

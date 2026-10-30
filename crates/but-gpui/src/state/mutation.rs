@@ -983,11 +983,13 @@ impl Store {
         );
     }
 
-    /// Move commits `ids` into a new branch of their own, and select that branch.
+    /// Move commits `ids` into a new branch of their own, in a stack of its own or `beside` a
+    /// branch in its stack, as [`backend::MoveToNewBranch`] says, and select that branch.
     pub fn move_to_new_branch(
         &mut self,
         project: &ProjectId,
         ids: Arc<[CommitId]>,
+        beside: Option<(FullName, bool)>,
         cx: &mut Context<Self>,
     ) {
         let shown = project.clone();
@@ -996,7 +998,10 @@ impl Store {
             project,
             "Move to a new branch",
             Overlay::commits(keys.collect::<Vec<_>>()),
-            backend::MoveToNewBranch { commits: ids },
+            backend::MoveToNewBranch {
+                commits: ids,
+                beside,
+            },
             move |store, (_, branch), cx| {
                 store.select(Some(Selection::Branch(shown, Some(branch))), cx);
                 store.snack_undoable("Moved to a new branch", cx)

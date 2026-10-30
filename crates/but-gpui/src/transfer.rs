@@ -103,6 +103,69 @@ impl Place {
     }
 }
 
+/// Commits being moved with the keys: the navigator steps through the places they can land,
+/// and Return lands them where it's at.
+#[derive(Debug, Clone)]
+pub struct Move {
+    pub project: ProjectId,
+    /// As listed, newest first.
+    pub commits: Arc<[CommitId]>,
+    pub at: Stop,
+}
+
+/// A place commits being moved can land.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Stop {
+    /// In a branch: at its top, or right below one of its commits.
+    In(Destination),
+    /// In a new branch right above `beside` in its stack, or right below it with `below`.
+    NewBranch { beside: FullName, below: bool },
+    /// In a new branch in a stack of its own.
+    NewStack,
+}
+
+impl Move {
+    /// Landing in a branch as a drop: the commits as what's dropped, and the row and the place
+    /// on it they're dropped at. `None` in a new branch, which has no row yet.
+    pub fn drop(&self) -> Option<(Cut, Selection, Place)> {
+        let Stop::In(to) = &self.at else {
+            return None;
+        };
+        let project = self.project.clone();
+        let (target, place) = match to {
+            Destination::Branch(branch) => (
+                Selection::Branch(project.clone(), Some(branch.clone())),
+                Place::Into,
+            ),
+            Destination::AboveCommit(id) => (Selection::Commit(project.clone(), *id), Place::Above),
+            Destination::BelowCommit(id) => (Selection::Commit(project.clone(), *id), Place::Below),
+        };
+        Some((Cut::Commit(project, self.commits.clone()), target, place))
+    }
+
+    /// Whether landing moves the commits, as it doesn't where they already are.
+    pub fn lands(&self, store: &Store) -> bool {
+        self.drop().is_none_or(|(payload, target, place)| {
+            Transfer::resolve(&payload, &target, place, store).is_some()
+        })
+    }
+
+    /// Where landing puts them, said after a verb: "to a new branch below feature-x".
+    pub fn place(&self) -> String {
+        match &self.at {
+            Stop::In(Destination::Branch(branch)) => {
+                format!("to the top of {}", short_ref(branch))
+            }
+            Stop::In(to) => place(to),
+            Stop::NewBranch { beside, below } => {
+                let side = if *below { "below" } else { "above" };
+                format!("to a new branch {side} {}", short_ref(beside))
+            }
+            Stop::NewStack => "to a new stack".into(),
+        }
+    }
+}
+
 impl Transfer {
     /// What `payload` does when it lands on `target` at `place`, if anything. A commit landing
     /// on another goes above or below it, or squashes into it. A branch landing on another
