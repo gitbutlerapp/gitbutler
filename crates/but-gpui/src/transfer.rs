@@ -14,6 +14,8 @@ use crate::state::{
     Cut, Label, NewAt, Overlay, ProjectId, Selection, Store, branch_moved, move_before,
 };
 use crate::theme::Theme;
+use crate::ui::diff::split_path;
+use crate::ui::file_icons::file_icon;
 use crate::ui::{Icon, dp, popover, small_icon};
 
 /// What a drop or paste does. Commits move, squash and uncommit as many as were picked.
@@ -610,27 +612,38 @@ impl Render for DragPreview {
             Transfer::resolve(payload, target, *place, store)
         });
         let hint = transfer.as_ref().map(Transfer::verb);
+        let glyph = |icon| small_icon(icon).text_color(theme.pop).into_any_element();
         // A worktree's files landing where they move it name the worktree.
-        let (glyph, label) = match (&transfer, &self.payload) {
+        let (mark, label) = match (&transfer, &self.payload) {
             (Some(Transfer::MoveWorktree { name, .. }), _) => {
-                (Icon::FolderCopy, name.to_string().into())
+                (glyph(Icon::FolderCopy), name.to_string().into())
             }
-            (_, Cut::Commit(..) | Cut::CherryPick(..)) => (Icon::Commit, self.label.clone()),
-            (_, Cut::Branch(..)) => (Icon::Branch, self.label.clone()),
-            (_, Cut::Files { .. }) => (Icon::File, self.label.clone()),
-            (_, Cut::Worktree(..)) => (Icon::FolderCopy, self.label.clone()),
+            (_, Cut::Commit(..) | Cut::CherryPick(..)) => (glyph(Icon::Commit), self.label.clone()),
+            (_, Cut::Branch(..)) => (glyph(Icon::Branch), self.label.clone()),
+            (_, Cut::Files { files, .. }) => match &**files {
+                // All of a file goes by its name, as its folder says little while dragging.
+                [file] => (
+                    file_icon(&file.file.path, cx).into_any_element(),
+                    match file.hunks {
+                        None => split_path(&file.file.path).0.to_owned().into(),
+                        Some(_) => self.label.clone(),
+                    },
+                ),
+                _ => (glyph(Icon::File), self.label.clone()),
+            },
+            (_, Cut::Worktree(..)) => (glyph(Icon::FolderCopy), self.label.clone()),
         };
-        drag_pill(self.offset, glyph, label, hint, theme)
+        drag_pill(self.offset, mark, label, hint, theme)
     }
 }
 
-/// What a dragged row shows under the pointer: a pill with its glyph, `label` and what
+/// What a dragged row shows under the pointer: a pill with its `mark`, `label` and what
 /// letting go does there (`hint`), below and right of the pointer as a tooltip sits, clear of
 /// the row it's over and the line or outline that row shows. `offset` is where the pointer
 /// pressed the row, which GPUI draws from.
 pub fn drag_pill(
     offset: Point<Pixels>,
-    glyph: Icon,
+    mark: impl IntoElement,
     label: SharedString,
     hint: Option<&'static str>,
     theme: &Theme,
@@ -646,7 +659,7 @@ pub fn drag_pill(
         .font_family(theme.ui_font.clone())
         .text_size(dp(12.))
         .text_color(theme.text_1)
-        .child(small_icon(glyph).text_color(theme.pop))
+        .child(mark)
         .child(div().truncate().child(label))
         .when_some(hint, |el, hint| {
             el.child(div().flex_none().text_color(theme.text_2).child(hint))

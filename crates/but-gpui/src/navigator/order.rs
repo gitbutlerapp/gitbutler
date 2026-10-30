@@ -16,7 +16,7 @@ use crate::overlays::MenuItem;
 use crate::state::{Prefs, ProjectEntry, ProjectId, Store, WatchedOrder};
 use crate::theme::Theme;
 use crate::transfer::drag_pill;
-use crate::ui::{Icon, dp, icon_button};
+use crate::ui::{Icon, dp, icon_button, small_icon};
 
 impl Navigator {
     /// The watched projects, in the order picked.
@@ -209,12 +209,8 @@ struct ProjectPill {
 
 impl Render for ProjectPill {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        drag_pill(
-            self.offset,
-            Icon::Eye,
-            self.name.clone(),
-            None,
-            Theme::get(cx),
-        )
+        let theme = Theme::get(cx);
+        let mark = small_icon(Icon::Eye).text_color(theme.pop);
+        drag_pill(self.offset, mark, self.name.clone(), None, theme)
     }
 }
