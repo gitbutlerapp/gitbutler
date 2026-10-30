@@ -55,8 +55,7 @@ pub struct Terminal {
     dark: Option<bool>,
     /// Pixels scrolled that don't make a whole line yet.
     scrolled: Pixels,
-    /// Where the grid's first cell was last drawn, in the window.
-    origin: Rc<Cell<Point<Pixels>>>,
+    grid: Rc<Cell<Grid>>,
     focus: FocusHandle,
     /// It takes the keys once it's first drawn, as it opens.
     focus_when_drawn: bool,
@@ -105,7 +104,7 @@ impl Terminal {
             size,
             dark: None,
             scrolled: fixed(0.),
-            origin: Rc::default(),
+            grid: Rc::new(Cell::new(Grid::opening(size))),
             focus: cx.focus_handle(),
             focus_when_drawn: true,
             store,
@@ -266,7 +265,7 @@ impl Terminal {
         if lines != 0. {
             self.scrolled -= line * lines;
             if self.vt.term.is_mouse_tracking().unwrap_or(false) {
-                let at = event.position - self.origin.get();
+                let at = self.grid.get().surface(event.position, self.size);
                 let bytes = self.vt.wheel(lines, at, self.size, mods(event.modifiers));
                 self.pty.write(&bytes).ok();
             } else {
@@ -299,10 +298,13 @@ impl Render for Terminal {
         let frame = self.vt.frame().unwrap_or_default();
         let this = cx.entity().downgrade();
         let measured = Rc::new(Cell::new(self.size));
-        let origin = self.origin.clone();
+        let drawn = self.grid.clone();
         let grid = canvas(
             move |bounds, window, cx| {
-                origin.set(bounds.origin);
+                drawn.set(Grid {
+                    origin: bounds.origin,
+                    cell: gpui::size(cell_width, cell_height),
+                });
                 let size = Size {
                     cols: ((bounds.size.width / cell_width).floor() as u16).max(2),
                     rows: ((bounds.size.height / cell_height).floor() as u16).max(1),
@@ -364,6 +366,36 @@ impl Render for Terminal {
                     }))
                     .children(cursor),
             )
+    }
+}
+
+/// Where the grid was last drawn in the window, and the size its cells were drawn at.
+#[derive(Clone, Copy)]
+struct Grid {
+    origin: Point<Pixels>,
+    cell: gpui::Size<Pixels>,
+}
+
+impl Grid {
+    /// Until it's drawn, cells are the size the shell was told.
+    fn opening(size: Size) -> Self {
+        Self {
+            origin: Point::default(),
+            cell: gpui::size(
+                fixed(f32::from(size.cell_width)),
+                fixed(f32::from(size.cell_height)),
+            ),
+        }
+    }
+
+    /// `position` in the window on the surface the encoders see, whose cells are `size`'s
+    /// whole pixels rather than the fractional ones drawn.
+    fn surface(self, position: Point<Pixels>, size: Size) -> mouse::Position {
+        let at = position - self.origin;
+        mouse::Position {
+            x: at.x / self.cell.width * f32::from(size.cell_width),
+            y: at.y / self.cell.height * f32::from(size.cell_height),
+        }
     }
 }
 
@@ -469,7 +501,7 @@ impl Vt {
 
     /// The wheel turned `lines` up, or down if negative, over `at` on the grid, for a program
     /// tracking the mouse.
-    fn wheel(&mut self, lines: f32, at: Point<Pixels>, size: Size, mods: Mods) -> Vec<u8> {
+    fn wheel(&mut self, lines: f32, at: mouse::Position, size: Size, mods: Mods) -> Vec<u8> {
         let (cell_width, cell_height) = (u32::from(size.cell_width), u32::from(size.cell_height));
         (self.mouse.set_options_from_terminal(&self.term)).set_size(mouse::EncoderSize {
             screen_width: u32::from(size.cols) * cell_width,
@@ -490,10 +522,7 @@ impl Vt {
             .set_action(mouse::Action::Press)
             .set_button(Some(button))
             .set_mods(mods)
-            .set_position(mouse::Position {
-                x: f32::from(at.x),
-                y: f32::from(at.y),
-            });
+            .set_position(at);
         let mut bytes = Vec::new();
         for _ in 0..lines.abs() as usize {
             self.mouse.encode_to_vec(&self.wheel, &mut bytes).ok();
@@ -753,7 +782,7 @@ mod tests {
     fn wheel_reports_to_a_program_tracking_the_mouse() {
         let mut vt = Vt::new(Terminal::OPENING).unwrap();
         vt.term.vt_write(b"\x1b[?1003h\x1b[?1006h");
-        let at = gpui::point(fixed(20.), fixed(40.));
+        let at = mouse::Position { x: 20., y: 40. };
         let up = vt.wheel(2., at, Terminal::OPENING, Mods::empty());
         let down = vt.wheel(-1., at, Terminal::OPENING, Mods::empty());
         assert_eq!(
@@ -763,6 +792,23 @@ mod tests {
                 b"\x1b[<65;3;3M".to_vec()
             ),
             "two notches up then one down over cell 3,3 are SGR wheel buttons 64 and 65"
+        );
+    }
+
+    #[test]
+    fn the_wheel_reports_the_cell_drawn_under_it_when_cells_are_fractional() {
+        let mut vt = Vt::new(Terminal::OPENING).unwrap();
+        vt.term.vt_write(b"\x1b[?1003h\x1b[?1006h");
+        let grid = Grid {
+            origin: gpui::point(fixed(100.), fixed(50.)),
+            cell: gpui::size(fixed(7.8), fixed(16.)),
+        };
+        let over_column_61 = gpui::point(fixed(100. + 7.8 * 60.5), fixed(58.));
+        let at = grid.surface(over_column_61, Terminal::OPENING);
+        assert_eq!(
+            vt.wheel(1., at, Terminal::OPENING, Mods::empty()),
+            b"\x1b[<64;61;1M".to_vec(),
+            "7.8px cells drawn report as the 8px cells the encoder counts in, not 59"
         );
     }
 
