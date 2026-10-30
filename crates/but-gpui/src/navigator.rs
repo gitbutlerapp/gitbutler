@@ -2464,11 +2464,7 @@ impl Navigator {
                         ),
                     ))
                 })
-                // While it pushes, its count pulses where it is.
-                .children(style.unpushed(unpushed_n).map(|count| match pushing {
-                    true => pulsing(count).into_any_element(),
-                    false => count.into_any_element(),
-                }))
+                .children(style.unpushed(unpushed_n))
                 // Folded, how many commits it holds; open, they're listed under it.
                 .when(!open, |el| el.children(style.commits(branch.commits.len())))
                 .when(unread, |el| el.child(dot(style.meta(theme.pop))))
