@@ -173,8 +173,9 @@ unseen is what a laptop's battery pays for.
   `StoreEvent::Renamed`), or close or refuse once it's gone; never act on the stale one. An
   operation gets the commit ids it was asked with, and the rebase editor refuses one that's no
   longer in the workspace.
-- A confirmation that can't be undone (a linked worktree's discard or delete, Land) carries what it
-  asked about, as a file's `modified` time or a branch's tip, and refuses if that moved meanwhile.
+- A confirmation that can't be undone (a linked worktree's discard or delete, a merge into the
+  target) carries what it asked about, as a file's `modified` time or a branch's tip, and refuses
+  if that moved meanwhile.
 - Hunk and line selections in uncommitted files are positional, and an agent's edit slides them.
   Commit, amend and discard compare each file's `modified` time and base with the diff the user
   saw and refuse if either moved. Core takes any selection in an added file as the whole file,
@@ -190,9 +191,9 @@ unseen is what a laptop's battery pays for.
   `Store::apply`. One that writes the workspace does so in one `Run::locked` call, one
   transaction or `_with_perm` call, so it is one oplog entry and one ⌘Z step, and the oplog and
   linked-worktree heads are read under the same lock. `Run::watched` is only for work that takes
-  GitButler's lock itself, as Land and mesh apply do. Fetches, pushes and the forge's merges
-  call neither: they write no workspace state and record no undo step, and `but-api` locks for
-  fetching and pushing itself.
+  GitButler's lock itself, as merging into the target and mesh apply do. Fetches, pushes and the
+  forge's merges call neither: they write no workspace state and record no undo step, and
+  `but-api` locks for fetching and pushing itself.
 - A project runs one operation at a time, until the reload after it lands, and `Store::apply`
   turns down another asked for meanwhile, so each acts on the state the user saw the one before
   leave; nothing queues. Fetches, pushes and deleting a linked worktree (`OpKind::beside`) run

@@ -1834,7 +1834,7 @@ pub(super) fn overview_column(text: String, width: f32, theme: &Theme) -> Div {
     faint(text, theme).flex_none().w(dp(width)).text_right()
 }
 
-/// A row of an overview's counted list, as the files committed most or the areas landed in:
+/// A row of an overview's counted list, as the files committed most or the areas merged in:
 /// its `label`, a bar of its `n` against the `most` any has in `bar`'s box, then `n`. Picked,
 /// it's a filter on, its selection `solid` while its list has the focus.
 pub(super) fn share_row(

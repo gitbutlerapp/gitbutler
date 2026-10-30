@@ -410,7 +410,7 @@ fn parse_status(out: &str) -> Result<Status> {
         })
         .collect();
     // A checkout with nothing going on, no uncommitted files and no branch with commits that
-    // haven't landed, isn't listed, nor is a machine with only those.
+    // haven't merged, isn't listed, nor is a machine with only those.
     checkouts.retain(|c| {
         !c.uncommitted.is_empty()
             || (c.branches.iter())

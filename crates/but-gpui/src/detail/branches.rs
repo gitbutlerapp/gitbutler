@@ -230,7 +230,7 @@ impl Recency {
 }
 
 /// The pull request choices, as the filter menu and the chip name them. There's no Merged
-/// choice: the page is for work under way, and the project's page lists what landed.
+/// choice: the page is for work under way, and the project's page lists what merged.
 const STATUSES: [(BranchStatus, &str); 6] = [
     (BranchStatus::NotMerged, "In progress"),
     (BranchStatus::Open, "Open"),
@@ -1463,7 +1463,7 @@ impl Detail {
                             let branch = branches.list.get(*branch_ix)?;
                             let selected = is_selected(branches, row);
                             let ref_name = branch.ref_name.clone();
-                            // The target has it all: landed, as a merged pull request shows.
+                            // The target has it all: merged, as a merged pull request shows.
                             let (glyph, glyph_color) = match &branch.review {
                                 Some(review) => review::state_glyph(review.state, theme),
                                 None if branch.ahead == Some(0) => {
@@ -1504,7 +1504,7 @@ impl Detail {
                                 .text_color(ink(title_color))
                                 .child(shown.into_owned());
                             // The target has it all: said, as the navigator says it of a branch
-                            // that landed.
+                            // that merged.
                             let merged = (branch.ahead == Some(0)).then(|| {
                                 format!("in {}", target.as_deref().unwrap_or("the target"))
                             });

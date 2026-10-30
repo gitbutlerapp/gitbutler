@@ -17,8 +17,8 @@ use crate::ui::{Icon, dp, v_flex};
 enum Left {
     /// Commits no remote has, and how many.
     Unpushed(usize),
-    /// Its branch landed.
-    Landed,
+    /// Its branch merged.
+    Merged,
     /// Commits, every one pushed.
     Pushed,
     /// No commits of its own.
@@ -32,7 +32,7 @@ impl Left {
         if unpushed > 0 {
             Left::Unpushed(unpushed)
         } else if (branches.iter()).any(|b| b.push == PushState::Integrated) {
-            Left::Landed
+            Left::Merged
         } else if commits().next().is_some() {
             Left::Pushed
         } else {
@@ -43,7 +43,7 @@ impl Left {
 
 impl Detail {
     /// Inactive worktrees' page: how many there are, their commits, those no remote has and
-    /// how long the quietest has been quiet; how many hold commits only here, landed, have
+    /// how long the quietest has been quiet; how many hold commits only here, merged, have
     /// every commit pushed or have none; then a lane for each, which opens it.
     pub(in crate::detail) fn render_inactive_overview(
         &self,
@@ -106,8 +106,8 @@ impl Detail {
                 Icon::BranchMerge,
                 theme.purple,
                 theme.purple,
-                "landed",
-                count(|l| matches!(l, Left::Landed)),
+                "merged",
+                count(|l| matches!(l, Left::Merged)),
             ),
             (
                 Icon::CommitFill,
@@ -132,7 +132,7 @@ impl Detail {
             name: wt.name.to_string(),
             tag: Some(match left {
                 Left::Unpushed(n) => (format!("{n} unpushed"), theme.blue),
-                Left::Landed => ("landed".to_owned(), theme.purple),
+                Left::Merged => ("merged".to_owned(), theme.purple),
                 Left::Pushed => ("pushed".to_owned(), theme.text_3),
                 Left::Nothing => ("no commits".to_owned(), theme.text_3),
             }),

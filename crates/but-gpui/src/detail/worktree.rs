@@ -585,7 +585,7 @@ impl Detail {
     }
 
     /// On the page a click on a commit of a branch that left a checkout picked, open what took
-    /// it: on the project's page the commit that landed it, on the Branches page its branch.
+    /// it: on the project's page the commit that merged it, on the Branches page its branch.
     /// It waits for the page to read its list, as it's picked before it has, or reads it
     /// again: once that's `read`, it opens or not, the history read further back first, and
     /// another page picked lets go of it.
@@ -597,9 +597,9 @@ impl Detail {
             return;
         }
         let done = match &page {
-            // A landing past the pages read is looked for further back, as far as the commit.
+            // A merge past the pages read is looked for further back, as far as the commit.
             Selection::Project(project) => {
-                self.open_landing(project, seen.pull, seen.id, cx)
+                self.open_merge(project, seen.pull, seen.id, cx)
                     || (read && !self.read_back_to(project, seen.time, cx))
             }
             Selection::Branches(project) => {
@@ -716,7 +716,7 @@ impl Detail {
                     // On one of the checkout's branches, it opens, read or not as the
                     // navigator shows it: quieter once read, in semibold with a dot while not,
                     // and marked conflicted as there. Gone with its branch, it shows as last
-                    // seen, and opens what took it: the commit that landed it on the project's
+                    // seen, and opens what took it: the commit that merged it on the project's
                     // page, else its branch on the Branches page.
                     let ((glyph, color), said, unread, target) = match made {
                         Made::Here(branch, commit) => (
@@ -912,7 +912,7 @@ fn file_label(path: &str, on: bool, theme: &Theme, cx: &App) -> Div {
 }
 
 /// What names the branch `commit` left the checkout on: its name, with the glyph of a merged
-/// pull request for one that landed, and where it is now for a hover.
+/// pull request for one that merged, and where it is now for a hover.
 fn left_said(commit: &SeenCommit, theme: &Theme) -> ((Icon, gpui::Hsla), String, String) {
     let name = (commit.branch.as_deref())
         .map_or("Unnamed branch", backend::short_text)
@@ -921,7 +921,7 @@ fn left_said(commit: &SeenCommit, theme: &Theme) -> ((Icon, gpui::Hsla), String,
         CommitState::Integrated => (
             state_glyph(ReviewState::Merged, theme),
             name.clone(),
-            format!("{name} · landed, on the project's page"),
+            format!("{name} · merged, on the project's page"),
         ),
         CommitState::Local | CommitState::Pushed => (
             (Icon::Branch, theme.text_3),

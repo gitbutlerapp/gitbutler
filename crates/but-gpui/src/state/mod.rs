@@ -991,7 +991,7 @@ impl Store {
     }
 
     /// Keep ⌘Z, and the snackbar's Undo, from taking back the mutation that just ran, as a
-    /// land, which the target keeps; History can still restore to before it.
+    /// merge, which the target keeps; History can still restore to before it.
     pub fn drop_last_step(&mut self) -> Option<(ProjectId, SnapshotId)> {
         let (project, snapshot) = self.last_snapshot.take()?;
         (self.undo_steps).retain(|step| step.project != project || step.snapshot != snapshot);
