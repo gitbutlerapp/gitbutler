@@ -184,6 +184,8 @@ pub struct Choice {
     /// give it, though its detail shows less. Never by letters scattered through it, which
     /// would find every commit.
     id: Option<SharedString>,
+    /// Where picking it goes, which the navigator outlines while it's selected.
+    goes_to: Option<Selection>,
     run: Run,
 }
 
@@ -200,6 +202,7 @@ impl Choice {
             risky: false,
             names: false,
             id: None,
+            goes_to: None,
             run: Box::new(move |this, _, window, cx| run(this, window, cx)),
         }
     }
@@ -234,6 +237,11 @@ impl Choice {
         self.icon = Some(icon);
         self
     }
+
+    fn goes_to(mut self, selection: Selection) -> Choice {
+        self.goes_to = Some(selection);
+        self
+    }
 }
 
 /// The command palette, or another list to pick from the same way.
@@ -244,6 +252,8 @@ pub struct Palette {
     choices: Vec<Choice>,
     /// What Enter does, for the hint at the bottom.
     verb: &'static str,
+    /// What the query finds, best first, worked out as it changes: nothing else changes it.
+    found: Vec<Found>,
     selected: usize,
     /// The rows' scroll, which follows the selection.
     scroll: ScrollHandle,
@@ -263,6 +273,60 @@ impl Palette {
     fn select(&mut self, row: usize) {
         self.selected = row;
         self.scroll.scroll_to_item(row);
+    }
+
+    /// The choices the query finds, best first.
+    fn find(&self, cx: &gpui::App) -> Vec<Found> {
+        let query = self.input.read(cx).text().trim().to_owned();
+        let taken = (self.choices.iter()).any(|c| !c.names && c.label.eq_ignore_ascii_case(&query));
+        let mut scored: Vec<(i32, Found)> = self
+            .choices
+            .iter()
+            .enumerate()
+            .filter_map(|(ix, choice)| {
+                // Last, under what the text finds.
+                if choice.names && !query.is_empty() {
+                    let found = Found {
+                        ix,
+                        label: Vec::new(),
+                        detail: Vec::new(),
+                    };
+                    return (!taken).then_some((-1, found));
+                }
+                let label = score(&choice.label, &query);
+                // The label first on a tie, as a branch named as another's detail says.
+                let detail = (choice.detail.as_ref())
+                    .and_then(|detail| detail_score(detail, choice.id.as_deref(), &query))
+                    .map(|(score, found)| (score - 1, found))
+                    .filter(|(score, _)| label.as_ref().is_none_or(|(label, _)| score > label));
+                let (score, found) = match (label, detail) {
+                    (_, Some((score, detail))) => (
+                        score,
+                        Found {
+                            ix,
+                            label: Vec::new(),
+                            detail,
+                        },
+                    ),
+                    (Some((score, label)), None) => (
+                        score,
+                        Found {
+                            ix,
+                            label,
+                            detail: Vec::new(),
+                        },
+                    ),
+                    (None, None) => return None,
+                };
+                // One that throws work away shows for its words, not for letters scattered
+                // through it, so typing a command missing here doesn't land on it.
+                let scattered = score == 0 && !query.is_empty();
+                (!scattered || !choice.risky).then_some((score, found))
+            })
+            .collect();
+        // Stable, so equal scores keep the recent-first order.
+        scored.sort_by_key(|(score, _)| -score);
+        scored.into_iter().map(|(_, found)| found).collect()
     }
 }
 
@@ -434,7 +498,9 @@ fn project_choice(entry: &ProjectEntry) -> Choice {
         }
         this.select(Selection::Project(id), window, cx)
     });
-    choice.icon(Icon::Repo)
+    choice
+        .icon(Icon::Repo)
+        .goes_to(Selection::Project(entry.id.clone()))
 }
 
 /// Go to anything's rows for a loaded project's pages, as the navigator names them.
@@ -452,19 +518,21 @@ fn page_choices(entry: &ProjectEntry, several: bool) -> [Choice; 3] {
     let project = several.then_some(entry.project.name.as_str());
     pages.map(|(page, label, icon)| {
         let gone = format!("{} was removed meanwhile", entry.project.name);
+        let goes_to = page.clone();
         let choice = Choice::new(label, move |this, window, cx| {
             if this.store.read(cx).project(page.project()).is_none() {
                 return snack(&this.store, gone, cx);
             }
             this.select(page, window, cx)
         });
-        choice.icon(icon).details(project)
+        choice.icon(icon).details(project).goes_to(goes_to)
     })
 }
 
 /// Go to anything's row for a linked worktree, the branch it has checked out beside it.
 fn worktree_choice(entry: &ProjectEntry, worktree: &Worktree, several: bool) -> Choice {
     let (id, name) = (entry.id.clone(), worktree.name.clone());
+    let goes_to = Selection::Worktree(id.clone(), name.clone());
     let gone = format!("{name} was archived or deleted meanwhile");
     let branch = worktree.branch.as_ref().map(short_ref);
     let project = several.then_some(entry.project.name.as_str());
@@ -477,13 +545,17 @@ fn worktree_choice(entry: &ProjectEntry, worktree: &Worktree, several: bool) -> 
         this.select(Selection::Worktree(id, name), window, cx)
     });
     let details = branch.as_deref().into_iter().chain(project);
-    choice.icon(Icon::FolderCopy).details(details)
+    choice
+        .icon(Icon::FolderCopy)
+        .details(details)
+        .goes_to(goes_to)
 }
 
 /// Go to anything's row for a branch, as the navigator names it: a pull request by its title,
 /// its branch's name beside it, where typing either finds it.
 fn branch_choice(store: &Store, entry: &ProjectEntry, branch: &Branch, several: bool) -> Choice {
     let (id, ref_name) = (entry.id.clone(), branch.ref_name.clone());
+    let goes_to = Selection::Branch(id.clone(), ref_name.clone());
     let label = store.label_of(&entry.id, branch).to_owned();
     let name = (label != branch.name).then_some(branch.name.as_str());
     let project = several.then_some(entry.project.name.as_str());
@@ -503,6 +575,7 @@ fn branch_choice(store: &Store, entry: &ProjectEntry, branch: &Branch, several: 
     choice
         .icon(Icon::Branch)
         .details(name.into_iter().chain(project))
+        .goes_to(goes_to)
 }
 
 /// Go to anything's row for a commit, by its title, its short id and branch beside it, where
@@ -515,6 +588,7 @@ fn commit_choice(
     several: bool,
 ) -> Choice {
     let (id, key) = (entry.id.clone(), commit.key.clone());
+    let goes_to = Selection::Commit(id.clone(), commit.id);
     let short = commit.id.0.to_hex_with_len(7).to_string();
     let gone = format!("Commit {short} left the workspace meanwhile");
     let project = several.then_some(entry.project.name.as_str());
@@ -529,7 +603,9 @@ fn commit_choice(
             None => snack(&this.store, gone, cx),
         }
     });
-    let choice = (choice.icon(Icon::Commit)).details(details.into_iter().chain(project));
+    let choice = (choice.icon(Icon::Commit))
+        .details(details.into_iter().chain(project))
+        .goes_to(goes_to);
     Choice {
         id: Some(commit.id.0.to_string().into()),
         ..choice
@@ -670,6 +746,7 @@ impl AppView {
                 risky: item.danger,
                 names: false,
                 id: None,
+                goes_to: None,
                 run: Box::new(move |this, _, window, cx| (item.handler)(this, window, cx)),
             })
             .collect();
@@ -729,8 +806,10 @@ impl AppView {
             cx.subscribe_in(&input, window, |this, _, event, window, cx| match event {
                 InputEvent::Changed => {
                     if let Some(palette) = &mut this.palette {
+                        palette.found = palette.find(cx);
                         palette.select(0);
                     }
+                    this.outline_choice(cx);
                     cx.notify();
                 }
                 InputEvent::Submit => this.run_selected(window, cx),
@@ -738,11 +817,12 @@ impl AppView {
             });
         window.focus(&input.focus_handle(cx), cx);
         self.menu = None;
-        self.palette = Some(Palette {
+        let mut palette = Palette {
             input,
             place,
             choices,
             verb,
+            found: Vec::new(),
             selected: 0,
             scroll: ScrollHandle::new(),
             restore_focus,
@@ -750,7 +830,10 @@ impl AppView {
             holds_ids: false,
             wide: false,
             _subscription: subscription,
-        });
+        };
+        palette.found = palette.find(cx);
+        self.palette = Some(palette);
+        self.outline_choice(cx);
         cx.notify();
     }
 
@@ -760,70 +843,25 @@ impl AppView {
         {
             window.focus(&focus, cx);
         }
+        (self.navigator).update(cx, |navigator, cx| navigator.stop_going(true, cx));
         cx.notify();
     }
 
-    fn matches(&self, cx: &gpui::App) -> Vec<Found> {
-        let Some(palette) = &self.palette else {
-            return Vec::new();
-        };
-        let query = palette.input.read(cx).text().trim().to_owned();
-        let taken =
-            (palette.choices.iter()).any(|c| !c.names && c.label.eq_ignore_ascii_case(&query));
-        let mut scored: Vec<(i32, Found)> = palette
-            .choices
-            .iter()
-            .enumerate()
-            .filter_map(|(ix, choice)| {
-                // Last, under what the text finds.
-                if choice.names && !query.is_empty() {
-                    let found = Found {
-                        ix,
-                        label: Vec::new(),
-                        detail: Vec::new(),
-                    };
-                    return (!taken).then_some((-1, found));
-                }
-                let label = score(&choice.label, &query);
-                // The label first on a tie, as a branch named as another's detail says.
-                let detail = (choice.detail.as_ref())
-                    .and_then(|detail| detail_score(detail, choice.id.as_deref(), &query))
-                    .map(|(score, found)| (score - 1, found))
-                    .filter(|(score, _)| label.as_ref().is_none_or(|(label, _)| score > label));
-                let (score, found) = match (label, detail) {
-                    (_, Some((score, detail))) => (
-                        score,
-                        Found {
-                            ix,
-                            label: Vec::new(),
-                            detail,
-                        },
-                    ),
-                    (Some((score, label)), None) => (
-                        score,
-                        Found {
-                            ix,
-                            label,
-                            detail: Vec::new(),
-                        },
-                    ),
-                    (None, None) => return None,
-                };
-                // One that throws work away shows for its words, not for letters scattered
-                // through it, so typing a command missing here doesn't land on it.
-                let scattered = score == 0 && !query.is_empty();
-                (!scattered || !choice.risky).then_some((score, found))
-            })
-            .collect();
-        // Stable, so equal scores keep the recent-first order.
-        scored.sort_by_key(|(score, _)| -score);
-        scored.into_iter().map(|(_, found)| found).collect()
+    /// Have the navigator outline where the selected choice goes, if it goes anywhere.
+    fn outline_choice(&mut self, cx: &mut Context<Self>) {
+        let goes_to = self.palette.as_ref().and_then(|palette| {
+            let found = palette.found.get(palette.selected)?;
+            palette.choices.get(found.ix)?.goes_to.clone()
+        });
+        (self.navigator).update(cx, |navigator, cx| navigator.go_toward(goes_to, cx));
     }
 
     fn run_command(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) {
         let Some(palette) = self.palette.take() else {
             return;
         };
+        // Where it goes shows as the selection, from where the navigator scrolled to.
+        (self.navigator).update(cx, |navigator, cx| navigator.stop_going(false, cx));
         let typed = palette.input.read(cx).text().trim().to_owned();
         let Some(choice) = palette.choices.into_iter().nth(ix) else {
             return;
@@ -837,23 +875,25 @@ impl AppView {
     }
 
     fn run_selected(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let selected = self.palette.as_ref().map_or(0, |p| p.selected);
-        if let Some(found) = self.matches(cx).get(selected) {
-            self.run_command(found.ix, window, cx);
+        let found = (self.palette.as_ref()).and_then(|p| p.found.get(p.selected));
+        if let Some(ix) = found.map(|found| found.ix) {
+            self.run_command(ix, window, cx);
         }
     }
 
     fn palette_up(&mut self, _: &PaletteUp, _: &mut Window, cx: &mut Context<Self>) {
         if let Some(palette) = &mut self.palette {
             palette.select(palette.selected.saturating_sub(1));
+            self.outline_choice(cx);
             cx.notify();
         }
     }
 
     fn palette_down(&mut self, _: &PaletteDown, _: &mut Window, cx: &mut Context<Self>) {
-        let count = self.matches(cx).len();
         if let Some(palette) = &mut self.palette {
-            palette.select((palette.selected + 1).min(count.saturating_sub(1)));
+            let last = palette.found.len().saturating_sub(1);
+            palette.select((palette.selected + 1).min(last));
+            self.outline_choice(cx);
             cx.notify();
         }
     }
@@ -862,10 +902,8 @@ impl AppView {
     pub fn render_palette(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let palette = self.palette.as_ref()?;
         let theme = Theme::get(cx).clone();
-        let matches = self.matches(cx);
         let typed = palette.input.read(cx).text().trim().to_owned();
-        let rows: Vec<AnyElement> = matches
-            .into_iter()
+        let rows: Vec<AnyElement> = (palette.found.iter())
             .enumerate()
             .filter_map(|(row, found)| {
                 let ix = found.ix;
@@ -880,9 +918,14 @@ impl AppView {
                     .when_some(choice.icon, |el, icon| {
                         el.child(small_icon(icon).text_color(theme.text_2))
                     })
-                    .child(div().flex_1().truncate().child(matched(label, found.label)))
+                    .child(
+                        div()
+                            .flex_1()
+                            .truncate()
+                            .child(matched(label, found.label.iter().cloned())),
+                    )
                     .when_some(choice.detail.clone(), |el, detail| {
-                        let detail = muted(matched(detail, found.detail), &theme);
+                        let detail = muted(matched(detail, found.detail.iter().cloned()), &theme);
                         el.child(detail.when(palette.wide, |detail| {
                             detail.min_w_0().max_w(relative(0.4)).truncate()
                         }))
