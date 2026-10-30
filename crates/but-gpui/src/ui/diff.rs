@@ -12,7 +12,7 @@ use gpui::{
 use super::conflict::{self, Part};
 use super::file_icons::file_icon;
 use super::fold::{self, MOVING_ROWS};
-use super::{Icon, blink_once, dp, faint, fixed, h_flex, plural, small_icon, v_flex};
+use super::{Icon, blink_once, dp, faint, fixed, h_flex, plural, small_icon, text_index, v_flex};
 use crate::backend::{
     ChangeKind, Conflict, DiffBody, DiffLine, FileDiff, Hunk, LineKind, Picture, scope_name,
 };
@@ -1153,29 +1153,9 @@ pub fn line_row(
         LineKind::Added | LineKind::Context => line.new,
     };
     let text = line_text(line, look.emph, found, selected, theme);
-    // Where in the text the pointer is, once the text has been laid out: the edge of
-    // the character under it nearer the pointer, as text selection goes everywhere.
-    let text_layout = text.layout().clone();
-    let chars = line.text.clone();
-    let at = move |position: Point<Pixels>| {
-        let ix = text_layout
-            .index_for_position(position)
-            .unwrap_or_else(|ix| ix);
-        let next = (chars.get(ix..))
-            .and_then(|rest| rest.chars().next())
-            .map(|c| ix + c.len_utf8());
-        let edges = next.and_then(|next| {
-            Some((
-                text_layout.position_for_index(ix)?,
-                text_layout.position_for_index(next)?,
-                next,
-            ))
-        });
-        match edges {
-            Some((start, end, next)) if position.x > (start.x + end.x) / 2. => next,
-            _ => ix,
-        }
-    };
+    // Where in the text the pointer is, once the text has been laid out.
+    let (text_layout, chars) = (text.layout().clone(), line.text.clone());
+    let at = move |position: Point<Pixels>| text_index(&text_layout, &chars, position);
     line_card(("diff-line", id).into(), last, layout.wrap, theme)
         .role(Role::Label)
         .aria_label(SharedString::from(line.text.clone()))

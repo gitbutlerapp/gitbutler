@@ -4,16 +4,19 @@
 //! is. Only whether an open one can merge is asked as the tab shows it, as the cache doesn't
 //! keep that.
 
+use std::rc::Rc;
+
 use gpui::{
     AnyElement, App, ClickEvent, ClipboardItem, Context, Div, Hsla, MouseButton, Role,
     ScrollHandle, SharedString, Stateful, Toggled, Window, div, list, prelude::*,
 };
 
+use super::diff_view::pressed;
 use super::panes::measured;
 use super::resolve::{banner_action, warn_banner};
 use super::{Detail, PageFold};
 use crate::backend::reviews::MergeMethod;
-use crate::backend::{CheckRun, Forge, FullName, Review, ReviewState};
+use crate::backend::{CheckRun, Forge, FullName, Remark, Review, ReviewState};
 use crate::overlays::MenuItem;
 use crate::pr::{Mergeability, Offer};
 use crate::state::{ProjectId, Selection, snack};
@@ -24,9 +27,9 @@ use crate::ui::person::forge_avatar;
 use crate::ui::review as ui_review;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, ago, button, count_badge, dot, dp, dropdown_button, duration,
-    h_flex, icon, keep_focus_on_press, local_time, muted, now, plural, relative_time, shortcut,
-    small_icon, switch_grounds, switch_spring, tab_stop, v_flex,
+    ButtonStyle, Icon, TextPoint, Tooltip, ago, button, count_badge, dot, dp, dropdown_button,
+    duration, h_flex, icon, keep_focus_on_press, local_time, muted, now, plural, relative_time,
+    shortcut, small_icon, switch_grounds, switch_spring, tab_stop, v_flex,
 };
 
 /// How tall the tabs over the diff beside a list are.
@@ -214,6 +217,80 @@ impl Detail {
         (self.store).update(cx, |store, cx| {
             store.read_merge_status(&project, &review, cx)
         });
+    }
+
+    /// What the pointer does to the text of the description or comment drawn as `id`, and
+    /// what of it is selected. A press selects as on the diff, and the drag goes on until the
+    /// button comes up anywhere on the tab.
+    pub(super) fn note_select(&self, id: &str, cx: &Context<Self>) -> markdown::Select {
+        let held = self.selecting && (self.note_selection.as_ref()).is_some_and(|(of, _)| of == id);
+        let (down, drag) = (cx.entity().downgrade(), cx.entity().downgrade());
+        let (down_id, drag_id) = (id.to_owned(), id.to_owned());
+        markdown::Select {
+            range: (self.note_range())
+                .filter(|(of, _)| *of == id)
+                .map(|(_, range)| range),
+            held,
+            down: Rc::new(move |at, text, event, _, cx| {
+                let (clicks, extend) = (event.click_count, event.modifiers.shift);
+                (down.update(cx, |this, cx| {
+                    let old = (this.note_selection.take())
+                        .filter(|(of, _)| *of == down_id)
+                        .map(|(_, range)| range);
+                    let range = pressed(old, at, text, clicks, extend);
+                    this.note_selection = Some((down_id.clone(), range));
+                    this.selecting = true;
+                    cx.notify();
+                }))
+                .ok();
+            }),
+            drag: Rc::new(move |at, _, cx| {
+                (drag.update(cx, |this, cx| {
+                    if let (true, Some((of, (_, head)))) =
+                        (this.selecting, &mut this.note_selection)
+                        && *of == drag_id
+                        && *head != at
+                    {
+                        *head = at;
+                        cx.notify();
+                    }
+                }))
+                .ok();
+            }),
+        }
+    }
+
+    /// The text selected in the description or a comment: which, by its id, and from where to
+    /// where, in order. None while it's empty.
+    pub(super) fn note_range(&self) -> Option<(&str, (TextPoint, TextPoint))> {
+        let (id, (anchor, head)) = self.note_selection.as_ref()?;
+        (anchor != head).then(|| (id.as_str(), (*anchor.min(head), *anchor.max(head))))
+    }
+
+    /// The text selected in the pull request's description or one of its comments.
+    pub(super) fn selected_note_text(&self, cx: &App) -> Option<String> {
+        let (id, range) = self.note_range()?;
+        let review = self.selected_review(cx)?;
+        let text = match id == description_id(review) {
+            true => markdown::selected_text(&markdown::parse(&review.body), range),
+            false => {
+                let project = self.selected_project(cx)?;
+                let store = self.store.read(cx);
+                let Some(Ok(remarks)) = store.conversation(&project, review.number) else {
+                    return None;
+                };
+                let note = (remarks.iter())
+                    .flat_map(|remark| match remark {
+                        Remark::Comment(note) | Remark::Review { note, .. } => {
+                            std::slice::from_ref(note)
+                        }
+                        Remark::Thread { thread, .. } => &thread.comments[..],
+                    })
+                    .find(|note| note.url == id)?;
+                markdown::selected_text(&note.body, range)
+            }
+        };
+        (!text.is_empty()).then_some(text)
     }
 
     /// Merging, as Lite's Merge section: auto-merge as a switch and Merge with its method, each
@@ -429,7 +506,25 @@ impl Detail {
         let width = measured(&self.review_width, &self.app, |bounds| {
             bounds.size.width.into()
         });
+        // A press on a note's text selects there before this sees it, and one anywhere else on
+        // the tab drops the selection. Letting go ends a drag, as on the diff's ground.
         (div().relative().flex_1().min_h_0().w_full())
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|this, _, _, cx| {
+                    if !this.selecting && this.note_selection.take().is_some() {
+                        cx.notify();
+                    }
+                }),
+            )
+            .on_mouse_up(
+                MouseButton::Left,
+                cx.listener(|this, _, _, cx| this.let_go(cx)),
+            )
+            .on_mouse_up_out(
+                MouseButton::Left,
+                cx.listener(|this, _, _, cx| this.let_go(cx)),
+            )
             .child(page)
             .child(width)
             .into_any_element()
@@ -454,7 +549,11 @@ impl Detail {
             ),
             2 => (
                 if two_columns { 12. } else { 20. },
-                Some(description(review, theme)),
+                Some(description(
+                    review,
+                    self.note_select(&description_id(review), cx),
+                    theme,
+                )),
             ),
             3 => (24., self.conversation(&project, review, theme, cx)),
             _ => (
@@ -1033,8 +1132,13 @@ fn byline(review: &Review, theme: &Theme) -> Option<Div> {
     Some(row)
 }
 
+/// The id the description of `review` is drawn with.
+fn description_id(review: &Review) -> String {
+    format!("review-{}", review.number)
+}
+
 /// The description, on a wash just wider than its text, as Lite's card; or that there's none.
-fn description(review: &Review, theme: &Theme) -> Div {
+fn description(review: &Review, select: markdown::Select, theme: &Theme) -> Div {
     let body = markdown::parse(&review.body);
     if body.is_empty() {
         return div()
@@ -1050,8 +1154,9 @@ fn description(review: &Review, theme: &Theme) -> Div {
         // Halfway from the page to the first grey step, as Lite's: a passage, not a panel.
         .bg(theme.bg_1.blend(theme.bg_2.opacity(0.5)))
         .child(markdown::render(
-            &format!("review-{}", review.number),
+            &description_id(review),
             &body,
+            Some(select),
             theme,
         ))
 }

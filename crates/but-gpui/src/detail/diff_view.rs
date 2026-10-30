@@ -35,7 +35,8 @@ use crate::ui::illustration::Illustration;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
     Icon, Tooltip, blink_once, checkbox, commit_title, count_badge, dp, empty_state, fixed, h_flex,
-    icon, icon_button, icon_toggle, segmented, shortcut, small_icon, toggle_group, v_flex,
+    icon, icon_button, icon_toggle, segmented, selected_part, shortcut, small_icon, toggle_group,
+    v_flex,
 };
 
 /// The diff, drawn by a view of its own over the space [`Detail`] leaves for it. A scrolled
@@ -373,18 +374,9 @@ impl Detail {
         (start != end).then_some((start, end))
     }
 
-    /// The selected part of the line at `row`. Nothing when the line changed under the
-    /// selection so its ends no longer fall in the text, as after an edit in place.
+    /// The selected part of the line at `row`.
     fn selected_in_row(&self, row: usize) -> Option<Range<usize>> {
-        let (start, end) = self.text_range()?;
-        if row < start.0 || row > end.0 {
-            return None;
-        }
-        let text = &self.line_at(row)?.text;
-        let from = if row == start.0 { start.1 } else { 0 };
-        let to = if row == end.0 { end.1 } else { text.len() };
-        let fits = text.is_char_boundary(from) && text.is_char_boundary(to);
-        (from < to && fits).then_some(from..to)
+        selected_part(&self.line_at(row)?.text, row, self.text_range()?)
     }
 
     /// The selected text, one line per diff line, without the `+` and `-` signs.
@@ -409,25 +401,9 @@ impl Detail {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let (row, ix) = at;
+        let row = at.0;
         let text = self.line_at(row).map_or("", |line| line.text.as_ref());
-        // The text may have changed since the line was drawn.
-        let ix = (0..=ix.min(text.len()))
-            .rev()
-            .find(|ix| text.is_char_boundary(*ix))
-            .unwrap_or(0);
-        let at = (row, ix);
-        self.text_selection = match clicks {
-            2 => {
-                let word = word_at(text, ix);
-                Some(((row, word.start), (row, word.end)))
-            }
-            3.. => Some(((row, 0), (row, text.len()))),
-            _ => match self.text_selection {
-                Some((anchor, _)) if extend => Some((anchor, at)),
-                _ => Some((at, at)),
-            },
-        };
+        self.text_selection = Some(pressed(self.text_selection, at, text, clicks, extend));
         self.selecting = true;
         // The keys then act on what was pressed: its hunk, or an unchanged line's file.
         let cursor = match (self.diff.as_ref()).and_then(|diff| diff.rows.get(row)) {
@@ -716,10 +692,13 @@ impl Detail {
             });
     }
 
-    /// Drop the text selection, saying whether there was one.
+    /// Drop the text selection, the diff's or the pull request's, saying whether there was one
+    /// in sight.
     pub fn clear_text_selection(&mut self, cx: &mut Context<Self>) -> bool {
-        let had = self.text_range().is_some();
+        let had =
+            self.text_range().is_some() || (self.showing_review(cx) && self.note_range().is_some());
         self.text_selection = None;
+        self.note_selection = None;
         cx.notify();
         had
     }
@@ -1964,6 +1943,34 @@ impl Detail {
             items
         };
         self.open_menu(position, items, cx);
+    }
+}
+
+/// The selection a press at `at` on `text`, its row's, makes: from there, the word around it
+/// on a double click and the whole row on a triple, or with `extend`, as shift held, on from
+/// where `old` started.
+pub(super) fn pressed(
+    old: Option<(TextPoint, TextPoint)>,
+    (row, ix): TextPoint,
+    text: &str,
+    clicks: usize,
+    extend: bool,
+) -> (TextPoint, TextPoint) {
+    // The text may have changed since it was drawn.
+    let ix = (0..=ix.min(text.len()))
+        .rev()
+        .find(|ix| text.is_char_boundary(*ix))
+        .unwrap_or(0);
+    match clicks {
+        2 => {
+            let word = word_at(text, ix);
+            ((row, word.start), (row, word.end))
+        }
+        3.. => ((row, 0), (row, text.len())),
+        _ => match old {
+            Some((anchor, _)) if extend => (anchor, (row, ix)),
+            _ => ((row, ix), (row, ix)),
+        },
     }
 }
 

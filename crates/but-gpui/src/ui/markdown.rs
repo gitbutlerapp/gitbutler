@@ -11,19 +11,24 @@
 //!
 //! Emphasis shows in the medium weight, not slanted: the app embeds no italic face, and
 //! asking for one would draw whatever the machine has installed (see the crate's AGENTS.md).
+//!
+//! Where the caller keeps a selection ([`Select`]), the pointer selects the text as in a
+//! browser, from block to block, and [`selected_text`] is what copying it takes.
 
 use std::cell::Cell;
 use std::ops::Range;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, Font, FontWeight, Hsla, InteractiveText, IntoElement, ParentElement,
-    SharedString, StrikethroughStyle, Styled, StyledText, TextRun, UnderlineStyle, div,
-    prelude::FluentBuilder,
+    AnyElement, App, CursorStyle, DispatchPhase, Font, FontWeight, Hsla, InteractiveElement,
+    InteractiveText, IntoElement, MouseButton, MouseDownEvent, MouseMoveEvent, ParentElement,
+    Pixels, Point, SharedString, StrikethroughStyle, Styled, StyledText, TextLayout, TextRun,
+    UnderlineStyle, Window, canvas, div, prelude::FluentBuilder,
 };
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 
-use super::{Tooltip, dp, fixed, h_flex, v_flex};
+use super::{TextPoint, Tooltip, dp, fixed, h_flex, selected_part, text_index, v_flex};
 use crate::backend::images;
 use crate::theme::Theme;
 
@@ -120,6 +125,72 @@ pub struct Style {
     pub code: bool,
     /// Matches a search, tinted as the diff's find tints its matches.
     pub mark: bool,
+}
+
+/// What the pointer does to a description's text, and what of it is selected, at points by
+/// block and byte.
+pub struct Select {
+    /// The selection, in order. None when it's empty.
+    pub range: Option<(TextPoint, TextPoint)>,
+    /// The button went down on this text and is still down, so the pointer anywhere in the
+    /// window moves the selection's end.
+    pub held: bool,
+    /// A press at a point, with its block's text for the word or block more clicks take.
+    pub down: OnTextDown,
+    /// A drag moved the selection's end to the point nearest the pointer.
+    pub drag: OnTextDrag,
+}
+
+pub type OnTextDown = Rc<dyn Fn(TextPoint, &str, &MouseDownEvent, &mut Window, &mut App)>;
+pub type OnTextDrag = Rc<dyn Fn(TextPoint, &mut Window, &mut App)>;
+
+/// A block's text as it's laid out, by the block's index.
+type Laid = (usize, TextLayout, SharedString);
+
+/// Items of one list, which sit a line apart; other blocks stand further apart.
+fn together(before: &Block, block: &Block) -> bool {
+    let item = |block: &Block| matches!(block.kind, Kind::Item(_));
+    item(before) && item(block) && before.list == block.list
+}
+
+/// The point of the text nearest `position`, with its block's text: in the block under it,
+/// else the last block whose top is above it, else the first. Between blocks or below them
+/// that's the end of the one above, and above them all the first one's start.
+fn nearest(texts: &[Laid], position: Point<Pixels>) -> Option<(TextPoint, &str)> {
+    // Laid out in the frame that registered the listener asking.
+    let (ix, layout, text) = (texts.iter())
+        .find(|(_, layout, _)| layout.bounds().contains(&position))
+        .or_else(|| (texts.iter().rev()).find(|(_, layout, _)| layout.bounds().top() <= position.y))
+        .or(texts.first())?;
+    Some(((*ix, text_index(layout, text, position)), text))
+}
+
+/// The text `range` selects in `blocks`: a list's items a line apart and other blocks a
+/// blank line apart, as Markdown sets them, without list markers. Images and rules have no
+/// text to select.
+pub fn selected_text(blocks: &[Block], range: (TextPoint, TextPoint)) -> String {
+    let mut text = String::new();
+    let mut before: Option<&Block> = None;
+    for (ix, block) in blocks.iter().enumerate() {
+        if matches!(block.kind, Kind::Images(_) | Kind::Rule) {
+            continue;
+        }
+        let Some(part) =
+            selected_part(&block.text, ix, range).and_then(|part| block.text.get(part))
+        else {
+            continue;
+        };
+        if let Some(before) = before {
+            text.push_str(if together(before, block) {
+                "\n"
+            } else {
+                "\n\n"
+            });
+        }
+        text.push_str(part);
+        before = Some(block);
+    }
+    text
 }
 
 /// Where a link may go when clicked: the web, or mail. Anything else, as a file, another
@@ -868,19 +939,21 @@ impl Gallery {
     }
 }
 
-/// `blocks` drawn as text, `id` telling apart the links of one description from another's.
-pub fn render(id: &str, blocks: &[Block], theme: &Theme) -> AnyElement {
+/// `blocks` drawn as text, `id` telling apart the links of one description from another's,
+/// its text selectable as `select` says.
+pub fn render(id: &str, blocks: &[Block], select: Option<Select>, theme: &Theme) -> AnyElement {
     let gallery = Gallery::of(blocks);
+    let range = select.as_ref().and_then(|select| select.range);
+    let mut texts = Vec::new();
     let mut column = v_flex();
     let mut ix = 0;
     while let Some(block) = blocks.get(ix) {
         // A list's items sit together; other blocks, and other lists, stand apart, and
         // images, which have an edge where text has its leading, a little further.
-        let item = |block: &Block| matches!(block.kind, Kind::Item(_));
         let image = |block: &Block| matches!(block.kind, Kind::Images(_)) && block.cell.is_none();
         let space = match ix.checked_sub(1).and_then(|before| blocks.get(before)) {
             None => 0.,
-            Some(before) if item(before) && item(block) && before.list == block.list => 2.,
+            Some(before) if together(before, block) => 2.,
             Some(before) if image(before) || image(block) => 12.,
             Some(_) => 8.,
         };
@@ -894,21 +967,64 @@ pub fn render(id: &str, blocks: &[Block], theme: &Theme) -> AnyElement {
         let (el, drawn) = match block.cell {
             Some(cell) => {
                 let row = row(cell);
-                (
-                    table_row(id, ix, row, cell.columns, &gallery, theme),
-                    row.len(),
-                )
+                let el = table_row(id, ix, row, &gallery, range, &mut texts, theme);
+                (el, row.len())
             }
-            None => (element(id, ix, block, &gallery, theme), 1),
+            None => (
+                element(id, ix, block, &gallery, range, &mut texts, theme),
+                1,
+            ),
         };
         column = column.child(placed(block, space, el, theme));
         ix += drawn.max(1);
     }
-    column.into_any_element()
+    let Some(select) = select else {
+        return column.into_any_element();
+    };
+    let texts: Rc<[Laid]> = texts.into();
+    let (pressed, down) = (texts.clone(), select.down);
+    column
+        .cursor(CursorStyle::IBeam)
+        // Only a press on text selects: one on an image, a centred block or between blocks
+        // doesn't reach into the text beside it.
+        .on_mouse_down(MouseButton::Left, move |event, window, cx| {
+            let on_text =
+                (pressed.iter()).any(|(_, layout, _)| layout.bounds().contains(&event.position));
+            if let Some((at, text)) = nearest(&pressed, event.position).filter(|_| on_text) {
+                down(at, text, event, window, cx)
+            }
+        })
+        // While held, the pointer anywhere moves the selection's end to the text nearest it,
+        // as the column's own listeners miss it once it's off the column.
+        .when(select.held, |el| {
+            let drag = select.drag;
+            el.child(canvas(
+                |_, _, _| {},
+                move |_, _, window, _| {
+                    window.on_mouse_event(move |event: &MouseMoveEvent, phase, window, cx| {
+                        if phase == DispatchPhase::Bubble
+                            && event.pressed_button == Some(MouseButton::Left)
+                            && let Some((at, _)) = nearest(&texts, event.position)
+                        {
+                            drag(at, window, cx)
+                        }
+                    })
+                },
+            ))
+        })
+        .into_any_element()
 }
 
 /// `block` drawn, without where it sits.
-fn element(id: &str, ix: usize, block: &Block, gallery: &Gallery, theme: &Theme) -> AnyElement {
+fn element(
+    id: &str,
+    ix: usize,
+    block: &Block,
+    gallery: &Gallery,
+    range: Option<(TextPoint, TextPoint)>,
+    texts: &mut Vec<Laid>,
+    theme: &Theme,
+) -> AnyElement {
     match &block.kind {
         Kind::Rule => div()
             .h(fixed(1.))
@@ -922,7 +1038,7 @@ fn element(id: &str, ix: usize, block: &Block, gallery: &Gallery, theme: &Theme)
             .bg(theme.fill_gray.opacity(0.08))
             .text_size(dp(12.))
             .line_height(dp(18.))
-            .child(text(id, ix, block, theme))
+            .child(text(id, ix, block, range, texts, theme))
             .into_any_element(),
         // As GitHub draws them, the top two over a rule.
         Kind::Heading(level) => div()
@@ -941,7 +1057,7 @@ fn element(id: &str, ix: usize, block: &Block, gallery: &Gallery, theme: &Theme)
             .when(*level <= 2 && !block.centered, |el| {
                 el.pb(dp(6.)).border_b_1().border_color(theme.border_3)
             })
-            .child(text(id, ix, block, theme))
+            .child(text(id, ix, block, range, texts, theme))
             .into_any_element(),
         Kind::Item(marker) => h_flex()
             .items_start()
@@ -953,9 +1069,14 @@ fn element(id: &str, ix: usize, block: &Block, gallery: &Gallery, theme: &Theme)
                     .text_color(theme.text_2)
                     .child(SharedString::from(marker.clone())),
             )
-            .child(div().flex_1().min_w_0().child(text(id, ix, block, theme)))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .child(text(id, ix, block, range, texts, theme)),
+            )
             .into_any_element(),
-        Kind::Paragraph => text(id, ix, block, theme),
+        Kind::Paragraph => text(id, ix, block, range, texts, theme),
         Kind::Images(images) => {
             let Some(&first) = gallery.firsts.get(ix) else {
                 return div().into_any_element();
@@ -1001,19 +1122,19 @@ fn table_row(
     id: &str,
     first: usize,
     row: &[Block],
-    columns: usize,
     gallery: &Gallery,
+    range: Option<(TextPoint, TextPoint)>,
+    texts: &mut Vec<Laid>,
     theme: &Theme,
 ) -> AnyElement {
     let cell = |column: usize| {
         let blocks = (row.iter().enumerate())
             .filter(move |(_, block)| block.cell.is_some_and(|cell| cell.column == column));
-        v_flex()
-            .flex_1()
-            .min_w_0()
-            .gap(dp(8.))
-            .children(blocks.map(|(n, block)| element(id, first + n, block, gallery, theme)))
+        v_flex().flex_1().min_w_0().gap(dp(8.)).children(
+            blocks.map(|(n, block)| element(id, first + n, block, gallery, range, texts, theme)),
+        )
     };
+    let columns = (row.first().and_then(|block| block.cell)).map_or(1, |cell| cell.columns);
     h_flex()
         .items_start()
         .gap(dp(12.))
@@ -1035,13 +1156,21 @@ fn words(id: &str, image: &Image, theme: &Theme) -> AnyElement {
         centered: false,
         cell: None,
     };
-    text(id, 0, &block, theme)
+    text(id, 0, &block, None, &mut Vec::new(), theme)
 }
 
-/// A block's text in its styles, its links clickable and naming where they go on hover.
-/// Each run sets its font and colour, so what the block's element sets wouldn't reach it:
-/// code is monospaced, a heading bold, and a quote quieter.
-fn text(id: &str, ix: usize, block: &Block, theme: &Theme) -> AnyElement {
+/// A block's text in its styles, its links clickable and naming where they go on hover,
+/// with what `range` selects of it marked. Laid out, it goes in `texts`, where a press or a
+/// drag finds it. Each run sets its font and colour, so what the block's element sets
+/// wouldn't reach it: code is monospaced, a heading bold, and a quote quieter.
+fn text(
+    id: &str,
+    ix: usize,
+    block: &Block,
+    range: Option<(TextPoint, TextPoint)>,
+    texts: &mut Vec<Laid>,
+    theme: &Theme,
+) -> AnyElement {
     let heading = matches!(block.kind, Kind::Heading(_));
     let font = |code: bool| match code || block.kind == Kind::Code {
         true => gpui::font(theme.mono_font.clone()),
@@ -1057,6 +1186,10 @@ fn text(id: &str, ix: usize, block: &Block, theme: &Theme) -> AnyElement {
         cuts.extend([range.start, range.end]);
     }
     for (range, _) in &block.links {
+        cuts.extend([range.start, range.end]);
+    }
+    let selected = range.and_then(|range| selected_part(&block.text, ix, range));
+    if let Some(range) = &selected {
         cuts.extend([range.start, range.end]);
     }
     cuts.sort_unstable();
@@ -1093,7 +1226,11 @@ fn text(id: &str, ix: usize, block: &Block, theme: &Theme) -> AnyElement {
                     true => theme.blue,
                     false => color,
                 },
+                // The selection blue like the diff's, over a search's tint and code's grey.
                 background_color: match (style.mark, style.code) {
+                    _ if selected.as_ref().is_some_and(|range| range.contains(&at)) => {
+                        Some(theme.blue.opacity(0.3))
+                    }
                     (true, _) => Some(theme.warn.opacity(0.28)),
                     (false, true) => Some(theme.fill_gray.opacity(0.12)),
                     (false, false) => None,
@@ -1110,24 +1247,35 @@ fn text(id: &str, ix: usize, block: &Block, theme: &Theme) -> AnyElement {
             }
         })
         .collect();
-    let styled = StyledText::new(SharedString::from(block.text.clone())).with_runs(runs);
-    if block.links.is_empty() {
-        return styled.into_any_element();
+    let chars = SharedString::from(block.text.clone());
+    let styled = StyledText::new(chars.clone()).with_runs(runs);
+    // GPUI finds the character under the pointer in centred text as if its lines were
+    // left-aligned, so a press doesn't look in a centred block: a selection across it takes it
+    // whole.
+    if !block.centered {
+        texts.push((ix, styled.layout().clone(), chars));
     }
-    let ranges: Vec<_> = block.links.iter().map(|(range, _)| range.clone()).collect();
-    let urls: Vec<_> = block.links.iter().map(|(_, url)| url.clone()).collect();
-    let tips = block.links.clone();
-    InteractiveText::new(SharedString::from(format!("{id}-md-{ix}")), styled)
-        .on_click(ranges, move |link, _, cx: &mut App| {
-            if let Some(url) = urls.get(link) {
-                cx.open_url(url)
-            }
-        })
-        .tooltip(move |at, window, cx| {
-            let (_, url) = tips.iter().find(|(range, _)| range.contains(&at))?;
-            Some(Tooltip::text(url.clone())(window, cx))
-        })
-        .into_any_element()
+    match block.links.is_empty() {
+        true => styled.into_any_element(),
+        false => {
+            let ranges: Vec<_> = block.links.iter().map(|(range, _)| range.clone()).collect();
+            let urls: Vec<_> = block.links.iter().map(|(_, url)| url.clone()).collect();
+            let tips = block.links.clone();
+            // A drag that selected text doesn't open the link it lets go on.
+            let selected_any = range.is_some();
+            InteractiveText::new(SharedString::from(format!("{id}-md-{ix}")), styled)
+                .on_click(ranges, move |link, _, cx: &mut App| {
+                    if let Some(url) = urls.get(link).filter(|_| !selected_any) {
+                        cx.open_url(url)
+                    }
+                })
+                .tooltip(move |at, window, cx| {
+                    let (_, url) = tips.iter().find(|(range, _)| range.contains(&at))?;
+                    Some(Tooltip::text(url.clone())(window, cx))
+                })
+                .into_any_element()
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1572,6 +1720,33 @@ mod tests {
                 .last()
                 .is_some_and(|block| block.text.contains("too long")),
             "what's past the limit isn't parsed, and says so"
+        );
+    }
+
+    #[test]
+    fn copying_a_selection_takes_its_text_as_markdown_sets_it_apart() {
+        let blocks = parse(
+            "Intro **bold** text\n\n- one\n- two\n\n![shot](https://github.com/a.png)\n\n```\ncode\n```\n",
+        );
+        let code = blocks.iter().position(|b| b.kind == Kind::Code).unwrap();
+        for (range, copied, why) in [
+            (
+                ((0, 6), (code, 2)),
+                "bold text\n\none\ntwo\n\nco",
+                "items a line apart, other blocks a blank line, without markers or image words",
+            ),
+            (
+                ((1, 1), (1, 3)),
+                "ne",
+                "within one block, only what's selected",
+            ),
+        ] {
+            assert_eq!(selected_text(&blocks, range), copied, "{why}");
+        }
+        assert_eq!(
+            selected_text(&parse("é"), ((0, 0), (0, 1))),
+            "",
+            "a range ending inside a character, as after an edit, takes nothing"
         );
     }
 }

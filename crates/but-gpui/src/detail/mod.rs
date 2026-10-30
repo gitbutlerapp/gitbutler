@@ -61,8 +61,8 @@ use crate::ui::fold::{FOLD, Folds, Slide, edge, inert};
 use crate::ui::illustration::{Illustration, illustration};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, Icon, button, commit_title, dp, empty_state, fixed, h_flex, resize_handle,
-    resize_pane, v_flex,
+    ButtonStyle, Icon, TextPoint, button, commit_title, dp, empty_state, fixed, h_flex,
+    resize_handle, resize_pane, v_flex,
 };
 
 actions!(
@@ -280,9 +280,6 @@ struct LoadedDiff {
 /// widest of them in columns.
 type FileLines = (u64, Arc<Vec<DiffLine>>, u32);
 
-/// A spot in the diff's text: a row of the diff and a byte offset in that row's line.
-type TextPoint = (usize, usize);
-
 /// The files checked for the next commit changed.
 pub struct ChecksChanged;
 
@@ -439,6 +436,9 @@ pub struct Detail {
     /// Where a drag that selects text went past the edge of the diff, brought back inside it,
     /// for the line there to take the selection's end.
     follow: Option<Point<Pixels>>,
+    /// Text selected in the pull request's description or one of its comments: which, by the
+    /// id it's drawn with, and from where the drag started to where it is now.
+    note_selection: Option<(String, (TextPoint, TextPoint))>,
     /// Files folded by hand.
     folded: HashSet<String>,
     /// Files folding or unfolding now, and the rows each moves, by path.
@@ -780,6 +780,7 @@ impl Detail {
             text_selection: None,
             selecting: false,
             follow: None,
+            note_selection: None,
             folded: HashSet::new(),
             file_folds: Folds::default(),
             fold_rows: HashMap::new(),
@@ -974,6 +975,7 @@ impl Detail {
     fn reset_view(&mut self) {
         self.tabs_kept = false;
         self.text_selection = None;
+        self.note_selection = None;
         self.file_picks.clear();
         self.line_picks = None;
         self.cursor = Cursor::default();
@@ -2183,8 +2185,12 @@ impl Detail {
     }
 
     /// What copying takes from here: the selected text, or the path of the file under the
-    /// cursor. It blinks, as the TUI highlights what it copied.
+    /// cursor, which blinks, as the TUI highlights what it copied. Under a pull request's
+    /// tab, the text selected in its description or comments.
     pub fn copy(&mut self, cx: &mut Context<Self>) -> Option<String> {
+        if self.showing_review(cx) {
+            return self.selected_note_text(cx);
+        }
         let (text, copied) = match self.selected_text() {
             Some(text) => (text, Copied::Text),
             None => (self.shown_cursor_path(cx)?, Copied::Cursor),

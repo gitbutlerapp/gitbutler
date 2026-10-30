@@ -112,17 +112,23 @@ impl Detail {
         match remark {
             Remark::Comment(note) => card
                 .child(header(note, None, false, theme))
-                .child(markdown::render(&note.url, &note.body, theme)),
+                .child(self.note_body(note, theme, cx)),
             Remark::Review { verdict, note } => card
                 .child(header(note, Some(*verdict), false, theme))
                 .when(!note.body.is_empty(), |el| {
-                    el.child(markdown::render(&note.url, &note.body, theme))
+                    el.child(self.note_body(note, theme, cx))
                 }),
             // Under its review, in line with the review's words.
             Remark::Thread { thread, in_review } => div()
                 .when(*in_review, |el| el.pl(dp(14.)))
                 .child(self.thread(thread, theme, cx)),
         }
+    }
+
+    /// What `note` says, its text selectable.
+    fn note_body(&self, note: &Note, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+        let select = self.note_select(&note.url, cx);
+        markdown::render(&note.url, &note.body, Some(select), theme)
     }
 
     /// A thread as Lite's: a row naming where it hangs that folds it, then the lines it's on
@@ -219,7 +225,7 @@ impl Detail {
                                         el.pt(dp(10.)).border_t_1().border_color(theme.border_3)
                                     })
                                     .child(header(note, None, true, theme))
-                                    .child(markdown::render(&note.url, &note.body, theme))
+                                    .child(self.note_body(note, theme, cx))
                             })),
                     ),
                 )

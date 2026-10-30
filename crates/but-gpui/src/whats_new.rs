@@ -448,7 +448,7 @@ impl WhatsNew {
             // The space under the heading goes with what folds, so it opens from the heading.
             let notes = div()
                 .pt(dp(6.))
-                .child(markdown::render(&id, &section.blocks, theme));
+                .child(markdown::render(&id, &section.blocks, None, theme));
             parts.push(
                 v_flex()
                     .child(head)
@@ -541,6 +541,7 @@ impl WhatsNew {
                     .child(markdown::render(
                         &format!("found-{}", release.version),
                         blocks,
+                        None,
                         theme,
                     ))
                     .into_any_element(),

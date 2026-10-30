@@ -24,8 +24,8 @@ use std::ops::Range;
 use gpui::{
     Action, AnyElement, App, AssetSource, ClickEvent, Context, CursorStyle, Div, DragMoveEvent,
     ElementId, EmptyView, Entity, HighlightStyle, Hsla, MouseButton, MouseDownEvent, Pixels, Point,
-    Rems, Role, SharedString, Stateful, StyledText, Svg, Toggled, UnderlineStyle, Window, div,
-    prelude::*, rems, svg,
+    Rems, Role, SharedString, Stateful, StyledText, Svg, TextLayout, Toggled, UnderlineStyle,
+    Window, div, prelude::*, rems, svg,
 };
 
 use crate::state::{Pane, Store};
@@ -458,6 +458,50 @@ pub fn matched(
         ..Default::default()
     };
     StyledText::new(text).with_highlights(found.into_iter().map(|range| (range, underline)))
+}
+
+/// A place in text drawn as rows, as the diff's lines or a description's blocks: the row, and
+/// a byte of its text.
+pub type TextPoint = (usize, usize);
+
+/// Where in `text`, laid out as `layout`, the pointer at `position` is: over a character, the
+/// edge of it nearer the pointer, as text selection goes everywhere; off the text, where the
+/// text stops, as its start above it and a line's end beside or below it.
+pub fn text_index(layout: &TextLayout, text: &str, position: Point<Pixels>) -> usize {
+    let ix = match layout.index_for_position(position) {
+        Ok(ix) => ix,
+        Err(ix) => return ix,
+    };
+    let next = (text.get(ix..))
+        .and_then(|rest| rest.chars().next())
+        .map(|c| ix + c.len_utf8());
+    let edges = next.and_then(|next| {
+        Some((
+            layout.position_for_index(ix)?,
+            layout.position_for_index(next)?,
+            next,
+        ))
+    });
+    match edges {
+        Some((start, end, next)) if position.x > (start.x + end.x) / 2. => next,
+        _ => ix,
+    }
+}
+
+/// What a selection from `start` to `end`, in order, takes of `text`, row `row`'s. Nothing
+/// when the text changed under it so its ends no longer fall in the text, as after an edit.
+pub fn selected_part(
+    text: &str,
+    row: usize,
+    (start, end): (TextPoint, TextPoint),
+) -> Option<Range<usize>> {
+    if row < start.0 || row > end.0 {
+        return None;
+    }
+    let from = if row == start.0 { start.1 } else { 0 };
+    let to = if row == end.0 { end.1 } else { text.len() };
+    let fits = text.is_char_boundary(from) && text.is_char_boundary(to);
+    (from < to && fits).then_some(from..to)
 }
 
 /// The heading over a group of rows.
