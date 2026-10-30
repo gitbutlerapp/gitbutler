@@ -164,6 +164,7 @@ fn place(context: &str) -> Option<&'static str> {
     Some(match context {
         "Workspace" => "Main window",
         "Navigator" => "Navigator",
+        "Moving" => "While moving",
         "Diff" => "Diff",
         "Files" => "File list",
         "List" => "Branches and Operations history",

@@ -79,6 +79,8 @@ actions!(
         Confirm,
         CutSelection,
         PasteHere,
+        MoveSelection,
+        MoveHere,
         DeleteSelection,
         UncommitSelection,
         RenameSelection,
@@ -728,6 +730,12 @@ impl AppView {
         }
         if self.modal.is_some() {
             return self.close_modal(window, cx);
+        }
+        // A move under way, before what's in the pane with the keys, as it's what they do.
+        if self.store.read(cx).moving.is_some() {
+            return self
+                .store
+                .update(cx, |store, cx| store.set_moving(None, cx));
         }
         if self.detail.read(cx).is_focused(window, cx) {
             // Undo the nearest thing first: a text selection, then the file filter.

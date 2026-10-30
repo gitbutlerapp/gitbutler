@@ -1,7 +1,8 @@
-// A keymap like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming
-// and adding an empty commit, Return to fold and unfold, f, ⇧F and ⌃F to show and hide the files,
-// the navigator and the details, / to filter or find, ⌘K for the command palette, ⌘R to fetch
-// and ⇧⌘R to pull, and the keys the app's lists and overlays need, as GitButler's keymap has them.
+// A keymap like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming,
+// moving commits and adding an empty commit, Return to fold and unfold, f, ⇧F and ⌃F to show and
+// hide the files, the navigator and the details, / to filter or find, ⌘K for the command palette,
+// ⌘R to fetch and ⇧⌘R to pull, and the keys the app's lists and overlays need, as GitButler's
+// keymap has them.
 // `base.json`, which macOS gives every app, binds after these. `secondary` is cmd on macOS and
 // ctrl elsewhere; a section with "os" binds only there. Order matters: within a context the
 // binding added last wins, and the last binding for an action is the key menus and tooltips
@@ -44,8 +45,9 @@
   },
   // The TUI's status list: up and down, ⇧J and ⇧K between sections, g and ⇧G to either end. r
   // renames, where the TUI's squashes, and n adds an empty commit above the selected one, or on
-  // top of the selected branch. Return folds or unfolds what the selected row heads: a card, a
-  // section, a worktree, a stack, a branch or a merge.
+  // top of the selected branch. m moves the selected commit, as the TUI's m does. Return folds
+  // or unfolds what the selected row heads: a card, a section, a worktree, a stack, a branch or
+  // a merge.
   {
     "context": "Navigator && !TextInput",
     "bindings": {
@@ -59,8 +61,15 @@
       "shift-g": "navigator::SelectLast",
       "r": "navigator::RenameSelection",
       "n": "edits::AddEmptyCommitAbove",
+      "m": "navigator::MoveSelection",
       "enter": "navigator::ToggleFold"
     }
+  },
+  // While commits move, the keys above step through where they can land, and Return lands
+  // them there. After the list's Return, so it wins.
+  {
+    "context": "Navigator && Moving && !TextInput",
+    "bindings": { "enter": "navigator::MoveHere" }
   },
   // The TUI's details: j and k between hunks, ⌃D and ⌃U half a page, g and ⇧G to the first and
   // last file. Return on a file's header folds or unfolds it, as on its row in the file list.

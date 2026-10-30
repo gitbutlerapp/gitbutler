@@ -350,6 +350,9 @@ pub struct Store {
     pub dragging: Option<Cut>,
     /// The row the drag is over and where on it a drop lands, when it takes the drop.
     pub drop_at: Option<(Selection, crate::transfer::Place)>,
+    /// Commits being moved with the keys, followed as agents rewrite them, until they land or
+    /// the selection goes elsewhere.
+    pub moving: Option<crate::transfer::Move>,
     /// Pane widths the user dragged away from their defaults.
     widths: HashMap<Pane, f32>,
     /// Where the window is, saved for the next launch.
@@ -514,6 +517,7 @@ impl Store {
             asked_author: false,
             dragging: None,
             drop_at: None,
+            moving: None,
             toasts: Vec::new(),
             account: account::Account::default(),
             cli: None,
@@ -844,6 +848,14 @@ impl Store {
         }
         self.followed = None;
         self.made = None;
+        // A move is of what's selected, so it ends once the selection goes elsewhere, as a
+        // click on another row takes it.
+        if let Some(moving) = &self.moving
+            && !matches!(&selection, Some(Selection::Commit(project, id))
+                if *project == moving.project && moving.commits.contains(id))
+        {
+            self.set_moving(None, cx);
+        }
         if !self.picked.is_empty() {
             self.picked.clear();
             cx.notify();
@@ -1217,6 +1229,11 @@ impl Store {
                 .retain(|toast| !matches!(toast.notice, Notice::Snackbar { undo: None, .. }));
         }
         self.cut = cut;
+        cx.notify();
+    }
+
+    pub fn set_moving(&mut self, moving: Option<crate::transfer::Move>, cx: &mut Context<Self>) {
+        self.moving = moving;
         cx.notify();
     }
 }
