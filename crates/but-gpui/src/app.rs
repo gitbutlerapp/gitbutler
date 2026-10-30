@@ -185,7 +185,7 @@ const PEEK_SHADOW: f32 = 16.;
 const PEEK_GRACE: Duration = Duration::from_millis(300);
 
 /// The closed navigator out over the detail, as the pointer at the window's left edge brings
-/// it, until the pointer strays from it.
+/// it, until the pointer strays from it, or as ⌘1 brings it, until the keys leave it.
 #[derive(Default)]
 struct Peek {
     open: bool,
@@ -193,6 +193,10 @@ struct Peek {
     slide: Slide,
     /// Sends it back once the pointer has strayed from it for [`PEEK_GRACE`].
     leaving: Option<Task<()>>,
+    /// Brought out by ⌘1, so it stays while it has the keys, whatever the pointer does.
+    keyed: bool,
+    /// Where ⌘1 was pressed: the selection, and what had the keys, which Esc goes back to.
+    returns_to: Option<(Selection, Option<FocusHandle>)>,
 }
 
 /// The window narrowing to the navigator as the detail slides in under it, or widening back as
@@ -343,6 +347,18 @@ impl AppView {
             // list does once Apply selects the branch, they go to the navigator instead, or to
             // the diff while a message is being written.
             cx.on_focus_lost(window, |this, window, cx| this.restore_focus(window, cx)),
+            // The navigator ⌘1 brought out goes back once the keys leave it, as ⌘2 and ⌘3 take
+            // them. GPUI blurs it as another app comes in front too, which leaves it out.
+            cx.on_focus_out(
+                &navigator.focus_handle(cx),
+                window,
+                |this, _, window, cx| {
+                    // After the frame, as a notify while it's drawn draws nothing.
+                    if this.peek.keyed && window.is_window_active() {
+                        cx.defer_in(window, |this, window, cx| this.close_peek(window, cx));
+                    }
+                },
+            ),
         ];
         // Closing the window quits, so it asks the same as ⌘Q.
         let this = cx.entity().downgrade();
@@ -880,9 +896,28 @@ impl AppView {
                 return self.focus_main(window, cx);
             }
         }
+        // With nothing cut or picked, the navigator ⌘1 brought out goes back, and with it the
+        // selection and the keys to where ⌘1 was pressed, while that's still there.
+        let store = self.store.read(cx);
+        if self.peek.keyed
+            && store.cut.is_none()
+            && store.picked.is_empty()
+            && self.navigator.focus_handle(cx).contains_focused(window, cx)
+        {
+            self.peek.keyed = false;
+            if let Some((selection, focus)) = self.peek.returns_to.take()
+                && store.still_there(&selection)
+            {
+                self.store
+                    .update(cx, |store, cx| store.select(Some(selection), cx));
+                if let Some(focus) = focus {
+                    window.focus(&focus, cx);
+                }
+            }
+            return self.close_peek(window, cx);
+        }
         // With nothing cut or picked, the branch opened on the Branches page goes back to its
         // table.
-        let store = self.store.read(cx);
         if store.cut.is_none()
             && store.picked.is_empty()
             && self.detail.update(cx, |detail, cx| {
@@ -927,11 +962,21 @@ impl AppView {
         if self.covered() {
             return;
         }
-        // Asking for the navigator brings it back.
-        if !self.navigator_open {
+        let navigator = self.navigator.focus_handle(cx);
+        // Asking for the hidden navigator brings it out over the detail, as the pointer does,
+        // and back beside it while it's still sliding away.
+        if !self.navigator_open && !self.navigator_slide.closing(Instant::now()) {
+            if !navigator.contains_focused(window, cx) {
+                self.peek.returns_to = self.selection(cx).map(|s| (s, window.focused(cx)));
+            }
+            self.peek.keyed = true;
+            if !self.peek.open {
+                self.open_peek(cx);
+            }
+        } else if !self.navigator_open {
             self.set_navigator(true, window, cx);
         }
-        window.focus(&self.navigator.focus_handle(cx), cx);
+        window.focus(&navigator, cx);
     }
 
     /// Open a terminal on the checkout the selection is in, the main one when it's in none.
@@ -1562,10 +1607,7 @@ impl AppView {
         if !self.peek.open {
             let beside = y >= Theme::get(cx).scaled(HEADER_HEIGHT);
             if x <= fixed(PEEK_EDGE) && beside && !self.covered() {
-                self.peek.open = true;
-                self.peek.slide.start(true, cx);
-                (self.navigator).update(cx, |navigator, cx| navigator.set_floating(true, cx));
-                cx.notify();
+                self.open_peek(cx);
             }
             return;
         }
@@ -1582,13 +1624,23 @@ impl AppView {
         }
     }
 
+    /// Bring the closed navigator out over the detail.
+    fn open_peek(&mut self, cx: &mut Context<AppView>) {
+        self.peek.open = true;
+        self.peek.slide.start(true, cx);
+        (self.navigator).update(cx, |navigator, cx| navigator.set_floating(true, cx));
+        cx.notify();
+    }
+
     /// Whether the navigator out over the detail stays though the pointer strayed from it:
-    /// what was opened from it is over the window, a drag may be headed for it, or its filter
-    /// has the keys. The pointer's next move looks again.
+    /// what was opened from it is over the window, a drag may be headed for it, its filter
+    /// has the keys, or it has them since ⌘1 brought it out. The pointer's next move looks
+    /// again.
     fn peek_held(&self, window: &Window, cx: &App) -> bool {
         let navigator = self.navigator.focus_handle(cx);
-        let typing = navigator.contains_focused(window, cx) && !navigator.is_focused(window);
-        self.covered() || cx.has_active_drag() || typing
+        let keys = navigator.contains_focused(window, cx);
+        let typing = keys && !navigator.is_focused(window);
+        self.covered() || cx.has_active_drag() || typing || (self.peek.keyed && keys)
     }
 
     /// Send the navigator out over the detail back, unless [`AppView::peek_held`], moving the
@@ -1599,6 +1651,8 @@ impl AppView {
             return;
         }
         self.peek.open = false;
+        self.peek.keyed = false;
+        self.peek.returns_to = None;
         self.peek.slide.start(false, cx);
         if self.navigator.focus_handle(cx).contains_focused(window, cx) {
             self.focus_past_navigator(window, cx);
