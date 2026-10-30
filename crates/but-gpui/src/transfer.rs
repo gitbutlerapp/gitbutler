@@ -629,8 +629,8 @@ impl Render for DragPreview {
         });
         let hint = transfer.as_ref().map(Transfer::verb);
         let glyph = |icon| small_icon(icon).text_color(theme.pop).into_any_element();
-        // A worktree's files landing where they move it name the worktree.
         let named = |name: SharedString| pill_label(name).into_any_element();
+        // A worktree's files landing where they move it name the worktree.
         let (mark, label) = match (&transfer, &self.chip, &self.payload) {
             (Some(Transfer::MoveWorktree { name, .. }), ..) => {
                 (glyph(Icon::FolderCopy), named(name.to_string().into()))
@@ -668,7 +668,11 @@ impl Render for DragPreview {
                 (glyph(Icon::FolderCopy), named(label.clone()))
             }
         };
-        drag_pill(self.offset, mark, label, hint, theme)
+        let carried = match &self.payload {
+            Cut::Files { files, .. } => files.len(),
+            _ => 1,
+        };
+        drag_pill(self.offset, mark, label, hint, carried, theme)
     }
 }
 
@@ -678,16 +682,25 @@ pub fn pill_label(label: SharedString) -> Div {
 }
 
 /// What a dragged row shows under the pointer: a pill with its `mark`, `label` and what
-/// letting go does there (`hint`), below and right of the pointer as a tooltip sits, clear of
-/// the row it's over and the line or outline that row shows. `offset` is where the pointer
-/// pressed the row, which GPUI draws from.
+/// letting go does there (`hint`), on a stack of cards when it's `carried` more than one
+/// thing, below and right of the pointer as a tooltip sits, clear of the row it's over and the
+/// line or outline that row shows. `offset` is where the pointer pressed the row, which GPUI
+/// draws from.
 pub fn drag_pill(
     offset: Point<Pixels>,
     mark: impl IntoElement,
     label: impl IntoElement,
     hint: Option<&'static str>,
+    carried: usize,
     theme: &Theme,
 ) -> Div {
+    let cards = ([6., 12.].into_iter())
+        .take(carried.saturating_sub(1))
+        .rev()
+        .map(|inset| {
+            let card = popover(theme).absolute().size_full();
+            card.top(dp(inset)).left(dp(inset))
+        });
     let pill = popover(theme)
         .flex_row()
         .items_center()
@@ -707,7 +720,7 @@ pub fn drag_pill(
     div()
         .pl(offset.x + theme.scaled(14.))
         .pt(offset.y + theme.scaled(16.))
-        .child(pill)
+        .child(div().relative().children(cards).child(pill))
 }
 
 #[cfg(test)]

@@ -216,6 +216,7 @@ impl Render for ProjectPill {
             mark,
             pill_label(self.name.clone()),
             None,
+            1,
             theme,
         )
     }
