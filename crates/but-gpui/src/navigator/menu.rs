@@ -1,26 +1,293 @@
-//! The navigator's right-click menus.
+//! The navigator's right-click menus, and the commands of its rows that aren't edits.
 
 use std::path::Path;
 
-use gpui::{Action, App};
+use bstr::BString;
+use gpui::{Action, App, Context, Div, Stateful, Window, actions, prelude::*};
 
 use super::{ClickOpened, Navigator};
 use crate::app::{
-    BuildAndRestartFromHere, Collapse, CopySelection, CutSelection, DeleteSelection, Expand, Fetch,
-    MarkAllRead, MoveSelection, NewBranch, NewBranchOnTop, NewWorktree, OpenPullRequest, Push,
-    RenameSelection, StartCommit, ToggleRead, UncommitSelection, UpdateFromTarget,
+    AppView, BuildAndRestartFromHere, Collapse, CopyBranchName, CopyCommitId, CopyErrorMessage,
+    CopyPath, CopyPullRequestLink, CopySelection, CutSelection, Expand, Fetch, MarkAllRead,
+    MoveSelection, NewBranch, NewBranchOnTop, NewWorktree, OpenPullRequest, Push, StartCommit,
+    ToggleRead, UpdateFromTarget,
 };
 use crate::backend::rebuild::Rebuild;
-use crate::backend::{Checkout, CommitId, short_ref};
+use crate::backend::{Checkout, CommitId};
+use crate::commands::Command;
 use crate::edits::{
-    AddEmptyCommitAbove, AddEmptyCommitBelow, BranchEdits, CherryPick, CommitEdits, CopyChangeId,
-    CopyMessage, MoveToNewBranch, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage,
-    SquashAll, SquashPicked, TakeRemote, UnapplyStack, Unstack,
+    AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CommitEdits, CopyChangeId, CopyMessage,
+    DeleteBranch, DiscardChanges, DiscardCommit, MoveToNewBranch, NameBranch, NewBranchBelow,
+    NewBranchHere, PullRemote, RenameBranch, Reword, RewrapMessage, SquashAll, SquashIntoSelected,
+    SquashPicked, TakeRemote, UnapplyStack, Uncommit, Unstack,
 };
 use crate::overlays::MenuItem;
-use crate::state::{Cut, ProjectId, Seeable, Selection, Store, WatchedOrder};
+use crate::state::{ProjectId, Seeable, Selection, Store, WatchedOrder};
 use crate::terminal::NewTerminal;
-use crate::ui::{commit_title, plural, quoted};
+use crate::ui::plural;
+
+actions!(
+    navigator,
+    [
+        CloseTerminal,
+        Watch,
+        StopWatching,
+        MoveUp,
+        MoveDown,
+        ShowArchivedWorktree,
+        Reveal,
+        OpenProjectSettings,
+        ArchiveWorktree,
+        DeleteWorktree,
+    ]
+);
+
+/// Where Move up or Move down takes the selected watched project or worktree: before the one
+/// named, or after the others with `None`.
+#[derive(Clone)]
+enum Moved {
+    Project(ProjectId, Option<ProjectId>),
+    Worktree(ProjectId, BString, Option<BString>),
+}
+
+impl Moved {
+    /// Moving the selection `up` or down, unless it's at that end, or doesn't move by hand.
+    fn of(store: &Store, up: bool) -> Option<Self> {
+        match store.selection.as_ref()? {
+            // Only a watched card, in the manual order.
+            Selection::Project(project) => {
+                let manual = store.prefs.watched_order == WatchedOrder::Manual;
+                if !manual || !store.project(project)?.expanded {
+                    return None;
+                }
+                let watched = store.expanded_ids();
+                let at = watched.iter().position(|id| id == project)?;
+                let before = beside(&watched, at, up)?.cloned();
+                Some(Moved::Project(project.clone(), before))
+            }
+            // Among those listed with it, the active or the inactive ones.
+            Selection::Worktree(project, name) => {
+                let ws = store.workspace(project)?;
+                let worktree = ws.find_worktree(name.as_ref())?;
+                let listed: Vec<&BString> = (store.worktrees_in_order(project, ws).into_iter())
+                    .filter(|wt| wt.is_inactive() == worktree.is_inactive())
+                    .filter(|wt| !store.hides_worktree(project, wt.name.as_ref()))
+                    .map(|wt| &wt.name)
+                    .collect();
+                let at = listed.iter().position(|other| *other == name)?;
+                let before = beside(&listed, at, up)?.map(|b| (*b).clone());
+                Some(Moved::Worktree(project.clone(), name.clone(), before))
+            }
+            _ => None,
+        }
+    }
+
+    fn apply(&self, store: &mut Store, cx: &mut Context<Store>) {
+        match self {
+            Moved::Project(id, before) => store.move_watched(id, before.as_ref(), cx),
+            Moved::Worktree(project, name, before) => {
+                let before = before.as_ref().map(|b| b.as_ref());
+                store.move_worktree(project, name.as_ref(), before, cx)
+            }
+        }
+    }
+}
+
+/// What the row at `at` of `listed` goes before to swap places with the one above or below
+/// it: the one above, or the one after the one below, `None` for after the last. `None` at
+/// the end it would move past.
+fn beside<T>(listed: &[T], at: usize, up: bool) -> Option<Option<&T>> {
+    match up {
+        true => at.checked_sub(1).map(|above| listed.get(above)),
+        false => (at + 1 < listed.len()).then(|| listed.get(at + 2)),
+    }
+}
+
+impl AppView {
+    /// Register what the selected row of the navigator offers beyond the edits: closing a
+    /// terminal, watching a project and moving its card or a worktree, the archived worktrees,
+    /// a checkout's folder, and archiving or deleting a worktree.
+    pub(crate) fn navigator_actions(&self, el: Stateful<Div>, cx: &Context<Self>) -> Stateful<Div> {
+        let store = self.store.read(cx);
+        let moves = |el: Stateful<Div>, up: bool| {
+            el.when_some(Moved::of(store, up), |el, moved| {
+                let run = move |this: &mut Self, cx: &mut Context<Self>| {
+                    let moved = moved.clone();
+                    (this.store).update(cx, |store, cx| moved.apply(store, cx))
+                };
+                match up {
+                    true => el.on_action(cx.listener(move |this, _: &MoveUp, _, cx| run(this, cx))),
+                    false => {
+                        el.on_action(cx.listener(move |this, _: &MoveDown, _, cx| run(this, cx)))
+                    }
+                }
+            })
+        };
+        let el = moves(moves(el, true), false);
+        match store.selection.clone() {
+            Some(Selection::Terminal(_, id)) => {
+                el.on_action(cx.listener(move |this, _: &CloseTerminal, _, cx| {
+                    (this.store).update(cx, |store, cx| store.close_terminal(id, cx))
+                }))
+            }
+            Some(Selection::Project(project)) => {
+                let expanded = store.project(&project).is_some_and(|p| p.expanded);
+                let archived =
+                    (store.workspace(&project)).is_some_and(|ws| !ws.archived_worktrees.is_empty());
+                let path = store.path(&project);
+                let (watched, unwatched) = (project.clone(), project.clone());
+                let (shown, settings) = (project.clone(), project.clone());
+                el.on_action(
+                    cx.listener(move |this, _: &OpenProjectSettings, window, cx| {
+                        this.open_project_settings(settings.clone(), window, cx)
+                    }),
+                )
+                .when(!expanded, |el| {
+                    el.on_action(cx.listener(move |this, _: &Watch, _, cx| {
+                        (this.store).update(cx, |store, cx| store.set_expanded(&watched, true, cx))
+                    }))
+                })
+                // At once: Collapse (h) folds an open card before it stops watching it.
+                .when(expanded, |el| {
+                    el.on_action(cx.listener(move |this, _: &StopWatching, _, cx| {
+                        (this.store)
+                            .update(cx, |store, cx| store.set_expanded(&unwatched, false, cx))
+                    }))
+                })
+                .when(archived, |el| {
+                    el.on_action(
+                        cx.listener(move |this, _: &ShowArchivedWorktree, window, cx| {
+                            this.show_archived_worktree(&shown, window, cx)
+                        }),
+                    )
+                })
+                .when_some(path, |el, path| {
+                    let main = (project.clone(), Checkout::Main);
+                    checkout_actions(el, path, main, cx)
+                })
+            }
+            Some(Selection::Worktree(project, name)) => {
+                let worktree =
+                    (store.workspace(&project)).and_then(|ws| ws.find_worktree(name.as_ref()));
+                let Some(path) = worktree.map(|w| w.path.clone()) else {
+                    return el;
+                };
+                let (archived, deleted) = ((project.clone(), name.clone()), name.clone());
+                let linked = (project.clone(), Checkout::Linked(name.clone()));
+                checkout_actions(el, path, linked, cx)
+                    .on_action(cx.listener(move |this, _: &ArchiveWorktree, _, cx| {
+                        let (project, name) = archived.clone();
+                        (this.store).update(cx, |store, cx| {
+                            store.set_worktree_archived(&project, name, true, cx)
+                        })
+                    }))
+                    .on_action(cx.listener(move |this, _: &DeleteWorktree, window, cx| {
+                        this.delete_worktree(&project, &deleted, window, cx)
+                    }))
+            }
+            _ => el,
+        }
+    }
+
+    /// Offer the worktrees archived of `project`, to show one again.
+    fn show_archived_worktree(
+        &mut self,
+        project: &ProjectId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let store = self.store.read(cx);
+        let archived: Vec<BString> = (store.workspace(project)).map_or_else(Vec::new, |ws| {
+            (ws.archived_worktrees.iter())
+                .map(|(name, _)| name.clone())
+                .collect()
+        });
+        let choices = (archived.into_iter())
+            .map(|name| {
+                let project = project.clone();
+                crate::palette::Choice::new(name.to_string(), move |this, _, cx| {
+                    (this.store).update(cx, |store, cx| {
+                        store.set_worktree_archived(&project, name, false, cx)
+                    })
+                })
+            })
+            .collect();
+        let place = store.place(&Selection::Project(project.clone()));
+        self.open_picker(
+            Some(place),
+            "Show a worktree again",
+            "Show",
+            choices,
+            window,
+            cx,
+        )
+    }
+
+    /// Delete `project`'s linked worktree `name`, its folder and what's uncommitted in it,
+    /// after asking.
+    fn delete_worktree(
+        &mut self,
+        project: &ProjectId,
+        name: &BString,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let store = self.store.read(cx);
+        let Some(worktree) =
+            (store.workspace(project)).and_then(|ws| ws.find_worktree(name.as_ref()))
+        else {
+            return;
+        };
+        // A detached `HEAD` has no branch to keep what was committed there.
+        let after = match worktree.branch {
+            Some(_) => "Its branch stays.",
+            None => "It has no branch, so commits made there that no branch has are lost.",
+        };
+        // As last written, so an agent's edit while the question is up isn't lost.
+        let lost: Vec<(String, Option<i64>, Option<u64>)> = (worktree.uncommitted.iter())
+            .map(|f| (f.path.clone(), f.modified, f.size))
+            .collect();
+        let detail = match lost.len() {
+            0 => format!("Its folder is removed from disk. {after}"),
+            n => format!(
+                "Its folder is removed from disk, and {} with it. {after}",
+                plural(n, "uncommitted file")
+            ),
+        };
+        let message = format!("Delete worktree {name}?");
+        let (project, name) = (project.clone(), name.clone());
+        let at = Some(Selection::Project(project.clone()));
+        self.confirm_then(
+            at,
+            message,
+            &detail,
+            "Delete",
+            window,
+            cx,
+            move |this, cx| {
+                (this.store).update(cx, |store, cx| {
+                    store.delete_worktree(&project, name, lost, cx)
+                })
+            },
+        )
+    }
+}
+
+/// Register opening `checkout` of a project, in `path`, in the editor or the file manager.
+fn checkout_actions(
+    el: Stateful<Div>,
+    path: std::path::PathBuf,
+    (project, checkout): (ProjectId, Checkout),
+    cx: &Context<AppView>,
+) -> Stateful<Div> {
+    el.on_action(cx.listener(move |_, _: &Reveal, _, cx| cx.reveal_path(&path)))
+        .on_action(
+            cx.listener(move |this, _: &crate::open_in::OpenInEditor, window, cx| {
+                let (main, position) = (checkout.clone(), window.mouse_position());
+                this.open_in_editor(&project, main, None, None, position, cx)
+            }),
+        )
+}
 
 /// Marking `commits` of `project` read, the ones that aren't, and unread, the ones that
 /// are: one item or the other, or both when some are each. The first is what u does.
@@ -55,29 +322,18 @@ fn read_marks<'a, C: Seeable + 'a>(
 /// Starting a branch from a project or its main worktree: a new one beside the others, or on
 /// top of the default branch when that's checked out on its own; or one in a new linked
 /// worktree, as `but worktree new` makes.
-fn new_branch_items(store: &Store, project: &ProjectId, cx: &App) -> Vec<MenuItem> {
-    let based = store
-        .workspace(project)
-        .is_some_and(|ws| ws.target.is_some());
-    let mut items = vec![MenuItem::action("New branch", &NewBranch, cx)];
-    if based {
-        items.push(MenuItem::action("New worktree", &NewWorktree, cx));
-    }
-    items
-}
-
-/// Updating `project` from its target, when that would change anything.
-fn update_item(store: &Store, project: &ProjectId, cx: &App) -> Option<MenuItem> {
-    let target = (store.workspace(project)?.target.as_ref()).filter(|t| t.needs_update())?;
-    let label = format!("Update from {}", target.name);
-    Some(MenuItem::action(label, &UpdateFromTarget, cx))
+fn new_branch_items(cx: &App) -> Vec<MenuItem> {
+    vec![
+        MenuItem::command(&NewBranch, cx),
+        MenuItem::command(&NewWorktree, cx),
+    ]
 }
 
 /// Build and restart from checkout `dir`, the row right-clicked and so selected, in a client
 /// `cargo run` started, when `dir` has the client to build.
 fn build_item(dir: &Path, cx: &App) -> Option<MenuItem> {
     let builds = cx.try_global::<Rebuild>().is_some_and(|r| r.builds_in(dir));
-    let item = MenuItem::action("Build and restart from here", &BuildAndRestartFromHere, cx);
+    let item = MenuItem::command(&BuildAndRestartFromHere, cx);
     builds.then(|| item.separated())
 }
 
@@ -118,38 +374,11 @@ impl Navigator {
         items
     }
 
-    /// Commit… and discarding the changes the composer has checked, or all of them, for
-    /// `project`'s `checkout` with uncommitted changes; a linked worktree's discard asks first.
-    fn changes_items(&self, project: &ProjectId, checkout: Checkout, cx: &App) -> [MenuItem; 2] {
-        // Only the composer checks files, and only its own checkout's: without it, or for
-        // another checkout right-clicked while it's open, discarding takes them all.
-        // The composer's own checkout, not the selection's, which a right-click has just moved.
-        let what = match self.detail.read(cx).composing_in(project, &checkout) {
-            true => "checked changes",
-            false => "all changes",
-        };
-        [
-            MenuItem::action("Commit…", &StartCommit, cx).separated(),
-            MenuItem::action(
-                crate::edits::discard_label(what, checkout.is_linked()),
-                &DeleteSelection,
-                cx,
-            )
-            .danger(),
-        ]
-    }
-
     fn row_actions(&self, target: &Selection, cx: &App) -> Vec<MenuItem> {
         let store = self.store.read(cx);
-        let action =
-            |label: &'static str, action: &dyn gpui::Action| MenuItem::action(label, action, cx);
+        let command = |command: &'static dyn Command| MenuItem::command(command, cx);
         match target {
-            Selection::Terminal(_, id) => {
-                let id = *id;
-                vec![MenuItem::new("Close terminal", move |this, _, cx| {
-                    (this.store).update(cx, |store, cx| store.close_terminal(id, cx))
-                })]
-            }
+            Selection::Terminal(..) => vec![command(&CloseTerminal)],
             // A remote's commit can be copied into a branch here, or its ID copied, and a
             // branch's marked read or unread.
             Selection::Upstream(project, ref_name, id) => {
@@ -158,479 +387,168 @@ impl Navigator {
                     commits.iter().find(|commit| commit.id == *id)
                 });
                 let marks = read_marks(store, project, commit, cx);
-                let (project, id) = (project.clone(), *id);
                 let mut items = vec![
-                    MenuItem::new("Cherry-pick", move |app, _, cx| {
-                        app.cut(Cut::CherryPick(project.clone(), [id].into()), cx)
-                    }),
-                    MenuItem::keyed("Copy commit ID", &CopySelection, cx, move |app, _, cx| {
-                        app.copy_text(id.0.to_string(), cx)
-                    }),
+                    command(&CherryPick),
+                    command(&CopyCommitId).keys(&CopySelection, cx),
                 ];
                 items.extend(marks);
                 items
             }
             Selection::Project(project) => {
                 let expanded = store.project(project).is_some_and(|p| p.expanded);
-                let id = project.clone();
-                let mut items = vec![if expanded {
-                    // At once: Collapse (h) folds an open card before it stops watching it.
-                    MenuItem::new("Stop watching", move |this, _, cx| {
-                        this.store
-                            .update(cx, |store, cx| store.set_expanded(&id, false, cx))
-                    })
-                } else {
-                    MenuItem::keyed("Watch", &Expand, cx, move |this, _, cx| {
-                        this.store
-                            .update(cx, |store, cx| store.set_expanded(&id, true, cx))
-                    })
-                }];
+                let mut items = vec![command(&Watch).keys(&Expand, cx), command(&StopWatching)];
                 if store.read_marks_of(target).is_some() {
                     items.push(MenuItem::action("Mark all as read", &MarkAllRead, cx));
                 }
+                items.extend([command(&MoveUp), command(&MoveDown)]);
                 if expanded {
-                    // Its card swaps places with the watched one's above or below: it goes
-                    // before the one above, or before the one after the one below.
-                    let watched = store.expanded_ids();
-                    let at = watched.iter().position(|id| id == project).unwrap_or(0);
-                    let up = at.checked_sub(1).map(|above| watched.get(above));
-                    let down = (at + 1 < watched.len()).then(|| watched.get(at + 2));
-                    // Only the manual order moves by hand.
-                    if store.prefs.watched_order == WatchedOrder::Manual {
-                        for (label, before) in [("Move up", up), ("Move down", down)] {
-                            if let Some(before) = before {
-                                let (id, before) = (project.clone(), before.cloned());
-                                items.push(MenuItem::new(label, move |this, _, cx| {
-                                    (this.store).update(cx, |store, cx| {
-                                        store.move_watched(&id, before.as_ref(), cx)
-                                    })
-                                }));
-                            }
-                        }
-                    }
-                    let mut branch = new_branch_items(store, project, cx);
+                    let mut branch = new_branch_items(cx);
                     if let Some(first) = branch.first_mut() {
                         first.separated = true;
                     }
                     items.extend(branch);
-                    items.push(action("Fetch", &Fetch).separated());
+                    items.push(command(&Fetch).separated());
                 }
-                // An unwatched project's too, once its page has read it.
-                if let Some(update) = update_item(store, project, cx) {
-                    // With Fetch, else apart from Watch.
-                    items.push(if expanded { update } else { update.separated() });
-                }
-                let archived = (store.workspace(project)).map_or_else(Vec::new, |ws| {
-                    (ws.archived_worktrees.iter())
-                        .map(|(name, _)| name.clone())
-                        .collect()
-                });
-                if !archived.is_empty() {
-                    let project = project.clone();
-                    items.push(MenuItem::new(
-                        "Show an archived worktree…",
-                        move |this, window, cx| {
-                            let choices = (archived.iter())
-                                .map(|name| {
-                                    let (project, name) = (project.clone(), name.clone());
-                                    crate::palette::Choice::new(
-                                        name.to_string(),
-                                        move |this, _, cx| {
-                                            this.store.update(cx, |store, cx| {
-                                                store.set_worktree_archived(
-                                                    &project, name, false, cx,
-                                                )
-                                            })
-                                        },
-                                    )
-                                })
-                                .collect();
-                            let place = this
-                                .store
-                                .read(cx)
-                                .place(&Selection::Project(project.clone()));
-                            this.open_picker(
-                                Some(place),
-                                "Show a worktree again",
-                                "Show",
-                                choices,
-                                window,
-                                cx,
-                            )
-                        },
-                    ));
-                }
-                if let Some(path) = store.path(project) {
-                    let label = crate::open_in::editor_label(store);
-                    let (editor_project, terminal_project) = (project.clone(), project.clone());
-                    items.extend([
-                        MenuItem::new(label, move |this, window, cx| {
-                            let position = window.mouse_position();
-                            let main = Checkout::Main;
-                            this.open_in_editor(&editor_project, main, None, None, position, cx)
-                        })
-                        .separated(),
-                        MenuItem::keyed(
-                            "Open in terminal",
-                            &crate::open_in::OpenInTerminal,
-                            cx,
-                            move |this, _, cx| this.open_in_terminal(&terminal_project, cx),
-                        ),
-                        MenuItem::new(crate::ui::REVEAL, move |_, _, cx| cx.reveal_path(&path)),
-                    ]);
-                }
-                // The note saying why the project can't be read may name a command to run.
-                if let Some(error) = store.project(project).and_then(|p| p.error.clone()) {
-                    items.push(MenuItem::new("Copy error message", move |_, _, cx| {
-                        cx.write_to_clipboard(gpui::ClipboardItem::new_string(error.to_string()))
-                    }));
-                }
-                let settings_project = project.clone();
-                items.push(
-                    MenuItem::new("Project settings…", move |this, window, cx| {
-                        this.open_project_settings(settings_project.clone(), window, cx)
-                    })
-                    .separated(),
-                );
+                // An unwatched project's too, once its page has read it. With Fetch, else apart
+                // from Watch.
+                let update = command(&UpdateFromTarget);
+                items.push(if expanded { update } else { update.separated() });
+                items.extend([
+                    command(&ShowArchivedWorktree),
+                    command(&crate::open_in::OpenInEditor).separated(),
+                    command(&crate::open_in::OpenInTerminal),
+                    command(&Reveal),
+                    // The note saying why the project can't be read may name a command to run.
+                    command(&CopyErrorMessage),
+                    command(&OpenProjectSettings).separated(),
+                ]);
                 items
             }
             Selection::Uncommitted(project) => {
-                let mut items = new_branch_items(store, project, cx);
-                items.push(new_terminal_item(project, Checkout::Main, cx).separated());
-                items.push(action("Fetch", &Fetch).separated());
-                items.extend(update_item(store, project, cx));
+                let mut items = new_branch_items(cx);
+                items.push(command(&NewTerminal).separated());
+                items.extend([command(&Fetch).separated(), command(&UpdateFromTarget)]);
                 if store
                     .workspace(project)
                     .is_some_and(|ws| !ws.uncommitted.is_empty())
                 {
-                    items.extend(self.changes_items(project, Checkout::Main, cx));
+                    items.extend(changes_items(cx));
                 }
                 items.extend(store.path(project).and_then(|path| build_item(&path, cx)));
                 items
             }
-            Selection::Branch(project, ref_name) => {
+            Selection::Branch(_, ref_name) => {
                 let mut items = Vec::new();
-                let (Some(branch), Some(workspace)) =
-                    (store.branch_for(target), store.workspace(project))
-                else {
+                if store.branch_for(target).is_none() {
                     return items;
-                };
-                let named = ref_name.as_ref();
-                if let Some(ref_name) = named
-                    && workspace.push_blocked(Some(ref_name)).is_none()
-                {
-                    items.push(action(workspace.push_label(ref_name), &Push));
                 }
-                if named.is_some_and(|ref_name| workspace.can_pull(ref_name)) {
-                    items.extend([
-                        MenuItem::action(
-                            format!(
-                                "Pull {} from the remote",
-                                plural(branch.incoming.len(), "commit")
-                            ),
-                            &PullRemote,
-                            cx,
-                        ),
-                        action("Replace with the remote's version…", &TakeRemote),
-                    ]);
-                }
-                if let Some(url) = branch.review.as_ref().and_then(|r| r.url.clone()) {
-                    items.extend([
-                        action("Open pull request", &OpenPullRequest),
-                        MenuItem::new("Copy pull request link", move |this, _, cx| {
-                            this.copy_text(url.clone(), cx)
-                        }),
-                    ]);
-                }
-                if crate::pr::create_offer(store, target) == Some(Ok(())) {
-                    items.push(action(
-                        "Create pull request…",
-                        &crate::pr::CreatePullRequest,
-                    ))
-                }
-                if crate::pr::on_forge(store, target) && named.is_some() {
-                    let project = target.project();
-                    let open = (branch.review.as_ref()).filter(|r| {
-                        store.review_state(project, r) == crate::backend::ReviewState::Open
-                    });
-                    if let Some(review) = open {
-                        let offer = crate::pr::mergeability(store, project, review).offer();
-                        let method = crate::pr::merge_method(store, project);
-                        items.extend(offer.map(|offer| action(offer.label(method), offer.action())))
-                    }
-                }
-                let Some(ref_name) = named else {
-                    if !branch.commits.is_empty() {
-                        items.push(action("Name branch…", &RenameSelection).separated());
-                    }
-                    return items;
-                };
-                let edits = BranchEdits::of(workspace, ref_name);
-                items.push(action("New branch on top", &NewBranchOnTop).separated());
-                if edits.new_below {
-                    items.push(action("New branch below", &NewBranchBelow));
-                }
-                items.push(action("Add empty commit", &AddEmptyCommitAbove));
-                if edits.squash_all {
-                    items.push(action("Squash all commits", &SquashAll));
-                }
-                items.push(action("Cut", &CutSelection).separated());
-                if edits.stacked {
-                    items.push(action("Unstack", &Unstack));
-                }
-                if let (Some(target), Some(whole)) = (workspace.target.as_ref(), edits.merge) {
-                    let label = if whole {
-                        format!("Merge the stack into {}…", target.name)
-                    } else {
-                        format!("Merge into {}…", target.name)
-                    };
-                    items.push(MenuItem::action(label, &crate::edits::MergeBranch, cx));
-                }
-                // Only the workspace has stacks to take out of it.
-                if workspace.managed && workspace.stack_of(Some(ref_name)).is_some() {
-                    items.push(action(
-                        if edits.stacked {
-                            "Unapply stack"
-                        } else {
-                            "Unapply branch"
-                        },
-                        &UnapplyStack,
-                    ));
-                }
-                let name = short_ref(ref_name).into_owned();
                 items.extend([
-                    action("Rename…", &RenameSelection).separated(),
-                    MenuItem::keyed("Copy name", &CopySelection, cx, move |app, _, cx| {
-                        app.copy_text(name.clone(), cx)
-                    }),
+                    command(&Push),
+                    command(&PullRemote),
+                    command(&TakeRemote),
+                    command(&OpenPullRequest),
+                    command(&CopyPullRequestLink),
+                    command(&crate::pr::CreatePullRequest),
+                    command(&crate::pr::MergePullRequest),
+                    command(&crate::pr::EnableAutoMerge),
+                    command(&crate::pr::DisableAutoMerge),
                 ]);
-                // A linked worktree keeps its last branch.
-                let last_in_worktree = store.in_linked(target)
-                    && workspace.lane_of(Some(ref_name)).is_some_and(|(lane, _)| {
-                        (lane.branches.iter())
-                            .filter(|b| b.ref_name.is_some())
-                            .count()
-                            < 2
-                    });
-                if !last_in_worktree {
-                    items.push(action("Delete branch", &DeleteSelection).danger());
+                if ref_name.is_none() {
+                    items.push(command(&NameBranch).separated());
+                    return items;
                 }
+                items.extend([
+                    command(&NewBranchOnTop).separated(),
+                    command(&NewBranchBelow),
+                    command(&AddEmptyCommitAbove),
+                    command(&SquashAll),
+                    command(&CutSelection).separated(),
+                    command(&Unstack),
+                    command(&crate::edits::MergeBranch),
+                    command(&UnapplyStack),
+                ]);
+                items.extend([
+                    command(&RenameBranch).separated(),
+                    command(&CopyBranchName).keys(&CopySelection, cx),
+                    command(&DeleteBranch).danger(),
+                ]);
                 items
             }
             Selection::Commit(project, id) if store.is_picked(project, *id) => {
-                let n = store.picked.len();
                 let ids = store.with_picks(project, *id);
                 let picked: Vec<_> = (ids.iter())
                     .filter_map(|id| store.find_commit(project, *id).map(|(_, commit)| commit))
                     .collect();
-                // Commits list newest first. The oldest can be in another branch of the stack
-                // than the one clicked, so it's named.
-                let Some(&oldest) = picked.last() else {
-                    return Vec::new();
-                };
-                let cut = (project.clone(), ids);
                 let mut items = vec![
-                    MenuItem::keyed(
-                        format!("Cut {n} commits"),
-                        &CutSelection,
-                        cx,
-                        move |app, _, cx| app.cut(Cut::Commit(cut.0.clone(), cut.1.clone()), cx),
-                    ),
-                    MenuItem::action(format!("Move {n} commits"), &MoveSelection, cx),
-                    MenuItem::action(format!("Cherry-pick {n} commits"), &CherryPick, cx),
-                    MenuItem::action(
-                        format!(
-                            "Squash {n} commits into {}",
-                            quoted(&commit_title(&oldest.title))
-                        ),
-                        &SquashPicked,
-                        cx,
-                    )
-                    .separated(),
+                    command(&CutSelection),
+                    command(&MoveSelection),
+                    command(&CherryPick),
+                    command(&SquashPicked).separated(),
+                    command(&SquashIntoSelected),
+                    command(&MoveToNewBranch).separated(),
                 ];
-                // The other way round: the rest go into the one clicked, in its place.
-                if oldest.id != *id {
-                    let into = *id;
-                    items.push(MenuItem::new(
-                        format!("Squash {n} commits into this one"),
-                        move |this, _, cx| this.squash_picks(Some(into), cx),
-                    ));
-                }
-                if store.workspace(project).is_some_and(|ws| ws.managed) {
-                    let label = format!("Move {n} commits to a new branch");
-                    items.push(MenuItem::action(label, &MoveToNewBranch, cx).separated());
-                }
-                let conflicted = picked.iter().any(|commit| commit.conflicted);
                 // A run picks commits without opening them, as clicking one does.
                 items.extend(read_marks(store, project, picked, cx));
-                let discard =
-                    MenuItem::action(format!("Discard {n} commits"), &DeleteSelection, cx).danger();
-                items.extend(match conflicted {
-                    true => vec![discard.separated()],
-                    false => vec![
-                        MenuItem::action(format!("Uncommit {n} commits"), &UncommitSelection, cx)
-                            .separated(),
-                        discard,
-                    ],
-                });
+                items.extend([
+                    command(&Uncommit).separated(),
+                    command(&DiscardCommit).danger(),
+                ]);
                 items
             }
             Selection::Commit(project, id) => {
                 let Some((branch, commit)) = store.find_commit(project, *id) else {
                     return Vec::new();
                 };
-                let edits = CommitEdits::of(branch, commit);
-                // A linked worktree's commits stay in it, and their conflicts resolve there.
-                let linked = store.in_linked(target);
-                let mut items = Vec::new();
-                if commit.conflicted && !linked {
-                    items.push(action(
-                        "Resolve conflicts…",
-                        &crate::detail::ResolveConflicts,
-                    ));
-                }
-                let (cut_project, id) = (project.clone(), *id);
-                let cut = MenuItem::keyed("Cut", &CutSelection, cx, move |app, _, cx| {
-                    let ids = app.store.read(cx).with_picks(&cut_project, id);
-                    app.cut(Cut::Commit(cut_project.clone(), ids), cx)
+                let mut items = vec![
+                    command(&crate::detail::ResolveConflicts),
+                    command(&CutSelection).separated(),
+                    command(&MoveSelection),
+                    command(&CherryPick),
+                    command(&Reword).separated(),
+                    command(&RewrapMessage),
+                    command(&AddEmptyCommitAbove),
+                    command(&AddEmptyCommitBelow),
+                    command(&NewBranchHere),
+                    command(&MoveToNewBranch).separated(),
+                ];
+                // ⌘C copies the change ID where there is one, else the commit ID.
+                let (copy_id, change_id) = (command(&CopyCommitId), command(&CopyChangeId));
+                items.extend(match CommitEdits::of(branch, commit).change_id {
+                    true => [copy_id.separated(), change_id.keys(&CopySelection, cx)],
+                    false => [copy_id.keys(&CopySelection, cx).separated(), change_id],
                 });
-                items.extend([
-                    cut.separated(),
-                    action("Move", &MoveSelection),
-                    action("Cherry-pick", &CherryPick),
-                    action("Edit message…", &RenameSelection).separated(),
-                ]);
-                if edits.rewrap {
-                    items.push(action("Rewrap message", &RewrapMessage));
-                }
-                items.extend([
-                    action("Add empty commit above", &AddEmptyCommitAbove),
-                    action("Add empty commit below", &AddEmptyCommitBelow),
-                ]);
-                if edits.new_branch_here {
-                    items.push(action("New branch ending here", &NewBranchHere));
-                }
-                if store.workspace(project).is_some_and(|ws| ws.managed) {
-                    items.push(action("Move to a new branch", &MoveToNewBranch).separated());
-                }
-                let mut copy_id =
-                    MenuItem::keyed("Copy commit ID", &CopySelection, cx, move |app, _, cx| {
-                        app.copy_text(id.0.to_string(), cx)
-                    })
-                    .separated();
-                if edits.change_id {
-                    let mut change_id = action("Copy change ID", &CopyChangeId);
-                    change_id.key = copy_id.key.take().or(change_id.key);
-                    items.extend([copy_id, change_id]);
-                } else {
-                    items.push(copy_id);
-                }
-                items.push(action("Copy message", &CopyMessage));
+                items.push(command(&CopyMessage));
                 items.extend(read_marks(store, project, [commit], cx));
-                let discard = action("Discard commit", &DeleteSelection).danger();
-                items.extend(match commit.conflicted {
-                    // Resolved, not uncommitted, as its files are one side's.
-                    true => vec![discard.separated()],
-                    false => vec![action("Uncommit", &UncommitSelection).separated(), discard],
-                });
+                items.extend([
+                    command(&Uncommit).separated(),
+                    command(&DiscardCommit).danger(),
+                ]);
                 items
             }
             Selection::Worktree(project, name) => {
-                let Some((ws, worktree)) = (store.workspace(project))
-                    .and_then(|ws| Some((ws, ws.find_worktree(name.as_ref())?)))
+                let Some(worktree) =
+                    (store.workspace(project)).and_then(|ws| ws.find_worktree(name.as_ref()))
                 else {
                     return Vec::new();
                 };
-                let path = worktree.path.clone();
-                let copied = path.display().to_string();
-                let build = build_item(&path, cx);
-                // A detached `HEAD` has no branch to keep what was committed there.
-                let after = match worktree.branch {
-                    Some(_) => "Its branch stays.",
-                    None => "It has no branch, so commits made there that no branch has are lost.",
-                };
-                // As last written, so an agent's edit while the question is up isn't lost.
-                let lost: Vec<(String, Option<i64>, Option<u64>)> = (worktree.uncommitted.iter())
-                    .map(|f| (f.path.clone(), f.modified, f.size))
-                    .collect();
-                // It swaps places with the one above or below among those listed with it, the
-                // active or the inactive ones, as a watched project's card does.
-                let beside: Vec<&bstr::BString> =
-                    (store.worktrees_in_order(project, ws).into_iter())
-                        .filter(|wt| wt.is_inactive() == worktree.is_inactive())
-                        .filter(|wt| !store.hides_worktree(project, wt.name.as_ref()))
-                        .map(|wt| &wt.name)
-                        .collect();
-                let at = beside.iter().position(|other| *other == name).unwrap_or(0);
-                let up = at.checked_sub(1).map(|above| beside.get(above));
-                let down = (at + 1 < beside.len()).then(|| beside.get(at + 2));
-                let moves = [("Move up", up), ("Move down", down)]
-                    .into_iter()
-                    .filter_map(|(label, before)| Some((label, before?.map(|b| (*b).clone()))))
-                    .map(|(label, before)| {
-                        let (project, name) = (project.clone(), name.clone());
-                        MenuItem::new(label, move |this, _, cx| {
-                            (this.store).update(cx, |store, cx| {
-                                let before = before.as_ref().map(|b| b.as_ref());
-                                store.move_worktree(&project, name.as_ref(), before, cx)
-                            })
-                        })
-                    });
-                let mut moves: Vec<MenuItem> = moves.collect();
-                if let Some(first) = moves.first_mut() {
-                    first.separated = true;
-                }
-                let (project, name) = (project.clone(), name.clone());
-                let (deleted_project, deleted) = (project.clone(), name.clone());
-                let linked = Checkout::Linked(name.clone());
-                let changes = (!lost.is_empty()).then(|| self.changes_items(&project, linked, cx));
                 let mut items = vec![
-                    MenuItem::new(crate::ui::REVEAL, move |_, _, cx| cx.reveal_path(&path)),
-                    MenuItem::keyed("Copy path", &CopySelection, cx, move |this, _, cx| {
-                        this.copy_text(copied.clone(), cx)
-                    }),
-                    new_terminal_item(&project, Checkout::Linked(name.clone()), cx).separated(),
+                    command(&Reveal),
+                    command(&CopyPath).keys(&CopySelection, cx),
+                    command(&NewTerminal).separated(),
                     // Not Update: it rebases the workspace's stacks, not this worktree's.
-                    action("Fetch", &Fetch),
-                    MenuItem::new("Archive", move |this, _, cx| {
-                        let (project, name) = (project.clone(), name.clone());
-                        this.store.update(cx, |store, cx| {
-                            store.set_worktree_archived(&project, name, true, cx)
-                        })
-                    })
-                    .separated(),
-                    MenuItem::new("Delete worktree…", move |this, window, cx| {
-                        let (project, name, lost) =
-                            (deleted_project.clone(), deleted.clone(), lost.clone());
-                        let detail = match lost.len() {
-                            0 => format!("Its folder is removed from disk. {after}"),
-                            n => format!(
-                                "Its folder is removed from disk, and {} with it. {after}",
-                                plural(n, "uncommitted file")
-                            ),
-                        };
-                        let message = format!("Delete worktree {name}?");
-                        this.confirm_then(
-                            Some(Selection::Project(project.clone())),
-                            message,
-                            &detail,
-                            "Delete",
-                            window,
-                            cx,
-                            move |this, cx| {
-                                this.store.update(cx, |store, cx| {
-                                    store.delete_worktree(&project, name, lost, cx)
-                                })
-                            },
-                        )
-                    })
-                    .danger(),
+                    command(&Fetch),
                 ];
                 // As Main worktree's, after Fetch and before what happens to it.
-                items.splice(4..4, changes.into_iter().flatten());
-                let archive = items.len() - 2;
-                items.splice(archive..archive, moves);
-                items.extend(build);
+                if !worktree.uncommitted.is_empty() {
+                    items.extend(changes_items(cx));
+                }
+                items.extend([
+                    command(&MoveUp).separated(),
+                    command(&MoveDown),
+                    command(&ArchiveWorktree).separated(),
+                    command(&DeleteWorktree).danger(),
+                ]);
+                items.extend(build_item(&worktree.path, cx));
                 items
             }
             Selection::Mesh(..) => self.mesh_menu(target, cx),
@@ -644,11 +562,10 @@ impl Navigator {
     }
 }
 
-/// Opens a terminal on `project`'s `checkout`, listed under its heading.
-fn new_terminal_item(project: &ProjectId, checkout: Checkout, cx: &App) -> MenuItem {
-    let project = project.clone();
-    MenuItem::keyed("New terminal", &NewTerminal, cx, move |this, _, cx| {
-        let (project, checkout) = (project.clone(), checkout.clone());
-        (this.store).update(cx, |store, cx| store.open_terminal(project, checkout, cx))
-    })
+/// Commit and discarding the changes of the selected checkout, which has some.
+fn changes_items(cx: &App) -> [MenuItem; 2] {
+    [
+        MenuItem::command(&StartCommit, cx).separated(),
+        MenuItem::command(&DiscardChanges, cx).danger(),
+    ]
 }

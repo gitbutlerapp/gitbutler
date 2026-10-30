@@ -559,6 +559,13 @@ pub fn quiet(el: Div, on: bool, theme: &Theme) -> Div {
         .when(on, |el| el.text_color(theme.muted_on_solid()))
 }
 
+/// Where row `ix` of `list` was last drawn, while some of it shows: where ⇧F10 opens the menu
+/// of the row selected.
+pub fn shown_row(list: &gpui::ListState, ix: usize) -> Option<gpui::Bounds<Pixels>> {
+    let (row, view) = (list.bounds_for_item(ix)?, list.viewport_bounds());
+    (row.bottom() > view.top() && row.top() < view.bottom()).then_some(row)
+}
+
 /// A row of a list or menu, shaded when `selected` and otherwise under the pointer.
 pub fn list_row(id: impl Into<ElementId>, selected: bool, theme: &Theme) -> Stateful<Div> {
     h_flex()
@@ -1238,12 +1245,22 @@ pub fn bindings_of(action: &dyn gpui::Action, cx: &App) -> Vec<(SharedString, Op
 }
 
 /// The keys that run `action` where the keys go now, unless the same keys do something else
-/// there, as [`shortcut`] writes them.
+/// there, as [`shortcut`] writes them. Keys bound to several actions there run the first one
+/// handled, so one with no handler here doesn't take them: r is Reword's on a commit and Rename
+/// branch's on a branch.
 pub fn shortcut_here(action: &dyn gpui::Action, window: &Window, cx: &App) -> Option<SharedString> {
-    let focused = window.focused(cx)?;
-    Some(keys_of(&window.highest_precedence_binding_for_action_in(
-        action, &focused,
-    )?))
+    window.focused(cx)?;
+    let context = window.context_stack();
+    let keymap = cx.key_bindings();
+    let keymap = keymap.borrow();
+    let runs = |binding: &gpui::KeyBinding| {
+        let (bound, _) = keymap.bindings_for_input(binding.keystrokes(), &context);
+        (bound.iter())
+            .find(|b| b.action().partial_eq(action) || window.is_action_available(b.action(), cx))
+            .is_some_and(|b| b.action().partial_eq(action))
+    };
+    let binding = keymap.bindings_for_action(action).rev().find(|b| runs(b))?;
+    Some(keys_of(binding))
 }
 
 fn keys_of(binding: &gpui::KeyBinding) -> SharedString {

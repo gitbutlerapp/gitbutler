@@ -9,7 +9,7 @@ use gpui::{AnyElement, App, Context, MouseButton, Window, div, prelude::*};
 
 use super::rows::{COMMIT_INDENT, Fold, Row, Rows, found, matches};
 use super::{ClickOpened, Navigator, RowStyle, STEP, change_counts, click_opens, double_click};
-use crate::app::CopySelection;
+use crate::app::{CopyPath, CopySelection};
 use crate::backend::mesh::{self, BranchStatus};
 use crate::overlays::MenuItem;
 use crate::state::{MeshBranch, MeshPick, ProjectId, Section, Selection, Store};
@@ -429,15 +429,7 @@ impl Navigator {
                 cx.open_url(&url)
             }));
         }
-        if *pick == MeshPick::Checkout {
-            let path = checkout.path.clone();
-            items.push(MenuItem::keyed(
-                "Copy path",
-                &CopySelection,
-                cx,
-                move |app, _, cx| app.copy_text(path.clone(), cx),
-            ));
-        }
+        items.push(MenuItem::command(&CopyPath, cx).keys(&CopySelection, cx));
         items
     }
 }

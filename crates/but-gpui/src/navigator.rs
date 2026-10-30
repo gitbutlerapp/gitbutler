@@ -9,10 +9,10 @@ use std::time::Instant;
 
 use but_tty::Status;
 use gpui::{
-    AnyElement, App, ClickEvent, Context, CursorStyle, Div, DragMoveEvent, ElementId, EmptyView,
-    Entity, FocusHandle, Focusable, Hsla, ListAlignment, ListOffset, ListState, MouseButton,
-    MouseDownEvent, Pixels, Point, ScrollWheelEvent, SharedString, Stateful, Subscription, Task,
-    Window, actions, div, list, prelude::*, relative,
+    AnyElement, App, Bounds, ClickEvent, Context, CursorStyle, Div, DragMoveEvent, ElementId,
+    EmptyView, Entity, FocusHandle, Focusable, Hsla, ListAlignment, ListOffset, ListState,
+    MouseButton, MouseDownEvent, Pixels, Point, ScrollWheelEvent, SharedString, Stateful,
+    Subscription, Task, Window, actions, div, list, prelude::*, relative,
 };
 
 use crate::app::{
@@ -47,6 +47,13 @@ use crate::ui::{
 mod account;
 mod drop;
 mod menu;
+pub(crate) use menu::{
+    ArchiveWorktree, CloseTerminal, DeleteWorktree, MoveDown, MoveUp, OpenProjectSettings, Reveal,
+    ShowArchivedWorktree, StopWatching, Watch,
+};
+pub(crate) use order::{
+    ShowActiveProjects, ShowAllProjects, SortProjectsByActivity, SortProjectsByName,
+};
 mod mesh;
 mod moving;
 mod order;
@@ -1327,6 +1334,19 @@ impl Navigator {
                 self.scroll_to_row(|row| matches!(row, Row::Item(it) if it == item), row);
             }
             self.going_row = going_row;
+        }
+    }
+
+    /// Where `item`'s row, in the cards or the drawer, was last drawn while it shows.
+    pub(crate) fn row_bounds(&self, item: &Selection) -> Option<Bounds<Pixels>> {
+        let at = |rows: &[Row]| {
+            rows.iter()
+                .position(|row| matches!(row, Row::Item(it) if it == item))
+        };
+        match (at(&self.rows), at(&self.drawer.rows)) {
+            (Some(ix), _) => crate::ui::shown_row(&self.list, ix),
+            (None, Some(ix)) => crate::ui::shown_row(&self.drawer_list, ix),
+            (None, None) => None,
         }
     }
 

@@ -14,7 +14,7 @@ use gpui::{
 use super::upstream::noon;
 use super::{Detail, PageFold, machine};
 use crate::app::{
-    AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious, StartCommit, ToggleFold,
+    AppHandle, Collapse, Expand, SelectNext, SelectPrevious, StartCommit, ToggleFold,
 };
 use crate::backend::upstream::{self, ACTIVITY_DAYS};
 use crate::backend::{self, Checkout, CommitId, CommitState, FullName, PushState, short_ref};
@@ -1536,11 +1536,6 @@ impl Detail {
                     (None, None) => {}
                 }
             }))
-            .when_some(confirm, |el, confirm| {
-                el.on_action(
-                    cx.listener(move |this, _: &Confirm, window, cx| confirm(this, window, cx)),
-                )
-            })
     }
 
     /// A People card, under a list, with a focus of its own: a click in it takes the focus,

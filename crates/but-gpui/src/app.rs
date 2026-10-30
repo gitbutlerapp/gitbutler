@@ -54,6 +54,7 @@ actions!(
         ToggleNavigator,
         ToggleDetail,
         CommandPalette,
+        ShowContextMenu,
         CheckForUpdates,
         BuildAndRestart,
         BuildAndRestartFromHere,
@@ -81,9 +82,6 @@ actions!(
         PasteHere,
         MoveSelection,
         MoveHere,
-        DeleteSelection,
-        UncommitSelection,
-        RenameSelection,
     ]
 );
 actions!(
@@ -98,6 +96,28 @@ actions!(
     ]
 );
 actions!(pr, [OpenPullRequest]);
+actions!(
+    copy,
+    [
+        CopyCommitId,
+        CopyBranchName,
+        CopyPullRequestLink,
+        CopySnapshotId,
+        CopyPath,
+        CopyRelativePath,
+        CopyAbsolutePath,
+        CopyErrorMessage,
+    ]
+);
+
+/// Register `A` on `el` as copying `text`.
+fn copy_on<A: gpui::Action>(
+    el: gpui::Stateful<gpui::Div>,
+    text: String,
+    cx: &Context<AppView>,
+) -> gpui::Stateful<gpui::Div> {
+    el.on_action(cx.listener(move |this, _: &A, _, cx| this.copy_text(text.clone(), cx)))
+}
 
 pub struct AppView {
     pub store: Entity<Store>,
@@ -105,6 +125,11 @@ pub struct AppView {
     diff: Entity<DiffPane>,
     pub(crate) navigator: Entity<Navigator>,
     pub menu: Option<ContextMenu>,
+    /// A menu with commands in it, waiting for the frame that registers the actions of the
+    /// selection it opened on, to say which it offers.
+    pub pending_menu: Option<ContextMenu>,
+    /// The open menu's, which takes the keys from what had them.
+    pub(crate) menu_focus: FocusHandle,
     pub prompt: Option<Prompt>,
     /// The emoji picker open on a project's icon.
     pub icon_picker: Option<crate::projects::IconPicker>,
@@ -255,18 +280,21 @@ impl AppView {
             // A menu's items and the palette's commands act on the selection and the picks, so
             // when an agent's change moves them off what they opened on, they go rather than
             // act on something else. Menu items can hold the commit they opened on, so a menu
-            // goes when an agent only rewrote it too, as does M's list of them; the palette's
+            // goes when an agent only rewrote it too, as ⌘K does while it lists such items;
             // commands read the selection when run.
             cx.observe_in(&store, window, |this, store, window, cx| {
                 let store = store.read(cx);
                 let menu_gone =
                     (this.menu.as_ref()).is_some_and(|m| m.acting_on != store.acting_on());
+                if (this.pending_menu.as_ref()).is_some_and(|m| m.acting_on != store.acting_on()) {
+                    this.pending_menu = None;
+                }
                 let palette_gone = (this.palette.as_ref()).is_some_and(|p| match p.holds_ids {
                     true => p.acting_on != store.acting_on(),
                     false => !store.still_acting_on(&p.acting_on),
                 });
                 if menu_gone {
-                    this.menu = None;
+                    this.close_menu(window, cx);
                 }
                 if palette_gone {
                     this.close_palette(window, cx);
@@ -334,6 +362,8 @@ impl AppView {
             diff,
             navigator,
             menu: None,
+            pending_menu: None,
+            menu_focus: cx.focus_handle(),
             prompt: None,
             icon_picker: None,
             navigator_open: true,
@@ -817,9 +847,8 @@ impl AppView {
             return;
         }
         // The menu first, as it can be open over a modal.
-        if self.menu.take().is_some() {
-            cx.notify();
-            return;
+        if self.menu.is_some() {
+            return self.close_menu(window, cx);
         }
         if self.modal.is_some() {
             return self.close_modal(window, cx);
@@ -1155,16 +1184,68 @@ impl AppView {
 
     /// Open the pull request of the selected branch, or of the branch the selected commit
     /// is on, in the browser. Without one, start one where that's possible.
+    /// The pull request of the selected branch, or of what a page has picked: the branch
+    /// opened on the Branches page, or the target's merge.
+    pub(crate) fn pull_request_url(&self, cx: &App) -> Option<String> {
+        let store = self.store.read(cx);
+        match store.branch_for(store.selection.as_ref()?) {
+            Some(branch) => branch.review.as_ref()?.url.clone(),
+            None => self.detail.read(cx).page_pull_request(cx),
+        }
+    }
+
+    /// Register a copy of each thing the selection has to copy, as its menu offers them:
+    /// its pull request's link, a commit's ID, a branch's name, a checkout's path, and why a
+    /// project can't be read. The pages' own picks are the detail's.
+    pub(crate) fn copy_actions(
+        &self,
+        el: gpui::Stateful<gpui::Div>,
+        cx: &Context<Self>,
+    ) -> gpui::Stateful<gpui::Div> {
+        let store = self.store.read(cx);
+        let el = el.when_some(self.pull_request_url(cx), |el, url| {
+            copy_on::<CopyPullRequestLink>(el, url, cx)
+        });
+        let path = |path: &std::path::Path| path.display().to_string();
+        match store.selection.as_ref() {
+            Some(Selection::Commit(_, id) | Selection::Upstream(_, _, id)) => {
+                copy_on::<CopyCommitId>(el, id.0.to_string(), cx)
+            }
+            Some(Selection::Branch(_, Some(ref_name))) => {
+                copy_on::<CopyBranchName>(el, short_ref(ref_name).into_owned(), cx)
+            }
+            Some(Selection::Project(project)) => {
+                let error =
+                    (store.project(project)).and_then(|p| Some(p.error.clone()?.to_string()));
+                el.when_some(store.path(project), |el, dir| {
+                    copy_on::<CopyPath>(el, path(&dir), cx)
+                })
+                .when_some(error, |el, error| {
+                    copy_on::<CopyErrorMessage>(el, error, cx)
+                })
+            }
+            Some(Selection::Worktree(project, name)) => {
+                let worktree =
+                    (store.workspace(project)).and_then(|ws| ws.find_worktree(name.as_ref()));
+                el.when_some(worktree, |el, worktree| {
+                    copy_on::<CopyPath>(el, path(&worktree.path), cx)
+                })
+            }
+            Some(Selection::Mesh(project, id, MeshPick::Checkout)) => el
+                .when_some(store.mesh_checkout(project, id), |el, checkout| {
+                    copy_on::<CopyPath>(el, checkout.path.clone(), cx)
+                }),
+            _ => el,
+        }
+    }
+
     fn open_pull_request(
         &mut self,
         _: &OpenPullRequest,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let url = self.selection(cx).and_then(|selection| {
-            let branch = self.store.read(cx).branch_for(&selection)?;
-            branch.review.as_ref()?.url.clone()
-        });
+        let url = self.pull_request_url(cx);
         let create = crate::pr::CreatePullRequest;
         match url {
             Some(url) => cx.open_url(&url),
@@ -1735,6 +1816,13 @@ impl Render for AppView {
         // Every `dp` size is in rems, so this scales the whole window.
         window.set_rem_size(Theme::get(cx).scaled(crate::ui::BASE_REM));
         crate::ui::Covered::note(self.covered(), window, cx);
+        // After this frame, whose actions are the selection's now.
+        if self.pending_menu.is_some() {
+            let this = cx.entity().downgrade();
+            window.on_next_frame(move |window, cx| {
+                (this.update(cx, |this, cx| this.open_pending_menu(window, cx))).ok();
+            });
+        }
         let theme = Theme::get(cx).clone();
         let ligatures = self.store.read(cx).prefs.ligatures;
         let show_fps = self.store.read(cx).prefs.show_fps;
@@ -1811,9 +1899,12 @@ impl Render for AppView {
             .on_action(cx.listener(Self::clone_repository))
             // Here rather than around the navigator, so the details pane's buttons reach them.
             .map(|el| self.pr_actions(el, cx))
+            .map(|el| self.copy_actions(el, cx))
+            .map(|el| self.navigator_actions(el, cx))
+            .map(|el| self.project_list_actions(el, cx))
             .map(|el| self.resolve_actions(el, cx))
             .on_action(cx.listener(Self::go_to))
-            .on_action(cx.listener(Self::show_actions))
+            .on_action(cx.listener(Self::show_context_menu))
             .on_action(cx.listener(Self::copy_more))
             .on_action(cx.listener(Self::open_selected_in_terminal))
             .on_action(cx.listener(Self::new_terminal))

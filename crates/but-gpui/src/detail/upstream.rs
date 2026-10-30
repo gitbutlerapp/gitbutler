@@ -7,7 +7,8 @@ use std::collections::{BTreeSet, HashSet};
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnyElement, Context, MouseButton, MouseDownEvent, Pixels, Point, SharedString, div, prelude::*,
+    AnyElement, Bounds, Context, MouseButton, MouseDownEvent, Pixels, Point, SharedString, div,
+    prelude::*,
 };
 
 mod shipped;
@@ -20,10 +21,12 @@ use super::panes::{
 use super::pull_request::TABS_HEIGHT;
 use super::slots::{SlotGesture, SlotPick, ends_drag, picks_slot};
 use super::{Detail, PageFold};
+use crate::app::{CopyCommitId, OpenPullRequest};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, Person, TargetCommit};
 use crate::backend::{self, Checkout, CommitId, DiffSource, Forge};
+use crate::edits::CherryPick;
 use crate::overlays::MenuItem;
-use crate::state::{Cut, Pane, ProjectId, Selection};
+use crate::state::{Cut, Pane, ProjectId, Section, Selection};
 use crate::theme::Theme;
 use crate::ui::emoji::ProjectIcon;
 use crate::ui::fold::inert;
@@ -32,7 +35,7 @@ use crate::ui::person::{byline, byline_avatar};
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, age_column, button, dp, error_summary, faint, fixed, fold_button,
     guide, h_flex, icon, list_row, muted, plural, quiet, resize_handle, resize_pane, section_label,
-    shortcut, side_row, small_icon, v_flex,
+    shortcut, shown_row, side_row, small_icon, v_flex,
 };
 
 /// Where the middle of a merge's chevron sits in its row: the row's padding and half the
@@ -1295,10 +1298,77 @@ impl Detail {
     ) {
         self.pick_on_page(project, Picked::Commit(merge), merged, cx);
         let project = project.clone();
-        let items = move |this: &mut Self, _: &mut Context<Self>| {
-            this.target_commit_items(&project, merge, merged)
+        let items = move |this: &mut Self, cx: &mut Context<Self>| {
+            this.target_commit_items(&project, merge, merged, cx)
         };
         self.open_menu(at, items, cx);
+    }
+
+    /// The target commit picked, a merge's commit when one of those is: the merge, and the
+    /// commit of it.
+    fn picked_target_commit(&self, project: &ProjectId) -> Option<(&TargetCommit, CommitId)> {
+        let upstream = self.upstream_for(project)?;
+        let commit = self.selected_target_commit(project)?;
+        Some((commit, upstream.merged_pick.unwrap_or(commit.id)))
+    }
+
+    /// The pull request of the target's merge picked, not one of its commits.
+    pub(super) fn target_pull_request(&self, project: &ProjectId) -> Option<String> {
+        let (commit, id) = self.picked_target_commit(project)?;
+        (id == commit.id).then(|| commit.review.as_ref()?.url.clone())?
+    }
+
+    /// Register what's done to the target's commit picked, from the list or its header:
+    /// copying its ID, and copying one coming in into the workspace.
+    pub(super) fn upstream_page_actions(
+        &self,
+        el: gpui::Stateful<gpui::Div>,
+        cx: &mut Context<Self>,
+    ) -> gpui::Stateful<gpui::Div> {
+        let Some(Selection::Section(project, Section::Upstream(_))) =
+            self.store.read(cx).selection.clone()
+        else {
+            return el;
+        };
+        let Some((commit, id)) = self.picked_target_commit(&project) else {
+            return el;
+        };
+        let incoming = id == commit.id && commit.incoming && !commit.merge;
+        let el = Self::copy_on::<CopyCommitId>(el, id.0.to_string(), cx);
+        el.when(incoming, |el| {
+            el.on_action(cx.listener(move |this, _: &CherryPick, window, cx| {
+                let cut = Cut::CherryPick(project.clone(), [id].into());
+                this.app
+                    .update_later(window, cx, move |app, _, cx| app.cut(cut, cx))
+            }))
+        })
+    }
+
+    /// What right-clicking the target's commit picked offers, and where its row is while it
+    /// shows.
+    pub(super) fn target_page_menu(
+        &self,
+        project: &ProjectId,
+        cx: &gpui::App,
+    ) -> Option<(Vec<MenuItem>, Option<Bounds<Pixels>>)> {
+        let upstream = self.upstream_for(project)?;
+        let merge = self.selected_target_commit(project)?.id;
+        let merged = upstream.merged_pick;
+        let items = self.target_commit_items(project, merge, merged, cx);
+        let is_merge = |ix: usize| upstream.commits.get(ix).is_some_and(|c| c.id == merge);
+        let is_merged = |m: usize| {
+            let of = self.store.read(cx).merged.get(&merge)?.as_ref()?;
+            Some(of.0.get(m)?.id)
+        };
+        let row = (self.upstream_rows(upstream, "", cx).iter()).position(|row| match *row {
+            Row::Commit(ix) => merged.is_none() && is_merge(ix),
+            Row::Merged(ix, m) => merged.is_some() && is_merge(ix) && is_merged(m) == merged,
+            _ => false,
+        });
+        Some((
+            items,
+            row.and_then(|row| shown_row(&self.upstream_scroll, row)),
+        ))
     }
 
     /// What right-clicking the target's commit `merge`, or `merged` among its commits, offers.
@@ -1307,6 +1377,7 @@ impl Detail {
         project: &ProjectId,
         merge: CommitId,
         merged: Option<CommitId>,
+        cx: &gpui::App,
     ) -> Vec<MenuItem> {
         let Some(upstream) = self.upstream_for(project) else {
             return Vec::new();
@@ -1326,26 +1397,12 @@ impl Detail {
                     (app.detail).update(cx, |detail, cx| detail.toggle_merge(&shown, merge, cx))
                 }));
             }
-            if commit.incoming && !commit.merge {
-                let picked = project.clone();
-                items.push(MenuItem::new("Cherry-pick", move |app, _, cx| {
-                    app.cut(Cut::CherryPick(picked.clone(), [merge].into()), cx)
-                }));
-            }
-            if let Some(url) = (commit.review.as_ref()).and_then(|r| r.url.clone()) {
-                items.push(MenuItem::new("Open pull request", move |_, _, cx| {
-                    cx.open_url(&url)
-                }));
-            }
         }
-        let id = merged.unwrap_or(merge);
-        let copy = MenuItem::new("Copy commit ID", move |app, _, cx| {
-            app.copy_text(id.0.to_string(), cx)
-        });
-        items.push(match items.is_empty() {
-            true => copy,
-            false => copy.separated(),
-        });
+        items.extend([
+            MenuItem::command(&CherryPick, cx),
+            MenuItem::command(&OpenPullRequest, cx),
+            MenuItem::command(&CopyCommitId, cx).separated(),
+        ]);
         items
     }
 

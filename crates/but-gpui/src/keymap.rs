@@ -188,9 +188,12 @@ mod tests {
                     for keystroke in entry.keys.split_whitespace() {
                         Keystroke::parse(keystroke).expect(&at);
                     }
+                    // A key bound to several actions in one place runs the first of them that's
+                    // handled, as r rewords a commit and renames a branch; bound to the same one
+                    // twice, the first is never shown.
                     assert!(
-                        keys.insert((entry.context, entry.keys)),
-                        "{at}: bound twice, so the first does nothing"
+                        keys.insert((entry.context, entry.keys, name.to_owned())),
+                        "{at}: bound twice to {name:?}"
                     );
                 }
             }
@@ -281,8 +284,8 @@ mod tests {
                     ("app::CommandPalette", "secondary-k"),
                     ("app::ToggleNavigator", "secondary-b"),
                     ("palette::GoTo", "secondary-p"),
-                    ("palette::ShowActions", "m"),
-                    ("navigator::RenameSelection", "r"),
+                    ("edits::Reword", "r"),
+                    ("edits::RenameBranch", "r"),
                     ("navigator::CopySelection", "secondary-c"),
                     ("palette::CopyMore", "secondary-shift-c"),
                     ("diff::NextHunk", "down"),
