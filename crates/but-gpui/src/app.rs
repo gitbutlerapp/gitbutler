@@ -1958,6 +1958,7 @@ impl Render for AppView {
             .map(|el| self.project_list_actions(el, cx))
             .map(|el| self.resolve_actions(el, cx))
             .on_action(cx.listener(Self::go_to))
+            .on_action(cx.listener(Self::go_to_terminal))
             .on_action(cx.listener(Self::show_context_menu))
             .on_action(cx.listener(Self::copy_more))
             .on_action(cx.listener(Self::open_selected_in_terminal))

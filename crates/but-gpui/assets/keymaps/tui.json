@@ -1,9 +1,9 @@
 // A keymap like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming,
 // moving commits and adding an empty commit, Return to fold and unfold, f to show and hide the
-// files, / to filter or find, ⌘K for the command palette, ⌘P to go to anything, ⌘R to fetch and
-// ⇧⌘R to pull, ⌘1, ⌘2 and ⌘3 to go to the navigator, the files and the diff, ⌘B and ⌥⌘B to show
-// and hide the navigator and the details, and the keys the app's lists and overlays need, as
-// GitButler's keymap has them.
+// files, / to filter or find, ⌘K for the command palette, ⌘P to go to anything and ⌘J to a
+// terminal, ⌘R to fetch and ⇧⌘R to pull, ⌘1, ⌘2 and ⌘3 to go to the navigator, the files and the
+// diff, ⌘B and ⌥⌘B to show and hide the navigator and the details, and the keys the app's lists
+// and overlays need, as GitButler's keymap has them.
 // `base.json`, which macOS gives every app, binds after these. `secondary` is cmd on macOS and
 // ctrl elsewhere; a section with "os" binds only there. Order matters: within a context the
 // binding added last wins, and the last binding for an action is the key menus and tooltips
@@ -42,10 +42,12 @@
   },
   // ⌘P goes to anything, the TUI's branch picker for more than branches, ⌘1, ⌘2 and ⌘3 go to the
   // navigator, the files and the diff, and ⌘B and ⌥⌘B show or hide the navigator and the
-  // details, as in GitButler's keymap. From a terminal too, which takes the TUI's letters.
+  // details, as in GitButler's keymap. ⌘J goes to a terminal, as VS Code's and Zed's open the
+  // panel theirs are in. From a terminal too, which takes the TUI's letters.
   {
     "bindings": {
       "secondary-p": "palette::GoTo",
+      "secondary-j": "palette::GoToTerminal",
       "secondary-1": "app::FocusNavigator",
       "secondary-2": "app::FocusChanges",
       "secondary-3": "app::FocusDiff",

@@ -24,7 +24,10 @@ use crate::ui::{
     shortcut_here, small_icon, v_flex,
 };
 
-actions!(palette, [PaletteUp, PaletteDown, GoTo, CopyMore]);
+actions!(
+    palette,
+    [PaletteUp, PaletteDown, GoTo, GoToTerminal, CopyMore]
+);
 
 /// What picking a choice does, given what's typed.
 type Run = Box<dyn FnOnce(&mut AppView, &str, &mut Window, &mut Context<AppView>)>;
@@ -449,6 +452,15 @@ fn worktree_choice(entry: &ProjectEntry, worktree: &Worktree, several: bool) -> 
         .goes_to(goes_to)
 }
 
+/// The projects go to anything looks inside: only expanded ones, as a collapsed one's rows
+/// aren't drawn, or kept current.
+fn open_workspaces(store: &Store) -> Vec<(&ProjectEntry, &Workspace)> {
+    (store.projects.iter())
+        .filter(|entry| entry.expanded)
+        .filter_map(|entry| Some((entry, entry.workspace.as_ref()?)))
+        .collect()
+}
+
 /// Go to anything's rows for the terminals open on a loaded project's worktrees, the main
 /// one's first, as the navigator lists them under each.
 fn terminal_choices(
@@ -689,11 +701,7 @@ impl AppView {
     /// commit of a loaded one, by name, pull request title or commit id, and select it.
     pub fn go_to(&mut self, _: &GoTo, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
-        // Only expanded projects' insides: a collapsed one's rows aren't drawn, or kept current.
-        let open: Vec<(&ProjectEntry, &Workspace)> = (store.projects.iter())
-            .filter(|entry| entry.expanded)
-            .filter_map(|entry| Some((entry, entry.workspace.as_ref()?)))
-            .collect();
+        let open = open_workspaces(store);
         let several = open.len() > 1;
         // Broadest first, which an equal match keeps: a project before a branch of its name.
         let projects = store.projects.iter().map(project_choice);
@@ -729,6 +737,29 @@ impl AppView {
             .collect();
         let placeholder = "Go to a project, worktree, terminal, branch or commit";
         self.open_picker(None, placeholder, "Go", choices, window, cx);
+        if let Some(palette) = &mut self.palette {
+            palette.wide = true;
+        }
+    }
+
+    /// Go to anything's terminals alone.
+    pub fn go_to_terminal(
+        &mut self,
+        _: &GoToTerminal,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let store = self.store.read(cx);
+        let open = open_workspaces(store);
+        let several = open.len() > 1;
+        let choices: Vec<Choice> = (open.iter())
+            .filter(|(_, workspace)| workspace.editing.is_none())
+            .flat_map(|(entry, workspace)| terminal_choices(store, entry, workspace, several))
+            .collect();
+        if choices.is_empty() {
+            return snack(&self.store, "No terminals open", cx);
+        }
+        self.open_picker(None, "Go to a terminal", "Go", choices, window, cx);
         if let Some(palette) = &mut self.palette {
             palette.wide = true;
         }
