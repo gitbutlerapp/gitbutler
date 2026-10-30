@@ -1693,9 +1693,16 @@ impl Store {
             .unwrap_or_else(|| self.name_of(project, branch))
     }
 
-    /// Whether a pending operation pushes `ref_name`, on its own or to open its pull request.
+    /// Whether a pending operation sends `ref_name`: pushing it, on its own or to open its pull
+    /// request, or a branch above that takes it along.
     pub fn pushing(&self, project: &ProjectId, ref_name: &FullName) -> bool {
-        (self.running_in(project)).any(|r| matches!(&r.kind, OpKind::Push(to) if to == ref_name))
+        let sends = |to: &FullName| {
+            to == ref_name
+                || (self.workspace(project)).is_some_and(|ws| {
+                    (ws.parents_to_push(to)).any(|b| b.ref_name.as_ref() == Some(ref_name))
+                })
+        };
+        (self.running_in(project)).any(|r| matches!(&r.kind, OpKind::Push(to) if sends(to)))
     }
 
     /// Whether a pending operation opens `ref_name`'s pull request.
