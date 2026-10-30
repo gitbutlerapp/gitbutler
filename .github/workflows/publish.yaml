@@ -138,7 +138,7 @@ jobs:
         with:
           shared-key: app-release-build-${{ github.event.inputs.channel || 'nightly' }}${{ matrix.target }}${{ matrix.platform }}
       - name: Install Zig
-        uses: ./.github/actions/setup-zig
+        uses: $/.github/actions/setup-zig
       - name: Init Node Environment
         uses: ./.github/actions/init-env-node
 
