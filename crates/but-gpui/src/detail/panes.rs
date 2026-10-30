@@ -77,8 +77,8 @@ impl Detail {
                         let worktree = Selection::uncommitted_in(project.clone(), checkout.clone());
                         crumbs.push((name, Some(worktree.into())));
                     }
-                    if let Some(terminal) = store.terminals.get(*id) {
-                        crumbs.push((terminal.read(cx).title.clone(), None));
+                    if let Some(title) = store.terminals.title(*id) {
+                        crumbs.push((title.clone(), None));
                     }
                 }
                 Selection::Uncommitted(_) => match workspace.and_then(|ws| ws.editing.as_ref()) {

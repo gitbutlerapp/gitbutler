@@ -4,7 +4,7 @@
 
 use std::time::Instant;
 
-use gpui::{Context, Entity, Subscription};
+use gpui::{Context, Entity, SharedString, Subscription};
 
 use super::{ProjectId, Selection, Store};
 use crate::backend::{self, Checkout};
@@ -33,6 +33,7 @@ struct Open {
     project: ProjectId,
     checkout: Checkout,
     terminal: Entity<Terminal>,
+    title: SharedString,
     _events: Subscription,
 }
 
@@ -41,6 +42,14 @@ impl Terminals {
         (self.open.iter())
             .find(|open| open.id == id)
             .map(|open| &open.terminal)
+    }
+
+    /// Kept here so rows can show a terminal without reading it, which would have the window
+    /// draw on all it prints, shown or not.
+    pub fn title(&self, id: TerminalId) -> Option<&SharedString> {
+        (self.open.iter())
+            .find(|open| open.id == id)
+            .map(|open| &open.title)
     }
 
     /// Those open on `project`'s `checkout`, in the order they opened.
@@ -131,16 +140,25 @@ impl Store {
     ) {
         self.terminals.opened = self.terminals.opened.max(id.0);
         let events = cx.subscribe(&terminal, move |store, _, event, cx| match event {
-            TerminalEvent::Retitled => cx.notify(),
+            TerminalEvent::Retitled(title) => store.retitle_terminal(id, title.clone(), cx),
             TerminalEvent::Exited => store.close_terminal(id, cx),
         });
+        let title = terminal.read(cx).title();
         self.terminals.open.push(Open {
             id,
             project,
             checkout,
             terminal,
+            title,
             _events: events,
         });
+    }
+
+    fn retitle_terminal(&mut self, id: TerminalId, title: SharedString, cx: &mut Context<Self>) {
+        if let Some(open) = self.terminals.open.iter_mut().find(|open| open.id == id) {
+            open.title = title;
+            cx.notify();
+        }
     }
 
     /// Hands each terminal's shell over, for the build exec runs next to adopt. One that can't

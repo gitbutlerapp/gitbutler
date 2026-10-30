@@ -1985,14 +1985,7 @@ impl Navigator {
         style: RowStyle,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
-        let title = self
-            .store
-            .read(cx)
-            .terminals
-            .get(id)?
-            .read(cx)
-            .title
-            .clone();
+        let title = self.store.read(cx).terminals.title(id)?.clone();
         let row = style
             .row(format!("terminal-{}", id.0), 6.)
             .text_color(style.muted())

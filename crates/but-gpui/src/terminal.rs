@@ -31,8 +31,8 @@ actions!(terminal, [NewTerminal]);
 pub struct TerminalId(pub(crate) u64);
 
 pub enum TerminalEvent {
-    /// The shell named the terminal something else.
-    Retitled,
+    /// The shell named the terminal this.
+    Retitled(SharedString),
     /// The shell exited.
     Exited,
 }
@@ -41,7 +41,6 @@ pub enum TerminalEvent {
 const TEXT_SIZE: f32 = 13.;
 
 pub struct Terminal {
-    pub title: SharedString,
     tty: Tty,
     ghostty: Ghostty,
     /// Whether the colours set are the dark theme's, once set.
@@ -123,7 +122,6 @@ impl Terminal {
         let output = Rc::new(RefCell::new(output));
         let read = output.clone();
         cx.new(|cx: &mut Context<Self>| Self {
-            title: shown_title(&tty.title()),
             tty,
             ghostty,
             dark: None,
@@ -148,6 +146,10 @@ impl Terminal {
         })
     }
 
+    pub fn title(&self) -> SharedString {
+        shown_title(&self.tty.title())
+    }
+
     /// Stops reading the shell, for another to adopt it, with what it showed until then.
     #[cfg(unix)]
     pub fn detach(&mut self) -> anyhow::Result<Detached> {
@@ -156,8 +158,7 @@ impl Terminal {
 
     fn feed(&mut self, output: &[u8], cx: &mut Context<Self>) {
         if let Some(title) = self.tty.feed(output) {
-            self.title = shown_title(&title);
-            cx.emit(TerminalEvent::Retitled);
+            cx.emit(TerminalEvent::Retitled(shown_title(&title)));
         }
         cx.notify();
     }
