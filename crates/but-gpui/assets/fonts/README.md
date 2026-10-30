@@ -12,8 +12,9 @@ fonttools varLib.instancer Inter-Variable.ttf wght=400 --update-name-table -o In
 Each file is 60 lighter than the design-core weight it stands in for: Regular is 400 for 460,
 Medium 440 for 500 and SemiBold 540 for 600. CoreGraphics, which GPUI rasterizes glyphs with,
 draws the same outlines with stems about half a pixel thicker than Chrome at 2x, in both themes,
-and 60 brings them level with but.dev. Weights 440 and 540 have no named instance, so those files
-are cut without `--update-name-table` and keep the name table and OS/2 weight class of the 500
+and 60 brought them level with but.dev when the client turned macOS font smoothing off, which it
+no longer does, so text now reads heavier there. Weights 440 and 540 have no named instance, so
+those files are cut without `--update-name-table` and keep the name table and OS/2 weight class of the 500
 and 600 instances, which GPUI matches weights by.
 
 Design-core's Inter leaves out the symbols the app's keys are written with (⌘ ⌥ ⇧ ⌃ ↩ ⌫ ⌦ ⇥, and it
