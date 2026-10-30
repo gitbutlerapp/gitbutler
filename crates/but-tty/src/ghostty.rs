@@ -1,9 +1,11 @@
 //! What the embedded terminal takes from the user's Ghostty config: its font size, and the
-//! colours of its light and dark themes.
+//! colours of its light and dark themes. Ghostty's theme files can also be listed and read by
+//! name, to colour the app as a whole.
 
+use std::collections::BTreeSet;
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use libghostty_vt::style::RgbColor;
 
@@ -56,24 +58,30 @@ impl Ghostty {
     /// Reads the config from disk; a missing or unreadable file reads as nothing set.
     pub fn load() -> Self {
         let home = env::var_os("HOME").map(PathBuf::from);
-        let xdg = env::var_os("XDG_CONFIG_HOME")
-            .filter(|dir| !dir.is_empty())
-            .map(PathBuf::from)
-            .or_else(|| home.as_ref().map(|home| home.join(".config")))
-            .map(|dir| dir.join("ghostty"));
         let app_support = home
             .filter(|_| cfg!(target_os = "macos"))
             .map(|home| home.join("Library/Application Support/com.mitchellh.ghostty"));
+        let xdg = config_dir();
         let configs: Vec<String> = (xdg.iter().chain(&app_support))
             .flat_map(|dir| CONFIG_FILES.map(|file| dir.join(file)))
             .filter_map(|path| fs::read_to_string(path).ok())
             .collect();
-        let theme_dirs: Vec<PathBuf> = (xdg.iter().map(|dir| dir.join("themes")))
-            .chain(SYSTEM_THEMES.iter().map(PathBuf::from))
-            .collect();
+        let theme_dirs = theme_dirs();
         Self::parse(configs.iter().map(String::as_str), |name| {
             (theme_dirs.iter()).find_map(|dir| fs::read_to_string(dir.join(name)).ok())
         })
+    }
+
+    /// The name of every theme Ghostty can load, from the user's folder and Ghostty's own,
+    /// sorted and each once. Empty when Ghostty isn't installed.
+    pub fn themes() -> Vec<String> {
+        theme_names(&theme_dirs())
+    }
+
+    /// The colours of the theme called `name`, the user's own before Ghostty's of that name,
+    /// or `None` when there's no such theme.
+    pub fn theme(name: &str) -> Option<Colors> {
+        read_theme(&theme_dirs(), name).map(|text| Colors::parse(&text))
     }
 
     pub fn colors(&self, dark: bool) -> &Colors {
@@ -194,6 +202,46 @@ impl Colors {
     }
 }
 
+/// Ghostty's folder in the user's config.
+fn config_dir() -> Option<PathBuf> {
+    env::var_os("XDG_CONFIG_HOME")
+        .filter(|dir| !dir.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))
+        .map(|dir| dir.join("ghostty"))
+}
+
+/// The folders themes are looked up in, the user's first.
+fn theme_dirs() -> Vec<PathBuf> {
+    (config_dir().map(|dir| dir.join("themes")).into_iter())
+        .chain(SYSTEM_THEMES.iter().map(PathBuf::from))
+        .collect()
+}
+
+fn theme_names(dirs: &[PathBuf]) -> Vec<String> {
+    let names: BTreeSet<String> = dirs
+        .iter()
+        .filter_map(|dir| fs::read_dir(dir).ok())
+        .flatten()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_ok_and(|kind| !kind.is_dir()))
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|name| !name.starts_with('.'))
+        .collect();
+    names.into_iter().collect()
+}
+
+/// The text of the theme file called `name` in the first of `dirs` that has one. A name that
+/// isn't a plain file name finds nothing.
+fn read_theme(dirs: &[PathBuf], name: &str) -> Option<String> {
+    let plain = Path::new(name).file_name().is_some_and(|file| file == name);
+    if !plain || name.starts_with('.') {
+        return None;
+    }
+    dirs.iter()
+        .find_map(|dir| fs::read_to_string(dir.join(name)).ok())
+}
+
 /// The `key = value` lines of a config, split on the first `=`, with quotes taken off values.
 fn entries(text: &str) -> impl Iterator<Item = (&str, &str)> {
     (text.lines().map(str::trim))
@@ -282,5 +330,35 @@ mod tests {
             },
             "light takes its own theme, with the same config override"
         );
+    }
+
+    #[test]
+    fn themes_are_found_by_name_with_the_users_first() -> std::io::Result<()> {
+        let user = tempfile::tempdir()?;
+        let system = tempfile::tempdir()?;
+        fs::write(user.path().join("Night"), "background = #010101")?;
+        fs::write(system.path().join("Night"), "background = #020202")?;
+        fs::write(system.path().join("Day"), "background = #ffffff")?;
+        fs::write(system.path().join(".hidden"), "background = #030303")?;
+        fs::create_dir(system.path().join("folder"))?;
+        let dirs = [user.path().to_owned(), system.path().to_owned()];
+
+        assert_eq!(
+            theme_names(&dirs),
+            ["Day", "Night"],
+            "each name once, sorted, without hidden files or folders"
+        );
+        let night = read_theme(&dirs, "Night").map(|text| Colors::parse(&text));
+        assert_eq!(
+            night.and_then(|colors| colors.background),
+            Some(c(1, 1, 1)),
+            "the user's theme shadows Ghostty's of the same name"
+        );
+        assert_eq!(
+            read_theme(&dirs, "../Night"),
+            None,
+            "a name can't reach outside the theme folders"
+        );
+        Ok(())
     }
 }

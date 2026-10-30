@@ -937,6 +937,11 @@ impl Store {
                 crate::theme::Appearance::Light => "light",
                 crate::theme::Appearance::Dark => "dark",
             },
+            color_scheme: match self.prefs.color_scheme {
+                crate::theme::ColorScheme::GitButler => "gitbutler",
+                crate::theme::ColorScheme::Ghostty => "ghostty",
+                crate::theme::ColorScheme::Named(_) => "named",
+            },
             zoom: f64::from(self.prefs.ui_scale.percent()) / 100.,
             editor: self.prefs.editor.as_deref(),
             ligatures: self.prefs.ligatures,

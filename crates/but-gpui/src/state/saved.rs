@@ -373,6 +373,7 @@ pub(super) struct SavedActivity {
 #[serde(default)]
 pub struct Prefs {
     pub appearance: Appearance,
+    pub color_scheme: crate::theme::ColorScheme,
     /// The editor files open in, by program id. Asked for the first time it's needed.
     pub editor: Option<String>,
     /// The terminal the project opens in, by id.
