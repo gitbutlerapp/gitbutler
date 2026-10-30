@@ -279,7 +279,10 @@ impl Terminal {
         }
         let text = (keystroke.key_char.clone()).filter(|text| !text.chars().any(char::is_control));
         let mut chars = keystroke.key.chars();
-        let unshifted = chars.next().filter(|_| chars.next().is_none());
+        let unshifted = match keystroke.key.as_str() {
+            "space" => Some(' '),
+            _ => chars.next().filter(|_| chars.next().is_none()),
+        };
         let bytes = self
             .vt
             .key(key_for(&keystroke.key), mods(modifiers), text, unshifted);
