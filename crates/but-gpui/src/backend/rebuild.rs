@@ -309,7 +309,10 @@ impl Built {
     /// is the one it was built from, as `cargo run` would have set it, so it offers Build and
     /// restart too. Returns only when that fails.
     #[cfg(unix)]
-    pub fn restart(&self, terminals: Vec<(terminal::Handed, terminal::Kept)>) -> anyhow::Error {
+    pub fn restart<T: serde::Serialize>(
+        &self,
+        terminals: Vec<(T, terminal::Detached)>,
+    ) -> anyhow::Error {
         let mut new = Command::new(&self.exe);
         new.args(std::env::args_os().skip(1))
             .env("CARGO_MANIFEST_DIR", &self.crate_dir)

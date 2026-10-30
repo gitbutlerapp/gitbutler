@@ -230,7 +230,7 @@ fn shell_command(shell: &OsString, cwd: &Path, slave: &OwnedFd) -> io::Result<Co
         .env("COLORTERM", "truecolor")
         .env("TERM_PROGRAM", "GitButler")
         .env_remove("TERMINFO")
-        .env_remove(crate::backend::terminal::handoff::HANDED)
+        .env_remove(super::super::handoff::HANDED)
         .stdin(Stdio::from(slave.try_clone()?))
         .stdout(Stdio::from(slave.try_clone()?))
         .stderr(Stdio::from(slave.try_clone()?));

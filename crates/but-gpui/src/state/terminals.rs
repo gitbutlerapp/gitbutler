@@ -6,7 +6,7 @@ use gpui::{Context, Entity, Subscription};
 
 use super::{ProjectId, Selection, Store};
 #[cfg(unix)]
-use crate::backend::terminal::{Detached, Handed, Kept};
+use crate::backend::terminal::Detached;
 use crate::backend::terminal::{Ghostty, Shell};
 use crate::backend::{self, Checkout};
 use crate::terminal::{Terminal, TerminalEvent, TerminalId};
@@ -15,6 +15,15 @@ use crate::terminal::{Terminal, TerminalEvent, TerminalId};
 pub struct Terminals {
     opened: u64,
     open: Vec<Open>,
+}
+
+/// Where a terminal handed to the next build was open.
+#[cfg(unix)]
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct Handed {
+    project: String,
+    checkout: Checkout,
+    id: u64,
 }
 
 struct Open {
@@ -126,38 +135,33 @@ impl Store {
     /// Hands each terminal's shell over, for the build exec runs next to adopt. One that can't
     /// be is hung up, as the exec closes its master.
     #[cfg(unix)]
-    pub fn hand_off_terminals(&mut self, cx: &mut Context<Self>) -> Vec<(Handed, Kept)> {
+    pub fn hand_off_terminals(&mut self, cx: &mut Context<Self>) -> Vec<(Handed, Detached)> {
         (self.terminals.open.iter())
             .filter_map(|open| {
                 let detached = open.terminal.update(cx, |terminal, _| terminal.detach());
-                let Detached { kept, size, screen } = (detached)
+                let detached = (detached)
                     .inspect_err(|err| tracing::error!("couldn't hand a terminal over: {err:#}"))
                     .ok()?;
                 let handed = Handed {
                     project: open.project.to_string(),
                     checkout: open.checkout.clone(),
                     id: open.id.0,
-                    size,
-                    screen,
                 };
-                Some((handed, kept))
+                Some((handed, detached))
             })
             .collect()
     }
 
     /// Opens the terminals the process this one was before exec handed over, where they were.
     #[cfg(unix)]
-    pub fn adopt_terminals(&mut self, handed: Vec<(Handed, Kept)>, cx: &mut Context<Self>) {
-        for (handed, kept) in handed {
+    pub fn adopt_terminals(&mut self, handed: Vec<(Handed, Detached)>, cx: &mut Context<Self>) {
+        for (handed, detached) in handed {
             let Handed {
                 project,
                 checkout,
                 id,
-                size,
-                screen,
             } = handed;
             let store = cx.weak_entity();
-            let detached = Detached { kept, size, screen };
             match Terminal::adopt(detached, store, cx) {
                 Ok(terminal) => {
                     self.insert_terminal(TerminalId(id), project.into(), checkout, terminal, cx)
