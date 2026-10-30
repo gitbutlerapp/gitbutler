@@ -3049,11 +3049,9 @@ pub(crate) fn with_merged(target: &Target) -> String {
     }
 }
 
-/// How many of `branches`' commits are only local.
+/// How many commits `branches` are ahead of their remote branches by.
 fn unpushed<'a>(branches: impl Iterator<Item = &'a Branch>) -> usize {
-    (branches.flat_map(|branch| &branch.commits))
-        .filter(|commit| commit.state == CommitState::Local)
-        .count()
+    branches.map(Branch::unpushed_commits).sum()
 }
 
 /// A branch as the navigator names it: its pull request's title once the forge cache has one,

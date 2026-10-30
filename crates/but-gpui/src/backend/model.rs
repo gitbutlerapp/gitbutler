@@ -252,9 +252,7 @@ impl Workspace {
     }
 
     pub fn unpushed_commits(&self) -> usize {
-        self.commits()
-            .filter(|commit| commit.state == CommitState::Local)
-            .count()
+        self.all_branches().map(Branch::unpushed_commits).sum()
     }
 }
 
@@ -463,6 +461,17 @@ impl Branch {
         (self.commits.iter()).any(|c| c.state == CommitState::Local)
             || (self.push == PushState::NeverPushed
                 && (self.commits.iter()).any(|c| c.state == CommitState::Pushed))
+    }
+
+    /// How many commits it's ahead of its remote branch by: none until it has one, as a count
+    /// of every commit on a branch never pushed says nothing.
+    pub fn unpushed_commits(&self) -> usize {
+        if self.push == PushState::NeverPushed {
+            return 0;
+        }
+        (self.commits.iter())
+            .filter(|c| c.state == CommitState::Local)
+            .count()
     }
 
     /// What its header says of it against its remote, short of being in the target: what's
@@ -1242,13 +1251,14 @@ mod tests {
             review: None,
         };
         use CommitState::{Integrated, Local, Pushed};
-        for (push, states, incoming, said, can_push, why) in [
+        for (push, states, incoming, said, can_push, unpushed, why) in [
             (
                 PushState::NothingToPush,
                 &[Pushed][..],
                 0,
                 "on the remote",
                 false,
+                0,
                 "in step",
             ),
             (
@@ -1257,6 +1267,7 @@ mod tests {
                 0,
                 "1 to push",
                 true,
+                1,
                 "ahead",
             ),
             (
@@ -1265,6 +1276,7 @@ mod tests {
                 2,
                 "2 to pull",
                 false,
+                0,
                 "only behind",
             ),
             (
@@ -1273,6 +1285,7 @@ mod tests {
                 2,
                 "2 to pull, 1 to push",
                 true,
+                1,
                 "diverged",
             ),
             (
@@ -1281,6 +1294,7 @@ mod tests {
                 0,
                 "rewritten, needs a force push",
                 true,
+                1,
                 "rewritten",
             ),
             (
@@ -1289,6 +1303,7 @@ mod tests {
                 0,
                 "never pushed",
                 true,
+                0,
                 "renamed since it was pushed, its commits there under the old name",
             ),
             (
@@ -1297,7 +1312,17 @@ mod tests {
                 0,
                 "never pushed",
                 false,
+                0,
                 "merged, its remote branch deleted",
+            ),
+            (
+                PushState::NeverPushed,
+                &[Local, Local],
+                0,
+                "never pushed",
+                true,
+                0,
+                "never pushed, with nothing on the remote to be ahead of",
             ),
         ] {
             let branch = branch(push, states, incoming);
@@ -1306,6 +1331,11 @@ mod tests {
                 branch.can_push(),
                 can_push,
                 "{why}: whether it has commits to send"
+            );
+            assert_eq!(
+                branch.unpushed_commits(),
+                unpushed,
+                "{why}: how many commits it's ahead of its remote branch by"
             );
         }
     }
