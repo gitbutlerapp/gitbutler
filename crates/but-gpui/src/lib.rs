@@ -22,6 +22,7 @@
 mod app;
 #[expect(clippy::disallowed_methods, reason = "its work runs off the UI thread")]
 mod backend;
+mod commands;
 mod detail;
 #[cfg(feature = "dev-script")]
 #[expect(
@@ -255,12 +256,12 @@ pub fn run(embedded: Option<Embedded>) {
             let set_menus = move |cx: &mut App| {
                 let mut app_menu = vec![MenuItem::action("About GitButler", help::About)];
                 if has_update_feed {
-                    app_menu.push(MenuItem::action("Check for Updates…", app::CheckForUpdates));
+                    app_menu.push(MenuItem::action("Check for Updates", app::CheckForUpdates));
                 }
                 cx.set_menus([
                     Menu::new("GitButler").items(app_menu.into_iter().chain([
                         MenuItem::separator(),
-                        MenuItem::action("Settings…", settings::OpenSettings),
+                        MenuItem::action("Settings", settings::OpenSettings),
                         MenuItem::separator(),
                         MenuItem::os_submenu("Services", SystemMenuType::Services),
                         MenuItem::separator(),
@@ -271,8 +272,8 @@ pub fn run(embedded: Option<Embedded>) {
                         MenuItem::action("Quit GitButler", app::Quit),
                     ])),
                     Menu::new("File").items([
-                        MenuItem::action("Add Project…", app::AddProject),
-                        MenuItem::action("Clone Repository…", projects::CloneRepository),
+                        MenuItem::action("Add Project", app::AddProject),
+                        MenuItem::action("Clone Repository", projects::CloneRepository),
                         MenuItem::action("New Terminal", terminal::NewTerminal),
                         MenuItem::separator(),
                         MenuItem::action("Close Window", app::CloseWindow),
@@ -291,7 +292,7 @@ pub fn run(embedded: Option<Embedded>) {
                         MenuItem::action("What's New", help::OpenReleaseNotes),
                         MenuItem::action("Keyboard Shortcuts", settings::OpenKeyboardShortcuts),
                         MenuItem::separator(),
-                        MenuItem::action("Report an Issue…", help::ReportIssue),
+                        MenuItem::action("Report an Issue", help::ReportIssue),
                         MenuItem::action("Show Settings Folder", help::ShowConfigFolder),
                         MenuItem::action("Show Logs Folder", help::ShowLogsFolder),
                     ]),

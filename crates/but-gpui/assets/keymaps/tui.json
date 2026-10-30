@@ -43,11 +43,10 @@
       "secondary-shift-r": "remote::Pull"
     }
   },
-  // The TUI's status list: up and down, ⇧J and ⇧K between sections, g and ⇧G to either end. r
-  // renames, where the TUI's squashes, and n adds an empty commit above the selected one, or on
-  // top of the selected branch. m moves the selected commit, as the TUI's m does. Return folds
-  // or unfolds what the selected row heads: a card, a section, a worktree, a stack, a branch or
-  // a merge.
+  // The TUI's status list: up and down, ⇧J and ⇧K between sections, g and ⇧G to either end. n
+  // adds an empty commit above the selected one, or on top of the selected branch. m moves the
+  // selected commit, as the TUI's m does. Return folds or unfolds what the selected row heads: a
+  // card, a section, a worktree, a stack, a branch or a merge.
   {
     "context": "Navigator && !TextInput",
     "bindings": {
@@ -59,7 +58,6 @@
       "shift-j": "navigator::NextSection",
       "g": "navigator::SelectFirst",
       "shift-g": "navigator::SelectLast",
-      "r": "navigator::RenameSelection",
       "n": "edits::AddEmptyCommitAbove",
       "m": "navigator::MoveSelection",
       "enter": "navigator::ToggleFold"
@@ -70,6 +68,20 @@
   {
     "context": "Navigator && Moving && !TextInput",
     "bindings": { "enter": "navigator::MoveHere" }
+  },
+  // r rewords a commit, renames a branch and names the unnamed one, where the TUI's squashes: a
+  // section apiece, as the key runs the one the selection has.
+  {
+    "context": "Navigator && !TextInput",
+    "bindings": { "r": "edits::Reword" }
+  },
+  {
+    "context": "Navigator && !TextInput",
+    "bindings": { "r": "edits::RenameBranch" }
+  },
+  {
+    "context": "Navigator && !TextInput",
+    "bindings": { "r": "edits::NameBranch" }
   },
   // The TUI's details: j and k between hunks, ⌃D and ⌃U half a page, g and ⇧G to the first and
   // last file. Return on a file's header folds or unfolds it, as on its row in the file list.
@@ -156,6 +168,22 @@
       "down": "palette::PaletteDown",
       "ctrl-p": "palette::PaletteUp",
       "ctrl-n": "palette::PaletteDown"
+    }
+  },
+  // ⇧F10 opens the selected row's right-click menu, as on Windows and Linux and in VS Code.
+  {
+    "context": "Workspace && !TextInput",
+    "bindings": { "shift-f10": "app::ShowContextMenu" }
+  },
+  // A right-click menu's items, as Settings' pages: Return runs the one the keys are on.
+  {
+    "context": "ContextMenu",
+    "bindings": {
+      "up": "navigator::SelectPrevious",
+      "k": "navigator::SelectPrevious",
+      "down": "navigator::SelectNext",
+      "j": "navigator::SelectNext",
+      "enter": "navigator::Confirm"
     }
   },
   // Settings' pages, from its search box too, as the palette's list is.

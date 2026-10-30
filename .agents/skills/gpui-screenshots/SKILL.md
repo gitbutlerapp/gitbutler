@@ -66,8 +66,8 @@ checkout.
 
 `KEYS Workspace > Navigator > TextInput` says what typing reaches: here a text field in the
 navigator. Check it before `type` or a single-letter `key`. In a list or the diff, letters run
-shortcuts, so a query typed there makes branches (b), pushes (⇧P), opens menus (m), or opens
-the user's editor on their screen (e) instead. After `add` the navigator has the keys, so click
+shortcuts, so a query typed there makes branches (b), pushes (⇧P), or opens the user's editor
+on their screen (e) instead. After `add` the navigator has the keys, so click
 the field you mean first. In a `run` script, a `keys` line prints the same.
 
 ## Coordinates

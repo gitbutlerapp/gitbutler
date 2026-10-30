@@ -6,7 +6,7 @@ use std::cmp::Reverse;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, DragMoveEvent, Pixels, Point, SharedString,
-    Stateful, Window, div, prelude::*,
+    Stateful, Window, actions, div, prelude::*,
 };
 
 use super::Navigator;
@@ -17,6 +17,48 @@ use crate::state::{Prefs, ProjectEntry, ProjectId, Store, WatchedOrder};
 use crate::theme::Theme;
 use crate::transfer::{drag_pill, pill_label};
 use crate::ui::{Icon, dp, icon_button, small_icon};
+
+actions!(
+    navigator,
+    [
+        SortProjectsByActivity,
+        SortProjectsByName,
+        ShowAllProjects,
+        ShowActiveProjects,
+    ]
+);
+
+impl AppView {
+    /// Register how the projects not watched are listed, their order and which show, and the
+    /// branches the Branches page lists: from anywhere, as the menus with them are buttons'.
+    pub(crate) fn project_list_actions(
+        &self,
+        el: Stateful<Div>,
+        cx: &Context<Self>,
+    ) -> Stateful<Div> {
+        fn set<A: gpui::Action>(
+            el: Stateful<Div>,
+            update: fn(&mut Prefs),
+            cx: &Context<AppView>,
+        ) -> Stateful<Div> {
+            el.on_action(cx.listener(move |this, _: &A, _, cx| {
+                (this.store).update(cx, |store, cx| store.set_prefs(update, cx))
+            }))
+        }
+        let el = set::<SortProjectsByActivity>(el, |p| p.projects_by_activity = true, cx);
+        let el = set::<SortProjectsByName>(el, |p| p.projects_by_activity = false, cx);
+        let el = set::<ShowAllProjects>(el, |p| p.active_projects_only = false, cx);
+        set::<ShowActiveProjects>(el, |p| p.active_projects_only = true, cx).on_action(cx.listener(
+            |this, _: &crate::detail::ShowOnlyLocalBranches, _, cx| {
+                (this.store).update(cx, |store, cx| {
+                    store.set_prefs(|p| p.branches_local_only = !p.branches_local_only, cx)
+                });
+                // The branch opened may have just been filtered out.
+                (this.detail).update(cx, |detail, cx| detail.select_shown_branch(cx));
+            },
+        ))
+    }
+}
 
 impl Navigator {
     /// The watched projects, in the order picked.
@@ -75,36 +117,24 @@ impl Navigator {
             set("Last activity", WatchedOrder::Activity),
             fold("Fold all", true).separated(),
             fold("Unfold all", false),
-            MenuItem::action("Settings…", &crate::settings::OpenSettings, cx).separated(),
+            MenuItem::command(&crate::settings::OpenSettings, cx).separated(),
         ]
     }
 
     /// How the projects not expanded are listed, with headed choices as ui-react's view
     /// options menu has them: their order, and which to show.
     pub(super) fn view_options(&self, cx: &App) -> Vec<MenuItem> {
-        fn set(
-            update: fn(&mut Prefs),
-        ) -> impl Fn(&mut AppView, &mut Window, &mut Context<AppView>) {
-            move |app, _, cx| {
-                app.store
-                    .update(cx, |store, cx| store.set_prefs(update, cx))
-            }
-        }
         let prefs = &self.store.read(cx).prefs;
         let (by_activity, active_only) = (prefs.projects_by_activity, prefs.active_projects_only);
         vec![
-            MenuItem::new("Last activity", set(|p| p.projects_by_activity = true))
+            MenuItem::command(&SortProjectsByActivity, cx)
                 .under("Sort by")
                 .ticked(by_activity),
-            MenuItem::new("Name", set(|p| p.projects_by_activity = false)).ticked(!by_activity),
-            MenuItem::new("All", set(|p| p.active_projects_only = false))
+            MenuItem::command(&SortProjectsByName, cx).ticked(!by_activity),
+            MenuItem::command(&ShowAllProjects, cx)
                 .under("Show")
                 .ticked(!active_only),
-            MenuItem::new(
-                "Active in the last 7 days",
-                set(|p| p.active_projects_only = true),
-            )
-            .ticked(active_only),
+            MenuItem::command(&ShowActiveProjects, cx).ticked(active_only),
         ]
     }
 

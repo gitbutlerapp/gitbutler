@@ -107,8 +107,8 @@ fn command_row(
 /// The commands the page lists: the palette's, then every other action a key runs, named after
 /// its own name.
 fn commands(cx: &App) -> Vec<(SharedString, Box<dyn Action>)> {
-    let mut listed: Vec<(SharedString, Box<dyn Action>)> = (crate::palette::COMMANDS.iter())
-        .map(|(title, action)| (SharedString::from(*title), action.boxed_clone()))
+    let mut listed: Vec<(SharedString, Box<dyn Action>)> = (crate::commands::COMMANDS.iter())
+        .map(|command| (SharedString::from(command.title()), command.boxed_clone()))
         .collect();
     let mut names: HashSet<&'static str> = listed.iter().map(|(_, a)| a.name()).collect();
     let keymap = cx.key_bindings();
@@ -125,8 +125,8 @@ fn commands(cx: &App) -> Vec<(SharedString, Box<dyn Action>)> {
 /// What the palette calls the action named `name`, or its name in words: `navigator::SelectNext`
 /// is "Select next".
 fn title_of(name: &str) -> String {
-    if let Some((title, _)) = (crate::palette::COMMANDS.iter()).find(|(_, a)| a.name() == name) {
-        return (*title).to_owned();
+    if let Some(command) = (crate::commands::COMMANDS.iter()).find(|c| c.name() == name) {
+        return command.title().to_owned();
     }
     let last = name.rsplit("::").next().unwrap_or(name);
     let mut words = String::new();
@@ -197,8 +197,8 @@ mod tests {
             "words from the name"
         );
         assert_eq!(
-            title_of("remote::Push"),
-            "Push branch",
+            title_of("remote::UpdateFromTarget"),
+            "Update workspace and worktrees",
             "the palette's own title first"
         );
     }
