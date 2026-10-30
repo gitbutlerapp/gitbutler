@@ -50,22 +50,6 @@ mod transfer;
 mod ui;
 mod whats_new;
 
-/// Draw text as GitButler's web apps do, with `-webkit-font-smoothing: antialiased`. Unless the
-/// app's `AppleFontSmoothing` says otherwise, GPUI thickens glyph strokes the way macOS font
-/// smoothing would, lighter text more, so the same fonts read heavier here than in but.dev.
-/// A registered default lives in memory only and is never written to the app's preferences.
-#[cfg(target_os = "macos")]
-fn draw_text_unsmoothed() {
-    use objc2_foundation::{NSDictionary, NSNumber, NSString, NSUserDefaults};
-
-    let key = NSString::from_str("AppleFontSmoothing");
-    let off = NSNumber::numberWithInt(0);
-    let defaults =
-        NSDictionary::<NSString, objc2::runtime::AnyObject>::from_slices(&[&*key], &[off.as_ref()]);
-    // SAFETY: the dictionary maps strings to objects, as `registerDefaults:` takes.
-    unsafe { NSUserDefaults::standardUserDefaults().registerDefaults(&defaults) };
-}
-
 /// What the desktop app's binary gives the client when it starts it instead of its web one.
 #[derive(Clone)]
 pub struct Embedded {
@@ -203,8 +187,6 @@ pub fn run(embedded: Option<Embedded>) {
         os = std::env::consts::OS,
         "starting the GPUI client"
     );
-    #[cfg(target_os = "macos")]
-    draw_text_unsmoothed();
 
     // Before anything starts a process that would inherit their masters.
     #[cfg(unix)]
