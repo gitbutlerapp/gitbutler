@@ -332,17 +332,35 @@ pub fn overview(path: &Path, now: i64) -> Result<Option<Overview>> {
     // People go by the names and emails `.mailmap` gives them, as one with a work and a
     // personal email is one person.
     let mailmap = repo.open_mailmap();
-    // A walk of first parents only ignores a time cutoff, so it stops at the first commit
-    // from before the window itself rather than reading the whole history.
-    let line: Vec<_> = (repo.rev_walk([tip.id]).first_parent_only().all()?)
+    // A walk of first parents only ignores a time cutoff, so it stops itself rather than
+    // reading the whole history. One commit from before the window doesn't stop it, as a
+    // test's fixed clock can date one wrong with the window going on past it, but a run of
+    // `OLD_RUN` does. One with a commit from the window after it stays in the line, so a later
+    // merge doesn't take what it brought.
+    const OLD_RUN: usize = 64;
+    let mut line = Vec::new();
+    let mut old = 0;
+    for commit in (repo.rev_walk([tip.id]).first_parent_only().all()?)
         .filter_map(|info| info.ok()?.object().ok())
-        .take_while(|commit| commit.time().is_ok_and(|time| time.seconds >= since))
-        .collect();
+    {
+        match commit.time().is_ok_and(|time| time.seconds >= since) {
+            true => old = 0,
+            false if old + 1 == OLD_RUN => break,
+            false => old += 1,
+        }
+        line.push(commit);
+    }
+    line.truncate(line.len() - old);
     let mut brought = brought_in(&repo, tip.id, &line)?;
+    // One dated before the window, or with no date to read, counts on the day the commit
+    // after it merged, as it was on the line by then.
+    let mut later = ACTIVITY_DAYS - 1;
     for merged in &line {
-        let day = merged.time().map_or(first_day, |time| day_of(time.seconds));
-        // A clock ahead of this one counts as today.
-        let day = ((day - first_day) as usize).min(ACTIVITY_DAYS - 1);
+        let day = (merged.time().ok())
+            .and_then(|time| usize::try_from(day_of(time.seconds) - first_day).ok())
+            // A clock ahead of this one counts as today.
+            .map_or(later, |day| day.min(ACTIVITY_DAYS - 1));
+        later = day;
         if let Some(count) = daily.get_mut(day) {
             *count += 1;
         }
@@ -525,10 +543,12 @@ fn merge_of(
     let written = (own.clone())
         .filter_map(|c| Some(c.author().ok()?.time().ok()?.seconds))
         .min();
+    // None for a merge a wrong clock dated before what it brought.
     let took = (merged.time().ok())
         .zip(written)
         .filter(|_| merge)
-        .map(|(t, w)| t.seconds - w);
+        .map(|(t, w)| t.seconds - w)
+        .filter(|took| *took >= 0);
     let by = (own.clone().next())
         .and_then(|c| super::commit_byline(mailmap, c).ok())
         .map(|((_, email), _)| email.to_lowercase());
@@ -1505,6 +1525,57 @@ refs/heads/wt
                 "{at} falls on {here} here, by that day's offset from UTC"
             );
         }
+    }
+
+    #[test]
+    fn a_commit_dated_before_the_window_does_not_end_it() {
+        but_testsupport::isolated_app_data_dir(|| {
+            use std::process::Command;
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path();
+            let git = |args: &[&str], at: i64| {
+                let date = format!("@{at} +0000");
+                let out = Command::new("git")
+                    .current_dir(path)
+                    .args(["-c", "commit.gpgsign=false", "-c", "user.name=Ann"])
+                    .args(["-c", "user.email=ann@example.com"])
+                    .args(args)
+                    .env("GIT_AUTHOR_DATE", &date)
+                    .env("GIT_COMMITTER_DATE", &date)
+                    .output()
+                    .unwrap();
+                assert!(out.status.success(), "git {args:?}: {out:?}");
+            };
+            let now = 2_000_000_000;
+            let commit = |at: i64| git(&["commit", "-q", "--allow-empty", "-m", "c"], at);
+            git(&["init", "-q", "-b", "main"], now);
+            commit(now - 40 * DAY);
+            commit(now - 20 * DAY);
+            git(&["checkout", "-q", "-b", "side"], now - 10 * DAY);
+            commit(now - 10 * DAY);
+            git(&["checkout", "-q", "main"], now - 10 * DAY);
+            // Merged by a test's fixed clock, after the one 20 days ago.
+            git(&["merge", "-q", "--no-ff", "-m", "merge side", "side"], 100);
+            commit(now - 5 * DAY);
+
+            crate::backend::settings::set_target(path, &full("refs/heads/main")).unwrap();
+            let summed = overview(path, now).unwrap().expect("a target");
+            let counted: Vec<(usize, u32)> = (summed.daily.iter().copied().enumerate())
+                .filter(|(_, n)| *n > 0)
+                .collect();
+            assert_eq!(
+                counted,
+                [(ACTIVITY_DAYS - 21, 1), (ACTIVITY_DAYS - 6, 2)],
+                "the walk goes on past the merge dated 1970, which counts on the day the one \
+                 after it merged, and stops before the commit from before the window"
+            );
+            let merge = &summed.merges[1];
+            assert_eq!(
+                (merge.title.as_str(), merge.commits, merge.took),
+                ("merge side", 1, None),
+                "the merge dated 1970 keeps what it brought, and took no time it can say"
+            );
+        })
     }
 
     #[test]
