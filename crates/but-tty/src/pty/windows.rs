@@ -94,6 +94,12 @@ impl Pty {
         Ok((Pty { input, console }, output))
     }
 
+    // ponytail: a pseudoconsole doesn't say who's in front, so a program that dies blocked shows
+    // blocked until the terminal closes; walk the console's processes if that's seen.
+    pub fn shell_in_front(&self) -> bool {
+        false
+    }
+
     /// Sends input to the shell, once it reads what was sent before.
     pub fn write(&self, bytes: &[u8]) -> io::Result<()> {
         (self.input.send(bytes.to_vec())).map_err(|_| io::ErrorKind::BrokenPipe.into())

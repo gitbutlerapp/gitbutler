@@ -18,7 +18,7 @@ use pty::Kept;
 use pty::Pty;
 pub use pty::{Output, Size};
 use vt::Vt;
-pub use vt::{Cursor, Frame, Row, Style};
+pub use vt::{Cursor, Frame, Row, Status, Style};
 
 pub use libghostty_vt::key::{Key, Mods};
 pub use libghostty_vt::mouse;
@@ -45,6 +45,7 @@ pub struct Detached {
     kept: Kept,
     size: Size,
     screen: String,
+    status: Status,
 }
 
 /// The user's shell with the emulator reading what it writes. Positions are on the surface:
@@ -52,22 +53,30 @@ pub struct Detached {
 pub struct Terminal {
     pty: Pty,
     vt: Vt,
+    status: Status,
 }
 
 impl Terminal {
     pub fn new(shell: Shell) -> anyhow::Result<(Self, Output)> {
         let Shell { pty, output, size } = shell;
         let vt = Vt::new(size)?;
-        Ok((Self { pty, vt }, output))
+        let status = Status::default();
+        Ok((Self { pty, vt, status }, output))
     }
 
     /// Takes over a shell another terminal detached, showing what it showed.
     #[cfg(unix)]
     pub fn adopt(detached: Detached) -> anyhow::Result<(Self, Output)> {
-        let Detached { kept, size, screen } = detached;
+        let Detached {
+            kept,
+            size,
+            screen,
+            status,
+        } = detached;
         let (pty, output) = Pty::adopt(kept)?;
         let (mut terminal, output) = Self::new(Shell { pty, output, size })?;
         terminal.feed(screen.as_bytes());
+        terminal.status = status;
         Ok((terminal, output))
     }
 
@@ -78,11 +87,13 @@ impl Terminal {
         let kept = self.pty.keep()?;
         let left = output.waiting();
         self.feed(&left);
+        self.restatused();
         let screen = String::from_utf8_lossy(&self.vt.screen()?).into_owned();
         Ok(Detached {
             kept,
             size: self.vt.size(),
             screen,
+            status: self.status.clone(),
         })
     }
 
@@ -100,6 +111,33 @@ impl Terminal {
         let replies = self.vt.take_replies();
         self.send(&replies);
         self.vt.retitled()
+    }
+
+    pub fn status(&self) -> &Status {
+        &self.status
+    }
+
+    /// The status, if it changed since this was last asked: what the program running reported,
+    /// or idle once it's gone without saying, as being at work or blocked lasts only as long as
+    /// it does.
+    pub fn restatused(&mut self) -> Option<Status> {
+        let reported = self.vt.reported().unwrap_or_else(|| self.status.clone());
+        let status = match reported {
+            Status::Working | Status::Blocked(_) if self.pty.shell_in_front() => Status::Idle,
+            status => status,
+        };
+        (status != self.status).then(|| {
+            self.status = status.clone();
+            status
+        })
+    }
+
+    /// The status once the user has seen the terminal, to whom a result is then no news.
+    pub fn seen(&mut self) -> Status {
+        if matches!(self.status, Status::Done | Status::Failed(_)) {
+            self.status = Status::Idle;
+        }
+        self.status.clone()
     }
 
     pub fn resize(&mut self, size: Size) {
@@ -201,5 +239,44 @@ impl Terminal {
         if !bytes.is_empty() {
             self.pty.write(bytes).ok();
         }
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use std::time::{Duration, Instant};
+
+    use super::{Shell, Size, Status, Terminal};
+
+    const SIZE: Size = Size {
+        cols: 80,
+        rows: 24,
+        cell_width: 8,
+        cell_height: 16,
+    };
+
+    #[test]
+    fn a_program_killed_while_working_leaves_the_terminal_idle() {
+        let shell = Shell::spawn(&std::env::temp_dir(), SIZE).unwrap();
+        let (mut terminal, mut output) = Terminal::new(shell).unwrap();
+        terminal.input(br#"sh -c "printf '\033]7501;state=working\033\\'; sleep 1; kill -9 \$\$""#);
+        terminal.input(b"\n");
+
+        let started = Instant::now();
+        let mut told = Vec::new();
+        while told.last() != Some(&Status::Idle) {
+            assert!(
+                started.elapsed() < Duration::from_secs(20),
+                "it should say idle after working, but said {told:?}"
+            );
+            terminal.feed(&output.waiting());
+            told.extend(terminal.restatused());
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert_eq!(
+            told,
+            [Status::Working, Status::Idle],
+            "the shell taking the terminal back ends what the program said"
+        );
     }
 }

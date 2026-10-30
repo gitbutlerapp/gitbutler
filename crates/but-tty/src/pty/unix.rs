@@ -141,6 +141,13 @@ impl Pty {
         })
     }
 
+    /// Whether the shell has the terminal, rather than a job it's running.
+    pub fn shell_in_front(&self) -> bool {
+        (self.master.as_ref())
+            // SAFETY: `master` is open while it's borrowed.
+            .is_some_and(|master| unsafe { libc::tcgetpgrp(master.as_raw_fd()) } == self.shell)
+    }
+
     /// Sends input to the shell, once it reads what was sent before.
     pub fn write(&self, bytes: &[u8]) -> io::Result<()> {
         if self.master.is_none() {

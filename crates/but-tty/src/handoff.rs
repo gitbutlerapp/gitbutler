@@ -10,7 +10,7 @@ use std::process::{self, Command};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use super::{Detached, Kept, Size};
+use super::{Detached, Kept, Size, Status};
 
 /// `pid:fd`, the descriptor of an unlinked file listing them, so nothing is left on disk.
 /// Exec keeps the pid; another process given the variable finds it isn't its own.
@@ -22,6 +22,9 @@ struct Written<T> {
     label: T,
     size: Size,
     screen: String,
+    /// Absent from a build from before terminals had one.
+    #[serde(default)]
+    status: Status,
     master: RawFd,
     shell: libc::pid_t,
 }
@@ -40,6 +43,7 @@ pub fn hand_over<T: Serialize>(
                 label,
                 size: detached.size,
                 screen: detached.screen,
+                status: detached.status,
                 master,
                 shell,
             }
@@ -94,6 +98,7 @@ pub fn handed<T: DeserializeOwned>() -> Vec<(T, Detached)> {
                 kept,
                 size: written.size,
                 screen: written.screen,
+                status: written.status,
             };
             Some((written.label, detached))
         })
