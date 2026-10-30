@@ -256,6 +256,23 @@ mod tests {
     };
 
     #[test]
+    fn a_result_stays_through_a_handover_until_it_is_seen() {
+        let shell = Shell::spawn(&std::env::temp_dir(), SIZE).unwrap();
+        let (mut terminal, mut output) = Terminal::new(shell).unwrap();
+        terminal.feed(b"\x1b]7501;state=done\x07");
+        terminal.restatused();
+
+        let detached = terminal.detach(&mut output).unwrap();
+        let (mut adopted, _output) = Terminal::adopt(detached).unwrap();
+        assert_eq!(
+            adopted.status(),
+            &Status::Done,
+            "programs only say what changed, so the next build can't learn it again"
+        );
+        assert_eq!(adopted.seen(), Status::Idle, "seen, a result is no news");
+    }
+
+    #[test]
     fn a_program_killed_while_working_leaves_the_terminal_idle() {
         let shell = Shell::spawn(&std::env::temp_dir(), SIZE).unwrap();
         let (mut terminal, mut output) = Terminal::new(shell).unwrap();
