@@ -9,11 +9,11 @@ use std::time::Duration;
 use futures::StreamExt;
 use futures::channel::mpsc;
 use gpui::{
-    App, Context, CursorStyle, DispatchPhase, Entity, EventEmitter, FocusHandle, Focusable,
-    FontWeight, HighlightStyle, HitboxBehavior, Hsla, KeyDownEvent, Modifiers, MouseButton,
-    MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, Point, Rgba, ScrollWheelEvent,
-    SharedString, StrikethroughStyle, StyledText, Task, UnderlineStyle, WeakEntity, Window,
-    actions, canvas, div, prelude::*,
+    App, ClipboardItem, Context, CursorStyle, DispatchPhase, Entity, EventEmitter, FocusHandle,
+    Focusable, FontWeight, HighlightStyle, HitboxBehavior, Hsla, KeyDownEvent, Modifiers,
+    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, Point, Rgba,
+    ScrollWheelEvent, SharedString, StrikethroughStyle, StyledText, Task, UnderlineStyle,
+    WeakEntity, Window, actions, canvas, div, prelude::*,
 };
 use libghostty_vt::fmt::{Format, Formatter, FormatterOptions};
 use libghostty_vt::key::{self, Key, Mods};
@@ -247,11 +247,22 @@ impl Terminal {
     fn key_down(&mut self, event: &KeyDownEvent, _: &mut Window, cx: &mut Context<Self>) {
         let keystroke = &event.keystroke;
         let modifiers = keystroke.modifiers;
-        // ⌘ chords stay the app's, but for pasting and, as Ghostty sends them on macOS, deleting
-        // to the line's start and going to either end.
+        // ⌘ chords stay the app's, but for copying, selecting all and pasting and, as Ghostty
+        // sends them on macOS, deleting to the line's start and going to either end.
         if modifiers.platform {
             let alone = !(modifiers.shift || modifiers.alt || modifiers.control);
             let bytes = match keystroke.key.as_str() {
+                "c" if alone => {
+                    if let Some(text) = self.vt.selected() {
+                        cx.write_to_clipboard(ClipboardItem::new_string(text));
+                    }
+                    None
+                }
+                "a" if alone => {
+                    self.vt.select_all();
+                    cx.notify();
+                    None
+                }
                 "v" => (cx.read_from_clipboard())
                     .and_then(|item| item.text())
                     .map(|text| self.vt.paste(&text)),
@@ -818,6 +829,28 @@ impl Vt {
         (self.release).apply(&mut self.selecting, &self.term, Some(cell))
     }
 
+    /// What's selected, as Ghostty copies it: lines the terminal wrapped joined again, and
+    /// without the blanks trailing each.
+    fn selected(&self) -> Option<String> {
+        let selection = self.term.selection().ok()??;
+        let options = FormatterOptions::new()
+            .with_format(Format::Plain)
+            .with_unwrap(true)
+            .with_trim(true)
+            .with_selection(&selection);
+        let text = Formatter::new(&self.term, options)
+            .ok()?
+            .format_alloc(None)
+            .ok()?;
+        Some(String::from_utf8_lossy(&text).into_owned())
+    }
+
+    fn select_all(&mut self) {
+        if let Ok(Some(all)) = self.term.select_all() {
+            self.term.set_selection(Some(&all)).ok();
+        }
+    }
+
     /// Whether the selection's drag went past the top or bottom, for the viewport to follow.
     fn autoscrolling(&self) -> bool {
         (self.selecting.autoscroll(&self.term)).is_ok_and(|to| to != gesture::Autoscroll::None)
@@ -1346,6 +1379,24 @@ mod tests {
         );
         vt.select_release(row(-1.), size).unwrap();
         assert!(!vt.autoscrolling(), "letting go stops it");
+    }
+
+    #[test]
+    fn copying_all_joins_what_the_terminal_wrapped() {
+        let size = Size {
+            cols: 10,
+            rows: 4,
+            ..Terminal::OPENING
+        };
+        let mut vt = Vt::new(size).unwrap();
+        assert_eq!(vt.selected(), None, "nothing is selected to copy");
+        vt.write(b"0123456789abc  \r\nend");
+        vt.select_all();
+        assert_eq!(
+            vt.selected().as_deref(),
+            Some("0123456789abc\nend"),
+            "a line wrapped at the edge copies as one, with no trailing blanks or rows"
+        );
     }
 
     fn plain(vt: &Vt) -> String {
