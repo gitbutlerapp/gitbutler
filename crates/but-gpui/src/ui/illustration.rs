@@ -110,12 +110,27 @@ mod tests {
     use super::{Illustration, draw};
 
     #[test]
-    fn every_drawing_draws_in_both_themes() {
-        use crate::theme::{Appearance, CodeSize, Theme};
+    fn every_drawing_draws_in_every_theme() {
+        use crate::theme::{Appearance, CodeSize, ColorScheme, Theme};
         let renderer = gpui::SvgRenderer::new(std::sync::Arc::new(crate::ui::Assets));
-        for choice in [Appearance::Light, Appearance::Dark] {
+        let rgb = |r, g, b| but_tty::RgbColor { r, g, b };
+        let dark_scheme = but_tty::Colors {
+            background: Some(rgb(0x1e, 0x1e, 0x2e)),
+            foreground: Some(rgb(0xcd, 0xd6, 0xf4)),
+            ..Default::default()
+        };
+        let ghostty = but_tty::Ghostty {
+            font_size: None,
+            light: Default::default(),
+            dark: dark_scheme,
+        };
+        for (choice, scheme) in [
+            (Appearance::Light, ColorScheme::GitButler),
+            (Appearance::Dark, ColorScheme::GitButler),
+            (Appearance::Dark, ColorScheme::Ghostty),
+        ] {
             let system = gpui::WindowAppearance::Light;
-            let theme = Theme::for_appearance(choice, system, CodeSize::Medium);
+            let theme = Theme::new(choice, &scheme, system, CodeSize::Medium, &ghostty);
             for which in [
                 Illustration::Cactus,
                 Illustration::Papers,

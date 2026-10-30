@@ -760,9 +760,9 @@ pub fn checkbox(id: impl Into<ElementId>, check: Toggled, theme: &Theme) -> Stat
             Toggled::True => el.child(
                 small_icon(Icon::Tick)
                     .size(dp(10.))
-                    .text_color(gpui::white()),
+                    .text_color(theme.on_pop),
             ),
-            Toggled::Mixed => el.child(div().w(dp(8.)).h(dp(2.)).rounded(dp(1.)).bg(gpui::white())),
+            Toggled::Mixed => el.child(div().w(dp(8.)).h(dp(2.)).rounded(dp(1.)).bg(theme.on_pop)),
             Toggled::False => el,
         })
 }
@@ -1003,7 +1003,7 @@ impl RenderOnce for Button {
                 theme.fill_gray.opacity(0.16),
             ),
             ButtonStyle::Pop => (
-                gpui::white(),
+                theme.on_pop,
                 Some(theme.pop_button),
                 None,
                 theme.pop_button.opacity(0.9),

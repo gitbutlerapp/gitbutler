@@ -22,7 +22,7 @@ use crate::app::{AppHandle, AppView, SelectNext, SelectPrevious};
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
 use crate::overlays::MenuItem;
 use crate::state::{Prefs, ProjectEntry, ProjectId, ScopeLines, Store};
-use crate::theme::{Appearance, CodeSize, Theme, UiScale};
+use crate::theme::{Appearance, CodeSize, ColorScheme, Theme, UiScale};
 use crate::ui::fold::{self, Folds};
 use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
@@ -550,9 +550,27 @@ impl SettingsView {
         );
         let appearance = Row::new(
             "Appearance",
-            "Light, dark, or whichever macOS is set to.",
+            match &prefs.color_scheme {
+                ColorScheme::Named(_) => "Your colour scheme is light or dark itself.",
+                ColorScheme::GitButler | ColorScheme::Ghostty => {
+                    "Light, dark, or whichever macOS is set to."
+                }
+            },
             appearance,
         );
+        let app = self.app.clone();
+        let scheme = dropdown("color-scheme", prefs.color_scheme.label().to_owned(), theme)
+            .on_click(move |_, window, cx| {
+                app.update_later(window, cx, |app, window, cx| {
+                    app.pick_color_scheme(window, cx)
+                })
+            });
+        let scheme = Row::new(
+            "Colour scheme",
+            "GitButler's colours, or a Ghostty theme for the app and its terminals alike.",
+            scheme,
+        )
+        .with_keywords("color theme ghostty");
         let percent = |scale: UiScale| format!("{}%", scale.percent());
         let size = self.choice(
             "ui-scale",
@@ -690,11 +708,11 @@ impl SettingsView {
         );
         let terminal = Row::new(
             "Text size",
-            "How large text shows in terminals opened here. Their colours follow your Ghostty config.",
+            "How large text shows in terminals opened here. Their colours follow the colour scheme.",
             terminal_text,
         );
         vec![
-            Card::new(None, vec![appearance, size]),
+            Card::new(None, vec![scheme, appearance, size]),
             Card::new(Some("Navigator"), navigator),
             Card::new(Some("Diff"), diff),
             Card::new(Some("Terminal"), vec![terminal]),

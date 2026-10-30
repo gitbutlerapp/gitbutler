@@ -8,8 +8,8 @@ use std::time::Duration;
 #[cfg(unix)]
 use but_tty::Detached;
 use but_tty::{
-    Cursor, Ghostty, Key, Mods, Output, RgbColor, Shell, Size, Status, Style, Terminal as Tty,
-    Underline, mouse,
+    Colors, Cursor, Ghostty, Key, Mods, Output, RgbColor, Shell, Size, Status, Style,
+    Terminal as Tty, Underline, mouse,
 };
 use futures::StreamExt;
 use gpui::{
@@ -49,8 +49,8 @@ const FEED_EVERY: Duration = Duration::from_millis(4);
 pub struct Terminal {
     tty: Tty,
     ghostty: Ghostty,
-    /// Whether the colours set are the dark theme's, once set.
-    dark: Option<bool>,
+    /// The colours set, once set, with the ground and ink for what they leave unset.
+    colors: Option<(Colors, RgbColor, RgbColor)>,
     /// Pixels scrolled that don't make a whole line yet.
     scrolled: Pixels,
     grid: Rc<Cell<Grid>>,
@@ -131,7 +131,7 @@ impl Terminal {
         cx.new(|cx: &mut Context<Self>| Self {
             tty,
             ghostty,
-            dark: None,
+            colors: None,
             scrolled: fixed(0.),
             grid: Rc::new(Cell::new(Grid::opening(size))),
             held: None,
@@ -200,14 +200,18 @@ impl Terminal {
             .unwrap_or(TEXT_SIZE)
     }
 
-    /// Ghostty's colours for `theme`'s appearance, or the app's own where Ghostty sets none.
+    /// `theme`'s terminal colours, or the app's own ground and ink where they set none.
     fn set_colors(&mut self, theme: &Theme) {
-        if self.dark == Some(theme.dark) {
+        let colors = (
+            theme.terminal.clone(),
+            rgb_color(theme.bg_1),
+            rgb_color(theme.text_1),
+        );
+        if self.colors.as_ref() == Some(&colors) {
             return;
         }
-        self.dark = Some(theme.dark);
-        let colors = self.ghostty.colors(theme.dark);
-        (self.tty).set_colors(colors, rgb_color(theme.bg_1), rgb_color(theme.text_1));
+        (self.tty).set_colors(&colors.0, colors.1, colors.2);
+        self.colors = Some(colors);
     }
 
     /// `position` in the window on the terminal's surface.
@@ -418,7 +422,7 @@ impl Render for Terminal {
             true => CursorStyle::Arrow,
             false => CursorStyle::IBeam,
         };
-        let frame = self.tty.frame(self.ghostty.colors(theme.dark));
+        let frame = self.tty.frame(&theme.terminal);
         let this = cx.entity().downgrade();
         let measured = Rc::new(Cell::new(self.tty.size()));
         let drawn = self.grid.clone();

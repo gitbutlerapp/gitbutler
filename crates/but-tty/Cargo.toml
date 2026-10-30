@@ -28,3 +28,6 @@ tracing.workspace = true
 # Its build compiles Ghostty with Zig 0.17. From master, past 0.2.2, for reading the selection
 # back to copy it.
 libghostty-vt = { git = "https://github.com/uzaaft/libghostty-rs", rev = "9ede35b8ea94a55ed3608408d67e102883129f1e" }
+
+[dev-dependencies]
+tempfile.workspace = true

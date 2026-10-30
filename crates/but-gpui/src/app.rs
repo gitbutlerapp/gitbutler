@@ -14,13 +14,13 @@ use crate::backend::{self, Checkout, short_ref};
 use crate::detail::{Detail, DiffPane};
 use crate::navigator::Navigator;
 use crate::overlays::{ContextMenu, MenuItem, Prompt};
-use crate::palette::Palette;
+use crate::palette::{Choice, Palette};
 use crate::projects::pick_folder;
 use crate::state::{
     Cut, MeshPick, Pane, ProjectId, Selection, Store, StoreEvent, snack, up_to_date,
 };
 use crate::terminal::NewTerminal;
-use crate::theme::{Theme, UiScale};
+use crate::theme::{ColorScheme, Theme, UiScale};
 use crate::transfer::{Place, Transfer};
 use crate::ui::fold::{Slide, edge, inert};
 use crate::ui::{HEADER_HEIGHT, POPOVER_RADIUS, dp, fixed, resize_pane};
@@ -358,6 +358,37 @@ impl AppView {
     pub fn apply_appearance(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         cx.set_global(theme_for(self.store.read(cx), window));
         cx.refresh_windows();
+    }
+
+    /// List the colour schemes, GitButler's, the Ghostty config's and every Ghostty theme, to
+    /// pick one to draw the app and its terminals in.
+    pub fn pick_color_scheme(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let current = self.store.read(cx).prefs.color_scheme.clone();
+        let named = but_tty::Ghostty::themes()
+            .into_iter()
+            .map(ColorScheme::Named);
+        let choices = ([ColorScheme::GitButler, ColorScheme::Ghostty].into_iter())
+            .chain(named)
+            .map(|scheme| {
+                let detail = match &scheme {
+                    _ if scheme == current => Some("In use"),
+                    ColorScheme::GitButler => Some("Light or dark, as Appearance says"),
+                    ColorScheme::Ghostty => Some("The themes your Ghostty config sets"),
+                    ColorScheme::Named(_) => None,
+                };
+                let choice = Choice::new(scheme.label().to_owned(), move |app, window, cx| {
+                    (app.store).update(cx, |store, cx| {
+                        store.set_prefs(|prefs| prefs.color_scheme = scheme, cx)
+                    });
+                    app.apply_appearance(window, cx);
+                });
+                match detail {
+                    Some(detail) => choice.detail(detail),
+                    None => choice,
+                }
+            })
+            .collect();
+        self.open_picker(None, "Search colour schemes", "Use", choices, window, cx);
     }
 
     /// Select `selection`. Asked for again, as a crumb naming the page shown is clicked, the
@@ -1967,7 +1998,9 @@ fn place_traffic_lights(away: bool, window: &Window, cx: &App) {
 /// The theme the appearance setting and the system call for.
 fn theme_for(store: &Store, window: &Window) -> Theme {
     let prefs = &store.prefs;
-    Theme::for_appearance(prefs.appearance, window.appearance(), prefs.code_size)
+    let (scheme, system) = (&prefs.color_scheme, window.appearance());
+    let ghostty = but_tty::Ghostty::load();
+    Theme::new(prefs.appearance, scheme, system, prefs.code_size, &ghostty)
         .with_scale(prefs.ui_scale)
 }
 
