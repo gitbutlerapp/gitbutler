@@ -10,8 +10,8 @@ use std::time::Duration;
 #[cfg(unix)]
 use but_tty::Detached;
 use but_tty::{
-    Colors, Cursor, Ghostty, Key, Mods, RgbColor, Row, Run, Shell, Size, Status, Terminal as Tty,
-    Underline, Updates, mouse,
+    Colors, Cursor, CursorVisualStyle, Ghostty, Key, Mods, RgbColor, Row, Run, Shell, Size, Status,
+    Terminal as Tty, Underline, Updates, mouse,
 };
 use futures::StreamExt;
 use gpui::{
@@ -474,10 +474,10 @@ impl Render for Terminal {
             .map_or(font_size * 0.6, |advance| advance.width);
         // A row is as tall as the font, to the device pixel, as in Ghostty, so the font's box
         // drawing joins up from row to row.
-        let font_height =
-            text_system.ascent(font_id, font_size) + text_system.descent(font_id, font_size).abs();
+        let ascent = text_system.ascent(font_id, font_size);
+        let descent = text_system.descent(font_id, font_size).abs();
         let scale = window.scale_factor();
-        let cell_height = (font_height * scale).round() / scale;
+        let cell_height = ((ascent + descent) * scale).round() / scale;
         let focused = self.focus.is_focused(window);
         let pointer_style = match self.tty.tracks_mouse() {
             true => CursorStyle::Arrow,
@@ -531,17 +531,31 @@ impl Render for Terminal {
         .size_full();
         let (background, foreground) = (hsla(frame.background), hsla(frame.foreground));
         let cursor_color = hsla(frame.cursor_color);
-        let cursor = frame.cursor.clone().map(|Cursor { x, y, text }| {
+        // A bar or underline is a device pixel thick, as Ghostty's.
+        let thickness = fixed(1.) / scale;
+        let cursor = frame.cursor.clone().map(|Cursor { x, y, text, style }| {
             let at = div()
                 .absolute()
                 .left(cell_width * f32::from(x))
                 .top(cell_height * f32::from(y))
                 .w(cell_width)
                 .h(cell_height);
-            if focused {
-                at.bg(cursor_color).text_color(background).child(text)
-            } else {
-                at.border_1().border_color(cursor_color)
+            // In the shape the program asks for, as nvim's bar in insert mode, but hollow while
+            // unfocused whatever it is, as in Ghostty.
+            match style {
+                _ if !focused => at.border_1().border_color(cursor_color),
+                CursorVisualStyle::BlockHollow => at.border_1().border_color(cursor_color),
+                CursorVisualStyle::Bar => at.w(thickness).bg(cursor_color),
+                // Where the text's underline is drawn.
+                CursorVisualStyle::Underline => at
+                    .top(
+                        cell_height * f32::from(y)
+                            + gpui::underline_y_offset(cell_height, ascent, descent),
+                    )
+                    .h(thickness)
+                    .bg(cursor_color),
+                // A block, as is the default, for a shape libghostty adds later.
+                _ => at.bg(cursor_color).text_color(background).child(text),
             }
         });
         div()
