@@ -19,7 +19,7 @@ use but_rebase::graph_rebase::{
 };
 #[cfg(not(feature = "graph-workspace"))]
 use but_workspace::RefInfo;
-use but_workspace::branch::create_reference::Anchor;
+use but_workspace::branch::{create_reference::Anchor, dissolve_unnecessary_workspace};
 use but_workspace::commit::{
     ChangeSource, MoveChangesOutcome, SquashCommitsOutcome,
     squash_commits::MessageCombinationStrategy,
@@ -192,6 +192,7 @@ where
             pending_branch_metadata: Vec::new(),
             pending_ref_changes: PendingRefChanges::default(),
             pending_checkout: None,
+            pending_workspace_exit: None,
             context_lines,
         };
 
@@ -215,6 +216,7 @@ where
             pending_branch_metadata,
             mut pending_ref_changes,
             pending_checkout,
+            pending_workspace_exit,
             context_lines: _,
         } = inner;
         let rebase = rebase.take().expect("rebase is always Some(_)");
@@ -231,6 +233,7 @@ where
                 pending_branch_metadata,
                 FinalizeOptions {
                     checkout: pending_checkout,
+                    workspace_exit: pending_workspace_exit,
                     dry_run,
                 },
             )
@@ -282,6 +285,8 @@ where
     pending_ref_changes: PendingRefChanges,
     // A checkout cannot happen until the in-memory rebase and its references are materialized.
     pending_checkout: Option<FullName>,
+    // Whether the workspace still has a purpose can't be told until everything is materialized.
+    pending_workspace_exit: Option<WorkspaceExit>,
     // Commits given to `squash_commits`, `reword_commit`, etc are allowed to be the original
     // commits from live repo. This is used to map those to the rebased in-memory commits.
     //
@@ -419,6 +424,8 @@ where
         Ok(())
     }
 
+    /// Remove `ref_name` when the transaction commits, checking out what remains of a managed
+    /// workspace that is left without purpose, as unapplying does.
     pub fn remove_reference(&mut self, ref_name: &FullNameRef) -> anyhow::Result<()> {
         self.rebase(|mut editor, _| {
             let ref_selector = editor.select_reference(ref_name)?;
@@ -508,6 +515,7 @@ where
         self.inner
             .pending_metadata_removals
             .push(ref_name.to_owned());
+        self.inner.pending_workspace_exit = Some(WorkspaceExit::WhenUnnecessary);
         Ok(())
     }
 
@@ -896,7 +904,15 @@ where
 
 struct FinalizeOptions {
     checkout: Option<FullName>,
+    workspace_exit: Option<WorkspaceExit>,
     dry_run: DryRun,
+}
+
+/// When a committed transaction gives up the managed workspace reference.
+#[derive(Clone, Copy)]
+enum WorkspaceExit {
+    /// With at most one stack left, which then gets checked out.
+    WhenUnnecessary,
 }
 
 #[derive(Debug, Default)]
@@ -1076,6 +1092,7 @@ fn workspace_state_from_rebase<M: RefMetadata>(
 ) -> anyhow::Result<WorkspaceState> {
     let FinalizeOptions {
         checkout: pending_checkout,
+        workspace_exit,
         dry_run,
     } = options;
     if dry_run.into() {
@@ -1111,8 +1128,10 @@ fn workspace_state_from_rebase<M: RefMetadata>(
     for ref_name in pending_metadata_removals {
         materialized.meta.remove(ref_name.as_ref())?;
     }
-    if let Some(branch) = pending_checkout {
+    if let Some(branch) = &pending_checkout {
         checkout_reference(repo, branch.as_ref())?;
+    }
+    if pending_checkout.is_some() || workspace_exit.is_some() {
         let project_meta = materialized.workspace.graph.project_meta.clone();
         materialized.workspace.refresh_from_head(
             repo,
@@ -1120,6 +1139,16 @@ fn workspace_state_from_rebase<M: RefMetadata>(
             project_meta,
             &mut *materialized.db,
         )?;
+    }
+    if workspace_exit.is_some()
+        && let Some((workspace, _)) = dissolve_unnecessary_workspace(
+            materialized.workspace,
+            repo,
+            &*materialized.meta,
+            Default::default(),
+        )?
+    {
+        *materialized.workspace = workspace;
     }
 
     WorkspaceState::from_materialized(materialized, repo)

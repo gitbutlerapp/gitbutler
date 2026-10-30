@@ -440,7 +440,7 @@ Uncommitted 'A', 'B', 'C'
 ┊   pl A B
 ┊   wx A C
 ┊
-┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main, HEAD) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 

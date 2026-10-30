@@ -1304,8 +1304,7 @@ fn remove_references() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 8413d71 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 6674d4f (origin/main, origin/HEAD, main, gitbutler/target) add random-file
+* 6674d4f (HEAD -> main, origin/main, origin/HEAD, gitbutler/target) add random-file
 
 "#]]
     );
