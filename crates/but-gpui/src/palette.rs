@@ -24,7 +24,7 @@ use crate::edits::{
     NewBranchBelow, NewBranchHere, RewrapMessage, SquashAll, UnapplyStack, Unstack,
 };
 use crate::overlays::backdrop;
-use crate::state::{Notice, ProjectEntry, Selection, Store, snack};
+use crate::state::{Notice, ProjectEntry, Section, Selection, Store, snack};
 use crate::theme::Theme;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -529,6 +529,29 @@ fn page_choices(entry: &ProjectEntry, several: bool) -> [Choice; 3] {
     })
 }
 
+/// Go to anything's row for the heading over what's new on a loaded project's target, as the
+/// navigator names it, while there's anything.
+fn upstream_choice(entry: &ProjectEntry, workspace: &Workspace, several: bool) -> Option<Choice> {
+    if workspace.upstream(None).is_empty() {
+        return None;
+    }
+    let target = &workspace.target.as_ref()?.name;
+    let id = entry.id.clone();
+    let heading = Selection::Section(id.clone(), Section::Upstream(None));
+    let goes_to = heading.clone();
+    let gone = format!("Nothing new on {target} anymore");
+    let choice = Choice::new(format!("New on {target}"), move |this, window, cx| {
+        // Taken in since the picker opened, as by an update.
+        if (this.store.read(cx).workspace(&id)).is_none_or(|ws| ws.upstream(None).is_empty()) {
+            return snack(&this.store, gone, cx);
+        }
+        this.select(heading, window, cx)
+    });
+    let project = several.then_some(entry.project.name.as_str());
+    let choice = choice.icon(Icon::ArrowLineDown).details(project);
+    Some(choice.goes_to(goes_to))
+}
+
 /// Go to anything's row for a linked worktree, the branch it has checked out beside it.
 fn worktree_choice(entry: &ProjectEntry, worktree: &Worktree, several: bool) -> Choice {
     let (id, name) = (entry.id.clone(), worktree.name.clone());
@@ -676,8 +699,8 @@ impl AppView {
         self.open_picker(None, "Search commands", "Run", choices, window, cx);
     }
 
-    /// Pick a project, or a page, linked worktree, branch or commit of a loaded one, by name,
-    /// pull request title or commit id, and select it.
+    /// Pick a project, or a page, what's new on the target, linked worktree, branch or commit of
+    /// a loaded one, by name, pull request title or commit id, and select it.
     pub fn go_to(&mut self, _: &GoTo, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         // Only expanded projects' insides: a collapsed one's rows aren't drawn, or kept current.
@@ -692,6 +715,8 @@ impl AppView {
         let pages = (open.iter())
             .filter(|(_, workspace)| workspace.editing.is_none())
             .flat_map(|(entry, _)| page_choices(entry, several));
+        let upstream = (open.iter())
+            .filter_map(|(entry, workspace)| upstream_choice(entry, workspace, several));
         let worktrees = open.iter().flat_map(|(entry, workspace)| {
             (workspace.worktrees.iter())
                 .filter(move |wt| !store.hides_worktree(&entry.id, wt.name.as_ref()))
@@ -709,7 +734,7 @@ impl AppView {
                     .map(move |commit| commit_choice(store, entry, branch, commit, several))
             })
         });
-        let choices = (projects.chain(pages).chain(worktrees))
+        let choices = (projects.chain(pages).chain(upstream).chain(worktrees))
             .chain(branches.chain(commits))
             .collect();
         let placeholder = "Go to a project, worktree, branch or commit";
