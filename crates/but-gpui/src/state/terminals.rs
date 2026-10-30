@@ -6,7 +6,7 @@ use std::time::Instant;
 
 use gpui::{App, Context, Entity, SharedString, Subscription};
 
-use super::{ProjectId, Selection, Store};
+use super::{ProjectId, Selection, Store, StoreEvent};
 use crate::backend::{self, Checkout};
 use crate::terminal::{Terminal, TerminalEvent, TerminalId};
 #[cfg(unix)]
@@ -143,6 +143,7 @@ impl Store {
         let id = TerminalId(self.terminals.opened + 1);
         self.insert_terminal(id, project.clone(), checkout, terminal, cx);
         self.select(Some(Selection::Terminal(project, id)), cx);
+        cx.emit(StoreEvent::TerminalOpened);
     }
 
     fn insert_terminal(

@@ -25,6 +25,7 @@ use crate::edits::{
 };
 use crate::overlays::backdrop;
 use crate::state::{Notice, ProjectEntry, Section, Selection, Store, snack};
+use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -574,6 +575,56 @@ fn worktree_choice(entry: &ProjectEntry, worktree: &Worktree, several: bool) -> 
         .goes_to(goes_to)
 }
 
+/// Go to anything's rows for the terminals open on a loaded project's worktrees, the main
+/// one's first, as the navigator lists them under each.
+fn terminal_choices(
+    store: &Store,
+    entry: &ProjectEntry,
+    workspace: &Workspace,
+    several: bool,
+) -> Vec<Choice> {
+    let linked = (workspace.worktrees.iter())
+        .filter(|wt| !store.hides_worktree(&entry.id, wt.name.as_ref()))
+        .map(|wt| Checkout::Linked(wt.name.clone()));
+    let mut choices = Vec::new();
+    for checkout in std::iter::once(Checkout::Main).chain(linked) {
+        for (id, _) in store.terminals.on(&entry.id, &checkout) {
+            if let Some(title) = store.terminals.title(id) {
+                choices.push(terminal_choice(entry, &checkout, id, title, several));
+            }
+        }
+    }
+    choices
+}
+
+/// Go to anything's row for a terminal, by its title, the worktree it's open on beside it.
+fn terminal_choice(
+    entry: &ProjectEntry,
+    checkout: &Checkout,
+    id: TerminalId,
+    title: &SharedString,
+    several: bool,
+) -> Choice {
+    let goes_to = Selection::Terminal(entry.id.clone(), id);
+    let selection = goes_to.clone();
+    let gone = format!("{title} was closed meanwhile");
+    let worktree = (checkout.linked()).map_or("Main worktree".to_owned(), |name| name.to_string());
+    let project = several.then_some(entry.project.name.as_str());
+    let choice = Choice::new(title.clone(), move |this, window, cx| {
+        // Closed since the picker opened, as when its shell exited.
+        if this.store.read(cx).terminals.get(id).is_none() {
+            return snack(&this.store, gone, cx);
+        }
+        this.select(selection, window, cx);
+        this.enter_terminal(window, cx);
+    });
+    let details = std::iter::once(worktree.as_str()).chain(project);
+    choice
+        .icon(Icon::TextCode)
+        .details(details)
+        .goes_to(goes_to)
+}
+
 /// Go to anything's row for a branch, as the navigator names it: a pull request by its title,
 /// its branch's name beside it, where typing either finds it.
 fn branch_choice(store: &Store, entry: &ProjectEntry, branch: &Branch, several: bool) -> Choice {
@@ -699,8 +750,8 @@ impl AppView {
         self.open_picker(None, "Search commands", "Run", choices, window, cx);
     }
 
-    /// Pick a project, or a page, what's new on the target, linked worktree, branch or commit of
-    /// a loaded one, by name, pull request title or commit id, and select it.
+    /// Pick a project, or a page, what's new on the target, linked worktree, terminal, branch or
+    /// commit of a loaded one, by name, pull request title or commit id, and select it.
     pub fn go_to(&mut self, _: &GoTo, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         // Only expanded projects' insides: a collapsed one's rows aren't drawn, or kept current.
@@ -722,6 +773,10 @@ impl AppView {
                 .filter(move |wt| !store.hides_worktree(&entry.id, wt.name.as_ref()))
                 .map(move |wt| worktree_choice(entry, wt, several))
         });
+        // Not while a commit is checked out either, which the navigator hides them for too.
+        let terminals = (open.iter())
+            .filter(|(_, workspace)| workspace.editing.is_none())
+            .flat_map(|(entry, workspace)| terminal_choices(store, entry, workspace, several));
         let branches = open.iter().flat_map(|(entry, workspace)| {
             (workspace.all_branches())
                 .filter(|branch| branch.ref_name.is_some())
@@ -735,9 +790,9 @@ impl AppView {
             })
         });
         let choices = (projects.chain(pages).chain(upstream).chain(worktrees))
-            .chain(branches.chain(commits))
+            .chain(terminals.chain(branches).chain(commits))
             .collect();
-        let placeholder = "Go to a project, worktree, branch or commit";
+        let placeholder = "Go to a project, worktree, terminal, branch or commit";
         self.open_picker(None, placeholder, "Go", choices, window, cx);
         if let Some(palette) = &mut self.palette {
             palette.wide = true;

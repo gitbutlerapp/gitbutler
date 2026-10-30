@@ -308,7 +308,8 @@ impl GraphView {
             StoreEvent::Renamed(..)
             | StoreEvent::MeshRead(_)
             | StoreEvent::Pending(_)
-            | StoreEvent::AuthorMissing(_) => {}
+            | StoreEvent::AuthorMissing(_)
+            | StoreEvent::TerminalOpened => {}
         })]);
         GraphView {
             store,

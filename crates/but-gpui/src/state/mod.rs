@@ -244,6 +244,8 @@ pub enum StoreEvent {
     /// Git has no author to record commits with in a project: ask for the user's name and
     /// email.
     AuthorMissing(ProjectId),
+    /// A terminal was opened and selected, to type in.
+    TerminalOpened,
 }
 
 /// An error card's button: its label, and what it runs.

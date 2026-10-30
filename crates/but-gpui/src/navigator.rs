@@ -1093,16 +1093,26 @@ impl Navigator {
                 self.detail
                     .update(cx, |detail, cx| detail.focus_message(window, cx));
             }
+            Some(Selection::Terminal(..)) => self.enter_terminal(window, cx),
             _ => {}
         }
     }
 
+    /// Go into the selected terminal, to type in, once the update running now is over.
+    fn enter_terminal(&self, window: &mut Window, cx: &mut Context<Self>) {
+        (self.app).update_later(window, cx, |app, window, cx| app.enter_terminal(window, cx));
+    }
+
     /// Return in the TUI's keymap: fold or unfold the rows the selected one heads, as its
-    /// chevron does. A row that heads none stays as it is, as every row does under the filter.
+    /// chevron does, or go into a terminal. A row that heads none stays as it is, as every row
+    /// does under the filter.
     fn toggle_fold(&mut self, _: &ToggleFold, window: &mut Window, cx: &mut Context<Self>) {
         let Some(selection) = self.store.read(cx).selection.clone() else {
             return;
         };
+        if let Selection::Terminal(..) = selection {
+            return self.enter_terminal(window, cx);
+        }
         let fold = Fold::Under(selection.clone());
         let Some(open) = (self.build_rows(cx).folds.into_iter())
             .find_map(|(f, open, _)| (f == fold).then_some(open))
