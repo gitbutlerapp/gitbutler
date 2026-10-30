@@ -40,6 +40,10 @@ pub enum TerminalEvent {
 /// The size text shows in when neither the setting nor Ghostty's config says.
 const TEXT_SIZE: f32 = 13.;
 
+/// How long output gathers between feeds, so a shell printing fast wakes the app a few hundred
+/// times a second rather than for every few bytes.
+const FEED_EVERY: Duration = Duration::from_millis(4);
+
 pub struct Terminal {
     tty: Tty,
     ghostty: Ghostty,
@@ -140,6 +144,7 @@ impl Terminal {
                     if this.update(cx, |this, cx| this.feed(&chunk, cx)).is_err() {
                         return;
                     }
+                    cx.background_executor().timer(FEED_EVERY).await;
                 }
                 this.update(cx, |_, cx| cx.emit(TerminalEvent::Exited)).ok();
             }),
