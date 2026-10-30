@@ -48,7 +48,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 # The log files, in the desktop app's log folder.
 tracing-appender = "0.2.5"
 unicode-segmentation.workspace = true
-bstr.workspace = true
+bstr = { workspace = true, features = ["serde"] }
 # The forge cache's timestamps.
 chrono = { workspace = true, features = ["clock"] }
 gix = { workspace = true, features = ["sha1", "blame", "mailmap"] }

@@ -1,11 +1,12 @@
 //! Terminals opened on a worktree: the user's shell on a pseudo-terminal, emulated by
 //! libghostty-vt and drawn where the detail goes. They end with the app.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::ops::Range;
 use std::rc::Rc;
 
 use futures::StreamExt;
+use futures::channel::mpsc;
 use gpui::{
     App, Context, Entity, EventEmitter, FocusHandle, Focusable, FontWeight, HighlightStyle, Hsla,
     KeyDownEvent, Modifiers, Pixels, Point, Rgba, ScrollWheelEvent, SharedString,
@@ -21,6 +22,8 @@ use libghostty_vt::style::{RgbColor, Underline};
 use libghostty_vt::terminal::{Mode, ScrollViewport};
 use libghostty_vt::{RenderState, TerminalOptions, paste};
 
+#[cfg(unix)]
+use crate::backend::terminal::Kept;
 use crate::backend::terminal::{Ghostty, Opened, Pty, Size};
 use crate::state::Store;
 use crate::theme::Theme;
@@ -58,6 +61,7 @@ pub struct Terminal {
     /// It takes the keys once it's first drawn, as it opens.
     focus_when_drawn: bool,
     store: WeakEntity<Store>,
+    output: Rc<RefCell<mpsc::UnboundedReceiver<Vec<u8>>>>,
     _output: Task<()>,
 }
 
@@ -78,7 +82,7 @@ impl Terminal {
         cell_height: 16,
     };
 
-    /// A terminal on the shell `opened` started at [`Terminal::OPENING`].
+    /// A terminal on the shell `opened` started.
     pub fn new(
         opened: Opened,
         store: WeakEntity<Store>,
@@ -86,25 +90,31 @@ impl Terminal {
     ) -> anyhow::Result<Entity<Self>> {
         let Opened {
             pty,
-            mut output,
+            output,
             ghostty,
+            size,
         } = opened;
-        let vt = Vt::new(Self::OPENING)?;
+        let vt = Vt::new(size)?;
+        let output = Rc::new(RefCell::new(output));
+        let read = output.clone();
         Ok(cx.new(|cx: &mut Context<Self>| Self {
             title: "Terminal".into(),
             vt,
             pty,
             ghostty,
-            size: Self::OPENING,
+            size,
             dark: None,
             scrolled: fixed(0.),
             origin: Rc::default(),
             focus: cx.focus_handle(),
             focus_when_drawn: true,
             store,
+            output,
             _output: cx.spawn(async move |this, cx| {
-                while let Some(mut chunk) = output.next().await {
-                    while let Ok(more) = output.try_recv() {
+                let next =
+                    || futures::future::poll_fn(|task| read.borrow_mut().poll_next_unpin(task));
+                while let Some(mut chunk) = next().await {
+                    while let Ok(more) = read.borrow_mut().try_recv() {
                         chunk.extend(more);
                     }
                     if this.update(cx, |this, cx| this.feed(&chunk, cx)).is_err() {
@@ -114,6 +124,36 @@ impl Terminal {
                 this.update(cx, |_, cx| cx.emit(TerminalEvent::Exited)).ok();
             }),
         }))
+    }
+
+    /// A terminal on a shell the process this one was before exec handed over, showing what it
+    /// showed then.
+    #[cfg(unix)]
+    pub fn adopt(
+        kept: Kept,
+        size: Size,
+        screen: &str,
+        store: WeakEntity<Store>,
+        cx: &mut App,
+    ) -> anyhow::Result<Entity<Self>> {
+        let terminal = Self::new(crate::backend::terminal::adopt(kept, size)?, store, cx)?;
+        terminal.update(cx, |terminal, cx| terminal.feed(screen.as_bytes(), cx));
+        Ok(terminal)
+    }
+
+    /// Stops reading the shell, for another to adopt it, with what it showed until then.
+    #[cfg(unix)]
+    pub fn hand_off(&mut self, cx: &mut Context<Self>) -> anyhow::Result<(Kept, Size, String)> {
+        let kept = self.pty.keep()?;
+        let left: Vec<u8> = {
+            let mut output = self.output.borrow_mut();
+            std::iter::from_fn(|| output.try_recv().ok())
+                .flatten()
+                .collect()
+        };
+        self.feed(&left, cx);
+        let screen = String::from_utf8_lossy(&self.vt.screen()?).into_owned();
+        Ok((kept, self.size, screen))
     }
 
     fn feed(&mut self, output: &[u8], cx: &mut Context<Self>) {

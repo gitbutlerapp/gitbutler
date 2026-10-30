@@ -8,10 +8,10 @@ mod windows;
 #[cfg(windows)]
 pub use self::windows::Pty;
 #[cfg(unix)]
-pub use unix::Pty;
+pub use unix::{Kept, Pty};
 
 /// A grid size, with the pixel size of one cell for programs that ask.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Size {
     pub cols: u16,
     pub rows: u16,

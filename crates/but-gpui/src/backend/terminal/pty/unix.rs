@@ -3,7 +3,7 @@
 use std::ffi::OsString;
 use std::fs::File;
 use std::io::{self, Read, Write};
-use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::path::Path;
@@ -31,10 +31,28 @@ pub struct Pty {
     reader: Option<thread::JoinHandle<()>>,
 }
 
-/// A shell's pseudo-terminal, still open, with no one reading it.
+/// A shell's pseudo-terminal, still open, with no one reading it. Dropped, it hangs up.
 pub struct Kept {
-    pub master: OwnedFd,
-    pub shell: libc::pid_t,
+    master: OwnedFd,
+    shell: libc::pid_t,
+}
+
+impl Kept {
+    /// Its master stays open, for an exec to take along.
+    pub fn into_raw(self) -> (RawFd, libc::pid_t) {
+        (self.master.into_raw_fd(), self.shell)
+    }
+
+    /// # Safety
+    ///
+    /// `master` is open and nothing else owns it, as when [`Kept::into_raw`] gave it to the
+    /// process this one was before exec.
+    pub unsafe fn from_raw(master: RawFd, shell: libc::pid_t) -> io::Result<Self> {
+        // SAFETY: as the caller promises.
+        let master = unsafe { OwnedFd::from_raw_fd(master) };
+        set_cloexec(&master)?;
+        Ok(Self { master, shell })
+    }
 }
 
 impl Size {
@@ -68,7 +86,6 @@ impl Pty {
 
     /// Takes over a shell kept by [`Pty::keep`], in this process or one it became by exec.
     pub fn adopt(kept: Kept) -> io::Result<(Pty, mpsc::UnboundedReceiver<Vec<u8>>)> {
-        set_cloexec(&kept.master)?;
         Self::start(File::from(kept.master), kept.shell)
     }
 
@@ -118,8 +135,9 @@ impl Pty {
     }
 
     /// Stops reading, leaving what the shell writes from now on to whoever adopts it. What was
-    /// read before is all in the receiver once this returns.
-    pub fn keep(mut self) -> io::Result<Kept> {
+    /// read before is all in the receiver once this returns, and nothing reaches the shell
+    /// after.
+    pub fn keep(&mut self) -> io::Result<Kept> {
         (&self.stop_reading).write_all(&[0])?;
         if let Some(reader) = self.reader.take() {
             reader.join().ok();
@@ -133,6 +151,9 @@ impl Pty {
 
     /// Sends input to the shell, once it reads what was sent before.
     pub fn write(&self, bytes: &[u8]) -> io::Result<()> {
+        if self.master.is_none() {
+            return Err(io::ErrorKind::BrokenPipe.into());
+        }
         (self.input.send(bytes.to_vec())).map_err(|_| io::ErrorKind::BrokenPipe.into())
     }
 
@@ -209,6 +230,7 @@ fn shell_command(shell: &OsString, cwd: &Path, slave: &OwnedFd) -> io::Result<Co
         .env("COLORTERM", "truecolor")
         .env("TERM_PROGRAM", "GitButler")
         .env_remove("TERMINFO")
+        .env_remove(crate::backend::terminal::handoff::HANDED)
         .stdin(Stdio::from(slave.try_clone()?))
         .stdout(Stdio::from(slave.try_clone()?))
         .stderr(Stdio::from(slave.try_clone()?));
@@ -320,7 +342,9 @@ mod tests {
         pty.write(b"echo $$-$((40+2))\n").unwrap();
         let before = wait_for_text(&mut output, "-42");
 
+        let mut pty = pty;
         let kept = pty.keep().unwrap();
+        drop(pty);
         let (pty, mut output) = Pty::adopt(kept).unwrap();
         pty.write(b"echo $$-$((50+8))\n").unwrap();
         let after = wait_for_text(&mut output, "-58");

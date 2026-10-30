@@ -1,9 +1,12 @@
 //! The terminals open on each worktree, listed under its heading in the order they opened.
-//! Nothing saves them: they end with the app.
+//! Nothing saves them: they end with the app, but for Build and restart, which hands them to
+//! the new build.
 
 use gpui::{Context, Entity, Subscription};
 
 use super::{ProjectId, Selection, Store};
+#[cfg(unix)]
+use crate::backend::terminal::{Handed, Kept};
 use crate::backend::{self, Checkout};
 use crate::terminal::{Terminal, TerminalEvent, TerminalId};
 
@@ -89,20 +92,73 @@ impl Store {
         terminal: Entity<Terminal>,
         cx: &mut Context<Self>,
     ) {
-        self.terminals.opened += 1;
-        let id = TerminalId(self.terminals.opened);
+        let id = TerminalId(self.terminals.opened + 1);
+        self.insert_terminal(id, project.clone(), checkout, terminal, cx);
+        self.select(Some(Selection::Terminal(project, id)), cx);
+    }
+
+    fn insert_terminal(
+        &mut self,
+        id: TerminalId,
+        project: ProjectId,
+        checkout: Checkout,
+        terminal: Entity<Terminal>,
+        cx: &mut Context<Self>,
+    ) {
+        self.terminals.opened = self.terminals.opened.max(id.0);
         let events = cx.subscribe(&terminal, move |store, _, event, cx| match event {
             TerminalEvent::Retitled => cx.notify(),
             TerminalEvent::Exited => store.close_terminal(id, cx),
         });
         self.terminals.open.push(Open {
             id,
-            project: project.clone(),
+            project,
             checkout,
             terminal,
             _events: events,
         });
-        self.select(Some(Selection::Terminal(project, id)), cx);
+    }
+
+    /// Hands each terminal's shell over, for the build exec runs next to adopt. One that can't
+    /// be is hung up, as the exec closes its master.
+    #[cfg(unix)]
+    pub fn hand_off_terminals(&mut self, cx: &mut Context<Self>) -> Vec<(Handed, Kept)> {
+        (self.terminals.open.iter())
+            .filter_map(|open| {
+                let handed = open
+                    .terminal
+                    .update(cx, |terminal, cx| terminal.hand_off(cx));
+                let (kept, size, screen) = (handed)
+                    .inspect_err(|err| tracing::error!("couldn't hand a terminal over: {err:#}"))
+                    .ok()?;
+                let handed = Handed {
+                    project: open.project.to_string(),
+                    checkout: open.checkout.clone(),
+                    id: open.id.0,
+                    size,
+                    screen,
+                };
+                Some((handed, kept))
+            })
+            .collect()
+    }
+
+    /// Opens the terminals the process this one was before exec handed over, where they were.
+    #[cfg(unix)]
+    pub fn adopt_terminals(&mut self, handed: Vec<(Handed, Kept)>, cx: &mut Context<Self>) {
+        for (handed, kept) in handed {
+            let store = cx.weak_entity();
+            match Terminal::adopt(kept, handed.size, &handed.screen, store, cx) {
+                Ok(terminal) => self.insert_terminal(
+                    TerminalId(handed.id),
+                    handed.project.into(),
+                    handed.checkout,
+                    terminal,
+                    cx,
+                ),
+                Err(err) => tracing::error!("couldn't adopt a terminal: {err:#}"),
+            }
+        }
     }
 
     /// Close terminal `id`, hanging up its shell; while it's selected, its worktree is.
