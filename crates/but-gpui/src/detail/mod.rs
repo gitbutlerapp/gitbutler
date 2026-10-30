@@ -1516,8 +1516,10 @@ impl Detail {
     }
 
     fn open_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        // The project, Branches and History pages filter their lists, as the navigator does.
+        // The project, Branches and History pages filter their lists, as the navigator does,
+        // unless the files beside the list have the keys.
         let page = match self.selection(cx) {
+            _ if self.files_focused(window) => None,
             Some(Selection::Branches(_)) => Some(self.branch_filter.clone()),
             Some(Selection::History(_)) => Some(self.history_filter.clone()),
             Some(Selection::Project(_)) => Some(self.target_filter.clone()),
@@ -1527,9 +1529,14 @@ impl Detail {
             input.update(cx, |input, cx| input.select_all_text(cx));
             return window.focus(&input.focus_handle(cx), cx);
         }
+        self.open_file_filter(window, cx)
+    }
+
+    /// Open the field heading the file list, beside the diff or beside a list page's list.
+    fn open_file_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.filtering = true;
         // Its field heads the file list, so a hidden list comes back with it.
-        self.hide_files(false, false, cx);
+        self.hide_files(self.list_page(cx), false, cx);
         self.file_filter
             .update(cx, |input, cx| input.select_all_text(cx));
         window.focus(&self.file_filter.focus_handle(cx), cx);

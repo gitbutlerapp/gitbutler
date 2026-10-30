@@ -964,7 +964,7 @@ impl Detail {
                 icon_button("filter-files", Icon::Search)
                     .small()
                     .tooltip_for("Filter files", &FilterFiles)
-                    .on_click(cx.listener(|this, _, window, cx| this.open_filter(window, cx))),
+                    .on_click(cx.listener(|this, _, window, cx| this.open_file_filter(window, cx))),
             )
             .child(
                 icon_button("file-view", Icon::Kebab)
