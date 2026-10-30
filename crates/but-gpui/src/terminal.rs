@@ -12,6 +12,7 @@ use gpui::{
     StrikethroughStyle, StyledText, Task, UnderlineStyle, WeakEntity, Window, actions, canvas, div,
     prelude::*,
 };
+use libghostty_vt::fmt::{Format, Formatter, FormatterOptions};
 use libghostty_vt::key::{self, Key, Mods};
 use libghostty_vt::mouse;
 use libghostty_vt::render::{CellIterator, Dirty, RowIterator};
@@ -469,6 +470,27 @@ impl Vt {
         bytes
     }
 
+    /// The screen with its scrollback, modes and title, as what builds the same in a fresh one.
+    /// An alternate screen comes without the one behind it.
+    fn screen(&self) -> libghostty_vt::error::Result<Vec<u8>> {
+        let options = FormatterOptions::new()
+            .with_format(Format::Vt)
+            .with_modes(true)
+            .with_scrolling_region(true)
+            .with_pwd(true)
+            .with_keyboard(true)
+            .with_cursor(true)
+            .with_style(true)
+            .with_hyperlink(true)
+            .with_protection(true)
+            .with_kitty_keyboard(true)
+            .with_charsets(true);
+        let title = self.term.title().unwrap_or_default();
+        let mut screen = format!("\x1b]2;{title}\x1b\\").into_bytes();
+        screen.extend_from_slice(&Formatter::new(&self.term, options)?.format_alloc(None)?);
+        Ok(screen)
+    }
+
     fn frame(&mut self) -> libghostty_vt::error::Result<Frame> {
         let snapshot = self.state.update(&self.term)?;
         let colors = snapshot.colors()?;
@@ -701,6 +723,55 @@ mod tests {
                 b"\x1b[<65;3;3M".to_vec()
             ),
             "two notches up then one down over cell 3,3 are SGR wheel buttons 64 and 65"
+        );
+    }
+
+    fn plain(vt: &Vt) -> String {
+        let options = FormatterOptions::new().with_format(Format::Plain);
+        let text = Formatter::new(&vt.term, options)
+            .unwrap()
+            .format_alloc(None)
+            .unwrap();
+        String::from_utf8(text.to_vec()).unwrap()
+    }
+
+    #[test]
+    fn a_screen_written_into_a_fresh_terminal_builds_the_same() {
+        let size = Size {
+            cols: 20,
+            rows: 4,
+            ..Terminal::OPENING
+        };
+        let mut vt = Vt::new(size).unwrap();
+        vt.term.vt_write(b"\x1b[31mred\x1b[0m\r\n");
+        for n in 0..10 {
+            vt.term.vt_write(format!("line {n}\r\n").as_bytes());
+        }
+        vt.term
+            .vt_write(b"\x1b]2;working\x07\x1b[?2004h\x1b[2;5Hhere");
+
+        let mut fresh = Vt::new(size).unwrap();
+        fresh.term.vt_write(&vt.screen().unwrap());
+
+        assert_eq!(
+            plain(&fresh),
+            plain(&vt),
+            "the same text, scrollback included"
+        );
+        assert!(
+            plain(&fresh).starts_with("red\nline 0"),
+            "the scrollback is there"
+        );
+        let cursor = |vt: &Vt| (vt.term.cursor_x().unwrap(), vt.term.cursor_y().unwrap());
+        assert_eq!(cursor(&fresh), cursor(&vt), "the cursor is where it was");
+        assert_eq!(
+            fresh.term.title().unwrap(),
+            "working",
+            "the title carries over"
+        );
+        assert!(
+            fresh.term.mode(Mode::BRACKETED_PASTE).unwrap(),
+            "the modes the shell set carry over"
         );
     }
 }
