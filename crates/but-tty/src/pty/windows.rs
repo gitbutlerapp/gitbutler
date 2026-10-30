@@ -8,10 +8,10 @@ use std::os::windows::ffi::OsStrExt;
 use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 use std::{mem, ptr, sync, thread};
 
 use anyhow::Context as _;
-use futures::channel::mpsc;
 use parking_lot::Mutex;
 use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::Console::{COORD, CreatePseudoConsole, HPCON, ResizePseudoConsole};
@@ -25,7 +25,7 @@ use windows::Win32::System::Threading::{
 };
 use windows::core::{Owned, PCWSTR, PWSTR};
 
-use super::Size;
+use super::{Output, PAUSE_MS, Queue, Size, queue};
 
 /// Closed by whichever comes first, the shell exiting or the [`Pty`] dropping, and never while
 /// the lock is held, as closing can wait for the reader to drain what the shell wrote last.
@@ -52,20 +52,17 @@ impl Pty {
     /// Starts the user's shell (%COMSPEC%, else cmd.exe) in `cwd`, sized `size`.
     /// The receiver yields what the shell writes, in chunks, and ends once it exits, which
     /// closes the pseudoconsole on the jobs it left.
-    pub fn spawn(
-        cwd: &Path,
-        size: Size,
-    ) -> anyhow::Result<(Pty, mpsc::UnboundedReceiver<Vec<u8>>)> {
+    pub fn spawn(cwd: &Path, size: Size) -> anyhow::Result<(Pty, Output)> {
         let (input_read, input_write) = pipe().context("Couldn't open the shell's input")?;
         let (output_read, output_write) = pipe().context("Couldn't open the shell's output")?;
         let console =
             open(size, &input_read, &output_write).context("Couldn't open a pseudoconsole")?;
         drop((input_read, output_write));
-        let (sender, receiver) = mpsc::unbounded();
-        let ended = sender.clone();
+        let (queue, output) = queue();
+        let ended = queue.clone();
         thread::Builder::new()
             .name("pty reader".into())
-            .spawn(move || drain(output_read, sender))?;
+            .spawn(move || drain(output_read, queue))?;
 
         let shell = shell();
         let process = start(&shell, cwd, &console)
@@ -91,10 +88,10 @@ impl Pty {
                 unsafe { WaitForSingleObject(raw(&process), INFINITE) };
                 let closing = waited.lock().take();
                 drop(closing);
-                ended.close_channel();
+                ended.close();
             })?;
 
-        Ok((Pty { input, console }, receiver))
+        Ok((Pty { input, console }, output))
     }
 
     /// Sends input to the shell, once it reads what was sent before.
@@ -295,14 +292,17 @@ impl Drop for Attributes {
 
 /// Reads until the pseudoconsole closes, even once no one's listening, as closing it can wait
 /// until what the shell wrote last is read.
-fn drain(mut output: File, sender: mpsc::UnboundedSender<Vec<u8>>) {
+fn drain(mut output: File, queue: Queue) {
     let mut buffer = vec![0; 64 * 1024];
     loop {
+        while queue.full() {
+            thread::sleep(Duration::from_millis(PAUSE_MS.into()));
+        }
         match output.read(&mut buffer) {
             Ok(0) => return,
             Ok(n) => {
                 let read = buffer.get(..n).unwrap_or_default().to_vec();
-                sender.unbounded_send(read).ok();
+                queue.send(read).ok();
             }
             Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
             Err(_) => return,

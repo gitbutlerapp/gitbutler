@@ -10,24 +10,19 @@ mod vt;
 
 use std::path::Path;
 
-use futures::channel::mpsc;
-
 pub use ghostty::{Colors, Ghostty};
 #[cfg(unix)]
 pub use handoff::{hand_over, handed};
 #[cfg(unix)]
 use pty::Kept;
 use pty::Pty;
-pub use pty::Size;
+pub use pty::{Output, Size};
 use vt::Vt;
 pub use vt::{Cursor, Frame, Row, Style};
 
 pub use libghostty_vt::key::{Key, Mods};
 pub use libghostty_vt::mouse;
 pub use libghostty_vt::style::{RgbColor, Underline};
-
-/// What the shell writes, in chunks, ending once it exits.
-pub type Output = mpsc::UnboundedReceiver<Vec<u8>>;
 
 /// A shell just started, with nothing emulating it yet, so it can start off the UI thread.
 pub struct Shell {
@@ -81,9 +76,7 @@ impl Terminal {
     #[cfg(unix)]
     pub fn detach(&mut self, output: &mut Output) -> anyhow::Result<Detached> {
         let kept = self.pty.keep()?;
-        let left: Vec<u8> = std::iter::from_fn(|| output.try_recv().ok())
-            .flatten()
-            .collect();
+        let left = output.waiting();
         self.feed(&left);
         let screen = String::from_utf8_lossy(&self.vt.screen()?).into_owned();
         Ok(Detached {

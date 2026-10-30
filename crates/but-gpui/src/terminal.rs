@@ -138,10 +138,7 @@ impl Terminal {
             _output: cx.spawn(async move |this, cx| {
                 let next =
                     || futures::future::poll_fn(|task| read.borrow_mut().poll_next_unpin(task));
-                while let Some(mut chunk) = next().await {
-                    while let Ok(more) = read.borrow_mut().try_recv() {
-                        chunk.extend(more);
-                    }
+                while let Some(chunk) = next().await {
                     if this.update(cx, |this, cx| this.feed(&chunk, cx)).is_err() {
                         return;
                     }

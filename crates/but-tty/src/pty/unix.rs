@@ -12,10 +12,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{ptr, sync, thread};
 
+use super::{Output, PAUSE_MS, Queue, Size, queue};
 use anyhow::Context as _;
-use futures::channel::mpsc;
-
-use super::Size;
 
 /// A shell running on a pseudo-terminal, hung up when dropped unless it was kept.
 pub struct Pty {
@@ -70,10 +68,7 @@ impl Pty {
     /// Starts the user's shell ($SHELL, else /bin/zsh on macOS and /bin/sh elsewhere) as a login
     /// shell in `cwd`, sized `size`. The receiver yields what the shell writes, in chunks, and
     /// ends once it exits, though jobs it left still hold the terminal.
-    pub fn spawn(
-        cwd: &Path,
-        size: Size,
-    ) -> anyhow::Result<(Pty, mpsc::UnboundedReceiver<Vec<u8>>)> {
+    pub fn spawn(cwd: &Path, size: Size) -> anyhow::Result<(Pty, Output)> {
         let (master, slave) = open(size).context("Couldn't open a pseudo-terminal")?;
         let shell = shell();
         let child = shell_command(&shell, cwd, &slave)?
@@ -85,21 +80,18 @@ impl Pty {
     }
 
     /// Takes over a shell kept by [`Pty::keep`], in this process or one it became by exec.
-    pub fn adopt(kept: Kept) -> io::Result<(Pty, mpsc::UnboundedReceiver<Vec<u8>>)> {
+    pub fn adopt(kept: Kept) -> io::Result<(Pty, Output)> {
         Self::start(File::from(kept.master), kept.shell)
     }
 
-    fn start(
-        master: File,
-        shell: libc::pid_t,
-    ) -> io::Result<(Pty, mpsc::UnboundedReceiver<Vec<u8>>)> {
-        let (sender, receiver) = mpsc::unbounded();
+    fn start(master: File, shell: libc::pid_t) -> io::Result<(Pty, Output)> {
+        let (queue, output) = queue();
         let (stop_reading, stopped) = UnixStream::pair()?;
         let reader = master.try_clone()?;
-        let ended = sender.clone();
+        let ended = queue.clone();
         let reader = thread::Builder::new()
             .name("pty reader".into())
-            .spawn(move || read_until_hangup(reader, stopped, sender))?;
+            .spawn(move || read_until_hangup(reader, stopped, queue))?;
 
         let exited = Arc::new(AtomicBool::new(false));
         let waited = exited.clone();
@@ -108,7 +100,7 @@ impl Pty {
             .spawn(move || {
                 wait_for(shell);
                 waited.store(true, Ordering::SeqCst);
-                ended.close_channel();
+                ended.close();
             })?;
 
         let (input, queued) = sync::mpsc::channel::<Vec<u8>>();
@@ -131,7 +123,7 @@ impl Pty {
             stop_reading,
             reader: Some(reader),
         };
-        Ok((pty, receiver))
+        Ok((pty, output))
     }
 
     /// Stops reading, leaving what the shell writes from now on to whoever adopts it. What was
@@ -246,32 +238,36 @@ fn shell_command(shell: &OsString, cwd: &Path, slave: &OwnedFd) -> io::Result<Co
     Ok(command)
 }
 
-fn read_until_hangup(
-    mut master: File,
-    stopped: UnixStream,
-    sender: mpsc::UnboundedSender<Vec<u8>>,
-) {
+fn read_until_hangup(mut master: File, stopped: UnixStream, queue: Queue) {
     let mut buffer = vec![0; 64 * 1024];
-    let mut ready = [master.as_raw_fd(), stopped.as_raw_fd()].map(|fd| libc::pollfd {
+    let mut ready = [stopped.as_raw_fd(), master.as_raw_fd()].map(|fd| libc::pollfd {
         fd,
         events: libc::POLLIN,
         revents: 0,
     });
     loop {
+        let full = queue.full();
+        let (watched, timeout) = match full {
+            true => (1, libc::c_int::from(PAUSE_MS)),
+            false => (2, -1),
+        };
         // SAFETY: `ready` is two live entries, for descriptors open throughout.
-        match check(unsafe { libc::poll(ready.as_mut_ptr(), 2, -1) }) {
+        match check(unsafe { libc::poll(ready.as_mut_ptr(), watched, timeout) }) {
             Ok(_) => {}
             Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
             Err(_) => return,
         }
-        if ready[1].revents != 0 {
+        if ready[0].revents != 0 {
             return;
+        }
+        if full {
+            continue;
         }
         match master.read(&mut buffer) {
             Ok(0) => return,
             Ok(n) => {
                 let read = buffer.get(..n).unwrap_or_default().to_vec();
-                if sender.unbounded_send(read).is_err() {
+                if queue.send(read).is_err() {
                     return;
                 }
             }
@@ -309,11 +305,10 @@ fn check(result: libc::c_int) -> io::Result<libc::c_int> {
 mod tests {
     use std::time::{Duration, Instant};
 
-    use futures::channel::mpsc;
+    use super::super::MOST_QUEUED;
+    use super::{Ordering, Output, Pty, Size};
 
-    use super::{Pty, Size};
-
-    fn wait_for_text(output: &mut mpsc::UnboundedReceiver<Vec<u8>>, text: &str) -> String {
+    fn wait_for_text(output: &mut Output, text: &str) -> String {
         let started = Instant::now();
         let mut read = Vec::new();
         while !String::from_utf8_lossy(&read).contains(text) {
@@ -322,23 +317,60 @@ mod tests {
                 "{text:?} never came, only {:?}",
                 String::from_utf8_lossy(&read)
             );
-            match output.try_recv() {
-                Ok(chunk) => read.extend(chunk),
-                Err(_) => std::thread::sleep(Duration::from_millis(20)),
+            let chunk = output.waiting();
+            if chunk.is_empty() {
+                std::thread::sleep(Duration::from_millis(20));
             }
+            read.extend(chunk);
         }
         String::from_utf8_lossy(&read).into_owned()
     }
 
+    const SIZE: Size = Size {
+        cols: 80,
+        rows: 24,
+        cell_width: 8,
+        cell_height: 16,
+    };
+
+    #[test]
+    fn a_shell_outrunning_its_reader_waits_and_nothing_is_lost_when_its_kept() {
+        let (mut pty, mut output) = Pty::spawn(&std::env::temp_dir(), SIZE).unwrap();
+        const LAST: u32 = 400_000;
+        pty.write(format!("seq 1 {LAST}; echo done-$((1+1))\n").as_bytes())
+            .unwrap();
+        let started = Instant::now();
+        while output.queued.load(Ordering::SeqCst) < MOST_QUEUED {
+            assert!(
+                started.elapsed() < Duration::from_secs(20),
+                "the queue never filled"
+            );
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        std::thread::sleep(Duration::from_millis(300));
+        let queued = output.queued.load(Ordering::SeqCst);
+        assert!(
+            queued < MOST_QUEUED + 64 * 1024,
+            "the reader stops within a read of the limit, not at {queued}"
+        );
+
+        let kept = pty.keep().unwrap();
+        let mut read = String::from_utf8_lossy(&output.waiting()).into_owned();
+        drop(pty);
+        let (_pty, mut output) = Pty::adopt(kept).unwrap();
+        read.push_str(&wait_for_text(&mut output, "done-2"));
+
+        let lines: Vec<u32> = read.lines().filter_map(|l| l.trim().parse().ok()).collect();
+        assert_eq!(
+            lines,
+            (1..=LAST).collect::<Vec<_>>(),
+            "every line arrives once, in order, across the pause and the keep"
+        );
+    }
+
     #[test]
     fn a_kept_shell_answers_whoever_adopts_it() {
-        let size = Size {
-            cols: 80,
-            rows: 24,
-            cell_width: 8,
-            cell_height: 16,
-        };
-        let (pty, mut output) = Pty::spawn(&std::env::temp_dir(), size).unwrap();
+        let (pty, mut output) = Pty::spawn(&std::env::temp_dir(), SIZE).unwrap();
         pty.write(b"echo $$-$((40+2))\n").unwrap();
         let before = wait_for_text(&mut output, "-42");
 
