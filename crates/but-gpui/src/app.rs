@@ -10,7 +10,7 @@ use gpui::{
 };
 
 use crate::backend::upstream::UpdateScope;
-use crate::backend::{self, short_ref};
+use crate::backend::{self, Checkout, short_ref};
 use crate::detail::{Detail, DiffPane};
 use crate::navigator::Navigator;
 use crate::overlays::{ContextMenu, MenuItem, Prompt};
@@ -19,6 +19,7 @@ use crate::projects::pick_folder;
 use crate::state::{
     Cut, MeshPick, Pane, ProjectId, Selection, Store, StoreEvent, snack, up_to_date,
 };
+use crate::terminal::NewTerminal;
 use crate::theme::{Theme, UiScale};
 use crate::transfer::{Place, Transfer};
 use crate::ui::fold::{Slide, edge, inert};
@@ -803,12 +804,41 @@ impl AppView {
         window.focus(&self.navigator.focus_handle(cx), cx);
     }
 
+    /// Open a terminal on the checkout the selection is in, the main one when it's in none.
+    fn new_terminal(&mut self, _: &NewTerminal, _: &mut Window, cx: &mut Context<Self>) {
+        self.store.update(cx, |store, cx| {
+            let Some(selection) = store.selection.clone() else {
+                return;
+            };
+            let checkout = store.checkout_of(&selection).unwrap_or(Checkout::Main);
+            store.open_terminal(selection.project().clone(), checkout, cx);
+        });
+    }
+
+    /// The terminal the detail's place shows, while one is selected.
+    fn shown_terminal(&self, cx: &App) -> Option<Entity<crate::terminal::Terminal>> {
+        let store = self.store.read(cx);
+        match store.selection.as_ref()? {
+            Selection::Terminal(_, id) => store.terminals.get(*id).cloned(),
+            _ => None,
+        }
+    }
+
+    /// Give the keys to the terminal shown, which covers the detail, if one is.
+    fn focus_terminal(&self, window: &mut Window, cx: &mut App) -> bool {
+        let terminal = self.shown_terminal(cx);
+        if let Some(terminal) = &terminal {
+            window.focus(&terminal.focus_handle(cx), cx);
+        }
+        terminal.is_some()
+    }
+
     /// Focus the navigator, or the changes while the navigator isn't on screen, so keys
     /// always reach something visible. Out over the detail, it's on screen.
     pub(crate) fn focus_main(&self, window: &mut Window, cx: &mut App) {
         if self.navigator_open || self.peek.open {
             window.focus(&self.navigator.focus_handle(cx), cx);
-        } else {
+        } else if !self.focus_terminal(window, cx) {
             self.detail
                 .update(cx, |detail, cx| detail.focus(window, cx));
         }
@@ -842,6 +872,13 @@ impl AppView {
     ) {
         // With the detail hidden, the navigator is the only pane.
         if self.covered() || !self.detail_open {
+            return;
+        }
+        // A terminal takes every key it's given, so only the navigator moves to it.
+        if let Some(terminal) = self.shown_terminal(cx) {
+            if self.navigator.focus_handle(cx).contains_focused(window, cx) {
+                window.focus(&terminal.focus_handle(cx), cx);
+            }
             return;
         }
         let detail = self.detail.read(cx);
@@ -924,7 +961,7 @@ impl AppView {
     /// kept them, else the file list, else the diff. A page with none, as an overview alone or
     /// a branch with no commits, gives them to the detail.
     fn focus_past_navigator(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.focus_pane_from(0, true, false, window, cx) {
+        if !self.focus_terminal(window, cx) && !self.focus_pane_from(0, true, false, window, cx) {
             (self.detail).update(cx, |detail, cx| detail.focus(window, cx));
         }
     }
@@ -948,7 +985,7 @@ impl AppView {
     }
 
     fn focus_changes(&mut self, _: &FocusChanges, window: &mut Window, cx: &mut Context<Self>) {
-        if self.covered() {
+        if self.covered() || self.focus_terminal(window, cx) {
             return;
         }
         // Asking for what's in the detail brings it back.
@@ -958,7 +995,7 @@ impl AppView {
     }
 
     fn focus_diff(&mut self, _: &FocusDiff, window: &mut Window, cx: &mut Context<Self>) {
-        if self.covered() {
+        if self.covered() || self.focus_terminal(window, cx) {
             return;
         }
         self.set_detail(true, window, cx);
@@ -1044,6 +1081,7 @@ impl AppView {
                 })
             }
             Selection::Upstream(_, _, id) => Some(id.0.to_string()),
+            Selection::Terminal(..) => None,
             Selection::Branch(_, ref_name) => {
                 ref_name.map(|ref_name| short_ref(&ref_name).into_owned())
             }
@@ -1438,6 +1476,15 @@ impl AppView {
                         ),
                 )
             })
+            .children(self.shown_terminal(cx).map(|terminal| {
+                div()
+                    .absolute()
+                    .top(dp(HEADER_HEIGHT))
+                    .bottom_0()
+                    .left_0()
+                    .right_0()
+                    .child(terminal.cached(StyleRefinement::default().size_full()))
+            }))
             .when(navigator_sliding, |el| {
                 el.child(edge(theme.border_3).left(fixed(-1.)))
             })
@@ -1657,6 +1704,7 @@ impl Render for AppView {
             .on_action(cx.listener(Self::show_actions))
             .on_action(cx.listener(Self::copy_more))
             .on_action(cx.listener(Self::open_selected_in_terminal))
+            .on_action(cx.listener(Self::new_terminal))
             // The selection doesn't decide: an operation that finished in another project is
             // still the last thing done.
             .on_action(cx.listener(|this, _: &Undo, _, cx| this.store.update(cx, Store::undo_last)))

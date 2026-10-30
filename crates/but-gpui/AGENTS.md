@@ -56,6 +56,9 @@ code's layout in it, and leave it alone when behaviour changes.
   only the diff shows shouldn't go through `Store::set_prefs`, which redraws the whole window.
 - A cached view that misses its cache renders all its descendants with caching off, so a
   cached child inside a view that notifies often saves nothing.
+- Reading an entity in `render` has the window draw on its every notify, even if it's never
+  mounted, and no view re-renders to show why. Keep what a row shows of something that notifies
+  often where the row already looks, as `Terminals::title` does.
 - Text shaping dominates frames with new content: GPUI's CoreText layout creates a sized font
   copy per text run, so fewer text elements per row is the lever, and a new diff draws a frame
   after the rest of the detail (`DiffPane`) so the two don't share one frame.
@@ -238,9 +241,9 @@ Like the mesh, metrics must never break or slow anything else.
 
 - Its code stays in `backend/metrics.rs` and `backend/metrics/crashes.rs`; the rest calls
   `backend::metrics::*` at a few places: launch and quit in `lib.rs`, `Store::start` for each
-  operation, `Store::failed` for each error card, `Store::count_view` for what's opened,
-  `ProjectEntry::failed` for a project that stops reading, signing in and out, and the Metrics
-  card's switches in `settings/metrics.rs`.
+  operation, `Store::open_terminal` for each terminal the user opens, `Store::failed` for each
+  error card, `Store::count_view` for what's opened, `ProjectEntry::failed` for a project that
+  stops reading, signing in and out, and the Metrics card's switches in `settings/metrics.rs`.
 - A property the desktop app sends too keeps its name and values (`totalLanesInWorkspace`,
   `theme`, `error_code`), so one chart covers both apps.
 - Nothing sent may name a branch, file, project or anything the user wrote. An operation's label

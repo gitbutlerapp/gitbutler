@@ -27,6 +27,7 @@ mod mutation;
 mod picks;
 mod saved;
 mod seen;
+mod terminals;
 
 pub use activity::{Activity, QUARTER, SeenCommit};
 pub(crate) use load::move_before;
@@ -41,6 +42,7 @@ pub use saved::{BranchStatus, FileSort, Pane, Prefs, ScopeLines, WatchedOrder};
 use saved::{Restored, Saved};
 use seen::Seen;
 pub use seen::{GLOW, Seeable};
+pub use terminals::Terminals;
 
 pub type ProjectId = SharedString;
 
@@ -69,6 +71,8 @@ pub enum Selection {
     Upstream(ProjectId, Option<FullName>, CommitId),
     /// The heading over a section of a project's card, whose page shows what it folds away.
     Section(ProjectId, Section),
+    /// A terminal open on one of the project's worktrees.
+    Terminal(ProjectId, crate::terminal::TerminalId),
 }
 
 /// A section of a project's card that folds away under its heading.
@@ -104,7 +108,8 @@ impl Selection {
             | Selection::Stack(project, _)
             | Selection::Mesh(project, ..)
             | Selection::Upstream(project, ..)
-            | Selection::Section(project, _) => project,
+            | Selection::Section(project, _)
+            | Selection::Terminal(project, _) => project,
         }
     }
 
@@ -354,6 +359,7 @@ pub struct Store {
     /// The user's other machines, and what they have of the watched projects. Everything the
     /// mesh does lives in `state/mesh.rs`; see the crate's AGENTS.md for its rules.
     pub mesh: mesh::Mesh,
+    pub terminals: Terminals,
     /// Each project's operation in flight, one at a time until the reload after it lands, so
     /// the next sees what it did, plus those that run beside it ([`backend::OpKind::beside`]).
     /// Projects don't wait on each other.
@@ -493,6 +499,7 @@ impl Store {
             updating: None,
             update_put_off: None,
             mesh: mesh::Mesh::start(cx),
+            terminals: Terminals::default(),
             running: Vec::new(),
             ops_started: 0,
             own_writes: HashMap::new(),
@@ -671,7 +678,8 @@ impl Store {
             | Selection::Stack(..)
             | Selection::Mesh(..)
             | Selection::Upstream(..)
-            | Selection::Section(..) => None,
+            | Selection::Section(..)
+            | Selection::Terminal(..) => None,
         }
     }
 
@@ -763,6 +771,7 @@ impl Store {
             Selection::Branch(_, ref_name) => workspace.find_branch(ref_name.as_ref()).is_some(),
             Selection::Commit(_, id) => workspace.find_commit(*id).is_some(),
             Selection::Worktree(_, name) => workspace.worktrees.iter().any(|w| w.name == *name),
+            Selection::Terminal(_, id) => self.terminals.get(*id).is_some(),
             Selection::Stack(_, bottom) => workspace
                 .lane(bottom.as_ref())
                 .is_some_and(|lane| lane.branches.len() > 1),
@@ -877,6 +886,7 @@ impl Store {
             Selection::Mesh(..) => "mesh",
             Selection::Upstream(..) => "upstream",
             Selection::Section(..) => "section",
+            Selection::Terminal(..) => "terminal",
         };
         backend::metrics::viewed(view, || backend::metrics::State {
             theme: match self.prefs.appearance {

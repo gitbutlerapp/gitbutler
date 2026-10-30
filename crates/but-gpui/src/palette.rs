@@ -131,6 +131,7 @@ pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Resolve conflicts", &crate::detail::ResolveConflicts),
     ("Open in editor", &crate::open_in::OpenInEditor),
     ("Open in terminal", &crate::open_in::OpenInTerminal),
+    ("New terminal", &crate::terminal::NewTerminal),
     // The menu bar's, for Windows, which has none.
     ("Check for updates…", &CheckForUpdates),
     ("Rebuild and restart", &crate::app::BuildAndRestart),
@@ -409,7 +410,8 @@ fn copies(store: &Store, selection: &Selection) -> Vec<(&'static str, String)> {
         | Selection::History(_)
         | Selection::Graph(_)
         | Selection::Stack(..)
-        | Selection::Section(..) => {}
+        | Selection::Section(..)
+        | Selection::Terminal(..) => {}
     }
     copies
 }

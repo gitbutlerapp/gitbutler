@@ -10,7 +10,9 @@ CLI:
 
 GPUI:
   - changed-files:
-      - any-glob-to-any-file: crates/but-gpui/**/*
+      - any-glob-to-any-file:
+          - crates/but-gpui/**/*
+          - crates/but-tty/**/*
 
 "@gitbutler/desktop":
   - changed-files:

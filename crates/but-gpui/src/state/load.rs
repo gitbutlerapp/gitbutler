@@ -257,6 +257,7 @@ impl Store {
             self.save_soon(cx);
         }
         // A selected project that went, as when removed, leaves the first open one selected.
+        self.close_terminals_gone(cx);
         if (self.selection.as_ref()).is_some_and(|s| self.project(s.project()).is_none()) {
             let first = (self.projects.iter()).find(|entry| entry.expanded);
             self.select(first.map(|entry| self.opening(&entry.id)), cx);
@@ -674,6 +675,7 @@ impl Store {
                 }
                 // Checking against a stale one could drop a selection the operation just made.
                 if fresh {
+                    store.close_terminals_gone(cx);
                     store.validate_selection(&id, cx);
                 }
                 // A project just added opens on its page while it has no target: that's

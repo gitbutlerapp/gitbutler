@@ -28,13 +28,20 @@ impl Store {
             | Selection::Worktree(..)
             | Selection::Mesh(..)
             | Selection::Upstream(_, None, _)
-            | Selection::Section(..) => None,
+            | Selection::Section(..)
+            | Selection::Terminal(..) => None,
         }
     }
 
-    /// The checkout of the lane `selection` is in.
+    /// The checkout `selection` is in: whose uncommitted changes it is, the one a terminal is
+    /// open on, or that of the lane it's in.
     pub fn checkout_of(&self, selection: &Selection) -> Option<Checkout> {
-        Some(self.lane_for(selection)?.0.checkout.clone())
+        match selection {
+            Selection::Uncommitted(_) => Some(Checkout::Main),
+            Selection::Worktree(_, name) => Some(Checkout::Linked(name.clone())),
+            Selection::Terminal(..) => self.terminals.checkout_of(selection).cloned(),
+            _ => Some(self.lane_for(selection)?.0.checkout.clone()),
+        }
     }
 
     /// Whether `selection` is in a linked worktree's lane.

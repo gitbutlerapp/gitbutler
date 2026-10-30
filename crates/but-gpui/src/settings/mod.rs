@@ -674,10 +674,30 @@ impl SettingsView {
                 ),
             ),
         ];
+        let text_label = |size: Option<u8>| match size {
+            Some(size) => format!("{size} pt"),
+            None => "As Ghostty's".to_owned(),
+        };
+        let sizes = std::iter::once(None).chain((9..=28).map(Some));
+        let terminal_text = self.choice(
+            "terminal-text",
+            text_label(prefs.terminal_text),
+            sizes.map(|size| (size, text_label(size))),
+            |this, size, _, cx| {
+                (this.store).update(cx, |store, cx| store.set_terminal_text(size, cx))
+            },
+            cx,
+        );
+        let terminal = Row::new(
+            "Text size",
+            "How large text shows in terminals opened here. Their colours follow your Ghostty config.",
+            terminal_text,
+        );
         vec![
             Card::new(None, vec![appearance, size]),
             Card::new(Some("Navigator"), navigator),
             Card::new(Some("Diff"), diff),
+            Card::new(Some("Terminal"), vec![terminal]),
         ]
     }
 

@@ -890,7 +890,7 @@ impl Detail {
                     behind: target.commits_behind,
                 }
             }
-            Selection::Section(..) => return None,
+            Selection::Section(..) | Selection::Terminal(..) => return None,
             Selection::Branch(project, ref_name) => {
                 let branch = store.workspace(project)?.find_branch(ref_name.as_ref())?;
                 let newest = branch.commits.first()?.id;
@@ -2555,7 +2555,11 @@ impl Detail {
     pub fn overview_only(&self, cx: &App) -> bool {
         matches!(
             self.selection(cx),
-            Some(Selection::Graph(_) | Selection::Section(_, Section::Inactive | Section::Mesh))
+            Some(
+                Selection::Graph(_)
+                    | Selection::Section(_, Section::Inactive | Section::Mesh)
+                    | Selection::Terminal(..)
+            )
         )
     }
 
@@ -2657,9 +2661,8 @@ impl Render for Detail {
                     }
                     // No column: the overview takes the page.
                     Selection::Graph(_)
-                    | Selection::Section(_, Section::Inactive | Section::Mesh) => {
-                        div().into_any_element()
-                    }
+                    | Selection::Section(_, Section::Inactive | Section::Mesh)
+                    | Selection::Terminal(..) => div().into_any_element(),
                     Selection::Mesh(project, id, pick) => {
                         self.render_mesh_side(project, id, pick, &theme, cx)
                     }

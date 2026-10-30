@@ -69,6 +69,18 @@ impl Detail {
             };
             match selection {
                 Selection::Project(project) => self.upstream_crumbs(project, &mut crumbs, cx),
+                Selection::Terminal(project, id) => {
+                    if let Some(checkout) = store.terminals.checkout_of(selection) {
+                        let name = checkout
+                            .linked()
+                            .map_or("Main worktree".into(), |name| name.to_string().into());
+                        let worktree = Selection::uncommitted_in(project.clone(), checkout.clone());
+                        crumbs.push((name, Some(worktree.into())));
+                    }
+                    if let Some(title) = store.terminals.title(*id) {
+                        crumbs.push((title.clone(), None));
+                    }
+                }
                 Selection::Uncommitted(_) => match workspace.and_then(|ws| ws.editing.as_ref()) {
                     Some(editing) => {
                         let title = commit_title(&editing.title);

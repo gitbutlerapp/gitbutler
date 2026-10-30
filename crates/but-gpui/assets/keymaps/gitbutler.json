@@ -25,6 +25,8 @@
       "secondary-o": "app::AddProject",
       "secondary-shift-o": "projects::CloneRepository",
       "secondary-n": "navigator::NewBranch",
+      // From a terminal too, as a terminal app opens a tab.
+      "secondary-t": "terminal::NewTerminal",
       // VS Code's and Zed's key works too; ⌘K, Linear's and GitHub's, is the one shown.
       "secondary-shift-p": "app::CommandPalette",
       "secondary-k": "app::CommandPalette",

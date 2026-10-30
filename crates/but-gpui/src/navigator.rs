@@ -28,6 +28,7 @@ use crate::overlays::MenuItem;
 use crate::state::{
     Cut, Pane, Prefs, ProjectId, Section, Selection, Store, StoreEvent, WatchedOrder,
 };
+use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
 use crate::ui::emoji::{Colour, ProjectIcon};
@@ -53,8 +54,8 @@ mod rows;
 use drop::insertion_line;
 use order::{CardSlot, ProjectDrag};
 use rows::{
-    COMMIT_INDENT, Drawer, Fold, GUIDE_AT, Moving, ROW_LEFT, Row, RowKey, Rows, in_inactive,
-    inactive_open, last_active, row_keys, within,
+    COMMIT_INDENT, Drawer, Fold, GUIDE_AT, Moving, ROW_LEFT, Row, RowKey, Rows, in_checkout,
+    in_inactive, inactive_open, last_active, row_keys,
 };
 
 /// How tall the drawer's handle is, level with the commit footer beside it, and the space
@@ -1035,7 +1036,8 @@ impl Navigator {
             Selection::Commit(..)
             | Selection::Branches(_)
             | Selection::History(_)
-            | Selection::Graph(_) => {}
+            | Selection::Graph(_)
+            | Selection::Terminal(..) => {}
         }
     }
 
@@ -1505,6 +1507,7 @@ impl Navigator {
                 let tip = Some("The commits as a graph");
                 Some(self.page_row(item, Icon::Fork, "Graph", tip, style, cx))
             }
+            Selection::Terminal(_, id) => self.terminal_row(item, *id, style, cx),
             Selection::Stack(id, bottom) => {
                 self.stack_row(ix, item, id, bottom.as_ref(), style, cx)
             }
@@ -1974,6 +1977,24 @@ impl Navigator {
             .into_any_element()
     }
 
+    /// A terminal open on the worktree it's under, by the title its shell gave it.
+    fn terminal_row(
+        &self,
+        item: &Selection,
+        id: TerminalId,
+        style: RowStyle,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        let title = self.store.read(cx).terminals.title(id)?.clone();
+        let row = style
+            .row(format!("terminal-{}", id.0), 6.)
+            .text_color(style.muted())
+            .child(icon(Icon::TextCode).text_color(style.muted()))
+            .child(div().flex_1().min_w_0().truncate().child(title))
+            .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx));
+        Some(row.into_any_element())
+    }
+
     /// The commit being edited, whose files are listed where the uncommitted ones are, and
     /// go nowhere else until it's finished.
     fn editing_row(
@@ -2068,7 +2089,8 @@ impl Navigator {
         };
         let lane = (checkout.linked()).and_then(|name| workspace.worktree_lane(name));
         let rests = lane.is_some_and(|lane| workspace.beneath(lane).next().is_some());
-        let folds = !branches.is_empty() || rests;
+        let terminals = store.terminals.on(id, &checkout).next().is_some();
+        let folds = !branches.is_empty() || rests || terminals;
         let step = self.fold(
             ("worktree-fold", ix),
             folds.then_some(open),
@@ -2159,7 +2181,7 @@ impl Navigator {
         let store = self.store.read(cx);
         let inside = (store.selection.as_ref())
             .zip(store.workspace(project))
-            .is_some_and(|(s, ws)| s.project() == project && within(s, ws.branches_in(&key.1)));
+            .is_some_and(|(s, ws)| s.project() == project && in_checkout(store, s, ws, &key.1));
         let heading = Selection::uncommitted_in(project.clone(), key.1.clone());
         self.folded_worktrees.insert(key);
         match inside {
@@ -2924,6 +2946,9 @@ fn same_place(old: &Row, new: &Row) -> bool {
 /// and a stack, or a branch alone, to its worktree's heading.
 fn parent(store: &Store, selection: &Selection) -> Option<Selection> {
     let project = selection.project().clone();
+    if let Some(checkout) = store.terminals.checkout_of(selection) {
+        return Some(Selection::uncommitted_in(project, checkout.clone()));
+    }
     let workspace = store.workspace(&project)?;
     let bottom = match selection {
         Selection::Branch(_, ref_name) => {
