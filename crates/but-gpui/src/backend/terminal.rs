@@ -3,6 +3,7 @@
 
 mod ghostty;
 mod pty;
+mod vt;
 
 use std::path::Path;
 
@@ -12,6 +13,8 @@ pub use ghostty::{Colors, Ghostty};
 #[cfg(unix)]
 pub use pty::Kept;
 pub use pty::{Pty, Size};
+pub(crate) use vt::Vt;
+pub use vt::{Cursor, Style};
 
 /// A shell just started: where to send it input, what it writes, and how to show it.
 pub struct Opened {
