@@ -422,14 +422,6 @@ impl ProjectMeta {
             .map_err(Into::into)
     }
 
-    /// Like [`Self::remote_target_ref`], but returns an error if there is no configured target or
-    /// it doesn't have a remote.
-    pub fn remote_target_ref_or_err(&self, repo: &gix::Repository) -> Result<gix::refs::FullName> {
-        let target_ref = self.target_ref_or_err()?;
-        self.remote_target_ref(repo)?
-            .with_context(|| format!("failed to determine remote for branch {target_ref}"))
-    }
-
     /// Like [`Self::try_push_remote_name`], but errors when no push remote is available.
     pub fn push_remote_name(&self, repo: &gix::Repository) -> Result<String> {
         if let Some(name) = self.try_push_remote_name(repo)? {
@@ -465,13 +457,19 @@ impl ProjectMeta {
         Ok(Some(name.as_bstr().to_string()))
     }
 
-    /// Get the fetch URL of the remote behind [`Self::target_ref`].
+    /// Get the fetch URL of the remote behind [`Self::target_ref`], or of [`Self::push_remote`]
+    /// if the target has no upstream.
     pub fn target_remote_url(&self, repo: &gix::Repository) -> Result<String> {
         let target_ref = self.target_ref_or_err()?;
-        let remote = repo
+        let remote = match repo
             .branch_remote(target_ref.shorten(), gix::remote::Direction::Fetch)
             .transpose()?
-            .with_context(|| format!("failed to determine remote for branch {target_ref}"))?;
+        {
+            Some(remote) => remote,
+            None => repo.find_remote(self.push_remote.as_deref().with_context(|| {
+                format!("failed to determine remote for branch {target_ref}")
+            })?)?,
+        };
         remote
             .url(gix::remote::Direction::Fetch)
             .map(|url| url.to_bstring().to_string())
