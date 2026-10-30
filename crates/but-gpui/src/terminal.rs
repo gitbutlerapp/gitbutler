@@ -6,7 +6,6 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use futures::StreamExt;
-use futures::channel::mpsc;
 use gpui::{
     App, ClipboardItem, Context, CursorStyle, DispatchPhase, Entity, EventEmitter, FocusHandle,
     Focusable, FontWeight, HighlightStyle, HitboxBehavior, Hsla, KeyDownEvent, Modifiers,
@@ -17,11 +16,10 @@ use gpui::{
 use libghostty_vt::key::{Key, Mods};
 use libghostty_vt::mouse;
 use libghostty_vt::style::{RgbColor, Underline};
-use libghostty_vt::terminal::ScrollViewport;
 
 #[cfg(unix)]
-use crate::backend::terminal::Kept;
-use crate::backend::terminal::{Cursor, Ghostty, Opened, Pty, Size, Style, Vt};
+use crate::backend::terminal::Detached;
+use crate::backend::terminal::{Cursor, Ghostty, Output, Shell, Size, Style, Terminal as Tty};
 use crate::state::Store;
 use crate::theme::Theme;
 use crate::ui::{dp, fixed};
@@ -44,10 +42,8 @@ const TEXT_SIZE: f32 = 13.;
 
 pub struct Terminal {
     pub title: SharedString,
-    vt: Vt,
-    pty: Pty,
+    tty: Tty,
     ghostty: Ghostty,
-    size: Size,
     /// Whether the colours set are the dark theme's, once set.
     dark: Option<bool>,
     /// Pixels scrolled that don't make a whole line yet.
@@ -60,7 +56,7 @@ pub struct Terminal {
     /// It takes the keys once it's first drawn, as it opens.
     focus_when_drawn: bool,
     store: WeakEntity<Store>,
-    output: Rc<RefCell<mpsc::UnboundedReceiver<Vec<u8>>>>,
+    output: Rc<RefCell<Output>>,
     _output: Task<()>,
 }
 
@@ -93,27 +89,43 @@ impl Terminal {
         cell_height: 16,
     };
 
-    /// A terminal on the shell `opened` started.
+    /// A terminal on the shell just started, coloured as `ghostty` says.
     pub fn new(
-        opened: Opened,
+        shell: Shell,
+        ghostty: Ghostty,
         store: WeakEntity<Store>,
         cx: &mut App,
     ) -> anyhow::Result<Entity<Self>> {
-        let Opened {
-            pty,
-            output,
-            ghostty,
-            size,
-        } = opened;
-        let vt = Vt::new(size)?;
+        let (tty, output) = Tty::new(shell)?;
+        Ok(Self::showing(tty, output, ghostty, store, cx))
+    }
+
+    /// A terminal on a shell the process this one was before exec handed over, showing what it
+    /// showed then.
+    #[cfg(unix)]
+    pub fn adopt(
+        detached: Detached,
+        store: WeakEntity<Store>,
+        cx: &mut App,
+    ) -> anyhow::Result<Entity<Self>> {
+        let (tty, output) = Tty::adopt(detached)?;
+        Ok(Self::showing(tty, output, Ghostty::load(), store, cx))
+    }
+
+    fn showing(
+        tty: Tty,
+        output: Output,
+        ghostty: Ghostty,
+        store: WeakEntity<Store>,
+        cx: &mut App,
+    ) -> Entity<Self> {
+        let size = tty.size();
         let output = Rc::new(RefCell::new(output));
         let read = output.clone();
-        Ok(cx.new(|cx: &mut Context<Self>| Self {
-            title: "Terminal".into(),
-            vt,
-            pty,
+        cx.new(|cx: &mut Context<Self>| Self {
+            title: shown_title(&tty.title()),
+            tty,
             ghostty,
-            size,
             dark: None,
             scrolled: fixed(0.),
             grid: Rc::new(Cell::new(Grid::opening(size))),
@@ -136,74 +148,30 @@ impl Terminal {
                 }
                 this.update(cx, |_, cx| cx.emit(TerminalEvent::Exited)).ok();
             }),
-        }))
-    }
-
-    /// A terminal on a shell the process this one was before exec handed over, showing what it
-    /// showed then.
-    #[cfg(unix)]
-    pub fn adopt(
-        kept: Kept,
-        size: Size,
-        screen: &str,
-        store: WeakEntity<Store>,
-        cx: &mut App,
-    ) -> anyhow::Result<Entity<Self>> {
-        let terminal = Self::new(crate::backend::terminal::adopt(kept, size)?, store, cx)?;
-        terminal.update(cx, |terminal, cx| terminal.feed(screen.as_bytes(), cx));
-        Ok(terminal)
+        })
     }
 
     /// Stops reading the shell, for another to adopt it, with what it showed until then.
     #[cfg(unix)]
-    pub fn hand_off(&mut self, cx: &mut Context<Self>) -> anyhow::Result<(Kept, Size, String)> {
-        let kept = self.pty.keep()?;
-        let left: Vec<u8> = {
-            let mut output = self.output.borrow_mut();
-            std::iter::from_fn(|| output.try_recv().ok())
-                .flatten()
-                .collect()
-        };
-        self.feed(&left, cx);
-        let screen = String::from_utf8_lossy(&self.vt.screen()?).into_owned();
-        Ok((kept, self.size, screen))
+    pub fn detach(&mut self) -> anyhow::Result<Detached> {
+        self.tty.detach(&mut self.output.borrow_mut())
     }
 
     fn feed(&mut self, output: &[u8], cx: &mut Context<Self>) {
-        self.vt.write(output);
-        let replies = self.vt.replies.take();
-        if !replies.is_empty() {
-            self.pty.write(&replies).ok();
-        }
-        if self.vt.retitled.take() {
-            let title = String::from_utf8_lossy(self.vt.term.title().unwrap_or_default());
-            let title = title.trim();
-            self.title = if title.is_empty() { "Terminal" } else { title }
-                .to_owned()
-                .into();
+        if let Some(title) = self.tty.feed(output) {
+            self.title = shown_title(&title);
             cx.emit(TerminalEvent::Retitled);
         }
         cx.notify();
     }
 
     fn resize(&mut self, size: Size, cx: &mut Context<Self>) {
-        if size == self.size {
-            return;
-        }
-        self.size = size;
-        self.vt.resize(size);
-        self.pty.resize(size).ok();
+        self.tty.resize(size);
         cx.notify();
     }
 
-    fn input(&mut self, bytes: &[u8], cx: &mut Context<Self>) {
-        if bytes.is_empty() {
-            return;
-        }
-        self.vt.term.scroll_viewport(ScrollViewport::Bottom);
-        self.vt.term.set_selection(None).ok();
+    fn typed(&mut self, cx: &mut Context<Self>) {
         self.scrolled = fixed(0.);
-        self.pty.write(bytes).ok();
         cx.notify();
     }
 
@@ -221,21 +189,12 @@ impl Terminal {
         }
         self.dark = Some(theme.dark);
         let colors = self.ghostty.colors(theme.dark);
-        let term = &mut self.vt.term;
-        let background = colors.background.unwrap_or(rgb_color(theme.bg_1));
-        let foreground = colors.foreground.unwrap_or(rgb_color(theme.text_1));
-        term.set_default_bg_color(Some(background)).ok();
-        term.set_default_fg_color(Some(foreground)).ok();
-        term.set_default_cursor_color(colors.cursor).ok();
-        term.set_default_color_palette(None).ok();
-        if let Ok(mut palette) = term.default_color_palette() {
-            for &(index, color) in &colors.palette {
-                if let Some(entry) = palette.0.get_mut(usize::from(index)) {
-                    *entry = color;
-                }
-            }
-            term.set_default_color_palette(Some(palette)).ok();
-        }
+        (self.tty).set_colors(colors, rgb_color(theme.bg_1), rgb_color(theme.text_1));
+    }
+
+    /// `position` in the window on the terminal's surface.
+    fn surface(&self, position: Point<Pixels>) -> mouse::Position {
+        self.grid.get().surface(position, self.tty.size())
     }
 
     fn key_down(&mut self, event: &KeyDownEvent, _: &mut Window, cx: &mut Context<Self>) {
@@ -245,29 +204,24 @@ impl Terminal {
         // sends them on macOS, deleting to the line's start and going to either end.
         if modifiers.platform {
             let alone = !(modifiers.shift || modifiers.alt || modifiers.control);
-            let bytes = match keystroke.key.as_str() {
+            match keystroke.key.as_str() {
                 "c" if alone => {
-                    if let Some(text) = self.vt.selected() {
+                    if let Some(text) = self.tty.selected() {
                         cx.write_to_clipboard(ClipboardItem::new_string(text));
                     }
-                    None
                 }
-                "a" if alone => {
-                    self.vt.select_all();
-                    cx.notify();
-                    None
+                "a" if alone => self.tty.select_all(),
+                "v" => {
+                    if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
+                        self.tty.paste(&text);
+                    }
                 }
-                "v" => (cx.read_from_clipboard())
-                    .and_then(|item| item.text())
-                    .map(|text| self.vt.paste(&text)),
-                "backspace" if alone => Some(b"\x15".to_vec()),
-                "left" if alone => Some(b"\x01".to_vec()),
-                "right" if alone => Some(b"\x05".to_vec()),
+                "backspace" if alone => self.tty.input(b"\x15"),
+                "left" if alone => self.tty.input(b"\x01"),
+                "right" if alone => self.tty.input(b"\x05"),
                 _ => return,
-            };
-            if let Some(bytes) = bytes {
-                self.input(&bytes, cx);
             }
+            self.typed(cx);
             cx.stop_propagation();
             return;
         }
@@ -277,10 +231,8 @@ impl Terminal {
             "space" => Some(' '),
             _ => chars.next().filter(|_| chars.next().is_none()),
         };
-        let bytes = self
-            .vt
-            .key(key_for(&keystroke.key), mods(modifiers), text, unshifted);
-        self.input(&bytes, cx);
+        (self.tty).key(key_for(&keystroke.key), mods(modifiers), text, unshifted);
+        self.typed(cx);
         cx.stop_propagation();
     }
 
@@ -296,9 +248,8 @@ impl Terminal {
             );
             self.held = Some(Held::Reported);
         } else if event.button == MouseButton::Left {
-            let at = self.grid.get().surface(event.position, self.size);
-            let repeated = event.click_count > 1;
-            self.vt.select_press(at, self.size, repeated).ok();
+            let at = self.surface(event.position);
+            self.tty.select_press(at, event.click_count > 1);
             self.held = Some(Held::Selecting {
                 at: event.position,
                 modifiers: event.modifiers,
@@ -332,9 +283,8 @@ impl Terminal {
                     at: event.position,
                     modifiers: event.modifiers,
                 });
-                let at = self.grid.get().surface(event.position, self.size);
-                let rectangle = rectangle(event.modifiers);
-                self.vt.select_drag(at, self.size, rectangle).ok();
+                let at = self.surface(event.position);
+                self.tty.select_drag(at, rectangle(event.modifiers));
                 self.autoscroll(cx);
                 cx.notify();
                 cx.stop_propagation();
@@ -361,8 +311,8 @@ impl Terminal {
                 );
             }
             Some(Held::Selecting { .. }) => {
-                let at = self.grid.get().surface(event.position, self.size);
-                self.vt.select_release(at, self.size).ok();
+                let at = self.surface(event.position);
+                self.tty.select_release(at);
                 self.autoscrolling = None;
             }
             None => {}
@@ -371,7 +321,7 @@ impl Terminal {
 
     /// Ticks while the selection's drag asks to scroll, about as often as Ghostty's do.
     fn autoscroll(&mut self, cx: &mut Context<Self>) {
-        if !self.vt.autoscrolling() {
+        if !self.tty.autoscrolling() {
             self.autoscrolling = None;
             return;
         }
@@ -387,11 +337,9 @@ impl Terminal {
                     let Some(Held::Selecting { at, modifiers }) = this.held else {
                         return false;
                     };
-                    let at = this.grid.get().surface(at, this.size);
-                    let rectangle = rectangle(modifiers);
+                    let at = this.surface(at);
                     cx.notify();
-                    (this.vt.select_autoscroll(at, this.size, rectangle)).is_ok()
-                        && this.vt.autoscrolling()
+                    this.tty.select_autoscroll(at, rectangle(modifiers))
                 });
                 if !ticked.unwrap_or(false) {
                     break;
@@ -404,7 +352,7 @@ impl Terminal {
     /// Whether the program tracking the mouse is told of it. ⇧ keeps it for selecting, as
     /// Ghostty's `mouse-shift-capture` does by default.
     fn reports(&self, modifiers: Modifiers) -> bool {
-        !modifiers.shift && self.vt.term.is_mouse_tracking().unwrap_or(false)
+        !modifiers.shift && self.tty.tracks_mouse()
     }
 
     fn report(
@@ -414,28 +362,18 @@ impl Terminal {
         position: Point<Pixels>,
         modifiers: Modifiers,
     ) {
-        let at = self.grid.get().surface(position, self.size);
-        let bytes = self.vt.mouse(action, button, at, mods(modifiers));
-        if !bytes.is_empty() {
-            self.pty.write(&bytes).ok();
-        }
+        let at = self.surface(position);
+        self.tty.mouse(action, button, at, mods(modifiers));
     }
 
     fn scroll(&mut self, event: &ScrollWheelEvent, _: &mut Window, cx: &mut Context<Self>) {
-        let line = fixed(f32::from(self.size.cell_height.max(1)));
+        let line = fixed(f32::from(self.tty.size().cell_height.max(1)));
         self.scrolled += event.delta.pixel_delta(line).y;
         let lines = (self.scrolled / line).trunc();
         if lines != 0. {
             self.scrolled -= line * lines;
-            if self.vt.term.is_mouse_tracking().unwrap_or(false) {
-                let at = self.grid.get().surface(event.position, self.size);
-                let bytes = self.vt.wheel(lines, at, mods(event.modifiers));
-                self.pty.write(&bytes).ok();
-            } else if let Some(arrows) = self.vt.alternate_scroll(lines) {
-                self.pty.write(&arrows).ok();
-            } else {
-                (self.vt.term).scroll_viewport(ScrollViewport::Delta(-(lines as isize)));
-            }
+            let at = self.surface(event.position);
+            self.tty.scroll(lines, at, mods(event.modifiers));
             cx.notify();
         }
     }
@@ -458,13 +396,13 @@ impl Render for Terminal {
             .map_or(font_size * 0.6, |advance| advance.width);
         let cell_height = theme.scaled(line);
         let focused = self.focus.is_focused(window);
-        let pointer_style = match self.vt.term.is_mouse_tracking().unwrap_or(false) {
+        let pointer_style = match self.tty.tracks_mouse() {
             true => CursorStyle::Arrow,
             false => CursorStyle::IBeam,
         };
-        let frame = (self.vt.frame(self.ghostty.colors(theme.dark))).unwrap_or_default();
+        let frame = self.tty.frame(self.ghostty.colors(theme.dark));
         let this = cx.entity().downgrade();
-        let measured = Rc::new(Cell::new(self.size));
+        let measured = Rc::new(Cell::new(self.tty.size()));
         let drawn = self.grid.clone();
         let pointer = this.clone();
         let grid = canvas(
@@ -606,6 +544,14 @@ fn mods(modifiers: Modifiers) -> Mods {
     mods.set(Mods::ALT, modifiers.alt);
     mods.set(Mods::CTRL, modifiers.control);
     mods
+}
+
+/// What the shell titled the terminal, or that it's one.
+fn shown_title(title: &str) -> SharedString {
+    match title.trim() {
+        "" => "Terminal".into(),
+        title => title.to_owned().into(),
+    }
 }
 
 fn highlight(style: Style) -> HighlightStyle {
@@ -758,9 +704,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_wheel_reports_the_cell_drawn_under_it_when_cells_are_fractional() {
-        let mut vt = Vt::new(Terminal::OPENING).unwrap();
-        vt.write(b"\x1b[?1003h\x1b[?1006h");
+    fn a_point_over_a_fractional_cell_lands_in_that_cell_on_the_surface() {
         let grid = Grid {
             origin: gpui::point(fixed(100.), fixed(50.)),
             cell: gpui::size(fixed(7.8), fixed(16.)),
@@ -768,9 +712,9 @@ mod tests {
         let over_column_61 = gpui::point(fixed(100. + 7.8 * 60.5), fixed(58.));
         let at = grid.surface(over_column_61, Terminal::OPENING);
         assert_eq!(
-            vt.wheel(1., at, Mods::empty()),
-            b"\x1b[<64;61;1M".to_vec(),
-            "7.8px cells drawn report as the 8px cells the encoder counts in, not 59"
+            (at.x / 8.) as u16 + 1,
+            61,
+            "7.8px cells drawn map onto the 8px cells the encoders count in, not column 59"
         );
     }
 }

@@ -13,7 +13,7 @@ use libghostty_vt::render::{CellIterator, Dirty, RowIterator};
 use libghostty_vt::screen::{CellWide, Screen};
 use libghostty_vt::selection::gesture::{self, Gesture};
 use libghostty_vt::style::{RgbColor, Underline};
-use libghostty_vt::terminal::{Mode, Point as GridPoint, PointCoordinate};
+use libghostty_vt::terminal::{Mode, Point as GridPoint, PointCoordinate, ScrollViewport};
 use libghostty_vt::{RenderState, paste};
 
 use super::{Colors, Size};
@@ -55,7 +55,7 @@ pub struct Frame {
 
 /// The emulator and what it's read and written with.
 pub(crate) struct Vt {
-    pub(crate) term: libghostty_vt::Terminal<'static, 'static>,
+    term: libghostty_vt::Terminal<'static, 'static>,
     state: RenderState<'static>,
     rows: RowIterator<'static>,
     cells: CellIterator<'static>,
@@ -71,8 +71,9 @@ pub(crate) struct Vt {
     /// When the gesture was last told a press was, by clicks rather than the clock.
     pressed: Duration,
     /// What the emulator answers the shell's queries with, to send it.
-    pub(crate) replies: Rc<Cell<Vec<u8>>>,
-    pub(crate) retitled: Rc<Cell<bool>>,
+    replies: Rc<Cell<Vec<u8>>>,
+    retitled: Rc<Cell<bool>>,
+    size: Size,
 }
 
 impl Vt {
@@ -127,6 +128,7 @@ impl Vt {
             pressed: Duration::ZERO,
             replies,
             retitled,
+            size,
         })
     }
 
@@ -161,9 +163,63 @@ impl Vt {
         self.mouse.set_options_from_terminal(&self.term);
     }
 
+    pub(crate) fn size(&self) -> Size {
+        self.size
+    }
+
+    /// The title the shell set, lossily as text.
+    pub(crate) fn title(&self) -> String {
+        String::from_utf8_lossy(self.term.title().unwrap_or_default()).into_owned()
+    }
+
+    /// The title, if the shell set one since this was last asked.
+    pub(crate) fn retitled(&mut self) -> Option<String> {
+        self.retitled.take().then(|| self.title())
+    }
+
+    /// What the emulator answered the shell's queries with since this was last asked.
+    pub(crate) fn take_replies(&mut self) -> Vec<u8> {
+        self.replies.take()
+    }
+
+    /// Typing shows the bottom, and drops the selection.
+    pub(crate) fn typed(&mut self) {
+        self.term.scroll_viewport(ScrollViewport::Bottom);
+        self.term.set_selection(None).ok();
+    }
+
+    pub(crate) fn tracks_mouse(&self) -> bool {
+        self.term.is_mouse_tracking().unwrap_or(false)
+    }
+
+    /// The defaults `colors` sets, with `background` and `foreground` where it sets none.
+    pub(crate) fn set_colors(
+        &mut self,
+        colors: &Colors,
+        background: RgbColor,
+        foreground: RgbColor,
+    ) {
+        let term = &mut self.term;
+        term.set_default_bg_color(Some(colors.background.unwrap_or(background)))
+            .ok();
+        term.set_default_fg_color(Some(colors.foreground.unwrap_or(foreground)))
+            .ok();
+        term.set_default_cursor_color(colors.cursor).ok();
+        term.set_default_color_palette(None).ok();
+        if let Ok(mut palette) = term.default_color_palette() {
+            for &(index, color) in &colors.palette {
+                if let Some(entry) = palette.0.get_mut(usize::from(index)) {
+                    *entry = color;
+                }
+            }
+            term.set_default_color_palette(Some(palette)).ok();
+        }
+    }
+
     /// Sizes the emulator and, so motion is told of once a cell, the mouse encoder only when
     /// the size changes.
     pub(crate) fn resize(&mut self, size: Size) {
+        self.size = size;
         let cell = (u32::from(size.cell_width), u32::from(size.cell_height));
         (self.term)
             .resize(size.cols, size.rows, cell.0, cell.1)
@@ -193,7 +249,7 @@ impl Vt {
 
     /// The wheel turned `lines` up, or down if negative, over `at` on the grid, for a program
     /// tracking the mouse.
-    pub(crate) fn wheel(&mut self, lines: f32, at: mouse::Position, mods: Mods) -> Vec<u8> {
+    fn wheel(&mut self, lines: f32, at: mouse::Position, mods: Mods) -> Vec<u8> {
         let button = if lines > 0. {
             mouse::Button::Four
         } else {
@@ -204,9 +260,23 @@ impl Vt {
             .collect()
     }
 
+    /// The wheel turned `lines` up, or down if negative, over `at` on the surface: told to a
+    /// program tracking the mouse, sent as arrows to an alternate screen that asks for them,
+    /// or else scrolling back through what scrolled off.
+    pub(crate) fn scroll(&mut self, lines: f32, at: mouse::Position, mods: Mods) -> Vec<u8> {
+        if self.tracks_mouse() {
+            return self.wheel(lines, at, mods);
+        }
+        if let Some(arrows) = self.alternate_scroll(lines) {
+            return arrows;
+        }
+        (self.term).scroll_viewport(ScrollViewport::Delta(-(lines as isize)));
+        Vec::new()
+    }
+
     /// The arrows the wheel turning `lines` up, or down if negative, sends a program on the
     /// alternate screen that asks for them (1007), as less and man do, or none.
-    pub(crate) fn alternate_scroll(&mut self, lines: f32) -> Option<Vec<u8>> {
+    fn alternate_scroll(&mut self, lines: f32) -> Option<Vec<u8>> {
         let alternate = matches!(self.term.active_screen(), Ok(Screen::Alternate));
         if !(alternate && self.term.mode(Mode::ALT_SCROLL).unwrap_or(false)) {
             return None;
@@ -228,7 +298,6 @@ impl Vt {
     pub(crate) fn select_press(
         &mut self,
         at: mouse::Position,
-        size: Size,
         repeated: bool,
     ) -> libghostty_vt::error::Result<()> {
         const REPEAT: Duration = Duration::from_secs(1);
@@ -241,7 +310,7 @@ impl Vt {
             .set_repeat_interval(REPEAT)?;
         let cell = self
             .term
-            .grid_ref(GridPoint::Viewport(viewport(at, size)))?;
+            .grid_ref(GridPoint::Viewport(viewport(at, self.size)))?;
         let selection = self.press.apply(&mut self.selecting, &self.term, cell)?;
         self.term.set_selection(selection.as_ref())?;
         Ok(())
@@ -252,7 +321,6 @@ impl Vt {
     pub(crate) fn select_drag(
         &mut self,
         at: mouse::Position,
-        size: Size,
         rectangle: bool,
     ) -> libghostty_vt::error::Result<()> {
         (self.drag)
@@ -260,10 +328,10 @@ impl Vt {
             .set_rectangle(rectangle)?;
         let cell = self
             .term
-            .grid_ref(GridPoint::Viewport(viewport(at, size)))?;
-        let selection = self
-            .drag
-            .apply(&mut self.selecting, &self.term, cell, geometry(size))?;
+            .grid_ref(GridPoint::Viewport(viewport(at, self.size)))?;
+        let selection =
+            self.drag
+                .apply(&mut self.selecting, &self.term, cell, geometry(self.size))?;
         self.term.set_selection(selection.as_ref())?;
         Ok(())
     }
@@ -271,11 +339,10 @@ impl Vt {
     pub(crate) fn select_release(
         &mut self,
         at: mouse::Position,
-        size: Size,
     ) -> libghostty_vt::error::Result<()> {
         let cell = self
             .term
-            .grid_ref(GridPoint::Viewport(viewport(at, size)))?;
+            .grid_ref(GridPoint::Viewport(viewport(at, self.size)))?;
         (self.release).apply(&mut self.selecting, &self.term, Some(cell))
     }
 
@@ -311,14 +378,14 @@ impl Vt {
     pub(crate) fn select_autoscroll(
         &mut self,
         at: mouse::Position,
-        size: Size,
         rectangle: bool,
     ) -> libghostty_vt::error::Result<()> {
         (self.tick)
             .set_position(f64::from(at.x), f64::from(at.y))?
             .set_rectangle(rectangle)?;
-        let cell = viewport(at, size);
-        let selection = (self.tick).apply(&mut self.selecting, &self.term, cell, geometry(size))?;
+        let cell = viewport(at, self.size);
+        let selection =
+            (self.tick).apply(&mut self.selecting, &self.term, cell, geometry(self.size))?;
         if let Some(selection) = selection {
             self.term.set_selection(Some(&selection))?;
         }
@@ -606,32 +673,31 @@ mod tests {
     fn a_double_click_dragged_selects_by_word() {
         let mut vt = Vt::new(SIZE).unwrap();
         vt.write(b"hello brave new world");
-        let size = SIZE;
         let over = |col: f32| mouse::Position {
             x: col * 8. + 4.,
             y: 8.,
         };
-        vt.select_press(over(7.), size, false).unwrap();
-        vt.select_release(over(7.), size).unwrap();
+        vt.select_press(over(7.), false).unwrap();
+        vt.select_release(over(7.)).unwrap();
         assert_eq!(
             highlighted(&mut vt),
             Vec::<String>::new(),
             "a click selects nothing"
         );
-        vt.select_press(over(7.), size, true).unwrap();
+        vt.select_press(over(7.), true).unwrap();
         assert_eq!(
             highlighted(&mut vt),
             ["brave"],
             "a second click in a row takes the word"
         );
-        vt.select_drag(over(18.), size, false).unwrap();
+        vt.select_drag(over(18.), false).unwrap();
         assert_eq!(
             highlighted(&mut vt),
             ["brave new world"],
             "dragging from it takes whole words up to the one under the pointer"
         );
-        vt.select_release(over(18.), size).unwrap();
-        vt.select_press(over(7.), size, false).unwrap();
+        vt.select_release(over(18.)).unwrap();
+        vt.select_press(over(7.), false).unwrap();
         assert_eq!(
             highlighted(&mut vt),
             Vec::<String>::new(),
@@ -645,7 +711,6 @@ mod tests {
         for n in 0..60 {
             vt.write(format!("line {n}\r\n").as_bytes());
         }
-        let size = SIZE;
         let row = |row: f32| mouse::Position {
             x: 4.,
             y: row * 16. + 8.,
@@ -661,11 +726,11 @@ mod tests {
             "line 37",
             "the screen shows the last lines"
         );
-        vt.select_press(row(5.), size, false).unwrap();
-        vt.select_drag(row(-1.), size, false).unwrap();
+        vt.select_press(row(5.), false).unwrap();
+        vt.select_drag(row(-1.), false).unwrap();
         assert!(vt.autoscrolling(), "above the top it asks to scroll");
         for _ in 0..3 {
-            vt.select_autoscroll(row(-1.), size, false).unwrap();
+            vt.select_autoscroll(row(-1.), false).unwrap();
         }
         assert_eq!(
             first_row(&mut vt),
@@ -677,7 +742,7 @@ mod tests {
             ["line 34"],
             "the selection follows to the top"
         );
-        vt.select_release(row(-1.), size).unwrap();
+        vt.select_release(row(-1.)).unwrap();
         assert!(!vt.autoscrolling(), "letting go stops it");
     }
 

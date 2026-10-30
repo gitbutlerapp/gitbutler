@@ -6,7 +6,8 @@ use gpui::{Context, Entity, Subscription};
 
 use super::{ProjectId, Selection, Store};
 #[cfg(unix)]
-use crate::backend::terminal::{Handed, Kept};
+use crate::backend::terminal::{Detached, Handed, Kept};
+use crate::backend::terminal::{Ghostty, Shell};
 use crate::backend::{self, Checkout};
 use crate::terminal::{Terminal, TerminalEvent, TerminalId};
 
@@ -71,11 +72,14 @@ impl Store {
             return;
         };
         cx.spawn(async move |this, cx| {
-            let opened =
-                backend::run(move || backend::terminal::open(&cwd, Terminal::OPENING)).await;
+            let started =
+                backend::run(move || Ok((Shell::spawn(&cwd, Terminal::OPENING)?, Ghostty::load())))
+                    .await;
             this.update(cx, |store, cx| {
                 let store_handle = cx.weak_entity();
-                match opened.and_then(|opened| Terminal::new(opened, store_handle, cx)) {
+                let opened = started
+                    .and_then(|(shell, ghostty)| Terminal::new(shell, ghostty, store_handle, cx));
+                match opened {
                     Ok(terminal) => store.add_terminal(project, checkout, terminal, cx),
                     Err(err) => store.failed("Couldn't open a terminal", &err, cx),
                 }
@@ -125,10 +129,8 @@ impl Store {
     pub fn hand_off_terminals(&mut self, cx: &mut Context<Self>) -> Vec<(Handed, Kept)> {
         (self.terminals.open.iter())
             .filter_map(|open| {
-                let handed = open
-                    .terminal
-                    .update(cx, |terminal, cx| terminal.hand_off(cx));
-                let (kept, size, screen) = (handed)
+                let detached = open.terminal.update(cx, |terminal, _| terminal.detach());
+                let Detached { kept, size, screen } = (detached)
                     .inspect_err(|err| tracing::error!("couldn't hand a terminal over: {err:#}"))
                     .ok()?;
                 let handed = Handed {
@@ -147,15 +149,19 @@ impl Store {
     #[cfg(unix)]
     pub fn adopt_terminals(&mut self, handed: Vec<(Handed, Kept)>, cx: &mut Context<Self>) {
         for (handed, kept) in handed {
+            let Handed {
+                project,
+                checkout,
+                id,
+                size,
+                screen,
+            } = handed;
             let store = cx.weak_entity();
-            match Terminal::adopt(kept, handed.size, &handed.screen, store, cx) {
-                Ok(terminal) => self.insert_terminal(
-                    TerminalId(handed.id),
-                    handed.project.into(),
-                    handed.checkout,
-                    terminal,
-                    cx,
-                ),
+            let detached = Detached { kept, size, screen };
+            match Terminal::adopt(detached, store, cx) {
+                Ok(terminal) => {
+                    self.insert_terminal(TerminalId(id), project.into(), checkout, terminal, cx)
+                }
                 Err(err) => tracing::error!("couldn't adopt a terminal: {err:#}"),
             }
         }
