@@ -622,6 +622,21 @@ impl AppView {
         })
     }
 
+    /// Edit the name of `project`'s branch `ref_name` in its header, or give the unnamed branch
+    /// one when it's `None`.
+    pub(crate) fn rename_branch_in_header(
+        &mut self,
+        project: ProjectId,
+        ref_name: Option<FullName>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let submit = self.submit_branch_name(&project, ref_name.clone(), cx);
+        (self.detail).update(cx, |detail, cx| {
+            detail.rename_branch(project, ref_name, window, cx, submit)
+        })
+    }
+
     /// What saving a name typed for `project`'s branch `ref_name` does: rename it, or with
     /// `None` name the unnamed branch at its newest commit.
     fn submit_branch_name(

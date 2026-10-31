@@ -16,9 +16,11 @@ use crate::app::{
     AppHandle, Collapse, Expand, SelectNext, SelectPrevious, StartCommit, ToggleFold,
 };
 use crate::backend::upstream::{self, ACTIVITY_DAYS};
-use crate::backend::{self, Checkout, CommitId, CommitState, FullName, PushState, short_ref};
+use crate::backend::{
+    self, Branch, Checkout, CommitId, CommitState, FullName, PushState, short_ref,
+};
 use crate::clock;
-use crate::edits::Reword;
+use crate::edits::{NameBranch, RenameBranch, Reword};
 use crate::navigator::{SelectFirst, SelectLast};
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{ProjectId, Section, Selection};
@@ -901,10 +903,43 @@ impl Detail {
         let meta = meta
             .child(div().flex_1())
             .child(h_flex().gap(dp(8.)).children(create).child(push));
-        let title = page_title(Icon::Branch, theme).child(title_text(name.to_owned()));
+        let name = match self.rename_field(project, ref_name, theme) {
+            Some(field) => field,
+            None => self.branch_title(project, ref_name, branch, name, theme, cx),
+        };
+        let title = page_title(Icon::Branch, theme).child(name);
         let tabs =
             (branch.review.as_ref()).map(|review| self.review_tabs(review, theme, window, cx));
         self.page_header(title, meta, target, None, tabs, theme, cx)
+    }
+
+    /// A branch's `name` in its header, which a click starts editing, unless it's an unnamed
+    /// branch with no commit to name it at.
+    fn branch_title(
+        &self,
+        project: &ProjectId,
+        ref_name: Option<&FullName>,
+        branch: &Branch,
+        name: &str,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        if ref_name.is_none() && branch.commits.is_empty() {
+            return title_text(name.to_owned()).into_any_element();
+        }
+        let (tip, key) = match ref_name {
+            Some(_) => ("Rename branch", shortcut(&RenameBranch, cx)),
+            None => ("Name branch", shortcut(&NameBranch, cx)),
+        };
+        let (project, ref_name) = (project.clone(), ref_name.cloned());
+        editable_title("branch-title", name.to_owned(), tip, key, theme)
+            .on_click(cx.listener(move |this, _, window, cx| {
+                let (project, ref_name) = (project.clone(), ref_name.clone());
+                (this.app).update_later(window, cx, move |app, window, cx| {
+                    app.rename_branch_in_header(project, ref_name, window, cx)
+                });
+            }))
+            .into_any_element()
     }
 
     /// A stack's header: how many branches it has, which, and their commits.

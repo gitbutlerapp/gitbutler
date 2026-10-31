@@ -20,6 +20,7 @@ mod lines;
 mod machine;
 mod panes;
 mod pull_request;
+mod rename;
 mod resolve;
 mod slots;
 mod upstream;
@@ -376,6 +377,8 @@ pub struct Detail {
     /// The commit message being edited, with the subscription that saves it. Looking at
     /// another commit keeps it, to pick up again on coming back.
     rewording: Option<(composer::Reworded, Entity<MessageEditor>, Subscription)>,
+    /// The branch whose name is being edited in its header.
+    renaming: Option<rename::Renaming>,
     /// The project the checks and commit target above belong to.
     checks_project: Option<ProjectId>,
     /// The checkout whose files the checks are of.
@@ -745,6 +748,7 @@ impl Detail {
             signers: HashMap::new(),
             sideways: HashMap::new(),
             rewording: None,
+            renaming: None,
             checks_project: None,
             checks_worktree: Checkout::Main,
             composing: false,
