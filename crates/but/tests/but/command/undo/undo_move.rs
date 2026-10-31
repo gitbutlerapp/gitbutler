@@ -1,9 +1,14 @@
+use std::path::Path;
+
 use but_core::RefMetadata;
 
 use crate::{
     command::{
         undo::run_mutate_undo_roundtrip_test,
-        util::{branch_commit_cli_ids, commit_two_files_as_two_hunks_each, status_json},
+        util::{
+            add_worktree_with_lower_branch, branch_commit_cli_ids,
+            commit_two_files_as_two_hunks_each, status_json,
+        },
     },
     utils::Sandbox,
 };
@@ -688,4 +693,78 @@ fn undo_move_commit_to_branch() {
             .assert()
             .success();
     });
+}
+
+/// Moving a commit out of a linked worktree checks that worktree out without it, so undo has to
+/// move the worktree's branches back and check the commit out there again, and redo has to take
+/// it away again.
+#[test]
+fn can_undo_and_redo_move_commit_out_of_linked_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = add_worktree_with_lower_branch(&env, "wt-feature", "A");
+    undo_and_redo_moving_the_lower_worktree_commit(&env, &wt_dir, "B");
+}
+
+#[test]
+fn can_undo_and_redo_single_branch_move_commit_out_of_linked_worktree() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.invoke_git("checkout -q -b feature");
+    env.but("status").assert().success();
+    let wt_dir = add_worktree_with_lower_branch(&env, "wt-feature", "feature");
+    undo_and_redo_moving_the_lower_worktree_commit(&env, &wt_dir, "feature");
+}
+
+/// Move the commit `wt-lower` names below `wt-feature`, which is checked out in `wt_dir`, onto
+/// `branch`, then undo and redo it.
+#[track_caller]
+fn undo_and_redo_moving_the_lower_worktree_commit(env: &Sandbox, wt_dir: &Path, branch: &str) {
+    let tips = format!("rev-parse {branch} wt-lower wt-feature");
+    let tips_before = env.invoke_git(&tips);
+    let worktree_commit = env.invoke_git("rev-parse wt-lower");
+    let worktree_status = format!("-C '{}' status --porcelain", wt_dir.display());
+    let mut tips_after = String::new();
+
+    run_mutate_undo_roundtrip_test(env, |env| {
+        env.but(format!("move {worktree_commit} -b {branch}"))
+            .assert()
+            .success();
+        assert!(
+            !wt_dir.join("wt-file.txt").exists(),
+            "the move checks the worktree out without the moved commit"
+        );
+        tips_after = env.invoke_git(&tips);
+    });
+
+    assert_eq!(
+        env.invoke_git(&tips),
+        tips_before,
+        "undo must restore the destination and both of the worktree's branches"
+    );
+    assert!(
+        wt_dir.join("wt-file.txt").exists(),
+        "undo must check the moved commit out in the worktree again"
+    );
+    assert_eq!(
+        env.invoke_git(&worktree_status),
+        "",
+        "the worktree's files match its restored branch"
+    );
+
+    env.but("redo").assert().success();
+    assert_eq!(
+        env.invoke_git(&tips),
+        tips_after,
+        "redo must move the commit out of the worktree's branches again"
+    );
+    assert!(
+        !wt_dir.join("wt-file.txt").exists(),
+        "redo must check the worktree out without the moved commit again"
+    );
+    assert_eq!(
+        env.invoke_git(&worktree_status),
+        "",
+        "the worktree's files match its branch after redo"
+    );
 }

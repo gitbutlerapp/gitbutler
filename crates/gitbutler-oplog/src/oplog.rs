@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeSet, HashMap, hash_map::Entry},
+    collections::{BTreeMap, BTreeSet, HashMap, hash_map::Entry},
     fs,
     str::{FromStr, from_utf8},
 };
@@ -21,7 +21,7 @@ use gitbutler_repo::{
 use gix::objs::Write as _;
 use gix::{
     ObjectId,
-    bstr::ByteSlice,
+    bstr::{BString, ByteSlice},
     index::entry::{Flags, Stage},
     object::tree::EntryKind,
 };
@@ -144,12 +144,13 @@ impl SnapshotProjectMeta {
 /// ├── checkout/ (ad-hoc checkouts only)
 /// │   ├── commit
 /// │   └── ref
-/// ├── additional-refs/ (ad-hoc graph refs and explicitly preserved refs)
+/// ├── additional-refs/ (ad-hoc graph refs, explicitly preserved refs and linked worktree branches)
 /// │   └── [index]/
 /// │       ├── name
 /// │       ├── target (absent if the ref did not exist)
 /// │       ├── commits/[id]/{commit,tree} (the commits of target that the target branch lacks)
-/// │       └── checked-out-elsewhere (an explicitly preserved ref another worktree had checked out)
+/// │       ├── checked-out-elsewhere (an explicitly preserved ref another worktree had checked out)
+/// │       └── linked-worktree (the name of the linked worktree whose lane held the ref)
 /// ├── conflicts/…
 /// ├── index/
 /// ├── index-conflicts/…
@@ -185,6 +186,10 @@ pub trait OplogExt {
     /// Commits the snapshot tree that is created with the [`prepare_snapshot`](Self::prepare_snapshot) method,
     /// which yielded the `snapshot_tree_id` for the entire snapshot state.
     /// Use `details` to provide metadata about the snapshot.
+    ///
+    /// Branches of linked worktrees that still point where the snapshot recorded them are left
+    /// out, so restoring it leaves alone the worktrees the operation didn't change. A snapshot
+    /// committed right after it was prepared records none of them.
     ///
     /// Committing it makes the snapshot discoverable in [`snapshots_iter`](Self::snapshots_iter) as well as
     /// restorable with [`restore_snapshot`](Self::restore_snapshot).
@@ -614,6 +619,9 @@ struct SnapshotReference {
     commits: Option<gix::ObjectId>,
     /// Another worktree had `ref_name` checked out, so restoring may move it there.
     checked_out_elsewhere: bool,
+    /// The linked worktree whose lane held `ref_name`, so restoring checks it out there if that
+    /// worktree has it checked out.
+    linked_worktree: Option<BString>,
 }
 
 fn snapshot_references(
@@ -662,11 +670,16 @@ fn snapshot_reference(
     let checked_out_elsewhere = reference_tree
         .lookup_entry_by_path("checked-out-elsewhere")?
         .is_some();
+    let linked_worktree = match reference_tree.lookup_entry_by_path("linked-worktree")? {
+        Some(entry) => Some(repo.find_blob(entry.id())?.data.as_bstr().to_owned()),
+        None => None,
+    };
     Ok(SnapshotReference {
         ref_name,
         target,
         commits,
         checked_out_elsewhere,
+        linked_worktree,
     })
 }
 
@@ -892,7 +905,8 @@ fn prepare_snapshot_with_target(
 
 /// Like [`prepare_snapshot_with_target`], additionally preserving `explicit_refs`. Those of
 /// `movable_elsewhere` that another worktree has checked out are marked, so restoring may
-/// move them there.
+/// move them there. The other branches in the lanes of linked worktrees are marked with their
+/// worktree, so restoring checks the worktree out again, as rebasing them does.
 fn prepare_snapshot_with_target_and_refs(
     ctx: &Context,
     shared_access: &RepoShared,
@@ -943,6 +957,7 @@ fn prepare_snapshot_with_target_and_refs(
         .iter()
         .map(|name| (*name).to_owned())
         .collect();
+    let mut linked_worktree_by_ref = BTreeMap::new();
     let mut head = repo.head()?;
     let head_is_ad_hoc = head
         .referent_name()
@@ -972,6 +987,14 @@ fn prepare_snapshot_with_target_and_refs(
         } else {
             ctx.workspace_from_head_uncached(shared_access)?
         };
+        for worktree in &ws.worktrees {
+            for ref_name in worktree.segments.iter().flat_map(|s| s.ref_names()) {
+                if ref_name.category() == Some(gix::refs::Category::LocalBranch) {
+                    additional_refs.insert(ref_name.to_owned());
+                    linked_worktree_by_ref.insert(ref_name.to_owned(), worktree.name.clone());
+                }
+            }
+        }
         if head_is_ad_hoc {
             // Ad-hoc refs aren't represented by applied legacy stacks. Capture both
             // named segments and refs on commits, just as the graph editor does.
@@ -1084,6 +1107,12 @@ fn prepare_snapshot_with_target_and_refs(
                     EntryKind::Blob,
                     repo.write_blob(b"")?,
                 )?;
+            } else if let Some(worktree) = linked_worktree_by_ref.get(ref_name) {
+                reference_tree.upsert(
+                    "linked-worktree",
+                    EntryKind::Blob,
+                    repo.write_blob(worktree)?,
+                )?;
             }
         }
     }
@@ -1157,7 +1186,7 @@ fn commit_snapshot(
     _exclusive_access: &mut RepoExclusive,
     target: gix::ObjectId,
 ) -> Result<gix::ObjectId> {
-    repo.find_tree(snapshot_tree_id)?;
+    let snapshot_tree_id = without_unmoved_linked_worktree_branches(repo, snapshot_tree_id)?;
 
     let project_data_dir = ctx.project_data_dir();
     let oplog_state = OplogHandle::new(&project_data_dir);
@@ -1187,6 +1216,49 @@ fn commit_snapshot(
     set_reference_to_oplog(repo.git_dir(), ReflogCommits::new(ctx, target)?)?;
 
     Ok(snapshot_commit_id)
+}
+
+/// Drop the branches that linked worktrees had checked out from `snapshot_tree_id` if they
+/// still point where it recorded them. Restoring then leaves alone the worktrees that the
+/// operation didn't change, and what was committed in them since.
+fn without_unmoved_linked_worktree_branches(
+    repo: &gix::Repository,
+    snapshot_tree_id: gix::ObjectId,
+) -> Result<gix::ObjectId> {
+    let snapshot_tree = repo.find_tree(snapshot_tree_id)?;
+    let Some(references) = snapshot_tree.lookup_entry_by_path("additional-refs")? else {
+        return Ok(snapshot_tree_id);
+    };
+    let mut kept = Vec::new();
+    let mut dropped_any = false;
+    for entry in repo.find_tree(references.id())?.iter() {
+        let reference_tree_id = entry?.id().detach();
+        let reference = snapshot_reference(&repo.find_tree(reference_tree_id)?, repo)?;
+        let unmoved = reference.linked_worktree.is_some()
+            && repo
+                .try_find_reference(reference.ref_name.as_ref())?
+                .and_then(|current| current.target().try_id().map(ToOwned::to_owned))
+                == reference.target;
+        if unmoved {
+            dropped_any = true;
+        } else {
+            kept.push(reference_tree_id);
+        }
+    }
+    if !dropped_any {
+        return Ok(snapshot_tree_id);
+    }
+    // Readers walk the indices in order, so the kept entries are renumbered.
+    let mut editor = snapshot_tree.edit()?;
+    editor.remove("additional-refs")?;
+    for (index, reference_tree_id) in kept.into_iter().enumerate() {
+        editor.upsert(
+            format!("additional-refs/{index}"),
+            EntryKind::Tree,
+            reference_tree_id,
+        )?;
+    }
+    Ok(editor.write()?.detach())
 }
 
 /// The kind of restore to perform.
@@ -1302,6 +1374,7 @@ fn restore_snapshot_tree(
     let restored_references = snapshot_references(&snapshot_tree, &repo)?;
     let restored_vb_toml = toml::to_string(&restored_virtual_branches)?;
 
+    let mut linked_worktree_checkouts = Vec::new();
     for reference in &restored_references {
         // A worktree that had the ref checked out when the snapshot was taken gets it moved
         // back with its files as they are.
@@ -1312,10 +1385,24 @@ fn restore_snapshot_tree(
                 but_core::branch::SafeDelete::new(&repo)?.worktree_dirs_with_ref(&current_reference)
         {
             // This worktree is restored below; other worktrees must not be disturbed.
-            let dirs: Vec<_> = dirs
+            let mut dirs: Vec<_> = dirs
                 .iter()
                 .filter(|dir| Some(dir.as_path()) != repo.workdir())
                 .collect();
+            // Except the linked worktree that had the ref checked out when the snapshot was
+            // taken, which checks it out again.
+            if let Some((name, target)) = reference.linked_worktree.as_ref().zip(reference.target)
+                && let Some(worktree) = repo
+                    .worktree_proxy_by_id(name.as_bstr())?
+                    .map(|proxy| proxy.into_repo())
+                    .transpose()?
+                && let Some(index) = dirs
+                    .iter()
+                    .position(|dir| Some(dir.as_path()) == worktree.workdir())
+            {
+                dirs.remove(index);
+                linked_worktree_checkouts.push((worktree, target));
+            }
             if !dirs.is_empty() {
                 bail!(
                     "Cannot restore branch '{}' because it is checked out in worktrees: {dirs:?}",
@@ -1346,6 +1433,18 @@ fn restore_snapshot_tree(
     let before_restore_snapshot_workdir_tree_id =
         get_v3_workdir_tree(repo.find_tree(before_restore_snapshot_tree_id)?)?
             .context("Could not get workdir tree of snapshot created before the restore")?;
+
+    // Check out linked worktrees before anything else changes, so one whose uncommitted
+    // changes conflict stops the restore.
+    for (worktree, target) in linked_worktree_checkouts {
+        but_core::worktree::safe_checkout_from_head(target, &worktree, Default::default())
+            .with_context(|| {
+                format!(
+                    "Cannot restore the linked worktree at {:?}",
+                    worktree.workdir().unwrap_or(worktree.git_dir())
+                )
+            })?;
+    }
 
     if let Err(err) = restore_conflicts_tree(&snapshot_tree, &repo) {
         tracing::warn!("failed to restore conflicts tree - ignoring: {err}")
