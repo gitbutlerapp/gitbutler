@@ -138,7 +138,7 @@ pub struct AppView {
     navigator_slide: Slide,
     /// Whether the detail shows beside the navigator. Hidden, the navigator takes the window;
     /// the two are never both hidden.
-    detail_open: bool,
+    pub(crate) detail_open: bool,
     /// The detail sliding in from the window's right edge or back off it.
     detail_slide: Slide,
     /// The window narrowed to the navigator while the detail is hidden, or narrowing to it or
@@ -1958,6 +1958,7 @@ impl Render for AppView {
             .map(|el| self.project_list_actions(el, cx))
             .map(|el| self.resolve_actions(el, cx))
             .on_action(cx.listener(Self::go_to))
+            .on_action(cx.listener(Self::go_to_terminal))
             .on_action(cx.listener(Self::show_context_menu))
             .on_action(cx.listener(Self::copy_more))
             .on_action(cx.listener(Self::open_selected_in_terminal))

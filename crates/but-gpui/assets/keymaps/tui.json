@@ -1,7 +1,8 @@
 // A keymap like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming,
-// moving commits and adding an empty commit, Return to fold and unfold, f, ⇧F and ⌃F to show and
-// hide the files, the navigator and the details, / to filter or find, ⌘K for the command palette,
-// ⌘R to fetch and ⇧⌘R to pull, ⌘1, ⌘2 and ⌘3 to go to the navigator, the files and the diff,
+// moving commits and adding an empty commit, Return to fold and unfold, f to show and hide the
+// files, / to filter or find, ⌘K for the command palette, ⌘P to go to anything and ⌘J to a
+// terminal, ⌘T to open a terminal, ⌘R to fetch and ⇧⌘R to pull, ⌘1, ⌘2 and ⌘3 to go to the
+// navigator, the files and the diff, ⌘B and ⌥⌘B to show and hide the navigator and the details,
 // and the keys the app's lists and overlays need, as GitButler's keymap has them.
 // `base.json`, which macOS gives every app, binds after these. `secondary` is cmd on macOS and
 // ctrl elsewhere; a section with "os" binds only there. Order matters: within a context the
@@ -12,23 +13,19 @@
   {
     "bindings": { "secondary-k": "app::CommandPalette" }
   },
-  // : for the TUI's command line, ? for its help, t for its branch picker and Esc to go back. y
-  // copies the selection and ⇧Y picks what else of it to copy. u undoes and ⇧U redoes. ← and →,
-  // or h and l, go to the pane on that side, as l focuses the TUI's details and h its status. ⇧F
-  // shows or hides the navigator, and ⌃F the details.
+  // : for the TUI's command line, ? for its help and Esc to go back. y copies the selection and
+  // ⇧Y picks what else of it to copy. u undoes and ⇧U redoes. ← and →, or h and l, go to the pane
+  // on that side, as l focuses the TUI's details and h its status.
   {
     "context": "Workspace && !TextInput",
     "bindings": {
       ":": "app::CommandPalette",
       "?": "settings::OpenKeyboardShortcuts",
-      "t": "palette::GoTo",
       "escape": "app::Cancel",
       "y": "navigator::CopySelection",
       "shift-y": "palette::CopyMore",
       "u": "app::Undo",
       "shift-u": "app::Redo",
-      "shift-f": "app::ToggleNavigator",
-      "ctrl-f": "app::ToggleDetail",
       "right": "app::FocusPaneRight",
       "l": "app::FocusPaneRight",
       "left": "app::FocusPaneLeft",
@@ -43,12 +40,21 @@
       "secondary-shift-r": "remote::Pull"
     }
   },
-  // ⌘1, ⌘2 and ⌘3 go to the navigator, the files and the diff, as in GitButler's keymap.
+  // ⌘P goes to anything, the TUI's branch picker for more than branches, ⌘1, ⌘2 and ⌘3 go to the
+  // navigator, the files and the diff, and ⌘B and ⌥⌘B show or hide the navigator and the
+  // details, as in GitButler's keymap. ⌘J goes to a terminal, as VS Code's and Zed's open the
+  // panel theirs are in, and ⌘T opens one, as a terminal app opens a tab. From a terminal too,
+  // which takes the TUI's letters.
   {
     "bindings": {
+      "secondary-p": "palette::GoTo",
+      "secondary-j": "palette::GoToTerminal",
+      "secondary-t": "terminal::NewTerminal",
       "secondary-1": "app::FocusNavigator",
       "secondary-2": "app::FocusChanges",
-      "secondary-3": "app::FocusDiff"
+      "secondary-3": "app::FocusDiff",
+      "secondary-b": "app::ToggleNavigator",
+      "secondary-alt-b": "app::ToggleDetail"
     }
   },
   // The TUI's status list: up and down, ⇧J and ⇧K between sections, g and ⇧G to either end. n

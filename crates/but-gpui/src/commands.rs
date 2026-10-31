@@ -18,7 +18,7 @@ use crate::edits::{
     DeleteBranch, DiscardChanges, DiscardCommit, NameBranch, NewBranchBelow, NewBranchHere,
     RenameBranch, Reword, RewrapMessage, SquashAll, UnapplyStack, Uncommit, Unstack,
 };
-use crate::palette::{CopyMore, GoTo};
+use crate::palette::{CopyMore, GoTo, GoToTerminal};
 use crate::state::Selection;
 use crate::ui::{commit_title, plural, quoted};
 
@@ -211,6 +211,7 @@ commands! {
     crate::detail::SwitchTab => "Switch between Changes and Pull request",
     crate::app::CloseWindow => "Close window",
     GoTo => "Go to anything",
+    GoToTerminal => "Go to a terminal",
     crate::detail::FindInDiff => "Find in diff",
     crate::detail::FilterFiles => "Filter files",
     crate::detail::ToggleWrap => "Wrap long lines",

@@ -25,8 +25,9 @@ pub enum Keymap {
     #[default]
     GitButler,
     /// Like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming,
-    /// moving commits and adding an empty commit, Return to fold and unfold, f and ⇧F to show and
-    /// hide the files and the navigator, / to filter or find, ⌘K for the command palette, and ⌘R
+    /// moving commits and adding an empty commit, Return to fold and unfold, f to show and hide
+    /// the files, ⌘B and ⌥⌘B the navigator and the details, / to filter or find, ⌘K for the
+    /// command palette, ⌘P to go to anything and ⌘J to a terminal, ⌘T to open a terminal, and ⌘R
     /// and ⇧⌘R to fetch and pull.
     Tui,
 }
@@ -294,7 +295,12 @@ mod tests {
                 // The TUI's letters, which come after the arrows.
                 Keymap::Tui => &[
                     ("app::CommandPalette", ":"),
-                    ("palette::GoTo", "t"),
+                    // ⌘ chords, as a terminal takes the letters.
+                    ("palette::GoTo", "secondary-p"),
+                    ("palette::GoToTerminal", "secondary-j"),
+                    ("terminal::NewTerminal", "secondary-t"),
+                    ("app::ToggleNavigator", "secondary-b"),
+                    ("app::ToggleDetail", "secondary-alt-b"),
                     ("navigator::SelectNext", "j"),
                     ("navigator::SelectPrevious", "k"),
                     ("diff::NextHunk", "j"),
