@@ -448,20 +448,28 @@ impl Transfer {
         }
         match self {
             Transfer::Uncommit(ids) => store.uncommit(project, ids, cx),
-            Transfer::UncommitFiles { from, files } => store.apply(
-                project,
-                label,
-                Overlay::commit_files(store.key_of(project, from), files.iter()),
-                backend::UncommitFiles {
-                    commit: from,
-                    files,
-                },
-                move |store, rewritten, cx| {
-                    store.follow(&rewritten, cx);
-                    store.snack_undoable("Moved to uncommitted changes", cx)
-                },
-                cx,
-            ),
+            Transfer::UncommitFiles { from, files } => {
+                // Where they land is selected, as the TUI goes on to it.
+                let landed = (store.checkout_of(&Selection::Commit(project.clone(), from)))
+                    .map(|checkout| Selection::uncommitted_in(project.clone(), checkout));
+                store.apply(
+                    project,
+                    label,
+                    Overlay::commit_files(store.key_of(project, from), files.iter()),
+                    backend::UncommitFiles {
+                        commit: from,
+                        files,
+                    },
+                    move |store, rewritten, cx| {
+                        match landed {
+                            Some(landed) => store.select(Some(landed), cx),
+                            None => store.follow(&rewritten, cx),
+                        }
+                        store.snack_undoable("Moved to uncommitted changes", cx)
+                    },
+                    cx,
+                )
+            }
             // It leaves where it was and shows dimmed where it goes.
             Transfer::MoveCommit { ids, to } => store.apply(
                 project,
@@ -517,17 +525,21 @@ impl Transfer {
                 files,
                 worktree,
             } => store.amend(project, into, files, worktree, |_, _| {}, cx),
-            Transfer::MoveFiles { from, to, files } => store.apply(
-                project,
-                label,
-                Overlay::commit_files(store.key_of(project, from), files.iter()),
-                backend::MoveFiles { from, to, files },
-                move |store, rewritten, cx| {
-                    store.follow(&rewritten, cx);
-                    store.snack_undoable("Changes moved", cx)
-                },
-                cx,
-            ),
+            Transfer::MoveFiles { from, to, files } => {
+                let moved = project.clone();
+                store.apply(
+                    project,
+                    label,
+                    Overlay::commit_files(store.key_of(project, from), files.iter()),
+                    backend::MoveFiles { from, to, files },
+                    // On the commit they went into.
+                    move |store, rewritten, cx| {
+                        store.follow_on(&moved, &rewritten, to, cx);
+                        store.snack_undoable("Changes moved", cx)
+                    },
+                    cx,
+                )
+            }
             Transfer::StageOnBranch { branch, files } => return Some((branch, files)),
             Transfer::MoveWorktree { name, before } => store.move_worktree(
                 project,

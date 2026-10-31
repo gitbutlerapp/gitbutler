@@ -185,6 +185,27 @@ impl Overlay {
             || worktree.is_some_and(|name| self.worktrees.contains(name))
     }
 
+    /// The branch that takes the place of the one `selection` is on, or the bottom one of the
+    /// stack it is, once this has taken branches of its checkout away: see
+    /// [`backend::in_place_of`].
+    fn in_place_of<'a>(&self, selection: &Selection, store: &'a Store) -> Option<&'a Branch> {
+        let project = selection.project();
+        let workspace = store.workspace(project)?;
+        let ref_name = match selection {
+            Selection::Stack(_, bottom) => bottom.as_ref(),
+            _ => store.branch_for(selection)?.ref_name.as_ref(),
+        };
+        let (lane, _) = workspace.lane_of(ref_name)?;
+        let before: Vec<&Branch> = workspace.branches_in(&lane.checkout).collect();
+        let after: Vec<&Branch> = (before.iter().copied())
+            .filter(|b| {
+                let branch = Selection::Branch(project.clone(), b.ref_name.clone());
+                !self.takes_away(&branch, store)
+            })
+            .collect();
+        backend::in_place_of(&before, ref_name, &after)
+    }
+
     /// Hides the files taken whole, and of the others the hunks taken.
     pub fn files<'a>(selected: impl IntoIterator<Item = &'a backend::Selected>) -> Self {
         let mut overlay = Self::default();
@@ -927,12 +948,19 @@ impl Store {
             worktrees: archived.then(|| name.clone()).into_iter().collect(),
             ..Overlay::default()
         };
+        // One shown again is selected, as one created is.
+        let shown = (!archived).then(|| Selection::Worktree(project.clone(), name.clone()));
         self.apply(
             project,
             label,
             overlay,
             backend::worktrees::SetArchived { name, archived },
-            move |store, (), cx| store.snack(done, cx),
+            move |store, (), cx| {
+                store.snack(done, cx);
+                if let Some(shown) = shown {
+                    store.select(Some(shown), cx);
+                }
+            },
             cx,
         );
     }
@@ -984,7 +1012,8 @@ impl Store {
     }
 
     /// Move commits `ids` into a new branch of their own, in a stack of its own or `beside` a
-    /// branch in its stack, as [`backend::MoveToNewBranch`] says, and select that branch.
+    /// branch in its stack, as [`backend::MoveToNewBranch`] says. The selected one stays
+    /// selected there, as a move to a branch already there keeps it.
     pub fn move_to_new_branch(
         &mut self,
         project: &ProjectId,
@@ -992,7 +1021,6 @@ impl Store {
         beside: Option<(FullName, bool)>,
         cx: &mut Context<Self>,
     ) {
-        let shown = project.clone();
         let keys = ids.iter().filter_map(|id| self.key_of(project, *id));
         self.apply(
             project,
@@ -1002,8 +1030,8 @@ impl Store {
                 commits: ids,
                 beside,
             },
-            move |store, (_, branch), cx| {
-                store.select(Some(Selection::Branch(shown, Some(branch))), cx);
+            move |store, (rewritten, _), cx| {
+                store.follow(&rewritten, cx);
                 store.snack_undoable("Moved to a new branch", cx)
             },
             cx,
@@ -1082,13 +1110,15 @@ impl Store {
         let overlay = Overlay::commits(ids.iter().filter_map(|id| self.key_of(project, *id)));
         let label = Label::new("Squash", format!("Squash {} commits", ids.len() + 1));
         let squash = backend::Squash { commits: ids, into };
+        let squashed = project.clone();
         self.apply(
             project,
             label,
             overlay,
             squash,
-            |store, rewritten, cx| {
-                store.follow(&rewritten, cx);
+            // On the result, from a branch squashed whole too.
+            move |store, rewritten, cx| {
+                store.follow_on(&squashed, &rewritten, into, cx);
                 store.snack_undoable("Squashed into one commit", cx)
             },
             cx,
@@ -1172,13 +1202,20 @@ impl Store {
             return;
         };
         // What's selected leaving with its branch or worktree, the selection goes now where
-        // the reload after it would put it.
+        // the reload after it would put it: to the branch taking its place, as the TUI goes
+        // on after a delete, or with none, to the main checkout.
         let selection = self.selection.as_ref();
         let moved = selection
             .filter(|s| s.project() == project && overlay.takes_away(s, self))
-            .cloned();
-        if moved.is_some() {
-            self.select(Some(Selection::Uncommitted(project.clone())), cx);
+            .map(|s| {
+                let instead = match overlay.in_place_of(s, self) {
+                    Some(branch) => Selection::Branch(project.clone(), branch.ref_name.clone()),
+                    None => Selection::Uncommitted(project.clone()),
+                };
+                (s.clone(), instead)
+            });
+        if let Some((_, instead)) = &moved {
+            self.select(Some(instead.clone()), cx);
         }
         // Drawn again when the commit it makes, if any, is due to dim.
         if overlay.new_commit.is_some() {
@@ -1302,9 +1339,8 @@ impl Store {
                     }
                     Err(err) => {
                         // What it would have taken away stays, so the selection goes back.
-                        let uncommitted = Selection::Uncommitted(project.clone());
-                        if let Some(moved) = moved
-                            && store.selection.as_ref() == Some(&uncommitted)
+                        if let Some((moved, instead)) = moved
+                            && store.selection.as_ref() == Some(&instead)
                         {
                             store.select(Some(moved), cx);
                         }
@@ -1723,6 +1759,23 @@ impl Store {
         {
             let (project, from, to) = (project.clone(), *id, *new);
             self.select_followed(project, from, to, cx);
+        }
+    }
+
+    /// Follow what `rewritten` rewrote, then end on `project`'s commit `on`, as rewritten: the
+    /// commit an operation changed, which the TUI goes on to.
+    pub fn follow_on(
+        &mut self,
+        project: &ProjectId,
+        rewritten: &backend::Rewritten,
+        on: CommitId,
+        cx: &mut Context<Self>,
+    ) {
+        self.follow(rewritten, cx);
+        let on = Selection::Commit(project.clone(), rewritten.get(&on).copied().unwrap_or(on));
+        // Selecting it again would forget it was followed.
+        if self.selection.as_ref() != Some(&on) {
+            self.select(Some(on), cx);
         }
     }
 

@@ -735,11 +735,14 @@ impl Store {
         self.note_arrivals(id, &workspace);
         // An agent amending or rebasing the selected commit gives it a new id but keeps its
         // change id, or with plain Git its author, time and message; stay on it.
-        // One that's gone, as squashed away, leaves its branch selected, if that's still there.
+        // One that's gone, as one discarded, leaves the commit in its place selected (see
+        // `commit_in_place`).
         // A selected branch renamed, as an agent names one, is followed by its newest commit.
+        // One gone otherwise, as one deleted elsewhere or renamed with no commit to follow it
+        // by, leaves the branch now in its place selected, as the TUI does.
         let old = self.workspace(id);
         let renamed = renamed(old, &workspace);
-        let (rewritten, gone_from) = match &self.selection {
+        let (rewritten, instead) = match &self.selection {
             Some(Selection::Commit(project, commit)) if project == id => {
                 let followed = follow_by_key(old, &workspace, *commit).or_else(|| {
                     let made = (self.made.as_ref()).filter(|made| made.id == *commit)?;
@@ -750,23 +753,35 @@ impl Store {
                 });
                 match followed {
                     Some(new) => ((new != *commit).then_some((*commit, new)), None),
-                    None => {
-                        let branch = old.and_then(|old| old.find_commit(*commit));
-                        (None, branch.and_then(|(branch, _)| branch.ref_name.clone()))
-                    }
+                    None => (None, commit_in_place(old, &workspace, project, *commit)),
                 }
             }
             Some(Selection::Branch(project, ref_name)) if project == id => {
-                let to = renamed.iter().find(|(from, _)| from == ref_name);
-                (None, to.map(|(_, to)| to.clone()))
+                let to = (renamed.iter())
+                    .find(|(from, _)| from == ref_name)
+                    .map(|(_, to)| Some(to.clone()));
+                let in_place = || {
+                    let old = old?;
+                    let (lane, _) = old.lane_of(ref_name.as_ref())?;
+                    let before: Vec<_> = old.branches_in(&lane.checkout).collect();
+                    let after: Vec<_> = workspace.branches_in(&lane.checkout).collect();
+                    let branch = backend::in_place_of(&before, ref_name.as_ref(), &after)?;
+                    Some(branch.ref_name.clone())
+                };
+                let gone = workspace.find_branch(ref_name.as_ref()).is_none();
+                let branch = to.or_else(|| gone.then(in_place).flatten());
+                (
+                    None,
+                    branch.map(|branch| Selection::Branch(id.clone(), branch)),
+                )
             }
             _ => (None, None),
         };
-        let gone_from = gone_from.filter(|branch| workspace.find_branch(Some(branch)).is_some());
-        // Gone from a linked worktree still there, as when an agent checked out another branch
-        // in it, the worktree stays selected rather than the main checkout.
+        // Gone from a linked worktree still there with nothing in its place, as when an agent
+        // checked out another branch in it, the worktree stays selected rather than the main
+        // checkout.
         let home = (self.selection.as_ref())
-            .filter(|s| s.project() == id && rewritten.is_none() && gone_from.is_none())
+            .filter(|s| s.project() == id && rewritten.is_none() && instead.is_none())
             .filter(|s| match s {
                 Selection::Branch(_, branch) => workspace.find_branch(branch.as_ref()).is_none(),
                 Selection::Commit(_, commit) => workspace.find_commit(*commit).is_none(),
@@ -839,8 +854,8 @@ impl Store {
             self.select_followed(id.clone(), from, to, cx);
             self.picked = picked;
         }
-        if let Some(branch) = gone_from {
-            self.select(Some(Selection::Branch(id.clone(), Some(branch))), cx);
+        if let Some(instead) = instead {
+            self.select(Some(instead), cx);
         }
         if let Some(name) = home {
             self.select(Some(Selection::Worktree(id.clone(), name)), cx);
@@ -965,6 +980,43 @@ fn follow_by_key(old: Option<&Workspace>, new: &Workspace, commit: CommitId) -> 
         .map(|c| c.id)
 }
 
+/// What's selected in place of `project`'s commit `id` of `old`, gone from `new`: the next
+/// commit down in its branch that's still there, else the nearest one up, as the TUI goes on
+/// after a discard, or with none, the branch if it's still there.
+fn commit_in_place(
+    old: Option<&Workspace>,
+    new: &Workspace,
+    project: &ProjectId,
+    id: CommitId,
+) -> Option<Selection> {
+    let (branch, _) = old?.find_commit(id)?;
+    let at = branch.commits.iter().position(|commit| commit.id == id)?;
+    let (above, from) = branch.commits.split_at_checked(at)?;
+    // Each followed as `follow_by_key` does, but with `new` indexed once and the old commit at
+    // hand: finding each again in both, a debug build took 0.8s for a branch of 20,000 gone.
+    let ids: HashSet<CommitId> = new.commits().map(|commit| commit.id).collect();
+    let (mut keys, mut authored) = (HashMap::new(), HashMap::new());
+    for commit in new.commits() {
+        keys.entry(commit.key.as_str()).or_insert(commit.id);
+        authored
+            .entry(commit.authored.as_str())
+            .or_insert(commit.id);
+    }
+    let next = (from.iter().skip(1).chain(above.iter().rev())).find_map(|commit| {
+        (ids.contains(&commit.id).then_some(commit.id))
+            .or_else(|| keys.get(commit.key.as_str()).copied())
+            .or_else(|| authored.get(commit.authored.as_str()).copied())
+    });
+    match next {
+        Some(next) => Some(Selection::Commit(project.clone(), next)),
+        None => {
+            let ref_name = branch.ref_name.clone()?;
+            (new.find_branch(Some(&ref_name)).is_some())
+                .then(|| Selection::Branch(project.clone(), Some(ref_name)))
+        }
+    }
+}
+
 /// Why a project didn't load: plainly when its folder is gone or its index sparse, otherwise
 /// as reported.
 pub(super) fn load_error(failure: &backend::LoadFailure, err: &anyhow::Error) -> SharedString {
@@ -1017,8 +1069,9 @@ fn ordered(order: &[String], listed: &[String]) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::backend::CommitId;
     use crate::backend::model::build::{branch, full, workspace, worktree};
+    use crate::backend::{CommitId, Workspace, short_ref};
+    use crate::state::Selection;
 
     #[test]
     fn worktrees_keep_their_order_with_new_ones_last() {
@@ -1109,6 +1162,88 @@ mod tests {
         assert!(
             super::renamed(Some(&old), &deleted).is_empty(),
             "a branch whose commits went to one already there, or to no name, was deleted"
+        );
+    }
+
+    #[test]
+    fn a_commit_gone_leaves_the_one_in_its_place_selected() {
+        let n = |n: u8| crate::backend::model::build::id(n);
+        // Rebased above what's gone: new ids, the same change ids.
+        let rebased = |name: &str, commits: &[(u8, u8)]| {
+            let mut rebased = branch(
+                name,
+                &commits.iter().map(|(new, _)| *new).collect::<Vec<_>>(),
+            );
+            for (commit, (_, was)) in rebased.commits.iter_mut().zip(commits) {
+                commit.key = format!("key{was}");
+            }
+            rebased
+        };
+        let in_place = |old: Workspace, gone: u8, new: Workspace| match super::commit_in_place(
+            Some(&old),
+            &new,
+            &"p".into(),
+            n(gone),
+        ) {
+            Some(Selection::Commit(_, id)) => {
+                let (_, commit) = new.find_commit(id).expect("it's selected in the new one");
+                format!("commit {}", commit.key)
+            }
+            Some(Selection::Branch(_, ref_name)) => {
+                format!("branch {}", ref_name.as_ref().map_or("".into(), short_ref))
+            }
+            Some(other) => format!("{other:?}"),
+            None => "nothing".to_owned(),
+        };
+        let feat = |commits: &[u8]| workspace(vec![vec![branch("feat", commits)]], vec![]);
+        let stack = |top: &[u8], below: &[u8]| {
+            workspace(
+                vec![vec![branch("top", top), branch("feat", below)]],
+                vec![],
+            )
+        };
+        let places = [
+            (
+                "the middle one",
+                in_place(feat(&[1, 2, 3]), 2, feat(&[1, 3])),
+            ),
+            (
+                "the bottom one",
+                in_place(feat(&[1, 2, 3]), 3, feat(&[1, 2])),
+            ),
+            (
+                "the bottom one, those above rebased",
+                in_place(
+                    feat(&[1, 2, 3]),
+                    3,
+                    workspace(vec![vec![rebased("feat", &[(11, 1), (12, 2)])]], vec![]),
+                ),
+            ),
+            (
+                "two of them",
+                in_place(feat(&[1, 2, 3, 4]), 2, feat(&[1, 4])),
+            ),
+            (
+                "its branch's only one",
+                in_place(stack(&[1], &[2]), 2, stack(&[1], &[])),
+            ),
+            (
+                "with its branch",
+                in_place(feat(&[1]), 1, workspace(vec![], vec![])),
+            ),
+        ]
+        .map(|(what, place)| format!("{what}: {place}\n"))
+        .concat();
+        assert_eq!(
+            places,
+            "the middle one: commit key3\n\
+             the bottom one: commit key2\n\
+             the bottom one, those above rebased: commit key2\n\
+             two of them: commit key4\n\
+             its branch's only one: branch feat\n\
+             with its branch: nothing\n",
+            "the next one down in its branch, else the nearest one up, never another branch's, \
+             else the branch"
         );
     }
 }
