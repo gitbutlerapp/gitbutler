@@ -125,7 +125,7 @@ impl Detail {
         let query = find.input.read(cx).text().to_owned();
         // What the diff shows, unchanged lines and all, with folded files open: not what a
         // filter or an operation under way hides.
-        let rows = self.build_rows(&diff.key, &diff.files, true, cx);
+        let (rows, ..) = self.build_rows(&diff.key, &diff.files, true, cx);
         let matches = search(&rows, |row| self.line_of(row), &query);
         let mut on: HashMap<Spot, Vec<usize>> = HashMap::new();
         for (ix, (spot, _)) in matches.iter().enumerate() {

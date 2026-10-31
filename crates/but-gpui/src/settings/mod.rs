@@ -628,6 +628,17 @@ impl SettingsView {
                 })),
             ),
             Row::new(
+                "All-in-one diff",
+                "The diff runs through every changed file, one after another. Off, it shows only \
+                 the file selected in the file list, and Space at its end goes on to the next.",
+                self.pref_switch(
+                    "all-in-one",
+                    !prefs.one_file_diff,
+                    |p| p.one_file_diff ^= true,
+                    cx,
+                ),
+            ),
+            Row::new(
                 "Semantic context",
                 "Each hunk's box names the function or type it changes, and a short one shows \
                  whole around it. deltoids reads it from the code with tree-sitter, for Rust, \
