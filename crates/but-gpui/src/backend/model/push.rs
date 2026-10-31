@@ -106,9 +106,10 @@ impl Workspace {
         }
     }
 
-    /// What pushing `ref_name`'s `n` commits does, in a tooltip: whether it forces, and takes
-    /// its parents along.
-    pub fn push_tooltip(&self, ref_name: &super::FullName, n: usize) -> String {
+    /// What pushing `ref_name` does, in a tooltip: how many of its commits it sends, whether it
+    /// forces, and whether it takes its parents along.
+    pub fn push_tooltip(&self, ref_name: &super::FullName) -> String {
+        let n = (self.pushed_with(ref_name).next()).map_or(0, Branch::unpushed_commits);
         let parents = match self.parents_to_push(ref_name).next() {
             Some(_) => " with parents",
             None => "",
@@ -240,8 +241,8 @@ middle with wt new, middle pushed, bottom pushed: nothing to push
             let ws = workspace(vec![vec![a, b]], Vec::new());
             format!(
                 "{state}: a {}, b {}\n",
-                ws.push_tooltip(&full("refs/heads/a"), 1),
-                ws.push_tooltip(&full("refs/heads/b"), 2),
+                ws.push_tooltip(&full("refs/heads/a")),
+                ws.push_tooltip(&full("refs/heads/b")),
             )
         })
         .concat();
@@ -249,11 +250,11 @@ middle with wt new, middle pushed, bottom pushed: nothing to push
         snapbox::assert_data_eq!(
             says,
             snapbox::str![[r#"
-both new: a Push 1 commit with parents, b Push 2 commits
-b pushed: a Push 1 commit, b Push 2 commits
-a rewritten: a Force push 1 commit, b Push 2 commits
-b rewritten: a Force push 1 commit with parents, b Force push 2 commits
-only b new: a Push 1 commit with parents, b Push 2 commits
+both new: a Push 1 commit with parents, b Push 1 commit
+b pushed: a Push 1 commit, b Push 0 commits
+a rewritten: a Force push 1 commit, b Push 0 commits
+b rewritten: a Force push 1 commit with parents, b Force push 1 commit
+only b new: a Push 0 commits with parents, b Push 1 commit
 
 "#]]
         );

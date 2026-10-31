@@ -95,11 +95,7 @@ enum Gone {
     /// A commit being moved, dimmed where the move left it, as it goes back there or lands.
     Commit(ProjectId, Box<Commit>),
     /// A branch being moved, as [`branch_copy`] draws it, dimmed where the move left it.
-    Branch {
-        id: String,
-        name: String,
-        commits: usize,
-    },
+    Branch { id: String, name: String },
     /// The new branch commits being moved would land in at that stop.
     NewBranch(Stop),
 }
@@ -274,7 +270,6 @@ impl Navigator {
                         Gone::Branch {
                             id: format!("stand-in-{project}-{}", branch.name),
                             name: store.name_of(project, branch).to_owned(),
-                            commits: branch.commits.len(),
                         }
                     }
                     Row::GhostBranch(_, at) => Gone::NewBranch(at.clone()),
@@ -600,21 +595,20 @@ pub(super) fn ghost_row(
             .map(|branch| {
                 let id = format!("ghost-{project}-{}", branch.name);
                 let name = store.name_of(project, branch).to_owned();
-                branch_copy(id, name, branch.commits.len(), style)
+                branch_copy(id, name, style)
             }),
         _ => None,
     };
     row.unwrap_or_else(|| div().h(dp(ROW_HEIGHT)).into_any_element())
 }
 
-/// Branch `name`'s row as a copy draws it, row `id`, in `style`: folded, with how many
-/// `commits` it holds, as its own row shows them folded, and nothing on it acts.
-fn branch_copy(id: String, name: String, commits: usize, style: RowStyle) -> AnyElement {
+/// Branch `name`'s row as a copy draws it, row `id`, in `style`: folded, as its own row is,
+/// and nothing on it acts.
+fn branch_copy(id: String, name: String, style: RowStyle) -> AnyElement {
     (style.row(id.clone(), 6.))
         .child(fold_glyph(format!("{id}-fold"), Some(false), style.quiet()))
         .child(icon(Icon::Branch).text_color(style.muted()))
         .child(div().flex_1().min_w_0().truncate().child(name))
-        .children(style.commits(commits))
         .into_any_element()
 }
 
@@ -640,12 +634,12 @@ pub(super) fn stand_in(stand_in: &StandIn, store: &Store, theme: &Theme) -> Div 
             let id = format!("stand-in-{project}-{}", commit.id.0);
             style.commit(id, project, commit, store).into_any_element()
         }
-        Gone::Branch { id, name, commits } => {
+        Gone::Branch { id, name } => {
             let style = RowStyle {
                 cut: true,
                 ..RowStyle::plain(theme, *inset)
             };
-            branch_copy(id.clone(), name.clone(), *commits, style)
+            branch_copy(id.clone(), name.clone(), style)
         }
         Gone::NewBranch(at) => ghost_branch_row(at, *inset, theme),
     };

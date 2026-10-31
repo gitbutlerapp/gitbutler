@@ -27,7 +27,7 @@ mod upstream;
 mod worktree;
 
 pub use diff_view::DiffPane;
-pub use resolve::ResolveConflicts;
+pub use resolve::{ResolveConflicts, oldest_conflict};
 
 use std::cell::Cell;
 use std::cmp::Ordering;

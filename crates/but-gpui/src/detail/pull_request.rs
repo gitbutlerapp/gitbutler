@@ -83,7 +83,7 @@ impl Detail {
 
     /// Show the pull request's tab, or the changes'. The tabs keep the keys when they have
     /// them; from anywhere else the keys go to what the tab shows.
-    fn set_review_tab(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn set_review_tab(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {
         self.review_tab = on;
         match self.tabs_focus.is_focused(window) {
             true => cx.notify(),

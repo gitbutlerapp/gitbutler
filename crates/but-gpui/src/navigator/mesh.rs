@@ -195,7 +195,6 @@ impl Navigator {
                             .child(name.clone()),
                     )
                     .children(style.unpushed(unpushed))
-                    .when(!open, |el| el.children(style.commits(n)))
                     .when(n > 0, |el| el.on_click(click_opens(clicked, toggle, cx)))
             }
             (MeshPick::Checkout, _) => {
