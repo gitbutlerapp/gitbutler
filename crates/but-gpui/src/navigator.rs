@@ -3379,10 +3379,12 @@ impl Render for Navigator {
             })
             // Room for macOS's traffic lights; elsewhere the window's buttons are at its other end.
             // A card out over the detail has them out of its way, and isn't the window's title bar.
-            .map(|el| match cfg!(target_os = "macos") && !self.floating {
-                true => el.pl(fixed(84.)),
-                false => el.pl(dp(8.)),
-            })
+            .map(
+                |el| match crate::ui::has_traffic_lights(window) && !self.floating {
+                    true => el.pl(fixed(84.)),
+                    false => el.pl(dp(8.)),
+                },
+            )
             // Clear of the window's buttons, where the app draws them over its right end, as the
             // detail slides away from under them.
             .map(

@@ -103,6 +103,12 @@ pub fn draws_window_controls(window: &Window) -> bool {
         )
 }
 
+/// Whether macOS's traffic lights are at the window's top left, where the headers leave room for
+/// them: not in full screen, where they come down with the menu bar, over the app.
+pub fn has_traffic_lights(window: &Window) -> bool {
+    cfg!(target_os = "macos") && !window.is_fullscreen()
+}
+
 /// What "Reveal in Finder" is called where the file manager isn't Finder.
 pub const REVEAL: &str = if cfg!(target_os = "macos") {
     "Reveal in Finder"
