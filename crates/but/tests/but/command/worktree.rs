@@ -1394,16 +1394,37 @@ Created worktree a-branch-1 on 'a-branch-1' from [..] at [..]/home/.gitbutler-wo
 }
 
 #[test]
-fn new_above_rejects_a_branch() {
+fn new_above_any_revision() {
     let env = adopted_sandbox();
-    env.but("worktree new feature --above A")
+    env.invoke_bash("git branch loose $(git commit-tree -m loose 'main^{tree}')");
+    // The base that `but status` prints, an applied branch, and a branch outside the workspace.
+    for (index, rev) in ["0dc3733", "A", "loose"].into_iter().enumerate() {
+        let name = format!("wt-{index}");
+        env.but(format!("worktree new {name} -A {rev}"))
+            .assert()
+            .success()
+            .stderr_eq(snapbox::str![]);
+        assert_eq!(
+            env.invoke_git(&format!("rev-parse {name}")),
+            env.invoke_git(&format!("rev-parse {rev}")),
+            "the new branch starts at what `{rev}` names"
+        );
+    }
+}
+
+#[test]
+fn new_above_rejects_the_workspace_commit() {
+    let env = adopted_sandbox();
+    env.but("worktree new feature --above HEAD")
         .assert()
         .failure()
         .stdout_eq(snapbox::str![])
         .stderr_eq(snapbox::str![[r#"
-Error: Could not find commit: 'A'
+Error: Bad input 'HEAD' for '--above'
 
-Hint: Run `but status` for applicable targets.
+Cannot create a worktree from the GitButler workspace commit
+
+Hint: Pass a branch or commit instead, or omit --above to start at the workspace base
 
 "#]]);
 }
