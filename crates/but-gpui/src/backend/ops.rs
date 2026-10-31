@@ -3284,6 +3284,96 @@ first true: <new>, feature
     }
 
     #[test]
+    fn a_move_to_a_new_branch_beside_a_linked_worktrees_stacks_it_in_its_lane() {
+        let mut said = String::new();
+        for managed in [false, true] {
+            for below in [false, true] {
+                but_testsupport::isolated_app_data_dir(|| {
+                    let dir = repo_with("one\n");
+                    let path = dir.path();
+                    target_origin_main(path);
+                    if managed {
+                        crate::backend::apply(path, branch_named("beside")).unwrap();
+                    }
+                    let ctx = open(path).unwrap();
+                    (ctx.db.get_cache_mut().unwrap())
+                        .worktree_meta_mut()
+                        .mark_adopted()
+                        .unwrap();
+                    drop(ctx);
+                    let outside = tempfile::tempdir().unwrap();
+                    let at = outside.path().join("agent");
+                    let at_str = at.to_str().unwrap();
+                    git(
+                        path,
+                        &["worktree", "add", "-q", "-b", "agent", at_str, "main"],
+                    );
+                    for (message, file) in [("one", "a"), ("two", "b")] {
+                        std::fs::write(at.join(file), message).unwrap();
+                        git(&at, &["add", file]);
+                        git(&at, &["commit", "-q", "-m", message]);
+                    }
+                    // The commit at the far end from where the new branch goes, so it crosses
+                    // agent's other commit to get there.
+                    let moved = match below {
+                        true => "agent",
+                        false => "agent~",
+                    };
+                    let moved = git(path, &["rev-parse", moved]);
+                    let moved = CommitId(gix::ObjectId::from_hex(moved.trim().as_bytes()).unwrap());
+                    let moving = MoveToNewBranch {
+                        commits: [moved].into(),
+                        beside: Some((full("refs/heads/agent"), below)),
+                        first: false,
+                    };
+                    let ((_, new), _) = crate::backend::apply(path, moving).unwrap();
+                    let workspace =
+                        crate::backend::load_workspace(path, Default::default()).unwrap();
+                    let lane = workspace.worktree_lane("agent".into()).unwrap();
+                    let branches: Vec<String> = (lane.branches.iter())
+                        .map(|branch| {
+                            let name = match branch.ref_name.as_ref() == Some(&new) {
+                                true => "<new>".to_owned(),
+                                false => branch.name.clone(),
+                            };
+                            let titles: Vec<_> =
+                                branch.commits.iter().map(|c| c.title.as_str()).collect();
+                            format!("{name} [{}]", titles.join(", "))
+                        })
+                        .collect();
+                    let checked_out = git(&at, &["symbolic-ref", "--short", "HEAD"]);
+                    let checked_out = match checked_out.trim() == short_ref(&new) {
+                        true => "<new>".to_owned(),
+                        false => checked_out.trim().to_owned(),
+                    };
+                    let left = git(&at, &["status", "--porcelain"]);
+                    said += &format!(
+                        "managed {managed}, below {below}: {}, {checked_out} checked out{}\n",
+                        branches.join(", "),
+                        match left.is_empty() {
+                            true => String::new(),
+                            false => format!(", left {left:?}"),
+                        },
+                    );
+                });
+            }
+        }
+        // The worktree's lane top first, each branch's commits newest first, whether or not the
+        // main checkout is the workspace. On top of the branch it has checked out, the worktree
+        // checks out the new one, and either way keeps its files as they were.
+        snapbox::assert_data_eq!(
+            said,
+            snapbox::str![[r#"
+managed false, below false: <new> [one], agent [two], <new> checked out
+managed false, below true: agent [one], <new> [two], agent checked out
+managed true, below false: <new> [one], agent [two], <new> checked out
+managed true, below true: agent [one], <new> [two], agent checked out
+
+"#]]
+        );
+    }
+
+    #[test]
     fn the_apps_own_operations_dont_stop_undoing_the_one_before() {
         but_testsupport::isolated_app_data_dir(|| {
             use crate::backend::history::Undone;
