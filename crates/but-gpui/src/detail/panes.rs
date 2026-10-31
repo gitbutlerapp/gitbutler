@@ -3,7 +3,6 @@
 
 use std::cell::Cell;
 use std::rc::Rc;
-use std::time::Instant;
 
 use gpui::{
     AnyElement, App, Bounds, ClickEvent, Context, Div, Entity, FocusHandle, Focusable as _,
@@ -18,6 +17,7 @@ use crate::app::{
 };
 use crate::backend::upstream::{self, ACTIVITY_DAYS};
 use crate::backend::{self, Checkout, CommitId, CommitState, FullName, PushState, short_ref};
+use crate::clock;
 use crate::navigator::{SelectFirst, SelectLast};
 use crate::overlays::MenuItem;
 use crate::state::{ProjectId, Section, Selection};
@@ -230,7 +230,7 @@ impl Detail {
             // the toggle gliding up to them as it slides away.
             .when(crate::ui::has_traffic_lights(window), |el| {
                 let navigator =
-                    self.navigator_shown.get() * self.navigator_width(Instant::now(), window, cx);
+                    self.navigator_shown.get() * self.navigator_width(clock::now(), window, cx);
                 el.pl((fixed(84.) - theme.scaled(navigator)).max(theme.scaled(12.)))
             })
             // Clear of the window's buttons, where the app draws them over its right end.

@@ -49,6 +49,7 @@ use crate::backend::{
     self, Checkout, CommitId, DiffLine, DiffSource, FileChange, FileDiff, FullName, HunkKey,
     Selected,
 };
+use crate::clock;
 use crate::overlays::MenuItem;
 use crate::palette::score;
 use crate::state::{
@@ -2871,7 +2872,7 @@ impl Render for Detail {
                 }
                 // The file list sliding beside an overview is cut to as much as shows, drawn again
                 // as it goes. Under the diff it stays as it is, and the diff slides over it.
-                let now = Instant::now();
+                let now = clock::now();
                 let cut =
                     (self.files_slide.openness(now)).filter(|_| !list_page && self.diff_hidden(cx));
                 if cut.is_some() {

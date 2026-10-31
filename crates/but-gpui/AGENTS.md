@@ -319,6 +319,9 @@ anything else.
   kill of your own, as macOS has no `timeout`. Kill only the process you started.
 - Each step settles for 120ms, so a delay shorter than that never shows. Stretch the constant to
   check one. A hover registers only after a second small `move`.
+- Motion reads `clock::now()`, never `Instant::now()`, so a script can stop it and draw any
+  moment of it (`clock stop`, `tick`, `film`: Animations in the `gpui-screenshots` skill). A new
+  animation reads it too. Don't stretch a motion's duration to see it.
 - `dclick` draws a frame between its clicks, as a hand's double-click has several, so the second
   click's handler sees what the first one changed, not what the step started with.
 - `click` presses and lets go within one frame. `InteractiveText`, which links in text use, starts

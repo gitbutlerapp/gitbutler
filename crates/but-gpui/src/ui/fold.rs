@@ -19,6 +19,7 @@ use gpui::{
 };
 
 use super::{Icon, fixed, small_icon, switch_spring};
+use crate::clock;
 
 /// How long a fold takes to open or close: design-core's `--transition-medium`.
 pub const FOLD: Duration = Duration::from_millis(150);
@@ -55,7 +56,7 @@ impl<K: Eq + Hash> Default for Folds<K> {
     fn default() -> Self {
         Self {
             moving: HashMap::new(),
-            now: Instant::now(),
+            now: clock::now(),
         }
     }
 }
@@ -66,7 +67,7 @@ impl<K: Eq + Hash> Folds<K> {
     pub fn start(&mut self, key: K, open: bool, cx: &App) {
         match cx.reduce_motion() {
             true => self.stop(&key),
-            false => self.start_at(key, open, Instant::now()),
+            false => self.start_at(key, open, clock::now()),
         }
     }
 
@@ -122,7 +123,7 @@ impl<K: Eq + Hash> Folds<K> {
     /// say whether any did, for a view whose rows then change. While [`Self::any`] still
     /// moves, the view asks for the frame after.
     pub fn frame(&mut self) -> bool {
-        self.frame_at(Instant::now())
+        self.frame_at(clock::now())
     }
 
     fn frame_at(&mut self, now: Instant) -> bool {
@@ -268,7 +269,7 @@ impl Slide {
     pub fn start(&mut self, open: bool, cx: &App) {
         match cx.reduce_motion() {
             true => self.0 = None,
-            false => self.start_at(open, Instant::now()),
+            false => self.start_at(open, clock::now()),
         }
     }
 
@@ -669,7 +670,7 @@ pub struct Reorder<K> {
 
 impl<K> Default for Reorder<K> {
     fn default() -> Self {
-        let now = Instant::now();
+        let now = clock::now();
         Self {
             from: HashMap::new(),
             since: now,
@@ -684,7 +685,7 @@ impl<K: Eq + Hash + Clone> Reorder<K> {
     pub fn start(&mut self, offsets: HashMap<K, f32>, cx: &App) {
         match cx.reduce_motion() {
             true => self.from.clear(),
-            false => self.start_at(offsets, Instant::now()),
+            false => self.start_at(offsets, clock::now()),
         }
     }
 
@@ -726,7 +727,7 @@ impl<K: Eq + Hash + Clone> Reorder<K> {
     /// Go on to the frame being drawn, letting the rows that got there rest. While
     /// [`Self::any`] still slides, the view asks for the frame after.
     pub fn frame(&mut self) {
-        self.frame_at(Instant::now());
+        self.frame_at(clock::now());
     }
 
     fn frame_at(&mut self, now: Instant) {
