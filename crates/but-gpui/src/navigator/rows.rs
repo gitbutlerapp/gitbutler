@@ -58,8 +58,8 @@ pub(super) enum Row {
     NewBranch(ProjectId),
     /// A copy of a commit being moved, where landing would put it.
     Ghost(ProjectId, CommitId),
-    /// The new branch commits being moved would land in, over their copies.
-    GhostBranch(ProjectId),
+    /// The new branch commits being moved would land in at that stop, over their copies.
+    GhostBranch(ProjectId, Stop),
     /// The line between two stacks, which tells where one ends and the next starts, and between
     /// the last and a new one commits being moved would land in: so a new branch landing under
     /// one stack's last branch or on the next's first shows which it joins.
@@ -118,7 +118,7 @@ pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
                 Some(RowKey::Fold(project.clone(), branch.clone()))
             }
             Row::NewBranch(project) => Some(RowKey::NewBranch(project.clone())),
-            Row::GhostBranch(project) => Some(RowKey::GhostBranch(project.clone())),
+            Row::GhostBranch(project, _) => Some(RowKey::GhostBranch(project.clone())),
             Row::Pending(_, _, Some(moved)) => Some(moved.clone()),
             _ => (keys.last().cloned().flatten()).map(|before| RowKey::After(Box::new(before))),
         };
@@ -152,7 +152,7 @@ impl Row {
             | Row::Pending(..)
             | Row::NewBranch(_)
             | Row::Ghost(..)
-            | Row::GhostBranch(_) => ROW_HEIGHT,
+            | Row::GhostBranch(..) => ROW_HEIGHT,
         }
     }
 }

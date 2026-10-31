@@ -1,17 +1,20 @@
 //! Moving commits with the keys: the places they can land as the rows list them, stepping
 //! through those, the copies of the commits that show where they'd land, and landing them.
 
+use std::collections::HashSet;
+use std::time::Instant;
+
 use gpui::{AnyElement, App, Context, Div, Window, div, prelude::*};
 
-use super::rows::{Fold, Row, Rows};
+use super::rows::{Fold, Row, RowKey, Rows, span_height};
 use super::{CARD_MARGIN, Navigator, RowStyle};
 use crate::app::{MoveHere, MoveSelection};
-use crate::backend::{CommitId, Destination, FullName, Workspace, short_ref};
+use crate::backend::{Commit, CommitId, Destination, FullName, Workspace, short_ref};
 use crate::state::{ProjectId, Section, Selection, Store, snack};
 use crate::theme::Theme;
 use crate::transfer::{Move, Stop};
-use crate::ui::fold::on_top;
-use crate::ui::{Icon, ROW_HEIGHT, dp, fixed, h_flex, small_icon};
+use crate::ui::fold::{self, on_top};
+use crate::ui::{Icon, ROW_HEIGHT, dp, fixed, guide, h_flex, small_icon};
 
 /// The move under way in `project`, when it lands its commits somewhere at a stop `at` picks
 /// out: the rows show copies of them there.
@@ -35,6 +38,53 @@ pub(super) fn moving_away(store: &Store, item: &Selection) -> Option<bool> {
     Some(moving.lands(store))
 }
 
+/// A row a move took away as it stepped on, landed or ended, still drawn where it was while the
+/// rows close over it: `by` below the nearest row above it that stays, `under`, which it moves
+/// with, set in by `inset` and with the guides it had.
+pub(super) struct StandIn {
+    of: Gone,
+    pub(super) under: RowKey,
+    by: f32,
+    inset: f32,
+    guides: Vec<f32>,
+    /// When it was taken away, which it fades from as the rows close over it, at their pace:
+    /// so no sliver of it stays as they come to rest, nor does it brighten if they set off again.
+    since: Instant,
+    /// How much of it shows in the frame being drawn.
+    shown: f32,
+}
+
+impl StandIn {
+    /// Fade it to the frame drawn at `now`, saying whether any of it still shows.
+    pub(super) fn fade(&mut self, now: Instant) -> bool {
+        self.shown = fold::openness(false, self.since, now);
+        self.shown > 0.
+    }
+}
+
+/// What a move took away.
+enum Gone {
+    /// A commit being moved, dimmed where the move left it, as it goes back there or lands.
+    Commit(ProjectId, Box<Commit>),
+    /// The new branch commits being moved would land in at that stop.
+    NewBranch(Stop),
+}
+
+/// The rows keyed `old` that a move takes away as they go to `new`, the commits where it left
+/// them and the new branch they'd land in, each by its index and that of the nearest row above
+/// it that stays.
+fn taken_away(old: &[Option<RowKey>], new: &[Option<RowKey>]) -> Vec<(usize, usize)> {
+    let kept: HashSet<&RowKey> = new.iter().flatten().collect();
+    let stays =
+        |ix: &usize| (old.get(*ix).and_then(Option::as_ref)).is_some_and(|key| kept.contains(key));
+    (old.iter().enumerate())
+        .filter(|(_, key)| {
+            matches!(key, Some(key @ (RowKey::Left(..) | RowKey::GhostBranch(_))) if !kept.contains(key))
+        })
+        .filter_map(|(ix, _)| Some((ix, (0..ix).rev().find(stays)?)))
+        .collect()
+}
+
 impl Rows {
     /// Copies of `moving`'s commits, under the new branch they'd land in with `new_branch`.
     pub(super) fn push_ghosts(&mut self, moving: &Move, new_branch: bool) {
@@ -42,7 +92,7 @@ impl Rows {
         if !new_branch {
             return self.extend(ghosts);
         }
-        self.push(Row::GhostBranch(moving.project.clone()));
+        self.push(Row::GhostBranch(moving.project.clone(), moving.at.clone()));
         self.open();
         self.extend(ghosts);
         self.close();
@@ -124,7 +174,7 @@ pub(super) fn stops<'a>(
             | Row::Fewer(..)
             | Row::Pending(..)
             | Row::Ghost(..)
-            | Row::GhostBranch(_)
+            | Row::GhostBranch(..)
             | Row::Between(_) => {}
             _ => {
                 end_stack(&mut stops, &mut bottom);
@@ -143,6 +193,37 @@ pub(super) fn stops<'a>(
 }
 
 impl Navigator {
+    /// Stand-ins for the rows as last drawn that a move takes away at `now` as they go to those
+    /// keyed `keys`.
+    pub(super) fn stand_ins(
+        &self,
+        keys: &[Option<RowKey>],
+        now: Instant,
+        store: &Store,
+    ) -> Vec<StandIn> {
+        (taken_away(&self.row_keys, keys).into_iter())
+            .filter_map(|(ix, above)| {
+                let of = match self.rows.get(ix)? {
+                    Row::Item(Selection::Commit(project, id)) => {
+                        let (_, commit) = store.find_commit(project, *id)?;
+                        Gone::Commit(project.clone(), Box::new(commit.clone()))
+                    }
+                    Row::GhostBranch(_, at) => Gone::NewBranch(at.clone()),
+                    _ => return None,
+                };
+                Some(StandIn {
+                    of,
+                    under: self.row_keys.get(above)?.clone()?,
+                    by: span_height(&self.rows, above..ix),
+                    inset: self.insets.get(ix).copied().unwrap_or_default(),
+                    guides: self.guides.get(ix).cloned().unwrap_or_default(),
+                    since: now,
+                    shown: 1.,
+                })
+            })
+            .collect()
+    }
+
     /// The rows as last drawn, but those a closing fold takes away.
     fn shown_rows(&self) -> impl Iterator<Item = &Row> {
         let closing = |fold: &Option<super::rows::Moving>| {
@@ -308,49 +389,53 @@ pub(super) fn ghost_row(
     }
 }
 
-/// Commit `id` as a move left it, dimmed as its own row is, while its row goes back over it,
-/// as the move returns there or ends: `at` from where the row's drawn, and set in by `inset` as
-/// an item row is. Drawn over what the card's slices stretch over, so they don't cover it.
-pub(super) fn stand_in(
-    project: &ProjectId,
-    id: CommitId,
-    inset: f32,
-    at: f32,
-    store: &Store,
-    theme: &Theme,
-) -> Option<Div> {
-    let (_, commit) = store.find_commit(project, id)?;
-    let style = RowStyle {
-        cut: true,
-        ..RowStyle::plain(theme, inset)
+/// What a move took away, drawn where it was below the row drawing it, as it was: inside the
+/// card's edges, which the row's slice draws a hairline in, on the card's ground with its
+/// guides, and over what the card's slices stretch over, so they don't cover it, while the rows
+/// after it, closing over it, go over it.
+pub(super) fn stand_in(stand_in: &StandIn, store: &Store, theme: &Theme) -> Div {
+    let StandIn {
+        of,
+        by,
+        inset,
+        guides,
+        shown,
+        ..
+    } = stand_in;
+    let row = match of {
+        Gone::Commit(project, commit) => {
+            let style = RowStyle {
+                cut: true,
+                ..RowStyle::plain(theme, *inset)
+            };
+            let id = format!("stand-in-{project}-{}", commit.id.0);
+            style.commit(id, project, commit, store).into_any_element()
+        }
+        Gone::NewBranch(at) => ghost_branch_row(at, *inset, theme),
     };
-    let row = style.commit(
-        format!("stand-in-{project}-{}", id.0),
-        project,
-        commit,
-        store,
-    );
-    // Inside the card's edges, which its slice draws a hairline in, on its ground.
-    let at = div()
+    let guides = guides.iter().map(|at| guide(*at, theme));
+    div()
         .absolute()
-        .top(dp(at))
+        .top(dp(*by))
         .left(dp(CARD_MARGIN))
-        .right(dp(CARD_MARGIN));
-    Some(
-        at.px(fixed(1.))
-            .child(on_top(div().bg(theme.bg_1).child(row))),
-    )
+        .right(dp(CARD_MARGIN))
+        .px(fixed(1.))
+        .child(on_top(
+            (div().relative().bg(theme.bg_1).opacity(*shown))
+                .child(row)
+                .children(guides),
+        ))
 }
 
-/// The new branch commits being moved would land in, over their copies, set in by `inset` as
-/// an item row is. It names the branch it goes above or below in their stack.
-pub(super) fn ghost_branch_row(inset: f32, store: &Store, theme: &Theme) -> AnyElement {
-    let beside = match store.moving.as_ref().map(|moving| &moving.at) {
-        Some(Stop::NewBranch { beside, below }) => {
+/// The new branch commits being moved would land in at stop `at`, over their copies, set in by
+/// `inset` as an item row is. It names the branch it goes above or below in their stack.
+pub(super) fn ghost_branch_row(at: &Stop, inset: f32, theme: &Theme) -> AnyElement {
+    let beside = match at {
+        Stop::NewBranch { beside, below } => {
             let side = if *below { "below" } else { "above" };
             Some((side, short_ref(beside).into_owned()))
         }
-        Some(Stop::In(_) | Stop::NewStack) | None => None,
+        Stop::In(_) | Stop::NewStack => None,
     };
     let said = match &beside {
         Some((side, _)) => format!("New branch {side}"),
@@ -387,7 +472,7 @@ pub(super) fn ghost_branch_row(inset: f32, store: &Store, theme: &Theme) -> AnyE
 
 #[cfg(test)]
 mod tests {
-    use super::{Row, stops};
+    use super::{Row, RowKey, stops, taken_away};
     use crate::backend::model::build::{branch, full, id, workspace};
     use crate::backend::{CommitId, Destination, Workspace, short_ref};
     use crate::state::{ProjectId, Selection};
@@ -508,6 +593,60 @@ below 2 <
 top of typo
 
 "#]]
+        );
+    }
+
+    #[test]
+    fn what_a_move_takes_away_stays_under_the_nearest_row_that_stays() {
+        let project = ProjectId::from("p");
+        let p = || project.clone();
+        let branch = |name: &str| {
+            let name = full(&format!("refs/heads/{name}"));
+            Some(RowKey::Item(Selection::Branch(p(), Some(name))))
+        };
+        let commit = |n: usize| Some(RowKey::Commit(p(), n.to_string()));
+        let left = |n| Some(RowKey::Left(p(), id(n)));
+        let new_branch = || Some(RowKey::GhostBranch(p()));
+        // Commit 3 moving from the top of ui to a new branch above api.
+        let above_api = [
+            branch("ui"),
+            left(3),
+            commit(2),
+            new_branch(),
+            commit(3),
+            branch("api"),
+        ];
+        let top_of_api = [branch("ui"), left(3), commit(2), branch("api"), commit(3)];
+        assert_eq!(
+            taken_away(&above_api, &top_of_api),
+            [(3, 2)],
+            "stepping on, the new branch goes, under commit 2"
+        );
+        let landed = [branch("ui"), commit(2), branch("api"), commit(3)];
+        assert_eq!(
+            taken_away(&top_of_api, &landed),
+            [(1, 0)],
+            "landing, where it was left goes, under ui"
+        );
+        let back = [branch("ui"), commit(3), commit(2), branch("api")];
+        assert_eq!(
+            taken_away(&above_api, &back),
+            [(1, 0), (3, 2)],
+            "letting go, both go, each under the row above it that stays"
+        );
+        let both = [
+            branch("ui"),
+            left(3),
+            left(2),
+            commit(1),
+            commit(3),
+            commit(2),
+        ];
+        let home = [branch("ui"), commit(3), commit(2), commit(1)];
+        assert_eq!(
+            taken_away(&both, &home),
+            [(1, 0), (2, 0)],
+            "commits moving together go under the row above the first"
         );
     }
 }

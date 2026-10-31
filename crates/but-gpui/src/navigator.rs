@@ -25,6 +25,7 @@ use crate::backend::{
     Branch, Checkout, Commit, CommitId, CommitState, FileChange, FullName, PushState, Review,
     ReviewState, Target,
 };
+use crate::clock;
 use crate::detail::{ChecksChanged, Detail};
 use crate::overlays::{MenuItem, keys_at};
 use crate::state::{
@@ -370,9 +371,9 @@ pub struct Navigator {
     /// The rows sliding to where a reorder put them, and each row's key, to tell which.
     reorder: Reorder<RowKey>,
     row_keys: Vec<Option<RowKey>>,
-    /// Commits going back to where a move left them, as it returns there or ends: their
-    /// stand-ins stay there till they're back, so the two meet.
-    homing: Vec<(ProjectId, CommitId)>,
+    /// Rows a move just took away, drawn where they were while the rows close over them: so
+    /// a commit going back to where the move left it meets its stand-in there.
+    stand_ins: Vec<moving::StandIn>,
     /// Whether each fold the rows were last built through showed what it holds, to tell
     /// which opened or shut since.
     folds_seen: HashMap<Fold, bool>,
@@ -563,7 +564,7 @@ impl Navigator {
             folds: Folds::default(),
             reorder: Reorder::default(),
             row_keys: Vec::new(),
-            homing: Vec::new(),
+            stand_ins: Vec::new(),
             folds_seen: HashMap::new(),
             list: ListState::new(0, ListAlignment::Top, fixed(56.)),
             drawer: Drawer::default(),
@@ -1318,16 +1319,14 @@ impl Navigator {
         if self.rows != rows {
             let keys = row_keys(&rows, self.store.read(cx));
             let held = anchor.map(|(old_ix, new_ix, _)| (old_ix, new_ix));
+            // Those still being closed over stay while the rows they're under do, as when the
+            // reload after a move lands partway.
+            let mut stand_ins = std::mem::take(&mut self.stand_ins);
+            stand_ins.retain(|stand_in| keys.iter().flatten().any(|key| *key == stand_in.under));
+            stand_ins.extend(self.stand_ins(&keys, clock::now(), self.store.read(cx)));
+            self.stand_ins = stand_ins;
             let offsets = self.slides(&rows, &keys, held, every);
             self.reorder.start(offsets, cx);
-            self.homing = (self.row_keys.iter().flatten())
-                .filter_map(|key| match key {
-                    RowKey::Left(project, id) if !keys.contains(&Some(key.clone())) => {
-                        Some((project.clone(), *id))
-                    }
-                    _ => None,
-                })
-                .collect();
             self.row_keys = keys;
         }
         self.rows = rows;
@@ -1344,7 +1343,7 @@ impl Navigator {
         }
         let store = self.store.read(cx);
         // Commits being moved show where they'd land, if that's elsewhere.
-        let ghost = |row: &Row| matches!(row, Row::Ghost(..) | Row::GhostBranch(_));
+        let ghost = |row: &Row| matches!(row, Row::Ghost(..) | Row::GhostBranch(..));
         if std::mem::take(&mut self.reveal_selection)
             && let Some(selection) = &store.selection
             && !self.scroll_to_row(ghost, row)
@@ -1432,14 +1431,13 @@ impl Navigator {
         let top = |rows: &[Row], ix: usize| span_height(rows, 0..ix);
         // A commit's own row is keyed apart while a move leaves it, as its copy takes its key,
         // but it's the same row: as the move leaves it, it comes out from under the copy, from
-        // where the commit was, rather than showing up in place, and going back, where it's
-        // left slides with the rows around it to where the commit's row goes, as rows above it
-        // may go too, and its stand-in with it.
+        // where the commit was, rather than showing up in place. Going back, its stand-in stays
+        // where it was left (`Self::stand_ins`).
         let lefts = |keys: &'_ [Option<RowKey>]| -> HashSet<RowKey> {
             let left = |key: &&RowKey| matches!(key, RowKey::Left(..));
             keys.iter().flatten().filter(left).cloned().collect()
         };
-        for key in lefts(&self.row_keys).symmetric_difference(&lefts(keys)) {
+        for key in lefts(keys).difference(&lefts(&self.row_keys)) {
             let RowKey::Left(project, id) = key else {
                 continue;
             };
@@ -1618,9 +1616,7 @@ impl Navigator {
                 .pr(dp(12.))
                 .child(div().flex_1().h(fixed(1.)).bg(theme.text_2.opacity(0.2)))
                 .into_any_element(),
-            Some(Row::GhostBranch(_)) => {
-                moving::ghost_branch_row(inset, self.store.read(cx), theme)
-            }
+            Some(Row::GhostBranch(_, at)) => moving::ghost_branch_row(at, inset, theme),
             Some(Row::UpstreamMore(project, more)) => {
                 let page = Selection::Project(project.clone());
                 under_commits("upstream-more", Icon::Kebab)
@@ -1670,7 +1666,7 @@ impl Navigator {
         // full width; the rest as a whole.
         let full_width = matches!(
             self.rows.get(ix),
-            Some(Row::Item(_) | Row::Ghost(..) | Row::GhostBranch(_))
+            Some(Row::Item(_) | Row::Ghost(..) | Row::GhostBranch(..))
         );
         let el = match inset > 0. && !full_width {
             true => div().pl(dp(inset)).child(el).into_any_element(),
@@ -1720,31 +1716,22 @@ impl Navigator {
         };
         // What's in the card being dragged goes over everything, as it goes over the cards it
         // passes (see below), the copies of what's moving over the rest, and the selected row,
-        // which moves, over the rows it passes.
+        // which moves, over the rows it passes. The new branch the copies would land in shows
+        // from under what slides off it, rather than over what's about to.
         let selection = self.store.read(cx).selection.as_ref();
         let over_rank = match self.rows.get(ix) {
             _ if held => 3,
-            Some(Row::Ghost(..) | Row::GhostBranch(_)) => 2,
+            Some(Row::Ghost(..)) => 2,
             Some(Row::Item(item)) if selection == Some(item) => 1,
             _ => 0,
         };
-        // A commit going back to where a move left it meets its stand-in there, which slides
-        // to where the row goes with the rows around it.
-        let stand_in = match self.rows.get(ix) {
-            Some(Row::Item(Selection::Commit(project, id)))
-                if self.homing.iter().any(|(p, c)| p == project && c == id) =>
-            {
-                let left = self.reorder.offset(&RowKey::Left(project.clone(), *id));
-                match slid != 0. || left != 0. {
-                    true => {
-                        let store = self.store.read(cx);
-                        moving::stand_in(project, *id, inset, left - slid, store, theme)
-                    }
-                    false => None,
-                }
-            }
-            _ => None,
-        };
+        // What a move just took away from under this row stays there, moving with it, while
+        // the rows after it close over it: only while rows slide, as only then do they draw
+        // over it.
+        let key = self.row_keys.get(ix).and_then(Option::as_ref);
+        let stand_ins = (self.stand_ins.iter())
+            .filter(|stand_in| self.reorder.any() && key == Some(&stand_in.under))
+            .map(|stand_in| moving::stand_in(stand_in, self.store.read(cx), theme));
         let card = div()
             .relative()
             .bg(theme.bg_1)
@@ -1796,7 +1783,7 @@ impl Navigator {
             .child(card)
             .children(below)
             .children(above)
-            .children(stand_in);
+            .children(stand_ins);
         // The card being dragged goes over the cards it passes as they trade places, edges and
         // all, so it never runs into them, and what's in its rows over its slices.
         let row = match held && self.reorder.any() {
@@ -3477,6 +3464,8 @@ impl Render for Navigator {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.folds.frame();
         self.reorder.frame();
+        let now = clock::now();
+        self.stand_ins.retain_mut(|stand_in| stand_in.fade(now));
         let mut built = self.build_rows(cx);
         // A fold that just opened or shut is drawn moving from this frame on.
         if self.follow_folds(&built.folds, cx) {
@@ -3491,8 +3480,6 @@ impl Render for Navigator {
             drawer,
             ..
         } = built;
-        self.insets = insets;
-        self.guides = guides;
         self.moving = moving;
         // As the list drew it, before the rows change, which a reorder doesn't do by much.
         let inset = Theme::get(cx).scaled(LIST_TOP);
@@ -3500,6 +3487,9 @@ impl Render for Navigator {
             .take_while(|ix| fold::listed(&self.list, inset, *ix))
             .last();
         self.sync_list(rows, drawer, window, cx);
+        // After the rows, whose stand-ins are set in and guided as they were drawn.
+        self.insets = insets;
+        self.guides = guides;
         self.held_card = self.held_card();
         self.slide_edges = self.reorder.any().then(|| {
             let first = self.list.logical_scroll_top().item_ix;
