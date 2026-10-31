@@ -39,10 +39,11 @@ pub enum Subcommands {
     /// `.worktreeinclude` file and they are also gitignored.
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     New {
-        /// Start the new branch at COMMIT instead of the workspace base.
+        /// Start the new branch at BRANCH_OR_COMMIT instead of the workspace base.
         ///
-        /// Accepts a commit SHA or CLI ID, not a branch. Conflicted commits are refused.
-        #[clap(short = 'A', long, value_name = "COMMIT")]
+        /// Accepts a branch by name or CLI ID, a commit by SHA or CLI ID, or any Git revision like
+        /// `origin/main`. Conflicted commits and the GitButler workspace commit are refused.
+        #[clap(short = 'A', long, value_name = "BRANCH_OR_COMMIT")]
         above: Option<CliIdArg>,
         /// The branch to check out, created if it doesn't exist, or a generated one.
         name: Option<BranchArg>,

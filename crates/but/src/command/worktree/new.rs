@@ -2,6 +2,7 @@ use anyhow::Result;
 use but_api::worktrees::NewWorktree;
 use but_core::sync::{RepoExclusive, RepoShared};
 use but_ctx::Context;
+use but_graph::workspace::commit::is_managed_workspace_by_message;
 use gix::{ObjectId, prelude::ObjectIdExt as _, refs::FullName};
 use serde::Serialize;
 
@@ -64,14 +65,24 @@ impl NewOperation {
             Some(above) => {
                 let repo = ctx.repo.get()?;
                 let id_map = IdMap::new_from_context(ctx, perm, None)?;
-                let base = above.resolve_commit_in_workspace(&repo, &id_map)?;
-                if but_core::Commit::from_id(base.attach(&repo))?.is_conflicted() {
+                let base = above.resolve_commit(&repo, &id_map)?;
+                let commit = but_core::Commit::from_id(base.attach(&repo))?;
+                if commit.is_conflicted() {
                     return Err(
                         bad_input("Cannot create a worktree from a conflicted commit")
                             .arg_name("--above")
                             .arg_value(&above.0)
                             .into(),
                     );
+                }
+                if is_managed_workspace_by_message(commit.message.as_ref()) {
+                    return Err(bad_input(
+                        "Cannot create a worktree from the GitButler workspace commit",
+                    )
+                    .arg_name("--above")
+                    .arg_value(&above.0)
+                    .hint("Pass a branch or commit instead, or omit --above to start at the workspace base")
+                    .into());
                 }
                 Some(base)
             }

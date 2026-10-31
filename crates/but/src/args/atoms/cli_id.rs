@@ -1,4 +1,4 @@
-use bstr::BString;
+use bstr::{BString, ByteSlice as _};
 use but_core::ref_metadata::StackId;
 use nonempty::NonEmpty;
 
@@ -109,41 +109,41 @@ impl CliIdArg {
         }))
     }
 
-    /// Resolve the argument to a commit that exists in the workspace.
-    pub fn resolve_commit_in_workspace(
+    /// Resolve the argument to a commit anywhere in the repository.
+    ///
+    /// A commit or branch in the workspace resolves by CLI ID or name first, a branch to its tip.
+    /// Anything else is read as a Git revision, like a SHA, `HEAD`, `origin/main`, or a branch
+    /// outside the workspace.
+    pub fn resolve_commit(
         &self,
         repo: &gix::Repository,
         id_map: &IdMap,
     ) -> CliResult<gix::ObjectId> {
-        if let Some(commit) = self.try_resolve_commit(repo, id_map)? {
-            Ok(commit)
-        } else {
-            Err(bad_input(format!("Could not find commit: '{self}'"))
-                .hint(Self::TARGET_MISSING_HINT)
-                .into())
-        }
-    }
-
-    /// Try and resolve the argument a commit that might exist in the workspace.
-    ///
-    /// Returns `Ok(None)` if it doesn't exist in the workspace.
-    pub fn try_resolve_commit(
-        &self,
-        repo: &gix::Repository,
-        id_map: &IdMap,
-    ) -> CliResult<Option<gix::ObjectId>> {
-        let Some(id) =
-            try_resolve_cli_id(self, repo, id_map, Purpose::Commit, Some(Priority::Commit))?
-        else {
-            return Ok(None);
-        };
-        match id {
-            CliId::Commit {
+        let rev: BString = match try_resolve_cli_id(
+            self,
+            repo,
+            id_map,
+            Purpose::Commit,
+            Some(Priority::Commit),
+        )? {
+            Some(CliId::Commit {
                 commit: CommitId { commit_id, .. },
                 ..
-            } => Ok(Some(commit_id)),
-            _ => Ok(None),
-        }
+            }) => return Ok(commit_id),
+            Some(CliId::Branch(branch)) => BranchArg(branch.name)
+                .resolve_existing_local_branch(repo)?
+                .into_inner(),
+            _ => self.0.as_str().into(),
+        };
+        let commit = match repo.rev_parse_single(rev.as_bstr()) {
+            Ok(id) => id.object()?.peel_to_commit().ok(),
+            Err(_) => None,
+        };
+        commit.map(|commit| commit.id).ok_or_else(|| {
+            bad_input(format!("Could not find commit: '{self}'"))
+                .hint(Self::TARGET_MISSING_HINT)
+                .into()
+        })
     }
 
     /// Resolve the argument to a branch that exists in the workspace.
