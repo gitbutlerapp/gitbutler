@@ -258,7 +258,7 @@ commands! {
     crate::navigator::StopWatching => "Stop watching",
     crate::navigator::MoveUp => "Move up",
     crate::navigator::MoveDown => "Move down",
-    crate::navigator::ShowArchivedWorktree => "Show an archived worktree",
+    crate::navigator::UnarchiveWorktree => "Unarchive worktree",
     crate::navigator::Reveal => (crate::ui::REVEAL),
     crate::navigator::OpenProjectSettings => "Project settings",
     crate::navigator::ArchiveWorktree => "Archive worktree" {

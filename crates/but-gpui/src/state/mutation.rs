@@ -921,7 +921,7 @@ impl Store {
         let (label, done) = if archived {
             ("Archive worktree", format!("Archived {name}"))
         } else {
-            ("Show worktree", format!("{name} is back"))
+            ("Unarchive worktree", format!("Unarchived {name}"))
         };
         let overlay = Overlay {
             worktrees: archived.then(|| name.clone()).into_iter().collect(),
