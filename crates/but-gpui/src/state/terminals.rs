@@ -280,19 +280,47 @@ impl Store {
         }
     }
 
-    /// Close terminal `id`, hanging up its shell; while it's selected, its worktree is.
+    /// Close terminal `id`, hanging up its shell.
     pub fn close_terminal(&mut self, id: TerminalId, cx: &mut Context<Self>) {
-        let Some(at) = self.terminals.open.iter().position(|open| open.id == id) else {
-            return;
+        self.close_terminals(&[id], cx);
+    }
+
+    /// Close terminals `ids`, hanging up their shells. While one's selected, another terminal
+    /// on its worktree is, as the TUI goes on after removing something: the next one, else the
+    /// one above. With none, the worktree's first branch, the row below them, else the worktree.
+    fn close_terminals(&mut self, ids: &[TerminalId], cx: &mut Context<Self>) {
+        let selected = match &self.selection {
+            Some(Selection::Terminal(_, selected)) if ids.contains(selected) => Some(*selected),
+            _ => None,
         };
-        let open = self.terminals.open.remove(at);
-        if let Some(Selection::Terminal(_, selected)) = &self.selection
-            && *selected == id
-        {
-            self.select(
-                Some(Selection::uncommitted_in(open.project, open.checkout)),
-                cx,
-            );
+        let open = selected.and_then(|id| self.terminals.open.iter().find(|open| open.id == id));
+        let place = open.map(|open| {
+            let (project, checkout) = (open.project.clone(), open.checkout.clone());
+            let listed: Vec<TerminalId> = (self.terminals.on(&project, &checkout))
+                .map(|(id, _)| id)
+                .collect();
+            (project, checkout, listed)
+        });
+        let before = self.terminals.open.len();
+        (self.terminals.open).retain(|open| !ids.contains(&open.id));
+        if self.terminals.open.len() == before {
+            return;
+        }
+        if let (Some(selected), Some((project, checkout, listed))) = (selected, place) {
+            let at = listed
+                .iter()
+                .position(|id| *id == selected)
+                .unwrap_or_default();
+            let staying = |id: &&TerminalId| !ids.contains(id);
+            let terminal = |id: &TerminalId| Selection::Terminal(project.clone(), *id);
+            let below = listed.iter().skip(at + 1).find(staying).map(terminal);
+            let above = listed.iter().take(at).rev().find(staying).map(terminal);
+            let branch = (self.workspace(&project))
+                .and_then(|ws| ws.branches_in(&checkout).next())
+                .map(|branch| Selection::Branch(project.clone(), branch.ref_name.clone()));
+            let instead = (below.or(above).or(branch))
+                .unwrap_or_else(|| Selection::uncommitted_in(project.clone(), checkout));
+            self.select(Some(instead), cx);
         }
         cx.notify();
     }
@@ -314,9 +342,8 @@ impl Store {
             })
             .map(|open| open.id)
             .collect();
-        for id in gone {
-            self.close_terminal(id, cx);
-        }
+        // At once, so a selection on one doesn't step through the others going with it.
+        self.close_terminals(&gone, cx);
     }
 
     /// Show the app's terminals' text at `size`, or with `None` at Ghostty's.
