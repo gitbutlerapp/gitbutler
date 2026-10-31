@@ -100,16 +100,17 @@ impl Rows {
 }
 
 /// The places `commits` of `project` can land, in the order `rows` list them, and which of
-/// them is where they are: the one just above the first of them. A folded branch has only its
-/// top and the new branches either side of it, so what's folded is stepped over and stays
-/// folded. A linked worktree's lane takes new branches as a stack does. `main_open` says whether the main checkout's stacks show, which a new stack goes
-/// before and after.
+/// them is where they are: the one just above the first of them. `open` says whether a heading
+/// shows what it holds: a folded branch has only the new branches either side of it, so what's
+/// folded is stepped over and stays folded, and the main checkout's stacks show only while
+/// its heading's open, as a new stack goes before and after them. A linked worktree's lane
+/// takes new branches as a stack does.
 pub(super) fn stops<'a>(
     rows: impl IntoIterator<Item = &'a Row>,
     project: &ProjectId,
     commits: &[CommitId],
     workspace: &Workspace,
-    main_open: bool,
+    open: impl Fn(&Selection) -> bool,
 ) -> (Vec<Stop>, usize) {
     /// A stack's bottom branch, once its rows are walked, takes a new branch under it.
     fn end_stack(stops: &mut Vec<Stop>, bottom: &mut Option<&FullName>) {
@@ -134,15 +135,15 @@ pub(super) fn stops<'a>(
             stops.push(Stop::NewStack { first: true });
         }
         match row {
-            Row::Item(Selection::Uncommitted(p)) if p == project => {
+            Row::Item(heading @ Selection::Uncommitted(p)) if p == project => {
                 end_stack(&mut stops, &mut bottom);
                 in_branch = false;
-                in_main = main_open;
-                before_first = main_open && workspace.managed;
+                in_main = open(heading);
+                before_first = in_main && workspace.managed;
             }
             // Not an unnamed branch, which has no ref to land on, nor the default branch,
             // which work stays off.
-            Row::Item(Selection::Branch(p, Some(name)))
+            Row::Item(item @ Selection::Branch(p, Some(name)))
                 if p == project && workspace.target_branch.as_ref() != Some(name) =>
             {
                 end_stack(&mut stops, &mut bottom);
@@ -159,7 +160,10 @@ pub(super) fn stops<'a>(
                         bottom = Some(name);
                     }
                 }
-                stops.push(Stop::In(Destination::Branch(name.clone())));
+                // Folded, its top is out of sight with its commits.
+                if open(item) {
+                    stops.push(Stop::In(Destination::Branch(name.clone())));
+                }
                 in_branch = true;
             }
             Row::Item(Selection::Branch(p, _)) if p == project => {
@@ -254,16 +258,12 @@ impl Navigator {
         cx: &App,
     ) -> Option<(Vec<Stop>, usize)> {
         let workspace = self.store.read(cx).workspace(project)?;
-        let main = Fold::Under(Selection::Uncommitted(project.clone()));
-        // The filter shows what it finds, folds aside.
-        let main_open = self.folds_seen.get(&main).copied().unwrap_or(true);
-        Some(stops(
-            self.shown_rows(),
-            project,
-            commits,
-            workspace,
-            main_open,
-        ))
+        // As the rows were last built; the filter shows what it finds, folds aside.
+        let open = |heading: &Selection| {
+            let fold = Fold::Under(heading.clone());
+            self.folds_seen.get(&fold).copied().unwrap_or(true)
+        };
+        Some(stops(self.shown_rows(), project, commits, workspace, open))
     }
 
     /// The stops of the move under way, and which of them it's at: where its commits are, if
@@ -495,6 +495,11 @@ mod tests {
     use crate::terminal::TerminalId;
     use crate::transfer::Stop;
 
+    /// Whether `heading` shows what it holds, as [`listed`] lists them: all but typo.
+    fn open(heading: &Selection) -> bool {
+        !matches!(heading, Selection::Branch(_, Some(name)) if short_ref(name) == "typo")
+    }
+
     /// Each stop on a line, commits by their number, `<` at `start`.
     fn describe(stops: &[Stop], start: usize) -> String {
         let commit = |c: &CommitId| (1..=9).find(|n| id(*n) == *c).unwrap_or_default();
@@ -564,12 +569,12 @@ mod tests {
     fn a_commit_stops_between_every_branch_and_commit_but_in_what_is_folded() {
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
-        let (stops, start) = stops(&rows, &project, &[id(2)], &ws, true);
+        let (stops, start) = stops(&rows, &project, &[id(2)], &ws, open);
         // A new stack before the main checkout's stacks, a new branch above every branch of a
         // stack and below its last, each branch's top and the place below each of its commits
         // but the one moving, which starts below 3 at the top of api; then a new stack once the
-        // stacks end. Folded, typo has only its top. The linked worktree's lane takes new
-        // branches as a stack does.
+        // stacks end. Folded, typo has only the new branches either side of it. The linked
+        // worktree's lane takes new branches as a stack does.
         snapbox::assert_data_eq!(
             describe(&stops, start),
             snapbox::str![[r#"
@@ -582,7 +587,6 @@ top of api <
 below 1
 new branch below api
 new branch above typo
-top of typo
 new branch below typo
 new stack
 new branch above agent
@@ -602,7 +606,7 @@ new branch below agent
     fn a_folded_main_checkout_and_a_workspace_of_one_branch_take_no_new_branches() {
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
-        let (folded, _) = stops(rows.iter().take(2), &project, &[id(2)], &ws, false);
+        let (folded, _) = stops(rows.iter().take(2), &project, &[id(2)], &ws, |_| false);
         assert!(
             folded.is_empty(),
             "nothing shows under the folded heading, and no new stack goes after it"
@@ -611,9 +615,9 @@ new branch below agent
             managed: false,
             ..ws
         };
-        let (stops, start) = stops(&rows, &project, &[id(1)], &unmanaged, true);
-        // Outside the workspace there's no stack to put a branch in, but a linked worktree's
-        // lane still takes one.
+        let (stops, start) = stops(&rows, &project, &[id(1)], &unmanaged, open);
+        // Outside the workspace there's no stack to put a branch in, so folded typo has no
+        // stops, but a linked worktree's lane still takes one.
         snapbox::assert_data_eq!(
             describe(&stops, start),
             snapbox::str![[r#"
@@ -621,7 +625,6 @@ top of ui
 below 3
 top of api
 below 2 <
-top of typo
 new branch above agent
 top of agent
 below 5
