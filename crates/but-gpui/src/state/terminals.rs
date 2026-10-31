@@ -60,6 +60,11 @@ impl Terminals {
             .map(|open| open.named.as_ref().unwrap_or(&open.title))
     }
 
+    /// How many are open.
+    pub fn count(&self) -> usize {
+        self.open.len()
+    }
+
     /// Kept here as `title` is.
     pub fn status(&self, id: TerminalId) -> Option<&Status> {
         (self.open.iter())
