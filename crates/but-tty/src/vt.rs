@@ -8,6 +8,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use libghostty_vt::error::Error;
 use libghostty_vt::fmt::{Format, Formatter, FormatterOptions};
 use libghostty_vt::key::{self, Key, Mods};
 use libghostty_vt::mouse;
@@ -50,6 +51,8 @@ pub struct Run {
     /// The column it starts at, and those it takes.
     pub columns: Range<u16>,
     pub style: Style,
+    /// What its cells link to, as the program running set it (OSC 8).
+    pub link: Option<Arc<str>>,
 }
 
 /// The cursor's cell, by column and row, with the text under it and the shape the program
@@ -701,6 +704,7 @@ impl Drawer {
         let selected_fg = (self.chosen.selection_foreground).unwrap_or(colors.background);
         let mut rows = self.rows.update(&snapshot)?;
         let mut cell_text = String::new();
+        let mut uri = Vec::from([0; 256]);
         let mut drawn_now = HashMap::with_capacity(self.drawn.len());
         let mut y = 0;
         while let Some(row) = rows.next() {
@@ -716,13 +720,16 @@ impl Drawer {
             }
             let mut drawn = Row::default();
             let selected = row.selection()?.map(|range| range.start_x..=range.end_x);
+            // May say so of a row that has none, so each cell is asked again.
+            let linking = row.raw_row()?.has_hyperlink()?;
             let mut cells = self.cells.update(row)?;
             let mut x = 0;
             let mut after_wide = false;
             while let Some(cell) = cells.next() {
                 let at = x;
                 x += 1;
-                let wide = match cell.raw_cell()?.wide()? {
+                let raw = cell.raw_cell()?;
+                let wide = match raw.wide()? {
                     CellWide::Narrow => false,
                     CellWide::Wide => true,
                     CellWide::SpacerTail | CellWide::SpacerHead => continue,
@@ -761,17 +768,33 @@ impl Drawer {
                         style: cursor_style,
                     });
                 }
+                let link = match linking && raw.has_hyperlink()? {
+                    true => {
+                        let uri = link_uri(term, at, y, &mut uri)?;
+                        // Cells of one link share what it links to with the run before.
+                        match drawn.runs.last().and_then(|last| last.link.as_ref()) {
+                            Some(last) if last.as_bytes() == uri => Some(last.clone()),
+                            _ => (std::str::from_utf8(uri).ok())
+                                .filter(|uri| !uri.is_empty())
+                                .map(Arc::from),
+                        }
+                    }
+                    false => None,
+                };
                 let start = drawn.text.len();
                 drawn.text.push_str(&cell_text);
                 let end = (drawn.text.len(), at + if wide { 2 } else { 1 });
                 match drawn.runs.last_mut() {
-                    Some(last) if last.style == style && !wide && !after_wide => {
+                    Some(last)
+                        if last.style == style && last.link == link && !wide && !after_wide =>
+                    {
                         (last.text.end, last.columns.end) = end;
                     }
                     _ => drawn.runs.push(Run {
                         text: start..end.0,
                         columns: at..end.1,
                         style,
+                        link,
                     }),
                 }
                 after_wide = wide;
@@ -786,6 +809,26 @@ impl Drawer {
         snapshot.set_dirty(Dirty::Clean)?;
         Ok(Arc::new(frame))
     }
+}
+
+/// What the cell at `x` and `y` on the viewport links to (OSC 8), empty if nothing, read into
+/// `uri`, which grows to fit it.
+fn link_uri<'uri>(
+    term: &libghostty_vt::Terminal<'static, '_>,
+    x: u16,
+    y: u16,
+    uri: &'uri mut Vec<u8>,
+) -> libghostty_vt::error::Result<&'uri [u8]> {
+    let at = PointCoordinate { x, y: u32::from(y) };
+    let cell = term.grid_ref(GridPoint::Viewport(at))?;
+    let len = match cell.hyperlink_uri(uri) {
+        Err(Error::OutOfSpace { required }) => {
+            uri.resize(required, 0);
+            cell.hyperlink_uri(uri)?
+        }
+        len => len?,
+    };
+    Ok(&uri[..len])
 }
 
 /// The viewport cell under `at` on the surface, or the nearest one when it's outside.
@@ -1116,6 +1159,63 @@ mod tests {
             runs,
             [("ab", 0..2), ("漢", 2..4), ("cd", 4..80)],
             "the wide character takes two columns, so what follows it starts two on"
+        );
+    }
+
+    /// The text of each run on the first row with what it links to, without the blanks after.
+    fn links(vt: &mut Vt) -> Vec<(String, Option<String>)> {
+        let frame = vt.frame(&Colors::default()).unwrap();
+        let row = &frame.rows[0];
+        (row.runs.iter())
+            .map(|run| {
+                let text = row.text[run.text.clone()].trim_end().to_owned();
+                (text, run.link.as_deref().map(str::to_owned))
+            })
+            .filter(|(text, _)| !text.is_empty())
+            .collect()
+    }
+
+    #[test]
+    fn a_run_takes_what_its_cells_link_to() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.write(b"see \x1b]8;;https://example.com\x1b\\the docs\x1b]8;;\x1b\\ for more");
+        assert_eq!(
+            links(&mut vt),
+            [
+                ("see".to_owned(), None),
+                (
+                    "the docs".to_owned(),
+                    Some("https://example.com".to_owned())
+                ),
+                (" for more".to_owned(), None),
+            ],
+            "only the cells written between OSC 8's opening and closing link, in a run of their own"
+        );
+    }
+
+    #[test]
+    fn links_side_by_side_in_one_style_are_runs_of_their_own() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.write(b"\x1b]8;;https://a.example\x1b\\one\x1b]8;;https://b.example\x1b\\two");
+        assert_eq!(
+            links(&mut vt),
+            [
+                ("one".to_owned(), Some("https://a.example".to_owned())),
+                ("two".to_owned(), Some("https://b.example".to_owned())),
+            ],
+            "each link is told apart though nothing else about the cells differs"
+        );
+    }
+
+    #[test]
+    fn a_link_longer_than_the_buffer_is_read_whole() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        let uri = format!("https://example.com/{}", "a".repeat(1000));
+        vt.write(format!("\x1b]8;;{uri}\x1b\\long\x1b]8;;\x1b\\").as_bytes());
+        assert_eq!(
+            links(&mut vt),
+            [("long".to_owned(), Some(uri))],
+            "the buffer grows to fit a URI past its first 256 bytes"
         );
     }
 

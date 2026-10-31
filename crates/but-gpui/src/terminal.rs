@@ -17,9 +17,9 @@ use futures::StreamExt;
 use gpui::{
     App, Bounds, ClipboardItem, Context, CursorStyle, DispatchPhase, Entity, EventEmitter,
     FocusHandle, Focusable, Font, FontWeight, HitboxBehavior, Hsla, KeyDownEvent, Modifiers,
-    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, Point, Rgba,
-    ScrollWheelEvent, SharedString, StrikethroughStyle, Task, TextAlign, TextRun, UnderlineStyle,
-    WeakEntity, Window, actions, canvas, div, prelude::*,
+    ModifiersChangedEvent, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels,
+    Point, Rgba, ScrollWheelEvent, SharedString, StrikethroughStyle, Task, TextAlign, TextRun,
+    UnderlineStyle, WeakEntity, Window, actions, canvas, div, prelude::*,
 };
 
 use crate::state::Store;
@@ -58,6 +58,8 @@ pub struct Terminal {
     scrolled: Pixels,
     grid: Rc<Cell<Grid>>,
     held: Option<Held>,
+    /// The link under the pointer while ⌘ is held, ⌃ off macOS, underlined for a click to open.
+    link: Option<Arc<str>>,
     /// Scrolling a selection dragged past the top or bottom, a row a tick.
     autoscrolling: Option<Task<()>>,
     /// Drawing again once the program's hold on the screen times out, as nothing else may.
@@ -155,6 +157,7 @@ impl Terminal {
             scrolled: fixed(0.),
             grid: Rc::new(Cell::new(Grid::opening(size))),
             held: None,
+            link: None,
             autoscrolling: None,
             hold_timeout: None,
             wanted: size,
@@ -307,7 +310,12 @@ impl Terminal {
 
     fn mouse_down(&mut self, event: &MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         window.focus(&self.focus, cx);
-        if self.reports(event.modifiers) {
+        if event.button == MouseButton::Left
+            && follows_links(event.modifiers)
+            && let Some(link) = self.link_at(event.position)
+        {
+            cx.open_url(&link);
+        } else if self.reports(event.modifiers) {
             let button = button(event.button);
             self.report(
                 mouse::Action::Press,
@@ -358,11 +366,46 @@ impl Terminal {
                 cx.notify();
                 cx.stop_propagation();
             }
-            (None, DispatchPhase::Bubble) if hovered && self.reports(event.modifiers) => {
-                self.report(mouse::Action::Motion, None, event.position, event.modifiers);
+            (None, DispatchPhase::Bubble) => {
+                if hovered && self.reports(event.modifiers) {
+                    self.report(mouse::Action::Motion, None, event.position, event.modifiers);
+                }
+                self.hover(hovered.then_some(event.position), event.modifiers, cx);
             }
             _ => {}
         }
+    }
+
+    /// Holding ⌘ down or letting it go over a link underlines it or stops.
+    fn modifiers_changed(
+        &mut self,
+        event: &ModifiersChangedEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.hover(Some(window.mouse_position()), event.modifiers, cx);
+    }
+
+    /// Underlines the link under the pointer, over the terminal at `position` in the window,
+    /// while `modifiers` follow links.
+    fn hover(
+        &mut self,
+        position: Option<Point<Pixels>>,
+        modifiers: Modifiers,
+        cx: &mut Context<Self>,
+    ) {
+        let link = position
+            .filter(|_| follows_links(modifiers))
+            .and_then(|position| self.link_at(position));
+        if link != self.link {
+            self.link = link;
+            cx.notify();
+        }
+    }
+
+    /// What the cell drawn under `position` in the window links to.
+    fn link_at(&self, position: Point<Pixels>) -> Option<Arc<str>> {
+        link_at(&self.tty.frame().rows, self.grid.get(), position)
     }
 
     fn mouse_up(&mut self, event: &MouseUpEvent, phase: DispatchPhase) {
@@ -479,10 +522,12 @@ impl Render for Terminal {
         let scale = window.scale_factor();
         let cell_height = ((ascent + descent) * scale).round() / scale;
         let focused = self.focus.is_focused(window);
-        let pointer_style = match self.tty.tracks_mouse() {
-            true => CursorStyle::Arrow,
-            false => CursorStyle::IBeam,
+        let pointer_style = match (&self.link, self.tty.tracks_mouse()) {
+            (Some(_), _) => CursorStyle::PointingHand,
+            (None, true) => CursorStyle::Arrow,
+            (None, false) => CursorStyle::IBeam,
         };
+        let link = self.link.clone();
         let frame = self.tty.frame();
         let rows = frame.clone();
         let this = cx.entity().downgrade();
@@ -511,7 +556,8 @@ impl Render for Terminal {
             },
             move |bounds, hitbox, window, cx| {
                 let cell = gpui::size(cell_width, cell_height);
-                paint_rows(&rows.rows, bounds.origin, cell, bold, window, cx);
+                let link = link.as_deref();
+                paint_rows(&rows.rows, bounds.origin, cell, bold, link, window, cx);
                 window.on_mouse_event({
                     let this = pointer.clone();
                     move |event: &MouseMoveEvent, phase, window, cx| {
@@ -564,6 +610,7 @@ impl Render for Terminal {
             .track_focus(&self.focus)
             .on_key_down(cx.listener(Self::key_down))
             .on_any_mouse_down(cx.listener(Self::mouse_down))
+            .on_modifiers_changed(cx.listener(Self::modifiers_changed))
             .on_scroll_wheel(cx.listener(Self::scroll))
             .cursor(pointer_style)
             .size_full()
@@ -618,6 +665,24 @@ impl Grid {
     }
 }
 
+/// What the cell under `position` in the window links to, on `rows` drawn on `grid`.
+fn link_at(rows: &[Arc<Row>], grid: Grid, position: Point<Pixels>) -> Option<Arc<str>> {
+    let at = position - grid.origin;
+    if at.x < fixed(0.) || at.y < fixed(0.) {
+        return None;
+    }
+    let column = (at.x / grid.cell.width).floor() as u16;
+    let row = rows.get((at.y / grid.cell.height).floor() as usize)?;
+    let run = row.runs.iter().find(|run| run.columns.contains(&column))?;
+    run.link.clone()
+}
+
+/// Whether ⌘ alone is held, ⌃ alone off macOS, for a click to open the link under the
+/// pointer, as in Ghostty.
+fn follows_links(modifiers: Modifiers) -> bool {
+    modifiers == Modifiers::secondary_key()
+}
+
 /// `theme`'s terminal colours, with the app's own ground and ink for what they leave unset.
 fn colors_of(theme: &Theme) -> (Colors, RgbColor, RgbColor) {
     let terminal = theme.terminal.clone();
@@ -654,16 +719,18 @@ fn shown_title(title: &str) -> SharedString {
     }
 }
 
-/// Paints `rows` on the grid from `origin`, bold text at `bold`, every background before any
-/// text so no cell's covers a glyph reaching into it. Each run's text is shaped on its own and
-/// placed at its column, as Ghostty does. GPUI keeps a shaped line while it's drawn frame after
-/// frame, so a run is shaped again only when it changes, not whenever anything on its row
-/// does, as a relative line number does at every move.
+/// Paints `rows` on the grid from `origin`, bold text at `bold` and what links to `link`
+/// underlined, every background before any text so no cell's covers a glyph reaching into it.
+/// Each run's text is shaped on its own and placed at its column, as Ghostty does. GPUI keeps a
+/// shaped line while it's drawn frame after frame, so a run is shaped again only when it
+/// changes, not whenever anything on its row does, as a relative line number does at every
+/// move.
 fn paint_rows(
     rows: &[Arc<Row>],
     origin: Point<Pixels>,
     cell: gpui::Size<Pixels>,
     bold: FontWeight,
+    link: Option<&str>,
     window: &mut Window,
     cx: &mut App,
 ) {
@@ -717,12 +784,18 @@ fn paint_rows(
             // Across the run's cells, where GPUI's own reach only as far as the glyphs do, which
             // a wide character's from a fallback font may fall short of. At GPUI's heights.
             let width = cell.width * f32::from(run.columns.end - column);
-            if style.underline != Underline::None {
+            let underline = match style.underline {
+                Underline::None if link.is_some() && run.link.as_deref() == link => {
+                    Underline::Single
+                }
+                underline => underline,
+            };
+            if underline != Underline::None {
                 let offset = gpui::underline_y_offset(cell.height, line.ascent, line.descent);
                 let underline = UnderlineStyle {
                     thickness: fixed(1.),
                     color: Some(color),
-                    wavy: style.underline == Underline::Curly,
+                    wavy: underline == Underline::Curly,
                 };
                 window.paint_underline(origin + gpui::point(fixed(0.), offset), width, &underline);
             }
@@ -932,6 +1005,7 @@ mod tests {
                 text: start..row.text.len(),
                 columns: column..column + columns,
                 style,
+                link: None,
             });
             column += columns;
         }
@@ -977,6 +1051,39 @@ mod tests {
             shown(&blank),
             [(0, "   ".to_owned())],
             "blanks underlined show their line"
+        );
+    }
+
+    #[test]
+    fn the_link_under_a_point_is_the_one_its_cell_has() {
+        let grid = Grid {
+            origin: gpui::point(fixed(100.), fixed(50.)),
+            cell: gpui::size(fixed(7.8), fixed(16.)),
+        };
+        let mut linked = row(&[("docs", 4, PLAIN), (" for more", 9, PLAIN)]);
+        linked.runs[0].link = Some(Arc::from("https://example.com"));
+        let rows = [Arc::new(Row::default()), Arc::new(linked)];
+        let over =
+            |column: f32, row: f32| gpui::point(fixed(100. + 7.8 * column), fixed(50. + 16. * row));
+        assert_eq!(
+            link_at(&rows, grid, over(3.5, 1.5)).as_deref(),
+            Some("https://example.com"),
+            "the last of the link's cells, on the second row"
+        );
+        assert_eq!(
+            link_at(&rows, grid, over(4.5, 1.5)),
+            None,
+            "the cell after it links nowhere"
+        );
+        assert_eq!(
+            link_at(&rows, grid, over(1.5, 0.5)),
+            None,
+            "nor does the row above"
+        );
+        assert_eq!(
+            link_at(&rows, grid, over(-0.5, 1.5)),
+            None,
+            "left of the grid is no cell, though the first one links"
         );
     }
 
