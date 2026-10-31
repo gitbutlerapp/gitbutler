@@ -5,7 +5,7 @@
 //! application can operate on any branch, the target can be set at any time.
 
 use anyhow::{Context as _, Result};
-use bstr::ByteSlice;
+use bstr::{BString, ByteSlice};
 use but_core::{
     git_config::{
         edit_repo_config, ensure_config_value, open_repo_local_config_for_reading, set_config_value,
@@ -178,7 +178,8 @@ pub fn resolve_target_commit(
 ///
 /// * repair partially migrated target metadata before applying the target change,
 /// * store the target as [`ProjectMeta`] via [`ProjectMeta::persist()`],
-/// * set `log.excludeDecoration = refs/gitbutler` in the repository-local Git config.
+/// * set `log.excludeDecoration = refs/gitbutler` in the repository-local Git config,
+/// * make `target_ref` track the default remote's branch of the same name if it tracks nothing.
 ///
 /// The workspace branch and a stored cutoff whose object is missing are rejected without
 /// changing metadata.
@@ -186,7 +187,9 @@ pub fn resolve_target_commit(
 /// uses the configured upstream tip, or the local tip if no upstream is configured. An unavailable
 /// upstream is an error, not a reason to use local history instead.
 /// Changing targets retains the old cutoff if reachable from the new local target, otherwise it
-/// uses the merge-base with `HEAD`. The local target is always validated against `HEAD` before writing.
+/// uses the merge-base with `HEAD`. A target that starts tracking an upstream here changes to the
+/// upstream's tip in the same way, so a cutoff past it, left by pulls onto a target that tracked
+/// nothing, isn't kept. The local target is always validated against `HEAD` before writing.
 /// `push_remote`, if `Some`, is validated and stored; if `None`, an existing push remote
 /// is kept as is.
 ///
@@ -195,7 +198,7 @@ pub fn resolve_target_commit(
 ///
 /// Unlike `set_base_branch()`, this neither creates stacks, nor updates the workspace
 /// commit, nor checks anything out. The caller is expected to hold exclusive worktree
-/// access, and to invalidate any cached workspace projection afterwards.
+/// access, and to reload `repo` and invalidate any cached workspace projection afterwards.
 pub fn set_target_ref_and_init_project(
     repo: &gix::Repository,
     target_ref: &LocalRefName,
@@ -236,15 +239,23 @@ pub fn set_target_ref_and_init_project(
         .id;
 
     let head = repo.head_id().context("Failed to resolve HEAD")?.detach();
+    let upstream = upstream_to_track(repo, target_ref, target_head)?;
     let changing_target = project_meta
         .target_ref
         .as_ref()
         .is_some_and(|existing| existing != target_ref);
-    let target_sha = if changing_target {
-        resolve_target_commit(repo, head, target_head, updated.target_commit_id)?
-    } else {
-        merge_base_with_target(repo, head, target_head)?;
-        updated.resolve_target_commit(repo)?
+    let target_sha = match &upstream {
+        Some((_, _, tip)) => {
+            merge_base_with_target(repo, head, target_head)?;
+            resolve_target_commit(repo, head, *tip, updated.target_commit_id)?
+        }
+        None if changing_target => {
+            resolve_target_commit(repo, head, target_head, updated.target_commit_id)?
+        }
+        None => {
+            merge_base_with_target(repo, head, target_head)?;
+            updated.resolve_target_commit(repo)?
+        }
     };
 
     updated.push_remote = match push_remote {
@@ -258,15 +269,78 @@ pub fn set_target_ref_and_init_project(
         None => updated.push_remote,
     };
 
-    updated.target_commit_id = Some(target_sha);
-    updated.persist(repo)?;
-
+    // Before the target is stored, so it's never stored without the upstream it fetches from.
     edit_repo_config(repo, gix::config::Source::Local, |config| {
         ensure_config_value(config, "log.excludeDecoration", "refs/gitbutler")
             .context("failed to set log.excludeDecoration")?;
+        if let Some((remote, merge, _)) = &upstream {
+            let mut branch = config.section_mut_or_create_new(
+                "branch",
+                Some(target_ref.as_local_full_name_ref().shorten()),
+            )?;
+            branch.set(gix::config::tree::Branch::REMOTE.name, remote.as_bstr())?;
+            branch.set(gix::config::tree::Branch::MERGE.name, merge.as_bstr())?;
+        }
         Ok(())
     })?;
+    updated.target_commit_id = Some(target_sha);
+    updated.persist(repo)?;
     Ok(())
+}
+
+/// The upstream to make `target_ref` track if it tracks nothing: the branch named as it on the
+/// default remote, like origin/main for main, as `git branch --set-upstream-to=origin/main main`
+/// would. A target without an upstream is never fetched, so a `main` pushed without `-u` would
+/// otherwise not see what lands on the remote.
+///
+/// Returns the remote, the branch on it, and the tip of its remote-tracking branch. A branch with
+/// an upstream of its own gets `None`, and so does one the remote has no related branch for.
+/// [`set_target_ref_and_init_project()`] makes the target track it.
+pub fn upstream_to_track(
+    repo: &gix::Repository,
+    target_ref: &LocalRefName,
+    target_head: gix::ObjectId,
+) -> Result<Option<(BString, gix::refs::FullName, gix::ObjectId)>> {
+    let name = target_ref.as_local_full_name_ref();
+    let fetch = gix::remote::Direction::Fetch;
+    // A configured upstream counts even where no refspec maps it, like one on `.`.
+    if repo.branch_remote_ref_name(name, fetch).is_some()
+        || repo.branch_remote_name(name.shorten(), fetch).is_some()
+    {
+        return Ok(None);
+    }
+    let Some(mut tracking) = repo.remote_default_name(fetch) else {
+        return Ok(None);
+    };
+    tracking.push(b'/');
+    tracking.extend_from_slice(name.shorten());
+    let tracking = gix::refs::Category::RemoteBranch.to_full_name(tracking.as_bstr())?;
+    let Some(mut tracking_ref) = repo.try_find_reference(tracking.as_ref())? else {
+        return Ok(None);
+    };
+    let tip = tracking_ref.peel_to_commit()?.id;
+    // One of the same name but unrelated, like a hosted repository's first commit, is another branch.
+    if repo.merge_base(target_head, tip)?.is_none() {
+        return Ok(None);
+    }
+    let (merge, remote) =
+        match repo.upstream_branch_and_remote_for_tracking_branch(tracking.as_ref()) {
+            Ok(Some(found)) => found,
+            // No remote fetches into it, like gb-local which only has a URL.
+            Ok(None) => return Ok(None),
+            Err(err) => {
+                tracing::warn!(
+                    "not tracking {tracking}, as the remotes can't tell what fetches it: {err}"
+                );
+                return Ok(None);
+            }
+        };
+    let remote = remote
+        .name()
+        .expect("a remote loaded by name is never anonymous")
+        .as_bstr()
+        .to_owned();
+    Ok(Some((remote, merge, tip)))
 }
 
 /// Set the remote used to publish branches without changing the default target.

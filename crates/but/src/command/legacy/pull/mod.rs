@@ -119,6 +119,33 @@ fn target_has_upstream(ctx: &Context) -> anyhow::Result<bool> {
     Ok(ctx.project_meta()?.remote_target_ref(&repo)?.is_some())
 }
 
+/// A hint for a target that tracks nothing although the remote has its branch, like a `main`
+/// pushed without `-u`. A pull doesn't fetch for such a target, and choosing it as the target
+/// again makes it track that branch.
+fn untracked_target_hint(ctx: &Context, has_upstream: bool) -> anyhow::Result<Option<String>> {
+    if has_upstream {
+        return Ok(None);
+    }
+    let Some(target_ref) = ctx.project_meta()?.target_ref else {
+        return Ok(None);
+    };
+    let repo = ctx.repo.get()?;
+    let Some(mut target) = repo.try_find_reference(target_ref.as_local_full_name_ref())? else {
+        return Ok(None);
+    };
+    let target_head = target.peel_to_id()?.detach();
+    let Some((remote, merge, _)) =
+        but_workspace::init::upstream_to_track(&repo, &target_ref, target_head)?
+    else {
+        return Ok(None);
+    };
+    let name = target_ref.as_local_full_name_ref().shorten();
+    let upstream = format!("{remote}/{}", merge.shorten());
+    Ok(Some(format!(
+        "Hint: {name} tracks no remote branch, so `but pull` doesn't fetch {upstream}; run `but config target {name}` to make it track {upstream}"
+    )))
+}
+
 /// Read the target branch, after fetching from the remotes if it has an upstream. Without one,
 /// nothing is fetched, so an unreachable remote can't stop the pull.
 fn fetch_base_branch(
@@ -289,6 +316,9 @@ async fn handle_check(
                 )?;
             }
         }
+        if let Some(hint) = untracked_target_hint(ctx, has_upstream)? {
+            writeln!(out, "{}", t.hint.paint(hint))?;
+        }
 
         if up_to_date {
             writeln!(out, "\n{}", t.success.paint("Up to date"))?;
@@ -428,6 +458,9 @@ async fn handle_pull(
                     "No new upstream commits found"
                 })
             )?;
+        }
+        if let Some(hint) = untracked_target_hint(ctx, has_upstream)? {
+            writeln!(out, "{}", t.hint.paint(hint))?;
         }
 
         if !incoming.is_empty() {

@@ -486,7 +486,7 @@ pub fn get_workspace(
 /// See [`but_workspace::init::set_target_ref_and_init_project()`] for details. The target is always
 /// validated against `HEAD`; an unreachable stored target commit is replaced by their merge-base.
 /// An omitted `push_remote` preserves its current value. It deliberately records no oplog snapshot
-/// because only project metadata changes, not repository state.
+/// because only project metadata and the target's upstream configuration change, not repository state.
 #[but_api]
 #[instrument(err(Debug))]
 pub fn set_target_ref_and_init_project(
@@ -494,13 +494,14 @@ pub fn set_target_ref_and_init_project(
     target_ref: &gix::refs::FullNameRef,
     push_remote: Option<String>,
 ) -> anyhow::Result<()> {
-    let guard = ctx.exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
     {
         let repo = ctx.repo.get()?;
         let target_ref = but_core::ref_metadata::LocalRefName::new(target_ref.to_owned())?;
         but_workspace::init::set_target_ref_and_init_project(&repo, &target_ref, push_remote)?;
     }
-    ctx.invalidate_workspace_cache()?;
+    // The target may now track a remote branch, which the cached repository sees once reloaded.
+    ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
     drop(guard);
     Ok(())
 }
