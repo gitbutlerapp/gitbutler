@@ -441,7 +441,8 @@ pub(super) fn stand_in(stand_in: &StandIn, store: &Store, theme: &Theme) -> Div 
 }
 
 /// The new branch commits being moved would land in at stop `at`, over their copies, set in by
-/// `inset` as an item row is. It names the branch it goes above or below in their stack.
+/// `inset` as an item row is. It names the branch it goes above or below in their stack, or
+/// says it's independent, in a stack of its own.
 pub(super) fn ghost_branch_row(at: &Stop, inset: f32, theme: &Theme) -> AnyElement {
     let beside = match at {
         Stop::NewBranch { beside, below } => {
@@ -452,7 +453,7 @@ pub(super) fn ghost_branch_row(at: &Stop, inset: f32, theme: &Theme) -> AnyEleme
     };
     let said = match &beside {
         Some((side, _)) => format!("New branch {side}"),
-        None => "New branch".into(),
+        None => "New independent branch".into(),
     };
     h_flex()
         .min_h(dp(ROW_HEIGHT))
