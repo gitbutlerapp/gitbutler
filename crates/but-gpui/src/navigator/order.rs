@@ -103,8 +103,7 @@ impl Navigator {
             .into_any_element()
     }
 
-    /// How the watched projects go: their order, then folding or opening them all, then the
-    /// app's settings.
+    /// How the watched projects go: their order, then folding or opening them all.
     fn view_menu(&self, cx: &App) -> Vec<MenuItem> {
         let store = self.store.read(cx);
         let order = store.prefs.watched_order;
@@ -130,7 +129,6 @@ impl Navigator {
             set("Last activity", WatchedOrder::Activity),
             fold("Fold all", true).separated(),
             fold("Unfold all", false),
-            MenuItem::command(&crate::settings::OpenSettings, cx).separated(),
         ]
     }
 
