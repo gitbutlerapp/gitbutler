@@ -522,21 +522,44 @@ impl AppView {
         }
     }
 
-    /// Whether to quit right away. While an operation hasn't finished, ask instead, and quit
-    /// on a yes: quitting would stop it partway.
+    /// Whether to quit right away. While an operation hasn't finished or a terminal is open,
+    /// ask instead, and quit on a yes: quitting would stop the operation partway and end what
+    /// runs in the terminal.
     fn can_quit(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        let (message, detail) = match self.store.read(cx).unfinished() {
-            0 => return true,
-            1 => (
+        let store = self.store.read(cx);
+        let operations = match store.unfinished() {
+            0 => None,
+            1 => Some((
                 "Quit before the operation finishes?".to_owned(),
-                "It may stop partway.",
-            ),
-            n => (
+                "It may stop partway.".to_owned(),
+            )),
+            n => Some((
                 format!("Quit before {n} operations finish?"),
-                "They may stop partway.",
-            ),
+                "They may stop partway.".to_owned(),
+            )),
         };
-        self.confirm_then(None, message, detail, "Quit", window, cx, |_, cx| cx.quit());
+        let terminals = match store.terminals.count() {
+            0 => None,
+            1 => Some((
+                "Quit with a terminal open?".to_owned(),
+                "The terminal closes, and what runs in it ends.".to_owned(),
+            )),
+            n => Some((
+                format!("Quit with {n} terminals open?"),
+                format!("The {n} terminals close, and what runs in them ends."),
+            )),
+        };
+        // Operations ask first, as they're what quitting would leave half done.
+        let (message, detail) = match (operations, terminals) {
+            (None, None) => return true,
+            (Some(asked), None) | (None, Some(asked)) => asked,
+            (Some((message, operations)), Some((_, terminals))) => {
+                (message, format!("{operations} {terminals}"))
+            }
+        };
+        self.confirm_then(None, message, &detail, "Quit", window, cx, |_, cx| {
+            cx.quit()
+        });
         false
     }
 
@@ -1164,7 +1187,8 @@ impl AppView {
         }
     }
 
-    /// As the window's close button does: closing it quits, asking first while operations run.
+    /// As the window's close button does: closing it quits, asking first while operations run
+    /// or terminals are open.
     fn close_window(&mut self, _: &CloseWindow, window: &mut Window, cx: &mut Context<Self>) {
         if self.can_quit(window, cx) {
             cx.quit();
