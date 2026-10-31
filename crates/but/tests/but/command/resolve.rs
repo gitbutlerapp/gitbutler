@@ -383,6 +383,7 @@ fn sandbox_with_conflicted_uncommitted_files() -> Sandbox {
 fn resolve_marks_several_conflicted_files_resolved_including_deleted() {
     let env = sandbox_with_conflicted_uncommitted_files();
     env.remove_file("commit.txt");
+    env.file("second.txt", "resolved\n");
 
     env.but("resolve commit.txt second.txt --json")
         .assert()
@@ -448,6 +449,28 @@ Conflicted uncommitted files can only be marked as resolved: `but resolve <path>
 }
 
 #[test]
+fn resolve_refuses_files_that_still_have_conflict_markers() {
+    let env = sandbox_with_conflicted_uncommitted_files();
+    env.file("commit.txt", "resolved\n");
+
+    // second.txt still has the markers the conflicting checkout wrote.
+    env.but("resolve commit.txt second.txt")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Conflict markers are still in second.txt, so nothing was marked resolved
+
+Hint: Edit second.txt to the wanted content, then run `but resolve commit.txt second.txt` again
+
+"#]]);
+    assert_eq!(
+        env.invoke_git("ls-files --unmerged").lines().count(),
+        6,
+        "neither file was marked resolved"
+    );
+}
+
+#[test]
 fn resolve_points_apply_at_uncommitted_conflicts_and_accepts_dot_slash_paths() {
     let env = sandbox_with_conflicted_uncommitted_files();
 
@@ -460,6 +483,7 @@ Error: `but resolve apply` can't rewrite commits while uncommitted files are con
 Hint: Edit them to the wanted content, then run `but resolve commit.txt second.txt`
 
 "#]]);
+    env.file("commit.txt", "resolved\n");
     env.but("resolve ./commit.txt")
         .assert()
         .success()

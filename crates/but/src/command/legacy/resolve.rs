@@ -63,7 +63,7 @@ pub(crate) fn handle(
                     "Conflicted uncommitted files can only be marked as resolved: `but resolve <path>...`"
                 ).into());
             }
-            return Ok(mark_worktree_conflicts_resolved(ctx, out, targets)?);
+            return mark_worktree_conflicts_resolved(ctx, out, targets);
         }
     };
     if ai {
@@ -161,9 +161,36 @@ fn mark_worktree_conflicts_resolved(
     ctx: &mut Context,
     out: &mut OutputChannel,
     paths: Vec<String>,
-) -> Result<()> {
+) -> CliResult<()> {
     if matches!(operating_mode(ctx)?.operating_mode, OperatingMode::Edit(_)) {
-        bail!("In resolution mode, edit the files and run `but resolve finish` instead.");
+        return Err(bad_input(
+            "In resolution mode, edit the files and run `but resolve finish` instead.",
+        )
+        .into());
+    }
+    // Marking a file resolved stages it as it is, so markers left in it would be staged too.
+    let with_markers: Vec<&str> = {
+        let repo = ctx.repo.get()?;
+        let workdir = repo.workdir().context("No workdir")?;
+        paths
+            .iter()
+            .map(String::as_str)
+            .filter(|path| {
+                std::fs::read_to_string(workdir.join(path))
+                    .is_ok_and(|content| has_conflict_markers(&content))
+            })
+            .collect()
+    };
+    if !with_markers.is_empty() {
+        let with_markers = with_markers.join(" ");
+        return Err(bad_input(format!(
+            "Conflict markers are still in {with_markers}, so nothing was marked resolved"
+        ))
+        .hint(format!(
+            "Edit {with_markers} to the wanted content, then run `but resolve {}` again",
+            paths.join(" ")
+        ))
+        .into());
     }
     but_api::workspace::resolve_worktree_conflicts(
         ctx,
