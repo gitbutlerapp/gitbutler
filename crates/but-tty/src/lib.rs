@@ -69,6 +69,8 @@ pub struct Terminal {
     size: Size,
     /// The title and status as last told, to tell what changed.
     told: (String, Status),
+    /// Whether the terminal has the keys, as the program running was last told.
+    focused: bool,
 }
 
 /// Wakes each time the terminal has more to show, ending once the shell exits or the terminal
@@ -129,6 +131,7 @@ impl Terminal {
             shown: started.shown,
             size,
             told: (title, status),
+            focused: false,
         };
         Ok((terminal, Updates(started.updates)))
     }
@@ -208,6 +211,25 @@ impl Terminal {
             let bytes = emulator.vt.paste(&text);
             emulator.input(&bytes);
         });
+    }
+
+    /// Whether the terminal has the keys in the window in front, told to a program that asked as
+    /// it changes.
+    pub fn set_focused(&mut self, focused: bool) {
+        if self.focused == focused {
+            return;
+        }
+        self.focused = focused;
+        self.run(move |emulator| {
+            let bytes = emulator.vt.focus(focused);
+            emulator.send(&bytes);
+        });
+    }
+
+    /// The text the program running copied, if it did since this was last asked, for the
+    /// clipboard.
+    pub fn copied(&mut self) -> Option<String> {
+        self.shown.lock().copied.take()
     }
 
     /// Whether the program running asked to be told of the mouse.
