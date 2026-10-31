@@ -1902,19 +1902,18 @@ async fn target_config(
                     Ok(target_ref) => target_ref,
                     // The remote name is shorthand for the local branch tracking it, not a stored
                     // legacy target, so the error describes the input rather than a migration.
-                    Err(err)
-                        if err
-                            .downcast_ref::<UnresolvedLegacyTargetRefError>()
-                            .is_some_and(|unresolved| {
-                                unresolved.reason == UnresolvedLegacyTargetReason::NoTrackingBranch
-                            }) =>
-                    {
-                        let target_ref = ref_name.shorten();
-                        return Err(bad_input(format!("No local branch tracks {target_ref}"))
-                            .hint(track_remote_target_hint(target_ref))
-                            .into());
+                    Err(err) => {
+                        if let Some(unresolved) =
+                            err.downcast_ref::<UnresolvedLegacyTargetRefError>()
+                            && unresolved.reason == UnresolvedLegacyTargetReason::NoTrackingBranch
+                        {
+                            let target_ref = ref_name.shorten();
+                            return Err(bad_input(format!("No local branch tracks {target_ref}"))
+                                .hint(track_remote_target_hint(unresolved))
+                                .into());
+                        }
+                        return Err(err.into());
                     }
-                    Err(err) => return Err(err.into()),
                 }
             };
             but_api::workspace::set_target_ref_and_init_project(

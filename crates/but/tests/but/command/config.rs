@@ -117,7 +117,7 @@ fn target_remote_shorthand_without_tracking_branch_hints_to_track_it() {
         .stderr_eq(str![[r#"
 Error: No local branch tracks upstream/main
 
-Hint: Make a local branch track upstream/main with `git branch --set-upstream-to=upstream/main <branch>`, or choose a local target branch with `but config target <branch>`
+Hint: Make a local branch track upstream/main with `git branch --set-upstream-to=upstream/main main`, or choose a local target branch with `but config target <branch>`
 
 "#]]);
 
@@ -129,6 +129,36 @@ Hint: Make a local branch track upstream/main with `git branch --set-upstream-to
         env.invoke_git("config --local --get gitbutler.project.targetRef"),
         "refs/heads/main",
         "the shorthand resolves to the branch that now tracks it"
+    );
+}
+
+// regression test for https://linear.app/gitbutler/issue/GB-2242
+#[cfg(feature = "legacy")]
+#[test]
+fn target_remote_shorthand_without_namesake_hints_to_create_it() {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
+    env.invoke_bash("git checkout -q -b feature && git branch -q -D main");
+
+    // the hint names main rather than leaving a branch open to fill in, as an agent fills it with
+    // the branch it works on, which then becomes the target and pushes to origin/main
+    env.but("config target origin/main")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: No local branch tracks origin/main
+
+Hint: Make a local branch track origin/main with `git branch --track main origin/main`, or choose a local target branch with `but config target <branch>`
+
+"#]]);
+
+    // run the command the hint suggests
+    env.invoke_git("branch --track main origin/main");
+
+    env.but("config target origin/main").assert().success();
+    assert_eq!(
+        env.invoke_git("config --local --get gitbutler.project.targetRef"),
+        "refs/heads/main",
+        "the new branch becomes the target, not the branch being worked on"
     );
 }
 
