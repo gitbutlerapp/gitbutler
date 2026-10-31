@@ -1318,7 +1318,8 @@ fn restore_snapshot_tree(
                 .collect();
             if !dirs.is_empty() {
                 bail!(
-                    "Cannot restore branch '{}' because it is checked out in worktrees: {dirs:?}",
+                    "Cannot restore branch '{}' because it is checked out in worktrees: {dirs:?}. \
+                     Reverse the operation instead, for example by moving a moved commit back",
                     reference.ref_name.shorten()
                 );
             }
