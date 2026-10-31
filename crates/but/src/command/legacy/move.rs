@@ -462,7 +462,7 @@ pub struct UnstackBranchOperation {
 
 impl UnstackBranchOperation {
     fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<()> {
-        tx.tear_off_branch(self.source_branch.as_ref())
+        tx.tear_off_branch(self.source_branch.as_ref(), None)
     }
 }
 

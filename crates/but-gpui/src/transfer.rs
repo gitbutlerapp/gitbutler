@@ -8,11 +8,12 @@ use gpui::{
 };
 
 use crate::backend::{
-    self, Checkout, CommitId, CommitTo, Destination, FullName, Selected, short_ref,
+    self, Checkout, CommitId, CommitTo, Destination, FullName, Selected, Workspace, short_ref,
 };
 use crate::state::{
     Cut, Label, NewAt, Overlay, ProjectId, Selection, Store, branch_moved, move_before,
 };
+use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::ui::diff::split_path;
 use crate::ui::file_icons::{file_icon, folder_icon};
@@ -49,7 +50,7 @@ pub enum Transfer {
         ids: Arc<[CommitId]>,
         to: Destination,
     },
-    /// Stack a branch, and those above it, on another.
+    /// Stack a branch on another, leaving those above it where they were.
     StackBranch {
         branch: FullName,
         onto: FullName,
@@ -103,55 +104,229 @@ impl Place {
     }
 }
 
-/// Commits being moved with the keys: the navigator steps through the places they can land,
-/// and Return lands them where it's at.
+/// Something being moved with the keys, in `project`: the navigator steps through the places
+/// it can land, and Return lands it where it's at.
 #[derive(Debug, Clone)]
 pub struct Move {
     pub project: ProjectId,
-    /// As listed, newest first.
-    pub commits: Arc<[CommitId]>,
+    pub what: Moving,
     pub at: Stop,
 }
 
-/// A place commits being moved can land.
+/// What a [`Move`] moves. Commits and branches show a copy where they'd land while they stay
+/// where they are, as landing them rewrites history. A project's card and a terminal go where
+/// they'd land themselves, the others making room, as a drag shows a card, as their places are
+/// only the app's to keep.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Moving {
+    /// Commits, as listed, newest first.
+    Commits(Arc<[CommitId]>),
+    /// A branch, with its commits: between branches, as a new branch made of commits goes.
+    Branch(FullName),
+    /// A watched project's card, among the others in `order`, as they were listed when the
+    /// move started, which they keep while it lasts.
+    Project(Arc<[ProjectId]>),
+    /// Terminal `id`, among the terminals of the checkouts `lists` has, each with those open on
+    /// it in order, as they were listed when the move started, which they keep while it lasts.
+    /// Landing it on another checkout lists it there; its shell stays where it started.
+    Terminal {
+        id: TerminalId,
+        lists: Arc<[(Checkout, Vec<TerminalId>)]>,
+    },
+}
+
+/// A place what's being moved can land. A branch lands between branches, where a new branch
+/// would, a project between cards, and a terminal between the terminals of a worktree.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stop {
     /// In a branch: at its top, or right below one of its commits.
     In(Destination),
     /// In a new branch right above `beside` in its stack, or right below it with `below`.
     NewBranch { beside: FullName, below: bool },
-    /// In a new branch in a stack of its own.
-    NewStack,
+    /// In a new branch in a stack of its own, after the others, or before them with `first`.
+    NewStack { first: bool },
+    /// Among the watched projects' cards.
+    Card(CardSlot),
+    /// Among the terminals listed under `checkout`.
+    Terminal {
+        checkout: Checkout,
+        slot: Slot<TerminalId>,
+    },
+}
+
+/// Where something the app keeps in an order of its own goes among the others like it: before
+/// one of them, or after them all.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Slot<T> {
+    Before(T),
+    End,
+}
+
+/// Where a watched project's card goes.
+pub type CardSlot = Slot<ProjectId>;
+
+impl<T: Clone + PartialEq> Slot<T> {
+    /// `list` with `id` put in this slot, taken from wherever it was in it.
+    fn place(&self, list: &[T], id: &T) -> Vec<T> {
+        let mut list: Vec<T> = (list.iter())
+            .filter(|other| *other != id)
+            .cloned()
+            .collect();
+        let at = match self {
+            Slot::Before(before) => list.iter().position(|other| other == before),
+            Slot::End => None,
+        };
+        list.insert(at.unwrap_or(list.len()), id.clone());
+        list
+    }
+}
+
+/// The places `id` can go among those `order` lists, and which of them is where it is: before
+/// each of the others, or after them all.
+pub fn slots<T: Clone + PartialEq>(order: &[T], id: &T) -> Option<(Vec<Slot<T>>, usize)> {
+    let (slots, start) = group_slots(&[((), order.to_vec())], id)?;
+    Some((slots.into_iter().map(|((), slot)| slot).collect(), start))
+}
+
+/// Places in groups, each by its group's key, and which of them is where what's moving is.
+pub type GroupSlots<K, T> = (Vec<(K, Slot<T>)>, usize);
+
+/// The places `id` can go among the groups `groups` has, each by its key with what's in it, in
+/// order: in each group before each of the others in it, or after them all. And which of them
+/// is where it is.
+pub fn group_slots<K: Clone + PartialEq, T: Clone + PartialEq>(
+    groups: &[(K, Vec<T>)],
+    id: &T,
+) -> Option<GroupSlots<K, T>> {
+    let (mut slots, mut home) = (Vec::new(), None);
+    for (key, list) in groups {
+        if let Some(at) = list.iter().position(|other| other == id) {
+            let next = list.get(at + 1).cloned();
+            home = Some((key.clone(), next.map_or(Slot::End, Slot::Before)));
+        }
+        let others = (list.iter()).filter(|other| *other != id);
+        slots.extend(others.map(|other| (key.clone(), Slot::Before(other.clone()))));
+        slots.push((key.clone(), Slot::End));
+    }
+    let home = home?;
+    let start = slots.iter().position(|slot| *slot == home)?;
+    Some((slots, start))
 }
 
 impl Move {
-    /// Landing in a branch as a drop: the commits as what's dropped, and the row and the place
-    /// on it they're dropped at. `None` in a new branch, which has no row yet.
-    pub fn drop(&self) -> Option<(Cut, Selection, Place)> {
-        let Stop::In(to) = &self.at else {
-            return None;
-        };
-        let project = self.project.clone();
-        let (target, place) = match to {
-            Destination::Branch(branch) => (
-                Selection::Branch(project.clone(), Some(branch.clone())),
-                Place::Into,
-            ),
-            Destination::AboveCommit(id) => (Selection::Commit(project.clone(), *id), Place::Above),
-            Destination::BelowCommit(id) => (Selection::Commit(project.clone(), *id), Place::Below),
-        };
-        Some((Cut::Commit(project, self.commits.clone()), target, place))
+    /// What's moving, as what's cut or dragged. A project's card and a terminal aren't cut.
+    fn cut(&self) -> Option<Cut> {
+        Some(match &self.what {
+            Moving::Commits(ids) => Cut::Commit(self.project.clone(), ids.clone()),
+            Moving::Branch(branch) => Cut::Branch(self.project.clone(), branch.clone()),
+            Moving::Project(_) | Moving::Terminal { .. } => return None,
+        })
     }
 
-    /// Whether landing moves the commits, as it doesn't where they already are.
+    /// What's moving, as the status bar names it.
+    pub fn describe(&self, store: &Store) -> String {
+        match &self.what {
+            Moving::Project(_) => project_name(store, &self.project),
+            Moving::Terminal { id, .. } => terminal_title(store, *id),
+            Moving::Commits(_) | Moving::Branch(_) => {
+                (self.cut()).map_or_else(String::new, |cut| cut.describe(store))
+            }
+        }
+    }
+
+    /// Whether `item` is what's moving: one of the commits, the branch, the project or the
+    /// terminal.
+    pub fn holds(&self, item: &Selection) -> bool {
+        match (&self.what, item) {
+            (Moving::Commits(ids), Selection::Commit(project, id)) => {
+                *project == self.project && ids.contains(id)
+            }
+            (Moving::Branch(branch), Selection::Branch(project, Some(name))) => {
+                *project == self.project && name == branch
+            }
+            (Moving::Project(_), Selection::Project(project)) => *project == self.project,
+            (Moving::Terminal { id, .. }, Selection::Terminal(project, terminal)) => {
+                *project == self.project && terminal == id
+            }
+            _ => false,
+        }
+    }
+
+    /// The watched projects in the order a project's move shows them, its card where it's at.
+    pub fn project_order(&self) -> Option<Vec<ProjectId>> {
+        let (Moving::Project(order), Stop::Card(slot)) = (&self.what, &self.at) else {
+            return None;
+        };
+        Some(slot.place(order, &self.project))
+    }
+
+    /// The checkouts' terminals as a terminal's move shows them, it where it's at.
+    pub fn terminal_order(&self) -> Option<Vec<(Checkout, Vec<TerminalId>)>> {
+        let (Moving::Terminal { id, lists }, Stop::Terminal { checkout, slot }) =
+            (&self.what, &self.at)
+        else {
+            return None;
+        };
+        let lists = lists.iter().map(|(on, list)| {
+            let list = match on == checkout {
+                true => slot.place(list, id),
+                false => (list.iter())
+                    .filter(|other| *other != id)
+                    .copied()
+                    .collect(),
+            };
+            (on.clone(), list)
+        });
+        Some(lists.collect())
+    }
+
+    /// Landing as a drop: what's moving as what's dropped, and the row and the place on it
+    /// it's dropped at. `None` in a new branch or stack, which has no row yet.
+    pub fn drop(&self) -> Option<(Cut, Selection, Place)> {
+        let project = self.project.clone();
+        let (target, place) = match (&self.what, &self.at) {
+            (Moving::Commits(_), Stop::In(to)) => match to {
+                Destination::Branch(branch) => (
+                    Selection::Branch(project, Some(branch.clone())),
+                    Place::Into,
+                ),
+                Destination::AboveCommit(id) => (Selection::Commit(project, *id), Place::Above),
+                Destination::BelowCommit(id) => (Selection::Commit(project, *id), Place::Below),
+            },
+            // On top of the branch it goes above, or under the one it goes below.
+            (Moving::Branch(_), Stop::NewBranch { beside, below }) => {
+                let place = if *below { Place::Below } else { Place::Into };
+                (Selection::Branch(project, Some(beside.clone())), place)
+            }
+            _ => return None,
+        };
+        Some((self.cut()?, target, place))
+    }
+
+    /// Whether landing moves anything, as it doesn't where it already is: a branch alone in
+    /// its stack is a stack of its own, and a card is where it was.
     pub fn lands(&self, store: &Store) -> bool {
+        if let (Moving::Branch(branch), Stop::NewStack { .. }) = (&self.what, &self.at) {
+            let workspace = store.workspace(&self.project);
+            return workspace.is_some_and(|ws| crate::edits::BranchEdits::of(ws, branch).stacked);
+        }
+        match &self.what {
+            Moving::Project(order) => {
+                return (self.project_order()).is_some_and(|shown| shown[..] != order[..]);
+            }
+            Moving::Terminal { lists, .. } => {
+                return (self.terminal_order()).is_some_and(|shown| shown[..] != lists[..]);
+            }
+            Moving::Commits(_) | Moving::Branch(_) => {}
+        }
         self.drop().is_none_or(|(payload, target, place)| {
             Transfer::resolve(&payload, &target, place, store).is_some()
         })
     }
 
-    /// Where landing puts them, said after a verb: "to a new branch below feature-x".
-    pub fn place(&self) -> String {
+    /// Where landing puts it, said after a verb: "to a new branch below feature-x".
+    pub fn place(&self, store: &Store) -> String {
+        let moves_branch = matches!(self.what, Moving::Branch(_));
         match &self.at {
             Stop::In(Destination::Branch(branch)) => {
                 format!("to the top of {}", short_ref(branch))
@@ -159,11 +334,69 @@ impl Move {
             Stop::In(to) => place(to),
             Stop::NewBranch { beside, below } => {
                 let side = if *below { "below" } else { "above" };
-                format!("to a new branch {side} {}", short_ref(beside))
+                match moves_branch {
+                    true => format!("{side} {}", short_ref(beside)),
+                    false => format!("to a new branch {side} {}", short_ref(beside)),
+                }
             }
-            Stop::NewStack => "to a new stack".into(),
+            Stop::NewStack { first: false } => "to a new stack".into(),
+            Stop::NewStack { first: true } => "to a new stack at the top".into(),
+            Stop::Card(Slot::Before(before)) => format!("above {}", project_name(store, before)),
+            // Below the last of the others.
+            Stop::Card(Slot::End) => {
+                let last = match &self.what {
+                    Moving::Project(order) => order.iter().rev().find(|id| **id != self.project),
+                    _ => None,
+                };
+                last.map_or_else(
+                    || "to the bottom".into(),
+                    |last| format!("below {}", project_name(store, last)),
+                )
+            }
+            Stop::Terminal { checkout, slot } => self.terminal_place(checkout, slot, store),
         }
     }
+
+    /// Where landing a terminal at `slot` among `checkout`'s puts it, naming the worktree when
+    /// it's another than its own.
+    fn terminal_place(
+        &self,
+        checkout: &Checkout,
+        slot: &Slot<TerminalId>,
+        store: &Store,
+    ) -> String {
+        let Moving::Terminal { id, lists } = &self.what else {
+            return String::new();
+        };
+        let home = (lists.iter()).find_map(|(on, list)| list.contains(id).then_some(on));
+        let others: Vec<TerminalId> = (lists.iter())
+            .find(|(on, _)| on == checkout)
+            .map(|(_, list)| list.iter().filter(|other| *other != id).copied().collect())
+            .unwrap_or_default();
+        let worktree = match checkout {
+            Checkout::Main => "the main worktree".to_owned(),
+            Checkout::Linked(name) => name.to_string(),
+        };
+        let at = match (slot, others.last()) {
+            (Slot::Before(before), _) => format!("above {}", terminal_title(store, *before)),
+            (Slot::End, Some(last)) => format!("below {}", terminal_title(store, *last)),
+            (Slot::End, None) => return format!("to {worktree}"),
+        };
+        match home == Some(checkout) {
+            true => at,
+            false => format!("{at} in {worktree}"),
+        }
+    }
+}
+
+/// Project `id`'s name, or its id once it's gone.
+fn project_name(store: &Store, id: &ProjectId) -> String {
+    (store.project(id)).map_or_else(|| id.to_string(), |entry| entry.project.name.clone())
+}
+
+/// Terminal `id`'s title, as its row shows it.
+fn terminal_title(store: &Store, id: TerminalId) -> String {
+    (store.terminals.title(id)).map_or_else(|| "a terminal".into(), ToString::to_string)
 }
 
 impl Transfer {
@@ -223,32 +456,17 @@ impl Transfer {
                 Transfer::Uncommit(ids.clone())
             }
             (Cut::Commit(_, ids), Selection::Branch(_, Some(branch))) => {
-                // Already the top of that branch.
-                if let [id] = ids[..] {
-                    let (current, _) = workspace.find_commit(id)?;
-                    let top = current.commits.first().map(|c| c.id);
-                    if current.ref_name.as_ref() == Some(branch) && top == Some(id) {
-                        return None;
-                    }
+                let to = Destination::Branch(branch.clone());
+                if already_at(workspace, ids, &to) {
+                    return None;
                 }
                 Transfer::MoveCommit {
                     ids: ids.clone(),
-                    to: Destination::Branch(branch.clone()),
+                    to,
                 }
             }
             (Cut::Commit(_, ids), Selection::Commit(_, target_id)) if !ids.contains(target_id) => {
-                // Already right above it, or right below, as one commit can be; several move
-                // together wherever they are.
-                let next = |after: CommitId| {
-                    let (branch, _) = workspace.find_commit(after)?;
-                    let mut commits = branch.commits.iter().skip_while(|c| c.id != after);
-                    commits.nth(1).map(|c| c.id)
-                };
-                let one = match ids[..] {
-                    [id] => Some(id),
-                    _ => None,
-                };
-                let (already, to) = match place {
+                let to = match place {
                     // Not with a conflicted commit on either side, whose change the squash
                     // would drop, or the engine refuses.
                     Place::Into => {
@@ -258,16 +476,10 @@ impl Transfer {
                             into: *target_id,
                         });
                     }
-                    Place::Below => (
-                        one.is_some_and(|id| next(*target_id) == Some(id)),
-                        Destination::BelowCommit(*target_id),
-                    ),
-                    Place::Above => (
-                        one.is_some_and(|id| next(id) == Some(*target_id)),
-                        Destination::AboveCommit(*target_id),
-                    ),
+                    Place::Below => Destination::BelowCommit(*target_id),
+                    Place::Above => Destination::AboveCommit(*target_id),
                 };
-                if already {
+                if already_at(workspace, ids, &to) {
                     return None;
                 }
                 Transfer::MoveCommit {
@@ -432,12 +644,15 @@ impl Transfer {
     }
 
     /// Carry it out. Staging only changes the composer, so it comes back to the caller.
+    /// Do it in `project`, landing the move with the keys `lands` if it's a branch's.
     pub fn perform(
         self,
         project: &SharedString,
+        lands: Option<Move>,
         store: &mut Store,
         cx: &mut Context<Store>,
     ) -> Option<(FullName, Arc<[Selected]>)> {
+        let lands = lands.filter(|moving| matches!(moving.what, Moving::Branch(_)));
         // The pill's verb names it without a branch or commit.
         let label = Label::new(self.verb(), self.describe());
         // Picked commits that moved, or went into one, are no longer what's picked.
@@ -502,7 +717,10 @@ impl Transfer {
             Transfer::StackBranch { branch, onto } => store.apply(
                 project,
                 label,
-                Overlay::default(),
+                Overlay {
+                    lands,
+                    ..Overlay::default()
+                },
                 backend::StackBranch { branch, onto },
                 move |store, conflicted, cx| {
                     store.snack_undoable(branch_moved("Branch moved", &conflicted), cx)
@@ -512,7 +730,10 @@ impl Transfer {
             Transfer::BranchBelow { branch, commit } => store.apply(
                 project,
                 label,
-                Overlay::default(),
+                Overlay {
+                    lands,
+                    ..Overlay::default()
+                },
                 backend::MoveBranchBelow { branch, commit },
                 move |store, conflicted, cx| {
                     store.snack_undoable(branch_moved("Branch moved", &conflicted), cx)
@@ -802,6 +1023,36 @@ pub fn drag_pill(
         .child(div().relative().children(cards).child(pill))
 }
 
+/// Whether commits `ids`, as listed, are already where moving them `to` puts them: that run
+/// of one branch, in that order, at its top, or right below or above the commit. Picked
+/// commits apart from each other move together wherever they are.
+fn already_at(workspace: &Workspace, ids: &[CommitId], to: &Destination) -> bool {
+    // The branch holding commit `id`, and its commits from `id` down.
+    let down_from = |id: CommitId| {
+        let (branch, _) = workspace.find_commit(id)?;
+        let down = (branch.commits.iter())
+            .map(|c| c.id)
+            .skip_while(move |c| *c != id);
+        Some((branch, down))
+    };
+    let first = ids.first().copied();
+    let Some((branch, mut down)) = first.and_then(down_from) else {
+        return false;
+    };
+    if down.by_ref().take(ids.len()).ne(ids.iter().copied()) {
+        return false;
+    }
+    match to {
+        Destination::Branch(name) => {
+            branch.ref_name.as_ref() == Some(name) && branch.commits.first().map(|c| c.id) == first
+        }
+        Destination::BelowCommit(target) => {
+            down_from(*target).and_then(|(_, mut down)| down.nth(1)) == first
+        }
+        Destination::AboveCommit(target) => down.next() == Some(*target),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -858,5 +1109,79 @@ mod tests {
             cut(&[("b", true)]).movable().is_none(),
             "with only conflicted files there's nothing to carry"
         );
+    }
+
+    #[test]
+    fn commits_are_already_where_they_go_only_as_that_run() {
+        use crate::backend::model::build::{branch, full, id, workspace};
+        // ui's commits newest first: 5, 4, 3, 2; then api's, 1.
+        let ws = workspace(
+            vec![vec![branch("ui", &[5, 4, 3, 2]), branch("api", &[1])]],
+            vec![],
+        );
+        let ui = || Destination::Branch(full("refs/heads/ui"));
+        let at = |ids: &[u8], to: &Destination| {
+            let ids: Vec<CommitId> = ids.iter().map(|n| id(*n)).collect();
+            already_at(&ws, &ids, to)
+        };
+        assert!(at(&[5, 4], &ui()), "the top two are at the top of ui");
+        assert!(!at(&[4, 5], &ui()), "in another order they'd move");
+        assert!(!at(&[5, 3], &ui()), "picked apart, they'd move together");
+        assert!(
+            at(&[4, 3], &Destination::BelowCommit(id(5))),
+            "right below 5"
+        );
+        assert!(
+            !at(&[3, 2], &Destination::BelowCommit(id(5))),
+            "4 is between them"
+        );
+        assert!(
+            at(&[4, 3], &Destination::AboveCommit(id(2))),
+            "right above 2"
+        );
+        assert!(
+            !at(&[2], &Destination::AboveCommit(id(1))),
+            "1 is the next branch's, so 2 isn't right above it in a branch"
+        );
+    }
+
+    #[test]
+    fn a_card_moved_with_the_keys_shows_the_others_as_they_were_listed() {
+        let [a, b, c] = ["a", "b", "c"].map(ProjectId::from);
+        let order: Arc<[ProjectId]> = Arc::from([a.clone(), b.clone(), c.clone()]);
+        let at = |slot| Move {
+            project: b.clone(),
+            what: Moving::Project(order.clone()),
+            at: Stop::Card(slot),
+        };
+        assert_eq!(
+            at(CardSlot::Before(a.clone())).project_order(),
+            Some(vec![b.clone(), a.clone(), c.clone()]),
+            "before a, it's first"
+        );
+        assert_eq!(
+            at(CardSlot::End).project_order(),
+            Some(vec![a, c.clone(), b.clone()]),
+            "at the end, it's last"
+        );
+        assert_eq!(
+            at(CardSlot::Before(c)).project_order().as_deref(),
+            Some(&order[..]),
+            "before c is where it was"
+        );
+    }
+
+    #[test]
+    fn a_slot_is_before_each_of_the_others_or_last_and_starts_where_it_is() {
+        let order = ["a", "b", "c"];
+        let (b, start) = slots(&order, &"b").unwrap();
+        assert_eq!(
+            b,
+            [Slot::Before("a"), Slot::Before("c"), Slot::End],
+            "b goes before a, before c or last"
+        );
+        assert_eq!(start, 1, "b is before c");
+        let (_, start) = slots(&order, &"c").unwrap();
+        assert_eq!(start, 2, "the last is where the end is");
     }
 }

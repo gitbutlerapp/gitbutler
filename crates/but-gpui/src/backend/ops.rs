@@ -768,7 +768,7 @@ impl Intent for CreateBranchAtCommit {
     }
 }
 
-/// Stack `branch` on top of `onto`, with the branches above it.
+/// Stack `branch` on top of `onto`. The branches above it stay, on the one it was on.
 pub struct StackBranch {
     pub branch: FullName,
     pub onto: FullName,
@@ -779,7 +779,7 @@ impl Intent for StackBranch {
 
     fn apply(self, run: &mut Run) -> Result<Self::Done> {
         let onto = RelativeTo::Reference(self.onto);
-        move_branch(run, &self.branch, Some((onto, InsertSide::Above)))
+        move_branch(run, &self.branch, BranchTo::Beside(onto, InsertSide::Above))
     }
 }
 
@@ -795,33 +795,48 @@ impl Intent for MoveBranchBelow {
 
     fn apply(self, run: &mut Run) -> Result<Self::Done> {
         let below = RelativeTo::Commit(self.commit.0);
-        move_branch(run, &self.branch, Some((below, InsertSide::Below)))
+        move_branch(
+            run,
+            &self.branch,
+            BranchTo::Beside(below, InsertSide::Below),
+        )
     }
 }
 
-/// Take `branch` out of its stack into a stack of its own.
+/// Take `branch` out of its stack into a stack of its own, after the others, or with `first`
+/// before them.
 pub struct TearOffBranch {
     pub branch: FullName,
+    pub first: bool,
 }
 
 impl Intent for TearOffBranch {
     type Done = Vec<(Option<FullName>, usize)>;
 
     fn apply(self, run: &mut Run) -> Result<Self::Done> {
-        move_branch(run, &self.branch, None)
+        let first = self.first;
+        move_branch(run, &self.branch, BranchTo::Apart { first })
     }
 }
 
-/// Move `branch` to `side` of `relative_to`, or into a stack of its own without a place,
-/// saying which branches it left with conflicted commits they didn't have, each with how many.
+/// Where [`move_branch`] puts a branch.
+enum BranchTo {
+    /// To that side of a branch or commit.
+    Beside(RelativeTo, InsertSide),
+    /// Into a stack of its own, after the others, or with `first` before them.
+    Apart { first: bool },
+}
+
+/// Move `branch` where `to` says, saying which branches it left with conflicted commits they
+/// didn't have, each with how many.
 fn move_branch(
     run: &mut Run,
     branch: &FullName,
-    to: Option<(RelativeTo, InsertSide)>,
+    to: BranchTo,
 ) -> Result<Vec<(Option<FullName>, usize)>> {
     let kind = match to {
-        Some(_) => OperationKind::MoveBranch,
-        None => OperationKind::TearOffBranch,
+        BranchTo::Beside(..) => OperationKind::MoveBranch,
+        BranchTo::Apart { .. } => OperationKind::TearOffBranch,
     };
     run.locked(|ctx, perm| {
         let before = but_api::legacy::workspace::head_info(ctx)?;
@@ -834,8 +849,13 @@ fn move_branch(
             &[],
             DryRun::No,
             |mut tx| match to {
-                Some((relative_to, side)) => tx.move_branch(branch.as_ref(), relative_to, side),
-                None => tx.tear_off_branch(branch.as_ref()),
+                BranchTo::Beside(relative_to, side) => {
+                    tx.move_branch(branch.as_ref(), relative_to, side)
+                }
+                // A stack's place is its tip's among the workspace commit's parents.
+                BranchTo::Apart { first } => {
+                    tx.tear_off_branch(branch.as_ref(), first.then_some(0))
+                }
             },
         )?;
         Ok(super::upstream::newly_conflicted(
@@ -1428,12 +1448,14 @@ impl Intent for SplitOff {
     }
 }
 
-/// Move `commits` into a new branch of their own: beside the other stacks, or in the stack of
-/// branch `beside`, right above it, or right below it with `true`.
+/// Move `commits` into a new branch of their own: beside the other stacks, after them or with
+/// `first` before them, or in the stack of branch `beside`, right above it, or right below it
+/// with `true`.
 /// Done is what moved, and the new branch's full name.
 pub struct MoveToNewBranch {
     pub commits: Arc<[CommitId]>,
     pub beside: Option<(FullName, bool)>,
+    pub first: bool,
 }
 
 impl Intent for MoveToNewBranch {
@@ -1441,7 +1463,13 @@ impl Intent for MoveToNewBranch {
 
     fn apply(self, run: &mut Run) -> Result<(Rewritten, FullName)> {
         use but_workspace::branch::create_reference::{Anchor, Position};
-        let Self { commits, beside } = self;
+        let Self {
+            commits,
+            beside,
+            first,
+        } = self;
+        // A stack's place is its tip's among the workspace commit's parents.
+        let order = (beside.is_none() && first).then_some(0);
         let anchor = beside.as_ref().map(|(branch, below)| {
             let position = match below {
                 true => Position::Below,
@@ -1460,7 +1488,7 @@ impl Intent for MoveToNewBranch {
                 &[name.as_ref()],
                 DryRun::No,
                 |mut tx| {
-                    tx.create_reference(name.as_ref(), anchor, None)?;
+                    tx.create_reference(name.as_ref(), anchor, order)?;
                     tx.move_commits(
                         commits.iter().map(|commit| commit.0),
                         RelativeTo::Reference(name.clone()),
@@ -3178,6 +3206,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let moving = MoveToNewBranch {
                 commits: [commit].into(),
                 beside: None,
+                first: false,
             };
             let ((_, name), _) = crate::backend::apply(path, moving).unwrap();
             let moved = newest_entry(path);
@@ -3209,6 +3238,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 let moving = MoveToNewBranch {
                     commits: [moved].into(),
                     beside: Some((full("refs/heads/feature"), below)),
+                    first: false,
                 };
                 let ((_, new), _) = crate::backend::apply(path, moving).unwrap();
                 let titles = |branch: &str| {
@@ -3230,6 +3260,134 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             snapbox::str![[r#"
 below false: feature [second], <new> [edit, second]
 below true: feature [edit, second], <new> [second]
+
+"#]]
+        );
+    }
+
+    #[test]
+    fn a_move_to_a_new_stack_puts_it_after_the_others_or_first() {
+        let mut said = String::new();
+        for first in [false, true] {
+            but_testsupport::isolated_app_data_dir(|| {
+                let (dir, ..) = workspace_with_an_edit();
+                let path = dir.path();
+                git(path, &["commit", "-q", "--allow-empty", "-m", "second"]);
+                let second = head(path);
+                crate::backend::apply(path, name_at(second, "feature")).unwrap();
+                let moving = MoveToNewBranch {
+                    commits: [second].into(),
+                    beside: None,
+                    first,
+                };
+                let ((_, new), _) = crate::backend::apply(path, moving).unwrap();
+                let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+                let stacks: Vec<String> = (workspace.lanes_in(&Checkout::Main))
+                    .filter_map(|lane| lane.branches.first()?.ref_name.as_ref())
+                    .map(|name| match *name == new {
+                        true => "<new>".to_owned(),
+                        false => short_ref(name).into_owned(),
+                    })
+                    .collect();
+                said += &format!("first {first}: {}\n", stacks.join(", "));
+            });
+        }
+        // The stacks top first, as the navigator lists them.
+        snapbox::assert_data_eq!(
+            said,
+            snapbox::str![[r#"
+first false: feature, <new>
+first true: <new>, feature
+
+"#]]
+        );
+    }
+
+    #[test]
+    fn a_move_to_a_new_branch_beside_a_linked_worktrees_stacks_it_in_its_lane() {
+        let mut said = String::new();
+        for managed in [false, true] {
+            for below in [false, true] {
+                but_testsupport::isolated_app_data_dir(|| {
+                    let dir = repo_with("one\n");
+                    let path = dir.path();
+                    target_origin_main(path);
+                    if managed {
+                        crate::backend::apply(path, branch_named("beside")).unwrap();
+                    }
+                    let ctx = open(path).unwrap();
+                    (ctx.db.get_cache_mut().unwrap())
+                        .worktree_meta_mut()
+                        .mark_adopted()
+                        .unwrap();
+                    drop(ctx);
+                    let outside = tempfile::tempdir().unwrap();
+                    let at = outside.path().join("agent");
+                    let at_str = at.to_str().unwrap();
+                    git(
+                        path,
+                        &["worktree", "add", "-q", "-b", "agent", at_str, "main"],
+                    );
+                    for (message, file) in [("one", "a"), ("two", "b")] {
+                        std::fs::write(at.join(file), message).unwrap();
+                        git(&at, &["add", file]);
+                        git(&at, &["commit", "-q", "-m", message]);
+                    }
+                    // The commit at the far end from where the new branch goes, so it crosses
+                    // agent's other commit to get there.
+                    let moved = match below {
+                        true => "agent",
+                        false => "agent~",
+                    };
+                    let moved = git(path, &["rev-parse", moved]);
+                    let moved = CommitId(gix::ObjectId::from_hex(moved.trim().as_bytes()).unwrap());
+                    let moving = MoveToNewBranch {
+                        commits: [moved].into(),
+                        beside: Some((full("refs/heads/agent"), below)),
+                        first: false,
+                    };
+                    let ((_, new), _) = crate::backend::apply(path, moving).unwrap();
+                    let workspace =
+                        crate::backend::load_workspace(path, Default::default()).unwrap();
+                    let lane = workspace.worktree_lane("agent".into()).unwrap();
+                    let branches: Vec<String> = (lane.branches.iter())
+                        .map(|branch| {
+                            let name = match branch.ref_name.as_ref() == Some(&new) {
+                                true => "<new>".to_owned(),
+                                false => branch.name.clone(),
+                            };
+                            let titles: Vec<_> =
+                                branch.commits.iter().map(|c| c.title.as_str()).collect();
+                            format!("{name} [{}]", titles.join(", "))
+                        })
+                        .collect();
+                    let checked_out = git(&at, &["symbolic-ref", "--short", "HEAD"]);
+                    let checked_out = match checked_out.trim() == short_ref(&new) {
+                        true => "<new>".to_owned(),
+                        false => checked_out.trim().to_owned(),
+                    };
+                    let left = git(&at, &["status", "--porcelain"]);
+                    said += &format!(
+                        "managed {managed}, below {below}: {}, {checked_out} checked out{}\n",
+                        branches.join(", "),
+                        match left.is_empty() {
+                            true => String::new(),
+                            false => format!(", left {left:?}"),
+                        },
+                    );
+                });
+            }
+        }
+        // The worktree's lane top first, each branch's commits newest first, whether or not the
+        // main checkout is the workspace. On top of the branch it has checked out, the worktree
+        // checks out the new one, and either way keeps its files as they were.
+        snapbox::assert_data_eq!(
+            said,
+            snapbox::str![[r#"
+managed false, below false: <new> [one], agent [two], <new> checked out
+managed false, below true: agent [one], <new> [two], agent checked out
+managed true, below false: <new> [one], agent [two], <new> checked out
+managed true, below true: agent [one], <new> [two], agent checked out
 
 "#]]
         );
@@ -3942,9 +4100,15 @@ below true: feature [edit, second], <new> [second]
                 };
                 crate::backend::apply(path, at_api).unwrap();
                 let top = full("refs/heads/top");
-                crate::backend::apply(path, TearOffBranch { branch: top })
-                    .unwrap()
-                    .0
+                crate::backend::apply(
+                    path,
+                    TearOffBranch {
+                        branch: top,
+                        first: false,
+                    },
+                )
+                .unwrap()
+                .0
             };
             assert_eq!(
                 unstacked("api.txt"),

@@ -14,7 +14,7 @@ use crate::backend::{
     self, Checkout, CommitId, Destination, FileChange, FullName, Project, Selected, Workspace,
     Worktree,
 };
-use crate::transfer::{Move, Stop};
+use crate::transfer::{Move, Moving, Stop};
 
 /// A watcher's event: the project, whether its git directory changed, the checkout whose
 /// files changed, and which of its files.
@@ -894,16 +894,27 @@ fn renamed(old: Option<&Workspace>, new: &Workspace) -> Vec<(Option<FullName>, F
         .collect()
 }
 
-/// Follow the commits `moving` moves, and where it lands them, from `old` to `new`, saying
-/// whether they're all still there.
+/// Follow the commits or branch `moving` moves, and where it lands them, from `old` to `new`,
+/// saying whether they're all still there.
 fn follow_move(moving: &mut Move, old: Option<&Workspace>, new: &Workspace) -> bool {
-    let followed: Option<Arc<[CommitId]>> = (moving.commits.iter())
-        .map(|commit| follow_by_key(old, new, *commit))
-        .collect();
-    let Some(followed) = followed else {
-        return false;
-    };
-    moving.commits = followed;
+    match &mut moving.what {
+        // A project's card and a terminal are where they are whatever the workspace has.
+        Moving::Project(_) | Moving::Terminal { .. } => return true,
+        Moving::Commits(commits) => {
+            let followed: Option<Arc<[CommitId]>> = (commits.iter())
+                .map(|commit| follow_by_key(old, new, *commit))
+                .collect();
+            let Some(followed) = followed else {
+                return false;
+            };
+            *commits = followed;
+        }
+        Moving::Branch(branch) => {
+            if new.find_branch(Some(branch)).is_none() {
+                return false;
+            }
+        }
+    }
     match &mut moving.at {
         Stop::In(Destination::AboveCommit(commit) | Destination::BelowCommit(commit)) => {
             (follow_by_key(old, new, *commit).map(|followed| *commit = followed)).is_some()
@@ -911,7 +922,7 @@ fn follow_move(moving: &mut Move, old: Option<&Workspace>, new: &Workspace) -> b
         Stop::In(Destination::Branch(branch)) | Stop::NewBranch { beside: branch, .. } => {
             new.find_branch(Some(branch)).is_some()
         }
-        Stop::NewStack => true,
+        Stop::NewStack { .. } | Stop::Card(_) | Stop::Terminal { .. } => true,
     }
 }
 

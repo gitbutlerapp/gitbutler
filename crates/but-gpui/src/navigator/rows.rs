@@ -7,13 +7,14 @@ use std::time::Duration;
 
 use gpui::{App, SharedString};
 
-use super::moving::{landing_at, moving_away};
+use super::moving::{landing_at, left_behind};
 use super::{BranchKey, ClickOpened, Navigator, STEP, upstream_chevrons};
 use crate::backend::{
     Branch, Checkout, Commit, CommitId, Destination, FullName, Lane, Workspace, Worktree,
 };
 use crate::edits::BranchEdits;
 use crate::state::{Cut, NewAt, ProjectEntry, ProjectId, Section, Selection, Store};
+use crate::terminal::TerminalId;
 use crate::transfer::Stop;
 use crate::ui::ROW_HEIGHT;
 use crate::ui::fold::{Folds, MOVING_ROWS};
@@ -56,13 +57,13 @@ pub(super) enum Row {
     /// Where a commit of the project being dragged lands in a new branch of its own, or a
     /// stacked branch in a stack of its own.
     NewBranch(ProjectId),
-    /// A copy of a commit being moved, where landing would put it.
-    Ghost(ProjectId, CommitId),
-    /// The new branch commits being moved would land in, over their copies.
-    GhostBranch(ProjectId),
+    /// A copy of what's being moved, a commit or a branch's row, where landing would put it.
+    Ghost(Selection),
+    /// The new branch commits being moved would land in at that stop, over their copies.
+    GhostBranch(ProjectId, Stop),
     /// The line between two stacks, which tells where one ends and the next starts, and between
-    /// the last and a new one commits being moved would land in: so a new branch landing under
-    /// one stack's last branch or on the next's first shows which it joins.
+    /// a new one commits being moved would land in and the stack beside it: so a new branch
+    /// landing under one stack's last branch or on the next's first shows which it joins.
     Between(ProjectId),
     /// The line after a worktree's section.
     WorktreeDivider,
@@ -83,9 +84,10 @@ pub(super) enum RowKey {
     /// A branch's commits folded away or unfolded, whichever it shows.
     Fold(ProjectId, Option<FullName>),
     NewBranch(ProjectId),
-    /// A commit being moved, where it's left while its copy, which takes its key, shows where
-    /// it'd land: so it slides out from there, from place to place, and back.
-    Left(ProjectId, CommitId),
+    /// The row of what's being moved, a commit or a branch, by the key it has otherwise, where
+    /// it's left while its copy, which takes that key, shows where it'd land: so the copy slides
+    /// out from there, from place to place, and back.
+    Left(Box<RowKey>),
     GhostBranch(ProjectId),
     /// A row of no other kind, by the one before it, which it moves with.
     After(Box<RowKey>),
@@ -98,27 +100,27 @@ pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
         .flat_map(|workspace| workspace.commits())
         .map(|commit| (commit.id, commit.key.as_str()))
         .collect();
+    // An item's row, and a copy of it, by the item.
+    let item_key = |item: &Selection| match item {
+        Selection::Commit(project, id) => match commits.get(id) {
+            Some(key) => RowKey::Commit(project.clone(), key.to_string()),
+            None => RowKey::Item(item.clone()),
+        },
+        _ => RowKey::Item(item.clone()),
+    };
     let mut keys: Vec<Option<RowKey>> = Vec::with_capacity(rows.len());
     for row in rows {
         let key = match row {
-            Row::Item(item @ Selection::Commit(project, id))
-                if moving_away(store, item) == Some(true) =>
-            {
-                Some(RowKey::Left(project.clone(), *id))
+            Row::Item(item) if left_behind(store, item) => {
+                Some(RowKey::Left(Box::new(item_key(item))))
             }
-            Row::Item(Selection::Commit(project, id)) | Row::Ghost(project, id) => {
-                Some(match commits.get(id) {
-                    Some(key) => RowKey::Commit(project.clone(), key.to_string()),
-                    None => RowKey::Item(Selection::Commit(project.clone(), *id)),
-                })
-            }
-            Row::Item(item) => Some(RowKey::Item(item.clone())),
+            Row::Item(item) | Row::Ghost(item) => Some(item_key(item)),
             Row::RestsOn(item, _) => Some(RowKey::RestsOn(item.clone())),
             Row::More(project, branch, _) | Row::Fewer(project, branch) => {
                 Some(RowKey::Fold(project.clone(), branch.clone()))
             }
             Row::NewBranch(project) => Some(RowKey::NewBranch(project.clone())),
-            Row::GhostBranch(project) => Some(RowKey::GhostBranch(project.clone())),
+            Row::GhostBranch(project, _) => Some(RowKey::GhostBranch(project.clone())),
             Row::Pending(_, _, Some(moved)) => Some(moved.clone()),
             _ => (keys.last().cloned().flatten()).map(|before| RowKey::After(Box::new(before))),
         };
@@ -152,7 +154,7 @@ impl Row {
             | Row::Pending(..)
             | Row::NewBranch(_)
             | Row::Ghost(..)
-            | Row::GhostBranch(_) => ROW_HEIGHT,
+            | Row::GhostBranch(..) => ROW_HEIGHT,
         }
     }
 }
@@ -430,7 +432,13 @@ impl Navigator {
             // Whether a branch is checked out on its own or several share the workspace,
             // they're listed alike, a line between each stack and the next; with none, as on
             // the default branch, there's nothing to list, and the next commit starts one.
+            // Commits being moved to a new stack show where it goes, first or last.
             let mut listed = false;
+            if let Some(moving) = landing_at(store, id, |at| *at == Stop::NewStack { first: true })
+            {
+                rows.push_ghosts(moving, true);
+                listed = true;
+            }
             for stack in stacks {
                 if listed {
                     rows.push(Row::Between(id.clone()));
@@ -438,7 +446,8 @@ impl Navigator {
                 self.lane_rows(store, id, &stack.branches, rows);
                 listed = true;
             }
-            if let Some(moving) = landing_at(store, id, |at| *at == Stop::NewStack) {
+            if let Some(moving) = landing_at(store, id, |at| *at == Stop::NewStack { first: false })
+            {
                 if listed {
                     rows.push(Row::Between(id.clone()));
                 }
@@ -733,7 +742,8 @@ impl Navigator {
         let fold = Fold::Under(item);
         let shown = self.folds.shows(&fold, open);
         rows.fold(fold, open, &self.folds, inside);
-        // Folded, its commits stay out of sight, but not those landing on top of it.
+        // Folded while a move is at its top, as a click on its chevron does, its commits stay
+        // out of sight, but not those landing there.
         if !shown && let Some(moving) = landing_at(store, id, at_top) {
             rows.open();
             rows.push_ghosts(moving, false);
@@ -902,8 +912,27 @@ pub(super) fn in_checkout(
 
 /// The terminals open on `project`'s `checkout`, first under its heading.
 fn terminal_rows(store: &Store, project: &ProjectId, checkout: &Checkout, rows: &mut Rows) {
-    let terminals = store.terminals.on(project, checkout);
-    rows.extend(terminals.map(|(id, _)| Row::Item(Selection::Terminal(project.clone(), id))));
+    let open = store.terminals.on(project, checkout).map(|(id, _)| id);
+    // One being moved goes where it'd land, from its checkout to another too, the others making
+    // room; one opened since goes after them.
+    let moved = (store.moving.as_ref())
+        .filter(|moving| moving.project == *project)
+        .and_then(|moving| moving.terminal_order());
+    let terminals: Vec<TerminalId> = match &moved {
+        Some(lists) => {
+            let listed = |id: &TerminalId| lists.iter().any(|(_, list)| list.contains(id));
+            let here = (lists.iter()).find(|(on, _)| on == checkout);
+            let kept = here.into_iter().flat_map(|(_, list)| list.iter().copied());
+            let kept = kept.filter(|id| store.terminals.get(*id).is_some());
+            kept.chain(open.filter(|id| !listed(id))).collect()
+        }
+        None => open.collect(),
+    };
+    rows.extend(
+        terminals
+            .into_iter()
+            .map(|id| Row::Item(Selection::Terminal(project.clone(), id))),
+    );
 }
 
 /// Whether `selection` is one of `branches`, a commit on one, or a stack of them.

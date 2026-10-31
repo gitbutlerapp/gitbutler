@@ -17,6 +17,7 @@ use crate::app::AppView;
 use crate::overlays::MenuItem;
 use crate::state::{Prefs, ProjectEntry, ProjectId, Selection, Store, WatchedOrder};
 use crate::theme::Theme;
+use crate::transfer::{CardSlot, Move, Moving, Stop};
 use crate::ui::{Icon, icon_button};
 
 actions!(
@@ -67,20 +68,20 @@ impl Navigator {
         // Listed in the manual order already.
         let mut watched: Vec<&ProjectEntry> =
             store.projects.iter().filter(|e| e.expanded).collect();
+        // A card being moved, dragged by its heading or with the keys, shows where letting go
+        // puts it, among the others as they were listed when the move started, whatever the
+        // order picked. One added meanwhile goes last.
+        if let Some(order) = store
+            .moving
+            .as_ref()
+            .and_then(|moving| moving.project_order())
+        {
+            let at = |e: &&ProjectEntry| order.iter().position(|id| *id == e.id);
+            watched.sort_by_key(|e| at(e).unwrap_or(usize::MAX));
+            return watched;
+        }
         match store.prefs.watched_order {
-            // A card dragged by its heading shows where letting go puts it.
-            WatchedOrder::Manual => {
-                if let Some((dragged, slot)) = &self.project_drag
-                    && let Some(from) = watched.iter().position(|e| e.id == *dragged)
-                {
-                    let entry = watched.remove(from);
-                    let to = match slot {
-                        CardSlot::Before(before) => watched.iter().position(|e| e.id == *before),
-                        CardSlot::End => None,
-                    };
-                    watched.insert(to.unwrap_or(watched.len()), entry);
-                }
-            }
+            WatchedOrder::Manual => {}
             WatchedOrder::Name => watched.sort_by_key(|e| e.project.name.to_lowercase()),
             WatchedOrder::Activity => match &self.held_order {
                 // A project added meanwhile goes last.
@@ -150,8 +151,8 @@ impl Navigator {
     }
 
     /// Let a watched project's heading drag its card among the others, which make room for it
-    /// where it'd go (see [`Self::follow_project_drag`]). The card shows where it goes, so
-    /// nothing follows the pointer.
+    /// where it'd go (see [`Self::follow_project_drag`]), as moving it with the keys does. The
+    /// card shows where it goes, so nothing follows the pointer.
     pub(super) fn reorderable(
         &self,
         el: Stateful<Div>,
@@ -159,20 +160,41 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> Stateful<Div> {
         let navigator = cx.entity().downgrade();
+        let dragged = id.clone();
         el.on_drag(ProjectDrag(id.clone()), move |_, _, _, cx| {
             let nothing = cx.new(|_| EmptyView);
             // A drop anywhere else, or none, puts the cards back as they were.
-            let navigator = navigator.clone();
+            let (navigator, dragged) = (navigator.clone(), dragged.clone());
             cx.observe_release(&nothing, move |_, cx| {
-                (navigator.update(cx, |this, cx| {
-                    this.project_drag = None;
-                    cx.notify()
-                }))
-                .ok();
+                (navigator.update(cx, |this, cx| this.hold_card(&dragged, None, cx))).ok();
             })
             .detach();
             nothing
         })
+    }
+
+    /// Show project `id`'s card at `slot`, as the move of it under way does, starting one among
+    /// the cards as they're listed now if there's none; or with `None` end that move, its card
+    /// going back.
+    fn hold_card(&mut self, id: &ProjectId, slot: Option<CardSlot>, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        let held = (store.moving.as_ref())
+            .filter(|moving| moving.project == *id && matches!(moving.what, Moving::Project(_)));
+        let next = slot.map(|slot| {
+            let what = match held {
+                Some(moving) => moving.what.clone(),
+                None => Moving::Project(self.watched(store).iter().map(|e| e.id.clone()).collect()),
+            };
+            let (project, at) = (id.clone(), Stop::Card(slot));
+            Move { project, what, at }
+        });
+        let unchanged = match (held, &next) {
+            (Some(held), Some(next)) => held.at == next.at,
+            (held, next) => held.is_none() && next.is_none(),
+        };
+        if !unchanged {
+            (self.store).update(cx, |store, cx| store.set_moving(next, cx));
+        }
     }
 
     /// Show the card dragged by its heading where letting go puts it, while the pointer is
@@ -190,38 +212,43 @@ impl Navigator {
         let depth = (event.bounds.contains(&at))
             .then(|| self.depth_at(at, Theme::get(cx)))
             .flatten();
-        let next = depth.map(|depth| {
+        let slot = depth.map(|depth| {
             let cards: Vec<(&ProjectId, f32)> = (cards(&self.rows).into_iter())
                 .map(|(id, span)| (id, span_height(&self.rows, span)))
                 .collect();
-            let slot = nearest_slot(&cards, &dragged, depth);
-            (dragged, slot)
+            nearest_slot(&cards, &dragged, depth)
         });
-        if self.project_drag != next {
-            self.project_drag = next;
-            cx.notify();
+        self.hold_card(&dragged, slot, cx);
+    }
+
+    /// Let go of a card dragged by its heading where it's shown, as Return lands it.
+    pub(super) fn drop_project(
+        &mut self,
+        drag: &ProjectDrag,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let held = (self.store.read(cx).moving.as_ref())
+            .is_some_and(|moving| moving.project == drag.0 && moving.project_order().is_some());
+        if held {
+            self.move_here(&crate::app::MoveHere, window, cx);
         }
     }
 
-    /// Let go of a card dragged by its heading where it's shown.
-    pub(super) fn drop_project(&mut self, _: &ProjectDrag, _: &mut Window, cx: &mut Context<Self>) {
-        if let Some((id, slot)) = self.project_drag.take()
-            && slot_moves(self.store.read(cx), &id, &slot)
-        {
-            let before = match &slot {
-                CardSlot::Before(before) => Some(before),
-                CardSlot::End => None,
-            };
-            (self.store).update(cx, |store, cx| store.move_watched(&id, before, cx));
+    /// The rows of the card being moved, dragged by its heading or with the keys, while it
+    /// shows where it'd go, and once it's let go of until the cards stop sliding.
+    pub(super) fn held_card(&mut self, store: &Store) -> Option<Range<usize>> {
+        let moved = (store.moving.as_ref())
+            .filter(|moving| moving.project_order().is_some())
+            .map(|moving| &moving.project);
+        match moved {
+            Some(held) => self.held_project = Some(held.clone()),
+            None if !self.reorder.any() => self.held_project = None,
+            None => {}
         }
-        cx.notify();
-    }
-
-    /// The rows of the card dragged by its heading, while it shows where it'd go.
-    pub(super) fn held_card(&self) -> Option<Range<usize>> {
-        let (dragged, _) = self.project_drag.as_ref()?;
+        let held = self.held_project.as_ref()?;
         (cards(&self.rows).into_iter())
-            .find(|(id, _)| *id == dragged)
+            .find(|(id, _)| *id == held)
             .map(|(_, span)| span)
     }
 
@@ -245,13 +272,6 @@ impl Navigator {
 
 /// A watched project's card being dragged, by its heading.
 pub(super) struct ProjectDrag(ProjectId);
-
-/// Where a dragged project card goes: before a watched project's card, or after them all.
-#[derive(Clone, PartialEq)]
-pub(super) enum CardSlot {
-    Before(ProjectId),
-    End,
-}
 
 /// The cards `rows` list, each by its project and the rows it takes, from its heading up to
 /// the gap before the next.
@@ -290,20 +310,6 @@ fn nearest_slot(cards: &[(&ProjectId, f32)], dragged: &ProjectId, depth: f32) ->
         true => CardSlot::End,
         false => nearest.1,
     }
-}
-
-/// Whether dropping watched project `id` at `slot` moves its card: not right before or after
-/// itself, where it already is.
-fn slot_moves(store: &Store, id: &ProjectId, slot: &CardSlot) -> bool {
-    let watched = store.expanded_ids();
-    let Some(from) = watched.iter().position(|other| other == id) else {
-        return false;
-    };
-    let to = match slot {
-        CardSlot::Before(before) => watched.iter().position(|other| other == before),
-        CardSlot::End => Some(watched.len()),
-    };
-    to.is_some_and(|to| to != from && to != from + 1)
 }
 
 #[cfg(test)]

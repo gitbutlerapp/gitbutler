@@ -379,7 +379,11 @@ impl Navigator {
         let store = self.store.read(cx);
         let command = |command: &'static dyn Command| MenuItem::command(command, cx);
         match target {
-            Selection::Terminal(..) => vec![command(&Reword), command(&CloseTerminal)],
+            Selection::Terminal(..) => vec![
+                command(&Reword),
+                command(&MoveSelection),
+                command(&CloseTerminal),
+            ],
             // A remote's commit can be copied into a branch here, or its ID copied, and a
             // branch's marked read or unread.
             Selection::Upstream(project, ref_name, id) => {
@@ -403,6 +407,7 @@ impl Navigator {
                 }
                 items.extend([command(&MoveUp), command(&MoveDown)]);
                 if expanded {
+                    items.push(command(&MoveSelection));
                     let mut branch = new_branch_items(cx);
                     if let Some(first) = branch.first_mut() {
                         first.separated = true;
@@ -464,6 +469,7 @@ impl Navigator {
                     command(&AddEmptyCommitAbove),
                     command(&SquashAll),
                     command(&CutSelection).separated(),
+                    command(&MoveSelection),
                     command(&Unstack),
                     command(&crate::edits::MergeBranch),
                     command(&UnapplyStack),
