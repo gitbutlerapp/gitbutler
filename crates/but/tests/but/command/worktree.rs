@@ -454,6 +454,88 @@ wt wt-clean - [..]/worktrees/wt-clean
 "#]]);
 }
 
+/// `git worktree remove` takes the checkout's path, so `but worktree remove` does too.
+#[test]
+fn remove_by_path() {
+    let env = adopted_sandbox();
+    let absolute = add_worktree_with_commit(&env, "wt-absolute", "A");
+    // Like the worktrees agent harnesses make inside the main checkout.
+    invoke_bash_at_dir(
+        "git worktree add -q -b wt-relative .claude/worktrees/wt-relative B",
+        env.projects_root(),
+    );
+
+    env.but(format!("worktree remove '{}'", absolute.display()))
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Removed worktree wt-absolute
+
+"#]]);
+    // A relative path is taken from the directory `-C` names, with or without a trailing slash.
+    env.but(format!(
+        "-C '{}' worktree remove .claude/worktrees/wt-relative/",
+        env.projects_root().display()
+    ))
+    .current_dir(env.app_data_dir())
+    .assert()
+    .success()
+    .stderr_eq(snapbox::str![])
+    .stdout_eq(snapbox::str![[r#"
+Removed worktree wt-relative
+
+"#]]);
+    // Either way the branch survives.
+    snapbox::assert_data_eq!(
+        env.invoke_git("branch --list --format=%(refname:short) wt-*"),
+        snapbox::str![[r#"
+wt-absolute
+wt-relative
+"#]]
+    );
+
+    // A directory that isn't a worktree, like the main checkout, still isn't one.
+    env.but(format!(
+        "worktree remove '{}'",
+        env.projects_root().display()
+    ))
+    .assert()
+    .failure()
+    .stdout_eq(snapbox::str![])
+    .stderr_eq(snapbox::str![[r#"
+Error: Could not find worktree: '[..]'
+
+Hint: Run `but worktree list` for the worktrees and their IDs.
+
+"#]]);
+}
+
+/// `git worktree move` keeps a worktree's name, so a name can also be the relative path of another
+/// worktree's checkout. The name wins, or `--force` could discard the wrong checkout.
+#[test]
+fn remove_prefers_a_name_over_a_path() {
+    let env = adopted_sandbox();
+    add_worktree_with_commit(&env, "new", "A");
+    invoke_bash_at_dir(
+        "git worktree add -q -b moved a-moved B && git worktree move a-moved new",
+        env.projects_root(),
+    );
+
+    env.but("worktree remove new")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Removed worktree new
+
+"#]]);
+    assert!(
+        env.projects_root().join("new").is_dir(),
+        "the worktree `a-moved`, checked out at ./new, is left alone"
+    );
+}
+
 #[test]
 fn new_checks_out_a_new_branch_at_the_highest_base() {
     let env = adopted_sandbox();
