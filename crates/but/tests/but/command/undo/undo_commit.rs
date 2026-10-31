@@ -1,6 +1,9 @@
 use but_core::RefMetadata;
 
-use crate::{command::undo::run_mutate_undo_roundtrip_test, utils::Sandbox};
+use crate::{
+    command::{undo::run_mutate_undo_roundtrip_test, util::add_worktree_with_commit},
+    utils::Sandbox,
+};
 
 #[test]
 fn can_undo_single_branch_commit_on_new_branch() {
@@ -17,6 +20,113 @@ fn can_undo_single_branch_commit_on_new_branch() {
         env.invoke_git("symbolic-ref --short HEAD"),
         "main",
         "undo must restore the original checkout"
+    );
+}
+
+/// Undo only moves the branches of linked worktrees that its operation moved, so it keeps what
+/// was committed in a linked worktree after an operation that didn't touch it.
+#[test]
+fn undo_keeps_newer_commits_in_a_linked_worktree() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.invoke_git("checkout -q -b feature");
+    env.but("status").assert().success();
+    let wt_dir = add_worktree_with_commit(&env, "wt-feature", "feature");
+    let feature_before = env.invoke_git("rev-parse feature");
+    env.file("new-file.txt", "content\n");
+    env.but("commit -m 'on feature'").assert().success();
+    but_testsupport::invoke_bash_at_dir(
+        "echo more >more.txt && git add more.txt && git commit -q -m 'add more'",
+        &wt_dir,
+    );
+    let worktree_tip = env.invoke_git("rev-parse wt-feature");
+
+    env.but("undo").assert().success();
+
+    assert_eq!(
+        env.invoke_git("rev-parse feature"),
+        feature_before,
+        "undo takes back the commit in the main checkout"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse wt-feature"),
+        worktree_tip,
+        "undo keeps the commit made in the linked worktree since"
+    );
+}
+
+/// Committing a linked worktree's changes onto another branch leaves the worktree's branch where
+/// it was, so undo keeps what was committed on that branch since.
+#[test]
+fn undo_keeps_newer_commits_on_a_linked_worktree_branch_it_did_not_move() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = add_worktree_with_commit(&env, "wt-feature", "A");
+    std::fs::write(wt_dir.join("more.txt"), "more\n").unwrap();
+    env.but("commit wt-feature:@ -b B -m 'from the worktree'")
+        .assert()
+        .success();
+    but_testsupport::invoke_bash_at_dir(
+        "echo later >later.txt && git add later.txt && git commit -q -m later",
+        &wt_dir,
+    );
+    let worktree_tip = env.invoke_git("rev-parse wt-feature");
+
+    env.but("undo").assert().success();
+
+    assert_eq!(
+        env.invoke_git("rev-parse wt-feature"),
+        worktree_tip,
+        "undo keeps the commit made on the worktree's branch since"
+    );
+}
+
+/// Committing or amending a linked worktree's changes leaves its files as they are, so undo moves
+/// the worktree's branch back and leaves the change uncommitted there.
+#[test]
+fn undo_leaves_a_commit_from_a_linked_worktree_uncommitted() {
+    undo_leaves_the_worktree_change_uncommitted(|env, _| env.but("commit -m 'more'"));
+}
+
+#[test]
+fn undo_leaves_an_amend_from_a_linked_worktree_uncommitted() {
+    undo_leaves_the_worktree_change_uncommitted(|env, tip| env.but(format!("amend -t {tip}")));
+}
+
+/// Run `command`, given the tip of the worktree's branch, in a linked worktree with a change,
+/// then undo it.
+#[track_caller]
+fn undo_leaves_the_worktree_change_uncommitted(
+    command: impl FnOnce(&Sandbox, &str) -> snapbox::cmd::Command,
+) {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = add_worktree_with_commit(&env, "wt-feature", "A");
+    std::fs::write(wt_dir.join("wt-file.txt"), "more\n").unwrap();
+    let tip_before = env.invoke_git("rev-parse wt-feature");
+
+    command(&env, &tip_before)
+        .current_dir(&wt_dir)
+        .assert()
+        .success();
+    assert_ne!(
+        env.invoke_git("rev-parse wt-feature"),
+        tip_before,
+        "the change went onto the worktree's branch"
+    );
+
+    env.but("undo").assert().success();
+
+    assert_eq!(
+        env.invoke_git("rev-parse wt-feature"),
+        tip_before,
+        "undo moves the worktree's branch back"
+    );
+    assert_eq!(
+        std::fs::read_to_string(wt_dir.join("wt-file.txt")).unwrap(),
+        "more\n",
+        "undo leaves the change in the worktree"
     );
 }
 
