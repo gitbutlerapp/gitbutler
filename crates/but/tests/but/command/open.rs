@@ -61,7 +61,7 @@ fn open_uncommitted_file_with() {
 ╭┄ @ [uncommitted]
 ┊   xk A new-file.txt
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -270,7 +270,7 @@ fn open_uncommitted_hunk_in_file_that_contains_spaces_and_shell_metacharacters()
 ┊●   psz Add file
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -422,7 +422,7 @@ fn user_defined_program_path_executable_handles_shell_metacharacters() {
 ┊│     psz:p A file with some $meta; cat A > new-file.txt; spaces in it.txt
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -531,7 +531,7 @@ fn user_defined_program_defaults_to_default_open_args() {
 ┊│     zon:u A file.txt
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -808,7 +808,7 @@ filepath='/[..]/file.txt'
 ┊   zn A file.md
 ┊   uv A file.txt
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -830,7 +830,7 @@ Hint: run `but branch new` to create a new branch to work on
 ┊   ul A file.md.touch
 ┊   uv A file.txt
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -853,7 +853,7 @@ Hint: run `but branch new` to create a new branch to work on
 ┊   ul A file.md.touch
 ┊   uv A file.txt
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 

@@ -83,7 +83,7 @@ impl UintId {
 }
 
 /// A tracker of which [UintId]s have been used.
-#[derive(Clone, Default, Debug)]
+#[derive(Default, Debug)]
 pub(crate) struct IdUsage {
     /// A [UintId] is used if it's in this set.
     uint_ids_used: HashSet<UintId>,
@@ -106,13 +106,6 @@ impl IdUsage {
         let result = self.next_uint_id;
         self.next_uint_id = UintId(self.next_uint_id.0 + 1);
         Ok(result)
-    }
-
-    pub(crate) fn skip_available(&mut self) {
-        self.forward_next_uint_id_to_not_conflict_with_marked();
-        if self.next_uint_id.0 < UintId::LIMIT {
-            self.next_uint_id = UintId(self.next_uint_id.0 + 1);
-        }
     }
 
     pub(crate) fn forward_next_uint_id_to_not_conflict_with_marked(&mut self) {

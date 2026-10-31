@@ -1,18 +1,14 @@
 //! App-level AI configuration.
 //!
 //! These are app-scoped rather than project-scoped, so they take no `Context`.
-//! They live here, and not in `but-napi` beside the streaming call, so the
-//! `#[but_api]` macro generates their wrappers: clients then reach them
-//! through the same generated endpoint table as every other call.
 
 use anyhow::{Context as _, Result, bail};
 use but_api_macros::but_api;
 use but_core::git_config::edit_config;
 use but_llm::{
-    AI_ANTHROPIC_SECRET_HANDLE, AI_OPENAI_SECRET_HANDLE, AI_OPENROUTER_SECRET_HANDLE,
-    AiConfiguration as DomainConfiguration, AnthropicConfiguration, CredentialsKeyOption,
-    GITBUTLER_ACCESS_TOKEN_HANDLE, LLMProviderKind, LmStudioConfiguration, OllamaConfiguration,
-    OpenAiConfiguration, clear_ai_configuration,
+    AI_ANTHROPIC_SECRET_HANDLE, AI_OPENAI_SECRET_HANDLE, AiConfiguration as DomainConfiguration,
+    AnthropicConfiguration, CredentialsKeyOption, GITBUTLER_ACCESS_TOKEN_HANDLE, LLMProviderKind,
+    LmStudioConfiguration, OllamaConfiguration, OpenAiConfiguration,
 };
 use but_secret::{Sensitive, secret};
 use serde::{Deserialize, Serialize};
@@ -22,16 +18,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[cfg_attr(feature = "napi", napi_derive::napi(object))]
 pub struct AiConfiguration {
     /// The provider requests go to.
-    #[cfg_attr(
-        feature = "napi",
-        napi(ts_type = "'openai' | 'anthropic' | 'ollama' | 'lmstudio' | 'openrouter'")
-    )]
     pub provider: String,
     /// Whether OpenAI calls use GitButler's key or the user's own.
-    #[cfg_attr(feature = "napi", napi(ts_type = "'butlerAPI' | 'bringYourOwn'"))]
     pub openai_key_option: String,
     /// The OpenAI model to request.
     pub openai_model: String,
@@ -40,7 +30,6 @@ pub struct AiConfiguration {
     /// Whether an OpenAI key is stored, never the key itself.
     pub openai_has_api_key: bool,
     /// Whether Anthropic calls use GitButler's key or the user's own.
-    #[cfg_attr(feature = "napi", napi(ts_type = "'butlerAPI' | 'bringYourOwn'"))]
     pub anthropic_key_option: String,
     /// The Anthropic model to request.
     pub anthropic_model: String,
@@ -65,16 +54,10 @@ pub struct AiConfiguration {
 #[derive(Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[cfg_attr(feature = "napi", napi_derive::napi(object))]
 pub struct AiConfigurationUpdate {
     /// The provider requests should go to. Streaming-only providers cannot be chosen here.
-    #[cfg_attr(
-        feature = "napi",
-        napi(ts_type = "'openai' | 'anthropic' | 'ollama' | 'lmstudio'")
-    )]
     pub provider: String,
     /// Whether OpenAI calls should use GitButler's key or the user's own.
-    #[cfg_attr(feature = "napi", napi(ts_type = "'butlerAPI' | 'bringYourOwn'"))]
     pub openai_key_option: String,
     /// The OpenAI model to request.
     pub openai_model: String,
@@ -83,7 +66,6 @@ pub struct AiConfigurationUpdate {
     /// A newly entered OpenAI key to store; omitted leaves any stored key alone.
     pub openai_api_key: Option<String>,
     /// Whether Anthropic calls should use GitButler's key or the user's own.
-    #[cfg_attr(feature = "napi", napi(ts_type = "'butlerAPI' | 'bringYourOwn'"))]
     pub anthropic_key_option: String,
     /// The Anthropic model to request.
     pub anthropic_model: String,
@@ -217,13 +199,13 @@ fn domain_configuration(
 }
 
 /// Read application-global AI configuration without exposing stored secrets.
-#[but_api(napi, provides = [AiConfiguration])]
+#[but_api]
 pub fn get_ai_configuration() -> Result<AiConfiguration> {
     get_configuration()
 }
 
 /// Validate and save one complete application-global AI configuration.
-#[but_api(napi, invalidates = [AiConfiguration])]
+#[but_api]
 pub fn update_ai_configuration(update: AiConfigurationUpdate) -> Result<AiConfiguration> {
     let openai_has_key = has_secret(AI_OPENAI_SECRET_HANDLE, secret::Namespace::Global)?;
     let anthropic_has_key = has_secret(AI_ANTHROPIC_SECRET_HANDLE, secret::Namespace::Global)?;
@@ -251,20 +233,6 @@ pub fn update_ai_configuration(update: AiConfigurationUpdate) -> Result<AiConfig
         configuration.apply(config)
     })?;
 
-    get_configuration()
-}
-
-/// Clear application-global AI configuration and stored provider API keys.
-#[but_api(napi, invalidates = [AiConfiguration])]
-pub fn reset_ai_configuration() -> Result<AiConfiguration> {
-    edit_config(None, gix::config::Source::User, clear_ai_configuration)?;
-    for handle in [
-        AI_OPENAI_SECRET_HANDLE,
-        AI_ANTHROPIC_SECRET_HANDLE,
-        AI_OPENROUTER_SECRET_HANDLE,
-    ] {
-        secret::delete(handle, secret::Namespace::Global)?;
-    }
     get_configuration()
 }
 

@@ -73,8 +73,9 @@ fn github_stacks_configuration_requires_a_repository() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: No git repository found at .
-Please run 'but setup' to initialize the project.
+Error: No git repository found at .git
+
+Hint: Run `but init` to initialize a Git repository.
 
 "#]]);
 }
@@ -83,9 +84,9 @@ Please run 'but setup' to initialize the project.
 #[test]
 fn target_configures_distinct_push_remote_for_fork() {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
-    env.but("setup").assert().success();
     env.invoke_git("remote add upstream .");
     env.invoke_git("update-ref refs/remotes/upstream/main refs/remotes/origin/main");
+    env.invoke_git("branch --set-upstream-to=upstream/main main");
 
     env.but("config target upstream/main --push-remote origin")
         .assert()
@@ -93,11 +94,82 @@ fn target_configures_distinct_push_remote_for_fork() {
 
     assert_eq!(
         env.invoke_git("config --local --get gitbutler.project.targetRef"),
-        "refs/remotes/upstream/main"
+        "refs/heads/main",
+        "remote input resolves to its local tracking branch"
     );
     assert_eq!(
         env.invoke_git("config --local --get gitbutler.project.pushRemote"),
         "origin"
+    );
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn target_remote_shorthand_without_tracking_branch_hints_to_track_it() {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
+    env.invoke_git("remote add upstream .");
+    env.invoke_git("update-ref refs/remotes/upstream/main refs/remotes/origin/main");
+
+    // nothing is being migrated, so the error doesn't call upstream/main the current target
+    env.but("config target upstream/main")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: No local branch tracks upstream/main
+
+Hint: Make a local branch track upstream/main with `git branch --set-upstream-to=upstream/main <branch>`, or choose a local target branch with `but config target <branch>`
+
+"#]]);
+
+    // run the command the hint suggests
+    env.invoke_git("branch --set-upstream-to=upstream/main main");
+
+    env.but("config target upstream/main").assert().success();
+    assert_eq!(
+        env.invoke_git("config --local --get gitbutler.project.targetRef"),
+        "refs/heads/main",
+        "the shorthand resolves to the branch that now tracks it"
+    );
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn target_accepts_local_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.but("config target main").assert().success();
+    assert_eq!(
+        env.invoke_git("config --local --get gitbutler.project.targetRef"),
+        "refs/heads/main",
+        "local input is stored directly"
+    );
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn target_prefers_local_branch_over_remote_shorthand() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.invoke_git("branch origin/main main");
+    env.but("config target origin/main").assert().success();
+    assert_eq!(
+        env.invoke_git("config --local --get gitbutler.project.targetRef"),
+        "refs/heads/origin/main",
+        "an exact local branch name takes precedence over remote shorthand"
+    );
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn target_accepts_qualified_remote_despite_local_name_collision() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.invoke_git("branch origin/main main");
+    env.invoke_git("branch --set-upstream-to=refs/remotes/origin/main main");
+    env.but("config target refs/remotes/origin/main")
+        .assert()
+        .success();
+    assert_eq!(
+        env.invoke_git("config --local --get gitbutler.project.targetRef"),
+        "refs/heads/main",
+        "a qualified remote name bypasses the colliding local name"
     );
 }
 
@@ -133,7 +205,7 @@ fn config_push_remote_rejects_unknown_remote_without_changing_metadata() {
 Error: failed to find remote missing
 
 Caused by:
-    The remote named "missing" did not exist
+    The remote named "missing" did not exist[..]
 
 "#]]);
     assert_eq!(
@@ -160,7 +232,7 @@ Push Remote:
 }
 
 #[test]
-fn feature_config_shell_output_uses_valid_identifiers() {
+fn feature_config_lists_no_flags() {
     let env = Sandbox::empty();
 
     env.but("config feature")
@@ -170,23 +242,20 @@ fn feature_config_shell_output_uses_valid_identifiers() {
 
 Feature Flags:
 
-  single-branch: enabled
 
 "#]]);
 }
 
 #[test]
-fn feature_config_json_output_uses_stable_key() {
+fn feature_config_json_lists_no_flags() {
     let env = Sandbox::empty();
 
-    env.but("--json config feature single-branch")
+    env.but("--json config feature")
         .allow_json()
         .assert()
         .success()
         .stdout_eq(str![[r#"
-{
-  "single_branch": true
-}
+{}
 
 "#]]);
 }
@@ -304,8 +373,6 @@ fn ai_openai_defaults_to_global_config() {
 fn ai_ollama_local_writes_repo_config() {
     let env = Sandbox::empty();
     env.invoke_bash("git init repo");
-    #[cfg(feature = "legacy")]
-    env.but("-C repo setup").assert().success();
 
     env.but("-C repo config ai --local ollama --endpoint localhost:11434 --model llama3.1")
         .assert()
@@ -376,8 +443,6 @@ fn ai_show_outputs_current_global_configuration_json() {
 fn ai_show_outputs_current_local_configuration_json() {
     let env = Sandbox::empty();
     env.invoke_bash("git init repo");
-    #[cfg(feature = "legacy")]
-    env.but("-C repo setup").assert().success();
 
     env.but("-C repo config ai --local ollama --endpoint localhost:11434 --model llama3.1")
         .assert()

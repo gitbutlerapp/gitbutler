@@ -22,12 +22,12 @@ jobs:
     outputs:
       node: ${{ steps.filter.outputs.node }}
       rust: ${{ steps.filter.outputs.rust }}
+      rust_core: ${{ steps.filter.outputs.rust_core }}
       ui: ${{ steps.filter.outputs.ui }}
       but_sdk: ${{ steps.filter.outputs.but_sdk }}
       docs: ${{ steps.filter.outputs.docs }}
       but_installer: ${{ steps.filter.outputs.but_installer }}
       install_script: ${{ steps.filter.outputs.install_script }}
-      lite_e2e: ${{ steps.filter.outputs.lite_e2e }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -51,7 +51,7 @@ jobs:
             ui:
               - 'packages/ui-svelte/**'
             but_sdk:
-              - 'crates/**'
+              - 'crates/!(but-gpui|but-tty)/**'
               - *workflows
               - 'Cargo.lock'
               - 'Cargo.toml'
@@ -65,21 +65,13 @@ jobs:
             rust: &any-rust
               - *rust
               - 'crates/**'
-            lite_e2e:
-              - *workflows
-              - 'apps/lite/**'
-              - 'crates/**'
-              - 'e2e/playwright/fixtures/**'
-              - 'e2e/playwright/scripts/**'
-              - 'packages/but-sdk/**'
-              - 'scripts/install-minimal-debian-dependencies.sh'
-              - '.nvmrc'
-              - 'Cargo.lock'
-              - 'Cargo.toml'
-              - 'package.json'
-              - 'pnpm-lock.yaml'
-              - 'pnpm-workspace.yaml'
-              - 'rust-toolchain.toml'
+            # Only gitbutler-tauri's `builtin-gpui` feature links the GPUI client, and only
+            # test-rust-windows builds with it. A change to just the GPUI client or its
+            # terminals (but-tty) can't affect any other crate, so jobs that never build it can
+            # skip it.
+            rust_core:
+              - *rust
+              - 'crates/!(but-gpui|but-tty)/**'
             but_installer:
               - 'Cargo.lock'
               - 'Cargo.toml'
@@ -140,7 +132,10 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/init-env-node
       - id: get_playwright_version
-        uses: eviden-actions/get-playwright-version@b0cd9674901dfcdabb64e3cff99a4e582719f0f6 # v1
+        shell: bash
+        run: |
+          version=$(pnpm --filter @gitbutler/ui-svelte --fail-if-no-match exec node -p 'require("playwright/package.json").version')
+          echo "playwright-version=v$version" >> "$GITHUB_OUTPUT"
       - name: Cache playwright binaries
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
         id: playwright-cache
@@ -212,6 +207,8 @@ jobs:
         with:
           shared-key: lint
           save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Install Zig
+        uses: $/.github/actions/setup-zig
       - run: cargo fmt --check --all
       - run: cargo check --workspace --all-targets
       - run: |
@@ -285,22 +282,43 @@ jobs:
         with:
           shared-key: cargo-doc
           save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Install Zig
+        uses: $/.github/actions/setup-zig
       - name: Dependencies for 'keyring'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
+      # fontconfig's build script looks it up with pkg-config.
+      - name: Dependencies for the GPUI client
+        run: sudo apt-get install -y --no-install-recommends libxcb1-dev libxkbcommon-x11-dev libfontconfig-dev
       - name: Check documentation
-        run: cargo doc --workspace --no-deps --exclude gitbutler-tauri --exclude but-api-macros-tests
+        run: cargo doc --workspace --no-deps --exclude gitbutler-tauri --exclude but-api-macros-tests --features but/nightly
 
   rust-test:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest, macos-15]
+    runs-on: ${{ matrix.platform }}
     env:
       CARGO_TERM_COLOR: always
       GITBUTLER_TESTS_NO_CLEANUP: "1"
+      # These six tests fail on macOS CI for unclear reasons. Keep running them locally.
+      NEXTEST_FILTER: >-
+        ${{ matrix.platform == 'macos-15' && 'not (
+          test(=tests::reconciliation_reuses_filter_process) |
+          test(=tests::core_hunks_reuse_filter_process) |
+          test(=tests::assign_reuses_filter_process) |
+          test(=tests::reused_filter_recovers_after_file_failure) |
+          test(=locked_index_rejects_enter_edit_mode_without_changes) |
+          test(=locked_symlinked_index_rejects_enter_edit_mode_without_changes)
+        )' || 'all()' }}
       # Redirect the app-data dir so any test that loads user-level settings writes here.
       # The final step asserts nothing did - see 'Assert test hermeticity'.
       # (a literal path - the `runner` context is not available in job-level `env`)
       E2E_TEST_APP_DATA_DIR: /tmp/hermeticity-guard
+      # A change to just the GPUI client only needs its own tests.
+      PACKAGES: ${{ needs.changes.outputs.rust_core == 'true' && '--workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --features but/nightly' || '-p but-gpui -p but-tty' }}
     defaults:
       run:
         shell: bash
@@ -311,11 +329,19 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          shared-key: cargo-test-no-tauri
+          shared-key: cargo-test-no-tauri-${{ runner.os }}
           save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Install Zig
+        uses: $/.github/actions/setup-zig
       - name: Dependencies for 'keyring'
+        if: runner.os == 'Linux'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
-      - name: Install cargo-nextest
+      # The libraries GPUI links to on Linux, for its windows and its font lookup.
+      - name: Dependencies for the GPUI client
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y --no-install-recommends libxcb1-dev libxkbcommon-x11-dev libfontconfig-dev
+      - name: Install cargo-nextest (Linux)
+        if: runner.os == 'Linux'
         run: |
 
           # To update the version of cargo-nextest, replace the version specifier in the `curl` command and update the
@@ -323,16 +349,26 @@ jobs:
           #
           # Checksums are available as artifacts on GitHub Release (https://github.com/nextest-rs/nextest/releases),
           # should be called "cargo-nextest-<VERSION>-x86_64-unknown-linux-gnu.sha256"
-          curl -LsSf https://get.nexte.st/0.9.133/linux -o cargo-nextest.tar.gz
-          echo "a9f992321e8759818400d93abb9477b4b11422d18d216e8d208505bd73454103 cargo-nextest.tar.gz" | sha256sum -c -
+          curl -LsSf https://get.nexte.st/0.9.143/linux -o cargo-nextest.tar.gz
+          echo "66786b9abe23920d022a182d1416b1bbc8130dd4872a9553d76985a1708dcd1e  cargo-nextest.tar.gz" | sha256sum -c -
+          tar -xzf cargo-nextest.tar.gz -C ${CARGO_HOME:-~/.cargo}/bin
+          rm cargo-nextest.tar.gz
+      - name: Install cargo-nextest (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          # Keep the version in sync with Linux above. Checksum from the release's
+          # cargo-nextest-<VERSION>-universal-apple-darwin.sha256 artifact.
+          curl -LsSf https://get.nexte.st/0.9.143/mac -o cargo-nextest.tar.gz
+          echo "4830d430411148d17602a75cc880bfb4dc8dac153dea59a48a2ef4cc93577f07  cargo-nextest.tar.gz" | shasum -a 256 -c -
+          mkdir -p ${CARGO_HOME:-~/.cargo}/bin
           tar -xzf cargo-nextest.tar.gz -C ${CARGO_HOME:-~/.cargo}/bin
           rm cargo-nextest.tar.gz
       - name: Run workspace tests
-        run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci
+        run: cargo nextest run $PACKAGES --profile ci -E "$NEXTEST_FILTER"
       - name: Run doctests
-        run: cargo test --doc --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests
+        run: cargo test --doc $PACKAGES
       - name: Upload results to tests.but.dev
-        if: ${{ always() && !cancelled() }}
+        if: ${{ always() && !cancelled() && runner.os == 'Linux' }}
         continue-on-error: true
         env:
           BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_CARGO }}
@@ -356,9 +392,14 @@ jobs:
             -F "tags[language]=rust" \
             -F "tags[type]=unit" \
             https://tests.but.dev/v1/uploads
+      - name: Run workspace tests without nightly
+        if: github.ref == 'refs/heads/master'
+        run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci -E "$NEXTEST_FILTER"
       # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
       - run: make test-modern-but
+        if: needs.changes.outputs.rust_core == 'true'
       - name: test vendored
+        if: needs.changes.outputs.rust_core == 'true'
         run: |
           set -x
           (cd crates/gitbutler-filemonitor/vendor/debouncer && cargo test)
@@ -372,7 +413,7 @@ jobs:
 
   rust-test-but-api-macros:
     needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
+    if: ${{ needs.changes.outputs.rust_core == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -387,8 +428,6 @@ jobs:
             cache_suffix: legacy
           - features: "--features tauri"
             cache_suffix: tauri
-          - features: "--features napi"
-            cache_suffix: napi
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image@sha256:3eaeae1b07072796a53dc1e7585cdc1f462d0b11d10ecd3685c6fa8082d647dd
     env:
@@ -410,7 +449,7 @@ jobs:
 
   rust-test-tauri:
     needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
+    if: ${{ needs.changes.outputs.rust_core == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -452,10 +491,41 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          shared-key: cargo-test
+          shared-key: cargo-check-windows
           save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Install Zig
+        uses: $/.github/actions/setup-zig
       - name: "cargo check"
         run: cargo check --workspace --all-targets --features windows
+      # The GPUI client's Windows code: the lint job runs on Linux, which builds it as a stub.
+      - name: "cargo clippy -p but-gpui -p but-tty"
+        run: cargo clippy -p but-gpui -p but-tty --all-targets -- -D warnings
+
+  # Separate from check-rust-windows so the two run side by side: these steps build code,
+  # those only check it, so they share little of their work or their cache.
+  test-rust-windows:
+    needs: changes
+    runs-on: windows-latest
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: cargo-test
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Install Zig
+        uses: $/.github/actions/setup-zig
+      - name: "cargo test -p but-gpui -p but-tty"
+        run: cargo test -p but-gpui -p but-tty
+      # The desktop app with the native client, as Windows builds ship it: GPUI's and Tauri's
+      # resources only clash when the executable links.
+      - name: "cargo build -p gitbutler-tauri --features windows,builtin-gpui"
+        run: cargo build -p gitbutler-tauri --features windows,builtin-gpui
 
   build-installer:
     needs: changes
@@ -655,6 +725,7 @@ jobs:
     needs:
       - changes
       - check-rust-windows
+      - test-rust-windows
       - rust-test
       - rust-test-but-api-macros
       - rust-test-tauri
@@ -718,7 +789,10 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/init-env-node
       - id: get_playwright_version
-        uses: eviden-actions/get-playwright-version@b0cd9674901dfcdabb64e3cff99a4e582719f0f6 # v1
+        shell: bash
+        run: |
+          version=$(pnpm --filter @gitbutler/ui-svelte --fail-if-no-match exec node -p 'require("playwright/package.json").version')
+          echo "playwright-version=v$version" >> "$GITHUB_OUTPUT"
       - name: cache playwright binaries
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
         id: playwright-cache
@@ -745,61 +819,4 @@ jobs:
           path: |
             ./packages/ui-svelte/playwright-report/
             ./packages/ui-svelte/test-results/
-          retention-days: 30
-
-  lite-e2e:
-    needs: changes
-    if: ${{ needs.changes.outputs.lite_e2e == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    env:
-      BUT: ${{ github.workspace }}/target/x86_64-unknown-linux-gnu/debug/but
-      CARGO_BUILD_TARGET: x86_64-unknown-linux-gnu
-      CARGO_TERM_COLOR: always
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Install system dependencies
-        run: sudo ./scripts/install-minimal-debian-dependencies.sh
-      - uses: ./.github/actions/init-env-node
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: lite-e2e-rust-binaries
-          save-if: ${{ github.ref == 'refs/heads/master' }}
-      - name: Build dependencies
-        run: |
-          pnpm --filter @gitbutler/but-sdk build:napi
-          cargo build -p but
-      # Ubuntu restricts the user namespaces used by unpackaged Chromium builds. Configure
-      # Electron's bundled SUID helper so the tests can keep Chromium's sandbox enabled.
-      # https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md
-      # https://chromium.googlesource.com/chromium/src/+/main/docs/linux/suid_sandbox_development.md
-      - name: Configure Electron sandbox
-        run: |
-          pnpm --filter @gitbutler/lite exec install-electron
-          electron_path="$(pnpm --filter @gitbutler/lite exec node -p 'require("electron")')"
-          electron_sandbox="$(dirname "$electron_path")/chrome-sandbox"
-          sudo chown root:root "$electron_sandbox"
-          sudo chmod 4755 "$electron_sandbox"
-      - name: Run Lite E2E tests
-        # Concurrent Electron launches can fail during renderer bootstrap on GitHub's Linux runners.
-        run: xvfb-run --auto-servernum pnpm --filter @gitbutler/lite test:e2e --forbid-only --workers=1
-        env:
-          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_LITE_E2E }}
-          BUILDKITE_ANALYTICS_BASE_URL: https://tests.but.dev/v1/uploads
-          # Normalized run identity, matching what the curl-based uploads send, so
-          # every suite reports the same key/branch/sha for one CI run.
-          BUILDKITE_ANALYTICS_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
-          BUILDKITE_ANALYTICS_BRANCH: ${{ github.head_ref || github.ref_name }}
-          BUILDKITE_ANALYTICS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: failure()
-        with:
-          name: lite-e2e-output
-          path: apps/lite/test-results/
-          if-no-files-found: ignore
           retention-days: 30

@@ -15,7 +15,6 @@ pub mod remotes;
 pub mod repo;
 pub mod secret;
 pub mod settings;
-pub mod stack;
 pub mod users;
 pub mod virtual_branches;
 pub mod workspace;

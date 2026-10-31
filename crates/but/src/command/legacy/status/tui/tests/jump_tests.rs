@@ -18,17 +18,21 @@ fn jumping_around() {
 
     let mut tui = test_status_tui(env);
 
-    // jumping straight to the matching line
     tui.input('/')
         .assert_rendered_term_svg_eq(file!["snapshots/jumping_around_001.svg"]);
-    tui.input("h0")
+    // Non-matching lines are dimmed and the matched characters are underlined.
+    tui.input("g0")
+        .assert_current_line_eq(str!["┊╭┄ g0 [A]"])
         .assert_rendered_term_svg_eq(file!["snapshots/jumping_around_002.svg"]);
+    tui.input(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊╭┄ g0 [A]"])
+        .assert_backstack_eq([]);
 
     // cycling through matches
     tui.input('/');
     tui.input("kl")
         .assert_rendered_term_svg_eq(file!["snapshots/jumping_around_003.svg"]);
-    tui.input((KeyModifiers::CONTROL, 'p'))
+    tui.input((KeyModifiers::CONTROL, 'n'))
         .assert_rendered_term_svg_eq(file!["snapshots/jumping_around_004.svg"]);
     tui.input((KeyModifiers::CONTROL, 'p'))
         .assert_rendered_term_svg_eq(file!["snapshots/jumping_around_005.svg"]);
@@ -37,36 +41,178 @@ fn jumping_around() {
 
     // jumping to @
     tui.input('/');
-    tui.input('@')
-        .assert_rendered_term_svg_eq(file!["snapshots/jumping_around_008.svg"]);
+    tui.input('@');
+    tui.input(KeyCode::Enter)
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted]"]);
 }
 
+/// Typing a line's only match moves the cursor there, but only Enter leaves jump mode.
 #[test]
-fn jump_to_merge_base_by_commit_id() {
+fn jump_waits_for_enter_to_confirm() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
     );
     env.setup_metadata(&["A", "B"]);
 
-    let merge_base_id = env
-        .open_repo()
-        .rev_parse_single("origin/main")
-        .unwrap()
-        .detach()
-        .to_string();
     let mut tui = test_status_tui(env);
 
     tui.input('/');
-    for _ in 0..6 {
-        tui.input((KeyModifiers::CONTROL, 'n'));
-    }
-    tui.input((KeyModifiers::CONTROL, 'n'))
-        .assert_current_line_eq(str!["[..] (common base) [..]"]);
-    tui.input(KeyCode::Esc);
+    tui.input("lrm")
+        .assert_current_line_eq(str!["┊●   lrm add B"])
+        .assert_backstack_eq([BackstackEntry::LeaveNormalMode])
+        .assert_rendered_term_svg_eq(file!["snapshots/jump_waits_for_enter_to_confirm_001.svg"]);
+    tui.input(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊●   lrm add B"])
+        .assert_backstack_eq([]);
+}
+
+#[test]
+fn jump_to_branch_by_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    );
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
 
     tui.input('/');
-    tui.input(&merge_base_id[..12])
-        .assert_current_line_eq(str!["[..] (common base) [..]"]);
+    // The commit "add C" also matches, but the branch comes first.
+    tui.input('C')
+        .assert_rendered_term_svg_eq(file!["snapshots/jump_to_branch_by_name_001.svg"]);
+    tui.input(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊╭┄ h0 [C]"]);
+}
+
+#[test]
+fn jump_to_commit_by_message() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    );
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('/');
+    tui.input("add B")
+        .assert_rendered_term_svg_eq(file!["snapshots/jump_to_commit_by_message_001.svg"]);
+    tui.input(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊●   lrm add B"]);
+}
+
+#[test]
+fn jump_to_file_by_path() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    );
+    env.setup_metadata(&["A", "B"]);
+
+    env.file("one", "");
+    env.file("two", "");
+    env.file("three", "");
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('/');
+    tui.input("three")
+        .assert_rendered_term_svg_eq(file!["snapshots/jump_to_file_by_path_001.svg"]);
+    tui.input(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊   or   A three"]);
+}
+
+#[test]
+fn jump_matches_fuzzily() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    );
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('/');
+    tui.input("adC")
+        .assert_rendered_term_svg_eq(file!["snapshots/jump_matches_fuzzily_001.svg"]);
+    tui.input(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊●   xwn add C"]);
+}
+
+/// An exact short ID wins over earlier lines that only match fuzzily.
+#[test]
+fn jump_prefers_exact_short_id() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    );
+    env.setup_metadata(&["A", "B"]);
+
+    env.file("kl", "");
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('/');
+    // The file `klx` above also contains an `x`.
+    tui.input('x')
+        .assert_current_line_eq(str!["┊●   xwn add C"])
+        .assert_rendered_term_svg_eq(file!["snapshots/jump_prefers_exact_short_id_001.svg"]);
+}
+
+/// Without a match there's nothing to confirm, so Enter keeps jump mode open.
+#[test]
+fn jump_without_matches_cannot_be_confirmed() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    );
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('/');
+    tui.input("qqq").assert_rendered_term_svg_eq(file![
+        "snapshots/jump_without_matches_cannot_be_confirmed_001.svg"
+    ]);
+    tui.input(KeyCode::Enter)
+        .assert_backstack_eq([BackstackEntry::LeaveNormalMode]);
+}
+
+/// The first match is scrolled into view even when it's below the viewport.
+#[test]
+fn jump_scrolls_to_offscreen_match() {
+    use super::utils::{TestTuiOptions, test_status_tui_with_options};
+
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    );
+    env.setup_metadata(&["A", "B"]);
+    env.file("one", "");
+    env.file("two", "");
+    env.file("three", "");
+    env.file("kl", "");
+    let mut tui = test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            height: 8,
+            ..Default::default()
+        },
+    );
+
+    tui.input('/');
+    tui.input("add B")
+        .assert_current_line_eq(str!["┊●   lrm add B"])
+        .assert_rendered_term_svg_eq(file!["snapshots/jump_scrolls_to_offscreen_match_001.svg"]);
+}
+
+#[test]
+fn jump_to_merge_base_by_sha() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    );
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('/');
+    tui.input("0dc3733");
+    tui.input(KeyCode::Enter).assert_current_line_eq(str![
+        "┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M"
+    ]);
 }
 
 #[test]
@@ -84,7 +230,8 @@ fn jump_from_other_modes() {
         .assert_rendered_term_svg_eq(file!["snapshots/jump_from_other_modes_001.svg"]);
     tui.input('/')
         .assert_rendered_term_svg_eq(file!["snapshots/jump_from_other_modes_002.svg"]);
-    tui.input('x')
+    tui.input('x');
+    tui.input(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/jump_from_other_modes_003.svg"]);
 }
 
@@ -100,6 +247,94 @@ fn clears_backstack_on_escape() {
     tui.input('/')
         .assert_backstack_eq([BackstackEntry::LeaveNormalMode]);
     tui.input(KeyCode::Esc).assert_backstack_eq([]);
+}
+
+#[test]
+fn escape_puts_cursor_back_where_jump_started() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    );
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j').assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
+    tui.input('/');
+    tui.input("add B")
+        .assert_current_line_eq(str!["┊●   lrm add B"]);
+    tui.input(KeyCode::Esc)
+        .assert_current_line_eq(str!["┊╭┄ g0 [A]"])
+        .assert_backstack_eq([])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/escape_puts_cursor_back_where_jump_started_001.svg"
+        ]);
+}
+
+/// Escape finds the starting line again after a reload removed the lines above it.
+#[test]
+fn escape_after_reload_puts_cursor_back_on_starting_line() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    );
+    env.setup_metadata(&["A", "B"]);
+
+    env.file("one", "");
+    env.file("two", "");
+    env.file("three", "");
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('/');
+    tui.input("0dc3733");
+    tui.input(KeyCode::Enter).assert_current_line_eq(str![
+        "┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M"
+    ]);
+    tui.input('/');
+    tui.input("g0").assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
+
+    tui.env().remove_file("one");
+    tui.env().remove_file("two");
+    tui.env().remove_file("three");
+    tui.reload();
+
+    tui.input(KeyCode::Esc)
+        .assert_current_line_eq(str![
+            "┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M"
+        ])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/escape_after_reload_puts_cursor_back_on_starting_line_001.svg"
+        ]);
+}
+
+/// When a reload removed the starting line, Escape falls back like a reload does.
+#[test]
+fn escape_after_starting_line_is_removed() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    );
+    env.setup_metadata(&["A", "B"]);
+
+    env.file("one", "");
+    env.file("two", "");
+    env.file("three", "");
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('/');
+    tui.input("three");
+    tui.input(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊   or   A three"]);
+    tui.input('/');
+    tui.input("g0").assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
+
+    tui.env().remove_file("one");
+    tui.env().remove_file("two");
+    tui.env().remove_file("three");
+    tui.reload();
+
+    tui.input(KeyCode::Esc)
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"])
+        .assert_backstack_eq([]);
 }
 
 #[test]
@@ -124,12 +359,13 @@ fn restores_backstack_from_previous_mode() {
 
     tui.input('/')
         .assert_backstack_eq([BackstackEntry::LeaveNormalMode, BackstackEntry::Mark]);
-    tui.input('x')
+    tui.input('x');
+    tui.input(KeyCode::Enter)
         .assert_backstack_eq([BackstackEntry::LeaveNormalMode, BackstackEntry::Mark]);
 }
 
 #[test]
-fn highlights_exact_matches_when_file_list_is_open() {
+fn highlights_matches_when_file_list_is_open() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
     );
@@ -140,17 +376,17 @@ fn highlights_exact_matches_when_file_list_is_open() {
     tui.input((KeyModifiers::SHIFT, 'F'));
     tui.input('/');
     tui.input('t').assert_rendered_term_svg_eq(file![
-        "snapshots/highlights_exact_matches_when_file_list_is_open_001.svg"
+        "snapshots/highlights_matches_when_file_list_is_open_001.svg"
     ]);
 
     tui.input((KeyModifiers::CONTROL, 'n'))
         .assert_rendered_term_svg_eq(file![
-            "snapshots/highlights_exact_matches_when_file_list_is_open_002.svg"
+            "snapshots/highlights_matches_when_file_list_is_open_002.svg"
         ]);
 
     tui.input((KeyModifiers::CONTROL, 'n'))
         .assert_rendered_term_svg_eq(file![
-            "snapshots/highlights_exact_matches_when_file_list_is_open_003.svg"
+            "snapshots/highlights_matches_when_file_list_is_open_003.svg"
         ]);
 }
 
@@ -168,13 +404,14 @@ fn when_branch_short_code_and_commit_change_id_have_same_initial_character() {
     tui.input("r").assert_rendered_term_svg_eq(file![
         "snapshots/when_branch_short_code_matches_commit_sha_without_change_id_001.svg"
     ]);
-    tui.input("r")
+    tui.input("r");
+    tui.input(KeyCode::Enter)
         .assert_current_line_eq(str!["┊╭┄ rr [rr-branch]"]);
 
     tui.input("g");
     tui.input("/");
-    tui.input("r");
-    tui.input("z")
+    tui.input("rz");
+    tui.input(KeyCode::Enter)
         .assert_current_line_eq(str!["┊●   rzr add branch 814"]);
 }
 
@@ -198,13 +435,13 @@ fn cancelling_jump_during_file_squash_does_not_move_cursor() {
             BackstackEntry::ShowFileList,
         ]);
 
-    // Escape keeps the current cursor, not the position from before entering jump.
+    // Escape puts the cursor back where it was before entering jump.
     tui.input('/');
     tui.input((KeyModifiers::CONTROL, 'n'));
     tui.input((KeyModifiers::CONTROL, 'n'))
         .assert_current_line_eq(str!["[..]lrm add B"]);
     tui.input(KeyCode::Esc)
-        .assert_current_line_eq(str!["[..]lrm add B"])
+        .assert_current_line_eq(str!["[..]xwn add C"])
         .assert_backstack_eq([
             BackstackEntry::LeaveNormalMode,
             BackstackEntry::ShowFileList,
@@ -239,7 +476,8 @@ fn jumping_in_file_lists() {
         BackstackEntry::LeaveNormalMode,
         BackstackEntry::ShowFileList,
     ]);
-    tui.input("zt:t")
+    tui.input("zt:t");
+    tui.input(KeyCode::Enter)
         .assert_current_line_eq("┊│     zt:t A two")
         .assert_backstack_eq([BackstackEntry::ShowFileList]);
 
@@ -268,7 +506,7 @@ fn jumping_in_file_lists() {
         .assert_current_line_eq("┊│     zt:o A three")
         .assert_backstack_eq([BackstackEntry::ShowFileList]);
 
-    // IDs outside the list cannot auto-jump, cycle, or confirm outside it.
+    // IDs outside the list cannot move the cursor, cycle, or confirm outside it.
     for query in ["br", "@", "0dc3733"] {
         tui.input('/');
         tui.input(query)
@@ -292,7 +530,8 @@ fn jumping_in_file_lists() {
     tui.input((KeyModifiers::SHIFT, 'F'));
     tui.input((KeyModifiers::SHIFT, 'F'));
     tui.input('/');
-    tui.input('@')
+    tui.input('@');
+    tui.input(KeyCode::Enter)
         .assert_current_line_eq("╭┄ @ [uncommitted] (no changes)")
         .assert_backstack_eq([BackstackEntry::ShowFileList]);
 }

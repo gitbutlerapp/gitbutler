@@ -5,7 +5,7 @@ use tracing::instrument;
 
 mod json {
     use gitbutler_user::User;
-    use serde::{Deserialize, Serialize};
+    use serde::Serialize;
 
     #[derive(Debug, Serialize)]
     pub struct UserWithSecretsSensitive {
@@ -33,17 +33,6 @@ mod json {
         /// operations on behalf of the user.
         pub github_access_token: Option<String>,
         pub github_username: Option<String>,
-    }
-
-    /// The uploads endpoint's response, whose fields are snake_case on the wire.
-    #[derive(Debug, Deserialize)]
-    pub struct ApiUpload {
-        pub uuid: String,
-        pub filename: String,
-        pub content_type: String,
-        pub url: String,
-        pub public: bool,
-        pub created_at: String,
     }
 
     impl TryFrom<User> for UserWithSecretsSensitive {
@@ -117,82 +106,14 @@ impl From<User> for UserProfile {
 ///
 /// Only the stored profile is read: the keychain, which may prompt on macOS, is left to the
 /// first call that needs the token.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn get_user_profile_local() -> Result<Option<UserProfile>> {
     Ok(gitbutler_user::get_user()?.map(Into::into))
 }
 
-/// Change the profile on gitbutler.com and keep the stored account in step.
-///
-/// The API call alone would leave the local copy stale, so the name shown next to the
-/// picture would still be the old one until the next sign-in.
-#[but_api(napi)]
-#[instrument(skip(params), err(Debug))]
-pub fn update_profile_and_persist(
-    params: gitbutler_user::api::UpdateUserParams,
-) -> Result<UserProfile> {
-    let value = gitbutler_user::api::update_user_profile(params)?;
-    let updated: User = serde_json::from_value(value)?;
-
-    // Carry the changed fields onto the stored user rather than replacing it: the
-    // credentials live behind private fields, and the API response has none to put back.
-    let Some(mut stored) = gitbutler_user::get_user()? else {
-        return Ok(updated.into());
-    };
-    stored.name = updated.name;
-    stored.email = updated.email;
-    stored.picture = updated.picture;
-    gitbutler_user::set_user(&stored)?;
-    Ok(stored.into())
-}
-
-/// A file uploaded to gitbutler.com, ready to be linked from markdown.
-#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct Upload {
-    pub uuid: String,
-    pub filename: String,
-    pub content_type: String,
-    /// Publicly reachable URL of the uploaded file.
-    pub url: String,
-    pub public: bool,
-    pub created_at: String,
-    /// Whether the file should be embedded (`![]()`) rather than linked (`[]()`).
-    pub is_image: bool,
-}
-but_schemars::register_sdk_type!(Upload);
-
-impl From<json::ApiUpload> for Upload {
-    fn from(value: json::ApiUpload) -> Self {
-        let is_image = value.content_type.starts_with("image/");
-        Upload {
-            uuid: value.uuid,
-            filename: value.filename,
-            content_type: value.content_type,
-            url: value.url,
-            public: value.public,
-            created_at: value.created_at,
-            is_image,
-        }
-    }
-}
-
-/// Upload a file to gitbutler.com so it can be linked from a review body.
-///
-/// The upload is public, so callers should confirm that with the user first. Runs
-/// here rather than in the frontend because the account token never leaves this
-/// process, so a renderer cannot make the authenticated call itself.
-#[but_api(napi)]
-#[instrument(skip(params), err(Debug))]
-pub fn upload_file(params: gitbutler_user::api::UploadFileParams) -> Result<Upload> {
-    let value = gitbutler_user::api::upload_file(params)?;
-    let upload: json::ApiUpload = serde_json::from_value(value)?;
-    Ok(upload.into())
-}
-
 /// Complete a login and persist the account, so the token never leaves this process.
-#[but_api(napi)]
+#[but_api]
 #[instrument(skip(token), err(Debug))]
 pub fn login_and_persist(token: String) -> Result<UserProfile> {
     let value = gitbutler_user::api::fetch_user_by_token(&token)?;
@@ -226,13 +147,13 @@ pub fn set_user(user: User) -> Result<()> {
     gitbutler_user::set_user(&user)
 }
 
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn delete_user() -> Result<()> {
     gitbutler_user::delete_user()
 }
 
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn get_login_token() -> Result<gitbutler_user::api::LoginToken> {
     gitbutler_user::api::fetch_login_token()

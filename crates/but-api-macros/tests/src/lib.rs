@@ -13,19 +13,6 @@
 
 use std::str::FromStr;
 
-pub mod tags {
-    /// Stand-in for `but_api::tags::CacheTag`, holding just enough variants
-    /// for the `provides`/`invalidates` expansion checks.
-    pub enum CacheTag {
-        Reviews,
-        Checks,
-    }
-
-    /// Stand-in for `but_api::tags::signal_invalidation`, which the
-    /// `invalidates` expansion calls after a successful mutation.
-    pub fn signal_invalidation(_project_data_dir: &std::path::Path, _tags: &[&str]) {}
-}
-
 pub mod panic_capture {
     pub fn panic_payload_to_anyhow(
         function_name: &str,
@@ -62,7 +49,7 @@ pub mod json {
     }
 
     impl FromStr for HexHash {
-        type Err = gix::hash::decode::Error;
+        type Err = gix::Error;
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
             let _ = gix::ObjectId::from_hex(s.as_bytes())?;

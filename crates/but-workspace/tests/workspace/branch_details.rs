@@ -11,7 +11,9 @@ mod without_workspace {
             read_only_in_memory_scenario_named("with-remotes-no-workspace", "nothing-to-push")?;
         let meta = InMemoryRefMetadata::default();
         let project_meta = ProjectMeta {
-            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+                "refs/heads/main".try_into()?,
+            )?),
             ..Default::default()
         };
 
@@ -37,7 +39,9 @@ mod without_workspace {
             read_only_in_memory_scenario_named("with-remotes-no-workspace", "nothing-to-push")?;
         let meta = InMemoryRefMetadata::default();
         let project_meta = ProjectMeta {
-            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+                "refs/heads/main".try_into()?,
+            )?),
             ..Default::default()
         };
 
@@ -398,7 +402,10 @@ BranchDetails {
 
     impl WorkspaceRefMetadataStore {
         pub fn with_target(mut self, short_name: &str) -> Self {
-            self.project_meta.target_ref = Some(refname(short_name));
+            self.project_meta.target_ref = Some(
+                but_core::ref_metadata::LocalRefName::new(refname(short_name))
+                    .expect("test target is a local branch"),
+            );
             self
         }
 

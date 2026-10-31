@@ -2,7 +2,7 @@
 
 #![deny(missing_docs)]
 
-use crate::args::atoms::{AllowMergedArg, CliIdArg};
+use crate::args::atoms::{AllowMergedArg, CliIdArg, MessageFileArg};
 
 /// Squash commits, branches, or changes.
 ///
@@ -39,6 +39,12 @@ pub struct Platform {
     #[clap(long, group = "commit_message")]
     pub no_message: bool,
 
+    /// Read the message for the new commit from `FILE`, or from stdin when `FILE` is `-`.
+    ///
+    /// This cannot be used when `TARGET` is the uncommitted area (`@`).
+    #[clap(short = 'F', long, value_name = "FILE", group = "commit_message")]
+    pub file: Option<MessageFileArg>,
+
     /// Use the message of the target.
     ///
     /// The message of the source(s) will be discarded.
@@ -74,7 +80,8 @@ pub struct Platform {
     /// squashed into a single commit. Uncommitted files or hunks, or `@` for all of them: squashed
     /// into the target. Committed files and hunks from one commit: moved into the target.
     ///
-    /// A target of `@` uncommits the sources instead. With `--target` and no sources, `@` is used.
+    /// A target of `@` uncommits the sources instead. With `--target` and no sources, the
+    /// uncommitted area of the checkout `but` runs in is used: `@`, or a linked worktree's.
     #[clap(required_unless_present = "target")]
     pub sources: Vec<CliIdArg>,
 

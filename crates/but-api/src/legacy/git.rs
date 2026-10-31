@@ -15,6 +15,16 @@ pub fn git_remote_branches(ctx: &but_ctx::Context) -> Result<Vec<RemoteRefname>>
         .remote_branches()?
         .filter_map(Result::ok)
         .filter(|reference| !reference.name().as_bstr().ends_with_str("/HEAD"))
+        .filter(|reference| {
+            let name = reference.name().as_bstr();
+            let one_component = name
+                .strip_prefix(b"refs/remotes/")
+                .is_some_and(|rest| !rest.is_empty() && !rest.contains(&b'/'));
+            if one_component {
+                tracing::debug!(%name, "skipping remote-tracking ref without a `<remote>/<branch>` shape");
+            }
+            !one_component
+        })
         .map(|reference| {
             reference
                 .name()
@@ -25,7 +35,7 @@ pub fn git_remote_branches(ctx: &but_ctx::Context) -> Result<Vec<RemoteRefname>>
         .collect()
 }
 
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn git_test_push(
     ctx: &but_ctx::Context,
@@ -36,7 +46,7 @@ pub fn git_test_push(
     Ok(())
 }
 
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn git_test_fetch(
     ctx: &but_ctx::Context,
@@ -63,7 +73,7 @@ pub fn git_index_size(ctx: &but_ctx::Context) -> Result<usize> {
     Ok(size)
 }
 
-#[but_api(napi, invalidates = [Projects])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn delete_all_data() -> Result<()> {
     for project in gitbutler_project::dangerously_list_projects_without_migration()

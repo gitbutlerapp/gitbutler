@@ -166,6 +166,14 @@ const CLASSIFICATIONS: Partial<Record<Code, Classification>> = {
 	DefaultTargetNotFound: {
 		severity: "silent",
 	},
+	/**
+	 * A target an older GitButler stored as a remote branch that no single
+	 * local branch tracks. The project page asks for a local target branch
+	 * in its place and says why, so a toast would repeat it.
+	 */
+	UnresolvedLegacyTarget: {
+		severity: "silent",
+	},
 	CommitSigningFailed: {
 		severity: "error",
 		userMessage: `
@@ -206,9 +214,10 @@ Your GitHub token appears expired. Please log out and back in to refresh it. (Se
 	`,
 	},
 	/**
-	 * GitLab rejected a stored token (401) or refused the account behind it
-	 * (403). Both are terminal until the user stores a different token; a 403
-	 * needs scopes or permissions, not the same token typed again.
+	 * GitLab rejected a stored token (401) or refused access (403) to the
+	 * account or a project's review listing. Both stop polling until a retry
+	 * succeeds or the credential or access changes; a 403 may come from token
+	 * scopes, project membership, or instance policy.
 	 */
 	GitLabUnauthorized: {
 		severity: "error",
@@ -222,7 +231,14 @@ Your GitHub token appears expired. Please log out and back in to refresh it. (Se
 		terminal: true,
 		title: "GitLab Access Refused",
 		userMessage:
-			"GitLab refused access for your stored token. Check the token scopes and your account permissions, then store a new token under Settings → Integrations.",
+			"GitLab refused access for your stored token. Check the token scopes, your membership in the project, and any GitLab instance policies. If the token needs different scopes, store a new one under Settings → Integrations.",
+	},
+	GitLabProjectNotFound: {
+		severity: "error",
+		terminal: true,
+		title: "GitLab Project Not Found",
+		userMessage:
+			"GitLab could not find this project, or your token cannot see it. Check the GitLab host URL. Confirm that the project exists at the path in your remote URL and that your account is a member of it, then try again.",
 	},
 	...GITHUB_DEVICE_OAUTH_CLASSIFICATIONS,
 	GitHubOrgOAuthRestricted: GH_ORG_AUTH_CLASSIFICATION,
@@ -242,7 +258,7 @@ Your GitHub token appears expired. Please log out and back in to refresh it. (Se
 		terminal: true,
 		title: "GitHub Permissions Error",
 		userMessage: `
-GitHub could not access this repository or part of it (for example CI checks). Check that the repository still exists, grant the missing read permission, or reconnect GitHub under Settings → Integrations.
+GitHub could not access this repository or part of it (for example CI checks). Check that the repository still exists and that your account has the needed read permission, or reconnect GitHub under Settings → Integrations. If the organization uses an IP allow list, connect from an allowed network or ask an organization owner to update the list.
 		`,
 	},
 	/**

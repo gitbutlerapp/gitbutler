@@ -1,0 +1,49 @@
+.switch {
+	--disabled-opacity: 50%;
+	--switch-width: 24px;
+	--switch-height: 14px;
+
+	display: inline-flex;
+	position: relative;
+	flex-shrink: 0;
+	width: var(--switch-width);
+	height: var(--switch-height);
+	padding: 0;
+	border: none;
+	border-radius: var(--radius-full);
+	background-color: var(--border-2);
+	transition: background-color var(--transition-medium);
+
+	&[data-checked] {
+		background-color: var(--fill-pop-bg);
+	}
+
+	&:disabled,
+	&[data-disabled] {
+		opacity: var(--disabled-opacity);
+	}
+}
+
+/* The size a settings row wears, where the switch is the row's only control and sits beside
+   15px text rather than inside a 13px row. The thumb and its travel follow from the height. */
+.large {
+	--switch-width: 28px;
+	--switch-height: 16px;
+}
+
+.thumb {
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: calc(var(--switch-height) - 4px);
+	height: calc(var(--switch-height) - 4px);
+	border-radius: var(--radius-full);
+	background-color: var(--bg-1);
+	transition: left var(--transition-medium);
+
+	/* Mirror of the 2px resting inset: width − thumb − 2, and the thumb is
+	   itself height − 4. Spelled out so a resize carries the travel with it. */
+	&[data-checked] {
+		left: calc(var(--switch-width) - var(--switch-height) + 2px);
+	}
+}

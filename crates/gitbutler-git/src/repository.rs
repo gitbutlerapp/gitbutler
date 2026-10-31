@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    ffi::OsString,
     path::{Path, PathBuf},
 };
 
@@ -65,7 +64,7 @@ pub enum RepositoryError<
         remote: String,
         /// The configuration lookup error.
         #[source]
-        source: gix::remote::find::existing::Error,
+        source: gix::Error,
     },
     /// The repository could not be opened.
     #[error("failed to open repository at `{}`: {source}", path.display())]
@@ -74,7 +73,7 @@ pub enum RepositoryError<
         path: PathBuf,
         /// The repository open error.
         #[source]
-        source: gix::open::Error,
+        source: gix::Error,
     },
 }
 
@@ -106,12 +105,52 @@ where
     Fut: std::future::Future<Output = Option<String>>,
 {
     let envs = new_env_with_git_ssh_configured(&harness_env);
+    let stall_limits = http_stall_limit_args(&harness_env);
+    let args: Vec<&str> = stall_limits
+        .iter()
+        .map(String::as_str)
+        .chain(args.iter().copied())
+        .collect();
 
     if let Some(on_prompt) = on_prompt {
-        execute_with_indirect_askpass(harness_env, executor, args, envs, on_prompt).await
+        execute_with_indirect_askpass(harness_env, executor, &args, envs, on_prompt).await
     } else {
-        execute_direct(harness_env, executor, args, envs).await
+        execute_direct(harness_env, executor, &args, envs).await
     }
+}
+
+/// Git's HTTP transport has no timeout, so a remote that accepts the connection and then goes
+/// silent hangs the operation forever. These settings abort a transfer that moves less than
+/// 1 byte per second for 60 seconds, while slow transfers that still make progress keep going.
+const HTTP_STALL_LIMITS: [(&str, &str); 2] =
+    [("http.lowSpeedLimit", "1"), ("http.lowSpeedTime", "60")];
+
+/// Returns `-c` arguments for each of [`HTTP_STALL_LIMITS`] the user hasn't configured.
+fn http_stall_limit_args<P>(harness_env: &HarnessEnv<P>) -> Vec<String>
+where
+    P: AsRef<Path>,
+{
+    let config = match harness_env {
+        HarnessEnv::Repo(repo_path) => gix::open(repo_path.as_ref())
+            .ok()
+            .map(|repo| repo.config_snapshot().plumbing().clone()),
+        HarnessEnv::Global(_) => gix::config::File::from_globals().ok().map(|mut config| {
+            // Git applies `GIT_CONFIG_*` overrides on top; a repository's config has them already.
+            if let Ok(overrides) = gix::config::File::from_environment_overrides() {
+                config.append(overrides).ok();
+            }
+            config
+        }),
+    };
+    HTTP_STALL_LIMITS
+        .into_iter()
+        .filter(|(key, _)| {
+            config
+                .as_ref()
+                .is_none_or(|config| config.raw_value(*key).is_err())
+        })
+        .flat_map(|(key, value)| ["-c".to_owned(), format!("{key}={value}")])
+        .collect()
 }
 
 /// Askpass-aware execution of Git commands, allowing the GUI to communicate with the askpass
@@ -147,7 +186,9 @@ where
         current_exe = current_exe.parent().unwrap().to_path_buf();
     }
 
-    let askpath_path = askpass_executable_path(&current_exe);
+    let askpath_path = current_exe
+        .with_file_name("gitbutler-git-askpass")
+        .with_extension(std::env::consts::EXE_EXTENSION);
 
     let res = executor.stat(&askpath_path).await.map_err(Error::<E>::Exec);
     if res.is_err() {
@@ -260,7 +301,7 @@ where
 
                 let valid_executable = if peer_stat.ino == askpath_stat.ino {
                     if peer_stat.dev != askpath_stat.dev {
-                        return Err(Error::<E>::AskpassDeviceMismatch)?;
+                        Err(Error::<E>::AskpassDeviceMismatch)?;
                     }
 
                     true
@@ -269,7 +310,7 @@ where
                 };
 
                 if !valid_executable {
-                    return Err(Error::<E>::AskpassExecutableMismatch)?;
+                    Err(Error::<E>::AskpassExecutableMismatch)?;
                 }
 
                 // await for peer to send secret
@@ -277,7 +318,7 @@ where
 
                 // check the secret
                 if peer_secret.trim() != secret {
-                    return Err(Error::<E>::AskpassSecretMismatch)?;
+                    Err(Error::<E>::AskpassSecretMismatch)?;
                 }
 
                 // get the prompt
@@ -293,21 +334,6 @@ where
             }
         }
     }
-}
-
-fn askpass_executable_path(current_exe: &Path) -> PathBuf {
-    askpass_executable_path_from_override(std::env::var_os("GITBUTLER_ASKPASS_BIN"), current_exe)
-}
-
-fn askpass_executable_path_from_override(
-    override_path: Option<OsString>,
-    current_exe: &Path,
-) -> PathBuf {
-    override_path.map(PathBuf::from).unwrap_or_else(|| {
-        current_exe
-            .with_file_name("gitbutler-git-askpass")
-            .with_extension(std::env::consts::EXE_EXTENSION)
-    })
 }
 
 /// Directly execute the Git command without invoking the askpass pipe machinery. This is useful
@@ -383,8 +409,10 @@ where
         }
     };
 
+    // Keepalives close the connection once the server hasn't answered for 60 seconds
+    // (4 probes, 15 seconds apart); without them a half-open connection hangs forever.
     let git_ssh_command = format!(
-        "ssh -o StrictHostKeyChecking=accept-new -o KbdInteractiveAuthentication=no{additional_options}"
+        "ssh -o StrictHostKeyChecking=accept-new -o KbdInteractiveAuthentication=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4{additional_options}"
     );
     envs.insert("GIT_SSH_COMMAND".into(), git_ssh_command);
     envs
@@ -402,7 +430,7 @@ where
     match harness_env {
         HarnessEnv::Repo(repo_path) => Ok(gix::open(repo_path.as_ref())?
             .config_snapshot()
-            .trusted_program(gix::config::tree::Core::SSH_COMMAND)
+            .trusted_program(gix::config::tree::Core::SSH_COMMAND)?
             .and_then(|program| program.to_str().map(String::from))),
         HarnessEnv::Global(_) => Ok(gix::config::File::from_globals()?
             .string(gix::config::tree::Core::SSH_COMMAND)
@@ -434,8 +462,7 @@ where
         source,
     })?;
     let refspecs = fetch_refspecs(&repo, remote).map_err(|source| {
-        let remote_not_found =
-            matches!(source, gix::remote::find::existing::Error::NotFound { .. });
+        let remote_not_found = source.is_not_found();
         let source = Error::<E>::RemoteConfiguration {
             remote: remote.to_owned(),
             source,
@@ -482,10 +509,7 @@ where
     }
 }
 
-fn fetch_refspecs(
-    repo: &gix::Repository,
-    remote: &str,
-) -> Result<Vec<String>, gix::remote::find::existing::Error> {
+fn fetch_refspecs(repo: &gix::Repository, remote: &str) -> gix::Result<Vec<String>> {
     let refspecs: Vec<_> = repo
         .find_remote(remote)?
         .refspecs(gix::remote::Direction::Fetch)
@@ -665,39 +689,38 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::{ffi::OsString, path::Path};
-
-    #[test]
-    fn askpass_executable_path_honors_override() {
-        let path = super::askpass_executable_path_from_override(
-            Some(OsString::from("/tmp/custom-askpass")),
-            Path::new("/Applications/GitButler Lite.app/Contents/MacOS/GitButler Lite"),
+    #[tokio::test]
+    async fn fetch_distinguishes_missing_remotes_from_invalid_configuration() -> anyhow::Result<()>
+    {
+        let tmp = but_testsupport::gix_testtools::tempfile::tempdir()?;
+        let repo = gix::init(tmp.path())?;
+        let on_prompt = None::<fn(String) -> std::future::Ready<Option<String>>>;
+        let err = super::fetch(tmp.path(), crate::tokio::TokioExecutor, "origin", on_prompt)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(err, crate::Error::NoSuchRemote(..)),
+            "a missing remote retains its public error variant"
         );
 
-        assert_eq!(
-            path,
-            Path::new("/tmp/custom-askpass"),
-            "explicit askpass path should be used for packaged Electron apps"
+        but_core::git_config::edit_repo_config(&repo, gix::config::Source::Local, |config| {
+            config.set_raw_value("remote.origin.url", "https://example.com/repo")?;
+            config.set_raw_value(
+                "remote.origin.fetch",
+                "refs/heads/*:refs/remotes/origin/*:extra",
+            )?;
+            Ok(())
+        })?;
+        let err = super::fetch(tmp.path(), crate::tokio::TokioExecutor, "origin", on_prompt)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(
+                err,
+                crate::Error::Backend(super::RepositoryError::RemoteConfiguration { .. })
+            ),
+            "an existing remote with an invalid refspec remains a configuration error"
         );
-    }
-
-    #[test]
-    fn askpass_executable_path_falls_back_next_to_current_exe() {
-        let path =
-            super::askpass_executable_path_from_override(None, Path::new("/tmp/gitbutler-lite"));
-        let expected = if std::env::consts::EXE_EXTENSION.is_empty() {
-            "/tmp/gitbutler-git-askpass".to_string()
-        } else {
-            format!(
-                "/tmp/gitbutler-git-askpass.{}",
-                std::env::consts::EXE_EXTENSION
-            )
-        };
-
-        assert_eq!(
-            path,
-            Path::new(&expected),
-            "fallback should preserve the historical current_exe sibling lookup"
-        );
+        Ok(())
     }
 }

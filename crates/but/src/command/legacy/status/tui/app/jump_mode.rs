@@ -1,20 +1,22 @@
-use bstr::ByteSlice;
+use std::sync::LazyLock;
+
 use crossterm::event::Event;
+use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use ratatui::prelude::*;
 use ratatui_textarea::{CursorMove, TextArea};
 
-use crate::{
-    CliId,
-    command::legacy::status::{
-        FilesStatusFlag, StatusOutputLine,
-        output::StatusOutputContent,
-        tui::{
-            App, Backstack, Message, Mode, NormalMode,
-            cursor::{self, Cursor},
-            render::ModeRender,
-        },
+use crate::command::legacy::status::{
+    FilesStatusFlag, StatusOutputLine,
+    output::{
+        BranchLineContent, CommitLineContent, FileLineContent, MergeBaseLineContent,
+        StatusOutputContent, UncommittedLineContent,
     },
-    id::CommitId,
+    tui::{
+        App, Backstack, Message, Mode, NormalMode,
+        app::MoveCursorDiration,
+        cursor::{self, Cursor},
+        render::ModeRender,
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -22,6 +24,8 @@ pub struct JumpMode {
     pub textarea: Box<TextArea<'static>>,
     pub return_mode: Box<Mode>,
     pub return_backstack: Backstack,
+    /// Where cancelling puts the cursor back.
+    pub return_cursor: Cursor,
 }
 
 impl ModeRender for JumpMode {
@@ -35,6 +39,33 @@ impl ModeRender for JumpMode {
 }
 
 impl JumpMode {
+    /// Where the query fuzzy matches `line`, or `None` if the line can't be jumped to.
+    ///
+    /// An empty query matches every line that can be jumped to.
+    pub fn match_line(
+        &self,
+        line: &StatusOutputLine,
+        show_files: FilesStatusFlag,
+    ) -> Option<JumpMatch> {
+        if !cursor::is_selectable_in_mode(line, Mode::as_ref(&self.return_mode), show_files) {
+            return None;
+        }
+        let (id, text) = jump_parts(&line.content)?;
+        let query = self.query();
+        let id_match = fuzzy_match(id, query);
+        let text_match = fuzzy_match(text, query);
+        // The ID wins ties so typing an ID highlights it rather than similar text.
+        let (part, char_indices) = match (id_match, text_match) {
+            (Some((id_score, _)), Some((text_score, char_indices))) if text_score > id_score => {
+                (JumpPart::Text, char_indices)
+            }
+            (Some((_, char_indices)), _) => (JumpPart::Id, char_indices),
+            (None, Some((_, char_indices))) => (JumpPart::Text, char_indices),
+            (None, None) => return None,
+        };
+        Some(JumpMatch { part, char_indices })
+    }
+
     pub fn query(&self) -> &str {
         self.textarea
             .lines()
@@ -45,6 +76,82 @@ impl JumpMode {
     }
 }
 
+/// Where a jump query matched within a status line.
+#[derive(Debug)]
+pub struct JumpMatch {
+    part: JumpPart,
+    char_indices: Vec<usize>,
+}
+
+impl JumpMatch {
+    /// The matched character indices into the text of `part`, empty if the query matched the
+    /// line's other part.
+    pub fn char_indices(&self, part: JumpPart) -> &[usize] {
+        if self.part == part {
+            &self.char_indices
+        } else {
+            &[]
+        }
+    }
+}
+
+/// The parts of a status line that a jump query is matched against.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JumpPart {
+    /// The short ID, such as `g0` for a branch.
+    Id,
+    /// The text describing the line, such as a branch name, commit message or file path.
+    Text,
+}
+
+/// The spans showing the [`JumpPart::Id`] and [`JumpPart::Text`] of a line, or `None` if the
+/// line has nothing to jump to.
+fn jump_parts(content: &StatusOutputContent) -> Option<(&[Span<'static>], &[Span<'static>])> {
+    match content {
+        StatusOutputContent::Plain(..) => None,
+        StatusOutputContent::MergeBase(MergeBaseLineContent { id, suffix: _ }) => Some((id, &[])),
+        StatusOutputContent::Commit(CommitLineContent {
+            change_id,
+            sha,
+            author: _,
+            message,
+            suffix: _,
+        }) => {
+            // The SHA is only shown when the commit has no change ID.
+            let id = if change_id.is_empty() { sha } else { change_id };
+            Some((id, message))
+        }
+        StatusOutputContent::Branch(BranchLineContent {
+            id,
+            decoration_start: _,
+            branch_name,
+            decoration_end: _,
+            suffix: _,
+        }) => Some((id, branch_name)),
+        StatusOutputContent::File(FileLineContent {
+            id,
+            status: _,
+            path,
+        }) => Some((id, path)),
+        StatusOutputContent::Uncommitted(UncommittedLineContent {
+            id,
+            decoration_start: _,
+            label,
+            decoration_end: _,
+            suffix: _,
+        }) => Some((id, label)),
+    }
+}
+
+fn fuzzy_match(content: &[Span<'static>], query: &str) -> Option<(i64, Vec<usize>)> {
+    static MATCHER: LazyLock<SkimMatcherV2> = LazyLock::new(SkimMatcherV2::default);
+    MATCHER.fuzzy_indices(&spans_text(content), query)
+}
+
+fn spans_text(content: &[Span<'static>]) -> String {
+    content.iter().map(|span| span.content.as_ref()).collect()
+}
+
 #[derive(Debug)]
 pub enum JumpMessage {
     Enter,
@@ -52,87 +159,6 @@ pub enum JumpMessage {
     Previous,
     Next,
     Confirm,
-}
-
-fn find_line_by_jump_id<'a>(
-    query: &str,
-    lines: &'a [StatusOutputLine],
-    return_mode: &Mode,
-    show_files_flag: FilesStatusFlag,
-) -> Option<&'a StatusOutputLine> {
-    if query.is_empty() {
-        return None;
-    }
-
-    let mut matches = lines
-        .iter()
-        .filter(|line| prefix_match(query, line, return_mode, show_files_flag))
-        .peekable();
-
-    let needle = matches.next()?;
-    if matches.peek().is_none() {
-        return Some(needle);
-    }
-    // A worktree's `wt` is a strict prefix of its own area `wt:@`, so typing it can never
-    // become unique; an ID typed out in full wins over the IDs extending it.
-    std::iter::once(needle).chain(matches).find(|line| {
-        line.data
-            .cli_id()
-            .is_some_and(|id| id.short_string() == query)
-    })
-}
-
-pub fn prefix_match(
-    query: &str,
-    line: &StatusOutputLine,
-    return_mode: &Mode,
-    show_files_flag: FilesStatusFlag,
-) -> bool {
-    if !cursor::is_selectable_in_mode(line, return_mode.as_ref(), show_files_flag) {
-        return false;
-    }
-    jump_id_has_prefix(line, query)
-}
-
-fn jump_id_has_prefix(line: &StatusOutputLine, query: &str) -> bool {
-    if let StatusOutputContent::MergeBase(merge_base) = &line.content {
-        let mut buf = gix::hash::Kind::hex_buf();
-        return merge_base.commit_id.hex_to_buf(&mut buf).starts_with(query);
-    }
-
-    let Some(id) = line.data.cli_id() else {
-        return false;
-    };
-    match &**id {
-        CliId::UncommittedHunkOrFile(hunk) => hunk.id.starts_with(query),
-        CliId::Commit {
-            commit: CommitId {
-                commit_id,
-                change_id,
-            },
-            id,
-        } => {
-            if let Some(change_id) = change_id {
-                change_id
-                    .as_bytes()
-                    .to_str()
-                    .unwrap_or(id)
-                    .starts_with(query)
-            } else {
-                let mut buf = gix::hash::Kind::hex_buf();
-                commit_id.hex_to_buf(&mut buf).starts_with(query)
-            }
-        }
-        CliId::PathPrefix { id, .. }
-        | CliId::CommittedFile { id, .. }
-        | CliId::Uncommitted { id }
-        | CliId::Worktree { id, .. }
-        | CliId::WorktreeUncommitted { id, .. }
-        | CliId::Stack { id, .. } => id.starts_with(query),
-        CliId::Branch(branch) => branch.id.starts_with(query),
-        CliId::AnonymousSegment(segment) => segment.id.starts_with(query),
-        CliId::CommittedHunk(..) => false,
-    }
 }
 
 fn cursor_for_jump_line(line: &StatusOutputLine, lines: &[StatusOutputLine]) -> Option<Cursor> {
@@ -155,18 +181,26 @@ impl App {
     }
 
     pub fn restore_mode_before_jump(&mut self) -> bool {
-        self.mode.update(&mut self.backstack, |backstack, mode| {
+        let return_cursor = self.mode.update(&mut self.backstack, |backstack, mode| {
             let previous_mode = std::mem::replace(mode, Mode::Normal(NormalMode::default()));
             let Mode::Jump(jump_mode) = previous_mode else {
                 *mode = previous_mode;
-                return false;
+                return None;
             };
 
             *mode = *jump_mode.return_mode;
             *backstack = jump_mode.return_backstack;
 
-            true
-        })
+            Some(jump_mode.return_cursor)
+        });
+        let Some(return_cursor) = return_cursor else {
+            return false;
+        };
+
+        self.cursor = return_cursor;
+        // If a reload removed the starting line, its fallback may not be selectable here.
+        self.ensure_cursor_is_on_selectable_line(MoveCursorDiration::Down);
+        true
     }
 
     fn handle_jump_enter(&mut self) {
@@ -198,6 +232,7 @@ impl App {
                     textarea: Box::new(textarea),
                     return_mode: Box::new(previous_mode),
                     return_backstack: backstack,
+                    return_cursor: self.cursor,
                 });
             });
     }
@@ -210,24 +245,13 @@ impl App {
             return;
         };
 
-        mode.textarea.input(ev);
+        // Clearing the query leaves the cursor where it is rather than moving it to the top.
+        if !mode.textarea.input(ev) || mode.query().is_empty() {
+            return;
+        }
 
-        if let Some(line) = find_line_by_jump_id(
-            mode.query(),
-            &self.status_lines,
-            &mode.return_mode,
-            self.flags.show_files,
-        ) && let Some(new_cursor) = cursor_for_jump_line(line, &self.status_lines)
-        {
+        if let Some(new_cursor) = find_jump_match(&self.status_lines, mode, self.flags.show_files) {
             self.cursor = new_cursor;
-
-            let return_mode = mode.return_mode.clone();
-            let return_backstack = mode.return_backstack.clone();
-
-            self.mode.update(&mut self.backstack, |backstack, mode| {
-                *mode = *return_mode;
-                *backstack = return_backstack;
-            });
         }
     }
 
@@ -236,20 +260,22 @@ impl App {
             return;
         };
 
-        let new_cursor =
-            find_jump_match(self.cursor, &self.status_lines, mode, self.flags.show_files);
-
-        if let Some(new_cursor) = new_cursor {
-            self.cursor = new_cursor;
-
-            let return_mode = mode.return_mode.clone();
-            let return_backstack = mode.return_backstack.clone();
-
-            self.mode.update(&mut self.backstack, |backstack, mode| {
-                *mode = *return_mode;
-                *backstack = return_backstack;
-            });
+        // Stay in jump mode when there is no match under the cursor to confirm.
+        if !self
+            .cursor
+            .selected_line(&self.status_lines)
+            .is_some_and(|line| mode.match_line(line, self.flags.show_files).is_some())
+        {
+            return;
         }
+
+        let return_mode = mode.return_mode.clone();
+        let return_backstack = mode.return_backstack.clone();
+
+        self.mode.update(&mut self.backstack, |backstack, mode| {
+            *mode = *return_mode;
+            *backstack = return_backstack;
+        });
     }
 
     fn handle_jump_next(&mut self) {
@@ -279,20 +305,23 @@ impl App {
     }
 }
 
-pub fn find_jump_match(
-    cursor: Cursor,
+fn find_jump_match(
     lines: &[StatusOutputLine],
     mode: &JumpMode,
     show_files: FilesStatusFlag,
 ) -> Option<Cursor> {
-    cursor
-        .selected_line(lines)
-        .filter(|line| prefix_match(mode.query(), line, &mode.return_mode, show_files))
-        .map(|_| cursor)
-        .or_else(|| {
-            lines
-                .iter()
-                .find(|line| prefix_match(mode.query(), line, &mode.return_mode, show_files))
-                .and_then(|line| cursor_for_jump_line(line, lines))
+    let query = mode.query();
+    lines
+        .iter()
+        .filter(|line| mode.match_line(line, show_files).is_some())
+        // Typing an ID lands on it: an exact ID beats an ID starting with the query, which beats
+        // any other match. Otherwise the first match wins.
+        .min_by_key(|line| {
+            let id = jump_parts(&line.content)
+                .map(|(id, _)| spans_text(id))
+                .unwrap_or_default();
+            let id = id.trim();
+            (id != query, !id.starts_with(query))
         })
+        .and_then(|line| cursor_for_jump_line(line, lines))
 }

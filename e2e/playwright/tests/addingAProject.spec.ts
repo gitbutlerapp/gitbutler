@@ -59,10 +59,10 @@ test("should handle adding a project with extra commit and uncommitted changes o
 	await mockPickDirectory(page, projectPath);
 	await clickByTestId(page, "add-local-project");
 
-	clickByTestId(page, "set-base-branch");
+	await clickByTestId(page, "set-base-branch");
 	await waitForTestId(page, "workspace-view");
 
 	const stacks = stack(page);
 	await expect(stacks).toHaveCount(1);
-	await expect(stacks.first()).not.toContainText("master");
+	await expect(stacks.first()).toContainText("master");
 });

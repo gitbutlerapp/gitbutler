@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use but_ctx::Context;
 
 use crate::{
-    CliId,
+    ChangeSourceId, CliId,
     command::legacy::status::{
         StatusOutputLine,
         tui::{app::App, cursor::Cursor},
@@ -29,7 +29,7 @@ pub fn restore_selection(ctx: &Context, lines: &[StatusOutputLine]) -> Option<Cu
 }
 
 fn load_saved_selection_from_disk(ctx: &Context) -> std::io::Result<String> {
-    Ok(std::fs::read_to_string(path(ctx))?.to_owned())
+    std::fs::read_to_string(path(ctx))
 }
 
 fn remove_saved_selection_from_disk(ctx: &Context) -> std::io::Result<()> {
@@ -104,9 +104,14 @@ fn line_id(id: &CliId) -> Option<String> {
                 format!("commit:{commit_id}")
             }
         }
-        CliId::Uncommitted { id } => format!("uncommitted:{id}"),
-        CliId::Worktree { name, .. } => format!("worktree:{name}"),
-        CliId::WorktreeUncommitted { name, .. } => format!("worktree-uncommitted:{name}"),
+        CliId::UncommittedArea {
+            id,
+            source: ChangeSourceId::Head,
+        } => format!("uncommitted:{id}"),
+        CliId::UncommittedArea {
+            source: ChangeSourceId::Worktree(name),
+            ..
+        } => format!("worktree-uncommitted:{name}"),
         CliId::CommittedHunk(..) | CliId::PathPrefix { .. } | CliId::Stack { .. } => return None,
     })
 }

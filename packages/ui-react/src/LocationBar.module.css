@@ -1,0 +1,51 @@
+/* On the window's second ground, with its own bottom edge: the header under it starts on bg-1.
+   40px tall, its edge included, with everything centred in what is left. */
+.bar {
+	box-sizing: border-box;
+	display: flex;
+	column-gap: var(--space-2xl);
+	align-items: center;
+	min-width: 0;
+	height: 40px;
+	padding: 0 var(--padding-panel);
+	border-bottom: 1px solid var(--border-section);
+	background-color: var(--bg-2);
+}
+
+/* Its gaps are the bar's, so a divider inside it sits as far from its buttons as the one after it. */
+.leading {
+	display: flex;
+	column-gap: var(--space-2xl);
+	flex-shrink: 0;
+	align-items: center;
+}
+
+/* The bar's buttons are regular icon-only ghosts, their 16px glyph on a ground squared down to
+   24×22: the size the bar's line is drawn around, which no Button size gives. */
+:is(.leading, .state) > button {
+	--button-width: 24px;
+	--button-height: 22px;
+	--button-padding-inline: 4px;
+}
+
+.divider {
+	flex-shrink: 0;
+	width: 1px;
+	height: 16px;
+	background-color: var(--border-section);
+}
+
+/* The trail takes what is left, so it is the part that folds when the bar narrows. */
+.trail {
+	flex: 1;
+	min-width: 0;
+}
+
+.state {
+	display: flex;
+	column-gap: var(--space-2xl);
+	flex-shrink: 0;
+	align-items: center;
+	color: var(--text-2);
+	white-space: nowrap;
+}

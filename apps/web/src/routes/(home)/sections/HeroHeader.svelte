@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
 	import { onMount, type Snippet } from "svelte";
 
 	interface Props {
@@ -11,8 +10,8 @@
 
 	let clientButtonWidth = $state(0);
 	let cliButtonWidth = $state(0);
-	let clientButton: HTMLButtonElement;
-	let cliButton: HTMLButtonElement;
+	let clientButton: HTMLAnchorElement;
+	let cliButton: HTMLAnchorElement;
 	let hoveredOption = $state<"home" | "cli" | null>(null);
 	let enableTransitions = $state(false);
 
@@ -71,34 +70,32 @@
 
 <div class="description-wrapper">
 	<div class="toggle-switch" role="group" aria-label="View mode selection">
-		<button
+		<a
 			bind:this={cliButton}
-			type="button"
+			href="/"
 			class="toggle-option"
 			class:active={currentPage === "cli"}
 			class:hovered={hoveredOption === "cli" && currentPage !== "cli"}
 			class:dimmed={hoveredOption !== null && hoveredOption !== "cli" && currentPage === "cli"}
-			onclick={() => goto("/")}
 			onmouseenter={() => (hoveredOption = "cli")}
 			onmouseleave={() => (hoveredOption = null)}
-			aria-pressed={currentPage === "cli"}
+			aria-current={currentPage === "cli" ? "page" : undefined}
 		>
 			CLI
-		</button>
-		<button
+		</a>
+		<a
 			bind:this={clientButton}
-			type="button"
+			href="/client"
 			class="toggle-option"
 			class:active={currentPage === "home"}
 			class:hovered={hoveredOption === "home" && currentPage !== "home"}
 			class:dimmed={hoveredOption !== null && hoveredOption !== "home" && currentPage === "home"}
-			onclick={() => goto("/client")}
 			onmouseenter={() => (hoveredOption = "home")}
 			onmouseleave={() => (hoveredOption = null)}
-			aria-pressed={currentPage === "home"}
+			aria-current={currentPage === "home" ? "page" : undefined}
 		>
 			Desktop
-		</button>
+		</a>
 
 		<div
 			class="toggle-background"
@@ -221,9 +218,11 @@
 		display: flex;
 		z-index: 1;
 		padding: 12px 20px;
+		color: inherit;
 		font-size: 40px;
 		line-height: 1;
 		font-family: var(--font-accent);
+		text-decoration: none;
 		cursor: pointer;
 		transition: color 0.2s ease;
 

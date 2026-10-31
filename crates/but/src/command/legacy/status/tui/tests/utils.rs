@@ -1,5 +1,7 @@
 use but_testsupport::Sandbox;
+use crossterm::event::KeyCode;
 use ratatui::{Terminal, backend::TestBackend};
+use snapbox::str;
 
 use crate::{
     args::OutputFormat,
@@ -26,9 +28,6 @@ pub struct TestTuiOptions {
     pub launch_options: TuiLaunchOptions,
     /// Override deterministic change-ID generation for tests that need collisions.
     pub testing_change_id: Option<&'static str>,
-    /// Turn on the experimental `worktreeManipulation` flag and make the fixture's linked
-    /// worktrees active, so they take part in the status the TUI is built from.
-    pub worktree_manipulation: bool,
 }
 
 impl Default for TestTuiOptions {
@@ -40,8 +39,22 @@ impl Default for TestTuiOptions {
             show_file_browser: false,
             launch_options: Default::default(),
             testing_change_id: None,
-            worktree_manipulation: false,
         }
+    }
+}
+
+/// Bring back the linked worktrees `env`'s fixture has on disk. The first read adopts, i.e.
+/// archives every worktree already on disk on the assumption it predates GitButler, but a
+/// fixture's worktrees are the subject of the test. This is persisted, so later contexts see
+/// them as active.
+pub fn unarchive_worktrees(env: &Sandbox) {
+    let ctx = env.context();
+    let adopted = ctx
+        .worktrees_with_state()
+        .expect("worktree state is readable");
+    for worktree in adopted {
+        ctx.set_worktree_archived(worktree.name.as_ref(), false)
+            .expect("archived state is writable");
     }
 }
 
@@ -49,7 +62,7 @@ pub fn test_status_tui(env: Sandbox) -> TestTui<App> {
     test_status_tui_with_options(env, TestTuiOptions::default())
 }
 
-pub fn test_status_tui_with_options(mut env: Sandbox, options: TestTuiOptions) -> TestTui<App> {
+pub fn test_status_tui_with_options(env: Sandbox, options: TestTuiOptions) -> TestTui<App> {
     let TestTuiOptions {
         width,
         height,
@@ -57,7 +70,6 @@ pub fn test_status_tui_with_options(mut env: Sandbox, options: TestTuiOptions) -
         show_file_browser,
         launch_options,
         testing_change_id,
-        worktree_manipulation,
     } = options;
 
     configure_test_repo(&env);
@@ -66,27 +78,7 @@ pub fn test_status_tui_with_options(mut env: Sandbox, options: TestTuiOptions) -
             "config --local gitbutler.testing.changeId {change_id}"
         ));
     }
-    if worktree_manipulation {
-        // Set on the sandbox rather than on one `Context`, because every render builds a fresh
-        // one - a flag set on a single context would vanish on the first reload.
-        env.app_settings_mut().feature_flags.worktree_manipulation = true;
-    }
     let mut ctx = env.context();
-    if worktree_manipulation {
-        // The first read with the flag on adopts, i.e. archives every worktree already on disk
-        // on the assumption it predates GitButler. A fixture's worktrees are the subject of the
-        // test, so bring them back. This is persisted, so later contexts see them as active.
-        let adopted = ctx
-            .worktrees_with_state()
-            .expect("worktree state is readable");
-        for worktree in adopted {
-            ctx.set_worktree_archived(worktree.name.as_ref(), false)
-                .expect("archived state is writable");
-        }
-    }
-    let operating_mode = but_api::legacy::modes::operating_mode(&ctx)
-        .expect("failed to get operating mode")
-        .operating_mode;
     let mut out = OutputChannel::new(OutputFormat::Human { agent: false });
 
     let flags = StatusFlags::all_false();
@@ -99,7 +91,6 @@ pub fn test_status_tui_with_options(mut env: Sandbox, options: TestTuiOptions) -
         guard.write_permission(),
         &mut out,
         format,
-        &operating_mode,
         flags,
         StatusRenderMode::Tui(launch_options.clone()),
     )
@@ -136,7 +127,6 @@ pub fn test_status_tui_with_options(mut env: Sandbox, options: TestTuiOptions) -
         incoming_out_of_band_messages,
         head_sha,
         clipboard,
-        operating_mode,
     )
     .unwrap();
 
@@ -154,6 +144,35 @@ pub fn test_status_tui_with_options(mut env: Sandbox, options: TestTuiOptions) -
         None,
         clipboard_text,
     )
+}
+
+/// Creates a commit on top of `c-branch-1` that changes `file` in two hunks and `other` in one,
+/// and selects it.
+pub fn commit_with_two_hunks_in_file() -> TestTui<App> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("file", "line\n".repeat(10));
+    env.file("other", "line\n".repeat(10));
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('c');
+    tui.input('e');
+    tui.input('b');
+
+    tui.env().prepend_file("file", "top");
+    tui.env().append_file("file", "bottom");
+    tui.env().prepend_file("other", "other top");
+    tui.reload();
+
+    tui.input('c');
+    tui.input('e');
+    tui.input('a');
+    tui.input(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊●   [..] (no commit message)"]);
+
+    tui
 }
 
 impl TestTui<App> {

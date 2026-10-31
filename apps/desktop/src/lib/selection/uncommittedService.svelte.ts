@@ -9,10 +9,10 @@ import {
 import { showToast } from "$lib/notifications/toasts";
 import { compositeKey, partialKey, type HunkSelection } from "$lib/selection/entityAdapters";
 import {
+	createUncommittedSlice,
 	uncommittedSelectors,
 	uncommittedSlice,
 	type CheckboxStatus,
-	uncommittedActions,
 } from "$lib/selection/uncommitted";
 import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
@@ -48,30 +48,57 @@ interface PartialPreprocessedHunkHeader extends BasePreprocessedHunkHeader {
 
 type PreprocessedHunkHeader = CompletePreprocessedHunkHeader | PartialPreprocessedHunkHeader;
 
+/**
+ * The uncommitted changes of one checkout: the main one, or the linked
+ * `worktree`. A linked worktree's hunks are all unassigned.
+ */
 export class UncommittedService {
 	/** The change selection slice of the full redux state. */
-	private state = $state.raw(uncommittedSlice.getInitialState());
+	private state = $derived.by(() => this.getSlice() ?? uncommittedSlice.getInitialState());
 	private dispatch: AppDispatch;
+	private slice: ReturnType<typeof createUncommittedSlice>;
+	private getSlice: () => ReturnType<typeof uncommittedSlice.getInitialState> | undefined;
 
 	constructor(
-		clientState: ClientState,
+		private clientState: ClientState,
 		private worktreeService: WorktreeService,
 		private diffService: DiffService,
+		readonly worktree?: string,
+		/** Each checkout's service, shared with the ones `at()` makes. */
+		private services = new Map<string | undefined, UncommittedService>(),
 	) {
 		this.dispatch = clientState.dispatch;
-		const getSlice = clientState.injectPersistedSlice(uncommittedSlice);
+		services.set(worktree, this);
+		if (worktree === undefined) {
+			this.slice = uncommittedSlice;
+			this.getSlice = clientState.injectPersistedSlice(uncommittedSlice);
+		} else {
+			// Kept for the session only: a stored slice would outlive its worktree.
+			this.slice = createUncommittedSlice(`uncommitted:${worktree}`);
+			this.getSlice = clientState.injectSlice(this.slice);
+		}
+	}
 
-		$effect(() => {
-			this.state = getSlice() ?? uncommittedSlice.getInitialState();
-		});
+	/** This service for the linked `worktree`'s files, or the main checkout's. */
+	at(worktree: string | undefined): UncommittedService {
+		return (
+			this.services.get(worktree) ??
+			new UncommittedService(
+				this.clientState,
+				this.worktreeService,
+				this.diffService,
+				worktree,
+				this.services,
+			)
+		);
 	}
 
 	updateData(args: { assignments: HunkAssignment[]; changes: TreeChange[] }) {
-		this.dispatch(uncommittedActions.update(args));
+		this.dispatch(this.slice.actions.update(args));
 	}
 
 	clearHunkSelection(stackId?: string) {
-		this.dispatch(uncommittedActions.clearHunkSelection({ stackId: stackId || null }));
+		this.dispatch(this.slice.actions.clearHunkSelection({ stackId: stackId || null }));
 	}
 
 	async getUnifiedDiff(projectId: string, change: TreeChange): Promise<UnifiedDiff | null> {
@@ -83,7 +110,7 @@ export class UncommittedService {
 		// match" and may skip the path, while whole-file commits happen
 		// only when no hunks were requested or a caller explicitly falls
 		// back to that.
-		return await this.diffService.fetchDiff(projectId, change);
+		return await this.diffService.fetchDiff(projectId, change, this.worktree);
 	}
 
 	findHunkDiff(changeDiff: UnifiedDiff | null, hunk: HunkHeader): DiffHunk | undefined {
@@ -525,7 +552,7 @@ export class UncommittedService {
 	}
 
 	checkLine(stackId: string | null, path: string, hunkHeader: HunkHeader, line: LineId) {
-		this.dispatch(uncommittedActions.checkLine({ stackId, path, hunkHeader, line }));
+		this.dispatch(this.slice.actions.checkLine({ stackId, path, hunkHeader, line }));
 	}
 
 	uncheckLine(
@@ -536,43 +563,55 @@ export class UncommittedService {
 		allLinesInHunk: LineId[],
 	) {
 		this.dispatch(
-			uncommittedActions.uncheckLine({ stackId, path, hunkHeader: header, line, allLinesInHunk }),
+			this.slice.actions.uncheckLine({
+				stackId,
+				path,
+				hunkHeader: header,
+				line,
+				allLinesInHunk,
+			}),
 		);
 	}
 
 	checkHunk(stackId: string | null, path: string, header: HunkHeader) {
-		this.dispatch(uncommittedActions.checkHunk({ stackId, path, hunkHeader: header }));
+		this.dispatch(this.slice.actions.checkHunk({ stackId, path, hunkHeader: header }));
 	}
 
 	uncheckHunk(stackId: string | null, path: string, header: HunkHeader) {
-		this.dispatch(uncommittedActions.uncheckHunk({ stackId, path, hunkHeader: header }));
+		this.dispatch(
+			this.slice.actions.uncheckHunk({
+				stackId,
+				path,
+				hunkHeader: header,
+			}),
+		);
 	}
 
 	checkFile(stackId: string | null, path: string) {
-		this.dispatch(uncommittedActions.checkFile({ stackId, path }));
+		this.dispatch(this.slice.actions.checkFile({ stackId, path }));
 	}
 
 	checkFiles(stackId: string | null, paths: string[]) {
-		this.dispatch(uncommittedActions.checkFiles({ stackId, paths }));
+		this.dispatch(this.slice.actions.checkFiles({ stackId, paths }));
 	}
 
 	uncheckFile(stackId: string | null, path: string) {
-		this.dispatch(uncommittedActions.uncheckFile({ stackId, path }));
+		this.dispatch(this.slice.actions.uncheckFile({ stackId, path }));
 	}
 
 	checkDir(stackId: string | null, path: string) {
-		this.dispatch(uncommittedActions.checkDir({ stackId, path }));
+		this.dispatch(this.slice.actions.checkDir({ stackId, path }));
 	}
 
 	uncheckDir(stackId: string | null, path: string) {
-		this.dispatch(uncommittedActions.uncheckDir({ stackId, path }));
+		this.dispatch(this.slice.actions.uncheckDir({ stackId, path }));
 	}
 
 	checkAll(stackId: string | null) {
-		this.dispatch(uncommittedActions.checkStack({ stackId }));
+		this.dispatch(this.slice.actions.checkStack({ stackId }));
 	}
 
 	uncheckAll(stackId: string | null) {
-		this.dispatch(uncommittedActions.uncheckStack({ stackId }));
+		this.dispatch(this.slice.actions.uncheckStack({ stackId }));
 	}
 }

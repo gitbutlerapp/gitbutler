@@ -26,7 +26,7 @@ pushd local-clone
   target_branch="$(git rev-parse --symbolic-full-name @{u})"
   target_branch="${target_branch#refs/remotes/}"
   echo "Target branch: $target_branch"
-  "$BUT" setup
+  "$BUT" switch --workspace
   "$BUT" config target "$target_branch"
 
   git checkout -b single-branch-fixture master

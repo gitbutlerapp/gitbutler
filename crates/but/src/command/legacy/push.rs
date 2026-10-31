@@ -9,6 +9,7 @@ use serde::Serialize;
 use crate::{
     CliId, CliResult, IdMap,
     args::push::{self, Command},
+    bad_input,
     command::legacy::workspace_target,
     theme::{self, Paint},
     utils::{
@@ -48,6 +49,15 @@ pub async fn handle(
     ctx: &mut Context,
     out: &mut OutputChannel,
 ) -> CliResult<()> {
+    let push_remote = {
+        let guard = ctx.shared_worktree_access();
+        let (repo, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        ws.push_remote_name(&repo)?
+    };
+    if push_remote.is_none() {
+        return Err(bad_input("No push remote configured").into());
+    }
+
     // Check gerrit mode early
     let gerrit_mode = {
         let repo = ctx.repo.get()?;
@@ -61,7 +71,7 @@ pub async fn handle(
 
     let id_map = {
         let guard = ctx.shared_worktree_access();
-        IdMap::new_from_context(ctx, guard.read_permission())?
+        IdMap::new_from_context(ctx, guard.read_permission(), None)?
     };
 
     // If no branch_id is provided, show all branches and prompt or push all
@@ -183,10 +193,12 @@ fn handle_dry_run(
         // Resolve branch name
         let id_map = IdMap::legacy_new_from_context(ctx)?;
         let branch_name = resolve_branch_name(ctx, &id_map, branch_id)?;
+        let branch = gix::refs::Category::LocalBranch.to_full_name(branch_name.as_str())?;
+        let to_push = crate::legacy::workspace::branches_to_push(ctx, branch.as_ref())?;
 
         branches_with_info
             .into_iter()
-            .filter(|(name, count, _)| name == &branch_name && *count > 0)
+            .filter(|(name, _, _)| to_push.contains(name))
             .collect()
     } else {
         // Show all branches with unpushed commits
@@ -612,11 +624,7 @@ async fn push_single_branch(
                 None
             };
             for (branch, before_sha, after_sha) in &result.push.branch_sha_updates {
-                let before_str = if before_sha == "0000000000000000000000000000000000000000" {
-                    "(new branch)".to_string()
-                } else {
-                    shorten_hex_object_id(&repo, before_sha)
-                };
+                let before_str = previous_remote_tip_for_display(&repo, before_sha);
                 let after_str = shorten_hex_object_id(&repo, after_sha);
                 let remote_ref = branch_remote_ref_for_display(
                     &result.push,
@@ -780,11 +788,7 @@ async fn push_all_branches(
             };
             for result in &pushed_results {
                 for (branch, before_sha, after_sha) in &result.push.branch_sha_updates {
-                    let before_str = if before_sha == "0000000000000000000000000000000000000000" {
-                        "(new branch)".to_string()
-                    } else {
-                        shorten_hex_object_id(&repo, before_sha)
-                    };
+                    let before_str = previous_remote_tip_for_display(&repo, before_sha);
                     let after_str = shorten_hex_object_id(&repo, after_sha);
                     let remote_ref = branch_remote_ref_for_display(
                         &result.push,
@@ -1132,11 +1136,6 @@ fn resolve_branch_name(
 
     match &cli_ids[0] {
         CliId::Branch(branch) => Ok(branch.name.clone()),
-        CliId::Worktree { name, .. } => {
-            let repo = ctx.repo.get()?;
-            let branch = crate::utils::worktrees::worktree_branch(&repo, name.as_ref())?;
-            Ok(branch.shorten().to_string())
-        }
         _ => Err(anyhow::anyhow!(
             "Expected branch identifier, got {}. Please use a branch name or branch CLI ID.",
             cli_ids[0].kind_for_humans()
@@ -1169,6 +1168,13 @@ fn format_branch_suggestions(branches: &[String]) -> String {
         .map(|name| format!("  - {name}"))
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn previous_remote_tip_for_display(repo: &gix::Repository, before_sha: &str) -> String {
+    match gix::ObjectId::from_hex(before_sha.as_bytes()) {
+        Ok(id) if id.is_null() => "(new branch)".to_string(),
+        _ => shorten_hex_object_id(repo, before_sha),
+    }
 }
 
 fn branch_remote_ref_for_display(

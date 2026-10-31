@@ -56,15 +56,18 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:gitbutler/workspace[🌳]
-    ├── ·8795f47 (⌂)
-    └── ·dd72792 (⌂) ►c, ►main
-        └── ►:1[1]:b
-            └── ·e5aa7b5 (⌂)
-                └── ►:2[2]:a
-                    └── ·3bfeb52 (⌂)
-                        └── ►:3[3]:base
-                            └── 🏁·b6e2f57 (⌂)
+└── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+    └── ·8795f47 (⌂|🏘)
+        └── 📙►:5[1]:c
+            └── 📙►:6[2]:main
+                └── ►:1[3]:anon:
+                    └── ·dd72792 (⌂|🏘)
+                        └── 📙►:2[4]:b
+                            └── ·e5aa7b5 (⌂|🏘)
+                                └── 📙►:3[5]:a
+                                    └── ·3bfeb52 (⌂|🏘)
+                                        └── 📙►:4[6]:base
+                                            └── 🏁·b6e2f57 (⌂|🏘)
 
 "#]]
     );
@@ -125,7 +128,7 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
     // Remove the "b" commit so "c" and the workspace commit get cherry-picked
     let b = repo.rev_parse_single("b")?;
     let b_sel = editor.select_commit(b.detach())?;
-    editor.replace(b_sel, Step::None)?;
+    editor.replace_with_none(b_sel)?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
@@ -133,12 +136,17 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:gitbutler/workspace[🌳]
-    ├── ·badca2f (⌂)
-    ├── ·06106c2 (⌂) ►c, ►main
-    └── ·3bfeb52 (⌂) ►a, ►b
-        └── ►:1[1]:base
-            └── 🏁·b6e2f57 (⌂)
+└── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+    └── ·badca2f (⌂|🏘)
+        └── 📙►:4[1]:c
+            └── 📙►:5[2]:main
+                └── ►:1[3]:anon:
+                    └── ·06106c2 (⌂|🏘)
+                        └── 📙►:6[4]:b
+                            └── 📙►:7[5]:a
+                                └── ·3bfeb52 (⌂|🏘)
+                                    └── 📙►:3[6]:base
+                                        └── 🏁·b6e2f57 (⌂|🏘)
 
 "#]]
     );
@@ -315,7 +323,7 @@ fn workspace_commit_should_not_be_allowed_to_conflict() -> Result<()> {
     // depends on a file created in c
     let c = repo.rev_parse_single("c")?;
     let c_sel = editor.select_commit(c.detach())?;
-    editor.replace(c_sel, Step::None)?;
+    editor.replace_with_none(c_sel)?;
 
     // We should see an error given saying the workspace commit ended up being
     // conflicted

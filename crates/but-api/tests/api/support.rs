@@ -2,9 +2,18 @@ use but_core::ref_metadata::ProjectMeta;
 use but_rebase::graph_rebase::mutate::InsertSide;
 use but_testsupport::gix_testtools::tempfile::TempDir;
 use but_testsupport::{CommandExt, git_at_dir, open_repo};
+use gitbutler_oplog::{OplogExt as _, RestoreKind};
 
 pub fn writable_scenario(name: &str) -> (gix::Repository, TempDir) {
     but_testsupport::writable_scenario(name)
+}
+
+/// [`but_askpass::disable()`] must be called at most once per process, but several tests
+/// in this binary push.
+#[cfg(feature = "legacy")]
+pub fn disable_askpass() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(but_askpass::disable);
 }
 
 /// Build a minimal ad-hoc repository: `main` with two commits, a `feature` branch at the first
@@ -28,18 +37,23 @@ pub fn repo_with_feature_branch() -> anyhow::Result<(gix::Repository, tempfile::
     git_at_dir(tmp.path())
         .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
         .run();
+    git_at_dir(tmp.path())
+        .args(["branch", "--set-upstream-to=origin/main", "main"])
+        .run();
     write_file(tmp.path(), "file.txt", "two\n")?;
     git_at_dir(tmp.path()).args(["commit", "-am", "two"]).run();
 
     Ok((open_repo(tmp.path())?, tmp))
 }
 
-/// Persist a project default target pointing at `origin/main` but at the `feature` branch's commit.
+/// Persist local `main` as the target, with the cutoff at the `feature` branch's commit.
 pub fn set_project_target_to_feature(repo: &gix::Repository) -> anyhow::Result<gix::ObjectId> {
     let mut feature = repo.find_reference("refs/heads/feature")?;
     let target_commit_id = feature.peel_to_id()?.detach();
     ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
         target_commit_id: Some(target_commit_id),
         push_remote: Some("origin".into()),
     }
@@ -129,12 +143,28 @@ pub fn assert_workspace_ref(workspace: &but_api::WorkspaceState, expected: &str)
 pub fn persist_default_target(repo: &gix::Repository) -> anyhow::Result<gix::ObjectId> {
     let target_commit_id = repo.rev_parse_single("refs/heads/main")?.detach();
     ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
         target_commit_id: Some(target_commit_id),
         push_remote: Some("origin".into()),
     }
     .persist(repo)?;
     Ok(target_commit_id)
+}
+
+/// Undo the last operation, as ⌘Z or `but undo` does.
+pub fn undo(ctx: &mut but_ctx::Context) -> anyhow::Result<()> {
+    let snapshot = ctx
+        .oplog_head()?
+        .expect("the operation records an undo step");
+    let mut guard = ctx.exclusive_worktree_access();
+    ctx.restore_snapshot(
+        snapshot,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+    Ok(())
 }
 
 pub fn repository_graph(repo: &gix::Repository) -> anyhow::Result<String> {
@@ -159,7 +189,7 @@ pub fn fresh_head_info(ctx: &but_ctx::Context) -> anyhow::Result<but_workspace::
         but_workspace::ref_info::Options {
             project_meta,
             traversal: but_graph::init::Options {
-                worktrees: ctx.settings.feature_flags.worktree_manipulation,
+                worktrees: true,
                 ..but_graph::init::Options::limited()
             },
             expensive_commit_info: true,
@@ -168,8 +198,8 @@ pub fn fresh_head_info(ctx: &but_ctx::Context) -> anyhow::Result<but_workspace::
     )?;
     drop(db);
     let db = ctx.db.get_cache()?;
-    let prs_by_head = but_forge::review_associations_by_head(&db)?;
-    info.apply_forge_review_associations(&repo, &prs_by_head);
+    let prs_by_head = but_forge::review_associations_by_head(&db, &repo)?;
+    info.apply_forge_review_associations(&prs_by_head);
     Ok(info)
 }
 

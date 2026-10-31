@@ -325,6 +325,15 @@ export const uncommittedSlice = createSlice({
 	},
 });
 
+/** The main checkout's slice under another `name`, for a linked worktree's changes. */
+export function createUncommittedSlice(name: string) {
+	return createSlice({
+		name,
+		initialState: uncommittedSlice.getInitialState(),
+		reducers: uncommittedSlice.caseReducers,
+	});
+}
+
 /** This type is needed for `createSelector` calls. */
 type AssignmentState = ReturnType<typeof uncommittedSlice.getInitialState>;
 

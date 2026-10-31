@@ -70,7 +70,8 @@
 	}: Props = $props();
 
 	const idSelection = inject(FILE_SELECTION_MANAGER);
-	const uncommittedService = inject(UNCOMMITTED_SERVICE);
+	const uncommittedServices = inject(UNCOMMITTED_SERVICE);
+	const uncommittedService = $derived(uncommittedServices.at(selectionId.worktree));
 	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
 	const stackService = inject(STACK_SERVICE);

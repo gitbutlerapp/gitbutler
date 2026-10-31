@@ -73,12 +73,6 @@ jobs:
         env:
           SENTRY_RELEASE: ${{ env.version }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        name: Upload pnpm-store contents
-        with:
-          name: pnpm-store
-          path: /home/runner/setup-pnpm/node_modules/.bin/store/v3
-          retention-days: 7
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         name: Upload SvelteKit build output
         with:
           name: sveltekit-build
@@ -143,6 +137,8 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: app-release-build-${{ github.event.inputs.channel || 'nightly' }}${{ matrix.target }}${{ matrix.platform }}
+      - name: Install Zig
+        uses: $/.github/actions/setup-zig
       - name: Init Node Environment
         uses: ./.github/actions/init-env-node
 
@@ -181,6 +177,7 @@ jobs:
             libgtk-3-dev \
             libappindicator3-dev \
             librsvg2-dev \
+            libxkbcommon-x11-dev \
             xdg-utils;
 
           webkit_version='2.50.*'

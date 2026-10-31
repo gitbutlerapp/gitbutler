@@ -5,7 +5,7 @@ use but_core::{DiffSpec, HunkHeader};
 use crate::{
     CliId,
     args::atoms::anonymous_segment_error,
-    id::{CommitId, CommittedFileId, IdAndHunk, UncommittedHunkOrFile},
+    id::{CommitId, CommittedFileId, CommittedHunk, IdAndHunk, UncommittedHunkOrFile},
     utils::change_source::{ChangeSourceId, ChangeSourceRepo},
 };
 
@@ -16,6 +16,8 @@ pub struct DiffSpecBuilder<'a> {
     source: ChangeSourceId,
     context_lines: u32,
     worktree_changes: Option<Vec<but_core::ui::TreeChange>>,
+    /// The changes of the commit that committed hunks were last pushed from.
+    commit_changes: Option<(gix::ObjectId, Vec<but_core::ui::TreeChange>)>,
     diff_specs: Vec<DiffSpec>,
 }
 
@@ -28,6 +30,7 @@ impl<'a> DiffSpecBuilder<'a> {
             source: ChangeSourceId::Head,
             context_lines,
             worktree_changes: None,
+            commit_changes: None,
             diff_specs: Default::default(),
         }
     }
@@ -44,6 +47,7 @@ impl<'a> DiffSpecBuilder<'a> {
             source: source_repo.source(),
             context_lines,
             worktree_changes: None,
+            commit_changes: None,
             diff_specs: Default::default(),
         }
     }
@@ -82,11 +86,17 @@ impl<'a> DiffSpecBuilder<'a> {
                     },
                 id: _,
             } => self.push_changes_from_commit(*commit_id),
-            CliId::Uncommitted { id: _ } => self.push_changes_from_uncommitted_area(),
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Head,
+                ..
+            } => self.push_changes_from_uncommitted_area(),
             // A worktree's uncommitted area is expanded into its files during
             // resolution, so the builder only ever sees hunks that already come from
-            // its own repo. The reference holds no changes at all.
-            CliId::Worktree { name, .. } | CliId::WorktreeUncommitted { name, .. } => {
+            // its own repo.
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Worktree(name),
+                ..
+            } => {
                 anyhow::bail!("Cannot compute diff specs for worktree `{name}`")
             }
             CliId::Stack { .. } => {
@@ -134,6 +144,36 @@ impl<'a> DiffSpecBuilder<'a> {
         path: &BStr,
     ) -> anyhow::Result<()> {
         self.push_changes_from_path_in_commit(path, commit_id, "First parent")
+    }
+
+    /// Pushes a hunk of a committed file, as it changed from the commit's first parent.
+    pub fn push_changes_from_committed_hunk(&mut self, hunk: &CommittedHunk) -> anyhow::Result<()> {
+        let commit_id = hunk.committed_file.commit_id;
+        if self
+            .commit_changes
+            .as_ref()
+            .is_none_or(|(cached_id, _)| *cached_id != commit_id)
+        {
+            let commit = self.repo.find_commit(commit_id)?;
+            let changes = but_core::diff::tree_changes(
+                self.repo,
+                commit.parent_ids().next().map(|id| id.detach()),
+                commit_id,
+            )?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+            self.commit_changes = Some((commit_id, changes));
+        }
+        let (_, changes) = self
+            .commit_changes
+            .as_ref()
+            .expect("changes of the hunk's commit were cached above");
+        self.diff_specs.extend(but_core::diff_specs_with_changes(
+            [hunk.hunk.clone()],
+            changes,
+        ));
+        Ok(())
     }
 
     pub fn push_changes_from_path_in_commit(

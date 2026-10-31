@@ -55,7 +55,14 @@
 						GitButler opens the earliest commit first, since later commits depend on it.
 					</p>
 				</div>
-				<Button onclick={onResolveConflicts} style="danger">Start resolving</Button>
+				<Button
+					onclick={onResolveConflicts}
+					style="danger"
+					disabled={!onResolveConflicts}
+					tooltip={onResolveConflicts
+						? undefined
+						: "Conflicts can only be resolved in a workspace branch"}>Start resolving</Button
+				>
 			</div>
 		</div>
 	{/if}

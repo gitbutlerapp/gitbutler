@@ -48,10 +48,6 @@ pub(crate) mod state {
                         name: format!("project://{project_id}/workspace-activity"),
                         payload: serde_json::json!({}),
                     },
-                    Change::ExternalInvalidation { project_id, tags } => ChangeForFrontend {
-                        name: format!("project://{project_id}/external-invalidation"),
-                        payload: serde_json::json!({ "tags": tags }),
-                    },
                     Change::WorktreeChanges {
                         project_id,
                         changes,
@@ -59,6 +55,15 @@ pub(crate) mod state {
                     } => ChangeForFrontend {
                         name: format!("project://{project_id}/worktree_changes"),
                         payload: serde_json::json!(&changes),
+                    },
+                    Change::LinkedWorktreeChanges {
+                        project_id,
+                        worktree,
+                        changes,
+                        changed_paths: _,
+                    } => ChangeForFrontend {
+                        name: format!("project://{project_id}/linked_worktree_changes"),
+                        payload: serde_json::json!({ "worktree": worktree, "changes": changes }),
                     },
                 }
             }

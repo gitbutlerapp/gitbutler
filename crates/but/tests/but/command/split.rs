@@ -22,7 +22,7 @@ fn split_commit() {
 ┊│     lsw:t A two
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -49,7 +49,63 @@ Moved 1 change from lsw to new commit qkw above commit lsw
 ┊│     lsw:t A two
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn split_commit_with_message() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("one", "contents of one");
+    env.file("two", "contents of two");
+
+    env.but("commit -m original").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   lsw original
+┊│     lsw:k A one
+┊│     lsw:t A two
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("split lsw:k -m 'new commit'")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 change from lsw to new commit qkw above commit lsw
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   qkw new commit
+┊│     qkw:k A one
+┊●   lsw original
+┊│     lsw:t A two
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -126,7 +182,7 @@ Moved 1 change from szk to new commit qkw above commit szk
 ┊│     knw:q A file
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -274,7 +330,7 @@ fn cannot_split_sources_from_multiple_commits() {
 ┊│     zts:k A one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -287,4 +343,26 @@ Hint: run `but help` for all commands
 Error: Can only split changes from one commit. Got qxq and zts
 
 "#]]);
+}
+
+#[test]
+fn split_commit_with_message_from_stdin() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("one", "contents of one");
+    env.file("two", "contents of two");
+
+    env.but("commit -m original").assert().success();
+
+    env.but("split lsw:k -F -")
+        .stdin("extracted\n\nfrom stdin\n")
+        .assert()
+        .success();
+
+    assert_eq!(
+        env.invoke_git("log -1 --format=[%B] a-branch-1"),
+        "[extracted\n\nfrom stdin]",
+        "the split-off commit sits on top and takes the trimmed message read from stdin"
+    );
 }

@@ -21,15 +21,14 @@
 		"oauthClientId": "cd51880daa675d9e6452"
 	},
 	"featureFlags": {
-		/// Enable single branch mode.
-		"singleBranch": false,
 		/// Control how the filesystem watch should be established.
 		/// Possible values: "auto", "legacy", "modern".
 		"watchMode": "auto",
 		"writeCommitEvolution": false,
 		"tuiFileBrowser": false,
-		/// Enable experimental worktree manipulation support.
-		"worktreeManipulation": false
+		/// Open the experimental native client (GPUI) instead of the web app when GitButler starts,
+		/// on macOS builds that include it.
+		"gpui": false
 	},
 	// Allows for additional "connect-src" hosts to be included. Requires app restart.
 	"extraCsp": {

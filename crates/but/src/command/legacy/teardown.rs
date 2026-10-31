@@ -265,9 +265,6 @@ pub(crate) fn teardown(
                 .paint(format!("You are now on branch: {target_branch_name}"))
         )?;
         writeln!(out)?;
-        writeln!(out, "{}", t.info.paint("To return to GitButler mode, run:"))?;
-        writeln!(out, "  {}", t.command_suggestion.paint("but setup"))?;
-        writeln!(out)?;
     }
 
     // Output JSON if requested
@@ -275,7 +272,7 @@ pub(crate) fn teardown(
         out.write_value(&TeardownResult {
             snapshot_id,
             checked_out_branch: target_branch_name,
-            hook_warnings: hook_warnings.clone(),
+            hook_warnings,
         })?;
     }
 

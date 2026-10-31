@@ -13,23 +13,18 @@ doctest = false
 default = []
 legacy = ["but-ctx/legacy"]
 tauri = ["dep:tauri", "legacy"]
-napi = ["dep:napi", "dep:napi-derive", "dep:tokio", "legacy"]
 
 [dependencies]
 but-api-macros = { path = ".." }
 but-error.workspace = true
 but-ctx.workspace = true
-but-schemars.workspace = true
+but-project-handle.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 gix.workspace = true
 futures.workspace = true
-bstr = { workspace = true, features = ["serde"] }
 tauri = { version = "^2.10.3", features = ["unstable"], optional = true, default-features = false }
-napi = { version = "3.8.5", features = ["serde-json", "tokio_rt"], optional = true }
-napi-derive = { version = "3.5.4", optional = true }
-tokio = { workspace = true, optional = true, features = ["rt"] }
 
 [dev-dependencies]
 trybuild = "1.0.114"
@@ -38,4 +33,4 @@ trybuild = "1.0.114"
 workspace = true
 
 [package.metadata.cargo-machete]
-ignored = ["futures", "napi", "napi-derive", "tauri", "but-error", "tokio", "but-schemars"]
+ignored = ["futures", "tauri", "but-error", "but-project-handle"]

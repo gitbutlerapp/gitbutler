@@ -41,7 +41,7 @@ pub fn modification_times(
         .map(|change| change.path_bytes.as_bstr())
         .chain(conflicts)
         .filter_map(|path_bytes| {
-            let path = workdir.join(gix::path::from_bstr(path_bytes));
+            let path = workdir.join(gix::path::from_bstr(path_bytes).ok()?);
             let modified = path.symlink_metadata().ok()?.modified().ok()?;
             let millis = modified
                 .duration_since(std::time::UNIX_EPOCH)

@@ -41,6 +41,8 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 
 	private acceptsChangeDropData(data: unknown): data is ChangeDropData {
 		if (!(data instanceof FileChangeDropData || data instanceof FolderChangeDropData)) return false;
+		// A new stack takes the main checkout's changes only.
+		if (data.selectionId.worktree !== undefined) return false;
 		if (data.selectionId.type === "commit" && data.stackId === undefined) return false;
 		if (data.selectionId.type === "branch") return false;
 		return true;
@@ -55,6 +57,8 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 
 	private acceptsBranchDropData(data: unknown): data is BranchDropData {
 		if (!(data instanceof BranchDropData)) return false;
+		// Only a stack's branch tears off into a new stack.
+		if (data.stackId === undefined) return false;
 		if (data.hasConflicts) return false;
 		if (data.numberOfBranchesInStack <= 1) return false; // Can't tear off the last branch of a stack
 		if (data.numberOfCommits === 0) return false; // TODO: Allow to rip empty branches
@@ -253,6 +257,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 	}
 
 	async ondropBranchData(data: BranchDropData): Promise<DropResult | void> {
+		if (data.stackId === undefined) return;
 		const beforeAppliedStackCount = (await this.stackService.fetchStacks(this.projectId)).length;
 		const result = await this.stackService.tearOffBranch({
 			projectId: this.projectId,

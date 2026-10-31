@@ -1,0 +1,44 @@
+# Sizes grow and shrink with the interface scale, so they go in `ui::dp`. What must stay put,
+# as a hairline, is `ui::fixed`.
+#
+# Disk, process and sleep calls block their thread, and on the UI thread a slow disk or a hung
+# network mount freezes the window. They go in `src/backend`, whose work `backend::run` runs off
+# the UI thread. Anywhere else, `#[expect]` says why the call can't block the UI.
+disallowed-methods = [
+    { path = "gpui::px", reason = "use ui::dp, which follows the interface scale, or ui::fixed for what must stay put" },
+    { path = "std::fs::read", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::read_to_string", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::write", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::read_dir", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::read_link", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::metadata", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::symlink_metadata", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::canonicalize", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::create_dir", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::create_dir_all", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::remove_file", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::remove_dir", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::remove_dir_all", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::copy", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::rename", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::File::open", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::File::create", reason = "blocks: do it in src/backend" },
+    { path = "std::path::Path::exists", reason = "blocks: do it in src/backend" },
+    { path = "std::path::Path::try_exists", reason = "blocks: do it in src/backend" },
+    { path = "std::path::Path::is_file", reason = "blocks: do it in src/backend" },
+    { path = "std::path::Path::is_dir", reason = "blocks: do it in src/backend" },
+    { path = "std::path::Path::is_symlink", reason = "blocks: do it in src/backend" },
+    { path = "std::path::Path::metadata", reason = "blocks: do it in src/backend" },
+    { path = "std::path::Path::symlink_metadata", reason = "blocks: do it in src/backend" },
+    { path = "std::path::Path::read_dir", reason = "blocks: do it in src/backend" },
+    { path = "std::path::Path::canonicalize", reason = "blocks: do it in src/backend" },
+    { path = "std::process::Command::output", reason = "blocks: do it in src/backend" },
+    { path = "std::process::Command::status", reason = "blocks: do it in src/backend" },
+    { path = "std::process::Command::spawn", reason = "blocks: do it in src/backend" },
+    { path = "std::thread::sleep", reason = "blocks: do it in src/backend" },
+]
+
+# Tests may unwrap, expect and panic, which the crate denies elsewhere.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true

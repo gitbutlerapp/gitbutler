@@ -21,8 +21,7 @@ In non-interactive mode, use `--path` or `--detect`.
 **Requirements:**
 - **GitButler CLI** installed (refer to the docs for installation instructions)
 - **An AI assistant with skills support** such as Agent Skills / `.agents/skills`, Claude Code, OpenCode, Codex, GitHub Copilot, Cursor, Windsurf, or Poolside
-- A Git repository. Managed-workspace mode uses `but setup`; when experimental single-branch
-  mode is enabled, `but` registers the repository and infers its target on first use.
+- A Git repository.
 
 **Updating:**
 
@@ -52,9 +51,10 @@ but skill concepts       # references/concepts.md
 but skill examples       # references/examples.md
 ```
 
-`but skill reference` is generated from clap (`crates/but/src/command/skill/reference.rs`)
-and always matches the binary; the installed `references/reference.md` is the hand-written
-file it is replacing and the two are expected to differ.
+`but skill reference` is rendered from the clap command tree
+(`crates/but/src/command/skill/reference.rs`), and `but skill install` writes the same text to
+`references/reference.md`, so the reference always matches the binary. To change it, edit the
+command's doc comments in `crates/but/src/args/`.
 
 Pointers inside the skill files use these commands rather than file paths, so they resolve whether the agent loaded an installed copy or read the CLI output.
 
@@ -68,7 +68,6 @@ crates/but/skill/
 ├── AGENTS.md                  ← Rules for editing these files (NOT installed)
 ├── README.md                  ← This file - development docs (NOT installed)
 └── references/                ← Additional skill documentation (INSTALLED)
-    ├── reference.md           - Command reference
     ├── concepts.md            - Deep concepts
     └── examples.md            - Workflow examples
 ```
@@ -76,7 +75,7 @@ crates/but/skill/
 **What gets installed:**
 The `but skill install` command only copies the distributable files to the user's system:
 - `SKILL.md` - Main skill entry point
-- `references/` - All reference documentation files
+- `references/` - All reference documentation files, plus `references/reference.md` rendered from the command tree
 
 **What stays in the repository:**
 Development documentation remains in the source tree and is not installed:
@@ -131,11 +130,11 @@ Uses directive language ("do this") rather than passive ("this might happen").
 - Changes to core concepts
 - Updates to quick reference commands
 
-### When to Update REFERENCE.md
+### When to Update the Command Reference
 
-- New `but` commands
-- Changed command syntax
-- New flags or options
+The reference is rendered from the CLI's doc comments, so new commands, changed syntax, and new
+flags show up without edits here. Fix wrong or missing facts in the doc comments under
+`crates/but/src/args/`.
 
 ### When to Update CONCEPTS.md
 

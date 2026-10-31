@@ -14,12 +14,11 @@ pub use client::{
     AutoMergeEnableParams, AutoMergeState, CheckRun, CommentReactions, CreatePullRequestParams,
     GitHubClient, GitHubPrLabel, GitHubRepoPermissions, GitHubRepository, GitHubUser, MergeMethod,
     MergePullRequestParams, PullRequest, PullRequestComment, PullRequestMergeStatus,
-    PullRequestReview, PullRequestReviewThread, PullRequestReviewThreadComment,
-    PullRequestTimelineEvent, PullRequestTimelineEventKind, Reaction,
+    PullRequestReview, PullRequestReviewThread, PullRequestReviewThreadComment, Reaction,
     SetPullRequestAutoMergeParams, SetPullRequestDraftStateParams, UpdatePullRequestParams,
 };
 mod token;
-pub use token::GithubAccountIdentifier;
+pub use token::{GithubAccountIdentifier, get_gh_access_token};
 
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
@@ -53,7 +52,7 @@ fn parse_github_oauth_response<T: serde::de::DeserializeOwned>(body: &str) -> Re
 
 /// A static, code-bearing context for terminal device-flow statuses, so the API serializes
 /// guidance instead of GitHub's description. Pending statuses stay as they are: callers poll
-/// through them, and the provider text remains the inner error for the CLI and Lite.
+/// through them, and the provider text remains the inner error for the CLI.
 fn device_flow_context(status: &str) -> Option<but_error::Context> {
     use but_error::{Code, Context};
     match status {
@@ -596,7 +595,7 @@ mod tests {
                     "{status}: pending statuses keep today's message"
                 );
             }
-            // Alternate display (Lite, CLI) keeps the provider status as the inner error.
+            // Alternate display (the CLI's) keeps the provider status as the inner error.
             let display = format!("{err:#}");
             assert!(
                 display.contains(&format!("GitHub returned an error: {status} (")),

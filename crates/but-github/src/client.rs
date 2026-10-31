@@ -4,10 +4,8 @@ use reqwest::header::{ACCEPT, AUTHORIZATION, HeaderMap, HeaderValue, USER_AGENT}
 use serde::{Deserialize, Serialize};
 
 use crate::graphql::{
-    GQL_ADD_REACTION, GQL_ADD_REVIEW_THREAD_REPLY, GQL_DISABLE_PR_AUTO_MERGE,
-    GQL_ENABLE_PR_AUTO_MERGE, GQL_GET_PR, GQL_GET_PR_NODE_ID, GQL_LIST_PR_REVIEW_THREADS,
-    GQL_LIST_PR_REVIEWS, GQL_LIST_PR_TIMELINE, GQL_REMOVE_REACTION, GQL_SET_PR_DRAFT,
-    GQL_SET_PR_READY_FOR_REVIEW,
+    GQL_DISABLE_PR_AUTO_MERGE, GQL_ENABLE_PR_AUTO_MERGE, GQL_GET_PR, GQL_GET_PR_NODE_ID,
+    GQL_LIST_PR_REVIEW_THREADS, GQL_LIST_PR_REVIEWS, GQL_SET_PR_DRAFT, GQL_SET_PR_READY_FOR_REVIEW,
 };
 
 const GITHUB_API_BASE_URL: &str = "https://api.github.com";
@@ -313,34 +311,6 @@ impl GitHubClient {
         Ok(pulls.into_iter().map(Into::into).collect())
     }
 
-    /// List the PRs for a given target.
-    pub async fn list_pulls_for_base(
-        &self,
-        owner: &str,
-        repo: &str,
-        base: &str,
-    ) -> Result<Vec<PullRequest>> {
-        let url = format!("{}/repos/{}/{}/pulls", self.base_url, owner, repo);
-
-        let response = self
-            .client
-            .get(&url)
-            .query(&[
-                ("state", "all"),
-                ("base", base),
-                ("sort", "updated"),
-                ("direction", "desc"),
-                ("per_page", "100"),
-            ])
-            .send()
-            .await?;
-
-        let response = ensure_success(response).await?;
-
-        let pulls: Vec<GitHubPullRequest> = response.json().await?;
-        Ok(pulls.into_iter().map(Into::into).collect())
-    }
-
     /// List pull requests associated with a commit on the repository.
     pub async fn list_pulls_for_commit(
         &self,
@@ -543,444 +513,6 @@ impl GitHubClient {
             .collect())
     }
 
-    /// List the individual reactions on a pull request itself (GitHub
-    /// models the PR as an issue for reaction purposes).
-    pub async fn list_pull_request_reactions(
-        &self,
-        owner: &str,
-        repo: &str,
-        pr_number: i64,
-    ) -> Result<Vec<Reaction>> {
-        let url = format!(
-            "{}/repos/{}/{}/issues/{}/reactions",
-            self.base_url, owner, repo, pr_number
-        );
-        self.list_reactions(&url).await
-    }
-
-    /// List the individual reactions on one conversation comment.
-    pub async fn list_comment_reactions(
-        &self,
-        owner: &str,
-        repo: &str,
-        comment_id: i64,
-    ) -> Result<Vec<Reaction>> {
-        let url = format!(
-            "{}/repos/{}/{}/issues/comments/{}/reactions",
-            self.base_url, owner, repo, comment_id
-        );
-        self.list_reactions(&url).await
-    }
-
-    async fn list_reactions(&self, url: &str) -> Result<Vec<Reaction>> {
-        Ok(self
-            .get_all_pages::<GitHubReactionApi>(url, 5)
-            .await?
-            .into_iter()
-            .map(Into::into)
-            .collect())
-    }
-
-    /// Add a reaction to a pull request itself. Idempotent on GitHub's
-    /// side: reacting again with the same kind returns the existing one.
-    pub async fn add_pull_request_reaction(
-        &self,
-        owner: &str,
-        repo: &str,
-        pr_number: i64,
-        content: &str,
-    ) -> Result<Reaction> {
-        let url = format!(
-            "{}/repos/{}/{}/issues/{}/reactions",
-            self.base_url, owner, repo, pr_number
-        );
-        self.add_reaction(&url, content).await
-    }
-
-    /// Remove one of the caller's reactions from a pull request itself.
-    pub async fn delete_pull_request_reaction(
-        &self,
-        owner: &str,
-        repo: &str,
-        pr_number: i64,
-        reaction_id: i64,
-    ) -> Result<()> {
-        let url = format!(
-            "{}/repos/{}/{}/issues/{}/reactions/{}",
-            self.base_url, owner, repo, pr_number, reaction_id
-        );
-        self.delete_reaction(&url).await
-    }
-
-    /// Add a reaction to one conversation comment.
-    pub async fn add_comment_reaction(
-        &self,
-        owner: &str,
-        repo: &str,
-        comment_id: i64,
-        content: &str,
-    ) -> Result<Reaction> {
-        let url = format!(
-            "{}/repos/{}/{}/issues/comments/{}/reactions",
-            self.base_url, owner, repo, comment_id
-        );
-        self.add_reaction(&url, content).await
-    }
-
-    /// Remove one of the caller's reactions from a conversation comment.
-    pub async fn delete_comment_reaction(
-        &self,
-        owner: &str,
-        repo: &str,
-        comment_id: i64,
-        reaction_id: i64,
-    ) -> Result<()> {
-        let url = format!(
-            "{}/repos/{}/{}/issues/comments/{}/reactions/{}",
-            self.base_url, owner, repo, comment_id, reaction_id
-        );
-        self.delete_reaction(&url).await
-    }
-
-    async fn add_reaction(&self, url: &str, content: &str) -> Result<Reaction> {
-        let response = self
-            .client
-            .post(url)
-            .json(&AddReactionBody { content })
-            .send()
-            .await?;
-        let response = ensure_success(response).await?;
-        let reaction: GitHubReactionApi = response.json().await?;
-        Ok(reaction.into())
-    }
-
-    async fn delete_reaction(&self, url: &str) -> Result<()> {
-        let response = self.client.delete(url).send().await?;
-        ensure_success(response).await?;
-        Ok(())
-    }
-
-    /// List the pushed commits and review requests on a pull request's
-    /// conversation timeline, oldest first. Other event kinds are dropped.
-    ///
-    /// GraphQL rather than REST: only `timelineItems` resolves a commit's
-    /// author to a GitHub account, and without a login the reader's own
-    /// pushes cannot be told apart from anyone else's.
-    pub async fn list_pull_request_timeline(
-        &self,
-        owner: &str,
-        repo: &str,
-        pr_number: i64,
-    ) -> Result<Vec<PullRequestTimelineEvent>> {
-        #[derive(Serialize)]
-        struct Variables<'a> {
-            owner: &'a str,
-            repo: &'a str,
-            number: i64,
-            cursor: Option<&'a str>,
-        }
-
-        #[derive(Deserialize)]
-        struct QueryData {
-            repository: Option<TimelineRepository>,
-        }
-
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct TimelineRepository {
-            pull_request: Option<TimelinePullRequest>,
-        }
-
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct TimelinePullRequest {
-            timeline_items: TimelineItems,
-        }
-
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct TimelineItems {
-            page_info: TimelinePageInfo,
-            nodes: Vec<GraphQlTimelineItem>,
-        }
-
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct TimelinePageInfo {
-            has_next_page: bool,
-            end_cursor: Option<String>,
-        }
-
-        let mut events = Vec::new();
-        let mut cursor: Option<String> = None;
-        // A hundred pushes and requests per page; the cap only stops a stuck
-        // cursor from looping.
-        const PAGE_CAP: usize = 10;
-        for _ in 0..PAGE_CAP {
-            let data: QueryData = self
-                .graphql_query(
-                    GQL_LIST_PR_TIMELINE,
-                    &Variables {
-                        owner,
-                        repo,
-                        number: pr_number,
-                        cursor: cursor.as_deref(),
-                    },
-                )
-                .await?;
-
-            let Some(items) = data
-                .repository
-                .and_then(|repository| repository.pull_request)
-                .map(|pull_request| pull_request.timeline_items)
-            else {
-                bail!("GitHub GraphQL pull request {owner}/{repo}#{pr_number} not found");
-            };
-
-            events.extend(
-                items
-                    .nodes
-                    .into_iter()
-                    .filter_map(GraphQlTimelineItem::into_event),
-            );
-            match items.page_info.end_cursor {
-                Some(next) if items.page_info.has_next_page => cursor = Some(next),
-                _ => {
-                    cursor = None;
-                    break;
-                }
-            }
-        }
-        if cursor.is_some() {
-            tracing::warn!(
-                "{owner}/{repo}#{pr_number} has more than {} timeline events; further pages were not fetched",
-                PAGE_CAP * 100
-            );
-        }
-
-        Ok(events)
-    }
-
-    /// List the labels defined on a repository, paginated.
-    pub async fn list_repo_labels(&self, owner: &str, repo: &str) -> Result<Vec<GitHubPrLabel>> {
-        let url = format!("{}/repos/{}/{}/labels", self.base_url, owner, repo);
-
-        Ok(self
-            .get_all_pages::<GitHubPrLabelApi>(&url, 10)
-            .await?
-            .into_iter()
-            .map(Into::into)
-            .collect())
-    }
-
-    /// Add labels to a pull request; returns the resulting label set.
-    pub async fn add_labels_to_pull_request(
-        &self,
-        owner: &str,
-        repo: &str,
-        pr_number: i64,
-        labels: &[String],
-    ) -> Result<Vec<GitHubPrLabel>> {
-        #[derive(Serialize)]
-        struct AddLabelsBody<'a> {
-            labels: &'a [String],
-        }
-
-        let url = format!(
-            "{}/repos/{}/{}/issues/{}/labels",
-            self.base_url, owner, repo, pr_number
-        );
-
-        let response = self
-            .client
-            .post(&url)
-            .json(&AddLabelsBody { labels })
-            .send()
-            .await?;
-
-        if !response.status().is_success() {
-            bail!("Failed to add labels: {}", response_error(response).await);
-        }
-
-        let labels: Vec<GitHubPrLabelApi> = response.json().await?;
-        Ok(labels.into_iter().map(Into::into).collect())
-    }
-
-    pub async fn remove_label_from_pull_request(
-        &self,
-        owner: &str,
-        repo: &str,
-        pr_number: i64,
-        label: &str,
-    ) -> Result<()> {
-        let url = label_removal_url(&self.base_url, owner, repo, pr_number, label)?;
-
-        let response = self.client.delete(url).send().await?;
-
-        if !response.status().is_success() {
-            bail!("Failed to remove label: {}", response_error(response).await);
-        }
-
-        Ok(())
-    }
-
-    /// List users who can be assigned (and requested for review) on the repo.
-    pub async fn list_assignable_users(&self, owner: &str, repo: &str) -> Result<Vec<GitHubUser>> {
-        let url = format!("{}/repos/{}/{}/assignees", self.base_url, owner, repo);
-
-        Ok(self
-            .get_all_pages::<GitHubApiUser>(&url, 10)
-            .await?
-            .into_iter()
-            .map(GitHubUser::from)
-            .collect())
-    }
-
-    /// Copilot's reviewer account, or `None` where the forge has none. It can
-    /// be asked to review like a collaborator, but being an app it is never
-    /// among the assignees.
-    pub async fn get_copilot_reviewer(&self) -> Result<Option<GitHubUser>> {
-        let url = format!(
-            "{}/users/copilot-pull-request-reviewer%5Bbot%5D",
-            self.base_url
-        );
-
-        let response = self.client.get(&url).send().await?;
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Ok(None);
-        }
-        let profile: GitHubApiUser = ensure_success(response).await?.json().await?;
-
-        // The profile spells the login `Copilot`, but a review request only
-        // resolves the bot login, so the login moves to the display name
-        // unless the profile already carries one.
-        let mut copilot = GitHubUser::from(profile);
-        if copilot.name.is_none() {
-            copilot.name = Some(copilot.login.clone());
-        }
-        copilot.login = "copilot-pull-request-reviewer[bot]".to_string();
-        copilot.is_bot = true;
-        Ok(Some(copilot))
-    }
-
-    pub async fn request_reviewers(
-        &self,
-        owner: &str,
-        repo: &str,
-        pr_number: i64,
-        reviewers: &[String],
-    ) -> Result<()> {
-        let url = format!(
-            "{}/repos/{}/{}/pulls/{}/requested_reviewers",
-            self.base_url, owner, repo, pr_number
-        );
-
-        let response = self
-            .client
-            .post(&url)
-            .json(&ReviewersBody { reviewers })
-            .send()
-            .await?;
-
-        if !response.status().is_success() {
-            bail!(
-                "Failed to request reviewers: {}",
-                response_error(response).await
-            );
-        }
-
-        Ok(())
-    }
-
-    pub async fn remove_requested_reviewers(
-        &self,
-        owner: &str,
-        repo: &str,
-        pr_number: i64,
-        reviewers: &[String],
-    ) -> Result<()> {
-        let url = format!(
-            "{}/repos/{}/{}/pulls/{}/requested_reviewers",
-            self.base_url, owner, repo, pr_number
-        );
-
-        let response = self
-            .client
-            .delete(&url)
-            .json(&ReviewersBody { reviewers })
-            .send()
-            .await?;
-
-        if !response.status().is_success() {
-            bail!(
-                "Failed to withdraw review request: {}",
-                response_error(response).await
-            );
-        }
-
-        Ok(())
-    }
-
-    /// Edit a conversation comment. Comments are addressed by their own id,
-    /// not the pull request number.
-    pub async fn update_pull_request_comment(
-        &self,
-        owner: &str,
-        repo: &str,
-        comment_id: i64,
-        body: &str,
-    ) -> Result<PullRequestComment> {
-        #[derive(Serialize)]
-        struct CommentBody<'a> {
-            body: &'a str,
-        }
-
-        let url = format!(
-            "{}/repos/{}/{}/issues/comments/{}",
-            self.base_url, owner, repo, comment_id
-        );
-
-        let response = self
-            .client
-            .patch(&url)
-            .json(&CommentBody { body })
-            .send()
-            .await?;
-
-        if !response.status().is_success() {
-            bail!(
-                "Failed to update comment: {}",
-                response_error(response).await
-            );
-        }
-
-        let comment: GitHubIssueComment = response.json().await?;
-        Ok(comment.into())
-    }
-
-    pub async fn delete_pull_request_comment(
-        &self,
-        owner: &str,
-        repo: &str,
-        comment_id: i64,
-    ) -> Result<()> {
-        let url = format!(
-            "{}/repos/{}/{}/issues/comments/{}",
-            self.base_url, owner, repo, comment_id
-        );
-
-        let response = self.client.delete(&url).send().await?;
-
-        if !response.status().is_success() {
-            bail!(
-                "Failed to delete comment: {}",
-                response_error(response).await
-            );
-        }
-
-        Ok(())
-    }
-
     /// List the submitted reviews on a pull request (approvals, change
     /// requests, review comments), oldest first, each with its reactions.
     ///
@@ -1087,188 +619,6 @@ impl GitHubClient {
         }
 
         Ok(reviews)
-    }
-
-    /// The node id of one submitted review, which is what the reaction
-    /// mutations address; REST ids are all a caller holds. One REST call: the
-    /// single-review endpoint reports it, where listing would page through all.
-    async fn get_pull_request_review_node_id(
-        &self,
-        owner: &str,
-        repo: &str,
-        pr_number: i64,
-        review_id: i64,
-    ) -> Result<String> {
-        #[derive(Deserialize)]
-        struct ReviewNodeId {
-            node_id: String,
-        }
-
-        let url = format!(
-            "{}/repos/{}/{}/pulls/{}/reviews/{}",
-            self.base_url, owner, repo, pr_number, review_id
-        );
-        let response = self.client.get(&url).send().await?;
-        let response = ensure_success(response).await?;
-        let review: ReviewNodeId = response.json().await?;
-        Ok(review.node_id)
-    }
-
-    /// Add a reaction to one submitted review. Idempotent per kind on
-    /// GitHub's side.
-    pub async fn add_pull_request_review_reaction(
-        &self,
-        owner: &str,
-        repo: &str,
-        pr_number: i64,
-        review_id: i64,
-        content: &str,
-    ) -> Result<Reaction> {
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct QueryData {
-            add_reaction: Option<ReactionPayload>,
-        }
-
-        #[derive(Deserialize)]
-        struct ReactionPayload {
-            reaction: Option<GraphQlReaction>,
-        }
-
-        let subject_id = self
-            .get_pull_request_review_node_id(owner, repo, pr_number, review_id)
-            .await?;
-        let data: QueryData = self
-            .graphql_query(
-                GQL_ADD_REACTION,
-                &ReactionVariables {
-                    subject_id: &subject_id,
-                    content: graphql_reaction_content(content)?,
-                },
-            )
-            .await?;
-
-        let Some(reaction) = data
-            .add_reaction
-            .and_then(|payload| payload.reaction)
-            .and_then(GraphQlReaction::into_reaction)
-        else {
-            bail!("GitHub GraphQL addReaction returned no reaction");
-        };
-        Ok(reaction)
-    }
-
-    /// Remove the caller's reaction of one kind from one submitted review.
-    pub async fn remove_pull_request_review_reaction(
-        &self,
-        owner: &str,
-        repo: &str,
-        pr_number: i64,
-        review_id: i64,
-        content: &str,
-    ) -> Result<()> {
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct QueryData {
-            remove_reaction: Option<serde::de::IgnoredAny>,
-        }
-
-        let subject_id = self
-            .get_pull_request_review_node_id(owner, repo, pr_number, review_id)
-            .await?;
-        let data: QueryData = self
-            .graphql_query(
-                GQL_REMOVE_REACTION,
-                &ReactionVariables {
-                    subject_id: &subject_id,
-                    content: graphql_reaction_content(content)?,
-                },
-            )
-            .await?;
-
-        if data.remove_reaction.is_none() {
-            bail!("GitHub GraphQL removeReaction returned nothing");
-        }
-        Ok(())
-    }
-
-    /// Set the resolution state of a review conversation on GitHub.
-    pub async fn set_review_thread_resolved(&self, thread_id: &str, resolved: bool) -> Result<()> {
-        #[derive(Serialize)]
-        #[serde(rename_all = "camelCase")]
-        struct Variables<'a> {
-            thread_id: &'a str,
-        }
-
-        #[derive(Deserialize)]
-        struct QueryData {
-            result: Option<Payload>,
-        }
-
-        #[derive(Deserialize)]
-        struct Payload {
-            thread: Option<Thread>,
-        }
-
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct Thread {
-            is_resolved: bool,
-        }
-
-        let query = if resolved {
-            "mutation($threadId: ID!) { result: resolveReviewThread(input: {threadId: $threadId}) { thread { isResolved } } }"
-        } else {
-            "mutation($threadId: ID!) { result: unresolveReviewThread(input: {threadId: $threadId}) { thread { isResolved } } }"
-        };
-        let data: QueryData = self.graphql_query(query, &Variables { thread_id }).await?;
-        let thread = data
-            .result
-            .and_then(|payload| payload.thread)
-            .context("GitHub returned no review thread after changing its resolution")?;
-        anyhow::ensure!(
-            thread.is_resolved == resolved,
-            "GitHub did not change the review thread resolution"
-        );
-        Ok(())
-    }
-
-    /// Reply into an existing review thread, returning the comment it made.
-    pub async fn add_review_thread_reply(
-        &self,
-        thread_id: &str,
-        body: &str,
-    ) -> Result<PullRequestReviewThreadComment> {
-        #[derive(Serialize)]
-        struct Variables<'a> {
-            #[serde(rename = "threadId")]
-            thread_id: &'a str,
-            body: &'a str,
-        }
-
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct QueryData {
-            add_pull_request_review_thread_reply: Option<ReplyPayload>,
-        }
-
-        #[derive(Deserialize)]
-        struct ReplyPayload {
-            comment: Option<GraphQlReviewThreadComment>,
-        }
-
-        let data: QueryData = self
-            .graphql_query(GQL_ADD_REVIEW_THREAD_REPLY, &Variables { thread_id, body })
-            .await?;
-
-        let Some(comment) = data
-            .add_pull_request_review_thread_reply
-            .and_then(|payload| payload.comment)
-        else {
-            bail!("GitHub GraphQL addPullRequestReviewThreadReply returned no comment");
-        };
-
-        Ok(comment.into())
     }
 
     /// List the diff-anchored review threads on a pull request, oldest
@@ -1437,19 +787,14 @@ impl GitHubClient {
         };
 
         let response = self.client.patch(&url).json(&body).send().await?;
-
-        if !response.status().is_success() {
-            bail!(
-                "Failed to update pull request: {}",
-                response_error(response).await
-            );
-        }
-
-        let pr: GitHubPullRequest = response.json().await?;
+        let pr: GitHubPullRequest = ensure_success(response).await?.json().await?;
         Ok(pr.into())
     }
 
     /// Merge a PR.
+    ///
+    /// GitHub refuses to merge a stacked PR here and points to its asynchronous merge, so a
+    /// stacked PR is merged that way instead.
     pub async fn merge_pull_request(&self, params: &MergePullRequestParams<'_>) -> Result<()> {
         #[derive(Serialize)]
         struct MergePullRequestBody<'a> {
@@ -1477,22 +822,80 @@ impl GitHubClient {
         let response = self.client.put(&url).json(&body).send().await?;
 
         let status = response.status();
-        if !status.is_success() {
-            // The body carries GitHub's reason. Only its `message` reads well in
-            // a toast; the raw envelope drags a documentation URL along.
-            let body = response.text().await.unwrap_or_default();
-            let reason = serde_json::from_str::<serde_json::Value>(&body)
-                .ok()
-                .and_then(|value| {
-                    value
-                        .get("message")
-                        .and_then(|m| m.as_str().map(String::from))
-                })
-                .unwrap_or(body);
-            bail!("GitHub refused the merge ({status}): {reason}");
+        if status.is_success() {
+            return Ok(());
         }
+        let reason = refusal_message(response.text().await.unwrap_or_default());
+        if status == reqwest::StatusCode::FORBIDDEN
+            && reason.contains("asynchronous merge endpoint")
+        {
+            return self.merge_pull_request_async(&url, &body).await;
+        }
+        bail!("GitHub refused the merge ({status}): {reason}");
+    }
 
-        Ok(())
+    /// Merge a PR through GitHub's asynchronous merge at `{merge_url}-async`, and wait until
+    /// it merges or joins the merge queue. For a stacked PR this merges the open PRs below it too.
+    async fn merge_pull_request_async(&self, merge_url: &str, body: &impl Serialize) -> Result<()> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "lowercase")]
+        enum Status {
+            Pending,
+            Merged,
+            Enqueued,
+            Failed,
+        }
+        #[derive(Deserialize)]
+        struct Details {
+            message: Option<String>,
+            uuid: Option<String>,
+        }
+        #[derive(Deserialize)]
+        struct AsyncMerge {
+            status: Status,
+            details: Details,
+        }
+        // The API version GitHub documents the endpoint under.
+        const API_VERSION: &str = "2026-03-10";
+        // GitHub says a merge can take a few minutes, so this waits five.
+        const POLLS: u32 = 300;
+
+        let url = format!("{merge_url}-async");
+        let response = (self.client.put(&url))
+            .header("X-GitHub-Api-Version", API_VERSION)
+            .json(body)
+            .send()
+            .await?;
+        let status = response.status();
+        let body = response.text().await?;
+        // A merge asked for while another is under way gets that one's id, to follow instead.
+        if !status.is_success() && status != reqwest::StatusCode::CONFLICT {
+            bail!(
+                "GitHub refused the merge ({status}): {}",
+                refusal_message(body)
+            );
+        }
+        let mut merge: AsyncMerge = serde_json::from_str(&body)
+            .with_context(|| format!("GitHub answered the merge ({status}) with {body}"))?;
+        let uuid = merge.details.uuid.take();
+        for _ in 0..POLLS {
+            match merge.status {
+                Status::Merged | Status::Enqueued => return Ok(()),
+                Status::Failed => bail!(
+                    "GitHub couldn't merge the pull request: {}",
+                    merge.details.message.unwrap_or_default()
+                ),
+                Status::Pending => {}
+            }
+            let uuid = (uuid.as_deref()).context("GitHub accepted the merge without an id")?;
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            let response = (self.client.get(format!("{url}/{uuid}")))
+                .header("X-GitHub-Api-Version", API_VERSION)
+                .send()
+                .await?;
+            merge = ensure_success(response).await?.json().await?;
+        }
+        bail!("GitHub is still merging the pull request after five minutes; check it on GitHub")
     }
 
     /// Set the draftiness of a PR.
@@ -2231,11 +1634,6 @@ impl From<GitHubReactionApi> for Reaction {
     }
 }
 
-#[derive(Serialize)]
-struct AddReactionBody<'a> {
-    content: &'a str,
-}
-
 /// Reaction counts on a comment, straight from the `reactions` summary
 /// GitHub embeds in issue-comment responses.
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -2256,35 +1654,6 @@ pub struct CommentReactions {
     pub rocket: i64,
     #[serde(default)]
     pub eyes: i64,
-}
-
-#[derive(Serialize)]
-struct ReviewersBody<'a> {
-    reviewers: &'a [String],
-}
-
-/// Build `DELETE /repos/{o}/{r}/issues/{n}/labels/{name}` with the label name
-/// percent-encoded. `PathSegmentsMut::push` silently *drops* `.` and `..`
-/// segments, which would degrade this into GitHub's remove-ALL-labels
-/// endpoint — refuse those names instead of encoding them.
-fn label_removal_url(
-    base_url: &str,
-    owner: &str,
-    repo: &str,
-    pr_number: i64,
-    label: &str,
-) -> Result<reqwest::Url> {
-    if matches!(label, "" | "." | "..") {
-        bail!("Refusing to remove label with degenerate name {label:?}");
-    }
-
-    let mut url = reqwest::Url::parse(&format!(
-        "{base_url}/repos/{owner}/{repo}/issues/{pr_number}/labels"
-    ))?;
-    url.path_segments_mut()
-        .map_err(|()| anyhow::anyhow!("Invalid GitHub base URL"))?
-        .push(label);
-    Ok(url)
 }
 
 /// A submitted review on a pull request, with the reactions left on it.
@@ -2335,13 +1704,6 @@ struct GraphQlReaction {
     user: Option<GraphQlActor>,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ReactionVariables<'a> {
-    subject_id: &'a str,
-    content: &'static str,
-}
-
 /// GraphQL's `ReactionContent` enum against the REST kind strings the rest
 /// of the crate speaks, so both APIs report one vocabulary.
 const REACTION_CONTENTS: [(&str, &str); 8] = [
@@ -2354,14 +1716,6 @@ const REACTION_CONTENTS: [(&str, &str); 8] = [
     ("ROCKET", "rocket"),
     ("EYES", "eyes"),
 ];
-
-fn graphql_reaction_content(kind: &str) -> Result<&'static str> {
-    REACTION_CONTENTS
-        .iter()
-        .find(|(_, rest)| *rest == kind)
-        .map(|(graphql, _)| *graphql)
-        .ok_or_else(|| anyhow::anyhow!("Unknown reaction kind: {kind}"))
-}
 
 fn rest_reaction_kind(content: String) -> String {
     REACTION_CONTENTS
@@ -2601,59 +1955,6 @@ impl From<GitHubIssueComment> for PullRequestComment {
     }
 }
 
-/// The timeline rows lite renders between conversation comments.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-pub enum PullRequestTimelineEventKind {
-    Committed,
-    ReviewRequested,
-}
-
-/// A pushed commit or review request on a pull request's conversation
-/// timeline, from `GET /issues/{n}/timeline`. Commit events carry the
-/// git author and commit fields; review requests carry actor/reviewer.
-#[derive(Debug, Serialize)]
-pub struct PullRequestTimelineEvent {
-    pub kind: PullRequestTimelineEventKind,
-    pub actor: Option<GitHubUser>,
-    pub requested_reviewer: Option<GitHubUser>,
-    pub commit_sha: Option<String>,
-    pub commit_summary: Option<String>,
-    pub commit_author_name: Option<String>,
-    pub created_at: Option<String>,
-}
-
-/// One raw timeline node; the union is heterogeneous, so every field is
-/// optional and unnamed item kinds deserialize (and drop) cleanly.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct GraphQlTimelineItem {
-    #[serde(rename = "__typename")]
-    typename: String,
-    commit: Option<GraphQlTimelineCommit>,
-    created_at: Option<String>,
-    actor: Option<GraphQlActor>,
-    requested_reviewer: Option<GraphQlRequestedReviewer>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct GraphQlTimelineCommit {
-    oid: String,
-    message_headline: Option<String>,
-    author: Option<GraphQlCommitAuthor>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct GraphQlCommitAuthor {
-    name: Option<String>,
-    /// Author date, not committer date — a rebase re-stamps the latter, which
-    /// would re-announce every carried commit as new activity.
-    date: Option<String>,
-    /// The GitHub account the author email maps to, when it maps to one.
-    user: Option<GraphQlActor>,
-}
-
 /// A requested reviewer; a team carries no login, so unlike an actor every
 /// field is optional and login-less reviewers are dropped.
 #[derive(Debug, Deserialize)]
@@ -2678,41 +1979,6 @@ impl GraphQlRequestedReviewer {
             avatar_url: self.avatar_url,
             is_bot: self.typename.as_deref() == Some("Bot"),
         })
-    }
-}
-
-impl GraphQlTimelineItem {
-    fn into_event(self) -> Option<PullRequestTimelineEvent> {
-        match self.typename.as_str() {
-            "PullRequestCommit" => {
-                let commit = self.commit?;
-                let author = commit.author;
-                Some(PullRequestTimelineEvent {
-                    kind: PullRequestTimelineEventKind::Committed,
-                    actor: author
-                        .as_ref()
-                        .and_then(|author| author.user.clone())
-                        .map(Into::into),
-                    requested_reviewer: None,
-                    commit_sha: Some(commit.oid),
-                    commit_summary: commit.message_headline,
-                    created_at: author.as_ref().and_then(|author| author.date.clone()),
-                    commit_author_name: author.and_then(|author| author.name),
-                })
-            }
-            "ReviewRequestedEvent" => Some(PullRequestTimelineEvent {
-                kind: PullRequestTimelineEventKind::ReviewRequested,
-                actor: self.actor.map(Into::into),
-                requested_reviewer: self
-                    .requested_reviewer
-                    .and_then(GraphQlRequestedReviewer::into_user),
-                commit_sha: None,
-                commit_summary: None,
-                commit_author_name: None,
-                created_at: self.created_at,
-            }),
-            _ => None,
-        }
     }
 }
 
@@ -2996,6 +2262,15 @@ pub(crate) async fn response_error(response: reqwest::Response) -> String {
     }
 }
 
+/// GitHub's reason for refusing a request. Only its `message` reads well in a toast; the raw
+/// envelope drags a documentation URL along.
+fn refusal_message(body: String) -> String {
+    serde_json::from_str::<serde_json::Value>(&body)
+        .ok()
+        .and_then(|value| value.get("message")?.as_str().map(String::from))
+        .unwrap_or(body)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3039,89 +2314,116 @@ mod tests {
         id: String,
     }
 
-    #[tokio::test]
-    async fn review_thread_resolution_calls_github_and_checks_the_result() {
-        use std::io::{Read, Write};
-        for (resolved, response, succeeds) in [
-            (
-                true,
-                r#"{"data":{"result":{"thread":{"isResolved":true}}}}"#,
-                true,
-            ),
-            (
-                false,
-                r#"{"data":{"result":{"thread":{"isResolved":false}}}}"#,
-                true,
-            ),
-            (true, r#"{"data":{"result":null}}"#, false),
-            (
-                true,
-                r#"{"data":{"result":{"thread":{"isResolved":false}}}}"#,
-                false,
-            ),
-            (
-                true,
-                r#"{"errors":[{"message":"Forbidden"}],"data":null}"#,
-                false,
-            ),
-        ] {
-            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-            let address = listener.local_addr().unwrap();
-            let server = std::thread::spawn(move || {
-                let (mut stream, _) = listener.accept().unwrap();
+    /// Answer one connection per response, in order, checking each request's method and path.
+    fn serve(
+        responses: Vec<(&'static str, &'static str, &'static str)>,
+    ) -> (String, std::thread::JoinHandle<()>) {
+        use std::io::{Read as _, Write as _};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base_url = format!("http://{}", listener.local_addr().unwrap());
+        listener.set_nonblocking(true).unwrap();
+        let server = std::thread::spawn(move || {
+            for (request_line, status, body) in responses {
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+                let (mut stream, _) = loop {
+                    match listener.accept() {
+                        Ok(connection) => break connection,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            assert!(
+                                std::time::Instant::now() < deadline,
+                                "no request came for `{request_line}`"
+                            );
+                            std::thread::sleep(std::time::Duration::from_millis(5));
+                        }
+                        Err(error) => panic!("failed to accept request: {error}"),
+                    }
+                };
+                stream.set_nonblocking(false).unwrap();
                 stream
                     .set_read_timeout(Some(std::time::Duration::from_secs(5)))
                     .unwrap();
+                // Read the whole request, its body too, before answering.
                 let mut request = Vec::new();
                 let mut buffer = [0; 4096];
                 loop {
-                    let n = stream.read(&mut buffer).unwrap();
-                    assert!(n > 0, "the client must send a complete GraphQL request");
-                    request.extend_from_slice(&buffer[..n]);
                     if let Some(end) = request.windows(4).position(|bytes| bytes == b"\r\n\r\n") {
-                        let headers = String::from_utf8_lossy(&request[..end]);
-                        let length: usize = headers
+                        let length = String::from_utf8_lossy(&request[..end])
                             .lines()
                             .find_map(|line| {
                                 let (name, value) = line.split_once(':')?;
                                 name.eq_ignore_ascii_case("content-length")
                                     .then(|| value.trim().parse().unwrap())
                             })
-                            .unwrap();
+                            .unwrap_or(0);
                         if request.len() >= end + 4 + length {
-                            let body: serde_json::Value =
-                                serde_json::from_slice(&request[end + 4..]).unwrap();
-                            assert_eq!(
-                                body["variables"]["threadId"], "thread-1",
-                                "the selected thread is addressed by its forge id"
-                            );
-                            let operation = if resolved {
-                                "resolveReviewThread("
-                            } else {
-                                "unresolveReviewThread("
-                            };
-                            assert!(
-                                body["query"].as_str().unwrap().contains(operation),
-                                "the requested state chooses the mutation"
-                            );
                             break;
                         }
                     }
+                    let n = stream.read(&mut buffer).unwrap();
+                    assert!(n > 0, "the request ended early");
+                    request.extend_from_slice(&buffer[..n]);
                 }
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", response.len(), response).unwrap();
-            });
+                assert!(
+                    String::from_utf8_lossy(&request).starts_with(request_line),
+                    "expected `{request_line}`, got {}",
+                    String::from_utf8_lossy(&request)
+                );
+                write!(
+                    stream,
+                    "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .unwrap();
+            }
+        });
+        (base_url, server)
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_stacked_pull_request_merges_through_the_asynchronous_endpoint() {
+        // What GitHub answers the synchronous merge of a pull request in a stack.
+        let refused = r#"{"message":"Merging stacked PRs via this endpoint is not supported. Use the asynchronous merge endpoint instead."}"#;
+        let pending =
+            r#"{"status":"pending","details":{"message":"Merge requested","uuid":"m-1"}}"#;
+        let merged = r#"{"status":"merged","details":{"message":"Merged","sha":"abc"}}"#;
+        for (accepted, result, expected) in [
+            ("202 Accepted", merged, Ok(())),
+            (
+                "202 Accepted",
+                r#"{"status":"failed","details":{"message":"Required status check \"ci\" is failing."}}"#,
+                Err(
+                    r#"GitHub couldn't merge the pull request: Required status check "ci" is failing."#,
+                ),
+            ),
+            // A merge asked for again while the first is still under way.
+            ("409 Conflict", merged, Ok(())),
+        ] {
+            let (base_url, server) = serve(vec![
+                ("PUT /repos/o/r/pulls/7/merge ", "403 Forbidden", refused),
+                ("PUT /repos/o/r/pulls/7/merge-async ", accepted, pending),
+                ("GET /repos/o/r/pulls/7/merge-async/m-1 ", "200 OK", pending),
+                ("GET /repos/o/r/pulls/7/merge-async/m-1 ", "200 OK", result),
+            ]);
             let client = GitHubClient {
                 client: reqwest::Client::new(),
-                base_url: format!("http://{address}"),
+                base_url,
             };
-            let result = client
-                .set_review_thread_resolved("thread-1", resolved)
+            let merged = client
+                .merge_pull_request(&MergePullRequestParams {
+                    owner: "o",
+                    repo: "r",
+                    pr_number: 7,
+                    commit_title: None,
+                    commit_message: None,
+                    merge_method: Some(MergeMethod::Merge),
+                })
                 .await;
             server.join().unwrap();
             assert_eq!(
-                result.is_ok(),
-                succeeds,
-                "missing, refused, or unchanged resolution must fail"
+                merged.map_err(|err| err.to_string()),
+                expected.map_err(String::from),
+                "the merge waits for GitHub's result, its own or one already under way, and \
+                 reports a failure in GitHub's words"
             );
         }
     }
@@ -3189,28 +2491,6 @@ mod tests {
         assert_eq!(merge, serde_json::json!("MERGE"));
         assert_eq!(squash, serde_json::json!("SQUASH"));
         assert_eq!(rebase, serde_json::json!("REBASE"));
-    }
-
-    #[test]
-    fn label_removal_url_encodes_exotic_names() {
-        let url = label_removal_url("https://api.github.com", "o", "r", 7, "help wanted 🙏/2")
-            .expect("normal names build a URL");
-        assert_eq!(
-            url.as_str(),
-            "https://api.github.com/repos/o/r/issues/7/labels/help%20wanted%20%F0%9F%99%8F%2F2",
-            "spaces, unicode, and slashes must be percent-encoded, not path-splitting"
-        );
-    }
-
-    #[test]
-    fn label_removal_url_refuses_names_the_url_crate_would_drop() {
-        // A dropped segment would target the remove-ALL-labels endpoint.
-        for degenerate in ["", ".", ".."] {
-            assert!(
-                label_removal_url("https://api.github.com", "o", "r", 7, degenerate).is_err(),
-                "{degenerate:?} must be refused"
-            );
-        }
     }
 
     #[test]

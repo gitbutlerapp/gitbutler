@@ -7,7 +7,10 @@ use but_core::{RefMetadata, commit::tree_expression::TreeExpression};
 use gix::prelude::ObjectIdExt;
 use petgraph::Direction;
 
-use crate::graph_rebase::{Editor, Pick, Step, StepGraphIndex, util::collect_ordered_parents};
+use crate::graph_rebase::{
+    Editor, Pick, Step, StepGraphIndex,
+    util::{OrderedParentKind, collect_ordered_parents},
+};
 
 /// A selected commit change range that should be merged into an accumulated
 /// tree.
@@ -270,7 +273,11 @@ fn traverse_graph_for_planning<M: RefMetadata>(
 
                             if id == target_commit_id {
                                 traversal.target_ancestor_commit_ids.insert(id);
-                                for parent_idx in collect_ordered_parents(&editor.graph, node) {
+                                for parent_idx in collect_ordered_parents(
+                                    &editor.graph,
+                                    node,
+                                    OrderedParentKind::CommitOnly,
+                                ) {
                                     stack.push((
                                         parent_idx,
                                         false,
@@ -286,7 +293,8 @@ fn traverse_graph_for_planning<M: RefMetadata>(
                         continue;
                     }
 
-                    let parents = collect_ordered_parents(&editor.graph, node);
+                    let parents =
+                        collect_ordered_parents(&editor.graph, node, OrderedParentKind::CommitOnly);
                     stack.push((node, true, TraversalMode::Normal));
                     for parent_idx in parents.into_iter() {
                         stack.push((parent_idx, false, TraversalMode::Normal));
@@ -301,7 +309,9 @@ fn traverse_graph_for_planning<M: RefMetadata>(
                         traversal.target_ancestor_commit_ids.insert(id);
                     }
 
-                    for parent_idx in collect_ordered_parents(&editor.graph, node) {
+                    for parent_idx in
+                        collect_ordered_parents(&editor.graph, node, OrderedParentKind::CommitOnly)
+                    {
                         stack.push((parent_idx, false, TraversalMode::MarkTargetAncestors));
                     }
                 }

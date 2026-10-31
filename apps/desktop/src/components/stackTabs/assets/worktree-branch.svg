@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="139" height="72" viewBox="0 0 139 72" fill="none">
+  <g>
+    <path
+      d="M0.6 71.6V8.6C0.6 4.18172 4.18172 0.599998 8.6 0.599998H38.6C41.1 0.599998 43.2 1.6 44.6 3.6L48.6 8.6H130.6C135.018 8.6 138.6 12.1817 138.6 16.6V71.6H0.6Z"
+      fill="var(--bg-1)" />
+    <path
+      d="M0.6 71.6V8.6C0.6 4.18172 4.18172 0.599998 8.6 0.599998H38.6C41.1 0.599998 43.2 1.6 44.6 3.6L48.6 8.6H130.6C135.018 8.6 138.6 12.1817 138.6 16.6V71.6"
+      stroke="var(--image-outline)" stroke-width="1.2" />
+  </g>
+  <g>
+    <path
+      d="M10.6 30.6C10.6 25.0772 15.0772 20.6 20.6 20.6H118.6C124.123 20.6 128.6 25.0772 128.6 30.6V41.6C128.6 47.1228 124.123 51.6 118.6 51.6H20.6C15.0772 51.6 10.6 47.1228 10.6 41.6V30.6Z"
+      fill="var(--image-accent-bg)" stroke="var(--image-accent-outline)" stroke-width="1.2" />
+    <text fill="var(--image-accent-outline)" xml:space="preserve" style="white-space: pre"
+      font-family="Inter" font-size="12" font-weight="600" letter-spacing="0em">
+      <tspan x="36.6" y="40.4636">New branch</tspan>
+    </text>
+    <circle cx="23.6" cy="36.1" r="5" fill="var(--image-accent-outline)" />
+    <path d="M23.6 36.1V71.6" stroke="var(--image-outline)" stroke-width="2" />
+  </g>
+</svg>

@@ -6,7 +6,10 @@ use anyhow::{Result, bail};
 use but_core::RefMetadata;
 use petgraph::Direction;
 
-use crate::graph_rebase::{Editor, Pick, Selector, Step, StepGraphIndex, ToCommitSelector, util};
+use crate::graph_rebase::{
+    Editor, Pick, Selector, Step, StepGraphIndex, ToCommitSelector,
+    util::{self, OrderedParentKind},
+};
 
 impl<M: RefMetadata> Editor<'_, '_, M> {
     /// Order commit selectors by parentage, with parents first and children last.
@@ -128,7 +131,8 @@ fn step_graph_parent_to_child_rank<M: RefMetadata>(
                 continue;
             }
 
-            let parents = util::collect_ordered_parents(&editor.graph, node);
+            let parents =
+                util::collect_ordered_parents(&editor.graph, node, OrderedParentKind::CommitOnly);
             stack.push((node, true));
             for parent_idx in parents.into_iter() {
                 stack.push((parent_idx, false));

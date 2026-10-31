@@ -74,9 +74,9 @@ Ok(
         target_ref: Some(
             TargetRef {
                 ref_name: FullName(
-                    "refs/remotes/origin/main",
+                    "refs/heads/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: NodeIndex(2),
                 commits_ahead: 5,
             },
         ),
@@ -86,11 +86,23 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
-        is_target_current: true,
+        target_upstream: Some(
+            TargetUpstream {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                tip: Some(
+                    Sha1(eabf2989a998260c7fbe181b33d5772705d62907),
+                ),
+                cutoff_matches_tip: true,
+            },
+        ),
+        can_fast_forward_local_target: false,
         lower_bound: Some(
             NodeIndex(5),
         ),
         ancestor_workspace_commit: None,
+        has_lanes_behind_target: true,
     },
 )
 
@@ -165,9 +177,9 @@ Ok(
         target_ref: Some(
             TargetRef {
                 ref_name: FullName(
-                    "refs/remotes/origin/main",
+                    "refs/heads/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: NodeIndex(2),
                 commits_ahead: 5,
             },
         ),
@@ -177,11 +189,23 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
-        is_target_current: true,
+        target_upstream: Some(
+            TargetUpstream {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                tip: Some(
+                    Sha1(d89aadb67d5c32e6a63cad3d36020b5e8e192a91),
+                ),
+                cutoff_matches_tip: true,
+            },
+        ),
+        can_fast_forward_local_target: false,
         lower_bound: Some(
             NodeIndex(5),
         ),
         ancestor_workspace_commit: None,
+        has_lanes_behind_target: true,
     },
 )
 
@@ -254,9 +278,9 @@ Ok(
         target_ref: Some(
             TargetRef {
                 ref_name: FullName(
-                    "refs/remotes/origin/main",
+                    "refs/heads/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: NodeIndex(2),
                 commits_ahead: 0,
             },
         ),
@@ -266,7 +290,18 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
-        is_target_current: true,
+        target_upstream: Some(
+            TargetUpstream {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                tip: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                cutoff_matches_tip: true,
+            },
+        ),
+        can_fast_forward_local_target: false,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -345,9 +380,9 @@ Ok(
         target_ref: Some(
             TargetRef {
                 ref_name: FullName(
-                    "refs/remotes/origin/main",
+                    "refs/heads/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: NodeIndex(2),
                 commits_ahead: 5,
             },
         ),
@@ -357,11 +392,23 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
-        is_target_current: true,
+        target_upstream: Some(
+            TargetUpstream {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                tip: Some(
+                    Sha1(7a2d071f19ec7551996099943167460ff2c2dd9d),
+                ),
+                cutoff_matches_tip: true,
+            },
+        ),
+        can_fast_forward_local_target: false,
         lower_bound: Some(
             NodeIndex(5),
         ),
         ancestor_workspace_commit: None,
+        has_lanes_behind_target: true,
     },
 )
 

@@ -3,6 +3,7 @@ export type Operation =
 	| "CreateBranch"
 	| "SetBaseBranch"
 	| "MergeUpstream"
+	| "MergeBranch"
 	| "UpdateWorkspaceBase"
 	| "MoveHunk"
 	| "UpdateBranchName"

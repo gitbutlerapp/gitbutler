@@ -46,6 +46,6 @@ git init --bare remote
 (cd local
   remote_path="$(cd ../remote && pwd)"
   git remote add origin "$remote_path"
-  git push origin master
+  git push --set-upstream origin master
   git fetch origin '+refs/heads/*:refs/remotes/origin/*'
 )

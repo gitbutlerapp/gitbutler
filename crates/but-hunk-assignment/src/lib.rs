@@ -168,7 +168,7 @@ impl From<HunkAssignment> for but_core::DiffSpec {
         };
         but_core::DiffSpec {
             previous_path: None, // TODO
-            path: value.path_bytes.clone(),
+            path: value.path_bytes,
             hunk_headers,
         }
     }
@@ -507,16 +507,24 @@ fn reconcile_worktree_changes_with_worktree(
     if worktree_changes.is_empty() {
         return Ok(vec![]);
     }
-    let worktree_assignments: Vec<_> =
-        but_core::hunks_from_changes(repo, worktree_changes, context_lines)
-            .into_iter()
-            .map(HunkAssignment::from_hunk)
-            .collect();
+    let worktree_assignments = unassigned(repo, worktree_changes, context_lines);
     let mut reconciled = reconcile_with_worktree(db.to_ref(), workspace, &worktree_assignments)?;
 
     derive_stack_ids(&mut reconciled, workspace);
     state::set_assignments(db, reconciled.clone())?;
     Ok(reconciled)
+}
+
+/// Returns one unassigned, unpersisted assignment per hunk of `worktree_changes` in `repo`.
+pub fn unassigned(
+    repo: &gix::Repository,
+    worktree_changes: impl IntoIterator<Item = impl Into<but_core::TreeChange>>,
+    context_lines: u32,
+) -> Vec<HunkAssignment> {
+    but_core::hunks_from_changes(repo, worktree_changes, context_lines)
+        .into_iter()
+        .map(HunkAssignment::from_hunk)
+        .collect()
 }
 
 /// Returns the current hunk assignments for the workspace.
@@ -1316,7 +1324,7 @@ mod tests {
         };
 
         assert!(
-            binary1.clone().intersects(binary2.clone()),
+            binary1.intersects(binary2.clone()),
             "Binary files with same path should intersect"
         );
         assert!(
@@ -1343,7 +1351,7 @@ mod tests {
         };
 
         assert!(
-            text_with_hunk.clone().intersects(whole_file.clone()),
+            text_with_hunk.intersects(whole_file.clone()),
             "Text file with hunk should intersect with whole-file assignment"
         );
         assert!(

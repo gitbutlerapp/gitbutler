@@ -175,6 +175,7 @@ export class FileSelectionManager {
 		switch (params.type) {
 			case "worktree":
 				return this.uncommittedService
+					.at(params.worktree)
 					.getChangesByStackId(params.stackId || null)
 					.filter((c) => paths.includes(c.path));
 			case "branch": {
@@ -215,7 +216,9 @@ export class FileSelectionManager {
 				const paths = this.values(params).map((fileSelection) => {
 					return fileSelection.path;
 				});
-				return this.uncommittedService.getAssignmentsByPaths(params.stackId || null, paths);
+				return this.uncommittedService
+					.at(params.worktree)
+					.getAssignmentsByPaths(params.stackId || null, paths);
 			}
 			case "branch":
 			case "commit":
@@ -239,14 +242,14 @@ export class FileSelectionManager {
 	 * current worktree changes. Note that this function is a special case
 	 * for a particular key. It feels a bit out of place.
 	 */
-	retain(paths: string[] | undefined) {
+	retain(paths: string[] | undefined, worktree?: string) {
 		if (paths === undefined) {
 			this.selections.clear();
 			return;
 		}
 		const removedFiles: SelectedFile[] = [];
 		const worktreeSelection = this.selections.get(
-			selectionKey(createWorktreeSelection({ stackId: undefined })),
+			selectionKey(createWorktreeSelection({ stackId: undefined, worktree })),
 		);
 		if (!worktreeSelection) return;
 
@@ -288,7 +291,11 @@ export class FileSelectionManager {
 			}
 			case "worktree":
 				this.uncommittedService.assignmentsByPath(selectedFile.stackId || null, selectedFile.path);
-				return this.worktreeService.treeChangeByPath(projectId, selectedFile.path);
+				return this.worktreeService.treeChangeByPath(
+					projectId,
+					selectedFile.path,
+					selectedFile.worktree,
+				);
 			case "snapshot":
 				return this.historyService.snapshotDiffByPath({
 					projectId,

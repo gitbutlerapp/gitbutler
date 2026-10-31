@@ -1,6 +1,6 @@
 import { goto } from "$app/navigation";
 import { showToast } from "$lib/notifications/toasts";
-import { handleAddProjectOutcome, type Project } from "$lib/project/project";
+import { handleAddProjectOutcome } from "$lib/project/project";
 import { projectPath } from "$lib/routes/routes.svelte";
 import { getCookie } from "$lib/utils/cookies";
 import { InjectionToken } from "@gitbutler/core/context";
@@ -8,7 +8,7 @@ import { persisted } from "@gitbutler/shared/persisted";
 import { chipToasts } from "@gitbutler/ui-svelte";
 import { get } from "svelte/store";
 import type { IBackend } from "$lib/backend";
-import type { ProjectInfo } from "$lib/project/projectEndpoints";
+import type { ProjectInfo, ProjectUpdate } from "$lib/project/projectEndpoints";
 import type { BackendApi } from "$lib/state/backendApi";
 import type { ForgeUser } from "@gitbutler/but-sdk";
 
@@ -55,15 +55,13 @@ export class ProjectsService {
 		return await this.backendApi.endpoints.setProjectActive.mutate({ id: projectId });
 	}
 
-	async updateProject(project: Project & { unset_bool?: boolean; unset_forge_override?: boolean }) {
+	async updateProject(project: ProjectUpdate) {
 		await this.backendApi.endpoints.updateProject.mutate({ project });
 	}
 
 	async updatePreferredForgeUser(projectId: string, preferredForgeUser: ForgeUser | null) {
-		const project = await this.fetchProject(projectId, true);
-
 		await this.updateProject({
-			...project,
+			id: projectId,
 			preferred_forge_user: preferredForgeUser,
 		});
 	}
@@ -117,7 +115,7 @@ export class ProjectsService {
 		if (!path) return;
 
 		const project = await this.fetchProject(projectId, true);
-		await this.updateProject({ ...project, path });
+		await this.updateProject({ id: project.id, path });
 		chipToasts.success(`Project ${project.title} relocated`);
 		window.location.reload();
 	}

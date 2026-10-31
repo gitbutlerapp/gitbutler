@@ -14,7 +14,7 @@
 use anyhow::{Context, bail};
 use but_api::{
     bitbucket, branch, commit, diff, github, gitlab, land, legacy, open, platform, resolve,
-    workspace,
+    workspace, worktrees,
 };
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{
@@ -25,6 +25,19 @@ use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_log::{Target, TargetKind};
 
 fn main() -> anyhow::Result<()> {
+    // The native client relaunches this as the web app when its window can't open, and to
+    // install an update. Both are taken out of the environment, which the relaunches after
+    // them pass on: the web app's after installing, and the Windows installer's once done.
+    #[cfg(feature = "builtin-gpui")]
+    let web_once = std::env::var_os(but_gpui::WEB_APP_ONCE).is_some();
+    #[cfg(feature = "builtin-gpui")]
+    let install_update = std::env::var_os(but_gpui::INSTALL_UPDATE).is_some();
+    #[cfg(feature = "builtin-gpui")]
+    // SAFETY: first thing in `main`, before any other thread could read the environment.
+    unsafe {
+        std::env::remove_var(but_gpui::WEB_APP_ONCE);
+        std::env::remove_var(but_gpui::INSTALL_UPDATE);
+    };
     but_api::panic_capture::install_panic_hook();
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -40,6 +53,10 @@ fn main() -> anyhow::Result<()> {
     let tauri_debug_logging = std::env::var_os("GITBUTLER_TAURI_DEBUG_LOG").is_some();
 
     let mut tauri_context = generate_context!();
+    #[cfg(feature = "builtin-gpui")]
+    if install_update {
+        return install_update_for_gpui(tauri_context);
+    }
     but_secret::secret::set_application_namespace(&tauri_context.config().identifier);
 
     // Set the macOS notification bundle ID so notifications appear as GitButler.
@@ -68,8 +85,36 @@ fn main() -> anyhow::Result<()> {
         custom_settings
     };
     let mut app_settings =
-        AppSettingsWithDiskSync::new_with_customization(config_dir.clone(), custom_settings)
+        AppSettingsWithDiskSync::new_with_customization(config_dir, custom_settings)
             .expect("failed to create app settings");
+
+    // The native client, on the same settings, accounts and keychain entries. It owns the main
+    // thread until it quits, so it starts here, before Tauri does.
+    #[cfg(feature = "builtin-gpui")]
+    if !web_once
+        && (std::env::args_os().any(|arg| arg == "--gpui")
+            || app_settings.get()?.feature_flags.gpui)
+    {
+        // Into the web app's log folder, so the setup below is logged too.
+        but_gpui::init_logging();
+        // As the web app's setup does: hooks and signing need the PATH and the like of the
+        // user's shell, which an app opened from the Dock or Finder doesn't have.
+        #[cfg(target_os = "macos")]
+        but_action::cli::auto_fix_broken_but_cli_symlink();
+        inherit_interactive_login_shell_environment_if_not_launched_from_terminal();
+        // It asks the web app's update feed, as often as the web app would, and installs what
+        // it offers with a run of this binary, `install_update_for_gpui`.
+        #[allow(deprecated)]
+        let interval = app_settings.get()?.ui.check_for_updates_interval_in_seconds;
+        but_gpui::run(Some(but_gpui::Embedded {
+            version: tauri_context.package_info().version.to_string(),
+            update_feed: (interval > 0)
+                .then(|| update_feed(&tauri_context))
+                .flatten(),
+            check_every: std::time::Duration::from_secs(interval),
+        }));
+        return Ok(());
+    }
 
     if let Ok(updated_csp) = csp_with_extras(
         tauri_context.config().app.security.csp.as_ref().cloned(),
@@ -244,9 +289,11 @@ fn main() -> anyhow::Result<()> {
                 but_api::branch::tauri_branch_remove::branch_remove,
                 but_api::branch::tauri_branch_create::branch_create,
                 but_api::branch::tauri_branch_rename::branch_rename,
+                but_api::branch::tauri_branch_name_segment::branch_name_segment,
                 but_api::branch::tauri_branch_canned_name::branch_canned_name,
                 but_api::target_commits::tauri_workspace_target_commits::workspace_target_commits,
                 legacy::git::tauri_git_remote_branches::git_remote_branches,
+                but_api::branch::tauri_branch_list::branch_list,
                 legacy::git::tauri_delete_all_data::delete_all_data,
                 legacy::git::tauri_git_set_global_config::git_set_global_config,
                 legacy::git::tauri_git_remove_global_config::git_remove_global_config,
@@ -290,8 +337,6 @@ fn main() -> anyhow::Result<()> {
                 branch::tauri_apply::apply,
                 branch::tauri_get_initial_branch_integration::get_initial_branch_integration,
                 branch::tauri_apply_branch_integration::apply_branch_integration,
-                legacy::stack::tauri_create_branch::create_branch,
-                legacy::stack::tauri_remove_branch::remove_branch,
                 legacy::secret::tauri_secret_get_global::secret_get_global,
                 legacy::secret::tauri_secret_set_global::secret_set_global,
                 legacy::secret::tauri_secret_delete_global::secret_delete_global,
@@ -315,6 +360,7 @@ fn main() -> anyhow::Result<()> {
                 open::tauri_open_url::open_url,
                 open::tauri_open_in_terminal::open_in_terminal,
                 open::tauri_show_in_finder::show_in_finder,
+                open::tauri_workdir_path::workdir_path,
                 open::terminal::tauri_get_terminal_options_for_platform::get_terminal_options_for_platform,
                 open::terminal::tauri_get_recommended_terminal_for_platform::get_recommended_terminal_for_platform,
                 legacy::forge::tauri_pr_templates::pr_templates,
@@ -346,7 +392,12 @@ fn main() -> anyhow::Result<()> {
                 legacy::absorb::tauri_absorption_plan::absorption_plan,
                 diff::tauri_changes_in_worktree::changes_in_worktree,
                 diff::tauri_tree_change_diffs::tree_change_diffs,
+                diff::tauri_tree_change_diffs_from_source::tree_change_diffs_from_source,
                 diff::tauri_assign_hunk::assign_hunk,
+                worktrees::tauri_worktrees_list::worktrees_list,
+                worktrees::tauri_worktree_set_archived::worktree_set_archived,
+                worktrees::tauri_worktree_remove::worktree_remove,
+                worktrees::tauri_worktree_new::worktree_new,
                 #[cfg(unix)]
                 legacy::workspace::tauri_show_graph_svg::show_graph_svg,
                 askpass::submit_prompt_response,
@@ -480,4 +531,82 @@ fn inherit_interactive_login_shell_environment_if_not_launched_from_terminal() {
     } else {
         doit();
     }
+}
+
+/// Install the update the feed offers, with the updater the web app uses, for the native
+/// client, which started this run to do it and stays open meanwhile. No window opens; stdout
+/// gets how much has downloaded, in percent, a line each time it changes, and a failure ends
+/// the run with its message on stderr.
+#[cfg(feature = "builtin-gpui")]
+fn install_update_for_gpui(context: tauri::Context<tauri::Wry>) -> anyhow::Result<()> {
+    use std::io::Write as _;
+    use tauri_plugin_updater::UpdaterExt as _;
+
+    async fn install(app: &tauri::AppHandle) -> anyhow::Result<()> {
+        let update = (app.updater()?.check().await?).context("there's no newer version")?;
+        let (mut downloaded, mut shown) = (0, None);
+        let bytes = update
+            .download(
+                |chunk, total| {
+                    downloaded += chunk as u64;
+                    let percent = total.map(|total| downloaded * 100 / total.max(1));
+                    if percent != shown {
+                        shown = percent;
+                        if let Some(percent) = percent {
+                            // The client may have quit, which doesn't stop the install.
+                            writeln!(std::io::stdout(), "{percent}").ok();
+                        }
+                    }
+                },
+                || {},
+            )
+            .await?;
+        update.install(bytes)?;
+        Ok(())
+    }
+
+    tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .setup(|app| {
+            // No Dock icon beside the client's.
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            let app = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let code = match install(&app).await {
+                    Ok(()) => 0,
+                    Err(err) => {
+                        eprintln!("{err:#}");
+                        1
+                    }
+                };
+                // Not `app.exit`, which ends the run with 0 whatever the code.
+                std::process::exit(code);
+            });
+            Ok(())
+        })
+        .run(context)?;
+    Ok(())
+}
+
+/// The update feed the web app asks for this build: its updater's first endpoint, filled in
+/// as the updater fills it for this machine and version.
+#[cfg(feature = "builtin-gpui")]
+fn update_feed(context: &tauri::Context<tauri::Wry>) -> Option<String> {
+    let updater = context.config().plugins.0.get("updater")?;
+    let endpoint = updater.get("endpoints")?.get(0)?.as_str()?;
+    let version = context.package_info().version.to_string();
+    Some(
+        endpoint
+            // Tauri's name for the OS.
+            .replace(
+                "{{target}}",
+                match std::env::consts::OS {
+                    "macos" => "darwin",
+                    os => os,
+                },
+            )
+            .replace("{{arch}}", std::env::consts::ARCH)
+            .replace("{{current_version}}", &version),
+    )
 }

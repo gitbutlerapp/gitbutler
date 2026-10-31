@@ -16,8 +16,7 @@ git worktree add -b feat wt HEAD~1
   echo "new" >new-file
 )
 
-# A detached linked worktree with a commit of its own. Seeded as a worktree tip
-# it is part of the graph, but having no branch it is never forced mutable.
+# A detached linked worktree with a commit of its own, which no branch points at.
 git worktree add --detach wt-detached HEAD~1
 (cd wt-detached
   echo "d1" >d1 && git add d1 && git commit -m "D1"

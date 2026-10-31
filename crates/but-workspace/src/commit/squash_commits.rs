@@ -60,14 +60,14 @@ fn construct_new_squashed_commit<'ws, 'meta, M: RefMetadata>(
     let target_parent_ids = parent_commit_ids(&editor, target_selector)?;
 
     let new_commit = {
-        let mut squashed_commit = target_commit.clone();
+        let mut squashed_commit = target_commit;
         squashed_commit.inner.parents = target_parent_ids.into();
         squashed_commit.tree = squashed_tree.tree_id;
         squashed_commit.message = combined_message.into();
         editor.new_commit(squashed_commit, DateMode::CommitterUpdateAuthorKeep)?
     };
 
-    editor.replace(target_selector, Step::new_pick(new_commit))?;
+    editor.amend_pick(target_selector, new_commit)?;
 
     Ok((editor, target_selector))
 }
@@ -205,7 +205,7 @@ pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToComm
         };
         editor.disconnect_segment_from(delimiter, SelectorSet::All, SelectorSet::All, false)?;
         let (selector, _) = editor.find_selectable_commit(commit_selector)?;
-        editor.replace(selector, Step::None)?;
+        editor.replace_with_none(selector)?;
     }
 
     // Removing a subject that sits below the target rewrites every commit above it, including

@@ -73,6 +73,9 @@ impl Subcommands {
             Subcommands::Metrics { .. } => Metrics,
             Subcommands::Help { .. } => Help,
             Subcommands::Onboarding => Onboarding,
+            Subcommands::Setup { .. } => Setup,
+            #[cfg(feature = "legacy")]
+            Subcommands::Init(_) => Init,
             Subcommands::AgentLog { .. } => AgentLog,
             #[cfg(feature = "legacy")]
             Subcommands::Actions(_) => Actions,
@@ -113,8 +116,6 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Apply { .. } => BranchApply,
             #[cfg(feature = "legacy")]
-            Subcommands::Open { .. } => Open,
-            #[cfg(feature = "legacy")]
             Subcommands::Switch(..) => Switch,
             Subcommands::Gui { .. } => Gui,
             #[cfg(feature = "nightly")]
@@ -154,8 +155,6 @@ impl Subcommands {
                 Some(forge::pr::Subcommands::SetDraft { .. }) => SetReviewDraft,
                 Some(forge::pr::Subcommands::SetReady { .. }) => SetReviewReady,
             },
-            #[cfg(feature = "legacy")]
-            Subcommands::Setup { .. } => Setup,
             #[cfg(feature = "legacy")]
             Subcommands::Teardown { .. } => Teardown,
             Subcommands::Config(config::Platform { cmd }) => match cmd {
@@ -648,7 +647,7 @@ fn read_only_workspace(ctx: &but_ctx::Context) -> Option<but_graph::Workspace> {
         ctx.project_meta().ok()?,
         &mut db,
         but_graph::init::Options {
-            worktrees: ctx.settings.feature_flags.worktree_manipulation,
+            worktrees: true,
             ..but_graph::init::Options::limited()
         },
     )
@@ -720,28 +719,13 @@ async fn do_capture(
     event: Event,
     app_settings: &AppSettings,
 ) -> Result<(), posthog_rs::Error> {
-    let id = app_settings
-        .telemetry
-        .app_distinct_id
-        .clone()
-        .unwrap_or_else(machine);
+    let id = app_settings.telemetry.distinct_id();
     let mut posthog_event = posthog_rs::Event::new(event.event_name.to_string(), id);
     for (key, prop) in event.props {
         let _ = posthog_event.insert_prop(key, prop);
     }
     // The CLI exits right after this, so send inline instead of via the background queue.
     client.capture_immediate(posthog_event).await.map(|_| ())
-}
-
-fn machine() -> String {
-    if let Ok(id) = machine_uid::get() {
-        format!(
-            "machine_{:x}",
-            <sha2::Sha256 as sha2::Digest>::digest(format!("{}{}", id, "gitbutler").as_bytes())
-        )
-    } else {
-        "anonymous".to_string()
-    }
 }
 
 /// Creates a PostHog client if metrics are enabled and the API key is set.

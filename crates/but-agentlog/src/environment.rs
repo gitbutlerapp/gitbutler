@@ -434,7 +434,7 @@ fn workspace_snapshot_with_meta(
 
     // Enrich active associations from the forge cache while retaining durable
     // stored identity for integrated branches.
-    info.apply_forge_review_associations(repo, &forge_prs_by_head(repo));
+    info.apply_forge_review_associations(&forge_prs_by_head(repo));
 
     let mut observed_targets = ObservedTargets::default();
     let mut stacks = Vec::new();
@@ -517,7 +517,7 @@ fn workspace_snapshot_with_meta(
     })
 }
 
-/// Best-effort forge PR association map (`pushed short name -> ReviewAssociation`,
+/// Best-effort forge PR association map (`remote-tracking short name -> ReviewAssociation`,
 /// i.e. `(PR number, is open, merged head)`), read
 /// from the project's cached review list. Opened read-only and returns empty when
 /// the project database is absent or unreadable, so the observation degrades to
@@ -527,7 +527,7 @@ fn forge_prs_by_head(repo: &gix::Repository) -> HashMap<String, but_forge::Revie
         return HashMap::new();
     };
     match but_db::DbHandle::open_existing_read_only_in_directory(&storage_dir) {
-        Ok(Some(db)) => but_forge::review_associations_by_head(&db).unwrap_or_default(),
+        Ok(Some(db)) => but_forge::review_associations_by_head(&db, repo).unwrap_or_default(),
         _ => HashMap::new(),
     }
 }
@@ -536,8 +536,7 @@ fn forge_prs_by_head(repo: &gix::Repository) -> HashMap<String, but_forge::Revie
 /// remote-tracking short name against `prs_by_head`.
 ///
 /// Deliberately looser than the workspace projection resolver: any review
-/// state is accepted (capture is observational), and there is no
-/// `owner:branch` prefixed-head fallback.
+/// state is accepted (capture is observational).
 fn resolve_branch_pr(
     repo: &gix::Repository,
     ref_name: &gix::refs::FullNameRef,
@@ -548,14 +547,10 @@ fn resolve_branch_pr(
         .transpose()
         .ok()
         .flatten()?;
-    let (_, short) = but_core::extract_remote_name_and_short_name(
-        remote_tracking.as_ref(),
-        &repo.remote_names(),
-    )?;
     // Observational capture: the association is wanted whatever became of the
     // review, so turns recorded after a merge still carry its target.
     prs_by_head
-        .get(short.to_str().ok()?)
+        .get(remote_tracking.shorten().to_str().ok()?)
         .map(|(number, ..)| *number)
 }
 

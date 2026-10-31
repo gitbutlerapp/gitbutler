@@ -7,8 +7,8 @@ use super::error::Error;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Refname {
-    /// contains name of the remote, e.x. "origin" or "upstream"
-    remote: String,
+    /// The remote name, such as "origin", or `None` for a local branch.
+    remote: Option<String>,
     /// contains name of the branch, e.x. "master" or "main"
     // TODO(ST): use `BString` for this, or maybe figure out if there could
     //           be better abstractions for `Refname`, or a better name for the type.
@@ -16,9 +16,9 @@ pub struct Refname {
 }
 
 impl Refname {
-    pub fn new(remote: &str, branch: &str) -> Self {
-        Self {
-            remote: remote.to_string(),
+    pub fn new(remote: &str, branch: &str) -> Refname {
+        Refname {
+            remote: Some(remote.to_string()),
             branch: branch.to_string(),
         }
     }
@@ -34,14 +34,17 @@ impl Refname {
         &self.branch
     }
 
-    pub fn remote(&self) -> &str {
-        &self.remote
+    pub fn remote(&self) -> Option<&str> {
+        self.remote.as_deref()
     }
 }
 
 impl fmt::Display for Refname {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "refs/remotes/{}/{}", self.remote, self.branch)
+        match &self.remote {
+            Some(remote) => write!(f, "refs/remotes/{remote}/{}", self.branch),
+            None => write!(f, "refs/heads/{}", self.branch),
+        }
     }
 }
 
@@ -62,13 +65,26 @@ impl FromStr for Refname {
     type Err = Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        if !value.starts_with("refs/remotes/") {
-            return Err(Error::NotRemote(value.to_string()));
-        };
+        let name: gix::refs::FullName = value
+            .try_into()
+            .map_err(|_| Error::InvalidName(value.to_string()))?;
 
-        // TODO(ST): use `gix` (which respects refspecs and settings) to do this transformation
-        //           Alternatively, `git2` also has support for respecting refspecs.
-        let value = value.strip_prefix("refs/remotes/").unwrap();
+        if name.category() == Some(gix::refs::Category::LocalBranch) {
+            return Ok(Refname {
+                remote: None,
+                branch: value
+                    .strip_prefix("refs/heads/")
+                    .expect("local branch category guarantees the prefix")
+                    .to_string(),
+            });
+        }
+        if name.category() != Some(gix::refs::Category::RemoteBranch) {
+            return Err(Error::NotRemote(value.to_string()));
+        }
+
+        let value = value
+            .strip_prefix("refs/remotes/")
+            .expect("remote branch category guarantees the prefix");
 
         // TODO(ST): the remote name cannot be assumed to *not* contain slashes, but the refspec
         //           would be '+refs/heads/*:refs/remotes/multi/slash/remote/*' which allows to extract
@@ -76,8 +92,8 @@ impl FromStr for Refname {
         //           has the remote name configured in plain text. Technically, it doesn't even have
         //           to match the refspec, so this abstraction is very dangerous.
         if let Some((remote, branch)) = value.split_once('/') {
-            Ok(Self {
-                remote: remote.to_string(),
+            Ok(Refname {
+                remote: Some(remote.to_string()),
                 branch: branch.to_string(),
             })
         } else {
@@ -91,13 +107,18 @@ impl PartialEq<FullNameRef> for Refname {
         let Some((category, shortname)) = other.category_and_short_name() else {
             return false;
         };
-        if !matches!(category, gix::reference::Category::RemoteBranch) {
-            return false;
+        match &self.remote {
+            Some(remote) => {
+                category == gix::refs::Category::RemoteBranch
+                    && shortname
+                        .strip_prefix(remote.as_bytes())
+                        .and_then(|rest| rest.strip_suffix(self.branch.as_bytes()))
+                        .is_some_and(|rest| rest == b"/")
+            }
+            None => {
+                category == gix::refs::Category::LocalBranch && shortname == self.branch.as_bytes()
+            }
         }
-        shortname
-            .strip_prefix(self.remote.as_bytes())
-            .and_then(|rest| rest.strip_suffix(self.branch.as_bytes()))
-            .is_some_and(|rest| rest == b"/")
     }
 }
 

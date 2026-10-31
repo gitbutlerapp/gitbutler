@@ -81,19 +81,21 @@ pub fn add_workspace_with_target(
     }
 }
 
-fn target_ref_name() -> gix::refs::FullName {
-    "refs/remotes/origin/main"
-        .try_into()
-        .expect("statically known to be valid")
+fn target_ref_name() -> but_core::ref_metadata::LocalRefName {
+    but_core::ref_metadata::LocalRefName::new(
+        "refs/heads/main"
+            .try_into()
+            .expect("statically known to be valid"),
+    )
+    .expect("statically known to be a local branch")
 }
 
-/// The target is `origin/main`, with its current tip as the stored target commit, like a
-/// project set up by GitButler.
+/// The target is local `main`, with the tip of `origin/main` as the stored target commit.
 pub fn default_project_meta(repo: &gix::Repository) -> ProjectMeta {
     let target_ref = target_ref_name();
     ProjectMeta {
         target_commit_id: repo
-            .try_find_reference(target_ref.as_ref())
+            .try_find_reference("refs/remotes/origin/main")
             .ok()
             .flatten()
             .and_then(|mut r| r.peel_to_id().ok())

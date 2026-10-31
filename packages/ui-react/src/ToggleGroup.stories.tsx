@@ -1,0 +1,203 @@
+import preview from "#storybook/preview";
+import { ToggleGroup, Toggle } from "@base-ui/react";
+import { Badge } from "./Badge.tsx";
+import { Icon } from "./Icon.tsx";
+import { ToggleGroupStyles, ToggleStyles } from "./ToggleGroup.tsx";
+
+const meta = preview.meta({
+	title: "Actions/ToggleGroup",
+	id: "components-togglegroup",
+	// The library's part is the styles; the story composes them on Base UI's ToggleGroup.
+	component: ToggleGroupStyles,
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=509-849",
+		},
+	},
+});
+
+export const Default = meta.story({
+	render: () => (
+		<ToggleGroup render={<ToggleGroupStyles />} defaultValue={["list"]} aria-label="View mode">
+			<Toggle render={<ToggleStyles />} value="list">
+				List
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="tree">
+				Tree
+			</Toggle>
+		</ToggleGroup>
+	),
+});
+
+export const Small = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2001-5745",
+		},
+	},
+	render: () => (
+		<ToggleGroup
+			render={<ToggleGroupStyles />}
+			defaultValue={["humans"]}
+			aria-label="Notification type"
+		>
+			<Toggle render={<ToggleStyles size="small" />} value="humans">
+				Humans
+			</Toggle>
+			<Toggle render={<ToggleStyles size="small" />} value="agents">
+				Agents
+			</Toggle>
+		</ToggleGroup>
+	),
+});
+
+export const WithIcons = meta.story({
+	render: () => (
+		<ToggleGroup render={<ToggleGroupStyles />} defaultValue={["list"]} aria-label="View mode">
+			<Toggle render={<ToggleStyles />} value="list">
+				<Icon name="list" size={14} />
+				List
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="tree">
+				<Icon name="folder-tree" size={14} />
+				Tree
+			</Toggle>
+		</ToggleGroup>
+	),
+});
+
+// A count rides after the label as a plain child; the item's gap spaces it.
+export const WithBadge = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=1183-3597",
+		},
+	},
+	render: () => (
+		<ToggleGroup render={<ToggleGroupStyles />} defaultValue={["selection"]} aria-label="Diff view">
+			<Toggle render={<ToggleStyles />} value="selection">
+				<Icon name="checklist" size={14} />
+				Selection
+				<Badge variant="lightGray">12</Badge>
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="plain">
+				<Icon name="text-plain" size={14} />
+				Plain
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="wrap">
+				<Icon name="text-wrap" size={14} />
+				Wrap
+			</Toggle>
+		</ToggleGroup>
+	),
+});
+
+export const IconOnly = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=1183-3455",
+		},
+	},
+	render: () => (
+		<ToggleGroup render={<ToggleGroupStyles />} defaultValue={["list"]} aria-label="View mode">
+			<Toggle render={<ToggleStyles iconOnly />} value="list" aria-label="List view">
+				<Icon name="list" size={14} />
+			</Toggle>
+			<Toggle render={<ToggleStyles iconOnly />} value="tree" aria-label="Tree view">
+				<Icon name="folder-tree" size={14} />
+			</Toggle>
+		</ToggleGroup>
+	),
+});
+
+export const ThreeItems = meta.story({
+	render: () => (
+		<ToggleGroup render={<ToggleGroupStyles />} defaultValue={["list"]} aria-label="View mode">
+			<Toggle render={<ToggleStyles iconOnly />} value="list">
+				<Icon name="list" size={14} />
+			</Toggle>
+			<Toggle render={<ToggleStyles iconOnly />} value="tree">
+				<Icon name="folder-tree" size={14} />
+			</Toggle>
+			<Toggle render={<ToggleStyles iconOnly />} value="grid">
+				<Icon name="text-block" size={14} />
+			</Toggle>
+		</ToggleGroup>
+	),
+});
+
+export const MultipleSelection = meta.story({
+	render: () => (
+		<ToggleGroup
+			multiple
+			render={<ToggleGroupStyles />}
+			defaultValue={["bold", "italic"]}
+			aria-label="Text formatting"
+		>
+			<Toggle render={<ToggleStyles />} value="bold">
+				Bold
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="italic">
+				Italic
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="underline">
+				Underline
+			</Toggle>
+		</ToggleGroup>
+	),
+});
+
+export const MultipleSelectionWithIconsAndLabels = meta.story({
+	render: () => (
+		<ToggleGroup
+			multiple
+			render={<ToggleGroupStyles />}
+			defaultValue={["wrap", "contain"]}
+			aria-label="Text options"
+		>
+			<Toggle render={<ToggleStyles />} value="wrap">
+				<Icon name="text-wrap" size={14} />
+				Wrap
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="contain">
+				<Icon name="text-contain" size={14} />
+				Contain
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="block">
+				<Icon name="text-block" size={14} />
+				Block
+			</Toggle>
+		</ToggleGroup>
+	),
+});
+
+export const MultipleSelectionIconOnly = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=1183-3520",
+		},
+	},
+	render: () => (
+		<ToggleGroup
+			multiple
+			render={<ToggleGroupStyles />}
+			defaultValue={["wrap", "contain"]}
+			aria-label="Text options"
+		>
+			<Toggle render={<ToggleStyles iconOnly />} value="wrap" aria-label="Text wrap">
+				<Icon name="text-wrap" size={14} />
+			</Toggle>
+			<Toggle render={<ToggleStyles iconOnly />} value="contain" aria-label="Text contain">
+				<Icon name="text-contain" size={14} />
+			</Toggle>
+			<Toggle render={<ToggleStyles iconOnly />} value="block" aria-label="Text block">
+				<Icon name="text-block" size={14} />
+			</Toggle>
+		</ToggleGroup>
+	),
+});

@@ -11,6 +11,7 @@ use but_core::{GitConfigSettings, GitHubStackingMode};
 use but_core::{
     RepositoryExt,
     git_config::{remove_config_value, set_config_value},
+    ref_metadata::{UnresolvedLegacyTargetReason, UnresolvedLegacyTargetRefError},
 };
 use but_ctx::Context;
 use but_llm::{
@@ -31,10 +32,13 @@ use super::git_config::edit_git_config;
 #[cfg(feature = "legacy")]
 use crate::args::config::GitHubStacksStatus;
 use crate::{
+    CliResult,
     args::config::{
         AiKeyOption, AiSubcommand, FeatureFlag, FeatureStatus, ForgeSubcommand, MetricsStatus,
         Subcommands, UserSubcommand,
     },
+    bad_input,
+    error::track_remote_target_hint,
     theme::{self, Paint},
     tui,
     utils::{ConfirmOrEmpty, InputOutputChannel, OutputChannel},
@@ -82,26 +86,27 @@ pub async fn exec(
     ctx: &mut Context,
     out: &mut OutputChannel,
     cmd: Option<Subcommands>,
-) -> Result<()> {
+) -> CliResult<()> {
     match cmd {
-        Some(Subcommands::User { cmd }) => user_config(Some(ctx), out, cmd).await,
+        Some(Subcommands::User { cmd }) => user_config(Some(ctx), out, cmd).await?,
         Some(Subcommands::Target {
             branch,
             push_remote,
-        }) => target_config(ctx, out, branch, push_remote).await,
-        Some(Subcommands::PushRemote { remote }) => push_remote_config(ctx, out, remote),
+        }) => target_config(ctx, out, branch, push_remote).await?,
+        Some(Subcommands::PushRemote { remote }) => push_remote_config(ctx, out, remote)?,
         #[cfg(feature = "legacy")]
         Some(Subcommands::Forge {
             cmd: Some(ForgeSubcommand::GithubStacks { status }),
-        }) => github_stacks_config(ctx, out, status),
-        Some(Subcommands::Forge { cmd }) => forge_config(out, cmd).await,
-        Some(Subcommands::Metrics { status }) => metrics_config(out, status).await,
-        Some(Subcommands::Feature { flag, status }) => feature_config(out, flag, status),
+        }) => github_stacks_config(ctx, out, status)?,
+        Some(Subcommands::Forge { cmd }) => forge_config(out, cmd).await?,
+        Some(Subcommands::Metrics { status }) => metrics_config(out, status).await?,
+        Some(Subcommands::Feature { flag, status }) => feature_config(out, flag, status)?,
         Some(Subcommands::Ai { local, global, cmd }) => {
-            ai_config_with_repo(ctx, out, cmd, local, global)
+            ai_config_with_repo(ctx, out, cmd, local, global)?
         }
-        None => show_overview(ctx, out).await,
+        None => show_overview(ctx, out).await?,
     }
+    Ok(())
 }
 
 /// Handle AI config subcommand without repository context.
@@ -383,10 +388,13 @@ pub(crate) fn feature_config(
         return Ok(());
     }
 
-    let flags = [(
-        FeatureFlag::SingleBranch,
-        settings.feature_flags.single_branch,
-    )];
+    let flags: [(FeatureFlag, bool); _] = [
+        // NOTE: write feature flags here
+        // (
+        //     FeatureFlag::SingleBranch,
+        //     settings.feature_flags.single_branch,
+        // )
+    ];
     if let Some(out) = out.for_human() {
         writeln!(out, "\n{}:", t.important.paint("Feature Flags"))?;
         writeln!(out)?;
@@ -404,27 +412,23 @@ pub(crate) fn feature_config(
         }
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({
-            "single_branch": settings.feature_flags.single_branch,
+            // NOTE: write feature flags here
+            // "single_branch": settings.feature_flags.single_branch,
         }))?;
     }
 
     Ok(())
 }
 
+#[expect(unused_variables)]
 fn feature_flag_value(flags: &but_settings::app_settings::FeatureFlags, flag: FeatureFlag) -> bool {
-    match flag {
-        FeatureFlag::SingleBranch => flags.single_branch,
-    }
+    match flag {}
 }
 
+#[expect(unreachable_code, unused_variables, unused_mut)]
 fn feature_flag_update(flag: FeatureFlag, enabled: bool) -> FeatureFlagsUpdate {
-    let mut update = FeatureFlagsUpdate {
-        single_branch: None,
-        worktree_manipulation: None,
-    };
-    match flag {
-        FeatureFlag::SingleBranch => update.single_branch = Some(enabled),
-    }
+    let mut update = FeatureFlagsUpdate::default();
+    match flag {}
     update
 }
 
@@ -1114,23 +1118,17 @@ async fn display_authenticated_github_accounts(
     let mut some_accounts_invalid = false;
 
     for account in known_gh_accounts {
-        let account_status = but_api::github::check_github_credentials(account.clone())
-            .await
-            .ok();
-
-        let message = match account_status {
-            Some(but_github::CredentialCheckResult::Valid) => {
-                t.success.paint("(valid credentials)")
-            }
-            Some(but_github::CredentialCheckResult::Invalid) => {
+        let message = match but_api::github::check_github_credentials(account.clone()).await {
+            Ok(but_github::CredentialCheckResult::Valid) => t.success.paint("(valid credentials)"),
+            Ok(but_github::CredentialCheckResult::Invalid) => {
                 some_accounts_invalid = true;
                 t.attention.paint("(invalid credentials)")
             }
-            Some(but_github::CredentialCheckResult::NoCredentials) => {
+            Ok(but_github::CredentialCheckResult::NoCredentials) => {
                 some_accounts_invalid = true;
                 t.attention.paint("(no credentials)")
             }
-            None => t.error.paint("(unknown status)"),
+            Err(err) => t.error.paint(format!("(unknown status: {err:#})")),
         };
 
         writeln!(out, "  • {account} {message}")?;
@@ -1158,23 +1156,17 @@ async fn display_authenticated_gitlab_accounts(
     let mut some_accounts_invalid = false;
 
     for account in known_gl_accounts {
-        let account_status = but_api::gitlab::check_gitlab_credentials(account.clone())
-            .await
-            .ok();
-
-        let message = match account_status {
-            Some(but_gitlab::CredentialCheckResult::Valid) => {
-                t.success.paint("(valid credentials)")
-            }
-            Some(but_gitlab::CredentialCheckResult::Invalid) => {
+        let message = match but_api::gitlab::check_gitlab_credentials(account.clone()).await {
+            Ok(but_gitlab::CredentialCheckResult::Valid) => t.success.paint("(valid credentials)"),
+            Ok(but_gitlab::CredentialCheckResult::Invalid) => {
                 some_accounts_invalid = true;
                 t.attention.paint("(invalid credentials)")
             }
-            Some(but_gitlab::CredentialCheckResult::NoCredentials) => {
+            Ok(but_gitlab::CredentialCheckResult::NoCredentials) => {
                 some_accounts_invalid = true;
                 t.attention.paint("(no credentials)")
             }
-            None => t.error.paint("(unknown status)"),
+            Err(err) => t.error.paint(format!("(unknown status: {err:#})")),
         };
 
         writeln!(out, "  • {account} {message}")?;
@@ -1202,23 +1194,19 @@ async fn display_authenticated_bitbucket_accounts(
     let mut some_accounts_invalid = false;
 
     for account in known_bb_accounts {
-        let account_status = but_api::bitbucket::check_bitbucket_credentials(account.clone())
-            .await
-            .ok();
-
-        let message = match account_status {
-            Some(but_bitbucket::CredentialCheckResult::Valid) => {
+        let message = match but_api::bitbucket::check_bitbucket_credentials(account.clone()).await {
+            Ok(but_bitbucket::CredentialCheckResult::Valid) => {
                 t.success.paint("(valid credentials)")
             }
-            Some(but_bitbucket::CredentialCheckResult::Invalid) => {
+            Ok(but_bitbucket::CredentialCheckResult::Invalid) => {
                 some_accounts_invalid = true;
                 t.attention.paint("(invalid credentials)")
             }
-            Some(but_bitbucket::CredentialCheckResult::NoCredentials) => {
+            Ok(but_bitbucket::CredentialCheckResult::NoCredentials) => {
                 some_accounts_invalid = true;
                 t.attention.paint("(no credentials)")
             }
-            None => t.error.paint("(unknown status)"),
+            Err(err) => t.error.paint(format!("(unknown status: {err:#})")),
         };
 
         writeln!(out, "  • {account} {message}")?;
@@ -1808,7 +1796,7 @@ async fn target_config(
     out: &mut OutputChannel,
     branch: Option<String>,
     push_remote: Option<String>,
-) -> Result<()> {
+) -> CliResult<()> {
     let t = theme::get();
     match branch {
         None => {
@@ -1832,12 +1820,9 @@ async fn target_config(
                             t.config_value.paint(&target_branch.branch_name)
                         )?;
                         writeln!(out)?;
-                        writeln!(
-                            out,
-                            "  {}: {}",
-                            t.hint.paint("Remote"),
-                            target_branch.remote_url
-                        )?;
+                        if let Some(remote_url) = &target_branch.remote_url {
+                            writeln!(out, "  {}: {}", t.hint.paint("Remote"), remote_url)?;
+                        }
                         writeln!(
                             out,
                             "  {}:    {}",
@@ -1865,7 +1850,7 @@ async fn target_config(
                         )?;
                     } else if let Some(out) = out.for_json() {
                         out.write_value(serde_json::json!({
-                            "branch": target_branch.branch_name.to_string(),
+                            "branch": target_branch.branch_name,
                             "remote_url": target_branch.remote_url,
                             "sha": target_branch.base_sha.to_string(),
                         }))?;
@@ -1890,12 +1875,51 @@ async fn target_config(
                     .with_context(|| format!("Failed to find push remote '{push_remote}'"))?;
             }
 
-            let target_ref: gix::refs::FullName = format!("refs/remotes/{new_branch}")
-                .try_into()
-                .context("Invalid target branch name")?;
+            let target_ref = {
+                let repo = ctx.repo.get()?;
+                let ref_name: gix::refs::FullName = if new_branch.starts_with("refs/") {
+                    new_branch
+                        .as_str()
+                        .try_into()
+                        .context("Invalid target branch name")?
+                } else {
+                    let local_ref: gix::refs::FullName = format!("refs/heads/{new_branch}")
+                        .try_into()
+                        .context("Invalid target branch name")?;
+                    if repo.try_find_reference(local_ref.as_ref())?.is_some() {
+                        local_ref
+                    } else {
+                        format!("refs/remotes/{new_branch}")
+                            .try_into()
+                            .context("Invalid target branch name")?
+                    }
+                };
+                if ref_name.category() == Some(gix::refs::Category::RemoteBranch) {
+                    repo.try_find_reference(ref_name.as_ref())?
+                        .with_context(|| format!("Target branch '{new_branch}' not found"))?;
+                }
+                match but_core::ref_metadata::resolve_local_target(ref_name.as_ref(), &repo) {
+                    Ok(target_ref) => target_ref,
+                    // The remote name is shorthand for the local branch tracking it, not a stored
+                    // legacy target, so the error describes the input rather than a migration.
+                    Err(err)
+                        if err
+                            .downcast_ref::<UnresolvedLegacyTargetRefError>()
+                            .is_some_and(|unresolved| {
+                                unresolved.reason == UnresolvedLegacyTargetReason::NoTrackingBranch
+                            }) =>
+                    {
+                        let target_ref = ref_name.shorten();
+                        return Err(bad_input(format!("No local branch tracks {target_ref}"))
+                            .hint(track_remote_target_hint(target_ref))
+                            .into());
+                    }
+                    Err(err) => return Err(err.into()),
+                }
+            };
             but_api::workspace::set_target_ref_and_init_project(
                 ctx,
-                target_ref.as_ref(),
+                target_ref.as_local_full_name_ref(),
                 push_remote,
             )?;
         }

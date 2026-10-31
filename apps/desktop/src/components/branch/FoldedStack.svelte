@@ -4,25 +4,30 @@
 
 	type Props = {
 		branchNames?: string[];
+		/** Whether dragging the lane reorders it among the stacks. */
+		draggable?: boolean;
 		onUnfold: () => void;
 	};
 
-	const { branchNames, onUnfold }: Props = $props();
+	const { branchNames, draggable = true, onUnfold }: Props = $props();
 </script>
 
 <div
 	role="presentation"
 	class="folded-lane"
+	class:draggable
 	data-remove-from-panning
 	data-drag-handle
-	draggable="true"
+	{draggable}
 	ondblclick={onUnfold}
 >
 	<CollapseStackButton isFolded onClick={onUnfold} />
 
-	<div class="drag-handle-icon">
-		<Icon name="drag-horizontal" />
-	</div>
+	{#if draggable}
+		<div class="drag-handle-icon">
+			<Icon name="drag-horizontal" />
+		</div>
+	{/if}
 
 	<div class="text-14 text-semibold stack-names">
 		{#if branchNames && branchNames.length > 0}
@@ -51,7 +56,10 @@
 		--lighter-bg-drop-shadow: color-mix(in srgb, var(--shadow-clr) 50%, var(--bg-2));
 		box-shadow: inset -5px 0 10px var(--lighter-bg-drop-shadow);
 		color: var(--text-3);
-		cursor: grab;
+
+		&.draggable {
+			cursor: grab;
+		}
 	}
 
 	.drag-handle-icon {

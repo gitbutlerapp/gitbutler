@@ -77,7 +77,7 @@ pub fn commit_move_changes_between_only_with_perm(
 /// When `dry_run` is enabled, the returned workspace previews the rewritten
 /// commits and no oplog entry is persisted. For details, see
 /// [`commit_move_changes_between_with_perm()`].
-#[but_api(napi, try_from = crate::commit::json::MoveChangesResult)]
+#[but_api(try_from = crate::commit::json::MoveChangesResult)]
 #[instrument(err(Debug))]
 pub fn commit_move_changes_between(
     ctx: &mut but_ctx::Context,

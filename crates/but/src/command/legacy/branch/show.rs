@@ -23,7 +23,7 @@ pub fn show(
 ) -> CliResult<()> {
     let (branch_arg, id_map) = {
         let guard = ctx.exclusive_worktree_access();
-        let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
+        let id_map = IdMap::new_from_context(ctx, guard.read_permission(), None)?;
         let repo = ctx.repo.get()?;
         let branch_arg = branch_arg
             .try_resolve_branch(&repo, &id_map)?
@@ -203,7 +203,7 @@ fn get_merge_conflict_paths(
     if merge_result.has_unresolved_conflicts(conflict_kind) {
         for conflict in merge_result.conflicts.iter() {
             if conflict.is_unresolved(conflict_kind) {
-                let path = gix::path::from_bstr(conflict.ours.location())
+                let path = gix::path::from_bstr(conflict.ours.location())?
                     .to_string_lossy()
                     .to_string();
                 paths.push(path);
@@ -282,12 +282,22 @@ fn get_commits_ahead(
     let repo = ctx.repo.get()?;
     let branch = branch_arg.resolve_branch(&repo)?;
 
-    // Find merge base
-    let (merge_base, _) = workspace_target::merge_base_with_target_with_perm(
-        ctx,
-        guard.read_permission(),
-        branch.head,
-    )?;
+    // Workspace branches are buckets, not the entire history back to the target.
+    let branch_base = crate::legacy::workspace::applied_stacks(ctx)?
+        .iter()
+        .find_map(|stack| stack.branch(&branch_arg.0))
+        .map(|branch| branch.base_commit);
+    let merge_base = match branch_base {
+        Some(base) => base,
+        None => {
+            workspace_target::merge_base_with_target_with_perm(
+                ctx,
+                guard.read_permission(),
+                branch.head,
+            )?
+            .0
+        }
+    };
 
     // Walk from branch head to merge base, collecting commits
     let traversal = branch

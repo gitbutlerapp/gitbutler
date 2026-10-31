@@ -13,12 +13,18 @@ use but_db::DbHandle;
 use gitbutler_git::{PushResult, push_with_askpass};
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::hooks;
-use gix::refs::Category;
+use gix::{prelude::ObjectIdExt as _, refs::Category};
 use indexmap::IndexMap;
 
-use crate::{RefInfo, ref_info::Segment, ui::PushStatus};
+use crate::{
+    RefInfo, WorkspaceCommit,
+    ref_info::{LocalCommitRelation, Segment},
+    ui::PushStatus,
+};
 
-/// Push a given branch and its ancestors
+/// Push a given branch and its ancestors.
+///
+/// Refuses before pushing anything when that would publish GitButler's workspace commit.
 #[allow(clippy::too_many_arguments)]
 pub fn workspace_branch_and_ancestors_push(
     repo: &gix::Repository,
@@ -35,40 +41,40 @@ pub fn workspace_branch_and_ancestors_push(
     push_opts: Vec<but_gerrit::PushFlag>,
 ) -> Result<PushResult> {
     let graph = &ws.graph;
-    let to_push = branch_and_ancestor_segments(ref_info, branch);
+    if pushes_workspace_commit(repo, ref_info, branch) {
+        anyhow::bail!(
+            "{} is built on GitButler's workspace commit, which merges every applied branch, so \
+             pushing it would publish all of them. Rebase its own commits onto the target branch \
+             first.",
+            branch.shorten()
+        );
+    }
 
     let remote_names = repo.remote_names();
-    let target_ref_name = ws
-        .target_ref_name()
-        .context("failed to get target reference name")?
-        .to_owned();
+    let target_branch_name = if gerrit_mode {
+        let upstream = ws
+            .graph
+            .project_meta
+            .remote_target_ref(repo)?
+            .context("Gerrit push requires a target upstream")?;
+        Some(target_branch_name_from_ref_name(
+            upstream.as_ref(),
+            &remote_names,
+        )?)
+    } else {
+        None
+    };
     let push_remote = ws
-        .push_remote_name()
+        .push_remote_name(repo)?
         .context("failed to get target push remote name")?;
-    let target_branch_name =
-        target_branch_name_from_ref_name(target_ref_name.as_ref(), &remote_names)?;
     let mut result = PushResult {
         remote: push_remote.clone(),
         branch_to_remote: vec![],
         branch_sha_updates: vec![],
     };
 
-    for (sidx, segment) in to_push.iter().rev() {
-        let Some(ref_name) = segment
-            .ref_name()
-            .filter(|name| name.category() == Some(Category::LocalBranch))
-        else {
-            continue;
-        };
-
-        if matches!(
-            segment.push_status,
-            PushStatus::Integrated | PushStatus::NothingToPush
-        ) {
-            continue;
-        }
-
-        let Some(local_sha) = graph.tip_skip_empty(*sidx) else {
+    for (segment, ref_name) in branches_to_push(ref_info, branch).rev() {
+        let Some(local_sha) = graph.tip_skip_empty(segment.id) else {
             continue;
         };
 
@@ -108,9 +114,9 @@ pub fn workspace_branch_and_ancestors_push(
         let gerrit_push_args = gerrit_push_args(
             gerrit_mode,
             local_sha.id,
-            target_branch_name.as_bstr(),
+            target_branch_name.as_ref().map(|name| name.as_bstr()),
             &push_opts,
-        );
+        )?;
         let push_output = push_with_askpass(
             repo,
             local_sha.id,
@@ -126,6 +132,9 @@ pub fn workspace_branch_and_ancestors_push(
         )?;
 
         maybe_record_gerrit_push_metadata(repo, db, gerrit_mode, segment, &push_output)?;
+        if !gerrit_mode {
+            track_pushed_branch(repo, ref_name, remote_refname.as_ref());
+        }
         let branch_name = ref_name.shorten().to_str_lossy().to_string();
         result.branch_to_remote.push((
             branch_name.clone(),
@@ -142,13 +151,36 @@ pub fn workspace_branch_and_ancestors_push(
     Ok(result)
 }
 
+/// Make `remote_refname`, just pushed, the upstream of `ref_name` where its config names none,
+/// as `git push -u` does, so Git outside GitButler knows where the branch goes. The push
+/// succeeded, so failing to record that only logs.
+fn track_pushed_branch(
+    repo: &gix::Repository,
+    ref_name: &gix::refs::FullNameRef,
+    remote_refname: &gix::refs::FullNameRef,
+) {
+    if repo
+        .branch_remote_tracking_ref_name(ref_name, gix::remote::Direction::Fetch)
+        .is_some()
+    {
+        return;
+    }
+    let tracked = crate::branch::setup_local_tracking_configuration(repo, ref_name, remote_refname)
+        .and_then(|(config, _)| Ok(config.commit()?));
+    if let Err(err) = tracked {
+        tracing::warn!(
+            ?err,
+            "couldn't make {remote_refname} the upstream of {ref_name}"
+        );
+    }
+}
+
 /// Return the segment of the selected local branch and every segment beneath it in top-to-base
 /// order, crossing into the lane a worktree rests on.
 ///
 /// This is the logical scope of a push operation: every commit the push transfers sits in one of
-/// these segments, whether or not a branch names it. Only segments named by a local branch are
-/// pushed as refs, and [`workspace_branch_and_ancestors_push()`] skips those already current on
-/// the remote.
+/// these segments, whether or not a branch names it. [`branches_to_push()`] picks the ones pushed
+/// as refs.
 pub fn branch_and_ancestor_segments<'a>(
     ref_info: &'a RefInfo,
     branch: &gix::refs::FullNameRef,
@@ -161,6 +193,56 @@ pub fn branch_and_ancestor_segments<'a>(
         .collect()
 }
 
+/// The segments of [`branch_and_ancestor_segments()`] that pushing `branch` pushes, in top-to-base
+/// order, each with the local branch naming it: those not integrated and not already current on
+/// the remote.
+///
+/// [`workspace_branch_and_ancestors_push()`] pushes exactly these, so a preview of the push must
+/// list them too.
+pub fn branches_to_push<'a>(
+    ref_info: &'a RefInfo,
+    branch: &gix::refs::FullNameRef,
+) -> impl DoubleEndedIterator<Item = (&'a Segment, &'a gix::refs::FullNameRef)> + use<'a> {
+    branch_and_ancestor_segments(ref_info, branch)
+        .into_values()
+        .filter(|segment| {
+            !matches!(
+                segment.push_status,
+                PushStatus::Integrated | PushStatus::NothingToPush
+            )
+        })
+        .filter_map(|segment| {
+            let ref_name = segment
+                .ref_name()
+                .filter(|name| name.category() == Some(Category::LocalBranch))?;
+            Some((segment, ref_name))
+        })
+}
+
+/// Whether pushing `branch` sends GitButler's workspace commit, which merges every applied
+/// branch. A branch made with `git checkout -b` on the workspace holds it, and a worktree made
+/// from the main checkout's `HEAD`, or one stacked on such a worktree, rests on it. A workspace
+/// commit the remote already has publishes nothing new.
+fn pushes_workspace_commit(
+    repo: &gix::Repository,
+    ref_info: &RefInfo,
+    branch: &gix::refs::FullNameRef,
+) -> bool {
+    let managed = |id: gix::ObjectId| {
+        WorkspaceCommit::from_id(id.attach(repo)).is_ok_and(|commit| commit.is_managed())
+    };
+    let chain = ref_info.lane_chain(branch);
+    let mut unpushed = chain
+        .iter()
+        .flat_map(|(lane, index)| lane.segments_from(*index))
+        .flat_map(|segment| &segment.commits)
+        .filter(|c| !matches!(c.relation, LocalCommitRelation::LocalAndRemote(remote) if remote == c.id));
+    unpushed.any(|c| managed(c.id))
+        || chain
+            .iter()
+            .any(|(lane, _)| lane.rests_on.is_some_and(managed))
+}
+
 struct GerritPushArgs {
     refspec: Option<String>,
     push_opts: Vec<String>,
@@ -169,10 +251,12 @@ struct GerritPushArgs {
 fn gerrit_push_args(
     gerrit_mode: bool,
     head: gix::ObjectId,
-    target_branch_name: &BStr,
+    target_branch_name: Option<&BStr>,
     push_flags: &[but_gerrit::PushFlag],
-) -> GerritPushArgs {
-    if gerrit_mode {
+) -> Result<GerritPushArgs> {
+    Ok(if gerrit_mode {
+        let target_branch_name =
+            target_branch_name.context("Gerrit push requires a target upstream")?;
         GerritPushArgs {
             refspec: Some(format!("{head}:refs/for/{target_branch_name}")),
             push_opts: push_flags.iter().map(|flag| flag.to_string()).collect(),
@@ -182,7 +266,7 @@ fn gerrit_push_args(
             refspec: None,
             push_opts: vec![],
         }
-    }
+    })
 }
 
 /// Derive the target branch name while tolerating stale target remotes.

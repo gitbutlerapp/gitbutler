@@ -7,7 +7,7 @@ source "${BASH_SOURCE[0]%/*}/shared.sh"
 ### General Description
 
 # A repository with a remote configured and remote/HEAD set
-# This tests that `but setup` uses the existing remote HEAD
+# A Git repository with an existing remote HEAD.
 git-init-frozen
 commit M
 

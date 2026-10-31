@@ -6,7 +6,10 @@ use crate::{
     args::atoms::CliIdArg,
     id::{CommitId, CommittedFileId, CommittedHunk},
     theme::Theme,
-    utils::{CliOutput, CliOutputHuman, WriteWithUtils},
+    utils::{
+        CliOutput, CliOutputHuman, WriteWithUtils,
+        change_source::{ChangeSourceId, InvokedFrom},
+    },
 };
 
 #[derive(Serialize)]
@@ -44,9 +47,6 @@ enum Resource {
         path: String,
     },
     Uncommitted,
-    Worktree {
-        name: String,
-    },
     WorktreeUncommitted {
         name: String,
     },
@@ -85,7 +85,6 @@ impl std::fmt::Display for Resource {
             }
             Resource::PathPrefix { path } => write!(f, "path prefix: {path}"),
             Resource::Uncommitted => f.write_str("uncommitted area"),
-            Resource::Worktree { name } => write!(f, "worktree: {name}"),
             Resource::WorktreeUncommitted { name } => {
                 write!(f, "worktree uncommitted area: {name}")
             }
@@ -130,9 +129,13 @@ impl CliOutput for ExpandOutcome {
     }
 }
 
-pub fn handle(ctx: &but_ctx::Context, cli_id: CliIdArg) -> CliResult<ExpandOutcome> {
+pub fn handle(
+    ctx: &but_ctx::Context,
+    cli_id: CliIdArg,
+    invoked_from: &InvokedFrom,
+) -> CliResult<ExpandOutcome> {
     let guard = ctx.shared_worktree_access();
-    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission(), Some(invoked_from))?;
     let repo = ctx.repo.get()?;
     let matches = cli_id.parse(&repo, &id_map)?;
     if let Some(segment) = matches.iter().find_map(|id| match id {
@@ -211,11 +214,14 @@ fn resources_from_cli_id(cli_id: CliId) -> Vec<Resource> {
                 .unwrap_or_else(|| "<no hunk header>".to_string()),
         }],
         CliId::PathPrefix { id, .. } => vec![Resource::PathPrefix { path: id }],
-        CliId::Uncommitted { .. } => vec![Resource::Uncommitted],
-        CliId::Worktree { name, .. } => vec![Resource::Worktree {
-            name: name.to_string(),
-        }],
-        CliId::WorktreeUncommitted { name, .. } => vec![Resource::WorktreeUncommitted {
+        CliId::UncommittedArea {
+            source: ChangeSourceId::Head,
+            ..
+        } => vec![Resource::Uncommitted],
+        CliId::UncommittedArea {
+            source: ChangeSourceId::Worktree(name),
+            ..
+        } => vec![Resource::WorktreeUncommitted {
             name: name.to_string(),
         }],
         CliId::Stack { stack_id, .. } => vec![Resource::Stack {

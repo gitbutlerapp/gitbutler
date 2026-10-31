@@ -119,8 +119,8 @@ pub fn resolve_worktree_conflicts(
     repo: &gix::Repository,
     rela_paths: impl IntoIterator<Item = BString>,
 ) -> Result<()> {
-    use crate::commit_engine::index::{delete_entry_by_path_bounded_stages, upsert_index_entry};
-    use gix::index::entry::{Flags, Stage};
+    use but_core::index::{Edit, Stat};
+    use gix::index::entry::Stage;
 
     let rela_paths: BTreeSet<_> = rela_paths.into_iter().collect();
     let mut index = repo.index_or_empty()?.into_owned_or_cloned();
@@ -128,18 +128,18 @@ pub fn resolve_worktree_conflicts(
     let mut path_check = gix::status::plumbing::SymlinkCheck::new(
         repo.workdir().context("non-bare repository")?.into(),
     );
-    let mut num_sorted_entries = index.entries().len();
+    let mut edit = Edit::new(&mut index);
 
     for rela_path in &rela_paths {
         let rela_path = rela_path.as_bstr();
-        let entries_before = num_sorted_entries;
-        delete_entry_by_path_bounded_stages(
-            &mut index,
-            rela_path,
-            &mut num_sorted_entries,
-            &[Stage::Base, Stage::Ours, Stage::Theirs],
-        );
-        if entries_before == num_sorted_entries {
+        let is_conflicted = [Stage::Base, Stage::Ours, Stage::Theirs]
+            .into_iter()
+            .any(|stage| {
+                edit.state()
+                    .entry_by_path_and_stage(rela_path, stage)
+                    .is_some()
+            });
+        if !is_conflicted {
             anyhow::bail!("'{rela_path}' has no unresolved conflict");
         }
         // Stat before hashing so a write in between is caught by the stat mismatch.
@@ -148,12 +148,7 @@ pub fn resolve_worktree_conflicts(
         ) {
             Ok(md) => md,
             Err(err) if gix::fs::io_err::is_not_found(err.kind(), err.raw_os_error()) => {
-                delete_entry_by_path_bounded_stages(
-                    &mut index,
-                    rela_path,
-                    &mut num_sorted_entries,
-                    &[Stage::Unconflicted],
-                );
+                edit.remove(rela_path);
                 continue;
             }
             Err(err) => return Err(err.into()),
@@ -161,20 +156,15 @@ pub fn resolve_worktree_conflicts(
         let (id, kind, _) = pipeline
             .worktree_file_to_object(rela_path, &index_for_filter)?
             .with_context(|| format!("'{rela_path}' is not a file, symlink or submodule"))?;
-        upsert_index_entry(
-            &mut index,
+        edit.upsert(
             rela_path,
-            Some(&md),
             id,
             kind.into(),
-            Flags::empty(),
-            &mut num_sorted_entries,
-        )?;
+            Stat::Known(gix::index::entry::Stat::from_fs(&md)?),
+        );
     }
 
-    index.remove_tree();
-    index.remove_resolve_undo();
-    index.sort_entries();
+    edit.finish();
     index.write(Default::default())?;
     Ok(())
 }

@@ -234,7 +234,7 @@ pub fn apply_worktree_changes<'repo>(
             Ok(change) => change,
             Err(_) => continue,
         };
-        let path = work_dir.join(gix::path::from_bstr(change_request.path.as_bstr()));
+        let path = work_dir.join(gix::path::from_bstr(change_request.path.as_bstr())?);
         let md = match gix::index::fs::Metadata::from_path_no_follow(&path) {
             Ok(md) => md,
             Err(err) if gix::fs::io_err::is_not_found(err.kind(), err.raw_os_error()) => {

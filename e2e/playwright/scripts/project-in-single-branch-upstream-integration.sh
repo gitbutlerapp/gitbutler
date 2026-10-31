@@ -92,7 +92,7 @@ if [ "$scenario" = "rebase" ]; then
   git checkout master
 fi
 
-"$BUT" setup
+"$BUT" switch --workspace
 
 case "$scenario" in
   fully-integrated)

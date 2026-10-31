@@ -108,10 +108,22 @@ impl WorkspaceKind {
     /// by means of workspace metadata that is associated with that ref.
     /// If `false`, we are more conservative and may not support all features.
     pub fn has_managed_ref(&self) -> bool {
-        matches!(
-            self,
-            WorkspaceKind::Managed { .. } | WorkspaceKind::ManagedMissingWorkspaceCommit { .. }
-        )
+        match self {
+            WorkspaceKind::Managed { .. } | WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => {
+                true
+            }
+            WorkspaceKind::AdHoc => false,
+        }
+    }
+
+    /// Return `true` if this workspace is adhoc.
+    pub fn has_adhoc_ref(&self) -> bool {
+        match self {
+            WorkspaceKind::Managed { .. } | WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => {
+                false
+            }
+            WorkspaceKind::AdHoc => true,
+        }
     }
 
     /// Return `true` if we have a workspace commit, a commit that merges all stacks together.
@@ -176,12 +188,12 @@ impl TargetRef {
     /// This can happen if a reference is configured, but not actually present as reference.
     /// Note that `commits_ahead` isn't set yet, see [`Self::commits_ahead()`].
     fn from_ref_name_without_commits_ahead(
-        ref_name: &gix::refs::FullName,
+        ref_name: &gix::refs::FullNameRef,
         graph: &Graph,
     ) -> Option<Self> {
         Some(TargetRef {
             ref_name: ref_name.to_owned(),
-            segment_index: graph.segment_by_ref_name(ref_name.as_ref())?.id,
+            segment_index: graph.segment_by_ref_name(ref_name)?.id,
             commits_ahead: 0,
         })
     }

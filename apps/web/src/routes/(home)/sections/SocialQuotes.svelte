@@ -24,8 +24,9 @@
 		return shuffled;
 	}
 
-	// Randomize quotes before grouping into slides
-	const shuffledQuotes = shuffleArray(quotesJson);
+	// The server renders the quotes in file order; they're shuffled once mounted,
+	// so the server and client markup match while hydrating.
+	let shuffledQuotes: Quote[] = quotesJson;
 
 	// Detect mobile viewport
 	let isMobile = false;
@@ -75,9 +76,12 @@
 		return mobileQuotes;
 	}
 
-	const mobileQuotes = createMobileQuotes();
+	let mobileQuotes = createMobileQuotes();
 
 	onMount(() => {
+		shuffledQuotes = shuffleArray(quotesJson);
+		mobileQuotes = createMobileQuotes();
+
 		// Check if mobile viewport
 		function checkMobile() {
 			isMobile = window.innerWidth < 768; // Adjust breakpoint as needed

@@ -147,6 +147,7 @@ pub(crate) fn show_oplog(
                     | OperationKind::StashIntoBranch
                     | OperationKind::SetBaseBranch
                     | OperationKind::MergeUpstream
+                    | OperationKind::MergeBranch
                     | OperationKind::UpdateWorkspaceBase
                     | OperationKind::MoveHunk
                     | OperationKind::UpdateBranchName
@@ -222,6 +223,7 @@ pub(crate) fn show_oplog(
                 OperationKind::StashIntoBranch
                 | OperationKind::SetBaseBranch
                 | OperationKind::MergeUpstream
+                | OperationKind::MergeBranch
                 | OperationKind::UpdateWorkspaceBase
                 | OperationKind::UpdateBranchName
                 | OperationKind::UpdateBranchNotes

@@ -81,7 +81,7 @@ pub fn commit_details(
 ///
 /// This exists for callers that always want line statistics without passing
 /// `line_stats` explicitly.
-#[but_api(napi, json::CommitDetails, provides = [Commits])]
+#[but_api(json::CommitDetails)]
 #[instrument(err(Debug))]
 pub fn commit_details_with_line_stats(
     ctx: &Context,
@@ -94,7 +94,7 @@ pub fn commit_details_with_line_stats(
 ///
 /// `change` must not be a type change or a submodule change. For lower-level
 /// implementation details, see [`but_core::TreeChange::unified_patch()`].
-#[but_api(napi, provides = [Diffs])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn tree_change_diffs(
     ctx: &Context,
@@ -108,9 +108,8 @@ pub fn tree_change_diffs(
 /// Like [`tree_change_diffs()`], reading `change` from the checkout `changes_source`
 /// names, so a linked worktree's uncommitted changes diff against its own files.
 ///
-/// A linked worktree requires the `worktreeManipulation` feature flag and an active
-/// worktree, see `worktrees::open_changes_source()`.
-#[but_api(napi, provides = [Diffs])]
+/// A linked worktree has to be active, see `worktrees::open_changes_source()`.
+#[but_api]
 #[instrument(err(Debug))]
 pub fn tree_change_diffs_from_source(
     ctx: &Context,
@@ -140,7 +139,7 @@ fn worktree_changes_with_modification_times(
 }
 
 /// See [`changes_in_worktree_with_perm()`].
-#[but_api(napi, provides = [WorktreeChanges])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn changes_in_worktree(
     ctx: &Context,
@@ -159,8 +158,7 @@ pub fn changes_in_worktree(
 /// This UI-version of [`but_core::diff::worktree_changes()`] simplifies the `git status` information for display in
 /// the user interface as it is right now. From here, it's always possible to add more information as the need arises.
 ///
-/// `changes_source` selects the checkout to inspect. Reading a linked worktree
-/// requires the `worktreeManipulation` feature flag and an active worktree, see
+/// `changes_source` selects the checkout to inspect. A linked worktree has to be active, see
 /// `worktrees::open_changes_source()`.
 ///
 /// ### Notable Transformations
@@ -173,14 +171,14 @@ pub fn changes_in_worktree(
 /// When dependency and assignment computation is turned off, hunk assignments and dependencies
 /// are not computed at all: `assignments` is empty and there are no `dependencies`.
 ///
-/// A linked worktree is not part of the workspace, so it has neither - the flag is
-/// ignored for it, and nothing is persisted.
+/// A linked worktree is not part of the workspace: its hunks all come back unassigned,
+/// it has no dependencies, and nothing is persisted.
 ///
 /// For lower-level implementation details, see
 /// [`but_core::diff::worktree_changes()`],
 /// [`but_hunk_assignment::assignments_with_fallback()`], and
 /// [`but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir()`].
-#[but_api(napi)]
+#[but_api]
 #[instrument(skip_all, err(Debug))]
 pub fn changes_in_worktree_with_perm(
     ctx: &Context,
@@ -191,7 +189,16 @@ pub fn changes_in_worktree_with_perm(
     let context_lines = ctx.settings.context_lines;
 
     if let Some((_name, wt_repo)) = crate::worktrees::open_changes_source(ctx, &changes_source)? {
-        return Ok(worktree_changes_with_modification_times(&wt_repo)?.into());
+        let changes = worktree_changes_with_modification_times(&wt_repo)?;
+        if !compute_deps_and_assignments {
+            return Ok(changes.into());
+        }
+        let assignments =
+            but_hunk_assignment::unassigned(&wt_repo, changes.changes.clone(), context_lines);
+        return Ok(WorktreeChanges {
+            assignments,
+            ..changes.into()
+        });
     }
 
     if !compute_deps_and_assignments {
@@ -285,7 +292,7 @@ pub fn assign_hunk_only_with_perm(
 /// assignments.
 ///
 /// See [`assign_hunk_with_perm()`] for details.
-#[but_api(napi)]
+#[but_api]
 #[instrument(skip_all, err(Debug))]
 pub fn assign_hunk(
     ctx: &mut Context,

@@ -1,0 +1,34 @@
+/* The ID takes its line's colour, so it reads as one of the meta's parts; under the pointer it
+   steps halfway toward the title's. */
+.id {
+	display: flex;
+	align-items: center;
+	padding: 0;
+	gap: 4px;
+	border: none;
+	background: none;
+	color: inherit;
+	font: inherit;
+	cursor: var(--control-cursor);
+
+	> span {
+		text-decoration: underline dotted;
+		text-underline-offset: 2px;
+	}
+
+	&:hover {
+		color: color-mix(in srgb, currentColor, var(--text-1));
+	}
+
+	&:focus-visible {
+		border-radius: var(--radius-xs);
+		outline: var(--focus-ring);
+		outline-offset: 2px;
+	}
+}
+
+/* As faint as a MetaCount's glyph beside it. */
+.glyph {
+	flex-shrink: 0;
+	opacity: 0.7;
+}

@@ -269,6 +269,8 @@ pub struct Theme {
     pub commit_id: Style,
     /// Stable identifiers for commits
     pub change_id: Style,
+    /// The HEAD marker identifying the checked-out branch.
+    pub head: Style,
     /// Short CLI identifiers
     pub cli_id: Style,
     /// PR / review number decorations
@@ -416,6 +418,7 @@ impl Theme {
             remote_branch: style_fg(Color::Magenta),
             commit_id: style_fg(Color::Cyan),
             change_id: style_fg(Color::Magenta),
+            head: style_fg(Color::Magenta),
             cli_id: style_fg_bold(Color::Blue),
             pr_number: style_fg(Color::Blue),
             link: Style::new()
@@ -653,21 +656,14 @@ where
 }
 
 fn fmt_commit_id(commit_id: ObjectId, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let t = get();
-    write!(
-        f,
-        "{}",
-        t.commit_id.paint(commit_id.to_hex_with_len(7).to_string())
-    )
+    let span = span_commit_id(commit_id);
+    write!(f, "{}", span.style.paint(&span.content))
 }
 
 // TODO(david): include disambiguation when printing change ids
 fn fmt_change_id(change_id: &ChangeId, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let t = get();
-    let s = change_id
-        .get(..MIN_DISPLAYED_CHANGE_ID_CHARS.min(change_id.len()))
-        .unwrap_or_default();
-    write!(f, "{}", t.change_id.paint(s.to_str_lossy()))
+    let span = span_change_id(change_id);
+    write!(f, "{}", span.style.paint(&span.content))
 }
 
 fn fmt_commit_id_or_change_id(
@@ -675,11 +671,29 @@ fn fmt_commit_id_or_change_id(
     change_id: Option<&ChangeId>,
     f: &mut std::fmt::Formatter<'_>,
 ) -> std::fmt::Result {
+    let span = span_commit_id_or_change_id(commit_id, change_id);
+    write!(f, "{}", span.style.paint(&span.content))
+}
+
+fn span_commit_id_or_change_id(commit_id: ObjectId, change_id: Option<&ChangeId>) -> Span<'static> {
     if let Some(change_id) = change_id {
-        fmt_change_id(change_id, f)
+        span_change_id(change_id)
     } else {
-        fmt_commit_id(commit_id, f)
+        span_commit_id(commit_id)
     }
+}
+
+fn span_change_id(change_id: &ChangeId) -> Span<'static> {
+    let t = get();
+    let s = change_id
+        .get(..MIN_DISPLAYED_CHANGE_ID_CHARS.min(change_id.len()))
+        .unwrap_or_default();
+    Span::raw(s.to_str_lossy().into_owned()).style(t.change_id)
+}
+
+fn span_commit_id(commit_id: ObjectId) -> Span<'static> {
+    let t = get();
+    Span::raw(commit_id.to_hex_with_len(7).to_string()).style(t.commit_id)
 }
 
 pub struct Commit<T>(pub T);
@@ -711,6 +725,12 @@ impl Display for Commit<CommitId> {
 impl Display for Commit<&CommitId> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         fmt_commit_id_or_change_id(self.0.commit_id, self.0.change_id.as_ref(), f)
+    }
+}
+
+impl Commit<&CommitId> {
+    pub fn to_span(&self) -> Span<'static> {
+        span_commit_id_or_change_id(self.0.commit_id, self.0.change_id.as_ref())
     }
 }
 

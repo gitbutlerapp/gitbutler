@@ -34,7 +34,6 @@ test.use({
 	gitbutlerOptions: {
 		config: {
 			onboardingComplete: true,
-			featureFlags: { singleBranch: true },
 		},
 	},
 });

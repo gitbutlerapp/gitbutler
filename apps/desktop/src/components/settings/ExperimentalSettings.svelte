@@ -1,14 +1,21 @@
 <script lang="ts">
+	import { BACKEND } from "$lib/backend";
 	import { fModeEnabled } from "$lib/config/uiFeatureFlags";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
-	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { CardGroup, Toggle } from "@gitbutler/ui-svelte";
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
+	const backend = inject(BACKEND);
 
-	const userService = inject(USER_SERVICE);
+	// Only the desktop app's nightly and release builds include the native app.
+	let hasNativeApp = $state(false);
+	if (backend.platformName !== "web") {
+		backend
+			.getAppInfo()
+			.then((info) => (hasNativeApp = ["GitButler", "GitButler Nightly"].includes(info.name)));
+	}
 </script>
 
 <p class="text-12 text-body experimental-settings__text">
@@ -34,45 +41,27 @@
 		{/snippet}
 	</CardGroup.Item>
 
-	{#if userService.user?.role === "admin"}
-		<CardGroup.Item labelFor="single-branch">
+	{#if hasNativeApp}
+		<CardGroup.Item labelFor="native-app">
 			{#snippet title()}
-				Single-branch mode
+				Native app
 			{/snippet}
 			{#snippet caption()}
-				Stay in the workspace view when leaving the gitbutler/workspace branch.
+				Open GitButler's experimental native app instead of this one. Takes effect after you restart
+				GitButler. To come back, turn off "Open this app at start" in the native app's settings.
 			{/snippet}
 			{#snippet actions()}
 				<Toggle
-					id="single-branch"
-					checked={$settingsStore?.featureFlags.singleBranch}
+					id="native-app"
+					checked={$settingsStore?.featureFlags.gpui}
 					onclick={() =>
 						settingsService.updateFeatureFlags({
-							singleBranch: !$settingsStore?.featureFlags.singleBranch,
+							gpui: !$settingsStore?.featureFlags.gpui,
 						})}
 				/>
 			{/snippet}
 		</CardGroup.Item>
 	{/if}
-
-	<CardGroup.Item labelFor="worktree-manipulation">
-		{#snippet title()}
-			Worktree manipulation
-		{/snippet}
-		{#snippet caption()}
-			Enable experimental support for working with linked git worktrees.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="worktree-manipulation"
-				checked={$settingsStore?.featureFlags.worktreeManipulation}
-				onclick={() =>
-					settingsService.updateFeatureFlags({
-						worktreeManipulation: !$settingsStore?.featureFlags.worktreeManipulation,
-					})}
-			/>
-		{/snippet}
-	</CardGroup.Item>
 </CardGroup>
 
 <style>

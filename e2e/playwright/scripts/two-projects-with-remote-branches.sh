@@ -39,7 +39,7 @@ pushd local-clone
   git checkout master
   target_branch="$(git rev-parse --symbolic-full-name @{u})"
   target_branch="${target_branch#refs/remotes/}"
-  "$BUT" setup
+  "$BUT" switch --workspace
   "$BUT" config target "$target_branch"
 popd
 
@@ -49,6 +49,6 @@ pushd local-clone-2
   git checkout master
   target_branch="$(git rev-parse --symbolic-full-name @{u})"
   target_branch="${target_branch#refs/remotes/}"
-  "$BUT" setup
+  "$BUT" switch --workspace
   "$BUT" config target "$target_branch"
 popd

@@ -28,7 +28,6 @@
 		type DzCommitData,
 	} from "$lib/dragging/dropHandlers/commitDropHandler";
 
-	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { precomputeStack, segmentContext } from "$lib/stacks/segmentContext";
 	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -49,8 +48,6 @@
 	const controller = getStackContext();
 
 	const stackService = inject(STACK_SERVICE);
-
-	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 
 	const RESIZER_CONFIG = {
 		minWidth: 20,
@@ -87,6 +84,7 @@
 			? createCommitDropHandlers({
 					projectId: controller.projectId,
 					stackId: controller.stackId,
+					worktree: controller.worktree?.name,
 					commit: dzCommit,
 					runHooks: $runHooks,
 					okWithForce: true,
@@ -110,8 +108,11 @@
 			? stackService.commitChanges(controller.projectId, controller.commitId)
 			: undefined,
 	);
+	// A worktree's files belong to its own checkout, so they can't be dragged
+	// onto the workspace's stacks.
+	const worktree = $derived(controller.worktree);
 	const assignedFiles = $derived(
-		uncommittedService.getChangesByStackId(controller.stackId || null),
+		controller.uncommitted.getChangesByStackId(controller.stackId || null),
 	);
 
 	let multiDiffView = $state<MultiDiffView>();
@@ -188,7 +189,7 @@
 						{stackId}
 						{laneId}
 						commit={selectedCommit}
-						draggableFiles
+						draggableFiles={!worktree}
 						rounded
 						onclose={() => controller.closePreview()}
 						onpopout={() => controller.openFloatingDiff()}
@@ -201,11 +202,11 @@
 							{#snippet children(commit)}
 								<MultiDiffView
 									{stackId}
-									selectionId={{ type: "commit", commitId, stackId }}
+									selectionId={controller.commitSelection(commitId)}
 									bind:this={multiDiffView}
 									{projectId}
 									changes={commit.changes}
-									draggable={true}
+									draggable={!worktree}
 									selectable={false}
 									startIndex={focusedFileStore ? get(focusedFileStore)?.index : undefined}
 									{onVisibleChange}
@@ -241,16 +242,11 @@
 				{#snippet children(result)}
 					<MultiDiffView
 						{stackId}
-						selectionId={{
-							type: "branch",
-							branchName,
-							remote: undefined,
-							stackId,
-						}}
+						selectionId={controller.branchSelection(branchName)}
 						changes={result.changes}
 						bind:this={multiDiffView}
 						{projectId}
-						draggable={true}
+						draggable={!worktree}
 						selectable={false}
 						startIndex={focusedFileStore ? get(focusedFileStore)?.index : undefined}
 						{onVisibleChange}
@@ -261,11 +257,11 @@
 	{:else if focusedFileStore}
 		<MultiDiffView
 			{stackId}
-			selectionId={{ type: "worktree", stackId }}
+			selectionId={controller.uncommittedSelectionId}
 			changes={assignedFiles}
 			bind:this={multiDiffView}
 			{projectId}
-			draggable={true}
+			draggable={!worktree}
 			selectable={controller.isCommitting}
 			onclose={() => controller.closePreview()}
 			startIndex={focusedFileStore ? get(focusedFileStore)?.index : undefined}
@@ -278,7 +274,7 @@
 {#if detailsEl}
 	<Resizer
 		viewport={detailsEl}
-		persistId="resizer-panel2-${stackId}"
+		persistId="resizer-panel2-${laneId}"
 		direction="right"
 		edgeOffsetRem={DETAILS_RIGHT_PADDING_REM}
 		fullLayerCrossAxis

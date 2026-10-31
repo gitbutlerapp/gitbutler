@@ -6,7 +6,7 @@ use super::target_meta;
 use crate::init::utils::{add_workspace, read_only_in_memory_scenario, standard_options};
 
 #[test]
-fn with_target_ref() -> anyhow::Result<()> {
+fn with_selected_cutoff() -> anyhow::Result<()> {
     let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -39,11 +39,14 @@ fn with_target_ref() -> anyhow::Result<()> {
     .validated()?
     .into_workspace()?;
 
-    assert!(ws.target_ref.is_some());
+    assert!(
+        ws.target_commit.is_some(),
+        "the projection selected a cutoff"
+    );
 
     let main_id = repo.rev_parse_single("main")?.detach();
 
-    let res = ws.merge_base_with_target_branch(main_id);
+    let res = ws.merge_base_with_target_commit(main_id);
     let expected_merge_base = repo.rev_parse_single(":/M2")?.detach();
     let expected_target_id = repo.rev_parse_single("origin/main")?.detach();
     assert_eq!(res, Some((expected_merge_base, expected_target_id)));
@@ -71,11 +74,10 @@ fn returns_none_when_no_target_is_set() -> anyhow::Result<()> {
     .validated()?;
     let ws = graph.into_workspace()?;
 
-    assert!(ws.target_ref.is_none(), "should not have target_ref");
     assert!(ws.target_commit.is_none(), "should not have target_commit");
 
     let a2_id = repo.rev_parse_single("A")?.detach();
-    let res = ws.merge_base_with_target_branch(a2_id);
+    let res = ws.merge_base_with_target_commit(a2_id);
     assert!(
         res.is_none(),
         "can't compute merge-base without the other side"
@@ -99,7 +101,7 @@ fn returns_none_when_commit_not_in_graph() -> anyhow::Result<()> {
     .validated()?
     .into_workspace()?;
 
-    let res = ws.merge_base_with_target_branch(repo.object_hash().null());
+    let res = ws.merge_base_with_target_commit(repo.object_hash().null());
     assert!(
         res.is_none(),
         "should return None when commit is not in graph"

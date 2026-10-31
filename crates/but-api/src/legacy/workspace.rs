@@ -20,7 +20,9 @@ use gitbutler_oplog::{
 };
 use tracing::instrument;
 
-#[but_api(napi, try_from = but_workspace::ui::RefInfo, provides = [Workspace])]
+use crate::commit::json::ChangesSource;
+
+#[but_api(try_from = but_workspace::ui::RefInfo)]
 #[instrument(err(Debug))]
 pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
@@ -35,7 +37,7 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
             ctx.project_meta()?,
             &mut db,
             but_graph::init::Options {
-                worktrees: ctx.settings.feature_flags.worktree_manipulation,
+                worktrees: true,
                 ..but_graph::init::Options::limited()
             },
         )?
@@ -63,10 +65,9 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     // Enrich active associations from the forge cache while keeping durable
     // stored identity for integrated branches.
     let forge_db = ctx.db.get_cache()?;
-    info.apply_forge_review_associations(
-        &repo,
-        &but_forge::review_associations_by_head(&forge_db)?,
-    );
+    info.apply_forge_review_associations(&but_forge::review_associations_by_head(
+        &forge_db, &repo,
+    )?);
 
     Ok(info)
 }
@@ -77,7 +78,7 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
 pub fn show_graph_svg(ctx: &Context) -> Result<()> {
     let mut options = but_graph::init::Options::limited();
     options.collect_tags = true;
-    options.worktrees = ctx.settings.feature_flags.worktree_manipulation;
+    options.worktrees = true;
     let repo = ctx.open_isolated_repo()?;
     let meta = ctx.meta()?;
     let mut db = ctx.db.get_cache_mut()?;
@@ -149,7 +150,7 @@ fn handle_gerrit(
     Ok(())
 }
 
-#[but_api(napi, provides = [Branches])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn branch_details(
     ctx: &but_ctx::Context,
@@ -215,24 +216,36 @@ pub fn branch_details(
 ///
 /// If whole files should be discarded, be sure to not pass any hunks
 ///
+/// `changes_source` selects the checkout to discard in. A linked worktree has to be active, see
+/// `worktrees::open_changes_source()`, and is not snapshotted as the oplog can't restore it.
+///
 /// Returns the `worktree_changes` that couldn't be applied,
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn discard_worktree_changes(
     ctx: &mut but_ctx::Context,
+    changes_source: ChangesSource,
     worktree_changes: Vec<but_core::DiffSpec>,
 ) -> Result<Vec<but_core::DiffSpec>> {
     let mut guard = ctx.exclusive_worktree_access();
 
-    let _ = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::DiscardChanges),
-        guard.write_permission(),
-    );
-    let refused = but_workspace::discard_workspace_changes(
-        &*ctx.repo.get()?,
-        worktree_changes,
-        ctx.settings.context_lines,
-    )?;
+    let context_lines = ctx.settings.context_lines;
+    let refused = match crate::worktrees::open_changes_source(ctx, &changes_source)? {
+        Some((_name, wt_repo)) => {
+            but_workspace::discard_workspace_changes(&wt_repo, worktree_changes, context_lines)?
+        }
+        None => {
+            let _ = ctx.create_snapshot(
+                SnapshotDetails::new(OperationKind::DiscardChanges),
+                guard.write_permission(),
+            );
+            but_workspace::discard_workspace_changes(
+                &*ctx.repo.get()?,
+                worktree_changes,
+                context_lines,
+            )?
+        }
+    };
     if !refused.is_empty() {
         tracing::warn!(?refused, "Failed to discard at least one hunk");
     }
@@ -264,7 +277,7 @@ pub fn stash_into_branch(
         perm,
     )?;
     let stack_id = {
-        let (_, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let (_, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
         ws.find_segment_and_stack_by_refname(full_ref_name.as_ref())
             .and_then(|(stack, _)| stack.id)
             .context("created stash branch is missing its stack id")?
@@ -332,7 +345,7 @@ pub fn stash_into_branch(
 }
 
 /// Push a branch and any parent references that lie within the current workspace projection.
-#[but_api(napi, json::PushResult, invalidates = [Workspace, Reviews, MergeStatus, Checks, ReviewTimeline])]
+#[but_api(json::PushResult, refreshes)]
 #[instrument(err(Debug))]
 pub async fn workspace_branch_and_ancestors_push(
     ctx: ThreadSafeContext,
@@ -344,21 +357,13 @@ pub async fn workspace_branch_and_ancestors_push(
 ) -> Result<WorkspaceBranchAndAncestorsPushOutcome> {
     let branch: gix::refs::FullName = branch.try_into()?;
     let sync_ctx = ctx.clone();
-    let (trunk, review_targets) = {
+    let review_targets = {
         let ctx = ctx.clone().into_thread_local();
-        let trunk =
-            crate::legacy::forge::target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
-        (
-            trunk,
-            crate::legacy::forge::review_target_updates_for_branch(&ctx, branch.as_ref())?,
-        )
+        crate::legacy::forge::review_target_updates_for_branch(&ctx, branch.as_ref())?
     };
-    let flattened_review_targets = crate::legacy::forge::flatten_review_targets_before_push(
-        sync_ctx.clone(),
-        trunk,
-        &review_targets,
-    )
-    .await?;
+    let flattened_review_targets =
+        crate::legacy::forge::flatten_review_targets_before_push(sync_ctx.clone(), &review_targets)
+            .await?;
     let push_branch = branch.clone();
     // This API also awaits forge synchronization, but the Git push remains synchronous and may
     // perform network I/O, hooks, and credential handling. Keep it off Tokio's async worker pool.
@@ -441,7 +446,7 @@ pub fn workspace_branch_and_ancestors_push_only(
         ctx.project_meta()?,
         &mut db,
         but_graph::init::Options {
-            worktrees: ctx.settings.feature_flags.worktree_manipulation,
+            worktrees: true,
             ..but_graph::init::Options::limited()
         },
     )?

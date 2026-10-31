@@ -18,7 +18,7 @@ use but_core::commit::Headers;
 use but_core::commit::tree_expression::TreeExpression;
 use but_core::sync::RepoExclusive;
 use but_rebase::commit::DateMode;
-use but_rebase::graph_rebase::{Editor, LookupStep as _, Step};
+use but_rebase::graph_rebase::{Editor, LookupStep as _};
 
 use super::context::{FileConflict, ResolutionRequest, is_marker_shaped, scan_conflict_blocks};
 use super::{HunkResolution, RemainingConflicts, ResolutionSpec};
@@ -410,7 +410,7 @@ pub(crate) fn apply(
         .set_in_commit(&mut commit);
     }
     let new_id = editor.new_commit(commit, DateMode::CommitterUpdateAuthorKeep)?;
-    editor.replace(target_selector, Step::new_pick(new_id))?;
+    editor.amend_pick(target_selector, new_id)?;
 
     let rebase = editor.rebase()?;
     let new_commit = rebase.lookup_pick(target_selector)?;

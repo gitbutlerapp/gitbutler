@@ -17,7 +17,7 @@ use tracing::instrument;
 ///
 /// * `Ok(_)` - The token is valid and stored
 /// * `Err(_)` - If the token is invalid or storage fails
-#[but_api(napi, json::GitlabAuthStatusResponse, invalidates = [ForgeAccounts, ForgeLogin])]
+#[but_api(json::GitlabAuthStatusResponse)]
 #[instrument(err(Debug))]
 pub async fn store_gitlab_pat(access_token: Sensitive<String>) -> Result<AuthStatusResponse> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
@@ -60,7 +60,7 @@ pub async fn store_gitlab_selfhosted_pat(
 /// # Returns
 ///
 /// * `Ok(())` - Always succeeds, even if no token was found
-#[but_api(napi, invalidates = [ForgeAccounts, ForgeLogin])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn forget_gitlab_account(account: but_gitlab::GitlabAccountIdentifier) -> Result<()> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
@@ -98,7 +98,7 @@ pub fn clear_all_gitlab_tokens() -> Result<()> {
 /// * `Ok(Some(AuthenticatedUser))` - User information
 /// * `Ok(None)` - No credentials stored for this account
 /// * `Err(_)` - If the API request fails or credentials are invalid
-#[but_api(napi, json::GitlabAuthenticatedUserSensitive)]
+#[but_api(json::GitlabAuthenticatedUserSensitive)]
 #[instrument(err(Debug))]
 pub async fn get_gl_user(
     account: but_gitlab::GitlabAccountIdentifier,
@@ -116,7 +116,7 @@ pub async fn get_gl_user(
 ///
 /// * `Ok(Vec<GitlabAccountIdentifier>)` - List of all known accounts
 /// * `Err(_)` - If storage access fails
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn list_known_gitlab_accounts() -> Result<Vec<but_gitlab::GitlabAccountIdentifier>> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);

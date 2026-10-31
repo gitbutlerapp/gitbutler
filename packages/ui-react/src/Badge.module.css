@@ -1,0 +1,108 @@
+.badge {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	/* A flex box fills a block container; a badge is as wide as its count. */
+	width: fit-content;
+	min-width: 16px;
+	border-radius: var(--radius-full);
+	--badge-bg-opacity: 20%;
+
+	/* Selected rows set --selection-inverted; flipping to the opposite color
+	   scheme makes every light-dark() token inside the badge resolve to its
+	   inverted value, matching the row's inverted selection background. */
+	@container style(--selection-inverted: true) {
+		--badge-bg-opacity: 40%;
+		color-scheme: dark;
+
+		@media (prefers-color-scheme: dark) {
+			color-scheme: light;
+			--badge-bg-opacity: 20%;
+		}
+	}
+}
+
+.regular {
+	height: 16px;
+	padding-inline: 5px;
+	gap: 2px;
+}
+
+.large {
+	height: var(--size-tag);
+	padding-inline: 7px;
+	gap: 4px;
+}
+
+/* Single-line labels only, so trimming to the cap/baseline box lets the fixed
+   badge height center the glyphs themselves instead of the line box. */
+.label {
+	text-box: trim-both cap alphabetic;
+}
+
+.fillGray {
+	background-color: var(--fill-gray-bg);
+	color: var(--fill-gray-fg);
+}
+
+/* On a light ground the tint is the text's own colour, lighter than the shared
+   opacity: one hue with the label, so the colour sits in the text.
+   On a dark ground the text colours are pastels that tint grey, so the tint
+   comes from the variant's fill instead. Both track the shared opacity, so an
+   inverted ground lifts them. */
+.lightGray,
+.safe,
+.warn,
+.danger,
+.purple,
+.blue,
+.pop {
+	--_light-share: 0.7;
+	--_dark-share: 1;
+	background-color: light-dark(
+		color-mix(
+			in srgb,
+			currentColor calc(var(--badge-bg-opacity) * var(--_light-share)),
+			transparent
+		),
+		color-mix(in srgb, var(--_bg) calc(var(--badge-bg-opacity) * var(--_dark-share)), transparent)
+	);
+}
+
+/* Gray rests lighter than the colours in both schemes. */
+.lightGray {
+	--_bg: var(--fill-gray-bg);
+	--_light-share: 0.5;
+	--_dark-share: 0.8;
+	color: var(--text-1);
+}
+
+.safe {
+	--_bg: var(--fill-safe-bg);
+	color: var(--text-safe);
+}
+
+.warn {
+	--_bg: var(--fill-warn-bg);
+	color: var(--text-warn);
+}
+
+.danger {
+	--_bg: var(--fill-danger-bg);
+	color: var(--text-danger);
+}
+
+.purple {
+	--_bg: var(--fill-purple-bg);
+	color: var(--text-purple);
+}
+
+.blue {
+	--_bg: var(--fill-blue-bg);
+	color: var(--text-blue);
+}
+
+.pop {
+	--_bg: var(--fill-pop-bg);
+	color: var(--text-pop);
+}

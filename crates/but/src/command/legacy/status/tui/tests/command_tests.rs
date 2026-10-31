@@ -1,5 +1,5 @@
 use but_testsupport::Sandbox;
-use crossterm::event::KeyCode;
+use crossterm::event::{KeyCode, KeyModifiers};
 use snapbox::{file, str};
 
 use crate::command::legacy::status::tui::BackstackEntry;
@@ -21,6 +21,18 @@ fn command_mode_runs_successful_command_and_returns_to_normal_mode() {
 
     tui.input(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/command_mode_success_003.svg"]);
+}
+
+#[test]
+fn command_mode_opens_when_colon_is_reported_with_shift() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    // Windows reports SHIFT along with `:`.
+    tui.input((KeyModifiers::SHIFT, ':'))
+        .assert_rendered_term_svg_eq(file!["snapshots/command_mode_success_001.svg"]);
 }
 
 #[test]

@@ -6,21 +6,41 @@ import { UI_STATE } from "$lib/state/uiState.svelte";
 import { inject } from "@gitbutler/core/context";
 import type { DropResult } from "$lib/dragging/dropResult";
 import type { DropzoneHandler } from "$lib/dragging/handler";
+import type { InsertSide, RelativeTo } from "@gitbutler/but-sdk";
 
 export class BranchDropData {
 	constructor(
-		readonly stackId: string,
+		readonly stackId: string | undefined,
 		readonly branchName: string,
 		readonly hasConflicts: boolean,
 		readonly numberOfBranchesInStack: number,
 		readonly numberOfCommits: number,
 		readonly prNumber: number | undefined,
 		readonly allOtherPrNumbersInStack: number[],
+		/** The linked worktree whose lane the branch is in, if not a stack's. */
+		readonly worktree?: string,
 	) {}
 
 	print(): string {
 		return `BranchDropData(${this.stackId}, ${this.branchName}, ${this.hasConflicts})`;
 	}
+}
+
+/**
+ * Where a branch dropped on `targetBranchName`'s zone goes: above the branch, or
+ * for the zone under the branch, below its last commit. Below the branch's
+ * reference would put the moved branch between the reference and its commits.
+ */
+export function moveBranchPlacement(
+	targetBranchName: string,
+	belowCommitId?: string,
+): { relativeTo: RelativeTo; side: InsertSide } {
+	return belowCommitId === undefined
+		? {
+				relativeTo: { type: "reference", subject: normalizeReferenceSubject(targetBranchName) },
+				side: "above",
+			}
+		: { relativeTo: { type: "commit", subject: belowCommitId }, side: "below" };
 }
 
 export function acceptsSameStackBranchDrop(
@@ -35,8 +55,12 @@ export class MoveBranchDzHandler implements DropzoneHandler {
 
 	constructor(
 		private readonly projectId: string,
-		private readonly stackId: string,
+		private readonly stackId: string | undefined,
 		private readonly branchName: string,
+		/** The linked worktree whose lane this is, if not a stack's. */
+		private readonly worktree?: string,
+		/** The branch's last commit: this is the zone under the branch, not above it. */
+		private readonly belowCommitId?: string,
 	) {}
 
 	print(): string {
@@ -47,8 +71,10 @@ export class MoveBranchDzHandler implements DropzoneHandler {
 		if (!(data instanceof BranchDropData) || data.hasConflicts) {
 			return false;
 		}
-		// Dropping a (non-empty) branch onto a different stack merges it into that stack.
-		if (data.stackId !== this.stackId) {
+		// A worktree keeps at least the branch it has checked out.
+		if (data.worktree !== undefined && data.numberOfBranchesInStack <= 1) return false;
+		// Dropping a (non-empty) branch onto a different lane merges it into that lane.
+		if (data.stackId !== this.stackId || data.worktree !== this.worktree) {
 			return data.numberOfCommits > 0;
 		}
 		return acceptsSameStackBranchDrop(data, this.branchName);
@@ -57,7 +83,7 @@ export class MoveBranchDzHandler implements DropzoneHandler {
 		await this.stackService.moveBranch({
 			projectId: this.projectId,
 			subjectBranch: normalizeReferenceSubject(data.branchName),
-			targetBranch: normalizeReferenceSubject(this.branchName),
+			...moveBranchPlacement(this.branchName, this.belowCommitId),
 		});
 	}
 }
@@ -80,6 +106,8 @@ export class StartCommitDzHandler implements DropzoneHandler {
 		if (data instanceof FileChangeDropData || data instanceof FolderChangeDropData) {
 			// Only accept uncomitted files/folders
 			if (data.isCommitted) return false;
+			// Only the main checkout's, which a stack's branch commits
+			if (data.selectionId.worktree !== undefined) return false;
 			// Only accept unassinged files/folders or those assigned to the same stack
 			if (data.stackId !== undefined && data.stackId !== this.stackId) return false;
 			return true;

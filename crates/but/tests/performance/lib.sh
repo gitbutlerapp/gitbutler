@@ -104,6 +104,27 @@ perf_validate_scenario() (
     [ -x "$test_script" ] || perf_die "scenario test is not executable: $test_script"
 )
 
+# Validate comma-separated exact names without word splitting or glob expansion.
+perf_validate_scenario_excludes() (
+    remaining=${PERF_SCENARIO_EXCLUDES:-}
+    [ -n "$remaining" ] || exit 0
+    while :; do
+        excluded=${remaining%%,*}
+        perf_validate_scenario "$excluded"
+        case "$remaining" in
+            *,*) remaining=${remaining#*,} ;;
+            *) break ;;
+        esac
+    done
+)
+
+perf_scenario_excluded() {
+    case ",${PERF_SCENARIO_EXCLUDES:-}," in
+        *,"$1",*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 # First argument launches command ("command", or profiler's signal-aware wait).
 # Remaining arguments: explicit NAME=value additions followed by command argv.
 # Never inherit arbitrary caller state (including profiling dispatch state).
@@ -118,6 +139,7 @@ perf_run_isolated() {
         PATH="$PATH" \
         PERF_ENV_ISOLATED=1 \
         PERF_ROOT="$PERF_ROOT" \
+        PERF_SCENARIO_EXCLUDES="${PERF_SCENARIO_EXCLUDES:-}" \
         PERF_SOURCE_REPO="$REPO_ROOT" \
         PERF_SESSION_ROOT="$PERF_SESSION_ROOT" \
         PERF_FIXTURE_REPO="$PERF_SESSION_ROOT/fixture.git" \
@@ -249,10 +271,10 @@ perf_create_gitbutler_workspace() {
     "$GIT_BIN" -C "$destination" config gc.auto 0
     "$GIT_BIN" -C "$destination" config maintenance.auto false
 
-    setup_log=$PERF_RUN_ROOT/but-setup.log
-    if ! "$BUT_BIN" -C "$destination" setup >"$setup_log" 2>&1; then
+    setup_log=$PERF_RUN_ROOT/but-workspace.log
+    if ! "$BUT_BIN" -C "$destination" switch --workspace >"$setup_log" 2>&1; then
         cat "$setup_log" >&2
-        perf_die "but setup failed"
+        perf_die "entering managed workspace failed"
     fi
 }
 

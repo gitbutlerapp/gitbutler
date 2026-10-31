@@ -10,7 +10,7 @@ use tracing::instrument;
 use crate::{
     CommitFlags, CommitIndex, Graph, Segment, SegmentIndex, Workspace,
     workspace::{
-        Stack, StackCommit, StackSegment, TargetRef, WorkspaceKind,
+        Lane, Stack, StackCommit, StackSegment, TargetRef, WorkspaceKind,
         workspace::find_segment_owner_indexes_by_refname,
     },
 };
@@ -171,88 +171,108 @@ impl Workspace {
         Ok(Some(metadata))
     }
 
-    /// Return the name of the remote to push workspace branches to: the configured
-    /// push remote, or else the remote of the [`Self::target_ref`].
+    /// Return the configured push remote, falling back to the local target's fetch remote.
+    /// Without a configured target, use the projected upstream's remote instead.
     ///
-    /// The caller *may* consider falling back to [`gix::Repository::remote_default_name()`],
-    /// but beware that one should handle ambiguity if there are more than one remotes.
-    pub fn push_remote_name(&self) -> Option<String> {
-        self.graph.project_meta.push_remote.clone().or_else(|| {
+    /// Return `None` when no remote is configured; repository configuration errors propagate.
+    /// The caller may consider falling back to [`gix::Repository::remote_default_name()`],
+    /// taking care to handle ambiguity.
+    pub fn push_remote_name(&self, repo: &gix::Repository) -> anyhow::Result<Option<String>> {
+        let project_meta = &self.graph.project_meta;
+        if project_meta.push_remote.is_some() || project_meta.target_ref.is_some() {
+            return project_meta.try_push_remote_name(repo);
+        }
+        Ok(self.target_ref.as_ref().and_then(|target| {
             let remote_names = self
                 .graph
                 .symbolic_remote_names
                 .iter()
                 .map(|name| name.as_str().into())
                 .collect();
-            let target_ref_name = self.target_ref.as_ref()?.ref_name.as_ref();
-            extract_remote_name_and_short_name(target_ref_name, &remote_names)
+            extract_remote_name_and_short_name(target.ref_name.as_ref(), &remote_names)
                 .map(|(remote_name, _)| remote_name)
-        })
+        }))
     }
 
-    /// Return the `(merge-base, target-commit-id)` of the merge-base between the `commit_to_merge`
-    /// and the tip of [`Self::target_ref`].
-    /// Return `None` without a target ref, or if there was no merge-base.
+    /// Return the merge-base with the selected workspace cutoff, together with that cutoff's ID.
     ///
-    /// Use this to get the merge-base for test-merges between `commit_to_merge` and the target,
-    /// whose commit is also returned as `target-commit-id`.
-    pub fn merge_base_with_target_branch(
+    /// Return `None` without a cutoff, if the input commit is absent from the graph,
+    /// or if the commits have no merge-base.
+    pub fn merge_base_with_target_commit(
         &self,
         commit_to_merge: impl Into<gix::ObjectId>,
     ) -> Option<(gix::ObjectId, gix::ObjectId)> {
+        let target = self.target_commit.as_ref()?;
         let commit_to_merge = commit_to_merge.into();
-        let commit_segment_index = self.graph.node_weights().find_map(|s| {
-            s.commits
-                .first()
-                .is_some_and(|c| c.id == commit_to_merge)
-                .then_some(s.id)
-        })?;
-
-        let target_segment_index = self.target_ref.as_ref()?.segment_index;
-
+        let commit_segment = self.graph.segment_by_commit_id(commit_to_merge).ok()?;
         let merge_base_segment_index = self
             .graph
-            .find_merge_base(commit_segment_index, target_segment_index)?;
+            .find_merge_base(commit_segment.id, target.segment_index)?;
 
-        self.tip_commit_by_segment_id(merge_base_segment_index)
-            .map(|c| c.id)
-            .zip(
-                self.tip_commit_by_segment_id(target_segment_index)
-                    .map(|c| c.id),
-            )
+        // Segment ancestry alone does not locate the base when an input is inside a segment.
+        let merge_base = if commit_segment.id == target.segment_index {
+            let commit_index = commit_segment.commit_index_of(commit_to_merge)?;
+            let target_index = commit_segment.commit_index_of(target.commit_id)?;
+            commit_segment.commits[commit_index.max(target_index)].id
+        } else if merge_base_segment_index == target.segment_index {
+            target.commit_id
+        } else if merge_base_segment_index == commit_segment.id {
+            commit_to_merge
+        } else {
+            self.tip_commit_by_segment_id(merge_base_segment_index)?.id
+        };
+        Some((merge_base, target.commit_id))
     }
 
-    /// Return an iterator over all commits in the workspace,
-    /// i.e. all commits in all segments in all stacks.
-    ///
-    /// This doesn't include the workspace commit.
-    pub fn commits(&self) -> impl Iterator<Item = &StackCommit> + '_ {
+    /// Every lane, i.e. each stack followed by each worktree.
+    pub fn lanes(&self) -> impl Iterator<Item = Lane<'_>> + '_ {
         self.stacks
             .iter()
-            .flat_map(|s| s.segments.iter())
-            .flat_map(|s| s.commits.iter())
+            .map(Lane::Stack)
+            .chain(self.worktrees.iter().map(Lane::Worktree))
     }
 
-    /// Return `true` if the branch with `name` is the workspace target or the targets local tracking branch.
-    pub fn is_branch_the_target_or_its_local_tracking_branch(
+    /// Every segment of every lane.
+    pub fn segments(&self) -> impl Iterator<Item = &StackSegment> + '_ {
+        self.lanes().flat_map(|lane| lane.segments())
+    }
+
+    /// Every commit of every lane. This doesn't include the workspace commit.
+    pub fn commits(&self) -> impl Iterator<Item = &StackCommit> + '_ {
+        self.segments().flat_map(|segment| segment.commits.iter())
+    }
+
+    /// Find the commit with `oid` in any lane.
+    pub fn find_commit(&self, oid: impl Into<gix::ObjectId>) -> Option<&StackCommit> {
+        let oid = oid.into();
+        self.commits().find(|commit| commit.id == oid)
+    }
+
+    /// Like [`Self::find_commit()`], but fails with an error.
+    pub fn try_find_commit(&self, oid: impl Into<gix::ObjectId>) -> anyhow::Result<&StackCommit> {
+        let oid = oid.into();
+        self.find_commit(oid)
+            .with_context(|| format!("Commit {oid} isn't part of the workspace"))
+    }
+
+    /// Return whether `name` is the configured local target or its derived upstream.
+    /// Repository configuration errors propagate.
+    pub fn is_target_or_upstream(
         &self,
         name: &gix::refs::FullNameRef,
-    ) -> bool {
-        let Some(t) = self.target_ref.as_ref() else {
-            return false;
-        };
-
-        t.ref_name == name
-            || self
-                .graph
-                .lookup_sibling_segment(t.segment_index)
-                .and_then(|local_tracking_segment| local_tracking_segment.ref_name())
-                .is_some_and(|local_tracking_ref| local_tracking_ref == name)
-    }
-
-    /// Lookup a triple obtained by [`Self::find_owner_indexes_by_commit_id()`] or panic.
-    pub fn lookup_commit(&self, (stack_idx, seg_idx, cidx): CommitOwnerIndexes) -> &StackCommit {
-        &self.stacks[stack_idx].segments[seg_idx].commits[cidx]
+        repo: &gix::Repository,
+    ) -> anyhow::Result<bool> {
+        let project_meta = &self.graph.project_meta;
+        if project_meta
+            .target_ref
+            .as_ref()
+            .is_some_and(|target| target.as_local_full_name_ref() == name)
+        {
+            return Ok(true);
+        }
+        Ok(project_meta
+            .remote_target_ref(repo)?
+            .is_some_and(|upstream| upstream.as_ref() == name))
     }
 
     /// Find a stack with the given `id` or error.
@@ -291,16 +311,6 @@ impl Workspace {
             })
     }
 
-    /// Like [`Self::find_owner_indexes_by_commit_id()`], but returns an error if the commit can't be found.
-    pub fn try_find_owner_indexes_by_commit_id(
-        &self,
-        oid: impl Into<gix::ObjectId>,
-    ) -> anyhow::Result<CommitOwnerIndexes> {
-        let oid = oid.into();
-        self.find_owner_indexes_by_commit_id(oid)
-            .with_context(|| format!("Commit {oid} isn't part of the workspace"))
-    }
-
     /// Try to find the `(stack_idx, segment_idx)` to be able to access the named segment going by `name`.
     /// Access the segment as `ws.stacks[stack_idx].segments[segment_idx]`
     pub fn find_segment_owner_indexes_by_refname(
@@ -310,23 +320,55 @@ impl Workspace {
         find_segment_owner_indexes_by_refname(&self.stacks, ref_name)
     }
 
-    /// Like [`Self::find_segment_owner_indexes_by_refname`], but fails with an error.
-    pub fn try_find_segment_owner_indexes_by_refname(
-        &self,
-        name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<(usize, usize)> {
-        self.find_segment_owner_indexes_by_refname(name)
-            .with_context(|| {
-                format!(
-                    "Couldn't find any stack that contained the branch named '{}'",
-                    name.shorten()
-                )
-            })
+    /// Return `true` if `name` is contained in the workspace as segment of a stack or a worktree.
+    pub fn refname_is_segment(&self, name: &gix::refs::FullNameRef) -> bool {
+        self.find_segment_by_refname(name).is_some()
     }
 
-    /// Return `true` if `name` is contained in the workspace as segment.
-    pub fn refname_is_segment(&self, name: &gix::refs::FullNameRef) -> bool {
-        self.find_segment_and_stack_by_refname(name).is_some()
+    /// Try to find `name` in any named [`StackSegment`] of a stack, then of a worktree.
+    pub fn find_segment_by_refname(&self, name: &gix::refs::FullNameRef) -> Option<&StackSegment> {
+        self.segments()
+            .find(|segment| segment.ref_name() == Some(name))
+    }
+
+    /// Like [`Self::find_segment_by_refname`], but fails with an error.
+    pub fn try_find_segment_by_refname(
+        &self,
+        name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<&StackSegment> {
+        self.find_segment_by_refname(name).with_context(|| {
+            format!(
+                "Couldn't find any stack or worktree that contained the branch named '{}'",
+                name.shorten()
+            )
+        })
+    }
+
+    /// Try to find `name` in any named [`StackSegment`] and return it along with the lane containing it.
+    pub fn find_segment_and_lane_by_refname(
+        &self,
+        name: &gix::refs::FullNameRef,
+    ) -> Option<(Lane<'_>, &StackSegment)> {
+        self.lanes().find_map(|lane| {
+            lane.segments()
+                .iter()
+                .find(|segment| segment.ref_name() == Some(name))
+                .map(|segment| (lane, segment))
+        })
+    }
+
+    /// Try to find the [`StackSegment`] owning the commit `oid` and return it along with the lane containing it.
+    pub fn find_segment_and_lane_by_commit_id(
+        &self,
+        oid: impl Into<gix::ObjectId>,
+    ) -> Option<(Lane<'_>, &StackSegment)> {
+        let oid = oid.into();
+        self.lanes().find_map(|lane| {
+            lane.segments()
+                .iter()
+                .find(|segment| segment.commits.iter().any(|commit| commit.id == oid))
+                .map(|segment| (lane, segment))
+        })
     }
 
     /// Try to find `name` in any named [`StackSegment`] and return it along with the stack containing it.
@@ -341,20 +383,6 @@ impl Workspace {
                     .then_some((stack, seg))
             })
         })
-    }
-
-    /// Like [`Self::find_segment_and_stack_by_refname`], but fails with an error.
-    pub fn try_find_segment_and_stack_by_refname(
-        &self,
-        name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<(&Stack, &StackSegment)> {
-        self.find_segment_and_stack_by_refname(name)
-            .with_context(|| {
-                format!(
-                    "Couldn't find any stack that contained the branch named '{}'",
-                    name.shorten()
-                )
-            })
     }
 }
 

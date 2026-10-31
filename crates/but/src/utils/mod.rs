@@ -23,7 +23,7 @@ pub(crate) use debug_as_type::DebugAsType;
 pub mod metrics;
 pub use metrics::OneshotMetricsContext;
 
-use crate::id::CommitId;
+use crate::{CliError, CliResult, id::CommitId, print_and_exit_non_zero};
 
 pub mod detect_agent;
 pub mod time;
@@ -36,8 +36,10 @@ pub(crate) mod merged_upstream;
 #[cfg(feature = "legacy")]
 pub(crate) mod rejection;
 pub(crate) mod targeting;
-#[cfg(feature = "legacy")]
 pub(crate) mod worktrees;
+
+#[cfg(feature = "legacy")]
+pub mod single_branch_mode;
 
 pub mod diff_rendering;
 pub mod string_interning;
@@ -59,14 +61,41 @@ impl ResultErrorExt for anyhow::Result<()> {
         let code = if let Err(e) = &self {
             if full_error_chain {
                 writeln!(std::io::stderr(), "{e:#}").ok();
-            } else {
+            } else if e.chain().nth(1).is_some() {
                 writeln!(std::io::stderr(), "{} {}", e, e.root_cause()).ok();
+            } else {
+                writeln!(std::io::stderr(), "{e}").ok();
             }
             1
         } else {
             0
         };
         std::process::exit(code);
+    }
+}
+
+impl ResultErrorExt for CliResult<()> {
+    fn show_root_cause_error_then_exit_without_destructors(self, out: OutputChannel) -> ! {
+        match self {
+            Ok(_) => {
+                // Trigger the pager to be flushed before exiting early, or destructors aren't called.
+                drop(out);
+                std::process::exit(0)
+            }
+            Err(err) => match err {
+                CliError::BadInput(_)
+                | CliError::ExternalCommandNotFound(_)
+                | CliError::ExternalCommandFailed(_)
+                | CliError::CommandRejection => {
+                    // Trigger the pager to be flushed before exiting early, or destructors aren't called.
+                    drop(out);
+                    print_and_exit_non_zero(err)
+                }
+                CliError::Initialization(error) | CliError::Internal(error) => {
+                    Err(error).show_root_cause_error_then_exit_without_destructors(out)
+                }
+            },
+        }
     }
 }
 
@@ -123,8 +152,13 @@ pub fn in_single_branch_mode(ctx: &Context) -> anyhow::Result<bool> {
 
 #[cfg(feature = "legacy")]
 pub fn in_single_branch_mode_with_perm(ctx: &Context, perm: &RepoShared) -> anyhow::Result<bool> {
-    Ok(ctx.settings.feature_flags.single_branch
-        && gitbutler_operating_modes::in_outside_workspace_mode(ctx, perm)?)
+    let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
+
+    Ok(match &ws.kind {
+        but_graph::workspace::WorkspaceKind::AdHoc => true,
+        but_graph::workspace::WorkspaceKind::Managed { .. }
+        | but_graph::workspace::WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => false,
+    })
 }
 
 pub fn head_name(repo: &gix::Repository) -> anyhow::Result<FullName> {

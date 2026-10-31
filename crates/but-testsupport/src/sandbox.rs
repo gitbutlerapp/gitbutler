@@ -143,7 +143,12 @@ impl Sandbox {
             let storage_path = repo.gitbutler_storage_path().unwrap();
             sandbox.file(storage_path.join("virtual_branches.toml"), "[branches]\n");
             ProjectMeta {
-                target_ref: Some("refs/remotes/origin/main".try_into().unwrap()),
+                target_ref: Some(
+                    but_core::ref_metadata::LocalRefName::new(
+                        "refs/heads/main".try_into().unwrap(),
+                    )
+                    .unwrap(),
+                ),
                 target_commit_id: Some(commit_id.detach()),
                 push_remote: Some("origin".into()),
             }
@@ -416,8 +421,9 @@ impl Sandbox {
             .expect("git should execute");
         assert!(
             output.status.success(),
-            "git {args} failed with {status:?}",
-            status = output.status
+            "git {args} failed with {status:?}: {stderr}",
+            status = output.status,
+            stderr = String::from_utf8(output.stderr).unwrap(),
         );
         String::from_utf8_lossy(&output.stdout).trim().to_string()
     }
@@ -505,11 +511,10 @@ impl Sandbox {
                 oauth_client_id: "but journey tests won't use github".to_string(),
             },
             feature_flags: FeatureFlags {
-                single_branch: true,
                 watch_mode: "auto".into(),
                 write_commit_evolution: true,
                 tui_file_browser: false,
-                worktree_manipulation: false,
+                gpui: false,
             },
             extra_csp: ExtraCsp {
                 hosts: vec![],

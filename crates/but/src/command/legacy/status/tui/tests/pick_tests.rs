@@ -5,6 +5,45 @@ use snapbox::file;
 use crate::{command::legacy::status::tui::tests::test_status_tui, tui::test_utils::Shift};
 
 #[test]
+fn cherry_pick_commit_to_merge_base_creates_new_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+    let mut tui = test_status_tui(env);
+
+    tui.input("jjp");
+    tui.input("jj")
+        .assert_current_line_eq(snapbox::str!["│ << pick to new unstacked branch >>"])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/cherry_pick_commit_to_merge_base_creates_new_branch_001.svg"
+        ]);
+    // Only Enter creates an unstacked branch; the existing `b` action remains unchanged.
+    tui.input('b')
+        .assert_current_line_eq(snapbox::str!["│ << pick to new unstacked branch >>"]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/cherry_pick_commit_to_merge_base_creates_new_branch_final.svg"
+    ]);
+}
+
+#[test]
+fn cherry_pick_marked_commits_to_merge_base_creates_new_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+    let mut tui = test_status_tui(env);
+
+    tui.input("jj");
+    tui.input(' ');
+    tui.input('j');
+    tui.input(' ');
+    tui.input('p');
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/cherry_pick_marked_commits_to_merge_base_creates_new_branch_001.svg"
+    ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/cherry_pick_marked_commits_to_merge_base_creates_new_branch_final.svg"
+    ]);
+}
+
+#[test]
 fn cherry_pick_commit_to_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);

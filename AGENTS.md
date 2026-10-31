@@ -14,7 +14,6 @@ this order:
 - `crates/` - Rust crates.
 - `apps/desktop/` - Tauri/Svelte desktop app.
 - `apps/web/` - Svelte web app.
-- `apps/lite/` - Electron/React desktop app.
 - `packages/` - shared TypeScript packages, including the SDK.
 - `e2e/` - Playwright, WebdriverIO, and blackbox end-to-end tests.
 
@@ -27,7 +26,7 @@ this order:
 - Inspect nearby code before introducing patterns.
 - Prefer existing APIs, tests, and conventions.
 - Before declaring shared behavior done, check each applicable surface and contract
-  (desktop, web, Lite, CLI/TUI, N-API, SDK, and docs) and update it or explicitly
+  (desktop, web, CLI/TUI, SDK types, and docs) and update it or explicitly
   determine that it is unaffected.
 - Run targeted validation for the area touched.
 - Before adding new machinery to fix a behavior bug, reproduce the bug in a failing
@@ -39,4 +38,6 @@ this order:
 ## Scoped Instructions
 
 - For Rust work under `crates/`, follow `crates/AGENTS.md`.
-- For Lite work under `apps/lite/`, follow `apps/lite/AGENTS.md`.
+- For desktop work under `apps/desktop/`, follow `apps/desktop/AGENTS.md`.
+- For the React component library under `packages/ui-react/`, follow
+  `packages/ui-react/AGENTS.md`.

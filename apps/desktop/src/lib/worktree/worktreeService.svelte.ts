@@ -27,14 +27,15 @@ export class WorktreeService {
 		);
 	}
 
-	worktreeData(projectId: string) {
-		return this.backendApi.endpoints.worktreeChanges.useQuery({ projectId });
+	/** The uncommitted changes in the linked `worktree`, or in the main checkout. */
+	worktreeData(projectId: string, worktree?: string) {
+		return this.backendApi.endpoints.worktreeChanges.useQuery({ projectId, worktree });
 	}
 
-	treeChangeByPath(projectId: string, path: string) {
+	treeChangeByPath(projectId: string, path: string, worktree?: string) {
 		const { worktreeChanges: getChanges } = this.backendApi.endpoints;
 		return getChanges.useQueryState(
-			{ projectId },
+			{ projectId, worktree },
 			{ transform: (res) => worktreeSelectors.selectById(res.changes, path)! },
 		);
 	}

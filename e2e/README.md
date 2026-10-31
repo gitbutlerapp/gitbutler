@@ -19,9 +19,8 @@ This directory contains all end-to-end (E2E) tests for GitButler. We use two dif
 
 Before running E2E tests, ensure you have:
 
-1. **Node.js** (v24+): See [DEVELOPMENT.md](../DEVELOPMENT.md) for installation
-2. **pnpm** (v10.17.0): Enabled via `corepack enable` in the project root
-3. **Built application**: E2E tests require a built version of the app
+1. **pnpm**: Follow the [development prerequisites](../DEVELOPMENT.md#prerequisites).
+2. **Built application**: E2E tests require a built version of the app
 
 ### Install Dependencies
 

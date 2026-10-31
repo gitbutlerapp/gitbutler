@@ -11,8 +11,9 @@ pub mod pr {
     pub enum Subcommands {
         /// Create a new review for a branch, force-pushing it first.
         ///
-        /// If the branch is part of a stack, GitButler pushes that branch and its ancestors
-        /// and creates missing reviews from the bottom upward. It also updates stack metadata
+        /// If the branch is part of a stack, or of a linked worktree, GitButler pushes that
+        /// branch and its ancestors, including the branches a worktree rests on, and creates
+        /// missing reviews from the bottom upward. It also updates stack metadata
         /// using native GitHub stacks when enabled and supported, or review descriptions
         /// otherwise.
         New {
@@ -24,9 +25,10 @@ pub mod pr {
             /// description. A non-interactive run needs `-m`, `-F`, or `-t`.
             #[clap(short = 'm', long = "message", conflicts_with_all = &["file", "default"])]
             message: Option<String>,
-            /// Read review title and description from file. The first line is the title, the rest is the description.
+            /// Read review title and description from `FILE`, or from stdin when `FILE` is `-`.
+            /// The first line is the title, the rest is the description.
             #[clap(short = 'F', long = "file", value_name = "FILE", conflicts_with_all = &["message", "default"])]
-            file: Option<std::path::PathBuf>,
+            file: Option<crate::args::atoms::MessageFileArg>,
             /// Force push even if it's not fast-forward. Always on; the flag is kept for
             /// compatibility.
             #[clap(long, short = 'f', default_value_t = true, hide = true)]

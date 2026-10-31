@@ -34,7 +34,7 @@ impl Archival {
     /// Create an anonymous archive commit graph for `ctx`, such that it doesn't reveal PII.
     pub fn zip_anonymous_graph(&self, ctx: &Context) -> Result<PathBuf> {
         let mut options = but_graph::init::Options {
-            worktrees: ctx.settings.feature_flags.worktree_manipulation,
+            worktrees: true,
             ..Default::default()
         };
         let repo = ctx.repo.get()?;

@@ -1,8 +1,7 @@
-//! Commands for listing, creating, archiving and removing linked git worktrees (experimental),
+//! Commands for listing, creating, archiving and removing linked git worktrees,
 //! and the resolution of a [`ChangesSource`](crate::commit::json::ChangesSource) for
 //! the commands that can commit from one.
 //!
-//! All commands here are gated on the `featureFlags.worktreeManipulation` setting.
 //! Linked worktrees are identified by their stable *name*, i.e. the directory name
 //! under `$GIT_COMMON_DIR/worktrees/`, which survives `git worktree move`.
 //!
@@ -18,7 +17,7 @@ use but_core::{
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::worktrees::WorktreeEntry;
-use but_workspace::worktrees::open_worktree_repo;
+use but_workspace::worktrees::{WorktreeBranch, open_worktree_repo};
 use gix::bstr::{BStr, BString, ByteSlice};
 use serde::Serialize;
 use tracing::instrument;
@@ -69,14 +68,6 @@ but_schemars::register_sdk_type!(ListedWorktree);
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(WorktreeListing);
 
-/// Fail unless the user opted into worktree manipulation.
-pub fn ensure_worktree_manipulation_enabled(ctx: &but_ctx::Context) -> Result<()> {
-    if !ctx.settings.feature_flags.worktree_manipulation {
-        bail!("worktree manipulation is not enabled (featureFlags.worktreeManipulation)");
-    }
-    Ok(())
-}
-
 /// Look up the *active* linked worktree named `name`.
 ///
 /// Every command here operates on active worktrees only - an archived one is
@@ -100,6 +91,22 @@ fn active_worktree(ctx: &but_ctx::Context, name: &str) -> Result<WorktreeEntry> 
     Ok(worktree)
 }
 
+/// The checkout `source` names, failing for a linked worktree that isn't active.
+///
+/// Must not be called while a database handle is borrowed, see
+/// [`but_ctx::Context::worktrees_with_state()`].
+pub(crate) fn worktree_kind(
+    ctx: &but_ctx::Context,
+    source: &ChangesSource,
+) -> Result<but_graph::WorktreeKind> {
+    Ok(match source {
+        ChangesSource::Head => but_graph::WorktreeKind::Main,
+        ChangesSource::Worktree(name) => {
+            but_graph::WorktreeKind::LinkedId(active_worktree(ctx, name)?.name)
+        }
+    })
+}
+
 /// Open the checkout that `source` reads its changes from, returning its stable
 /// name along with a plain from-disk open of it, or `None` for the main worktree.
 ///
@@ -115,18 +122,33 @@ pub(crate) fn open_changes_source(
     let ChangesSource::Worktree(name) = source else {
         return Ok(None);
     };
-    ensure_worktree_manipulation_enabled(ctx)?;
     let name = active_worktree(ctx, name)?.name;
     let repo = ctx.repo.get()?;
     let wt_repo = open_worktree_repo(&repo, name.as_bstr())?;
     Ok(Some((name, wt_repo)))
 }
 
+/// The branch that the linked worktree `source` names has checked out, or `None` for
+/// the main worktree or a detached `HEAD`.
+///
+/// Operations that commit a linked worktree's changes name it in their snapshot, so undo
+/// moves it back and leaves the changes uncommitted there.
+pub(crate) fn changes_source_ref(
+    ctx: &but_ctx::Context,
+    source: &ChangesSource,
+) -> Result<Option<gix::refs::FullName>> {
+    let ChangesSource::Worktree(name) = source else {
+        return Ok(None);
+    };
+    Ok(ctx
+        .worktree_head(name.as_bytes().as_bstr())?
+        .and_then(|head| head.ref_name))
+}
+
 /// List all usable linked worktrees, split by archived state.
-#[but_api(napi, provides = [Worktrees])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn worktrees_list(ctx: &mut but_ctx::Context) -> Result<WorktreeListing> {
-    ensure_worktree_manipulation_enabled(ctx)?;
     let guard = ctx.shared_worktree_access();
     worktrees_list_with_perm(ctx, guard.read_permission())
 }
@@ -136,7 +158,6 @@ pub fn worktrees_list_with_perm(
     ctx: &but_ctx::Context,
     _perm: &RepoShared,
 ) -> Result<WorktreeListing> {
-    ensure_worktree_manipulation_enabled(ctx)?;
     let mut listing = WorktreeListing {
         active: Vec::new(),
         archived: Vec::new(),
@@ -187,14 +208,13 @@ pub fn worktrees_list_with_perm(
 /// Archived worktrees are hidden from graph traversal and only minimally listed,
 /// which is how projects that predate GitButler's worktree support avoid showing
 /// every worktree ever created.
-#[but_api(napi, invalidates = [Worktrees, Workspace])]
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub fn worktree_set_archived(
     ctx: &mut but_ctx::Context,
     name: String,
     archived: bool,
 ) -> Result<()> {
-    ensure_worktree_manipulation_enabled(ctx)?;
     let guard = ctx.shared_worktree_access();
     worktree_set_archived_with_perm(
         ctx,
@@ -212,22 +232,21 @@ pub fn worktree_set_archived_with_perm(
     archived: bool,
     _perm: &RepoShared,
 ) -> Result<()> {
-    ensure_worktree_manipulation_enabled(ctx)?;
     ctx.set_worktree_archived(name, archived)?;
     // A cached workspace would still be seeded with the old set of worktree tips.
     ctx.invalidate_workspace_cache()
 }
 
 /// Remove the linked worktree named `name` from disk the way `git worktree remove` does,
-/// which refuses a dirty checkout unless `force` and a locked one until it is unlocked, and
-/// forget its archived state so a worktree created under the same name later starts out
-/// active.
+/// which refuses a dirty checkout unless `force`, and forget its archived state so a
+/// worktree created under the same name later starts out active.
+///
+/// A locked worktree is removed like any other.
 ///
 /// This works on archived worktrees as well.
-#[but_api(napi, invalidates = [Worktrees, Workspace])]
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub fn worktree_remove(ctx: &mut but_ctx::Context, name: String, force: bool) -> Result<()> {
-    ensure_worktree_manipulation_enabled(ctx)?;
     let mut guard = ctx.exclusive_worktree_access();
     worktree_remove_with_perm(
         ctx,
@@ -245,14 +264,13 @@ pub fn worktree_remove_with_perm(
     force: bool,
     _perm: &mut RepoExclusive,
 ) -> Result<()> {
-    ensure_worktree_manipulation_enabled(ctx)?;
     let worktree = ctx
         .worktrees_with_state()?
         .into_iter()
         .find(|worktree| worktree.name == name)
         .with_context(|| format!("Worktree {name} does not exist"))?;
     let repo = ctx.repo.get()?;
-    but_workspace::worktrees::remove(&repo, &worktree.path, force)?;
+    but_workspace::worktrees::remove(&repo, worktree.name.as_ref(), force)?;
     ctx.db
         .get_cache_mut()?
         .worktree_meta_mut()
@@ -260,7 +278,7 @@ pub fn worktree_remove_with_perm(
     ctx.invalidate_workspace_cache()
 }
 
-/// A linked worktree freshly created by [`worktree_new()`].
+/// A linked worktree freshly created by [`worktree_new()`] or [`worktree_new_on_branch_with_perm()`].
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
@@ -276,14 +294,14 @@ pub struct NewWorktree {
     #[serde(with = "but_serde::path_lossy")]
     #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub path: PathBuf,
-    /// The branch created for and checked out in the worktree.
+    /// The branch checked out in the worktree.
     #[serde(with = "but_serde::fullname_lossy")]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::fullname_lossy")
     )]
     pub ref_name: gix::refs::FullName,
-    /// The commit the branch starts at, the workspace's highest base.
+    /// The commit the worktree starts at.
     #[serde(with = "but_serde::object_id")]
     #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub base: gix::ObjectId,
@@ -295,16 +313,17 @@ but_schemars::register_sdk_type!(NewWorktree);
 /// [`but_graph::Workspace::highest_base()`].
 ///
 /// The branch is `new_ref` or a canned name, and the checkout lives at
-/// `$GIT_COMMON_DIR/gb-wts/<slug>`, where the slug of the short branch name also names the
-/// worktree. This fails without a target to base the worktree on, and refuses an existing
-/// branch or directory.
-#[but_api(napi, invalidates = [Worktrees, Workspace])]
+/// `~/.gitbutler-worktrees/<repo-dir-basename>/<slug>`, where the repository directory is
+/// the main worktree. The slug is derived from the short branch name, falling back to `wt`
+/// if empty. If the directory is taken, creation retries up to five times with a random ASCII suffix.
+/// This fails without a target to base the worktree on, and refuses an existing branch, see
+/// [`worktree_new_on_branch_with_perm()`] for that.
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub fn worktree_new(
     ctx: &mut but_ctx::Context,
     #[but_api(crate::json::MaybeLossyFullNameRef)] new_ref: Option<gix::refs::FullName>,
 ) -> Result<NewWorktree> {
-    ensure_worktree_manipulation_enabled(ctx)?;
     let mut guard = ctx.exclusive_worktree_access();
     worktree_new_with_perm(ctx, new_ref, guard.write_permission())
 }
@@ -316,7 +335,6 @@ pub fn worktree_new_with_perm(
     new_ref: Option<gix::refs::FullName>,
     perm: &mut RepoExclusive,
 ) -> Result<NewWorktree> {
-    ensure_worktree_manipulation_enabled(ctx)?;
     let base = {
         let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
         ws.highest_base()
@@ -325,37 +343,122 @@ pub fn worktree_new_with_perm(
     worktree_new_at_base_with_perm(ctx, new_ref, base, perm)
 }
 
-/// Create a worktree at a given base.
+/// Create a worktree on a new branch at a given base.
 pub fn worktree_new_at_base_with_perm(
     ctx: &but_ctx::Context,
     new_ref: Option<gix::refs::FullName>,
     base: gix::ObjectId,
     perm: &mut RepoExclusive,
 ) -> Result<NewWorktree> {
-    ensure_worktree_manipulation_enabled(ctx)?;
-    let (repo, ws, db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
     let ref_name = match new_ref {
         Some(ref_name) => ref_name,
-        None => unique_canned_refname(&repo)?,
+        None => unique_canned_refname(&*ctx.repo.get()?)?,
     };
-    let slug = slug(ref_name.shorten());
-    if slug.is_empty() {
-        bail!(
-            "Cannot derive a worktree directory from '{}'",
-            ref_name.shorten()
-        );
-    }
-    let path = repo.common_dir().join("gb-wts").join(&slug);
-    let name = but_workspace::worktrees::add(&repo, &path, ref_name.as_ref(), base)?;
-    let path = gix::path::realpath(&path)?;
-    drop((repo, ws, db));
-    ctx.invalidate_workspace_cache()?;
+    let (name, path) = add_worktree(
+        ctx,
+        WorktreeBranch::New {
+            name: ref_name.as_ref(),
+            base,
+        },
+        perm,
+    )?;
     Ok(NewWorktree {
         name,
         path,
         ref_name,
         base,
     })
+}
+
+/// Create a linked worktree on the existing local branch `ref_name`, placed like [`worktree_new()`],
+/// under caller-held exclusive worktree access.
+///
+/// This refuses a branch that is part of the workspace, checked out in any worktree, or whose
+/// tip is conflicted.
+pub fn worktree_new_on_branch_with_perm(
+    ctx: &but_ctx::Context,
+    ref_name: gix::refs::FullName,
+    perm: &mut RepoExclusive,
+) -> Result<NewWorktree> {
+    let base = {
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+        if ws.refname_is_segment(ref_name.as_ref()) {
+            bail!(
+                "Branch '{}' is already in the workspace",
+                ref_name.shorten()
+            );
+        }
+        let tip = repo
+            .find_reference(ref_name.as_ref())
+            .with_context(|| format!("Branch '{}' does not exist", ref_name.shorten()))?
+            .peel_to_commit()?;
+        if but_core::Commit::from_id(tip.id())?.is_conflicted() {
+            bail!("Cannot create a worktree on a conflicted commit");
+        }
+        tip.id
+    };
+    let (name, path) = add_worktree(ctx, WorktreeBranch::Existing(ref_name.as_ref()), perm)?;
+    Ok(NewWorktree {
+        name,
+        path,
+        ref_name,
+        base,
+    })
+}
+
+fn add_worktree(
+    ctx: &but_ctx::Context,
+    branch: WorktreeBranch<'_>,
+    _perm: &mut RepoExclusive,
+) -> Result<(BString, PathBuf)> {
+    let repo = ctx.repo.get()?;
+    let slug = slug(branch.name().shorten());
+    let slug = if slug.is_empty() { "wt" } else { &slug };
+    let repo_name = repo
+        .workdir()
+        .context("Cannot create a worktree without a main working directory")?
+        .file_name()
+        .context("Cannot derive a repository directory basename")?;
+    let root = but_path::home_dir()
+        .context("Could not resolve the home directory for worktrees")?
+        .join(".gitbutler-worktrees")
+        .join(repo_name);
+    let (name, path) = create_with_suffix(
+        &root,
+        slug,
+        || uuid::Uuid::new_v4().simple().to_string()[..8].to_owned(),
+        |path| but_workspace::worktrees::add(&repo, path, branch),
+    )?;
+    let path = gix::path::realpath(&path)?;
+    drop(repo);
+    ctx.invalidate_workspace_cache()?;
+    Ok((name, path))
+}
+
+const CREATION_RETRIES: usize = 5;
+
+/// Retry only refusals made before creation changes any repository state. In particular,
+/// a checkout/copy failure may leave a path behind, but must never trigger a retry.
+fn create_with_suffix(
+    root: &std::path::Path,
+    slug: &str,
+    mut suffix: impl FnMut() -> String,
+    mut create: impl FnMut(&std::path::Path) -> Result<BString>,
+) -> Result<(BString, PathBuf)> {
+    let mut path = root.join(slug);
+    for attempt in 0..=CREATION_RETRIES {
+        match create(&path) {
+            Ok(name) => return Ok((name, path)),
+            Err(err)
+                if err.is::<but_workspace::worktrees::DestinationExists>()
+                    && attempt < CREATION_RETRIES =>
+            {
+                path = root.join(format!("{slug}-{}", suffix()));
+            }
+            Err(err) => return Err(err),
+        }
+    }
+    unreachable!("the last attempt returns either success or error")
 }
 
 /// Turn `name` into a single lowercase ASCII path component, keeping letters and digits and
@@ -374,6 +477,104 @@ fn slug(name: &BStr) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::{CREATION_RETRIES, create_with_suffix};
+    use but_workspace::worktrees::DestinationExists;
+    use std::path::Path;
+
+    #[test]
+    fn collisions_retry_with_fresh_suffixes_and_stop_on_success() -> anyhow::Result<()> {
+        let mut suffixes = ["aaaaaaaa", "bbbbbbbb"].into_iter();
+        let mut attempted = Vec::new();
+        let (name, path) = create_with_suffix(
+            Path::new("root"),
+            "feature",
+            || suffixes.next().expect("only two retries").to_owned(),
+            |path| {
+                attempted.push(path.to_owned());
+                if attempted.len() < 3 {
+                    Err(DestinationExists(path.to_owned()).into())
+                } else {
+                    Ok("feature-bbbbbbbb".into())
+                }
+            },
+        )?;
+        assert_eq!(
+            attempted,
+            [
+                "root/feature",
+                "root/feature-aaaaaaaa",
+                "root/feature-bbbbbbbb"
+            ]
+            .map(std::path::PathBuf::from),
+            "retry suffixes replace rather than accumulate"
+        );
+        assert_eq!(name, "feature-bbbbbbbb", "return actual registered name");
+        assert_eq!(
+            path,
+            Path::new("root/feature-bbbbbbbb"),
+            "return successful destination"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn collisions_exhaust_the_retry_limit() {
+        let mut attempts = 0;
+        let mut suffixes = 0;
+        let err = create_with_suffix(
+            Path::new("root"),
+            "feature",
+            || {
+                suffixes += 1;
+                format!("{suffixes:08x}")
+            },
+            |path| {
+                attempts += 1;
+                Err(DestinationExists(path.to_owned()).into())
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            attempts,
+            CREATION_RETRIES + 1,
+            "initial attempt plus bounded retries"
+        );
+        assert_eq!(
+            suffixes, CREATION_RETRIES,
+            "no suffix generated before first failure or after exhaustion"
+        );
+        assert_eq!(
+            err.downcast_ref::<DestinationExists>().unwrap().0,
+            Path::new("root/feature-00000005"),
+            "preserve final creation error"
+        );
+    }
+
+    #[test]
+    fn unrelated_errors_do_not_retry_even_with_an_occupied_destination() -> anyhow::Result<()> {
+        let root = tempfile::tempdir()?;
+        std::fs::create_dir(root.path().join("feature"))?;
+        let mut attempts = 0;
+        let err = create_with_suffix(
+            root.path(),
+            "feature",
+            || panic!("unrelated errors must not generate suffixes"),
+            |_| {
+                attempts += 1;
+                // An AlreadyExists from a later copy/checkout step is not a destination refusal.
+                Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "copy failed").into())
+            },
+        )
+        .unwrap_err();
+        assert_eq!(attempts, 1, "only destination refusals can retry");
+        assert_eq!(
+            err.to_string(),
+            "copy failed",
+            "preserve unrelated creation error"
+        );
+        Ok(())
+    }
+
     #[test]
     fn slug() {
         for (input, expected) in [

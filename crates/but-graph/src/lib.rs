@@ -264,6 +264,8 @@ pub struct Graph {
     /// an ordinary ad-hoc lower-bound branch and the bottom branch of a
     /// GitButler-created dependent branch chain.
     ad_hoc_branch_stack_orders: Vec<Vec<gix::refs::FullName>>,
+    /// The persisted local branch orders of linked worktrees, each from the checked-out branch down.
+    worktree_branch_stack_orders: Vec<Vec<gix::refs::FullName>>,
     /// It's `true` only if we have stopped the traversal due to a hard limit.
     hard_limit_hit: bool,
     /// The options used to create the graph, which allows it to regenerate itself after something
@@ -294,6 +296,9 @@ pub struct Graph {
     pub worktree_tips: Vec<init::WorktreeTip>,
     /// Project-wide metadata used for target ref, target commit, and push remote resolution.
     pub project_meta: but_core::ref_metadata::ProjectMeta,
+    /// Configured target upstream, derived during traversal even if its ref or segment is absent.
+    /// Refreshed when traversal is redone; projection must not infer it from segment links.
+    target_upstream_ref: Option<gix::refs::FullName>,
     /// All remote names that aren't URLs and that were retrieved during the traversal.
     ///
     /// They are useful to extract remote names from remote tracking refs like `refs/remotes/origin/master`,
@@ -409,9 +414,28 @@ pub struct Edge {
     ///
     /// This limit would only be reached if there is a merge with 4.3 billion commits.
     pub(crate) parent_order: u32,
+    /// The position of the stack this edge leads to among the stacks of its workspace,
+    /// in the order the workspace metadata lists them.
+    ///
+    /// This is `None` unless the edge leaves a workspace segment that has metadata.
+    pub(crate) workspace_parent_order: Option<u32>,
 }
 
 impl Edge {
+    /// Return the 0-based position of the stack this edge leads to among the stacks of its
+    /// workspace, in the order the workspace metadata lists them.
+    ///
+    /// This is `None` unless the edge leaves a workspace segment that has metadata.
+    pub fn workspace_parent_order(&self) -> Option<u32> {
+        self.workspace_parent_order
+    }
+
+    /// Place the stack this edge leads to at the 0-based `position` among the stacks of its workspace.
+    pub(crate) fn with_workspace_parent_order(mut self, position: u32) -> anyhow::Result<Self> {
+        self.workspace_parent_order = Some(position);
+        Ok(self)
+    }
+
     /// Return the 0-based position of this edge's destination among the source commit's parents.
     /// For instance, if the source is a merge commit and this edge represents the connection
     /// to the second parent, the output will be `Some(1)`.

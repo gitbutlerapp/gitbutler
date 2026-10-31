@@ -29,7 +29,9 @@ pub fn named_read_only_in_memory_scenario(
 /// commit `main` points to.
 pub fn project_meta_with_target(repo: &gix::Repository) -> anyhow::Result<ProjectMeta> {
     Ok(ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
         target_commit_id: repo
             .try_find_reference("main")?
             .map(|mut r| r.peel_to_id())

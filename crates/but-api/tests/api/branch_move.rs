@@ -3,9 +3,24 @@ use but_testsupport::{CommandExt, git_at_dir, open_repo};
 use gitbutler_oplog::{OplogExt, RestoreKind};
 
 use crate::support::{
-    assert_workspace_ref, create_empty_branch_above, persist_default_target,
-    repo_with_feature_branch, write_file,
+    assert_workspace_ref, create_empty_branch_above, repo_with_feature_branch,
+    set_project_target_to_feature, write_file,
 };
+
+fn move_branch_above(
+    ctx: &mut but_ctx::Context,
+    subject: &gix::refs::FullNameRef,
+    target: &gix::refs::FullNameRef,
+    dry_run: DryRun,
+) -> anyhow::Result<but_api::branch::MoveBranchResult> {
+    but_api::branch::move_branch(
+        ctx,
+        subject,
+        but_rebase::graph_rebase::mutate::RelativeTo::Reference(target.to_owned()),
+        but_rebase::graph_rebase::mutate::InsertSide::Above,
+        dry_run,
+    )
+}
 
 fn context_with_three_branch_stack_options(
     empty_top_branch: bool,
@@ -22,10 +37,13 @@ fn context_with_three_branch_stack_options(
     git_at_dir(tmp.path()).args(["add", "base.txt"]).run();
     git_at_dir(tmp.path()).args(["commit", "-m", "base"]).run();
     git_at_dir(tmp.path())
-        .args(["config", "remote.origin.url", "../origin"])
+        .args(["remote", "add", "origin", "../origin"])
         .run();
     git_at_dir(tmp.path())
         .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
+        .run();
+    git_at_dir(tmp.path())
+        .args(["branch", "--set-upstream-to=origin/main", "main"])
         .run();
 
     for branch in ["A", "B", "C"] {
@@ -44,7 +62,9 @@ fn context_with_three_branch_stack_options(
     let repo = open_repo(tmp.path())?;
     let target_commit_id = repo.rev_parse_single("refs/remotes/origin/main")?.detach();
     ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
         target_commit_id: Some(target_commit_id),
         push_remote: Some("origin".into()),
     }
@@ -94,7 +114,7 @@ fn move_non_empty_branch_dry_run_previews_new_tip_without_mutating_repository() 
     let (head_before, subject_tip_before, target_tip_before) = {
         let repo = ctx.repo.get()?;
         (
-            repo.head_name()?.expect("HEAD is symbolic").to_owned(),
+            repo.head_name()?.expect("HEAD is symbolic"),
             repo.rev_parse_single(subject.as_ref())?.detach(),
             repo.rev_parse_single(target.as_ref())?.detach(),
         )
@@ -104,8 +124,7 @@ fn move_non_empty_branch_dry_run_previews_new_tip_without_mutating_repository() 
         .branch_stack_order(target.as_ref())?
         .expect("branch order is configured");
 
-    let result =
-        but_api::branch::move_branch(&mut ctx, subject.as_ref(), target.as_ref(), DryRun::Yes)?;
+    let result = move_branch_above(&mut ctx, subject.as_ref(), target.as_ref(), DryRun::Yes)?;
 
     assert_workspace_ref(&result.workspace, "refs/heads/B");
     #[cfg(not(feature = "graph-workspace"))]
@@ -131,8 +150,7 @@ fn move_checked_out_top_branch_down_checks_out_new_top() -> anyhow::Result<()> {
     let target: gix::refs::FullName = "refs/heads/A".try_into()?;
     let new_tip: gix::refs::FullName = "refs/heads/B".try_into()?;
 
-    let result =
-        but_api::branch::move_branch(&mut ctx, subject.as_ref(), target.as_ref(), DryRun::No)?;
+    let result = move_branch_above(&mut ctx, subject.as_ref(), target.as_ref(), DryRun::No)?;
 
     assert_workspace_ref(&result.workspace, "refs/heads/B");
     #[cfg(not(feature = "graph-workspace"))]
@@ -165,8 +183,7 @@ fn move_checked_out_top_branch_down_dry_run_does_not_persist_order() -> anyhow::
         .branch_stack_order(subject.as_ref())?
         .expect("branch order is configured");
 
-    let result =
-        but_api::branch::move_branch(&mut ctx, subject.as_ref(), target.as_ref(), DryRun::Yes)?;
+    let result = move_branch_above(&mut ctx, subject.as_ref(), target.as_ref(), DryRun::Yes)?;
 
     assert_workspace_ref(&result.workspace, "refs/heads/B");
     #[cfg(not(feature = "graph-workspace"))]
@@ -196,8 +213,7 @@ fn successful_branch_move_returns_and_persists_reordered_stack() -> anyhow::Resu
     let target: gix::refs::FullName = "refs/heads/B".try_into()?;
     let tip: gix::refs::FullName = "refs/heads/C".try_into()?;
 
-    let result =
-        but_api::branch::move_branch(&mut ctx, subject.as_ref(), target.as_ref(), DryRun::No)?;
+    let result = move_branch_above(&mut ctx, subject.as_ref(), target.as_ref(), DryRun::No)?;
 
     assert_workspace_ref(&result.workspace, "refs/heads/C");
     #[cfg(not(feature = "graph-workspace"))]
@@ -234,8 +250,7 @@ fn move_empty_top_branch_below_middle_preserves_commit_ownership() -> anyhow::Re
     );
 
     // The branch dropzone below B targets A, making the requested order B, C, A (tip to base).
-    let result =
-        but_api::branch::move_branch(&mut ctx, empty_top.as_ref(), bottom.as_ref(), DryRun::No)?;
+    let result = move_branch_above(&mut ctx, empty_top.as_ref(), bottom.as_ref(), DryRun::No)?;
 
     assert_workspace_ref(&result.workspace, "refs/heads/B");
     #[cfg(not(feature = "graph-workspace"))]
@@ -283,8 +298,7 @@ fn move_empty_branch_dry_run_previews_new_order_without_persisting_it() -> anyho
         .expect("branch order is configured");
     let oplog_head_before = ctx.oplog_head()?;
 
-    let result =
-        but_api::branch::move_branch(&mut ctx, middle.as_ref(), tip.as_ref(), DryRun::Yes)?;
+    let result = move_branch_above(&mut ctx, middle.as_ref(), tip.as_ref(), DryRun::Yes)?;
 
     assert_workspace_ref(&result.workspace, "refs/heads/middle");
     #[cfg(not(feature = "graph-workspace"))]
@@ -314,7 +328,8 @@ fn move_empty_branch_dry_run_previews_new_order_without_persisting_it() -> anyho
 #[test]
 fn metadata_only_branch_move_can_be_undone_and_redone() -> anyhow::Result<()> {
     let (repo, _tmp) = repo_with_feature_branch()?;
-    persist_default_target(&repo)?;
+    // Keep the empty branch chain above the cutoff so it remains part of the workspace.
+    set_project_target_to_feature(&repo)?;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
     let main: gix::refs::FullName = "refs/heads/main".try_into()?;
     let middle: gix::refs::FullName = "refs/heads/middle".try_into()?;
@@ -326,7 +341,7 @@ fn metadata_only_branch_move_can_be_undone_and_redone() -> anyhow::Result<()> {
         .branch_stack_order(tip.as_ref())?
         .expect("branch order is configured");
 
-    but_api::branch::move_branch(&mut ctx, middle.as_ref(), tip.as_ref(), DryRun::No)?;
+    move_branch_above(&mut ctx, middle.as_ref(), tip.as_ref(), DryRun::No)?;
     let order_after = ctx
         .meta()?
         .branch_stack_order(middle.as_ref())?

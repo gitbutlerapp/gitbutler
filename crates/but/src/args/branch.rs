@@ -72,7 +72,8 @@ pub enum Subcommands {
         /// Show only remote branches
         #[clap(long, short = 'r', conflicts_with = "local")]
         remote: bool,
-        /// Show all branches (not just active + 20 most recent)
+        /// Show all branches (not just active + 20 most recent); empty branches also need
+        /// `--empty`
         #[clap(long, short = 'a')]
         all: bool,
         /// Don't calculate and show number of commits ahead of base (faster)
@@ -150,8 +151,8 @@ pub enum Subcommands {
 
 /// Create a new branch.
 ///
-/// Use `--above` or `--below` to created stacked branches. Omitting these create a new unstacked
-/// branch.
+/// Use `--above` or `--below` to create stacked branches. Omitting these creates a new unstacked
+/// branch in the workspace, which is refused when run from a linked worktree.
 ///
 /// For more details about CLI IDs, see `but help cli-ids`.
 #[cfg(feature = "legacy")]
@@ -170,16 +171,6 @@ pub struct NewPlatform {
         group = "targeting"
     )]
     pub above: Option<CliIdArg>,
-
-    /// Deprecated flag that will be removed in a future release. Use `--above` instead.
-    #[clap(
-        short,
-        long,
-        value_name = "BRANCH_OR_COMMIT",
-        group = "targeting",
-        hide = true
-    )]
-    pub anchor: Option<CliIdArg>,
 
     /// Place the branch below `BRANCH_OR_COMMIT`, which must be an applied branch or commit.
     ///

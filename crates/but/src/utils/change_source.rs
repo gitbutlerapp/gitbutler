@@ -5,12 +5,61 @@
 //! checkout, so [`ChangeSourceId`] is what keeps them apart. This module owns that
 //! concept end to end; `crate::id` only mints the IDs.
 
+use std::path::Path;
+
 use bstr::{BStr, BString};
 use but_ctx::Context;
 use but_workspace::commit::ChangeSource;
 use nonempty::NonEmpty;
 
-use crate::{CliResult, bad_input, id::UncommittedHunkOrFile};
+use crate::{CliResult, IdMap, bad_input, id::UncommittedHunkOrFile};
+
+/// The checkout `but` was invoked from, which a command falls back to when no location is named.
+///
+/// It is not yet a [`ChangeSourceId`]: that needs GitButler to manage the checkout, which
+/// [`Self::managed_source`] checks.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InvokedFrom {
+    MainWorktree,
+    LinkedWorktree(BString),
+}
+
+impl InvokedFrom {
+    pub fn discover(directory: &Path) -> anyhow::Result<Self> {
+        let repo = gix::discover(directory)?;
+        let name = repo
+            .worktree()
+            .map(|worktree| worktree.id().map(|id| id.map(ToOwned::to_owned)))
+            .transpose()?
+            .flatten();
+        Ok(name.map_or(Self::MainWorktree, Self::LinkedWorktree))
+    }
+
+    /// The checkout itself, whether or not GitButler manages it.
+    pub fn checkout(&self) -> ChangeSourceId {
+        match self {
+            InvokedFrom::MainWorktree => ChangeSourceId::Head,
+            InvokedFrom::LinkedWorktree(name) => ChangeSourceId::Worktree(name.clone()),
+        }
+    }
+
+    /// Errors when this is a linked worktree GitButler doesn't manage, as acting on the main
+    /// worktree instead would touch changes the user isn't looking at.
+    pub fn managed_source(&self, id_map: &IdMap) -> CliResult<ChangeSourceId> {
+        let name = match self {
+            InvokedFrom::MainWorktree => return Ok(ChangeSourceId::Head),
+            InvokedFrom::LinkedWorktree(name) => name,
+        };
+        if id_map.worktree_lane(name.as_ref()).is_none() {
+            return Err(
+                bad_input(format!("Worktree {name} is not managed by GitButler"))
+                    .hint("Run `but worktree list` to see the worktrees GitButler manages")
+                    .into(),
+            );
+        }
+        Ok(ChangeSourceId::Worktree(name.clone()))
+    }
+}
 
 /// The checkout that an uncommitted change lives in.
 ///
@@ -64,8 +113,7 @@ pub struct SourceChanges {
 
 /// The names of the linked worktrees whose uncommitted changes get CLI IDs.
 ///
-/// Empty unless the `worktreeManipulation` feature flag is on, and empty when the
-/// context repository is itself a linked worktree: such a context keeps its own
+/// Empty when the context repository is itself a linked worktree: such a context keeps its own
 /// database, so [`Context::worktrees_with_state()`] refuses to read worktree state
 /// from it. IDs are built by nearly every command, so that case degrades to the
 /// main worktree rather than taking the whole CLI down.
@@ -73,9 +121,6 @@ pub struct SourceChanges {
 /// Must not be called while a database handle is borrowed, see
 /// [`Context::worktrees_with_state()`].
 pub fn active_worktree_sources(ctx: &Context) -> anyhow::Result<Vec<BString>> {
-    if !ctx.settings.feature_flags.worktree_manipulation {
-        return Ok(Vec::new());
-    }
     let in_linked_worktree = {
         let repo = ctx.repo.get()?;
         repo.git_dir() != repo.common_dir()

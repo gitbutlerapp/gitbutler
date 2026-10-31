@@ -506,15 +506,22 @@ fn get_branch_commits(
     // Find the branch by name
     let branch_oid = find_branch_oid(ctx, branch_name)?;
 
-    // Find merge base
+    let branch_base = crate::legacy::workspace::applied_stacks(ctx)?
+        .iter()
+        .find_map(|stack| stack.branch(branch_name))
+        .map(|branch| branch.base_commit);
+
+    // Workspace branches are buckets, not the entire history back to the target.
     let guard = ctx.shared_worktree_access();
     let cli_id_for = |oid: gix::ObjectId| {
         id_map
             .change_id_ref(oid)
             .map(|change_id| change_id.padded_short_id())
     };
-    let Some(merge_base) = merge_base_with_target_branch(ctx, guard.read_permission(), branch_oid)?
-    else {
+    let Some(merge_base) = (match branch_base {
+        Some(base) => Some(base),
+        None => merge_base_with_target_commit(ctx, guard.read_permission(), branch_oid)?,
+    }) else {
         tracing::warn!(
             branch_name,
             "Could not find merge base with target branch, which is unexpected"
@@ -610,14 +617,14 @@ fn get_branch_commits(
     Ok((commits, base_commit_info))
 }
 
-fn merge_base_with_target_branch(
+fn merge_base_with_target_commit(
     ctx: &Context,
     perm: &RepoShared,
     branch_oid: gix::ObjectId,
 ) -> Result<Option<gix::ObjectId>> {
     let (_, workspace, _) = ctx.workspace_and_db_with_perm(perm)?;
     Ok(workspace
-        .merge_base_with_target_branch(branch_oid)
+        .merge_base_with_target_commit(branch_oid)
         .map(|t| t.0))
 }
 
@@ -738,53 +745,14 @@ fn get_stack_chain(ctx: &Context, branch_name: &str) -> Result<Vec<StackChainBra
         return Ok(vec![]);
     };
 
-    // If this is the first branch (index 0), it's not stacked on anything
-    if branch_index == 0 {
-        return Ok(vec![]);
-    }
-
-    // Get all branches this branch is stacked on (branches with index < branch_index)
+    // Branches are ordered tip-to-base, so dependencies follow this branch.
     let mut chain = Vec::new();
-
-    // Iterate from the branch above this one (branch_index - 1) down to 0
-    for i in (0..branch_index).rev() {
-        let head_name = stack.branches[i].name.clone();
-
-        // Count commits for this branch
-        let commit_count = get_branch_commit_count(ctx, &head_name)?;
-
+    for branch in &stack.branches[branch_index + 1..] {
         chain.push(StackChainBranch {
-            name: head_name,
-            commit_count,
+            name: branch.name.clone(),
+            commit_count: branch.commits.len(),
         });
     }
 
     Ok(chain)
-}
-
-fn get_branch_commit_count(ctx: &Context, branch_name: &str) -> Result<usize> {
-    use gix::prelude::ObjectIdExt as _;
-
-    let repo = ctx.repo.get()?;
-
-    // Find the branch OID
-    let branch_oid = find_branch_oid(ctx, branch_name)?;
-    let guard = ctx.shared_worktree_access();
-    let Some(merge_base) = merge_base_with_target_branch(ctx, guard.read_permission(), branch_oid)?
-    else {
-        tracing::warn!(
-            branch_name,
-            "Could not find merge base with target branch, which is unexpected"
-        );
-        return Ok(0);
-    };
-
-    // Count commits
-    let traversal = branch_oid
-        .attach(&repo)
-        .ancestors()
-        .with_hidden(Some(merge_base))
-        .all()?;
-
-    Ok(traversal.filter_map(Result::ok).count())
 }

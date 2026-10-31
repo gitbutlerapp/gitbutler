@@ -10,7 +10,7 @@ use but_workspace::{
 };
 use gix::{ObjectId, refs::FullName};
 
-use crate::{DynamicOutcome, with_transaction};
+use crate::{DynamicOutcome, with_transaction, with_transaction_with_perm};
 
 #[track_caller]
 fn ref_target(env: &Sandbox, ref_name: &gix::refs::FullNameRef) -> Option<ObjectId> {
@@ -170,7 +170,6 @@ fn create_reference_without_creating_commits() {
             tx.create_reference(
                 refname.as_ref(),
                 Anchor::at_id(three, Position::Above),
-                |_| but_core::ref_metadata::StackId::generate(),
                 None,
             )?;
 
@@ -188,16 +187,207 @@ fn create_reference_without_creating_commits() {
 }
 
 #[test]
+fn name_segment_attaches_head_to_a_commit_rewritten_earlier_in_the_transaction() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+    env.invoke_git("checkout --detach branch");
+    let [top] = find_commits(&env, ["HEAD"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+    let refname = FullName::try_from("refs/heads/named").unwrap();
+
+    let _workspace: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::CreateBranch),
+        DryRun::No,
+        |mut tx| {
+            tx.reword_commit(top, "reworded".into())?;
+            tx.name_segment(&but_graph::WorktreeKind::Main, top, refname.as_ref())?;
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    let repo = env.open_repo();
+    assert_eq!(
+        repo.head_name().unwrap(),
+        Some(refname.clone()),
+        "the detached HEAD is attached to the new branch"
+    );
+    assert_eq!(
+        repo.head_commit().unwrap().message_raw_sloppy(),
+        "reworded",
+        "the branch names the reworded commit, not the one passed in"
+    );
+    assert_num_snapshots(&ctx, 1);
+}
+
+#[test]
+fn create_reference_at_commit_then_commit_and_checkout() {
+    for (dry_run, rollback) in [
+        (DryRun::No, false),
+        (DryRun::No, true),
+        (DryRun::Yes, false),
+    ] {
+        let env = Sandbox::open_scenario_with_target_and_default_settings("one-stack");
+        let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+        let original_head = repo.head_name().unwrap().unwrap();
+        let original_tip = repo.head_id().unwrap().detach();
+        let base = repo.rev_parse_single("main").unwrap().detach();
+        let mut ctx = Context::from_repo_for_testing(repo)
+            .map(Context::with_memory_app_cache)
+            .unwrap();
+        let mut meta = ctx.meta().unwrap();
+        let new_branch = FullName::try_from("refs/heads/independent").unwrap();
+        let outcome = with_transaction(
+            &mut ctx,
+            &mut meta,
+            SnapshotDetails::new(OperationKind::CreateBranch),
+            dry_run,
+            |mut tx| {
+                tx.create_reference_at_commit(new_branch.as_ref(), base)?;
+                tx.checkout(new_branch.as_ref())?;
+                assert_eq!(
+                    tx.repo().head_name()?.unwrap(),
+                    original_head,
+                    "checkout must remain deferred while composing operations"
+                );
+                let commit = tx.insert_blank_commit(
+                    RelativeTo::Reference(new_branch.clone()),
+                    InsertSide::Below,
+                )?;
+                Ok(if rollback {
+                    DynamicOutcome::Rollback(())
+                } else {
+                    DynamicOutcome::Commit(commit.id)
+                })
+            },
+        )
+        .unwrap();
+        let repo = env.open_repo();
+        assert_eq!(
+            ref_target(&env, original_head.as_ref()),
+            Some(original_tip),
+            "creating an independent branch must not move the original branch"
+        );
+        if rollback || dry_run == DryRun::Yes {
+            assert_eq!(
+                ref_target(&env, new_branch.as_ref()),
+                None,
+                "rollback and dry run must remove the eagerly created reference"
+            );
+            assert_eq!(
+                repo.head_name().unwrap().unwrap(),
+                original_head,
+                "rollback and dry run must preserve HEAD"
+            );
+            assert_num_snapshots(&ctx, 0);
+        } else {
+            let DynamicOutcome::Commit((commit, _workspace)) = outcome else {
+                panic!("transaction must commit");
+            };
+            assert_eq!(
+                repo.head_name().unwrap().unwrap(),
+                new_branch,
+                "successful materialization must apply the deferred checkout"
+            );
+            assert_eq!(
+                repo.head_id().unwrap().detach(),
+                commit,
+                "the checked-out branch must include the new commit"
+            );
+            assert_eq!(
+                repo.find_commit(commit)
+                    .unwrap()
+                    .parent_ids()
+                    .next()
+                    .unwrap()
+                    .detach(),
+                base,
+                "the new branch must start at the requested base, not the old HEAD"
+            );
+            assert!(
+                ctx.meta()
+                    .unwrap()
+                    .branch_stack_order(new_branch.as_ref())
+                    .unwrap()
+                    .is_none(),
+                "independent creation must not record a stack relationship with the base"
+            );
+            assert_num_snapshots(&ctx, 1);
+            let snapshot = but_api::legacy::oplog::get_undo_target_snapshot(&ctx)
+                .unwrap()
+                .expect("the transaction records an undo target");
+            but_api::legacy::oplog::restore_snapshot_with_kind(
+                &mut ctx,
+                but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo,
+                snapshot.commit_id,
+            )
+            .unwrap();
+            assert_eq!(
+                env.open_repo().head_name().unwrap().unwrap(),
+                original_head,
+                "undo must restore the checkout from before branch creation"
+            );
+        }
+    }
+}
+
+#[test]
+fn create_reference_at_commit_failure_rolls_back_without_overwriting_existing_branch() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings("one-stack");
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let original_head = repo.head_name().unwrap().unwrap();
+    let original_tip = repo.head_id().unwrap().detach();
+    let base = repo.rev_parse_single("main").unwrap().detach();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+    let new_branch = FullName::try_from("refs/heads/independent").unwrap();
+    let result = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::CreateBranch),
+        DryRun::No,
+        |mut tx| {
+            tx.create_reference_at_commit(new_branch.as_ref(), base)?;
+            tx.checkout(new_branch.as_ref())?;
+            tx.create_reference_at_commit(original_head.as_ref(), base)?;
+            Ok(())
+        },
+    );
+    assert!(result.is_err(), "creating an existing reference must fail");
+    assert_eq!(
+        ref_target(&env, new_branch.as_ref()),
+        None,
+        "an error must remove the previously created reference"
+    );
+    assert_eq!(
+        ref_target(&env, original_head.as_ref()),
+        Some(original_tip),
+        "a failed creation must not overwrite an existing reference"
+    );
+    assert_eq!(
+        env.open_repo().head_name().unwrap().unwrap(),
+        original_head,
+        "a failed transaction must not apply the pending checkout"
+    );
+    assert_num_snapshots(&ctx, 0);
+}
+
+#[test]
 fn create_reference_and_checkout_are_undoable_together() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["branch"]);
 
     let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let original_head = repo
-        .head_name()
-        .unwrap()
-        .expect("HEAD starts symbolic")
-        .to_owned();
+    let original_head = repo.head_name().unwrap().expect("HEAD starts symbolic");
     let mut ctx = Context::from_repo_for_testing(repo)
         .map(Context::with_memory_app_cache)
         .unwrap();
@@ -211,12 +401,7 @@ fn create_reference_and_checkout_are_undoable_together() {
         snapshot_details,
         DryRun::No,
         |mut tx| {
-            tx.create_reference(
-                new_branch.as_ref(),
-                None,
-                |_| but_core::ref_metadata::StackId::generate(),
-                None,
-            )?;
+            tx.create_reference(new_branch.as_ref(), None, None)?;
             tx.checkout(new_branch.as_ref())?;
 
             Ok(())
@@ -259,16 +444,61 @@ fn create_reference_and_checkout_are_undoable_together() {
 }
 
 #[test]
+fn undo_deletes_a_reference_the_snapshot_names() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+    let new_branch = FullName::try_from("refs/heads/named-in-snapshot").unwrap();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let _workspace: WorkspaceState = with_transaction_with_perm(
+        &mut ctx,
+        &mut meta,
+        guard.write_permission(),
+        SnapshotDetails::new(OperationKind::CreateBranch),
+        &[new_branch.as_ref()],
+        DryRun::No,
+        |mut tx| {
+            tx.create_reference(new_branch.as_ref(), None, None)?;
+            Ok(())
+        },
+    )
+    .unwrap();
+    drop(guard);
+    assert!(
+        ref_target(&env, new_branch.as_ref()).is_some(),
+        "the transaction creates the branch"
+    );
+
+    let snapshot = but_api::legacy::oplog::get_undo_target_snapshot(&ctx)
+        .unwrap()
+        .expect("the transaction records an undo target");
+    but_api::legacy::oplog::restore_snapshot_with_kind(
+        &mut ctx,
+        but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo,
+        snapshot.commit_id,
+    )
+    .unwrap();
+
+    assert_eq!(
+        ref_target(&env, new_branch.as_ref()),
+        None,
+        "the snapshot names the branch, which didn't exist before, so undo deletes it"
+    );
+}
+
+#[test]
 fn checkout_is_not_applied_when_transaction_rolls_back() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["branch"]);
 
     let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let original_head = repo
-        .head_name()
-        .unwrap()
-        .expect("HEAD starts symbolic")
-        .to_owned();
+    let original_head = repo.head_name().unwrap().expect("HEAD starts symbolic");
     let mut ctx = Context::from_repo_for_testing(repo)
         .map(Context::with_memory_app_cache)
         .unwrap();
@@ -282,12 +512,7 @@ fn checkout_is_not_applied_when_transaction_rolls_back() {
         snapshot_details,
         DryRun::No,
         |mut tx| {
-            tx.create_reference(
-                new_branch.as_ref(),
-                None,
-                |_| but_core::ref_metadata::StackId::generate(),
-                None,
-            )?;
+            tx.create_reference(new_branch.as_ref(), None, None)?;
             tx.checkout(new_branch.as_ref())?;
 
             Ok(tx.rollback("rolled back"))
@@ -320,11 +545,7 @@ fn checkout_dry_run_only_previews_the_new_head() {
     env.setup_metadata(&["branch"]);
 
     let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let original_head = repo
-        .head_name()
-        .unwrap()
-        .expect("HEAD starts symbolic")
-        .to_owned();
+    let original_head = repo.head_name().unwrap().expect("HEAD starts symbolic");
     let mut ctx = Context::from_repo_for_testing(repo)
         .map(Context::with_memory_app_cache)
         .unwrap();
@@ -338,12 +559,7 @@ fn checkout_dry_run_only_previews_the_new_head() {
         snapshot_details,
         DryRun::Yes,
         |mut tx| {
-            tx.create_reference(
-                new_branch.as_ref(),
-                None,
-                |_| but_core::ref_metadata::StackId::generate(),
-                None,
-            )?;
+            tx.create_reference(new_branch.as_ref(), None, None)?;
             tx.checkout(new_branch.as_ref())?;
 
             Ok(())
@@ -393,7 +609,6 @@ fn create_reference_records_branch_stack_order_in_single_branch_mode() {
             tx.create_reference(
                 new_branch.as_ref(),
                 Anchor::at_reference(main.as_ref(), Position::Above),
-                |_| but_core::ref_metadata::StackId::generate(),
                 None,
             )?;
 
@@ -408,9 +623,9 @@ fn create_reference_records_branch_stack_order_in_single_branch_mode() {
         "single-branch transaction should persist the created reference"
     );
     assert_eq!(
-        meta.branch_stack_order(main.as_ref()).unwrap(),
-        Some(vec![new_branch, main]),
-        "single-branch transaction should persist the recorded branch order"
+        meta.branch_stack_order(new_branch.as_ref()).unwrap(),
+        Some(vec![new_branch]),
+        "single-branch transaction should persist the branch order, without the target branch"
     );
     assert_num_snapshots(&ctx, 1);
 }
@@ -438,7 +653,6 @@ fn create_reference_rolls_back_branch_stack_order_in_single_branch_mode() {
             tx.create_reference(
                 new_branch.as_ref(),
                 Anchor::at_reference(main.as_ref(), Position::Above),
-                |_| but_core::ref_metadata::StackId::generate(),
                 None,
             )?;
 
@@ -507,12 +721,7 @@ fn create_reference_relative_to_various_anchors() {
                 ),
                 (independent.as_ref(), None),
             ] {
-                tx.create_reference(
-                    refname,
-                    anchor,
-                    |_| but_core::ref_metadata::StackId::generate(),
-                    None,
-                )?;
+                tx.create_reference(refname, anchor, None)?;
             }
 
             Ok(())
@@ -523,7 +732,11 @@ fn create_reference_relative_to_various_anchors() {
     assert_eq!(Some(three), ref_target(&env, at_commit_above.as_ref()));
     assert_eq!(Some(two), ref_target(&env, at_commit_below.as_ref()));
     assert_eq!(Some(three), ref_target(&env, at_segment_above.as_ref()));
-    assert_eq!(Some(two), ref_target(&env, at_segment_below.as_ref()));
+    assert_eq!(
+        Some(three),
+        ref_target(&env, at_segment_below.as_ref()),
+        "`at-commit-above` owns `three`, leaving `branch` empty right above it"
+    );
     assert_eq!(Some(base), ref_target(&env, independent.as_ref()));
     assert_num_snapshots(&ctx, 1);
 }
@@ -553,7 +766,6 @@ fn create_reference_then_remove_it_in_same_transaction() {
             tx.create_reference(
                 refname.as_ref(),
                 Anchor::at_id(three, Position::Above),
-                |_| but_core::ref_metadata::StackId::generate(),
                 None,
             )?;
             tx.remove_reference(refname.as_ref())?;
@@ -597,7 +809,6 @@ fn create_reference_then_commit_below_anchor_keeps_commit_in_workspace() {
             tx.create_reference(
                 refname.as_ref(),
                 Anchor::at_segment(branch.as_ref(), Position::Below),
-                |_| but_core::ref_metadata::StackId::generate(),
                 None,
             )?;
             let new_commit =
@@ -817,7 +1028,6 @@ fn create_reference_then_commit_relative_to_it() {
             tx.create_reference(
                 refname.as_ref(),
                 Anchor::at_id(three, Position::Above),
-                |_| but_core::ref_metadata::StackId::generate(),
                 None,
             )?;
             let new_commit =
@@ -864,7 +1074,6 @@ fn create_reference_is_removed_on_rollback() {
             tx.create_reference(
                 refname.as_ref(),
                 Anchor::at_id(three, Position::Above),
-                |_| but_core::ref_metadata::StackId::generate(),
                 None,
             )?;
 

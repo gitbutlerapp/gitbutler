@@ -14,17 +14,18 @@ export const DIFF_SERVICE = new InjectionToken<DiffService>("DiffService");
 export class DiffService {
 	constructor(private backendApi: BackendApi) {}
 
-	getDiff(projectId: string, change: TreeChange) {
-		return this.backendApi.endpoints.getDiff.useQuery({ projectId, change });
+	/** The diff of `change`; an uncommitted one is read from the linked `worktree`, if given. */
+	getDiff(projectId: string, change: TreeChange, worktree?: string) {
+		return this.backendApi.endpoints.getDiff.useQuery({ projectId, change, worktree });
 	}
 
 	get assignHunk() {
 		return this.backendApi.endpoints.assignHunk.mutate;
 	}
 
-	async fetchDiff(projectId: string, change: TreeChange) {
+	async fetchDiff(projectId: string, change: TreeChange, worktree?: string) {
 		const { getDiff } = this.backendApi.endpoints;
-		return await getDiff.fetch({ projectId, change });
+		return await getDiff.fetch({ projectId, change, worktree });
 	}
 
 	getChanges(projectId: string, changes: TreeChange[]) {
@@ -35,8 +36,12 @@ export class DiffService {
 		});
 	}
 
-	async fetchChanges(projectId: string, changes: TreeChange[]): Promise<ChangeDiff[]> {
-		const args = changes.map((change) => ({ projectId, change }));
+	async fetchChanges(
+		projectId: string,
+		changes: TreeChange[],
+		worktree?: string,
+	): Promise<ChangeDiff[]> {
+		const args = changes.map((change) => ({ projectId, change, worktree }));
 		const responses = await Promise.all(
 			args.map((arg) =>
 				this.backendApi.endpoints.getDiff.fetch(arg, {

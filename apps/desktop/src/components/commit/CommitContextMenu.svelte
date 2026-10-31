@@ -61,6 +61,7 @@
 	import { editPatch } from "$lib/mode/editPatchUtils";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { dismissToast, showToast } from "$lib/notifications/toasts";
+	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject, injectOptional } from "@gitbutler/core/context";
 	import {
@@ -120,12 +121,15 @@
 		};
 	});
 
-	// Component is read-only when stackId is undefined
+	// Component is read-only in the lane that has neither a stack nor a worktree
+	const controller = getStackContext();
 	const isReadOnly = $derived(
 		contextData?.commitStatus === "LocalAndRemote" || contextData?.commitStatus === "LocalOnly"
-			? !contextData.stackId
+			? controller.isReadOnly
 			: false,
 	);
+	// Edit mode, AI resolution and new branches work on the workspace's stacks only.
+	const inWorktree = $derived(!!controller.worktree);
 
 	async function insertBlankCommit(commitId: string, location: "above" | "below" = "below") {
 		await insertBlankCommitInBranch({
@@ -271,7 +275,7 @@
 							label="Edit commit"
 							icon="commit-edit"
 							testId={TestId.CommitRowContextMenu_EditCommit}
-							disabled={isReadOnly}
+							disabled={isReadOnly || inWorktree}
 							onclick={async () => {
 								if (!isReadOnly && contextData.stackId) {
 									await handleEditPatch(commitId, contextData.stackId);
@@ -284,7 +288,7 @@
 								label="Resolve conflicts with AI"
 								icon="ai"
 								testId={TestId.CommitRowContextMenu_ResolveConflictsAi}
-								disabled={isReadOnly || aiResolution.current.isLoading}
+								disabled={isReadOnly || inWorktree || aiResolution.current.isLoading}
 								onclick={() => {
 									if (!isReadOnly && contextData.stackId) {
 										handleResolveConflictsAi(commitId, contextData.stackId);
@@ -371,7 +375,7 @@
 								<ContextMenuSection>
 									<ContextMenuItem
 										label="Add branch above"
-										disabled={isReadOnly || branchCreation.current.isLoading}
+										disabled={isReadOnly || inWorktree || branchCreation.current.isLoading}
 										onclick={async () => {
 											if (!isReadOnly) {
 												await handleCreateNewRef(commitId, "above");
@@ -382,7 +386,7 @@
 									/>
 									<ContextMenuItem
 										label="Add branch below"
-										disabled={isReadOnly || branchCreation.current.isLoading}
+										disabled={isReadOnly || inWorktree || branchCreation.current.isLoading}
 										onclick={async () => {
 											if (!isReadOnly) {
 												await handleCreateNewRef(commitId, "below");

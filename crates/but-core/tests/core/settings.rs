@@ -145,11 +145,11 @@ mod git {
             "expected empty signing format to remove the config key"
         );
         assert!(
-            config.trusted_program("gpg.program").is_none(),
+            config.trusted_program("gpg.program")?.is_none(),
             "expected empty gpg program to remove the config key"
         );
         assert!(
-            config.trusted_program("gpg.ssh.program").is_none(),
+            config.trusted_program("gpg.ssh.program")?.is_none(),
             "expected empty gpg ssh program to remove the config key"
         );
 

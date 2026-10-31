@@ -48,11 +48,11 @@ export function replaceBranchInStackSelection(
  */
 export function updateStackSelection(
 	uiState: UiState,
-	stackId: string,
+	laneId: string,
 	stack: Stack,
 	prevStack?: Stack,
 ): void {
-	const laneState = uiState.lane(stackId);
+	const laneState = uiState.lane(laneId);
 	const selection = laneState.selection.current;
 	const branches = stack.segments.map((segment) => segment.refName?.displayName).filter(isDefined);
 
@@ -132,6 +132,7 @@ export function updateStaleProjectState(
 	branches: string[],
 	commitIds: string[],
 	baseCommitShas: string[],
+	worktrees: string[],
 ) {
 	const projectState = uiState.project(projectId);
 
@@ -143,6 +144,7 @@ export function updateStaleProjectState(
 			commitIds,
 			branches,
 			baseCommitShas,
+			worktrees,
 		);
 	}
 }
@@ -154,11 +156,13 @@ function updateExclusiveActionState(
 	commitIds: string[],
 	branches: string[],
 	baseCommitShas: string[],
+	worktrees: string[],
 ) {
 	switch (action.type) {
 		case "commit":
 			if (
 				(action.stackId && !stackIds.includes(action.stackId)) ||
+				(action.worktree !== undefined && !worktrees.includes(action.worktree)) ||
 				(action.parentCommitId &&
 					!commitIds.includes(action.parentCommitId) &&
 					!baseCommitShas.includes(action.parentCommitId)) ||

@@ -120,6 +120,15 @@ pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<Hoo
     }
     let had_index = match std::fs::copy(&index_path, &backup_tmp_path) {
         Ok(_) => {
+            // Git compares an index entry's file by content only while the index file isn't
+            // newer than the entry, so the restored index keeps its modified time, which a copy
+            // doesn't on every platform. Otherwise a same-size edit looks committed.
+            let modified = std::fs::metadata(&index_path)?.modified()?;
+            std::fs::File::options()
+                .write(true)
+                .open(&backup_tmp_path)?
+                .set_modified(modified)
+                .context("failed to keep the index's modified time in its backup")?;
             std::fs::rename(&backup_tmp_path, &backup_path)
                 .context("failed to finalize pre-commit index backup")?;
             true
@@ -154,8 +163,8 @@ pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<Hoo
                     if code == 0 {
                         HookResult::Success
                     } else {
-                        // If the output contains GITBUTLER_ERROR, it's our managed hook blocking
-                        // commits on gitbutler/workspace - this is expected behavior, not a failure
+                        // If the output contains GITBUTLER_ERROR, it's the hook an older GitButler
+                        // installed to block commits on gitbutler/workspace - not a failure
                         if stdout.contains("GITBUTLER_ERROR") || stderr.contains("GITBUTLER_ERROR")
                         {
                             HookResult::Success
@@ -253,7 +262,7 @@ pub fn pre_push(
     };
 
     // Execute the pre-push hook with remote name and URL as arguments
-    let mut child = std::process::Command::from({
+    let mut child = std::process::Command::try_from({
         let mut prep = gix::command::prepare(&hook_path);
         if cfg!(windows) {
             prep.use_shell = true;
@@ -262,12 +271,13 @@ pub fn pre_push(
             let with_slashes_for_bash = gix::path::to_unix_separators_on_windows(
                 gix::path::os_str_into_bstr(&prep.command)?,
             );
-            prep.command = gix::path::from_bstring(with_slashes_for_bash.into_owned()).into();
+            prep.command = gix::path::from_bstring(with_slashes_for_bash.into_owned())?.into();
         }
         prep.arg(remote_name).arg(remote_url)
-    })
+    })?
     .current_dir(repo.workdir().unwrap_or(repo.git_dir()))
     .stdin(Stdio::piped())
+    .stderr(Stdio::piped())
     .spawn()?;
 
     {
@@ -330,7 +340,7 @@ fn join_output(stdout: String, stderr: String, code: Option<i32>) -> String {
     let code = code
         .map(|code| format!(" (Exit Code {code})"))
         .unwrap_or_default();
-    if stdout.is_empty() && stderr.is_ascii() {
+    if stdout.is_empty() && stderr.is_empty() {
         return format!("hook produced no output{code}");
     } else if stdout.is_empty() {
         return stderr;

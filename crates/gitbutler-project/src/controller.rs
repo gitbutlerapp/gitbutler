@@ -82,11 +82,20 @@ fn find_existing_project_by_git_dir(
             .clone()
             .migrated()
             .unwrap_or_else(|_| project.clone());
-        if project.git_dir_opt() == Some(git_dir) {
+        if project
+            .git_dir_opt()
+            .is_some_and(|dir| same_dir(dir, git_dir))
+        {
             return Ok(Some(project));
         }
     }
     Ok(None)
+}
+
+/// Whether `a` and `b` name the same directory, also when spelled differently, as in another
+/// case on a filesystem that ignores case, which would make two projects share one repository.
+fn same_dir(a: &Path, b: &Path) -> bool {
+    a == b || std::fs::canonicalize(a).is_ok_and(|a| std::fs::canonicalize(b).is_ok_and(|b| a == b))
 }
 
 fn find_existing_project_containing_path(
@@ -343,6 +352,14 @@ impl Controller {
             && error.kind() != std::io::ErrorKind::NotFound
         {
             tracing::error!(project_id = %id, ?error, "failed to remove project data",);
+        }
+
+        // Another project for the same repository, added under another spelling of its path,
+        // still uses what's stored in it.
+        if let Some(git_dir) = project.git_dir_opt()
+            && find_existing_project_by_git_dir(&self.projects_storage.list()?, git_dir)?.is_some()
+        {
+            return Ok(());
         }
 
         match project.gb_dir() {

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
-	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, CardGroup, InfoMessage, Select, SelectItem } from "@gitbutler/ui-svelte";
@@ -9,15 +8,16 @@
 
 	const stackService = inject(STACK_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
-	const settingsStore = inject(SETTINGS_SERVICE).appSettings;
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
 	const baseBranch = $derived(baseBranchQuery.response);
 	const remoteBranchesQuery = $derived(baseBranchService.remoteBranches(projectId));
-	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
+	const localBranchesQuery = $derived(baseBranchService.localTargetBranches(projectId));
+	const localBranches = $derived(localBranchesQuery.response ?? []);
+	const currentTarget = $derived(localBranches.find((branch) => branch.isTarget)?.refName);
 	const [setBaseBranchTargetRef, targetRefSwitch] = baseBranchService.setTargetRef;
 
-	let selectedBranch = $derived(baseBranch?.branchName);
-	let selectedRemote = $derived(baseBranch?.pushRemoteName);
+	let selectedBranch = $derived(currentTarget);
+	let selectedRemote = $derived(baseBranch?.pushRemoteName ?? undefined);
 
 	const stacksQuery = $derived(stackService.stacks(projectId));
 	const stackCount = $derived(stacksQuery.response?.length);
@@ -31,22 +31,11 @@
 			}));
 	}
 
-	const switching = $derived(
-		targetBranchSwitch.current.isLoading || targetRefSwitch.current.isLoading,
-	);
-	// With the singleBranch feature flag, only the target metadata is rewritten
-	// and no branch is checked out, so avoid claiming a branch switch.
-	const switchingLabel = $derived(
-		$settingsStore?.featureFlags.singleBranch ? "Updating target..." : "Switching branches...",
-	);
+	const switching = $derived(targetRefSwitch.current.isLoading);
 
 	async function switchTarget(branch: string, pushRemote?: string) {
-		if ($settingsStore?.featureFlags.singleBranch) {
-			// Only update the target; the user keeps working on their current branch.
-			await setBaseBranchTargetRef({ projectId, targetRef: `refs/remotes/${branch}`, pushRemote });
-		} else {
-			await setBaseBranchTarget({ projectId, branch, pushRemote });
-		}
+		// Only update the target; the user keeps working on their current branch.
+		await setBaseBranchTargetRef({ projectId, targetRef: branch, pushRemote });
 	}
 
 	async function onSetBaseBranchClick() {
@@ -60,15 +49,15 @@
 	}
 </script>
 
-{#if remoteBranchesQuery.result.isLoading}
+{#if remoteBranchesQuery.result.isLoading || localBranchesQuery.result.isLoading}
 	<InfoMessage filled outlined={false} icon="info">
 		{#snippet content()}
-			Loading remote branches...
+			Loading branches...
 		{/snippet}
 	</InfoMessage>
-{:else if remoteBranchesQuery.result.isSuccess}
-	{@const remoteBranches = remoteBranchesQuery.response}
-	{#if remoteBranches && remoteBranches.length > 0}
+{:else if remoteBranchesQuery.result.isSuccess && localBranchesQuery.result.isSuccess}
+	{@const remoteBranches = remoteBranchesQuery.response ?? []}
+	{#if localBranches.length > 0}
 		{@const remotes = uniqueRemotes(remoteBranches)}
 		<CardGroup>
 			<CardGroup.Item>
@@ -77,13 +66,13 @@
 				{/snippet}
 				{#snippet caption()}
 					Lets you choose where to push code and set the target branch for contributions. The target
-					branch is usually the "production" branch like 'origin/master' or 'upstream/main.' This
-					section helps ensure your code goes to the correct remote and branch for integration.
+					branch is a local branch like 'master' or 'main'. Its configured upstream is used for
+					pulling. The publication remote is used for pushing feature branches.
 				{/snippet}
 
 				<Select
 					value={selectedBranch}
-					options={remoteBranches.map((b) => ({ label: b.name, value: b.name }))}
+					options={localBranches.map((b) => ({ label: b.name, value: b.refName }))}
 					wide
 					onselect={(value) => {
 						selectedBranch = value;
@@ -131,20 +120,21 @@
 						onclick={onSetBaseBranchClick}
 						id="set-base-branch"
 						loading={switching}
-						disabled={(selectedBranch === baseBranch?.branchName &&
-							selectedRemote === baseBranch?.pushRemoteName) ||
+						disabled={!selectedBranch ||
+							(selectedBranch === currentTarget &&
+								selectedRemote === (baseBranch?.pushRemoteName ?? undefined)) ||
 							targetChangeDisabled}
 					>
-						{switching ? switchingLabel : "Update configuration"}
+						{switching ? "Updating target..." : "Update configuration"}
 					</Button>
 				{/if}
 			</CardGroup.Item>
 		</CardGroup>
 	{/if}
-{:else if remoteBranchesQuery.result.isError}
+{:else if remoteBranchesQuery.result.isError || localBranchesQuery.result.isError}
 	<InfoMessage filled outlined={true} style="danger">
 		{#snippet title()}
-			We got an error trying to list your remote branches
+			We got an error trying to list your branches
 		{/snippet}
 	</InfoMessage>
 {/if}

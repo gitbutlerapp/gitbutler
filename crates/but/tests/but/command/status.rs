@@ -1,15 +1,166 @@
-use super::util::{
-    enable_worktree_manipulation, enter_edit_mode_with_conflicted_commit, status_json,
-};
+use super::util::{enter_edit_mode_with_conflicted_commit, status_json};
 use crate::utils::{CommandExt as _, Sandbox};
 use snapbox::IntoData;
+
+mod status_in_single_branch_mode;
+
+/// Other Rust tools read the status model directly instead of parsing `but status --json`.
+#[test]
+fn workspace_status_as_library() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let status = but::workspace_status(&mut env.context(), but::StatusFlags::all_false())?;
+    let mut branches: Vec<_> = status
+        .stacks
+        .iter()
+        .flat_map(|stack| &stack.branches)
+        .map(|branch| branch.name.as_str())
+        .collect();
+    branches.sort();
+    assert_eq!(branches, ["A", "B"], "both applied stacks are in the model");
+
+    let env = enter_edit_mode_with_conflicted_commit();
+    let err = but::workspace_status(&mut env.context(), but::StatusFlags::all_false())
+        .expect_err("edit mode has no workspace status");
+    assert_eq!(
+        err.to_string(),
+        "workspace status is unavailable during conflict resolution",
+        "edit mode is refused rather than reported as an ordinary workspace"
+    );
+    Ok(())
+}
+
+#[test]
+fn common_base_shows_head_on_local_target() {
+    let env = Sandbox::open_with_default_settings("single-branch-in-sync");
+    env.invoke_git("checkout main");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┴ 85efbe4 (common base, main, origin/main, HEAD) 2000-01-02 M
+...
+"#]]);
+}
+
+#[test]
+fn common_base_omits_head_on_unrelated_ref_at_same_commit() {
+    let env = Sandbox::open_with_default_settings("single-branch-in-sync");
+    env.invoke_git("checkout -b unrelated main");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+...
+"#]]);
+}
+
+#[test]
+fn common_base_omits_head_on_local_target_ahead_of_base() {
+    let env = Sandbox::open_with_default_settings("single-branch-in-sync");
+    env.invoke_git("checkout main");
+    env.invoke_git("commit --allow-empty -m ahead");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┴ 85efbe4 (common base, origin/main) 2000-01-02 M
+...
+"#]]);
+}
+
+#[test]
+fn common_base_shows_only_configured_default_refs() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.invoke_git("branch unrelated origin/main");
+    env.invoke_git("symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+...
+"#]]);
+}
+
+#[test]
+fn common_base_omits_local_default_when_it_has_moved() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.invoke_git("branch -f main A");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┴ 0dc3733 (common base, origin/main) 2000-01-02 add M
+...
+"#]]);
+}
+
+#[test]
+fn common_base_omits_remote_default_when_it_has_moved() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.invoke_git("update-ref refs/remotes/origin/main A");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+├╯ 0dc3733 (common base, main) 2000-01-02 add M
+...
+"#]]);
+}
+
+#[test]
+fn common_base_uses_configured_nonstandard_default() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.invoke_git("branch trunk origin/main");
+    env.invoke_git("update-ref refs/remotes/origin/trunk origin/main");
+    env.invoke_git("branch --set-upstream-to=origin/trunk trunk");
+    env.invoke_git("config gitbutler.project.targetRef refs/heads/trunk");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┴ 0dc3733 (common base, trunk, origin/trunk) 2000-01-02 add M
+...
+"#]]);
+}
+
+#[test]
+fn common_base_follows_the_local_target_when_both_defaults_advance() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.invoke_git("branch -f main A");
+    env.invoke_git("update-ref refs/remotes/origin/main A");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+├╯ 9477ae7 (common base, main, origin/main) 2000-01-02 add A
+...
+"#]]);
+}
 
 #[test]
 fn single_branch_mode_lazily_initializes_an_unregistered_repository() {
     let env = Sandbox::open_with_default_settings("one-fork");
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
 
     let status = status_json(&env);
     let project_meta = env.project_meta();
@@ -17,8 +168,9 @@ fn single_branch_mode_lazily_initializes_an_unregistered_repository() {
         project_meta
             .target_ref
             .as_ref()
-            .expect("target is persisted"),
-        "refs/remotes/origin/main",
+            .expect("target is persisted")
+            .as_local_full_name_ref(),
+        "refs/heads/main",
         "the inferred target should be persisted"
     );
     assert_eq!(
@@ -72,6 +224,14 @@ fn single_branch_status_hides_branches_above_head() {
     env.setup_single_stack_metadata_at_target(&["C", "B", "A"], "origin/main");
     env.invoke_git("checkout B");
 
+    env.but("status")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::file![
+            "snapshots/status/single-branch-head.stdout.term.svg"
+        ]);
+
     // Single-branch status includes checked-out B and A below it, but not C above it.
     env.but("status")
         .assert()
@@ -80,24 +240,24 @@ fn single_branch_status_hides_branches_above_head() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [B]
+┊╭┄ g0 [B] [HEAD]
 ┊●   wwm add B
 ┊│
 ┊├┄ h0 [A]
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
 "#]]);
 }
 
-/// With `worktreeManipulation` off, linked worktrees are not part of the picture at all:
-/// no tips are seeded, so nothing forks out and no lane is drawn. A branch that happens to
-/// be checked out elsewhere is just an ordinary stack row. Lanes are covered by
-/// [`worktree_lanes`].
+/// Linked worktrees that predate the first read are adopted as archived, so they are not part
+/// of the picture at all: no tips are seeded, so nothing forks out and no lane is drawn. A
+/// branch that happens to be checked out elsewhere is just an ordinary stack row. Lanes are
+/// covered by [`worktree_lanes`].
 #[test]
 fn worktrees() {
     let env = Sandbox::init_scenario_with_target_and_default_settings_slow("two-worktrees");
@@ -162,47 +322,9 @@ fn anonymous_segment() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
-
-"#]]);
-}
-
-#[test]
-fn unborn() {
-    let env = Sandbox::open_scenario_with_target_and_default_settings("unborn");
-    snapbox::assert_data_eq!(env.git_log(), snapbox::str![""]);
-
-    // TODO: make this work
-    env.but("status --verbose")
-        .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: No target branch is configured and none could be inferred. Run `but config target <remote>/<branch>` to configure one.
-
-"#]]);
-}
-
-#[cfg(feature = "legacy")]
-#[test]
-fn disabled_single_branch_mode_requires_setup_for_unregistered_repository() {
-    let env = Sandbox::open_with_default_settings("one-fork");
-    env.but("config feature single-branch disable")
-        .assert()
-        .success()
-        .stderr_eq(snapbox::str![])
-        .stdout_eq(snapbox::str![[r#"
-✓ Feature flag single-branch is now disabled
-
-"#]]);
-
-    env.but("status")
-        .assert()
-        .failure()
-        .stdout_eq(snapbox::str![])
-        .stderr_eq(snapbox::str![[r#"
-Error: Setup required: No GitButler project found at . - run `but setup` to configure the project
 
 "#]]);
 }
@@ -218,12 +340,17 @@ fn first_commit_no_workspace() {
 "#]]
     );
 
-    // TODO: make this work
+    // Local main is inferred as the target even without a remote or workspace commit.
     env.but("status --verbose")
         .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: No target branch is configured and none could be inferred. Run `but config target <remote>/<branch>` to configure one.
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 85efbe4 (common base, main, HEAD) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
 }
@@ -273,7 +400,7 @@ fn json_shows_paths_as_strings() {
   ],
   "stacks": [
     {
-      "cliId": "j0",
+      "cliId": "i0",
       "assignedChanges": [],
       "branches": [
         {
@@ -301,7 +428,7 @@ fn json_shows_paths_as_strings() {
       ]
     },
     {
-      "cliId": "k0",
+      "cliId": "j0",
       "assignedChanges": [],
       "branches": [
         {
@@ -459,6 +586,33 @@ fn long_file_cli_ids_are_aligned() {
 }
 
 #[test]
+fn commit_ids_are_aligned_within_a_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.file("new-file", "first");
+    env.invoke_git("config --local gitbutler.testing.changeId 1234");
+    env.but("commit -b A -m first").assert().success();
+    env.file("new-file", "second");
+    env.invoke_git("config --local gitbutler.testing.changeId 1235");
+    env.but("commit -b A -m second").assert().success();
+
+    // The colliding change IDs need four characters, but the original commit needs three.
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┊●   1235 second
+┊●   1234 first
+┊●   tpm  add A
+...
+┊●   lrm add B
+...
+"#]]);
+}
+
+#[test]
 fn long_cli_ids() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("commits-with-same-prefix");
 
@@ -568,14 +722,8 @@ fn status_hint_clean_workspace() {
 
 #[test]
 fn status_hint_when_no_branches() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    // Keep the managed workspace: in single-branch mode unapply would check out a plain branch.
-    env.but("config feature single-branch disable")
-        .assert()
-        .success();
-    env.setup_metadata(&["A"]);
-
-    env.but("unapply A").assert().success();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.but("status")
         .with_color_for_svg()
@@ -650,6 +798,112 @@ fn status_upstream_summary_without_flag() {
 }
 
 #[test]
+fn status_upstream_label_includes_local_target() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits");
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
+    env.invoke_git("branch --set-upstream-to=origin/main main");
+    env.invoke_git("config gitbutler.project.targetRef refs/heads/main");
+    env.invoke_git("branch unrelated origin/main");
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┊● [..] (main, upstream: origin/main) 10 new commits
+...
+"#]]);
+    env.but("status --upstream")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┊╭┄ (main, upstream: origin/main) 10 new commits
+...
+"#]]);
+}
+
+#[test]
+fn status_upstream_label_uses_configured_local_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits");
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
+    env.invoke_git("branch trunk origin/main");
+    env.invoke_git("branch --set-upstream-to=origin/main trunk");
+    env.invoke_git("config gitbutler.project.targetRef refs/heads/trunk");
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┊● [..] (trunk, upstream: origin/main) 10 new commits
+...
+"#]]);
+}
+
+#[test]
+fn status_upstream_label_omits_local_target_behind() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits");
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
+    env.invoke_git("branch --set-upstream-to=origin/main main");
+    env.invoke_git("config gitbutler.project.targetRef refs/heads/main");
+    env.invoke_git("branch -f main base");
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┊● [..] (upstream: origin/main) 10 new commits
+...
+"#]]);
+}
+
+#[test]
+fn status_upstream_label_omits_local_target_ahead() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits");
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
+    env.invoke_git("branch --set-upstream-to=origin/main main");
+    env.invoke_git("config gitbutler.project.targetRef refs/heads/main");
+    env.invoke_git("checkout main");
+    env.invoke_git("commit --allow-empty -m ahead");
+    env.invoke_git("checkout gitbutler/workspace");
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┊● [..] (upstream: origin/main) 10 new commits
+...
+"#]]);
+}
+
+#[test]
+fn status_upstream_label_omits_local_target_diverged() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits");
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
+    env.invoke_git("branch --set-upstream-to=origin/main main");
+    env.invoke_git("config gitbutler.project.targetRef refs/heads/main");
+    env.invoke_git("branch -f main A");
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┊● [..] (upstream: origin/main) 10 new commits
+...
+"#]]);
+}
+
+#[test]
 fn status_upstream_detailed_with_flag() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits");
     env.setup_metadata_at_target(&["A"], "refs/heads/base");
@@ -698,7 +952,7 @@ fn status_upstream_and_merge_base_messages_truncate_when_unpaged() {
 ┊●   lvx add A
 ├╯
 ┊
-┊╭┄ (upstream: origin/main) 1 new commit
+┊╭┄ (main, upstream: origin/main) 1 new commit
 ┊● 67247ca add upstream-commit-message-that-is-intentionally-very-very-long-to-exc…
 ┊┊
 ├╯ 9fd740d (common base) 2000-01-02 add merge-base-message-that-is-intentio…
@@ -747,7 +1001,7 @@ fn status_marks_merged_upstream_without_upstream_flag() {
 ┊●   kyl B-change
 ├╯
 ┊
-┊● 9354ac4 (upstream: origin/main) 2 new commits
+┊● 9354ac4 (main, upstream: origin/main) 2 new commits
 ├╯ efc9211 (common base) 2000-01-02 base
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -782,13 +1036,28 @@ Applied remote branch 'origin/document-but-pr-skill' to workspace
 ┊╭┄ do [document-but-pr-skill] (merged upstream) (no commits)
 ├╯
 ┊
-┊● 55165db (upstream: origin/main) 1 new commit
-├╯ 55165db (common base) 2000-01-02 merge document-but-pr-skill
+┊● 55165db (main, upstream: origin/main) 1 new commit
+├╯ 080592b (common base) 2000-01-02 add document-but-pr-skill
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
 
 "#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   55165db (origin/main, origin/HEAD, main, gitbutler/target) merge document-but-pr-skill
+|\  
+| | * ef247f6 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| |/  
+| * 080592b (origin/document-but-pr-skill, document-but-pr-skill) add document-but-pr-skill
+|/  
+* 563a7fc add base
+
+"#]]
+        .raw()
+    );
 
     assert_pull_removes_merged_upstream_branch(&env);
 }
@@ -866,16 +1135,48 @@ fn unmerged_empty_branch_above_merged_one_is_not_treated_as_merged() {
 ┊├┄ bo [bottom] (merged upstream) (no commits)
 ├╯
 ┊
-┊● 334227d (upstream: origin/main) 1 new commit
-├╯ 334227d (common base) 2000-01-02 merge bottom
+┊● 334227d (main, upstream: origin/main) 1 new commit
+├╯ 141de4f (common base) 2000-01-02 add bottom
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
 
 "#]]);
 
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 07e525c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| *   334227d (origin/main, origin/HEAD, main) merge bottom
+| |\  
+| |/  
+|/|   
+* | 141de4f (origin/top, origin/bottom, top, bottom) add bottom
+|/  
+* 563a7fc add base
+
+"#]]
+        .raw()
+    );
+
     env.invoke_git("remote set-url origin .");
     env.but("pull").env("NO_BG_TASKS", "1").assert().success();
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* dc0b7ae (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   334227d (origin/main, origin/HEAD, top, main, gitbutler/target) merge bottom
+|\  
+| | * 07e525c (origin/gitbutler/workspace) GitButler Workspace Commit
+| |/  
+| * 141de4f (origin/top, origin/bottom) add bottom
+|/  
+* 563a7fc add base
+
+"#]]
+        .raw()
+    );
 
     let branches: Vec<String> = status_json(&env)["stacks"]
         .as_array()
@@ -1030,7 +1331,7 @@ fn status_upstream_prunes_untracked_integrated_branch() {
 ┊●   kyl B-change
 ├╯
 ┊
-┊╭┄ (upstream: origin/main) 2 new commits
+┊╭┄ (main, upstream: origin/main) 2 new commits
 ┊● 9354ac4 main-advance
 ┊● 756ee31 A-change
 ┊┊
@@ -1076,7 +1377,7 @@ fn status_upstream_prunes_metadata_tracked_integrated_branches() {
 ┊╭┄ ex [extra-untracked] ○ empty (no commits)
 ├╯
 ┊
-┊╭┄ (upstream: origin/main) 2 new commits
+┊╭┄ (main, upstream: origin/main) 2 new commits
 ┊● 9354ac4 main-advance
 ┊● 756ee31 A-change
 ┊┊
@@ -1095,10 +1396,9 @@ Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove 
 /// - `origin/main` has two commits on top of `base`: `M1` and `M2`.
 /// - `B` forks from `M2` (the current `origin/main` tip) with one commit.
 ///
-/// The graph walk starts from the lowest common base (`base`), so B's stack
-/// includes `M1` and `M2`. Since both stacks are metadata-tracked they are
-/// not pruned — `M1` and `M2` appear in B's stack as integrated commits,
-/// to be cleaned up by `integrate_upstream`.
+/// The workspace base is the lowest common base (`base`), but B's lane ends at
+/// the local `main` on `M2`: it holds nothing beyond `origin/main`, so `M1` and
+/// `M2` are base for B rather than a `main` branch at the bottom of its stack.
 #[test]
 fn status_upstream_prunes_with_different_bases() {
     let env =
@@ -1122,20 +1422,15 @@ fn status_upstream_prunes_with_different_bases() {
 ┊
 ┊╭┄ h0 [B] [✓ upstream merges cleanly]
 ┊●   wxl B-change
-┊│
-┊├┄ ma [main] (merged upstream)
-┊●   upk M2
-┊●   tpp M1
 ├╯
 ┊
-┊╭┄ (upstream: origin/main) 2 new commits
+┊╭┄ (main, upstream: origin/main) 2 new commits
 ┊● ba5149e M2
 ┊● 6daac93 M1
 ┊┊
 ├╯ efc9211 (common base) 2000-01-02 base
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
-Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
 
 "#]]);
 }
@@ -1238,6 +1533,32 @@ fn status_shows_rewritten_branch_with_remote_and_local_commits() {
 }
 
 #[test]
+fn status_marks_rewritten_commit_when_old_workspace_contains_remote_version() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("status-pushed");
+    env.setup_metadata(&["A"]);
+    env.but("switch A").assert().success();
+    env.file("A", "amended\n");
+    env.but("amend A --target A").assert().success();
+
+    // seeing ◐ is the important bit here, it tells the user that the commit has been rewritten
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] [HEAD]
+┊◐   [..] add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
 fn agent_status_explains_rewritten_commit_marker() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
@@ -1267,7 +1588,7 @@ fn agent_status_explains_rewritten_commit_marker() {
 ┊◐   [..] add one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1276,7 +1597,7 @@ Hint: run `but help` for all commands
     // The first agent-detected invocation also delivers the skill-install
     // notice ahead of the graph (the sandbox home has no skill installed).
     env.but("status")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -1292,7 +1613,7 @@ This notice repeats until the skill is installed. If it still appears after inst
 ┊◐   [..] add one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: ◐ means rewritten locally vs upstream.
 Hint: commits are listed newest first. The first token on each line is the ID to use in commands.
@@ -1330,7 +1651,7 @@ printf '100644 %s 1\tconflicted.txt\n100644 %s 2\tconflicted.txt\n100644 %s 3\tc
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 ⚠ Uncommitted file conflicts: edit each file to the wanted contents (or delete it), then run `but resolve <path>...` to mark it resolved.
 
 Hint: run `but help` for all commands
@@ -1425,7 +1746,7 @@ fn status_file_prefixed_with_persisted_or_synthetic_change_id() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1457,7 +1778,7 @@ fn file_ids_are_nicely_aligned() {
 ┊   mv A file-8.txt
 ┊   zx A file-9.txt
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -1485,7 +1806,7 @@ Hint: run `but branch new` to create a new branch to work on
 ┊│     rlo:z  A file-9.txt
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1513,7 +1834,7 @@ Hint: run `but help` for all commands
 ┊│     rlo:z  A file-9.txt
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1526,10 +1847,9 @@ Hint: run `but help` for all commands
 fn worktree_lanes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
 
-    // The first read with the flag on archives every worktree already on disk, so the ones
-    // under test have to be created after it.
+    // The first read archives every worktree already on disk, so the ones under test have to
+    // be created after it.
     env.but("status").assert().success();
 
     // Checked out into the per-test temp dir, as the scenario directory is reused across runs.
@@ -1557,9 +1877,9 @@ fn worktree_lanes() {
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ in:@ {worktree uncommitted}
+┊┊╭┄ wt:@ [uncommitted] {wt-inside}
 ┊┊┊   wx A note.txt
-┊┊├┄ in {wt-inside}
+┊┊├┄ wt [wt-inside]
 ┊┊●   pwn worktree work (no changes)
 ┊├╯
 ┊●   tpm add A
@@ -1567,18 +1887,18 @@ fn worktree_lanes() {
 ┊
 ┊╭┄ h0 [B]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-┊┊├┄ wt {wt-at}
+┊┊╭┄ i0:@ [uncommitted] {wt-at} (no changes)
+┊┊├┄ i0 (no commits)
 ┊├╯
 ┊●   lrm add B
 ├╯
 ┊
-┊╭┄ ou:@ {worktree uncommitted} (no changes)
-┊├┄ ou {wt-outside}
+┊╭┄ ou:@ [uncommitted] {wt-outside} (no changes)
+┊├┄ ou [wt-outside]
 ┊●   zum off the target (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1626,7 +1946,7 @@ off the target
     );
     // `<worktree>:@` names that worktree's whole uncommitted area, and a filename
     // scoped by worktree name reaches into that worktree only.
-    env.but("diff in:@").assert().success().stdout_eq(
+    env.but("diff wt:@").assert().success().stdout_eq(
         snapbox::str![[r#"
 ─────────────────╮
  wx:a A note.txt │
@@ -1663,7 +1983,7 @@ off the target
         snapbox::str![[r#"
 [
   {
-    "cliId": "wt",
+    "cliId": "i0",
     "name": "wt-at",
     "reference": null,
     "base": {
@@ -1671,10 +1991,20 @@ off the target
       "inWorkspace": true
     },
     "uncommittedChanges": [],
-    "commits": []
+    "branches": [
+      {
+        "cliId": "i0",
+        "name": "",
+        "commits": [],
+        "upstreamCommits": [],
+        "branchStatus": "completelyUnpushed",
+        "reviewId": null,
+        "ci": null
+      }
+    ]
   },
   {
-    "cliId": "in",
+    "cliId": "wt",
     "name": "wt-inside",
     "reference": "refs/heads/wt-inside",
     "base": {
@@ -1688,18 +2018,28 @@ off the target
         "changeType": "added"
       }
     ],
-    "commits": [
+    "branches": [
       {
-        "cliId": "pwn",
-        "changeId": "pwnvnstnootyowqrwlulqtxotsznyvpv",
-        "commitId": "fb0cf2a5252830e6d4697a7c19cd86dd36e323c5",
-        "createdAt": "2000-01-01T00:00:00+00:00",
-        "message": "worktree work\n",
-        "authorName": "author",
-        "authorEmail": "author@example.com",
-        "conflicted": false,
+        "cliId": "wt",
+        "name": "wt-inside",
+        "commits": [
+          {
+            "cliId": "pwn",
+            "changeId": "pwnvnstnootyowqrwlulqtxotsznyvpv",
+            "commitId": "fb0cf2a5252830e6d4697a7c19cd86dd36e323c5",
+            "createdAt": "2000-01-01T00:00:00+00:00",
+            "message": "worktree work\n",
+            "authorName": "author",
+            "authorEmail": "author@example.com",
+            "conflicted": false,
+            "reviewId": null,
+            "changes": null
+          }
+        ],
+        "upstreamCommits": [],
+        "branchStatus": "completelyUnpushed",
         "reviewId": null,
-        "changes": null
+        "ci": null
       }
     ]
   },
@@ -1709,21 +2049,32 @@ off the target
     "reference": "refs/heads/wt-outside",
     "base": {
       "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
-      "inWorkspace": false
+      "inWorkspace": false,
+      "behind": 0
     },
     "uncommittedChanges": [],
-    "commits": [
+    "branches": [
       {
-        "cliId": "zum",
-        "changeId": "zumtutknquukwkzpsmpkxwynvqmnklrm",
-        "commitId": "ef1fd236b17f3b9238c4f5be50fcfaa93f6a6ba0",
-        "createdAt": "2000-01-01T00:00:00+00:00",
-        "message": "off the target\n",
-        "authorName": "author",
-        "authorEmail": "author@example.com",
-        "conflicted": false,
+        "cliId": "ou",
+        "name": "wt-outside",
+        "commits": [
+          {
+            "cliId": "zum",
+            "changeId": "zumtutknquukwkzpsmpkxwynvqmnklrm",
+            "commitId": "ef1fd236b17f3b9238c4f5be50fcfaa93f6a6ba0",
+            "createdAt": "2000-01-01T00:00:00+00:00",
+            "message": "off the target\n",
+            "authorName": "author",
+            "authorEmail": "author@example.com",
+            "conflicted": false,
+            "reviewId": null,
+            "changes": null
+          }
+        ],
+        "upstreamCommits": [],
+        "branchStatus": "completelyUnpushed",
         "reviewId": null,
-        "changes": null
+        "ci": null
       }
     ]
   }
@@ -1739,10 +2090,9 @@ off the target
 fn stacked_worktree_lanes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
 
-    // The first read with the flag on archives every worktree already on disk, so the ones
-    // under test have to be created after it.
+    // The first read archives every worktree already on disk, so the ones under test have to
+    // be created after it.
     env.but("status").assert().success();
 
     // Checked out into the per-test temp dir, as the scenario directory is reused across runs.
@@ -1769,11 +2119,11 @@ fn stacked_worktree_lanes() {
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-┊┊├┄ wt {wt-first}
+┊┊╭┄ wt:@ [uncommitted] {wt-first} (no changes)
+┊┊├┄ wt [wt-first]
 ┊┊┊
-┊┊┊╭┄ se:@ {worktree uncommitted} (no changes)
-┊┊┊├┄ se {wt-second}
+┊┊┊╭┄ se:@ [uncommitted] {wt-second} (no changes)
+┊┊┊├┄ se [wt-second]
 ┊┊┊●   zzk second work (no changes)
 ┊┊├╯
 ┊┊●   tlr first work (no changes)
@@ -1785,7 +2135,7 @@ fn stacked_worktree_lanes() {
 ┊●   lrm add B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1813,10 +2163,9 @@ second work
 fn status_from_inside_a_linked_worktree_shows_the_main_workspace() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    enable_worktree_manipulation(&env);
 
-    // The first read with the flag on archives every worktree already on disk, so the ones
-    // under test have to be created after it.
+    // The first read archives every worktree already on disk, so the ones under test have to
+    // be created after it.
     env.but("status").assert().success();
 
     // Checked out into the per-test temp dir, as the scenario directory is reused across runs.
@@ -1841,8 +2190,8 @@ fn status_from_inside_a_linked_worktree_shows_the_main_workspace() {
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-┊┊├┄ wt {wt-inside}
+┊┊╭┄ wt:@ [uncommitted] {wt-inside} (no changes)
+┊┊├┄ wt [wt-inside] [HEAD] (no commits)
 ┊├╯
 ┊●   tpm add A
 ├╯
@@ -1851,25 +2200,23 @@ fn status_from_inside_a_linked_worktree_shows_the_main_workspace() {
 ┊●   lrm add B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
 "#]]);
 
-    // Setup registers the worktree it runs in, so it is refused here.
-    env.but("setup")
-        .current_dir(wt.join("wt-inside"))
+    // -C must mark the linked checkout, even when the process runs in the main worktree.
+    env.but("")
+        .arg("-C")
+        .arg(wt.join("wt-inside"))
+        .arg("status")
+        .with_color_for_svg()
         .assert()
-        .failure()
-        .stdout_eq(snapbox::str![])
-        .stderr_eq(snapbox::str![[r#"
-Error: Failed to set up GitButler project.
-
-Caused by:
-    `but setup` cannot run from a linked worktree; run it from the main worktree at [..]
-
-"#]]);
+        .success()
+        .stdout_eq(snapbox::file![
+            "snapshots/status/linked-worktree-head.stdout.term.svg"
+        ]);
 }
 
 #[test]
@@ -1886,7 +2233,7 @@ fn status_renders_correctly_when_filename_reverse_hex_starts_with_old_uncommitte
 ╭┄ @ [uncommitted]
 ┊   zzs A file-1594
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -1909,9 +2256,84 @@ fn status_renders_correctly_when_branch_name_is_precisely_old_uncommitted() {
 ┊╭┄ g0 [zz] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn status_in_unborn_repo_json() {
+    let env = Sandbox::open_with_default_settings("unborn");
+    env.file("file", "...");
+
+    env.but("status --json")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+{
+  "uncommittedChanges": [
+    {
+      "cliId": "qs",
+      "filePath": "file",
+      "changeType": "added"
+    }
+  ],
+  "stacks": [],
+  "mergeBase": null,
+  "upstreamState": null
+}
+
+"#]]);
+}
+
+#[test]
+fn status_in_unborn_repo() {
+    let env = Sandbox::open_with_default_settings("unborn");
+
+    env.file("file", "...");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   qs A file
+┊
+┴ no commits (main)
+
+Hint: run `but commit` to create the initial commit
+
+"#]]);
+
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+─────────────╮
+ qs:2 A file │
+─────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +...
+
+"#]]);
+
+    env.but("diff qs")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+─────────────╮
+ qs:2 A file │
+─────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +...
 
 "#]]);
 }

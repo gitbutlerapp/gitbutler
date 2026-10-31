@@ -86,6 +86,6 @@ HOOK_EOF
   # Add the project to GitButler
   target_branch="$(git rev-parse --symbolic-full-name @{u})"
   target_branch="${target_branch#refs/remotes/}"
-  "$BUT" setup
+  "$BUT" switch --workspace
   "$BUT" config target "$target_branch"
 popd

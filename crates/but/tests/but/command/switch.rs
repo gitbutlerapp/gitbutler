@@ -3,6 +3,72 @@ use snapbox::{assert_data_eq, str};
 use crate::utils::CommandExt as _;
 use crate::utils::Sandbox;
 
+#[test]
+fn switch_runs_post_checkout() {
+    for hooks_path in [".git/hooks", ".custom-hooks"] {
+        let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+        env.setup_metadata(&["A"]);
+        env.invoke_git(&format!("config core.hooksPath {hooks_path}"));
+        env.file(
+            format!("{hooks_path}/post-checkout"),
+            "#!/bin/sh\nprintf '%s\\n' \"$@\" > .git/checkout-args\ngit symbolic-ref HEAD >> .git/checkout-args\n",
+        );
+        env.invoke_bash(format!("chmod +x {hooks_path}/post-checkout"));
+
+        for target in ["A", "A", "main", "--workspace"] {
+            let old_head = env.invoke_git("rev-parse HEAD");
+            env.but(format!("switch {target}")).assert().success();
+            let new_head = env.invoke_git("rev-parse HEAD");
+            let head_ref = env.invoke_git("symbolic-ref HEAD");
+            assert_eq!(
+                std::fs::read_to_string(env.projects_root().join(".git/checkout-args")).unwrap(),
+                format!("{old_head}\n{new_head}\n1\n{head_ref}\n"),
+                "hook receives checkout arguments and runs after HEAD changes"
+            );
+        }
+    }
+}
+
+#[test]
+fn switch_does_not_run_post_checkout_when_checkout_fails_or_workspace_is_unchanged() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file(
+        ".git/hooks/post-checkout",
+        "#!/bin/sh\ntouch .git/hook-ran\n",
+    );
+    env.invoke_bash("chmod +x .git/hooks/post-checkout");
+
+    env.but("switch --workspace").assert().success();
+    env.but("switch nonexistent").assert().failure();
+    env.file("A", "uncommitted changes");
+    env.but("switch main").assert().failure();
+    assert!(
+        !env.projects_root().join(".git/hook-ran").exists(),
+        "neither a failed checkout nor an unchanged workspace should run hooks"
+    );
+}
+
+#[test]
+fn switch_post_checkout_failure_keeps_checkout() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file(
+        ".git/hooks/post-checkout",
+        "#!/bin/sh\necho hook-failed >&2\nexit 1\n",
+    );
+    env.invoke_bash("chmod +x .git/hooks/post-checkout");
+    env.but("switch A").assert().failure().stderr_eq(str![[r#"
+Error: Post-checkout hook failed (exit status: 1): hook-failed
+
+"#]]);
+    assert_eq!(
+        env.invoke_git("symbolic-ref HEAD"),
+        "refs/heads/A",
+        "hook failure must not undo checkout"
+    );
+}
+
 fn status_json(env: &crate::utils::Sandbox) -> serde_json::Value {
     let output = env.but("--json status").allow_json().output().unwrap();
     serde_json::from_slice(&output.stdout)
@@ -22,7 +88,7 @@ fn assert_workspace_status(env: &crate::utils::Sandbox) {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -135,7 +201,7 @@ fn switching_to_lower_branch_only_shows_it_in_single_branch_mode() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -152,11 +218,11 @@ Hint: run `but help` for all commands
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -189,7 +255,7 @@ fn switching_to_reordered_empty_branch_preserves_lower_branches() {
 ┊├┄ j0 [D] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -212,12 +278,12 @@ Switched to branch 'A'
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A] (no commits)
+┊╭┄ g0 [A] [HEAD] (no commits)
 ┊│
 ┊├┄ h0 [D] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -248,78 +314,23 @@ Switched to workspace
 }
 
 #[test]
-fn creates_named_branch_and_switches_to_it() {
+fn bare_switch_requires_terminal_input() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    assert_workspace_status(&env);
-
-    env.but("switch --new my-feature")
+    env.but("switch")
         .assert()
-        .success()
+        .failure()
+        .stdout_eq(str![])
         .stderr_eq(str![[r#"
-⚠ `--new/-n` is deprecated and will be removed in a future release. Use `but branch new --switch` instead
-
-"#]])
-        .stdout_eq(str![[r#"
-Created branch 'my-feature'
+Error: Terminal input not available. Specify a branch or use `--workspace`
 
 "#]]);
 
-    assert_eq!(env.invoke_git("rev-parse --abbrev-ref HEAD"), "my-feature");
     assert_eq!(
-        env.invoke_git("rev-parse my-feature"),
-        env.invoke_git("rev-parse main")
-    );
-}
-
-#[test]
-fn creates_named_branch_with_json_output() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
-
-    env.but("--json switch --new my-feature")
-        .allow_json()
-        .assert()
-        .success()
-        .stderr_eq(str![[r#"
-⚠ `--new/-n` is deprecated and will be removed in a future release. Use `but branch new --switch` instead
-
-"#]])
-        .stdout_eq(str![[r#"
-{
-  "type": "createdBranch",
-  "branch": "my-feature"
-}
-
-"#]]);
-
-    assert_eq!(env.invoke_git("rev-parse --abbrev-ref HEAD"), "my-feature");
-}
-
-#[test]
-fn creates_generated_branch_and_switches_to_it() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
-
-    assert_workspace_status(&env);
-
-    env.but("switch --new")
-        .assert()
-        .success()
-        .stderr_eq(str![[r#"
-⚠ `--new/-n` is deprecated and will be removed in a future release. Use `but branch new --switch` instead
-
-"#]])
-        .stdout_eq(str![[r#"
-Created branch 'a-branch-1'
-
-"#]]);
-
-    assert_eq!(env.invoke_git("rev-parse --abbrev-ref HEAD"), "a-branch-1");
-    assert_eq!(
-        env.invoke_git("rev-parse a-branch-1"),
-        env.invoke_git("rev-parse main")
+        env.invoke_git("rev-parse --abbrev-ref HEAD"),
+        "gitbutler/workspace",
+        "missing terminal input must not switch branches"
     );
 }
 
@@ -335,7 +346,7 @@ fn rejects_workspace_with_target() {
         .stderr_eq(str![[r#"
 error: the argument '--workspace' cannot be used with '[TARGET]'
 
-Usage: but switch <TARGET|--workspace|--new>
+Usage: but switch --workspace [TARGET]
 
 For more information, try '--help'.
 
@@ -390,12 +401,9 @@ fn switching_to_workspace_creates_workspace_if_necessary() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main] (no commits)
-├╯
-┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
 
-Hint: run `but help` for all commands
+Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
 
@@ -425,7 +433,7 @@ Switched to workspace
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -435,7 +443,7 @@ Hint: run `but branch new` to create a new branch to work on
     assert_data_eq!(
         env.git_log(),
         str![[r#"
-* 6c7afcb (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* be6b55d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -463,7 +471,7 @@ fn switching_back_to_workspace_after_committing_in_single_branch_mode() {
 ┊●   lrm add B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -480,13 +488,13 @@ Hint: run `but help` for all commands
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   ppx two (no changes)
 ┊●   orn one (no changes)
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -528,7 +536,7 @@ Hint: run `but help` for all commands
 ┊●   lrm add B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -611,7 +619,7 @@ Switched to workspace
 ┊│     onv:k A one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -664,7 +672,7 @@ Switched to workspace
 ┊│     owr:o A three
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -698,7 +706,7 @@ Switched to workspace
 ┊●   tqv (no commit message) (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -742,7 +750,7 @@ Switched to workspace
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -757,6 +765,44 @@ Hint: run `but help` for all commands
 
 "#]]
     );
+}
+
+#[test]
+fn switching_back_to_workspace_ignores_deleted_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("switch main").assert().success();
+    // External deletion leaves A in the saved workspace metadata.
+    env.invoke_git("branch -D A");
+
+    // This shouldn't break switching back to the workspace.
+    env.but("switch --workspace")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Switched to workspace
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref HEAD"),
+        "refs/heads/gitbutler/workspace",
+        "restoring with no surviving branches must still check out the workspace"
+    );
+    env.but("status -f")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
 }
 
 #[test]
@@ -781,7 +827,7 @@ Switched to workspace
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -790,7 +836,7 @@ Hint: run `but branch new` to create a new branch to work on
     assert_data_eq!(
         env.git_log(),
         str![[r#"
-* ff4136d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 60080ce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
@@ -814,12 +860,9 @@ fn switching_back_to_workspace_from_main_with_conflicts() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main] (no commits)
-├╯
-┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main, HEAD) 2000-01-02 add M
 
-Hint: run `but help` for all commands
+Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
 
@@ -842,22 +885,108 @@ Error: Uncommitted files would be overwritten by checkout: "one"
 ╭┄ @ [uncommitted]
 ┊   kl A one
 ┊
-┊╭┄ ma [main] (no commits)
-├╯
-┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main, HEAD) 2000-01-02 add M
 
-Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
 
     assert_data_eq!(
         env.git_log(),
         str![[r#"
-* b34435b (gitbutler/workspace) GitButler Workspace Commit
+* bdda79c (gitbutler/workspace) GitButler Workspace Commit
 * 72aceac (one) add one
 * 0dc3733 (HEAD -> main, origin/main, origin/HEAD, gitbutler/target) add M
 
 "#]]
+    );
+}
+
+#[test]
+fn committing_with_empty_workspace_in_single_branch_mode_creates_a_new_branch() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+
+    env.but("commit -m 'my first commit'")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Created commit lsm on new branch 'a-branch-1'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1] [HEAD]
+┊●   lsm my first commit (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* ca6dec0 (HEAD -> a-branch-1) my first commit
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn switching_in_a_linked_worktree_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let wt_dir = super::util::add_dirty_worktree(&env, "wt-feature", "A");
+
+    for command in ["switch B", "switch --workspace"] {
+        env.but(command)
+            .current_dir(&wt_dir)
+            .assert()
+            .failure()
+            .stdout_eq(str![])
+            .stderr_eq(str![[r#"
+Error: Cannot switch from worktree wt-feature
+
+Hint: Run `but switch` from the main worktree
+
+"#]]);
+    }
+
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref HEAD"),
+        "gitbutler/workspace",
+        "the main checkout stays on the workspace"
+    );
+    assert_eq!(
+        env.invoke_git(&format!(
+            "-C '{}' rev-parse --abbrev-ref HEAD",
+            wt_dir.display()
+        )),
+        "wt-feature",
+        "the worktree stays on its branch"
     );
 }

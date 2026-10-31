@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Context as _, anyhow, bail};
-use but_core::ref_metadata::{ProjectMeta, StackId};
+use but_core::ref_metadata::{ProjectMeta, StackId, UnresolvedLegacyTargetRefError};
 use but_db::{VbStack, VbStackHead, VbState, VirtualBranchesSnapshot};
 use gitbutler_reference::{Refname, RemoteRefname};
 use sha2::{Digest, Sha256};
@@ -28,7 +28,13 @@ struct LegacyTarget {
 
 /// Read the project metadata that older versions stored in `virtual_branches.toml` without
 /// opening or migrating the project database.
-pub fn read_legacy_project_meta(path: &Path) -> anyhow::Result<Option<ProjectMeta>> {
+/// Legacy remote targets must resolve to a local tracking branch in `repo`, as
+/// [`but_core::ref_metadata::resolve_local_target`] does. If no local branch or multiple local
+/// branches match, the [`UnresolvedLegacyTargetRefError`] carries the stored cutoff and push remote.
+pub fn read_legacy_project_meta(
+    path: &Path,
+    repo: &gix::Repository,
+) -> anyhow::Result<Option<ProjectMeta>> {
     let content = match std::fs::read_to_string(path) {
         Ok(content) => content,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -38,11 +44,23 @@ pub fn read_legacy_project_meta(path: &Path) -> anyhow::Result<Option<ProjectMet
         return Ok(None);
     };
     let target_commit_id = gix::ObjectId::from_str(&target.sha)?;
+    let target_commit_id = (!target_commit_id.is_null()).then_some(target_commit_id);
+    let remote_target: gix::refs::FullName =
+        format!("refs/remotes/{}/{}", target.remote_name, target.branch_name).try_into()?;
+    let target_ref =
+        match but_core::ref_metadata::resolve_local_target(remote_target.as_ref(), repo) {
+            Ok(target_ref) => target_ref,
+            Err(mut err) => {
+                if let Some(unresolved) = err.downcast_mut::<UnresolvedLegacyTargetRefError>() {
+                    unresolved.target_commit_id = target_commit_id;
+                    unresolved.push_remote = target.push_remote_name;
+                }
+                return Err(err);
+            }
+        };
     Ok(Some(ProjectMeta {
-        target_ref: Some(
-            format!("refs/remotes/{}/{}", target.remote_name, target.branch_name).try_into()?,
-        ),
-        target_commit_id: (!target_commit_id.is_null()).then_some(target_commit_id),
+        target_ref: Some(target_ref),
+        target_commit_id,
         push_remote: target.push_remote_name,
     }))
 }
@@ -80,7 +98,9 @@ pub fn write_virtual_branches_and_sync(path: &Path, vb: &VirtualBranches) -> any
     tx.commit()?;
     // The single choke point for metadata writes, so touching the sentinel here surfaces
     // out-of-process writes. Read-only syncs don't route through here.
-    but_project_handle::write_refresh_sentinel(path);
+    if let Some(storage_dir) = path.parent() {
+        but_project_handle::write_refresh_sentinel(storage_dir);
+    }
     Ok(())
 }
 
@@ -359,7 +379,10 @@ fn legacy_to_snapshot(
         out_stacks.push(VbStack {
             id: stack_id.to_string(),
             source_refname: source_refname.as_ref().map(ToString::to_string),
-            upstream_remote_name: upstream.as_ref().map(|up| up.remote().to_owned()),
+            upstream_remote_name: upstream
+                .as_ref()
+                .and_then(|up| up.remote())
+                .map(|remote| remote.to_owned()),
             upstream_branch_name: upstream.as_ref().map(|up| up.branch().to_owned()),
             sort_order: i64::try_from(*order).context("Stack order exceeds i64")?,
             in_workspace: *in_workspace,

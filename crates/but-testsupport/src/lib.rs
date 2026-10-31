@@ -205,17 +205,32 @@ impl CommandExt for std::process::Command {
     }
 }
 
+fn uncolored_graph(log: std::process::Output) -> String {
+    assert!(log.status.success());
+    let graph = log.stdout.to_str().expect("no illformed UTF-8");
+    regex::Regex::new(r"\x1b\[[0-9;]*m")
+        .unwrap()
+        .replace_all(graph, "")
+        .into_owned()
+}
+
 /// Produce a graph of all commits reachable from `refspec`.
 pub fn visualize_commit_graph(
     repo: &gix::Repository,
     refspec: impl ToString,
 ) -> std::io::Result<String> {
     let log = git(repo)
-        .args(["log", "--oneline", "--graph", "--decorate"])
+        .args([
+            "-c",
+            "log.graphIndent=false",
+            "log",
+            "--oneline",
+            "--graph",
+            "--decorate",
+        ])
         .arg(refspec.to_string())
         .output()?;
-    assert!(log.status.success());
-    Ok(log.stdout.to_str().expect("no illformed UTF-8").to_string())
+    Ok(uncolored_graph(log))
 }
 
 /// Produce a graph of all commits reachable from all refs.
@@ -227,10 +242,17 @@ pub fn visualize_commit_graph_all(repo: &gix::Repository) -> std::io::Result<Str
 /// of a valid Git repository.
 pub fn visualize_commit_graph_all_from_dir(dir: impl AsRef<Path>) -> std::io::Result<String> {
     let log = git_at_dir(dir)
-        .args(["log", "--oneline", "--graph", "--decorate", "--all"])
+        .args([
+            "-c",
+            "log.graphIndent=false",
+            "log",
+            "--oneline",
+            "--graph",
+            "--decorate",
+            "--all",
+        ])
         .output()?;
-    assert!(log.status.success());
-    Ok(log.stdout.to_str().expect("no illformed UTF-8").to_string())
+    Ok(uncolored_graph(log))
 }
 
 /// Run a condensed status on `repo`.
@@ -261,7 +283,7 @@ pub fn visualize_index(index: &gix::index::State) -> String {
         writeln!(
             &mut buf,
             "{mode:o}:{id} {path}{stage}",
-            id = &entry.id.to_hex_with_len(7),
+            id = entry.id.to_hex_with_len(7),
             mode = entry.mode.bits(),
             stage = {
                 let stage = entry.flags.stage();
@@ -286,7 +308,7 @@ pub fn visualize_index_with_content(repo: &gix::Repository, index: &gix::index::
         writeln!(
             &mut buf,
             "{mode:o}:{id} {path} {content:?}",
-            id = &entry.id.to_hex_with_len(7),
+            id = entry.id.to_hex_with_len(7),
             mode = entry.mode.bits(),
             content = repo
                 .find_blob(entry.id)
@@ -551,7 +573,9 @@ pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile:
     repo.config_snapshot_mut()
         .set_raw_value(
             "user.signingKey",
-            gix::path::into_bstr(signing_key_path).as_ref(),
+            gix::path::into_bstr(signing_key_path)
+                .expect("fixture key path is representable")
+                .as_ref(),
         )
         .expect("in-memory values can always be set");
     (repo, tmp)

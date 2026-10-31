@@ -30,7 +30,7 @@ pub struct ProjectSettingsUpdate {
 but_schemars::register_sdk_type!(ProjectSettingsUpdate);
 
 /// Change the stored settings of a project, leaving absent fields as they were.
-#[but_api(napi, invalidates = [Projects])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn update_project_settings(
     project_id: ProjectHandleOrLegacyProjectId,
@@ -48,7 +48,7 @@ pub fn update_project_settings(
 
 /// Adds an existing git repository as a GitButler project.
 /// `path` is the Git repository to remember as project.
-#[but_api(napi, json::AddProjectOutcome, invalidates = [Projects])]
+#[but_api(json::AddProjectOutcome)]
 #[instrument(err(Debug))]
 pub fn add_project(path: String) -> Result<gitbutler_project::AddProjectOutcome> {
     gitbutler_project::add(&path)
@@ -99,7 +99,7 @@ pub fn get_project(
     }
 }
 
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn list_projects_stateless() -> Result<Vec<ProjectForFrontend>> {
     list_projects(vec![])
@@ -161,7 +161,7 @@ pub fn list_projects(
     })
 }
 
-#[but_api(napi, invalidates = [Projects])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn delete_project(project_id: ProjectHandleOrLegacyProjectId) -> Result<()> {
     delete_project_at_app_data_dir(but_path::app_data_dir()?, project_id)
@@ -292,7 +292,7 @@ mod tests {
             gix::init(repo_dir.path())?;
             let project = gitbutler_project::add_at_app_data_dir(&app_data_dir, repo_dir.path())?
                 .unwrap_project();
-            let project_id = project.id.clone();
+            let project_id = project.id;
 
             delete_project_at_app_data_dir(&app_data_dir, project_id.clone())?;
             delete_project_at_app_data_dir(&app_data_dir, project_id.clone())?;

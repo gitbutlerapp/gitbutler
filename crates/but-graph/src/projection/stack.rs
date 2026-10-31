@@ -179,6 +179,25 @@ impl std::fmt::Debug for WorktreeStack {
     }
 }
 
+/// A [`Stack`] or a [`WorktreeStack`], seen as the tip-to-base list of segments either one is.
+#[derive(Debug, Clone, Copy)]
+pub enum Lane<'a> {
+    /// A stack of the workspace.
+    Stack(&'a Stack),
+    /// The history a linked worktree owns.
+    Worktree(&'a WorktreeStack),
+}
+
+impl<'a> Lane<'a> {
+    /// The segments from the tip of the lane down.
+    pub fn segments(&self) -> &'a [StackSegment] {
+        match self {
+            Lane::Stack(stack) => &stack.segments,
+            Lane::Worktree(worktree) => &worktree.segments,
+        }
+    }
+}
+
 /// A typically named set of linearized commits, obtained by first-parent-only traversal.
 ///
 /// Note that this maybe an aggregation of multiple [graph segments](crate::Segment).

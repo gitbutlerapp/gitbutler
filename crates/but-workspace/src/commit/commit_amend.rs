@@ -108,7 +108,7 @@ pub fn commit_amend<'ws, 'meta, M: RefMetadata>(
         context_lines,
     )?;
 
-    editor.replace(target_selector, Step::new_pick(new_commit_id))?;
+    editor.amend_pick(target_selector, new_commit_id)?;
 
     Ok(CommitAmendOutcome {
         rebase: editor.rebase()?,

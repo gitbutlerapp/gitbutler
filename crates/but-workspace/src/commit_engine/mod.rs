@@ -10,9 +10,6 @@ use but_core::{
 use but_rebase::{RebaseOutput, commit::DateMode};
 use gix::prelude::ObjectIdExt as _;
 
-/// Utilities for synchronizing the on-disk index with a tree.
-pub mod index;
-
 /// Types for use in the frontend with serialization support.
 pub mod ui;
 
@@ -165,13 +162,18 @@ pub fn create_commit(
             .detach(),
     };
 
+    let requested = changes.len();
     let CreateTreeOutcome {
         rejected_specs,
         destination_tree,
         changed_tree_pre_cherry_pick,
     } = create_tree(repo, target_tree, changes, context_lines)?;
+    let all_rejected = requested > 0 && rejected_specs.len() == requested;
     let new_commit = if let Some(new_tree) = destination_tree {
         match destination {
+            // With every change rejected, as when each builds on another branch, it would be
+            // empty.
+            Destination::NewCommit { .. } if all_rejected => None,
             Destination::NewCommit {
                 message,
                 parent_commit_id: _,

@@ -50,6 +50,51 @@ fn binary_text_failure() -> anyhow::Result<()> {
         actual.is_none(),
         "any kind of filter failure is ignored for resiliency"
     );
+
+    let mut filter = repo.diff_resource_cache(
+        UnifiedPatch::CONVERSION_MODE,
+        gix::diff::blob::pipeline::WorktreeRoots {
+            old_root: repo.workdir().map(ToOwned::to_owned),
+            new_root: None,
+        },
+    )?;
+    let actual = UnifiedPatch::compute_with_filter(
+        &repo,
+        "file.binary".into(),
+        None,
+        None,
+        ChangeState {
+            id: repo.object_hash().null(),
+            kind: EntryKind::Blob,
+        },
+        3,
+        &mut filter,
+    )?;
+    assert!(
+        actual.is_none(),
+        "filter failures on the previous file are also ignored"
+    );
+    Ok(())
+}
+
+#[test]
+fn file_disappeared_before_diffing() -> anyhow::Result<()> {
+    let repo = crate::diff::worktree_changes::repo("added-modified-in-worktree")?;
+    let actual = UnifiedPatch::compute(
+        &repo,
+        "no-longer-exists".into(),
+        None,
+        ChangeState {
+            id: repo.object_hash().null(),
+            kind: EntryKind::Blob,
+        },
+        None,
+        3,
+    )?;
+    assert!(
+        actual.is_none(),
+        "a file absent from both sides has no diff"
+    );
     Ok(())
 }
 
@@ -274,6 +319,24 @@ fn submodule_added() -> anyhow::Result<()> {
     assert!(
         changes[1].unified_patch(&repo, 3)?.is_none(),
         "submodules produce no diffs"
+    );
+    assert!(
+        UnifiedPatch::compute(
+            &repo,
+            "submodule".into(),
+            None,
+            ChangeState {
+                id: repo.rev_parse_single(":.gitmodules")?.detach(),
+                kind: EntryKind::Blob,
+            },
+            ChangeState {
+                id: repo.rev_parse_single(":submodule")?.detach(),
+                kind: EntryKind::Commit,
+            },
+            3,
+        )?
+        .is_none(),
+        "a submodule in the previous state also prevents diffing a type change"
     );
     Ok(())
 }

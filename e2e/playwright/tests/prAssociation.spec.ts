@@ -32,7 +32,6 @@ test.describe("single-branch mode", () => {
 		gitbutlerOptions: {
 			config: {
 				onboardingComplete: true,
-				featureFlags: { singleBranch: true },
 			},
 		},
 	});

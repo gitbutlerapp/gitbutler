@@ -24,40 +24,13 @@ pub const FILE_EXTENSION_WILDCARD: &str = "*";
 
 /// JSON transport types for programs.
 pub mod json {
-    use super::{ProgramCategory as InternalProgramCategory, ProgramSpec};
+    use super::ProgramSpec;
     use serde::Serialize;
-
-    /// Program category exposed to API clients.
-    #[derive(Clone, Debug, PartialEq, Serialize)]
-    #[serde(rename_all = "camelCase")]
-    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[cfg_attr(feature = "napi", napi_derive::napi(string_enum = "camelCase"))]
-    pub enum ProgramCategory {
-        /// A text editor/IDE.
-        Editor,
-        /// A file manager such as Finder, Explorer or Thunar.
-        FileManager,
-        /// Anything that does not fit another category.
-        Other,
-    }
-
-    impl From<&InternalProgramCategory> for ProgramCategory {
-        fn from(value: &InternalProgramCategory) -> Self {
-            match value {
-                InternalProgramCategory::Editor => Self::Editor,
-                InternalProgramCategory::FileManager => Self::FileManager,
-                InternalProgramCategory::Other => Self::Other,
-                #[cfg(debug_assertions)]
-                InternalProgramCategory::Test => Self::Other,
-            }
-        }
-    }
 
     /// Supported editor configuration for API clients.
     #[derive(Serialize, Clone)]
     #[serde(rename_all = "camelCase")]
     #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[cfg_attr(feature = "napi", napi_derive::napi(object))]
     pub struct Editor {
         /// Identifier used to refer to the editor.
         pub id: String,
@@ -70,34 +43,6 @@ pub mod json {
             Self {
                 id: editor.id.to_string(),
                 name: editor.name.to_string(),
-            }
-        }
-    }
-
-    /// Supported program configuration for API clients.
-    #[derive(Serialize, Clone)]
-    #[serde(rename_all = "camelCase")]
-    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[cfg_attr(feature = "napi", napi_derive::napi(object))]
-    pub struct Program {
-        /// Identifier used to refer to the program.
-        pub id: String,
-        /// Name of the program.
-        pub name: String,
-        /// Category of the program.
-        pub category: ProgramCategory,
-        /// File extensions associated with the program, without leading periods.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub extensions: Option<Vec<String>>,
-    }
-
-    impl From<&ProgramSpec> for Program {
-        fn from(program: &ProgramSpec) -> Self {
-            Self {
-                id: program.id.clone(),
-                name: program.name.clone(),
-                category: (&program.category).into(),
-                extensions: program.extensions.clone(),
             }
         }
     }

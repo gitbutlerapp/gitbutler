@@ -124,3 +124,37 @@ local   ✓ branch-8  ↑1     26y ago    author
 "#]])
         .stderr_eq(snapbox::str![[]]);
 }
+
+/// After unapplying down to one branch, that branch is listed only as applied.
+#[test]
+fn single_branch_mode_lists_checked_out_branch_only_as_applied() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.invoke_bash(
+        r#"
+    git checkout main -b feature-branch;
+    git commit -m 'Add feature' --allow-empty;
+    git checkout gitbutler/workspace;
+        "#,
+    );
+    env.but("apply feature-branch").assert().success();
+    env.but("unapply feature-branch").assert().success();
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref HEAD"),
+        "A",
+        "unapplying down to one branch checks that branch out"
+    );
+
+    env.but("branch list")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Applied branches
+active  ✓ *A          26y ago    author
+
+Unapplied Branches
+local   ✓ feature-branch ↑1     26y ago    author
+
+"#]])
+        .stderr_eq(snapbox::str![[]]);
+}

@@ -688,7 +688,7 @@ fn branch_details(request: BranchDetailsRequest) -> Result<BranchDetailsView> {
     let last_updated_at = commits.iter().map(|commit| commit.committed_at).max();
     let is_conflicted = commits.iter().any(|commit| commit.has_conflicts);
     let details = BranchSelectionDetails {
-        name: branch_name.to_owned(),
+        name: branch_name,
         reference: request.branch,
         remote_tracking_branch: reference
             .status
@@ -828,13 +828,21 @@ impl ForgeRepository {
     fn from_context(ctx: &but_ctx::Context) -> Result<Self> {
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let remote_url = project_meta.remote_url_with_fallback(&repo)?;
-        let repository = but_forge::derive_forge_repo_info(&remote_url)
+        let remote_url = project_meta.target_remote_url(&repo)?;
+        #[cfg(feature = "legacy")]
+        let override_forge = ctx
+            .legacy_project
+            .forge_override
+            .as_deref()
+            .and_then(but_forge::ForgeName::from_override_str);
+        #[cfg(not(feature = "legacy"))]
+        let override_forge = None;
+        let repository = but_forge::derive_forge_repo_info(&remote_url, override_forge.clone())
             .context("Could not determine a supported forge for this repository")?;
         let accounts = but_forge::get_all_forge_accounts()
             .inspect_err(|err| tracing::warn!("failed to load forge accounts: {err:#}"))
             .unwrap_or_default();
-        let display = but_forge::forge_info(&remote_url, &accounts)
+        let display = but_forge::forge_info(&remote_url, &accounts, override_forge)
             .context("Could not determine forge display information")?;
         let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
         #[cfg(feature = "legacy")]
@@ -883,6 +891,7 @@ impl ForgeRepository {
                 &self.repository,
                 &self.storage,
                 reference,
+                None,
                 db,
                 Some(but_forge::CacheConfig::NoCache),
             )
@@ -1280,7 +1289,7 @@ mod tests {
         assert!(
             WORKSPACE_HTML.contains("font-family:Inter")
                 && WORKSPACE_HTML.contains("font-family:Geist Mono"),
-            "Lite's UI fonts are embedded in the app"
+            "the UI fonts are embedded in the app"
         );
     }
 
@@ -1390,14 +1399,15 @@ mod tests {
         assert!(
             REVIEW_HTML.contains("font-family:Inter")
                 && REVIEW_HTML.contains("font-family:Geist Mono"),
-            "Lite's UI fonts are embedded in the app"
+            "the UI fonts are embedded in the app"
         );
     }
 
     #[test]
     fn review_card_maps_forge_review_state_and_actions() {
-        let forge = but_forge::forge_info("https://github.com/gitbutlerapp/gitbutler.git", &[])
-            .expect("GitHub is a supported forge");
+        let forge =
+            but_forge::forge_info("https://github.com/gitbutlerapp/gitbutler.git", &[], None)
+                .expect("GitHub is a supported forge");
         let mut review = forge_review_fixture();
 
         let draft = ReviewCard::from_review(review.clone(), &forge, ReviewCi::no_checks());

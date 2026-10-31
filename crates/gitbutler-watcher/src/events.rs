@@ -26,16 +26,22 @@ pub enum Change {
     WorkspaceActivity {
         project_id: ProjectHandleOrLegacyProjectId,
     },
-    /// Emitted when another process writes the invalidation sentinel: a mutation of its made
-    /// cache tags stale. Carries the tag names as the SDK spells them.
-    ExternalInvalidation {
-        project_id: ProjectHandleOrLegacyProjectId,
-        tags: Vec<String>,
-    },
     /// Emitted after worktree files or the index change. Carries freshly computed file diffs
     /// together with hunk assignment and dependency information.
     WorktreeChanges {
         project_id: ProjectHandleOrLegacyProjectId,
+        changes: but_hunk_assignment::WorktreeChanges,
+        /// The paths of the files that changed.
+        ///
+        /// This will be empty if the index changed.
+        changed_paths: Arc<[PathBuf]>,
+    },
+    /// Emitted after the files or the index of a linked worktree change. Carries its freshly
+    /// computed file diffs, which have neither hunk assignments nor dependencies.
+    LinkedWorktreeChanges {
+        project_id: ProjectHandleOrLegacyProjectId,
+        /// The name of the linked worktree, i.e. its directory name under `$GIT_COMMON_DIR/worktrees/`.
+        worktree: String,
         changes: but_hunk_assignment::WorktreeChanges,
         /// The paths of the files that changed.
         ///

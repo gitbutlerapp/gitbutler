@@ -28,6 +28,8 @@ export class AssignmentDropHandler implements DropzoneHandler {
 	accepts(data: unknown) {
 		if (data instanceof FileChangeDropData || data instanceof FolderChangeDropData) {
 			if (data.isCommitted) return false;
+			// A linked worktree's changes can't be assigned to stacks.
+			if (data.selectionId.worktree !== undefined) return false;
 			if (data.stackId === this.stackId) return false;
 			return true;
 		}

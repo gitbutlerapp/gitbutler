@@ -1,7 +1,8 @@
 import { assertBranch, createNewBranch, deleteBranch, unapplyStack } from "../src/branch.ts";
 import { expect } from "../src/expect.ts";
 import { startFakeGitHubServer, type FakeGitHubServer } from "../src/fakeGithub.ts";
-import { applyUpstream, getButlerPort, openWorkspace, type GitButler } from "../src/setup.ts";
+import { storeFakeGitHubEnterprisePat } from "../src/forge.ts";
+import { applyUpstream, openWorkspace, type GitButler } from "../src/setup.ts";
 import { test } from "../src/test.ts";
 import {
 	clickByTestId,
@@ -50,21 +51,6 @@ async function syncAndIntegrate(page: Page) {
 	await waitForTestId(page, "branch-integration-apply-button");
 	await clickByTestId(page, "branch-integration-apply-button");
 	await waitForTestIdToNotExist(page, "branch-integration-modal");
-}
-
-async function storeFakeGitHubEnterprisePat(page: Page, fakeGitHub: FakeGitHubServer) {
-	const response = await page.request.post(
-		`http://localhost:${getButlerPort()}/store_github_enterprise_pat`,
-		{
-			data: {
-				host: fakeGitHub.apiBaseUrl,
-				accessToken: "fake-token",
-			},
-		},
-	);
-	expect(response.ok()).toBe(true);
-	const body = await response.json();
-	expect(body.type).toBe("success");
 }
 
 function git(pathToRepo: string, args: string[]): string {
@@ -201,7 +187,6 @@ test.describe("GitHub review apply", () => {
 			gitbutlerOptions: {
 				config: {
 					onboardingComplete: true,
-					featureFlags: { singleBranch: true },
 				},
 			},
 		});

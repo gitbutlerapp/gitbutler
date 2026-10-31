@@ -1,0 +1,54 @@
+import preview from "#storybook/preview";
+import { ConflictIcon } from "./ConflictIcon.tsx";
+
+const meta = preview.meta({
+	title: "Content & status/ConflictIcon",
+	id: "components-conflicticon",
+	component: ConflictIcon,
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2134-5924",
+		},
+	},
+	argTypes: {
+		variant: {
+			control: "select",
+			options: ["conflict", "plus", "minus"],
+		},
+		size: {
+			control: { type: "range", min: 8, max: 128, step: 4 },
+		},
+	},
+	args: {
+		variant: "conflict",
+		size: 16,
+	},
+});
+
+export const Default = meta.story({
+	args: {
+		variant: "conflict",
+		size: 16,
+	},
+});
+
+export const AllVariants = meta.story({
+	args: {
+		variant: "conflict",
+		size: 16,
+	},
+	render: (args) => (
+		<div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+			{(["conflict", "plus", "minus"] as const).map((variant) => (
+				<div
+					key={variant}
+					style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}
+				>
+					<ConflictIcon variant={variant} size={args.size} />
+					<span style={{ fontSize: 11, opacity: 0.5 }}>{variant}</span>
+				</div>
+			))}
+		</div>
+	),
+});

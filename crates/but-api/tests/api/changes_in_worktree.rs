@@ -11,7 +11,6 @@ fn ctx_with_active_worktree() -> Result<(but_ctx::Context, tempfile::TempDir, te
     let (repo, tmp) = repo_with_feature_branch()?;
     let linked = checkout_branch_in_linked_worktree(tmp.path(), "feature")?;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-    ctx.settings.feature_flags.worktree_manipulation = true;
     but_api::worktrees::worktree_set_archived(&mut ctx, "wt".into(), false)?;
     Ok((ctx, tmp, linked))
 }
@@ -39,6 +38,10 @@ fn worktree_source_reads_the_linked_checkout() -> Result<()> {
         .map(|change| change.path.clone())
         .collect();
     assert_eq!(paths, ["file.txt"]);
+    assert!(
+        changes.assignments.is_empty(),
+        "assignments are computed only on request"
+    );
 
     let repo = ctx.repo.get()?;
     let wt_repo = but_workspace::worktrees::open_worktree_repo(&repo, "wt".into())?;
@@ -52,7 +55,7 @@ fn worktree_source_reads_the_linked_checkout() -> Result<()> {
 }
 
 #[test]
-fn worktree_source_ignores_the_computation_flag() -> Result<()> {
+fn worktree_source_has_unassigned_hunks_and_no_dependencies() -> Result<()> {
     let (ctx, _tmp, linked) = ctx_with_active_worktree()?;
     write_file(&linked.path().join("wt"), "file.txt", "linked change\n")?;
 
@@ -65,33 +68,17 @@ fn worktree_source_ignores_the_computation_flag() -> Result<()> {
     )?;
 
     assert_eq!(changes.worktree_changes.changes.len(), 1);
-    // Assignment and dependencies are workspace concepts; a linked worktree is not in
-    // the workspace, so asking for them yields nothing and persists nothing.
-    assert!(changes.assignments.is_empty());
+    let [assignment] = changes.assignments.as_slice() else {
+        panic!("one hunk, one assignment: {:?}", changes.assignments);
+    };
+    assert_eq!(assignment.path, "file.txt");
+    assert!(
+        assignment.hunk_header.is_some() && assignment.stack_id.is_none(),
+        "a linked worktree isn't in the workspace, so its hunks are all unassigned"
+    );
     assert!(changes.assignments_error.is_none());
     assert!(changes.dependencies.is_none());
     assert!(changes.dependencies_error.is_none());
-    Ok(())
-}
-
-#[test]
-fn worktree_source_requires_the_feature_flag() -> Result<()> {
-    let (mut ctx, _tmp, _linked) = ctx_with_active_worktree()?;
-    ctx.settings.feature_flags.worktree_manipulation = false;
-
-    let guard = ctx.shared_worktree_access();
-    let err = but_api::diff::changes_in_worktree_with_perm(
-        &ctx,
-        ChangesSource::Worktree("wt".into()),
-        false,
-        guard.read_permission(),
-    )
-    .unwrap_err();
-    assert!(
-        err.to_string()
-            .contains("worktree manipulation is not enabled"),
-        "{err}"
-    );
     Ok(())
 }
 

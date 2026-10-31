@@ -112,7 +112,7 @@ impl SurfacedHunks {
 /// When `dry_run` is enabled, the returned workspace previews the result
 /// without materializing the rewrite or persisting an oplog entry.
 /// See [`commit_uncommit_only_with_perm()`] for details.
-#[but_api(napi, try_from = crate::commit::json::UncommitResult)]
+#[but_api(try_from = crate::commit::json::UncommitResult)]
 #[instrument(err(Debug))]
 pub fn commit_uncommit(
     ctx: &mut but_ctx::Context,
@@ -227,22 +227,26 @@ pub fn commit_uncommit_only_with_perm(
                 )
             })?;
 
-    let (workspace, replaced_commits, repo, meta, db) = if dry_run.into() {
+    let (workspace, replaced_commits, conflicted_commits, repo, meta, db) = if dry_run.into() {
         let graph = rebase.overlayed_graph()?;
         let replaced_commits = rebase.history.commit_mappings();
+        let conflicted_commits = rebase.history.conflicted_commits.clone();
         let (repo, meta, db) = rebase.repo_meta_and_db_mut();
         (
             &mut graph.into_workspace()?,
             replaced_commits,
+            conflicted_commits,
             repo,
             meta,
             db,
         )
     } else {
-        let materialized = rebase.materialize_without_checkout()?;
+        rebase.keep_worktrees_unchanged()?;
+        let materialized = rebase.materialize(Default::default())?;
         (
             materialized.workspace,
             materialized.history.commit_mappings(),
+            materialized.history.conflicted_commits,
             &*repo,
             materialized.meta,
             materialized.db,
@@ -260,6 +264,7 @@ pub fn commit_uncommit_only_with_perm(
             meta,
             repo,
             replaced_commits,
+            conflicted_commits,
             db,
         )?,
     })
@@ -323,22 +328,26 @@ pub fn commit_uncommit_changes_only_with_perm(
     let mut outcome =
         but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
 
-    let (workspace, replaced_commits, repo, meta, db) = if dry_run.into() {
+    let (workspace, replaced_commits, conflicted_commits, repo, meta, db) = if dry_run.into() {
         let graph = outcome.rebase.overlayed_graph()?;
         let replaced_commits = outcome.rebase.history.commit_mappings();
+        let conflicted_commits = outcome.rebase.history.conflicted_commits.clone();
         let (repo, meta, db) = outcome.rebase.repo_meta_and_db_mut();
         (
             &mut graph.into_workspace()?,
             replaced_commits,
+            conflicted_commits,
             repo,
             meta,
             db,
         )
     } else {
-        let materialized = outcome.rebase.materialize_without_checkout()?;
+        outcome.rebase.keep_worktrees_unchanged()?;
+        let materialized = outcome.rebase.materialize(Default::default())?;
         (
             materialized.workspace,
             materialized.history.commit_mappings(),
+            materialized.history.conflicted_commits,
             &*repo,
             materialized.meta,
             materialized.db,
@@ -355,6 +364,7 @@ pub fn commit_uncommit_changes_only_with_perm(
             meta,
             repo,
             replaced_commits,
+            conflicted_commits,
             db,
         )?,
     })
@@ -365,7 +375,7 @@ pub fn commit_uncommit_changes_only_with_perm(
 /// When `dry_run` is enabled, the returned workspace previews the extracted
 /// changes and no oplog entry is persisted. See
 /// [`commit_uncommit_changes_with_perm()`] for details.
-#[but_api(napi, try_from = crate::commit::json::MoveChangesResult)]
+#[but_api(try_from = crate::commit::json::MoveChangesResult)]
 #[instrument(err(Debug))]
 pub fn commit_uncommit_changes(
     ctx: &mut but_ctx::Context,
@@ -492,32 +502,50 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
         .collect::<Vec<_>>();
 
     let mut rebase = outcome.rebase;
-    let (workspace, replaced_commits, repo, meta, db) = if dry_run.into() {
+    let (workspace, replaced_commits, conflicted_commits, repo, meta, db) = if dry_run.into() {
         if let Some(rebase) = rebase.as_mut() {
             let graph = rebase.overlayed_graph()?;
             let replaced_commits = rebase.history.commit_mappings();
+            let conflicted_commits = rebase.history.conflicted_commits.clone();
             let (repo, meta, db) = rebase.repo_meta_and_db_mut();
             (
                 &mut graph.into_workspace()?,
                 replaced_commits,
+                conflicted_commits,
                 repo,
                 meta,
                 db,
             )
         } else {
-            (&mut *ws, BTreeMap::new(), &*repo, &mut meta, &mut *db)
+            (
+                &mut ws,
+                BTreeMap::new(),
+                Vec::new(),
+                &*repo,
+                &mut meta,
+                &mut *db,
+            )
         }
-    } else if let Some(rebase) = rebase {
-        let materialized = rebase.materialize_without_checkout()?;
+    } else if let Some(mut rebase) = rebase {
+        rebase.keep_worktrees_unchanged()?;
+        let materialized = rebase.materialize(Default::default())?;
         (
             materialized.workspace,
             materialized.history.commit_mappings(),
+            materialized.history.conflicted_commits,
             &*repo,
             materialized.meta,
             materialized.db,
         )
     } else {
-        (&mut *ws, BTreeMap::new(), &*repo, &mut meta, &mut *db)
+        (
+            &mut ws,
+            BTreeMap::new(),
+            Vec::new(),
+            &*repo,
+            &mut meta,
+            &mut *db,
+        )
     };
 
     if let Some(surfaced) = surfaced {
@@ -530,6 +558,7 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
             meta,
             repo,
             replaced_commits,
+            conflicted_commits,
             db,
         )?,
         failures,
@@ -538,10 +567,7 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
 
 /// Uncommit specific changes from multiple commits and record an oplog
 /// snapshot on success.
-#[but_api(
-    napi,
-    try_from = crate::commit::json::UncommitChangesFromCommitsResult
-)]
+#[but_api(try_from = crate::commit::json::UncommitChangesFromCommitsResult)]
 #[instrument(err(Debug))]
 pub fn commit_uncommit_changes_from_commits(
     ctx: &mut but_ctx::Context,

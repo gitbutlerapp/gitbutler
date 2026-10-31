@@ -8,11 +8,10 @@ The main applications are found in the `apps` directory:
 
 - `desktop` containing the Tauri application's frontend code
 - `web` containing the web application's frontend code
-- `lite` containing the Electron/React desktop app
 
 Rust code is found in the `crates` directory. It contains `gitbutler-tauri` for
-the Tauri application, `but-api` for the API surface used by Tauri, Electron,
-CLI, and TUI callers, and the `but` CLI crate.
+the Tauri application, `but-api` for the API surface used by Tauri, CLI,
+and TUI callers, and the `but` CLI crate.
 
 The `packages` directory contains different self-contained npm packages.
 These are shared between the applications.
@@ -43,9 +42,8 @@ tests.
 ### Prerequisites
 
 1. **Rust**: as specified in `rust-toolchain.toml`. Install via rustup.
-2. **Node.js**: as specified in `package.json`. Use the version in `.nvmrc` (lts/krypton, which resolves to Node 24).
-3. **pnpm**: as specified in `package.json`. Enabled via corepack. Run `corepack enable` in the project root.
-4. **System Dependencies**: Tauri requires platform-specific dependencies (see DEVELOPMENT.md for details).
+2. **pnpm**: Install standalone pnpm as described in [DEVELOPMENT.md](../DEVELOPMENT.md#prerequisites).
+3. **System Dependencies**: Tauri requires platform-specific dependencies (see DEVELOPMENT.md for details).
 
 ### Initial Setup
 
@@ -54,10 +52,7 @@ tests.
 git clone https://github.com/gitbutlerapp/gitbutler.git
 cd gitbutler
 
-# Enable pnpm via corepack
-corepack enable
-
-# Install dependencies
+# Install dependencies and the project-managed Node.js runtime
 pnpm install
 
 # Build Rust binaries (required before running the app)
@@ -291,18 +286,6 @@ pnpm install
 
 # Clear Rust build artifacts
 cargo clean
-```
-
-### Node/pnpm Issues
-
-```bash
-# Use correct Node version
-nvm install
-nvm use
-
-# Ensure pnpm is via corepack
-corepack enable
-corepack prepare pnpm@10.17.0 --activate
 ```
 
 ### Platform-Specific Issues

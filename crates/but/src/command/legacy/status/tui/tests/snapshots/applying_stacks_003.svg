@@ -2,6 +2,7 @@
   <rect x="0" y="0" width="820" height="380" fill="#000000" />
   <rect x="10" y="10" width="144" height="18" fill="#45475A" />
   <rect x="674" y="10" width="136" height="18" fill="#45475A" />
+  <rect x="178" y="28" width="8" height="18" fill="#CCCCCC" />
   <rect x="162" y="46" width="504" height="18" fill="#45475A" />
   <rect x="10" y="352" width="72" height="18" fill="#AA00AA" />
   <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">

@@ -5,8 +5,9 @@ pub struct Command {
     /// stack with unpushed commits.
     #[clap(value_name = "BRANCH")]
     pub branch_id: Option<String>,
-    /// Force push even if it's not fast-forward
-    #[clap(long, short = 'f', default_value_t = true)]
+    /// Force push even if it's not fast-forward. Always on; the flag is kept for
+    /// compatibility.
+    #[clap(long, short = 'f', default_value_t = true, hide = true)]
     pub with_force: bool,
     /// Skip force push protection checks
     #[clap(long, short = 's')]

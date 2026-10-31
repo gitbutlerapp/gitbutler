@@ -27,7 +27,7 @@ git commit -m "update foo.txt (remote)"
 git push origin HEAD:feature-foo
 
 git checkout main
-"$BUT" setup
+"$BUT" switch --workspace
 "$BUT" apply feature-foo
 "$BUT" branch new empty-branch
 popd

@@ -37,7 +37,10 @@
 	const unassignedChanges = $derived(uncommittedService.getChangesByStackId(null));
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
-	const isCommitting = $derived(exclusiveAction?.type === "commit");
+	// A linked worktree's commit takes nothing from the main checkout.
+	const isCommitting = $derived(
+		exclusiveAction?.type === "commit" && exclusiveAction.worktree === undefined,
+	);
 
 	let multiDiffView = $state<MultiDiffView>();
 	let startIndex = $state(0);

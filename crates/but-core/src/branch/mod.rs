@@ -9,7 +9,10 @@ mod normalize;
 pub use normalize::normalize_short_name;
 
 mod generate;
-pub use generate::{canned_refname, find_unique_refname, unique_canned_refname};
+pub use generate::{
+    canned_refname, find_unique_refname, find_unique_refname_excluding, refuse_colliding_refname,
+    unique_canned_refname,
+};
 
 /// Resolve the remote-tracking ref that corresponds to a local branch ref.
 ///

@@ -44,7 +44,7 @@ export default class BaseBranchService {
 			},
 			{
 				transform: (data) => {
-					return data ? parseRemoteUrl(data.remoteUrl) : undefined;
+					return data ? parseRemoteUrl(data.remoteUrl ?? undefined) : undefined;
 				},
 			},
 		);
@@ -58,7 +58,7 @@ export default class BaseBranchService {
 			{
 				transform: (data) => {
 					const baseBranch = data as BaseBranch | undefined;
-					return baseBranch ? parseRemoteUrl(baseBranch.pushRemoteUrl) : undefined;
+					return baseBranch ? parseRemoteUrl(baseBranch.pushRemoteUrl ?? undefined) : undefined;
 				},
 			},
 		);
@@ -96,6 +96,10 @@ export default class BaseBranchService {
 
 	get switchBackToWorkspace() {
 		return this.backendApi.endpoints.switchBackToWorkspace.useMutation();
+	}
+
+	localTargetBranches(projectId: string) {
+		return this.backendApi.endpoints.localTargetBranches.useQuery({ projectId });
 	}
 
 	remoteBranches(projectId: string) {

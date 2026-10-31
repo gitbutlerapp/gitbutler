@@ -60,34 +60,31 @@ impl RefInfo {
         repo: &gix::Repository,
         expensive: bool,
     ) -> anyhow::Result<()> {
-        let topmost_target_sidx = self
-            .target_ref
+        let upstream_ref = graph.project_meta.remote_target_ref(repo)?;
+        let upstream_segment = upstream_ref
             .as_ref()
-            .map(|t| t.segment_index)
-            .or(self.target_commit.as_ref().map(|t| t.segment_index));
+            .and_then(|name| graph.segment_by_ref_name(name.as_ref()));
         let mut upstream_commits = Vec::new();
-        let Some(target_tip) = topmost_target_sidx else {
-            // Without any notion of 'target' we can't do anything here.
-            self.compute_pushstatus(graph);
-            return Ok(());
-        };
-        let lower_bound_generation = self.lower_bound.map(|sidx| graph[sidx].generation);
-        graph.visit_all_segments_including_start_until(
-            target_tip,
-            but_graph::petgraph::Direction::Outgoing,
-            |s| {
-                let prune = true;
-                if Some(s.id) == self.lower_bound
-                    || lower_bound_generation.is_some_and(|generation| s.generation > generation)
-                {
-                    return prune;
-                }
-                for c in &s.commits {
-                    upstream_commits.push(c.id);
-                }
-                !prune
-            },
-        );
+        if let Some(upstream_segment) = upstream_segment {
+            let lower_bound_generation = self.lower_bound.map(|sidx| graph[sidx].generation);
+            graph.visit_all_segments_including_start_until(
+                upstream_segment.id,
+                but_graph::petgraph::Direction::Outgoing,
+                |s| {
+                    let prune = true;
+                    if Some(s.id) == self.lower_bound
+                        || lower_bound_generation
+                            .is_some_and(|generation| s.generation > generation)
+                    {
+                        return prune;
+                    }
+                    for c in &s.commits {
+                        upstream_commits.push(c.id);
+                    }
+                    !prune
+                },
+            );
+        }
 
         let cost_info = (
             upstream_commits.len(),

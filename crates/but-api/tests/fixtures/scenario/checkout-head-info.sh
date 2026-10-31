@@ -39,6 +39,7 @@ cat <<EOF >>.git/config
 	url = ./fake/local/path/which-is-fine-as-we-dont-fetch-or-push
 	fetch = +refs/heads/*:refs/remotes/origin/*
 EOF
+git branch --set-upstream-to=origin/main main
 
 git checkout -b feature
 commit_file feature.txt feature "feature"

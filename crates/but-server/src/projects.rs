@@ -77,10 +77,6 @@ impl ActiveProjects {
                         name: format!("project://{project_id}/workspace-activity"),
                         payload: serde_json::json!({}),
                     },
-                    Change::ExternalInvalidation { project_id, tags } => FrontendEvent {
-                        name: format!("project://{project_id}/external-invalidation"),
-                        payload: serde_json::json!({ "tags": tags }),
-                    },
                     Change::WorktreeChanges {
                         project_id,
                         ref changes,
@@ -88,6 +84,15 @@ impl ActiveProjects {
                     } => FrontendEvent {
                         name: format!("project://{project_id}/worktree_changes"),
                         payload: serde_json::json!(&changes),
+                    },
+                    Change::LinkedWorktreeChanges {
+                        project_id,
+                        ref worktree,
+                        ref changes,
+                        changed_paths: _,
+                    } => FrontendEvent {
+                        name: format!("project://{project_id}/linked_worktree_changes"),
+                        payload: serde_json::json!({ "worktree": worktree, "changes": changes }),
                     },
                 };
 
@@ -107,7 +112,7 @@ impl ActiveProjects {
             handler,
             ctx.workdir_or_fail()?,
             ctx.legacy_project.id.clone(),
-            app_settings_sync.clone(),
+            app_settings_sync,
             watch_mode,
         )?;
 

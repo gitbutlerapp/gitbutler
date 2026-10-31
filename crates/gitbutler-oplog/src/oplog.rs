@@ -46,7 +46,11 @@ const BRANCH_ORDER_FILE: &str = "branch_order.toml";
 struct SnapshotProjectMeta {
     #[serde(skip_serializing_if = "Option::is_none")]
     target_ref: Option<String>,
-    target_commit_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    target_commit_id: Option<String>,
+    /// Captured cutoff when metadata leaves it unset. Older snapshots use target_commit_id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    resolved_target_commit_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     push_remote: Option<String>,
 }
@@ -68,48 +72,66 @@ struct SnapshotTarget {
     push_remote_name: Option<String>,
 }
 
-impl TryFrom<&ProjectMeta> for SnapshotProjectMeta {
-    type Error = anyhow::Error;
-
-    fn try_from(meta: &ProjectMeta) -> Result<Self> {
-        let target_commit_id = meta.target_commit_id_or_err()?;
-        if target_commit_id.is_null() {
+impl SnapshotProjectMeta {
+    fn new(
+        meta: &ProjectMeta,
+        resolved_target_commit_id: gix::ObjectId,
+    ) -> Result<SnapshotProjectMeta> {
+        if resolved_target_commit_id.is_null()
+            || meta.target_commit_id.is_some_and(|id| id.is_null())
+        {
             bail!("cannot snapshot a null target commit id");
         }
-        Ok(Self {
+        Ok(SnapshotProjectMeta {
             target_ref: meta.target_ref.as_ref().map(ToString::to_string),
-            target_commit_id: target_commit_id.to_string(),
+            target_commit_id: meta.target_commit_id.map(|id| id.to_string()),
+            resolved_target_commit_id: meta
+                .target_commit_id
+                .is_none()
+                .then(|| resolved_target_commit_id.to_string()),
             push_remote: meta.push_remote.clone(),
         })
     }
-}
 
-impl TryFrom<SnapshotProjectMeta> for ProjectMeta {
-    type Error = anyhow::Error;
-
-    fn try_from(meta: SnapshotProjectMeta) -> Result<Self> {
-        let target_ref = meta
+    fn try_into_project_meta(self, repo: &gix::Repository) -> Result<(ProjectMeta, gix::ObjectId)> {
+        let target_ref = self
             .target_ref
             .map(|name| {
                 let name: gix::refs::FullName = name
                     .try_into()
                     .context("invalid targetRef in project_meta.toml")?;
-                if name.category() != Some(gix::refs::Category::RemoteBranch) {
-                    bail!("targetRef in project_meta.toml is not a remote-tracking branch");
-                }
-                Ok(name)
+                but_core::ref_metadata::resolve_local_target(name.as_ref(), repo)
+                    .context("failed to resolve targetRef in project_meta.toml")
             })
             .transpose()?;
-        let target_commit_id = gix::ObjectId::from_str(&meta.target_commit_id)
+        let target_commit_id = self
+            .target_commit_id
+            .as_deref()
+            .map(gix::ObjectId::from_str)
+            .transpose()
             .context("invalid targetCommitId in project_meta.toml")?;
-        if target_commit_id.is_null() {
+        if target_commit_id.is_some_and(|id| id.is_null()) {
             bail!("targetCommitId in project_meta.toml is null");
         }
-        Ok(Self {
-            target_ref,
-            target_commit_id: Some(target_commit_id),
-            push_remote: meta.push_remote,
-        })
+        let resolved_target_commit_id = self
+            .resolved_target_commit_id
+            .as_deref()
+            .map(gix::ObjectId::from_str)
+            .transpose()
+            .context("invalid resolvedTargetCommitId in project_meta.toml")?
+            .or(target_commit_id)
+            .context("snapshot has no captured target commit")?;
+        if resolved_target_commit_id.is_null() {
+            bail!("resolvedTargetCommitId in project_meta.toml is null");
+        }
+        Ok((
+            ProjectMeta {
+                target_ref,
+                target_commit_id,
+                push_remote: self.push_remote,
+            },
+            resolved_target_commit_id,
+        ))
     }
 }
 
@@ -122,6 +144,11 @@ impl TryFrom<SnapshotProjectMeta> for ProjectMeta {
 /// ├── checkout/ (ad-hoc checkouts only)
 /// │   ├── commit
 /// │   └── ref
+/// ├── additional-refs/ (ad-hoc graph refs and explicitly preserved refs)
+/// │   └── [index]/
+/// │       ├── name
+/// │       ├── target (absent if the ref did not exist)
+/// │       └── checked-out-elsewhere (an explicitly preserved ref another worktree had checked out)
 /// ├── conflicts/…
 /// ├── index/
 /// ├── index-conflicts/…
@@ -140,14 +167,17 @@ impl TryFrom<SnapshotProjectMeta> for ProjectMeta {
 /// ```
 pub trait OplogExt {
     /// Prepares a snapshot of the current state of the working directory as well as GitButler data.
+    /// For ad-hoc checkouts, also preserves local branch refs in the checkout's graph.
     /// Returns a tree hash of the snapshot. The snapshot is not discoverable until it is committed with [`commit_snapshot`](Self::commit_snapshot())
     /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
     fn prepare_snapshot(&self, perm: &RepoShared) -> Result<gix::ObjectId>;
 
-    /// Like [`prepare_snapshot`](Self::prepare_snapshot), additionally preserving one reference.
-    fn prepare_snapshot_with_ref(
+    /// Like [`prepare_snapshot`](Self::prepare_snapshot), additionally preserving `ref_names`.
+    /// If another worktree has one of them checked out, restoring moves it there too and leaves
+    /// that worktree's files alone.
+    fn prepare_snapshot_with_refs(
         &self,
-        ref_name: &gix::refs::FullNameRef,
+        ref_names: &[&gix::refs::FullNameRef],
         perm: &RepoShared,
     ) -> Result<gix::ObjectId>;
 
@@ -238,12 +268,12 @@ impl OplogExt for Context {
         prepare_snapshot(self, perm)
     }
 
-    fn prepare_snapshot_with_ref(
+    fn prepare_snapshot_with_refs(
         &self,
-        ref_name: &gix::refs::FullNameRef,
+        ref_names: &[&gix::refs::FullNameRef],
         perm: &RepoShared,
     ) -> Result<gix::ObjectId> {
-        prepare_snapshot_with_target_and_ref(self, perm, Some(ref_name))
+        prepare_snapshot_with_target_and_refs(self, perm, ref_names, ref_names)
             .map(|snapshot| snapshot.tree_id)
     }
 
@@ -253,8 +283,8 @@ impl OplogExt for Context {
         details: SnapshotDetails,
         perm: &mut RepoExclusive,
     ) -> Result<gix::ObjectId> {
-        let target = self.project_meta()?.target_commit_id_or_err()?;
         let repo = self.repo.get()?;
+        let (_, _, _, target) = snapshot_metadata(&repo.find_tree(snapshot_tree_id)?, &repo)?;
         commit_snapshot(self, &repo, snapshot_tree_id, details, perm, target)
     }
 
@@ -347,11 +377,21 @@ impl OplogExt for Context {
             Some(child_id) => tree_from_applied_vbranches(&repo, child_id)?,
             None => {
                 // This is the oplog head (most recent snapshot). The operation has
-                // completed but no subsequent snapshot exists yet, so diff against the
-                // current workspace commit tree.
-                let workspace_ref: &gix::refs::FullNameRef = WORKSPACE_REF_NAME.try_into()?;
-                let ws_commit = repo.find_reference(workspace_ref)?.peel_to_commit()?;
-                ws_commit.tree_id()?.detach()
+                // completed but no subsequent snapshot exists yet, so diff against what's
+                // checked out now: a branch checked out on its own, or else the workspace
+                // commit, which a commit being edited goes back to.
+                let own_branch = repo
+                    .head_name()?
+                    .filter(|name| !is_gitbutler_branch(name.as_ref()));
+                let commit = match own_branch {
+                    Some(_) => repo.head_commit()?,
+                    None => {
+                        let workspace_ref: &gix::refs::FullNameRef =
+                            WORKSPACE_REF_NAME.try_into()?;
+                        repo.find_reference(workspace_ref)?.peel_to_commit()?
+                    }
+                };
+                commit.tree_id()?.detach()
             }
         };
 
@@ -390,8 +430,8 @@ fn get_workdir_tree(
     {
         let worktree_id = get_v3_workdir_tree(snapshot_commit.tree()?)?.context(format!(
             "no entry at 'worktree' on sha {:?}, version: {:?}",
-            &snapshot_commit.id(),
-            &details.version,
+            snapshot_commit.id(),
+            details.version,
         ))?;
         return Ok(worktree_id);
     }
@@ -461,14 +501,34 @@ fn write_index_trees(ctx: &Context) -> Result<IndexTrees> {
     })
 }
 
+/// Write the index from `tree_id`, keeping the stat of entries that are unchanged from
+/// `previous`, like `git reset` does. Without it, every later status would read and hash
+/// every tracked file to learn that it didn't change.
 fn reset_index_to_tree(
     ctx: &Context,
     tree_id: gix::ObjectId,
     conflicts_tree_id: Option<gix::ObjectId>,
+    previous: &gix::index::State,
 ) -> Result<()> {
     let repo = ctx.repo.get()?;
     let tree = repo.find_tree(tree_id)?;
     let mut index = repo.index_from_tree(&tree.id())?;
+    let stat_options = repo.stat_options()?;
+    for (entry, path) in index.entries_mut_with_paths() {
+        let Some(prev) = previous
+            .entry_by_path_and_stage(path, Stage::Unconflicted)
+            .filter(|prev| prev.id == entry.id && prev.mode == entry.mode)
+        else {
+            continue;
+        };
+        // A sparse checkout's files outside it stay marked, or they'd show as deleted.
+        if prev.flags.contains(Flags::SKIP_WORKTREE) {
+            entry.flags |= Flags::EXTENDED | Flags::SKIP_WORKTREE;
+        }
+        if !prev.stat.is_racy(previous.timestamp(), stat_options) {
+            entry.stat = prev.stat;
+        }
+    }
     if let Some(conflicts_tree_id) = conflicts_tree_id {
         restore_index_conflicts(&mut index, repo.find_tree(conflicts_tree_id)?.id())?;
     }
@@ -527,6 +587,12 @@ struct PreparedSnapshot {
     target_base_oid: gix::ObjectId,
 }
 
+/// Whether `name` is a branch GitButler checks out itself: its workspace, or the branch a
+/// commit being edited is checked out on.
+fn is_gitbutler_branch(name: &gix::refs::FullNameRef) -> bool {
+    name.as_bstr().starts_with(b"refs/heads/gitbutler/")
+}
+
 /// The branch checkout to restore from a snapshot.
 ///
 /// Snapshots created outside the managed workspace branch store this explicitly. Managed workspace
@@ -542,23 +608,42 @@ struct SnapshotCheckout {
 struct SnapshotReference {
     ref_name: gix::refs::FullName,
     target: Option<gix::ObjectId>,
+    /// Another worktree had `ref_name` checked out, so restoring may move it there.
+    checked_out_elsewhere: bool,
+}
+
+fn snapshot_references(
+    snapshot_tree: &gix::Tree<'_>,
+    repo: &gix::Repository,
+) -> Result<Vec<SnapshotReference>> {
+    let mut references = Vec::new();
+    // Older snapshots stored just one additional reference.
+    if let Some(entry) = snapshot_tree.lookup_entry_by_path("additional-ref")? {
+        references.push(snapshot_reference(&repo.find_tree(entry.id())?, repo)?);
+    }
+    if let Some(entry) = snapshot_tree.lookup_entry_by_path("additional-refs")? {
+        for entry in repo.find_tree(entry.id())?.iter() {
+            references.push(snapshot_reference(&repo.find_tree(entry?.id())?, repo)?);
+        }
+    }
+    Ok(references)
 }
 
 fn snapshot_reference(
-    snapshot_tree: &gix::Tree<'_>,
+    reference_tree: &gix::Tree<'_>,
     repo: &gix::Repository,
-) -> Result<Option<SnapshotReference>> {
-    let Some(name_entry) = snapshot_tree.lookup_entry_by_path("additional-ref/name")? else {
-        return Ok(None);
-    };
+) -> Result<SnapshotReference> {
+    let name_entry = reference_tree
+        .lookup_entry_by_path("name")?
+        .context("snapshot additional ref has no name")?;
     let name_blob = repo.find_blob(name_entry.id())?;
     let ref_name = gix::refs::FullName::try_from(name_blob.data.as_bstr())
         .context("snapshot additional ref is invalid")?;
     if ref_name.category() != Some(gix::refs::Category::LocalBranch) {
         bail!("snapshot additional ref is not a local branch");
     }
-    let target = snapshot_tree
-        .lookup_entry_by_path("additional-ref/target")?
+    let target = reference_tree
+        .lookup_entry_by_path("target")?
         .map(|entry| {
             let blob = repo.find_blob(entry.id())?;
             gix::ObjectId::from_hex(&blob.data).context("snapshot additional ref target is invalid")
@@ -567,7 +652,14 @@ fn snapshot_reference(
     if target.is_some_and(|target| target.is_null()) {
         bail!("snapshot additional ref target is null");
     }
-    Ok(Some(SnapshotReference { ref_name, target }))
+    let checked_out_elsewhere = reference_tree
+        .lookup_entry_by_path("checked-out-elsewhere")?
+        .is_some();
+    Ok(SnapshotReference {
+        ref_name,
+        target,
+        checked_out_elsewhere,
+    })
 }
 
 fn snapshot_checkout(
@@ -609,6 +701,7 @@ fn snapshot_metadata(
     ProjectMeta,
     VirtualBranches,
     Option<but_db::BranchOrderSnapshot>,
+    gix::ObjectId,
 )> {
     let vb_toml_entry = snapshot_tree
         .lookup_entry_by_path("virtual_branches.toml")?
@@ -624,7 +717,9 @@ fn snapshot_metadata(
     )
     .context("failed to parse virtual_branches.toml")?;
 
-    let project_meta = match snapshot_tree.lookup_entry_by_path(PROJECT_META_FILE)? {
+    let (project_meta, resolved_target_commit_id) = match snapshot_tree
+        .lookup_entry_by_path(PROJECT_META_FILE)?
+    {
         Some(entry) => {
             let blob = repo
                 .find_blob(entry.id())
@@ -632,30 +727,33 @@ fn snapshot_metadata(
             let stored: SnapshotProjectMeta =
                 toml::from_str(from_utf8(&blob.data).context("project_meta.toml is not UTF-8")?)
                     .context("failed to parse project_meta.toml")?;
-            stored.try_into()?
+            stored.try_into_project_meta(repo)?
         }
         None => {
             let target = default_target
                 .as_ref()
                 .context("snapshot has neither project_meta.toml nor a legacy default target")?;
-            ProjectMeta {
-                target_ref: Some(
-                    format!(
-                        "refs/remotes/{remote}/{branch}",
-                        remote = target.remote_name,
-                        branch = target.branch_name
-                    )
-                    .try_into()?,
-                ),
-                target_commit_id: Some(
-                    gix::ObjectId::from_str(&target.sha)
-                        .context("invalid legacy default target sha")?,
-                ),
-                push_remote: target.push_remote_name.clone(),
-            }
+            let remote_target: gix::refs::FullName = format!(
+                "refs/remotes/{remote}/{branch}",
+                remote = target.remote_name,
+                branch = target.branch_name
+            )
+            .try_into()?;
+            let target_commit_id = gix::ObjectId::from_str(&target.sha)
+                .context("invalid legacy default target sha")?;
+            (
+                ProjectMeta {
+                    target_ref: Some(but_core::ref_metadata::resolve_local_target(
+                        remote_target.as_ref(),
+                        repo,
+                    )?),
+                    target_commit_id: Some(target_commit_id),
+                    push_remote: target.push_remote_name.clone(),
+                },
+                target_commit_id,
+            )
         }
     };
-    project_meta.target_commit_id_or_err()?;
     let branch_order = snapshot_tree
         .lookup_entry_by_path(BRANCH_ORDER_FILE)?
         .map(|entry| -> Result<_> {
@@ -672,7 +770,12 @@ fn snapshot_metadata(
             Ok(snapshot)
         })
         .transpose()?;
-    Ok((project_meta, virtual_branches, branch_order))
+    Ok((
+        project_meta,
+        virtual_branches,
+        branch_order,
+        resolved_target_commit_id,
+    ))
 }
 
 mod legacy_virtual_branches {
@@ -776,13 +879,17 @@ fn prepare_snapshot_with_target(
     ctx: &Context,
     shared_access: &RepoShared,
 ) -> Result<PreparedSnapshot> {
-    prepare_snapshot_with_target_and_ref(ctx, shared_access, None)
+    prepare_snapshot_with_target_and_refs(ctx, shared_access, &[], &[])
 }
 
-fn prepare_snapshot_with_target_and_ref(
+/// Like [`prepare_snapshot_with_target`], additionally preserving `explicit_refs`. Those of
+/// `movable_elsewhere` that another worktree has checked out are marked, so restoring may
+/// move them there.
+fn prepare_snapshot_with_target_and_refs(
     ctx: &Context,
     shared_access: &RepoShared,
-    additional_ref: Option<&gix::refs::FullNameRef>,
+    explicit_refs: &[&gix::refs::FullNameRef],
+    movable_elsewhere: &[&gix::refs::FullNameRef],
 ) -> Result<PreparedSnapshot> {
     let repo = ctx.repo.get()?;
     let empty_tree_id = repo.empty_tree().id;
@@ -791,7 +898,7 @@ fn prepare_snapshot_with_target_and_ref(
 
     // Grab the target once so every representation in this snapshot agrees.
     let project_meta = ctx.project_meta()?;
-    let default_target_commit_id = project_meta.target_commit_id_or_err()?;
+    let default_target_commit_id = project_meta.resolve_target_commit(&repo)?;
     let target_tree_id = repo
         .find_commit(default_target_commit_id)?
         .tree_id()?
@@ -815,30 +922,23 @@ fn prepare_snapshot_with_target_and_ref(
     snapshot_tree.upsert("target_tree", EntryKind::Tree, target_tree_id)?;
     snapshot_tree.upsert("conflicts", EntryKind::Tree, conflicts_tree_id)?;
     snapshot_tree.upsert("virtual_branches", EntryKind::Tree, empty_tree_id)?;
-    let project_meta_blob = repo.write_blob(toml::to_string(&SnapshotProjectMeta::try_from(
+    let project_meta_blob = repo.write_blob(toml::to_string(&SnapshotProjectMeta::new(
         &project_meta,
+        default_target_commit_id,
     )?)?)?;
     snapshot_tree.upsert(PROJECT_META_FILE, EntryKind::Blob, project_meta_blob)?;
     let branch_order = ctx.db.get_cache()?.branch_order().get_snapshot()?;
     let branch_order_blob = repo.write_blob(toml::to_string(&branch_order)?.as_bytes())?;
     snapshot_tree.upsert(BRANCH_ORDER_FILE, EntryKind::Blob, branch_order_blob)?;
 
-    if let Some(ref_name) = additional_ref {
-        snapshot_tree.upsert(
-            "additional-ref/name",
-            EntryKind::Blob,
-            repo.write_blob(ref_name.as_bstr())?,
-        )?;
-        if let Some(reference) = repo.try_find_reference(ref_name)? {
-            snapshot_tree.upsert(
-                "additional-ref/target",
-                EntryKind::Blob,
-                repo.write_blob(reference.id().to_string().as_bytes())?,
-            )?;
-        }
-    }
-
+    let mut additional_refs: BTreeSet<_> = explicit_refs
+        .iter()
+        .map(|name| (*name).to_owned())
+        .collect();
     let mut head = repo.head()?;
+    let head_is_ad_hoc = head
+        .referent_name()
+        .is_some_and(|name| name.as_bstr() != WORKSPACE_REF_NAME);
     if let Some(head_ref) = head
         .referent_name()
         .filter(|head_ref| head_ref.as_bstr() != WORKSPACE_REF_NAME)
@@ -864,6 +964,30 @@ fn prepare_snapshot_with_target_and_ref(
         } else {
             ctx.workspace_from_head_uncached(shared_access)?
         };
+        if head_is_ad_hoc {
+            // Ad-hoc refs aren't represented by applied legacy stacks. Capture both
+            // named segments and refs on commits, just as the graph editor does.
+            // Reuse the graph above unless it describes a separate managed workspace.
+            let head_workspace = workspace_ref_exists
+                .then(|| ctx.workspace_from_head_uncached(shared_access))
+                .transpose()?;
+            let graph = &head_workspace.as_ref().unwrap_or(&ws).graph;
+            for id in graph.segments() {
+                let segment = &graph[id];
+                for name in segment.ref_name().into_iter().chain(
+                    segment
+                        .commits
+                        .iter()
+                        .flat_map(|commit| commit.ref_name_iter().map(|name| name.as_ref())),
+                ) {
+                    if name.category() == Some(gix::refs::Category::LocalBranch)
+                        && name.as_bstr() != WORKSPACE_REF_NAME
+                    {
+                        additional_refs.insert(name.to_owned());
+                    }
+                }
+            }
+        }
         // Open this read-only so there is no write-back, there should be no side-effects when
         // preparing a snapshot.
         let mut legacy_meta = but_meta::VirtualBranchesTomlMetadata::from_path_read_only(
@@ -923,6 +1047,37 @@ fn prepare_snapshot_with_target_and_ref(
 
         toml::to_string(legacy_meta.data())?
     };
+
+    for (index, ref_name) in additional_refs.iter().enumerate() {
+        let mut reference_tree = snapshot_tree.cursor_at(format!("additional-refs/{index}"))?;
+        reference_tree.upsert(
+            "name",
+            EntryKind::Blob,
+            repo.write_blob(ref_name.as_bstr())?,
+        )?;
+        if let Some(reference) = repo.try_find_reference(ref_name.as_ref())? {
+            reference_tree.upsert(
+                "target",
+                EntryKind::Blob,
+                repo.write_blob(reference.id().to_string().as_bytes())?,
+            )?;
+            // Only the caller knows that its operation leaves the other worktree's files
+            // alone, so refs picked up from the graph aren't marked.
+            if movable_elsewhere.contains(&ref_name.as_ref())
+                && but_core::branch::SafeDelete::new(&repo)?
+                    .worktree_dirs_with_ref(&reference)
+                    .is_some_and(|dirs| {
+                        dirs.iter().any(|dir| Some(dir.as_path()) != repo.workdir())
+                    })
+            {
+                reference_tree.upsert(
+                    "checked-out-elsewhere",
+                    EntryKind::Blob,
+                    repo.write_blob(b"")?,
+                )?;
+            }
+        }
+    }
 
     let vb_blob_id = repo.write_blob(vb_content.as_bytes())?;
     snapshot_tree.upsert("virtual_branches.toml", EntryKind::Blob, vb_blob_id)?;
@@ -1038,39 +1193,124 @@ fn restore_snapshot(
     // Use a separate repo without caching so we are sure the 'has commit' checks pick up all changes.
     let repo = ctx.repo.get()?;
     let snapshot_commit = repo.find_commit(snapshot_commit_id)?;
-    let snapshot_tree = snapshot_commit.tree()?;
+    let gix_repo = ctx.clone_repo_for_merging()?;
+    let workdir_tree_id = get_workdir_tree(None, snapshot_commit_id, &gix_repo)?;
+    let (before_restore_snapshot_tree_id, restored_target) = restore_snapshot_tree(
+        ctx,
+        snapshot_commit.tree_id()?.detach(),
+        workdir_tree_id,
+        exclusive_access,
+    )?;
+
+    let restored_operation = snapshot_commit
+        .message_raw()?
+        .to_str()
+        .ok()
+        .and_then(|msg| SnapshotDetails::from_str(msg).ok())
+        .map(|d| d.operation)
+        .unwrap_or(OperationKind::Unknown);
+
+    let restored_date_ms = snapshot_commit.time()?.seconds * 1000;
+    let operation = match restore_kind {
+        RestoreKind::RestoreFromSnapshotViaUndo => OperationKind::RestoreFromSnapshotViaUndo,
+        RestoreKind::RestoreFromSnapshotViaRedo => OperationKind::RestoreFromSnapshotViaRedo,
+        RestoreKind::ExplicitRestoreFromSnapshot => OperationKind::RestoreFromSnapshot,
+    };
+    let details = SnapshotDetails {
+        version: Default::default(),
+        operation,
+        title: operation.as_persisted_str().to_owned(),
+        body: None,
+        trailers: Vec::from([
+            Trailer::RestoredFrom(snapshot_commit_id),
+            Trailer::RestoredOperation(restored_operation),
+            Trailer::RestoredDate(restored_date_ms),
+        ]),
+    };
+    commit_snapshot(
+        ctx,
+        &repo,
+        before_restore_snapshot_tree_id,
+        details,
+        exclusive_access,
+        restored_target,
+    )
+}
+
+/// Restore a current-format tree returned by `OplogExt::prepare_snapshot` without
+/// adding an undo/redo entry. Intended for rolling back an unsuccessful mutation.
+pub fn restore_checkpoint(
+    ctx: &mut Context,
+    tree_id: gix::ObjectId,
+    perm: &mut RepoExclusive,
+) -> Result<()> {
+    let workdir_tree_id = {
+        let repo = ctx.repo.get()?;
+        get_v3_workdir_tree(repo.find_tree(tree_id)?)?
+            .context("rollback checkpoint is missing its worktree")?
+    };
+    restore_snapshot_tree(ctx, tree_id, workdir_tree_id, perm)?;
+    ctx.reload_repo_and_invalidate_workspace(perm)?;
+    Ok(())
+}
+
+fn restore_snapshot_tree(
+    ctx: &Context,
+    tree_id: gix::ObjectId,
+    workdir_tree_id: gix::ObjectId,
+    exclusive_access: &mut RepoExclusive,
+) -> Result<(gix::ObjectId, gix::ObjectId)> {
+    let repo = ctx.repo.get()?;
+    let snapshot_tree = repo.find_tree(tree_id)?;
     // Validate all metadata formats before creating the before-restore snapshot or mutating the
     // worktree, refs, config, TOML, or database.
-    let (restored_project_meta, restored_virtual_branches, restored_branch_order) =
+    let (restored_project_meta, restored_virtual_branches, restored_branch_order, restored_target) =
         snapshot_metadata(&snapshot_tree, &repo)?;
     let restored_checkout = snapshot_checkout(&snapshot_tree, &repo)?;
-    let restored_reference = snapshot_reference(&snapshot_tree, &repo)?;
-    let restored_target = restored_project_meta.target_commit_id_or_err()?;
+    let restored_references = snapshot_references(&snapshot_tree, &repo)?;
     let restored_vb_toml = toml::to_string(&restored_virtual_branches)?;
 
-    if let Some(reference) = restored_reference.as_ref()
-        && let Some(current_reference) = repo.try_find_reference(reference.ref_name.as_ref())?
-        && current_reference.target().try_id().map(ToOwned::to_owned) != reference.target
-        && let Some(dirs) =
-            but_core::branch::SafeDelete::new(&repo)?.worktree_dirs_with_ref(&current_reference)
-    {
-        bail!(
-            "Cannot restore branch '{}' because it is checked out in worktrees: {dirs:?}",
-            reference.ref_name.shorten()
-        );
+    for reference in &restored_references {
+        // A worktree that had the ref checked out when the snapshot was taken gets it moved
+        // back with its files as they are.
+        if !reference.checked_out_elsewhere
+            && let Some(current_reference) = repo.try_find_reference(reference.ref_name.as_ref())?
+            && current_reference.target().try_id().map(ToOwned::to_owned) != reference.target
+            && let Some(dirs) =
+                but_core::branch::SafeDelete::new(&repo)?.worktree_dirs_with_ref(&current_reference)
+        {
+            // This worktree is restored below; other worktrees must not be disturbed.
+            let dirs: Vec<_> = dirs
+                .iter()
+                .filter(|dir| Some(dir.as_path()) != repo.workdir())
+                .collect();
+            if !dirs.is_empty() {
+                bail!(
+                    "Cannot restore branch '{}' because it is checked out in worktrees: {dirs:?}",
+                    reference.ref_name.shorten()
+                );
+            }
+        }
     }
 
-    let before_restore_snapshot_tree_id = match restored_reference.as_ref() {
-        Some(reference) => {
-            prepare_snapshot_with_target_and_ref(
-                ctx,
-                exclusive_access.read_permission(),
-                Some(reference.ref_name.as_ref()),
-            )?
-            .tree_id
-        }
-        None => prepare_snapshot(ctx, exclusive_access.read_permission())?,
-    };
+    // Preserve the same refs for redo, even if they are no longer in HEAD's graph,
+    // and let redo move only those undo was allowed to move in another worktree.
+    let reference_names: Vec<_> = restored_references
+        .iter()
+        .map(|reference| reference.ref_name.as_ref())
+        .collect();
+    let movable_elsewhere: Vec<_> = restored_references
+        .iter()
+        .filter(|reference| reference.checked_out_elsewhere)
+        .map(|reference| reference.ref_name.as_ref())
+        .collect();
+    let before_restore_snapshot_tree_id = prepare_snapshot_with_target_and_refs(
+        ctx,
+        exclusive_access.read_permission(),
+        &reference_names,
+        &movable_elsewhere,
+    )?
+    .tree_id;
     let before_restore_snapshot_workdir_tree_id =
         get_v3_workdir_tree(repo.find_tree(before_restore_snapshot_tree_id)?)?
             .context("Could not get workdir tree of snapshot created before the restore")?;
@@ -1152,16 +1392,15 @@ fn restore_snapshot(
     });
 
     let head = repo.head()?;
-    let head_ref = head
-        .referent_name()
-        .context("We will not change a worktree in detached HEAD state")?;
+    let head_ref = head.referent_name();
     // Snapshots with neither checkout identity nor a workspace commit retain the old guard.
-    if restored_checkout.is_none() && head_ref != workspace_ref {
+    if restored_checkout.is_none() && head_ref != Some(workspace_ref) {
         bail!("cannot restore a snapshot without checkout identity outside the workspace branch");
     }
 
     let gix_repo = ctx.clone_repo_for_merging()?;
-    let workdir_tree_id = get_workdir_tree(None, snapshot_commit_id, &gix_repo)?;
+    // The checkout below rewrites the index, so keep the stat it has now for the final index.
+    let index_before_checkout = repo.index_or_empty()?;
 
     // Check out the snapshot's worktree while HEAD still points at the pre-restore commit:
     // safe_checkout diffs from `before_restore_snapshot_workdir_tree_id`, so
@@ -1220,7 +1459,7 @@ fn restore_snapshot(
             legacy_virtual_branches::set_reference_to_stored_head(branch, &gix_repo).ok();
         }
     }
-    if let Some(reference) = restored_reference {
+    for reference in restored_references {
         match reference.target {
             Some(target) => {
                 repo.reference(
@@ -1246,7 +1485,12 @@ fn restore_snapshot(
     let index_conflicts_tree_id = snapshot_tree
         .lookup_entry_by_path("index-conflicts")?
         .map(|entry| entry.id().detach());
-    reset_index_to_tree(ctx, index_tree_entry.id().detach(), index_conflicts_tree_id)?;
+    reset_index_to_tree(
+        ctx,
+        index_tree_entry.id().detach(),
+        index_conflicts_tree_id,
+        &index_before_checkout,
+    )?;
 
     if let Some(checkout) = restored_checkout {
         if checkout.ref_name != workspace_ref {
@@ -1269,41 +1513,7 @@ fn restore_snapshot(
         }
     }
 
-    let restored_operation = snapshot_commit
-        .message_raw()?
-        .to_str()
-        .ok()
-        .and_then(|msg| SnapshotDetails::from_str(msg).ok())
-        .map(|d| d.operation)
-        .unwrap_or(OperationKind::Unknown);
-
-    // create new snapshot
-    let restored_date_ms = snapshot_commit.time()?.seconds * 1000;
-    let operation = match restore_kind {
-        RestoreKind::RestoreFromSnapshotViaUndo => OperationKind::RestoreFromSnapshotViaUndo,
-        RestoreKind::RestoreFromSnapshotViaRedo => OperationKind::RestoreFromSnapshotViaRedo,
-        RestoreKind::ExplicitRestoreFromSnapshot => OperationKind::RestoreFromSnapshot,
-    };
-    let details = SnapshotDetails {
-        version: Default::default(),
-        operation,
-        title: operation.as_persisted_str().to_owned(),
-        body: None,
-        trailers: Vec::from([
-            Trailer::RestoredFrom(snapshot_commit_id),
-            Trailer::RestoredOperation(restored_operation),
-            Trailer::RestoredDate(restored_date_ms),
-        ]),
-    };
-    let repo = ctx.repo.get()?;
-    commit_snapshot(
-        ctx,
-        &repo,
-        before_restore_snapshot_tree_id,
-        details,
-        exclusive_access,
-        restored_target,
-    )
+    Ok((before_restore_snapshot_tree_id, restored_target))
 }
 
 /// Restore the state of .git/base_merge_parent and .git/conflicts from the snapshot
@@ -1377,8 +1587,7 @@ fn deserialize_commit(commit_tree_id: gix::Id) -> Result<gix::ObjectId> {
     let commit_blob = repo
         .find_blob(commit_blob_entry.id())
         .context("failed to convert commit tree entry to blob")?;
-    repo.write_buf(gix::object::Kind::Commit, &commit_blob.data)
-        .map_err(anyhow::Error::from_boxed)
+    Ok(repo.write_buf(gix::object::Kind::Commit, &commit_blob.data)?)
 }
 
 /// Creates a tree that is the merge of all applied branches from a given snapshot and returns the tree id.
@@ -1390,6 +1599,14 @@ fn tree_from_applied_vbranches(
     let snapshot_commit = repo.find_commit(snapshot_commit_id)?;
     let snapshot_tree = snapshot_commit.tree()?;
 
+    // A branch checked out on its own keeps the managed workspace aside in the snapshot, as
+    // it was when last used: what was checked out is the commit recorded with the branch.
+    // Not so a commit being edited, which goes back into the workspace.
+    if let Some(checkout) = snapshot_checkout(&snapshot_tree, repo)?
+        && !is_gitbutler_branch(checkout.ref_name.as_ref())
+    {
+        return Ok(repo.find_commit(checkout.commit_id)?.tree_id()?.detach());
+    }
     // Prefer the workspace commit tree over the worktree tree.
     // The worktree tree captures the entire working directory state (including uncommitted
     // and untracked files), so diffing consecutive worktree trees shows all file changes
@@ -1408,8 +1625,7 @@ fn tree_from_applied_vbranches(
         .context("no entry at 'target_entry'")?;
     let target_tree_id = target_tree_entry.id().detach();
 
-    let (project_meta, vbs_from_toml, _) = snapshot_metadata(&snapshot_tree, repo)?;
-    let default_target_oid = project_meta.target_commit_id_or_err()?;
+    let (_, vbs_from_toml, _, default_target_oid) = snapshot_metadata(&snapshot_tree, repo)?;
     let applied_branch_trees: Vec<_> = legacy_virtual_branches::in_workspace_stacks(&vbs_from_toml)
         .map(|stack| {
             let head_oid =

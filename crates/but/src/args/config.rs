@@ -88,7 +88,9 @@ pub enum Subcommands {
     /// View or set the target branch.
     ///
     /// Without arguments, displays the current target branch.
-    /// With a branch name, sets the target branch.
+    ///
+    /// With a branch name, sets the target branch. Local branches take precedence;
+    /// remote-tracking branches resolve to their local tracking branch.
     ///
     /// ## Examples
     ///
@@ -101,16 +103,19 @@ pub enum Subcommands {
     /// Set target branch:
     ///
     /// ```text
-    /// but config target origin/main
+    /// but config target main
     /// ```
     ///
     /// Set a target branch and push branches to a fork:
     ///
     /// ```text
-    /// but config target upstream/main --push-remote origin
+    /// but config target main --push-remote origin
     /// ```
+    ///
+    /// Assumes main tracks upstream/main and origin points to your fork.
     Target {
-        /// New target branch to set (e.g., "origin/main")
+        /// Local or remote-tracking branch (e.g., "main" or "origin/main").
+        /// Use refs/heads/... or refs/remotes/... to disambiguate.
         branch: Option<String>,
         /// Remote to push branches to (e.g., "origin" for a fork).
         #[clap(long, value_name = "REMOTE", requires = "branch")]
@@ -183,12 +188,6 @@ pub enum Subcommands {
     ///
     /// ```text
     /// but config feature
-    /// ```
-    ///
-    /// Enable single-branch mode:
-    ///
-    /// ```text
-    /// but config feature single-branch enable
     /// ```
     Feature {
         /// Feature flag to view or update.
@@ -390,22 +389,15 @@ pub enum MetricsStatus {
 
 /// Feature flags that can be managed through `but config feature`.
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
-pub enum FeatureFlag {
-    /// Enable single-branch mode.
-    SingleBranch,
-}
+pub enum FeatureFlag {}
 
 impl FeatureFlag {
     pub fn as_str(self) -> &'static str {
-        match self {
-            FeatureFlag::SingleBranch => "single-branch",
-        }
+        match self {}
     }
 
     pub fn as_json_key(self) -> &'static str {
-        match self {
-            FeatureFlag::SingleBranch => "single_branch",
-        }
+        match self {}
     }
 }
 

@@ -9,12 +9,13 @@ use tracing::instrument;
 pub fn extract_interactive_login_shell_environment() -> Option<Vec<(OsString, OsString)>> {
     // NOTE that `SHELL` isn't usually set on Windows, so this will not usually run there.
     let shell_path: PathBuf = std::env::var_os("SHELL")?.into();
-    let stdout = std::process::Command::from(
+    let stdout = std::process::Command::try_from(
         // This automatically prevents a Window from popping up on Windows.
         gix::command::prepare(shell_path)
             .args(["-i", "-l", "-c", "env"])
             .stderr(Stdio::null()),
     )
+    .ok()?
     .output()
     .ok()?
     .stdout;
@@ -32,10 +33,13 @@ fn parse_key_value_pairs<'a>(input: impl Into<&'a BStr>) -> Vec<(OsString, OsStr
         let (key, value) = (tokens.next(), tokens.next());
         match (key, value) {
             (Some(key), Some(value)) => {
-                out.push((
-                    gix::path::from_byte_slice(key).into(),
-                    gix::path::from_byte_slice(value).into(),
-                ));
+                let kv = (
+                    gix::path::from_byte_slice(key),
+                    gix::path::from_byte_slice(value),
+                );
+                if let (Ok(key), Ok(value)) = kv {
+                    out.push((key.into(), value.into()));
+                }
             }
             _ => continue,
         }

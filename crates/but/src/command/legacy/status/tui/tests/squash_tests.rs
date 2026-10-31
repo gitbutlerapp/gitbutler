@@ -1,9 +1,12 @@
 use but_testsupport::Sandbox;
 use crossterm::event::KeyCode;
-use snapbox::file;
+use snapbox::{file, str};
 
 use crate::{
-    command::legacy::status::tui::{backstack::BackstackEntry, tests::utils::test_status_tui},
+    command::legacy::status::tui::{
+        backstack::BackstackEntry,
+        tests::utils::{commit_with_two_hunks_in_file, test_status_tui},
+    },
     tui::test_utils::Shift,
 };
 
@@ -587,48 +590,164 @@ fn squash_one_commit_into_branch_tip() {
 }
 
 #[test]
-fn switch_from_squash_mode_to_branch_mode() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+fn squash_marked_committed_hunks_to_commit() {
+    let mut tui = commit_with_two_hunks_in_file();
 
-    let mut tui = test_status_tui(env);
-
+    // mark the bottom hunk of `file` and the only hunk of `other`
+    tui.input('d');
+    tui.input('l');
     tui.input('j');
-    tui.input('r').assert_rendered_term_svg_eq(file![
-        "snapshots/switch_from_squash_mode_to_branch_mode_001.svg"
-    ]);
-    tui.input('b').assert_rendered_term_svg_eq(file![
-        "snapshots/switch_from_squash_mode_to_branch_mode_002.svg"
-    ]);
-    tui.input(KeyCode::Esc);
-
-    tui.input('j').assert_rendered_term_svg_eq(file![
-        "snapshots/switch_from_squash_mode_to_branch_mode_003.svg"
-    ]);
-    tui.input('r').assert_rendered_term_svg_eq(file![
-        "snapshots/switch_from_squash_mode_to_branch_mode_004.svg"
-    ]);
-    tui.input('b').assert_rendered_term_svg_eq(file![
-        "snapshots/switch_from_squash_mode_to_branch_mode_005.svg"
-    ]);
-
-    tui.input(KeyCode::Esc);
-    tui.input('k');
-    tui.input('r').assert_rendered_term_svg_eq(file![
-        "snapshots/switch_from_squash_mode_to_branch_mode_006.svg"
-    ]);
-    tui.input('j').assert_rendered_term_svg_eq(file![
-        "snapshots/switch_from_squash_mode_to_branch_mode_007.svg"
-    ]);
-    tui.input('b').assert_rendered_term_svg_eq(file![
-        "snapshots/switch_from_squash_mode_to_branch_mode_008.svg"
-    ]);
-
+    tui.input('j');
     tui.input(' ');
+    tui.input(' ');
+
     tui.input('r').assert_rendered_term_svg_eq(file![
-        "snapshots/switch_from_squash_mode_to_branch_mode_009.svg"
+        "snapshots/squash_marked_committed_hunks_to_commit_001.svg"
     ]);
-    tui.input('b').assert_rendered_term_svg_eq(file![
-        "snapshots/switch_from_squash_mode_to_branch_mode_010.svg"
+    tui.input('j');
+    tui.input('u').assert_rendered_term_svg_eq(file![
+        "snapshots/squash_marked_committed_hunks_to_commit_002.svg"
     ]);
+
+    // the marked hunks are squashed into the commit below
+    tui.input(KeyCode::Enter)
+        .assert_marks_count_eq(0)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/squash_marked_committed_hunks_to_commit_003.svg"
+        ]);
+
+    // only the top hunk of `file` is left in the source commit
+    tui.input('k').assert_rendered_term_svg_eq(file![
+        "snapshots/squash_marked_committed_hunks_to_commit_004.svg"
+    ]);
+}
+
+#[test]
+fn uncommit_marked_committed_hunks() {
+    let mut tui = commit_with_two_hunks_in_file();
+
+    // mark the bottom hunk of `file` and the only hunk of `other`
+    tui.input('d');
+    tui.input('l');
+    tui.input('j');
+    tui.input('j');
+    tui.input(' ');
+    tui.input(' ');
+
+    tui.input('r');
+    tui.input('k');
+    tui.input('k')
+        .assert_rendered_term_svg_eq(file!["snapshots/uncommit_marked_committed_hunks_001.svg"]);
+
+    // the marked hunks become uncommitted changes
+    tui.input(KeyCode::Enter)
+        .assert_marks_count_eq(0)
+        .assert_rendered_term_svg_eq(file!["snapshots/uncommit_marked_committed_hunks_002.svg"]);
+
+    // only the top hunk of `file` is left in the source commit
+    tui.input('j');
+    tui.input('j');
+    tui.input('j');
+    tui.input('j')
+        .assert_current_line_eq(str!["┊●   qxn (no commit message)[..]"])
+        .assert_rendered_term_svg_eq(file!["snapshots/uncommit_marked_committed_hunks_003.svg"]);
+}
+
+#[test]
+fn squash_marked_committed_hunks_from_status() {
+    let mut tui = commit_with_two_hunks_in_file();
+
+    // mark the bottom hunk of `file` and the only hunk of `other`, then go back to the status
+    tui.input('d');
+    tui.input('l');
+    tui.input('j');
+    tui.input('j');
+    tui.input(' ');
+    tui.input(' ');
+    tui.input('h');
+
+    tui.input('r').assert_rendered_term_svg_eq(file![
+        "snapshots/squash_marked_committed_hunks_from_status_001.svg"
+    ]);
+    tui.input('j');
+    tui.input('u');
+
+    // the marked hunks are squashed into the commit below
+    tui.input(KeyCode::Enter)
+        .assert_marks_count_eq(0)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/squash_marked_committed_hunks_from_status_002.svg"
+        ]);
+}
+
+#[test]
+fn squash_committed_hunk_under_cursor_from_details() {
+    let mut tui = commit_with_two_hunks_in_file();
+
+    // select the bottom hunk of `file` without marking it
+    tui.input('d');
+    tui.input('l');
+    tui.input('j');
+    tui.input('j');
+
+    tui.input('r').assert_rendered_term_svg_eq(file![
+        "snapshots/squash_committed_hunk_under_cursor_from_details_001.svg"
+    ]);
+    tui.input('j');
+    tui.input('u');
+
+    // only the selected hunk is squashed into the commit below
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/squash_committed_hunk_under_cursor_from_details_002.svg"
+    ]);
+    tui.input('k').assert_rendered_term_svg_eq(file![
+        "snapshots/squash_committed_hunk_under_cursor_from_details_003.svg"
+    ]);
+}
+
+#[test]
+fn squash_marked_committed_hunks_to_branch() {
+    let mut tui = commit_with_two_hunks_in_file();
+
+    // commit `third` to a new branch stacked on top to squash into
+    tui.input('k');
+    tui.input('b');
+    tui.input('n')
+        .assert_current_line_eq(str!["┊╭┄ br [c-branch-2] (no commits)"]);
+    tui.env().file("third", "third\n");
+    tui.reload();
+    tui.input('g');
+    tui.input('c');
+    tui.input('e');
+    tui.input('j')
+        .assert_current_line_eq(str!["┊╭┄ br [c-branch-2] (no commits)"]);
+    tui.input(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊●   uxx (no commit message)"]);
+
+    // mark the bottom hunk of `file` and the only hunk of `other`
+    tui.input('j');
+    tui.input('j')
+        .assert_current_line_eq(str!["┊●   qxn (no commit message)"]);
+    tui.input('d');
+    tui.input('l');
+    tui.input('j');
+    tui.input('j');
+    tui.input(' ');
+    tui.input(' ');
+
+    tui.input('r');
+    tui.input('k');
+    tui.input('k');
+    tui.input('k')
+        .assert_current_line_eq(str!["┊╭┄ << squash >> br [c-branch-2][..]"]);
+    tui.input('u').assert_rendered_term_svg_eq(file![
+        "snapshots/squash_marked_committed_hunks_to_branch_001.svg"
+    ]);
+
+    // the marked hunks are squashed into the tip of the other branch
+    tui.input(KeyCode::Enter)
+        .assert_marks_count_eq(0)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/squash_marked_committed_hunks_to_branch_002.svg"
+        ]);
 }

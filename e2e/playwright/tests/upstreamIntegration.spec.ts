@@ -263,7 +263,7 @@ test("should keep the remaining stack when only one of two stacks is integrated"
 	await expectWorkspaceCommitToStayParentedToRemainingStack(localClone);
 });
 
-test("should keep the empty workspace when both applied stacks are integrated", async ({
+test("should leave no applied stacks when both stacks are integrated", async ({
 	page,
 	gitbutler,
 }) => {
@@ -275,13 +275,13 @@ test("should keep the empty workspace when both applied stacks are integrated", 
 
 	await expect(stack(page)).toHaveCount(2);
 
+	expect(git(localClone, ["symbolic-ref", "--short", "HEAD"])).toBe("gitbutler/workspace");
+
 	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
 	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch2"]);
 	await syncAndIntegrate(page);
 
 	await expect(stack(page)).toHaveCount(0);
-	await expectWorkspaceCommitParentToBeOriginMaster(localClone);
-	expect(git(localClone, ["symbolic-ref", "--short", "HEAD"])).toBe("gitbutler/workspace");
 });
 
 test("should update an empty workspace when the target ref advances", async ({

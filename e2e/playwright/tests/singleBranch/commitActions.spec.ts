@@ -43,7 +43,6 @@ test.use({
 	gitbutlerOptions: {
 		config: {
 			onboardingComplete: true,
-			featureFlags: { singleBranch: true },
 		},
 	},
 });
@@ -705,44 +704,27 @@ test.describe("unapplying stacks", () => {
 		await assertCleanWorktree(localClone);
 	});
 
-	test("keeps an empty managed workspace when the target has no local branch", async ({
+	test("allows choosing a new local target when the configured target is deleted", async ({
 		page,
 		gitbutler,
 	}) => {
 		await gitbutler.runScript("project-with-stacks.sh");
 		await applyUpstream(gitbutler, "branch1");
 		const localClone = gitbutler.pathInWorkdir("local-clone");
+		git(localClone, ["branch", "main", "master"]);
 		git(localClone, ["branch", "-D", "master"]);
-		await openSingleBranchWorkspace(page);
+		await page.goto("/");
+		await waitForTestId(page, "project-setup-page");
+		await clickByTestId(page, "set-base-branch");
+		await waitForTestId(page, "workspace-view");
 
+		expect(git(localClone, ["config", "gitbutler.project.targetRef"])).toBe("refs/heads/main");
+		await assertRefDoesNotExist("refs/heads/master", localClone);
 		await unapplyStack(page, "branch1");
 
-		await assertSymbolicHead("gitbutler/workspace", localClone);
-		await expectCurrentBranchChip(page, "gitbutler/workspace");
-		await expect(stack(page)).toHaveCount(0);
+		await assertSymbolicHead("main", localClone);
+		await expectCurrentBranchChip(page, "main");
 		await assertCleanWorktree(localClone);
-	});
-});
-
-test.describe("single-branch mode disabled", () => {
-	test.use({
-		gitbutlerOptions: {
-			config: {
-				onboardingComplete: true,
-				featureFlags: { singleBranch: false },
-			},
-		},
-	});
-
-	test("keeps the managed workspace when a stack is unapplied", async ({ page, gitbutler }) => {
-		const localClone = await openManagedWorkspace(page, gitbutler, "branch1", "branch3");
-
-		await unapplyStack(page, "branch3");
-
-		// The current-branch chip only renders in single-branch mode, so assert on the repository.
-		await assertSymbolicHead("gitbutler/workspace", localClone);
-		await expect(stack(page)).toHaveCount(1);
-		await expect(stack(page, "branch1")).toBeVisible();
 	});
 });
 

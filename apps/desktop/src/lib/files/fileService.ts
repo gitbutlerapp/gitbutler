@@ -1,3 +1,4 @@
+import { checkoutOf } from "$lib/selection/key";
 import { InjectionToken } from "@gitbutler/core/context";
 import type { IBackend } from "$lib/backend";
 import type { BackendApi } from "$lib/state/backendApi";
@@ -38,8 +39,30 @@ export class FileService {
 		return await this.backend.readFile(path);
 	}
 
-	async showFileInFolder(filePath: string) {
-		await this.backend.invoke<void>("show_in_finder", { path: filePath });
+	/** The absolute path of `path`, relative to the linked `worktree` or the main checkout. */
+	async workdirPath(projectId: string, worktree: string | undefined, path: string) {
+		return await this.backendApi.endpoints.workdirPath.fetch({ projectId, worktree, path });
+	}
+
+	/** What revealing in the file manager is called on this platform. */
+	get showInFolderLabel(): string {
+		switch (this.backend.platformName) {
+			case "macos":
+				return "Show in Finder";
+			case "windows":
+				return "Show in Explorer";
+			default:
+				return "Show in File Manager";
+		}
+	}
+
+	/**
+	 * Reveals `path`, relative to the linked `worktree` or the main checkout, in
+	 * the file manager; an empty `path` reveals the checkout.
+	 */
+	async showFileInFolder(projectId: string, worktree: string | undefined, path: string) {
+		const checkout = checkoutOf({ worktree });
+		await this.backend.invoke<void>("show_in_finder", { projectId, checkout, path });
 	}
 
 	findFiles(projectId: string, query: string, limit: number) {

@@ -24,7 +24,11 @@ git add fix.txt
 git commit -m "Add fix.txt"
 
 git checkout main
-"$BUT" setup
+# Recreate the self-remote previously provisioned by `but setup`.
+git remote add gb-local "$PWD"
+git update-ref refs/remotes/gb-local/main HEAD
+git symbolic-ref refs/remotes/gb-local/HEAD refs/remotes/gb-local/main
+"$BUT" switch --workspace
 
 "$BUT" apply feature-foo
 "$BUT" apply bug-fix

@@ -62,6 +62,7 @@ use serde::Serialize;
 pub mod diff;
 /// Fundamental data types for reuse
 mod diff_types;
+pub mod index;
 pub use diff_types::{DiffSpec, HunkHeader, ModeFlags};
 
 mod hunks;
@@ -97,6 +98,9 @@ pub mod unified_diff;
 
 /// utilities for command-invocation.
 pub mod cmd;
+
+/// Utilities for running Git hooks.
+pub mod hooks;
 
 /// Various settings
 pub mod settings;

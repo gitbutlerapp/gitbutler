@@ -106,7 +106,7 @@ impl App {
             &mut meta,
             guard.write_permission(),
             RewordOperation::Commit {
-                target: target.clone(),
+                target,
                 new_message: CommitMessageSource::Editor { initial: None },
             },
         )
@@ -168,9 +168,7 @@ impl App {
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
-            | CliId::Uncommitted { .. }
-            | CliId::Worktree { .. }
-            | CliId::WorktreeUncommitted { .. }
+            | CliId::UncommittedArea { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
 

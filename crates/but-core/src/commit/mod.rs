@@ -699,7 +699,7 @@ pub fn conflict_entries_from_merge_outcome(
             Stage::Ours => &mut our_entries,
             Stage::Theirs => &mut their_entries,
         };
-        storage.push(gix::path::from_bstr(entry.path(&index)).into_owned());
+        storage.push(gix::path::from_bstr(entry.path(&index))?.into_owned());
     }
 
     let mut out = ConflictEntries {
@@ -709,11 +709,15 @@ pub fn conflict_entries_from_merge_outcome(
     };
 
     if !out.has_entries() {
-        fn push_unique(v: &mut Vec<PathBuf>, change: &gix::diff::tree_with_rewrites::Change) {
-            let path = gix::path::from_bstr(change.location()).into_owned();
+        fn push_unique(
+            v: &mut Vec<PathBuf>,
+            change: &gix::diff::tree_with_rewrites::Change,
+        ) -> gix::Result<()> {
+            let path = gix::path::from_bstr(change.location())?.into_owned();
             if !v.contains(&path) {
                 v.push(path);
             }
+            Ok(())
         }
 
         for conflict in merge_result
@@ -722,8 +726,8 @@ pub fn conflict_entries_from_merge_outcome(
             .filter(|c| c.is_unresolved(treat_as_unresolved))
         {
             let (ours, theirs) = conflict.changes_in_resolution();
-            push_unique(&mut out.our_entries, ours);
-            push_unique(&mut out.their_entries, theirs);
+            push_unique(&mut out.our_entries, ours)?;
+            push_unique(&mut out.their_entries, theirs)?;
         }
     }
 
@@ -742,6 +746,7 @@ use conflict::message_is_conflicted;
 pub use conflict::{
     add_conflict_markers, rewrite_conflict_markers_on_message_change, strip_conflict_markers,
 };
+pub mod padding;
 pub mod tree_expression;
 
 /// Write a GitButler conflicted tree that wraps `resolved_tree_id` together

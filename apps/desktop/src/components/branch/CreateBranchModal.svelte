@@ -3,6 +3,7 @@
 	import dependentBranchSvg from "$components/stackTabs/assets/dependent-branch.svg?raw";
 	import newStackLefttSvg from "$components/stackTabs/assets/new-stack-left.svg?raw";
 	import newStackRightSvg from "$components/stackTabs/assets/new-stack-right.svg?raw";
+	import worktreeBranchSvg from "$components/stackTabs/assets/worktree-branch.svg?raw";
 	import { autoSelectBranchCreationFeature } from "$lib/config/uiFeatureFlags";
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { getStackName } from "$lib/stacks/stack";
@@ -31,12 +32,13 @@
 	let { projectId, stackId }: Props = $props();
 	const stackService = inject(STACK_SERVICE);
 	const [createNewStack, stackCreation] = stackService.newStack;
-	const [createNewBranch, branchCreation] = stackService.newBranch;
+	const [createNewBranch, branchCreation] = stackService.branchCreate;
+	const [createWorktree, worktreeCreation] = stackService.newWorktree;
 	const { openGeneralSettings } = useSettingsModal();
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName = $state<string>();
-	let createRefType = $state<"stack" | "dependent">("stack");
+	let createRefType = $state<"stack" | "dependent" | "worktree">("stack");
 	let selectedStackId = $state<string>();
 	let branchNameInput = $state<ReturnType<typeof BranchNameTextbox>>();
 
@@ -83,13 +85,12 @@
 		}
 	});
 
-	function handleOptionSelect(event: Event) {
-		const target = event.target as HTMLInputElement;
-		createRefType = target.id === "new-stack" ? "stack" : "dependent";
-	}
-
 	async function addNew() {
-		if (createRefType === "stack") {
+		if (createRefType === "worktree") {
+			if (!normalizedRefName) return;
+			await createWorktree({ projectId, newRef: `refs/heads/${normalizedRefName}` });
+			createRefModal?.close();
+		} else if (createRefType === "stack") {
 			await createNewStack({
 				projectId,
 				branch: {
@@ -104,10 +105,23 @@
 			if (!selectedStackId || !normalizedRefName) {
 				return;
 			}
+			const segment = allStacks.find((stack) => stack.id === selectedStackId)?.segments.at(0);
+			if (!segment) return;
+			const tip = segment.commits.at(0)?.id ?? segment.base;
+			if (!segment.refName && !tip) return;
+
 			await createNewBranch({
 				projectId,
-				stackId: selectedStackId,
-				request: { targetPatch: undefined, name: normalizedRefName },
+				newRef: `refs/heads/${normalizedRefName}`,
+				placement: {
+					type: "dependent",
+					subject: {
+						relativeTo: segment.refName
+							? { type: "referenceBytes", subject: segment.refName.fullNameBytes }
+							: { type: "commit", subject: tip! },
+						side: "above",
+					},
+				},
 			});
 			createRefModal?.close();
 		}
@@ -117,7 +131,11 @@
 		selectedStackId = undefined;
 	}
 
-	const isAddingNew = $derived(stackCreation.current.isLoading || branchCreation.current.isLoading);
+	const isAddingNew = $derived(
+		stackCreation.current.isLoading ||
+			branchCreation.current.isLoading ||
+			worktreeCreation.current.isLoading,
+	);
 
 	export async function show(initialType?: "stack" | "dependent") {
 		createRefModal?.show();
@@ -138,7 +156,7 @@
 	}
 </script>
 
-<Modal bind:this={createRefModal} width={500} testId={TestId.CreateNewBranchModal}>
+<Modal bind:this={createRefModal} width={740} testId={TestId.CreateNewBranchModal}>
 	<div class="content-wrap">
 		<BranchNameTextbox
 			bind:this={branchNameInput}
@@ -158,7 +176,7 @@
 						checked={createRefType === "stack"}
 						name="create-new"
 						id="new-stack"
-						onchange={handleOptionSelect}
+						onchange={() => (createRefType = "stack")}
 					/>
 				</div>
 
@@ -190,7 +208,7 @@
 						name="create-new"
 						id="new-dependent"
 						disabled={allStacks.length === 0}
-						onchange={handleOptionSelect}
+						onchange={() => (createRefType = "dependent")}
 					/>
 				</div>
 
@@ -206,6 +224,31 @@
 
 					<div class="radio-illustration">
 						{@html dependentBranchSvg}
+					</div>
+				</div>
+			</label>
+			<label
+				for="new-worktree"
+				class="radio-label"
+				class:radio-selected={createRefType === "worktree"}
+			>
+				<div class="radio-btn">
+					<RadioButton
+						checked={createRefType === "worktree"}
+						name="create-new"
+						id="new-worktree"
+						onchange={() => (createRefType = "worktree")}
+					/>
+				</div>
+
+				<div class="radio-content">
+					<h3 class="text-14 text-bold text-body radio-title">Worktree</h3>
+					<p class="text-12 text-body radio-caption">
+						Create a branch checked out<br />in its own folder.
+					</p>
+
+					<div class="radio-illustration">
+						{@html worktreeBranchSvg}
 					</div>
 				</div>
 			</label>
@@ -246,6 +289,10 @@
 					>
 						Settings → Lanes & branches
 					</button>
+				{:else if createRefType === "worktree"}
+					The new branch starts at the target and is checked out in a linked worktree,
+					<br />
+					under ~/.gitbutler-worktrees. It shows as its own lane.
 				{:else}
 					Creates a branch that depends on a selected stack.
 					<br />

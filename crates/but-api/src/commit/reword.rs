@@ -67,7 +67,7 @@ pub fn commit_reword_only_with_perm(
 /// commit message and recording the oplog entry. When `dry_run` is enabled,
 /// the returned workspace previews the rewritten message and no oplog entry is
 /// persisted.
-#[but_api(napi, try_from = crate::commit::json::CommitRewordResult)]
+#[but_api(try_from = crate::commit::json::CommitRewordResult)]
 #[instrument(err(Debug))]
 pub fn commit_reword(
     ctx: &mut but_ctx::Context,

@@ -8,9 +8,12 @@ use std::{
     str::FromStr,
 };
 
-use bstr::{BString, ByteSlice};
-use but_core::ref_metadata;
-use but_graph::{SegmentIndex, workspace::StackCommitFlags};
+use bstr::{BStr, BString, ByteSlice};
+use but_core::{commit::padding, ref_metadata};
+use but_graph::{
+    SegmentIndex,
+    workspace::{StackCommitFlags, WorktreeBase},
+};
 use gix::Repository;
 
 /// A commit with must useful information extracted from the Git commit itself.
@@ -349,12 +352,49 @@ pub struct Lane<'a> {
     pub segments: &'a [Segment],
     /// The commit in another lane that the last segment rests on.
     pub rests_on: Option<gix::ObjectId>,
+    /// The stable name of the worktree this lane is, or `None` for a stack.
+    pub worktree: Option<&'a BStr>,
+}
+
+/// What a segment is known by before and after its lane is rebased.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SegmentIdentity {
+    /// The branch naming the segment.
+    Branch(gix::refs::FullName),
+    /// The worktree whose detached `HEAD` owns the segment, by its stable name.
+    DetachedWorktree(BString),
+}
+
+impl std::fmt::Display for SegmentIdentity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SegmentIdentity::Branch(ref_name) => ref_name.shorten().fmt(f),
+            SegmentIdentity::DetachedWorktree(name) => name.fmt(f),
+        }
+    }
 }
 
 impl<'a> Lane<'a> {
     /// The segments from `index` down to the base.
     pub fn segments_from(self, index: usize) -> &'a [Segment] {
         self.segments.get(index..).unwrap_or_default()
+    }
+
+    /// Each segment along with what it is known by across a rebase: its branch, or the worktree
+    /// for the anonymous segment a detached worktree has checked out. An anonymous segment of a
+    /// stack has nothing to tell it apart.
+    pub fn identified_segments(
+        self,
+    ) -> impl Iterator<Item = (Option<SegmentIdentity>, &'a Segment)> {
+        self.segments.iter().map(move |segment| {
+            let identity = match segment.ref_name() {
+                Some(ref_name) => Some(SegmentIdentity::Branch(ref_name.to_owned())),
+                None => self
+                    .worktree
+                    .map(|name| SegmentIdentity::DetachedWorktree(name.to_owned())),
+            };
+            (identity, segment)
+        })
     }
 
     fn segment_index(&self, matches: impl Fn(&Segment) -> bool) -> Option<usize> {
@@ -512,6 +552,9 @@ pub(crate) fn find_ancestor_workspace_commit(
                 sidx_and_cidx = Some((s.id, cidx));
                 return true;
             }
+            if padding::is_padding_by_message(commit.message.as_ref()) {
+                continue;
+            }
             commits_outside.push(
                 crate::ref_info::Commit::from_commit_ahead_of_workspace_commit(
                     but_core::Commit {
@@ -575,10 +618,32 @@ pub fn graph_to_ref_info(
     };
     // Ask the repo where the ref points and compare the stored id itself: the graph
     // may drop `target_commit` and may leave the ref's own segment without commits.
-    let is_target_current = match (target_ref, graph.project_meta.target_commit_id) {
-        (Some(tr), Some(stored)) => repo
-            .try_find_reference(tr.ref_name.as_ref())?
-            .is_some_and(|mut r| r.peel_to_id().is_ok_and(|id| id == stored)),
+    let target_upstream = graph
+        .project_meta
+        .remote_target_ref(repo)?
+        .map(|ref_name| -> anyhow::Result<_> {
+            let tip = repo
+                .try_find_reference(ref_name.as_ref())?
+                .and_then(|mut reference| reference.peel_to_id().ok().map(|id| id.detach()));
+            Ok(crate::TargetUpstream {
+                ref_name,
+                tip,
+                cutoff_matches_tip: tip.is_some() && tip == graph.project_meta.target_commit_id,
+            })
+        })
+        .transpose()?;
+    let can_fast_forward_local_target = match (
+        graph.project_meta.target_ref.as_ref(),
+        target_upstream.as_ref().and_then(|upstream| upstream.tip),
+    ) {
+        (Some(local), Some(tip)) => {
+            let local = local.as_local_full_name_ref();
+            repo.try_find_reference(local)?.is_some()
+                && crate::upstream_integration::local_tracking_branch_to_fast_forward(
+                    repo, local, tip,
+                )?
+                .is_some()
+        }
         _ => false,
     };
     let mut info = RefInfo {
@@ -590,13 +655,19 @@ pub fn graph_to_ref_info(
             .collect::<anyhow::Result<_>>()?,
         target_ref: target_ref.clone(),
         target_commit: target_commit.clone(),
-        is_target_current,
+        target_upstream,
+        can_fast_forward_local_target,
+        has_lanes_behind_target: false,
         ancestor_workspace_commit,
         worktrees: worktrees
             .iter()
             .map(|worktree| crate::worktrees::WorktreeInfo::try_from_graph_worktree(worktree, repo))
             .collect::<anyhow::Result<_>>()?,
     };
+
+    info.has_lanes_behind_target = target_commit
+        .as_ref()
+        .is_some_and(|target| info.has_lanes_behind(graph, target));
 
     if let Some(info) = &info.ancestor_workspace_commit {
         // This is the MVP version of what should be guided by the UI - just communicate through
@@ -672,43 +743,40 @@ fn apply_review_to_metadata(
     }
 }
 
-fn forge_review_for_branch(
-    reviews_by_head: &std::collections::HashMap<String, (usize, bool, Option<String>)>,
-    short_name: &str,
-) -> Option<(usize, bool, Option<String>)> {
-    if let Some(review) = reviews_by_head.get(short_name) {
-        return Some(review.clone());
+impl RefInfo {
+    /// Whether a stack, or a worktree with something of its own to rebase onto the target, lacks
+    /// `target`.
+    ///
+    /// A lane resting on `target` has it. One resting elsewhere may still have merged it in,
+    /// which the graph tells.
+    fn has_lanes_behind(&self, graph: &Graph, target: &but_graph::workspace::TargetCommit) -> bool {
+        let stacks = self
+            .stacks
+            .iter()
+            .map(|stack| (stack.base, &stack.segments));
+        let worktrees = self
+            .worktrees
+            .iter()
+            .map(|worktree| (worktree.rebasable_base(), &worktree.segments));
+        stacks.chain(worktrees).any(|(base, segments)| {
+            base.is_some_and(|base| base != target.commit_id)
+                && segments.first().is_some_and(|top| {
+                    graph.find_merge_base(target.segment_index, top.id)
+                        != Some(target.segment_index)
+                })
+        })
     }
 
-    let mut prefixed_matches = reviews_by_head.iter().filter_map(|(head, review)| {
-        let (_, branch) = head.rsplit_once(':')?;
-        (branch == short_name).then_some(review)
-    });
-    let review = prefixed_matches.next()?;
-    prefixed_matches
-        .all(|candidate| candidate == review)
-        .then(|| review.clone())
-}
-
-impl RefInfo {
     /// Every lane, i.e. each stack followed by each worktree in tip order.
     ///
     /// A lane can only rest on a lane listed before it, so following [`Lane::rests_on`] always
     /// terminates.
     pub fn lanes(&self) -> impl Iterator<Item = Lane<'_>> {
-        self.stacks
-            .iter()
-            .map(|stack| Lane {
-                segments: &stack.segments,
-                rests_on: None,
-            })
-            .chain(self.worktrees.iter().map(|wt| Lane {
-                segments: &wt.segments,
-                rests_on: match wt.base {
-                    Some(crate::worktrees::WorktreeBase::InWorkspace(id)) => Some(id),
-                    Some(crate::worktrees::WorktreeBase::Outside(_)) | None => None,
-                },
-            }))
+        self.stacks.iter().map(branch::Stack::lane).chain(
+            self.worktrees
+                .iter()
+                .map(crate::worktrees::WorktreeInfo::lane),
+        )
     }
 
     /// The lane holding `branch` along with the index of the branch's segment, followed by each
@@ -755,8 +823,8 @@ impl RefInfo {
     }
 
     /// Resolve each segment's forge review association from a cache-derived map,
-    /// keyed by the segment's remote/pushed short name (what the forge records as
-    /// a review's `source_branch`).
+    /// keyed by the short name of the segment's remote-tracking branch, like
+    /// `origin/my-feature`.
     ///
     /// For active branches this remains a projection-time view of forge truth:
     /// an open review, or a review merged exactly at the branch's tip — the
@@ -767,27 +835,17 @@ impl RefInfo {
     /// with the cache as a migration fallback when no number has been
     /// persisted yet. A cache match on an otherwise metadata-less segment
     /// synthesizes metadata so single-branch mode surfaces the association
-    /// too. `reviews_by_head` maps a pushed short name to
+    /// too. `reviews_by_head` maps a remote-tracking short name to
     /// `(number, is open, merged head)`; build it from the forge cache at the
-    /// call boundary so this crate stays free of DB and forge wiring. As a
-    /// defensive fallback, a uniquely matching `owner:branch` key is accepted,
-    /// while ambiguous fork heads are ignored.
+    /// call boundary so this crate stays free of DB and forge wiring.
     pub fn apply_forge_review_associations(
         &mut self,
-        repo: &gix::Repository,
         reviews_by_head: &std::collections::HashMap<String, (usize, bool, Option<String>)>,
     ) {
-        let remote_names = repo.remote_names();
         for segment in self.lane_segments_mut().flatten() {
-            let cached = segment
-                .remote_tracking_ref_name
-                .as_ref()
-                .and_then(|rtb| {
-                    but_core::extract_remote_name_and_short_name(rtb.as_ref(), &remote_names)
-                })
-                .and_then(|(_, short)| {
-                    forge_review_for_branch(reviews_by_head, short.to_str().ok()?)
-                });
+            let cached = (segment.remote_tracking_ref_name.as_ref())
+                .and_then(|rtb| reviews_by_head.get(rtb.shorten().to_str().ok()?))
+                .cloned();
             // The merged head is the review's PUSHED commit, so match the
             // tip's remote counterpart when it has one: a local rewrite
             // between push and merge must not break the window.
@@ -911,10 +969,11 @@ impl crate::ref_info::Segment {
         }: &but_graph::workspace::StackSegment,
         repo: &gix::Repository,
     ) -> anyhow::Result<Self> {
-        let commits: Vec<_> = commits
+        let mut commits: Vec<_> = commits
             .iter()
             .map(|c| LocalCommit::try_from_stack_commit(c, repo))
             .collect::<anyhow::Result<_>>()?;
+        commits.retain(|c| !padding::is_padding_by_message(c.message.as_ref()));
         let commits_on_remote: Vec<_> = commits_on_remote
             .iter()
             .map(|c| {
@@ -951,13 +1010,27 @@ impl crate::worktrees::WorktreeInfo {
             name: name.clone(),
             ref_name: ref_name.clone(),
             head: *head,
-            base: *base,
+            base: match *base {
+                Some(WorktreeBase::InWorkspace(id)) => {
+                    Some(WorktreeBase::InWorkspace(beneath_padding(id, repo)?))
+                }
+                Some(WorktreeBase::Outside(id)) => Some(WorktreeBase::Outside(id)),
+                None => None,
+            },
             segments: segments
                 .iter()
                 .map(|s| crate::ref_info::Segment::try_from_graph_segment(s, repo))
                 .collect::<anyhow::Result<_>>()?,
         })
     }
+}
+
+fn beneath_padding(id: gix::ObjectId, repo: &gix::Repository) -> anyhow::Result<gix::ObjectId> {
+    let commit = but_core::Commit::from_id(id.attach(repo))?;
+    Ok(match commit.parents.as_slice() {
+        [parent] if padding::is_padding_by_message(commit.message.as_ref()) => *parent,
+        _ => id,
+    })
 }
 
 impl LocalCommit {
@@ -988,9 +1061,7 @@ impl LocalCommit {
 
 #[cfg(test)]
 mod review_association_tests {
-    use std::collections::HashMap;
-
-    use super::{apply_review_to_metadata, forge_review_for_branch};
+    use super::apply_review_to_metadata;
     use but_core::ref_metadata::Branch;
 
     fn branch_with_review(review: Option<usize>) -> Branch {
@@ -1110,44 +1181,5 @@ mod review_association_tests {
         let mut metadata = Some(branch_with_review(None));
         apply_review_to_metadata(&mut metadata, Some((42, false, None)), true, None);
         assert_eq!(metadata.unwrap().review.pull_request, Some(42));
-    }
-
-    #[test]
-    fn owner_prefixed_review_head_matches_the_short_branch_name() {
-        let reviews = HashMap::from([("alice:feature".to_string(), (42, true, None))]);
-
-        assert_eq!(
-            forge_review_for_branch(&reviews, "feature"),
-            Some((42, true, None)),
-            "a uniquely matching fork head should be accepted defensively"
-        );
-    }
-
-    #[test]
-    fn exact_review_head_takes_precedence_over_a_prefixed_head() {
-        let reviews = HashMap::from([
-            ("feature".to_string(), (42, true, None)),
-            ("alice:feature".to_string(), (99, true, None)),
-        ]);
-
-        assert_eq!(
-            forge_review_for_branch(&reviews, "feature"),
-            Some((42, true, None)),
-            "the forge's normal short-name representation should take precedence"
-        );
-    }
-
-    #[test]
-    fn ambiguous_owner_prefixed_review_heads_do_not_match() {
-        let reviews = HashMap::from([
-            ("alice:feature".to_string(), (42, true, None)),
-            ("bob:feature".to_string(), (99, true, None)),
-        ]);
-
-        assert_eq!(
-            forge_review_for_branch(&reviews, "feature"),
-            None,
-            "a short branch name cannot safely select between fork owners"
-        );
     }
 }

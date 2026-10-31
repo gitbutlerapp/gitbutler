@@ -10,6 +10,7 @@ use serde::Serialize;
 use crate::{
     CliResult,
     args::apply::Platform,
+    bad_input,
     theme::{self, Theme},
     utils::{CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils},
 };
@@ -99,7 +100,6 @@ impl CliOutput for ApplyOutcome {
             status: OutcomeStatus,
             workspace_changed: bool,
             applied_branches: Vec<String>,
-            workspace_ref_created: bool,
             conflicting_stacks: Vec<String>,
         }
 
@@ -113,7 +113,6 @@ impl CliOutput for ApplyOutcome {
                         .into_iter()
                         .map(|branch| branch.to_string())
                         .collect(),
-                    workspace_ref_created: value.workspace_ref_created,
                     conflicting_stacks: value
                         .conflicting_stacks
                         .into_iter()
@@ -173,17 +172,34 @@ pub fn apply(
     let mut guard = ctx.exclusive_worktree_access();
 
     let operation = {
-        let repo = ctx.repo.get()?;
-        resolve(args, &repo).context("Failed to apply branch")?
+        let (repo, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        resolve(args, &repo, &ws)?
     };
 
     Ok(run(ctx, guard.write_permission(), operation).context("Failed to apply branch")?)
 }
 
-fn resolve(args: Platform, repo: &gix::Repository) -> anyhow::Result<ApplyOperation> {
+fn resolve(
+    args: Platform,
+    repo: &gix::Repository,
+    ws: &but_graph::Workspace,
+) -> CliResult<ApplyOperation> {
     let Platform { branch } = args;
 
-    let branch = branch.resolve_legacy_top_level_apply_branch_name(repo)?;
+    let branch = branch
+        .resolve_legacy_top_level_apply_branch_name(repo)
+        .context("Failed to apply branch")?;
+    let reference = repo
+        .find_reference(&*branch)
+        .context("Failed to apply branch")?;
+    if ws.is_target_or_upstream(reference.name(), repo)? {
+        return Err(bad_input(format!(
+            "Cannot apply '{}': it is the workspace target branch.",
+            reference.name().shorten()
+        ))
+        .hint("Apply a feature branch instead.")
+        .into());
+    }
 
     Ok(ApplyOperation { branch })
 }

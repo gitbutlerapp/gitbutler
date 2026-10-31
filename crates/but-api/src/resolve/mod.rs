@@ -84,7 +84,7 @@ but_schemars::register_sdk_type!(ConflictedFile);
 /// result. Fails for commits whose conflicts have no hunk representation
 /// (deletions/renames, binaries, oversized files, marker-like content) — those
 /// need manual resolution in edit mode.
-#[but_api(napi, try_from = crate::resolve::json::CommitConflicts, provides = [])]
+#[but_api(try_from = crate::resolve::json::CommitConflicts)]
 #[instrument(err(Debug))]
 pub fn commit_conflicts(
     ctx: &but_ctx::Context,
@@ -299,7 +299,7 @@ pub struct HunkResolutionResult {
 /// [`HunkResolution::Ai`] specs are sent to the configured LLM first (no
 /// worktree lock is held during the model call); AI configuration is only
 /// required when such a spec is present.
-#[but_api(napi, try_from = crate::resolve::json::HunkResolutionResult)]
+#[but_api(try_from = crate::resolve::json::HunkResolutionResult)]
 #[instrument(skip(specs), err(Debug))]
 pub fn resolve_commit_conflict_hunks(
     ctx: &mut but_ctx::Context,
@@ -350,9 +350,6 @@ pub fn resolve_commit_conflict_hunks_with(
         context::build_request(&repo, commit_id)?
     };
     let any_ai = resolve_ai_specs(&request, &mut specs, &resolve)?;
-    let picks = apply::validate_specs(&request, &specs)?;
-    // Every spec addressed a distinct hunk, or validation would have failed.
-    let resolved = specs.len();
     let operation = if any_ai {
         OperationKind::ResolveConflictsAi
     } else {
@@ -360,15 +357,39 @@ pub fn resolve_commit_conflict_hunks_with(
     };
 
     let mut guard = ctx.exclusive_worktree_access();
+    apply_specs(ctx, request, &specs, operation, guard.write_permission())
+}
+
+/// Apply `specs` to the conflicted commit `commit_id` under caller-held exclusive access,
+/// recording one undo snapshot. [`HunkResolution::Ai`] specs are refused, as the model call
+/// must not run under the lock.
+///
+/// See [`resolve_commit_conflict_hunks()`] for behavior.
+pub fn resolve_commit_conflict_hunks_with_perm(
+    ctx: &mut but_ctx::Context,
+    commit_id: gix::ObjectId,
+    specs: Vec<ResolutionSpec>,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<HunkResolutionResult> {
+    if specs.is_empty() {
+        bail!("No resolutions were provided");
+    }
+    let request = context::build_request(&*ctx.repo.get()?, commit_id)?;
+    apply_specs(ctx, request, &specs, OperationKind::ResolveConflicts, perm)
+}
+
+fn apply_specs(
+    ctx: &mut but_ctx::Context,
+    request: ResolutionRequest,
+    specs: &[ResolutionSpec],
+    operation: OperationKind,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<HunkResolutionResult> {
+    let picks = apply::validate_specs(&request, specs)?;
+    // Every spec addressed a distinct hunk, or validation would have failed.
+    let resolved = specs.len();
     ctx.invalidate_workspace_cache()?;
-    let applied = apply_with_snapshot(
-        ctx,
-        &request,
-        &picks,
-        operation,
-        DryRun::No,
-        guard.write_permission(),
-    )?;
+    let applied = apply_with_snapshot(ctx, &request, &picks, operation, DryRun::No, perm)?;
 
     Ok(HunkResolutionResult {
         commit_id: request.commit_id,

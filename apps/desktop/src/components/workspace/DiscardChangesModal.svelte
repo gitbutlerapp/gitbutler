@@ -49,6 +49,7 @@
 		await stackService.discardChanges({
 			projectId,
 			worktreeChanges: changesToDiffSpec(item.changes),
+			worktree: selectionId.worktree,
 		});
 
 		const selectedFiles = item.changes.map((change) => ({ ...selectionId, path: change.path }));

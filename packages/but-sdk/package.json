@@ -1,35 +1,14 @@
 {
 	"name": "@gitbutler/but-sdk",
 	"version": "0.0.1",
-	"description": "GitButler JS but SDK",
+	"description": "TypeScript types for GitButler's Rust API",
 	"type": "module",
-	"main": "./src/generated/linear/index.js",
 	"types": "./src/generated/linear/index.d.ts",
 	"scripts": {
-		"artifacts": "napi artifacts",
 		"build:types": "cargo run -p but-ts -- --output ./src/generated/linear/index.d.ts",
 		"build:types:graph": "cargo run -p but-ts --features graph-workspace -- --output ./src/generated/graph/index.d.ts",
-		"build:napi": "napi build --platform --esm --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir ./src/generated/linear",
-		"build:napi:graph": "napi build --platform --esm --features graph-workspace --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir ./src/generated/graph",
-		"build:napi:release": "napi build --platform --release --esm --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir ./src/generated/linear",
-		"build:napi:graph:release": "napi build --platform --release --esm --features graph-workspace --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir ./src/generated/graph",
-		"build": "pnpm build:napi && pnpm build:types && pnpm build:napi:graph && pnpm build:types:graph",
-		"build:release": "pnpm build:napi:release && pnpm build:types && pnpm build:napi:graph:release && pnpm build:types:graph",
-		"build:debug": "napi build --platform --esm --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir . --verbose",
-		"check": "tsc -p tsconfig.generated.json --noEmit",
-		"prepublishOnly": "napi prepublish -t npm",
-		"testTypes": "ts-node ./src/test.ts",
-		"universal": "napi universal"
-	},
-	"napi": {
-		"binaryName": "gitbutler-sdk",
-		"targets": [
-			"x86_64-apple-darwin",
-			"aarch64-apple-darwin",
-			"x86_64-unknown-linux-gnu",
-			"aarch64-unknown-linux-gnu",
-			"x86_64-pc-windows-msvc"
-		]
+		"build": "pnpm build:types && pnpm build:types:graph",
+		"check": "tsc -p tsconfig.generated.json --noEmit"
 	},
 	"repository": {
 		"type": "git",
@@ -40,134 +19,23 @@
 		"git",
 		"gitbutler",
 		"version-control",
-		"napi-rs",
-		"native"
+		"typescript"
 	],
 	"author": "GitButler <gitbutler@gitbutler.com>",
 	"license": "FSL-1.1-MIT",
-	"engines": {
-		"node": ">= 18"
-	},
-	"devDependencies": {
-		"@napi-rs/cli": "^3.5.1",
-		"@types/node": "^24.13.3",
-		"ts-node": "^10.9.2"
-	},
 	"files": [
-		"./src/generated/browser.js",
-		"./src/generated/linear/index.js",
 		"./src/generated/linear/index.d.ts",
-		"./src/generated/linear/*.node",
-		"./src/generated/graph/index.js",
-		"./src/generated/graph/index.d.ts",
-		"./src/generated/graph/*.node",
-		"./src/generated/linear/apiParamNames.js",
-		"./src/generated/linear/apiParamNames.d.ts",
-		"./src/generated/graph/apiParamNames.js",
-		"./src/generated/graph/apiParamNames.d.ts",
-		"./src/generated/linear/cacheTags.js",
-		"./src/generated/linear/cacheTags.d.ts",
-		"./src/generated/graph/cacheTags.js",
-		"./src/generated/graph/cacheTags.d.ts"
+		"./src/generated/graph/index.d.ts"
 	],
 	"exports": {
 		".": {
-			"browser": {
-				"types": "./src/generated/linear/index.d.ts",
-				"default": "./src/generated/browser.js"
-			},
-			"import": {
-				"types": "./src/generated/linear/index.d.ts",
-				"default": "./src/generated/linear/index.js"
-			},
-			"require": {
-				"types": "./src/generated/linear/index.d.ts",
-				"default": "./src/generated/linear/index.js"
-			}
+			"types": "./src/generated/linear/index.d.ts"
 		},
 		"./linear": {
-			"browser": {
-				"types": "./src/generated/linear/index.d.ts",
-				"default": "./src/generated/browser.js"
-			},
-			"import": {
-				"types": "./src/generated/linear/index.d.ts",
-				"default": "./src/generated/linear/index.js"
-			},
-			"require": {
-				"types": "./src/generated/linear/index.d.ts",
-				"default": "./src/generated/linear/index.js"
-			}
+			"types": "./src/generated/linear/index.d.ts"
 		},
 		"./graph": {
-			"browser": {
-				"types": "./src/generated/graph/index.d.ts",
-				"default": "./src/generated/browser.js"
-			},
-			"import": {
-				"types": "./src/generated/graph/index.d.ts",
-				"default": "./src/generated/graph/index.js"
-			},
-			"require": {
-				"types": "./src/generated/graph/index.d.ts",
-				"default": "./src/generated/graph/index.js"
-			}
-		},
-		"./api-param-names": {
-			"browser": {
-				"types": "./src/generated/linear/apiParamNames.d.ts",
-				"default": "./src/generated/linear/apiParamNames.js"
-			},
-			"import": {
-				"types": "./src/generated/linear/apiParamNames.d.ts",
-				"default": "./src/generated/linear/apiParamNames.js"
-			},
-			"require": {
-				"types": "./src/generated/linear/apiParamNames.d.ts",
-				"default": "./src/generated/linear/apiParamNames.js"
-			}
-		},
-		"./graph/api-param-names": {
-			"browser": {
-				"types": "./src/generated/graph/apiParamNames.d.ts",
-				"default": "./src/generated/graph/apiParamNames.js"
-			},
-			"import": {
-				"types": "./src/generated/graph/apiParamNames.d.ts",
-				"default": "./src/generated/graph/apiParamNames.js"
-			},
-			"require": {
-				"types": "./src/generated/graph/apiParamNames.d.ts",
-				"default": "./src/generated/graph/apiParamNames.js"
-			}
-		},
-		"./cache-tags": {
-			"browser": {
-				"types": "./src/generated/linear/cacheTags.d.ts",
-				"default": "./src/generated/linear/cacheTags.js"
-			},
-			"import": {
-				"types": "./src/generated/linear/cacheTags.d.ts",
-				"default": "./src/generated/linear/cacheTags.js"
-			},
-			"require": {
-				"types": "./src/generated/linear/cacheTags.d.ts",
-				"default": "./src/generated/linear/cacheTags.js"
-			}
-		},
-		"./graph/cache-tags": {
-			"browser": {
-				"types": "./src/generated/graph/cacheTags.d.ts",
-				"default": "./src/generated/graph/cacheTags.js"
-			},
-			"import": {
-				"types": "./src/generated/graph/cacheTags.d.ts",
-				"default": "./src/generated/graph/cacheTags.js"
-			},
-			"require": {
-				"types": "./src/generated/graph/cacheTags.d.ts",
-				"default": "./src/generated/graph/cacheTags.js"
-			}
+			"types": "./src/generated/graph/index.d.ts"
 		}
 	}
 }

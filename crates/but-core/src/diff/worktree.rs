@@ -1,10 +1,9 @@
-use std::{collections::BTreeMap, io::Read, path::PathBuf};
+use std::{collections::BTreeMap, path::PathBuf};
 
 use anyhow::{Context as _, bail};
 use bstr::{BStr, BString, ByteSlice, ByteVec};
 use gix::{
     dir::{entry, walk::EmissionMode},
-    filter::plumbing::pipeline::convert::ToGitOutcome,
     object::tree::EntryKind,
     status,
     status::{
@@ -311,7 +310,7 @@ fn worktree_changes_inner(
                 let kind = disk_kind_to_entry_kind(
                     disk_kind,
                     index_kind,
-                    work_dir.join(gix::path::from_bstr(rela_path.as_bstr())),
+                    work_dir.join(gix::path::from_bstr(rela_path.as_bstr())?),
                 )?;
                 (
                     Origin::IndexWorktree,
@@ -372,9 +371,8 @@ fn worktree_changes_inner(
             status::Item::IndexWorktree(index_worktree::Item::Rewrite {
                 source,
                 dirwalk_entry,
-                // This ID is usually null, but might be set if used for comparisons.
+                // `dirwalk_entry_id` is usually null, but might be set if used for comparisons.
                 // However, this wouldn't mean the object exists.
-                dirwalk_entry_id: _,
                 ..
             }) => {
                 let previous_path: BString = source.rela_path().into();
@@ -392,7 +390,7 @@ fn worktree_changes_inner(
                         kind: match disk_kind_to_entry_kind(
                             source_dirwalk_entry.disk_kind,
                             source_dirwalk_entry.index_kind,
-                            work_dir.join(gix::path::from_bstr(previous_path.as_bstr())),
+                            work_dir.join(gix::path::from_bstr(previous_path.as_bstr())?),
                         )? {
                             None => continue,
                             Some(kind) => kind,
@@ -405,7 +403,7 @@ fn worktree_changes_inner(
                     kind: match disk_kind_to_entry_kind(
                         dirwalk_entry.disk_kind,
                         dirwalk_entry.index_kind,
-                        work_dir.join(gix::path::from_bstr(dirwalk_entry.rela_path.as_bstr())),
+                        work_dir.join(gix::path::from_bstr(dirwalk_entry.rela_path.as_bstr())?),
                     )? {
                         None => continue,
                         Some(kind) => kind,
@@ -568,8 +566,8 @@ fn worktree_changes_inner(
             )?,
             None => Some(index_wt_change),
         };
-        // A rename can land on a path whose own staged deletion is still unclaimed;
-        // fold that deletion in so each path keeps a single change.
+        // A rename (or the addition it merges into) can land on a path whose own staged
+        // deletion is still unclaimed; fold that deletion in so each path keeps a single change.
         while let Some(change) = merged.take() {
             match &change.status {
                 // A merge that nets out to a deletion freed its path from index and
@@ -578,7 +576,7 @@ fn worktree_changes_inner(
                 TreeStatus::Deletion { .. } if was_claimed => {
                     tree_index_by_path.insert(change.path.clone(), change);
                 }
-                TreeStatus::Rename { .. }
+                TreeStatus::Rename { .. } | TreeStatus::Addition { .. }
                     if tree_index_by_path
                         .get(change.path.as_bstr())
                         .is_some_and(|ti| matches!(ti.status, TreeStatus::Deletion { .. })) =>
@@ -715,35 +713,19 @@ fn merge_changes(
                 index_wt.status.kind()
             );
         }
-        (
-            TreeStatus::Addition {
-                is_untracked,
-                state,
-            },
-            TreeStatus::Modification {
-                state: state_wt, ..
-            },
-        ) => {
-            *is_untracked = true;
-            *state = *state_wt;
-            return Ok(single(tree_index));
-        }
-        (TreeStatus::Addition { .. }, TreeStatus::Deletion { .. }) => {
-            // keep the most recent known state, which is from the index.
-            return Ok(single(index_wt));
-        }
-        (
-            TreeStatus::Addition { state, .. },
-            TreeStatus::Rename {
-                previous_state: ps_wt,
-                ..
-            },
-        ) => {
-            // This is conflicting actually, and a little bit unclear what committing this will do.
-            // Pretend the added file (in index) is the one that was deleted, hence the rename.
-            *ps_wt = *state;
-            // Can't be no-op as this is a rename
-            return Ok(single(index_wt));
+        (TreeStatus::Addition { .. }, wt_status) => {
+            // The tree never had the path, so only what the worktree holds now counts:
+            // an untracked addition wherever the file ended up, or nothing if it is gone.
+            return Ok(match wt_status.state() {
+                Some(state) => single(TreeChange {
+                    path: index_wt.path,
+                    status: TreeStatus::Addition {
+                        state,
+                        is_untracked: true,
+                    },
+                }),
+                None => [None, None],
+            });
         }
         (
             TreeStatus::Deletion { previous_state, .. },
@@ -803,7 +785,13 @@ fn merge_changes(
             *ps_wt = *previous_state;
             index_wt
         }
-        (TreeStatus::Modification { .. }, TreeStatus::Deletion { .. }) => {
+        (
+            TreeStatus::Modification { previous_state, .. },
+            TreeStatus::Deletion {
+                previous_state: ps_wt,
+            },
+        ) => {
+            *ps_wt = *previous_state;
             return Ok(single(index_wt));
         }
         (
@@ -836,15 +824,26 @@ fn merge_changes(
             TreeStatus::Rename {
                 previous_path: pp_wt,
                 previous_state: ps_wt,
+                state,
                 ..
             },
         ) => {
-            // The worktree-rename is dominating, but we can combine both
-            // so there is the indexed version as source, and the one in the worktree
-            // as destination.
-            *pp_wt = std::mem::take(previous_path);
-            *ps_wt = *previous_state;
-            return Ok(single(index_wt));
+            if *previous_path == index_wt.path {
+                // Renamed back to where the tree has it: at most a modification remains.
+                index_wt.status = TreeStatus::Modification {
+                    previous_state: *previous_state,
+                    state: *state,
+                    flags: None, /* recalculated after the merge */
+                };
+                index_wt
+            } else {
+                // The worktree-rename is dominating, but we can combine both
+                // so there is the indexed version as source, and the one in the worktree
+                // as destination.
+                *pp_wt = std::mem::take(previous_path);
+                *ps_wt = *previous_state;
+                return Ok(single(index_wt));
+            }
         }
         (
             TreeStatus::Rename {
@@ -953,41 +952,11 @@ fn id_or_hash_from_worktree(
     }
 
     let path = path_check.verified_path_allow_nonexisting(rela_path)?;
-    let md = path.symlink_metadata()?;
-    let repo = filter.repo;
-    let id = if md.is_file() {
-        let to_git = filter.convert_to_git(
-            std::fs::File::open(path)?,
-            // TODO(gix): definitely use `ToCompoents` here to avoid these conversions.
-            //            Whatever you do, it's never right, so must be abstract.
-            &gix::path::try_from_bstr(rela_path)?,
-            index,
-        )?;
-        match to_git {
-            ToGitOutcome::Unchanged(mut stream) => gix::objs::compute_stream_hash(
-                repo.object_hash(),
-                gix::object::Kind::Blob,
-                &mut stream,
-                md.len(),
-                &mut gix::progress::Discard,
-                &gix::interrupt::IS_INTERRUPTED,
-            )?,
-            ToGitOutcome::Process(mut stream) => {
-                let mut buf = repo.empty_reusable_buffer();
-                stream.read_to_end(&mut buf)?;
-                gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Blob, &buf)?
-            }
-            ToGitOutcome::Buffer(buf) => {
-                gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Blob, buf)?
-            }
-        }
-    } else if md.is_symlink() {
-        let bytes = gix::path::os_string_into_bstring(std::fs::read_link(path)?.into())?;
-        gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Blob, &bytes)?
-    } else {
+    let md = gix::index::fs::Metadata::from_path_no_follow(&path)?;
+    if !(md.is_file() || md.is_symlink()) {
         bail!("Cannot hash directory entries that aren't files or symlinks");
-    };
-    Ok(id)
+    }
+    crate::worktree::hash_worktree_file_in_git_form(&md, rela_path, &path, filter, index)
 }
 
 fn into_tree_entry_kind(mode: gix::index::entry::Mode) -> anyhow::Result<EntryKind> {

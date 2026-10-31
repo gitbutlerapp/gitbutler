@@ -5,6 +5,14 @@ pub(crate) fn normalize_commit_message(message: &str) -> &str {
     message.trim()
 }
 
+/// Read a commit message passed with `--file`, normalized like any other provided message.
+pub(crate) fn read_commit_message(
+    file: &crate::args::atoms::MessageFileArg,
+    current_dir: &std::path::Path,
+) -> crate::CliResult<String> {
+    Ok(normalize_commit_message(&file.read(current_dir)?).to_owned())
+}
+
 /// Returns `true` if `current_message` and `new_message` differ after normalization.
 pub(crate) fn should_update_commit_message(current_message: &str, new_message: &str) -> bool {
     normalize_commit_message(current_message) != normalize_commit_message(new_message)

@@ -6,12 +6,10 @@
 		"node": ">=24"
 	},
 	"type": "module",
-	"packageManager": "pnpm@10.20.0",
+	"packageManager": "pnpm@12.5.1",
 	"scripts": {
 		"dev:ui": "pnpm --filter @gitbutler/ui-svelte storybook",
 		"dev:web": "turbo watch --filter @gitbutler/web dev",
-		"dev:lite": "turbo watch --filter @gitbutler/lite dev",
-		"demos:lite": "pnpm --filter @gitbutler/lite demos",
 		"dev:desktop": "cross-env CARGO_TARGET_DIR=\"$PNPM_SCRIPT_SRC_DIR/target/tauri\" pnpm dev:desktop-with-env",
 		"dev:desktop-http": "cross-env VITE_BUTLER_PORT=6978 VITE_BUTLER_HOST=localhost VITE_BUILD_TARGET=web turbo watch dev --filter=...@gitbutler/desktop",
 		"dev:desktop-with-env": "cargo build -p but && cargo build -p gitbutler-git && node ./scripts/run-desktop-tauri-with-env.mjs development pnpm tauri dev",
@@ -28,19 +26,14 @@
 		"act:test:e2e": "act -j test -W .github/workflows/test-e2e.yml -P catthehacker/ubuntu:act-22.04",
 		"build": "turbo run build --no-daemon",
 		"build:desktop": "turbo run --filter @gitbutler/desktop build --no-daemon",
-		"build:lite": "turbo run --filter @gitbutler/lite build --no-daemon",
 		"build:sdk": "turbo run --filter @gitbutler/but-sdk build --no-daemon",
 		"build:test": "pnpm exec tauri build --config crates/gitbutler-tauri/tauri.conf.test.json -- --profile dev",
 		"start:desktop": "pnpm --filter @gitbutler/desktop run preview",
 		"check": "turbo run check --no-daemon",
-		"knip:non-prod": "knip",
-		"knip:non-prod:fix": "knip --fix",
-		"knip:prod": "knip --strict",
-		"knip:prod:fix": "knip --strict --fix",
 		"tauri": "cross-env \"CARGO_TARGET_DIR=$PNPM_SCRIPT_SRC_DIR/target/tauri\" tauri",
 		"tauri-for-release": "tauri",
 		"lint": "turbo run //#globallint --no-daemon",
-		"globallint": "prettier --check . && eslint . && pnpm run oxlint && pnpm knip:non-prod && pnpm knip:prod",
+		"globallint": "prettier --check . && eslint . && pnpm run oxlint",
 		"oxlint": "oxlint",
 		"oxlint:fix": "oxlint --fix",
 		"prettier": "prettier --check .",
@@ -70,7 +63,6 @@
 		"eslint-plugin-storybook": "10.2.19",
 		"eslint-plugin-svelte": "3.15.2",
 		"globals": "^15.15.0",
-		"knip": "^5.87.0",
 		"oxfmt": "^0.56.0",
 		"oxlint": "^1.71.0",
 		"oxlint-tsgolint": "^0.23.0",
@@ -83,58 +75,11 @@
 		"typescript": "catalog:",
 		"typescript-eslint": "^8.57.1"
 	},
-	"pnpm": {
-		"overrides": {
-			"ajv@6.12.6": "6.14.0",
-			"axios": "1.13.5",
-			"devalue": "5.6.3",
-			"diff@^4.0.0": "4.0.4",
-			"diff@^5.0.0": "5.2.2",
-			"diff@^8.0.0": "8.0.3",
-			"fast-xml-parser": "5.3.7",
-			"@isaacs/brace-expansion": "5.0.1",
-			"lodash": "4.17.23",
-			"lodash-es": "4.17.23",
-			"minimatch@^10.0.0": "10.2.2",
-			"qs": "6.15.2",
-			"undici@6.22.0": "6.23.0",
-			"@lexical/clipboard": "0.27.2",
-			"@lexical/code": "0.27.2",
-			"@lexical/file": "0.27.2",
-			"@lexical/hashtag": "0.27.2",
-			"@lexical/history": "0.27.2",
-			"@lexical/html": "0.27.2",
-			"@lexical/link": "0.27.2",
-			"@lexical/list": "0.27.2",
-			"@lexical/mark": "0.27.2",
-			"@lexical/markdown": "0.27.2",
-			"@lexical/offset": "0.27.2",
-			"@lexical/overflow": "0.27.2",
-			"@lexical/plain-text": "0.27.2",
-			"@lexical/rich-text": "0.27.2",
-			"@lexical/selection": "0.27.2",
-			"@lexical/table": "0.27.2",
-			"@lexical/text": "0.27.2",
-			"@lexical/utils": "0.27.2",
-			"@lexical/yjs": "0.27.2",
-			"lexical": "0.27.2"
-		},
-		"onlyBuiltDependencies": [
-			"@ffmpeg-installer/darwin-arm64",
-			"@prisma/client",
-			"core-js",
-			"electron",
-			"electron-winstaller"
-		],
-		"ignoredBuiltDependencies": [
-			"@parcel/watcher",
-			"@sentry/cli",
-			"edgedriver",
-			"esbuild",
-			"geckodriver",
-			"leveldown",
-			"playwright-webkit",
-			"unrs-resolver"
-		]
+	"devEngines": {
+		"runtime": {
+			"name": "node",
+			"version": "^24.0.0",
+			"onFail": "download"
+		}
 	}
 }

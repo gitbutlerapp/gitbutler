@@ -12,7 +12,7 @@ use crate::args::atoms::{AllowMergedArg, CliIdArg};
 pub struct Platform {
     /// One or more commits, branches, or committed changes to uncommit.
     ///
-    /// Sources must all be the same category.
+    /// Sources must all be the same category. Uncommitting a branch also deletes it.
     #[clap(required = true)]
     pub sources: Vec<CliIdArg>,
 

@@ -114,21 +114,6 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub fn worktree(
-        &mut self,
-        connector: Vec<Span<'static>>,
-        line: UncommittedLineContent,
-        id: CliId,
-    ) -> anyhow::Result<()> {
-        self.push_line(
-            Some(connector),
-            StatusOutputContent::Uncommitted(line),
-            StatusOutputLineData::Worktree {
-                cli_id: Arc::new(id),
-            },
-        )
-    }
-
     pub fn worktree_uncommitted(
         &mut self,
         connector: Vec<Span<'static>>,
@@ -267,15 +252,10 @@ impl StatusOutput<'_> {
         connector: Vec<Span<'static>>,
         id: Vec<Span<'static>>,
         suffix: Vec<Span<'static>>,
-        commit_id: gix::ObjectId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::MergeBase(MergeBaseLineContent {
-                id,
-                suffix,
-                commit_id,
-            }),
+            StatusOutputContent::MergeBase(MergeBaseLineContent { id, suffix }),
             StatusOutputLineData::MergeBase,
         )
     }
@@ -308,7 +288,6 @@ pub enum StatusOutputContent {
 pub struct MergeBaseLineContent {
     pub id: Vec<Span<'static>>,
     pub suffix: Vec<Span<'static>>,
-    pub commit_id: gix::ObjectId,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -405,7 +384,6 @@ impl StatusOutputLine {
             StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
             | StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::Worktree { .. }
             | StatusOutputLineData::WorktreeUncommitted { .. }
             | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::CommitMessage
@@ -436,9 +414,6 @@ pub enum StatusOutputLineData {
         cli_id: Arc<CliId>,
     },
     UncommittedChanges {
-        cli_id: Arc<CliId>,
-    },
-    Worktree {
         cli_id: Arc<CliId>,
     },
     WorktreeUncommitted {
@@ -472,7 +447,6 @@ impl StatusOutputLineData {
     pub fn cli_id(&self) -> Option<&Arc<CliId>> {
         match self {
             StatusOutputLineData::UncommittedChanges { cli_id }
-            | StatusOutputLineData::Worktree { cli_id }
             | StatusOutputLineData::WorktreeUncommitted { cli_id }
             | StatusOutputLineData::UncommittedFile { cli_id }
             | StatusOutputLineData::Branch { cli_id, .. }

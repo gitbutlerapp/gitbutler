@@ -465,7 +465,7 @@ Workspace {
         id: stack_id1,
         workspacecommit_relation: Merged,
         branches: vec![WorkspaceStackBranch {
-            ref_name: branch1.clone(),
+            ref_name: branch1,
             archived: false,
         }],
     });
@@ -473,7 +473,7 @@ Workspace {
         id: stack_id2,
         workspacecommit_relation: Outside,
         branches: vec![WorkspaceStackBranch {
-            ref_name: branch2.clone(),
+            ref_name: branch2,
             archived: false,
         }],
     });
@@ -1639,7 +1639,9 @@ fn preserves_duplicate_heads_if_they_map_to_the_same_workspace_segment() -> anyh
     let path = repo.path().join("virtual_branches.toml");
     let mut store = VirtualBranchesTomlMetadata::from_path(&path)?;
     but_core::ref_metadata::ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
         target_commit_id: None,
         push_remote: Some("origin".into()),
     }
@@ -1700,7 +1702,9 @@ fn removes_within_stack_duplicate_heads_even_when_mapped_to_a_segment_13345() ->
     let path = repo.path().join("virtual_branches.toml");
     let mut store = VirtualBranchesTomlMetadata::from_path(&path)?;
     but_core::ref_metadata::ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
         target_commit_id: None,
         push_remote: Some("origin".into()),
     }

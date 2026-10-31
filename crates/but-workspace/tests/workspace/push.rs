@@ -36,7 +36,9 @@ fn fixture(
 
 fn project_meta(repo: &gix::Repository) -> anyhow::Result<ProjectMeta> {
     Ok(ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
         target_commit_id: Some(repo.rev_parse_single("main")?.detach()),
         push_remote: None,
     })
@@ -227,6 +229,59 @@ fn pushing_a_worktree_branch_pushes_the_stack_branches_beneath_it() -> anyhow::R
         ["wt-bottom", "wt-top"],
         "an independent worktree stack pushes like a workspace stack"
     );
+    Ok(())
+}
+
+fn assert_refused_and_remote_untouched(
+    repo: &gix::Repository,
+    meta: &but_meta::VirtualBranchesTomlMetadata,
+    branch: &str,
+) -> anyhow::Result<()> {
+    let err = push(repo, meta, r(branch), false, false, false)
+        .expect_err("the workspace commit merges every applied branch");
+    assert!(
+        err.to_string().contains("GitButler's workspace commit"),
+        "{branch}: {err:#}"
+    );
+    let remote_refs = but_testsupport::git(repo)
+        .args([
+            "--git-dir",
+            "remote.git",
+            "for-each-ref",
+            "--format=%(refname)",
+        ])
+        .output()?;
+    assert_eq!(
+        remote_refs.stdout.as_bstr(),
+        "refs/heads/main\n",
+        "nothing reached the remote"
+    );
+    Ok(())
+}
+
+#[test]
+fn a_worktree_resting_on_the_workspace_commit_is_not_pushed() -> anyhow::Result<()> {
+    let (_tmp, repo, meta) = fixture("push-on-workspace-commit")?;
+
+    assert_refused_and_remote_untouched(&repo, &meta, "refs/heads/wt-on-workspace")?;
+    assert_refused_and_remote_untouched(&repo, &meta, "refs/heads/wt-on-it")?;
+    Ok(())
+}
+
+#[test]
+fn a_branch_holding_the_workspace_commit_is_not_pushed() -> anyhow::Result<()> {
+    use but_testsupport::CommandExt as _;
+
+    let (_tmp, repo, meta) = fixture("push-on-workspace-commit")?;
+    // As an agent's `git checkout -b` on the workspace makes one.
+    but_testsupport::git(&repo)
+        .args(["checkout", "-q", "-b", "hotfix"])
+        .run();
+    but_testsupport::git(&repo)
+        .args(["commit", "-q", "--allow-empty", "-m", "hotfix"])
+        .run();
+
+    assert_refused_and_remote_untouched(&repo, &meta, "refs/heads/hotfix")?;
     Ok(())
 }
 

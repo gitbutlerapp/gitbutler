@@ -1,9 +1,11 @@
 //! `but_api::land::branch_land`: land a branch directly onto the target ref (the "avoid pull
 //! requests" workflow), exposed for every client (CLI, desktop, SDK).
 //!
-//! Inside a managed GitButler workspace this fast-forwards (or merges) the branch onto the
-//! configured target — pushing to the real remote, or moving the local refs for a self-remote
-//! (`gb-local`) — and then reconciles the remaining applied branches onto the moved target.
+//! This fast-forwards (or merges) the branch onto the configured target — pushing to the real
+//! remote, or moving the local refs for a self-remote (`gb-local`) or a target without an
+//! upstream — and then reconciles the remaining applied branches onto the moved target. The
+//! reconcile is the one `but pull` runs, so in single-branch mode landing the checked-out branch
+//! checks out the target branch afterwards, or a generated branch when the target can't be reused.
 //!
 //! ## Boundary
 //!
@@ -25,6 +27,10 @@
 //! unrelated remote must not block the land.
 //! The reconcile step owns its own permission and oplog snapshot. The target move itself is not
 //! captured by the oplog (see the CLI's undo caveats), matching the prior CLI behavior.
+//!
+//! A target without an upstream has nothing to fetch or push, so `land_locally` holds one
+//! exclusive permission throughout and records the target move and the reconcile as a single
+//! oplog entry, making the whole land undoable.
 
 mod deliver;
 mod merge;
@@ -32,9 +38,11 @@ mod reconcile;
 
 use std::path::Path;
 
-use anyhow::bail;
+use anyhow::{Context as _, bail};
 use but_api_macros::but_api;
+use but_core::DryRun;
 use but_ctx::Context;
+use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use gitbutler_git::GitContextExt as _;
 use gix::prelude::ObjectIdExt;
 use tracing::instrument;
@@ -67,7 +75,8 @@ pub struct BranchLandResult {
     /// The landed branches whose copy on the push remote was deleted after the land (only copies
     /// fully contained in the landed target are deleted).
     pub deleted_remote_branches: Vec<String>,
-    /// Whether delivery moved local refs (a `gb-local` self-remote) rather than pushing to a remote.
+    /// Whether delivery moved local refs (a target without an upstream, or a `gb-local`
+    /// self-remote) rather than pushing to a remote.
     pub local_delivery: bool,
     /// Set when the remaining branches were not reconciled onto the moved target — either the
     /// tracking ref hadn't caught up yet, or uncommitted worktree changes conflicted with the
@@ -157,36 +166,104 @@ pub mod json {
     }
 }
 
+/// Reject target configurations that landing cannot handle.
+///
+/// A target without an upstream is landed locally, so only targets with an upstream are checked.
+/// Call this before confirmation or mutation; landing checks it again after reloading the repo.
+pub fn ensure_supported_target_upstream(
+    project_meta: &but_core::ref_metadata::ProjectMeta,
+    repo: &gix::Repository,
+) -> anyhow::Result<()> {
+    let local = project_meta.target_ref_or_err()?;
+    let Some(upstream) = project_meta.remote_target_ref(repo)? else {
+        return Ok(());
+    };
+    let (fetch_remote, upstream_branch) =
+        but_core::extract_remote_name_and_short_name(upstream.as_ref(), &repo.remote_names())
+            .context("Could not determine the target upstream's remote")?;
+    let push_remote = project_meta
+        .push_remote
+        .as_deref()
+        .filter(|name| !name.is_empty())
+        .unwrap_or(&fetch_remote);
+    if push_remote != fetch_remote {
+        bail!(
+            "`but merge` does not yet support triangular remotes (fetch `{fetch_remote}`, \
+             push `{push_remote}`). Merge via a pull request instead, or configure a single \
+             remote for the target branch."
+        );
+    }
+    if local.shorten() != upstream_branch {
+        bail!(
+            "`but merge` requires matching local and upstream branch names (local `{}`, upstream `{upstream_branch}`). Merge via a pull request instead.",
+            local.shorten(),
+        );
+    }
+    Ok(())
+}
+
 /// Land `branch` directly onto the configured target ref.
 ///
 /// `branch` is the short name of the branch to land (its `refs/heads/<branch>` ref). The branch
 /// must be the bottom segment of its stack — or, with `whole_stack`, the top segment, which
 /// publishes every segment below it as well — and the landed segments must be free of conflicted
-/// commits. The workspace must be a managed GitButler workspace with a configured, non-triangular
-/// target remote.
+/// commits. HEAD must be the managed workspace or, in single-branch mode, the checked-out branch
+/// (see [`ensure_landable_checkout`]), and a target remote must be non-triangular.
+///
+/// `no_ff` always creates a merge commit; `ff_only` refuses to land unless the target can be
+/// fast-forwarded to the branch tip. Passing both is an error.
+///
+/// `expected_tip`, when given, is the branch tip the caller showed the user: the land is refused
+/// if the branch moved since, as by an agent committing during the confirmation or the fetch,
+/// because the push can't be undone. It's compared under the worktree lock that decides the land.
 ///
 /// This fetches the target, lands the branch (fast-forward or signed merge commit, retrying when
 /// the target moves underneath us), then reconciles the remaining applied branches onto the moved
 /// target. The remote push is not undoable; see [`BranchLandResult::reconcile_skipped`] and the
 /// workspace state for what to report.
-#[but_api(napi, try_from = json::BranchLandResult)]
+///
+/// A target without an upstream is moved locally instead, and the whole land is a single undoable
+/// oplog entry, recorded as soon as the target moved so `but undo` reverts even a land whose
+/// reconcile failed.
+#[but_api(try_from = json::BranchLandResult)]
 #[instrument(skip(ctx), err(Debug))]
 pub fn branch_land(
     ctx: &mut Context,
     branch: String,
     no_ff: bool,
+    ff_only: bool,
     whole_stack: bool,
+    expected_tip: Option<gix::ObjectId>,
 ) -> anyhow::Result<BranchLandResult> {
+    if no_ff && ff_only {
+        bail!("Cannot land with both `no_ff` and `ff_only`");
+    }
     let base_branch = {
         let mut guard = ctx.exclusive_worktree_access();
-        {
-            let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-            if !ws.kind.has_managed_ref() {
-                bail!(
-                    "`but merge` requires an active GitButler workspace (`gitbutler/workspace`). \
-                     Switch into the workspace and try again."
-                );
+        let local_target = {
+            // A caller may have checked the checkout already, as the CLI does before its
+            // confirmation prompt. Reload so this check sees HEAD as it is now.
+            ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
+            let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+            ensure_landable_checkout(&ws)?;
+            ensure_supported_target_upstream(&ws.graph.project_meta, &repo)?;
+            let project_meta = &ws.graph.project_meta;
+            match project_meta.remote_target_ref(&repo)? {
+                Some(_) => None,
+                None => Some(project_meta.target_ref_or_err()?.clone()),
             }
+        };
+        if let Some(local_target) = local_target {
+            drop(guard);
+            return land_locally(
+                ctx,
+                branch,
+                local_target,
+                no_ff,
+                ff_only,
+                whole_stack,
+                expected_tip,
+            );
         }
         crate::legacy::virtual_branches::get_base_branch_data(ctx, guard.write_permission())?
             .ok_or_else(|| anyhow::anyhow!("No base branch configured"))?
@@ -196,32 +273,44 @@ pub fn branch_land(
     if target_branch_name.is_empty() {
         bail!("Configured target branch has no branch name");
     }
-    let fetch_remote_name = base_branch.remote_name.clone();
-    let push_remote_name = if base_branch.push_remote_name.is_empty() {
+    let fetch_remote_name = base_branch
+        .remote_name
+        .clone()
+        .context("Merging without a remote isn't supported yet")?;
+    let push_remote_name = if base_branch
+        .push_remote_name
+        .as_ref()
+        .context("Merging without a remote isn't supported yet")?
+        .is_empty()
+    {
         fetch_remote_name.clone()
     } else {
-        base_branch.push_remote_name.clone()
+        base_branch
+            .push_remote_name
+            .as_ref()
+            .context("Merging without a remote isn't supported yet")?
+            .clone()
     };
     if push_remote_name.is_empty() {
         bail!("Configured target branch has no push remote");
     }
 
-    // Triangular remotes (fetch remote != push remote) are out of scope for now: the post-land
-    // reconcile reads the fetch remote's tracking ref, so a push to a different remote would not
-    // advance it and the reconcile would silently no-op. Refuse before mutating anything.
-    if push_remote_name != fetch_remote_name {
-        bail!(
-            "`but merge` does not yet support triangular remotes (fetch `{fetch_remote_name}`, \
-             push `{push_remote_name}`). Merge via a pull request instead, or configure a single \
-             remote for the target branch."
-        );
-    }
-
     let target_display = format!("{push_remote_name}/{target_branch_name}");
-    let push_remote_url = if base_branch.push_remote_url.is_empty() {
-        &base_branch.remote_url
+    let push_remote_url = if base_branch
+        .push_remote_url
+        .as_ref()
+        .context("Merging without a remote isn't supported yet")?
+        .is_empty()
+    {
+        base_branch
+            .remote_url
+            .as_ref()
+            .context("Merging without a remote isn't supported yet")?
     } else {
-        &base_branch.push_remote_url
+        base_branch
+            .push_remote_url
+            .as_ref()
+            .context("Merging without a remote isn't supported yet")?
     };
     let update_target_locally = {
         let repo = ctx.repo.get()?;
@@ -241,6 +330,8 @@ pub fn branch_land(
     // Fetch only the target's remote: landing needs a fresh target tracking ref and nothing else,
     // and an unreachable unrelated remote must not block the land.
     fetch_target_remote(ctx, &fetch_remote_name)?;
+    let fetch_target_ref: gix::refs::FullName =
+        format!("refs/remotes/{fetch_remote_name}/{target_branch_name}").try_into()?;
 
     // Land the branch, retrying when the target moves underneath us (optimistic concurrency).
     let mut landed: Option<BranchLandKind> = None;
@@ -250,12 +341,13 @@ pub fn branch_land(
         let outcome = {
             let _guard = ctx.exclusive_worktree_access();
             let repo = ctx.repo.get()?;
-            merge::decide_land_outcome(
+            merge::merge_or_fast_forward(
                 &repo,
                 &branch,
-                &fetch_remote_name,
-                &target_branch_name,
+                fetch_target_ref.as_ref(),
                 no_ff,
+                ff_only,
+                expected_tip,
             )
         }?;
 
@@ -277,7 +369,7 @@ pub fn branch_land(
                 &repo,
                 new_target_oid,
                 prev_target_oid,
-                &push_remote_name,
+                Some(&push_remote_name),
                 &target_branch_name,
             )
         } else {
@@ -387,13 +479,130 @@ pub fn branch_land(
     })
 }
 
+/// Land `branch` onto `target`, a local branch without an upstream: with nothing to fetch or push,
+/// move `target` itself and reconcile the remaining branches.
+fn land_locally(
+    ctx: &mut Context,
+    branch: String,
+    target: but_core::ref_metadata::LocalRefName,
+    no_ff: bool,
+    ff_only: bool,
+    whole_stack: bool,
+    expected_tip: Option<gix::ObjectId>,
+) -> anyhow::Result<BranchLandResult> {
+    let target_ref = target.as_local_full_name_ref();
+    let target_branch_name = target_ref.shorten().to_string();
+    validate_branch_landing(ctx, &branch, &target_branch_name, whole_stack)?;
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let outcome = {
+        let repo = ctx.repo.get()?;
+        merge::merge_or_fast_forward(&repo, &branch, target_ref, no_ff, ff_only, expected_tip)?
+    };
+    let landed = match outcome {
+        LandOutcome::AlreadyIntegrated => BranchLandKind::AlreadyIntegrated,
+        LandOutcome::FastForward {
+            feature_oid,
+            target_oid,
+        } => BranchLandKind::Updated {
+            new_target_oid: feature_oid,
+            prev_target_oid: target_oid,
+        },
+        LandOutcome::Merge { oid, target_oid } => BranchLandKind::Updated {
+            new_target_oid: oid,
+            prev_target_oid: target_oid,
+        },
+    };
+
+    // Updating the remaining branches deletes any branch whose changes are now on the target, not
+    // just the merged ones. So the undo snapshot records every applied branch, plus the target.
+    // It is taken before anything changes: undo puts all of them back, and redo deletes the
+    // branches the merge deleted.
+    let applied_branches = {
+        let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        ws.stacks
+            .iter()
+            .flat_map(|stack| &stack.segments)
+            .flat_map(|segment| segment.ref_names())
+            .filter(|name| {
+                name.category() == Some(gix::refs::Category::LocalBranch) && *name != target_ref
+            })
+            .map(ToOwned::to_owned)
+            .collect::<Vec<_>>()
+    };
+    let preserved_refs = std::iter::once(target_ref)
+        .chain(applied_branches.iter().map(|name| name.as_ref()))
+        .collect::<Vec<_>>();
+    let mut snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
+        ctx,
+        SnapshotDetails::new(OperationKind::MergeBranch),
+        &preserved_refs,
+        guard.read_permission(),
+        DryRun::No,
+    );
+    if let BranchLandKind::Updated {
+        new_target_oid,
+        prev_target_oid,
+    } = &landed
+    {
+        {
+            let repo = ctx.repo.get()?;
+            deliver::update_local_target_refs(
+                &repo,
+                *new_target_oid,
+                *prev_target_oid,
+                None,
+                &target_branch_name,
+            )
+            .context("Failed to update local target branch")?;
+        }
+        // Once the target moved there is something to undo, even if the reconcile fails.
+        if let Some(snapshot) = snapshot.take() {
+            snapshot.commit(ctx, guard.write_permission()).ok();
+        }
+    }
+    ctx.invalidate_workspace_cache()?;
+
+    let workspace = reconcile::reconcile_after_land_only_with_perm(ctx, guard.write_permission())
+        .with_context(|| {
+        format!("Failed to update the remaining branches onto `{target_branch_name}`")
+    })?;
+    if let Some(snapshot) = snapshot {
+        snapshot.commit(ctx, guard.write_permission()).ok();
+    }
+
+    Ok(BranchLandResult {
+        landed,
+        deleted_remote_branches: Vec::new(),
+        local_delivery: true,
+        reconcile_skipped: false,
+        workspace,
+    })
+}
+
+/// Refuse landing unless HEAD is the managed workspace or an ordinary checked-out branch.
+/// The reconcile after the land rewrites whatever HEAD points at, so a detached HEAD or edit mode
+/// must be refused before anything is published. Callers that confirm with the
+/// user run this first, so they never ask about a land that can't happen.
+pub fn ensure_landable_checkout(ws: &but_graph::Workspace) -> anyhow::Result<()> {
+    let single_branch_checkout = ws.ref_name().is_some_and(|name| {
+        name.category() == Some(gix::refs::Category::LocalBranch)
+            && name.as_bstr() != gitbutler_operating_modes::EDIT_BRANCH_REF
+    });
+    if !ws.kind.has_managed_ref() && !single_branch_checkout {
+        bail!("`but merge` requires the GitButler workspace or a checked-out branch.");
+    }
+    Ok(())
+}
+
 /// Refuse landing a non-bottom stack segment unless `whole_stack` opts into publishing the lower
 /// segments — and even then only for the top segment, so `--whole-stack` always means "the entire
 /// stack lands", never a partial land that strands the segments above. Also refuse conflicted
 /// commits in any segment that would be published (the same guard `but push` applies before
 /// sending commits to a remote). All computed from the graph workspace, not stack projections.
 /// Returns the named lower segments that land together with `branch` — non-empty only for a
-/// validated `--whole-stack` land.
+/// validated `--whole-stack` land. A branch outside every lane is refused, as none of these checks
+/// could run on it.
 fn validate_branch_landing(
     ctx: &mut Context,
     branch: &str,
@@ -401,7 +610,9 @@ fn validate_branch_landing(
     whole_stack: bool,
 ) -> anyhow::Result<Vec<String>> {
     let Some(scan) = scan_stack(ctx, branch)? else {
-        return Ok(Vec::new());
+        bail!(
+            "Refusing to land `{branch}`: it is not in the workspace. Apply or check out the branch first."
+        );
     };
 
     if whole_stack && scan.has_upper {
@@ -518,8 +729,8 @@ struct StackScan {
     conflicted: Vec<String>,
 }
 
-/// Locate `branch` in the graph workspace, or `None` when no applied stack has a segment by that
-/// name.
+/// Locate `branch` in the graph workspace, or `None` when no lane (an applied stack or a linked
+/// worktree) has a segment by that name.
 fn scan_stack(ctx: &mut Context, branch: &str) -> anyhow::Result<Option<StackScan>> {
     let guard = ctx.exclusive_worktree_access();
     let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
@@ -536,34 +747,30 @@ fn scan_stack(ctx: &mut Context, branch: &str) -> anyhow::Result<Option<StackSca
 
     // Segments are ordered top of the stack first, so everything after `pos` is published along
     // with the branch's tip and everything before it sits on top of the branch.
-    for stack in &head_info.stacks {
-        let Some(pos) = stack
-            .segments
+    for segments in head_info.lanes().map(|lane| lane.segments) {
+        let Some(pos) = segments
             .iter()
             .position(|s| segment_short_name(s).as_deref() == Some(branch))
         else {
             continue;
         };
         return Ok(Some(StackScan {
-            upper_segments: stack.segments[..pos]
+            upper_segments: segments[..pos]
                 .iter()
                 .filter_map(segment_short_name)
                 .collect(),
             has_upper: pos > 0,
-            lower_segments: stack.segments[pos + 1..]
+            lower_segments: segments[pos + 1..]
                 .iter()
                 .filter_map(segment_short_name)
                 .collect(),
-            commits_below: stack.segments[pos + 1..]
-                .iter()
-                .map(|s| s.commits.len())
-                .sum(),
-            unnamed_below_commits: stack.segments[pos + 1..]
+            commits_below: segments[pos + 1..].iter().map(|s| s.commits.len()).sum(),
+            unnamed_below_commits: segments[pos + 1..]
                 .iter()
                 .filter(|s| segment_short_name(s).is_none())
                 .map(|s| s.commits.len())
                 .sum(),
-            conflicted: stack.segments[pos..]
+            conflicted: segments[pos..]
                 .iter()
                 .flat_map(|s| &s.commits)
                 .filter(|c| c.has_conflicts)
@@ -594,6 +801,7 @@ fn current_workspace_state(ctx: &mut Context) -> anyhow::Result<WorkspaceState> 
         &mut meta,
         &repo,
         std::collections::BTreeMap::new(),
+        Vec::new(),
         &mut db,
     )
 }
@@ -624,12 +832,35 @@ fn merge_base_opt(
     a: gix::ObjectId,
     b: gix::ObjectId,
 ) -> anyhow::Result<Option<gix::ObjectId>> {
-    match repo.merge_base(a, b) {
-        Ok(id) => Ok(Some(id.detach())),
-        Err(gix::repository::merge_base::Error::FindMergeBase(_))
-        | Err(gix::repository::merge_base::Error::NotFound { .. }) => Ok(None),
-        Err(err) => Err(err.into()),
-    }
+    Ok(repo.merge_base(a, b)?.map(gix::Id::detach))
+}
+
+#[test]
+fn merge_base_distinguishes_unrelated_history_from_missing_objects() -> anyhow::Result<()> {
+    let tmp = tempfile::tempdir()?;
+    gix::init(tmp.path())?;
+    let repo = but_testsupport::open_repo(tmp.path())?;
+    let root = |name: &str| {
+        repo.commit(
+            name,
+            name,
+            repo.object_hash().empty_tree(),
+            std::iter::empty::<gix::ObjectId>(),
+        )
+        .map(gix::Id::detach)
+    };
+    let first = root("refs/heads/first")?;
+    let second = root("refs/heads/second")?;
+    assert_eq!(
+        merge_base_opt(&repo, first, second)?,
+        None,
+        "unrelated roots have no merge base"
+    );
+    assert!(
+        merge_base_opt(&repo, first, repo.object_hash().null()).is_err(),
+        "a missing object is a traversal failure, not unrelated history"
+    );
+    Ok(())
 }
 
 /// Whether `commit` is contained in the target tip — equal to it, or an ancestor of it (which

@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Context as _, Result, anyhow, bail};
 use bstr::{BString, ByteSlice};
 use but_core::{
     RepositoryExt,
@@ -41,7 +41,8 @@ pub(crate) fn octopus(
     }
     let parents_to_merge = target_merge_commit.parents.iter().copied();
     let merge_base = but_core::Commit::from_id(
-        repo.merge_base_octopus_with_graph(parents_to_merge.clone(), graph)?,
+        repo.merge_base_octopus_with_graph(parents_to_merge.clone(), graph)?
+            .context("Could not find a merge-base for the merge commit's parents")?,
     )?
     .tree_id_or_kind(TreeKind::Base)?
     .detach();

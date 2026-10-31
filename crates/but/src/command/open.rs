@@ -22,7 +22,7 @@ use crate::{
     CliError, CliResult, IdMap,
     args::atoms::{CliIdArg, Purpose, ResolvedCliIdArg},
     bad_input,
-    utils::IntermediateChannel,
+    utils::{IntermediateChannel, change_source::InvokedFrom},
 };
 
 #[derive(Debug)]
@@ -120,9 +120,10 @@ pub(crate) fn open(
     mut out: IntermediateChannel<'_>,
     sources: Vec<CliIdArg>,
     program_id: Option<String>,
+    invoked_from: &InvokedFrom,
 ) -> CliResult<()> {
     let guard = ctx.shared_worktree_access();
-    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission(), Some(invoked_from))?;
     let (repo, _ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
 
     let to_open = match sources.as_slice() {

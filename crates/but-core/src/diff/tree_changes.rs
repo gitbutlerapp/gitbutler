@@ -183,8 +183,6 @@ impl From<gix::object::tree::diff::ChangeDetached> for TreeChange {
                 entry_mode,
                 id,
                 location,
-                diff: _,
-                copy: _,
                 ..
             } => {
                 let previous_state = ChangeState {

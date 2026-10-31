@@ -10,15 +10,27 @@ pub mod traverse;
 use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context, Result, bail};
+use but_core::ChangeId;
 use but_core::commit::CommitIdentifiers;
-use but_core::{RefMetadata, commit::SignCommit};
+use but_core::{
+    RefMetadata,
+    commit::{SignCommit, padding},
+};
 use but_graph::init::Overlay;
 pub use creation::GraphEditorOptions;
-use gix::refs::transaction::RefEdit;
+use gix::{
+    prelude::ObjectIdExt as _,
+    refs::{
+        Target,
+        transaction::{Change, PreviousValue, RefEdit},
+    },
+};
 
-use crate::graph_rebase::util::collect_ordered_parents;
+use crate::graph_rebase::util::{OrderedParentKind, collect_ordered_parents};
 
 use crate::graph_rebase::cherry_pick::{PickMode, TreeMergeMode};
+mod branch_stacks;
+pub use branch_stacks::BranchStacks;
 pub mod cherry_pick;
 pub mod commit;
 pub mod materialize;
@@ -358,14 +370,28 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         selector: Selector,
     ) -> Result<Option<(gix::ObjectId, Option<gix::refs::FullName>)>> {
         let selector = self.history.normalize_selector(selector)?;
-        Ok(match &self.graph[selector.id] {
-            Step::None => None,
+        self.checkout_target_inner(selector.id)
+    }
+
+    fn checkout_target_inner(
+        &self,
+        idx: StepGraphIndex,
+    ) -> Result<Option<(gix::ObjectId, Option<gix::refs::FullName>)>> {
+        Ok(match &self.graph[idx] {
+            Step::None => {
+                collect_ordered_parents(&self.graph, idx, OrderedParentKind::CommitOrReference)
+                    .first()
+                    .map(|child_idx| self.checkout_target_inner(*child_idx))
+                    .transpose()?
+                    .flatten()
+            }
             Step::Pick(Pick { id, .. }) => Some((*id, None)),
             Step::Reference { refname, .. } => {
-                let parent = collect_ordered_parents(&self.graph, selector.id)
-                    .into_iter()
-                    .next()
-                    .context("No first parent to reference")?;
+                let parent =
+                    collect_ordered_parents(&self.graph, idx, OrderedParentKind::CommitOnly)
+                        .into_iter()
+                        .next()
+                        .context("No first parent to reference")?;
                 let Step::Pick(Pick { id, .. }) = self.graph[parent] else {
                     bail!("collect_ordered_parents should always return a commit pick");
                 };
@@ -374,16 +400,124 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         })
     }
 
-    fn worktree_tips_after_rebase(&self) -> Result<Vec<but_graph::init::WorktreeTip>> {
-        Ok(self
-            .linked_checkout_specs()?
+    /// Makes materializing leave the files of every checkout untouched while its `HEAD`
+    /// and index still follow the rewrite, so what the rewrite took out of a checked out
+    /// commit surfaces as uncommitted changes.
+    pub fn keep_worktrees_unchanged(&mut self) -> Result<()> {
+        let trees = self
+            .padded_checkouts()?
             .into_iter()
-            .map(|spec| but_graph::init::WorktreeTip {
-                name: spec.name,
-                ref_name: spec.ref_name,
-                id: spec.target,
+            .map(|PaddedCheckout { tip, .. }| {
+                tip.map(|tip| {
+                    anyhow::Ok(tip.target().attach(&self.repo).object()?.peel_to_tree()?.id)
+                })
+                .transpose()
             })
-            .collect())
+            .collect::<Result<Vec<_>>>()?;
+        for (checkout, tree) in self.checkouts.iter_mut().zip(trees) {
+            let (Checkout::Head {
+                merge_base_override,
+                ..
+            }
+            | Checkout::Worktree {
+                merge_base_override,
+                ..
+            }) = checkout;
+            *merge_base_override = tree;
+        }
+        Ok(())
+    }
+
+    fn padded_checkouts(&self) -> Result<Vec<PaddedCheckout<'_>>> {
+        self.checkouts
+            .iter()
+            .map(|checkout| {
+                let (Checkout::Head { selector, .. } | Checkout::Worktree { selector, .. }) =
+                    checkout;
+                let tip = self
+                    .checkout_target(*selector)?
+                    .map(|(commit, ref_name)| {
+                        let conflicted = but_core::Commit::from_id(commit.attach(&self.repo))?;
+                        let padding = conflicted
+                            .is_conflicted()
+                            .then(|| padding::create(&conflicted))
+                            .transpose()
+                            .context(but_error::Code::ConflictedCommitCheckout)?;
+                        anyhow::Ok(PaddedTip {
+                            commit,
+                            padding,
+                            ref_name,
+                        })
+                    })
+                    .transpose()?;
+                Ok(PaddedCheckout { checkout, tip })
+            })
+            .collect()
+    }
+
+    fn padded_ref_edits(&self, checkouts: &[PaddedCheckout<'_>]) -> Result<Vec<RefEdit>> {
+        let mut edits = self.ref_edits.clone();
+        let padded_refs = checkouts.iter().filter_map(|checkout| match &checkout.tip {
+            Some(PaddedTip {
+                commit,
+                padding: Some(padding),
+                ref_name: Some(ref_name),
+            }) => Some((*commit, *padding, ref_name)),
+            _ => None,
+        });
+        for (commit, padding, ref_name) in padded_refs {
+            match edits.iter_mut().find(|edit| &edit.name == ref_name) {
+                Some(RefEdit {
+                    change: Change::Update { new, .. },
+                    ..
+                }) => *new = Target::Object(padding),
+                Some(RefEdit {
+                    change: Change::Delete { .. },
+                    ..
+                }) => bail!("BUG: the checked out reference {ref_name} is deleted"),
+                None => edits.push(RefEdit::update(
+                    ref_name.clone(),
+                    padding,
+                    PreviousValue::MustExistAndMatch(Target::Object(commit)),
+                    "",
+                )),
+            }
+        }
+        edits.retain(|edit| {
+            !matches!(
+                &edit.change,
+                Change::Update {
+                    expected: PreviousValue::MustExistAndMatch(previous),
+                    new,
+                    ..
+                } if previous == new
+            )
+        });
+        Ok(edits)
+    }
+
+    fn worktree_tips_after_rebase(&self) -> Result<Vec<but_graph::init::WorktreeTip>> {
+        self.checkouts
+            .iter()
+            .filter_map(|checkout| match checkout {
+                Checkout::Worktree {
+                    worktree_name,
+                    selector,
+                    ..
+                } => Some((worktree_name, selector)),
+                Checkout::Head { .. } => None,
+            })
+            .map(|(worktree_name, selector)| {
+                let (id, ref_name) = self.checkout_target(*selector)?.with_context(|| {
+                    format!("Visible worktree {worktree_name} HEAD was removed")
+                })?;
+                Ok(but_graph::init::WorktreeTip {
+                    name: worktree_name.clone(),
+                    ref_name,
+                    id,
+                })
+            })
+            .collect()
     }
 
     /// Return the commit targeted by `ref_name` in the post-rebase step graph.
@@ -398,7 +532,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
                 )
             })
             .with_context(|| format!("Could not find reference '{ref_name}' in rebase result"))?;
-        let parent = collect_ordered_parents(&self.graph, reference)
+        let parent = collect_ordered_parents(&self.graph, reference, OrderedParentKind::CommitOnly)
             .into_iter()
             .next()
             .context("Reference has no target commit in rebase result")?;
@@ -459,12 +593,33 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             .map_or((entrypoint_id, entrypoint_refname), |(id, ref_name)| {
                 (id, Some(ref_name))
             });
+        let branch_stacks = self.branch_stacks()?;
+        let workspace_metadata = branch_stacks.workspace_metadata(&*self.meta)?;
+        let branch_metadata = workspace_metadata
+            .iter()
+            .flat_map(|workspace| &workspace.stacks)
+            .flat_map(|stack| &stack.branches)
+            .map(|branch| {
+                let metadata = self.meta.branch(branch.ref_name.as_ref())?;
+                Ok((branch.ref_name.clone(), (*metadata).clone()))
+            })
+            .collect::<Result<Vec<_>>>()?;
         let mut overlay = Overlay::default()
             .with_references(updated_refs)
             .with_dropped_references(dropped_refs)
-            .with_entrypoint(entrypoint_id, entrypoint_refname);
+            .with_entrypoint(entrypoint_id, entrypoint_refname)
+            .with_branch_metadata_override(branch_metadata)
+            .with_workspace_metadata_override(
+                workspace_metadata
+                    .map(|workspace| (workspace.as_ref().to_owned(), (*workspace).clone())),
+            );
         if let Some(branch_stack_order) = branch_stack_order {
             overlay = overlay.with_branch_stack_order_override(branch_stack_order.iter().cloned());
+        }
+        if self.meta.can_persist_branch_stack_order() {
+            for stack in branch_stacks.ad_hoc {
+                overlay = overlay.with_branch_stack_order_override(stack);
+            }
         }
         let mut graph = self.workspace.graph.clone();
         graph.worktree_tips = self.worktree_tips_after_rebase()?;
@@ -491,34 +646,48 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     ///
     /// Materialization will be a no-op
     pub fn references_updated(&self) -> Result<bool> {
-        if !self.ref_edits.is_empty() {
-            return Ok(true);
-        }
+        let checkouts = self.padded_checkouts()?;
+        let ref_edits = self.padded_ref_edits(&checkouts)?;
+        Ok(self.updates_references(&checkouts, &ref_edits))
+    }
 
-        for co in &self.checkouts {
-            match co {
-                Checkout::Head { selector, .. } => {
-                    let target = self.checkout_target(*selector)?.map(|t| t.0);
-
-                    if target != self.repo().head_id().ok().map(|id| id.detach()) {
-                        return Ok(true);
+    fn updates_references(&self, checkouts: &[PaddedCheckout<'_>], ref_edits: &[RefEdit]) -> bool {
+        !ref_edits.is_empty()
+            || checkouts.iter().any(|PaddedCheckout { checkout, tip }| {
+                let target = tip.as_ref().map(|tip| (tip.target(), tip.ref_name.clone()));
+                match checkout {
+                    Checkout::Head { .. } => {
+                        let head = self
+                            .repo()
+                            .head_id()
+                            .ok()
+                            .map(|id| (id.detach(), self.repo().head_name().ok().flatten()));
+                        target != head
                     }
+                    Checkout::Worktree {
+                        ref_name,
+                        initial_head,
+                        ..
+                    } => target != Some((*initial_head, ref_name.clone())),
                 }
-                Checkout::Worktree {
-                    selector,
-                    initial_head,
-                    ..
-                } => {
-                    let target = self.checkout_target(*selector)?.map(|t| t.0);
+            })
+    }
+}
 
-                    if target != Some(*initial_head) {
-                        return Ok(true);
-                    }
-                }
-            }
-        }
+struct PaddedCheckout<'a> {
+    checkout: &'a Checkout,
+    tip: Option<PaddedTip>,
+}
 
-        Ok(false)
+struct PaddedTip {
+    commit: gix::ObjectId,
+    padding: Option<gix::ObjectId>,
+    ref_name: Option<gix::refs::FullName>,
+}
+
+impl PaddedTip {
+    fn target(&self) -> gix::ObjectId {
+        self.padding.unwrap_or(self.commit)
     }
 }
 
@@ -595,6 +764,8 @@ pub struct RevisionHistory {
     /// Unintuatively, the values are the original values, and the keys are the
     /// _new_ values that they have been mapped to.
     commit_mappings: BTreeMap<gix::ObjectId, gix::ObjectId>,
+    /// Conflicted commits that were created.
+    pub conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
 }
 
 impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {

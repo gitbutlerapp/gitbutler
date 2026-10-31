@@ -5,7 +5,7 @@ use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
     DiffSpec, RefMetadata,
-    ref_metadata::{StackId, StackKind, WorkspaceStack},
+    ref_metadata::{StackId, StackKind, UnresolvedLegacyTargetRefError, WorkspaceStack},
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::Context;
@@ -54,16 +54,16 @@ pub fn create_virtual_branch(
             .map_err(anyhow::Error::from)?;
 
         let mut meta = ctx.meta()?;
-        let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
-        let new_ws = but_workspace::branch::create_reference(
-            new_ref.as_ref(),
-            None,
-            &repo,
-            &ws,
-            &mut meta,
-            |_| StackId::generate(),
-            branch.order,
-        )?;
+        let (guard, repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut()?;
+        if ws
+            .find_segment_owner_indexes_by_refname(new_ref.as_ref())
+            .is_none()
+        {
+            let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+            but_workspace::branch::create_reference(editor, new_ref.as_ref(), None, branch.order)?
+                .materialize(Default::default())?;
+        }
+        let new_ws = &ws;
 
         let (stack_idx, segment_idx) = new_ws
             .find_segment_owner_indexes_by_refname(new_ref.as_ref())
@@ -92,7 +92,8 @@ pub fn create_virtual_branch(
             is_checked_out: false,
         };
 
-        *ws = new_ws.into_owned();
+        drop((guard, repo, db));
+        ctx.update_workspace_cache(ws);
         out
     };
     Ok(stack_entry)
@@ -108,7 +109,7 @@ pub fn delete_local_branch(
     let branch_refname = local_branch_refname(refname, &given_name)?;
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.legacy_meta_mut(guard.write_permission())?;
-    let (mut repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+    let (mut repo, mut ws, _) = ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
 
     if ws
         .metadata
@@ -131,7 +132,9 @@ pub fn delete_local_branch(
             keep_metadata: false,
         },
     )? {
-        *ws = new_ws;
+        drop(repo);
+        drop(ws);
+        ctx.update_workspace_cache(new_ws);
     } else {
         but_workspace::branch::remove_reference::delete_local_branch(
             &mut repo,
@@ -183,7 +186,10 @@ pub fn switch_back_to_workspace_with_perm(
         gitbutler_branch_actions::base::get_base_branch_data(ctx, perm.read_permission())
             .context("Failed to get base branch data")?;
 
-    let branch_name = format!("refs/remotes/{}", base_branch.branch_name)
+    let branch_name = ctx
+        .project_meta()?
+        .target_ref_or_err()?
+        .to_string()
         .parse()
         .context("Invalid branch name")?;
 
@@ -192,18 +198,20 @@ pub fn switch_back_to_workspace_with_perm(
     Ok(base_branch)
 }
 
+/// The project's base branch, or `None` if it has none or it can't be read.
+///
+/// A legacy remote target that no single local branch tracks fails with
+/// [`UnresolvedLegacyTargetRefError`] instead, so apps can ask which local branch replaces it.
 #[but_api]
 #[instrument(skip(perm), err(Debug))]
 pub fn get_base_branch_data(
     ctx: &but_ctx::Context,
     perm: &mut RepoExclusive,
 ) -> Result<Option<BaseBranch>> {
-    if let Ok(base_branch) =
-        gitbutler_branch_actions::base::get_base_branch_data(ctx, perm.read_permission())
-    {
-        Ok(Some(base_branch))
-    } else {
-        Ok(None)
+    match gitbutler_branch_actions::base::get_base_branch_data(ctx, perm.read_permission()) {
+        Ok(base_branch) => Ok(Some(base_branch)),
+        Err(err) if err.is::<UnresolvedLegacyTargetRefError>() => Err(err),
+        Err(_) => Ok(None),
     }
 }
 
@@ -272,7 +280,7 @@ pub fn update_stack_order_with_perm(
         .context("Updating branch order requires open workspace mode")?;
 
     let mut meta = ctx.legacy_meta_mut(perm)?;
-    let (_repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (_repo, mut ws, _db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let workspace_ref = ws
         .ref_name()
         .context("Updating stack order requires a managed workspace")?;
@@ -460,7 +468,7 @@ mod tests {
 ///
 /// See [`unapply_stack_with_perm()`] for how assigned changes are collected before
 /// delegating to the underlying mutation.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn unapply_stack(ctx: &mut Context, stack_id: StackId) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
@@ -511,16 +519,16 @@ fn assigned_diffspec_for_stack(
 
 /// Unapply a stack through the newer workspace metadata implementation.
 ///
-/// Outside single branch mode this deliberately keeps the workspace reference and
-/// workspace merge commit in place for compatibility with the legacy API surface.
-/// In single branch mode the workspace reference is dropped once it is no longer
-/// needed, so unapplying the second-to-last stack checks out the remaining branch.
+/// The workspace reference is dropped once it is no longer needed, so unapplying the
+/// second-to-last stack checks out the remaining branch.
+/// Unapplying that last branch checks out the target's local tracking branch and clears its
+/// applied state from retained workspace metadata so switching back won't restore it.
 /// We implement plumbing here, particularly relative to assignment handling,
 /// to facilitate the eventual removal of `gitbutler-branch-actions`.
 ///
 /// # Control-flow
 ///
-/// - verify that the project is in open workspace mode;
+/// - reject edit mode, allowing both managed workspaces and ordinary branch checkouts;
 /// - collect currently assigned worktree changes for `stack_id`;
 /// - identify the workspace metadata branch representing the stack;
 /// - create a best-effort unapply snapshot with all stack branch names as trailers;
@@ -539,8 +547,10 @@ fn unapply_stack_v3_with_perm(
     stack_id: StackId,
     perm: &mut RepoExclusive,
 ) -> Result<()> {
-    ensure_open_workspace_mode(ctx, perm.read_permission())
-        .context("Unapplying a stack requires open workspace mode")?;
+    if gitbutler_operating_modes::in_edit_mode(ctx, perm.read_permission())? {
+        ensure_open_workspace_mode(ctx, perm.read_permission())
+            .context("Unapplying a stack requires open workspace mode")?;
+    }
 
     let assigned_diffspec = assigned_diffspec_for_stack(ctx, stack_id, perm.read_permission())?;
     let stack_branches = stack_branch_names(ctx, stack_id, perm.read_permission())?;
@@ -556,27 +566,51 @@ fn unapply_stack_v3_with_perm(
 
     commit_assigned_diffspec(ctx, branch_to_unapply.as_ref(), assigned_diffspec, perm)?;
 
-    let single_branch = ctx.settings.feature_flags.single_branch;
     let mut meta = ctx.legacy_meta_mut(perm)?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let workspace_disposition = if single_branch {
-        WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit
-    } else {
-        WorkspaceDisposition::KeepWorkspaceCommit
-    };
+    let (repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let was_ad_hoc = matches!(ws.kind, but_graph::workspace::WorkspaceKind::AdHoc);
     let outcome = but_workspace::branch::unapply(
         branch_to_unapply.as_ref(),
         &ws,
         &repo,
         &mut meta,
         but_workspace::branch::unapply::Options {
-            workspace_disposition,
+            workspace_disposition:
+                WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit,
         },
     )?;
-    *ws = outcome.workspace.into_owned();
+    let new_ws = outcome.workspace.into_owned();
+    if was_ad_hoc {
+        // Collapsing a managed workspace retains its metadata after deleting its ref.
+        // Don't resurrect the last unapplied branch when switching back to that workspace.
+        let mut remembered = meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?;
+        if remembered.unapply_branch(branch_to_unapply.as_ref()) {
+            if remembered.stacks(StackKind::Applied).next().is_none()
+                && repo
+                    .try_find_reference(but_core::WORKSPACE_REF_NAME)?
+                    .is_some()
+            {
+                // With no saved heads to reapply, workspace recreation checks out the saved
+                // commit directly. Replace it with an empty workspace at the base so it cannot
+                // restore the removed branch's work. HEAD stays on the local target branch.
+                let workspace_commit_id =
+                    crate::workspace::create_empty_workspace_commit(&repo, &ws)?;
+                repo.reference(
+                    but_core::WORKSPACE_REF_NAME,
+                    workspace_commit_id,
+                    gix::refs::transaction::PreviousValue::MustExist,
+                    "Empty saved workspace after unapplying last branch",
+                )?;
+            }
+            meta.set_workspace(&remembered)?;
+        }
+    }
     // Keeping the workspace merge commit can make legacy reconciliation infer the
     // removed stack as applied again, so persist the explicit workspace metadata.
     meta.write_unreconciled()?;
+    drop(repo);
+    drop(ws);
+    ctx.update_workspace_cache(new_ws);
     Ok(())
 }
 
@@ -675,7 +709,7 @@ fn commit_assigned_diffspec(
     Ok(())
 }
 
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn list_branches(
     ctx: &Context,
@@ -714,11 +748,12 @@ pub fn fetch_from_remotes(ctx: &Context, action: Option<String>) -> Result<BaseB
             .collect::<std::result::Result<Vec<_>, _>>()?
     };
     let target_fetch_remote: Option<String> = {
-        let guard = ctx.shared_worktree_access();
-        gitbutler_branch_actions::base::get_base_branch_data(ctx, guard.read_permission())
-            .ok()
-            .map(|base| base.remote_name)
-            .filter(|name| !name.is_empty())
+        let project_meta = ctx.project_meta()?;
+        let repo = ctx.repo.get()?;
+        project_meta.remote_target_ref(&repo)?.and_then(|name| {
+            but_core::extract_remote_name_and_short_name(name.as_ref(), &repo.remote_names())
+                .map(|(remote, _)| remote)
+        })
     };
     let askpass = Some(action.unwrap_or_else(|| "unknown".to_string()));
     let fetch_errors: Vec<(String, String)> = remotes

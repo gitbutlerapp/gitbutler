@@ -1,0 +1,63 @@
+.part {
+	display: inline-flex;
+	column-gap: 4px;
+	align-items: center;
+	color: var(--text-2);
+	line-height: 16px;
+	white-space: nowrap;
+}
+
+.glyph {
+	flex-shrink: 0;
+	opacity: 0.7;
+}
+
+/* The words give way to the glyph when the line runs out of room. */
+.words {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.green {
+	color: var(--text-safe);
+}
+
+.amber {
+	color: var(--text-warn);
+}
+
+.blue {
+	color: var(--text-blue);
+}
+
+.red {
+	color: var(--text-danger);
+}
+
+/* Only a part that opens something is underlined: dotted, in its own colour. Under the pointer the
+   colour leans toward the text's, mixed on its children so the part's tone still shows through. */
+.link {
+	text-decoration: none;
+
+	> .words {
+		text-decoration: underline dotted currentColor;
+		text-underline-offset: 2px;
+	}
+
+	&:hover > * {
+		color: color-mix(in srgb, currentColor 55%, var(--text-1));
+	}
+}
+
+/* Hidden from sight only: a screen reader still says what the number counts. */
+@container (max-width: 640px) {
+	.word {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		white-space: nowrap;
+		clip-path: inset(50%);
+	}
+}

@@ -147,6 +147,7 @@ fn acquire_archive_lock(
         archive_path,
         gix::lock::acquire::Fail::Immediately,
         boundary_directory,
+        0,
     )
     .with_context(|| format!("Could not lock archive '{}'", archive_path.display()))
 }
@@ -615,7 +616,7 @@ fn visit_worktree_entries(
         let is_excluded = excludes
             .at_path(relative, is_dir.then_some(index::entry::Mode::DIR))
             .is_ok_and(|platform| platform.is_excluded());
-        if is_excluded && !is_tracked(relative, is_dir, &index) {
+        if is_excluded && !is_tracked(relative, is_dir, &index)? {
             continue;
         }
 
@@ -770,20 +771,20 @@ fn is_worktree_registry(relative: &Path) -> bool {
 ///
 /// Directories use `is_dir` to switch to prefix matching so ignored directories
 /// containing tracked files are still archived.
-fn is_tracked(relative: &Path, is_dir: bool, index: &gix::index::State) -> bool {
-    let relative = gix::path::to_unix_separators_on_windows(gix::path::into_bstr(relative));
+fn is_tracked(relative: &Path, is_dir: bool, index: &gix::index::State) -> gix::Result<bool> {
+    let relative = gix::path::to_unix_separators_on_windows(gix::path::into_bstr(relative)?);
     if !is_dir {
-        return index.entry_by_path(relative.as_ref()).is_some();
+        return Ok(index.entry_by_path(relative.as_ref()).is_some());
     }
 
     let mut prefix = relative.into_owned();
     if !prefix.ends_with(b"/") {
         prefix.push(b'/');
     }
-    index
+    Ok(index
         .entries()
         .iter()
-        .any(|entry| entry.path(index).as_bytes().starts_with(prefix.as_slice()))
+        .any(|entry| entry.path(index).as_bytes().starts_with(prefix.as_slice())))
 }
 
 /// Build a safe zip entry name from archive `root` and filesystem `relative` path.

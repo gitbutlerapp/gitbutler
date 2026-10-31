@@ -190,7 +190,7 @@ submodule-worktree/
         let repo = gix::open_opts(&worktree_path, gix::open::Options::isolated())?;
         let git_dir = repo.path().to_owned();
         let mut plan = Vec::new();
-        compute_watch_plan_for_repo(&repo, &worktree_path, &git_dir, |path, mode| {
+        compute_watch_plan_for_repo(&repo, &worktree_path, &git_dir, &[], |path, mode| {
             plan.push((path.to_owned(), mode));
             Ok(std::ops::ControlFlow::Continue(()))
         })?;

@@ -43,7 +43,7 @@ From the repository root:
 
 ```bash
 cargo build -p but-server
-corepack pnpm --filter @gitbutler/e2e exec playwright test \
+pnpm --filter @gitbutler/e2e exec playwright test \
   --config ./playwright/playwright.config.ts \
   --tsconfig ./playwright/tsconfig.json \
   playwright/tests/branches.spec.ts \

@@ -17,7 +17,6 @@
 		branchName: string;
 		segment: Segment;
 		branchIndex: number;
-		parent: Segment | undefined;
 		withForce: boolean;
 		prNumber?: number;
 		oncancel?: () => void;
@@ -29,7 +28,6 @@
 		branchName,
 		segment,
 		branchIndex,
-		parent,
 		withForce,
 		prNumber,
 		oncancel,
@@ -63,7 +61,6 @@
 			{branchName}
 			{segment}
 			{branchIndex}
-			{parent}
 			{withForce}
 			onClose={close}
 		/>

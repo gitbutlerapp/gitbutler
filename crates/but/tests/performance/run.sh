@@ -43,7 +43,7 @@ if [ "${PERF_ENV_ISOLATED:-}" != 1 ]; then
     else
         perf_require_command cargo
         printf 'Building optimized but binary...\n' >&2
-        (cd "$REPO_ROOT" && cargo build --profile bench -p but)
+        (cd "$REPO_ROOT" && cargo build --profile bench -p but --features nightly)
         BUT_BIN=$REPO_ROOT/target/release/but
         perf_resolve_binary
         PERF_BINARY_COMMIT=$("$GIT_BIN" -C "$REPO_ROOT" rev-parse HEAD)
@@ -134,6 +134,17 @@ if [ "$#" -eq 0 ]; then
     done
 fi
 [ "$#" -gt 0 ] || perf_die 'no performance scenarios found'
+perf_validate_scenario_excludes
+# Rebuild argv from the original list before creating any scenario directories.
+for scenario_name; do
+    shift
+    if perf_scenario_excluded "$scenario_name"; then
+        printf 'Skipping excluded scenario: %s\n' "$scenario_name" >&2
+    else
+        set -- "$@" "$scenario_name"
+    fi
+done
+[ "$#" -gt 0 ] || perf_die 'no scenarios remain after PERF_SCENARIO_EXCLUDES'
 # Create directories up front: incomplete runs cannot be mistaken for complete ones.
 for scenario_name; do
     perf_validate_scenario "$scenario_name"

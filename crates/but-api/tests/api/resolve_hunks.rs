@@ -360,7 +360,7 @@ fn mixed_conflicted_context() -> Result<(but_ctx::Context, gix::ObjectId, tempfi
 
 /// A conflict with no hunk representation used to fail the whole request, which
 /// hid every other conflict in the commit behind it — and left a caller with no
-/// edit mode, like lite, with nothing at all to show.
+/// edit mode with nothing at all to show.
 #[test]
 fn a_conflict_without_hunks_is_reported_not_fatal() -> Result<()> {
     let (ctx, conflicted_commit, _tmp) = mixed_conflicted_context()?;

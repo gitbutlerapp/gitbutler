@@ -1,0 +1,10 @@
+/* As Markdown draws inline code (design/patterns/markdown.md): mono 12 on --bg-2, at
+   --radius-control. A command that wraps keeps its padding on each line. */
+.code {
+	box-decoration-break: clone;
+	padding: 1px 4px;
+	border-radius: var(--radius-control);
+	background-color: var(--bg-2);
+	font-size: 12px;
+	font-family: var(--font-family-mono);
+}

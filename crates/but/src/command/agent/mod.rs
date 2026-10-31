@@ -91,7 +91,7 @@ fn setup(
     drop(input);
 
     match plan {
-        Some(plan) => apply_plan(out, current_dir, &plan, skill_layout),
+        Some(plan) => apply_plan(out, &plan, skill_layout),
         None => {
             print_cancelled(out)?;
             Ok(CommandOutcome::AgentSetupCancelled)
@@ -255,31 +255,12 @@ fn write_intro(writer: &mut impl fmt::Write, repo: Option<&RepoInfo>) -> fmt::Re
 #[derive(Debug, Clone)]
 struct RepoInfo {
     root: PathBuf,
-    needs_setup: bool,
 }
 
 fn discover_repo(current_dir: &Path) -> Option<RepoInfo> {
     let repo = but_ctx::discover_main_repo(current_dir).ok()?;
     let root = repo.workdir()?.to_path_buf();
-    let needs_setup = repo_needs_setup(&root);
-    Some(RepoInfo { root, needs_setup })
-}
-
-#[cfg(feature = "legacy")]
-fn repo_needs_setup(workdir: &Path) -> bool {
-    let Ok(project) = but_ctx::LegacyProject::find_by_worktree_dir(workdir) else {
-        return true;
-    };
-    let Ok(ctx) = but_ctx::Context::new_from_legacy_project(project) else {
-        return true;
-    };
-    let guard = ctx.shared_worktree_access();
-    crate::command::legacy::setup::check_project_setup(&ctx, guard.read_permission()).is_err()
-}
-
-#[cfg(not(feature = "legacy"))]
-fn repo_needs_setup(_workdir: &Path) -> bool {
-    false
+    Some(RepoInfo { root })
 }
 
 /// Where the user wants this setup to apply. A single choice that drives both
@@ -675,16 +656,6 @@ fn write_review(writer: &mut impl fmt::Write, plan: &Plan) -> fmt::Result {
         }
     }
 
-    if plan.setup_needed {
-        writeln!(writer)?;
-        writeln!(writer, "{}", t.important.paint("Prepare this repository"))?;
-        writeln!(
-            writer,
-            "  {check} Run {}",
-            t.command_suggestion.paint("but setup")
-        )?;
-    }
-
     writeln!(writer)?;
     writeln!(writer, "{}", t.important.paint("The exact text"))?;
     write_policy_preview(writer, &plan.policy)?;
@@ -730,19 +701,9 @@ fn write_policy_preview(writer: &mut impl fmt::Write, policy: &str) -> fmt::Resu
 
 fn apply_plan(
     out: &mut OutputChannel,
-    current_dir: &Path,
     plan: &Plan,
     skill_layout: SkillLayout,
 ) -> Result<CommandOutcome> {
-    // Run `but setup` first: it is the step most likely to fail (it needs a
-    // discoverable repo + project registration) and aborts before any file is
-    // written, keeping the intro's "nothing is written until you confirm"
-    // promise on the realistic abort path. The remaining skill→instruction
-    // writes are idempotent upserts, so a partial run is re-runnable.
-    if plan.setup_needed {
-        run_but_setup(current_dir, out)?;
-    }
-
     for install in &plan.skill_installs {
         skill::write_skill_files(&install.path, skill_layout)
             .with_context(|| format!("Failed to install skill at {}", install.path.display()))?;
@@ -791,19 +752,5 @@ fn print_setup_complete(out: &mut OutputChannel) -> Result<()> {
                 .paint("More things to try: https://docs.gitbutler.com/ai-agents/useful-requests")
         )?;
     }
-    Ok(())
-}
-
-#[cfg(feature = "legacy")]
-fn run_but_setup(current_dir: &Path, out: &mut OutputChannel) -> Result<()> {
-    let repo = gix::discover(current_dir).context("No git repository found for `but setup`.")?;
-    let mut ctx = but_ctx::Context::from_repo_with_settings(repo, crate::app_settings()?.clone())?;
-    let mut guard = ctx.exclusive_worktree_access();
-    crate::command::legacy::setup::repo(&mut ctx, current_dir, out, guard.write_permission())
-        .context("Failed to set up GitButler project.")
-}
-
-#[cfg(not(feature = "legacy"))]
-fn run_but_setup(_current_dir: &Path, _out: &mut OutputChannel) -> Result<()> {
     Ok(())
 }

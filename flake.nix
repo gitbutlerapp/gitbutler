@@ -3,6 +3,8 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # Keep the browsers aligned with Playwright in pnpm-lock.yaml (1.58.2).
+    nixpkgs-playwright.url = "github:NixOS/nixpkgs/7f6a6fb1c76e09426d6125e7e2543efe2a7f74e3";
     flake-utils.url = "github:numtide/flake-utils";
     rust-overlay.url = "github:oxalica/rust-overlay";
   };
@@ -10,6 +12,7 @@
   outputs = {
     self,
     nixpkgs,
+    nixpkgs-playwright,
     flake-utils,
     rust-overlay,
   }:
@@ -19,7 +22,21 @@
         overlays = [(import rust-overlay)];
       };
 
+      playwrightBrowsers = nixpkgs-playwright.legacyPackages.${system}.playwright-driver.browsers;
       rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+
+      # libghostty-vt-sys (via but-tty) builds libghostty-vt with Zig 0.17.x.
+      # On macOS that build runs Apple tools (`xcrun nmedit`) the Nix SDK lacks,
+      # so Zig gets the system toolchain instead, like libghostty-rs's own shell.
+      zig =
+        if pkgs.stdenv.hostPlatform.isDarwin
+        then
+          pkgs.writeShellScriptBin "zig" ''
+            unset SDKROOT DEVELOPER_DIR
+            PATH=$(echo "$PATH" | tr ':' '\n' | grep -v xcbuild | paste -sd: -)
+            exec ${pkgs.zig_0_17}/bin/zig "$@"
+          ''
+        else pkgs.zig_0_17;
     in {
       devShells.default = pkgs.mkShell {
         packages = [
@@ -35,9 +52,10 @@
           pkgs.wget
           pkgs.nodejs_24
           pkgs.pnpm
-          pkgs.playwright-driver.browsers
+          playwrightBrowsers
           pkgs.cargo-flamegraph
           pkgs.cargo-machete
+          zig
         ];
 
         env = {
@@ -50,9 +68,7 @@
           export TS_RS_EXPORT_DIR="''${TMPDIR:-/tmp}/gitbutler-ts-rs"
           mkdir -p "$TS_RS_EXPORT_DIR"
 
-          # We use different versions of Playwright in different packages... consider also
-          # voidus/nix-playwright-browsers.
-          export PLAYWRIGHT_BROWSERS_PATH=${pkgs.playwright-driver.browsers}
+          export PLAYWRIGHT_BROWSERS_PATH=${playwrightBrowsers}
         '';
       };
     });

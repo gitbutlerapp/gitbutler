@@ -169,9 +169,7 @@ impl<'repo> OverlayRepo<'repo> {
         Ok(self.inner.commit_graph_if_enabled()?)
     }
 
-    pub fn shallow_commits(
-        &self,
-    ) -> Result<Option<gix::shallow::Commits>, gix::shallow::read::Error> {
+    pub fn shallow_commits(&self) -> gix::Result<Option<gix::shallow::Commits>> {
         self.inner.shallow_commits()
     }
 
@@ -204,19 +202,15 @@ impl<'repo> OverlayRepo<'repo> {
         if let Some(r) = self.overriding_references.get(ref_name) {
             return Ok(r.clone().attach(self.inner));
         }
-        Ok(self
-            .inner
-            .find_reference(ref_name)
-            .or_else(|err| match err {
-                gix::reference::find::existing::Error::Find(_) => Err(err),
-                gix::reference::find::existing::Error::NotFound { .. } => {
-                    if let Some(r) = self.nonoverriding_references.get(ref_name) {
-                        Ok(r.clone().attach(self.inner))
-                    } else {
-                        Err(err)
-                    }
-                }
-            })?)
+        Ok(self.inner.find_reference(ref_name).or_else(|err| {
+            if err.is_not_found()
+                && let Some(r) = self.nonoverriding_references.get(ref_name)
+            {
+                Ok(r.clone().attach(self.inner))
+            } else {
+                Err(err)
+            }
+        })?)
     }
 
     pub fn config_snapshot(&self) -> gix::config::Snapshot<'repo> {
@@ -227,12 +221,7 @@ impl<'repo> OverlayRepo<'repo> {
         &self,
         name: &gix::refs::FullNameRef,
         direction: gix::remote::Direction,
-    ) -> Option<
-        Result<
-            Cow<'_, gix::refs::FullNameRef>,
-            gix::repository::branch_remote_tracking_ref_name::Error,
-        >,
-    > {
+    ) -> Option<gix::Result<Cow<'_, gix::refs::FullNameRef>>> {
         self.inner
             .branch_remote_tracking_ref_name(name, direction)
             .map(|result| result.map(Cow::Owned))
@@ -357,21 +346,18 @@ impl<'repo> OverlayRepo<'repo> {
             out: &mut WorktreeByBranch,
             owned_by_repo: bool,
         ) -> anyhow::Result<()> {
-            let Some((head, wd)) = head.and_then(|head| {
-                head.repo.worktree().map(|wt| {
-                    (
-                        head,
-                        Worktree {
-                            kind: match wt.id() {
-                                None => WorktreeKind::Main,
-                                Some(id) => WorktreeKind::LinkedId(id.to_owned()),
-                            },
-                            owned_by_repo,
-                        },
-                    )
-                })
-            }) else {
+            let Some(head) = head else {
                 return Ok(());
+            };
+            let Some(wt) = head.repo.worktree() else {
+                return Ok(());
+            };
+            let wd = Worktree {
+                kind: match wt.id()? {
+                    None => WorktreeKind::Main,
+                    Some(id) => WorktreeKind::LinkedId(id.to_owned()),
+                },
+                owned_by_repo,
             };
 
             out.entry("HEAD".try_into().expect("valid"))

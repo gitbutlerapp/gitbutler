@@ -35,7 +35,7 @@
 </tspan>
     <tspan x="10px" y="118px"><tspan>┊</tspan>
 </tspan>
-    <tspan x="10px" y="136px"><tspan>┊╭┄ (upstream: origin/main) 1 new commit</tspan>
+    <tspan x="10px" y="136px"><tspan>┊╭┄ (main, upstream: origin/main) 1 new commit</tspan>
 </tspan>
     <tspan x="10px" y="154px"><tspan>┊</tspan><tspan class="fg-green">●</tspan><tspan> </tspan><tspan class="fg-cyan">bdfcf28</tspan><tspan> </tspan><tspan class="dimmed">main-change</tspan>
 </tspan>

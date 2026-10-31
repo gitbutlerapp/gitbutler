@@ -10,11 +10,55 @@ use utils::create_local_branch_with_commit;
 
 #[cfg(feature = "legacy")]
 #[test]
+fn applying_a_worktree_branch_is_a_no_op() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.but("status").assert().success();
+    util::add_worktree_with_commit(&env, "wt-feature", "A");
+
+    env.but("apply wt-feature")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Branch 'wt-feature' is already in the workspace; nothing changed
+
+"#]]);
+
+    // The branch stays in its worktree lane and the workspace commit is untouched.
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ wt [wt-feature]
+┊┊●   nsn add W
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| * 580bef0 (wt-feature) add W
+|/  
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+    );
+}
+
+#[test]
 fn applying_empty_branch_from_single_branch_mode_preserves_current_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
     env.but("branch new A").assert().success();
     env.but("branch new B --above A").assert().success();
     env.but("branch new C --above B").assert().success();
@@ -28,14 +72,14 @@ fn applying_empty_branch_from_single_branch_mode_preserves_current_stack() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [C] (no commits)
+┊╭┄ g0 [C] [HEAD] (no commits)
 ┊│
 ┊├┄ h0 [B] (no commits)
 ┊│
 ┊├┄ i0 [A] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -64,7 +108,7 @@ Hint: run `but help` for all commands
 ┊├┄ j0 [A] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -260,7 +304,6 @@ fn local_branch_with_json_output() {
   "appliedBranches": [
     "refs/heads/feature-branch"
   ],
-  "workspaceRefCreated": false,
   "conflictingStacks": []
 }
 
@@ -418,7 +461,7 @@ fn remote_branch_short_name_requires_disambiguation_across_multiple_remotes() {
 Error: Failed to apply branch
 
 Caused by:
-    The reference 'remote-feature' did not exist
+    The ref partially named "remote-feature" could not be found[..]
 
 "#]])
         .stdout_eq(str![""]);
@@ -493,7 +536,7 @@ fn nonexistent_branch() {
 Error: Failed to apply branch
 
 Caused by:
-    The reference 'nonexistent-branch' did not exist
+    The ref partially named "nonexistent-branch" could not be found[..]
 
 "#]])
         .stdout_eq(str![""]);
@@ -512,7 +555,7 @@ fn nonexistent_branch_with_json() {
 Error: Failed to apply branch
 
 Caused by:
-    The reference 'nonexistent-branch' did not exist
+    The ref partially named "nonexistent-branch" could not be found[..]
 
 "#]]);
     // Note: Currently the apply function doesn't output anything with JSON when branch not found
@@ -659,7 +702,6 @@ fn apply_branch_conflicting_with_workspace_reports_json_error() {
   "status": "conflictAborted",
   "workspaceChanged": true,
   "appliedBranches": [],
-  "workspaceRefCreated": false,
   "conflictingStacks": [
     "refs/heads/A"
   ]
@@ -667,6 +709,108 @@ fn apply_branch_conflicting_with_workspace_reports_json_error() {
 
 "#]])
         .stderr_eq(str![""]);
+}
+
+#[test]
+fn applying_top_branch_of_stack_in_sbm() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.but("commit --above bottom -b top -m 'on top'")
+        .assert()
+        .success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD]
+┊●   ylm on top (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch bottom").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ bo [bottom] [HEAD]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("apply top").assert().success().stdout_eq(str![[r#"
+Applied branch 'bottom' to workspace
+Applied branch 'top' to workspace
+
+"#]]);
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top]
+┊●   ylm on top (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* c878e9e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 41e32b0 (top) on top
+* ff665ad (bottom) on bottom
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+        .raw()
+    );
+}
+
+/// Applying from single branch mode doesn't report the checked-out branch, which was already applied.
+#[test]
+fn apply_from_single_branch_mode_reports_only_requested_branch() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    create_local_branch_with_commit(&env, "feature-branch");
+    env.but("apply feature-branch").assert().success();
+    env.but("unapply feature-branch").assert().success();
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref HEAD"),
+        "A",
+        "unapplying down to one branch checks that branch out"
+    );
+
+    env.but("apply feature-branch")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Applied branch 'feature-branch' to workspace
+
+"#]]);
 }
 
 mod utils {

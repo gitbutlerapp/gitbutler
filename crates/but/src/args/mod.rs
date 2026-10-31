@@ -15,6 +15,8 @@ use crate::args::atoms::CliIdArg;
 use crate::utils::envs;
 
 pub mod atoms;
+#[cfg(feature = "legacy")]
+pub mod init;
 
 #[derive(Debug, clap::Parser)]
 #[clap(
@@ -181,6 +183,10 @@ impl HelpTopic {
     name(SubcommandDiscriminant)
 )]
 pub enum Subcommands {
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Init(init::Platform),
+
     /// Show an overview of the workspace state.
     ///
     /// This shows uncommitted files, all applied branches (stacked or
@@ -327,12 +333,18 @@ pub enum Subcommands {
     /// Merges the branch onto the configured target (for example `origin/master`) without going
     /// through a pull request — the "just push to the target" workflow. By default the target is
     /// fast-forwarded to the branch tip when possible (no merge commit); otherwise a merge commit
-    /// is created. For a local (`gb-local`) target the refs are moved locally; otherwise the result
-    /// is pushed to the remote. After merging, the remaining applied branches are reconciled onto
-    /// the moved target, just like `but pull`.
+    /// is created, or with `--ff-only` the merge is refused. When the target branch has no upstream
+    /// (for example in a repository without a remote), or for a local (`gb-local`) target, the
+    /// refs are moved locally; otherwise the result is pushed to the remote. After merging, the
+    /// remaining applied branches are reconciled onto the moved target, just like `but pull`.
     ///
-    /// Requires an active GitButler workspace. Updating the target is direct and not easily
-    /// reversible, so a confirmation is required (use `--yes` to skip it in scripts).
+    /// Requires the GitButler workspace or, in single-branch mode, a checked-out branch. In
+    /// single-branch mode, merging the checked-out branch checks out the target branch afterwards,
+    /// like `but pull` does once a branch is merged upstream, or a generated branch when the target
+    /// can't be reused; the output names the branch checked out. Updating a target that has an
+    /// upstream is direct and not easily reversible, so a confirmation is required (use `--yes` to
+    /// skip it in scripts). Merging into a target without an upstream publishes nothing, so it
+    /// needs no confirmation and `but undo` reverts it.
     ///
     /// When NOT to use this: if your project merges changes through pull requests / code review,
     /// use `but push` and open a PR (`but pr new`) instead — `but merge` deliberately bypasses that
@@ -355,6 +367,12 @@ pub enum Subcommands {
     /// but merge my-feature-branch --no-ff
     /// ```
     ///
+    /// Merge a branch only if the target can be fast-forwarded to it:
+    ///
+    /// ```text
+    /// but merge my-feature-branch --ff-only
+    /// ```
+    ///
     /// Merge an entire stack by naming its top segment:
     ///
     /// ```text
@@ -370,8 +388,11 @@ pub enum Subcommands {
         #[clap(long)]
         yes: bool,
         /// Always create a merge commit, even when the branch can be fast-forwarded.
-        #[clap(long)]
+        #[clap(long, conflicts_with = "ff_only")]
         no_ff: bool,
+        /// Refuse to merge unless the target can be fast-forwarded to the branch tip.
+        #[clap(long)]
+        ff_only: bool,
         /// Merge the entire stack: BRANCH must be the top segment, and the segments below it are
         /// published to the target along with it.
         #[clap(long)]
@@ -418,7 +439,8 @@ pub enum Subcommands {
         /// A commit to enter resolution mode for, or one or more conflicted uncommitted
         /// files (as listed by `but status`) to mark as resolved with their current
         /// worktree content. Resolution mode checks the commit out until `finish` or
-        /// `cancel`; the `conflicts` and `apply` subcommands resolve a commit without it.
+        /// `cancel`, and is refused while a single branch is checked out; the `conflicts` and
+        /// `apply` subcommands resolve a commit without it, in either case.
         targets: Vec<String>,
         /// Resolve the conflicts with the configured AI model and apply the result.
         ///
@@ -437,10 +459,6 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Apply(apply::Platform),
 
-    #[cfg(feature = "legacy")]
-    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Open(open::Platform),
-
     /// Push changes in a branch to remote.
     ///
     /// `but push` will update the remote with the latest commits from the
@@ -458,10 +476,14 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Push(push::Command),
 
-    /// Update all applied branches onto the latest target branch.
+    /// Update applied branches and worktrees onto the latest target.
     ///
     /// This fetches the latest changes from the remote and rebases all applied branches
-    /// on top of the updated target branch.
+    /// and linked worktrees on top of the updated target branch.
+    ///
+    /// When the target branch has no upstream, for example in a repository without a remote,
+    /// there is nothing to fetch: this updates the branches onto the local target branch
+    /// instead, for example after merging branches into `main` with `git merge`.
     ///
     /// You should run this regularly to keep your branches up to date with the latest
     /// changes from the main development line.
@@ -478,6 +500,14 @@ pub enum Subcommands {
         /// Only check whether the update would apply cleanly, without updating
         #[clap(long, short = 'c')]
         check: bool,
+        /// What to rebase onto the target, comma-separated.
+        #[clap(
+            long,
+            value_enum,
+            value_delimiter = ',',
+            default_value = "worktrees,workspace"
+        )]
+        update: Vec<PullUpdate>,
     },
 
     /// Commands for creating and managing reviews on a forge, e.g. GitHub PRs or GitLab MRs.
@@ -513,7 +543,8 @@ pub enum Subcommands {
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Absorb {
-        /// An uncommitted file or hunk to absorb; if omitted, everything uncommitted is absorbed.
+        /// An uncommitted file or hunk to absorb; if omitted, everything uncommitted in the
+        /// checkout `but` runs in is absorbed. A linked worktree's changes cannot be absorbed yet.
         source: Option<String>,
         /// Show the absorption plan without making any changes.
         #[clap(long = "dry-run")]
@@ -596,34 +627,11 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Redo(redo::Platform),
 
-    /// Set up a GitButler project from the git repository in the current directory.
-    ///
-    /// This command will:
-    /// - Add the repository to the global GitButler project registry
-    /// - Switch to the gitbutler/workspace branch (if not already on it)
-    /// - Set up a default target branch (the remote's HEAD)
-    /// - Add a gb-local remote if no push remote exists
-    ///
-    /// If you have an existing Git repository and want to start using GitButler
-    /// with it, you can run this command to set up the necessary configuration
-    /// and data structures.
-    ///
-    /// ## Examples
-    ///
-    /// Initialize a new git repository and set up GitButler:
-    ///
-    /// ```text
-    /// but setup --init
-    /// ```
-    ///
-    #[cfg(feature = "legacy")]
-    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    /// Explain that setup is no longer required.
+    #[clap(hide = true)]
     Setup {
-        /// Initialize a new git repository with an empty commit if one doesn't exist.
-        ///
-        /// Useful in non-interactive environments such as CI, where a repository may not exist yet.
+        /// Report an error with a hint to use `but init` instead.
         #[clap(long)]
-        #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
         init: bool,
     },
 
@@ -830,7 +838,7 @@ pub enum Subcommands {
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     #[clap(hide = true)]
-    Switch(r#switch::Platform),
+    Switch(switch::Platform),
 
     /// Manage AI agent skills for GitButler.
     ///
@@ -1028,8 +1036,6 @@ pub mod mcp;
 #[cfg(feature = "legacy")]
 pub mod r#move;
 #[cfg(feature = "legacy")]
-pub mod open;
-#[cfg(feature = "legacy")]
 pub mod pick;
 #[cfg(feature = "legacy")]
 pub mod redo;
@@ -1041,7 +1047,7 @@ pub mod split;
 #[cfg(feature = "legacy")]
 pub mod squash;
 #[cfg(feature = "legacy")]
-pub mod r#switch;
+pub mod switch;
 #[cfg(feature = "legacy")]
 pub mod tui;
 #[cfg(feature = "legacy")]
@@ -1088,6 +1094,16 @@ pub mod resolve;
 
 pub mod branch;
 pub mod worktree;
+
+/// A group of lanes that `but pull` rebases onto the target.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum PullUpdate {
+    /// The linked worktrees that are based on the target rather than on an applied branch.
+    Worktrees,
+    /// The applied branches, along with the linked worktrees based on them, and the target
+    /// branch itself when it's checked out.
+    Workspace,
+}
 
 /// Find the subcommand token and its index in raw argv, skipping root options.
 pub(crate) fn find_subcommand(args: &[std::ffi::OsString]) -> Option<(usize, &std::ffi::OsString)> {

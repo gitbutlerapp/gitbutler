@@ -38,6 +38,7 @@ git clone repo conficted_entries_get_written_when_leaving_edit_mode
 
 git clone conficted_entries_get_written_when_leaving_edit_mode conficted_entries_get_written_when_leaving_edit_mode_in_edit_mode
 (cd conficted_entries_get_written_when_leaving_edit_mode_in_edit_mode
+  git branch --track main origin/main
   git branch -f branchy origin/branchy
   git branch -f gitbutler/edit branchy
   git symbolic-ref HEAD refs/heads/gitbutler/edit

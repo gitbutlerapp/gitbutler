@@ -1,0 +1,193 @@
+/* The outline glyph draws in text/2, as ⚛️ Core draws the repo glyph in a row, a header and the picker; the colour
+   reaches only the outline, since an emoji ignores it and a coloured book keeps its own hues. */
+.avatar {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-2);
+}
+
+.title {
+	width: 24px;
+	height: 24px;
+
+	.glyph {
+		width: 16px;
+	}
+
+	.emoji {
+		/* stylelint-disable-next-line declaration-property-value-allowed-list -- An emoji here is a picture, sized as the avatar it stands in for, not text on the type scale. */
+		font-size: 16px;
+	}
+}
+
+.regular {
+	width: 38px;
+	height: 38px;
+
+	.glyph {
+		width: 26px;
+	}
+
+	.emoji {
+		/* stylelint-disable-next-line declaration-property-value-allowed-list -- An emoji here is a picture, sized as the avatar it stands in for, not text on the type scale. */
+		font-size: 32px;
+	}
+}
+
+.glyph {
+	height: auto;
+}
+
+.emoji {
+	line-height: 1;
+}
+
+/* A machine's picture fills its box; the drawings carry their own margin. */
+.picture {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+}
+
+/* A book in each hue: its cover filled and edged in a deeper shade over a cream page, the same in
+   light and dark, as a picture keeps its colours whatever the theme. */
+/* stylelint-disable declaration-property-value-disallowed-list -- The glyph is a picture in ⚛️ Core's own hues, which no token scale holds; they are its colours as the file icons' are theirs. */
+.blue {
+	--glyph-cover: #76a8f9;
+	--glyph-edge: #3d87ff;
+}
+
+.green {
+	--glyph-cover: #6cd05b;
+	--glyph-edge: #3bb641;
+}
+
+.orange {
+	--glyph-cover: #e7b22e;
+	--glyph-edge: #d1792c;
+}
+
+.red {
+	--glyph-cover: #e97a7c;
+	--glyph-edge: #d12c2f;
+}
+
+.purple {
+	--glyph-cover: #e375d4;
+	--glyph-edge: #a32cd1;
+}
+
+.gray {
+	--glyph-cover: #787878;
+	--glyph-edge: #717171;
+}
+
+.blue,
+.green,
+.orange,
+.red,
+.purple,
+.gray {
+	--glyph-page: #f0eedc;
+}
+/* stylelint-enable declaration-property-value-disallowed-list */
+
+/* The outline is the book's edges alone, in the text colour: the `repo` icon. */
+.outline {
+	--glyph-edge: currentColor;
+	--glyph-windows: currentColor;
+}
+
+.cover {
+	fill: var(--glyph-cover);
+}
+
+.page {
+	fill: var(--glyph-page, none);
+}
+
+/* As the icons are: the line stays 1.5px however large the glyph is drawn. */
+.edge {
+	vector-effect: non-scaling-stroke;
+	stroke: var(--glyph-edge);
+	stroke-width: 1.5px;
+}
+
+.windows {
+	fill: var(--glyph-windows, var(--clr-gray-100));
+}
+
+.trigger,
+.option {
+	display: flex;
+	padding: 0;
+	border: none;
+	background: none;
+	cursor: var(--control-cursor);
+	transition: var(--transition-button);
+
+	&:hover {
+		background-color: var(--bg-hover);
+	}
+
+	/* The current choice keeps an edge, so it still reads as picked under the pointer. */
+	&[aria-pressed="true"] {
+		box-shadow: inset 0 0 0 1px var(--border-2);
+	}
+
+	&:focus-visible {
+		outline: var(--focus-ring);
+		outline-offset: -1px;
+	}
+}
+
+.trigger {
+	border-radius: var(--radius-md);
+
+	&.titleTrigger {
+		border-radius: var(--radius-control);
+	}
+
+	&[data-popup-open] {
+		background-color: var(--bg-hover);
+	}
+}
+
+.option {
+	border-radius: var(--radius-sm);
+}
+
+.titleOptions,
+.regularOptions {
+	display: grid;
+	min-inline-size: 0;
+	margin: 0;
+	padding: 4px;
+	border: none;
+}
+
+.titleOptions {
+	grid-template-columns: repeat(7, 24px);
+	gap: 4px;
+
+	.option {
+		border-radius: var(--radius-control);
+	}
+}
+
+.regularOptions {
+	grid-template-columns: repeat(6, 38px);
+	gap: 4px;
+
+	.option {
+		border-radius: var(--radius-md);
+	}
+}
+
+/* Five rows show, the rest scroll: enough to choose from without the picker outgrowing the
+   avatar it opened from. */
+.titleArea {
+	max-height: calc(5 * 24px + 4 * 4px + 2 * 4px);
+}

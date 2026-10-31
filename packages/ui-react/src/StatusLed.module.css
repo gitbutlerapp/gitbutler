@@ -1,0 +1,11 @@
+.led {
+	flex-shrink: 0;
+	width: 8px;
+	height: 8px;
+	border-radius: var(--radius-full);
+	background-color: var(--text-3);
+}
+
+.online {
+	background-color: var(--text-safe);
+}

@@ -979,8 +979,7 @@ pub mod utils {
         }
     }
 
-    /// The target is `origin/main` with its tip as the stored target commit, like a project set
-    /// up by GitButler.
+    /// The target is local `main`, with `origin/main`'s tip as the stored target commit.
     pub fn target_meta(repo: &gix::Repository) -> but_core::ref_metadata::ProjectMeta {
         let target_ref: gix::refs::FullName = "refs/remotes/origin/main"
             .try_into()
@@ -992,7 +991,12 @@ pub mod utils {
                 .flatten()
                 .and_then(|mut r| r.peel_to_id().ok())
                 .map(|id| id.detach()),
-            target_ref: Some(target_ref),
+            target_ref: Some(
+                but_core::ref_metadata::LocalRefName::new(
+                    "refs/heads/main".try_into().expect("valid local ref"),
+                )
+                .expect("local branch"),
+            ),
             ..Default::default()
         }
     }

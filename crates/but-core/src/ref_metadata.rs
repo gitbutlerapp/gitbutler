@@ -1,11 +1,12 @@
 use anyhow::{Context as _, Result, bail};
-use bstr::ByteSlice as _;
+use bstr::{BStr, ByteSlice as _};
 use gix::refs::FullNameRef;
 use uuid::Uuid;
 
-use crate::{Id, extract_remote_name_and_short_name, git_config};
+use crate::{Id, git_config};
 
-const PROJECT_TARGET_REF: &str = "gitbutler.project.targetRef";
+/// The repository-local Git config key storing [`ProjectMeta::target_ref`].
+pub const PROJECT_TARGET_REF: &str = "gitbutler.project.targetRef";
 const PROJECT_TARGET_COMMIT_ID: &str = "gitbutler.project.targetCommitId";
 const PROJECT_PUSH_REMOTE: &str = "gitbutler.project.pushRemote";
 const PROJECT_PORTED_META: &str = "gitbutler.project.portedMeta";
@@ -13,12 +14,71 @@ const PROJECT_PORTED_META: &str = "gitbutler.project.portedMeta";
 /// Project-wide metadata stored in repository-local Git configuration.
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct ProjectMeta {
-    /// The name of the reference to integrate with, if present.
-    pub target_ref: Option<gix::refs::FullName>,
+    /// The name of the local branch to integrate with, if present.
+    pub target_ref: Option<LocalRefName>,
     /// A stable target commit that should be included in the workspace.
     pub target_commit_id: Option<gix::ObjectId>,
     /// The symbolic name of the remote to push branches to.
     pub push_remote: Option<String>,
+}
+
+/// A Git reference name thats guaranteed to always be a local branch.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct LocalRefName(gix::refs::FullName);
+
+impl LocalRefName {
+    /// Create a new `LocalRefName` from a Git reference name.
+    ///
+    /// Returns an error if `reference` is not a local branch.
+    pub fn new(reference: gix::refs::FullName) -> Result<LocalRefName> {
+        match reference
+            .category()
+            .with_context(|| format!("{reference} has no category"))?
+        {
+            gix::refs::Category::LocalBranch => Ok(LocalRefName(reference)),
+            gix::refs::Category::Tag
+            | gix::refs::Category::RemoteBranch
+            | gix::refs::Category::Note
+            | gix::refs::Category::PseudoRef
+            | gix::refs::Category::MainPseudoRef
+            | gix::refs::Category::MainRef
+            | gix::refs::Category::LinkedPseudoRef { .. }
+            | gix::refs::Category::LinkedRef { .. }
+            | gix::refs::Category::Bisect
+            | gix::refs::Category::Rewritten
+            | gix::refs::Category::WorktreePrivate => bail!("{reference} is not a local branch"),
+        }
+    }
+
+    /// Like [`gix::refs::FullName::shorten`].
+    pub fn shorten(&self) -> &BStr {
+        self.0.shorten()
+    }
+
+    /// Convert into a [`gix::refs::FullNameRef`].
+    ///
+    /// Be careful passing this to functions that require remote refs.
+    ///
+    /// It is also this reasion that we don't implement `AsRef<gix::refs::FullNameRef> for
+    /// LocalRefName`. That makes it too easy to pass this to functions that require remote refs.
+    pub fn as_local_full_name_ref(&self) -> &FullNameRef {
+        self.0.as_ref()
+    }
+}
+
+impl std::fmt::Display for LocalRefName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+#[expect(clippy::infallible_try_from)]
+impl<'a> TryFrom<&'a LocalRefName> for &'a gix::refs::PartialNameRef {
+    type Error = <&'a gix::refs::PartialNameRef as TryFrom<&'a gix::refs::FullName>>::Error;
+
+    fn try_from(value: &'a LocalRefName) -> std::result::Result<Self, Self::Error> {
+        TryFrom::try_from(&value.0)
+    }
 }
 
 /// Metadata about workspaces, associated with references that are designated to a workspace,
@@ -265,12 +325,33 @@ impl Workspace {
         );
         Some(true)
     }
+
+    /// Like [`Self::insert_new_segment_above_anchor_if_not_present()`], but insert `branch` below `anchor`.
+    pub fn insert_new_segment_below_anchor_if_not_present(
+        &mut self,
+        branch: &FullNameRef,
+        anchor: &FullNameRef,
+    ) -> Option<bool> {
+        if self.contains_ref(branch, StackKind::AppliedAndUnapplied) {
+            return Some(false);
+        };
+        let (stack_idx, segment_idx) =
+            self.find_owner_indexes_by_name(anchor, StackKind::AppliedAndUnapplied)?;
+        self.stacks[stack_idx].branches.insert(
+            segment_idx + 1,
+            WorkspaceStackBranch {
+                ref_name: branch.to_owned(),
+                archived: false,
+            },
+        );
+        Some(true)
+    }
 }
 
 /// Return project metadata repaired for migration/recovery paths.
 ///
-/// Prefer normal target setters for new writes. This function exists for old or partially
-/// migrated metadata where only one side of the target ref/commit pair is present.
+/// Clear an unavailable target ref, but preserve the stored cutoff, including when unset.
+/// Prefer normal target setters for new writes.
 pub fn repair_target_metadata_for_migration(
     project_meta: &ProjectMeta,
     repo: &gix::Repository,
@@ -279,15 +360,8 @@ pub fn repair_target_metadata_for_migration(
     let Some(target_ref) = project_meta.target_ref.as_ref() else {
         return project_meta;
     };
-    match repo.find_reference(target_ref) {
-        Ok(mut target_ref) => {
-            if project_meta.target_commit_id.is_none()
-                && let Ok(commit) = target_ref.peel_to_commit()
-            {
-                project_meta.target_commit_id = Some(commit.id);
-            }
-        }
-        Err(_) => project_meta.target_ref = None,
+    if repo.find_reference(target_ref).is_err() {
+        project_meta.target_ref = None;
     }
     project_meta
 }
@@ -295,7 +369,7 @@ pub fn repair_target_metadata_for_migration(
 impl ProjectMeta {
     /// Return [`Self::target_ref`], or a [`DefaultTargetNotFound`](but_error::Code::DefaultTargetNotFound)
     /// error if no target is configured.
-    pub fn target_ref_or_err(&self) -> Result<&gix::refs::FullName> {
+    pub fn target_ref_or_err(&self) -> Result<&LocalRefName> {
         self.target_ref.as_ref().ok_or_else(|| {
             anyhow::anyhow!("there is no default target")
                 .context(but_error::Code::DefaultTargetNotFound)
@@ -311,54 +385,95 @@ impl ProjectMeta {
         })
     }
 
-    /// The name of the remote to push to: [`Self::push_remote`], falling back to the
-    /// remote behind [`Self::target_ref`].
+    /// Return the stored cutoff, or use the upstream tip if no cutoff is stored.
+    /// Without a configured upstream, use the local target's tip.
+    /// Fail if the selected ref is missing instead of choosing another ref.
     ///
-    /// If no configured remote matches the target ref, fall back to the first path component
-    /// after `refs/remotes/`, the textual remote name that legacy metadata stored verbatim.
+    /// This does not change metadata or validate a stored cutoff's existence.
+    pub fn resolve_target_commit(&self, repo: &gix::Repository) -> Result<gix::ObjectId> {
+        if let Some(id) = self.target_commit_id {
+            return Ok(id);
+        }
+        let upstream = self.remote_target_ref(repo)?;
+        let selected_ref = match upstream.as_ref() {
+            Some(name) => name.as_ref(),
+            None => self.target_ref_or_err()?.as_local_full_name_ref(),
+        };
+        Ok(repo
+            .find_reference(selected_ref)
+            .with_context(|| format!("cutoff reference '{selected_ref}' not found"))?
+            .peel_to_commit()
+            .with_context(|| format!("failed to peel cutoff reference '{selected_ref}' to commit"))?
+            .id)
+    }
+
+    /// Return the target branch's configured remote-tracking ref name, if any, without checking
+    /// whether it exists.
+    pub fn remote_target_ref(&self, repo: &gix::Repository) -> Result<Option<gix::refs::FullName>> {
+        self.target_ref
+            .as_ref()
+            .and_then(|target_ref| {
+                repo.branch_remote_tracking_ref_name(
+                    target_ref.as_local_full_name_ref(),
+                    gix::remote::Direction::Fetch,
+                )
+            })
+            .transpose()
+            .map_err(Into::into)
+    }
+
+    /// Like [`Self::try_push_remote_name`], but errors when no push remote is available.
     pub fn push_remote_name(&self, repo: &gix::Repository) -> Result<String> {
-        if let Some(name) = self.push_remote.clone() {
+        if let Some(name) = self.try_push_remote_name(repo)? {
             return Ok(name);
         }
         let target_ref = self.target_ref_or_err()?;
-        if let Some((remote_name, _short_name)) =
-            extract_remote_name_and_short_name(target_ref.as_ref(), &repo.remote_names())
-        {
-            return Ok(remote_name);
-        }
-        let (category, short_name) = target_ref
-            .category_and_short_name()
-            .with_context(|| format!("failed to determine remote for branch {target_ref}"))?;
-        if category != gix::refs::Category::RemoteBranch {
-            bail!("failed to determine remote for non remote-tracking branch {target_ref}");
-        }
-        let slash_pos = short_name.find_byte(b'/').with_context(|| {
-            format!("remote tracking branch {target_ref} didn't have '/' in its short name")
-        })?;
-        let remote_name = short_name[..slash_pos].to_str_lossy().into_owned();
-        tracing::warn!(
-            "remote '{remote_name}' of target ref {target_ref} is not configured in git config"
-        );
-        Ok(remote_name)
+        bail!("failed to determine remote for branch {target_ref}")
     }
 
-    /// Get the fetch URL of the remote behind [`Self::target_ref`].
-    pub fn remote_url_with_fallback(&self, repo: &gix::Repository) -> Result<String> {
+    /// Return [`Self::push_remote`], otherwise the local target's fetch remote, for publishing
+    /// feature branches.
+    ///
+    /// For example, `main` tracking `origin/main` gives `"origin"`; a `push_remote = "fork"`
+    /// override gives `"fork"`.
+    ///
+    /// Returns `None` if neither resolves.
+    pub fn try_push_remote_name(&self, repo: &gix::Repository) -> Result<Option<String>> {
+        if let Some(name) = self.push_remote.clone() {
+            return Ok(Some(name));
+        }
         let Some(target_ref) = self.target_ref.as_ref() else {
-            bail!("Target ref required for remote url")
+            return Ok(None);
         };
-        let remote_names = repo.remote_names();
-        let (remote_name, _short_name) =
-            extract_remote_name_and_short_name(target_ref.as_ref(), &remote_names).context(
-                format!("failed to determine remote for branch {target_ref}"),
-            )?;
-        let remote = repo.find_remote(remote_name.as_str()).context(format!(
-            "failed to find remote {remote_name} for branch {target_ref}"
-        ))?;
+        let Some(remote) = repo
+            .branch_remote(target_ref.shorten(), gix::remote::Direction::Fetch)
+            .transpose()?
+        else {
+            return Ok(None);
+        };
+        let name = remote
+            .name()
+            .with_context(|| format!("remote for {target_ref} has no name"))?;
+        Ok(Some(name.as_bstr().to_string()))
+    }
+
+    /// Get the fetch URL of the remote behind [`Self::target_ref`], or of [`Self::push_remote`]
+    /// if the target has no upstream.
+    pub fn target_remote_url(&self, repo: &gix::Repository) -> Result<String> {
+        let target_ref = self.target_ref_or_err()?;
+        let remote = match repo
+            .branch_remote(target_ref.shorten(), gix::remote::Direction::Fetch)
+            .transpose()?
+        {
+            Some(remote) => remote,
+            None => repo.find_remote(self.push_remote.as_deref().with_context(|| {
+                format!("failed to determine remote for branch {target_ref}")
+            })?)?,
+        };
         remote
             .url(gix::remote::Direction::Fetch)
             .map(|url| url.to_bstring().to_string())
-            .context(format!("failed to get fetch url for remote {remote_name}"))
+            .with_context(|| format!("failed to get fetch url for target branch {target_ref}"))
     }
 
     /// The URL to push to, inferred by the [`Self::push_remote`] property.
@@ -378,7 +493,7 @@ impl ProjectMeta {
 
         push_remote_url
             .map(Ok)
-            .unwrap_or_else(|| self.remote_url_with_fallback(repo))
+            .unwrap_or_else(|| self.target_remote_url(repo))
     }
 }
 
@@ -390,7 +505,7 @@ impl ProjectMeta {
     /// This is a read-only operation.
     pub fn resolve(repo: &gix::Repository) -> anyhow::Result<Self> {
         let config = git_config::open_repo_local_config_for_reading(repo)?;
-        Self::try_from_config(&config)
+        Self::try_from_config(&config, repo)
     }
 
     /// Return whether legacy project metadata has already been ported to repository-local Git
@@ -405,30 +520,62 @@ impl ProjectMeta {
 
     /// Read project metadata from the given repository-local Git configuration.
     ///
-    /// Malformed values are tolerated: a target ref that doesn't parse as a full ref name or
-    /// isn't a remote tracking branch, or a target commit id that isn't a valid object id, are
-    /// ignored with a warning so one bad hand-edited value doesn't make the project unusable.
-    /// Errors only surface where a target is actually required, like [`Self::target_ref_or_err()`].
-    pub fn try_from_config(config: &gix::config::File) -> anyhow::Result<Self> {
-        let target_ref = config.string(PROJECT_TARGET_REF).and_then(|value| {
-            match gix::refs::FullName::try_from(value.as_bstr()) {
-                Ok(name) if name.category() == Some(gix::refs::Category::RemoteBranch) => {
-                    Some(name)
-                }
-                Ok(name) => {
+    /// Malformed target ref names, refs that aren't local or remote-tracking branches, the
+    /// workspace branch, and invalid target commit IDs are ignored with a warning.
+    ///
+    /// Legacy remote targets are resolved to the local branch configured to track them, as
+    /// [`find_local_tracking_branch`] picks it, preserving the stored target commit ID. Returns an
+    /// [`UnresolvedLegacyTargetRefError`] if no local branch or multiple local branches match, or
+    /// another error if repository lookup or upstream resolution fails.
+    pub fn try_from_config(
+        config: &gix::config::File,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<Self> {
+        let ref_name =
+            config.string(PROJECT_TARGET_REF).and_then(
+                |value| match gix::refs::FullName::try_from(value.as_bstr()) {
+                    Ok(ref_name) => Some(ref_name),
+                    Err(err) => {
+                        tracing::warn!(
+                            "ignoring {PROJECT_TARGET_REF} '{value}' that failed to \
+                            parse as a full ref name: {err}"
+                        );
+                        None
+                    }
+                },
+            );
+
+        let target_ref = if let Some(ref_name) = ref_name {
+            match ref_name.category() {
+                // Target setup used to accept the workspace as its own target, which keeps the
+                // workspace from loading. Ignoring it lets the user choose a target again.
+                Some(gix::refs::Category::LocalBranch)
+                    if crate::is_workspace_ref_name(ref_name.as_ref()) =>
+                {
                     tracing::warn!(
-                        "ignoring {PROJECT_TARGET_REF}: target ref {name} is not a remote tracking branch"
+                        "ignoring {PROJECT_TARGET_REF}: target ref {ref_name} is the GitButler workspace"
                     );
                     None
                 }
-                Err(err) => {
+                Some(gix::refs::Category::LocalBranch) => Some(LocalRefName::new(ref_name)?),
+                Some(gix::refs::Category::RemoteBranch) => {
+                    // The target ref used to always be a remote ref but in oct 2026 we changed it
+                    // to always be a local ref. Old repos might still have a remote ref configured
+                    // so attempt to resolve the local target from that.
+                    Some(resolve_local_target(ref_name.as_ref(), repo)?)
+                }
+                _ => {
                     tracing::warn!(
-                        "ignoring {PROJECT_TARGET_REF} '{value}' that failed to parse as a full ref name: {err}"
+                        "ignoring {PROJECT_TARGET_REF}: target ref {ref_name} is \
+                            not a local or remote-tracking branch"
                     );
                     None
                 }
             }
-        });
+        } else {
+            None
+        };
+
         let target_commit_id = config
             .string(PROJECT_TARGET_COMMIT_ID)
             .and_then(
@@ -445,9 +592,11 @@ impl ProjectMeta {
             // The null id is a placeholder for an unknown commit in storage that
             // cannot represent absence - interpret it as such.
             .filter(|id| !id.is_null());
+
         let push_remote = config
             .string(PROJECT_PUSH_REMOTE)
             .map(|value| value.to_string());
+
         Ok(ProjectMeta {
             target_ref,
             target_commit_id,
@@ -467,6 +616,10 @@ impl ProjectMeta {
     }
 
     /// Port project metadata, loading the legacy fallback only if Git config has no metadata.
+    ///
+    /// If the legacy fallback fails with [`UnresolvedLegacyTargetRefError`], its remote target is
+    /// ported as is, along with its cutoff and push remote, so reading project metadata keeps
+    /// failing with that error until a target is chosen.
     pub fn port_if_needed(
         repo: &gix::Repository,
         legacy_fallback: impl FnOnce() -> anyhow::Result<Self>,
@@ -475,9 +628,28 @@ impl ProjectMeta {
             if matches!(config.boolean(PROJECT_PORTED_META), Ok(Some(true))) {
                 return Ok(());
             }
-            let configured = Self::try_from_config(config)?;
+            let configured = Self::try_from_config(config, repo)?;
             let project_meta = if configured == Self::default() {
-                legacy_fallback()?
+                match legacy_fallback() {
+                    Ok(project_meta) => project_meta,
+                    Err(err) => {
+                        let Some(unresolved) = err.downcast_ref::<UnresolvedLegacyTargetRefError>()
+                        else {
+                            return Err(err);
+                        };
+                        ProjectMeta {
+                            target_ref: None,
+                            target_commit_id: unresolved.target_commit_id,
+                            push_remote: unresolved.push_remote.clone(),
+                        }
+                        .write_to_config(config)?;
+                        return git_config::set_config_value(
+                            config,
+                            PROJECT_TARGET_REF,
+                            &unresolved.target_ref.to_string(),
+                        );
+                    }
+                }
             } else {
                 configured
             };
@@ -507,7 +679,7 @@ impl ProjectMeta {
 
 fn notify_legacy_storage(repo: &gix::Repository, changed: bool) {
     if changed && let Ok(storage_path) = but_project_handle::gitbutler_storage_path(repo) {
-        but_project_handle::write_refresh_sentinel(&storage_path.join("virtual_branches.toml"));
+        but_project_handle::write_refresh_sentinel(&storage_path);
     }
 }
 
@@ -934,4 +1106,163 @@ impl std::fmt::Debug for Review {
 pub trait ValueInfo {
     /// Return `true` if the value didn't exist for a given `ref_name` and thus was defaulted.
     fn is_default(&self) -> bool;
+}
+
+/// Return a local target name directly, or resolve a remote target to its local tracking branch as
+/// [`find_local_tracking_branch`] picks it. Local names need not exist. Remote resolution fails with
+/// [`UnresolvedLegacyTargetRefError`] if no branch or multiple branches match, and fails if upstream
+/// lookup fails. Other reference categories are rejected.
+pub fn resolve_local_target(
+    target_ref: &FullNameRef,
+    repo: &gix::Repository,
+) -> Result<LocalRefName> {
+    if target_ref.category() == Some(gix::refs::Category::LocalBranch) {
+        return LocalRefName::new(target_ref.to_owned());
+    }
+    if target_ref.category() != Some(gix::refs::Category::RemoteBranch) {
+        bail!("target ref '{target_ref}' must be a local or remote-tracking branch");
+    }
+    let short_name = target_ref.shorten();
+    let (err, reason, message) = match find_local_tracking_branch(target_ref, repo)? {
+        LocalTrackingBranchMatch::Unique(name) => return Ok(name),
+        LocalTrackingBranchMatch::None => (
+            anyhow::format_err!(
+                "no local branch tracks {target_ref}; choose a local target branch"
+            ),
+            UnresolvedLegacyTargetReason::NoTrackingBranch,
+            // Making a branch track the legacy target keeps pulls coming from it, while choosing
+            // a branch that tracks something else changes where pulls come from.
+            format!(
+                "GitButler now requires the target to be a local branch, but no local branch \
+                tracks your current target, {short_name}. Make one track it with \
+                `git branch --set-upstream-to={short_name} <branch>` to keep pulling from \
+                {short_name}, or choose a local target branch."
+            ),
+        ),
+        LocalTrackingBranchMatch::Ambiguous { first, second } => (
+            anyhow::format_err!(
+                "multiple local branches track {target_ref}: \
+                    {first} and {second}; choose a local target branch"
+            ),
+            UnresolvedLegacyTargetReason::MultipleTrackingBranches,
+            format!(
+                "GitButler now requires the target to be a local branch, but several local \
+                branches track your current target, {short_name}. Choose a local target branch."
+            ),
+        ),
+    };
+    Err(err
+        .context(UnresolvedLegacyTargetRefError {
+            target_ref: target_ref.to_owned(),
+            reason,
+            target_commit_id: None,
+            push_remote: None,
+        })
+        .context(
+            but_error::Context::new(message).with_code(but_error::Code::UnresolvedLegacyTarget),
+        ))
+}
+
+/// Local branches configured to track a particular upstream ref.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LocalTrackingBranchMatch {
+    /// No local branch has the requested upstream.
+    None,
+    /// The only local branch with the requested upstream, or of several, the one named as the
+    /// branch on the remote, like main for origin/main.
+    Unique(LocalRefName),
+    /// At least two local branches have the requested upstream, and none is named as the branch on
+    /// the remote.
+    Ambiguous {
+        /// The first matching branch.
+        first: LocalRefName,
+        /// The second matching branch; additional matches are not collected.
+        second: LocalRefName,
+    },
+}
+
+/// Find local branches whose configured upstream is `remote_ref`, without checking their tips.
+/// Of several, the one named as the branch on the remote is picked, as branches made from the
+/// remote branch, like with `git worktree add -b <name> origin/main`, track it too.
+/// Repository and upstream-configuration errors propagate independently of the match result.
+pub fn find_local_tracking_branch(
+    remote_ref: &FullNameRef,
+    repo: &gix::Repository,
+) -> Result<LocalTrackingBranchMatch> {
+    let references = repo.references()?;
+    let mut first = None;
+    let mut second = None;
+    for reference in references.local_branches()? {
+        let reference = reference?;
+        let local_ref = reference.name();
+        let upstream = repo
+            .branch_remote_tracking_ref_name(local_ref, gix::remote::Direction::Fetch)
+            .transpose()?;
+        if upstream.as_ref().map(AsRef::as_ref) != Some(remote_ref) {
+            continue;
+        }
+        let ref_on_remote = repo
+            .branch_remote_ref_name(local_ref, gix::remote::Direction::Fetch)
+            .transpose()?;
+        let named_as_on_remote = ref_on_remote.as_ref().map(AsRef::as_ref) == Some(local_ref);
+        let local_ref = LocalRefName::new(local_ref.to_owned())?;
+        if named_as_on_remote {
+            return Ok(LocalTrackingBranchMatch::Unique(local_ref));
+        }
+        if first.is_none() {
+            first = Some(local_ref);
+        } else if second.is_none() {
+            second = Some(local_ref);
+        }
+    }
+
+    Ok(match (first, second) {
+        (Some(first), Some(second)) => LocalTrackingBranchMatch::Ambiguous { first, second },
+        (Some(name), None) => LocalTrackingBranchMatch::Unique(name),
+        (None, _) => LocalTrackingBranchMatch::None,
+    })
+}
+
+/// In the old days `ProjectMeta.target_ref` would always be a remote branch like origin/main.
+/// In <https://github.com/gitbutlerapp/gitbutler/pull/16363> that was changed to always be a
+/// local branch instead.
+///
+/// As part of that transition we have to migrate users from origin/main to main. Doing that
+/// requires finding the local branch thats tracking origin/main and making that the target.
+/// `but_core::ref_metadata::find_local_tracking_branch` does that. However if no local branch
+/// or several local branches track origin/main then we need the user to pick.
+///
+/// This error identifies that situation.
+#[derive(Debug)]
+pub struct UnresolvedLegacyTargetRefError {
+    /// The legacy target that couldn't be resolved, for example origin/main.
+    pub target_ref: gix::refs::FullName,
+    /// Why [`Self::target_ref`] doesn't identify a single local branch.
+    pub reason: UnresolvedLegacyTargetReason,
+    /// The cutoff stored with the legacy target.
+    ///
+    /// Only set when the legacy target was read from `virtual_branches.toml`, so porting can keep
+    /// it. Targets stored in Git config keep their cutoff in place.
+    pub target_commit_id: Option<gix::ObjectId>,
+    /// The push remote stored with the legacy target.
+    ///
+    /// Only set when the legacy target was read from `virtual_branches.toml`, like
+    /// [`Self::target_commit_id`].
+    pub push_remote: Option<String>,
+}
+
+impl std::fmt::Display for UnresolvedLegacyTargetRefError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("UnresolvedLegacyTargetRef")
+    }
+}
+
+/// Why a legacy remote target doesn't identify a single local branch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnresolvedLegacyTargetReason {
+    /// No local branch has the legacy target as its upstream.
+    NoTrackingBranch,
+    /// At least two local branches have the legacy target as their upstream, and none is named as
+    /// the branch on the remote.
+    MultipleTrackingBranches,
 }

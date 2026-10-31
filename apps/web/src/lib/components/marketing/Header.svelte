@@ -4,12 +4,16 @@
 	import HeaderAuthSection from "$lib/components/HeaderAuthSection.svelte";
 	import * as jsonLinks from "$lib/data/links.json";
 	import { Icon, type IconName } from "@gitbutler/ui-svelte";
+	import { env } from "$env/dynamic/public";
 
 	interface Props {
 		disableLogoLink?: boolean;
 	}
 
 	const { disableLogoLink }: Props = $props();
+
+	// Hidden unless explicitly turned on, so the link only shows while we're hiring.
+	const showJobsLink = env.PUBLIC_SHOW_JOBS_LINK === "true";
 </script>
 
 <!-- Link snippet for reusable navigation links -->
@@ -51,10 +55,12 @@
 				href: jsonLinks.resources.downloads.url,
 				label: jsonLinks.resources.downloads.label,
 			})}
-			{@render link({
-				href: jsonLinks.resources.jobs.url,
-				label: jsonLinks.resources.jobs.label,
-			})}
+			{#if showJobsLink}
+				{@render link({
+					href: jsonLinks.resources.jobs.url,
+					label: jsonLinks.resources.jobs.label,
+				})}
+			{/if}
 			{@render link({
 				href: jsonLinks.resources.blog.url,
 				label: jsonLinks.resources.blog.label,

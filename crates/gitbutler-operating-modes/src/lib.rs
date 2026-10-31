@@ -186,8 +186,8 @@ fn worktree_conflicts_with_workspace(
     gix_repo: &gix::Repository,
 ) -> Result<Vec<BStringForFrontend>> {
     let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
-    if ws.target_ref.is_none() || ws.stacks.is_empty() {
-        // Nothing to conflict
+    if ws.target_commit.is_none() || ws.stacks.is_empty() {
+        // No cutoff to reconstruct the workspace, or no stacks to merge.
         return Ok(vec![]);
     }
 

@@ -10,6 +10,14 @@ git init shallow-clone-depth-2-source
 )
 git clone --depth 2 "file://$PWD/shallow-clone-depth-2-source" shallow-clone-depth-2
 
+# Model a shallow local branch ahead of its upstream, with missing history in between.
+git -C shallow-clone-depth-2-source branch old-main main~3
+cp -R shallow-clone-depth-2 shallow-clone-ahead-of-upstream
+(
+  cd shallow-clone-ahead-of-upstream
+  git fetch origin +refs/heads/old-main:refs/remotes/origin/main
+)
+
 git init shallow-workspace-source
 (
   cd shallow-workspace-source

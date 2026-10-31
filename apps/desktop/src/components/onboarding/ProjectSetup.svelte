@@ -7,45 +7,41 @@
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { showError } from "$lib/error/showError";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
-	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
 	import { TestId } from "@gitbutler/ui-svelte";
 	import type { RemoteBranchInfo } from "$lib/baseBranch/baseBranch";
+	import type { LocalTargetBranch } from "$lib/branches/branchEndpoints";
 
 	interface Props {
 		projectId: string;
 		remoteBranches: RemoteBranchInfo[];
+		localBranches: LocalTargetBranch[];
+		/** Why the target needs choosing again, if it was set before. */
+		notice?: string;
 	}
 
-	const { projectId, remoteBranches }: Props = $props();
+	const { projectId, remoteBranches, localBranches, notice }: Props = $props();
 
 	const projectsService = inject(PROJECTS_SERVICE);
 	const baseService = inject(BASE_BRANCH_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
-	const settingsStore = inject(SETTINGS_SERVICE).appSettings;
 	const projectQuery = $derived(projectsService.getProject(projectId));
-	const [setBaseBranchTarget] = baseService.setTarget;
 	const [setBaseBranchTargetRef] = baseService.setTargetRef;
 
-	async function setTarget([branchName, pushRemote]: [branchName: string, pushRemote: string]) {
+	async function setTarget([branchName, pushRemote]: [
+		branchName: string,
+		pushRemote: string | undefined,
+	]) {
 		if (!branchName) return;
 
 		try {
-			if ($settingsStore?.featureFlags.singleBranch) {
-				// Only set the target; the user keeps working on their current branch.
-				await setBaseBranchTargetRef({
-					projectId: projectId,
-					targetRef: `refs/remotes/${branchName}`,
-					pushRemote,
-				});
-			} else {
-				await setBaseBranchTarget({
-					projectId: projectId,
-					branch: branchName,
-					pushRemote,
-				});
-			}
+			// Only set the target; the user keeps working on their current branch.
+			await setBaseBranchTargetRef({
+				projectId,
+				targetRef: branchName,
+				pushRemote,
+			});
 		} catch (e: unknown) {
 			posthog.captureOnboarding(OnboardingEvent.SetTargetBranchFailed, e);
 			throw e;
@@ -80,8 +76,10 @@
 				{projectId}
 				projectName={project.title}
 				{remoteBranches}
+				{localBranches}
 				onBranchSelected={setTarget}
 				onOpenProject={openProject}
+				{notice}
 			/>
 		{/snippet}
 	</ReduxResult>

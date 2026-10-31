@@ -65,3 +65,8 @@ but-bench-fast:
 .PHONY: but-bench-show
 but-bench-show:
 	PERF_SHOW_OUTPUT=1 PERF_SKIP_SMOKE=1 PERF_WARMUP=0 PERF_RUNS=1 ./crates/but/tests/performance/run.sh $(SCENARIO)
+
+.PHONY: run-but-gpui-without-xcode
+run-but-gpui-without-xcode:
+	cargo build -p but-gpui -p gitbutler-git --bins --features gpui_platform/runtime_shaders
+	cargo run -p but-gpui --features gpui_platform/runtime_shaders

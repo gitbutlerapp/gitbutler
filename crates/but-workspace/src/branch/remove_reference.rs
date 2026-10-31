@@ -40,26 +40,30 @@ pub fn delete_local_branch(
     repo: &mut gix::Repository,
     ref_name: &gix::refs::FullNameRef,
 ) -> anyhow::Result<bool> {
-    let deleted = match repo.delete_local_branches([ref_name.to_owned()]) {
-        Ok(deleted) => deleted,
-        Err(gix::repository::branch::delete::Error::Cleanup {
-            deleted, source, ..
-        }) => {
-            tracing::warn!(
-                ?source,
-                ?ref_name,
-                "branch was deleted but its local configuration remains"
-            );
-            deleted
+    match repo.delete_local_branches([ref_name.to_owned()]) {
+        Ok(deleted) => Ok(!deleted.is_empty()),
+        Err(err) => {
+            if let Some(cleanup) =
+                err.downcast_any_ref::<gix::repository::branch::delete::CleanupError>()
+            {
+                tracing::warn!(
+                    ?err,
+                    ?ref_name,
+                    "branch was deleted but its local configuration remains"
+                );
+                return Ok(!cleanup.deleted.is_empty());
+            }
+            if let Some(checked_out) =
+                err.downcast_any_ref::<gix::repository::branch::delete::CheckedOutError>()
+            {
+                bail_precondition!(
+                    "Refusing to delete a branch that is checked out. Worktrees are: {:?}",
+                    checked_out.worktree_dirs
+                )
+            }
+            Err(err.into())
         }
-        Err(gix::repository::branch::delete::Error::CheckedOut { worktree_dirs, .. }) => {
-            bail_precondition!(
-                "Refusing to delete a branch that is checked out. Worktrees are: {worktree_dirs:?}"
-            )
-        }
-        Err(err) => return Err(err.into()),
-    };
-    Ok(!deleted.is_empty())
+    }
 }
 
 /// Remove the workspace reference `ref_name` (if it still exists),

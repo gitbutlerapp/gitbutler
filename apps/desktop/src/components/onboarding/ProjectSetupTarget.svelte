@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import ProjectNameLabel from "$components/shared/ProjectNameLabel.svelte";
+	import ProjectSwitcher from "$components/shared/ProjectSwitcher.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import gerritLogoSvg from "$lib/assets/gerrit-logo.svg?raw";
-	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from "$lib/branches/branchUtils";
+	import { getBestRemote, getBranchRemoteFromRef } from "$lib/branches/branchUtils";
 	import { projectLandDirectly } from "$lib/config/config";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { classify, type ClassifiedError } from "$lib/error/errorClassification";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
-	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { combineResults } from "$lib/state/helpers";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { unique } from "$lib/utils/array";
@@ -17,31 +17,46 @@
 		Button,
 		CardGroup,
 		Checkbox,
-		Icon,
 		InfoMessage,
 		Link,
 		Select,
 		SelectItem,
+		Spacer,
 		TestId,
 		Toggle,
 	} from "@gitbutler/ui-svelte";
-	import { slide } from "svelte/transition";
 	import type { RemoteBranchInfo } from "$lib/baseBranch/baseBranch";
+	import type { LocalTargetBranch } from "$lib/branches/branchEndpoints";
 
 	interface Props {
 		projectId: string;
 		projectName: string;
 		remoteBranches: RemoteBranchInfo[];
-		onBranchSelected: (branch: [branchName: string, pushRemote: string]) => Promise<void>;
+		localBranches: LocalTargetBranch[];
+		onBranchSelected: (
+			branch: [branchName: string, pushRemote: string | undefined],
+		) => Promise<void>;
 		onOpenProject: () => Promise<boolean>;
+		/**
+		 * Why the target needs choosing again, shown above the branch picker. Replacing a target
+		 * that was set before keeps the push remote it had, which project settings can change,
+		 * and leaving means switching projects rather than removing this one.
+		 */
+		notice?: string;
 	}
 
-	const { projectId, projectName, remoteBranches, onBranchSelected, onOpenProject }: Props =
-		$props();
+	const {
+		projectId,
+		projectName,
+		remoteBranches,
+		localBranches,
+		onBranchSelected,
+		onOpenProject,
+		notice,
+	}: Props = $props();
 
 	const posthog = inject(POSTHOG_WRAPPER);
 	const gitConfig = inject(GIT_CONFIG_SERVICE);
-	const settingsStore = inject(SETTINGS_SERVICE).appSettings;
 
 	const gbConfig = $derived(gitConfig.gbConfig(projectId));
 	const gerritMode = $derived(gbConfig.response?.gitbutlerGerritMode ?? false);
@@ -51,7 +66,6 @@
 	let loading = $state<boolean>(false);
 	let targetWasSet = $state(false);
 	let targetError = $state<ClassifiedError>();
-	let showMoreInfo = $state<boolean>(false);
 
 	// split all the branches by the first '/' and gather the unique remote names
 	// then turn remotes into an array of objects with a 'name' and 'value' key
@@ -61,18 +75,23 @@
 		),
 	);
 
-	let selectedBranch = $state<RemoteBranchInfo | undefined>(undefined);
-	const defaultBranch = $derived(getBestBranch(remoteBranches.slice()));
+	let selectedBranch = $state<LocalTargetBranch | undefined>(undefined);
+	const defaultBranch = $derived(
+		localBranches.find((branch) => branch.isTarget) ??
+			localBranches.find((branch) => branch.name === "main") ??
+			localBranches.find((branch) => branch.name === "master") ??
+			localBranches[0],
+	);
 	const branch = $derived(selectedBranch ?? defaultBranch);
 
 	let selectedRemote = $state<string | undefined>(undefined);
-	const defaultRemote = $derived(
-		(branch && getBranchRemoteFromRef(branch.name)) ?? getBestRemote(remotes),
-	);
+	const defaultRemote = $derived(getBestRemote(remotes));
 	const remote = $derived(selectedRemote ?? defaultRemote);
+	// The stored push remote can't be read while the target is unresolved, so it's left as is.
+	const replacingTarget = $derived(notice !== undefined);
 
 	async function onSetTargetClick() {
-		if (!branch || !remote || loading) return;
+		if (!branch || loading) return;
 		loading = true;
 		targetError = undefined;
 		if (!targetWasSet) {
@@ -80,7 +99,7 @@
 				landDirectly: $landDirectly,
 			});
 			try {
-				await onBranchSelected([branch.name, remote]);
+				await onBranchSelected([branch.refName, replacingTarget ? undefined : remote]);
 				targetWasSet = true;
 			} catch (error) {
 				const classified = classify(error);
@@ -110,35 +129,43 @@
 		<h1 class="text-serif-42">Configure your <i>workspace</i></h1>
 	</div>
 
+	{#if notice}
+		<InfoMessage style="warning">
+			{#snippet content()}
+				{notice}
+			{/snippet}
+		</InfoMessage>
+	{/if}
+
 	<div class="project-setup__fields">
 		<div class="project-setup__field-wrap" data-testid={TestId.ProjectSetupPageTargetBranchSelect}>
 			<Select
-				value={branch?.name}
-				options={remoteBranches.map((b) => ({ label: b.name, value: b.name }))}
+				value={branch?.refName}
+				options={localBranches.map((b) => ({ label: b.name, value: b.refName }))}
 				disabled={loading || targetWasSet}
 				wide
 				onselect={(value) => {
-					selectedBranch = { name: value };
+					selectedBranch = localBranches.find((branch) => branch.refName === value);
 				}}
 				label="Target branch"
 				searchable
 			>
 				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={item.value === branch?.name} {highlighted}>
+					<SelectItem selected={item.value === branch?.refName} {highlighted}>
 						{item.label}
 					</SelectItem>
 				{/snippet}
 			</Select>
 
 			<p class="text-12 text-body project-setup__field-caption">
-				Your main "production" branch, typically <code class="code-string">origin/master</code> or
-				<code class="code-string">upstream/main</code>.
+				Your main "production" branch, typically <code class="code-string">master</code> or
+				<code class="code-string">main</code>. Its configured upstream is used for pulling.
 				<br />
 				<Link href="https://docs.gitbutler.com/overview#target-branch">Learn more</Link>
 			</p>
 		</div>
 
-		{#if remotes.length > 1}
+		{#if remotes.length > 1 && !replacingTarget}
 			<div class="project-setup__field-wrap">
 				<Select
 					value={remote}
@@ -207,63 +234,6 @@
 		<span class="text-12 clr-text-2">Push to main / Skip pull requests mode</span>
 	</label>
 
-	<!-- With the singleBranch feature flag, setting the target only updates project
-	     metadata and the user stays on their current branch, so don't promise a
-	     switch to gitbutler/workspace. -->
-	{#if !$settingsStore?.featureFlags.singleBranch}
-		<div
-			class="project-setup__info"
-			role="presentation"
-			onclick={() => (showMoreInfo = !showMoreInfo)}
-		>
-			<div class="project-setup__fold-icon" class:rotate-icon={showMoreInfo}>
-				<Icon name="chevron-right" />
-			</div>
-
-			<div class="stack-v gap-6 full-width">
-				<div class="project-setup__info__title">
-					<svg
-						width="16"
-						height="13"
-						viewBox="0 0 16 13"
-						fill="none"
-						xmlns="http://www.w3.org/2000/svg"
-					>
-						<path
-							d="M2 12L3.5 7.5M14 12L12.5 7.5M12.5 7.5L11 3H5L3.5 7.5M12.5 7.5H3.5"
-							stroke="#D96842"
-							stroke-width="1.5"
-						/>
-						<path
-							d="M1.24142 3H14.7586C14.8477 3 14.8923 2.89229 14.8293 2.82929L13.0293 1.02929C13.0105 1.01054 12.9851 1 12.9586 1H3.04142C3.0149 1 2.98946 1.01054 2.97071 1.02929L1.17071 2.82929C1.10771 2.89229 1.15233 3 1.24142 3Z"
-							fill="#FF9774"
-							stroke="#FF9774"
-							stroke-width="1.5"
-						/>
-					</svg>
-
-					<h3 class="text-13 text-body text-semibold">
-						GitButler switches your active branch to <span class="text-bold"
-							>gitbutler/workspace</span
-						>
-					</h3>
-				</div>
-
-				{#if showMoreInfo}
-					<p class="text-12 text-body" transition:slide={{ duration: 200 }}>
-						In order to support working on multiple branches simultaneously, GitButler creates and
-						automatically manages a special branch <span class="text-bold">gitbutler/workspace</span
-						>. You can always switch back and forth as needed between normal git branches and the
-						Gitbutler workspace.
-						<Link href="https://docs.gitbutler.com/features/branch-management/integration-branch"
-							>Learn more</Link
-						>
-					</p>
-				{/if}
-			</div>
-		</div>
-	{/if}
-
 	{#if targetError}
 		{@const error = targetError}
 		<InfoMessage style={error.severity === "warning" ? "warning" : "danger"}>
@@ -274,10 +244,14 @@
 	{/if}
 
 	<div class="action-buttons">
-		<Button kind="outline" disabled={loading} onclick={deleteProjectAndGoBack}>Cancel</Button>
+		<!-- Cancelling removes the project and its GitButler data, only right for one just added. -->
+		{#if !replacingTarget}
+			<Button kind="outline" disabled={loading} onclick={deleteProjectAndGoBack}>Cancel</Button>
+		{/if}
 		<Button
 			style="pop"
 			{loading}
+			disabled={!branch}
 			onclick={onSetTargetClick}
 			icon="chevron-right"
 			testId={TestId.ProjectSetupPageTargetContinueButton}
@@ -286,6 +260,11 @@
 			{targetWasSet ? "Open project" : "Let's go"}
 		</Button>
 	</div>
+
+	{#if replacingTarget}
+		<Spacer dotted margin={0} />
+		<ProjectSwitcher {projectId} />
+	{/if}
 </div>
 
 <style lang="postcss">
@@ -324,48 +303,5 @@
 		justify-content: flex-end;
 		width: 100%;
 		gap: 8px;
-	}
-
-	/* BANNER */
-	.project-setup__info {
-		display: flex;
-		padding: 14px 16px;
-		gap: 8px;
-		border-radius: var(--radius-m);
-		background-color: var(--bg-mute);
-		cursor: pointer;
-
-		&:hover {
-			& .project-setup__fold-icon {
-				color: var(--text-2);
-			}
-		}
-	}
-
-	.project-setup__info__title {
-		display: inline;
-		width: 100%;
-		gap: 8px;
-
-		svg {
-			display: inline;
-			margin-right: 8px;
-			float: left;
-			transform: translateY(4px);
-		}
-	}
-
-	.project-setup__fold-icon {
-		display: flex;
-		align-self: flex-start;
-		padding-top: 2px;
-		color: var(--text-3);
-		transition:
-			transform var(--transition-medium),
-			color var(--transition-fast);
-
-		&.rotate-icon {
-			transform: rotate(90deg);
-		}
 	}
 </style>

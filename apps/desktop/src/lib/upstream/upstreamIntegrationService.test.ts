@@ -42,6 +42,24 @@ function refInfo(stacks: Stack[]): RefInfo {
 }
 
 describe("UpstreamIntegrationService", () => {
+	test("tags execution telemetry with its phase", () => {
+		const useMutation = vi.fn().mockReturnValue([]);
+		const service = new UpstreamIntegrationService(
+			{
+				endpoints: { workspaceIntegrateUpstream: { useMutation } },
+			} as any,
+			{} as any,
+			{} as any,
+		);
+
+		service.integrateUpstream();
+
+		expect(useMutation).toHaveBeenCalledWith(
+			expect.objectContaining({ propertiesFn: expect.any(Function) }),
+		);
+		expect(useMutation.mock.calls[0]?.[0]?.propertiesFn()).toEqual({ phase: "execute" });
+	});
+
 	test("previews empty update sets through the backend", async () => {
 		const stacks = [stack([segment()])];
 		const mutate = vi.fn().mockResolvedValue({
@@ -70,11 +88,15 @@ describe("UpstreamIntegrationService", () => {
 
 		const statuses = await service.upstreamStatuses("project-1");
 
-		expect(mutate).toHaveBeenCalledWith({
-			projectId: "project-1",
-			updates: [],
-			dryRun: true,
-		});
+		expect(mutate).toHaveBeenCalledWith(
+			{
+				projectId: "project-1",
+				updates: [],
+				dryRun: true,
+			},
+			expect.objectContaining({ propertiesFn: expect.any(Function) }),
+		);
+		expect(mutate.mock.calls[0]?.[1]?.propertiesFn()).toEqual({ phase: "preview" });
 		expect(statuses).toMatchObject({
 			updates: [],
 			worktreeConflicts: ["conflicting.txt"],
@@ -115,19 +137,22 @@ describe("UpstreamIntegrationService", () => {
 
 		const statuses = await service.upstreamStatuses("project-1");
 
-		expect(mutate).toHaveBeenCalledWith({
-			projectId: "project-1",
-			updates: [
-				{
-					kind: "rebase",
-					selector: {
-						type: "referenceBytes",
-						subject: bytes("refs/heads/feature"),
+		expect(mutate).toHaveBeenCalledWith(
+			{
+				projectId: "project-1",
+				updates: [
+					{
+						kind: "rebase",
+						selector: {
+							type: "referenceBytes",
+							subject: bytes("refs/heads/feature"),
+						},
 					},
-				},
-			],
-			dryRun: true,
-		});
+				],
+				dryRun: true,
+			},
+			expect.objectContaining({ propertiesFn: expect.any(Function) }),
+		);
 		expect(statuses).toMatchObject({
 			updates: [
 				{

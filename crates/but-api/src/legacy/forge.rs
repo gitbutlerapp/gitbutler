@@ -16,7 +16,7 @@ use gitbutler_repo::{FileInfo, RepoCommands};
 use tracing::instrument;
 
 pub fn remote_url(project_meta: &ProjectMeta, repo: &gix::Repository) -> Result<String> {
-    project_meta.remote_url_with_fallback(repo)
+    project_meta.target_remote_url(repo)
 }
 
 /// Everything a forge endpoint needs per call: account storage, the
@@ -31,8 +31,11 @@ fn forge_endpoint_context(
     let ctx = ctx.into_thread_local();
     let project_meta = ctx.project_meta()?;
     let repo = ctx.repo.get()?;
-    let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?)
-        .context("No forge could be determined for this repository branch")?;
+    let forge_repo_info = but_forge::derive_forge_repo_info(
+        &remote_url(&project_meta, &repo)?,
+        forge_override(ctx.legacy_project.forge_override.as_deref()),
+    )
+    .context("No forge could be determined for this repository branch")?;
     Ok((
         but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
         forge_repo_info,
@@ -40,15 +43,7 @@ fn forge_endpoint_context(
     ))
 }
 
-/// The name of the target branch within its remote, like `main` for `refs/remotes/origin/main`.
-///
-/// Errors if no target is set, or if its remote cannot be determined.
-pub fn target_short_name(project_meta: &ProjectMeta, repo: &gix::Repository) -> Result<String> {
-    let target_ref = project_meta.target_ref_or_err()?;
-    but_core::extract_remote_name_and_short_name(target_ref.as_ref(), &repo.remote_names())
-        .map(|(_remote_name, short_name)| short_name.to_string())
-        .with_context(|| format!("failed to determine remote for branch {target_ref}"))
-}
+pub use crate::workspace::remote_target_short_name;
 
 pub fn push_remote_url(project_meta: &ProjectMeta, repo: &gix::Repository) -> Result<String> {
     project_meta.push_remote_url(repo)
@@ -57,20 +52,31 @@ pub fn push_remote_url(project_meta: &ProjectMeta, repo: &gix::Repository) -> Re
 fn base_and_push_repo_info(
     project_meta: &ProjectMeta,
     repo: &gix::Repository,
+    override_forge: Option<ForgeName>,
 ) -> Result<(but_forge::ForgeRepoInfo, Option<but_forge::ForgeRepoInfo>)> {
     let base_remote_url = remote_url(project_meta, repo)?;
     let push_remote_url = push_remote_url(project_meta, repo)?;
-    let forge_repo_info = but_forge::derive_forge_repo_info(&base_remote_url)
-        .context("No forge could be determined for this repository branch")?;
+    let forge_repo_info =
+        but_forge::derive_forge_repo_info(&base_remote_url, override_forge.clone())
+            .context("No forge could be determined for this repository branch")?;
     let forge_push_repo_info = if base_remote_url != push_remote_url {
         Some(
-            but_forge::derive_forge_repo_info(&push_remote_url)
+            but_forge::derive_forge_repo_info(&push_remote_url, override_forge)
                 .context("Failed to derive forge information for the push repository")?,
         )
     } else {
         None
     };
     Ok((forge_repo_info, forge_push_repo_info))
+}
+
+/// Parse the project's saved forge preference (the Settings forge picker's
+/// `forge_override`) into a `ForgeName`. It's the last-resort fallback passed to
+/// `derive_forge_repo_info` so a forge the remote URL and configured accounts
+/// can't identify - e.g. self-hosted GitLab before an account is added - still
+/// resolves (#14319). `None` means no usable preference.
+fn forge_override(saved: Option<&str>) -> Option<ForgeName> {
+    saved.and_then(ForgeName::from_override_str)
 }
 
 fn review_template_content(file: FileInfo) -> Result<String> {
@@ -95,7 +101,7 @@ pub fn pr_templates(ctx: &but_ctx::Context, forge: ForgeName) -> Result<Vec<Stri
 ///
 /// This is determined by the forge the base branch is pointing to.
 /// Returns no value when the project has no target yet or its target forge is unknown.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn forge_provider(ctx: &Context) -> Result<Option<ForgeName>> {
     Ok(forge_info(ctx)?.map(|info| info.name))
@@ -104,7 +110,7 @@ pub fn forge_provider(ctx: &Context) -> Result<Option<ForgeName>> {
 /// Per-project forge display + URL config. Lets the renderer build
 /// commit/PR URLs and pick labels without branching on forge name.
 /// Returns no value when the project has no target yet or its target forge is unknown.
-#[but_api(napi, provides = [ForgeInfo])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn forge_info(ctx: &Context) -> Result<Option<but_forge::ForgeInfo>> {
     let project_meta = ctx.project_meta()?;
@@ -118,13 +124,14 @@ pub fn forge_info(ctx: &Context) -> Result<Option<but_forge::ForgeInfo>> {
     Ok(but_forge::forge_info(
         &remote_url(&project_meta, &repo)?,
         &accounts,
+        forge_override(ctx.legacy_project.forge_override.as_deref()),
     ))
 }
 
 /// Web compare URL for a branch — drives the "Open in browser"
 /// affordances without making the renderer hold per-forge URL
 /// templates. `fork` is the owner namespace for fork compares.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn forge_compare_branch_url(
     ctx: &Context,
@@ -143,16 +150,20 @@ pub fn forge_compare_branch_url(
         &branch,
         fork.as_deref(),
         &accounts,
+        forge_override(ctx.legacy_project.forge_override.as_deref()),
     ))
 }
 
 /// Get the list of review template paths for the given project.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn list_available_review_templates(ctx: &Context) -> Result<Vec<String>> {
     let project_meta = ctx.project_meta()?;
     let repo = ctx.repo.get()?;
-    let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
+    let forge_repo_info = but_forge::derive_forge_repo_info(
+        &remote_url(&project_meta, &repo)?,
+        forge_override(ctx.legacy_project.forge_override.as_deref()),
+    );
     let forge = &forge_repo_info
         .as_ref()
         .context("No forge could be determined for this repository branch")?
@@ -204,12 +215,15 @@ but_schemars::register_sdk_type!(ReviewTemplateInfo);
 ///
 /// This function determines the forge of a project and retrieves the review template
 /// from the git config.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn review_template(ctx: &Context) -> Result<Option<ReviewTemplateInfo>> {
     let project_meta = ctx.project_meta()?;
     let repo = ctx.repo.get()?;
-    let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
+    let forge_repo_info = but_forge::derive_forge_repo_info(
+        &remote_url(&project_meta, &repo)?,
+        forge_override(ctx.legacy_project.forge_override.as_deref()),
+    );
     let forge = &forge_repo_info
         .as_ref()
         .context("No forge could be determined for this repository branch")?
@@ -245,14 +259,17 @@ pub fn review_template(ctx: &Context) -> Result<Option<ReviewTemplateInfo>> {
 
 /// Set the review template path in the git configuration for the given project.
 /// The template path will be validated.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn set_review_template(ctx: &but_ctx::Context, template_path: Option<String>) -> Result<()> {
     let repo = ctx.open_isolated_repo()?;
     let mut git_config = repo.git_settings()?;
 
     let project_meta = ctx.project_meta()?;
-    let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
+    let forge_repo_info = but_forge::derive_forge_repo_info(
+        &remote_url(&project_meta, &repo)?,
+        forge_override(ctx.legacy_project.forge_override.as_deref()),
+    );
     let forge = &forge_repo_info
         .as_ref()
         .context("No forge could be determined for this repository branch")?
@@ -275,7 +292,7 @@ pub fn set_review_template(ctx: &but_ctx::Context, template_path: Option<String>
     repo.set_git_settings(&git_config)
 }
 
-#[but_api(napi, provides = [Reviews])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn list_reviews(
     ctx: &Context,
@@ -284,7 +301,10 @@ pub fn list_reviews(
     let (storage, forge_repo_info, preferred_forge_user) = {
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
+        let forge_repo_info = but_forge::derive_forge_repo_info(
+            &remote_url(&project_meta, &repo)?,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        );
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
             forge_repo_info,
@@ -314,7 +334,7 @@ pub fn list_reviews(
 /// This fetches the review's head repository through a configured or newly
 /// created remote, applies the fetched remote-tracking branch, and records the
 /// review number on the applied branch metadata.
-#[but_api(napi, crate::branch::json::ApplyOutcome)]
+#[but_api(crate::branch::json::ApplyOutcome)]
 #[instrument(err(Debug))]
 pub fn review_apply(
     ctx: &mut but_ctx::Context,
@@ -323,9 +343,12 @@ pub fn review_apply(
     let (forge_repo_info, preferred_forge_user, target_protocol) = {
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let remote_url = project_meta.remote_url_with_fallback(&repo)?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url)
-            .context("No supported forge could be determined for this repository")?;
+        let remote_url = project_meta.target_remote_url(&repo)?;
+        let forge_repo_info = but_forge::derive_forge_repo_info(
+            &remote_url,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        )
+        .context("No supported forge could be determined for this repository")?;
         let target_protocol = forge_repo_info.protocol.clone();
         (
             forge_repo_info,
@@ -451,9 +474,14 @@ fn remote_urls_match(configured: &str, candidate: &str) -> bool {
     if configured == candidate {
         return true;
     }
-    let configured_info = but_forge::derive_forge_repo_info(configured);
-    let candidate_info = but_forge::derive_forge_repo_info(candidate);
-    configured_info.is_some() && configured_info == candidate_info
+    // This compares two arbitrary remote URLs for reuse, so the project's
+    // forge override doesn't apply - resolve each purely from its URL.
+    let configured_info = but_forge::derive_forge_repo_info(configured, None);
+    let candidate_info = but_forge::derive_forge_repo_info(candidate, None);
+    match (configured_info, candidate_info) {
+        (Some(configured), Some(candidate)) => configured.same_repository(&candidate),
+        _ => false,
+    }
 }
 
 fn sanitize_remote_name(input: &str, review_id: usize) -> String {
@@ -627,23 +655,33 @@ mod tests {
     /// `C` checked out over `B` over `A`, with a linked worktree on branch `W` resting on `B`,
     /// and open reviews #1 on `A`, #2 on `B` and #3 on `W`.
     fn context_with_worktree_on_reviewed_stack() -> Result<(Context, tempfile::TempDir)> {
+        context_with_worktree_on_reviewed_stack_at("B")
+    }
+
+    /// `C` checked out over `B` over `A`, each two commits deep, with a linked worktree on branch
+    /// `W` resting on `worktree_base`, and open reviews #1 on `A`, #2 on `B` and #3 on `W`.
+    fn context_with_worktree_on_reviewed_stack_at(
+        worktree_base: &str,
+    ) -> Result<(Context, tempfile::TempDir)> {
         let tmp = tempfile::tempdir()?;
         let git = |args: &[&str]| git_at_dir(tmp.path()).args(args).run();
         git(&["init", "-b", "main"]);
         git(&["config", "user.name", "GitButler"]);
         git(&["config", "user.email", "gitbutler@example.com"]);
         git(&["commit", "--allow-empty", "-m", "base"]);
-        git(&["config", "remote.origin.url", "../origin"]);
+        git(&["remote", "add", "origin", "../origin"]);
         git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
+        git(&["branch", "--set-upstream-to=origin/main", "main"]);
         for branch in ["A", "B", "C"] {
             git(&["checkout", "-b", branch]);
-            git(&["commit", "--allow-empty", "-m", branch]);
+            git(&["commit", "--allow-empty", "-m", &format!("{branch} 1")]);
+            git(&["commit", "--allow-empty", "-m", &format!("{branch} 2")]);
         }
         let worktree = tmp.path().join("worktrees").join("W");
         git_at_dir(tmp.path())
             .args(["worktree", "add", "-b", "W"])
             .arg(&worktree)
-            .arg("B")
+            .arg(worktree_base)
             .run();
         git_at_dir(&worktree)
             .args(["commit", "--allow-empty", "-m", "W"])
@@ -659,13 +697,14 @@ mod tests {
 
         let repo = open_repo(tmp.path())?;
         ProjectMeta {
-            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+                "refs/heads/main".try_into()?,
+            )?),
             target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
             push_remote: Some("origin".into()),
         }
         .persist(&repo)?;
-        let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-        ctx.settings.feature_flags.worktree_manipulation = true;
+        let ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
         let reviews = [(1, "A"), (2, "B"), (3, "W")];
         {
             let mut db = ctx.db.get_cache_mut()?;
@@ -683,9 +722,9 @@ mod tests {
     }
 
     fn numbered_targets(
-        groups: Vec<Vec<but_forge::ForgeReviewUpdate>>,
+        groups: Vec<Vec<(gix::refs::FullName, but_forge::ForgeReviewTargetUpdate)>>,
     ) -> Vec<Vec<(i64, Option<String>)>> {
-        groups
+        without_refs(groups)
             .into_iter()
             .map(|group| {
                 group
@@ -730,6 +769,108 @@ mod tests {
                 (2, "A", Some("main")),
             ],
             "pre-push flattening sees every review along the chain with its cached target"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_worktree_branch_keeps_its_review_in_the_forge_cache_only() -> Result<()> {
+        let (ctx, _tmp) = context_with_worktree_on_reviewed_stack()?;
+        let w: gix::refs::FullName = "refs/heads/W".try_into()?;
+
+        assert!(
+            but_core::ref_metadata::ValueInfo::is_default(&ctx.meta()?.branch(w.as_ref())?),
+            "workspace metadata holds no entry for a branch only a worktree holds"
+        );
+        assert_eq!(
+            local_branch_for_review(&ctx, 3)?,
+            w,
+            "the cache alone associates the worktree branch with its review"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_new_review_targets_the_nearest_reviewed_branch_beneath_it() -> Result<()> {
+        let (ctx, _tmp) = context_with_worktree_on_reviewed_stack()?;
+        let target = |branch: &str| -> Result<String> {
+            let branch = gix::refs::Category::LocalBranch.to_full_name(branch)?;
+            review_creation_target(&ctx, branch.as_ref())
+        };
+
+        assert_eq!(
+            [target("A")?, target("B")?, target("W")?],
+            ["main", "A", "B"],
+            "each review stacks on the reviewed branch beneath it, across the worktree boundary"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_new_review_target_needs_nothing_pushed() -> Result<()> {
+        let (ctx, _tmp) = context_with_worktree_on_reviewed_stack()?;
+        let target = |branch: &str| new_review_target(&ctx, format!("refs/heads/{branch}"));
+
+        assert_eq!(
+            [target("A")?, target("B")?, target("C")?, target("W")?],
+            ["main", "A", "B", "B"],
+            "the unpushed `C` shows the target its review will get once pushed"
+        );
+        assert!(
+            review_creation_target(&ctx, "refs/heads/C".try_into()?).is_err(),
+            "creation still requires `C` to be pushed"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_worktree_resting_inside_a_reviewed_branch_targets_that_branch() -> Result<()> {
+        let (ctx, tmp) = context_with_worktree_on_reviewed_stack_at("B~1")?;
+        let w: gix::refs::FullName = "refs/heads/W".try_into()?;
+
+        assert_eq!(
+            review_creation_target(&ctx, w.as_ref())?,
+            "B",
+            "the review shows only the worktree's own commits against the branch it forks from"
+        );
+        assert_eq!(
+            numbered_targets(review_update_groups_for_branch(&ctx, w.as_ref())?)[0],
+            [(3, Some("B".into()))],
+            "creation agrees with the target sync maintains"
+        );
+
+        git_at_dir(tmp.path())
+            .args(["update-ref", "refs/remotes/origin/W", "main"])
+            .run();
+        assert!(
+            review_creation_target(&ctx, w.as_ref())
+                .is_err_and(|err| err.to_string().contains("remote ancestry does not match")),
+            "a pushed worktree missing the commit it rests on has not pushed what it stacks on"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_review_created_alone_is_not_synced_after_creation() -> Result<()> {
+        let (ctx, _tmp) = context_with_worktree_on_reviewed_stack_at("main")?;
+        let after_creation = |branch: &str| {
+            let branch = gix::refs::Category::LocalBranch.to_full_name(branch);
+            sync_review_stack_after_review_creation(ctx.to_sync(), branch.expect("valid name"))
+        };
+
+        assert!(
+            matches!(
+                after_creation("W").await,
+                but_forge::ReviewSyncOutcome::NotNeeded
+            ),
+            "the worktree's review rests on the target alone, so the forge isn't asked"
+        );
+        assert!(
+            matches!(
+                after_creation("B").await,
+                but_forge::ReviewSyncOutcome::Failed { .. }
+            ),
+            "a stack of reviews is still synced, which fails here as the fixture has no forge"
         );
         Ok(())
     }
@@ -878,6 +1019,49 @@ mod tests {
     }
 
     #[test]
+    fn review_remote_reuses_private_repository_across_protocols() -> Result<()> {
+        let https = "https://gitlab.private.example/alice/widgets.git";
+        let ssh = "ssh://git@gitlab.private.example:2222/alice/widgets.git";
+        for (configured, candidate) in [(ssh, https), (https, ssh)] {
+            let tmp = tempfile::tempdir()?;
+            git_at_dir(tmp.path()).args(["init"]).run();
+            git_at_dir(tmp.path())
+                .args(["remote", "add", "alice", configured])
+                .run();
+            let ctx =
+                Context::from_repo_for_testing(open_repo(tmp.path())?)?.with_memory_app_cache();
+            assert_eq!(
+                ensure_review_remote(&ctx, candidate, &open_review(42, "feature"), 42)?,
+                "alice",
+                "applying a review must reuse the existing self-hosted remote across protocols"
+            );
+            assert_eq!(
+                open_repo(tmp.path())?.remote_names().len(),
+                1,
+                "review apply must not add a duplicate remote"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn review_remote_matching_preserves_repository_boundaries() {
+        let https = "https://gitlab.private.example/alice/widgets.git";
+        for candidate in [
+            "https://gitlab.private.example:8443/alice/widgets.git",
+            "git@gitlab.other.example:alice/widgets.git",
+            "git@gitlab.private.example:bob/widgets.git",
+            "git@gitlab.private.example:alice/other.git",
+            "../alice/widgets.git",
+        ] {
+            assert!(
+                !remote_urls_match(https, candidate),
+                "different known ports, hosts, namespaces, and repositories must not match: {candidate}"
+            );
+        }
+    }
+
+    #[test]
     fn review_remote_reuses_matching_remote_by_forge_identity() -> Result<()> {
         let tmp = tempfile::tempdir()?;
         git_at_dir(tmp.path()).args(["init"]).run();
@@ -895,7 +1079,7 @@ mod tests {
     }
 }
 
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn get_review_base_repo_url(
     ctx: ThreadSafeContext,
@@ -912,7 +1096,7 @@ pub async fn get_review_base_repo_url(
 }
 
 /// List the top-level conversation comments on a review, oldest first.
-#[but_api(napi, provides = [ReviewComments])]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn list_review_comments(
     ctx: ThreadSafeContext,
@@ -924,7 +1108,7 @@ pub async fn list_review_comments(
 }
 
 /// List the diff-anchored comment threads on a review, oldest first.
-#[but_api(napi, provides = [ReviewThreads])]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn list_review_threads(
     ctx: ThreadSafeContext,
@@ -935,211 +1119,8 @@ pub async fn list_review_threads(
         .await
 }
 
-/// Set a review conversation's resolution on the forge.
-/// This remote operation is outside the local repository snapshot timeline.
-#[but_api(napi, invalidates = [ReviewThreads])]
-#[instrument(err(Debug))]
-pub async fn set_review_thread_resolved(
-    ctx: ThreadSafeContext,
-    thread_id: String,
-    resolved: bool,
-) -> Result<()> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::set_review_thread_resolved(
-        &preferred_forge_user,
-        &forge_repo_info,
-        &thread_id,
-        resolved,
-        &storage,
-    )
-    .await
-}
-
-/// Reply into one of a review's diff-anchored comment threads.
-#[but_api(napi, invalidates = [ReviewThreads])]
-#[instrument(err(Debug))]
-pub async fn create_review_thread_reply(
-    ctx: ThreadSafeContext,
-    thread_id: String,
-    body: String,
-) -> Result<but_forge::ForgeReviewThreadComment> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::create_review_thread_reply(
-        &preferred_forge_user,
-        &forge_repo_info,
-        &thread_id,
-        &body,
-        &storage,
-    )
-    .await
-}
-
-/// List the individual reactions (with who reacted) on a review itself.
-#[but_api(napi, provides = [ReviewReactions])]
-#[instrument(err(Debug))]
-pub async fn list_review_reactions(
-    ctx: ThreadSafeContext,
-    review_id: usize,
-) -> Result<Vec<but_forge::ForgeReviewReaction>> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::list_review_reactions(&preferred_forge_user, &forge_repo_info, review_id, &storage)
-        .await
-}
-
-/// List the individual reactions (with who reacted) on one comment.
-#[but_api(napi, provides = [CommentReactions])]
-#[instrument(err(Debug))]
-pub async fn list_comment_reactions(
-    ctx: ThreadSafeContext,
-    comment_id: i64,
-) -> Result<Vec<but_forge::ForgeReviewReaction>> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::list_comment_reactions(
-        &preferred_forge_user,
-        &forge_repo_info,
-        comment_id,
-        &storage,
-    )
-    .await
-}
-
-/// Add the caller's reaction to a review itself.
-#[but_api(napi, invalidates = [ReviewReactions])]
-#[instrument(err(Debug))]
-pub async fn add_review_reaction(
-    ctx: ThreadSafeContext,
-    review_id: usize,
-    kind: String,
-) -> Result<but_forge::ForgeReviewReaction> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::add_review_reaction(
-        &preferred_forge_user,
-        &forge_repo_info,
-        review_id,
-        &kind,
-        &storage,
-    )
-    .await
-}
-
-/// Remove one of the caller's reactions from a review itself.
-#[but_api(napi, invalidates = [ReviewReactions])]
-#[instrument(err(Debug))]
-pub async fn remove_review_reaction(
-    ctx: ThreadSafeContext,
-    review_id: usize,
-    reaction_id: i64,
-) -> Result<()> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::remove_review_reaction(
-        &preferred_forge_user,
-        &forge_repo_info,
-        review_id,
-        reaction_id,
-        &storage,
-    )
-    .await
-}
-
-/// Add the caller's reaction to one submitted review.
-#[but_api(napi, invalidates = [ReviewSubmissions])]
-#[instrument(err(Debug))]
-pub async fn add_submission_reaction(
-    ctx: ThreadSafeContext,
-    review_id: usize,
-    submission_id: i64,
-    kind: String,
-) -> Result<but_forge::ForgeReviewReaction> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::add_submission_reaction(
-        &preferred_forge_user,
-        &forge_repo_info,
-        review_id,
-        submission_id,
-        &kind,
-        &storage,
-    )
-    .await
-}
-
-/// Remove the caller's reaction of one kind from one submitted review.
-#[but_api(napi, invalidates = [ReviewSubmissions])]
-#[instrument(err(Debug))]
-pub async fn remove_submission_reaction(
-    ctx: ThreadSafeContext,
-    review_id: usize,
-    submission_id: i64,
-    kind: String,
-) -> Result<()> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::remove_submission_reaction(
-        &preferred_forge_user,
-        &forge_repo_info,
-        review_id,
-        submission_id,
-        &kind,
-        &storage,
-    )
-    .await
-}
-
-/// Add the caller's reaction to one comment.
-#[but_api(napi, invalidates = [CommentReactions, ReviewComments])]
-#[instrument(err(Debug))]
-pub async fn add_comment_reaction(
-    ctx: ThreadSafeContext,
-    comment_id: i64,
-    kind: String,
-) -> Result<but_forge::ForgeReviewReaction> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::add_comment_reaction(
-        &preferred_forge_user,
-        &forge_repo_info,
-        comment_id,
-        &kind,
-        &storage,
-    )
-    .await
-}
-
-/// Remove one of the caller's reactions from one comment.
-#[but_api(napi, invalidates = [CommentReactions, ReviewComments])]
-#[instrument(err(Debug))]
-pub async fn remove_comment_reaction(
-    ctx: ThreadSafeContext,
-    comment_id: i64,
-    reaction_id: i64,
-) -> Result<()> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::remove_comment_reaction(
-        &preferred_forge_user,
-        &forge_repo_info,
-        comment_id,
-        reaction_id,
-        &storage,
-    )
-    .await
-}
-
-/// List the pushed commits and review requests on a review's timeline.
-#[but_api(napi, provides = [ReviewTimeline])]
-#[instrument(err(Debug))]
-pub async fn list_review_timeline_events(
-    ctx: ThreadSafeContext,
-    review_id: usize,
-) -> Result<Vec<but_forge::ForgeReviewTimelineEvent>> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::list_review_timeline_events(
-        &preferred_forge_user,
-        &forge_repo_info,
-        review_id,
-        &storage,
-    )
-    .await
-}
-
 /// List the submitted reviews (approvals, change requests) on a review.
-#[but_api(napi, provides = [ReviewSubmissions])]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn list_review_submissions(
     ctx: ThreadSafeContext,
@@ -1150,173 +1131,7 @@ pub async fn list_review_submissions(
         .await
 }
 
-/// Edit a top-level conversation comment on a review.
-#[but_api(napi, invalidates = [ReviewComments])]
-#[instrument(err(Debug))]
-pub async fn update_review_comment(
-    ctx: ThreadSafeContext,
-    comment_id: i64,
-    body: String,
-) -> Result<but_forge::ForgeReviewComment> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::update_review_comment(
-        &preferred_forge_user,
-        &forge_repo_info,
-        comment_id,
-        &body,
-        &storage,
-    )
-    .await
-}
-
-/// Delete a top-level conversation comment on a review.
-#[but_api(napi, invalidates = [ReviewComments])]
-#[instrument(err(Debug))]
-pub async fn delete_review_comment(ctx: ThreadSafeContext, comment_id: i64) -> Result<()> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::delete_review_comment(
-        &preferred_forge_user,
-        &forge_repo_info,
-        comment_id,
-        &storage,
-    )
-    .await
-}
-
-/// The login this project's forge calls authenticate as, if any account is
-/// configured. Resolved from stored accounts; no network.
-#[but_api(napi, provides = [ForgeLogin])]
-#[instrument(err(Debug))]
-pub fn current_forge_login(ctx: &Context) -> Result<Option<String>> {
-    let project_meta = ctx.project_meta()?;
-    let repo = ctx.repo.get()?;
-    let Some(forge_repo_info) =
-        but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?)
-    else {
-        return Ok(None);
-    };
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
-    but_forge::current_forge_login(
-        &ctx.legacy_project.preferred_forge_user,
-        &forge_repo_info,
-        &storage,
-    )
-}
-
-/// List the labels defined on the repository backing this project's reviews.
-#[but_api(napi, provides = [RepoLabels])]
-#[instrument(err(Debug))]
-pub async fn list_repo_labels(ctx: ThreadSafeContext) -> Result<Vec<but_forge::ForgeReviewLabel>> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::list_repo_labels(&preferred_forge_user, &forge_repo_info, &storage).await
-}
-
-/// Add labels to a review; returns the resulting label set.
-#[but_api(napi, invalidates = [Reviews])]
-#[instrument(err(Debug))]
-pub async fn add_review_labels(
-    ctx: ThreadSafeContext,
-    review_id: usize,
-    labels: Vec<String>,
-) -> Result<Vec<but_forge::ForgeReviewLabel>> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::add_review_labels(
-        &preferred_forge_user,
-        &forge_repo_info,
-        review_id,
-        &labels,
-        &storage,
-    )
-    .await
-}
-
-/// Remove one label from a review.
-#[but_api(napi, invalidates = [Reviews])]
-#[instrument(err(Debug))]
-pub async fn remove_review_label(
-    ctx: ThreadSafeContext,
-    review_id: usize,
-    label: String,
-) -> Result<()> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::remove_review_label(
-        &preferred_forge_user,
-        &forge_repo_info,
-        review_id,
-        &label,
-        &storage,
-    )
-    .await
-}
-
-/// List users who can be requested to review on this project's repository.
-#[but_api(napi, provides = [ReviewerCandidates])]
-#[instrument(err(Debug))]
-pub async fn list_reviewer_candidates(
-    ctx: ThreadSafeContext,
-) -> Result<Vec<but_forge::ForgeReviewUser>> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::list_reviewer_candidates(&preferred_forge_user, &forge_repo_info, &storage).await
-}
-
-/// Request reviews from the given users on a review.
-#[but_api(napi, invalidates = [Reviews, ReviewTimeline])]
-#[instrument(err(Debug))]
-pub async fn request_review(
-    ctx: ThreadSafeContext,
-    review_id: usize,
-    logins: Vec<String>,
-) -> Result<()> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::request_review(
-        &preferred_forge_user,
-        &forge_repo_info,
-        review_id,
-        &logins,
-        &storage,
-    )
-    .await
-}
-
-/// Withdraw review requests for the given users on a review.
-#[but_api(napi, invalidates = [Reviews])]
-#[instrument(err(Debug))]
-pub async fn withdraw_review_request(
-    ctx: ThreadSafeContext,
-    review_id: usize,
-    logins: Vec<String>,
-) -> Result<()> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::withdraw_review_request(
-        &preferred_forge_user,
-        &forge_repo_info,
-        review_id,
-        &logins,
-        &storage,
-    )
-    .await
-}
-
-/// Post a top-level conversation comment on a review.
-#[but_api(napi, invalidates = [ReviewComments])]
-#[instrument(err(Debug))]
-pub async fn create_review_comment(
-    ctx: ThreadSafeContext,
-    review_id: usize,
-    body: String,
-) -> Result<but_forge::ForgeReviewComment> {
-    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
-    but_forge::create_review_comment(
-        &preferred_forge_user,
-        &forge_repo_info,
-        review_id,
-        &body,
-        &storage,
-    )
-    .await
-}
-
-#[but_api(napi, provides = [MergeStatus])]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn get_review_merge_status(
     ctx: ThreadSafeContext,
@@ -1327,14 +1142,17 @@ pub async fn get_review_merge_status(
         .await
 }
 
-#[but_api(napi, provides = [Reviews])]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn get_review(ctx: &Context, review_id: usize) -> Result<but_forge::ForgeReview> {
     let (storage, forge_repo_info, preferred_forge_user) = {
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?)
-            .context("No forge could be determined for this repository.")?;
+        let forge_repo_info = but_forge::derive_forge_repo_info(
+            &remote_url(&project_meta, &repo)?,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        )
+        .context("No forge could be determined for this repository.")?;
 
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
@@ -1353,15 +1171,17 @@ pub fn get_review(ctx: &Context, review_id: usize) -> Result<but_forge::ForgeRev
     )
 }
 
-#[but_api(napi, provides = [RepoInfo])]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn get_repo_info(ctx: ThreadSafeContext) -> Result<but_forge::RepoInfo> {
     let (storage, forge_repo_info, preferred_forge_user) = {
         let ctx = ctx.into_thread_local();
         let project_meta = ctx.project_meta()?;
         let repo_ = ctx.repo.get()?;
-        let forge_repo_info =
-            but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo_)?);
+        let forge_repo_info = but_forge::derive_forge_repo_info(
+            &remote_url(&project_meta, &repo_)?,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        );
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
             forge_repo_info,
@@ -1376,7 +1196,7 @@ pub async fn get_repo_info(ctx: ThreadSafeContext) -> Result<but_forge::RepoInfo
     .await
 }
 
-#[but_api(napi, provides = [Checks])]
+#[but_api]
 #[instrument(skip(ctx), err(Debug))]
 pub fn list_ci_checks(
     ctx: &Context,
@@ -1391,10 +1211,24 @@ pub fn list_ci_checks_for_ref(
     reference: &str,
     cache_config: Option<but_forge::CacheConfig>,
 ) -> Result<Vec<but_forge::CiCheck>> {
+    ci_checks(ctx, reference, None, cache_config)
+}
+
+/// [`list_ci_checks_for_ref`], asking the forge about `head_commit` instead of
+/// `reference` when set.
+fn ci_checks(
+    ctx: &Context,
+    reference: &str,
+    head_commit: Option<&str>,
+    cache_config: Option<but_forge::CacheConfig>,
+) -> Result<Vec<but_forge::CiCheck>> {
     let (storage, forge_repo_info, preferred_forge_user) = {
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
+        let forge_repo_info = but_forge::derive_forge_repo_info(
+            &remote_url(&project_meta, &repo)?,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        );
 
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
@@ -1409,12 +1243,40 @@ pub fn list_ci_checks_for_ref(
         &forge_repo_info.context("No forge could be determined for this repository branch")?,
         &storage,
         reference,
+        head_commit,
         db,
         cache_config,
     )
 }
 
-#[but_api(napi, invalidates = [Reviews, Branches, Workspace])]
+/// The branch a new review for `branch` targets: the nearest branch beneath it along its lane
+/// chain that has an open review, or the target branch when none has.
+///
+/// Unlike [`publish_review`], nothing needs to be pushed yet, so a caller can show the target
+/// before pushing. `branch` is a full reference name.
+#[but_api]
+#[instrument(err(Debug))]
+pub fn new_review_target(ctx: &Context, branch: String) -> Result<String> {
+    let branch: gix::refs::FullName = branch.try_into()?;
+    let info = crate::legacy::workspace::head_info(ctx)?;
+    let chain = lane_chain_for_branch(&info, branch.as_ref())?;
+    let (selected, beneath) = chain
+        .split_first()
+        .expect("a non-empty chain starts with the branch's own lane");
+    match reviewed_ancestors(*selected, beneath, &open_review_numbers(ctx)?).first() {
+        Some(nearest) => Ok(nearest
+            .segment
+            .ref_name()
+            .context("A reviewed segment is named by its branch")?
+            .shorten()
+            .to_str()
+            .context("Workspace branch name is not valid UTF-8")?
+            .to_owned()),
+        None => remote_target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?),
+    }
+}
+
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub async fn publish_review(
     ctx: ThreadSafeContext,
@@ -1473,8 +1335,11 @@ pub async fn publish_review_only(
         let ctx = ctx.into_thread_local();
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let (forge_repo_info, forge_push_repo_info) =
-            base_and_push_repo_info(&project_meta, &repo)?;
+        let (forge_repo_info, forge_push_repo_info) = base_and_push_repo_info(
+            &project_meta,
+            &repo,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        )?;
 
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
@@ -1515,8 +1380,8 @@ pub async fn publish_review_only(
             let _guard = ctx.exclusive_worktree_access();
             persist_review_association(&ctx, local_branch.as_ref(), review_number).ok();
         }
-        // Not an endpoint, so the batch path signals what `publish_review` declares.
-        crate::tags::signal_invalidation(&ctx.project_data_dir, PUBLISH_REVIEW_INVALIDATES);
+        // Not an endpoint, so the batch path refreshes as `publish_review` declares.
+        but_project_handle::write_refresh_sentinel(&ctx.project_data_dir);
     }
 
     Ok(review)
@@ -1525,11 +1390,24 @@ pub async fn publish_review_only(
 /// Record `review_number` as the branch's review identity. The stored
 /// `review_id` is left untouched: it identifies a GitButler review, which
 /// publishing a forge review does not supersede.
+///
+/// A branch only a linked worktree holds is skipped: workspace metadata would
+/// record it as a stack outside the workspace, so the forge cache carries its
+/// association instead.
 fn persist_review_association(
     ctx: &Context,
     branch_name: &gix::refs::FullNameRef,
     review_number: usize,
 ) -> Result<()> {
+    let info = crate::legacy::workspace::head_info(ctx)?;
+    let in_worktree_lane = info
+        .worktrees
+        .iter()
+        .flat_map(|worktree| &worktree.segments)
+        .any(|segment| segment.ref_name() == Some(branch_name));
+    if in_worktree_lane {
+        return Ok(());
+    }
     let mut meta = ctx.meta()?;
     let mut branch = meta.branch(branch_name)?;
     branch.review.pull_request = Some(review_number);
@@ -1537,7 +1415,7 @@ fn persist_review_association(
 }
 
 /// Merge a review on the forge.
-#[but_api(napi, invalidates = [Reviews, MergeStatus, Checks, Branches])]
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub async fn merge_review(
     ctx: ThreadSafeContext,
@@ -1557,7 +1435,7 @@ pub async fn merge_review(
 }
 
 /// Enable or disable a review's auto-merge.
-#[but_api(napi, invalidates = [Reviews])]
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub async fn set_review_auto_merge(
     ctx: ThreadSafeContext,
@@ -1577,7 +1455,7 @@ pub async fn set_review_auto_merge(
 }
 
 /// Set a review to draft or ready-for-review
-#[but_api(napi, invalidates = [Reviews, MergeStatus])]
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub async fn set_review_draftiness(
     ctx: ThreadSafeContext,
@@ -1588,7 +1466,10 @@ pub async fn set_review_draftiness(
         let ctx = ctx.into_thread_local();
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
+        let forge_repo_info = but_forge::derive_forge_repo_info(
+            &remote_url(&project_meta, &repo)?,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        );
 
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
@@ -1609,7 +1490,7 @@ pub async fn set_review_draftiness(
 
 /// Update arbitrary fields of a single review (title, body, state, target base).
 /// Each `None` leaves that field unchanged on the forge.
-#[but_api(napi, invalidates = [Reviews])]
+#[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub async fn update_review(
     ctx: ThreadSafeContext,
@@ -1633,7 +1514,7 @@ pub async fn update_review(
 }
 
 /// Update stacked reviews: description footers and, optionally, target branches.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn update_review_footers(
     ctx: ThreadSafeContext,
@@ -1651,8 +1532,11 @@ pub async fn update_review_footers(
         let ctx = ctx.into_thread_local();
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let (forge_repo_info, forge_push_repo_info) =
-            base_and_push_repo_info(&project_meta, &repo)?;
+        let (forge_repo_info, forge_push_repo_info) = base_and_push_repo_info(
+            &project_meta,
+            &repo,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        )?;
         let settings = repo.git_settings()?;
         let description_mode = match settings.gitbutler_review_stacking_description {
             Some(but_core::ReviewStackingDescription::Top) => {
@@ -1746,8 +1630,11 @@ pub(crate) async fn prepare_review_target_updates(
         let ctx = ctx.into_thread_local();
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let (forge_repo_info, forge_push_repo_info) =
-            base_and_push_repo_info(&project_meta, &repo)?;
+        let (forge_repo_info, forge_push_repo_info) = base_and_push_repo_info(
+            &project_meta,
+            &repo,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        )?;
         let github_stacking_mode = match repo.git_settings()?.gitbutler_github_stacking_mode {
             Some(but_core::GitHubStackingMode::Native) => but_forge::GitHubStackingMode::Native,
             Some(but_core::GitHubStackingMode::Disabled) => but_forge::GitHubStackingMode::Disabled,
@@ -1787,9 +1674,15 @@ pub(crate) struct ReviewTargetFlattening {
 /// desired stacked targets.
 pub(crate) async fn flatten_review_targets_before_push(
     ctx: ThreadSafeContext,
-    trunk: String,
     reviews: &[(but_forge::ForgeReviewTargetUpdate, Option<String>)],
 ) -> Result<Option<ReviewTargetFlattening>> {
+    if reviews.is_empty() {
+        return Ok(None);
+    }
+    let trunk = {
+        let ctx = ctx.clone().into_thread_local();
+        remote_target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?
+    };
     let Some(reviews_to_flatten) = review_target_flattening_plan(reviews, &trunk) else {
         return Ok(None);
     };
@@ -1891,7 +1784,11 @@ pub(crate) async fn restore_review_targets(
         let ctx = ctx.into_thread_local();
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let (forge_repo_info, _) = base_and_push_repo_info(&project_meta, &repo)?;
+        let (forge_repo_info, _) = base_and_push_repo_info(
+            &project_meta,
+            &repo,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        )?;
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
             forge_repo_info,
@@ -1942,7 +1839,17 @@ pub async fn sync_review_stack_for_branch(
         let ctx = ctx.clone().into_thread_local();
         review_update_groups_for_branch(&ctx, branch.as_ref())
     };
-    sync_review_update_groups(ctx, update_groups).await
+    sync_review_update_groups(ctx, update_groups.map(without_refs)).await
+}
+
+/// `groups` as the forge takes them, without the branch each update is for.
+fn without_refs(
+    groups: Vec<Vec<(gix::refs::FullName, but_forge::ForgeReviewTargetUpdate)>>,
+) -> Vec<Vec<but_forge::ForgeReviewUpdate>> {
+    groups
+        .into_iter()
+        .map(|group| group.into_iter().map(|(_, update)| update.into()).collect())
+        .collect()
 }
 
 async fn sync_review_update_groups(
@@ -2015,11 +1922,23 @@ pub async fn sync_review_stack_for_review(
 }
 
 /// Synchronize the complete workspace review stack containing a newly-created review.
+///
+/// A review alone in its group has no stack to link or describe, and was created with the
+/// target the group gives it, so `branch`'s review standing alone is left out rather than
+/// asking the forge to change nothing.
 pub async fn sync_review_stack_after_review_creation(
     ctx: ThreadSafeContext,
     branch: gix::refs::FullName,
 ) -> but_forge::ReviewSyncOutcome {
-    sync_review_stack_for_branch(ctx, branch).await
+    let update_groups = {
+        let ctx = ctx.clone().into_thread_local();
+        review_update_groups_for_branch(&ctx, branch.as_ref())
+    };
+    let update_groups = update_groups.map(|groups| {
+        let alone = |group: &Vec<_>| matches!(group.as_slice(), [(name, _)] if *name == branch);
+        without_refs(groups.into_iter().filter(|group| !alone(group)).collect())
+    });
+    sync_review_update_groups(ctx, update_groups).await
 }
 
 fn review_updates_after_push(
@@ -2080,7 +1999,7 @@ fn review_updates_after_push(
         }
     }
 
-    let base_branch = target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
+    let base_branch = remote_target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
     Ok(affected_lanes
         .into_iter()
         .flat_map(|lane| review_update_groups_for_lane(&info, lane, &base_branch, &open_reviews))
@@ -2092,8 +2011,8 @@ fn review_updates_after_push(
 fn review_update_groups_for_branch(
     ctx: &Context,
     branch: &gix::refs::FullNameRef,
-) -> Result<Vec<Vec<but_forge::ForgeReviewUpdate>>> {
-    let base_branch = target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
+) -> Result<Vec<Vec<(gix::refs::FullName, but_forge::ForgeReviewTargetUpdate)>>> {
+    let base_branch = remote_target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
     let info = crate::legacy::workspace::head_info(ctx)?;
     let chain = lane_chain_for_branch(&info, branch)?;
     let open_reviews = open_review_numbers(ctx)?;
@@ -2102,7 +2021,6 @@ fn review_update_groups_for_branch(
         .flat_map(|(lane, _)| {
             review_update_groups_for_lane(&info, lane, &base_branch, &open_reviews)
         })
-        .map(|group| group.into_iter().map(|(_, update)| update.into()).collect())
         .collect())
 }
 
@@ -2115,7 +2033,15 @@ pub(crate) fn review_target_updates_for_branch(
     let info = crate::legacy::workspace::head_info(ctx)?;
     let chain = lane_chain_for_branch(&info, branch)?;
     let open_reviews = open_review_numbers(ctx)?;
-    let base_branch = target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
+    // Only reviews need the target's upstream, so an unreviewed chain must push without one.
+    if !chain
+        .iter()
+        .flat_map(|(lane, _)| lane.segments)
+        .any(|segment| review_number(segment, &open_reviews).is_some())
+    {
+        return Ok(Vec::new());
+    }
+    let base_branch = remote_target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
     let updates = chain
         .iter()
         .flat_map(|(lane, _)| {
@@ -2155,19 +2081,19 @@ fn review_update_groups_for_lane(
     base_branch: &str,
     open_reviews: &std::collections::HashSet<i64>,
 ) -> Vec<Vec<(gix::refs::FullName, but_forge::ForgeReviewTargetUpdate)>> {
-    let nearest_reviewed_beneath = info
-        .lanes_beneath(lane)
-        .into_iter()
-        .flat_map(|(lane, index)| &lane.segments[index..])
-        .find_map(|segment| {
-            review_number(segment, open_reviews)?;
-            segment
-                .ref_name()?
-                .shorten()
-                .to_str()
-                .ok()
-                .map(ToOwned::to_owned)
-        });
+    let bottom = (lane, lane.segments.len() - 1);
+    let nearest_reviewed_beneath =
+        reviewed_ancestors(bottom, &info.lanes_beneath(lane), open_reviews)
+            .into_iter()
+            .find_map(|ancestor| {
+                ancestor
+                    .segment
+                    .ref_name()?
+                    .shorten()
+                    .to_str()
+                    .ok()
+                    .map(ToOwned::to_owned)
+            });
     let bottom_target = nearest_reviewed_beneath.as_deref().unwrap_or(base_branch);
     let reviewed = lane
         .segments
@@ -2197,7 +2123,13 @@ fn review_update_groups_for_lane(
     }
 }
 
-fn review_creation_target(ctx: &Context, branch: &gix::refs::FullNameRef) -> Result<String> {
+/// The branch a new review for `branch` targets, once `branch` and everything beneath it is
+/// pushed: the nearest branch beneath it along its lane chain that has an open review, or the
+/// target branch when none has.
+///
+/// Errors if a branch is not pushed, or its remote history does not continue from the
+/// reviewed branch beneath it, as the review would then show commits that are not its own.
+pub fn review_creation_target(ctx: &Context, branch: &gix::refs::FullNameRef) -> Result<String> {
     let info = crate::legacy::workspace::head_info(ctx)?;
     let chain = lane_chain_for_branch(&info, branch)?;
     let repo = ctx.repo.get()?;
@@ -2206,23 +2138,28 @@ fn review_creation_target(ctx: &Context, branch: &gix::refs::FullNameRef) -> Res
     let ((lane, selected_index), beneath) = chain
         .split_first()
         .expect("a non-empty chain starts with the branch's own lane");
-    let mut reviewed_ancestors = std::iter::once((*lane, selected_index + 1))
-        .chain(beneath.iter().copied())
-        .flat_map(|(lane, index)| &lane.segments[index..])
-        .filter(|segment| review_number(segment, &open_reviews).is_some())
-        .map(|segment| remote_head(&repo, segment))
-        .collect::<Result<Vec<_>>>()?;
+    let mut reviewed_ancestors =
+        reviewed_ancestors((*lane, *selected_index), beneath, &open_reviews)
+            .into_iter()
+            .map(|ancestor| Ok((remote_head(&repo, ancestor.segment)?, ancestor.rested_on)))
+            .collect::<Result<Vec<_>>>()?;
     reviewed_ancestors.reverse();
     let selected = remote_head(&repo, &lane.segments[*selected_index])?;
 
-    for pair in reviewed_ancestors
+    let upper_tips = reviewed_ancestors
         .iter()
-        .map(|head| head.remote_tip)
-        .chain(std::iter::once(selected.remote_tip))
-        .collect::<Vec<_>>()
-        .windows(2)
-    {
-        if !remote_contains(&repo, pair[0], pair[1])? {
+        .skip(1)
+        .map(|(head, _)| head.remote_tip)
+        .chain(std::iter::once(selected.remote_tip));
+    for ((lower, rested_on), upper_tip) in reviewed_ancestors.iter().zip(upper_tips) {
+        let stacked = match rested_on {
+            None => remote_contains(&repo, lower.remote_tip, upper_tip)?,
+            Some(fork) => {
+                remote_contains(&repo, *fork, lower.remote_tip)?
+                    && remote_contains(&repo, *fork, upper_tip)?
+            }
+        };
+        if !stacked {
             anyhow::bail!(
                 "Branch `{}` is pushed, but its remote ancestry does not match the reviewed workspace stack; push it and its ancestors before creating a review",
                 branch.shorten()
@@ -2231,9 +2168,47 @@ fn review_creation_target(ctx: &Context, branch: &gix::refs::FullNameRef) -> Res
     }
 
     match reviewed_ancestors.pop() {
-        Some(nearest_reviewed_ancestor) => Ok(nearest_reviewed_ancestor.branch_name),
-        None => target_short_name(&ctx.project_meta()?, &repo),
+        Some((nearest_reviewed_ancestor, _)) => Ok(nearest_reviewed_ancestor.branch_name),
+        None => remote_target_short_name(&ctx.project_meta()?, &repo),
     }
+}
+
+/// A segment with an open review beneath a branch.
+struct ReviewedAncestor<'a> {
+    segment: &'a but_workspace::ref_info::Segment,
+    /// The commit the lane above rests on, when that lane rests on this segment. It may sit
+    /// below the segment's tip, so the lanes above fork from it rather than from the tip.
+    rested_on: Option<gix::ObjectId>,
+}
+
+/// The segments with an open review beneath `selected` in its lane and in the lanes `beneath` it,
+/// nearest first.
+fn reviewed_ancestors<'a>(
+    (lane, selected_index): (but_workspace::ref_info::Lane<'a>, usize),
+    beneath: &[(but_workspace::ref_info::Lane<'a>, usize)],
+    open_reviews: &std::collections::HashSet<i64>,
+) -> Vec<ReviewedAncestor<'a>> {
+    let own_lane = lane
+        .segments_from(selected_index + 1)
+        .iter()
+        .map(|segment| ReviewedAncestor {
+            segment,
+            rested_on: None,
+        });
+    let lanes_above = std::iter::once(lane).chain(beneath.iter().map(|(lane, _)| *lane));
+    let lanes_beneath = lanes_above.zip(beneath).flat_map(|(above, (lane, index))| {
+        lane.segments_from(*index)
+            .iter()
+            .enumerate()
+            .map(move |(offset, segment)| ReviewedAncestor {
+                segment,
+                rested_on: above.rests_on.filter(|_| offset == 0),
+            })
+    });
+    own_lane
+        .chain(lanes_beneath)
+        .filter(|ancestor| review_number(ancestor.segment, open_reviews).is_some())
+        .collect()
 }
 
 #[derive(Debug)]
@@ -2325,12 +2300,9 @@ fn remote_contains(
     if ancestor == descendant {
         return Ok(true);
     }
-    match repo.merge_base(ancestor, descendant) {
-        Ok(base) => Ok(base == ancestor),
-        Err(gix::repository::merge_base::Error::FindMergeBase(_))
-        | Err(gix::repository::merge_base::Error::NotFound { .. }) => Ok(false),
-        Err(err) => Err(err.into()),
-    }
+    Ok(repo
+        .merge_base(ancestor, descendant)?
+        .is_some_and(|base| base == ancestor))
 }
 
 fn local_branch_for_review(ctx: &Context, wanted: i64) -> Result<gix::refs::FullName> {
@@ -2352,41 +2324,12 @@ fn local_branch_for_review(ctx: &Context, wanted: i64) -> Result<gix::refs::Full
         })
 }
 
-#[but_api(napi)]
-#[instrument(err(Debug))]
-pub async fn list_reviews_for_branch(
-    ctx: ThreadSafeContext,
-    branch: String,
-    filter: Option<but_forge::ForgeReviewFilter>,
-) -> Result<Vec<but_forge::ForgeReview>> {
-    let (storage, forge_repo_info, project) = {
-        let ctx = ctx.into_thread_local();
-        let project_meta = ctx.project_meta()?;
-        let repo = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
-        (
-            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
-            forge_repo_info,
-            ctx.legacy_project.clone(),
-        )
-    };
-
-    but_forge::list_forge_reviews_for_branch(
-        project.preferred_forge_user,
-        &forge_repo_info.context("No forge could be determined for this repository branch")?,
-        &branch,
-        &storage,
-        filter,
-    )
-    .await
-}
-
 /// Warm up the CI checks cache for all applied branches with PRs.
 /// This function fetches CI check data from the forge and caches it in the database
 /// without returning any data. It only processes branches that have associated pull requests.
 /// Additionally, it cleans up stale CI check entries for references that are no longer
 /// part of any applied stack.
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
     // Get all applied stacks and their branches
@@ -2394,16 +2337,14 @@ pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
 
     // Collect branch references that have CI checks cached
     let mut current_refs = std::collections::HashSet::new();
+    let reviews = but_forge::list_cached_forge_reviews(&*ctx.db.get_cache()?)?;
 
     // Process each branch that has a PR
     for segment in workspace.lanes().flat_map(|lane| lane.segments) {
-        let has_pull_request = segment
-            .metadata
-            .as_ref()
-            .is_some_and(|meta| meta.review.pull_request.is_some());
-        if !has_pull_request {
+        let Some(number) = (segment.metadata.as_ref()).and_then(|meta| meta.review.pull_request)
+        else {
             continue;
-        }
+        };
         let Some(name) = segment
             .ref_info
             .as_ref()
@@ -2411,9 +2352,19 @@ pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
         else {
             continue;
         };
+        // A fork's branch isn't in the base repository, so ask about its review's head commit.
+        let head_commit = (reviews.iter())
+            .find(|review| review.number as usize == number && review.head_repo_is_fork)
+            .map(|review| review.sha.as_str())
+            .filter(|sha| !sha.is_empty());
 
         // Fetch CI checks with NoCache to force refresh
-        let _ = list_ci_checks(ctx, name.clone(), Some(but_forge::CacheConfig::NoCache));
+        let _ = ci_checks(
+            ctx,
+            &name,
+            head_commit,
+            Some(but_forge::CacheConfig::NoCache),
+        );
         // Ignore errors for individual branches to ensure we process all branches
 
         // Track this reference as having CI checks

@@ -120,8 +120,6 @@ pub(crate) fn grouped_subcommands(cmd: &clap::Command) -> IndexMap<Group, Vec<&c
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Apply => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
-                SubcommandDiscriminant::Open => Group::Inspection,
-                #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Clean => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Pick => Group::BranchingAndCommitting,
@@ -163,6 +161,8 @@ pub(crate) fn grouped_subcommands(cmd: &clap::Command) -> IndexMap<Group, Vec<&c
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Redo => Group::OperationHistory,
 
+                #[cfg(feature = "legacy")]
+                SubcommandDiscriminant::Init => Group::OtherCommands,
                 SubcommandDiscriminant::Gui => Group::OtherCommands,
                 SubcommandDiscriminant::Update => Group::OtherCommands,
                 SubcommandDiscriminant::Alias => Group::OtherCommands,
@@ -173,8 +173,6 @@ pub(crate) fn grouped_subcommands(cmd: &clap::Command) -> IndexMap<Group, Vec<&c
                 SubcommandDiscriminant::Help => Group::OtherCommands,
                 SubcommandDiscriminant::Completions => Group::OtherCommands,
 
-                #[cfg(feature = "legacy")]
-                SubcommandDiscriminant::Setup => Group::OtherCommands,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Teardown => Group::OtherCommands,
                 #[cfg(feature = "legacy")]
@@ -195,7 +193,7 @@ pub(crate) fn grouped_subcommands(cmd: &clap::Command) -> IndexMap<Group, Vec<&c
                 SubcommandDiscriminant::Actions => continue,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Fetch => continue,
-                SubcommandDiscriminant::AgentLog => continue,
+                SubcommandDiscriminant::AgentLog | SubcommandDiscriminant::Setup => continue,
             };
             groups.entry(group).or_default().push(*clap_subcommand);
         } else {
@@ -350,7 +348,7 @@ fn print_grouped_with_truncation(
     for (env, desc) in envs::ALL_ENVS {
         let env = format!("  {env}");
         let available_width = terminal_width.saturating_sub(env.len() + 2);
-        let truncated_desc = truncate_text(desc, available_width);
+        let truncated_desc = truncate_text(*desc, available_width);
         writeln!(out, "{env}  {truncated_desc}")?;
     }
 
@@ -385,15 +383,14 @@ Inspection:
   status       Show an overview of the workspace state
   diff         Show the diff of changes in the repo
   show         Show details of a commit or branch
-  open         Open the project in GitButler
 
 Branching and Committing:
   commit       Create a commit
   branch       Commands for managing branches
-  worktree     Manage worktrees (experimental, requires the worktreeManipulati…
+  worktree     Manage worktrees
   discard      Discard branches, commits, or changes
   resolve      Resolve conflicts in a commit or in uncommitted files
-  unapply      Remove a branch from the workspace, keeping it to apply again l…
+  unapply      Remove a branch and the rest of its stack from the workspace, k…
   apply        Apply a branch
   clean        Remove empty branches from the workspace
   pick         Cherry-pick commits into an applied branch
@@ -415,11 +412,11 @@ Operation History:
 Server Interactions:
   merge        Merge a branch directly onto the target branch, bypassing review
   push         Push changes in a branch to remote
-  pull         Update all applied branches onto the latest target branch
+  pull         Update applied branches and worktrees onto the latest target
   pr           Commands for creating and managing reviews on a forge, e.g. Git…
 
 Other Commands:
-  setup        Set up a GitButler project from the git repository in the curre…
+  init         Create an empty Git repository in the current directory
   teardown     Exit GitButler mode and return to normal Git workflow
   gui          Open the GitButler GUI for the current project
   tui          Open a live terminal workspace for branches, commits, changes, …
@@ -447,7 +444,7 @@ Options:
 Environment variables:
   BUT_OUTPUT_FORMAT  Sets the output format when --json is not passed. Options:…
   BUT_PAGER  Sets the pager for large outputs. [default: less]
-  BUT_THEME  Sets the theme for but. Options: dark, light. [default: detected f…
+...
 
 "#]]
         );
@@ -496,7 +493,7 @@ Checkout the full docs here: https://docs.gitbutler.com/cli-overview
 
 Branching and Committing:
   branch       Commands for managing branches
-  worktree     Manage worktrees (experimental, requires the worktreeManipulati…
+  worktree     Manage worktrees
 
 Other Commands:
   gui          Open the GitButler GUI for the current project
@@ -525,6 +522,7 @@ Environment variables:
   BUT_OUTPUT_FORMAT  Sets the output format when --json is not passed. Options:…
   BUT_PAGER  Sets the pager for large outputs. [default: less]
   BUT_THEME  Sets the theme for but. Options: dark, light. [default: detected f…
+...
 
 "#]]
         );

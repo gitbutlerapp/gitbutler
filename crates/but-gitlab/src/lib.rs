@@ -123,16 +123,19 @@ pub(crate) const GITLAB_UNAUTHORIZED: but_error::Context = but_error::Context::n
     "GitLab did not accept the token.",
 );
 
+/// GitLab answered 403. Shared by token validation and review listing.
+pub(crate) const GITLAB_FORBIDDEN: but_error::Context = but_error::Context::new_static(
+    but_error::Code::GitLabForbidden,
+    "GitLab refused access for the token.",
+);
+
 fn classify_pat_validation_error(err: anyhow::Error) -> anyhow::Error {
     let Some(http_err) = err.downcast_ref::<client::HttpStatusError>() else {
         return err;
     };
     let context = match http_err.status {
         reqwest::StatusCode::UNAUTHORIZED => GITLAB_UNAUTHORIZED,
-        reqwest::StatusCode::FORBIDDEN => but_error::Context::new_static(
-            but_error::Code::GitLabForbidden,
-            "GitLab refused access for the token.",
-        ),
+        reqwest::StatusCode::FORBIDDEN => GITLAB_FORBIDDEN,
         _ => return err,
     };
     err.context(context)

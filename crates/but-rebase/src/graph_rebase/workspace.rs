@@ -97,8 +97,9 @@ pub struct GraphWorkspace {
     pub reference_status: HashMap<Selector, ReferenceStatus>,
 
     /// The [`CommitState`] of every commit (`Pick`) in the projection, keyed by
-    /// its [`Selector`]: integrated, local-and-remote, or local-only. Commits are
-    /// all local-only without a target. Per-reference integration is exposed as
+    /// its [`Selector`]: integrated, local-and-remote, or local-only. Without a target
+    /// upstream, commits are still classified by their own branches' remotes.
+    /// Per-reference integration is exposed as
     /// [`PushStatus::Integrated`].
     pub commit_state: HashMap<Selector, CommitState>,
 }
@@ -186,7 +187,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// Build the topological skeleton of the projection (stacks, above-workspace,
     /// workspace commit) with an empty [`GraphWorkspace::reference_status`].
     fn graph_workspace_topology(&self) -> Result<GraphWorkspace> {
-        let Some(entrypoint_ix) = self.head_index() else {
+        let Some(entrypoint_ix) = self.head().map(|head| head.id) else {
             return Ok(GraphWorkspace::empty());
         };
 
@@ -196,11 +197,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         //   If we find a workspace commit, we have stacks that reach the full history.
         //   If we don't find a workspace commit, all commits from HEAD are considered above the workspace.
 
-        let ws_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
-        let on_workspace = matches!(
-            &self.graph[entrypoint_ix],
-            Step::Reference { refname, .. } if *refname == ws_ref
-        );
+        let on_workspace = self.workspace_reference().is_some();
 
         let target_ix = self.target_selector().map(|s| s.id);
         let revision = self.history.current_revision();
@@ -210,13 +207,11 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 all_until_optional_limit(&self.graph, entrypoint_ix, target_ix);
 
             // The workspace commit, if present, lives somewhere in `HEAD ^target`.
-            let workspace_commit = head_not_target_commit.nodes.iter().copied().find_map(|ix| {
-                let Step::Pick(Pick { id, .. }) = &self.graph[ix] else {
-                    return None;
-                };
-                let gix_commit = self.repo.find_commit(*id).ok()?;
-                is_managed_workspace_by_message(gix_commit.message_raw().ok()?).then_some(ix)
-            });
+            let workspace_commit = head_not_target_commit
+                .nodes
+                .iter()
+                .copied()
+                .find(|ix| is_workspace_commit(&self.graph, &self.repo, *ix));
 
             if let Some(workspace_commit_ix) = workspace_commit {
                 let (above_workspace, stacks) = divide_workspace_into_stacks(
@@ -258,16 +253,45 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         }
     }
 
-    /// The entrypoint (`HEAD`) reference node, or `None` if HEAD isn't on a ref.
-    fn head_index(&self) -> Option<StepGraphIndex> {
+    /// The step `HEAD` checks out, or `None` if the editor recorded no `HEAD` checkout.
+    pub fn head(&self) -> Option<Selector> {
         self.checkouts.iter().find_map(|checkout| match checkout {
-            Checkout::Head { selector, .. } => self
-                .history
-                .normalize_selector(*selector)
-                .ok()
-                .map(|s| s.id),
+            Checkout::Head { selector, .. } => self.history.normalize_selector(*selector).ok(),
             Checkout::Worktree { .. } => None,
         })
+    }
+
+    /// The step the linked worktree named `worktree_name` checks out, or `None` if the editor
+    /// recorded no checkout for it.
+    pub fn worktree_head(&self, worktree_name: &gix::bstr::BStr) -> Option<Selector> {
+        self.checkouts.iter().find_map(|checkout| match checkout {
+            Checkout::Worktree {
+                worktree_name: name,
+                selector,
+                ..
+            } if name == worktree_name => self.history.normalize_selector(*selector).ok(),
+            Checkout::Head { .. } | Checkout::Worktree { .. } => None,
+        })
+    }
+
+    /// The workspace reference, if `HEAD` is on it.
+    pub fn workspace_reference(&self) -> Option<Selector> {
+        let head = self.head()?;
+        matches!(
+            &self.graph[head.id],
+            Step::Reference { refname, .. } if refname.as_bstr() == WORKSPACE_REF_NAME
+        )
+        .then_some(head)
+    }
+
+    /// The workspace commit found by traversing the commits reachable from `workspace_reference`
+    /// until the target, if any.
+    pub fn workspace_commit(&self, workspace_reference: Selector) -> Option<Selector> {
+        let head = workspace_reference;
+        let target = self.target_selector().map(|s| s.id);
+        traverse::all_until_optional_limit(&self.graph, head.id, target)
+            .find(|ix| is_workspace_commit(&self.graph, &self.repo, *ix))
+            .map(|ix| self.new_selector(ix))
     }
 
     /// The target commit's node, if a target is configured and present.
@@ -284,7 +308,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             .project_meta
             .target_ref
             .as_ref()
-            .map(|r| r.as_ref())
+            .map(|r| r.as_local_full_name_ref())
     }
 
     /// Compute the per-reference status for every local-branch reference in the
@@ -355,25 +379,31 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// have landed upstream, following the commit-ownership branch of upstream
     /// integration's `reference_integrated` rule.
     ///
-    /// A commit is integrated when it is reachable from the target ref
+    /// A commit is integrated when it is reachable from the target's upstream ref
     /// (historically integrated) or content-equivalent to an upstream commit
     /// (via the changeset-similarity engine). A reference is integrated when
     /// every commit it owns down to the next local branch is integrated. A
     /// reference owning no commits is never marked integrated here: the
     /// empty-branch remote-tip fallback that `reference_integrated` has is
-    /// intentionally not ported. Without a target there is nothing to integrate
-    /// into, so both sets are empty.
+    /// intentionally not ported. Without an upstream, no commits or references are
+    /// integrated, but local-only and local-and-remote commit states are still computed.
     fn integration(&self, nodes: &HashSet<Selector>) -> Result<Integration> {
-        let Some(target_ref) = self.workspace.graph.project_meta.target_ref.as_ref() else {
-            return Ok(Integration::default());
-        };
-        let Some(target_ref_selector) = self.try_select_reference(target_ref.as_ref()) else {
-            return Ok(Integration::default());
+        let target_ref = self
+            .workspace
+            .graph
+            .project_meta
+            .remote_target_ref(&self.repo)?;
+        let target_ref_selector = match target_ref {
+            Some(name) => self.reference_or_tip_selector(name.as_ref())?,
+            None => None,
         };
 
-        // Historical integration: everything reachable from the target ref.
-        let from_target_ref: HashSet<Selector> =
-            self.reachable_from(target_ref_selector)?.collect();
+        // Historical integration: everything reachable from the target's upstream ref.
+        // Without one, continue classifying commits against their own branches' remotes.
+        let from_target_ref: HashSet<Selector> = match target_ref_selector {
+            Some(selector) => self.reachable_from(selector)?.collect(),
+            None => HashSet::new(),
+        };
 
         let target_selector = self.target_selector();
         // Content integration: the upstream commits (target ref ahead of its
@@ -391,9 +421,13 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             upstream = from_target_ref.iter().copied().collect();
         }
         let upstream_ids = self.pick_ids(upstream.into_iter())?;
-        let workspace_ids = self.pick_ids(nodes.iter().copied())?;
-        let upstream_lut = self.similarity_lut(&upstream_ids)?;
-        let content = identify_matching_content(self.repo(), &upstream_lut, &workspace_ids)?;
+        let content = if upstream_ids.is_empty() {
+            HashMap::new()
+        } else {
+            let workspace_ids = self.pick_ids(nodes.iter().copied())?;
+            let upstream_lut = self.similarity_lut(&upstream_ids)?;
+            identify_matching_content(self.repo(), &upstream_lut, &workspace_ids)?
+        };
 
         let reference_names: HashMap<Selector, gix::refs::FullName> = nodes
             .iter()
@@ -452,7 +486,9 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 CommitState::Integrated
             } else if remote_reachable.contains(node) {
                 CommitState::LocalAndRemote(id)
-            } else if let Some(remote_id) = self.remote_similarity(id, &remote_lut, &mut elapsed)? {
+            } else if !remote_only_ids.is_empty()
+                && let Some(remote_id) = self.remote_similarity(id, &remote_lut, &mut elapsed)?
+            {
                 CommitState::LocalAndRemote(remote_id)
             } else {
                 CommitState::LocalOnly
@@ -559,6 +595,19 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         ))
     }
 
+    /// Prefer the ref node, falling back to its repository tip when traversal omitted the ref.
+    fn reference_or_tip_selector(&self, name: &FullNameRef) -> Result<Option<Selector>> {
+        if let Some(selector) = self.try_select_reference(name) {
+            return Ok(Some(selector));
+        }
+        let tip = self
+            .repo()
+            .try_find_reference(name)?
+            .map(|mut reference| reference.peel_to_id().map(|id| id.detach()))
+            .transpose()?;
+        Ok(tip.and_then(|id| self.try_select_commit(id)))
+    }
+
     /// Resolve `refname`'s remote-tracking ref name and a selector for it in the
     /// editor graph, preferring its reference node and falling back to its tip
     /// commit (limited traversals often drop the remote *ref* node while keeping
@@ -572,17 +621,10 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             return (None, None);
         };
         let remote_ref = remote_ref.into_owned();
-        let selector = self.try_select_reference(remote_ref.as_ref()).or_else(|| {
-            let tip = self
-                .repo()
-                .try_find_reference(remote_ref.as_ref())
-                .ok()
-                .flatten()?
-                .peel_to_id()
-                .ok()?
-                .detach();
-            self.try_select_commit(tip)
-        });
+        let selector = self
+            .reference_or_tip_selector(remote_ref.as_ref())
+            .ok()
+            .flatten();
         (Some(remote_ref), selector)
     }
 }
@@ -630,6 +672,21 @@ fn combined_push_status<K: Copy + Eq + std::hash::Hash>(
         }
     }
     own
+}
+
+pub(crate) fn is_workspace_commit(
+    graph: &StepGraph,
+    repo: &gix::Repository,
+    ix: StepGraphIndex,
+) -> bool {
+    let Step::Pick(Pick { id, .. }) = &graph[ix] else {
+        return false;
+    };
+    repo.find_commit(*id).is_ok_and(|commit| {
+        commit
+            .message_raw()
+            .is_ok_and(is_managed_workspace_by_message)
+    })
 }
 
 /// All steps in `start ^limit`, or everything reachable from `start` when there

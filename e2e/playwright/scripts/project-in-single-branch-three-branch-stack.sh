@@ -12,7 +12,7 @@ empty_top_branch="${2:-false}"
 # Setup a remote project. GitButler currently requires projects to have a remote.
 mkdir remote-project
 pushd remote-project
-git init -b master --object-format=sha1
+git init -b master --object-format="${OBJECT_FORMAT:-sha1}"
 echo "base" > base.txt
 git add base.txt
 git commit -m "base: initial commit"
@@ -25,7 +25,7 @@ pushd local-clone
 git checkout master
 target_branch="$(git rev-parse --symbolic-full-name @{u})"
 target_branch="${target_branch#refs/remotes/}"
-"$BUT" setup
+"$BUT" switch --workspace
 "$BUT" config target "$target_branch"
 
 git checkout -b A master
