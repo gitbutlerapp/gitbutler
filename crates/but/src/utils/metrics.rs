@@ -1,12 +1,13 @@
 use std::{
     collections::HashMap,
     env,
+    ffi::OsString,
     path::{Path, PathBuf},
 };
 
 use but_error::AnyhowContextExt;
 use but_settings::AppSettings;
-use clap::ValueEnum;
+use clap::{CommandFactory, FromArgMatches, ValueEnum};
 use command_group::AsyncCommandGroup;
 use posthog_rs::Client;
 use rand::{Rng, distr::OpenClosed01};
@@ -14,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     CliError,
-    args::{Subcommands, config, metrics::CommandName},
+    args::{Args, Subcommands, config, metrics::CommandName},
     command::CommandOutcome,
     utils::{ResultMetricsExt, binary_path},
 };
@@ -41,18 +42,10 @@ impl Subcommands {
         if !settings.telemetry.app_metrics_enabled {
             return None;
         }
-        // Comments are still experimental, completions are shell-startup noise, and MCP and the
-        // transport child own their own events.
-        if matches!(
-            self,
-            Subcommands::_Comment(_)
-                | Subcommands::Completions { .. }
-                | Subcommands::Mcp(_)
-                | Subcommands::Metrics { .. }
-        ) {
+        let cmd = self.to_metrics_command();
+        if !cmd.emits_cli_event() {
             return None;
         }
-        let cmd = self.to_metrics_command();
         let extra_props = self.to_metrics_extra_props();
         Some(OneshotMetricsContext::new(
             cmd,
@@ -441,6 +434,10 @@ impl Props {
             CliError::BadInput(bad_input) => {
                 props.insert("error", "Bad input");
                 props.insert("errorKind", "badInput");
+                if let Some(code) = bad_input.error_code() {
+                    props.insert("errorCode", code);
+                }
+                props.insert("errorSite", bad_input.site());
                 if let Some(arg_name) = bad_input.argument_name() {
                     props.insert("badInputArgName", arg_name);
                 }
@@ -580,6 +577,44 @@ fn external_subcommand_metric_value(command_name: &std::ffi::OsStr) -> String {
         .chars()
         .take(UNRECOGNIZED_SUBCOMMAND_MAX_CHARS)
         .collect()
+}
+
+/// Add `checkoutKind` and `workspaceMode` to `event` for the checkout at `current_dir`, as the
+/// command left it; a prop is absent when it can't be read, for example outside a repository.
+///
+/// This runs in the spun-off `but metrics` process and only reads refs, so it takes no
+/// worktree lock. A linked worktree reports the mode of the main worktree, which owns it.
+pub fn add_checkout_context(event: &mut Event, current_dir: &Path) {
+    let Ok(repo) = gix::discover(current_dir) else {
+        return;
+    };
+    if repo.workdir().is_none() {
+        return;
+    }
+    let is_linked = repo.git_dir() != repo.common_dir();
+    let checkout_kind = match (is_linked, repo.head_name()) {
+        (false, _) => "main",
+        (true, Ok(Some(_))) => "linkedWorktree",
+        (true, Ok(None)) => "detachedWorktree",
+        (true, Err(_)) => return,
+    };
+    event.insert_prop("checkoutKind", checkout_kind);
+    let Ok(main_head) = repo.main_repo().and_then(|main| main.head_name()) else {
+        return;
+    };
+    // Edit mode, entered by `but resolve`, is only reachable from the workspace.
+    let in_workspace = main_head.is_some_and(|name| {
+        but_core::is_workspace_ref_name(name.as_ref())
+            || name.as_bstr() == "refs/heads/gitbutler/edit"
+    });
+    event.insert_prop(
+        "workspaceMode",
+        if in_workspace {
+            "workspace"
+        } else {
+            "singleBranch"
+        },
+    );
 }
 
 /// Add lane and branch counts to `event`, read from the managed workspace at `current_dir`;
@@ -781,23 +816,92 @@ impl<T> ResultMetricsExt<T, CliError> for Result<T, CliError> {
     }
 }
 
-/// Emit an event for a command line that never ran because the parser
-/// rejected it and a retired-syntax teaching hint was shown.
+/// Emit an event for a command line `args` that never ran because the parser rejected it
+/// with `err`.
 ///
-/// The event carries a `retiredSyntaxHint` prop, so remaining pre-revamp
-/// usage can be tracked to decide when the hints in `retired_syntax` can be
-/// removed. Root options like `-C` are not parsed on the failure paths that
-/// call this, so the event reports the process working directory.
-pub(crate) fn emit_retired_syntax_hint(command: CommandName) {
+/// `retired_syntax_hint` adds a `retiredSyntaxHint` prop for lines that got a retired-syntax
+/// teaching hint, so remaining pre-revamp usage can be tracked to decide when the hints in
+/// `retired_syntax` can be removed. Root options like `-C` are not parsed on this path, so
+/// the event reports the process working directory.
+pub(crate) fn emit_parse_error(args: &[OsString], err: &clap::Error, retired_syntax_hint: bool) {
     let Ok(settings) = crate::app_settings() else {
         return;
     };
     if !settings.telemetry.app_metrics_enabled {
         return;
     }
+    if let Some((command, props)) = parse_error_event(args, err, retired_syntax_hint) {
+        emit_metrics(command, props, Path::new("."), true);
+    }
+}
+
+/// The command and props to report for a rejected command line, or `None` if it names no
+/// command that emits CLI events.
+fn parse_error_event(
+    args: &[OsString],
+    err: &clap::Error,
+    retired_syntax_hint: bool,
+) -> Option<(CommandName, Props)> {
+    let command = rejected_command(args).filter(CommandName::emits_cli_event)?;
     let mut props = Props::new();
-    props.insert("retiredSyntaxHint", true);
-    emit_metrics(command, props, Path::new("."), true);
+    props.insert("error", "Parse error");
+    props.insert("errorKind", "parseError");
+    props.insert("errorCode", format!("{:?}", err.kind()));
+    if let Some(arg_name) = parse_error_arg_name(err) {
+        props.insert("badInputArgName", arg_name);
+    }
+    if retired_syntax_hint {
+        props.insert("retiredSyntaxHint", true);
+    }
+    Some((command, props))
+}
+
+/// The command a rejected command line was meant to run.
+///
+/// The error-tolerant parser keeps what it matched before the first error. The command is
+/// exact when that error comes after the last subcommand word, as for an unknown flag, and is
+/// the parent's default otherwise, like `worktreeList` for `worktree add`. Without a required
+/// argument the command can't be built, so then the deepest subcommand words that spell a
+/// metric name are used. A command whose metric name differs from its words then reports a
+/// parent's name or, like `merge`, nothing.
+fn rejected_command(args: &[OsString]) -> Option<CommandName> {
+    let matches = Args::command()
+        .ignore_errors(true)
+        .try_get_matches_from(args)
+        .ok()?;
+    if let Ok(args) = Args::from_arg_matches(&matches) {
+        return args.cmd.as_ref().map(Subcommands::to_metrics_command);
+    }
+    let mut words = Vec::new();
+    let mut matches = &matches;
+    while let Some((word, sub_matches)) = matches.subcommand() {
+        words.push(word);
+        matches = sub_matches;
+    }
+    (1..=words.len())
+        .rev()
+        .find_map(|len| CommandName::from_str(&words[..len].join("-"), false).ok())
+}
+
+/// The name of the argument `err` rejected: as the CLI defines it, or as typed for an unknown
+/// flag.
+fn parse_error_arg_name(err: &clap::Error) -> Option<String> {
+    use clap::error::{ContextKind, ContextValue, ErrorKind};
+
+    let arg = match err.get(ContextKind::InvalidArg)? {
+        ContextValue::String(arg) => arg,
+        ContextValue::Strings(args) => args.first()?,
+        _ => return None,
+    };
+    // Drop the value placeholder, as in `--message <MESSAGE>`.
+    let name = arg.split(' ').next()?;
+    if err.kind() == ErrorKind::UnknownArgument {
+        // An unknown argument is the user's own text, so only flags are kept.
+        return name
+            .starts_with('-')
+            .then(|| unrecognized_subcommand_metric_value(name.as_ref()));
+    }
+    Some(name.to_owned())
 }
 
 fn emit_metrics(command: CommandName, props: Props, current_dir: &Path, failed: bool) {
