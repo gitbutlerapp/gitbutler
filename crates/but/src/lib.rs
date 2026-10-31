@@ -108,10 +108,10 @@ fn parse_args_and_output_format(args: Vec<OsString>, agent_detected: bool) -> (A
                     // line that looks like one gets a teaching hint before the
                     // error.
                     let retired_hint = retired_syntax::parse_failure_hint(&args, agent_detected);
-                    if let Some((command, hint)) = &retired_hint {
+                    if let Some(hint) = &retired_hint {
                         print_err_infallible(hint);
-                        utils::metrics::emit_retired_syntax_hint(*command);
                     }
+                    utils::metrics::emit_parse_error(&args, &err, retired_hint.is_some());
                     let _ = err.print();
                     // For the commands with the trickiest grammar, follow the
                     // error with example invocations — unless the hint above
@@ -121,7 +121,7 @@ fn parse_args_and_output_format(args: Vec<OsString>, agent_detected: bool) -> (A
                     // never rejected anything.
                     let concrete_rewrite = retired_hint
                         .as_ref()
-                        .is_some_and(|(_, hint)| retired_syntax::hint_is_concrete(hint));
+                        .is_some_and(|hint| retired_syntax::hint_is_concrete(hint));
                     if !concrete_rewrite
                         && let Some(examples) = args::find_subcommand(&args)
                             .and_then(|(_, name)| name.to_str())
@@ -143,7 +143,7 @@ fn parse_args_and_output_format(args: Vec<OsString>, agent_detected: bool) -> (A
                 // original error.
                 None => {
                     print_err_infallible(retired_syntax::hint(agent_detected));
-                    utils::metrics::emit_retired_syntax_hint(args::metrics::CommandName::Commit);
+                    utils::metrics::emit_parse_error(&args, &err, true);
                     err.exit()
                 }
             }

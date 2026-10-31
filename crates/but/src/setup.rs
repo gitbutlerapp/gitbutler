@@ -113,8 +113,8 @@ pub fn init_ctx(
     // lets try to get the repo from the current directory
     let repo = match but_ctx::discover_main_repo(&args.current_dir) {
         Ok(repo) => repo,
-        Err(_) => {
-            return Err(bad_input(format!(
+        Err(err) => {
+            let mut no_repo = bad_input(format!(
                 "No git repository found at {}",
                 args.current_dir
                     .strip_prefix(".")
@@ -122,8 +122,12 @@ pub fn init_ctx(
                     .join(".git")
                     .display()
             ))
-            .hint("Run `but init` to initialize a Git repository.")
-            .into());
+            .hint("Run `but init` to initialize a Git repository.");
+            // Other discovery failures stay uncoded, so filtering out the code can't hide them.
+            if crate::is_not_in_git_repository_error(&err) {
+                no_repo = no_repo.code("NoGitRepository");
+            }
+            return Err(no_repo.into());
         }
     };
 

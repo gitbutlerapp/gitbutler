@@ -88,6 +88,17 @@ pub enum CommandName {
 }
 
 impl CommandName {
+    /// Whether this command reports through the shared CLI event.
+    ///
+    /// Comments are still experimental, completions are shell-startup noise, and MCP and the
+    /// transport child own their own events.
+    pub fn emits_cli_event(&self) -> bool {
+        !matches!(
+            self,
+            Self::Comment | Self::Completions | Self::Mcp | Self::Metrics
+        )
+    }
+
     /// Sampling rate for successful events, in (0, 1].
     ///
     /// Failures bypass this policy and are emitted with a rate of 1. In PostHog,

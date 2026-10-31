@@ -392,12 +392,28 @@ fn cli_error_metrics_use_low_cardinality_failure_details() {
     assert!(!props.values.contains_key("errorMessage"));
     assert_eq!(props.values["badInputArgName"], "<BRANCH>");
     assert_eq!(props.values["badInputHasHint"], true);
+    assert!(
+        props.values["errorSite"]
+            .as_str()
+            .expect("metric value is a string")
+            .starts_with(&format!("{}:", file!().replace('\\', "/"))),
+        "the site is where the bad input was raised, not where `BadInput` is defined"
+    );
+    assert!(!props.values.contains_key("errorCode"));
     assert!(!props.as_json_string().contains("branch-with-private-name"));
     assert!(
         !props
             .as_json_string()
             .contains("another-private-branch-name")
     );
+
+    let coded_result = Err::<(), _>(
+        bad_input("No git repository found")
+            .code("NoGitRepository")
+            .into(),
+    );
+    let props = Props::from_cli_error_result(std::time::Instant::now(), &coded_result);
+    assert_eq!(props.values["errorCode"], "NoGitRepository");
 
     let external_result = Err::<(), _>(CliError::ExternalCommandNotFound("typo".into()));
     let props = Props::from_cli_error_result(std::time::Instant::now(), &external_result);
@@ -433,6 +449,65 @@ fn cli_error_metrics_use_low_cardinality_failure_details() {
             .expect("metric value is a string")
             .len(),
         UNRECOGNIZED_SUBCOMMAND_MAX_CHARS
+    );
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn parse_errors_name_the_command_reason_and_flag_without_user_text() {
+    use clap::Parser;
+
+    let cases = [
+        // `-a` was removed from `branch new`.
+        (
+            "branch new -a private-name",
+            "branchNew",
+            "UnknownArgument",
+            Some("-a"),
+        ),
+        // An unknown subcommand reports its parent's default command.
+        (
+            "worktree create private-name",
+            "worktreeList",
+            "InvalidSubcommand",
+            None,
+        ),
+        // An unexpected positional is the user's own text.
+        ("status private-name", "status", "UnknownArgument", None),
+        // The command can't be built without its required argument.
+        (
+            "amend",
+            "amend",
+            "MissingRequiredArgument",
+            Some("--target"),
+        ),
+    ];
+    for (line, command, code, arg_name) in cases {
+        let args: Vec<std::ffi::OsString> =
+            format!("but {line}").split(' ').map(Into::into).collect();
+        let err = crate::args::Args::try_parse_from(&args).expect_err("the line is rejected");
+
+        let (actual_command, props) = parse_error_event(&args, &err, false).expect("an event");
+
+        assert_eq!(serde_json::json!(actual_command), command, "{line}");
+        assert_eq!(props.values["errorKind"], "parseError", "{line}");
+        assert_eq!(props.values["errorCode"], code, "{line}");
+        assert_eq!(
+            props
+                .values
+                .get("badInputArgName")
+                .and_then(|name| name.as_str()),
+            arg_name,
+            "{line}"
+        );
+        assert!(!props.as_json_string().contains("private"), "{line}");
+    }
+
+    let args: Vec<std::ffi::OsString> = ["but", "metrics", "--bogus"].map(Into::into).into();
+    let err = crate::args::Args::try_parse_from(&args).expect_err("the line is rejected");
+    assert!(
+        parse_error_event(&args, &err, false).is_none(),
+        "the metrics transport must not report its own failures"
     );
 }
 

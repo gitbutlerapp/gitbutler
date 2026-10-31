@@ -45,10 +45,7 @@
 use std::ffi::OsString;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::{
-    args::{find_subcommand, metrics::CommandName},
-    theme::Paint as _,
-};
+use crate::{args::find_subcommand, theme::Paint as _};
 
 static USED: AtomicBool = AtomicBool::new(false);
 
@@ -243,25 +240,22 @@ pub(crate) fn translate_commit(args: &[OsString]) -> Translation {
 
 /// A teaching hint for a command line the modern parser rejected, when the
 /// failure looks like one of the retired forms.
-/// Returns the command's metrics name alongside the hint so the caller can
-/// record that retired syntax is still being produced.
 ///
 /// Unlike [`translate_commit`], nothing is executed on the caller's behalf:
 /// the hint names the concrete modern equivalent when it can be derived
 /// mechanically, and otherwise just points at the command's help.
-pub(crate) fn parse_failure_hint(args: &[OsString], agent: bool) -> Option<(CommandName, String)> {
+pub(crate) fn parse_failure_hint(args: &[OsString], agent: bool) -> Option<String> {
     let (ix, subcommand) = find_subcommand(args)?;
     let tail = &args[ix + 1..];
-    let (command, hint) = match subcommand.to_str()? {
-        "amend" => (CommandName::Amend, amend_hint(tail, agent)),
-        "branch" => (CommandName::BranchNew, branch_new_hint(tail, agent)),
-        "config" => (CommandName::Config, config_feature_hint(tail, agent)),
-        "move" => (CommandName::Move, move_hint(tail, agent)),
-        "squash" => (CommandName::Squash, squash_hint(tail, agent)),
-        "uncommit" => (CommandName::Uncommit, uncommit_hint(tail, agent)),
-        _ => return None,
-    };
-    Some((command, hint?))
+    match subcommand.to_str()? {
+        "amend" => amend_hint(tail, agent),
+        "branch" => branch_new_hint(tail, agent),
+        "config" => config_feature_hint(tail, agent),
+        "move" => move_hint(tail, agent),
+        "squash" => squash_hint(tail, agent),
+        "uncommit" => uncommit_hint(tail, agent),
+        _ => None,
+    }
 }
 
 /// Whether a failure hint embeds a concrete modern command line (the
@@ -778,7 +772,7 @@ mod tests {
     }
 
     fn failure_hint(args: &[&str], agent: bool) -> Option<String> {
-        super::parse_failure_hint(&argv(args), agent).map(|(_, hint)| hint)
+        super::parse_failure_hint(&argv(args), agent)
     }
 
     /// The concrete modern equivalent suggested for a retired command line.
