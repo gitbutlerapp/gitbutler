@@ -2273,7 +2273,6 @@ impl Navigator {
         let status = store.terminals.status(id)?;
         let row = style
             .row(format!("terminal-{}", id.0), 6.)
-            .text_color(style.muted())
             .child(icon(Icon::TextCode).text_color(style.muted()))
             .child(match self.rename_field(item, style.theme) {
                 Some(field) => field,
