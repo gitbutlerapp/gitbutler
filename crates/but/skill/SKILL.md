@@ -199,7 +199,7 @@ If that recovery command fails, do NOT try `uncommit`, `squash`, or `undo` as a 
 
 **NEVER use `git add`, `git commit`, `git checkout --theirs/--ours`, or any git write command during resolution.** Only `but resolve` commands plus direct file edits. The one exception is a conflicted submodule in edit mode, below.
 
-Conflicts do not interrupt operations in GitButler: a rebase always completes, and commits that conflicted are marked `{conflicted}` in `but status`. Find them from the warning that history-editing commands (`move`, `discard`, …) print, from the `but pull` summary, or from `but status`. Resolve them one conflict at a time, without entering any mode. Work through one branch at a time, oldest commit first — the loop is:
+Conflicts do not interrupt operations in GitButler: a rebase always completes, and commits that conflicted are marked `{conflicted}` in `but status`. Find them from the warning that history-editing commands (`move`, `discard`, …) print, from the `but pull` summary, or from `but status`. Resolve them one conflict at a time, without entering any mode. Resolve any uncommitted `{conflicted}` files first, as in Conflicts in uncommitted files; `apply` refuses while one is left. Work through one branch at a time, oldest commit first — the loop is:
 
 1. `but resolve conflicts <branch>` — shows the conflicts of that branch's oldest conflicted commit, numbered per file. Each conflict has three sections: `ours` (the new base the commit was rebased onto), `base` (common ancestor), and `theirs` (the commit's own version). Without a branch it picks the first conflicted branch and tells you which; the output also says when other conflicted commits exist.
 2. Apply one resolution per command:
@@ -223,7 +223,7 @@ A wrong resolution is reverted with `but undo`.
 
 ### Conflicts in uncommitted files
 
-`but status` marks uncommitted files with unresolved merge conflicts `{conflicted}`; they are excluded from committable changes and outside `but resolve` mode. Edit the file to the wanted contents (or delete it), then `but resolve <path>...` to mark it resolved with that state; it then shows as an ordinary uncommitted change.
+`but status` marks uncommitted files with unresolved merge conflicts `{conflicted}`; they are excluded from committable changes and outside `but resolve` mode. Edit the file to the wanted contents with no conflict markers left (or delete it), then `but resolve <path>...` to mark it resolved with that state; it then shows as an ordinary uncommitted change.
 
 ## Git-to-But Map
 
