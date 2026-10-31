@@ -16,6 +16,7 @@ use crate::detail::panes::{
     overview_column, overview_heading, overview_sections, overview_tiles, overview_title,
     share_row,
 };
+use crate::overlays::has_keys;
 use crate::state::ProjectId;
 use crate::theme::Theme;
 use crate::ui::person::author_avatar;
@@ -173,7 +174,7 @@ impl Detail {
             area.cloned(),
         ];
         let filtered = days.is_some() || who.is_some() || area.is_some();
-        let solid = self.shipped_focus.is_focused(window);
+        let solid = has_keys(&self.shipped_focus, window, cx);
         v_flex()
             .id("shipped")
             .flex_1()

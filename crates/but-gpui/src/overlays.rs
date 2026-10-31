@@ -38,6 +38,23 @@ pub struct ContextMenu {
     restore_focus: Option<FocusHandle>,
 }
 
+/// What a list draws as having the keys: what has the focus, or what the open context menu
+/// took it from and gives it back to, so what the menu acts on stays solid under it.
+pub(crate) fn keys_at(window: &Window, cx: &App) -> Option<FocusHandle> {
+    let focused = window.focused(cx)?;
+    let lent = window.root::<AppView>().flatten().and_then(|app| {
+        let app = app.read(cx);
+        let menu = (app.menu.as_ref()).filter(|_| focused == app.menu_focus)?;
+        menu.restore_focus.clone()
+    });
+    Some(lent.unwrap_or(focused))
+}
+
+/// Whether a list drawing with `focus` draws its selection solid, as [`keys_at`] says.
+pub(crate) fn has_keys(focus: &FocusHandle, window: &Window, cx: &App) -> bool {
+    keys_at(window, cx).is_some_and(|keys| keys == *focus)
+}
+
 type MenuHandler = Rc<dyn Fn(&mut AppView, &mut Window, &mut Context<AppView>)>;
 type SubmitHandler = Box<dyn FnOnce(&mut AppView, String, &mut Window, &mut Context<AppView>)>;
 type CancelHandler = Box<dyn FnOnce(&mut AppView)>;

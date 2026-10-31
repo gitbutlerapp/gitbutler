@@ -26,7 +26,7 @@ use crate::backend::{
     self, Branch, ChangeKind, DiffBody, DiffLine, DiffSource, Drawing, FileDiff, HunkKey, LineKind,
     PushState, Workspace,
 };
-use crate::overlays::MenuItem;
+use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Cut, Prefs, Selection};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
@@ -1123,7 +1123,7 @@ impl Detail {
         // A folded file's header ends its card too.
         let last = diff::ends_card(&diff.rows, ix);
         // The file list's and the message's keys don't act on the diff's cursor.
-        let solid = self.focus.is_focused(window);
+        let solid = has_keys(&self.focus, window, cx);
         let store = self.store.read(cx);
         // Every file has its path to copy, even where nothing can change it.
         let menu = |menu: Option<Cut>,

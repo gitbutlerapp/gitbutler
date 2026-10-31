@@ -26,7 +26,7 @@ use crate::backend::{
     ReviewState, Target,
 };
 use crate::detail::{ChecksChanged, Detail};
-use crate::overlays::MenuItem;
+use crate::overlays::{MenuItem, keys_at};
 use crate::state::{
     Cut, Pane, Prefs, ProjectId, Section, Selection, Store, StoreEvent, WatchedOrder,
 };
@@ -1849,8 +1849,9 @@ impl Navigator {
             selected,
             // Not while typing in the filter, where the keys go to it.
             solid: selected
-                && self.focus.contains_focused(window, cx)
-                && !self.filter.focus_handle(cx).is_focused(window),
+                && keys_at(window, cx).is_some_and(|keys| {
+                    self.focus.contains(&keys, window) && keys != self.filter.focus_handle(cx)
+                }),
             cut,
             held: moving == Some(false),
             inset,

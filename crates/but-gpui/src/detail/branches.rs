@@ -37,7 +37,7 @@ use crate::backend::branches::{self, ApplyOutcome, DescribeBranch, OtherBranch};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, FullName, ReviewState};
 use crate::edits::{CherryPick, DeleteBranch};
-use crate::overlays::MenuItem;
+use crate::overlays::{MenuItem, has_keys};
 use crate::state::{BranchStatus, Cut, Label, Overlay, Picks, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
@@ -1319,7 +1319,7 @@ impl Detail {
                 move |this, ix| (this.page_folds).moved(places.get(ix).and_then(Option::as_ref)),
                 move |this, ix, theme, window, cx| {
                     let branches = this.branches_for(&shown)?;
-                    let solid = this.side_focus.is_focused(window);
+                    let solid = has_keys(&this.side_focus, window, cx);
                     Some(match rows.get(ix)? {
                         Row::Heading(heading) => list_heading(*heading, theme),
                         // As the navigator's caption, its branches a step in under it: a
