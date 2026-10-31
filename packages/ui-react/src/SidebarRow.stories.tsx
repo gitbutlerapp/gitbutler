@@ -1326,7 +1326,6 @@ export const NewOnTargetFailed = meta.story({
 	parameters: { design: { type: "figma", url: core("4300-233475") } },
 	render: () => (
 		<div>
-			<WorktreeDivider depth={1} />
 			<TargetItem target="master" count={2} depth={1} folded={false} actions={update} />
 			<NoticeItem
 				message="Can’t show the commits."
@@ -1334,7 +1333,6 @@ export const NewOnTargetFailed = meta.story({
 				action={{ label: "Try again", onClick: () => {} }}
 				depth={2}
 			/>
-			<WorktreeDivider depth={1} />
 			<WorktreeItem name="Main worktree" main depth={1} folded />
 		</div>
 	),
@@ -1346,7 +1344,6 @@ const NewOnTargetTree: FC = () => {
 	const [merge, setMerge] = useState(true);
 	return (
 		<div>
-			<WorktreeDivider depth={1} />
 			<TargetItem
 				target="master"
 				count={74}
@@ -1373,7 +1370,6 @@ const NewOnTargetTree: FC = () => {
 					<CommitItem message="fix: retry stalled transfers" depth={2} />
 				</>
 			)}
-			<WorktreeDivider depth={1} />
 			<WorktreeItem name="Main worktree" main depth={1} folded />
 		</div>
 	);

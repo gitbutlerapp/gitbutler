@@ -502,7 +502,8 @@ export const CommitItem: FC<{ message: string; pushed?: boolean; merge?: boolean
 
 /**
  * What the repository's target (`target`, such as `master`) has that its workspace doesn't: the
- * first row under the repository, between two {@link WorktreeDivider}s. It says how many
+ * first row under the repository, right over its worktrees with no {@link WorktreeDivider}
+ * between. It says how many
  * commits (`count`) and keeps Update (`actions`) beside them rather than in their place under the
  * pointer, since taking them in is what the row is for. Open, the commits sit under it one level
  * deeper as {@link CommitItem}s, a merge's own one more. Leave it out while there are none.
