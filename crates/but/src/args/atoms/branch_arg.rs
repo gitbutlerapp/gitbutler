@@ -144,9 +144,7 @@ impl BranchArg {
         }
 
         if self.0.starts_with("refs/remotes/") {
-            return Err(
-                bad_input(format!("Can only switch to local branches, got '{self}'")).into(),
-            );
+            return Err(bad_input(format!("Can only use local branches, got '{self}'")).into());
         }
 
         if let Ok(branch) = Category::LocalBranch.to_full_name(self.0.as_str())
@@ -156,9 +154,7 @@ impl BranchArg {
         }
 
         if looks_like_remote_branch(repo, self.0.as_str()) {
-            return Err(
-                bad_input(format!("Can only switch to local branches, got '{self}'")).into(),
-            );
+            return Err(bad_input(format!("Can only use local branches, got '{self}'")).into());
         }
 
         Ok(None)
@@ -239,7 +235,7 @@ fn resolve_branch_ref(
 
 fn ensure_existing_local_branch(repo: &gix::Repository, branch: &FullName) -> CliResult<()> {
     if !branch.as_bstr().starts_with_str("refs/heads/") {
-        return Err(bad_input(format!("Can only switch to local branches, got '{branch}'")).into());
+        return Err(bad_input(format!("Can only use local branches, got '{branch}'")).into());
     }
     if repo.try_find_reference(branch.as_ref())?.is_none() {
         return Err(bad_input(format!("Branch '{}' not found", branch.shorten())).into());

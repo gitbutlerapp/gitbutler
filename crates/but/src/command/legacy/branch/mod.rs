@@ -7,6 +7,7 @@ use nonempty::NonEmpty;
 use crate::{
     CliResult, IdMap,
     args::atoms::CliIdArg,
+    bad_input,
     command::legacy::discard::{self, DiscardOutcome},
     utils::{IntermediateChannel, OutputChannel},
 };
@@ -23,30 +24,52 @@ pub fn delete(
     branch_args: Vec<CliIdArg>,
 ) -> CliResult<(DiscardOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission(), None)?;
 
-    let branches = {
-        let repo = ctx.repo.get()?;
-        let branches = branch_args
+    let (branches, in_workspace, outside) = {
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        let mut branches = Vec::new();
+        for arg in &branch_args {
+            let branch = arg.resolve_existing_local_branch(&repo, &id_map)?;
+            if ws.is_target_or_upstream(branch.as_ref(), &repo)? {
+                return Err(bad_input(format!(
+                    "Cannot delete '{}': it is the workspace target branch.",
+                    branch.shorten()
+                ))
+                .into());
+            }
+            branches.push(branch);
+        }
+        let branches = NonEmpty::from_vec(branches.into_iter().unique().collect())
+            .context("BUG: branches is required to be non-empty in clap args")?;
+        // Branches outside the workspace, like unapplied ones, have no commits there to discard.
+        let (in_workspace, outside): (Vec<_>, Vec<_>) = branches
             .iter()
-            .map(|branch| branch.resolve_branch_in_workspace(&repo, &id_map))
-            .map(|branch| Ok(branch?.resolve_local_branch_name()?))
-            .collect::<CliResult<Vec<_>>>()?
-            .into_iter()
-            .unique()
-            .collect::<Vec<_>>();
-        NonEmpty::from_vec(branches)
-            .context("BUG: branches is required to be non-empty in clap args")?
+            .cloned()
+            .partition(|branch| ws.refname_is_segment(branch.as_ref()));
+        (branches, in_workspace, outside)
     };
 
-    Ok(discard::run(
-        ctx,
-        &mut meta,
-        guard.write_permission(),
-        discard::DiscardOperation::Branches(branches),
-        gitbutler_oplog::entry::OperationKind::Discard,
-    )?)
+    let mut state = None;
+    for branch in outside {
+        let removed =
+            but_api::branch::branch_remove_with_perm(ctx, branch, guard.write_permission())?;
+        state = Some(removed.workspace);
+    }
+    // Discard last: its state carries the checkout and conflict outcome the CLI reports.
+    if let Some(in_workspace) = NonEmpty::from_vec(in_workspace) {
+        let mut meta = ctx.meta()?;
+        let (_, ws) = discard::run(
+            ctx,
+            &mut meta,
+            guard.write_permission(),
+            discard::DiscardOperation::Branches(in_workspace),
+            gitbutler_oplog::entry::OperationKind::Discard,
+        )?;
+        state = Some(ws);
+    }
+    let state = state.context("BUG: at least one branch was deleted")?;
+    Ok((DiscardOutcome::Branches(branches), state))
 }
 
 pub fn show_branches(

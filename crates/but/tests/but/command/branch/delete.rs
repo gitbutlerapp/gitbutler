@@ -19,6 +19,21 @@ Hint: Run `but status` for applicable targets.
 }
 
 #[test]
+fn rejects_the_target_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("branch delete main")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Cannot delete 'main': it is the workspace target branch.
+
+"#]])
+        .stdout_eq(str![[]]);
+}
+
+#[test]
 fn can_delete_branch_with_commits() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A"]);
@@ -273,5 +288,68 @@ fn deleting_the_last_lane_keeps_the_workspace_when_checkout_would_overwrite_chan
         std::fs::read_to_string(env.projects_root().join("collision")).unwrap(),
         "local\n",
         "the uncommitted file is preserved"
+    );
+}
+
+#[test]
+fn can_delete_unapplied_branch_and_undo_it() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("unapply B").assert().success();
+
+    env.but("branch delete B")
+        .assert()
+        .success()
+        .stderr_eq(str![[""]])
+        .stdout_eq(str![[r#"
+Discarded branch 'B'
+
+"#]]);
+
+    // `B` and its commit are gone, `A` is untouched.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 9477ae7 (HEAD -> A) add A
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+
+    // Undo brings `B` back on its commit.
+    env.but("undo").assert().success();
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 9477ae7 (HEAD -> A) add A
+| * d3e2ba3 (B) add B
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+#[test]
+fn can_delete_applied_and_unapplied_branches_together() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("unapply B").assert().success();
+
+    env.but("branch delete A B")
+        .assert()
+        .success()
+        .stderr_eq(str![[""]])
+        .stdout_eq(str![[r#"
+Discarded branches 'A', 'B'
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 0dc3733 (HEAD -> main, origin/main, origin/HEAD, gitbutler/target) add M
+
+"#]]
     );
 }

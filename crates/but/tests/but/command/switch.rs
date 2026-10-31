@@ -363,7 +363,7 @@ fn rejects_remote_branch() {
         .failure()
         .stdout_eq(str![])
         .stderr_eq(str![[r#"
-Error: Can only switch to local branches, got 'origin/main'
+Error: Can only use local branches, got 'origin/main'
 
 "#]]);
 }
