@@ -61,8 +61,8 @@ pub(super) enum Row {
     /// The new branch commits being moved would land in at that stop, over their copies.
     GhostBranch(ProjectId, Stop),
     /// The line between two stacks, which tells where one ends and the next starts, and between
-    /// the last and a new one commits being moved would land in: so a new branch landing under
-    /// one stack's last branch or on the next's first shows which it joins.
+    /// a new one commits being moved would land in and the stack beside it: so a new branch
+    /// landing under one stack's last branch or on the next's first shows which it joins.
     Between(ProjectId),
     /// The line after a worktree's section.
     WorktreeDivider,
@@ -430,7 +430,13 @@ impl Navigator {
             // Whether a branch is checked out on its own or several share the workspace,
             // they're listed alike, a line between each stack and the next; with none, as on
             // the default branch, there's nothing to list, and the next commit starts one.
+            // Commits being moved to a new stack show where it goes, first or last.
             let mut listed = false;
+            if let Some(moving) = landing_at(store, id, |at| *at == Stop::NewStack { first: true })
+            {
+                rows.push_ghosts(moving, true);
+                listed = true;
+            }
             for stack in stacks {
                 if listed {
                     rows.push(Row::Between(id.clone()));
@@ -438,7 +444,8 @@ impl Navigator {
                 self.lane_rows(store, id, &stack.branches, rows);
                 listed = true;
             }
-            if let Some(moving) = landing_at(store, id, |at| *at == Stop::NewStack) {
+            if let Some(moving) = landing_at(store, id, |at| *at == Stop::NewStack { first: false })
+            {
                 if listed {
                     rows.push(Row::Between(id.clone()));
                 }

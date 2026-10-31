@@ -1011,14 +1011,15 @@ impl Store {
         );
     }
 
-    /// Move commits `ids` into a new branch of their own, in a stack of its own or `beside` a
-    /// branch in its stack, as [`backend::MoveToNewBranch`] says. The selected one stays
-    /// selected there, as a move to a branch already there keeps it.
+    /// Move commits `ids` into a new branch of their own, in a stack of its own, before the
+    /// others with `first`, or `beside` a branch in its stack, as [`backend::MoveToNewBranch`]
+    /// says. The selected one stays selected there, as a move to a branch already there keeps it.
     pub fn move_to_new_branch(
         &mut self,
         project: &ProjectId,
         ids: Arc<[CommitId]>,
         beside: Option<(FullName, bool)>,
+        first: bool,
         cx: &mut Context<Self>,
     ) {
         let keys = ids.iter().filter_map(|id| self.key_of(project, *id));
@@ -1029,6 +1030,7 @@ impl Store {
             backend::MoveToNewBranch {
                 commits: ids,
                 beside,
+                first,
             },
             move |store, (rewritten, _), cx| {
                 store.follow(&rewritten, cx);
