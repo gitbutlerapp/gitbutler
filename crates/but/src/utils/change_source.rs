@@ -286,18 +286,6 @@ impl ChangeSourceRepo {
         }
     }
 
-    /// The branch a linked worktree has checked out, or `None` for the main worktree or a
-    /// detached `HEAD`.
-    ///
-    /// Operations that commit a linked worktree's changes name it in their snapshot, so undo
-    /// moves it back and leaves the changes uncommitted there.
-    pub fn checked_out_branch(&self) -> anyhow::Result<Option<gix::refs::FullName>> {
-        match &self.0 {
-            None => Ok(None),
-            Some((_name, repo)) => Ok(repo.head_name()?),
-        }
-    }
-
     /// This checkout as the change source of an editor-backed operation.
     pub fn as_change_source(&self) -> ChangeSource<'_> {
         match &self.0 {

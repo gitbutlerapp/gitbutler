@@ -315,7 +315,8 @@ fn undo_leaves_a_local_target_checked_out_in_a_linked_worktree_unchanged() {
     env.invoke_git(&format!("worktree add -q \"{}\" main", worktree.display()));
 
     env.but("undo").assert().failure().stderr_eq(str![[r#"
-Error: Cannot restore branch 'main' because it is checked out in worktrees: [..]
+Error: Cannot restore branch 'main' because it is checked out in worktrees: [..]. Reverse the operation instead, for example by moving a moved commit back
+
 "#]]);
 
     assert_eq!(
