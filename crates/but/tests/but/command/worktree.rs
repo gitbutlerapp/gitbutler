@@ -542,15 +542,17 @@ Hint: run `but help` for all commands
         "the branch starts where the applied stacks rest"
     );
 
-    // A branch in the workspace stays there.
-    env.but("worktree new A")
-        .assert()
-        .failure()
-        .stdout_eq(snapbox::str![])
-        .stderr_eq(snapbox::str![[r#"
+    // A branch in the workspace stays there, with or without --above.
+    for args in ["A", "A --above 0dc3733"] {
+        env.but(format!("worktree new {args}"))
+            .assert()
+            .failure()
+            .stdout_eq(snapbox::str![])
+            .stderr_eq(snapbox::str![[r#"
 Error: Branch 'A' is already in the workspace
 
 "#]]);
+    }
 }
 
 #[test]
@@ -566,26 +568,86 @@ Created worktree loose on 'loose' from 0dc3733 at [..]/home/.gitbutler-worktrees
 
 "#]]);
 
-    // A branch checked out in a worktree is part of the workspace too.
+    // A branch can be checked out in one worktree only.
     env.but("worktree new loose")
         .assert()
         .failure()
         .stdout_eq(snapbox::str![])
         .stderr_eq(snapbox::str![[r#"
-Error: Branch 'loose' is already in the workspace
+Error: Bad input 'loose' for '<NAME>'
+
+Branch 'loose' is already checked out in worktree 'loose'
+
+Hint: Run `but worktree list` for its path, or pass a new name
 
 "#]]);
     // An existing branch keeps its own history, so it can't be placed.
-    env.but("worktree new loose --above 0dc3733")
+    env.invoke_git("branch spare main");
+    env.but("worktree new spare --above 0dc3733")
         .assert()
         .failure()
         .stdout_eq(snapbox::str![])
         .stderr_eq(snapbox::str![[r#"
-Error: Bad input '0dc3733' for '--above'
+Error: Bad input 'spare' for '<NAME>'
 
-Cannot place the existing branch 'loose' above a commit
+Branch 'spare' already exists
+
+Hint: Omit --above to check out the existing branch, or pass a new name
 
 "#]]);
+}
+
+#[test]
+fn new_retried_after_a_failing_post_checkout_hook_names_the_worktree() {
+    let env = adopted_sandbox();
+    env.file(
+        ".git/hooks/post-checkout",
+        "#!/bin/sh\necho hook-failed >&2\nexit 1\n",
+    );
+    env.invoke_bash("chmod +x .git/hooks/post-checkout");
+
+    // Like Git, a failing hook keeps the worktree, so the error says it exists.
+    env.but("worktree new w --above tpm")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Created the worktree at [..]/home/.gitbutler-worktrees/[..]/w, but its post-checkout hook failed
+
+Caused by:
+    Post-checkout hook failed (exit status: 1): hook-failed
+
+"#]]);
+    // The same command again blames the name, not `--above`, and says where to look.
+    env.but("worktree new w --above tpm")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'w' for '<NAME>'
+
+Branch 'w' is already checked out in worktree 'w'
+
+Hint: Run `but worktree list` for its path, or pass a new name
+
+"#]]);
+    env.but("worktree list")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Active worktrees
+[..] w - [..]/home/.gitbutler-worktrees/[..]/w
+
+Archived worktrees
+(none)
+
+"#]]);
+    assert_eq!(
+        env.invoke_git("rev-parse w"),
+        env.invoke_git("rev-parse A"),
+        "the kept worktree's branch starts at the --above commit"
+    );
 }
 
 #[cfg(unix)]
