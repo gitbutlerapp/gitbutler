@@ -287,6 +287,7 @@ mod tests {
                     ("palette::GoTo", "secondary-p"),
                     ("edits::Reword", "r"),
                     ("edits::RenameBranch", "r"),
+                    ("edits::RenameTerminal", "r"),
                     ("navigator::CopySelection", "secondary-c"),
                     ("palette::CopyMore", "secondary-shift-c"),
                     ("diff::NextHunk", "down"),

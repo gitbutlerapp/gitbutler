@@ -16,7 +16,8 @@ use crate::detail::{
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, BranchEdits, CherryPick, CopyChangeId, CopyMessage,
     DeleteBranch, DiscardChanges, DiscardCommit, NameBranch, NewBranchBelow, NewBranchHere,
-    RenameBranch, Reword, RewrapMessage, SquashAll, UnapplyStack, Uncommit, Unstack,
+    RenameBranch, RenameTerminal, Reword, RewrapMessage, SquashAll, UnapplyStack, Uncommit,
+    Unstack,
 };
 use crate::palette::{CopyMore, GoTo, GoToTerminal};
 use crate::state::Selection;
@@ -44,11 +45,18 @@ pub(crate) trait Command: Action {
     fn listed(&self, _app: &AppView, _cx: &App) -> bool {
         true
     }
+
+    /// Other names typing finds it by in ⌘K and Settings › Keyboard, as other commands word the
+    /// same kind of thing: Remove branch for Delete branch. Never shown.
+    fn aliases(&self) -> &'static [&'static str] {
+        &[]
+    }
 }
 
 /// Gives each action its title, `risky` after the ones that throw work away, and between braces
 /// the functions of the app that word it for a menu (`phrase`) and say whether it's offered
-/// (`listed`), and lists them as [`COMMANDS`], in that order.
+/// (`listed`), and the other names it's found by (`aliases`), and lists them as [`COMMANDS`], in
+/// that order.
 macro_rules! commands {
     ($(
         $action:path => $title:tt $($risky:ident)? $({ $($option:ident: $method:expr),* $(,)? })?
@@ -83,6 +91,11 @@ macro_rules! commands {
         fn listed(&self, app: &AppView, cx: &App) -> bool {
             let listed: fn(&AppView, &App) -> bool = $method;
             listed(app, cx)
+        }
+    };
+    (@option aliases $aliases:expr) => {
+        fn aliases(&self) -> &'static [&'static str] {
+            $aliases
         }
     };
 }
@@ -133,9 +146,15 @@ commands! {
     NewBranchOnTop => "New branch on top",
     crate::app::NewWorktree => "New worktree" { listed: has_target },
     crate::app::NewWorktreeWithName => "New worktree with name" { listed: has_target },
-    Reword => "Reword",
-    RenameBranch => "Rename branch",
+    Reword => "Reword" {
+        aliases: &["Reword commit", "Rename commit", "Edit commit message"],
+    },
+    RenameBranch => "Rename branch" {
+        aliases: &["Reword branch", "Edit branch name"],
+    },
     NameBranch => "Name branch",
+    // What a terminal's menu called Reword before it had a command of its own.
+    RenameTerminal => "Rename terminal" { aliases: &["Reword terminal"] },
     Uncommit => "Uncommit" risky {
         phrase: |app, cx| picks(app, cx).map(|n| format!("Uncommit {n} commits")),
     },
@@ -170,9 +189,13 @@ commands! {
     CopyChangeId => "Copy change ID",
     CopyMessage => "Copy message",
     DiscardCommit => "Discard commit" risky {
+        aliases: &["Remove commit", "Delete commit"],
         phrase: |app, cx| picks(app, cx).map(|n| format!("Discard {n} commits")),
     },
-    DeleteBranch => "Delete branch" risky { listed: deletable },
+    DeleteBranch => "Delete branch" risky {
+        aliases: &["Remove branch", "Discard branch"],
+        listed: deletable,
+    },
     DiscardChanges => "Discard changes" risky { phrase: discard_changes_phrase },
     CopySelection => "Copy",
     crate::app::CopyCommitId => "Copy commit ID",
@@ -253,9 +276,11 @@ commands! {
     },
     crate::open_in::OpenInTerminal => "Open in terminal",
     crate::terminal::NewTerminal => "New terminal",
-    crate::navigator::CloseTerminal => "Close terminal",
+    crate::navigator::CloseTerminal => "Close terminal" {
+        aliases: &["Remove terminal", "Delete terminal", "Discard terminal"],
+    },
     crate::navigator::Watch => "Watch",
-    crate::navigator::StopWatching => "Stop watching",
+    crate::navigator::StopWatching => "Stop watching" { aliases: &["Unwatch"] },
     crate::navigator::MoveUp => "Move up",
     crate::navigator::MoveDown => "Move down",
     crate::navigator::UnarchiveWorktree => "Unarchive worktree",
@@ -264,7 +289,9 @@ commands! {
     crate::navigator::ArchiveWorktree => "Archive worktree" {
         phrase: |_, _| Some("Archive".to_owned()),
     },
-    crate::navigator::DeleteWorktree => "Delete worktree" risky,
+    crate::navigator::DeleteWorktree => "Delete worktree" risky {
+        aliases: &["Remove worktree", "Discard worktree"],
+    },
     // Under their headings in the view menus, they're the choices.
     crate::navigator::SortProjectsByActivity => "Sort projects by last activity" {
         phrase: |_, _| Some("Last activity".to_owned()),
@@ -467,6 +494,20 @@ mod tests {
                  running one puts both first",
                 command.title()
             );
+        }
+    }
+
+    #[test]
+    fn no_alias_is_a_commands_title() {
+        let titles: std::collections::HashSet<&str> = COMMANDS.iter().map(|c| c.title()).collect();
+        for command in COMMANDS {
+            for alias in command.aliases() {
+                assert!(
+                    !titles.contains(alias),
+                    "{alias:?}, an alias of {:?}, is a command's title, so typing it finds both",
+                    command.title()
+                );
+            }
         }
     }
 

@@ -39,6 +39,7 @@ actions!(
         Reword,
         RenameBranch,
         NameBranch,
+        RenameTerminal,
         Uncommit,
         DiscardCommit,
         DeleteBranch,
@@ -365,7 +366,7 @@ impl AppView {
                 })
             }
             // Its name, in place of what its shell titles it.
-            Some(Selection::Terminal(..)) => el.on_action(cx.listener(Self::reword)),
+            Some(Selection::Terminal(..)) => el.on_action(cx.listener(Self::rename_terminal)),
             _ => el,
         }
     }
@@ -572,22 +573,24 @@ impl AppView {
         self.discard(checkout.0, checkout.1, changes, window, cx);
     }
 
-    /// Edit the selected commit's message, or the selected terminal's name in its row.
+    /// Edit the selected commit's message.
     fn reword(&mut self, _: &Reword, window: &mut Window, cx: &mut Context<Self>) {
-        match self.selection(cx) {
-            Some(Selection::Commit(..)) => {
-                (self.detail).update(cx, |detail, cx| detail.start_reword(window, cx))
-            }
-            Some(Selection::Terminal(project, id)) => {
-                if !self.navigator_open {
-                    self.set_navigator(true, window, cx);
-                }
-                (self.navigator).update(cx, |navigator, cx| {
-                    navigator.rename_terminal(project, id, window, cx)
-                })
-            }
-            _ => {}
+        if let Some(Selection::Commit(..)) = self.selection(cx) {
+            (self.detail).update(cx, |detail, cx| detail.start_reword(window, cx))
         }
+    }
+
+    /// Edit the selected terminal's name in its row.
+    fn rename_terminal(&mut self, _: &RenameTerminal, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(Selection::Terminal(project, id)) = self.selection(cx) else {
+            return;
+        };
+        if !self.navigator_open {
+            self.set_navigator(true, window, cx);
+        }
+        (self.navigator).update(cx, |navigator, cx| {
+            navigator.rename_terminal(project, id, window, cx)
+        })
     }
 
     fn rename_branch(&mut self, _: &RenameBranch, window: &mut Window, cx: &mut Context<Self>) {

@@ -97,10 +97,15 @@ fn command_row(
                 .child(ui::keycap(key, theme))
                 .when(ix + 1 < keys.len(), |el| el.child(ui::muted(",", theme)))
         }));
-    // Found by its keys as written (⌘B), and as typed (cmd b) or bound (secondary-b).
+    // Found by its keys as written (⌘B), and as typed (cmd b) or bound (secondary-b), and by
+    // what else ⌘K finds it by.
+    let aliases = (crate::commands::COMMANDS.iter())
+        .find(|command| command.name() == name)
+        .map_or(&[][..], |command| command.aliases());
     let words: Vec<String> = (bindings.iter())
         .map(|(key, _)| format!("{key} {}", ui::keys_text(key)))
         .chain(std::iter::once(name.replace("::", " ")))
+        .chain(aliases.iter().map(|alias| alias.to_string()))
         .collect();
     Row::new(title, description, control).with_keywords(words.join(" "))
 }

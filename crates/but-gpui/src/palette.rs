@@ -39,6 +39,8 @@ pub struct Choice {
     icon: Option<Icon>,
     /// What typing finds it by, and what it shows once something is typed.
     label: SharedString,
+    /// Other names typing finds it by, as a command's: see [`Command::aliases`].
+    aliases: &'static [&'static str],
     /// What it shows instead while nothing is typed, as the selection's menu words it.
     phrase: Option<SharedString>,
     key: Option<SharedString>,
@@ -65,6 +67,7 @@ impl Choice {
         Self {
             icon: None,
             label: label.into(),
+            aliases: &[],
             phrase: None,
             key: None,
             detail: None,
@@ -175,6 +178,11 @@ impl Palette {
                     return (!taken).then_some((-1, found));
                 }
                 let label = score(&choice.label, &query);
+                // Under the label on a tie, and with nothing underlined: what matched isn't shown.
+                let alias = alias_score(choice.aliases, &query)
+                    .map(|score| (score - 1, Vec::new()))
+                    .filter(|(score, _)| label.as_ref().is_none_or(|(label, _)| score > label));
+                let label = alias.or(label);
                 // The label first on a tie, as a branch named as another's detail says.
                 let detail = (choice.detail.as_ref())
                     .and_then(|detail| detail_score(detail, choice.id.as_deref(), &query))
@@ -260,6 +268,16 @@ pub(crate) fn score(label: &str, query: &str) -> Option<(i32, Vec<Range<usize>>)
         }
     }
     Some((0, found))
+}
+
+/// How well `query` matches the best of `aliases`, as [`score`] says, but only by their words, as
+/// "remove" in Remove branch: letters scattered through them would find what the label doesn't.
+fn alias_score(aliases: &[&str], query: &str) -> Option<i32> {
+    (aliases.iter())
+        .filter_map(|alias| score(alias, query))
+        .map(|(score, _)| score)
+        .filter(|score| *score > 0)
+        .max()
 }
 
 /// How well `query` matches a row's `detail`, as [`score`] says, but a commit's `id` only typed
@@ -612,6 +630,7 @@ impl AppView {
             Choice {
                 key,
                 risky,
+                aliases: command.aliases(),
                 ..Choice::new(label, move |this, window, cx| {
                     // The last one run comes first, so ⌘K then Return runs it again; never one
                     // that throws work away.
@@ -1083,7 +1102,7 @@ impl AppView {
 
 #[cfg(test)]
 mod tests {
-    use super::{detail_score, id_starts, score, shared_start};
+    use super::{alias_score, detail_score, id_starts, score, shared_start};
 
     const ID: &str = "3a79334c0b5e8f1d2a6b7c9e0f1a2b3c4d5e6f70";
 
@@ -1163,6 +1182,32 @@ mod tests {
             shared_start(detail, "3a79334c0b5e").map(|range| &detail[range]),
             Some("3a79334"),
             "the short id the detail starts with is why the row is there"
+        );
+    }
+
+    #[test]
+    fn a_command_is_found_by_a_word_of_its_alias() {
+        assert!(
+            alias_score(&["Remove commit", "Delete commit"], "delete").is_some(),
+            "Discard commit is there for whoever calls it deleting"
+        );
+    }
+
+    #[test]
+    fn an_alias_is_not_found_by_letters_scattered_through_it() {
+        assert_eq!(
+            alias_score(&["Remove commit"], "rmc"),
+            None,
+            "r, m and c appear in order in Remove commit, but that isn't a word of it typed"
+        );
+    }
+
+    #[test]
+    fn nothing_typed_finds_no_alias() {
+        assert_eq!(
+            alias_score(&["Remove commit"], ""),
+            None,
+            "with nothing typed the label alone places it"
         );
     }
 
