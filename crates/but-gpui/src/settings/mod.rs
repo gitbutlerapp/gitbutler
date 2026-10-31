@@ -702,6 +702,17 @@ impl SettingsView {
                 ),
             ),
         ];
+        let folder_counts = Row::new(
+            "Show folders' line counts",
+            "Folders in a file tree always show the lines their files add and remove. Off, they \
+             show them only under the pointer.",
+            self.pref_switch(
+                "folder-line-counts",
+                prefs.folder_line_counts,
+                |p| p.folder_line_counts ^= true,
+                cx,
+            ),
+        );
         let text_label = |size: Option<u8>| match size {
             Some(size) => format!("{size} pt"),
             None => "As Ghostty's".to_owned(),
@@ -737,6 +748,7 @@ impl SettingsView {
         vec![
             Card::new(None, vec![scheme, appearance, size]),
             Card::new(Some("Navigator"), navigator),
+            Card::new(Some("File list"), vec![folder_counts]),
             Card::new(Some("Diff"), diff),
             Card::new(Some("Terminal"), vec![terminal_font, terminal_text]),
         ]

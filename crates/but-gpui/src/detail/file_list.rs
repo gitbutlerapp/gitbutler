@@ -102,7 +102,7 @@ const MARK_WIDTH: f32 = 22.;
 /// How far each level of a file tree steps in.
 const STEP: f32 = 12.;
 
-/// The group a file row's hover reaches its checkbox through.
+/// The group a row's hover reaches a file's checkbox or a folder's line counts through.
 const ROW_GROUP: &str = "file-row";
 
 /// A row of a file list, inset in the panel as GitButler's other file lists are, its
@@ -909,6 +909,7 @@ impl Detail {
             return None;
         };
         let (added, removed) = self.folder_stats(source, &path, cx);
+        let always_counts = self.store.read(cx).prefs.folder_line_counts;
         let chip = Chip::Folder(name.clone().into());
         let fold = PageFold::Dir(path.clone());
         let open = !collapsed && !self.page_folds.closing(&fold);
@@ -919,6 +920,7 @@ impl Detail {
             false,
             theme,
         )
+        .group(ROW_GROUP)
         .child(steps(depth, Some(chevron), theme))
         .child(folder_icon())
         // Cut in the middle: a chain of folders, `ios/App/Resources/de.lproj`, ends in the one
@@ -938,8 +940,13 @@ impl Detail {
                     el.child(faint(files.to_string(), theme).flex_none())
                 }),
         )
+        // Only under the pointer unless picked in Settings: always there, they crowd the names.
         .when(added + removed > 0, |el| {
-            el.child(diff::column_stats(added, removed, columns, theme))
+            el.child(
+                diff::column_stats(added, removed, columns, theme).when(!always_counts, |el| {
+                    el.opacity(0.).group_hover(ROW_GROUP, |s| s.opacity(1.))
+                }),
+            )
         })
         .child(div().flex_none().w(dp(MARK_WIDTH)))
         .when_some(self.cut_from(source, Vec::new(), cx), |el, nothing| {
