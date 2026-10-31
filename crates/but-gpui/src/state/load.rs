@@ -763,10 +763,34 @@ impl Store {
             _ => (None, None),
         };
         let gone_from = gone_from.filter(|branch| workspace.find_branch(Some(branch)).is_some());
-        // Gone from a linked worktree still there, as when an agent checked out another branch
-        // in it, the worktree stays selected rather than the main checkout.
+        // A selected branch gone otherwise, as one deleted elsewhere or renamed with no commit
+        // to follow it by, leaves the branch now in its place selected, as the TUI does.
+        let in_place = match &self.selection {
+            Some(Selection::Branch(project, ref_name))
+                if project == id
+                    && gone_from.is_none()
+                    && workspace.find_branch(ref_name.as_ref()).is_none() =>
+            {
+                old.and_then(|old| {
+                    let (lane, _) = old.lane_of(ref_name.as_ref())?;
+                    let before: Vec<_> = old.branches_in(&lane.checkout).collect();
+                    let after: Vec<_> = workspace.branches_in(&lane.checkout).collect();
+                    let branch = backend::in_place_of(&before, ref_name.as_ref(), &after)?;
+                    Some(branch.ref_name.clone())
+                })
+            }
+            _ => None,
+        };
+        // Gone from a linked worktree still there with no branch in its place, as a commit is
+        // when an agent checked out another branch in it, the worktree stays selected rather
+        // than the main checkout.
         let home = (self.selection.as_ref())
-            .filter(|s| s.project() == id && rewritten.is_none() && gone_from.is_none())
+            .filter(|s| {
+                s.project() == id
+                    && rewritten.is_none()
+                    && gone_from.is_none()
+                    && in_place.is_none()
+            })
             .filter(|s| match s {
                 Selection::Branch(_, branch) => workspace.find_branch(branch.as_ref()).is_none(),
                 Selection::Commit(_, commit) => workspace.find_commit(*commit).is_none(),
@@ -841,6 +865,9 @@ impl Store {
         }
         if let Some(branch) = gone_from {
             self.select(Some(Selection::Branch(id.clone(), Some(branch))), cx);
+        }
+        if let Some(branch) = in_place {
+            self.select(Some(Selection::Branch(id.clone(), branch)), cx);
         }
         if let Some(name) = home {
             self.select(Some(Selection::Worktree(id.clone(), name)), cx);

@@ -209,9 +209,71 @@ impl Workspace {
     }
 }
 
+/// The branch of `after` in the place of branch `ref_name` of `before`, once it's gone, both a
+/// checkout's branches top first: right below the nearest one above it that's still there,
+/// which is where one renamed is, so the next one down, or with none, the nearest one up, as
+/// the TUI goes on after a delete.
+pub fn in_place_of<'a>(
+    before: &[&Branch],
+    ref_name: Option<&super::FullName>,
+    after: &[&'a Branch],
+) -> Option<&'a Branch> {
+    let at = before
+        .iter()
+        .position(|b| b.ref_name.as_ref() == ref_name)?;
+    let place = (before.iter().take(at).rev())
+        .find_map(|kept| after.iter().position(|b| b.ref_name == kept.ref_name))
+        .map_or(0, |ix| ix + 1);
+    after.get(place).or(after.last()).copied()
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::build::{branch, describe_chain, full, workspace, worktree};
+    use super::{Branch, in_place_of};
+
+    #[test]
+    fn a_branch_gone_leaves_the_one_now_in_its_place() {
+        let place = |before: &str, gone: &str, after: &str| {
+            let named = |names: &str| -> Vec<Branch> {
+                (names.split_whitespace())
+                    .map(|name| branch(name, &[]))
+                    .collect()
+            };
+            let (before, after) = (named(before), named(after));
+            let gone = full(&format!("refs/heads/{gone}"));
+            let in_place = in_place_of(
+                &before.iter().collect::<Vec<_>>(),
+                Some(&gone),
+                &after.iter().collect::<Vec<_>>(),
+            );
+            in_place.map_or("nothing".to_owned(), |branch| branch.name.clone())
+        };
+        let places = [
+            ("the middle one deleted", place("a b c", "b", "a c")),
+            ("the top one deleted", place("a b c", "a", "b c")),
+            ("the bottom one deleted", place("a b c", "c", "a b")),
+            ("the middle one renamed", place("a b c", "b", "a x c")),
+            ("the bottom one renamed", place("a b c", "c", "a b x")),
+            ("one added on top meanwhile", place("a b c", "b", "n a c")),
+            ("its stack unapplied", place("a b c d", "b", "c d")),
+            ("the only one deleted", place("a", "a", "")),
+        ]
+        .map(|(what, branch)| format!("{what}: {branch}\n"))
+        .concat();
+        assert_eq!(
+            places,
+            "the middle one deleted: c\n\
+             the top one deleted: b\n\
+             the bottom one deleted: b\n\
+             the middle one renamed: x\n\
+             the bottom one renamed: x\n\
+             one added on top meanwhile: c\n\
+             its stack unapplied: c\n\
+             the only one deleted: nothing\n",
+            "the next one down, else the nearest one up, and one renamed stays as it's in its place"
+        );
+    }
 
     #[test]
     fn a_chain_follows_each_lane_down_to_what_it_rests_on() {

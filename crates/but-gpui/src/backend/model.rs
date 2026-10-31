@@ -6,7 +6,7 @@ pub(crate) mod build;
 mod lanes;
 mod push;
 
-pub use lanes::{Checkout, Lane};
+pub use lanes::{Checkout, Lane, in_place_of};
 
 use std::path::PathBuf;
 use std::sync::Arc;

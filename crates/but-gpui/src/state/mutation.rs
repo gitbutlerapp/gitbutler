@@ -185,6 +185,27 @@ impl Overlay {
             || worktree.is_some_and(|name| self.worktrees.contains(name))
     }
 
+    /// The branch that takes the place of the one `selection` is on, or the bottom one of the
+    /// stack it is, once this has taken branches of its checkout away: see
+    /// [`backend::in_place_of`].
+    fn in_place_of<'a>(&self, selection: &Selection, store: &'a Store) -> Option<&'a Branch> {
+        let project = selection.project();
+        let workspace = store.workspace(project)?;
+        let ref_name = match selection {
+            Selection::Stack(_, bottom) => bottom.as_ref(),
+            _ => store.branch_for(selection)?.ref_name.as_ref(),
+        };
+        let (lane, _) = workspace.lane_of(ref_name)?;
+        let before: Vec<&Branch> = workspace.branches_in(&lane.checkout).collect();
+        let after: Vec<&Branch> = (before.iter().copied())
+            .filter(|b| {
+                let branch = Selection::Branch(project.clone(), b.ref_name.clone());
+                !self.takes_away(&branch, store)
+            })
+            .collect();
+        backend::in_place_of(&before, ref_name, &after)
+    }
+
     /// Hides the files taken whole, and of the others the hunks taken.
     pub fn files<'a>(selected: impl IntoIterator<Item = &'a backend::Selected>) -> Self {
         let mut overlay = Self::default();
@@ -1172,13 +1193,20 @@ impl Store {
             return;
         };
         // What's selected leaving with its branch or worktree, the selection goes now where
-        // the reload after it would put it.
+        // the reload after it would put it: to the branch taking its place, as the TUI goes
+        // on after a delete, or with none, to the main checkout.
         let selection = self.selection.as_ref();
         let moved = selection
             .filter(|s| s.project() == project && overlay.takes_away(s, self))
-            .cloned();
-        if moved.is_some() {
-            self.select(Some(Selection::Uncommitted(project.clone())), cx);
+            .map(|s| {
+                let instead = match overlay.in_place_of(s, self) {
+                    Some(branch) => Selection::Branch(project.clone(), branch.ref_name.clone()),
+                    None => Selection::Uncommitted(project.clone()),
+                };
+                (s.clone(), instead)
+            });
+        if let Some((_, instead)) = &moved {
+            self.select(Some(instead.clone()), cx);
         }
         // Drawn again when the commit it makes, if any, is due to dim.
         if overlay.new_commit.is_some() {
@@ -1302,9 +1330,8 @@ impl Store {
                     }
                     Err(err) => {
                         // What it would have taken away stays, so the selection goes back.
-                        let uncommitted = Selection::Uncommitted(project.clone());
-                        if let Some(moved) = moved
-                            && store.selection.as_ref() == Some(&uncommitted)
+                        if let Some((moved, instead)) = moved
+                            && store.selection.as_ref() == Some(&instead)
                         {
                             store.select(Some(moved), cx);
                         }
