@@ -7,7 +7,7 @@ use gpui::{
 
 use super::Navigator;
 use crate::backend::{FullName, short_ref};
-use crate::overlays::branch_name;
+use crate::overlays::{branch_name_input, branch_went, on_branch_name};
 use crate::state::{ProjectId, Selection, snack};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
@@ -37,36 +37,20 @@ impl Navigator {
         let current = ref_name
             .as_ref()
             .map_or(String::new(), |r| short_ref(r).into_owned());
-        let input = cx.new(|cx| {
-            let mut input = TextInput::new("Branch name", false, cx).spaces_as_dashes();
-            input.load(current.clone(), cx);
-            input.select_all_text(cx);
-            input
-        });
-        let (checked, mut submit) = (project.clone(), Some(submit));
-        let typed = cx.subscribe_in(&input, window, move |this, input, event, window, cx| {
-            match event {
-                InputEvent::Submit => {
-                    let name = input.read(cx).text().to_owned();
-                    match branch_name(this.store.read(cx), &checked, &name, &current) {
-                        Err(why) => snack(&this.store, why, cx),
-                        Ok(short) => {
-                            this.renaming = None;
-                            this.focus_list(window, cx);
-                            // Renaming to the name it has does nothing.
-                            if let Some(submit) = submit.take().filter(|_| short != current) {
-                                submit(name, cx)
-                            }
-                        }
-                    }
-                }
-                InputEvent::Cancel => {
-                    this.renaming = None;
-                    this.focus_list(window, cx)
-                }
-                InputEvent::Changed => {}
-            }
-        });
+        let input = branch_name_input(&current, cx);
+        let typed = on_branch_name(
+            &input,
+            self.store.clone(),
+            project.clone(),
+            current,
+            submit,
+            |this: &mut Self, window, cx| {
+                this.renaming = None;
+                this.focus_list(window, cx)
+            },
+            window,
+            cx,
+        );
         let item = Selection::Branch(project, ref_name);
         self.edit_in_row(item, input, typed, window, cx)
     }
@@ -149,12 +133,7 @@ impl Navigator {
         };
         let store = self.store.read(cx);
         let why = match item {
-            Selection::Branch(project, ref_name) => (store.workspace(project))
-                .is_some_and(|ws| ws.find_branch(ref_name.as_ref()).is_none())
-                .then(|| {
-                    let name = ref_name.as_ref().map_or("The branch".into(), short_ref);
-                    format!("{name} was renamed or left the workspace meanwhile")
-                }),
+            Selection::Branch(project, ref_name) => branch_went(store, project, ref_name.as_ref()),
             Selection::Terminal(..) => None,
             // Not renamed in their row.
             Selection::Project(_)

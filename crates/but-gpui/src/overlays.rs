@@ -203,6 +203,69 @@ pub(crate) fn branch_name(
     }
 }
 
+/// A field for a branch's name, holding `current` ready to type over.
+pub(crate) fn branch_name_input(current: &str, cx: &mut App) -> Entity<TextInput> {
+    cx.new(|cx| {
+        let mut input = TextInput::new("Branch name", false, cx).spaces_as_dashes();
+        input.load(current.to_owned(), cx);
+        input.select_all_text(cx);
+        input
+    })
+}
+
+/// Enter in `input` runs `end`, then `submit` with the name typed, unless it's `current`, the
+/// name it has; one it can't have keeps the field, the snackbar saying why. Escape runs `end`.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "a field's whole wiring, in one place"
+)]
+pub(crate) fn on_branch_name<T: 'static>(
+    input: &Entity<TextInput>,
+    store: Entity<Store>,
+    project: ProjectId,
+    current: String,
+    submit: impl FnOnce(String, &mut App) + 'static,
+    end: impl Fn(&mut T, &mut Window, &mut Context<T>) + 'static,
+    window: &mut Window,
+    cx: &mut Context<T>,
+) -> Subscription {
+    let mut submit = Some(submit);
+    cx.subscribe_in(
+        input,
+        window,
+        move |this, input, event, window, cx| match event {
+            InputEvent::Submit => {
+                let name = input.read(cx).text().to_owned();
+                match branch_name(store.read(cx), &project, &name, &current) {
+                    Err(why) => crate::state::snack(&store, why, cx),
+                    Ok(short) => {
+                        end(this, window, cx);
+                        if let Some(submit) = submit.take().filter(|_| short != current) {
+                            submit(name, cx)
+                        }
+                    }
+                }
+            }
+            InputEvent::Cancel => end(this, window, cx),
+            InputEvent::Changed => {}
+        },
+    )
+}
+
+/// Why a name being edited for `project`'s branch `ref_name` can't be saved, once it's gone.
+pub(crate) fn branch_went(
+    store: &Store,
+    project: &ProjectId,
+    ref_name: Option<&FullName>,
+) -> Option<String> {
+    (store.workspace(project))
+        .is_some_and(|ws| ws.find_branch(ref_name).is_none())
+        .then(|| {
+            let name = ref_name.map_or("The branch".into(), short_ref);
+            format!("{name} was renamed or left the workspace meanwhile")
+        })
+}
+
 /// Apply the intent `op` makes of `name`, typed for a branch, and hand `done` what it returns.
 /// With `renaming`, a full ref, that branch is being renamed; without, a branch is made or
 /// one without a name yet is named.
