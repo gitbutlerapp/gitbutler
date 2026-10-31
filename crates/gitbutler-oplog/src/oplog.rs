@@ -1434,18 +1434,6 @@ fn restore_snapshot_tree(
         get_v3_workdir_tree(repo.find_tree(before_restore_snapshot_tree_id)?)?
             .context("Could not get workdir tree of snapshot created before the restore")?;
 
-    // Check out linked worktrees before anything else changes, so one whose uncommitted
-    // changes conflict stops the restore.
-    for (worktree, target) in linked_worktree_checkouts {
-        but_core::worktree::safe_checkout_from_head(target, &worktree, Default::default())
-            .with_context(|| {
-                format!(
-                    "Cannot restore the linked worktree at {:?}",
-                    worktree.workdir().unwrap_or(worktree.git_dir())
-                )
-            })?;
-    }
-
     if let Err(err) = restore_conflicts_tree(&snapshot_tree, &repo) {
         tracing::warn!("failed to restore conflicts tree - ignoring: {err}")
     }
@@ -1538,6 +1526,31 @@ fn restore_snapshot_tree(
     // Snapshots with neither checkout identity nor a workspace commit retain the old guard.
     if restored_checkout.is_none() && head_ref != Some(workspace_ref) {
         bail!("cannot restore a snapshot without checkout identity outside the workspace branch");
+    }
+
+    // Check out linked worktrees before the main checkout and refs change, so one whose
+    // uncommitted changes conflict stops the restore. The ones checked out before it go back.
+    let mut checked_out = Vec::new();
+    for (worktree, target) in linked_worktree_checkouts {
+        let previous = worktree.head_id()?.detach();
+        if let Err(err) =
+            but_core::worktree::safe_checkout_from_head(target, &worktree, Default::default())
+        {
+            for (worktree, previous) in checked_out.iter().rev() {
+                if let Err(err) = but_core::worktree::safe_checkout_from_head(
+                    *previous,
+                    worktree,
+                    Default::default(),
+                ) {
+                    tracing::warn!(?err, "could not put back a linked worktree");
+                }
+            }
+            return Err(err.context(format!(
+                "Cannot restore the linked worktree at {:?}",
+                worktree.workdir().unwrap_or(worktree.git_dir())
+            )));
+        }
+        checked_out.push((worktree, previous));
     }
 
     let gix_repo = ctx.clone_repo_for_merging()?;

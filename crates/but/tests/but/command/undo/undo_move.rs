@@ -6,7 +6,7 @@ use crate::{
     command::{
         undo::run_mutate_undo_roundtrip_test,
         util::{
-            add_worktree_with_lower_branch, branch_commit_cli_ids,
+            add_worktree_with_commit, add_worktree_with_lower_branch, branch_commit_cli_ids,
             commit_two_files_as_two_hunks_each, status_json,
         },
     },
@@ -766,5 +766,42 @@ fn undo_and_redo_moving_the_lower_worktree_commit(env: &Sandbox, wt_dir: &Path, 
         env.invoke_git(&worktree_status),
         "",
         "the worktree's files match its branch after redo"
+    );
+}
+
+/// Undo checks linked worktrees out one at a time. When one of them refuses, the ones checked out
+/// before it go back, so the refused undo changes nothing.
+#[test]
+fn refused_undo_leaves_every_linked_worktree_as_it_was() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_b = add_worktree_with_commit(&env, "wt-b", "A");
+    let wt_a = env.app_data_dir().join("worktrees/wt-a");
+    env.invoke_git(&format!("worktree add -q -b wt-a '{}' A", wt_a.display()));
+    let moved_commit = env.invoke_git("rev-parse wt-b");
+    env.but(format!("move {moved_commit} -b wt-a"))
+        .assert()
+        .success();
+    let tips_after_move = env.invoke_git("rev-parse wt-a wt-b");
+    // Restoring wt-b brings `wt-file.txt` back, which this untracked file would overwrite.
+    std::fs::write(wt_b.join("wt-file.txt"), "other\n").unwrap();
+
+    env.but("undo")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot restore the linked worktree at [..]
+...
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("rev-parse wt-a wt-b"),
+        tips_after_move,
+        "the refused undo leaves both worktree branches where the move put them"
+    );
+    assert!(
+        wt_a.join("wt-file.txt").exists(),
+        "wt-a, checked out before wt-b refused, has the moved commit's file again"
     );
 }
