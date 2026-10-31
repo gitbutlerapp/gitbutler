@@ -285,9 +285,11 @@ impl Navigator {
                             store.move_to_new_branch(&from, ids, None, false, cx)
                         })
                     }
-                    Some(Cut::Branch(from, branch)) if from == project => this
-                        .store
-                        .update(cx, |store, cx| store.unstack(&from, branch, cx)),
+                    Some(Cut::Branch(from, branch)) if from == project => {
+                        this.store.update(cx, |store, cx| {
+                            store.unstack(&from, branch, false, None, cx)
+                        })
+                    }
                     _ => {}
                 }
             }));

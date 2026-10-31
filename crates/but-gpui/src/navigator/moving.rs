@@ -1,5 +1,5 @@
-//! Moving commits with the keys: the places they can land as the rows list them, stepping
-//! through those, the copies of the commits that show where they'd land, and landing them.
+//! Moving commits or a branch with the keys: the places they can land as the rows list them,
+//! stepping through those, the copies that show where they'd land, and landing them.
 
 use std::collections::HashSet;
 use std::time::Instant;
@@ -12,30 +12,45 @@ use crate::app::{MoveHere, MoveSelection};
 use crate::backend::{Checkout, Commit, CommitId, Destination, FullName, Workspace, short_ref};
 use crate::state::{ProjectId, Section, Selection, Store, snack};
 use crate::theme::Theme;
-use crate::transfer::{Move, Stop};
+use crate::transfer::{Move, Moving, Stop};
 use crate::ui::fold::{self, on_top};
-use crate::ui::{Icon, ROW_HEIGHT, dp, fixed, guide, h_flex, small_icon};
+use crate::ui::{Icon, ROW_HEIGHT, dp, fixed, fold_glyph, guide, h_flex, icon, small_icon};
 
-/// The move under way in `project`, when it lands its commits somewhere at a stop `at` picks
-/// out: the rows show copies of them there.
+/// The move shown in `project`: the one under way, or one Return landed, until the reload
+/// after it shows where it went.
+fn shown<'a>(store: &'a Store, project: &ProjectId) -> Option<&'a Move> {
+    (store.moving.as_ref().or_else(|| store.landing())).filter(|moving| moving.project == *project)
+}
+
+/// The move shown in `project`, when it lands what it moves somewhere at a stop `at` picks
+/// out: the rows show copies of it there.
 pub(super) fn landing_at<'a>(
     store: &'a Store,
     project: &ProjectId,
     at: impl Fn(&Stop) -> bool,
 ) -> Option<&'a Move> {
-    (store.moving.as_ref())
-        .filter(|moving| moving.project == *project && at(&moving.at) && moving.lands(store))
+    shown(store, project).filter(|moving| at(&moving.at) && moving.lands(store))
 }
 
-/// Whether `item`, a commit being moved, would land elsewhere: `false` while the move is at
-/// where it is, and `None` for a row that isn't moving.
+/// Whether `item` moves with the move under way and would land elsewhere: `false` while the
+/// move is at where it is, and `None` for a row that doesn't move. A branch's commits move
+/// with it, dimmed once it'd land elsewhere; its own row shows where it is.
 pub(super) fn moving_away(store: &Store, item: &Selection) -> Option<bool> {
-    let Selection::Commit(project, id) = item else {
+    let moving = shown(store, item.project())?;
+    if moving.holds(item) {
+        return Some(moving.lands(store));
+    }
+    let (Moving::Branch(branch), Selection::Commit(project, id)) = (&moving.what, item) else {
         return None;
     };
-    let moving = (store.moving.as_ref())
-        .filter(|moving| moving.project == *project && moving.commits.contains(id))?;
-    Some(moving.lands(store))
+    let (on, _) = store.find_commit(project, *id)?;
+    (on.ref_name.as_ref() == Some(branch) && moving.lands(store)).then_some(true)
+}
+
+/// Whether `item`'s row is what's moving, left where it is while its copy shows where it'd
+/// land elsewhere.
+pub(super) fn left_behind(store: &Store, item: &Selection) -> bool {
+    shown(store, item.project()).is_some_and(|moving| moving.holds(item) && moving.lands(store))
 }
 
 /// A row a move took away as it stepped on, landed or ended, still drawn where it was while the
@@ -66,6 +81,12 @@ impl StandIn {
 enum Gone {
     /// A commit being moved, dimmed where the move left it, as it goes back there or lands.
     Commit(ProjectId, Box<Commit>),
+    /// A branch being moved, as [`branch_copy`] draws it, dimmed where the move left it.
+    Branch {
+        id: String,
+        name: String,
+        commits: usize,
+    },
     /// The new branch commits being moved would land in at that stop.
     NewBranch(Stop),
 }
@@ -86,9 +107,18 @@ fn taken_away(old: &[Option<RowKey>], new: &[Option<RowKey>]) -> Vec<(usize, usi
 }
 
 impl Rows {
-    /// Copies of `moving`'s commits, under the new branch they'd land in with `new_branch`.
+    /// Copies of what `moving` moves: its commits, under the new branch they'd land in with
+    /// `new_branch`, or its branch's row, which heads its commits wherever it goes.
     pub(super) fn push_ghosts(&mut self, moving: &Move, new_branch: bool) {
-        let ghosts = (moving.commits.iter()).map(|id| Row::Ghost(moving.project.clone(), *id));
+        let project = &moving.project;
+        let ids = match &moving.what {
+            Moving::Commits(ids) => ids,
+            Moving::Branch(branch) => {
+                let item = Selection::Branch(project.clone(), Some(branch.clone()));
+                return self.push(Row::Ghost(item));
+            }
+        };
+        let ghosts = (ids.iter()).map(|id| Row::Ghost(Selection::Commit(project.clone(), *id)));
         if !new_branch {
             return self.extend(ghosts);
         }
@@ -223,6 +253,15 @@ impl Navigator {
                         let (_, commit) = store.find_commit(project, *id)?;
                         Gone::Commit(project.clone(), Box::new(commit.clone()))
                     }
+                    Row::Item(Selection::Branch(project, ref_name @ Some(_))) => {
+                        let workspace = store.workspace(project)?;
+                        let branch = workspace.find_branch(ref_name.as_ref())?;
+                        Gone::Branch {
+                            id: format!("stand-in-{project}-{}", branch.name),
+                            name: store.name_of(project, branch).to_owned(),
+                            commits: branch.commits.len(),
+                        }
+                    }
                     Row::GhostBranch(_, at) => Gone::NewBranch(at.clone()),
                     _ => return None,
                 };
@@ -250,34 +289,48 @@ impl Navigator {
             .map(|(row, _)| row)
     }
 
-    /// Where `commits` of `project` can land as the rows are now, as [`stops`] says.
+    /// Where `what` of `project` can land as the rows are now, as [`stops`] says, and which of
+    /// those places is where it is.
     fn stops_for(
         &self,
         project: &ProjectId,
-        commits: &[CommitId],
+        what: &Moving,
         cx: &App,
     ) -> Option<(Vec<Stop>, usize)> {
-        let workspace = self.store.read(cx).workspace(project)?;
+        let store = self.store.read(cx);
+        let workspace = store.workspace(project)?;
         // As the rows were last built; the filter shows what it finds, folds aside.
         let open = |heading: &Selection| {
             let fold = Fold::Under(heading.clone());
             self.folds_seen.get(&fold).copied().unwrap_or(true)
         };
-        Some(stops(self.shown_rows(), project, commits, workspace, open))
+        let commits = match what {
+            Moving::Commits(ids) => &ids[..],
+            Moving::Branch(_) => &[],
+        };
+        let all = stops(self.shown_rows(), project, commits, workspace, open);
+        let Moving::Branch(branch) = what else {
+            return Some(all);
+        };
+        let lands = |at: &Stop| {
+            let (project, what, at) = (project.clone(), what.clone(), at.clone());
+            Move { project, what, at }.lands(store)
+        };
+        branch_stops(all.0, branch, lands)
     }
 
-    /// The stops of the move under way, and which of them it's at: where its commits are, if
+    /// The stops of the move under way, and which of them it's at: where what it moves is, if
     /// the one it was at is gone, as when it's folded away.
     fn move_stops(&self, cx: &App) -> Option<(Vec<Stop>, usize)> {
         let moving = self.store.read(cx).moving.as_ref()?;
-        let (stops, start) = self.stops_for(&moving.project, &moving.commits, cx)?;
+        let (stops, start) = self.stops_for(&moving.project, &moving.what, cx)?;
         let at = (stops.iter().position(|stop| *stop == moving.at)).unwrap_or(start);
         Some((stops, at))
     }
 
-    /// Start moving the selected commit, with those picked with it, from where they are. The
-    /// keys that step through the rows step through where they can land until Return lands
-    /// them or Escape lets go.
+    /// Start moving the selected commit, with those picked with it, or the selected branch,
+    /// from where it is. The keys that step through the rows step through where it can land
+    /// until Return lands it or Escape lets go.
     pub(super) fn start_move(
         &mut self,
         _: &MoveSelection,
@@ -285,20 +338,22 @@ impl Navigator {
         cx: &mut Context<Self>,
     ) {
         let store = self.store.read(cx);
-        let Some(Selection::Commit(project, id)) = store.selection.clone() else {
-            return;
+        let (project, what) = match store.selection.clone() {
+            Some(Selection::Commit(project, id)) => {
+                let commits = store.with_picks(&project, id);
+                (project, Moving::Commits(commits))
+            }
+            Some(Selection::Branch(project, Some(branch))) => (project, Moving::Branch(branch)),
+            _ => return,
         };
-        let commits = store.with_picks(&project, id);
-        let start = (self.stops_for(&project, &commits, cx))
+        // Somewhere besides where it is.
+        let start = (self.stops_for(&project, &what, cx))
+            .filter(|(stops, _)| stops.len() > 1)
             .and_then(|(stops, start)| stops.into_iter().nth(start));
         let Some(at) = start else {
             return snack(&self.store, "Nowhere to move it", cx);
         };
-        let moving = Move {
-            project,
-            commits,
-            at,
-        };
+        let moving = Move { project, what, at };
         self.store
             .update(cx, |store, cx| store.set_moving(Some(moving), cx));
         window.focus(&self.focus, cx);
@@ -315,16 +370,26 @@ impl Navigator {
     }
 
     /// Jump the move to the top of the next branch, or with `forward` false the one before, or
-    /// to a new stack, as ⇧J and ⇧K jump between sections.
+    /// to a new stack, as ⇧J and ⇧K jump between sections. A branch, which lands only between
+    /// branches, jumps between the tops of stacks.
     pub(super) fn jump_move(&mut self, forward: bool, cx: &mut Context<Self>) {
         let Some((stops, at)) = self.move_stops(cx) else {
             return;
         };
-        let heads = |(_, stop): &(usize, &Stop)| {
-            matches!(
-                stop,
-                Stop::In(Destination::Branch(_)) | Stop::NewStack { .. }
-            )
+        let store = self.store.read(cx);
+        let workspace = (store.moving.as_ref()).and_then(|moving| store.workspace(&moving.project));
+        let tops = |beside: &FullName| {
+            workspace
+                .and_then(|ws| ws.lane_of(Some(beside)))
+                .is_some_and(|(_, at)| at == 0)
+        };
+        let heads = |(_, stop): &(usize, &Stop)| match stop {
+            Stop::In(Destination::Branch(_)) | Stop::NewStack { .. } => true,
+            Stop::NewBranch {
+                beside,
+                below: false,
+            } => tops(beside),
+            Stop::In(_) | Stop::NewBranch { .. } => false,
         };
         let next = match forward {
             true => stops.iter().enumerate().skip(at + 1).find(heads),
@@ -350,7 +415,7 @@ impl Navigator {
         });
     }
 
-    /// Land the commits being moved where the move is at, as dropping them there would.
+    /// Land what's being moved where the move is at, as dropping it there would.
     pub(super) fn move_here(&mut self, _: &MoveHere, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         let Some(moving) = store.moving.clone() else {
@@ -363,45 +428,87 @@ impl Navigator {
         if !lands {
             return;
         }
+        // A branch's copy stays where it lands till it's there.
         if let Some((payload, target, place)) = moving.drop() {
             return self.app.update_later(window, cx, move |app, window, cx| {
-                app.transfer(&payload, &target, place, window, cx)
+                app.land(&payload, &target, place, Some(moving), window, cx)
             });
         }
-        let (beside, first) = match moving.at {
-            Stop::NewBranch { beside, below } => (Some((beside, below)), false),
-            Stop::NewStack { first } => (None, first),
-            Stop::In(_) => (None, false),
-        };
-        let Move {
-            project, commits, ..
-        } = moving;
-        self.store.update(cx, |store, cx| {
-            store.move_to_new_branch(&project, commits, beside, first, cx)
+        let lands = Some(moving.clone());
+        let Move { project, what, at } = moving;
+        self.store.update(cx, |store, cx| match (what, at) {
+            (Moving::Commits(commits), Stop::NewBranch { beside, below }) => {
+                store.move_to_new_branch(&project, commits, Some((beside, below)), false, cx)
+            }
+            (Moving::Commits(commits), Stop::NewStack { first }) => {
+                store.move_to_new_branch(&project, commits, None, first, cx)
+            }
+            (Moving::Branch(branch), Stop::NewStack { first }) => {
+                store.unstack(&project, branch, first, lands, cx)
+            }
+            // Those land as drops do, above.
+            (Moving::Commits(_), Stop::In(_)) | (Moving::Branch(_), _) => {}
         });
     }
 }
 
-/// A copy of commit `id` being moved, where landing would put it, drawn as the commit's own
-/// row is while the move is at where it is, set in by `inset` as an item row is.
-pub(super) fn ghost_row(
-    project: &ProjectId,
-    id: CommitId,
-    inset: f32,
-    store: &Store,
-    theme: &Theme,
-) -> AnyElement {
+/// The stops of `all` a branch lands at, between branches, as a new branch would, and where it
+/// is: the place above it, and the place below it, just as where it is, no stop. `lands` says
+/// whether landing at a stop moves it, as it doesn't where it already is.
+fn branch_stops(
+    all: Vec<Stop>,
+    branch: &FullName,
+    lands: impl Fn(&Stop) -> bool,
+) -> Option<(Vec<Stop>, usize)> {
+    let home = Stop::NewBranch {
+        beside: branch.clone(),
+        below: false,
+    };
+    let stops: Vec<Stop> = (all.into_iter())
+        .filter(|stop| match stop {
+            _ if *stop == home => true,
+            Stop::NewBranch { .. } | Stop::NewStack { .. } => lands(stop),
+            Stop::In(_) => false,
+        })
+        .collect();
+    let start = stops.iter().position(|stop| *stop == home)?;
+    Some((stops, start))
+}
+
+/// A copy of `item` being moved, a commit or a branch, where landing would put it, drawn as
+/// its own row is while the move is at where it is, set in by `inset` as an item row is. A
+/// branch's copy is its row alone, folded, which heads its commits wherever it goes.
+pub(super) fn ghost_row(item: &Selection, inset: f32, store: &Store, theme: &Theme) -> AnyElement {
     let style = RowStyle {
         held: true,
         ..RowStyle::plain(theme, inset)
     };
-    match store.find_commit(project, id) {
-        Some((_, commit)) => {
-            (style.commit(format!("ghost-{project}-{}", id.0), project, commit, store))
-                .into_any_element()
-        }
-        None => div().h(dp(ROW_HEIGHT)).into_any_element(),
-    }
+    let row = match item {
+        Selection::Commit(project, id) => (store.find_commit(project, *id)).map(|(_, commit)| {
+            let id = format!("ghost-{project}-{}", id.0);
+            style.commit(id, project, commit, store).into_any_element()
+        }),
+        Selection::Branch(project, ref_name) => (store.workspace(project))
+            .and_then(|ws| ws.find_branch(ref_name.as_ref()))
+            .map(|branch| {
+                let id = format!("ghost-{project}-{}", branch.name);
+                let name = store.name_of(project, branch).to_owned();
+                branch_copy(id, name, branch.commits.len(), style)
+            }),
+        _ => None,
+    };
+    row.unwrap_or_else(|| div().h(dp(ROW_HEIGHT)).into_any_element())
+}
+
+/// Branch `name`'s row as a copy draws it, row `id`, in `style`: folded, with how many
+/// `commits` it holds, as its own row shows them folded, and nothing on it acts.
+fn branch_copy(id: String, name: String, commits: usize, style: RowStyle) -> AnyElement {
+    (style.row(id.clone(), 6.))
+        .child(fold_glyph(format!("{id}-fold"), Some(false), style.quiet()))
+        .child(icon(Icon::Branch).text_color(style.muted()))
+        .child(div().flex_1().min_w_0().truncate().child(name))
+        .children(style.commits(commits))
+        .into_any_element()
 }
 
 /// What a move took away, drawn where it was below the row drawing it, as it was: inside the
@@ -425,6 +532,13 @@ pub(super) fn stand_in(stand_in: &StandIn, store: &Store, theme: &Theme) -> Div 
             };
             let id = format!("stand-in-{project}-{}", commit.id.0);
             style.commit(id, project, commit, store).into_any_element()
+        }
+        Gone::Branch { id, name, commits } => {
+            let style = RowStyle {
+                cut: true,
+                ..RowStyle::plain(theme, *inset)
+            };
+            branch_copy(id.clone(), name.clone(), *commits, style)
         }
         Gone::NewBranch(at) => ghost_branch_row(at, *inset, theme),
     };
@@ -488,7 +602,7 @@ pub(super) fn ghost_branch_row(at: &Stop, inset: f32, theme: &Theme) -> AnyEleme
 
 #[cfg(test)]
 mod tests {
-    use super::{Row, RowKey, stops, taken_away};
+    use super::{Row, RowKey, branch_stops, stops, taken_away};
     use crate::backend::model::build::{branch, full, id, workspace, worktree};
     use crate::backend::{CommitId, Destination, Workspace, short_ref};
     use crate::state::{ProjectId, Selection};
@@ -643,7 +757,10 @@ new branch below agent
             Some(RowKey::Item(Selection::Branch(p(), Some(name))))
         };
         let commit = |n: usize| Some(RowKey::Commit(p(), n.to_string()));
-        let left = |n| Some(RowKey::Left(p(), id(n)));
+        let left = |n: usize| {
+            let own = RowKey::Commit(p(), n.to_string());
+            Some(RowKey::Left(Box::new(own)))
+        };
         let new_branch = || Some(RowKey::GhostBranch(p()));
         // Commit 3 moving from the top of ui to a new branch above api.
         let above_api = [
@@ -685,6 +802,42 @@ new branch below agent
             taken_away(&both, &home),
             [(1, 0), (2, 0)],
             "commits moving together go under the row above the first"
+        );
+    }
+
+    #[test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "a test, and snapbox looks for the file its snapshot is in"
+    )]
+    fn a_branch_stops_only_between_branches_and_where_it_is() {
+        let project = ProjectId::from("p");
+        let (ws, rows) = listed(&project);
+        let (all, _) = stops(&rows, &project, &[], &ws, open);
+        let api = full("refs/heads/api");
+        // Below itself it doesn't move, and a branch keeps to its own side, out of wt.
+        let lands = |stop: &Stop| match stop {
+            Stop::NewBranch { beside, below } => match short_ref(beside).as_ref() {
+                "api" => !below,
+                "agent" => false,
+                _ => true,
+            },
+            Stop::In(_) | Stop::NewStack { .. } => true,
+        };
+        let (stops, start) = branch_stops(all, &api, lands).unwrap();
+        // The places between branches it lands at, where a new branch would go, and where it
+        // is, the place right above it.
+        snapbox::assert_data_eq!(
+            describe(&stops, start),
+            snapbox::str![[r#"
+new stack first
+new branch above ui
+new branch above api <
+new branch above typo
+new branch below typo
+new stack
+
+"#]]
         );
     }
 }

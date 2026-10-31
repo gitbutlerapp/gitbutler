@@ -1311,9 +1311,10 @@ impl Navigator {
         if at_top && changed {
             self.list.scroll_to(ListOffset::default());
         }
-        // While commits are being moved, and as the move ends, every row slides from where it
-        // was, so the room their copies take or leave opens and closes rather than jumps.
-        let moving = self.store.read(cx).moving.is_some();
+        // While something's being moved or landing, and as that ends, every row slides from
+        // where it was, so the room the copies take or leave opens and closes rather than jumps.
+        let store = self.store.read(cx);
+        let moving = store.moving.is_some() || store.landing().is_some();
         let every = moving || self.moved;
         self.moved = moving;
         if self.rows != rows {
@@ -1429,25 +1430,22 @@ impl Navigator {
             false => reordered(&old, &new),
         };
         let top = |rows: &[Row], ix: usize| span_height(rows, 0..ix);
-        // A commit's own row is keyed apart while a move leaves it, as its copy takes its key,
-        // but it's the same row: as the move leaves it, it comes out from under the copy, from
-        // where the commit was, rather than showing up in place. Going back, its stand-in stays
-        // where it was left (`Self::stand_ins`).
-        let lefts = |keys: &'_ [Option<RowKey>]| -> HashSet<RowKey> {
-            let left = |key: &&RowKey| matches!(key, RowKey::Left(..));
-            keys.iter().flatten().filter(left).cloned().collect()
+        // The row of what's moving is keyed apart while a move leaves it, as its copy takes
+        // its key, but it's the same row: as the move leaves it, it comes out from under the
+        // copy, from where it was under its own key, rather than showing up in place. Going
+        // back, its stand-in stays where it was left (`Self::stand_ins`).
+        let at = |keys: &[Option<RowKey>], key: &RowKey| {
+            (keys.iter()).position(|other| other.as_ref() == Some(key))
         };
-        for key in lefts(keys).difference(&lefts(&self.row_keys)) {
-            let RowKey::Left(project, id) = key else {
+        for (is, key) in keys.iter().enumerate() {
+            let Some(left @ RowKey::Left(own)) = key else {
                 continue;
             };
-            let at = |rows: &[Row]| {
-                (rows.iter()).position(
-                    |row| matches!(row, Row::Item(Selection::Commit(p, c)) if p == project && c == id),
-                )
-            };
-            if let (Some(was), Some(is)) = (at(&self.rows), at(rows)) {
-                offsets.insert(key.clone(), top(&self.rows, was) - top(rows, is));
+            if at(&self.row_keys, left).is_some() {
+                continue;
+            }
+            if let Some(was) = at(&self.row_keys, own) {
+                offsets.insert(left.clone(), top(&self.rows, was) - top(rows, is));
             }
         }
         if let Some((old_ix, new_ix)) = held.filter(|_| !offsets.is_empty()) {
@@ -1604,9 +1602,7 @@ impl Navigator {
                 })
                 .into_any_element(),
             Some(Row::NewBranch(project)) => self.new_branch_zone(ix, project, theme, cx),
-            Some(Row::Ghost(project, id)) => {
-                moving::ghost_row(project, *id, inset, self.store.read(cx), theme)
-            }
+            Some(Row::Ghost(item)) => moving::ghost_row(item, inset, self.store.read(cx), theme),
             // A line from under the branches' glyphs, clear of their commits' guides, drawn as
             // the guides are where a worktree's is dashed, so it reads as part of the worktree
             // rather than the end of it.
@@ -3573,9 +3569,14 @@ impl Render for Navigator {
             .child(above_drag(div().child(toggle_detail)));
         let store = self.store.read(cx);
         let moving = store.moving.is_some();
-        // A commit of a workspace, not one only a remote or another machine has.
-        let movable = matches!(&store.selection,
-            Some(Selection::Commit(project, id)) if store.find_commit(project, *id).is_some());
+        // A commit or a named branch of a workspace, not one only a remote or another machine
+        // has.
+        let movable = match &store.selection {
+            Some(Selection::Commit(project, id)) => store.find_commit(project, *id).is_some(),
+            Some(Selection::Branch(project, ref_name @ Some(_))) => (store.workspace(project))
+                .is_some_and(|ws| ws.find_branch(ref_name.as_ref()).is_some()),
+            _ => false,
+        };
 
         v_flex()
             .id("navigator")

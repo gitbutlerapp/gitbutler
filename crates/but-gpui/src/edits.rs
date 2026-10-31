@@ -1158,8 +1158,9 @@ impl AppView {
         let Some((project, ref_name)) = self.selected_named_branch(cx) else {
             return;
         };
-        self.store
-            .update(cx, |store, cx| store.unstack(&project, ref_name, cx));
+        self.store.update(cx, |store, cx| {
+            store.unstack(&project, ref_name, false, None, cx)
+        });
     }
 
     fn unapply_stack(&mut self, _: &UnapplyStack, _: &mut Window, cx: &mut Context<Self>) {
