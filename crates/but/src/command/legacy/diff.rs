@@ -1,4 +1,5 @@
 use bstr::BString;
+use but_core::TreeStatusKind;
 use but_ctx::Context;
 use gix::refs::FullName;
 use nonempty::NonEmpty;
@@ -11,7 +12,7 @@ use crate::{
         diff::Platform,
     },
     bad_input,
-    id::{CommitId, CommittedFileId, IdAndHunk, UncommittedHunkOrFile},
+    id::{CommitId, CommittedFileId, CommittedHunk, IdAndHunk, UncommittedHunkOrFile},
     theme::{Paint as _, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
@@ -107,6 +108,9 @@ impl CliOutputHuman for DiffOutcome<'_> {
                     &mut writer,
                 )?;
             }
+            DiffOperation::CommittedHunk { hunk } => {
+                diff_rendering::render_committed_hunk(*hunk, theme, &mut id_gen, &mut writer)?;
+            }
             DiffOperation::PathPrefix { id, hunks } => {
                 diff_rendering::render_path_prefix(
                     &id,
@@ -180,7 +184,11 @@ impl CliOutput for DiffOutcome<'_> {
             }
         }
 
-        fn hunk_to_change(id: Option<&str>, hunk: &but_core::SingleHunk) -> Change {
+        fn hunk_to_change(
+            id: Option<&str>,
+            hunk: &but_core::SingleHunk,
+            status: TreeStatusKind,
+        ) -> Change {
             use bstr::ByteSlice as _;
 
             let diff = if let (Some(diff), Some(header)) = (&hunk.diff, &hunk.hunk_header) {
@@ -204,14 +212,22 @@ impl CliOutput for DiffOutcome<'_> {
             Change {
                 id: id.map(str::to_owned),
                 path: hunk.path.to_str_lossy().into_owned(),
-                status: "modified".to_owned(),
+                status: match status {
+                    TreeStatusKind::Addition => "added",
+                    TreeStatusKind::Deletion => "deleted",
+                    TreeStatusKind::Modification => "modified",
+                    TreeStatusKind::Rename => "renamed",
+                }
+                .to_owned(),
                 old_path: None,
                 diff,
             }
         }
 
-        fn hunk_changes(mut hunks: Vec<(&str, &but_core::SingleHunk)>) -> Vec<Change> {
-            hunks.sort_by(|(_, a_hunk), (_, b_hunk)| {
+        fn hunk_changes(
+            mut hunks: Vec<(&str, &but_core::SingleHunk, TreeStatusKind)>,
+        ) -> Vec<Change> {
+            hunks.sort_by(|(_, a_hunk, _), (_, b_hunk, _)| {
                 a_hunk
                     .path
                     .cmp(&b_hunk.path)
@@ -219,7 +235,7 @@ impl CliOutput for DiffOutcome<'_> {
             });
             hunks
                 .into_iter()
-                .map(|(id, hunk)| hunk_to_change(Some(id), hunk))
+                .map(|(id, hunk, status)| hunk_to_change(Some(id), hunk, status))
                 .collect()
         }
 
@@ -288,7 +304,7 @@ impl CliOutput for DiffOutcome<'_> {
                             .uncommitted_hunks
                             .iter()
                             .filter(|(_, hunk)| hunk.source == *source)
-                            .map(|(id, hunk)| (id.as_str(), &hunk.hunk))
+                            .map(|(id, hunk)| (id.as_str(), &hunk.hunk, hunk.tree_status))
                             .collect(),
                     )
                 }
@@ -305,16 +321,19 @@ impl CliOutput for DiffOutcome<'_> {
                 DiffOperation::UncommittedHunkOrFile { hunk } => hunk_changes(
                     hunk.hunks
                         .iter()
-                        .map(|hunk| (hunk.id.as_str(), &hunk.hunk))
+                        .map(|hunk| (hunk.id.as_str(), &hunk.hunk, hunk.tree_status))
                         .collect(),
                 ),
                 DiffOperation::CommittedFile { commit, path } => {
                     commit_changes(ctx, commit.commit_id, Some(path))?
                 }
+                DiffOperation::CommittedHunk { hunk } => {
+                    hunk_changes(vec![(hunk.id.as_str(), &hunk.hunk, hunk.tree_status)])
+                }
                 DiffOperation::PathPrefix { hunks, .. } => hunk_changes(
                     hunks
                         .iter()
-                        .map(|hunk| (hunk.id.as_str(), &hunk.hunk))
+                        .map(|hunk| (hunk.id.as_str(), &hunk.hunk, hunk.tree_status))
                         .collect(),
                 ),
             };
@@ -460,9 +479,7 @@ fn resolve(
             },
             path,
         }),
-        ResolvedCliIdArg::CommittedHunk(..) => {
-            Err(bad_input("viewing diffs for committed hunks is not supported").into())
-        }
+        ResolvedCliIdArg::CommittedHunk(hunk) => Ok(DiffOperation::CommittedHunk { hunk }),
         ResolvedCliIdArg::PathPrefix {
             id,
             hunks,
@@ -509,6 +526,9 @@ enum DiffOperation {
     CommittedFile {
         commit: CommitId,
         path: BString,
+    },
+    CommittedHunk {
+        hunk: Box<CommittedHunk>,
     },
     PathPrefix {
         id: String,

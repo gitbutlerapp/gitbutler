@@ -1,5 +1,7 @@
 use std::fs;
 
+use snapbox::IntoData as _;
+
 use crate::{
     command::util::add_dirty_worktree,
     utils::{CommandExt, Sandbox},
@@ -264,6 +266,114 @@ No diff available - file is either empty, binary, or too large
 }
 
 #[test]
+fn committed_hunk() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("file.txt", "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n");
+    env.but("commit -m base").assert().success();
+    env.file("file.txt", "one\n2\n3\n4\n5\n6\n7\n8\n9\nten\n");
+    env.file("new.txt", "new\n");
+    env.but("commit -m change")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit ryk on branch 'a-branch-1'
+
+"#]]);
+
+    // The commit diff prints one committed hunk ID per hunk.
+    env.but("diff ryk")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────────╮
+ r:u:1 M file.txt │
+──────────────────╯
+
+@@ -1,4 +1,4 @@
+───────────────
+1 ┊   │ -1
+  ┊ 1 │ +one
+2 ┊ 2 │  2
+3 ┊ 3 │  3
+4 ┊ 4 │  4
+
+──────────────────╮
+ r:u:9 M file.txt │
+──────────────────╯
+
+@@ -7,4 +7,4 @@
+───────────────
+ 7 ┊  7 │  7
+ 8 ┊  8 │  8
+ 9 ┊  9 │  9
+10 ┊    │ -10
+   ┊ 10 │ +ten
+
+─────────────────╮
+ r:s:b A new.txt │
+─────────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +new
+
+"#]]);
+
+    // Passing one of those IDs back shows only that hunk, under the same ID.
+    env.but("diff r:u:9")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────────╮
+ r:u:9 M file.txt │
+──────────────────╯
+
+@@ -7,4 +7,4 @@
+───────────────
+ 7 ┊  7 │  7
+ 8 ┊  8 │  8
+ 9 ┊  9 │  9
+10 ┊    │ -10
+   ┊ 10 │ +ten
+
+"#]]);
+    // JSON keeps the file's status.
+    env.but("diff --json r:s:b")
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(
+            snapbox::str![[r#"
+{
+  "changes": [
+    {
+      "id": "r:s:b",
+      "path": "new.txt",
+      "status": "added",
+      "diff": {
+        "type": "patch",
+        "hunks": [
+          {
+            "oldStart": 1,
+            "oldLines": 0,
+            "newStart": 1,
+            "newLines": 1,
+            "diff": "@@ -1,0 +1,1 @@\n+new\n"
+          }
+        ]
+      }
+    }
+  ]
+}
+
+"#]]
+            .raw(),
+        );
+}
+
+#[test]
 fn worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
@@ -297,7 +407,7 @@ fn worktree() {
     {
       "id": "[..]",
       "path": "note.txt",
-      "status": "modified",
+      "status": "added",
       "diff": {
         "type": "patch",
         "hunks": [

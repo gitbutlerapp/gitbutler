@@ -54,6 +54,7 @@ fn committed_hunk_equality() {
         },
         id: "ignored by equality".into(),
         hunk: hunk("file.txt"),
+        tree_status: but_core::TreeStatusKind::Modification,
     };
 
     assert_eq!(
