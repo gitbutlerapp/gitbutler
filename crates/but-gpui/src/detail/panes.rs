@@ -6,8 +6,8 @@ use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, Bounds, ClickEvent, Context, Div, Entity, FocusHandle, Focusable as _,
-    ListAlignment, ListOffset, ListState, MouseDownEvent, Pixels, Point, SharedString, Stateful,
-    Window, div, list, prelude::*,
+    ListAlignment, ListOffset, ListState, MouseDownEvent, Pixels, Point, Role, SharedString,
+    Stateful, Window, div, list, prelude::*,
 };
 
 use super::upstream::noon;
@@ -16,21 +16,25 @@ use crate::app::{
     AppHandle, Collapse, Expand, SelectNext, SelectPrevious, StartCommit, ToggleFold,
 };
 use crate::backend::upstream::{self, ACTIVITY_DAYS};
-use crate::backend::{self, Checkout, CommitId, CommitState, FullName, PushState, short_ref};
+use crate::backend::{
+    self, Branch, Checkout, CommitId, CommitState, FullName, PushState, short_ref,
+};
 use crate::clock;
+use crate::edits::{NameBranch, RenameBranch, Reword};
 use crate::navigator::{SelectFirst, SelectLast};
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{ProjectId, Section, Selection};
 use crate::theme::Theme;
 use crate::ui::fold::{MOVING_ROWS, Moved, clipped};
 use crate::ui::illustration::Illustration;
+use crate::ui::message_editor::MessageEditor;
 use crate::ui::person::{author_avatar, byline};
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     Button, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, WINDOW_CONTROLS_WIDTH,
     above_drag, age_column, button, commit_title, dp, empty_state, faint, field, fixed, fold_row,
-    h_flex, icon, icon_button, list_row, plural, pulsing, quiet, section_label, side_row,
+    h_flex, icon, icon_button, list_row, plural, pulsing, quiet, section_label, shortcut, side_row,
     small_icon, v_flex,
 };
 
@@ -513,7 +517,6 @@ impl Detail {
         project: &ProjectId,
         id: backend::CommitId,
         theme: &Theme,
-        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
@@ -531,7 +534,15 @@ impl Detail {
         };
         // A long title wraps rather than hiding its end, as it's shown nowhere else, and
         // scrolls past a dozen lines.
-        let title = page_title(Icon::Commit, theme).child(self.message_title(title, &body, cx));
+        let name = editable_title(
+            "commit-title",
+            commit_title(title),
+            "Edit message",
+            shortcut(&Reword, cx),
+            theme,
+        )
+        .on_click(cx.listener(|this, _, window, cx| this.start_reword(window, cx)));
+        let title = page_title(Icon::Commit, theme).child(self.message_title(name, &body, cx));
         let meta = meta_row(theme)
             .child(byline(
                 &commit.author,
@@ -558,8 +569,9 @@ impl Detail {
         let rewording = (self.rewording.as_ref())
             .filter(|(reworded, ..)| super::composer::rewords(reworded, project, commit, store));
         let title = match rewording {
-            Some((_, input, _)) => self.reword_editor(input, theme, window, cx),
-            // A double-click on its title or body edits the message.
+            Some((_, input, _)) => reword_editor(input, theme),
+            // A click on its title starts editing the message, and so does a double-click on
+            // its body.
             None => (self.message(title, body, theme))
                 .on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
                     if event.click_count() == 2 {
@@ -573,8 +585,8 @@ impl Detail {
         self.page_header(title, meta, target, apply, None, theme, cx)
     }
 
-    /// A commit's title, with a button that shows the rest of its message, `body`, if any.
-    fn message_title(&self, title: &str, body: &str, cx: &Context<Self>) -> Div {
+    /// A commit's `title`, with a button that shows the rest of its message, `body`, if any.
+    fn message_title(&self, title: impl IntoElement, body: &str, cx: &Context<Self>) -> Div {
         let open = self.message_open;
         let toggle = (!body.is_empty()).then(|| {
             icon_button("full-message", Icon::TextBlock)
@@ -591,7 +603,7 @@ impl Detail {
                 }))
         });
         (h_flex().items_start().min_w_0().gap(dp(6.)))
-            .child(title_text(commit_title(title)))
+            .child(title)
             .children(toggle)
     }
 
@@ -745,7 +757,8 @@ impl Detail {
                 .and_then(|b| b.remote.clone()),
             None => ws.target.as_ref().map(|target| target.name.clone()),
         };
-        let title = page_title(Icon::ArrowDown, theme).child(self.message_title(title, body, cx));
+        let name = title_text(commit_title(title));
+        let title = page_title(Icon::ArrowDown, theme).child(self.message_title(name, body, cx));
         let meta = meta_row(theme)
             .child(byline(author, email, agent, time, theme))
             .child(self.sha_chip(id, theme, cx))
@@ -890,10 +903,43 @@ impl Detail {
         let meta = meta
             .child(div().flex_1())
             .child(h_flex().gap(dp(8.)).children(create).child(push));
-        let title = page_title(Icon::Branch, theme).child(title_text(name.to_owned()));
+        let name = match self.rename_field(project, ref_name, theme) {
+            Some(field) => field,
+            None => self.branch_title(project, ref_name, branch, name, theme, cx),
+        };
+        let title = page_title(Icon::Branch, theme).child(name);
         let tabs =
             (branch.review.as_ref()).map(|review| self.review_tabs(review, theme, window, cx));
         self.page_header(title, meta, target, None, tabs, theme, cx)
+    }
+
+    /// A branch's `name` in its header, which a click starts editing, unless it's an unnamed
+    /// branch with no commit to name it at.
+    fn branch_title(
+        &self,
+        project: &ProjectId,
+        ref_name: Option<&FullName>,
+        branch: &Branch,
+        name: &str,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        if ref_name.is_none() && branch.commits.is_empty() {
+            return title_text(name.to_owned()).into_any_element();
+        }
+        let (tip, key) = match ref_name {
+            Some(_) => ("Rename branch", shortcut(&RenameBranch, cx)),
+            None => ("Name branch", shortcut(&NameBranch, cx)),
+        };
+        let (project, ref_name) = (project.clone(), ref_name.cloned());
+        editable_title("branch-title", name.to_owned(), tip, key, theme)
+            .on_click(cx.listener(move |this, _, window, cx| {
+                let (project, ref_name) = (project.clone(), ref_name.clone());
+                (this.app).update_later(window, cx, move |app, window, cx| {
+                    app.rename_branch_in_header(project, ref_name, window, cx)
+                });
+            }))
+            .into_any_element()
     }
 
     /// A stack's header: how many branches it has, which, and their commits.
@@ -927,54 +973,6 @@ impl Detail {
         let title = page_title(Icon::Stack, theme).child(title_text(title));
         let target = Selection::Stack(project.clone(), bottom.cloned());
         self.page_header(title, meta, target, None, None, theme, cx)
-    }
-
-    /// The box editing a commit's message, with how to save or leave it.
-    fn reword_editor(
-        &self,
-        input: &Entity<TextInput>,
-        theme: &Theme,
-        window: &Window,
-        cx: &App,
-    ) -> AnyElement {
-        let focused = input.focus_handle(cx).is_focused(window);
-        v_flex()
-            .gap(dp(8.))
-            .child(
-                field(input, focused, theme)
-                    .px(dp(10.))
-                    .py(dp(8.))
-                    .rounded(dp(6.))
-                    .line_height(dp(19.))
-                    .id("reword-box")
-                    .max_h(dp(260.))
-                    .overflow_y_scroll()
-                    .track_scroll(&self.reword_scroll),
-            )
-            .child(
-                h_flex()
-                    .gap(dp(8.))
-                    .justify_end()
-                    .child(faint(crate::ui::keys_text("⌘↩ to save, esc to cancel"), theme).flex_1())
-                    .child({
-                        let input = input.clone();
-                        button("cancel-reword", "Cancel")
-                            .small()
-                            .on_click(move |_, _, cx| {
-                                input.update(cx, |_, cx| cx.emit(InputEvent::Cancel))
-                            })
-                    })
-                    .child({
-                        let input = input.clone();
-                        button("save-reword", "Save")
-                            .small()
-                            .style(ButtonStyle::Pop)
-                            .on_click(move |_, _, cx| {
-                                input.update(cx, |_, cx| cx.emit(InputEvent::Submit))
-                            })
-                    }),
-            )
-            .into_any_element()
     }
 
     pub(super) fn render_branch_side(
@@ -1090,6 +1088,26 @@ pub(super) fn title_text(text: impl IntoElement) -> Div {
         .text_size(dp(16.))
         .font_weight(gpui::FontWeight::SEMIBOLD)
         .child(text)
+}
+
+/// A page's title that a click starts editing in place, which `tip` and `key` say.
+fn editable_title(
+    id: &'static str,
+    text: impl IntoElement,
+    tip: &'static str,
+    key: Option<SharedString>,
+    theme: &Theme,
+) -> Stateful<Div> {
+    let hover = theme.hover();
+    title_text(text)
+        .id(id)
+        .role(Role::Button)
+        .aria_label(tip)
+        .mx(dp(-4.))
+        .px(dp(4.))
+        .rounded(dp(4.))
+        .hover(move |el| el.bg(hover))
+        .tooltip(Tooltip::keyed(tip, key))
 }
 
 /// The line under a page's title saying what it is.
@@ -1989,4 +2007,35 @@ fn person_row(
                     ),
                 ),
         )
+}
+
+/// The box editing a commit's message, with how to save or leave it.
+fn reword_editor(input: &Entity<MessageEditor>, theme: &Theme) -> AnyElement {
+    v_flex()
+        .gap(dp(8.))
+        .child(input.clone())
+        .child(
+            h_flex()
+                .gap(dp(8.))
+                .justify_end()
+                .child(faint(crate::ui::keys_text("⌘↩ to save, esc to cancel"), theme).flex_1())
+                .child({
+                    let input = input.clone();
+                    button("cancel-reword", "Cancel")
+                        .small()
+                        .on_click(move |_, _, cx| {
+                            input.update(cx, |_, cx| cx.emit(InputEvent::Cancel))
+                        })
+                })
+                .child({
+                    let input = input.clone();
+                    button("save-reword", "Save")
+                        .small()
+                        .style(ButtonStyle::Pop)
+                        .on_click(move |_, _, cx| {
+                            input.update(cx, |_, cx| cx.emit(InputEvent::Submit))
+                        })
+                }),
+        )
+        .into_any_element()
 }

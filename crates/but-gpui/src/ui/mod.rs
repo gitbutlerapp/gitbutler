@@ -10,6 +10,7 @@ pub mod fold;
 mod format;
 pub mod illustration;
 pub mod markdown;
+pub mod message_editor;
 pub mod modal;
 pub mod person;
 pub mod review;

@@ -151,6 +151,7 @@ pub fn bind_keys(cx: &mut App) {
     ]);
 }
 
+#[derive(Clone, Copy)]
 pub enum InputEvent {
     Changed,
     /// Enter in a single-line field, or cmd-enter in any field.

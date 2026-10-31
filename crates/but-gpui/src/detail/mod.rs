@@ -20,6 +20,7 @@ mod lines;
 mod machine;
 mod panes;
 mod pull_request;
+mod rename;
 mod resolve;
 mod slots;
 mod upstream;
@@ -59,6 +60,7 @@ use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
 use crate::ui::fold::{FOLD, Folds, Slide, edge, inert};
 use crate::ui::illustration::{Illustration, illustration};
+use crate::ui::message_editor::{MessageEditor, MessageSize};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, Icon, TextPoint, button, commit_title, dp, empty_state, fixed, h_flex,
@@ -332,7 +334,7 @@ pub struct Detail {
     /// The file list's row holding the cursor's file as last drawn, and the list: where ⇧F10
     /// opens its menu.
     listed_cursor_row: std::cell::RefCell<Option<(ListState, usize)>>,
-    message: Entity<TextInput>,
+    message: Entity<MessageEditor>,
     /// The branch (full ref) new commits go to; `None` creates a branch.
     commit_target: Option<FullName>,
     checks: composer::Checks,
@@ -374,7 +376,9 @@ pub struct Detail {
     sideways: HashMap<String, [ScrollHandle; 2]>,
     /// The commit message being edited, with the subscription that saves it. Looking at
     /// another commit keeps it, to pick up again on coming back.
-    rewording: Option<(composer::Reworded, Entity<TextInput>, Subscription)>,
+    rewording: Option<(composer::Reworded, Entity<MessageEditor>, Subscription)>,
+    /// The branch whose name is being edited in its header.
+    renaming: Option<rename::Renaming>,
     /// The project the checks and commit target above belong to.
     checks_project: Option<ProjectId>,
     /// The checkout whose files the checks are of.
@@ -385,10 +389,6 @@ pub struct Detail {
     composing_target: Option<FullName>,
     /// Where the focus was when writing a commit message started, to go back to after.
     composer_back: Option<FocusHandle>,
-    /// What scrolls the commit message box, which keeps the caret in view.
-    message_scroll: ScrollHandle,
-    /// The reword box's, which scrolls past a dozen lines as the commit box does.
-    reword_scroll: ScrollHandle,
     cursor: Cursor,
     /// How many times what y copied here has blinked, and what it last was and when.
     blinked: (usize, Option<(Copied, Instant)>),
@@ -517,10 +517,7 @@ impl Detail {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let message_scroll = ScrollHandle::new();
-        let message = cx.new(|cx| {
-            TextInput::new("Commit message", true, cx).scrolled_by(message_scroll.clone())
-        });
+        let message = cx.new(|cx| MessageEditor::new(MessageSize::Compact, cx));
         let branch_filter = cx.new(|cx| TextInput::new("Filter branches", false, cx));
         let target_filter = cx.new(|cx| TextInput::new("Filter commits", false, cx));
         let history_filter = cx.new(|cx| TextInput::new("Filter operations", false, cx));
@@ -650,7 +647,7 @@ impl Detail {
                 // The input draws itself; nothing here shows the message, and notifying
                 // would redraw the diff on every keystroke.
                 InputEvent::Changed => {
-                    let message = this.message.read(cx).text().to_owned();
+                    let message = this.message.read(cx).text(cx);
                     if let Some(project) = &this.checks_project {
                         let key = (project.clone(), this.checks_worktree.clone());
                         (this.store).update(cx, |store, _| match message.trim().is_empty() {
@@ -751,13 +748,12 @@ impl Detail {
             signers: HashMap::new(),
             sideways: HashMap::new(),
             rewording: None,
+            renaming: None,
             checks_project: None,
             checks_worktree: Checkout::Main,
             composing: false,
             composing_target: None,
             composer_back: None,
-            message_scroll,
-            reword_scroll: ScrollHandle::new(),
             cursor: Cursor::default(),
             blinked: (0, None),
             message_open: false,
@@ -2776,7 +2772,7 @@ impl Render for Detail {
                         Some(self.render_picks_header(project, *id, &theme, cx))
                     }
                     Selection::Commit(project, id) => {
-                        Some(self.render_commit_header(project, *id, &theme, window, cx))
+                        Some(self.render_commit_header(project, *id, &theme, cx))
                     }
                     Selection::Branch(project, ref_name) => Some(self.render_branch_header(
                         project,

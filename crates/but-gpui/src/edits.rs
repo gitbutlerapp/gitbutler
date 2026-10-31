@@ -612,10 +612,43 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let submit = self.submit_branch_name(&project, ref_name.clone(), cx);
+        // The name is edited in its row there.
+        if !self.navigator_open {
+            self.set_navigator(true, window, cx);
+        }
+        (self.navigator).update(cx, |navigator, cx| {
+            navigator.rename(project, ref_name, window, cx, submit)
+        })
+    }
+
+    /// Edit the name of `project`'s branch `ref_name` in its header, or give the unnamed branch
+    /// one when it's `None`.
+    pub(crate) fn rename_branch_in_header(
+        &mut self,
+        project: ProjectId,
+        ref_name: Option<FullName>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let submit = self.submit_branch_name(&project, ref_name.clone(), cx);
+        (self.detail).update(cx, |detail, cx| {
+            detail.rename_branch(project, ref_name, window, cx, submit)
+        })
+    }
+
+    /// What saving a name typed for `project`'s branch `ref_name` does: rename it, or with
+    /// `None` name the unnamed branch at its newest commit.
+    fn submit_branch_name(
+        &self,
+        project: &ProjectId,
+        ref_name: Option<FullName>,
+        cx: &App,
+    ) -> impl FnOnce(String, &mut App) + 'static + use<> {
         let store = self.store.read(cx);
         let branch = Selection::Branch(project.clone(), ref_name.clone());
-        let undoable = store.undoable(&project, store.checkout_of(&branch));
-        let workspace = store.workspace(&project);
+        let undoable = store.undoable(project, store.checkout_of(&branch));
+        let workspace = store.workspace(project);
         // An unnamed branch has no ref to rename, so it gets one at its newest commit.
         let unnamed_top = (workspace.filter(|_| ref_name.is_none()))
             .and_then(|ws| Some(ws.find_branch(None)?.commits.first()?.id));
@@ -623,8 +656,8 @@ impl AppView {
         let pushed = (workspace.and_then(|ws| ws.find_branch(ref_name.as_ref())))
             .is_some_and(|branch| branch.push != backend::PushState::NeverPushed);
         let (store, detail) = (self.store.clone(), self.detail.downgrade());
-        let (at, selected, from) = (project.clone(), project.clone(), ref_name.clone());
-        let submit = move |name: String, cx: &mut App| {
+        let (at, selected, from) = (project.clone(), project.clone(), ref_name);
+        move |name: String, cx: &mut App| {
             let renamed = from.clone();
             let done = move |store: &mut Store, to: FullName, cx: &mut Context<Store>| {
                 (detail.update(cx, |detail, cx| {
@@ -656,14 +689,7 @@ impl AppView {
                 }
                 (None, None) => store.snack("The branch has no commit to name it at", cx),
             })
-        };
-        // The name is edited in its row there.
-        if !self.navigator_open {
-            self.set_navigator(true, window, cx);
         }
-        (self.navigator).update(cx, |navigator, cx| {
-            navigator.rename(project, ref_name, window, cx, submit)
-        })
     }
 
     fn new_branch_on_top(
