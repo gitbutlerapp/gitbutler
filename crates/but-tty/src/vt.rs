@@ -312,6 +312,7 @@ impl Vt {
             .set_action(key::Action::Press)
             .set_key(key)
             .set_mods(mods)
+            .set_consumed_mods(mods_spent_on_text(mods))
             .set_utf8(text)
             .set_unshifted_codepoint(unshifted.unwrap_or('\0'));
         let mut bytes = Vec::new();
@@ -918,6 +919,15 @@ fn geometry(size: Size) -> gesture::Geometry {
     }
 }
 
+fn mods_spent_on_text(mods: Mods) -> Mods {
+    let layout_mods = if cfg!(target_os = "macos") {
+        Mods::SHIFT | Mods::ALT
+    } else {
+        Mods::SHIFT
+    };
+    mods & layout_mods
+}
+
 fn encoder_size(size: Size) -> mouse::EncoderSize {
     let (cell_width, cell_height) = (u32::from(size.cell_width), u32::from(size.cell_height));
     mouse::EncoderSize {
@@ -1239,6 +1249,31 @@ mod tests {
             String::from_utf8(sent).unwrap(),
             " ",
             "shift+space after an a types a space, not the a's kitty report with shift"
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn option_types_what_the_layout_puts_there_under_the_kitty_protocol() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.write(b"\x1b[>1u");
+        let hash = vt.key(Key::Digit3, Mods::ALT, Some("#".into()), Some('3'));
+        assert_eq!(
+            hash, b"#",
+            "a British layout's hash is typed, not reported as alt+3"
+        );
+        let shifted = Mods::ALT | Mods::SHIFT;
+        let ring = vt.key(Key::A, shifted, Some("\u{c5}".into()), Some('a'));
+        assert_eq!(
+            String::from_utf8(ring).unwrap(),
+            "\u{c5}",
+            "option and shift together type too"
+        );
+        let word_left = vt.key(Key::ArrowLeft, Mods::ALT, None, None);
+        assert_eq!(
+            String::from_utf8(word_left).unwrap(),
+            "\x1b[1;3D",
+            "option on a key without text stays a modifier"
         );
     }
 
