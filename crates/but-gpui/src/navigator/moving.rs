@@ -476,11 +476,19 @@ fn branch_stops(
 }
 
 /// A copy of `item` being moved, a commit or a branch, where landing would put it, drawn as
-/// its own row is while the move is at where it is, set in by `inset` as an item row is. A
-/// branch's copy is its row alone, folded, which heads its commits wherever it goes.
-pub(super) fn ghost_row(item: &Selection, inset: f32, store: &Store, theme: &Theme) -> AnyElement {
+/// its own row is while the move is at where it is, set in by `inset` as an item row is, and
+/// outlined with the copies `outlined_with` says are above and below it. A branch's copy is its
+/// row alone, folded, which heads its commits wherever it goes.
+pub(super) fn ghost_row(
+    item: &Selection,
+    inset: f32,
+    outlined_with: (bool, bool),
+    store: &Store,
+    theme: &Theme,
+) -> AnyElement {
     let style = RowStyle {
         held: true,
+        outlined_with,
         ..RowStyle::plain(theme, inset)
     };
     let row = match item {
