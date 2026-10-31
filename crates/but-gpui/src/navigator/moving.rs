@@ -103,7 +103,7 @@ impl Rows {
 /// them is where they are: the one just above the first of them. A folded branch has only its
 /// top and the new branches either side of it, so what's folded is stepped over and stays
 /// folded. `main_open` says whether the main checkout's stacks show, which a new stack goes
-/// after.
+/// before and after.
 pub(super) fn stops<'a>(
     rows: impl IntoIterator<Item = &'a Row>,
     project: &ProjectId,
@@ -125,14 +125,20 @@ pub(super) fn stops<'a>(
     let mut bottom = None;
     // The commits listed now are in a branch they can land in.
     let mut in_branch = false;
-    // The main checkout's stacks are listed now, which a new stack goes after.
-    let mut in_main = false;
+    // The main checkout's stacks are listed now, which a new stack goes after, and before
+    // the first of them, until that's listed.
+    let (mut in_main, mut before_first) = (false, false);
     for row in rows {
+        if before_first && matches!(row, Row::Item(Selection::Branch(p, _)) if p == project) {
+            before_first = false;
+            stops.push(Stop::NewStack { first: true });
+        }
         match row {
             Row::Item(Selection::Uncommitted(p)) if p == project => {
                 end_stack(&mut stops, &mut bottom);
                 in_branch = false;
                 in_main = main_open;
+                before_first = main_open && workspace.managed;
             }
             // Not an unnamed branch, which has no ref to land on, nor the default branch,
             // which work stays off.
@@ -176,18 +182,21 @@ pub(super) fn stops<'a>(
             | Row::Ghost(..)
             | Row::GhostBranch(..)
             | Row::Between(_) => {}
+            // A checkout's terminals, listed above its branches.
+            Row::Item(Selection::Terminal(..)) => {}
             _ => {
                 end_stack(&mut stops, &mut bottom);
                 in_branch = false;
+                before_first = false;
                 if std::mem::take(&mut in_main) && workspace.managed {
-                    stops.push(Stop::NewStack);
+                    stops.push(Stop::NewStack { first: false });
                 }
             }
         }
     }
     end_stack(&mut stops, &mut bottom);
     if in_main && workspace.managed {
-        stops.push(Stop::NewStack);
+        stops.push(Stop::NewStack { first: false });
     }
     (stops, start.unwrap_or_default())
 }
@@ -310,7 +319,10 @@ impl Navigator {
             return;
         };
         let heads = |(_, stop): &(usize, &Stop)| {
-            matches!(stop, Stop::In(Destination::Branch(_)) | Stop::NewStack)
+            matches!(
+                stop,
+                Stop::In(Destination::Branch(_)) | Stop::NewStack { .. }
+            )
         };
         let next = match forward {
             true => stops.iter().enumerate().skip(at + 1).find(heads),
@@ -354,15 +366,16 @@ impl Navigator {
                 app.transfer(&payload, &target, place, window, cx)
             });
         }
-        let beside = match moving.at {
-            Stop::NewBranch { beside, below } => Some((beside, below)),
-            Stop::In(_) | Stop::NewStack => None,
+        let (beside, first) = match moving.at {
+            Stop::NewBranch { beside, below } => (Some((beside, below)), false),
+            Stop::NewStack { first } => (None, first),
+            Stop::In(_) => (None, false),
         };
         let Move {
             project, commits, ..
         } = moving;
         self.store.update(cx, |store, cx| {
-            store.move_to_new_branch(&project, commits, beside, cx)
+            store.move_to_new_branch(&project, commits, beside, first, cx)
         });
     }
 }
@@ -435,7 +448,7 @@ pub(super) fn ghost_branch_row(at: &Stop, inset: f32, theme: &Theme) -> AnyEleme
             let side = if *below { "below" } else { "above" };
             Some((side, short_ref(beside).into_owned()))
         }
-        Stop::In(_) | Stop::NewStack => None,
+        Stop::In(_) | Stop::NewStack { .. } => None,
     };
     let said = match &beside {
         Some((side, _)) => format!("New branch {side}"),
@@ -476,6 +489,7 @@ mod tests {
     use crate::backend::model::build::{branch, full, id, workspace};
     use crate::backend::{CommitId, Destination, Workspace, short_ref};
     use crate::state::{ProjectId, Selection};
+    use crate::terminal::TerminalId;
     use crate::transfer::Stop;
 
     /// Each stop on a line, commits by their number, `<` at `start`.
@@ -492,7 +506,8 @@ mod tests {
                     Stop::In(Destination::Branch(name)) => format!("top of {}", short(name)),
                     Stop::In(Destination::BelowCommit(c)) => format!("below {}", commit(c)),
                     Stop::In(Destination::AboveCommit(c)) => format!("above {}", commit(c)),
-                    Stop::NewStack => "new stack".into(),
+                    Stop::NewStack { first: false } => "new stack".into(),
+                    Stop::NewStack { first: true } => "new stack first".into(),
                 };
                 let here = if ix == start { " <" } else { "" };
                 format!("{said}{here}\n")
@@ -501,7 +516,7 @@ mod tests {
     }
 
     /// Two stacks, `ui` on `api` and `typo` alone, and the rows the navigator lists for them,
-    /// with `typo` folded.
+    /// with a terminal open and `typo` folded.
     fn listed(project: &ProjectId) -> (Workspace, Vec<Row>) {
         let ws = Workspace {
             managed: true,
@@ -518,6 +533,8 @@ mod tests {
         let rows = vec![
             Row::Item(Selection::Project(p())),
             Row::Item(Selection::Uncommitted(p())),
+            // Listed above the stacks, which it doesn't part from the heading either.
+            Row::Item(Selection::Terminal(p(), TerminalId(1))),
             Row::Item(Selection::Branch(p(), named("ui"))),
             Row::Item(Selection::Commit(p(), id(3))),
             Row::Item(Selection::Branch(p(), named("api"))),
@@ -541,13 +558,14 @@ mod tests {
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
         let (stops, start) = stops(&rows, &project, &[id(2)], &ws, true);
-        // A new branch above every branch of a stack and below its last, each branch's top
-        // and the place below each of its commits but the one moving, which starts below 3 at
-        // the top of api; then a new stack once the main checkout's stacks end. Folded, typo
-        // has only its top.
+        // A new stack before the main checkout's stacks, a new branch above every branch of a
+        // stack and below its last, each branch's top and the place below each of its commits
+        // but the one moving, which starts below 3 at the top of api; then a new stack once the
+        // stacks end. Folded, typo has only its top.
         snapbox::assert_data_eq!(
             describe(&stops, start),
             snapbox::str![[r#"
+new stack first
 new branch above ui
 top of ui
 below 3

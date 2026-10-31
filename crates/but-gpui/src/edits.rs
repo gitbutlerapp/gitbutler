@@ -252,7 +252,7 @@ impl AppView {
                             this.store.update(cx, |store, cx| {
                                 // With the commits picked with it, as dropping them on New branch does.
                                 let ids = store.with_picks(&project, id);
-                                store.move_to_new_branch(&project, ids, None, cx)
+                                store.move_to_new_branch(&project, ids, None, false, cx)
                             });
                         }))
                     })

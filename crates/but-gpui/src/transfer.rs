@@ -120,8 +120,8 @@ pub enum Stop {
     In(Destination),
     /// In a new branch right above `beside` in its stack, or right below it with `below`.
     NewBranch { beside: FullName, below: bool },
-    /// In a new branch in a stack of its own.
-    NewStack,
+    /// In a new branch in a stack of its own, after the others, or before them with `first`.
+    NewStack { first: bool },
 }
 
 impl Move {
@@ -161,7 +161,8 @@ impl Move {
                 let side = if *below { "below" } else { "above" };
                 format!("to a new branch {side} {}", short_ref(beside))
             }
-            Stop::NewStack => "to a new stack".into(),
+            Stop::NewStack { first: false } => "to a new stack".into(),
+            Stop::NewStack { first: true } => "to a new stack at the top".into(),
         }
     }
 }

@@ -911,7 +911,7 @@ fn follow_move(moving: &mut Move, old: Option<&Workspace>, new: &Workspace) -> b
         Stop::In(Destination::Branch(branch)) | Stop::NewBranch { beside: branch, .. } => {
             new.find_branch(Some(branch)).is_some()
         }
-        Stop::NewStack => true,
+        Stop::NewStack { .. } => true,
     }
 }
 

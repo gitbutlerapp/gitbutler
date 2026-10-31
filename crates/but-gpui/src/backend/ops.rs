@@ -1428,12 +1428,14 @@ impl Intent for SplitOff {
     }
 }
 
-/// Move `commits` into a new branch of their own: beside the other stacks, or in the stack of
-/// branch `beside`, right above it, or right below it with `true`.
+/// Move `commits` into a new branch of their own: beside the other stacks, after them or with
+/// `first` before them, or in the stack of branch `beside`, right above it, or right below it
+/// with `true`.
 /// Done is what moved, and the new branch's full name.
 pub struct MoveToNewBranch {
     pub commits: Arc<[CommitId]>,
     pub beside: Option<(FullName, bool)>,
+    pub first: bool,
 }
 
 impl Intent for MoveToNewBranch {
@@ -1441,7 +1443,13 @@ impl Intent for MoveToNewBranch {
 
     fn apply(self, run: &mut Run) -> Result<(Rewritten, FullName)> {
         use but_workspace::branch::create_reference::{Anchor, Position};
-        let Self { commits, beside } = self;
+        let Self {
+            commits,
+            beside,
+            first,
+        } = self;
+        // A stack's place is its tip's among the workspace commit's parents.
+        let order = (beside.is_none() && first).then_some(0);
         let anchor = beside.as_ref().map(|(branch, below)| {
             let position = match below {
                 true => Position::Below,
@@ -1460,7 +1468,7 @@ impl Intent for MoveToNewBranch {
                 &[name.as_ref()],
                 DryRun::No,
                 |mut tx| {
-                    tx.create_reference(name.as_ref(), anchor, None)?;
+                    tx.create_reference(name.as_ref(), anchor, order)?;
                     tx.move_commits(
                         commits.iter().map(|commit| commit.0),
                         RelativeTo::Reference(name.clone()),
@@ -3178,6 +3186,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let moving = MoveToNewBranch {
                 commits: [commit].into(),
                 beside: None,
+                first: false,
             };
             let ((_, name), _) = crate::backend::apply(path, moving).unwrap();
             let moved = newest_entry(path);
@@ -3209,6 +3218,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 let moving = MoveToNewBranch {
                     commits: [moved].into(),
                     beside: Some((full("refs/heads/feature"), below)),
+                    first: false,
                 };
                 let ((_, new), _) = crate::backend::apply(path, moving).unwrap();
                 let titles = |branch: &str| {
@@ -3230,6 +3240,44 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             snapbox::str![[r#"
 below false: feature [second], <new> [edit, second]
 below true: feature [edit, second], <new> [second]
+
+"#]]
+        );
+    }
+
+    #[test]
+    fn a_move_to_a_new_stack_puts_it_after_the_others_or_first() {
+        let mut said = String::new();
+        for first in [false, true] {
+            but_testsupport::isolated_app_data_dir(|| {
+                let (dir, ..) = workspace_with_an_edit();
+                let path = dir.path();
+                git(path, &["commit", "-q", "--allow-empty", "-m", "second"]);
+                let second = head(path);
+                crate::backend::apply(path, name_at(second, "feature")).unwrap();
+                let moving = MoveToNewBranch {
+                    commits: [second].into(),
+                    beside: None,
+                    first,
+                };
+                let ((_, new), _) = crate::backend::apply(path, moving).unwrap();
+                let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+                let stacks: Vec<String> = (workspace.lanes_in(&Checkout::Main))
+                    .filter_map(|lane| lane.branches.first()?.ref_name.as_ref())
+                    .map(|name| match *name == new {
+                        true => "<new>".to_owned(),
+                        false => short_ref(name).into_owned(),
+                    })
+                    .collect();
+                said += &format!("first {first}: {}\n", stacks.join(", "));
+            });
+        }
+        // The stacks top first, as the navigator lists them.
+        snapbox::assert_data_eq!(
+            said,
+            snapbox::str![[r#"
+first false: feature, <new>
+first true: <new>, feature
 
 "#]]
         );
