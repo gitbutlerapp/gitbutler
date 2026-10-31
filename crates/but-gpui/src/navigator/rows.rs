@@ -2,6 +2,7 @@
 //! projects, worktrees, branches and commits, and under the filter, what it finds.
 
 use std::collections::HashMap;
+use std::ops::Range;
 use std::time::Duration;
 
 use gpui::{App, SharedString};
@@ -19,6 +20,19 @@ use crate::ui::fold::{Folds, MOVING_ROWS};
 
 /// Commits shown per branch before folding the rest into "N more".
 const FOLD_AFTER: usize = 8;
+
+/// How tall a watched project's heading is, atop its card.
+pub(super) const HEADING_HEIGHT: f32 = 32.;
+
+/// The room inside a card above its first row and below its last.
+pub(super) const CARD_PADDING: f32 = 3.;
+
+/// How much a card's edge adds above its first row and below its last: its padding and its
+/// 1px border.
+const CARD_EDGE: f32 = CARD_PADDING + 1.;
+
+/// How far below the top of its card the middle of a project's heading is.
+pub(super) const HEADING_MIDDLE: f32 = CARD_EDGE + HEADING_HEIGHT / 2.;
 
 /// How recently a project was last active for "Active in the last 7 days" to keep it.
 const ACTIVE_WITHIN: Duration = Duration::from_secs(7 * 24 * 60 * 60);
@@ -113,11 +127,25 @@ pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
     keys
 }
 
+/// How tall rows `span` of `rows` are together, as [`Row::height`] counts them.
+pub(super) fn span_height(rows: &[Row], span: Range<usize>) -> f32 {
+    rows.get(span)
+        .unwrap_or_default()
+        .iter()
+        .map(Row::height)
+        .sum()
+}
+
 impl Row {
-    /// How tall the row is drawn, near enough for a fold moving it to count by.
+    /// How tall the row is drawn, near enough for a fold moving it to count by. The gap between
+    /// two cards counts their edges too, rather than the rows either side of it, so a row that
+    /// comes to start or end a card, as a heading does as its card folds, keeps its height, and
+    /// rows sliding as cards trade places start where they're drawn.
     pub(super) fn height(&self) -> f32 {
         match self {
-            Row::Gap | Row::WorktreeDivider | Row::Between(_) => 12.,
+            Row::Gap => 12. + 2. * CARD_EDGE,
+            Row::WorktreeDivider | Row::Between(_) => 12.,
+            Row::Item(Selection::Project(_)) => HEADING_HEIGHT,
             Row::More(..) | Row::Fewer(..) | Row::UpstreamMore(..) | Row::RestsOn(..) => 24.,
             Row::Item(_)
             | Row::Note(..)

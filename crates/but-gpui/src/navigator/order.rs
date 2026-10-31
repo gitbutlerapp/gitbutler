@@ -1,22 +1,23 @@
 //! The order of the watched projects' cards: as the user drags them, by name, or by last
 //! activity, from the header's view menu, which also folds them all or opens them all. Also
-//! dragging a card to another place, and how the projects not watched are listed.
+//! dragging a card to another place, the others sliding to make room, and how the projects
+//! not watched are listed.
 
 use std::cmp::Reverse;
+use std::ops::Range;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, DragMoveEvent, Pixels, Point, SharedString,
-    Stateful, Window, actions, div, prelude::*,
+    AnyElement, App, ClickEvent, Context, Div, DragMoveEvent, EmptyView, Pixels, Point, Stateful,
+    Window, actions, prelude::*,
 };
 
 use super::Navigator;
-use super::rows::last_active;
+use super::rows::{HEADING_MIDDLE, Row, last_active, span_height};
 use crate::app::AppView;
 use crate::overlays::MenuItem;
-use crate::state::{Prefs, ProjectEntry, ProjectId, Store, WatchedOrder};
+use crate::state::{Prefs, ProjectEntry, ProjectId, Selection, Store, WatchedOrder};
 use crate::theme::Theme;
-use crate::transfer::{drag_pill, pill_label};
-use crate::ui::{Icon, dp, icon_button, small_icon};
+use crate::ui::{Icon, icon_button};
 
 actions!(
     navigator,
@@ -67,7 +68,19 @@ impl Navigator {
         let mut watched: Vec<&ProjectEntry> =
             store.projects.iter().filter(|e| e.expanded).collect();
         match store.prefs.watched_order {
-            WatchedOrder::Manual => {}
+            // A card dragged by its heading shows where letting go puts it.
+            WatchedOrder::Manual => {
+                if let Some((dragged, slot)) = &self.project_drag
+                    && let Some(from) = watched.iter().position(|e| e.id == *dragged)
+                {
+                    let entry = watched.remove(from);
+                    let to = match slot {
+                        CardSlot::Before(before) => watched.iter().position(|e| e.id == *before),
+                        CardSlot::End => None,
+                    };
+                    watched.insert(to.unwrap_or(watched.len()), entry);
+                }
+            }
             WatchedOrder::Name => watched.sort_by_key(|e| e.project.name.to_lowercase()),
             WatchedOrder::Activity => match &self.held_order {
                 // A project added meanwhile goes last.
@@ -138,72 +151,97 @@ impl Navigator {
         ]
     }
 
-    /// Let a watched project's heading drag its card among the others (see [`Self::card_drop`]).
+    /// Let a watched project's heading drag its card among the others, which make room for it
+    /// where it'd go (see [`Self::follow_project_drag`]). The card shows where it goes, so
+    /// nothing follows the pointer.
     pub(super) fn reorderable(
         &self,
         el: Stateful<Div>,
         id: &ProjectId,
-        entry: &ProjectEntry,
         cx: &Context<Self>,
     ) -> Stateful<Div> {
-        let (name, navigator) = (entry.project.name.clone(), cx.entity().downgrade());
-        el.on_drag(ProjectDrag(id.clone()), move |_, offset, _, cx| {
-            let pill = cx.new(|_| ProjectPill {
-                name: name.clone().into(),
-                offset,
-            });
-            // A drop anywhere else, or none, leaves the last line drawn otherwise.
+        let navigator = cx.entity().downgrade();
+        el.on_drag(ProjectDrag(id.clone()), move |_, _, _, cx| {
+            let nothing = cx.new(|_| EmptyView);
+            // A drop anywhere else, or none, puts the cards back as they were.
             let navigator = navigator.clone();
-            cx.observe_release(&pill, move |_, cx| {
+            cx.observe_release(&nothing, move |_, cx| {
                 (navigator.update(cx, |this, cx| {
-                    this.project_drop = None;
+                    this.project_drag = None;
                     cx.notify()
                 }))
                 .ok();
             })
             .detach();
-            pill
+            nothing
         })
     }
 
-    /// Where a dragged project card goes before the card that `slot`'s heading starts: over
-    /// the heading and the gap above the card, laid over both. It takes the drop, and says
-    /// where it would land only when the card would move.
-    pub(super) fn card_drop(&self, slot: CardSlot, cx: &Context<Self>) -> Div {
-        let (over, onto) = (slot.clone(), slot);
-        div()
-            .absolute()
-            .left_0()
-            .right_0()
-            .top(dp(-10.))
-            .bottom_0()
-            .on_drag_move(
-                cx.listener(move |this, event: &DragMoveEvent<ProjectDrag>, _, cx| {
-                    let next = if event.bounds.contains(&event.event.position) {
-                        let moves = slot_moves(this.store.read(cx), &event.drag(cx).0, &over);
-                        moves.then(|| over.clone())
-                    } else if this.project_drop.as_ref() == Some(&over) {
-                        None
-                    } else {
-                        return;
-                    };
-                    if this.project_drop != next {
-                        this.project_drop = next;
-                        cx.notify();
-                    }
-                }),
-            )
-            .on_drop(cx.listener(move |this, drag: &ProjectDrag, _, cx| {
-                let landed = this.project_drop.take().is_some();
-                let before = match &onto {
-                    CardSlot::Before(id) => Some(id),
-                    CardSlot::End => None,
-                };
-                if landed {
-                    (this.store).update(cx, |store, cx| store.move_watched(&drag.0, before, cx));
-                }
-                cx.notify();
-            }))
+    /// Show the card dragged by its heading where letting go puts it, while the pointer is
+    /// over the navigator: in the place where its heading would be nearest the pointer, as
+    /// [`nearest_slot`] says, the cards around it sliding to make room. Elsewhere letting go
+    /// leaves it be, so it shows where it is.
+    pub(super) fn follow_project_drag(
+        &mut self,
+        event: &DragMoveEvent<ProjectDrag>,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let at = event.event.position;
+        let dragged = event.drag(cx).0.clone();
+        let depth = (event.bounds.contains(&at))
+            .then(|| self.depth_at(at, Theme::get(cx)))
+            .flatten();
+        let next = depth.map(|depth| {
+            let cards: Vec<(&ProjectId, f32)> = (cards(&self.rows).into_iter())
+                .map(|(id, span)| (id, span_height(&self.rows, span)))
+                .collect();
+            let slot = nearest_slot(&cards, &dragged, depth);
+            (dragged, slot)
+        });
+        if self.project_drag != next {
+            self.project_drag = next;
+            cx.notify();
+        }
+    }
+
+    /// Let go of a card dragged by its heading where it's shown.
+    pub(super) fn drop_project(&mut self, _: &ProjectDrag, _: &mut Window, cx: &mut Context<Self>) {
+        if let Some((id, slot)) = self.project_drag.take()
+            && slot_moves(self.store.read(cx), &id, &slot)
+        {
+            let before = match &slot {
+                CardSlot::Before(before) => Some(before),
+                CardSlot::End => None,
+            };
+            (self.store).update(cx, |store, cx| store.move_watched(&id, before, cx));
+        }
+        cx.notify();
+    }
+
+    /// The rows of the card dragged by its heading, while it shows where it'd go.
+    pub(super) fn held_card(&self) -> Option<Range<usize>> {
+        let (dragged, _) = self.project_drag.as_ref()?;
+        (cards(&self.rows).into_iter())
+            .find(|(id, _)| *id == dragged)
+            .map(|(_, span)| span)
+    }
+
+    /// How far down the cards' rows `at` is, from the top of the first, as the rows count
+    /// their heights ([`span_height`]): from the drawn row it's over, or else the nearest.
+    fn depth_at(&self, at: Point<Pixels>, theme: &Theme) -> Option<f32> {
+        let list = &self.list;
+        let mut drawn = (list.logical_scroll_top().item_ix..self.rows.len())
+            .map_while(|ix| Some((ix, list.bounds_for_item(ix)?)));
+        let (mut ix, mut bounds) = drawn.next()?;
+        for (next, next_bounds) in drawn {
+            if next_bounds.top() > at.y {
+                break;
+            }
+            (ix, bounds) = (next, next_bounds);
+        }
+        let above = span_height(&self.rows, 0..ix);
+        Some(above + f32::from(at.y - bounds.top()) / theme.scale)
     }
 }
 
@@ -215,6 +253,45 @@ pub(super) struct ProjectDrag(ProjectId);
 pub(super) enum CardSlot {
     Before(ProjectId),
     End,
+}
+
+/// The cards `rows` list, each by its project and the rows it takes, from its heading up to
+/// the gap before the next.
+pub(super) fn cards(rows: &[Row]) -> Vec<(&ProjectId, Range<usize>)> {
+    let mut cards: Vec<(&ProjectId, Range<usize>)> = Vec::new();
+    for (ix, row) in rows.iter().enumerate() {
+        match row {
+            Row::Item(Selection::Project(id)) => cards.push((id, ix..ix + 1)),
+            Row::Gap => {}
+            _ => {
+                if let Some((_, span)) = cards.last_mut() {
+                    span.end = ix + 1;
+                }
+            }
+        }
+    }
+    cards
+}
+
+/// Where card `dragged`, held by its heading, goes among `cards`, each by its project and how
+/// tall it is, a gap apart: the place where the middle of its heading would be nearest
+/// `depth`, which is as far down from the top of the first card. Only the other cards set the
+/// places, so where the dragged one is shown now doesn't change where it goes, and showing it
+/// there never sends it back.
+fn nearest_slot(cards: &[(&ProjectId, f32)], dragged: &ProjectId, depth: f32) -> CardSlot {
+    let gap = Row::Gap.height();
+    let off = |top: f32| (top + HEADING_MIDDLE - depth).abs();
+    let (mut top, mut nearest) = (0., (f32::INFINITY, CardSlot::End));
+    for (id, height) in cards.iter().filter(|(id, _)| *id != dragged) {
+        if off(top) < nearest.0 {
+            nearest = (off(top), CardSlot::Before((*id).clone()));
+        }
+        top += height + gap;
+    }
+    match off(top) < nearest.0 {
+        true => CardSlot::End,
+        false => nearest.1,
+    }
 }
 
 /// Whether dropping watched project `id` at `slot` moves its card: not right before or after
@@ -231,23 +308,74 @@ fn slot_moves(store: &Store, id: &ProjectId, slot: &CardSlot) -> bool {
     to.is_some_and(|to| to != from && to != from + 1)
 }
 
-/// What a dragged project card shows under the pointer.
-struct ProjectPill {
-    name: SharedString,
-    offset: Point<Pixels>,
-}
+#[cfg(test)]
+mod tests {
+    use super::{CardSlot, Row, cards, nearest_slot};
+    use crate::state::{ProjectId, Selection};
 
-impl Render for ProjectPill {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = Theme::get(cx);
-        let mark = small_icon(Icon::Eye).text_color(theme.pop);
-        drag_pill(
-            self.offset,
-            mark,
-            pill_label(self.name.clone()),
-            None,
-            1,
-            theme,
-        )
+    #[test]
+    fn a_dragged_card_goes_where_its_heading_would_be_nearest_the_pointer() {
+        let (a, b) = (ProjectId::from("a"), ProjectId::from("b"));
+        let c = ProjectId::from("c");
+        // Without b, a's card starts at 0, c's at 120 and the end at 180, the gap after each 20
+        // with the cards' edges, so the middles of their headings are 20, 140 and 200 down.
+        let listed = [(&a, 100.), (&b, 400.), (&c, 40.)];
+        let goes = |depth| nearest_slot(&listed, &b, depth);
+        assert!(
+            goes(-50.) == CardSlot::Before(a.clone()),
+            "above the cards, it goes first"
+        );
+        assert!(
+            goes(79.) == CardSlot::Before(a.clone()),
+            "nearer a's heading than c's"
+        );
+        assert!(
+            goes(81.) == CardSlot::Before(c.clone()),
+            "past halfway to c's"
+        );
+        assert!(
+            goes(169.) == CardSlot::Before(c.clone()),
+            "nearer c's heading than the end"
+        );
+        assert!(
+            goes(171.) == CardSlot::End,
+            "past halfway to the end, it goes last"
+        );
+    }
+
+    #[test]
+    fn where_a_dragged_card_shows_never_changes_where_it_goes() {
+        let (a, b) = (ProjectId::from("a"), ProjectId::from("b"));
+        let c = ProjectId::from("c");
+        let orders = [
+            [(&b, 400.), (&a, 100.), (&c, 40.)],
+            [(&a, 100.), (&b, 400.), (&c, 40.)],
+            [(&a, 100.), (&c, 40.), (&b, 400.)],
+        ];
+        for depth in (-40..400).map(|d| d as f32) {
+            let went: Vec<CardSlot> = (orders.iter())
+                .map(|listed| nearest_slot(listed, &b, depth))
+                .collect();
+            assert!(
+                went.windows(2).all(|pair| pair.first() == pair.last()),
+                "only the other cards set the places, so showing b in one never moves it on"
+            );
+        }
+    }
+
+    #[test]
+    fn cards_run_from_their_heading_to_the_gap_before_the_next() {
+        let (a, b) = (ProjectId::from("a"), ProjectId::from("b"));
+        let rows = [
+            Row::Item(Selection::Project(a.clone())),
+            Row::Item(Selection::Uncommitted(a.clone())),
+            Row::Item(Selection::History(a.clone())),
+            Row::Gap,
+            Row::Item(Selection::Project(b.clone())),
+        ];
+        assert!(
+            cards(&rows) == vec![(&a, 0..3), (&b, 4..5)],
+            "the gap belongs to neither card"
+        );
     }
 }
