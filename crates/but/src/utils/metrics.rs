@@ -579,6 +579,44 @@ fn external_subcommand_metric_value(command_name: &std::ffi::OsStr) -> String {
         .collect()
 }
 
+/// Add `checkoutKind` and `workspaceMode` to `event` for the checkout at `current_dir`, as the
+/// command left it; a prop is absent when it can't be read, for example outside a repository.
+///
+/// This runs in the spun-off `but metrics` process and only reads refs, so it takes no
+/// worktree lock. A linked worktree reports the mode of the main worktree, which owns it.
+pub fn add_checkout_context(event: &mut Event, current_dir: &Path) {
+    let Ok(repo) = gix::discover(current_dir) else {
+        return;
+    };
+    if repo.workdir().is_none() {
+        return;
+    }
+    let is_linked = repo.git_dir() != repo.common_dir();
+    let checkout_kind = match (is_linked, repo.head_name()) {
+        (false, _) => "main",
+        (true, Ok(Some(_))) => "linkedWorktree",
+        (true, Ok(None)) => "detachedWorktree",
+        (true, Err(_)) => return,
+    };
+    event.insert_prop("checkoutKind", checkout_kind);
+    let Ok(main_head) = repo.main_repo().and_then(|main| main.head_name()) else {
+        return;
+    };
+    // Edit mode, entered by `but resolve`, is only reachable from the workspace.
+    let in_workspace = main_head.is_some_and(|name| {
+        but_core::is_workspace_ref_name(name.as_ref())
+            || name.as_bstr() == "refs/heads/gitbutler/edit"
+    });
+    event.insert_prop(
+        "workspaceMode",
+        if in_workspace {
+            "workspace"
+        } else {
+            "singleBranch"
+        },
+    );
+}
+
 /// Add lane and branch counts to `event`, read from the managed workspace at `current_dir`;
 /// on failure the props are simply absent.
 ///

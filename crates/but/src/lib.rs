@@ -649,6 +649,7 @@ async fn dispatch_subcommand(
             let props = utils::metrics::prepare_transport_props(&props)?;
             let mut event = utils::metrics::Event::new(command_name.into());
             props.update_event(&mut event);
+            utils::metrics::add_checkout_context(&mut event, &args.current_dir);
             if matches!(
                 command_name,
                 args::metrics::CommandName::Commit | args::metrics::CommandName::CommitEmpty

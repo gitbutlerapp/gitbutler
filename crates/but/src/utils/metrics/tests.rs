@@ -642,6 +642,73 @@ fn workspace_shape_counts_lanes_and_stacked_branches() {
 }
 
 #[test]
+fn checkout_context_names_the_checkout_kind_and_workspace_mode() {
+    let sandbox =
+        but_testsupport::Sandbox::open_with_default_settings("one-stack-three-dependent-branches");
+    // Worktrees made after the sandbox copy, as copied ones point back into the fixture.
+    sandbox.invoke_bash(
+        "git worktree add -q .git/gitbutler/test-worktrees/linked A
+         git worktree add -q --detach .git/gitbutler/test-worktrees/detached B",
+    );
+    let main = sandbox.projects_root().to_owned();
+    let worktrees = main.join(".git/gitbutler/test-worktrees");
+    let context = |dir: &Path| {
+        let mut event = Event::new(EventKind::Cli(CommandName::Status));
+        add_checkout_context(&mut event, dir);
+        (
+            event.props.get("checkoutKind").cloned(),
+            event.props.get("workspaceMode").cloned(),
+        )
+    };
+    let props = |checkout: &str, mode: &str| {
+        (
+            Some(serde_json::json!(checkout)),
+            Some(serde_json::json!(mode)),
+        )
+    };
+
+    assert_eq!(context(&main), props("main", "workspace"));
+    assert_eq!(
+        context(&worktrees.join("linked")),
+        props("linkedWorktree", "workspace"),
+        "a linked worktree reports the main worktree's mode, not its own branch"
+    );
+    assert_eq!(
+        context(&worktrees.join("detached")),
+        props("detachedWorktree", "workspace")
+    );
+
+    sandbox.invoke_bash("git symbolic-ref HEAD refs/heads/gitbutler/edit");
+    assert_eq!(
+        context(&main),
+        props("main", "workspace"),
+        "edit mode is part of the workspace"
+    );
+
+    sandbox.invoke_bash(
+        "git symbolic-ref HEAD refs/heads/gitbutler/workspace
+         git checkout -q main",
+    );
+    assert_eq!(
+        context(&worktrees.join("linked")),
+        props("linkedWorktree", "singleBranch")
+    );
+
+    let outside = tempfile::tempdir().expect("tempdir");
+    assert_eq!(
+        context(outside.path()),
+        (None, None),
+        "outside a repository nothing is known"
+    );
+    gix::init_bare(outside.path().join("bare.git")).expect("init bare repo");
+    assert_eq!(
+        context(&outside.path().join("bare.git")),
+        (None, None),
+        "a bare repository has no checkout"
+    );
+}
+
+#[test]
 fn status_events_include_one_percent_sampling_rate() {
     let props = sample_props(Props::new(), CommandName::Status, false, 0.005)
         .expect("draw below the rate should capture");
