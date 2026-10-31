@@ -11,7 +11,8 @@
 //! key cmd-shift-n         # a keystroke, as in key bindings
 //! type hello world        # text, one keystroke per character
 //! move 120 300            # window coordinates in logical pixels; with the button held
-//!                         # after `press` or `drag … hold`, a drag's move
+//!                         # after `press` or `drag … hold`, a drag's move; append `cmd`,
+//!                         # `alt` or `shift` to hold them
 //! click 120 300           # also dclick and tclick; append `cmd`, `alt` or `shift` to
 //!                         # hold them
 //! rclick 120 300
@@ -353,7 +354,7 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
         "move" => {
             let at = at()?;
             let pressed = PRESSED.load(Ordering::Relaxed).then_some(MouseButton::Left);
-            window.dispatch_event(mouse_move(at, pressed, Modifiers::default()), cx);
+            window.dispatch_event(mouse_move(at, pressed, modifiers), cx);
         }
         "press" => {
             let at = at()?;
