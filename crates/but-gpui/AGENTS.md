@@ -139,6 +139,10 @@ unseen is what a laptop's battery pays for.
   passes Escape on.
 - `list` clips to its own bounds, not to each row, so a line drawn on a row boundary is painted
   over by the next row. Wrap it in `deferred()`.
+- GPUI cuts something drawn later (`deferred`, `window.defer_draw`) to its mask only as it
+  paints it, not as it prepaints it, so something drawn later inside that takes the whole
+  window's: it's drawn, and takes the pointer, past the list it's in. `ui::fold::on_top` passes
+  its mask on, so nest that.
 - `svg()` draws in one colour and doesn't inherit the text colour, so set one. `img` keeps an
   SVG's colours but loads asynchronously, and an image that arrives late never repaints a
   cached view. Release image textures with `cx.drop_image`. `img` plays an image with

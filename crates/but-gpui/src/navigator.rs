@@ -4,6 +4,7 @@
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::f32::consts::PI;
+use std::ops::Range;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -61,16 +62,23 @@ mod rename;
 mod rows;
 
 use drop::insertion_line;
-use order::{CardSlot, ProjectDrag};
+use order::{CardSlot, ProjectDrag, cards};
 use rows::{
-    COMMIT_INDENT, Drawer, Fold, GUIDE_AT, Moving, ROW_LEFT, Row, RowKey, Rows, in_checkout,
-    in_inactive, inactive_open, last_active, row_keys,
+    CARD_PADDING, COMMIT_INDENT, Drawer, Fold, GUIDE_AT, HEADING_HEIGHT, Moving, ROW_LEFT, Row,
+    RowKey, Rows, in_checkout, in_inactive, inactive_open, last_active, row_keys, span_height,
 };
 
 const BRANCH_ROW: &str = "branch-row";
 
 /// How far the cards sit in from the list's sides.
 const CARD_MARGIN: f32 = 10.;
+
+/// How far below its top the list lays out its first row.
+const LIST_TOP: f32 = 2.;
+
+/// How many rows above the last one the list drew last frame draws the rows sliding into view
+/// from past its bottom, so it's drawn though the rows moved since.
+const ABOVE_LAST_LISTED: usize = 2;
 
 /// How tall the drawer's handle is, level with the commit footer beside it, and the space
 /// under its rows.
@@ -425,8 +433,14 @@ pub struct Navigator {
     held_order: Option<Vec<ProjectId>>,
     /// The project whose watch button the pointer is on, which shows what a click makes it.
     watch_hovered: Option<ProjectId>,
-    /// Where a dragged project card would go, while one is over a card's heading.
-    project_drop: Option<CardSlot>,
+    /// The card dragged by its heading and where letting go puts it, which the cards show it
+    /// at, while the pointer is over the navigator.
+    project_drag: Option<(ProjectId, CardSlot)>,
+    /// The rows of that card as last drawn, which show it held.
+    held_card: Option<Range<usize>>,
+    /// While rows slide, the first row the list draws and one near its last, which draw the
+    /// rows sliding into view from past its top and its bottom (see [`Self::render_row`]).
+    slide_edges: Option<(usize, usize)>,
     /// The row under the pointer holds still through the next change to the rows: one a
     /// workspace's load made, as an agent's commit, or a branch's "Show fewer" folding what's
     /// above it, which would leave the list scrolled past the fold. What else the user folds
@@ -573,7 +587,9 @@ impl Navigator {
             detail_shown: Cell::new(1.),
             held_order: None,
             watch_hovered: None,
-            project_drop: None,
+            project_drag: None,
+            held_card: None,
+            slide_edges: None,
             hold_still: false,
             edge_scroll: 0.,
             edge_scrolling: None,
@@ -1243,7 +1259,7 @@ impl Navigator {
         // added above the first one count as added above the top, which would leave it
         // scrolled to their end, as the drawer's rows are when it opens.
         let drawer_at_top = at_top(&self.drawer_list);
-        if splice(&self.drawer_list, &self.drawer.rows, &drawer.rows, 0) {
+        if splice(&self.drawer_list, &self.drawer.rows, &drawer.rows, 0).is_some() {
             self.drawer_list.clone().with_uniform_item_height(row);
             if drawer_at_top {
                 self.drawer_list.scroll_to(ListOffset::default());
@@ -1273,9 +1289,23 @@ impl Navigator {
             // Below the hovered row first, so the indexes above it still hold.
             Some(((old_above, old_below), (new_above, new_below))) => {
                 let below = splice(&self.list, old_below, new_below, old_above.len());
-                splice(&self.list, old_above, new_above, 0) || below
+                splice(&self.list, old_above, new_above, 0).is_some() || below.is_some()
             }
-            None => splice(&self.list, &self.rows, &rows, 0),
+            None => {
+                let top = self.list.logical_scroll_top();
+                let spliced = splice(&self.list, &self.rows, &rows, 0);
+                // Cards trading places, as one dragged by its heading does, leave the list
+                // where it is, rather than at the first row they moved, where a splice of the
+                // list's top would.
+                if let Some(old) = &spliced
+                    && old.contains(&top.item_ix)
+                    && cards_reordered(&self.rows, &rows)
+                {
+                    let theme = Theme::get(cx);
+                    (self.list).scroll_to(as_deep(&self.rows, &rows, old.start, top, theme));
+                }
+                spliced.is_some()
+            }
         };
         if at_top && changed {
             self.list.scroll_to(ListOffset::default());
@@ -1399,7 +1429,7 @@ impl Navigator {
             true => shifted(&old, &new),
             false => reordered(&old, &new),
         };
-        let top = |rows: &[Row], ix: usize| rows.iter().take(ix).map(Row::height).sum::<f32>();
+        let top = |rows: &[Row], ix: usize| span_height(rows, 0..ix);
         // A commit's own row is keyed apart while a move leaves it, as its copy takes its key,
         // but it's the same row: as the move leaves it, it comes out from under the copy, from
         // where the commit was, rather than showing up in place, and going back, where it's
@@ -1445,8 +1475,70 @@ impl Navigator {
             .map(|(ix, bounds)| (ix, bounds.top() - top))
     }
 
-    /// The row at `ix` of the list, drawn inside its card.
+    /// The row at `ix` of the list. The list draws only the rows laid out in view, so while
+    /// rows slide, those sliding into view from past its top or bottom are drawn by the first
+    /// row it draws and by one near its last ([`Self::slide_edges`]).
     fn render_row(&self, ix: usize, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let row = self.row_in_card(ix, window, cx);
+        let Some((first, below)) = self.slide_edges else {
+            return row;
+        };
+        let above = (ix == first).then(|| self.slid_in(ix, false, window, cx));
+        let below = (ix == below).then(|| self.slid_in(ix, true, window, cx));
+        if above.is_none() && below.is_none() {
+            return row;
+        }
+        (div().relative().child(row))
+            .children(above)
+            .children(below)
+            .into_any_element()
+    }
+
+    /// The rows after row `ix`, down or else up, that a slide may bring into view from where
+    /// the list draws none, stacked on from `ix`'s edge as the list lays them out, each drawn
+    /// only if the list doesn't draw it after all ([`fold::unlisted`]). Down, they start a few
+    /// rows above the list's last, to be sure `ix` is drawn, so they go that much further.
+    fn slid_in(&self, ix: usize, down: bool, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let reach = self.reorder.furthest()
+            + match down {
+                true => (ABOVE_LAST_LISTED + 3) as f32 * ROW_HEIGHT,
+                false => 0.,
+            };
+        let height = |ix: usize| self.rows.get(ix).map_or(0., Row::height);
+        let mut far = 0.;
+        let rows = match down {
+            true => {
+                let mut to = ix + 1;
+                while to < self.rows.len() && far < reach {
+                    far += height(to);
+                    to += 1;
+                }
+                ix + 1..to
+            }
+            false => {
+                let mut from = ix;
+                while from > 0 && far < reach {
+                    from -= 1;
+                    far += height(from);
+                }
+                from..ix
+            }
+        };
+        let inset = Theme::get(cx).scaled(LIST_TOP);
+        let rows = rows.map(|ix| {
+            let row = self.row_in_card(ix, window, cx);
+            fold::unlisted(self.list.clone(), inset, ix, row)
+        });
+        let stack = v_flex().absolute().left_0().right_0().children(rows);
+        on_top(match down {
+            true => stack.top(relative(1.)),
+            false => stack.bottom(relative(1.)),
+        })
+        .into_any_element()
+    }
+
+    /// The row at `ix` of the list, drawn inside its card.
+    fn row_in_card(&self, ix: usize, window: &Window, cx: &Context<Self>) -> AnyElement {
         let theme = Theme::get(cx);
         let inset = self.insets.get(ix).copied().unwrap_or_default();
         // A row a fold is moving shows as far as the fold's open: inside its card, so the
@@ -1593,15 +1685,11 @@ impl Navigator {
         // A guide for each row it's under, joining those of the rows above and below into
         // one line, as but.dev's sidebar draws them.
         let guides = || (self.guides.get(ix).into_iter().flatten()).map(|at| guide(*at, theme));
-        // A watched project's card takes a dragged project card before it.
-        let slot = match self.rows.get(ix) {
-            _ if self.store.read(cx).prefs.watched_order != WatchedOrder::Manual => None,
-            Some(Row::Item(Selection::Project(id)))
-                if self.store.read(cx).project(id).is_some_and(|p| p.expanded) =>
-            {
-                Some(CardSlot::Before(id.clone()))
-            }
-            _ => None,
+        // The card dragged by its heading is edged as what's moving is where it would land.
+        let held = (self.held_card.as_ref()).is_some_and(|card| card.contains(&ix));
+        let edge = match held {
+            true => theme.pop,
+            false => theme.border_3,
         };
         // How far row `ix` is drawn from where it's laid out: as far as a reorder slid it, but
         // not while a fold moves it, which draws it as far as the fold's open.
@@ -1611,25 +1699,31 @@ impl Navigator {
                 .map_or(0., |key| self.reorder.offset(key)),
         };
         // A row slides with its slice of the card, so the card's edges follow its rows. Its
-        // slice also stretches over the room between it and where it's laid out, and down to
-        // the next row of its card where that's drawn further down, so the card holds together
-        // as they slide, even where the list doesn't draw the row that would cover it, past
-        // its top or bottom. While rows slide, what's in every row is drawn over all that, so
-        // no stretch covers it, on the card's ground so the rows it passes don't show through,
+        // slice also stretches over the room between it and where it's laid out, as far as its
+        // card goes, and down to the next row of its card where that's drawn further down, so
+        // the card holds together as they slide, even where the list doesn't draw the row that
+        // would cover it, past its top or bottom, and never covers the card beside it as cards
+        // trade places. While rows slide, what's in every row is drawn over all that, so no
+        // stretch covers it, on the card's ground so the rows it passes don't show through,
         // the copies of commits being moved over the rest, inside the list.
         let slid = slid_at(ix);
         let below = match last {
             true => 0.,
-            false => (slid_at(ix + 1) - slid).max(-slid).max(0.),
+            false => {
+                let room = card_beyond(&self.rows, ix, true, -slid);
+                (slid_at(ix + 1) - slid).max(room).max(0.)
+            }
         };
         let above = match first {
             true => 0.,
-            false => slid.max(0.),
+            false => card_beyond(&self.rows, ix, false, slid).max(0.),
         };
-        // The copies of what's moving go over everything, and the selected row, which moves,
-        // over the rows it passes.
+        // What's in the card being dragged goes over everything, as it goes over the cards it
+        // passes (see below), the copies of what's moving over the rest, and the selected row,
+        // which moves, over the rows it passes.
         let selection = self.store.read(cx).selection.as_ref();
         let over_rank = match self.rows.get(ix) {
+            _ if held => 3,
             Some(Row::Ghost(..) | Row::GhostBranch(_)) => 2,
             Some(Row::Item(item)) if selection == Some(item) => 1,
             _ => 0,
@@ -1654,11 +1748,15 @@ impl Navigator {
         let card = div()
             .relative()
             .bg(theme.bg_1)
-            .border_color(theme.border_3)
+            .border_color(edge)
             .border_l_1()
             .border_r_1()
-            .when(first, |el| el.border_t_1().rounded_t(dp(6.)).pt(dp(3.)))
-            .when(last, |el| el.border_b_1().rounded_b(dp(6.)).pb(dp(3.)))
+            .when(first, |el| {
+                el.border_t_1().rounded_t(dp(6.)).pt(dp(CARD_PADDING))
+            })
+            .when(last, |el| {
+                el.border_b_1().rounded_b(dp(6.)).pb(dp(CARD_PADDING))
+            })
             .map(|card| match folding {
                 Some((height, closing)) => card.child(clipped(
                     div().relative().child(el).children(guides()),
@@ -1666,7 +1764,11 @@ impl Navigator {
                     closing,
                 )),
                 None if self.reorder.any() => {
-                    let over = div().relative().bg(theme.bg_1).child(el);
+                    // Rounded at a card's ends, inside its corners, which square it'd cover a
+                    // sliver of until the rows stop.
+                    let over = (div().relative().bg(theme.bg_1).child(el))
+                        .when(first, |el| el.rounded_t(dp(2.)))
+                        .when(last, |el| el.rounded_b(dp(2.)));
                     let over = on_top(over.children(guides())).priority(over_rank);
                     card.children(guides()).child(over)
                 }
@@ -1679,7 +1781,7 @@ impl Navigator {
                 .right(dp(CARD_MARGIN))
                 .h(dp(height))
                 .bg(theme.bg_1)
-                .border_color(theme.border_3)
+                .border_color(edge)
                 .border_l_1()
                 .border_r_1()
                 .children(guides())
@@ -1694,17 +1796,13 @@ impl Navigator {
             .child(card)
             .children(below)
             .children(above)
-            .children(stand_in)
-            .when_some(slot.filter(|_| first), |el, slot| {
-                let lit = self.project_drop.as_ref() == Some(&slot);
-                el.child(self.card_drop(slot, cx))
-                    // In the middle of the gap between the cards; over the first card's top
-                    // edge, which has no gap above it in the list.
-                    .when(lit, |el| {
-                        let line = insertion_line(true, theme.pop).right(dp(10.));
-                        el.child(line.when(ix > 0, |line| line.top(dp(-6.))))
-                    })
-            });
+            .children(stand_in);
+        // The card being dragged goes over the cards it passes as they trade places, edges and
+        // all, so it never runs into them, and what's in its rows over its slices.
+        let row = match held && self.reorder.any() {
+            true => on_top(row).priority(2).into_any_element(),
+            false => row.into_any_element(),
+        };
         // The list lays out the row it's given where it goes, so what slides is inside it.
         div().child(row).into_any_element()
     }
@@ -1848,9 +1946,6 @@ impl Navigator {
         )
         .size_full();
         let scroll = Scroll::List(self.drawer_list.clone());
-        let manual = self.store.read(cx).prefs.watched_order == WatchedOrder::Manual;
-        let slot = (manual && !alone).then_some(CardSlot::End);
-        let lit = slot.is_some() && self.project_drop == slot;
         let share = (self.store.read(cx).prefs.drawer_share).unwrap_or(DRAWER_SHARE);
         // Each of its rows is one row tall. Opening or closing, it's as tall as it's open.
         let rows_height = match self.drawer.rows.len() {
@@ -1880,11 +1975,6 @@ impl Navigator {
                     .children(scrollbar("drawer-scrollbar", scroll, theme))
                     .map(|el| inert(el, closing)),
             )
-            // After the cards, a dragged card goes last.
-            .when_some(slot, |el, slot| el.child(self.card_drop(slot, cx)))
-            .when(lit, |el| {
-                el.child(insertion_line(true, theme.pop).right(dp(10.)).top(dp(-6.)))
-            })
             .when(!alone && rows_height > 0., |el| {
                 el.child(self.drawer_resize_handle(theme, cx))
             })
@@ -2089,7 +2179,7 @@ impl Navigator {
                 .row(format!("project-{id}"), 0.)
                 .aria_label(entry.project.name.clone())
                 .aria_expanded(expanded)
-                .h(dp(if expanded { 32. } else { ROW_HEIGHT }))
+                .h(dp(if expanded { HEADING_HEIGHT } else { ROW_HEIGHT }))
                 .pl(dp(11.))
                 // The eye over the chevrons of the rows below and the emoji, 5 points on,
                 // over their icons, so the name sits over theirs.
@@ -2234,7 +2324,7 @@ impl Navigator {
                     })
                 })
                 // Only the manual order moves by hand.
-                .when(expanded && manual, |el| self.reorderable(el, id, entry, cx))
+                .when(expanded && manual, |el| self.reorderable(el, id, cx))
                 .into_any_element(),
         )
     }
@@ -3104,8 +3194,8 @@ fn note_row(text: &SharedString, is_error: bool, theme: &Theme) -> AnyElement {
 }
 
 /// Tell `list` its rows from `at` changed from `old` to `new`: the ones between what both
-/// start and end with, which it measures again. Whether any did.
-fn splice(list: &ListState, old: &[Row], new: &[Row], at: usize) -> bool {
+/// start and end with, which it measures again. The rows of `old` they were, if any changed.
+fn splice(list: &ListState, old: &[Row], new: &[Row], at: usize) -> Option<Range<usize>> {
     let head = old.iter().zip(new).take_while(|(a, b)| a == b).count();
     let (old, new) = (
         old.get(head..).unwrap_or_default(),
@@ -3115,10 +3205,66 @@ fn splice(list: &ListState, old: &[Row], new: &[Row], at: usize) -> bool {
         .take_while(|(a, b)| a == b)
         .count();
     let changed = old.len() > tail || new.len() > tail;
-    if changed {
-        list.splice(at + head..at + head + old.len() - tail, new.len() - tail);
+    let spliced = at + head..at + head + old.len() - tail;
+    changed.then(|| {
+        list.splice(spliced.clone(), new.len() - tail);
+        spliced
+    })
+}
+
+/// How far the rest of row `ix`'s card goes on from it, down or else up, up to `room`, short of
+/// the card's last or first row: a stretch over those would show its square corners outside
+/// their round ones, which they're drawn with anyway, by the list or by [`Navigator::slid_in`].
+fn card_beyond(rows: &[Row], ix: usize, down: bool, room: f32) -> f32 {
+    let (before, after) = rows.split_at(ix.min(rows.len()));
+    let far = |rest: &mut dyn Iterator<Item = &Row>| {
+        let mut rest = rest.take_while(|row| !matches!(row, Row::Gap)).peekable();
+        let mut far = 0.;
+        while let Some(row) = rest.next() {
+            if far >= room || rest.peek().is_none() {
+                break;
+            }
+            far += row.height();
+        }
+        f32::min(far, room)
+    };
+    match down {
+        true => far(&mut after.iter().skip(1)),
+        false => far(&mut before.iter().rev()),
     }
-    changed
+}
+
+/// Whether `old` and `new` list the same cards, in another order.
+fn cards_reordered(old: &[Row], new: &[Row]) -> bool {
+    let ids = |rows| {
+        cards(rows)
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect::<Vec<_>>()
+    };
+    let (old, new) = (ids(old), ids(new));
+    old != new && old.len() == new.len() && old.iter().all(|id| new.contains(id))
+}
+
+/// Where the list's `top` in `old` goes in `new`, their rows the same up to `from`: as far
+/// down past `from`, as the rows count their heights ([`span_height`]).
+fn as_deep(old: &[Row], new: &[Row], from: usize, top: ListOffset, theme: &Theme) -> ListOffset {
+    let depth = span_height(old, from..top.item_ix) + f32::from(top.offset_in_item) / theme.scale;
+    let mut above = 0.;
+    for (ix, row) in new.iter().enumerate().skip(from) {
+        let height = row.height();
+        if above + height > depth {
+            return ListOffset {
+                item_ix: ix,
+                offset_in_item: theme.scaled(depth - above),
+            };
+        }
+        above += height;
+    }
+    ListOffset {
+        item_ix: new.len(),
+        offset_in_item: Pixels::ZERO,
+    }
 }
 
 /// Whether `list` shows its first row from its top.
@@ -3347,7 +3493,18 @@ impl Render for Navigator {
         self.insets = insets;
         self.guides = guides;
         self.moving = moving;
+        // As the list drew it, before the rows change, which a reorder doesn't do by much.
+        let inset = Theme::get(cx).scaled(LIST_TOP);
+        let last_listed = (self.list.logical_scroll_top().item_ix..self.rows.len())
+            .take_while(|ix| fold::listed(&self.list, inset, *ix))
+            .last();
         self.sync_list(rows, drawer, window, cx);
+        self.held_card = self.held_card();
+        self.slide_edges = self.reorder.any().then(|| {
+            let first = self.list.logical_scroll_top().item_ix;
+            let below = last_listed.map_or(first, |last| last.saturating_sub(ABOVE_LAST_LISTED));
+            (first, below.max(first))
+        });
         self.fit_folds(cx);
         // After the rows are up to date, as a reorder of them starts sliding there, and nothing
         // else may draw the next frame.
@@ -3437,6 +3594,8 @@ impl Render for Navigator {
                 false => "Navigator",
             })
             .on_drag_move(cx.listener(Self::resize_drawer))
+            .on_drag_move(cx.listener(Self::follow_project_drag))
+            .on_drop(cx.listener(Self::drop_project))
             .track_focus(&self.focus)
             .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
                 this.pointer_over = *hovered;
@@ -3514,7 +3673,7 @@ impl Render for Navigator {
                         cx.processor(|this, ix: usize, window, cx| this.render_row(ix, window, cx)),
                     )
                     .size_full()
-                    .pt(dp(2.))
+                    .pt(dp(LIST_TOP))
                     .pb(dp(12.));
                     let scroll = Scroll::List(self.list.clone());
                     el.child(

@@ -13,9 +13,9 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnimationExt as _, AnyElement, App, Bounds, Div, Element, ElementId, GlobalElementId, Hsla,
-    InspectorElementId, LayoutId, Length, Pixels, SpringAnimationElement, Style, Svg,
-    Transformation, Window, div, prelude::*, radians,
+    AnimationExt as _, AnyElement, App, Bounds, ContentMask, Div, Element, ElementId,
+    GlobalElementId, Hsla, InspectorElementId, LayoutId, Length, ListState, Pixels,
+    SpringAnimationElement, Style, Svg, Transformation, Window, div, prelude::*, radians,
 };
 
 use super::{Icon, fixed, small_icon, switch_spring};
@@ -353,16 +353,25 @@ pub fn inert(el: Div, closing: bool) -> Div {
 
 /// `child` drawn over what's drawn after it, as `gpui::deferred` draws it, but cut to what
 /// clips it where it's laid out, as a list clips its rows: a row sliding over the rows it passes
-/// stays inside its list. Those with a higher [`OnTop::priority`] are drawn over the rest.
+/// stays inside its list. Those with a higher [`OnTop::priority`] are drawn over the rest, and
+/// one inside another is cut to the same.
 pub fn on_top(child: impl IntoElement) -> OnTop {
+    let mask = Rc::new(Cell::new(None));
+    let child = Masked {
+        child: child.into_any_element(),
+        mask: mask.clone(),
+    };
     OnTop {
         child: Some(child.into_any_element()),
+        mask,
         priority: 0,
     }
 }
 
 pub struct OnTop {
     child: Option<AnyElement>,
+    /// What clips it where it's laid out, for its child once it's drawn on top.
+    mask: Rc<Cell<Option<ContentMask<Pixels>>>>,
     priority: usize,
 }
 
@@ -410,6 +419,7 @@ impl Element for OnTop {
     ) {
         if let Some(child) = self.child.take() {
             let (offset, mask) = (window.element_offset(), window.content_mask());
+            self.mask.set(Some(mask));
             window.defer_draw(child, offset, self.priority, Some(mask));
         }
     }
@@ -428,6 +438,162 @@ impl Element for OnTop {
 }
 
 impl IntoElement for OnTop {
+    type Element = Self;
+
+    fn into_element(self) -> Self::Element {
+        self
+    }
+}
+
+/// What [`OnTop`] draws, cut to `mask` as it's prepainted too. GPUI cuts what's drawn later only
+/// as it paints it, so something on top inside it would otherwise be cut to the whole window,
+/// and drawn, and take the pointer, past the list it's in.
+struct Masked {
+    child: AnyElement,
+    mask: Rc<Cell<Option<ContentMask<Pixels>>>>,
+}
+
+impl Element for Masked {
+    type RequestLayoutState = ();
+    type PrepaintState = ();
+
+    fn id(&self) -> Option<ElementId> {
+        None
+    }
+
+    fn source_location(&self) -> Option<&'static core::panic::Location<'static>> {
+        None
+    }
+
+    fn request_layout(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> (LayoutId, ()) {
+        (self.child.request_layout(window, cx), ())
+    }
+
+    fn prepaint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        let child = &mut self.child;
+        window.with_content_mask(self.mask.get(), |window| child.prepaint(window, cx));
+    }
+
+    fn paint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        self.child.paint(window, cx);
+    }
+}
+
+impl IntoElement for Masked {
+    type Element = Self;
+
+    fn into_element(self) -> Self::Element {
+        self
+    }
+}
+
+/// Whether `list`, its rows laid out `inset` below its top, draws row `ix`, as it was last laid
+/// out: it draws those from the one at its top down to the last that starts above its bottom,
+/// and only measures those past them.
+pub fn listed(list: &ListState, inset: Pixels, ix: usize) -> bool {
+    let view = list.viewport_bounds();
+    (list.bounds_for_item(ix)).is_some_and(|row| row.top() + inset < view.bottom())
+}
+
+/// `row`, row `ix` of `list`, drawn only if the list doesn't draw it itself ([`listed`]): so a
+/// row sliding into view from past the list's top or bottom, where the list draws none, is
+/// drawn by one it does. It asks once the list has laid out the frame, so it goes inside
+/// something drawn after the list, as [`on_top`] is.
+pub fn unlisted(list: ListState, inset: Pixels, ix: usize, row: impl IntoElement) -> Unlisted {
+    Unlisted {
+        list,
+        inset,
+        ix,
+        row: row.into_any_element(),
+    }
+}
+
+pub struct Unlisted {
+    list: ListState,
+    inset: Pixels,
+    ix: usize,
+    row: AnyElement,
+}
+
+impl Element for Unlisted {
+    type RequestLayoutState = ();
+    /// Whether the row is drawn here.
+    type PrepaintState = bool;
+
+    fn id(&self) -> Option<ElementId> {
+        None
+    }
+
+    fn source_location(&self) -> Option<&'static core::panic::Location<'static>> {
+        None
+    }
+
+    fn request_layout(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> (LayoutId, ()) {
+        (self.row.request_layout(window, cx), ())
+    }
+
+    fn prepaint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) -> bool {
+        let here = !listed(&self.list, self.inset, self.ix);
+        if here {
+            self.row.prepaint(window, cx);
+        }
+        here
+    }
+
+    fn paint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        here: &mut bool,
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        if *here {
+            self.row.paint(window, cx);
+        }
+    }
+}
+
+impl IntoElement for Unlisted {
     type Element = Self;
 
     fn into_element(self) -> Self::Element {
@@ -549,6 +715,12 @@ impl<K: Eq + Hash + Clone> Reorder<K> {
     /// Whether any row slides.
     pub fn any(&self) -> bool {
         !self.from.is_empty()
+    }
+
+    /// How far the row drawn furthest from where it's laid out is, in this frame.
+    pub fn furthest(&self) -> f32 {
+        let left = 1. - openness(true, self.since, self.now);
+        (self.from.values()).fold(0., |far, by| f32::max(far, by.abs())) * left
     }
 
     /// Go on to the frame being drawn, letting the rows that got there rest. While
