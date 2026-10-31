@@ -59,13 +59,18 @@ impl BadInput {
     }
 }
 
-/// The hint for a remote-tracking `target_ref` that no local branch tracks.
-pub(crate) fn track_remote_target_hint(target_ref: impl Display) -> String {
-    format!(
-        "Make a local branch track {target_ref} with \
-        `git branch --set-upstream-to={target_ref} <branch>`, \
-        or choose a local target branch with `but config target <branch>`"
-    )
+/// The hint for a remote-tracking target that no local branch tracks.
+pub(crate) fn track_remote_target_hint(
+    unresolved: &but_core::ref_metadata::UnresolvedLegacyTargetRefError,
+) -> String {
+    match &unresolved.track_command {
+        Some(command) => format!(
+            "Make a local branch track {} with `{command}`, \
+            or choose a local target branch with `but config target <branch>`",
+            unresolved.target_ref.shorten()
+        ),
+        None => "Choose a local target branch with `but config target <branch>`".to_owned(),
+    }
 }
 
 /// Convenience wrapper around [`BadInput::new`].
@@ -160,7 +165,7 @@ where
                         "GitButler now requires the target to be a local branch, \
                         but no local branch tracks your current target, {target_ref}"
                     ),
-                    track_remote_target_hint(target_ref),
+                    track_remote_target_hint(unresolved),
                 ),
                 UnresolvedLegacyTargetReason::MultipleTrackingBranches => (
                     format!("Multiple local branches track {target_ref}"),

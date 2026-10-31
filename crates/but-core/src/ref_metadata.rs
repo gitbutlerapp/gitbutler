@@ -1123,28 +1123,39 @@ pub fn resolve_local_target(
         bail!("target ref '{target_ref}' must be a local or remote-tracking branch");
     }
     let short_name = target_ref.shorten();
-    let (err, reason, message) = match find_local_tracking_branch(target_ref, repo)? {
+    let (err, reason, track_command, message) = match find_local_tracking_branch(target_ref, repo)?
+    {
         LocalTrackingBranchMatch::Unique(name) => return Ok(name),
-        LocalTrackingBranchMatch::None => (
-            anyhow::format_err!(
-                "no local branch tracks {target_ref}; choose a local target branch"
-            ),
-            UnresolvedLegacyTargetReason::NoTrackingBranch,
+        LocalTrackingBranchMatch::None => {
+            let track_command = track_target_command(target_ref, repo);
             // Making a branch track the legacy target keeps pulls coming from it, while choosing
             // a branch that tracks something else changes where pulls come from.
-            format!(
-                "GitButler now requires the target to be a local branch, but no local branch \
-                tracks your current target, {short_name}. Make one track it with \
-                `git branch --set-upstream-to={short_name} <branch>` to keep pulling from \
-                {short_name}, or choose a local target branch."
-            ),
-        ),
+            let suggestion = match &track_command {
+                Some(command) => format!(
+                    "Make one track it with `{command}` to keep pulling from {short_name}, \
+                    or choose a local target branch."
+                ),
+                None => "Choose a local target branch.".to_owned(),
+            };
+            (
+                anyhow::format_err!(
+                    "no local branch tracks {target_ref}; choose a local target branch"
+                ),
+                UnresolvedLegacyTargetReason::NoTrackingBranch,
+                track_command,
+                format!(
+                    "GitButler now requires the target to be a local branch, but no local branch \
+                    tracks your current target, {short_name}. {suggestion}"
+                ),
+            )
+        }
         LocalTrackingBranchMatch::Ambiguous { first, second } => (
             anyhow::format_err!(
                 "multiple local branches track {target_ref}: \
                     {first} and {second}; choose a local target branch"
             ),
             UnresolvedLegacyTargetReason::MultipleTrackingBranches,
+            None,
             format!(
                 "GitButler now requires the target to be a local branch, but several local \
                 branches track your current target, {short_name}. Choose a local target branch."
@@ -1155,12 +1166,30 @@ pub fn resolve_local_target(
         .context(UnresolvedLegacyTargetRefError {
             target_ref: target_ref.to_owned(),
             reason,
+            track_command,
             target_commit_id: None,
             push_remote: None,
         })
         .context(
             but_error::Context::new(message).with_code(but_error::Code::UnresolvedLegacyTarget),
         ))
+}
+
+/// The `git branch` command that makes the local branch named as the remote-tracking `target_ref`,
+/// like main for origin/main, track it, creating that branch if it doesn't exist yet. It names
+/// that branch rather than leaving it open, as tracking the target makes a branch the target.
+/// `None` if `target_ref` doesn't exist, or no single remote fetches into it. Lookup errors also
+/// give `None`, so they can't replace the error that asks the user to choose a target.
+fn track_target_command(target_ref: &FullNameRef, repo: &gix::Repository) -> Option<String> {
+    repo.try_find_reference(target_ref).ok()??;
+    let (local_ref, _remote) = repo
+        .upstream_branch_and_remote_for_tracking_branch(target_ref)
+        .ok()??;
+    let (local, target) = (local_ref.shorten(), target_ref.shorten());
+    Some(match repo.try_find_reference(local_ref.as_ref()).ok()? {
+        Some(_) => format!("git branch --set-upstream-to={target} {local}"),
+        None => format!("git branch --track {local} {target}"),
+    })
 }
 
 /// Local branches configured to track a particular upstream ref.
@@ -1239,6 +1268,10 @@ pub struct UnresolvedLegacyTargetRefError {
     pub target_ref: gix::refs::FullName,
     /// Why [`Self::target_ref`] doesn't identify a single local branch.
     pub reason: UnresolvedLegacyTargetReason,
+    /// With [`UnresolvedLegacyTargetReason::NoTrackingBranch`], the `git branch` command that
+    /// makes the local branch named as [`Self::target_ref`], like main for origin/main, track it.
+    /// `None` when no command can, like when the remote branch is gone too.
+    pub track_command: Option<String>,
     /// The cutoff stored with the legacy target.
     ///
     /// Only set when the legacy target was read from `virtual_branches.toml`, so porting can keep
