@@ -480,3 +480,146 @@ To undo this operation:
         "the local branch tracking the legacy target replaces it"
     );
 }
+
+// An older GitButler stored the target origin/main for a main pushed without `-u`, so nothing
+// tracks it. main is named as it and tracks nothing else, so it's made to track it.
+#[cfg(feature = "legacy")]
+#[test]
+fn migration_makes_untracked_branch_named_as_legacy_target_track_it() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.invoke_git("branch --unset-upstream main");
+    env.invoke_git("config gitbutler.project.targetRef refs/remotes/origin/main");
+    env.invoke_git("config gitbutler.project.portedMeta true");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref main@{upstream}"),
+        "origin/main",
+        "pulls go on coming from the legacy target"
+    );
+
+    env.invoke_git("branch --unset-upstream main");
+    env.but("status").assert().success();
+    assert_eq!(
+        env.invoke_git("config --default none branch.main.merge"),
+        "none",
+        "main replaced the legacy target once, so what the user sets it to track afterwards stays"
+    );
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn migration_creates_missing_branch_named_as_legacy_target() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.invoke_bash("git checkout -q -b feature && git branch -q -D main");
+    env.invoke_git("config gitbutler.project.targetRef refs/remotes/origin/main");
+    env.invoke_git("config gitbutler.project.portedMeta true");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ at [feature] [HEAD] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref main@{upstream}"),
+        "origin/main",
+        "main is created tracking the legacy target, as `git checkout main` would"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse main"),
+        env.invoke_git("rev-parse origin/main"),
+        "main starts where the legacy target is"
+    );
+}
+
+// main tracking a local branch has an upstream that no refspec maps, which is still an upstream.
+#[cfg(feature = "legacy")]
+#[test]
+fn migration_leaves_branch_tracking_a_local_branch_alone() {
+    // a legacy target a remote fetches, and one no remote fetches
+    for (setup, target) in [
+        ("true", "origin/main"),
+        (
+            "git config remote.gb-local.url . && git update-ref refs/remotes/gb-local/main main",
+            "gb-local/main",
+        ),
+    ] {
+        let env = Sandbox::open_with_default_settings("single-branch-mode");
+        env.invoke_bash(format!(
+            "{setup} && git branch -q trunk && git branch -q --set-upstream-to=trunk main"
+        ));
+        let target_ref = format!("refs/remotes/{target}");
+        env.invoke_git(&format!("config gitbutler.project.targetRef {target_ref}"));
+        env.invoke_git("config gitbutler.project.portedMeta true");
+
+        env.but("status")
+            .assert()
+            .failure()
+            .stderr_eq(snapbox::str![[r#"
+Error: GitButler now requires the target to be a local branch, but no local branch tracks your current target, [..]
+
+Hint: Make a local branch track [..] with `git branch --set-upstream-to=[..] <branch>`, or choose a local target branch with `but config target <branch>`
+
+"#]]);
+        assert_eq!(
+            env.invoke_git("rev-parse --abbrev-ref main@{upstream}"),
+            "trunk",
+            "{target}: pulls into main go on coming from where the user set"
+        );
+        assert_eq!(
+            env.invoke_git("config gitbutler.project.targetRef"),
+            target_ref,
+            "{target}: the legacy target stays for the user to choose"
+        );
+    }
+}
+
+// An older GitButler gave a repository without a remote a gb-local remote with only a URL, and
+// the target gb-local/main. That remote fetches nothing, so main becomes the target itself.
+#[cfg(feature = "legacy")]
+#[test]
+fn migration_of_gb_local_target_picks_branch_named_as_it() {
+    let env = Sandbox::open_with_default_settings("repo-no-remote");
+    env.invoke_bash(
+        "git config remote.gb-local.url . && git update-ref refs/remotes/gb-local/main main",
+    );
+    env.invoke_git("config gitbutler.project.targetRef refs/remotes/gb-local/main");
+    env.invoke_git("config gitbutler.project.pushRemote gb-local");
+    env.invoke_git("config gitbutler.project.portedMeta true");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 85efbe4 (common base, main, HEAD) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+    assert_eq!(
+        env.invoke_git("config gitbutler.project.targetRef"),
+        "refs/heads/main",
+        "the local branch replaces the legacy target"
+    );
+}
