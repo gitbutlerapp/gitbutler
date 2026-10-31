@@ -6,8 +6,8 @@ use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, Bounds, ClickEvent, Context, Div, Entity, FocusHandle, Focusable as _,
-    ListAlignment, ListOffset, ListState, MouseDownEvent, Pixels, Point, SharedString, Stateful,
-    Window, div, list, prelude::*,
+    ListAlignment, ListOffset, ListState, MouseDownEvent, Pixels, Point, Role, SharedString,
+    Stateful, Window, div, list, prelude::*,
 };
 
 use super::upstream::noon;
@@ -18,6 +18,7 @@ use crate::app::{
 use crate::backend::upstream::{self, ACTIVITY_DAYS};
 use crate::backend::{self, Checkout, CommitId, CommitState, FullName, PushState, short_ref};
 use crate::clock;
+use crate::edits::Reword;
 use crate::navigator::{SelectFirst, SelectLast};
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{ProjectId, Section, Selection};
@@ -31,7 +32,7 @@ use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     Button, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, WINDOW_CONTROLS_WIDTH,
     above_drag, age_column, button, commit_title, dp, empty_state, faint, field, fixed, fold_row,
-    h_flex, icon, icon_button, list_row, plural, pulsing, quiet, section_label, side_row,
+    h_flex, icon, icon_button, list_row, plural, pulsing, quiet, section_label, shortcut, side_row,
     small_icon, v_flex,
 };
 
@@ -531,7 +532,15 @@ impl Detail {
         };
         // A long title wraps rather than hiding its end, as it's shown nowhere else, and
         // scrolls past a dozen lines.
-        let title = page_title(Icon::Commit, theme).child(self.message_title(title, &body, cx));
+        let name = editable_title(
+            "commit-title",
+            commit_title(title),
+            "Edit message",
+            shortcut(&Reword, cx),
+            theme,
+        )
+        .on_click(cx.listener(|this, _, window, cx| this.start_reword(window, cx)));
+        let title = page_title(Icon::Commit, theme).child(self.message_title(name, &body, cx));
         let meta = meta_row(theme)
             .child(byline(
                 &commit.author,
@@ -559,7 +568,8 @@ impl Detail {
             .filter(|(reworded, ..)| super::composer::rewords(reworded, project, commit, store));
         let title = match rewording {
             Some((_, input, _)) => reword_editor(input, theme),
-            // A double-click on its title or body edits the message.
+            // A click on its title starts editing the message, and so does a double-click on
+            // its body.
             None => (self.message(title, body, theme))
                 .on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
                     if event.click_count() == 2 {
@@ -573,8 +583,8 @@ impl Detail {
         self.page_header(title, meta, target, apply, None, theme, cx)
     }
 
-    /// A commit's title, with a button that shows the rest of its message, `body`, if any.
-    fn message_title(&self, title: &str, body: &str, cx: &Context<Self>) -> Div {
+    /// A commit's `title`, with a button that shows the rest of its message, `body`, if any.
+    fn message_title(&self, title: impl IntoElement, body: &str, cx: &Context<Self>) -> Div {
         let open = self.message_open;
         let toggle = (!body.is_empty()).then(|| {
             icon_button("full-message", Icon::TextBlock)
@@ -591,7 +601,7 @@ impl Detail {
                 }))
         });
         (h_flex().items_start().min_w_0().gap(dp(6.)))
-            .child(title_text(commit_title(title)))
+            .child(title)
             .children(toggle)
     }
 
@@ -745,7 +755,8 @@ impl Detail {
                 .and_then(|b| b.remote.clone()),
             None => ws.target.as_ref().map(|target| target.name.clone()),
         };
-        let title = page_title(Icon::ArrowDown, theme).child(self.message_title(title, body, cx));
+        let name = title_text(commit_title(title));
+        let title = page_title(Icon::ArrowDown, theme).child(self.message_title(name, body, cx));
         let meta = meta_row(theme)
             .child(byline(author, email, agent, time, theme))
             .child(self.sha_chip(id, theme, cx))
@@ -1042,6 +1053,26 @@ pub(super) fn title_text(text: impl IntoElement) -> Div {
         .text_size(dp(16.))
         .font_weight(gpui::FontWeight::SEMIBOLD)
         .child(text)
+}
+
+/// A page's title that a click starts editing in place, which `tip` and `key` say.
+fn editable_title(
+    id: &'static str,
+    text: impl IntoElement,
+    tip: &'static str,
+    key: Option<SharedString>,
+    theme: &Theme,
+) -> Stateful<Div> {
+    let hover = theme.hover();
+    title_text(text)
+        .id(id)
+        .role(Role::Button)
+        .aria_label(tip)
+        .mx(dp(-4.))
+        .px(dp(4.))
+        .rounded(dp(4.))
+        .hover(move |el| el.bg(hover))
+        .tooltip(Tooltip::keyed(tip, key))
 }
 
 /// The line under a page's title saying what it is.
