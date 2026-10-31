@@ -228,7 +228,7 @@ impl Detail {
             .px(dp(12.))
             // Clear of macOS's traffic lights while the navigator leaves them over the header,
             // the toggle gliding up to them as it slides away.
-            .when(cfg!(target_os = "macos"), |el| {
+            .when(crate::ui::has_traffic_lights(window), |el| {
                 let navigator =
                     self.navigator_shown.get() * self.navigator_width(Instant::now(), window, cx);
                 el.pl((fixed(84.) - theme.scaled(navigator)).max(theme.scaled(12.)))
