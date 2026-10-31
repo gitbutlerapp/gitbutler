@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use anyhow::Result;
 use bstr::BString;
 use but_core::sync::{RepoExclusive, RepoShared};
@@ -12,9 +14,14 @@ use crate::{
     utils::{CliOutput, CliOutputHuman, WriteWithUtils},
 };
 
-pub fn remove(ctx: &mut Context, worktree: &CliIdArg, force: bool) -> CliResult<RemoveOutcome> {
+pub fn remove(
+    ctx: &mut Context,
+    current_dir: &Path,
+    worktree: &CliIdArg,
+    force: bool,
+) -> CliResult<RemoveOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
-    let op = RemoveOperation::resolve(ctx, guard.read_permission(), worktree, force)?;
+    let op = RemoveOperation::resolve(ctx, guard.read_permission(), current_dir, worktree, force)?;
     Ok(run(ctx, guard.write_permission(), op)?)
 }
 
@@ -27,11 +34,12 @@ impl RemoveOperation {
     pub(crate) fn resolve(
         ctx: &Context,
         perm: &RepoShared,
+        current_dir: &Path,
         worktree: &CliIdArg,
         force: bool,
     ) -> CliResult<Self> {
         Ok(Self {
-            worktree: resolve(ctx, worktree, perm)?,
+            worktree: resolve(ctx, current_dir, worktree, perm)?,
             force,
         })
     }

@@ -81,15 +81,15 @@ Create a worktree on a new branch at the workspace base or above a commit, or on
 
 ### but worktree archive <WORKTREE>
 Hide a worktree from the workspace until but runs inside it again
-- `<WORKTREE>` The worktree, by CLI ID (see but wt list) or name
+- `<WORKTREE>` The worktree, by CLI ID (see but wt list), name, or path
 
 ### but worktree unarchive <WORKTREE>
 Show an archived worktree in the workspace again
-- `<WORKTREE>` The worktree, by CLI ID (see but wt list) or name
+- `<WORKTREE>` The worktree, by CLI ID (see but wt list), name, or path
 
 ### but worktree remove <WORKTREE>
 Remove a worktree from disk, like git worktree remove
-- `<WORKTREE>` The worktree, by CLI ID (see but wt list) or name
+- `<WORKTREE>` The worktree, by CLI ID (see but wt list), name, or path
 - `-f, --force` Remove the worktree even if it has uncommitted changes
 
 ### but discard [CHANGES]...

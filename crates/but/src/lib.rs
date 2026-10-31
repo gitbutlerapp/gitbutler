@@ -1004,15 +1004,30 @@ async fn dispatch_subcommand(
                     out.print_cli_output(outcome)?;
                 }
                 worktree::Subcommands::Archive { worktree } => {
-                    let outcome = command::worktree::archive::set_archived(&ctx, &worktree, true)?;
+                    let outcome = command::worktree::archive::set_archived(
+                        &ctx,
+                        &args.current_dir,
+                        &worktree,
+                        true,
+                    )?;
                     out.print_cli_output(outcome)?;
                 }
                 worktree::Subcommands::Unarchive { worktree } => {
-                    let outcome = command::worktree::archive::set_archived(&ctx, &worktree, false)?;
+                    let outcome = command::worktree::archive::set_archived(
+                        &ctx,
+                        &args.current_dir,
+                        &worktree,
+                        false,
+                    )?;
                     out.print_cli_output(outcome)?;
                 }
                 worktree::Subcommands::Remove { force, worktree } => {
-                    let outcome = command::worktree::remove::remove(&mut ctx, &worktree, force)?;
+                    let outcome = command::worktree::remove::remove(
+                        &mut ctx,
+                        &args.current_dir,
+                        &worktree,
+                        force,
+                    )?;
                     out.print_cli_output(outcome)?;
                 }
                 worktree::Subcommands::New { name, above } => {

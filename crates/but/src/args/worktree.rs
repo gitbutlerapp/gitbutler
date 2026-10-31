@@ -50,12 +50,12 @@ pub enum Subcommands {
     },
     /// Hide a worktree from the workspace until `but` runs inside it again.
     Archive {
-        /// The worktree, by CLI ID (see `but wt list`) or name.
+        /// The worktree, by CLI ID (see `but wt list`), name, or path.
         worktree: CliIdArg,
     },
     /// Show an archived worktree in the workspace again.
     Unarchive {
-        /// The worktree, by CLI ID (see `but wt list`) or name.
+        /// The worktree, by CLI ID (see `but wt list`), name, or path.
         worktree: CliIdArg,
     },
     /// Remove a worktree from disk, like `git worktree remove`.
@@ -68,7 +68,7 @@ pub enum Subcommands {
         /// Remove the worktree even if it has uncommitted changes.
         #[clap(short, long)]
         force: bool,
-        /// The worktree, by CLI ID (see `but wt list`) or name.
+        /// The worktree, by CLI ID (see `but wt list`), name, or path.
         worktree: CliIdArg,
     },
 }
