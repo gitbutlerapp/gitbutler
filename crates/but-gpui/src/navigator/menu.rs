@@ -379,7 +379,11 @@ impl Navigator {
         let store = self.store.read(cx);
         let command = |command: &'static dyn Command| MenuItem::command(command, cx);
         match target {
-            Selection::Terminal(..) => vec![command(&Reword), command(&CloseTerminal)],
+            Selection::Terminal(..) => vec![
+                command(&Reword),
+                command(&MoveSelection),
+                command(&CloseTerminal),
+            ],
             // A remote's commit can be copied into a branch here, or its ID copied, and a
             // branch's marked read or unread.
             Selection::Upstream(project, ref_name, id) => {

@@ -13,6 +13,7 @@ use crate::backend::{
 use crate::state::{
     Cut, Label, NewAt, Overlay, ProjectId, Selection, Store, branch_moved, move_before,
 };
+use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::ui::diff::split_path;
 use crate::ui::file_icons::{file_icon, folder_icon};
@@ -113,8 +114,9 @@ pub struct Move {
 }
 
 /// What a [`Move`] moves. Commits and branches show a copy where they'd land while they stay
-/// where they are, as landing them rewrites history. A project's card goes where it'd land, the
-/// others making room, as a drag shows it, as its place is only the app's to keep.
+/// where they are, as landing them rewrites history. A project's card and a terminal go where
+/// they'd land themselves, the others making room, as a drag shows a card, as their places are
+/// only the app's to keep.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Moving {
     /// Commits, as listed, newest first.
@@ -124,10 +126,17 @@ pub enum Moving {
     /// A watched project's card, among the others in `order`, as they were listed when the
     /// move started, which they keep while it lasts.
     Project(Arc<[ProjectId]>),
+    /// Terminal `id`, among the terminals of the checkouts `lists` has, each with those open on
+    /// it in order, as they were listed when the move started, which they keep while it lasts.
+    /// Landing it on another checkout lists it there; its shell stays where it started.
+    Terminal {
+        id: TerminalId,
+        lists: Arc<[(Checkout, Vec<TerminalId>)]>,
+    },
 }
 
 /// A place what's being moved can land. A branch lands between branches, where a new branch
-/// would, and a project between cards.
+/// would, a project between cards, and a terminal between the terminals of a worktree.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stop {
     /// In a branch: at its top, or right below one of its commits.
@@ -138,54 +147,95 @@ pub enum Stop {
     NewStack { first: bool },
     /// Among the watched projects' cards.
     Card(CardSlot),
+    /// Among the terminals listed under `checkout`.
+    Terminal {
+        checkout: Checkout,
+        slot: Slot<TerminalId>,
+    },
 }
 
-/// Where a watched project's card goes: before another's card, or after them all.
+/// Where something the app keeps in an order of its own goes among the others like it: before
+/// one of them, or after them all.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum CardSlot {
-    Before(ProjectId),
+pub enum Slot<T> {
+    Before(T),
     End,
 }
 
-/// The places project `id`'s card can go among the cards `order` lists, and which of them is
-/// where it is: before each other card, or after them all.
-pub fn card_stops(order: &[ProjectId], id: &ProjectId) -> Option<(Vec<Stop>, usize)> {
-    let at = order.iter().position(|other| other == id)?;
-    let home = match order.get(at + 1) {
-        Some(next) => CardSlot::Before(next.clone()),
-        None => CardSlot::End,
-    };
-    let stops: Vec<Stop> = (order.iter())
-        .filter(|other| *other != id)
-        .map(|other| CardSlot::Before(other.clone()))
-        .chain([CardSlot::End])
-        .map(Stop::Card)
-        .collect();
-    let start = stops
-        .iter()
-        .position(|stop| *stop == Stop::Card(home.clone()))?;
-    Some((stops, start))
+/// Where a watched project's card goes.
+pub type CardSlot = Slot<ProjectId>;
+
+impl<T: Clone + PartialEq> Slot<T> {
+    /// `list` with `id` put in this slot, taken from wherever it was in it.
+    fn place(&self, list: &[T], id: &T) -> Vec<T> {
+        let mut list: Vec<T> = (list.iter())
+            .filter(|other| *other != id)
+            .cloned()
+            .collect();
+        let at = match self {
+            Slot::Before(before) => list.iter().position(|other| other == before),
+            Slot::End => None,
+        };
+        list.insert(at.unwrap_or(list.len()), id.clone());
+        list
+    }
+}
+
+/// The places `id` can go among those `order` lists, and which of them is where it is: before
+/// each of the others, or after them all.
+pub fn slots<T: Clone + PartialEq>(order: &[T], id: &T) -> Option<(Vec<Slot<T>>, usize)> {
+    let (slots, start) = group_slots(&[((), order.to_vec())], id)?;
+    Some((slots.into_iter().map(|((), slot)| slot).collect(), start))
+}
+
+/// Places in groups, each by its group's key, and which of them is where what's moving is.
+pub type GroupSlots<K, T> = (Vec<(K, Slot<T>)>, usize);
+
+/// The places `id` can go among the groups `groups` has, each by its key with what's in it, in
+/// order: in each group before each of the others in it, or after them all. And which of them
+/// is where it is.
+pub fn group_slots<K: Clone + PartialEq, T: Clone + PartialEq>(
+    groups: &[(K, Vec<T>)],
+    id: &T,
+) -> Option<GroupSlots<K, T>> {
+    let (mut slots, mut home) = (Vec::new(), None);
+    for (key, list) in groups {
+        if let Some(at) = list.iter().position(|other| other == id) {
+            let next = list.get(at + 1).cloned();
+            home = Some((key.clone(), next.map_or(Slot::End, Slot::Before)));
+        }
+        let others = (list.iter()).filter(|other| *other != id);
+        slots.extend(others.map(|other| (key.clone(), Slot::Before(other.clone()))));
+        slots.push((key.clone(), Slot::End));
+    }
+    let home = home?;
+    let start = slots.iter().position(|slot| *slot == home)?;
+    Some((slots, start))
 }
 
 impl Move {
-    /// What's moving, as what's cut or dragged. A project's card isn't cut.
+    /// What's moving, as what's cut or dragged. A project's card and a terminal aren't cut.
     fn cut(&self) -> Option<Cut> {
         Some(match &self.what {
             Moving::Commits(ids) => Cut::Commit(self.project.clone(), ids.clone()),
             Moving::Branch(branch) => Cut::Branch(self.project.clone(), branch.clone()),
-            Moving::Project(_) => return None,
+            Moving::Project(_) | Moving::Terminal { .. } => return None,
         })
     }
 
     /// What's moving, as the status bar names it.
     pub fn describe(&self, store: &Store) -> String {
-        match self.cut() {
-            Some(cut) => cut.describe(store),
-            None => project_name(store, &self.project),
+        match &self.what {
+            Moving::Project(_) => project_name(store, &self.project),
+            Moving::Terminal { id, .. } => terminal_title(store, *id),
+            Moving::Commits(_) | Moving::Branch(_) => {
+                (self.cut()).map_or_else(String::new, |cut| cut.describe(store))
+            }
         }
     }
 
-    /// Whether `item` is what's moving: one of the commits, the branch, or the project.
+    /// Whether `item` is what's moving: one of the commits, the branch, the project or the
+    /// terminal.
     pub fn holds(&self, item: &Selection) -> bool {
         match (&self.what, item) {
             (Moving::Commits(ids), Selection::Commit(project, id)) => {
@@ -195,6 +245,9 @@ impl Move {
                 *project == self.project && name == branch
             }
             (Moving::Project(_), Selection::Project(project)) => *project == self.project,
+            (Moving::Terminal { id, .. }, Selection::Terminal(project, terminal)) => {
+                *project == self.project && terminal == id
+            }
             _ => false,
         }
     }
@@ -204,13 +257,27 @@ impl Move {
         let (Moving::Project(order), Stop::Card(slot)) = (&self.what, &self.at) else {
             return None;
         };
-        let mut order = order.to_vec();
-        let before = match slot {
-            CardSlot::Before(before) => Some(before),
-            CardSlot::End => None,
+        Some(slot.place(order, &self.project))
+    }
+
+    /// The checkouts' terminals as a terminal's move shows them, it where it's at.
+    pub fn terminal_order(&self) -> Option<Vec<(Checkout, Vec<TerminalId>)>> {
+        let (Moving::Terminal { id, lists }, Stop::Terminal { checkout, slot }) =
+            (&self.what, &self.at)
+        else {
+            return None;
         };
-        move_before(&mut order, &self.project, before);
-        Some(order)
+        let lists = lists.iter().map(|(on, list)| {
+            let list = match on == checkout {
+                true => slot.place(list, id),
+                false => (list.iter())
+                    .filter(|other| *other != id)
+                    .copied()
+                    .collect(),
+            };
+            (on.clone(), list)
+        });
+        Some(lists.collect())
     }
 
     /// Landing as a drop: what's moving as what's dropped, and the row and the place on it
@@ -243,10 +310,14 @@ impl Move {
             let workspace = store.workspace(&self.project);
             return workspace.is_some_and(|ws| crate::edits::BranchEdits::of(ws, branch).stacked);
         }
-        if let Moving::Project(order) = &self.what {
-            return self
-                .project_order()
-                .is_some_and(|shown| shown[..] != order[..]);
+        match &self.what {
+            Moving::Project(order) => {
+                return (self.project_order()).is_some_and(|shown| shown[..] != order[..]);
+            }
+            Moving::Terminal { lists, .. } => {
+                return (self.terminal_order()).is_some_and(|shown| shown[..] != lists[..]);
+            }
+            Moving::Commits(_) | Moving::Branch(_) => {}
         }
         self.drop().is_none_or(|(payload, target, place)| {
             Transfer::resolve(&payload, &target, place, store).is_some()
@@ -270,10 +341,50 @@ impl Move {
             }
             Stop::NewStack { first: false } => "to a new stack".into(),
             Stop::NewStack { first: true } => "to a new stack at the top".into(),
-            Stop::Card(CardSlot::Before(before)) => {
-                format!("above {}", project_name(store, before))
+            Stop::Card(Slot::Before(before)) => format!("above {}", project_name(store, before)),
+            // Below the last of the others.
+            Stop::Card(Slot::End) => {
+                let last = match &self.what {
+                    Moving::Project(order) => order.iter().rev().find(|id| **id != self.project),
+                    _ => None,
+                };
+                last.map_or_else(
+                    || "to the bottom".into(),
+                    |last| format!("below {}", project_name(store, last)),
+                )
             }
-            Stop::Card(CardSlot::End) => "to the bottom".into(),
+            Stop::Terminal { checkout, slot } => self.terminal_place(checkout, slot, store),
+        }
+    }
+
+    /// Where landing a terminal at `slot` among `checkout`'s puts it, naming the worktree when
+    /// it's another than its own.
+    fn terminal_place(
+        &self,
+        checkout: &Checkout,
+        slot: &Slot<TerminalId>,
+        store: &Store,
+    ) -> String {
+        let Moving::Terminal { id, lists } = &self.what else {
+            return String::new();
+        };
+        let home = (lists.iter()).find_map(|(on, list)| list.contains(id).then_some(on));
+        let others: Vec<TerminalId> = (lists.iter())
+            .find(|(on, _)| on == checkout)
+            .map(|(_, list)| list.iter().filter(|other| *other != id).copied().collect())
+            .unwrap_or_default();
+        let worktree = match checkout {
+            Checkout::Main => "the main worktree".to_owned(),
+            Checkout::Linked(name) => name.to_string(),
+        };
+        let at = match (slot, others.last()) {
+            (Slot::Before(before), _) => format!("above {}", terminal_title(store, *before)),
+            (Slot::End, Some(last)) => format!("below {}", terminal_title(store, *last)),
+            (Slot::End, None) => return format!("to {worktree}"),
+        };
+        match home == Some(checkout) {
+            true => at,
+            false => format!("{at} in {worktree}"),
         }
     }
 }
@@ -281,6 +392,11 @@ impl Move {
 /// Project `id`'s name, or its id once it's gone.
 fn project_name(store: &Store, id: &ProjectId) -> String {
     (store.project(id)).map_or_else(|| id.to_string(), |entry| entry.project.name.clone())
+}
+
+/// Terminal `id`'s title, as its row shows it.
+fn terminal_title(store: &Store, id: TerminalId) -> String {
+    (store.terminals.title(id)).map_or_else(|| "a terminal".into(), ToString::to_string)
 }
 
 impl Transfer {
@@ -1053,5 +1169,19 @@ mod tests {
             Some(&order[..]),
             "before c is where it was"
         );
+    }
+
+    #[test]
+    fn a_slot_is_before_each_of_the_others_or_last_and_starts_where_it_is() {
+        let order = ["a", "b", "c"];
+        let (b, start) = slots(&order, &"b").unwrap();
+        assert_eq!(
+            b,
+            [Slot::Before("a"), Slot::Before("c"), Slot::End],
+            "b goes before a, before c or last"
+        );
+        assert_eq!(start, 1, "b is before c");
+        let (_, start) = slots(&order, &"c").unwrap();
+        assert_eq!(start, 2, "the last is where the end is");
     }
 }

@@ -12,17 +12,27 @@ use super::{CARD_MARGIN, Navigator, RowStyle};
 use crate::app::{MoveHere, MoveSelection};
 use crate::backend::{Checkout, Commit, CommitId, Destination, FullName, Workspace, short_ref};
 use crate::state::{ProjectId, Section, Selection, Store, snack};
+use crate::terminal::TerminalId;
 use crate::theme::Theme;
-use crate::transfer::{Move, Moving, Stop, card_stops};
+use crate::transfer::{Move, Moving, Stop, group_slots, slots};
 use crate::ui::fold::{self, on_top};
 use crate::ui::{Icon, ROW_HEIGHT, dp, fixed, fold_glyph, guide, h_flex, icon, small_icon};
 
 /// The move of commits or a branch shown in `project`, with copies where it'd land: the one
 /// under way, or one Return landed, until the reload after it shows where it went. A project's
-/// card goes where it'd land itself (see [`Navigator::watched`]).
+/// card and a terminal go where they'd land themselves (see [`Navigator::watched`] and the
+/// rows' terminals), held while they move ([`moved_itself`]).
 fn shown<'a>(store: &'a Store, project: &ProjectId) -> Option<&'a Move> {
-    (store.moving.as_ref().or_else(|| store.landing()))
-        .filter(|moving| moving.project == *project && !matches!(moving.what, Moving::Project(_)))
+    (store.moving.as_ref().or_else(|| store.landing())).filter(|moving| {
+        moving.project == *project && matches!(moving.what, Moving::Commits(_) | Moving::Branch(_))
+    })
+}
+
+/// Whether `item` is a terminal being moved, which goes where it'd land itself, so its row is
+/// held as it moves rather than selected.
+pub(super) fn moved_itself(store: &Store, item: &Selection) -> bool {
+    (store.moving.as_ref())
+        .is_some_and(|moving| matches!(moving.what, Moving::Terminal { .. }) && moving.holds(item))
 }
 
 /// The move shown in `project`, when it lands what it moves somewhere at a stop `at` picks
@@ -120,8 +130,8 @@ impl Rows {
                 let item = Selection::Branch(project.clone(), Some(branch.clone()));
                 return self.push(Row::Ghost(item));
             }
-            // A card goes where it'd land itself.
-            Moving::Project(_) => return,
+            // A card or a terminal goes where it'd land itself.
+            Moving::Project(_) | Moving::Terminal { .. } => return,
         };
         let ghosts = (ids.iter()).map(|id| Row::Ghost(Selection::Commit(project.clone(), *id)));
         if !new_branch {
@@ -303,8 +313,19 @@ impl Navigator {
         cx: &App,
     ) -> Option<(Vec<Stop>, usize)> {
         let store = self.store.read(cx);
-        if let Moving::Project(order) = what {
-            return card_stops(order, project);
+        match what {
+            Moving::Project(order) => {
+                let (slots, start) = slots(order, project)?;
+                return Some((slots.into_iter().map(Stop::Card).collect(), start));
+            }
+            Moving::Terminal { id, lists } => {
+                let (slots, start) = group_slots(lists, id)?;
+                let stops = slots
+                    .into_iter()
+                    .map(|(checkout, slot)| Stop::Terminal { checkout, slot });
+                return Some((stops.collect(), start));
+            }
+            Moving::Commits(_) | Moving::Branch(_) => {}
         }
         let workspace = store.workspace(project)?;
         // As the rows were last built; the filter shows what it finds, folds aside.
@@ -314,7 +335,7 @@ impl Navigator {
         };
         let commits = match what {
             Moving::Commits(ids) => &ids[..],
-            Moving::Branch(_) | Moving::Project(_) => &[],
+            Moving::Branch(_) | Moving::Project(_) | Moving::Terminal { .. } => &[],
         };
         let all = stops(self.shown_rows(), project, commits, workspace, open);
         let Moving::Branch(branch) = what else {
@@ -361,6 +382,15 @@ impl Navigator {
                     .collect();
                 (project, Moving::Project(order))
             }
+            // Among the terminals of its project's worktrees as they're listed now.
+            Some(Selection::Terminal(project, id)) => {
+                let open = |heading: &Selection| {
+                    let fold = Fold::Under(heading.clone());
+                    self.folds_seen.get(&fold).copied().unwrap_or(true)
+                };
+                let lists = terminal_lists(self.shown_rows(), &project, open).into();
+                (project, Moving::Terminal { id, lists })
+            }
             _ => return,
         };
         // Somewhere besides where it is.
@@ -401,7 +431,10 @@ impl Navigator {
                 .is_some_and(|(_, at)| at == 0)
         };
         let heads = |(_, stop): &(usize, &Stop)| match stop {
-            Stop::In(Destination::Branch(_)) | Stop::NewStack { .. } | Stop::Card(_) => true,
+            Stop::In(Destination::Branch(_))
+            | Stop::NewStack { .. }
+            | Stop::Card(_)
+            | Stop::Terminal { .. } => true,
             Stop::NewBranch {
                 beside,
                 below: false,
@@ -445,11 +478,16 @@ impl Navigator {
         if !lands {
             return;
         }
-        // A card, already shown where it goes, goes there in the order the cards keep.
+        // A card or a terminal, already shown where it goes, goes there in the order they keep.
         if let Some(order) = moving.project_order() {
             return self
                 .store
                 .update(cx, |store, cx| store.order_watched(&order, cx));
+        }
+        if let Some(order) = moving.terminal_order() {
+            let project = moving.project.clone();
+            return (self.store)
+                .update(cx, |store, cx| store.order_terminals(&project, &order, cx));
         }
         // A branch's copy stays where it lands till it's there.
         if let Some((payload, target, place)) = moving.drop() {
@@ -470,10 +508,47 @@ impl Navigator {
                 store.unstack(&project, branch, first, lands, cx)
             }
             // Those land as drops do, and cards in their order, above.
-            (Moving::Commits(_), Stop::In(_) | Stop::Card(_))
-            | (Moving::Branch(_) | Moving::Project(_), _) => {}
+            (Moving::Commits(_), Stop::In(_) | Stop::Card(_) | Stop::Terminal { .. })
+            | (Moving::Branch(_) | Moving::Project(_) | Moving::Terminal { .. }, _) => {}
         });
     }
+}
+
+/// The terminals `rows` list for `project`, under each of its worktrees' headings, the main one's
+/// and its linked ones', in the order they're listed: those whose heading `open` says shows
+/// what it holds, as a terminal landing under a folded one would be out of sight.
+fn terminal_lists<'a>(
+    rows: impl IntoIterator<Item = &'a Row>,
+    project: &ProjectId,
+    open: impl Fn(&Selection) -> bool,
+) -> Vec<(Checkout, Vec<TerminalId>)> {
+    let mut lists: Vec<(Checkout, Vec<TerminalId>)> = Vec::new();
+    // Under a heading of the project's that's open now.
+    let mut under = false;
+    for row in rows {
+        let checkout = match row {
+            Row::Item(heading @ Selection::Uncommitted(p)) if p == project => {
+                Some((heading, Checkout::Main))
+            }
+            Row::Item(heading @ Selection::Worktree(p, name)) if p == project => {
+                Some((heading, Checkout::Linked(name.clone())))
+            }
+            Row::Item(Selection::Terminal(p, id)) if p == project && under => {
+                if let Some((_, list)) = lists.last_mut() {
+                    list.push(*id);
+                }
+                None
+            }
+            _ => None,
+        };
+        if let Some((heading, checkout)) = checkout {
+            under = open(heading);
+            if under {
+                lists.push((checkout, Vec::new()));
+            }
+        }
+    }
+    lists
 }
 
 /// The stops of `all` a branch lands at, between branches, as a new branch would, and where it
@@ -492,7 +567,7 @@ fn branch_stops(
         .filter(|stop| match stop {
             _ if *stop == home => true,
             Stop::NewBranch { .. } | Stop::NewStack { .. } => lands(stop),
-            Stop::In(_) | Stop::Card(_) => false,
+            Stop::In(_) | Stop::Card(_) | Stop::Terminal { .. } => false,
         })
         .collect();
     let start = stops.iter().position(|stop| *stop == home)?;
@@ -597,7 +672,7 @@ pub(super) fn ghost_branch_row(at: &Stop, inset: f32, theme: &Theme) -> AnyEleme
             let side = if *below { "below" } else { "above" };
             Some((side, short_ref(beside).into_owned()))
         }
-        Stop::In(_) | Stop::NewStack { .. } | Stop::Card(_) => None,
+        Stop::In(_) | Stop::NewStack { .. } | Stop::Card(_) | Stop::Terminal { .. } => None,
     };
     let said = match &beside {
         Some((side, _)) => format!("New branch {side}"),
@@ -634,12 +709,12 @@ pub(super) fn ghost_branch_row(at: &Stop, inset: f32, theme: &Theme) -> AnyEleme
 
 #[cfg(test)]
 mod tests {
-    use super::{Row, RowKey, branch_stops, stops, taken_away};
+    use super::{Row, RowKey, branch_stops, stops, taken_away, terminal_lists};
     use crate::backend::model::build::{branch, full, id, workspace, worktree};
-    use crate::backend::{CommitId, Destination, Workspace, short_ref};
+    use crate::backend::{Checkout, CommitId, Destination, Workspace, short_ref};
     use crate::state::{ProjectId, Selection};
     use crate::terminal::TerminalId;
-    use crate::transfer::{CardSlot, Stop, card_stops};
+    use crate::transfer::{Slot, Stop, group_slots};
 
     /// Whether `heading` shows what it holds, as [`listed`] lists them: all but typo.
     fn open(heading: &Selection) -> bool {
@@ -662,8 +737,18 @@ mod tests {
                     Stop::In(Destination::AboveCommit(c)) => format!("above {}", commit(c)),
                     Stop::NewStack { first: false } => "new stack".into(),
                     Stop::NewStack { first: true } => "new stack first".into(),
-                    Stop::Card(CardSlot::Before(project)) => format!("before {project}"),
-                    Stop::Card(CardSlot::End) => "last".into(),
+                    Stop::Card(Slot::Before(project)) => format!("before {project}"),
+                    Stop::Terminal { checkout, slot } => {
+                        let on = match checkout {
+                            Checkout::Main => "main".to_owned(),
+                            Checkout::Linked(name) => name.to_string(),
+                        };
+                        match slot {
+                            Slot::Before(id) => format!("before terminal {} on {on}", id.0),
+                            Slot::End => format!("last on {on}"),
+                        }
+                    }
+                    Stop::Card(Slot::End) => "last".into(),
                 };
                 let here = if ix == start { " <" } else { "" };
                 format!("{said}{here}\n")
@@ -856,7 +941,7 @@ new branch below agent
                 "agent" => false,
                 _ => true,
             },
-            Stop::In(_) | Stop::NewStack { .. } | Stop::Card(_) => true,
+            Stop::In(_) | Stop::NewStack { .. } | Stop::Card(_) | Stop::Terminal { .. } => true,
         };
         let (stops, start) = branch_stops(all, &api, lands).unwrap();
         // The places between branches it lands at, where a new branch would go, and where it
@@ -880,20 +965,44 @@ new stack
         clippy::disallowed_methods,
         reason = "a test, and snapbox looks for the file its snapshot is in"
     )]
-    fn a_card_stops_between_the_others_and_starts_where_it_is() {
-        let order: Vec<ProjectId> = ["a", "b", "c"].map(ProjectId::from).into();
-        let (stops, start) = card_stops(&order, &ProjectId::from("b")).unwrap();
-        // Before each of the others, or last: b is before c.
+    fn a_terminal_stops_among_the_terminals_of_every_open_worktree() {
+        let project = ProjectId::from("p");
+        let p = || project.clone();
+        let terminal = |n| Row::Item(Selection::Terminal(p(), TerminalId(n)));
+        let rows = [
+            Row::Item(Selection::Project(p())),
+            Row::Item(Selection::Uncommitted(p())),
+            terminal(1),
+            terminal(2),
+            Row::Item(Selection::Branch(p(), Some(full("refs/heads/api")))),
+            Row::Item(Selection::Worktree(p(), "wt".into())),
+            Row::Item(Selection::Worktree(p(), "folded".into())),
+            terminal(3),
+            Row::Item(Selection::Worktree(p(), "empty".into())),
+        ];
+        // `folded` lists terminal 3 as it closes.
+        let open = |heading: &Selection| !matches!(heading, Selection::Worktree(_, name) if name == "folded");
+        let lists = terminal_lists(&rows, &project, open);
+        let (stops, start) = group_slots(&lists, &TerminalId(1)).unwrap();
+        let stops: Vec<Stop> = (stops.into_iter())
+            .map(|(checkout, slot)| Stop::Terminal { checkout, slot })
+            .collect();
+        // Before 2 or after it on main, where 1 is before 2, and first on each open linked
+        // worktree, with terminals or none, but the folded one.
         snapbox::assert_data_eq!(
             describe(&stops, start),
             snapbox::str![[r#"
-before a
-before c <
-last
+before terminal 2 on main <
+last on main
+last on wt
+last on empty
 
 "#]]
         );
-        let (_, start) = card_stops(&order, &ProjectId::from("c")).unwrap();
-        assert_eq!(start, 2, "the last card is where the end is");
+        assert_eq!(
+            lists.first(),
+            Some(&(Checkout::Main, vec![TerminalId(1), TerminalId(2)])),
+            "the main worktree's terminals, as listed"
+        );
     }
 }
