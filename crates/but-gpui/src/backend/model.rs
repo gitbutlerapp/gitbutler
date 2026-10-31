@@ -463,14 +463,16 @@ impl Branch {
                 && (self.commits.iter()).any(|c| c.state == CommitState::Pushed))
     }
 
-    /// How many commits it's ahead of its remote branch by: none until it has one, as a count
-    /// of every commit on a branch never pushed says nothing.
+    /// How many commits pushing it sends, some exactly when it [can push](Self::can_push).
     pub fn unpushed_commits(&self) -> usize {
-        if self.push == PushState::NeverPushed {
-            return 0;
-        }
         (self.commits.iter())
-            .filter(|c| c.state == CommitState::Local)
+            .filter(|c| match c.state {
+                CommitState::Local => true,
+                // With no remote branch, as after a rename, the remote has them under another
+                // name only.
+                CommitState::Pushed => self.push == PushState::NeverPushed,
+                CommitState::Integrated => false,
+            })
             .count()
     }
 
@@ -1303,7 +1305,7 @@ mod tests {
                 0,
                 "never pushed",
                 true,
-                0,
+                1,
                 "renamed since it was pushed, its commits there under the old name",
             ),
             (
@@ -1321,8 +1323,8 @@ mod tests {
                 0,
                 "never pushed",
                 true,
-                0,
-                "never pushed, with nothing on the remote to be ahead of",
+                2,
+                "never pushed, all its commits to send",
             ),
         ] {
             let branch = branch(push, states, incoming);
@@ -1335,7 +1337,7 @@ mod tests {
             assert_eq!(
                 branch.unpushed_commits(),
                 unpushed,
-                "{why}: how many commits it's ahead of its remote branch by"
+                "{why}: how many commits pushing it sends"
             );
         }
     }

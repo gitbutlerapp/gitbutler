@@ -106,15 +106,16 @@ impl Workspace {
         }
     }
 
-    /// What pushing `ref_name` does, in a tooltip: whether it forces, and takes its parents along.
-    pub fn push_tooltip(&self, ref_name: &super::FullName) -> &'static str {
-        let with_parents = self.parents_to_push(ref_name).next().is_some();
-        match (self.needs_force(ref_name), with_parents) {
-            (false, false) => "Push",
-            (false, true) => "Push with parents",
-            (true, false) => "Force push",
-            (true, true) => "Force push with parents",
-        }
+    /// What pushing `ref_name` does, in a tooltip: how many of its commits it sends, whether it
+    /// forces, and whether it takes its parents along.
+    pub fn push_tooltip(&self, ref_name: &super::FullName) -> String {
+        let n = (self.pushed_with(ref_name).next()).map_or(0, Branch::unpushed_commits);
+        let parents = match self.parents_to_push(ref_name).next() {
+            Some(_) => " with parents",
+            None => "",
+        };
+        let commits = crate::ui::plural(n, "commit");
+        format!("{} {commits}{parents}", self.push_label(ref_name))
     }
 
     /// Whether `ref_name` can pull the commits only its remote has: it has some, it's the top
@@ -249,11 +250,11 @@ middle with wt new, middle pushed, bottom pushed: nothing to push
         snapbox::assert_data_eq!(
             says,
             snapbox::str![[r#"
-both new: a Push with parents, b Push
-b pushed: a Push, b Push
-a rewritten: a Force push, b Push
-b rewritten: a Force push with parents, b Force push
-only b new: a Push with parents, b Push
+both new: a Push 1 commit with parents, b Push 1 commit
+b pushed: a Push 1 commit, b Push 0 commits
+a rewritten: a Force push 1 commit, b Push 0 commits
+b rewritten: a Force push 1 commit with parents, b Force push 1 commit
+only b new: a Push 0 commits with parents, b Push 1 commit
 
 "#]]
         );

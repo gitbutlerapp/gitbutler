@@ -886,7 +886,7 @@ fn oldest_first(workspace: &Workspace, commit: CommitId) -> Vec<CommitId> {
 
 /// The oldest conflicted commit from branch `ref_name` down the lanes it rests on, and the
 /// branch holding it. None when that's a linked worktree's, as its conflicts resolve in it.
-pub(super) fn oldest_conflict<'a>(
+pub fn oldest_conflict<'a>(
     workspace: &'a Workspace,
     ref_name: &FullName,
 ) -> Option<(&'a Branch, &'a Commit)> {
