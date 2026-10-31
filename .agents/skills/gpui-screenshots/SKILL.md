@@ -78,6 +78,40 @@ take, and a shot is saved at that size: where something shows in it is where to 
 full resolution (2× on a Retina Mac) for a closer look, so a point read off it is the region's
 origin plus half its pixel offset. `size W H` resizes the window.
 
+## Animations
+
+Folds, slides and rows moving to a new order are drawn at a clock a script can stop. Stopped,
+steps and waits no longer move them on, so any moment of a motion can be drawn and looked at:
+
+```text
+clock stop                         # first: the input starts the motion at t=0
+click 306 66                       # fold a project
+film /tmp/fold 200 8 0 40 340 540  # a frame every 8ms for 200ms, of that region
+clock run                          # back to the real time, from where it stopped
+```
+
+`film` saves each frame as `shot` would (`000.png`, `001.png`, …), all of them in a grid in
+`sheet.png`, a row at a time, and prints what changed in each from the frame before, its
+bounds in window coordinates:
+
+```text
+FILM 004 t=32ms changed 22.5% in 10,166 319x371
+FILM 019 t=152ms changed 0.0% in 10,80 6x6
+FILM 020 t=160ms unchanged
+```
+
+Read those lines before the images: a spike is a jump, `unchanged` partway a stall, a change
+after the motion should be done a snap at its end, and one region changing back and forth a
+flicker. Then read the sheet, and single frames for a closer look. Film a region: a whole
+window's frames are too small in the sheet to read. `tick 8` moves the stopped clock on by
+hand, so `move`s and `shot`s can go between ticks, as a drag in motion needs.
+
+Motion reads `crate::clock::now()`, never `Instant::now()`, and so must any animation you
+write, or it runs on the real time while the rest stands still. What GPUI animates itself
+(`with_animation`, `with_spring`, as a fold's chevron and spinners do) and timers, as a
+tooltip's delay, keep the real time, so they jump between frames. Don't stretch a duration in
+the code to see a motion slowly.
+
 ## Notes
 
 - `cargo` must be on the `PATH`. If it isn't, run inside the repository's dev shell:

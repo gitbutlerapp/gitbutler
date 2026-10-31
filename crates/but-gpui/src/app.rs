@@ -11,6 +11,7 @@ use gpui::{
 
 use crate::backend::upstream::UpdateScope;
 use crate::backend::{self, Checkout, short_ref};
+use crate::clock;
 use crate::detail::{Detail, DiffPane};
 use crate::navigator::Navigator;
 use crate::overlays::{ContextMenu, MenuItem, Prompt};
@@ -965,7 +966,7 @@ impl AppView {
         let navigator = self.navigator.focus_handle(cx);
         // Asking for the hidden navigator brings it out over the detail, as the pointer does,
         // and back beside it while it's still sliding away.
-        if !self.navigator_open && !self.navigator_slide.closing(Instant::now()) {
+        if !self.navigator_open && !self.navigator_slide.closing(clock::now()) {
             if !navigator.contains_focused(window, cx) {
                 self.peek.returns_to = self.selection(cx).map(|s| (s, window.focused(cx)));
             }
@@ -1454,7 +1455,7 @@ impl AppView {
         if !navigator_open {
             self.set_detail(true, window, cx);
         }
-        let peeking = self.peek.open || self.peek.slide.closing(Instant::now());
+        let peeking = self.peek.open || self.peek.slide.closing(clock::now());
         if navigator_open {
             self.peek = Peek::default();
             (self.navigator).update(cx, |navigator, cx| navigator.set_floating(false, cx));
@@ -1523,7 +1524,7 @@ impl AppView {
             None if detail_open => None,
             None => Some(Narrowing {
                 wide: width,
-                navigator: (self.detail.read(cx)).navigator_width(Instant::now(), window, cx),
+                navigator: (self.detail.read(cx)).navigator_width(clock::now(), window, cx),
                 settled: false,
                 asked: 0,
             }),
@@ -1559,7 +1560,7 @@ impl AppView {
         let Some(mut narrowing) = self.narrowing.filter(|narrowing| !narrowing.settled) else {
             return false;
         };
-        let now = Instant::now();
+        let now = clock::now();
         let shown = self.detail_slide.share(self.detail_open, now);
         let width = narrowing.navigator + (narrowing.wide - narrowing.navigator) * shown;
         let width = Theme::get(cx).scaled(width).round();
@@ -1599,7 +1600,7 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<AppView>,
     ) {
-        let now = Instant::now();
+        let now = clock::now();
         if self.navigator_open || self.navigator_slide.closing(now) {
             return;
         }
@@ -1882,7 +1883,7 @@ impl Render for AppView {
         let show_fps = self.store.read(cx).prefs.show_fps;
         // The detail lays out its header and its file list beside as much of the navigator as
         // shows, so it's told before it draws in this frame.
-        let now = Instant::now();
+        let now = clock::now();
         let navigator_share = self.navigator_slide.share(self.navigator_open, now);
         let navigator_sliding = self.navigator_slide.openness(now).is_some();
         let detail = self.detail.read(cx);

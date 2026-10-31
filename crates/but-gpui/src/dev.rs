@@ -31,6 +31,15 @@
 //! shot /tmp/view.png      # render the current frame to a PNG, a pixel per logical pixel, so
 //!                         # a point read off it is one `click` takes
 //! shot /tmp/a.png 0 0 400 300  # only that region, in logical pixels, at the display's scale
+//! clock stop              # stop the clock motion is drawn at (`clock::now`), so folds and
+//!                         # slides move only as `tick` and `film` move it; `clock run` runs
+//!                         # it again from there
+//! tick 8                  # move the stopped clock on 8ms
+//! film /tmp/f 240 8       # draw a frame every 8ms of the stopped clock for 240ms, saving each
+//!                         # as `shot` does, all of them in a grid in sheet.png, and printing
+//!                         # what changed in each from the frame before, as `FILM 003 t=24ms
+//!                         # changed 2.1% in 0,96 340x160`
+//! film /tmp/f 240 8 0 0 400 300  # only that region
 //! keys                    # print what typing would reach, as `KEYS Workspace > Navigator`
 //! perf next key down      # time an input until loads settle, plus one frame, and the
 //!                         # longest the UI thread was busy meanwhile (`stall`)
@@ -52,11 +61,23 @@ use gpui::{
     MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PinchEvent, Pixels, PlatformInput,
     Point, ScrollDelta, ScrollWheelEvent, TouchPhase, Window, point,
 };
+use image::RgbaImage;
 use parking_lot::Mutex;
 
 use crate::app::AppView;
+use crate::clock;
 
 static LAUNCHED: OnceLock<Instant> = OnceLock::new();
+
+/// The most frames a `film` draws, so a slip in its numbers doesn't run for minutes.
+const MOST_FRAMES: usize = 240;
+
+/// How wide a `film`'s sheet is at most, the frames shrunk to fit.
+const SHEET_WIDTH: u32 = 2400;
+
+/// The pixels between a sheet's frames, and their colour.
+const GAP: u32 = 4;
+const GAP_COLOR: image::Rgba<u8> = image::Rgba([128, 128, 128, 255]);
 
 /// Whether the left button is down between commands, after `press` or `drag … hold`.
 static PRESSED: AtomicBool = AtomicBool::new(false);
@@ -199,6 +220,7 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                         );
                         Ok(())
                     }
+                    "film" => film(rest, window, cx).await,
                     "perf" => {
                         let (label, input) = rest.split_once(' ').unwrap_or((rest, ""));
                         // Draw first so the timing doesn't include catching up on earlier steps.
@@ -291,6 +313,203 @@ async fn frames(window: AnyWindowHandle, cx: &mut gpui::AsyncApp) -> Result<Dura
             .await;
     }
     Ok(slowest)
+}
+
+/// `film`: draw a frame every so often of the stopped clock, as a display would, and save each,
+/// a sheet of them all, and what changed in each.
+async fn film(rest: &str, window: AnyWindowHandle, cx: &mut gpui::AsyncApp) -> Result<()> {
+    let (dir, length, every, region) = match (trailing_numbers(rest), trailing_numbers(rest)) {
+        (Some((dir, [length, every, x, y, width, height])), _) => {
+            (dir, length, every, Some([x, y, width, height]))
+        }
+        (None, Some((dir, [length, every]))) => (dir, length, every, None),
+        (None, None) => bail!("film takes a folder, how many ms and every how many, then a region"),
+    };
+    anyhow::ensure!(
+        clock::stopped(),
+        "film moves a stopped clock: `clock stop` before the input it films"
+    );
+    anyhow::ensure!(
+        every > 0.,
+        "film draws a frame every so many ms, more than 0"
+    );
+    let tick = Duration::try_from_secs_f32(every / 1e3)?;
+    let count = (length / every).max(0.) as usize + 1;
+    anyhow::ensure!(
+        count <= MOST_FRAMES,
+        "film draws at most {MOST_FRAMES} frames"
+    );
+    let dir = PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
+    // Where a frame's pixels are in the window: a region's are at the display's scale.
+    let scale = cx.update_window(window, |_, window, _| window.scale_factor())?;
+    let (origin, scale) = match region {
+        Some([x, y, _, _]) => (point(x, y), scale),
+        None => (point(0., 0.), 1.),
+    };
+    let (mut sheet, mut last, mut last_change) = (None::<Sheet>, None::<RgbaImage>, None);
+    for n in 0..count {
+        let image = cx.update_window(window, |_, window, cx| {
+            if n > 0 {
+                clock::tick(tick);
+            }
+            frame(window, cx);
+            capture(region, window)
+        })??;
+        let path = dir.join(format!("{n:03}.png"));
+        image
+            .save(&path)
+            .with_context(|| format!("saving {}", path.display()))?;
+        let at = n as f32 * every;
+        let change = match last.as_ref().map(|last| changed(last, &image)) {
+            None => String::new(),
+            Some(None) => " unchanged".to_owned(),
+            Some(Some(Change { share, bounds })) => {
+                last_change = Some(at);
+                let [x, y, width, height] = bounds.map(|n| n as f32 / scale);
+                format!(
+                    " changed {:.1}% in {:.0},{:.0} {:.0}x{:.0}",
+                    share * 100.,
+                    origin.x + x,
+                    origin.y + y,
+                    width.max(1.),
+                    height.max(1.),
+                )
+            }
+        };
+        println!("FILM {n:03} t={at:.0}ms{change}");
+        (sheet.get_or_insert_with(|| Sheet::new(count, image.dimensions()))).add(n, &image);
+        last = Some(image);
+        // Let what the frame started run, as the display's next beat would.
+        cx.background_executor()
+            .timer(Duration::from_millis(1))
+            .await;
+    }
+    let Some(sheet) = sheet else {
+        return Ok(());
+    };
+    let path = dir.join("sheet.png");
+    (sheet.image)
+        .save(&path)
+        .with_context(|| format!("saving {}", path.display()))?;
+    let last_change = match last_change {
+        Some(at) => format!("the last change at {at:.0}ms"),
+        None => "nothing changed".to_owned(),
+    };
+    println!(
+        "FILM {count} frames in {}, {last_change}; sheet.png has them {} to a row",
+        dir.display(),
+        sheet.columns,
+    );
+    Ok(())
+}
+
+/// What changed between two frames: the share of their pixels, and the bounds of those, as
+/// x, y, width and height in the frames' pixels.
+struct Change {
+    share: f32,
+    bounds: [u32; 4],
+}
+
+fn changed(before: &RgbaImage, after: &RgbaImage) -> Option<Change> {
+    let (width, height) = after.dimensions();
+    if before.dimensions() != after.dimensions() {
+        return Some(Change {
+            share: 1.,
+            bounds: [0, 0, width, height],
+        });
+    }
+    let (mut count, mut low, mut high) = (0u64, (u32::MAX, u32::MAX), (0, 0));
+    for ((x, y, was), now) in before.enumerate_pixels().zip(after.pixels()) {
+        if was != now {
+            count += 1;
+            low = (low.0.min(x), low.1.min(y));
+            high = (high.0.max(x), high.1.max(y));
+        }
+    }
+    (count > 0).then(|| Change {
+        share: count as f32 / (u64::from(width) * u64::from(height)) as f32,
+        bounds: [low.0, low.1, high.0 - low.0 + 1, high.1 - low.1 + 1],
+    })
+}
+
+/// A `film`'s frames in a grid, a row at a time, about as tall as it's wide.
+struct Sheet {
+    image: RgbaImage,
+    columns: u32,
+    tile: (u32, u32),
+}
+
+impl Sheet {
+    fn new(count: usize, (width, height): (u32, u32)) -> Sheet {
+        let count = count.max(1) as u32;
+        let columns = ((count as f32 * height as f32 / width.max(1) as f32)
+            .sqrt()
+            .ceil() as u32)
+            .clamp(1, count);
+        let rows = count.div_ceil(columns);
+        let fit = (SHEET_WIDTH as f32 / (columns * (width + GAP)) as f32).min(1.);
+        let tile = (
+            ((width as f32 * fit).round() as u32).max(1),
+            ((height as f32 * fit).round() as u32).max(1),
+        );
+        Sheet {
+            image: RgbaImage::from_pixel(
+                columns * (tile.0 + GAP) - GAP,
+                rows * (tile.1 + GAP) - GAP,
+                GAP_COLOR,
+            ),
+            columns,
+            tile,
+        }
+    }
+
+    /// Put frame `n` in its place.
+    fn add(&mut self, n: usize, frame: &RgbaImage) {
+        let n = n as u32;
+        let (width, height) = self.tile;
+        let tile =
+            image::imageops::resize(frame, width, height, image::imageops::FilterType::Triangle);
+        let x = (n % self.columns) * (width + GAP);
+        let y = (n / self.columns) * (height + GAP);
+        image::imageops::replace(&mut self.image, &tile, x.into(), y.into());
+    }
+}
+
+/// `rest` up to its last `N` words, and those, when they're all numbers: a path before them may
+/// have spaces.
+fn trailing_numbers<const N: usize>(rest: &str) -> Option<(&str, [f32; N])> {
+    let mut numbers = [0.; N];
+    let mut before = rest.trim_end();
+    for number in numbers.iter_mut().rev() {
+        let (head, word) = before.rsplit_once(' ')?;
+        *number = word.parse().ok()?;
+        before = head.trim_end();
+    }
+    Some((before, numbers))
+}
+
+/// The current frame as `shot` saves it: the window at its own scale, so where something shows
+/// is where to click it, or a region of it at the display's, for a closer look.
+fn capture(region: Option<[f32; 4]>, window: &mut Window) -> Result<RgbaImage> {
+    let image = window.render_to_image()?;
+    let scale = window.scale_factor();
+    Ok(match region {
+        None => image::imageops::resize(
+            &image,
+            (image.width() as f32 / scale).round() as u32,
+            (image.height() as f32 / scale).round() as u32,
+            image::imageops::FilterType::Triangle,
+        ),
+        Some([x, y, width, height]) => image::imageops::crop_imm(
+            &image,
+            (x * scale) as u32,
+            (y * scale) as u32,
+            (width * scale) as u32,
+            (height * scale) as u32,
+        )
+        .to_image(),
+    })
 }
 
 /// One frame as the display link would draw it: what waits for the next frame runs, then the
@@ -488,40 +707,24 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             window.resize(gpui::size(Pixels::from(width), Pixels::from(height)));
         }
         "shot" => {
-            // A path may have spaces, so a region is the last four words, when they're numbers.
-            let (path, region): (&str, Option<[f32; 4]>) =
-                match rest.rsplitn(5, ' ').collect::<Vec<_>>()[..] {
-                    [height, width, y, x, path] => {
-                        match (x.parse(), y.parse(), width.parse(), height.parse()) {
-                            (Ok(x), Ok(y), Ok(width), Ok(height)) => {
-                                (path, Some([x, y, width, height]))
-                            }
-                            _ => (rest, None),
-                        }
-                    }
-                    _ => (rest, None),
-                };
-            let image = window.render_to_image()?;
-            let scale = window.scale_factor();
-            let image = match region {
-                // At the window's own scale, so where something shows is where to click it.
-                None => image::imageops::resize(
-                    &image,
-                    (image.width() as f32 / scale).round() as u32,
-                    (image.height() as f32 / scale).round() as u32,
-                    image::imageops::FilterType::Triangle,
-                ),
-                // A closer look, so every pixel the display has.
-                Some([x, y, width, height]) => image::imageops::crop_imm(
-                    &image,
-                    (x * scale) as u32,
-                    (y * scale) as u32,
-                    (width * scale) as u32,
-                    (height * scale) as u32,
-                )
-                .to_image(),
+            // A region is the last four words, when they're numbers.
+            let (path, region) = match trailing_numbers(rest) {
+                Some((path, region)) => (path, Some(region)),
+                None => (rest, None),
             };
-            image.save(path).with_context(|| format!("saving {path}"))?;
+            (capture(region, window)?)
+                .save(path)
+                .with_context(|| format!("saving {path}"))?;
+        }
+        "clock" => match rest {
+            "stop" => clock::stop(),
+            "run" => clock::run(),
+            _ => bail!("clock takes stop or run"),
+        },
+        "tick" => {
+            let by = rest.parse::<f32>().context("tick takes milliseconds")?;
+            let by = Duration::try_from_secs_f32(by / 1e3).context("tick takes milliseconds")?;
+            anyhow::ensure!(clock::tick(by), "the clock runs: `clock stop` first");
         }
         // The key contexts from the window down to what's focused, by their names.
         "keys" => {
