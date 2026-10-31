@@ -322,7 +322,7 @@ fn set_out(open: bool, at: f32, now: Instant) -> Instant {
 }
 
 /// How far open a move toward `open` that set out at `since` is at `now`, from 0 to 1.
-fn openness(open: bool, since: Instant, now: Instant) -> f32 {
+pub fn openness(open: bool, since: Instant, now: Instant) -> f32 {
     let along = now.saturating_duration_since(since).as_secs_f32() / FOLD.as_secs_f32();
     let eased = ease(along.clamp(0., 1.));
     match open {
