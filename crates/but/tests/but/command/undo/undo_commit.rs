@@ -54,6 +54,33 @@ fn undo_keeps_newer_commits_in_a_linked_worktree() {
     );
 }
 
+/// Committing a linked worktree's changes onto another branch leaves the worktree's branch where
+/// it was, so undo keeps what was committed on that branch since.
+#[test]
+fn undo_keeps_newer_commits_on_a_linked_worktree_branch_it_did_not_move() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = add_worktree_with_commit(&env, "wt-feature", "A");
+    std::fs::write(wt_dir.join("more.txt"), "more\n").unwrap();
+    env.but("commit wt-feature:@ -b B -m 'from the worktree'")
+        .assert()
+        .success();
+    but_testsupport::invoke_bash_at_dir(
+        "echo later >later.txt && git add later.txt && git commit -q -m later",
+        &wt_dir,
+    );
+    let worktree_tip = env.invoke_git("rev-parse wt-feature");
+
+    env.but("undo").assert().success();
+
+    assert_eq!(
+        env.invoke_git("rev-parse wt-feature"),
+        worktree_tip,
+        "undo keeps the commit made on the worktree's branch since"
+    );
+}
+
 /// Committing or amending a linked worktree's changes leaves its files as they are, so undo moves
 /// the worktree's branch back and leaves the change uncommitted there.
 #[test]

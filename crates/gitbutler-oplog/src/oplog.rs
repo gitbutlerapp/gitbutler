@@ -1218,9 +1218,9 @@ fn commit_snapshot(
     Ok(snapshot_commit_id)
 }
 
-/// Drop the branches that linked worktrees had checked out from `snapshot_tree_id` if they
-/// still point where it recorded them. Restoring then leaves alone the worktrees that the
-/// operation didn't change, and what was committed in them since.
+/// Drop the branches of linked worktrees from `snapshot_tree_id`, whichever way they were
+/// marked, if they still point where it recorded them. Restoring then leaves alone the
+/// worktrees that the operation didn't change, and what was committed in them since.
 fn without_unmoved_linked_worktree_branches(
     repo: &gix::Repository,
     snapshot_tree_id: gix::ObjectId,
@@ -1234,7 +1234,7 @@ fn without_unmoved_linked_worktree_branches(
     for entry in repo.find_tree(references.id())?.iter() {
         let reference_tree_id = entry?.id().detach();
         let reference = snapshot_reference(&repo.find_tree(reference_tree_id)?, repo)?;
-        let unmoved = reference.linked_worktree.is_some()
+        let unmoved = (reference.linked_worktree.is_some() || reference.checked_out_elsewhere)
             && repo
                 .try_find_reference(reference.ref_name.as_ref())?
                 .and_then(|current| current.target().try_id().map(ToOwned::to_owned))
