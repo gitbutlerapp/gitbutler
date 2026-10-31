@@ -3,7 +3,7 @@
     {
       "id": "up:2",
       "path": "a/b/c.txt",
-      "status": "modified",
+      "status": "added",
       "diff": {
         "type": "patch",
         "hunks": [

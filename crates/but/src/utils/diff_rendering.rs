@@ -851,6 +851,50 @@ pub fn render_committed_file(
     Ok(())
 }
 
+pub fn render_committed_hunk(
+    hunk: CommittedHunk,
+    theme: &'static Theme,
+    id_gen: &mut IdGen<'_>,
+    out: &mut dyn DiffLineWriter,
+) -> anyhow::Result<()> {
+    let mut id_gen = id_gen.scoped("committed_hunk");
+    let id = id_gen.new_id(&hunk.id);
+    render_committed_hunk_section(id, hunk, theme, out)
+}
+
+/// Render the header and diff of `committed_hunk`, the same way a commit diff shows each hunk.
+fn render_committed_hunk_section(
+    id: SectionId,
+    committed_hunk: CommittedHunk,
+    theme: &'static Theme,
+    out: &mut dyn DiffLineWriter,
+) -> anyhow::Result<()> {
+    let cli_id = Arc::new(CliId::CommittedHunk(committed_hunk));
+    let CliId::CommittedHunk(committed_hunk) = cli_id.as_ref() else {
+        unreachable!("Constructed as CommittedHunk above")
+    };
+
+    render_hunk_path_header(
+        id,
+        Some(Arc::clone(&cli_id)),
+        committed_hunk.hunk.path.as_ref(),
+        Some(StatusLine::ShortIdAndTreeStatus(
+            &committed_hunk.id,
+            committed_hunk.tree_status,
+        )),
+        out,
+        theme,
+    )?;
+
+    render_hunk(
+        id,
+        Some(Arc::clone(&cli_id)),
+        &committed_hunk.hunk,
+        theme,
+        out,
+    )
+}
+
 fn tree_changes_with_patches(
     ctx: &Context,
     tree_changes: Vec<TreeChange>,
@@ -1009,34 +1053,13 @@ fn render_tree_changes_with_id(
                         change_id: commit_id.change_id.clone(),
                         path: tree_change.inner.path.clone(),
                     };
-                    let cli_id = Arc::new(CliId::CommittedHunk(CommittedHunk {
+                    let committed_hunk = CommittedHunk {
                         committed_file,
                         id: hunk.id,
                         hunk: hunk.hunk,
-                    }));
-                    let CliId::CommittedHunk(committed_hunk) = cli_id.as_ref() else {
-                        unreachable!("Constructed as CommittedHunk above")
+                        tree_status: hunk.tree_status,
                     };
-
-                    render_hunk_path_header(
-                        hunk_id,
-                        Some(Arc::clone(&cli_id)),
-                        tree_change.inner.path.as_ref(),
-                        Some(StatusLine::ShortIdAndTreeStatus(
-                            &committed_hunk.id,
-                            tree_change.inner.status.kind(),
-                        )),
-                        out,
-                        theme,
-                    )?;
-
-                    render_hunk(
-                        hunk_id,
-                        Some(Arc::clone(&cli_id)),
-                        &committed_hunk.hunk,
-                        theme,
-                        out,
-                    )?;
+                    render_committed_hunk_section(hunk_id, committed_hunk, theme, out)?;
 
                     if tree_change_pos.needs_padding_below() || hunk_pos.needs_padding_below() {
                         out.write_section_separator()?;

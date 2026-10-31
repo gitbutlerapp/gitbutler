@@ -365,6 +365,7 @@ impl<'a> Node<'a> for CommittedFile {
                     committed_file: self.committed_file.clone(),
                     id: short_id,
                     hunk,
+                    tree_status: tree_change_with_id.inner.status.kind(),
                 });
                 matches.push(Box::new(Leaf { cli_id }));
             }
@@ -1776,6 +1777,8 @@ pub struct CommittedHunk {
     pub id: ShortId,
     /// The hunk itself.
     pub hunk: but_core::SingleHunk,
+    /// The tree status of the related tree change.
+    pub tree_status: TreeStatusKind,
 }
 
 impl PartialEq for CommittedHunk {
