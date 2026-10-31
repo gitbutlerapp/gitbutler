@@ -1,4 +1,4 @@
-use crate::utils::Sandbox;
+use crate::utils::{CommandExt, Sandbox};
 use snapbox::str;
 
 #[test]
@@ -273,5 +273,114 @@ fn deleting_the_last_lane_keeps_the_workspace_when_checkout_would_overwrite_chan
         std::fs::read_to_string(env.projects_root().join("collision")).unwrap(),
         "local\n",
         "the uncommitted file is preserved"
+    );
+}
+
+#[test]
+fn can_delete_unapplied_branch_by_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("unapply A").assert().success();
+
+    env.but("branch delete A")
+        .assert()
+        .success()
+        .stderr_eq(str![[""]])
+        .stdout_eq(str![[r#"
+Discarded branch 'A'
+
+"#]]);
+
+    // `A` and its commit are gone, the applied `B` is untouched.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* d3e2ba3 (HEAD -> B) add B
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+
+    env.but("undo").assert().success();
+
+    // Undo brings the unapplied branch back with its commit.
+    snapbox::assert_data_eq!(env.invoke_git("log --oneline -1 A"), str!["9477ae7 add A"]);
+}
+
+#[test]
+fn can_delete_applied_and_unapplied_branches_together() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.invoke_git("branch unapplied A");
+
+    env.but("--json branch delete unapplied B")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(str![[""]])
+        .stdout_eq(str![[r#"
+{
+  "type": "branches",
+  "branches": [
+    "unapplied",
+    "B"
+  ]
+}
+
+"#]]);
+
+    // With one lane left the workspace serves no purpose, so `HEAD` moves onto it, as unapply does.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 9477ae7 (HEAD -> A) add A
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+#[test]
+fn unapplied_branch_checked_out_in_another_worktree_is_kept() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    let worktree = env.app_data_dir().join("worktree");
+    env.invoke_git(&format!(
+        "worktree add -q -b elsewhere {} main",
+        worktree.display()
+    ));
+
+    env.but("branch delete elsewhere")
+        .assert()
+        .failure()
+        .stdout_eq(str![[""]])
+        .stderr_eq(str![[r#"
+Error: Refusing to delete a branch that is checked out. Worktrees are: [..]
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.invoke_git("branch --list elsewhere"),
+        str!["+ elsewhere"]
+    );
+}
+
+#[test]
+fn refuses_to_delete_the_workspace_branch_by_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("branch delete gitbutler/workspace")
+        .assert()
+        .failure()
+        .stdout_eq(str![[""]])
+        .stderr_eq(str![[r#"
+Error: Cannot delete GitButler technical branch 'gitbutler/workspace'
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.invoke_git("symbolic-ref HEAD"),
+        str!["refs/heads/gitbutler/workspace"]
     );
 }

@@ -28,7 +28,10 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     New(NewPlatform),
 
-    /// Delete branches and their commits from the workspace
+    /// Delete local branches and their commits, applied or not
+    ///
+    /// Applied branches are removed from the workspace together with their commits.
+    /// Branches that aren't applied have no CLI ID and are deleted by name.
     ///
     #[cfg(feature = "legacy")]
     #[clap(short_flag = 'd')]
