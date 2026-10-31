@@ -32,15 +32,28 @@ pub(crate) fn handle(
 ) -> CliResult<()> {
     // Conflicted uncommitted files are marked resolved; anything else is a commit.
     let conflicted_paths = if targets.is_empty() {
-        Vec::new()
+        BTreeSet::new()
     } else {
         conflicted_worktree_paths(ctx)?
     };
+    // Spell conflicted paths as the index does, so `./c.txt` matches `c.txt`. An exact
+    // match wins, so a conflicted ` c.txt` isn't taken for `c.txt`.
+    let targets: Vec<String> = targets
+        .into_iter()
+        .map(|target| {
+            let path = but_api::resolve::normalize_path(&target);
+            if !conflicted_paths.contains(&target) && conflicted_paths.contains(&path) {
+                path
+            } else {
+                target
+            }
+        })
+        .collect();
     let commit_id = match targets.as_slice() {
         [] => None,
         [target] if !conflicted_paths.contains(target) => Some(target.clone()),
         _ => {
-            if let Some(other) = targets.iter().find(|t| !conflicted_paths.contains(t)) {
+            if let Some(other) = targets.iter().find(|t| !conflicted_paths.contains(*t)) {
                 return Err(anyhow::anyhow!(
                     "'{other}' is not a conflicted uncommitted file; `but resolve` takes either one commit or only conflicted files (see `but status`)."
                 ).into());
@@ -50,7 +63,7 @@ pub(crate) fn handle(
                     "Conflicted uncommitted files can only be marked as resolved: `but resolve <path>...`"
                 ).into());
             }
-            return Ok(mark_worktree_conflicts_resolved(ctx, out, targets)?);
+            return mark_worktree_conflicts_resolved(ctx, out, targets);
         }
     };
     if ai {
@@ -79,14 +92,14 @@ pub(crate) fn handle(
             };
             // Lock stdin at the CLI boundary; the handler reads it only for a
             // piped mixed-content resolution.
-            Ok(apply_resolutions(
+            apply_resolutions(
                 ctx,
                 out,
                 commit.as_deref(),
                 &target,
                 flags,
                 std::io::stdin().lock(),
-            )?)
+            )
         }
         Some(Subcommands::Status) => Ok(show_status(ctx, out)?),
         Some(Subcommands::Finish) => Ok(finish_resolution(ctx, out)?),
@@ -111,7 +124,7 @@ pub(crate) fn handle(
 }
 
 /// The worktree-relative paths of uncommitted files with an unresolved index conflict.
-fn conflicted_worktree_paths(ctx: &Context) -> Result<Vec<String>> {
+fn conflicted_worktree_paths(ctx: &Context) -> Result<BTreeSet<String>> {
     let repo = ctx.repo.get()?;
     let index = repo.index_or_empty()?;
     Ok(index
@@ -148,9 +161,36 @@ fn mark_worktree_conflicts_resolved(
     ctx: &mut Context,
     out: &mut OutputChannel,
     paths: Vec<String>,
-) -> Result<()> {
+) -> CliResult<()> {
     if matches!(operating_mode(ctx)?.operating_mode, OperatingMode::Edit(_)) {
-        bail!("In resolution mode, edit the files and run `but resolve finish` instead.");
+        return Err(bad_input(
+            "In resolution mode, edit the files and run `but resolve finish` instead.",
+        )
+        .into());
+    }
+    // Marking a file resolved stages it as it is, so markers left in it would be staged too.
+    let with_markers: Vec<&str> = {
+        let repo = ctx.repo.get()?;
+        let workdir = repo.workdir().context("No workdir")?;
+        paths
+            .iter()
+            .map(String::as_str)
+            .filter(|path| {
+                std::fs::read_to_string(workdir.join(path))
+                    .is_ok_and(|content| has_conflict_markers(&content))
+            })
+            .collect()
+    };
+    if !with_markers.is_empty() {
+        let with_markers = with_markers.join(" ");
+        return Err(bad_input(format!(
+            "Conflict markers are still in {with_markers}, so nothing was marked resolved"
+        ))
+        .hint(format!(
+            "Edit {with_markers} to the wanted content, then run `but resolve {}` again",
+            paths.join(" ")
+        ))
+        .into());
     }
     but_api::workspace::resolve_worktree_conflicts(
         ctx,
@@ -924,8 +964,8 @@ fn apply_resolutions(
     target: &str,
     flags: ResolutionFlags,
     mut read: impl std::io::Read,
-) -> Result<()> {
-    use but_api::resolve::{HunkResolution, ResolutionSpec};
+) -> CliResult<()> {
+    use but_api::resolve::{HunkResolution, ResolutionSpec, normalize_path};
 
     let ResolutionFlags {
         ours,
@@ -937,11 +977,32 @@ fn apply_resolutions(
     let t = theme::get();
     let mode = operating_mode(ctx)?.operating_mode;
     if matches!(mode, OperatingMode::Edit(_)) {
-        bail!(
-            "You are in conflict resolution mode. Finish with `but resolve finish` or cancel with `but resolve cancel` first."
-        );
+        return Err(bad_input(
+            "You are in conflict resolution mode. Finish with `but resolve finish` or cancel with `but resolve cancel` first.",
+        )
+        .into());
     }
-    let conflict_target = target_conflicted_commit(ctx, commit)?.map_err(anyhow::Error::msg)?;
+    // Rewriting a commit checks out its new tree, which Git refuses while the index holds
+    // conflicts, and `apply` can't resolve those because no commit holds them.
+    let uncommitted = conflicted_worktree_paths(ctx)?;
+    if !uncommitted.is_empty() {
+        let paths = uncommitted.into_iter().collect::<Vec<_>>().join(" ");
+        return Err(bad_input(format!(
+            "`but resolve apply` can't rewrite commits while uncommitted files are conflicted: {paths}"
+        ))
+        .hint(format!(
+            "Edit them to the wanted content, then run `but resolve {paths}`"
+        ))
+        .into());
+    }
+    let conflict_target = match target_conflicted_commit(ctx, commit)? {
+        Ok(target) => target,
+        Err(nothing_conflicted) => {
+            return Err(bad_input(nothing_conflicted)
+                .hint("Run `but status` to see which commits are conflicted")
+                .into());
+        }
+    };
     let commit_oid = conflict_target.commit_oid;
 
     // Split a trailing `:<number>` off the target; everything else is the path.
@@ -962,20 +1023,23 @@ fn apply_resolutions(
         HunkResolution::Ai
     } else {
         let content = match &file {
-            Some(file) => std::fs::read_to_string(file)
-                .with_context(|| format!("Failed to read {}", file.display()))?,
-            None => {
-                if out.can_prompt() {
-                    bail!(
-                        "Provide the replacement content via --file or stdin, or take a side with --ours/--theirs/--ai."
-                    );
-                }
+            // `-` reads stdin, as with `but commit -F -`.
+            Some(file) if file.as_os_str() != "-" => std::fs::read_to_string(file)
+                .map_err(|err| bad_input(format!("Failed to read {}: {err}", file.display())))?,
+            None if out.can_prompt() => {
+                return Err(bad_input(
+                    "Provide the replacement content via --file or stdin, or take a side with --ours/--theirs/--ai.",
+                )
+                .into());
+            }
+            _ => {
                 let mut content = String::new();
                 std::io::Read::read_to_string(&mut read, &mut content)?;
                 if content.is_empty() {
-                    bail!(
-                        "stdin was empty. To intentionally delete the conflicted region, pass --file with an empty file."
-                    );
+                    return Err(bad_input(
+                        "stdin was empty. To intentionally delete the conflicted region, pass --file with an empty file.",
+                    )
+                    .into());
                 }
                 content
             }
@@ -983,43 +1047,81 @@ fn apply_resolutions(
         HunkResolution::Content(content)
     };
 
-    // Expand a bare path into explicit per-hunk specs; an explicit `:<N>`
-    // target needs no lookup, the API validates it.
+    let conflicts = but_api::resolve::commit_conflicts(ctx, commit_oid)?;
+    if conflicts.files.is_empty() && conflicts.manual.is_empty() {
+        return Err(bad_input(format!("Commit {commit_oid} is not conflicted.")).into());
+    }
+    // Match with the same normalization the API applies, so spellings
+    // it would accept (`./`, backslashes, duplicate slashes) resolve.
+    let lookup = normalize_path(path);
+    if let Some(manual) = conflicts
+        .manual
+        .iter()
+        .find(|file| normalize_path(&file.path) == lookup)
+    {
+        return Err(bad_input(format!(
+            "\"{path}\" cannot be resolved this way: {} Resolve this commit in edit mode instead.",
+            manual.reason
+        ))
+        .into());
+    }
+    let short_id = shorten_object_id(&*ctx.repo.get()?, commit_oid);
+    // Name the commit as the caller did; without `--commit`, the target is its branch's
+    // oldest conflicted commit, which is what the branch name selects.
+    let commit_ref = commit
+        .or(conflict_target.branch.as_deref())
+        .unwrap_or(&short_id);
+    let Some(file) = conflicts
+        .files
+        .iter()
+        .find(|conflicted| normalize_path(&conflicted.path) == lookup)
+    else {
+        let on_branch = conflict_target
+            .branch
+            .as_deref()
+            .map(|branch| format!(" on branch {branch}"))
+            .unwrap_or_default();
+        let conflicted = conflicts
+            .files
+            .iter()
+            .map(|file| file.path.as_str())
+            .chain(conflicts.manual.iter().map(|file| file.path.as_str()))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let mut hint = format!("Run `but resolve conflicts {commit_ref}` to see what is left");
+        if conflict_target.other_conflicted > 0 {
+            hint.push_str(", or pass `--commit <branch>` to target another conflicted commit");
+        }
+        return Err(bad_input(format!(
+            "\"{path}\" is not conflicted in commit {short_id}{on_branch}, which still has conflicts in: {conflicted}"
+        ))
+        .hint(hint)
+        .into());
+    };
+
+    // Expand a bare path into explicit per-hunk specs.
+    let total_hunks = file.hunks.len();
     let hunks: Vec<usize> = match (hunk, &resolution) {
-        (Some(hunk), _) => vec![hunk],
-        (None, _) => {
-            let conflicts = but_api::resolve::commit_conflicts(ctx, commit_oid)?;
-            if conflicts.files.is_empty() && conflicts.manual.is_empty() {
-                bail!("Commit {commit_oid} is not conflicted.");
-            }
-            // Match with the same normalization the API applies, so spellings
-            // it would accept (`./`, backslashes, duplicate slashes) resolve.
-            let lookup = but_api::resolve::normalize_path(path);
-            if let Some(manual) = conflicts
-                .manual
-                .iter()
-                .find(|file| but_api::resolve::normalize_path(&file.path) == lookup)
-            {
-                bail!(
-                    "\"{path}\" cannot be resolved this way: {} Resolve this commit in edit mode instead.",
-                    manual.reason
-                );
-            }
-            let total_hunks = conflicts
-                .files
-                .iter()
-                .find(|conflicted| but_api::resolve::normalize_path(&conflicted.path) == lookup)
-                .map(|conflicted| conflicted.hunks.len())
-                .with_context(|| format!("\"{path}\" is not a conflicted file of this commit"))?;
-            match &resolution {
-                HunkResolution::Ours | HunkResolution::Theirs | HunkResolution::Ai => {
-                    (1..=total_hunks).collect()
-                }
-                HunkResolution::Content(_) if total_hunks == 1 => vec![1],
-                HunkResolution::Content(_) => bail!(
-                    "\"{path}\" has {total_hunks} conflicts; content applies to one at a time, use \"{path}:<N>\"."
-                ),
-            }
+        (Some(hunk), _) if (1..=total_hunks).contains(&hunk) => vec![hunk],
+        (Some(hunk), _) => {
+            return Err(bad_input(format!(
+                "\"{path}\" has {total_hunks} conflict{}, but conflict {hunk} was addressed",
+                if total_hunks == 1 { "" } else { "s" }
+            ))
+            .hint(format!(
+                "Conflicts are renumbered after each apply; run `but resolve conflicts {commit_ref}` to see the current numbers"
+            ))
+            .into());
+        }
+        (None, HunkResolution::Ours | HunkResolution::Theirs | HunkResolution::Ai) => {
+            (1..=total_hunks).collect()
+        }
+        (None, HunkResolution::Content(_)) if total_hunks == 1 => vec![1],
+        (None, HunkResolution::Content(_)) => {
+            return Err(bad_input(format!(
+                "\"{path}\" has {total_hunks} conflicts; content applies to one at a time, use \"{path}:<N>\"."
+            ))
+            .into());
         }
     };
     let specs = hunks

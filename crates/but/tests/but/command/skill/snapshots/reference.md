@@ -112,7 +112,7 @@ Resolve conflicts of a conflicted commit, without entering resolution mode
 - `--ours` Take the ours side: the new base the commit was rebased onto
 - `--theirs` Take the theirs side: the commit's own version
 - `--ai` Let the configured AI model merge the targeted conflicts
-- `-F, --file <FILE>` Read the replacement content from this file (otherwise from stdin)
+- `-F, --file <FILE>` Read the replacement content from FILE, or from stdin when FILE is -. Without it, the content is read from stdin
 
 ### but resolve status
 Show the status of conflict resolution, listing remaining conflicted files
