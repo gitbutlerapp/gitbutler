@@ -148,6 +148,7 @@ impl SnapshotProjectMeta {
 /// │   └── [index]/
 /// │       ├── name
 /// │       ├── target (absent if the ref did not exist)
+/// │       ├── commits/[id]/{commit,tree} (the commits of target that the target branch lacks)
 /// │       └── checked-out-elsewhere (an explicitly preserved ref another worktree had checked out)
 /// ├── conflicts/…
 /// ├── index/
@@ -608,6 +609,9 @@ struct SnapshotCheckout {
 struct SnapshotReference {
     ref_name: gix::refs::FullName,
     target: Option<gix::ObjectId>,
+    /// The tree with the commits of `target` that the target branch lacks. Older snapshots
+    /// don't have it.
+    commits: Option<gix::ObjectId>,
     /// Another worktree had `ref_name` checked out, so restoring may move it there.
     checked_out_elsewhere: bool,
 }
@@ -652,12 +656,16 @@ fn snapshot_reference(
     if target.is_some_and(|target| target.is_null()) {
         bail!("snapshot additional ref target is null");
     }
+    let commits = reference_tree
+        .lookup_entry_by_path("commits")?
+        .map(|entry| entry.id().detach());
     let checked_out_elsewhere = reference_tree
         .lookup_entry_by_path("checked-out-elsewhere")?
         .is_some();
     Ok(SnapshotReference {
         ref_name,
         target,
+        commits,
         checked_out_elsewhere,
     })
 }
@@ -1022,27 +1030,16 @@ fn prepare_snapshot_with_target_and_refs(
             // Keep the snapshot-local legacy metadata in sync with the references.
             let _ = legacy_virtual_branches::sync_stack_heads_from_refs(stack, &repo);
 
-            for commit_id in commit_ids_excluding_reachable_from_with_graph(
+            upsert_commits(
+                &mut stack_tree_cursor,
                 &repo,
-                stack_head,
-                default_target_commit_id,
-                &mut graph,
-            )? {
-                let commit = repo.find_commit(commit_id)?;
-                let commit_tree_id = commit.tree_id()?.detach();
-                let commit_data_blob_id = repo.write_blob(&commit.data)?;
-
-                stack_tree_cursor.upsert(
-                    format!("commits/{commit_id}/commit"),
-                    EntryKind::Blob,
-                    commit_data_blob_id,
-                )?;
-                stack_tree_cursor.upsert(
-                    format!("commits/{commit_id}/tree"),
-                    EntryKind::Tree,
-                    commit_tree_id,
-                )?;
-            }
+                commit_ids_excluding_reachable_from_with_graph(
+                    &repo,
+                    stack_head,
+                    default_target_commit_id,
+                    &mut graph,
+                )?,
+            )?;
         }
 
         toml::to_string(legacy_meta.data())?
@@ -1056,10 +1053,22 @@ fn prepare_snapshot_with_target_and_refs(
             repo.write_blob(ref_name.as_bstr())?,
         )?;
         if let Some(reference) = repo.try_find_reference(ref_name.as_ref())? {
+            let target = reference.id().detach();
             reference_tree.upsert(
                 "target",
                 EntryKind::Blob,
-                repo.write_blob(reference.id().to_string().as_bytes())?,
+                repo.write_blob(target.to_string().as_bytes())?,
+            )?;
+            // `target` is only an id, and the ref may be gone by the time it is restored.
+            upsert_commits(
+                &mut reference_tree,
+                &repo,
+                commit_ids_excluding_reachable_from_with_graph(
+                    &repo,
+                    target,
+                    default_target_commit_id,
+                    &mut graph,
+                )?,
             )?;
             // Only the caller knows that its operation leaves the other worktree's files
             // alone, so refs picked up from the graph aren't marked.
@@ -1115,6 +1124,29 @@ fn prepare_snapshot_with_target_and_refs(
         tree_id: snapshot_tree.write()?.detach(),
         target_base_oid: default_target_commit_id,
     })
+}
+
+/// Keep `commit_ids` in the snapshot as `commits/{id}/commit` and `commits/{id}/tree`, so
+/// `git gc` doesn't prune their trees and [`deserialize_commit`] can write the commits back.
+fn upsert_commits(
+    cursor: &mut gix::object::tree::editor::Cursor<'_, '_>,
+    repo: &gix::Repository,
+    commit_ids: Vec<gix::ObjectId>,
+) -> Result<()> {
+    for commit_id in commit_ids {
+        let commit = repo.find_commit(commit_id)?;
+        cursor.upsert(
+            format!("commits/{commit_id}/commit"),
+            EntryKind::Blob,
+            repo.write_blob(&commit.data)?,
+        )?;
+        cursor.upsert(
+            format!("commits/{commit_id}/tree"),
+            EntryKind::Tree,
+            commit.tree_id()?.detach(),
+        )?;
+    }
+    Ok(())
 }
 
 fn commit_snapshot(
@@ -1367,6 +1399,17 @@ fn restore_snapshot_tree(
             // TODO: in the next iteration, this of course can't be hardcoded.
             if branch_name == "workspace" {
                 restored_workspace_commit = Some(commit_oid);
+            }
+        }
+    }
+    // The commits of additional refs, written back like the branch commits above.
+    for commits in restored_references.iter().filter_map(|r| r.commits) {
+        for commit_entry in repo.find_tree(commits)?.iter() {
+            let commit_entry = commit_entry?;
+            if deserialize_commit(commit_entry.id())?
+                != gix::ObjectId::from_hex(commit_entry.filename())?
+            {
+                bail!("commit id mismatch: failed to recreate a commit from its parts");
             }
         }
     }
