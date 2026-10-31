@@ -89,9 +89,10 @@ film /tmp/fold 200 8 0 40 340 540 -- click 306 66
 
 That stops the clock, saves the frame before the input as `before.png`, runs the input, and
 saves a frame every 8ms for 200ms of that region (`000.png`, `001.png`, …), then runs the
-clock again. The input is one script line. For a drag, `press` and the first `move`s go before
-the `film`, and the `move` that sets the motion off goes after its `--`, so the before frame
-already shows the drag under way.
+clock again. The input is one script line. For a drag, `press` and at least two small `move`s
+go before the `film`, and the `move` that sets the motion off goes after its `--`. GPUI starts
+a drag on one move and sends it moves only from the next, so with fewer, frame 000 shows the
+drag taking hold rather than the motion.
 
 `sheet.png` has all the frames in a grid, a row at a time, each labelled with its time. Each
 frame's line says what changed from the one before, the before frame for frame 000:
