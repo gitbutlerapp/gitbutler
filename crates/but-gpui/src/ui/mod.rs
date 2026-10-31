@@ -232,9 +232,6 @@ icons! {
     own: FolderFill => "folder-fill",
     // ui-svelte's keyboard, which ui-react doesn't have.
     Keyboard => "keyboard",
-    // ui-svelte's push and its stack of two, which ui-react doesn't have.
-    Push => "push",
-    PushAll => "push-all",
     // ui-react's sidebar, mirrored, for the detail on the window's right.
     SidebarRight => "sidebar-right",
     // ui-react's eye, struck through, for a project not watched.

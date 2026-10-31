@@ -69,8 +69,6 @@ use rows::{
     RowKey, Rows, in_checkout, in_inactive, inactive_open, last_active, row_keys, span_height,
 };
 
-const BRANCH_ROW: &str = "branch-row";
-
 /// How far the cards sit in from the list's sides.
 const CARD_MARGIN: f32 = 10.;
 
@@ -2655,14 +2653,9 @@ impl Navigator {
         let unread = store.branch_unread(id, branch);
         let review = (branch.review.as_ref()).map(|r| (r, store.review_state(id, r)));
         let rename = self.rename_field(item, theme);
-        let pushing = ref_name.is_some_and(|r| store.pushing(id, r));
-        let push = (self.push_button(id, ref_name, &row_id, pushing, style, cx))
-            .filter(|_| rename.is_none());
         Some(
             style
                 .row(format!("branch-{id}-{row_id}"), 6.)
-                .group(BRANCH_ROW)
-                .relative()
                 .aria_label(format!("Branch {name}"))
                 .child(step)
                 .child(match icon(glyph).text_color(style.meta(glyph_color)) {
@@ -2721,11 +2714,10 @@ impl Navigator {
                         ),
                     ))
                 })
-                .children(style.unpushed(unpushed_n))
+                .children(self.push_count(id, ref_name, unpushed_n, style, cx))
                 // Folded, how many commits it holds; open, they're listed under it.
                 .when(!open, |el| el.children(style.commits(branch.commits.len())))
                 .when(unread, |el| el.child(dot(style.meta(theme.pop))))
-                .children(push)
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
                 // A click looks inside, opening its commits; the chevron, a double-click, ⇧←
                 // and ⇧→ fold them.
@@ -2742,63 +2734,49 @@ impl Navigator {
         )
     }
 
-    /// Floats over the end of the branch row under the pointer, or of one `pushing`, pulsing.
-    /// Pressing it pushes without selecting the branch, and pressing it disabled does nothing
-    /// to the row either.
-    fn push_button(
+    /// How many of the branch's `n` commits aren't pushed, pressed to push them without
+    /// selecting the branch. It pulses while they go; while they can't, its tooltip says why.
+    fn push_count(
         &self,
         project: &ProjectId,
         ref_name: Option<&FullName>,
-        row_id: &str,
-        pushing: bool,
+        n: usize,
         style: RowStyle,
         cx: &Context<Self>,
-    ) -> Option<Div> {
-        let ws = self.store.read(cx).workspace(project)?;
-        let glyph = match ref_name.is_some_and(|r| ws.parents_to_push(r).next().is_some()) {
-            true => Icon::PushAll,
-            false => Icon::Push,
+    ) -> Option<AnyElement> {
+        let store = self.store.read(cx);
+        let ws = store.workspace(project)?;
+        let pushing = ref_name.is_some_and(|r| store.pushing(project, r));
+        let blocked = ws.push_blocked(ref_name);
+        let tip = match (ref_name, blocked) {
+            _ if pushing => "Pushing".to_owned(),
+            (Some(r), None) => ws.push_tooltip(r, n),
+            (_, why) => why.unwrap_or_default().to_owned(),
         };
+        let color = style.meta(style.theme.blue);
+        let count = meta_count(Icon::ArrowUp, n, color, tip)?
+            .px(dp(3.))
+            .rounded(dp(4.));
+        if pushing {
+            return Some(pulsing(count).into_any_element());
+        }
+        if blocked.is_some() {
+            return Some(count.into_any_element());
+        }
         let pushed = (project.clone(), ref_name.cloned());
-        let button = icon_button(ElementId::Name(format!("push-{row_id}").into()), glyph)
-            .small()
-            .style(ButtonStyle::Outline)
-            .inverted(style.solid)
-            .tooltip(match (pushing, ref_name) {
-                (true, _) => "Pushing",
-                (false, Some(ref_name)) => ws.push_tooltip(ref_name),
-                (false, None) => "Push",
-            })
-            // Pushing it pulses at full strength, rather than faded as a disabled button is.
-            .disabled_because(ws.push_blocked(ref_name).filter(|_| !pushing))
-            .on_click(cx.listener(move |this, _, window, cx| {
-                if pushing {
-                    return;
-                }
-                let (project, ref_name) = pushed.clone();
-                this.app.update_later(window, cx, move |app, window, cx| {
-                    app.push_branch(project, ref_name, window, cx)
-                });
-            }));
-        let theme = style.theme;
         Some(
-            div()
-                .absolute()
-                .top(dp(4.))
-                .right(dp(4.))
-                .rounded(dp(4.))
-                .bg(match style.solid {
-                    true => theme.fill_gray,
-                    false => theme.bg_2,
-                })
-                .when(!pushing, |el| {
-                    el.opacity(0.).group_hover(BRANCH_ROW, |el| el.opacity(1.))
-                })
+            count
+                .cursor_pointer()
+                .hover(move |el| el.bg(color.opacity(0.16)))
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .child(match pushing {
-                    true => pulsing(div().child(button)).into_any_element(),
-                    false => button.into_any_element(),
-                }),
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    cx.stop_propagation();
+                    let (project, ref_name) = pushed.clone();
+                    this.app.update_later(window, cx, move |app, window, cx| {
+                        app.push_branch(project, ref_name, window, cx)
+                    });
+                }))
+                .into_any_element(),
         )
     }
 
@@ -3454,7 +3432,7 @@ pub(crate) fn with_merged(target: &Target) -> String {
     }
 }
 
-/// How many commits `branches` are ahead of their remote branches by.
+/// How many commits pushing `branches` sends.
 fn unpushed<'a>(branches: impl Iterator<Item = &'a Branch>) -> usize {
     branches.map(Branch::unpushed_commits).sum()
 }
