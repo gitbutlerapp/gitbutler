@@ -222,7 +222,9 @@ fn environment() -> Vec<u16> {
     for (name, value) in [
         ("TERM", "xterm-256color"),
         ("COLORTERM", "truecolor"),
-        ("TERM_PROGRAM", "GitButler"),
+        // Ghostty's, the emulator's, as Claude Code reports progress only to terminals it knows.
+        ("TERM_PROGRAM", "ghostty"),
+        ("TERM_PROGRAM_VERSION", "1.3.2"),
     ] {
         variables.insert(name.into(), (name.into(), value.into()));
     }

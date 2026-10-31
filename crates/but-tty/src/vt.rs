@@ -16,7 +16,8 @@ use libghostty_vt::screen::{CellWide, Screen};
 use libghostty_vt::selection::gesture::{self, Gesture};
 use libghostty_vt::style::{RgbColor, Underline};
 use libghostty_vt::terminal::{
-    Mode, Point as GridPoint, PointCoordinate, ProgramStatus, ProgramStatusState, ScrollViewport,
+    Mode, Point as GridPoint, PointCoordinate, ProgramStatus, ProgramStatusState, ProgressReport,
+    ProgressState, ScrollViewport,
 };
 use libghostty_vt::{RenderState, paste};
 
@@ -71,7 +72,7 @@ pub struct Frame {
     pub cursor_color: RgbColor,
 }
 
-/// What the program running says it's doing, by OSC 7501.
+/// What the program running says it's doing, by OSC 7501 or a progress report (OSC 9;4).
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Status {
     #[default]
@@ -98,6 +99,26 @@ impl Status {
             ProgramStatusState::Blocked => Some(Self::Blocked(message())),
             ProgramStatusState::Done => Some(Self::Done),
             ProgramStatusState::Error => Some(Self::Failed(message())),
+            _ => None,
+        }
+    }
+
+    /// What a progress report (OSC 9;4) says, as pi and Claude Code send it for a turn, keeping
+    /// what the work under way ends in once the progress is removed: done, or failed if it
+    /// reported an error, as it goes on after one. It has no word for blocked.
+    fn progressed(report: ProgressReport<'_>, ending: &mut Self) -> Option<Self> {
+        match report.state().ok()? {
+            ProgressState::Remove => Some(std::mem::take(ending)),
+            ProgressState::Set | ProgressState::Indeterminate => {
+                if *ending == Self::Idle {
+                    *ending = Self::Done;
+                }
+                Some(Self::Working)
+            }
+            ProgressState::Error => {
+                *ending = Self::Failed(String::new());
+                Some(Self::Working)
+            }
             _ => None,
         }
     }
@@ -132,6 +153,12 @@ pub(crate) struct Vt {
     replies: Rc<Cell<Vec<u8>>>,
     retitled: Rc<Cell<bool>>,
     reported: Rc<Cell<Option<Status>>>,
+    /// Whether the program running reports its status by OSC 7501, which then speaks over its
+    /// progress reports, as one may send both.
+    reports_status: Rc<Cell<bool>>,
+    /// What the work the program running reported progress on ends in once the progress is
+    /// removed: idle if none is under way.
+    progress_ending: Rc<Cell<Status>>,
     size: Size,
 }
 
@@ -147,7 +174,15 @@ impl Vt {
         let replies = Rc::new(Cell::new(Vec::new()));
         let retitled = Rc::new(Cell::new(false));
         let reported = Rc::new(Cell::new(None));
-        let (sent, titled, heard) = (replies.clone(), retitled.clone(), reported.clone());
+        let reports_status = Rc::new(Cell::new(false));
+        let progress_ending = Rc::new(Cell::new(Status::Idle));
+        let (sent, titled) = (replies.clone(), retitled.clone());
+        let (heard, spoke) = (reported.clone(), reports_status.clone());
+        let (progressed, by_status, ends) = (
+            reported.clone(),
+            reports_status.clone(),
+            progress_ending.clone(),
+        );
         let drawer = Rc::new(RefCell::new(Drawer {
             state: RenderState::new()?,
             rows: RowIterator::new()?,
@@ -181,7 +216,18 @@ impl Vt {
         .on_program_status(move |_, report| {
             if let Some(status) = Status::reported(report) {
                 heard.set(Some(status));
+                spoke.set(true);
             }
+        })?
+        .on_progress_report(move |_, report| {
+            if by_status.get() {
+                return;
+            }
+            let mut ending = ends.take();
+            if let Some(status) = Status::progressed(report, &mut ending) {
+                progressed.set(Some(status));
+            }
+            ends.set(ending);
         })?
         // Shells and editors wait on the answer to which terminal this is.
         .on_device_attributes(|_| {
@@ -218,6 +264,8 @@ impl Vt {
             replies,
             retitled,
             reported,
+            reports_status,
+            progress_ending,
             size,
         })
     }
@@ -270,6 +318,12 @@ impl Vt {
     /// What the program running last reported, if it did since this was last asked.
     pub(crate) fn reported(&mut self) -> Option<Status> {
         self.reported.take()
+    }
+
+    /// The program that reported has gone, so the next is heard by whichever way it reports.
+    pub(crate) fn reporter_gone(&self) {
+        self.reports_status.set(false);
+        self.progress_ending.set(Status::Idle);
     }
 
     /// What the emulator answered the shell's queries with since this was last asked.
@@ -809,6 +863,84 @@ mod tests {
 
         vt.write(b"\x1b]7501;state=done\x07\x1bc");
         assert_eq!(vt.reported(), Some(Status::Idle), "a full reset forgets it");
+    }
+
+    #[test]
+    fn progress_reports_are_the_status_too() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.write(b"\x1b]9;4;0\x07");
+        assert_eq!(vt.reported(), Some(Status::Idle), "nothing was under way");
+
+        vt.write(b"\x1b]9;4;3\x07");
+        assert_eq!(vt.reported(), Some(Status::Working), "pi's, while it works");
+
+        vt.write(b"\x1b]9;4;0;\x07");
+        assert_eq!(
+            vt.reported(),
+            Some(Status::Done),
+            "Claude Code's, at a turn's end"
+        );
+
+        vt.write(b"\x1b]9;4;0;\x07\x1b]9;4;3;\x07");
+        assert_eq!(
+            vt.reported(),
+            Some(Status::Working),
+            "and at the next one's start"
+        );
+
+        vt.write(b"\x1b]9;4;1;40\x07");
+        assert_eq!(
+            vt.reported(),
+            Some(Status::Working),
+            "and with how far it got"
+        );
+
+        vt.write(b"\x1b]9;4;2\x07\x1b]9;4;1;60\x07");
+        assert_eq!(
+            vt.reported(),
+            Some(Status::Working),
+            "an error, as it goes on"
+        );
+
+        vt.write(b"\x1b]9;4;0\x07");
+        assert_eq!(
+            vt.reported(),
+            Some(Status::Failed(String::new())),
+            "work with an error ends failed"
+        );
+
+        vt.write(b"\x1b]9;4;3\x07\x1b]9;4;0\x07");
+        assert_eq!(
+            vt.reported(),
+            Some(Status::Done),
+            "the error was the last work's"
+        );
+    }
+
+    #[test]
+    fn a_program_reporting_its_status_is_heard_over_its_progress() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.write(b"\x1b]9;4;3\x07\x1b]7501;state=blocked\x07\x1b]9;4;3\x07");
+        assert_eq!(
+            vt.reported(),
+            Some(Status::Blocked(String::new())),
+            "the progress it goes on reporting doesn't say it works"
+        );
+
+        vt.write(b"\x1b]7501;state=done\x07\x1b]9;4;0\x07");
+        assert_eq!(
+            vt.reported(),
+            Some(Status::Done),
+            "nor does its removal after say it's idle"
+        );
+
+        vt.reporter_gone();
+        vt.write(b"\x1b]9;4;3\x07");
+        assert_eq!(
+            vt.reported(),
+            Some(Status::Working),
+            "the next program is heard by its progress"
+        );
     }
 
     #[test]

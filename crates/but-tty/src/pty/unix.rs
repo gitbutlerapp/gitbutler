@@ -227,7 +227,9 @@ fn shell_command(shell: &OsString, cwd: &Path, slave: &OwnedFd) -> io::Result<Co
         .current_dir(cwd)
         .env("TERM", "xterm-256color")
         .env("COLORTERM", "truecolor")
-        .env("TERM_PROGRAM", "GitButler")
+        // Ghostty's, the emulator's, as Claude Code reports progress only to terminals it knows.
+        .env("TERM_PROGRAM", "ghostty")
+        .env("TERM_PROGRAM_VERSION", "1.3.2")
         .env_remove("TERMINFO")
         .env_remove(crate::handoff::HANDED)
         .stdin(Stdio::from(slave.try_clone()?))

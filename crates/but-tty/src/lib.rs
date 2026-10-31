@@ -474,4 +474,24 @@ mod tests {
             "the shell taking the terminal back ends what the program said"
         );
     }
+
+    #[test]
+    fn a_program_reporting_progress_is_heard_after_one_reporting_its_status() {
+        let mut terminal = started();
+        terminal.input(br"printf '\033]7501;state=done\033\\'");
+        terminal.input(b"\n");
+        until(
+            &mut terminal,
+            "the first should say it's done",
+            |terminal| terminal.status() == Status::Done,
+        );
+
+        terminal.input(br#"sh -c "printf '\033]9;4;3\007'; sleep 1""#);
+        terminal.input(b"\n");
+        until(
+            &mut terminal,
+            "the next should be heard working by its progress",
+            |terminal| terminal.status() == Status::Working,
+        );
+    }
 }
