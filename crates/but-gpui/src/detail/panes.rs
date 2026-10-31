@@ -24,6 +24,7 @@ use crate::state::{ProjectId, Section, Selection};
 use crate::theme::Theme;
 use crate::ui::fold::{MOVING_ROWS, Moved, clipped};
 use crate::ui::illustration::Illustration;
+use crate::ui::message_editor::MessageEditor;
 use crate::ui::person::{author_avatar, byline};
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -513,7 +514,6 @@ impl Detail {
         project: &ProjectId,
         id: backend::CommitId,
         theme: &Theme,
-        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
@@ -558,7 +558,7 @@ impl Detail {
         let rewording = (self.rewording.as_ref())
             .filter(|(reworded, ..)| super::composer::rewords(reworded, project, commit, store));
         let title = match rewording {
-            Some((_, input, _)) => self.reword_editor(input, theme, window, cx),
+            Some((_, input, _)) => reword_editor(input, theme),
             // A double-click on its title or body edits the message.
             None => (self.message(title, body, theme))
                 .on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
@@ -927,54 +927,6 @@ impl Detail {
         let title = page_title(Icon::Stack, theme).child(title_text(title));
         let target = Selection::Stack(project.clone(), bottom.cloned());
         self.page_header(title, meta, target, None, None, theme, cx)
-    }
-
-    /// The box editing a commit's message, with how to save or leave it.
-    fn reword_editor(
-        &self,
-        input: &Entity<TextInput>,
-        theme: &Theme,
-        window: &Window,
-        cx: &App,
-    ) -> AnyElement {
-        let focused = input.focus_handle(cx).is_focused(window);
-        v_flex()
-            .gap(dp(8.))
-            .child(
-                field(input, focused, theme)
-                    .px(dp(10.))
-                    .py(dp(8.))
-                    .rounded(dp(6.))
-                    .line_height(dp(19.))
-                    .id("reword-box")
-                    .max_h(dp(260.))
-                    .overflow_y_scroll()
-                    .track_scroll(&self.reword_scroll),
-            )
-            .child(
-                h_flex()
-                    .gap(dp(8.))
-                    .justify_end()
-                    .child(faint(crate::ui::keys_text("⌘↩ to save, esc to cancel"), theme).flex_1())
-                    .child({
-                        let input = input.clone();
-                        button("cancel-reword", "Cancel")
-                            .small()
-                            .on_click(move |_, _, cx| {
-                                input.update(cx, |_, cx| cx.emit(InputEvent::Cancel))
-                            })
-                    })
-                    .child({
-                        let input = input.clone();
-                        button("save-reword", "Save")
-                            .small()
-                            .style(ButtonStyle::Pop)
-                            .on_click(move |_, _, cx| {
-                                input.update(cx, |_, cx| cx.emit(InputEvent::Submit))
-                            })
-                    }),
-            )
-            .into_any_element()
     }
 
     pub(super) fn render_branch_side(
@@ -1989,4 +1941,35 @@ fn person_row(
                     ),
                 ),
         )
+}
+
+/// The box editing a commit's message, with how to save or leave it.
+fn reword_editor(input: &Entity<MessageEditor>, theme: &Theme) -> AnyElement {
+    v_flex()
+        .gap(dp(8.))
+        .child(input.clone())
+        .child(
+            h_flex()
+                .gap(dp(8.))
+                .justify_end()
+                .child(faint(crate::ui::keys_text("⌘↩ to save, esc to cancel"), theme).flex_1())
+                .child({
+                    let input = input.clone();
+                    button("cancel-reword", "Cancel")
+                        .small()
+                        .on_click(move |_, _, cx| {
+                            input.update(cx, |_, cx| cx.emit(InputEvent::Cancel))
+                        })
+                })
+                .child({
+                    let input = input.clone();
+                    button("save-reword", "Save")
+                        .small()
+                        .style(ButtonStyle::Pop)
+                        .on_click(move |_, _, cx| {
+                            input.update(cx, |_, cx| cx.emit(InputEvent::Submit))
+                        })
+                }),
+        )
+        .into_any_element()
 }

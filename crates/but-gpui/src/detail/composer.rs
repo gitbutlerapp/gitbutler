@@ -16,9 +16,10 @@ use crate::backend::{
 use crate::palette::Choice;
 use crate::state::{Cut, NewAt, Overlay, ProjectId, Selection, Store, snack};
 use crate::theme::Theme;
-use crate::ui::text_input::{InputEvent, TextInput};
+use crate::ui::message_editor::{MessageEditor, MessageSize};
+use crate::ui::text_input::InputEvent;
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, button, dp, faint, field, h_flex, icon_button, plural, shortcut,
+    ButtonStyle, Icon, Tooltip, button, dp, faint, h_flex, icon_button, plural, shortcut,
     small_icon, v_flex,
 };
 
@@ -685,7 +686,9 @@ impl Detail {
                 .flat_map(|ws| ws.commits())
                 .find(|c| rewords(editing, &editing.0, c, store));
             if let Some(other) = other
-                && store.message_of(&editing.0, other).1.trim() != input.read(cx).text().trim()
+                && !input
+                    .read(cx)
+                    .holds(store.message_of(&editing.0, other).1, cx)
             {
                 let why = format!(
                     "Save or cancel the new message for \"{}\" first",
@@ -696,10 +699,9 @@ impl Detail {
         }
         let message = store.message_of(&project, commit).1.to_owned();
         let key = (project.clone(), commit.key.clone(), commit.authored.clone());
-        let opened = message.trim().to_owned();
-        let scroll = self.reword_scroll.clone();
+        let opened = message.clone();
         let input = cx.new(|cx| {
-            let mut input = TextInput::new("Commit message", true, cx).scrolled_by(scroll);
+            let mut input = MessageEditor::new(MessageSize::Large, cx);
             input.set_text(message, cx);
             input
         });
@@ -711,13 +713,13 @@ impl Detail {
             window,
             move |this, input, event, window, cx| match event {
                 InputEvent::Submit => {
-                    let message = input.read(cx).text().trim().to_owned();
                     // Unchanged, rewording would only give it and the commits above it new ids.
-                    if message == opened {
+                    if input.read(cx).holds(&opened, cx) {
                         this.rewording = None;
                         window.focus(&back, cx);
                         return cx.notify();
                     }
+                    let message = input.read(cx).text(cx).trim().to_owned();
                     // The commit as it is now, should an agent have rewritten it meanwhile.
                     let id = match this.selection(cx) {
                         Some(Selection::Commit(_, now)) => now,
@@ -748,7 +750,7 @@ impl Detail {
                                 // written, and so does one written on meanwhile.
                                 (detail.update(cx, |detail, cx| {
                                     if (detail.rewording.as_ref()).is_some_and(|(k, input, _)| {
-                                        *k == editing && input.read(cx).text().trim() == submitted
+                                        *k == editing && input.read(cx).text(cx).trim() == submitted
                                     }) {
                                         detail.rewording = None;
                                         cx.notify();
@@ -810,7 +812,7 @@ impl Detail {
             );
             return;
         }
-        let message = self.message.read(cx).text().trim().to_owned();
+        let message = self.message.read(cx).text(cx).trim().to_owned();
         if self.choices_loading(&project, cx) {
             return;
         }
@@ -864,7 +866,7 @@ impl Detail {
                         if picked.as_ref() == Some(&detail.commit_target) {
                             detail.commit_target = Some(target);
                         }
-                        if detail.message.read(cx).text().trim() == written {
+                        if detail.message.read(cx).text(cx).trim() == written {
                             (detail.message).update(cx, |input, cx| input.set_text("", cx));
                             detail.finish_composing(&from, window, cx);
                         }
@@ -896,7 +898,7 @@ impl Detail {
         if self.checks_worktree != *worktree {
             return;
         }
-        match self.message.focus_handle(cx).is_focused(window) {
+        match self.message.read(cx).contains_focus(window, cx) {
             true => self.leave_composer(window, cx),
             false => self.close_composer(cx),
         }
@@ -1065,11 +1067,11 @@ impl Detail {
         if diff.trim().is_empty() || self.writing.is_some() {
             return;
         }
-        let notes = self.message.read(cx).text().to_owned();
+        let notes = self.message.read(cx).text(cx);
         let prompt = ai::commit_prompt(&notes, &diff);
         let kept = notes.clone();
         let input = self.message.clone();
-        input.update(cx, |input, _| input.break_undo_run());
+        input.update(cx, |input, cx| input.break_undo_run(cx));
         let task = cx.spawn(async move |this, cx| {
             // Without a code fence around it, as a model can put one.
             let written = ai::write(ai::COMMIT_SYSTEM, prompt, |text| {
@@ -1146,7 +1148,6 @@ impl Detail {
                 )
             });
         let target = self.effective_target(project, cx);
-        let message_focused = self.message.focus_handle(cx).is_focused(window);
         let compose = v_flex()
             .p(dp(12.))
             .pb_0()
@@ -1165,57 +1166,37 @@ impl Detail {
                     }),
             )
             .child(
-                div()
-                    .relative()
-                    .child(
-                        field(&self.message, message_focused, theme)
-                            .pl(dp(10.))
-                            // Clear of the AI button in the corner.
-                            .pr(dp(30.))
-                            .py(dp(8.))
-                            .rounded(dp(6.))
-                            .line_height(dp(19.))
-                            .cursor_text()
-                            .id("message-box")
-                            .min_h(dp(84.))
-                            .max_h(dp(260.))
-                            .overflow_y_scroll()
-                            .track_scroll(&self.message_scroll)
-                            .on_click(
-                                cx.listener(|this, _, window, cx| this.focus_message(window, cx)),
-                            ),
-                    )
-                    .child(
-                        div().absolute().top(dp(4.)).right(dp(4.)).child(
-                            icon_button(
-                                match self.writing {
-                                    Some(_) => "writing-message",
-                                    None => "write-message",
-                                },
-                                Icon::Ai,
-                            )
-                            .small()
-                            .disabled_because(
-                                (self.writing.is_none() && checked == 0)
-                                    .then_some("Check some changes to write about"),
-                            )
-                            .tooltip(if self.writing.is_some() {
-                                "Writing… Click to keep what's written so far"
-                            } else {
-                                "Write the message with AI, guided by what's in the box"
-                            })
-                            // A slow model, as a local one can be, would otherwise hold the
-                            // commit until it's done.
-                            .on_click(cx.listener(|this, _, _, cx| match this.writing.take() {
-                                // Before it wrote anything, what guided it comes back.
-                                Some((_, notes)) if this.message.read(cx).text().is_empty() => {
-                                    (this.message).update(cx, |input, cx| input.set_text(notes, cx))
-                                }
-                                Some(_) => cx.notify(),
-                                None => this.write_message(cx),
-                            })),
-                        ),
+                div().relative().child(self.message.clone()).child(
+                    div().absolute().top(dp(4.)).right(dp(4.)).child(
+                        icon_button(
+                            match self.writing {
+                                Some(_) => "writing-message",
+                                None => "write-message",
+                            },
+                            Icon::Ai,
+                        )
+                        .small()
+                        .disabled_because(
+                            (self.writing.is_none() && checked == 0)
+                                .then_some("Check some changes to write about"),
+                        )
+                        .tooltip(if self.writing.is_some() {
+                            "Writing… Click to keep what's written so far"
+                        } else {
+                            "Write the message with AI, guided by what's in the box"
+                        })
+                        // A slow model, as a local one can be, would otherwise hold the
+                        // commit until it's done.
+                        .on_click(cx.listener(|this, _, _, cx| match this.writing.take() {
+                            // Before it wrote anything, what guided it comes back.
+                            Some((_, notes)) if this.message.read(cx).text(cx).is_empty() => {
+                                (this.message).update(cx, |input, cx| input.set_text(notes, cx))
+                            }
+                            Some(_) => cx.notify(),
+                            None => this.write_message(cx),
+                        })),
                     ),
+                ),
             );
         v_flex()
             .flex_none()
