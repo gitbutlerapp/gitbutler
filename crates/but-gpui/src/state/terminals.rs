@@ -188,6 +188,42 @@ impl Store {
         });
     }
 
+    /// List `project`'s terminals as `lists` has them: each under its checkout, in that order,
+    /// in the places they take among the others. One moved to another checkout is listed there,
+    /// while its shell stays where it started. One opened since that it doesn't have stays where
+    /// it is.
+    pub fn order_terminals(
+        &mut self,
+        project: &ProjectId,
+        lists: &[(Checkout, Vec<TerminalId>)],
+        cx: &mut Context<Self>,
+    ) {
+        for open in (self.terminals.open.iter_mut()).filter(|open| open.project == *project) {
+            if let Some((on, _)) = lists.iter().find(|(_, list)| list.contains(&open.id)) {
+                open.checkout = on.clone();
+            }
+        }
+        let order: Vec<TerminalId> = lists.iter().flat_map(|(_, list)| list).copied().collect();
+        let at = |open: &Open| {
+            let ours = open.project == *project;
+            ours.then(|| order.iter().position(|id| *id == open.id))
+                .flatten()
+        };
+        let open = std::mem::take(&mut self.terminals.open);
+        let ordered: Vec<bool> = open.iter().map(|open| at(open).is_some()).collect();
+        let (mut moved, rest): (Vec<Open>, Vec<Open>) =
+            open.into_iter().partition(|open| at(open).is_some());
+        moved.sort_by_key(at);
+        let (mut moved, mut rest) = (moved.into_iter(), rest.into_iter());
+        self.terminals.open = (ordered.into_iter())
+            .filter_map(|ordered| match ordered {
+                true => moved.next(),
+                false => rest.next(),
+            })
+            .collect();
+        cx.notify();
+    }
+
     /// Show `name` for terminal `id` in place of what its shell titles it, or with an empty
     /// one, the shell's title again.
     pub fn name_terminal(&mut self, id: TerminalId, name: &str, cx: &mut Context<Self>) {

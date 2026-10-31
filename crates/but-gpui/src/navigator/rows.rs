@@ -14,6 +14,7 @@ use crate::backend::{
 };
 use crate::edits::BranchEdits;
 use crate::state::{Cut, NewAt, ProjectEntry, ProjectId, Section, Selection, Store};
+use crate::terminal::TerminalId;
 use crate::transfer::Stop;
 use crate::ui::ROW_HEIGHT;
 use crate::ui::fold::{Folds, MOVING_ROWS};
@@ -911,8 +912,27 @@ pub(super) fn in_checkout(
 
 /// The terminals open on `project`'s `checkout`, first under its heading.
 fn terminal_rows(store: &Store, project: &ProjectId, checkout: &Checkout, rows: &mut Rows) {
-    let terminals = store.terminals.on(project, checkout);
-    rows.extend(terminals.map(|(id, _)| Row::Item(Selection::Terminal(project.clone(), id))));
+    let open = store.terminals.on(project, checkout).map(|(id, _)| id);
+    // One being moved goes where it'd land, from its checkout to another too, the others making
+    // room; one opened since goes after them.
+    let moved = (store.moving.as_ref())
+        .filter(|moving| moving.project == *project)
+        .and_then(|moving| moving.terminal_order());
+    let terminals: Vec<TerminalId> = match &moved {
+        Some(lists) => {
+            let listed = |id: &TerminalId| lists.iter().any(|(_, list)| list.contains(id));
+            let here = (lists.iter()).find(|(on, _)| on == checkout);
+            let kept = here.into_iter().flat_map(|(_, list)| list.iter().copied());
+            let kept = kept.filter(|id| store.terminals.get(*id).is_some());
+            kept.chain(open.filter(|id| !listed(id))).collect()
+        }
+        None => open.collect(),
+    };
+    rows.extend(
+        terminals
+            .into_iter()
+            .map(|id| Row::Item(Selection::Terminal(project.clone(), id))),
+    );
 }
 
 /// Whether `selection` is one of `branches`, a commit on one, or a stack of them.

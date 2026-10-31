@@ -1822,7 +1822,9 @@ impl Navigator {
         };
         // A commit being moved shows where the move is, rather than that it's selected.
         let moving = moving::moving_away(store, item);
-        let selected = lit(item) && moving.is_none();
+        // A terminal being moved goes where it'd land itself, held rather than selected.
+        let moved_itself = moving::moved_itself(store, item);
+        let selected = lit(item) && moving.is_none() && !moved_itself;
         // Picked commits next to each other join up.
         let lit_at = |ix: usize| matches!(rows.get(ix), Some(Row::Item(other)) if lit(other));
         let joined = match selected && !store.picked.is_empty() {
@@ -1843,7 +1845,7 @@ impl Navigator {
             cut || moving::moving_away(store, item) == Some(true)
         };
         let cut = cut_of(item);
-        let held = moving == Some(false);
+        let held = moving == Some(false) || moved_itself;
         // Cut or moving together, next to each other, they're outlined as one.
         let outlined_at = |ix: usize| match rows.get(ix) {
             Some(Row::Item(other)) if cut => cut_of(other),
@@ -3599,6 +3601,7 @@ impl Render for Navigator {
         let movable = match &store.selection {
             Some(Selection::Commit(project, id)) => store.find_commit(project, *id).is_some(),
             Some(Selection::Project(project)) => store.project(project).is_some_and(|p| p.expanded),
+            Some(Selection::Terminal(..)) => true,
             Some(Selection::Branch(project, ref_name @ Some(_))) => (store.workspace(project))
                 .is_some_and(|ws| ws.find_branch(ref_name.as_ref()).is_some()),
             _ => false,
