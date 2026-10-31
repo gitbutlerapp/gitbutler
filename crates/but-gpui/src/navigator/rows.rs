@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use gpui::{App, SharedString};
 
-use super::moving::{landing_at, moving_away};
+use super::moving::{landing_at, left_behind};
 use super::{BranchKey, ClickOpened, Navigator, STEP, upstream_chevrons};
 use crate::backend::{
     Branch, Checkout, Commit, CommitId, Destination, FullName, Lane, Workspace, Worktree,
@@ -56,8 +56,8 @@ pub(super) enum Row {
     /// Where a commit of the project being dragged lands in a new branch of its own, or a
     /// stacked branch in a stack of its own.
     NewBranch(ProjectId),
-    /// A copy of a commit being moved, where landing would put it.
-    Ghost(ProjectId, CommitId),
+    /// A copy of what's being moved, a commit or a branch's row, where landing would put it.
+    Ghost(Selection),
     /// The new branch commits being moved would land in at that stop, over their copies.
     GhostBranch(ProjectId, Stop),
     /// The line between two stacks, which tells where one ends and the next starts, and between
@@ -83,9 +83,10 @@ pub(super) enum RowKey {
     /// A branch's commits folded away or unfolded, whichever it shows.
     Fold(ProjectId, Option<FullName>),
     NewBranch(ProjectId),
-    /// A commit being moved, where it's left while its copy, which takes its key, shows where
-    /// it'd land: so it slides out from there, from place to place, and back.
-    Left(ProjectId, CommitId),
+    /// The row of what's being moved, a commit or a branch, by the key it has otherwise, where
+    /// it's left while its copy, which takes that key, shows where it'd land: so the copy slides
+    /// out from there, from place to place, and back.
+    Left(Box<RowKey>),
     GhostBranch(ProjectId),
     /// A row of no other kind, by the one before it, which it moves with.
     After(Box<RowKey>),
@@ -98,21 +99,21 @@ pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
         .flat_map(|workspace| workspace.commits())
         .map(|commit| (commit.id, commit.key.as_str()))
         .collect();
+    // An item's row, and a copy of it, by the item.
+    let item_key = |item: &Selection| match item {
+        Selection::Commit(project, id) => match commits.get(id) {
+            Some(key) => RowKey::Commit(project.clone(), key.to_string()),
+            None => RowKey::Item(item.clone()),
+        },
+        _ => RowKey::Item(item.clone()),
+    };
     let mut keys: Vec<Option<RowKey>> = Vec::with_capacity(rows.len());
     for row in rows {
         let key = match row {
-            Row::Item(item @ Selection::Commit(project, id))
-                if moving_away(store, item) == Some(true) =>
-            {
-                Some(RowKey::Left(project.clone(), *id))
+            Row::Item(item) if left_behind(store, item) => {
+                Some(RowKey::Left(Box::new(item_key(item))))
             }
-            Row::Item(Selection::Commit(project, id)) | Row::Ghost(project, id) => {
-                Some(match commits.get(id) {
-                    Some(key) => RowKey::Commit(project.clone(), key.to_string()),
-                    None => RowKey::Item(Selection::Commit(project.clone(), *id)),
-                })
-            }
-            Row::Item(item) => Some(RowKey::Item(item.clone())),
+            Row::Item(item) | Row::Ghost(item) => Some(item_key(item)),
             Row::RestsOn(item, _) => Some(RowKey::RestsOn(item.clone())),
             Row::More(project, branch, _) | Row::Fewer(project, branch) => {
                 Some(RowKey::Fold(project.clone(), branch.clone()))

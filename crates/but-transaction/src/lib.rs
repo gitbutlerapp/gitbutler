@@ -498,9 +498,16 @@ where
         })
     }
 
-    pub fn tear_off_branch(&mut self, source_branch: &FullNameRef) -> anyhow::Result<()> {
+    /// Take `source_branch` out of its stack into a stack of its own, placed among the others
+    /// at `order`, or after them all, as [`but_workspace::branch::tear_off_branch()`] says.
+    pub fn tear_off_branch(
+        &mut self,
+        source_branch: &FullNameRef,
+        order: impl Into<Option<usize>>,
+    ) -> anyhow::Result<()> {
+        let order = order.into();
         self.rebase(|editor, _| {
-            let rebase = but_workspace::branch::tear_off_branch(editor, source_branch)?;
+            let rebase = but_workspace::branch::tear_off_branch(editor, source_branch, order)?;
             Ok(((), rebase))
         })?;
 

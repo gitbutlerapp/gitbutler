@@ -768,7 +768,7 @@ impl Intent for CreateBranchAtCommit {
     }
 }
 
-/// Stack `branch` on top of `onto`, with the branches above it.
+/// Stack `branch` on top of `onto`. The branches above it stay, on the one it was on.
 pub struct StackBranch {
     pub branch: FullName,
     pub onto: FullName,
@@ -779,7 +779,7 @@ impl Intent for StackBranch {
 
     fn apply(self, run: &mut Run) -> Result<Self::Done> {
         let onto = RelativeTo::Reference(self.onto);
-        move_branch(run, &self.branch, Some((onto, InsertSide::Above)))
+        move_branch(run, &self.branch, BranchTo::Beside(onto, InsertSide::Above))
     }
 }
 
@@ -795,33 +795,48 @@ impl Intent for MoveBranchBelow {
 
     fn apply(self, run: &mut Run) -> Result<Self::Done> {
         let below = RelativeTo::Commit(self.commit.0);
-        move_branch(run, &self.branch, Some((below, InsertSide::Below)))
+        move_branch(
+            run,
+            &self.branch,
+            BranchTo::Beside(below, InsertSide::Below),
+        )
     }
 }
 
-/// Take `branch` out of its stack into a stack of its own.
+/// Take `branch` out of its stack into a stack of its own, after the others, or with `first`
+/// before them.
 pub struct TearOffBranch {
     pub branch: FullName,
+    pub first: bool,
 }
 
 impl Intent for TearOffBranch {
     type Done = Vec<(Option<FullName>, usize)>;
 
     fn apply(self, run: &mut Run) -> Result<Self::Done> {
-        move_branch(run, &self.branch, None)
+        let first = self.first;
+        move_branch(run, &self.branch, BranchTo::Apart { first })
     }
 }
 
-/// Move `branch` to `side` of `relative_to`, or into a stack of its own without a place,
-/// saying which branches it left with conflicted commits they didn't have, each with how many.
+/// Where [`move_branch`] puts a branch.
+enum BranchTo {
+    /// To that side of a branch or commit.
+    Beside(RelativeTo, InsertSide),
+    /// Into a stack of its own, after the others, or with `first` before them.
+    Apart { first: bool },
+}
+
+/// Move `branch` where `to` says, saying which branches it left with conflicted commits they
+/// didn't have, each with how many.
 fn move_branch(
     run: &mut Run,
     branch: &FullName,
-    to: Option<(RelativeTo, InsertSide)>,
+    to: BranchTo,
 ) -> Result<Vec<(Option<FullName>, usize)>> {
     let kind = match to {
-        Some(_) => OperationKind::MoveBranch,
-        None => OperationKind::TearOffBranch,
+        BranchTo::Beside(..) => OperationKind::MoveBranch,
+        BranchTo::Apart { .. } => OperationKind::TearOffBranch,
     };
     run.locked(|ctx, perm| {
         let before = but_api::legacy::workspace::head_info(ctx)?;
@@ -834,8 +849,13 @@ fn move_branch(
             &[],
             DryRun::No,
             |mut tx| match to {
-                Some((relative_to, side)) => tx.move_branch(branch.as_ref(), relative_to, side),
-                None => tx.tear_off_branch(branch.as_ref()),
+                BranchTo::Beside(relative_to, side) => {
+                    tx.move_branch(branch.as_ref(), relative_to, side)
+                }
+                // A stack's place is its tip's among the workspace commit's parents.
+                BranchTo::Apart { first } => {
+                    tx.tear_off_branch(branch.as_ref(), first.then_some(0))
+                }
             },
         )?;
         Ok(super::upstream::newly_conflicted(
@@ -4080,9 +4100,15 @@ managed true, below true: agent [one], <new> [two], agent checked out
                 };
                 crate::backend::apply(path, at_api).unwrap();
                 let top = full("refs/heads/top");
-                crate::backend::apply(path, TearOffBranch { branch: top })
-                    .unwrap()
-                    .0
+                crate::backend::apply(
+                    path,
+                    TearOffBranch {
+                        branch: top,
+                        first: false,
+                    },
+                )
+                .unwrap()
+                .0
             };
             assert_eq!(
                 unstacked("api.txt"),

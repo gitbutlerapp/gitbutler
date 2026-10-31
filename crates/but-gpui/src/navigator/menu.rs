@@ -464,6 +464,7 @@ impl Navigator {
                     command(&AddEmptyCommitAbove),
                     command(&SquashAll),
                     command(&CutSelection).separated(),
+                    command(&MoveSelection),
                     command(&Unstack),
                     command(&crate::edits::MergeBranch),
                     command(&UnapplyStack),

@@ -49,7 +49,7 @@ pub enum Transfer {
         ids: Arc<[CommitId]>,
         to: Destination,
     },
-    /// Stack a branch, and those above it, on another.
+    /// Stack a branch on another, leaving those above it where they were.
     StackBranch {
         branch: FullName,
         onto: FullName,
@@ -103,17 +103,26 @@ impl Place {
     }
 }
 
-/// Commits being moved with the keys: the navigator steps through the places they can land,
-/// and Return lands them where it's at.
+/// Commits or a branch being moved with the keys: the navigator steps through the places they
+/// can land, and Return lands them where it's at.
 #[derive(Debug, Clone)]
 pub struct Move {
     pub project: ProjectId,
-    /// As listed, newest first.
-    pub commits: Arc<[CommitId]>,
+    pub what: Moving,
     pub at: Stop,
 }
 
-/// A place commits being moved can land.
+/// What a [`Move`] moves.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Moving {
+    /// Commits, as listed, newest first.
+    Commits(Arc<[CommitId]>),
+    /// A branch, with its commits: between branches, as a new branch made of commits goes.
+    Branch(FullName),
+}
+
+/// A place commits being moved can land. A branch lands between branches, where a new branch
+/// would.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stop {
     /// In a branch: at its top, or right below one of its commits.
@@ -125,33 +134,65 @@ pub enum Stop {
 }
 
 impl Move {
-    /// Landing in a branch as a drop: the commits as what's dropped, and the row and the place
-    /// on it they're dropped at. `None` in a new branch, which has no row yet.
-    pub fn drop(&self) -> Option<(Cut, Selection, Place)> {
-        let Stop::In(to) = &self.at else {
-            return None;
-        };
-        let project = self.project.clone();
-        let (target, place) = match to {
-            Destination::Branch(branch) => (
-                Selection::Branch(project.clone(), Some(branch.clone())),
-                Place::Into,
-            ),
-            Destination::AboveCommit(id) => (Selection::Commit(project.clone(), *id), Place::Above),
-            Destination::BelowCommit(id) => (Selection::Commit(project.clone(), *id), Place::Below),
-        };
-        Some((Cut::Commit(project, self.commits.clone()), target, place))
+    /// What's moving, as what's cut or dragged.
+    pub fn cut(&self) -> Cut {
+        match &self.what {
+            Moving::Commits(ids) => Cut::Commit(self.project.clone(), ids.clone()),
+            Moving::Branch(branch) => Cut::Branch(self.project.clone(), branch.clone()),
+        }
     }
 
-    /// Whether landing moves the commits, as it doesn't where they already are.
+    /// Whether `item` is what's moving: one of the commits, or the branch.
+    pub fn holds(&self, item: &Selection) -> bool {
+        match (&self.what, item) {
+            (Moving::Commits(ids), Selection::Commit(project, id)) => {
+                *project == self.project && ids.contains(id)
+            }
+            (Moving::Branch(branch), Selection::Branch(project, Some(name))) => {
+                *project == self.project && name == branch
+            }
+            _ => false,
+        }
+    }
+
+    /// Landing as a drop: what's moving as what's dropped, and the row and the place on it
+    /// it's dropped at. `None` in a new branch or stack, which has no row yet.
+    pub fn drop(&self) -> Option<(Cut, Selection, Place)> {
+        let project = self.project.clone();
+        let (target, place) = match (&self.what, &self.at) {
+            (Moving::Commits(_), Stop::In(to)) => match to {
+                Destination::Branch(branch) => (
+                    Selection::Branch(project, Some(branch.clone())),
+                    Place::Into,
+                ),
+                Destination::AboveCommit(id) => (Selection::Commit(project, *id), Place::Above),
+                Destination::BelowCommit(id) => (Selection::Commit(project, *id), Place::Below),
+            },
+            // On top of the branch it goes above, or under the one it goes below.
+            (Moving::Branch(_), Stop::NewBranch { beside, below }) => {
+                let place = if *below { Place::Below } else { Place::Into };
+                (Selection::Branch(project, Some(beside.clone())), place)
+            }
+            _ => return None,
+        };
+        Some((self.cut(), target, place))
+    }
+
+    /// Whether landing moves anything, as it doesn't where it already is: a branch alone in
+    /// its stack is a stack of its own.
     pub fn lands(&self, store: &Store) -> bool {
+        if let (Moving::Branch(branch), Stop::NewStack { .. }) = (&self.what, &self.at) {
+            let workspace = store.workspace(&self.project);
+            return workspace.is_some_and(|ws| crate::edits::BranchEdits::of(ws, branch).stacked);
+        }
         self.drop().is_none_or(|(payload, target, place)| {
             Transfer::resolve(&payload, &target, place, store).is_some()
         })
     }
 
-    /// Where landing puts them, said after a verb: "to a new branch below feature-x".
+    /// Where landing puts it, said after a verb: "to a new branch below feature-x".
     pub fn place(&self) -> String {
+        let moves_branch = matches!(self.what, Moving::Branch(_));
         match &self.at {
             Stop::In(Destination::Branch(branch)) => {
                 format!("to the top of {}", short_ref(branch))
@@ -159,7 +200,10 @@ impl Move {
             Stop::In(to) => place(to),
             Stop::NewBranch { beside, below } => {
                 let side = if *below { "below" } else { "above" };
-                format!("to a new branch {side} {}", short_ref(beside))
+                match moves_branch {
+                    true => format!("{side} {}", short_ref(beside)),
+                    false => format!("to a new branch {side} {}", short_ref(beside)),
+                }
             }
             Stop::NewStack { first: false } => "to a new stack".into(),
             Stop::NewStack { first: true } => "to a new stack at the top".into(),
@@ -433,12 +477,15 @@ impl Transfer {
     }
 
     /// Carry it out. Staging only changes the composer, so it comes back to the caller.
+    /// Do it in `project`, landing the move with the keys `lands` if it's a branch's.
     pub fn perform(
         self,
         project: &SharedString,
+        lands: Option<Move>,
         store: &mut Store,
         cx: &mut Context<Store>,
     ) -> Option<(FullName, Arc<[Selected]>)> {
+        let lands = lands.filter(|moving| matches!(moving.what, Moving::Branch(_)));
         // The pill's verb names it without a branch or commit.
         let label = Label::new(self.verb(), self.describe());
         // Picked commits that moved, or went into one, are no longer what's picked.
@@ -503,7 +550,10 @@ impl Transfer {
             Transfer::StackBranch { branch, onto } => store.apply(
                 project,
                 label,
-                Overlay::default(),
+                Overlay {
+                    lands,
+                    ..Overlay::default()
+                },
                 backend::StackBranch { branch, onto },
                 move |store, conflicted, cx| {
                     store.snack_undoable(branch_moved("Branch moved", &conflicted), cx)
@@ -513,7 +563,10 @@ impl Transfer {
             Transfer::BranchBelow { branch, commit } => store.apply(
                 project,
                 label,
-                Overlay::default(),
+                Overlay {
+                    lands,
+                    ..Overlay::default()
+                },
                 backend::MoveBranchBelow { branch, commit },
                 move |store, conflicted, cx| {
                     store.snack_undoable(branch_moved("Branch moved", &conflicted), cx)

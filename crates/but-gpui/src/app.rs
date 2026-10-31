@@ -865,12 +865,27 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.land(payload, target, place, None, window, cx)
+    }
+
+    /// Do what `payload` landing on `target` at `place` does, as a drop does, and land the move
+    /// with the keys `lands` if that's what it is.
+    pub fn land(
+        &mut self,
+        payload: &Cut,
+        target: &Selection,
+        place: Place,
+        lands: Option<crate::transfer::Move>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(transfer) = Transfer::resolve(payload, target, place, self.store.read(cx)) else {
             snack(&self.store, "That can't go there", cx);
             return;
         };
         let project = target.project().clone();
-        let staged = (self.store).update(cx, |store, cx| transfer.perform(&project, store, cx));
+        let staged =
+            (self.store).update(cx, |store, cx| transfer.perform(&project, lands, store, cx));
         if let Some((branch, files)) = staged {
             self.store.update(cx, |store, cx| {
                 store.select(Some(Selection::Uncommitted(project.clone())), cx)
