@@ -38,6 +38,21 @@ pub fn delete(
                 ))
                 .into());
             }
+            // Like `git branch -D`, refuse to delete the branch a linked worktree has checked out.
+            if let Some(worktree) = ws
+                .worktrees
+                .iter()
+                .find(|worktree| worktree.ref_name.as_ref() == Some(&branch))
+            {
+                let (branch, worktree) = (branch.shorten(), &worktree.name);
+                return Err(bad_input(format!(
+                    "Cannot delete '{branch}': it is checked out in worktree {worktree}"
+                ))
+                .hint(format!(
+                    "Run `but worktree remove {worktree}` first, then `but branch delete {branch}`"
+                ))
+                .into());
+            }
             branches.push(branch);
         }
         let branches = NonEmpty::from_vec(branches.into_iter().unique().collect())
