@@ -306,7 +306,7 @@ fn bare_diff_in_a_linked_worktree_shows_its_changes() {
 fn bare_diff_in_an_unmanaged_worktree_is_refused() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    let wt_dir = super::util::add_unmanaged_worktree(&env, "wt-feature");
     env.file("main.txt", "dirty in main\n");
 
     env.but("diff")

@@ -743,7 +743,7 @@ Picked d3e2ba3 onto branch 'wt-inside' to create olw
 fn pick_in_an_unmanaged_worktree_needs_a_target() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    let wt_dir = super::util::add_worktree_with_commit(&env, "wt-inside", "A");
+    let wt_dir = super::util::add_unmanaged_worktree(&env, "wt-inside");
 
     env.but("pick lrm")
         .current_dir(&wt_dir)

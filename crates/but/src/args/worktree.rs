@@ -47,7 +47,7 @@ pub enum Subcommands {
         /// The branch to check out, created if it doesn't exist, or a generated one.
         name: Option<BranchArg>,
     },
-    /// Hide a worktree from the workspace.
+    /// Hide a worktree from the workspace until `but` runs inside it again.
     Archive {
         /// The worktree, by CLI ID (see `but wt list`) or name.
         worktree: CliIdArg,

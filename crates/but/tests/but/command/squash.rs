@@ -3637,7 +3637,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 fn squash_without_sources_in_an_unmanaged_worktree_is_refused() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    let wt_dir = super::util::add_dirty_worktree(&env, "wt-feature", "A");
+    let wt_dir = super::util::add_unmanaged_worktree(&env, "wt-feature");
     env.file("main-file.txt", "main change");
 
     env.but("squash --target lrm")
