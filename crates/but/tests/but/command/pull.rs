@@ -1058,6 +1058,78 @@ Hint: run `but help` for all commands
     assert!(!git_ref_exists(&env, but_core::WORKSPACE_REF_NAME));
 }
 
+/// A main pushed without `-u` is the target inferred for a project without one. It's made to track
+/// origin/main, so the pull that infers it already brings in what landed there, and keeps what
+/// main has that origin/main doesn't.
+#[test]
+fn pull_infers_untracked_main_as_target_tracking_origin() {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
+    let remote = env.app_data_dir().join("origin.git");
+    let remote = shell_words::quote(&remote.display().to_string()).into_owned();
+    env.invoke_bash(format!(
+        "git clone -q --bare . {remote} && git remote set-url origin {remote}"
+    ));
+    env.invoke_git("branch --unset-upstream main");
+    env.invoke_git("commit --allow-empty -m unpublished");
+    let upstream = env.invoke_git("commit-tree origin/main^{tree} -p origin/main -m upstream");
+    env.invoke_git(&format!("push -q {remote} {upstream}:refs/heads/main"));
+
+    env.but("pull").assert().success();
+    assert_eq!(
+        env.invoke_git("log --format=%s main"),
+        "unpublished\nupstream\nM",
+        "the first pull brings in origin/main and keeps main's unpublished commit on top"
+    );
+}
+
+/// A target stored without tracking, like 0.23.1 stored a `main` pushed without `-u`, isn't
+/// fetched, so a pull names the command that makes it track origin/main.
+#[test]
+fn pull_hints_to_track_remote_branch_for_untracked_stored_target() {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
+    let remote = env.app_data_dir().join("origin.git");
+    let remote = shell_words::quote(&remote.display().to_string()).into_owned();
+    env.invoke_bash(format!(
+        "git clone -q --bare . {remote} && git remote set-url origin {remote}"
+    ));
+    env.invoke_git("branch --unset-upstream main");
+    env.invoke_git("config gitbutler.project.targetRef refs/heads/main");
+    env.invoke_bash("git config gitbutler.project.targetCommitId $(git rev-parse main)");
+    env.invoke_git("config gitbutler.project.portedMeta true");
+
+    env.but("pull").assert().success().stdout_eq(str![[r#"
+
+No new commits found
+Hint: main tracks no remote branch, so `but pull` doesn't fetch origin/main; run `but config target main` to make it track origin/main
+
+Everything is up to date
+
+"#]]);
+    env.but("pull --check").assert().success().stdout_eq(str![[r#"
+
+Base branch:	main
+Incoming:	0 new commits on main
+Hint: main tracks no remote branch, so `but pull` doesn't fetch origin/main; run `but config target main` to make it track origin/main
+
+Up to date
+
+"#]]);
+
+    env.but("config target main").assert().success();
+    // Once main tracks origin/main, the pull fetches it and the hint is gone.
+    env.but("pull --check")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+
+Base branch:	origin/main
+Upstream:	0 new commits on origin/main
+
+Up to date
+
+"#]]);
+}
+
 /// An unreachable remote that is not the target's must not block pulling: `fetch_from_remotes`
 /// only fails when the target's own fetch remote failed, so a dead unrelated remote (old fork,
 /// deleted mirror) is tolerated.

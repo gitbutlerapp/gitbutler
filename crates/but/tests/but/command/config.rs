@@ -130,6 +130,11 @@ Hint: Make a local branch track upstream/main with `git branch --set-upstream-to
         "refs/heads/main",
         "the shorthand resolves to the branch that now tracks it"
     );
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref main@{upstream}"),
+        "upstream/main",
+        "main keeps its upstream although origin has a main too"
+    );
 }
 
 #[cfg(feature = "legacy")]
@@ -141,6 +146,33 @@ fn target_accepts_local_branch() {
         env.invoke_git("config --local --get gitbutler.project.targetRef"),
         "refs/heads/main",
         "local input is stored directly"
+    );
+}
+
+// As 0.23.1 left a target main pushed without `-u`: it tracks nothing, and pulls onto it moved the
+// cutoff to its unpublished commit. Choosing it again makes it track origin/main, as
+// `git branch --set-upstream-to=origin/main main` would, with the cutoff back on origin/main, so
+// pulls don't take the unpublished commit for integrated.
+#[cfg(feature = "legacy")]
+#[test]
+fn target_untracked_local_branch_tracks_remote_branch_named_as_it() {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
+    env.invoke_git("branch --unset-upstream main");
+    env.invoke_git("commit --allow-empty -m unpublished");
+    env.invoke_git("config gitbutler.project.targetRef refs/heads/main");
+    env.invoke_bash("git config gitbutler.project.targetCommitId $(git rev-parse main)");
+    env.invoke_git("config gitbutler.project.portedMeta true");
+
+    env.but("config target main").assert().success();
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref main@{upstream}"),
+        "origin/main",
+        "main tracks the branch named as it on the remote"
+    );
+    assert_eq!(
+        env.project_meta().target_commit_id.map(|id| id.to_string()),
+        Some(env.invoke_git("rev-parse origin/main")),
+        "the cutoff is back on origin/main, below the unpublished commit"
     );
 }
 

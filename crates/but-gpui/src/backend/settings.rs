@@ -568,22 +568,34 @@ mod tests {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
             let path = dir.path();
-            // As `git push origin main` leaves it, without `-u`.
+            // As `git push origin main` leaves it, without `-u`, and the target as stored before
+            // setting it made main track origin/main.
             git(
                 path,
                 &["remote", "add", "origin", "https://example.com/r.git"],
             );
             git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
-            super::set_target(path, &crate::backend::model::build::full("refs/heads/main"))
-                .unwrap();
-            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            git(
+                path,
+                &["config", "gitbutler.project.targetRef", "refs/heads/main"],
+            );
+            git(path, &["config", "gitbutler.project.portedMeta", "true"]);
+            let untracked = || {
+                let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+                workspace.target.and_then(|target| target.untracked)
+            };
             assert_eq!(
-                workspace
-                    .target
-                    .and_then(|target| target.untracked)
-                    .as_deref(),
+                untracked().as_deref(),
                 Some("origin/main"),
                 "what's pushed to origin/main doesn't count, so it's said why"
+            );
+
+            super::set_target(path, &crate::backend::model::build::full("refs/heads/main"))
+                .unwrap();
+            assert_eq!(
+                untracked(),
+                None,
+                "choosing main as the target again makes it track origin/main"
             );
         })
     }

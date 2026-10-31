@@ -90,7 +90,8 @@ pub enum Subcommands {
     /// Without arguments, displays the current target branch.
     ///
     /// With a branch name, sets the target branch. Local branches take precedence;
-    /// remote-tracking branches resolve to their local tracking branch.
+    /// remote-tracking branches resolve to their local tracking branch. A local branch
+    /// that tracks nothing is made to track the remote's branch of the same name.
     ///
     /// ## Examples
     ///
