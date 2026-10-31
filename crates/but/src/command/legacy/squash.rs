@@ -1487,13 +1487,12 @@ pub fn run(
     match executable_op {
         ExecutableSquashOperation::TransactionCompatible(op) => {
             let snapshot_details = SnapshotDetails::new(OperationKind::SquashCommit);
-            let worktree_ref = source_repo.checked_out_branch()?;
             let (new_commit, ws) = but_transaction::with_transaction_with_perm(
                 ctx,
                 meta,
                 perm,
                 snapshot_details,
-                worktree_ref.as_ref().map(|name| name.as_ref()).as_slice(),
+                &[],
                 DryRun::No,
                 |mut tx| {
                     let new_commit = match op.clone() {

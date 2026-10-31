@@ -452,12 +452,6 @@ pub fn run(
         }) => Some(new_branch_name.clone()),
         _ => None,
     };
-    let worktree_ref = source_repo.checked_out_branch()?;
-    let snapshot_refs: Vec<_> = worktree_branch
-        .iter()
-        .chain(&worktree_ref)
-        .map(|name| name.as_ref())
-        .collect();
 
     let ((new_commit, branch_name), ws) = if let Some(sbm) = sbm {
         sbm.transaction_with_workspace_setup(
@@ -483,7 +477,7 @@ pub fn run(
             meta,
             perm,
             snapshot_details,
-            &snapshot_refs,
+            worktree_branch.as_ref().map(AsRef::as_ref).as_slice(),
             DryRun::No,
             |tx| {
                 commit_with_transaction(
