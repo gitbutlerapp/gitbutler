@@ -36,10 +36,14 @@
 //!                         # it again from there
 //! tick 8                  # move the stopped clock on 8ms
 //! film /tmp/f 240 8       # draw a frame every 8ms of the stopped clock for 240ms, saving each
-//!                         # as `shot` does, all of them in a grid in sheet.png, and printing
-//!                         # what changed in each from the frame before, as `FILM 003 t=24ms
-//!                         # changed 2.1% in 0,96 340x160`
+//!                         # as `shot` does, all of them labelled in a grid in sheet.png, and
+//!                         # printing what changed in each from the frame before, in clusters
+//!                         # of nearby pixels, largest first, as `FILM 003 t=24ms changed
+//!                         # 2.1% in 2 places: 340x80 at 0,96 (5400px Δ255), 2x2 at 330,60
+//!                         # (4px Δ30)`: size, place, pixels and the most one changed (0–255)
 //! film /tmp/f 240 8 0 0 400 300  # only that region
+//! film /tmp/f 240 8 -- click 306 66  # save before.png, run the input, then film it, on a
+//!                         # clock stopped for the while
 //! keys                    # print what typing would reach, as `KEYS Workspace > Navigator`
 //! perf next key down      # time an input until loads settle, plus one frame, and the
 //!                         # longest the UI thread was busy meanwhile (`stall`)
@@ -72,8 +76,16 @@ static LAUNCHED: OnceLock<Instant> = OnceLock::new();
 /// The most frames a `film` draws, so a slip in its numbers doesn't run for minutes.
 const MOST_FRAMES: usize = 240;
 
-/// How wide a `film`'s sheet is at most, the frames shrunk to fit.
-const SHEET_WIDTH: u32 = 2400;
+/// How many of a frame's clusters of changed pixels `film` describes, the largest.
+const CLUSTERS: usize = 3;
+
+/// How close changed pixels are to be in one cluster, in a frame's pixels: close enough that a
+/// word's letters make one, not one each.
+const REACH: u32 = 2;
+
+/// How many pixels a side a `film`'s sheet has at most, the frames shrunk to fit: an agent sees
+/// no more of an image than that.
+const SHEET_SIDE: u32 = 2000;
 
 /// The pixels between a sheet's frames, and their colour.
 const GAP: u32 = 4;
@@ -316,18 +328,25 @@ async fn frames(window: AnyWindowHandle, cx: &mut gpui::AsyncApp) -> Result<Dura
 }
 
 /// `film`: draw a frame every so often of the stopped clock, as a display would, and save each,
-/// a sheet of them all, and what changed in each.
+/// a sheet of them all, and what changed in each. Given an input after `--`, it saves the frame
+/// before it, runs it, and films on a clock it stops for the while.
 async fn film(rest: &str, window: AnyWindowHandle, cx: &mut gpui::AsyncApp) -> Result<()> {
+    let (rest, input) = match rest.split_once(" -- ") {
+        Some((rest, input)) => (rest, Some(input.trim())),
+        None => (rest, None),
+    };
     let (dir, length, every, region) = match (trailing_numbers(rest), trailing_numbers(rest)) {
         (Some((dir, [length, every, x, y, width, height])), _) => {
             (dir, length, every, Some([x, y, width, height]))
         }
         (None, Some((dir, [length, every]))) => (dir, length, every, None),
-        (None, None) => bail!("film takes a folder, how many ms and every how many, then a region"),
+        (None, None) => bail!(
+            "film takes a folder, how many ms and every how many, then a region, then -- and an input"
+        ),
     };
     anyhow::ensure!(
-        clock::stopped(),
-        "film moves a stopped clock: `clock stop` before the input it films"
+        clock::stopped() || input.is_some(),
+        "film moves a stopped clock: `clock stop` before the input it films, or give film the input after --"
     );
     anyhow::ensure!(
         every > 0.,
@@ -347,108 +366,262 @@ async fn film(rest: &str, window: AnyWindowHandle, cx: &mut gpui::AsyncApp) -> R
         Some([x, y, _, _]) => (point(x, y), scale),
         None => (point(0., 0.), 1.),
     };
-    let (mut sheet, mut last, mut last_change) = (None::<Sheet>, None::<RgbaImage>, None);
-    for n in 0..count {
-        let image = cx.update_window(window, |_, window, cx| {
-            if n > 0 {
-                clock::tick(tick);
-            }
-            frame(window, cx);
-            capture(region, window)
-        })??;
-        let path = dir.join(format!("{n:03}.png"));
-        image
-            .save(&path)
-            .with_context(|| format!("saving {}", path.display()))?;
-        let at = n as f32 * every;
-        let change = match last.as_ref().map(|last| changed(last, &image)) {
-            None => String::new(),
-            Some(None) => " unchanged".to_owned(),
-            Some(Some(Change { share, bounds })) => {
-                last_change = Some(at);
-                let [x, y, width, height] = bounds.map(|n| n as f32 / scale);
-                format!(
-                    " changed {:.1}% in {:.0},{:.0} {:.0}x{:.0}",
-                    share * 100.,
-                    origin.x + x,
-                    origin.y + y,
-                    width.max(1.),
-                    height.max(1.),
-                )
-            }
-        };
-        println!("FILM {n:03} t={at:.0}ms{change}");
-        (sheet.get_or_insert_with(|| Sheet::new(count, image.dimensions()))).add(n, &image);
-        last = Some(image);
-        // Let what the frame started run, as the display's next beat would.
-        cx.background_executor()
-            .timer(Duration::from_millis(1))
-            .await;
+    let running = !clock::stopped();
+    let filmed = async {
+        let tiles = count + usize::from(input.is_some());
+        let (mut sheet, mut last, mut last_change) = (None::<Sheet>, None::<RgbaImage>, None);
+        if let Some(input) = input {
+            clock::stop();
+            let image = cx.update_window(window, |_, window, cx| {
+                frame(window, cx);
+                capture(region, window)
+            })??;
+            save(&image, &dir.join("before.png"))?;
+            println!("FILM before");
+            (sheet.get_or_insert_with(|| Sheet::new(tiles, image.dimensions())))
+                .add(0, &image, "before");
+            last = Some(image);
+            let (command, rest) = input.split_once(' ').unwrap_or((input, ""));
+            cx.update_window(window, |_, window, cx| dispatch(command, rest, window, cx))??;
+            cx.background_executor()
+                .timer(Duration::from_millis(1))
+                .await;
+        }
+        for n in 0..count {
+            let image = cx.update_window(window, |_, window, cx| {
+                if n > 0 {
+                    clock::tick(tick);
+                }
+                frame(window, cx);
+                capture(region, window)
+            })??;
+            save(&image, &dir.join(format!("{n:03}.png")))?;
+            let at = n as f32 * every;
+            let change = match last.as_ref().map(|last| changed(last, &image)) {
+                None => String::new(),
+                Some(None) => " unchanged".to_owned(),
+                Some(Some(change)) => {
+                    last_change = Some(at);
+                    format!(" {}", describe(&change, origin, scale))
+                }
+            };
+            println!("FILM {n:03} t={at:.0}ms{change}");
+            (sheet.get_or_insert_with(|| Sheet::new(tiles, image.dimensions()))).add(
+                tiles - count + n,
+                &image,
+                &format!("{at:.0}ms"),
+            );
+            last = Some(image);
+            // Let what the frame started run, as the display's next beat would.
+            cx.background_executor()
+                .timer(Duration::from_millis(1))
+                .await;
+        }
+        anyhow::Ok((sheet, last_change))
     }
+    .await;
+    if running {
+        clock::run();
+    }
+    let (sheet, last_change) = filmed?;
     let Some(sheet) = sheet else {
         return Ok(());
     };
-    let path = dir.join("sheet.png");
-    (sheet.image)
-        .save(&path)
-        .with_context(|| format!("saving {}", path.display()))?;
+    save(&sheet.image, &dir.join("sheet.png"))?;
     let last_change = match last_change {
         Some(at) => format!("the last change at {at:.0}ms"),
         None => "nothing changed".to_owned(),
     };
+    let before = match input {
+        Some(_) => " and before.png",
+        None => "",
+    };
     println!(
-        "FILM {count} frames in {}, {last_change}; sheet.png has them {} to a row",
+        "FILM {count} frames{before} in {}, {last_change}; sheet.png has them {} to a row",
         dir.display(),
         sheet.columns,
     );
     Ok(())
 }
 
-/// What changed between two frames: the share of their pixels, and the bounds of those, as
-/// x, y, width and height in the frames' pixels.
+fn save(image: &RgbaImage, path: &std::path::Path) -> Result<()> {
+    (image.save(path)).with_context(|| format!("saving {}", path.display()))
+}
+
+/// What changed between two frames: how many of their pixels, of how many, and the clusters of
+/// those near one another, the largest first.
 struct Change {
-    share: f32,
-    bounds: [u32; 4],
+    count: u64,
+    total: u64,
+    clusters: Vec<Cluster>,
+}
+
+/// Changed pixels within [`REACH`] of one another: how many, their least and greatest x and y, in the
+/// frames' pixels, and how far the most changed of them did, from 0 to 255 in a channel.
+struct Cluster {
+    count: u64,
+    low: (u32, u32),
+    high: (u32, u32),
+    delta: u8,
+}
+
+impl Cluster {
+    fn new(x: u32, y: u32, delta: u8) -> Cluster {
+        Cluster {
+            count: 1,
+            low: (x, y),
+            high: (x, y),
+            delta,
+        }
+    }
+
+    fn add(&mut self, x: u32, y: u32, delta: u8) {
+        self.count += 1;
+        self.low = (self.low.0.min(x), self.low.1.min(y));
+        self.high = (self.high.0.max(x), self.high.1.max(y));
+        self.delta = self.delta.max(delta);
+    }
 }
 
 fn changed(before: &RgbaImage, after: &RgbaImage) -> Option<Change> {
     let (width, height) = after.dimensions();
+    let total = u64::from(width) * u64::from(height);
     if before.dimensions() != after.dimensions() {
+        let mut all = Cluster::new(0, 0, u8::MAX);
+        all.add(width.saturating_sub(1), height.saturating_sub(1), u8::MAX);
+        all.count = total;
         return Some(Change {
-            share: 1.,
-            bounds: [0, 0, width, height],
+            count: total,
+            total,
+            clusters: Vec::from([all]),
         });
     }
-    let (mut count, mut low, mut high) = (0u64, (u32::MAX, u32::MAX), (0, 0));
-    for ((x, y, was), now) in before.enumerate_pixels().zip(after.pixels()) {
-        if was != now {
-            count += 1;
-            low = (low.0.min(x), low.1.min(y));
-            high = (high.0.max(x), high.1.max(y));
+    // How far each pixel changed, in its most changed channel.
+    let mut deltas = image::GrayImage::from_fn(width, height, |x, y| {
+        let (was, now) = (before.get_pixel(x, y), after.get_pixel(x, y));
+        let delta =
+            (was.0.iter().zip(now.0)).fold(0, |most, (was, now)| most.max(was.abs_diff(now)));
+        image::Luma([delta])
+    });
+    let (mut clusters, mut reached) = (Vec::new(), Vec::new());
+    for y in 0..height {
+        for x in 0..width {
+            let Some(delta) = take(&mut deltas, x, y) else {
+                continue;
+            };
+            let mut cluster = Cluster::new(x, y, delta);
+            reached.push((x, y));
+            while let Some((x, y)) = reached.pop() {
+                for y in y.saturating_sub(REACH)..=y + REACH {
+                    for x in x.saturating_sub(REACH)..=x + REACH {
+                        if let Some(delta) = take(&mut deltas, x, y) {
+                            cluster.add(x, y, delta);
+                            reached.push((x, y));
+                        }
+                    }
+                }
+            }
+            clusters.push(cluster);
         }
     }
-    (count > 0).then(|| Change {
-        share: count as f32 / (u64::from(width) * u64::from(height)) as f32,
-        bounds: [low.0, low.1, high.0 - low.0 + 1, high.1 - low.1 + 1],
+    clusters.sort_by_key(|cluster| std::cmp::Reverse(cluster.count));
+    (!clusters.is_empty()).then(|| Change {
+        count: clusters.iter().map(|cluster| cluster.count).sum(),
+        total,
+        clusters,
     })
 }
 
-/// A `film`'s frames in a grid, a row at a time, about as tall as it's wide.
+/// How far pixel `x`, `y` changed, if it did and no cluster has it yet; one has it after.
+fn take(deltas: &mut image::GrayImage, x: u32, y: u32) -> Option<u8> {
+    let image::Luma([delta]) = deltas.get_pixel_mut_checked(x, y)?;
+    (*delta > 0).then(|| std::mem::take(delta))
+}
+
+/// A change as a FILM line says it: the share of the frame, then its largest clusters, each its
+/// size at its place in the window, in points, then its pixels in the frame's and how far the
+/// most changed of them did.
+fn describe(change: &Change, origin: Point<f32>, scale: f32) -> String {
+    let share = change.count as f32 / change.total as f32 * 100.;
+    let share = match share < 0.1 {
+        true => "<0.1%".to_owned(),
+        false => format!("{share:.1}%"),
+    };
+    let mut clusters: Vec<String> = (change.clusters.iter().take(CLUSTERS))
+        .map(|cluster| {
+            let (x, y) = (cluster.low.0 as f32 / scale, cluster.low.1 as f32 / scale);
+            let width = ((cluster.high.0 - cluster.low.0 + 1) as f32 / scale).max(1.);
+            let height = ((cluster.high.1 - cluster.low.1 + 1) as f32 / scale).max(1.);
+            format!(
+                "{width:.0}x{height:.0} at {:.0},{:.0} ({}px Δ{})",
+                origin.x + x,
+                origin.y + y,
+                cluster.count,
+                cluster.delta,
+            )
+        })
+        .collect();
+    let rest = change.clusters.get(CLUSTERS..).unwrap_or_default();
+    if !rest.is_empty() {
+        clusters.push(format!(
+            "and {} more ({}px Δ≤{})",
+            rest.len(),
+            rest.iter().map(|cluster| cluster.count).sum::<u64>(),
+            rest.iter().fold(0, |most, cluster| most.max(cluster.delta)),
+        ));
+    }
+    let places = match change.clusters.len() {
+        1 => "1 place".to_owned(),
+        n => format!("{n} places"),
+    };
+    format!("changed {share} in {places}: {}", clusters.join(", "))
+}
+
+/// A `film`'s frames in a grid, a row at a time, each labelled.
 struct Sheet {
     image: RgbaImage,
     columns: u32,
     tile: (u32, u32),
 }
 
+/// A sheet's layout: how many frames a row, how much they shrink to, and how far from square
+/// the sheet is.
+struct Layout {
+    columns: u32,
+    fit: f32,
+    lopsided: f32,
+}
+
 impl Sheet {
+    /// Room for `count` frames `width` by `height`, in the columns that keep them largest within
+    /// [`SHEET_SIDE`], and the squarest sheet of those.
     fn new(count: usize, (width, height): (u32, u32)) -> Sheet {
         let count = count.max(1) as u32;
-        let columns = ((count as f32 * height as f32 / width.max(1) as f32)
-            .sqrt()
-            .ceil() as u32)
-            .clamp(1, count);
+        let (width, height) = (width.max(1), height.max(1));
+        let best = (1..=count)
+            .map(|columns| {
+                let rows = count.div_ceil(columns);
+                let across = SHEET_SIDE.saturating_sub((columns - 1) * GAP) as f32
+                    / (columns * width) as f32;
+                let down =
+                    SHEET_SIDE.saturating_sub((rows - 1) * GAP) as f32 / (rows * height) as f32;
+                let fit = across.min(down).min(1.);
+                let lopsided = ((columns * width) as f32 / (rows * height) as f32)
+                    .ln()
+                    .abs();
+                Layout {
+                    columns,
+                    fit,
+                    lopsided,
+                }
+            })
+            .max_by(|a, b| (a.fit.total_cmp(&b.fit)).then(b.lopsided.total_cmp(&a.lopsided)));
+        let Layout { columns, fit, .. } = best.unwrap_or(Layout {
+            columns: 1,
+            fit: 1.,
+            lopsided: 0.,
+        });
         let rows = count.div_ceil(columns);
-        let fit = (SHEET_WIDTH as f32 / (columns * (width + GAP)) as f32).min(1.);
         let tile = (
             ((width as f32 * fit).round() as u32).max(1),
             ((height as f32 * fit).round() as u32).max(1),
@@ -464,16 +637,117 @@ impl Sheet {
         }
     }
 
-    /// Put frame `n` in its place.
-    fn add(&mut self, n: usize, frame: &RgbaImage) {
+    /// Put frame `n` in its place, `label` at its top left.
+    fn add(&mut self, n: usize, frame: &RgbaImage, label: &str) {
         let n = n as u32;
         let (width, height) = self.tile;
-        let tile =
+        let mut tile =
             image::imageops::resize(frame, width, height, image::imageops::FilterType::Triangle);
+        draw_label(&mut tile, label);
         let x = (n % self.columns) * (width + GAP);
         let y = (n / self.columns) * (height + GAP);
         image::imageops::replace(&mut self.image, &tile, x.into(), y.into());
     }
+}
+
+/// `label` in white on black at the top left of `tile`, in [`glyph`]'s font, scaled up to read
+/// on the sheet.
+fn draw_label(tile: &mut RgbaImage, label: &str) {
+    const BLACK: image::Rgba<u8> = image::Rgba([0, 0, 0, 255]);
+    const WHITE: image::Rgba<u8> = image::Rgba([255, 255, 255, 255]);
+    // A font pixel's side, in the tile's.
+    let size = (tile.width() / 100).clamp(2, 4);
+    let advance = 6 * size;
+    let chars = label.chars().count() as u32;
+    fill(
+        tile,
+        (0, 0),
+        (2 * size + chars * advance - size, 9 * size),
+        BLACK,
+    );
+    for (at, c) in (0..).zip(label.chars()) {
+        let Some(rows) = glyph(c) else {
+            continue;
+        };
+        for (row, bits) in (0..).zip(rows) {
+            for column in 0..5 {
+                if bits & (0b10000 >> column) != 0 {
+                    let x = size + at * advance + column * size;
+                    fill(tile, (x, size + row * size), (size, size), WHITE);
+                }
+            }
+        }
+    }
+}
+
+/// Paint the rectangle at `at` of `size` in `color`, as much of it as is in `image`.
+fn fill(image: &mut RgbaImage, at: (u32, u32), size: (u32, u32), color: image::Rgba<u8>) {
+    for y in at.1..at.1 + size.1 {
+        for x in at.0..at.0 + size.0 {
+            if let Some(pixel) = image.get_pixel_mut_checked(x, y) {
+                *pixel = color;
+            }
+        }
+    }
+}
+
+/// A 5×7 pixel font with what a sheet's labels say: each glyph's rows, top first, its left
+/// column the highest of five bits.
+fn glyph(c: char) -> Option<[u8; 7]> {
+    Some(match c {
+        '0' => [
+            0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110,
+        ],
+        '1' => [
+            0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110,
+        ],
+        '2' => [
+            0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b01000, 0b11111,
+        ],
+        '3' => [
+            0b11111, 0b00010, 0b00100, 0b00010, 0b00001, 0b10001, 0b01110,
+        ],
+        '4' => [
+            0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010,
+        ],
+        '5' => [
+            0b11111, 0b10000, 0b11110, 0b00001, 0b00001, 0b10001, 0b01110,
+        ],
+        '6' => [
+            0b00110, 0b01000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110,
+        ],
+        '7' => [
+            0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000,
+        ],
+        '8' => [
+            0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110,
+        ],
+        '9' => [
+            0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00010, 0b01100,
+        ],
+        'b' => [
+            0b10000, 0b10000, 0b10110, 0b11001, 0b10001, 0b10001, 0b11110,
+        ],
+        'e' => [
+            0b00000, 0b00000, 0b01110, 0b10001, 0b11111, 0b10000, 0b01110,
+        ],
+        'f' => [
+            0b00110, 0b01001, 0b01000, 0b11100, 0b01000, 0b01000, 0b01000,
+        ],
+        'm' => [
+            0b00000, 0b00000, 0b11010, 0b10101, 0b10101, 0b10101, 0b10101,
+        ],
+        'o' => [
+            0b00000, 0b00000, 0b01110, 0b10001, 0b10001, 0b10001, 0b01110,
+        ],
+        'r' => [
+            0b00000, 0b00000, 0b10110, 0b11001, 0b10000, 0b10000, 0b10000,
+        ],
+        's' => [
+            0b00000, 0b00000, 0b01111, 0b10000, 0b01110, 0b00001, 0b11110,
+        ],
+        _ => return None,
+    })
 }
 
 /// `rest` up to its last `N` words, and those, when they're all numbers: a path before them may

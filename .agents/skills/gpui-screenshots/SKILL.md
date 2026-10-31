@@ -80,37 +80,47 @@ origin plus half its pixel offset. `size W H` resizes the window.
 
 ## Animations
 
-Folds, slides and rows moving to a new order are drawn at a clock a script can stop. Stopped,
-steps and waits no longer move them on, so any moment of a motion can be drawn and looked at:
+Folds, slides and rows moving to a new order are drawn at a clock a script can stop, so any
+moment of a motion can be drawn and looked at. `film` films the input after its `--`:
 
 ```text
-clock stop                         # first: the input starts the motion at t=0
-click 306 66                       # fold a project
-film /tmp/fold 200 8 0 40 340 540  # a frame every 8ms for 200ms, of that region
-clock run                          # back to the real time, from where it stopped
+film /tmp/fold 200 8 0 40 340 540 -- click 306 66
 ```
 
-`film` saves each frame as `shot` would (`000.png`, `001.png`, …), all of them in a grid in
-`sheet.png`, a row at a time, and prints what changed in each from the frame before, its
-bounds in window coordinates:
+That stops the clock, saves the frame before the input as `before.png`, runs the input, and
+saves a frame every 8ms for 200ms of that region (`000.png`, `001.png`, …), then runs the
+clock again. The input is one script line. For a drag, `press` and the first `move`s go before
+the `film`, and the `move` that sets the motion off goes after its `--`, so the before frame
+already shows the drag under way.
+
+`sheet.png` has all the frames in a grid, a row at a time, each labelled with its time. Each
+frame's line says what changed from the one before, the before frame for frame 000:
 
 ```text
-FILM 004 t=32ms changed 22.5% in 10,166 319x371
-FILM 019 t=152ms changed 0.0% in 10,80 6x6
+FILM 000 t=0ms changed 5.3% in 1 place: 311x32 at 14,50 (38830px Δ208)
+FILM 019 t=152ms changed 9.0% in 489 places: 319x10 at 10,270 (6420px Δ37), 319x10 at 10,252 (6414px Δ37), …
 FILM 020 t=160ms unchanged
 ```
 
-Read those lines before the images: a spike is a jump, `unchanged` partway a stall, a change
-after the motion should be done a snap at its end, and one region changing back and forth a
-flicker. Then read the sheet, and single frames for a closer look. Film a region: a whole
-window's frames are too small in the sheet to read. `tick 8` moves the stopped clock on by
-hand, so `move`s and `shot`s can go between ticks, as a drag in motion needs.
+Each place is a cluster of changed pixels within 2px of one another, the largest first: its
+size at its place in window coordinates, how many pixels of the frame it has, and how much
+the most changed of them changed in a channel, out of 255. The app draws a frame the same
+way every time, so a change is never noise. A change at frame 000 is a jump as the motion
+starts, `unchanged` partway a stall, a change after the motion should be done a snap at its
+end, and one place changing back and forth a flicker. Read the lines before the images, then
+the sheet, then single frames for a closer look. Film a region: a whole window's frames are
+too small in the sheet to read.
+
+To film after inputs of your own, `clock stop` first, before the input that starts the motion,
+then `film` without `--`; `clock run` runs the clock again from where it stopped. `tick 8`
+moves a stopped clock on by hand, so `move`s and `shot`s can go between ticks.
 
 Motion reads `crate::clock::now()`, never `Instant::now()`, and so must any animation you
 write, or it runs on the real time while the rest stands still. What GPUI animates itself
-(`with_animation`, `with_spring`, as a fold's chevron and spinners do) and timers, as a
-tooltip's delay, keep the real time, so they jump between frames. Don't stretch a duration in
-the code to see a motion slowly.
+(`with_animation`, `with_spring`, as a fold's chevron and spinners do) and timers keep the
+real time, so they jump between frames: a tooltip's delay, and a drag's edge scroll, which
+goes on scrolling near a list's top or bottom while the clock is stopped, so keep a filmed drag
+clear of the edges. Don't stretch a duration in the code to see a motion slowly.
 
 ## Notes
 
