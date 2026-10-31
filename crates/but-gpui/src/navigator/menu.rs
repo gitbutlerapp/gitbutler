@@ -403,6 +403,7 @@ impl Navigator {
                 }
                 items.extend([command(&MoveUp), command(&MoveDown)]);
                 if expanded {
+                    items.push(command(&MoveSelection));
                     let mut branch = new_branch_items(cx);
                     if let Some(first) = branch.first_mut() {
                         first.separated = true;

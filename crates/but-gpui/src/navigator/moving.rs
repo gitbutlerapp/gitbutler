@@ -2,6 +2,7 @@
 //! stepping through those, the copies that show where they'd land, and landing them.
 
 use std::collections::HashSet;
+use std::sync::Arc;
 use std::time::Instant;
 
 use gpui::{AnyElement, App, Context, Div, Window, div, prelude::*};
@@ -12,14 +13,16 @@ use crate::app::{MoveHere, MoveSelection};
 use crate::backend::{Checkout, Commit, CommitId, Destination, FullName, Workspace, short_ref};
 use crate::state::{ProjectId, Section, Selection, Store, snack};
 use crate::theme::Theme;
-use crate::transfer::{Move, Moving, Stop};
+use crate::transfer::{Move, Moving, Stop, card_stops};
 use crate::ui::fold::{self, on_top};
 use crate::ui::{Icon, ROW_HEIGHT, dp, fixed, fold_glyph, guide, h_flex, icon, small_icon};
 
-/// The move shown in `project`: the one under way, or one Return landed, until the reload
-/// after it shows where it went.
+/// The move of commits or a branch shown in `project`, with copies where it'd land: the one
+/// under way, or one Return landed, until the reload after it shows where it went. A project's
+/// card goes where it'd land itself (see [`Navigator::watched`]).
 fn shown<'a>(store: &'a Store, project: &ProjectId) -> Option<&'a Move> {
-    (store.moving.as_ref().or_else(|| store.landing())).filter(|moving| moving.project == *project)
+    (store.moving.as_ref().or_else(|| store.landing()))
+        .filter(|moving| moving.project == *project && !matches!(moving.what, Moving::Project(_)))
 }
 
 /// The move shown in `project`, when it lands what it moves somewhere at a stop `at` picks
@@ -117,6 +120,8 @@ impl Rows {
                 let item = Selection::Branch(project.clone(), Some(branch.clone()));
                 return self.push(Row::Ghost(item));
             }
+            // A card goes where it'd land itself.
+            Moving::Project(_) => return,
         };
         let ghosts = (ids.iter()).map(|id| Row::Ghost(Selection::Commit(project.clone(), *id)));
         if !new_branch {
@@ -298,6 +303,9 @@ impl Navigator {
         cx: &App,
     ) -> Option<(Vec<Stop>, usize)> {
         let store = self.store.read(cx);
+        if let Moving::Project(order) = what {
+            return card_stops(order, project);
+        }
         let workspace = store.workspace(project)?;
         // As the rows were last built; the filter shows what it finds, folds aside.
         let open = |heading: &Selection| {
@@ -306,7 +314,7 @@ impl Navigator {
         };
         let commits = match what {
             Moving::Commits(ids) => &ids[..],
-            Moving::Branch(_) => &[],
+            Moving::Branch(_) | Moving::Project(_) => &[],
         };
         let all = stops(self.shown_rows(), project, commits, workspace, open);
         let Moving::Branch(branch) = what else {
@@ -328,9 +336,9 @@ impl Navigator {
         Some((stops, at))
     }
 
-    /// Start moving the selected commit, with those picked with it, or the selected branch,
-    /// from where it is. The keys that step through the rows step through where it can land
-    /// until Return lands it or Escape lets go.
+    /// Start moving the selected commit, with those picked with it, the selected branch, or the
+    /// selected watched project's card, from where it is. The keys that step through the rows
+    /// step through where it can land until Return lands it or Escape lets go.
     pub(super) fn start_move(
         &mut self,
         _: &MoveSelection,
@@ -344,6 +352,15 @@ impl Navigator {
                 (project, Moving::Commits(commits))
             }
             Some(Selection::Branch(project, Some(branch))) => (project, Moving::Branch(branch)),
+            // Among the cards as they're listed now, whatever order lists them.
+            Some(Selection::Project(project))
+                if store.project(&project).is_some_and(|p| p.expanded) =>
+            {
+                let order: Arc<[ProjectId]> = (self.watched(store).into_iter())
+                    .map(|e| e.id.clone())
+                    .collect();
+                (project, Moving::Project(order))
+            }
             _ => return,
         };
         // Somewhere besides where it is.
@@ -371,7 +388,7 @@ impl Navigator {
 
     /// Jump the move to the top of the next branch, or with `forward` false the one before, or
     /// to a new stack, as ⇧J and ⇧K jump between sections. A branch, which lands only between
-    /// branches, jumps between the tops of stacks.
+    /// branches, jumps between the tops of stacks, and a card from card to card, as it steps.
     pub(super) fn jump_move(&mut self, forward: bool, cx: &mut Context<Self>) {
         let Some((stops, at)) = self.move_stops(cx) else {
             return;
@@ -384,7 +401,7 @@ impl Navigator {
                 .is_some_and(|(_, at)| at == 0)
         };
         let heads = |(_, stop): &(usize, &Stop)| match stop {
-            Stop::In(Destination::Branch(_)) | Stop::NewStack { .. } => true,
+            Stop::In(Destination::Branch(_)) | Stop::NewStack { .. } | Stop::Card(_) => true,
             Stop::NewBranch {
                 beside,
                 below: false,
@@ -428,6 +445,12 @@ impl Navigator {
         if !lands {
             return;
         }
+        // A card, already shown where it goes, goes there in the order the cards keep.
+        if let Some(order) = moving.project_order() {
+            return self
+                .store
+                .update(cx, |store, cx| store.order_watched(&order, cx));
+        }
         // A branch's copy stays where it lands till it's there.
         if let Some((payload, target, place)) = moving.drop() {
             return self.app.update_later(window, cx, move |app, window, cx| {
@@ -446,8 +469,9 @@ impl Navigator {
             (Moving::Branch(branch), Stop::NewStack { first }) => {
                 store.unstack(&project, branch, first, lands, cx)
             }
-            // Those land as drops do, above.
-            (Moving::Commits(_), Stop::In(_)) | (Moving::Branch(_), _) => {}
+            // Those land as drops do, and cards in their order, above.
+            (Moving::Commits(_), Stop::In(_) | Stop::Card(_))
+            | (Moving::Branch(_) | Moving::Project(_), _) => {}
         });
     }
 }
@@ -468,7 +492,7 @@ fn branch_stops(
         .filter(|stop| match stop {
             _ if *stop == home => true,
             Stop::NewBranch { .. } | Stop::NewStack { .. } => lands(stop),
-            Stop::In(_) => false,
+            Stop::In(_) | Stop::Card(_) => false,
         })
         .collect();
     let start = stops.iter().position(|stop| *stop == home)?;
@@ -573,7 +597,7 @@ pub(super) fn ghost_branch_row(at: &Stop, inset: f32, theme: &Theme) -> AnyEleme
             let side = if *below { "below" } else { "above" };
             Some((side, short_ref(beside).into_owned()))
         }
-        Stop::In(_) | Stop::NewStack { .. } => None,
+        Stop::In(_) | Stop::NewStack { .. } | Stop::Card(_) => None,
     };
     let said = match &beside {
         Some((side, _)) => format!("New branch {side}"),
@@ -615,7 +639,7 @@ mod tests {
     use crate::backend::{CommitId, Destination, Workspace, short_ref};
     use crate::state::{ProjectId, Selection};
     use crate::terminal::TerminalId;
-    use crate::transfer::Stop;
+    use crate::transfer::{CardSlot, Stop, card_stops};
 
     /// Whether `heading` shows what it holds, as [`listed`] lists them: all but typo.
     fn open(heading: &Selection) -> bool {
@@ -638,6 +662,8 @@ mod tests {
                     Stop::In(Destination::AboveCommit(c)) => format!("above {}", commit(c)),
                     Stop::NewStack { first: false } => "new stack".into(),
                     Stop::NewStack { first: true } => "new stack first".into(),
+                    Stop::Card(CardSlot::Before(project)) => format!("before {project}"),
+                    Stop::Card(CardSlot::End) => "last".into(),
                 };
                 let here = if ix == start { " <" } else { "" };
                 format!("{said}{here}\n")
@@ -830,7 +856,7 @@ new branch below agent
                 "agent" => false,
                 _ => true,
             },
-            Stop::In(_) | Stop::NewStack { .. } => true,
+            Stop::In(_) | Stop::NewStack { .. } | Stop::Card(_) => true,
         };
         let (stops, start) = branch_stops(all, &api, lands).unwrap();
         // The places between branches it lands at, where a new branch would go, and where it
@@ -847,5 +873,27 @@ new stack
 
 "#]]
         );
+    }
+
+    #[test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "a test, and snapbox looks for the file its snapshot is in"
+    )]
+    fn a_card_stops_between_the_others_and_starts_where_it_is() {
+        let order: Vec<ProjectId> = ["a", "b", "c"].map(ProjectId::from).into();
+        let (stops, start) = card_stops(&order, &ProjectId::from("b")).unwrap();
+        // Before each of the others, or last: b is before c.
+        snapbox::assert_data_eq!(
+            describe(&stops, start),
+            snapbox::str![[r#"
+before a
+before c <
+last
+
+"#]]
+        );
+        let (_, start) = card_stops(&order, &ProjectId::from("c")).unwrap();
+        assert_eq!(start, 2, "the last card is where the end is");
     }
 }

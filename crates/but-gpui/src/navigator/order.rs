@@ -17,6 +17,7 @@ use crate::app::AppView;
 use crate::overlays::MenuItem;
 use crate::state::{Prefs, ProjectEntry, ProjectId, Selection, Store, WatchedOrder};
 use crate::theme::Theme;
+use crate::transfer::CardSlot;
 use crate::ui::{Icon, icon_button};
 
 actions!(
@@ -67,6 +68,18 @@ impl Navigator {
         // Listed in the manual order already.
         let mut watched: Vec<&ProjectEntry> =
             store.projects.iter().filter(|e| e.expanded).collect();
+        // A card moved with the keys shows where Return puts it, among the others as they were
+        // listed when the move started, whatever the order picked. One added meanwhile goes
+        // last.
+        if let Some(order) = store
+            .moving
+            .as_ref()
+            .and_then(|moving| moving.project_order())
+        {
+            let at = |e: &&ProjectEntry| order.iter().position(|id| *id == e.id);
+            watched.sort_by_key(|e| at(e).unwrap_or(usize::MAX));
+            return watched;
+        }
         match store.prefs.watched_order {
             // A card dragged by its heading shows where letting go puts it.
             WatchedOrder::Manual => {
@@ -217,11 +230,21 @@ impl Navigator {
         cx.notify();
     }
 
-    /// The rows of the card dragged by its heading, while it shows where it'd go.
-    pub(super) fn held_card(&self) -> Option<Range<usize>> {
-        let (dragged, _) = self.project_drag.as_ref()?;
+    /// The rows of the card dragged by its heading, or moved with the keys, while it shows
+    /// where it'd go, and once it's let go of until the cards stop sliding.
+    pub(super) fn held_card(&mut self, store: &Store) -> Option<Range<usize>> {
+        let moved = (store.moving.as_ref())
+            .filter(|moving| moving.project_order().is_some())
+            .map(|moving| &moving.project);
+        let dragged = self.project_drag.as_ref().map(|(dragged, _)| dragged);
+        match dragged.or(moved) {
+            Some(held) => self.held_project = Some(held.clone()),
+            None if !self.reorder.any() => self.held_project = None,
+            None => {}
+        }
+        let held = self.held_project.as_ref()?;
         (cards(&self.rows).into_iter())
-            .find(|(id, _)| *id == dragged)
+            .find(|(id, _)| *id == held)
             .map(|(_, span)| span)
     }
 
@@ -245,13 +268,6 @@ impl Navigator {
 
 /// A watched project's card being dragged, by its heading.
 pub(super) struct ProjectDrag(ProjectId);
-
-/// Where a dragged project card goes: before a watched project's card, or after them all.
-#[derive(Clone, PartialEq)]
-pub(super) enum CardSlot {
-    Before(ProjectId),
-    End,
-}
 
 /// The cards `rows` list, each by its project and the rows it takes, from its heading up to
 /// the gap before the next.

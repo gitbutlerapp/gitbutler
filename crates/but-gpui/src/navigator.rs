@@ -33,7 +33,7 @@ use crate::state::{
 };
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
-use crate::transfer::drag_preview;
+use crate::transfer::{CardSlot, drag_preview};
 use crate::ui::emoji::{Colour, ProjectIcon};
 use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, on_top, reordered, shifted};
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
@@ -63,7 +63,7 @@ mod rename;
 mod rows;
 
 use drop::insertion_line;
-use order::{CardSlot, ProjectDrag, cards};
+use order::{ProjectDrag, cards};
 use rows::{
     CARD_PADDING, COMMIT_INDENT, Drawer, Fold, GUIDE_AT, HEADING_HEIGHT, Moving, ROW_LEFT, Row,
     RowKey, Rows, in_checkout, in_inactive, inactive_open, last_active, row_keys, span_height,
@@ -443,8 +443,11 @@ pub struct Navigator {
     /// The card dragged by its heading and where letting go puts it, which the cards show it
     /// at, while the pointer is over the navigator.
     project_drag: Option<(ProjectId, CardSlot)>,
-    /// The rows of that card as last drawn, which show it held.
+    /// The rows of that card, or of one moved with the keys, as last drawn, which show it held.
     held_card: Option<Range<usize>>,
+    /// The project whose card is held, kept once it's let go of until the cards stop sliding,
+    /// so it stays over the cards it passes going back.
+    held_project: Option<ProjectId>,
     /// While rows slide, the first row the list draws and one near its last, which draw the
     /// rows sliding into view from past its top and its bottom (see [`Self::render_row`]).
     slide_edges: Option<(usize, usize)>,
@@ -596,6 +599,7 @@ impl Navigator {
             watch_hovered: None,
             project_drag: None,
             held_card: None,
+            held_project: None,
             slide_edges: None,
             hold_still: false,
             edge_scroll: 0.,
@@ -3510,7 +3514,7 @@ impl Render for Navigator {
         // After the rows, whose stand-ins are set in and guided as they were drawn.
         self.insets = insets;
         self.guides = guides;
-        self.held_card = self.held_card();
+        self.held_card = self.held_card(self.store.read(cx));
         self.slide_edges = self.reorder.any().then(|| {
             let first = self.list.logical_scroll_top().item_ix;
             let below = last_listed.map_or(first, |last| last.saturating_sub(ABOVE_LAST_LISTED));
@@ -3597,6 +3601,7 @@ impl Render for Navigator {
         // has.
         let movable = match &store.selection {
             Some(Selection::Commit(project, id)) => store.find_commit(project, *id).is_some(),
+            Some(Selection::Project(project)) => store.project(project).is_some_and(|p| p.expanded),
             Some(Selection::Branch(project, ref_name @ Some(_))) => (store.workspace(project))
                 .is_some_and(|ws| ws.find_branch(ref_name.as_ref()).is_some()),
             _ => false,

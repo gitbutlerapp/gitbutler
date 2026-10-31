@@ -898,6 +898,8 @@ fn renamed(old: Option<&Workspace>, new: &Workspace) -> Vec<(Option<FullName>, F
 /// saying whether they're all still there.
 fn follow_move(moving: &mut Move, old: Option<&Workspace>, new: &Workspace) -> bool {
     match &mut moving.what {
+        // A project's card is where it is whatever its workspace has.
+        Moving::Project(_) => return true,
         Moving::Commits(commits) => {
             let followed: Option<Arc<[CommitId]>> = (commits.iter())
                 .map(|commit| follow_by_key(old, new, *commit))
@@ -920,7 +922,7 @@ fn follow_move(moving: &mut Move, old: Option<&Workspace>, new: &Workspace) -> b
         Stop::In(Destination::Branch(branch)) | Stop::NewBranch { beside: branch, .. } => {
             new.find_branch(Some(branch)).is_some()
         }
-        Stop::NewStack { .. } => true,
+        Stop::NewStack { .. } | Stop::Card(_) => true,
     }
 }
 

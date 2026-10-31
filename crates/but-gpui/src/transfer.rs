@@ -103,8 +103,8 @@ impl Place {
     }
 }
 
-/// Commits or a branch being moved with the keys: the navigator steps through the places they
-/// can land, and Return lands them where it's at.
+/// Something being moved with the keys, in `project`: the navigator steps through the places
+/// it can land, and Return lands it where it's at.
 #[derive(Debug, Clone)]
 pub struct Move {
     pub project: ProjectId,
@@ -112,17 +112,22 @@ pub struct Move {
     pub at: Stop,
 }
 
-/// What a [`Move`] moves.
+/// What a [`Move`] moves. Commits and branches show a copy where they'd land while they stay
+/// where they are, as landing them rewrites history. A project's card goes where it'd land, the
+/// others making room, as a drag shows it, as its place is only the app's to keep.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Moving {
     /// Commits, as listed, newest first.
     Commits(Arc<[CommitId]>),
     /// A branch, with its commits: between branches, as a new branch made of commits goes.
     Branch(FullName),
+    /// A watched project's card, among the others in `order`, as they were listed when the
+    /// move started, which they keep while it lasts.
+    Project(Arc<[ProjectId]>),
 }
 
-/// A place commits being moved can land. A branch lands between branches, where a new branch
-/// would.
+/// A place what's being moved can land. A branch lands between branches, where a new branch
+/// would, and a project between cards.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stop {
     /// In a branch: at its top, or right below one of its commits.
@@ -131,18 +136,56 @@ pub enum Stop {
     NewBranch { beside: FullName, below: bool },
     /// In a new branch in a stack of its own, after the others, or before them with `first`.
     NewStack { first: bool },
+    /// Among the watched projects' cards.
+    Card(CardSlot),
+}
+
+/// Where a watched project's card goes: before another's card, or after them all.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CardSlot {
+    Before(ProjectId),
+    End,
+}
+
+/// The places project `id`'s card can go among the cards `order` lists, and which of them is
+/// where it is: before each other card, or after them all.
+pub fn card_stops(order: &[ProjectId], id: &ProjectId) -> Option<(Vec<Stop>, usize)> {
+    let at = order.iter().position(|other| other == id)?;
+    let home = match order.get(at + 1) {
+        Some(next) => CardSlot::Before(next.clone()),
+        None => CardSlot::End,
+    };
+    let stops: Vec<Stop> = (order.iter())
+        .filter(|other| *other != id)
+        .map(|other| CardSlot::Before(other.clone()))
+        .chain([CardSlot::End])
+        .map(Stop::Card)
+        .collect();
+    let start = stops
+        .iter()
+        .position(|stop| *stop == Stop::Card(home.clone()))?;
+    Some((stops, start))
 }
 
 impl Move {
-    /// What's moving, as what's cut or dragged.
-    pub fn cut(&self) -> Cut {
-        match &self.what {
+    /// What's moving, as what's cut or dragged. A project's card isn't cut.
+    fn cut(&self) -> Option<Cut> {
+        Some(match &self.what {
             Moving::Commits(ids) => Cut::Commit(self.project.clone(), ids.clone()),
             Moving::Branch(branch) => Cut::Branch(self.project.clone(), branch.clone()),
+            Moving::Project(_) => return None,
+        })
+    }
+
+    /// What's moving, as the status bar names it.
+    pub fn describe(&self, store: &Store) -> String {
+        match self.cut() {
+            Some(cut) => cut.describe(store),
+            None => project_name(store, &self.project),
         }
     }
 
-    /// Whether `item` is what's moving: one of the commits, or the branch.
+    /// Whether `item` is what's moving: one of the commits, the branch, or the project.
     pub fn holds(&self, item: &Selection) -> bool {
         match (&self.what, item) {
             (Moving::Commits(ids), Selection::Commit(project, id)) => {
@@ -151,8 +194,23 @@ impl Move {
             (Moving::Branch(branch), Selection::Branch(project, Some(name))) => {
                 *project == self.project && name == branch
             }
+            (Moving::Project(_), Selection::Project(project)) => *project == self.project,
             _ => false,
         }
+    }
+
+    /// The watched projects in the order a project's move shows them, its card where it's at.
+    pub fn project_order(&self) -> Option<Vec<ProjectId>> {
+        let (Moving::Project(order), Stop::Card(slot)) = (&self.what, &self.at) else {
+            return None;
+        };
+        let mut order = order.to_vec();
+        let before = match slot {
+            CardSlot::Before(before) => Some(before),
+            CardSlot::End => None,
+        };
+        move_before(&mut order, &self.project, before);
+        Some(order)
     }
 
     /// Landing as a drop: what's moving as what's dropped, and the row and the place on it
@@ -175,15 +233,20 @@ impl Move {
             }
             _ => return None,
         };
-        Some((self.cut(), target, place))
+        Some((self.cut()?, target, place))
     }
 
     /// Whether landing moves anything, as it doesn't where it already is: a branch alone in
-    /// its stack is a stack of its own.
+    /// its stack is a stack of its own, and a card is where it was.
     pub fn lands(&self, store: &Store) -> bool {
         if let (Moving::Branch(branch), Stop::NewStack { .. }) = (&self.what, &self.at) {
             let workspace = store.workspace(&self.project);
             return workspace.is_some_and(|ws| crate::edits::BranchEdits::of(ws, branch).stacked);
+        }
+        if let Moving::Project(order) = &self.what {
+            return self
+                .project_order()
+                .is_some_and(|shown| shown[..] != order[..]);
         }
         self.drop().is_none_or(|(payload, target, place)| {
             Transfer::resolve(&payload, &target, place, store).is_some()
@@ -191,7 +254,7 @@ impl Move {
     }
 
     /// Where landing puts it, said after a verb: "to a new branch below feature-x".
-    pub fn place(&self) -> String {
+    pub fn place(&self, store: &Store) -> String {
         let moves_branch = matches!(self.what, Moving::Branch(_));
         match &self.at {
             Stop::In(Destination::Branch(branch)) => {
@@ -207,8 +270,17 @@ impl Move {
             }
             Stop::NewStack { first: false } => "to a new stack".into(),
             Stop::NewStack { first: true } => "to a new stack at the top".into(),
+            Stop::Card(CardSlot::Before(before)) => {
+                format!("above {}", project_name(store, before))
+            }
+            Stop::Card(CardSlot::End) => "to the bottom".into(),
         }
     }
+}
+
+/// Project `id`'s name, or its id once it's gone.
+fn project_name(store: &Store, id: &ProjectId) -> String {
+    (store.project(id)).map_or_else(|| id.to_string(), |entry| entry.project.name.clone())
 }
 
 impl Transfer {
@@ -954,6 +1026,32 @@ mod tests {
         assert!(
             !at(&[2], &Destination::AboveCommit(id(1))),
             "1 is the next branch's, so 2 isn't right above it in a branch"
+        );
+    }
+
+    #[test]
+    fn a_card_moved_with_the_keys_shows_the_others_as_they_were_listed() {
+        let [a, b, c] = ["a", "b", "c"].map(ProjectId::from);
+        let order: Arc<[ProjectId]> = Arc::from([a.clone(), b.clone(), c.clone()]);
+        let at = |slot| Move {
+            project: b.clone(),
+            what: Moving::Project(order.clone()),
+            at: Stop::Card(slot),
+        };
+        assert_eq!(
+            at(CardSlot::Before(a.clone())).project_order(),
+            Some(vec![b.clone(), a.clone(), c.clone()]),
+            "before a, it's first"
+        );
+        assert_eq!(
+            at(CardSlot::End).project_order(),
+            Some(vec![a, c.clone(), b.clone()]),
+            "at the end, it's last"
+        );
+        assert_eq!(
+            at(CardSlot::Before(c)).project_order().as_deref(),
+            Some(&order[..]),
+            "before c is where it was"
         );
     }
 }
