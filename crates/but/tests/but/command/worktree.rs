@@ -324,6 +324,55 @@ Hint: Run `but worktree list` for the worktrees and their IDs.
 "#]]);
 }
 
+/// Agent harnesses make a worktree before their first `but` call, so the first read adopts it as
+/// archived. Running `but` in it unarchives it, or no command there could see its changes.
+#[test]
+fn running_but_in_an_archived_worktree_unarchives_it() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    env.but("worktree list")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Active worktrees
+(none)
+
+Archived worktrees
+wt-feature - [..]/worktrees/wt-feature
+
+"#]]);
+
+    env.but("diff")
+        .current_dir(&wt_dir)
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+─────────────────╮
+ nl:a A note.txt │
+─────────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +dirty
+
+"#]]);
+    env.but("worktree list")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Active worktrees
+wt wt-feature - [..]/worktrees/wt-feature
+
+Archived worktrees
+(none)
+
+"#]]);
+}
+
 #[test]
 fn remove_requires_force_for_a_dirty_checkout() {
     let env = adopted_sandbox();

@@ -133,8 +133,7 @@ inside a linked worktree, a bare `but commit` and `but diff`, and `but amend`/`b
 with `-t` but no sources, take that worktree's changes, while `but commit --empty` and `but pick`
 without a target go on its branch, and a bare `but discard` discards that worktree's changes.
 `but absorb` and `but branch new` without `--above`/`--below` refuse there instead of acting on
-the main worktree, and every such default is refused in a worktree GitButler doesn't manage (it is archived, or its `HEAD`
-is unusable).
+the main worktree, and every such default is refused in a worktree GitButler doesn't manage (its `HEAD` is unusable).
 
 ## Parallel vs Stacked Branches
 
