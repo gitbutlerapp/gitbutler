@@ -375,7 +375,10 @@
   },
   {
     "context": "MessageBody > TextInput",
-    "bindings": { "shift-tab": "message_editor::ToTitle" }
+    "bindings": {
+      "shift-tab": "message_editor::ToTitle",
+      "backspace": "message_editor::LeaveEmptyBody"
+    }
   },
   // As vim steps through matches.
   {

@@ -9,7 +9,7 @@ use super::text_input::{InputEvent, TextInput};
 use super::{dp, field, fixed, v_flex};
 use crate::theme::Theme;
 
-actions!(message_editor, [ToBody, ToTitle]);
+actions!(message_editor, [ToBody, ToTitle, LeaveEmptyBody]);
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum MessageSize {
@@ -128,6 +128,13 @@ impl Render for MessageEditor {
                     .key_context("MessageBody")
                     .on_action(cx.listener(|this, _: &ToTitle, window, cx| {
                         window.focus(&this.title.focus_handle(cx), cx)
+                    }))
+                    .on_action(cx.listener(|this, _: &LeaveEmptyBody, window, cx| {
+                        if this.body.read(cx).text().is_empty() {
+                            window.focus(&this.title.focus_handle(cx), cx)
+                        } else {
+                            cx.propagate()
+                        }
                     }))
                     .id("message-body")
                     .min_h(dp(min_body))

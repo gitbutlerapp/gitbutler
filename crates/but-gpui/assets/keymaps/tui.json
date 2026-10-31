@@ -183,7 +183,10 @@
   },
   {
     "context": "MessageBody > TextInput",
-    "bindings": { "shift-tab": "message_editor::ToTitle" }
+    "bindings": {
+      "shift-tab": "message_editor::ToTitle",
+      "backspace": "message_editor::LeaveEmptyBody"
+    }
   },
   // After the text field's own keys, so these win inside the palette. ⌃P and ⌃N, as in the
   // TUI's jump.
