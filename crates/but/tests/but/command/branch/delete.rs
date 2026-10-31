@@ -353,3 +353,45 @@ Discarded branches 'A', 'B'
 "#]]
     );
 }
+
+#[test]
+fn refuses_a_branch_checked_out_in_a_linked_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("worktree list").assert().success();
+    crate::command::util::add_worktree_with_commit(&env, "wt", "main");
+
+    for name in ["wt", "refs/heads/wt"] {
+        env.but(format!("branch delete {name}"))
+            .assert()
+            .failure()
+            .stdout_eq(str![[]])
+            .stderr_eq(str![[r#"
+Error: Cannot delete 'wt': it is checked out in worktree wt
+
+Hint: Run `but worktree remove wt` first, then `but branch delete wt`
+
+"#]]);
+    }
+
+    // The worktree's branch and its commit are untouched.
+    snapbox::assert_data_eq!(
+        env.invoke_git("log --oneline wt"),
+        str![[r#"
+[..] add W
+0dc3733 add M
+"#]]
+    );
+
+    // Following the hint deletes the branch.
+    env.but("worktree remove wt").assert().success();
+    env.but("branch delete wt")
+        .assert()
+        .success()
+        .stderr_eq(str![[""]])
+        .stdout_eq(str![[r#"
+Discarded branch 'wt'
+
+"#]]);
+    snapbox::assert_data_eq!(env.invoke_git("branch --list wt"), str![""]);
+}
