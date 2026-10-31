@@ -554,6 +554,19 @@ Error: Branch 'A' is already in the workspace
 }
 
 #[test]
+fn new_accepts_the_git_worktree_add_spelling() {
+    let env = adopted_sandbox();
+    env.but("worktree add -b git-habit")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created worktree git-habit on 'git-habit' from 0dc3733 at [..]/home/.gitbutler-worktrees/[..]/git-habit
+
+"#]]);
+}
+
+#[test]
 fn new_checks_out_an_existing_branch_outside_the_workspace() {
     let env = adopted_sandbox();
     env.invoke_git("branch loose main");
