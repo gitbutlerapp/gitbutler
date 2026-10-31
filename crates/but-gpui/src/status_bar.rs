@@ -70,9 +70,9 @@ impl AppView {
         } else if let Some(moving) = &store.moving {
             // What's moving, and where Return lands it, unless that's where it is.
             let lands = moving.lands(store);
-            let what = moving.cut().describe(store);
+            let what = moving.describe(store);
             let what = match lands {
-                true => format!("{what} {}", moving.place()),
+                true => format!("{what} {}", moving.place(store)),
                 false => what,
             };
             let state = h_flex()
