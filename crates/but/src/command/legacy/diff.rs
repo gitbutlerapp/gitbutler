@@ -5,9 +5,9 @@ use nonempty::NonEmpty;
 use serde::Serialize;
 
 use crate::{
-    CliResult, IdMap,
+    CliError, CliResult, IdMap,
     args::{
-        atoms::{Purpose, ResolvedCliIdArg},
+        atoms::{CliIdArg, Purpose, ResolvedCliIdArg},
         diff::Platform,
     },
     bad_input,
@@ -429,7 +429,9 @@ fn resolve(
 
     let resolved_target = if let Some(target) = target {
         let repo = ctx.repo.get()?;
-        target.resolve_in_workspace(&repo, id_map, Purpose::Target, None)?
+        target
+            .try_resolve(&repo, id_map, Purpose::Target, None)?
+            .ok_or_else(|| unresolved_target_error(&target, &repo))?
     } else {
         ResolvedCliIdArg::Uncommitted(invoked_from.managed_source(id_map)?)
     };
@@ -469,6 +471,22 @@ fn resolve(
         ResolvedCliIdArg::Stack { .. } => {
             Err(bad_input("viewing diffs for stack assignments is not supported").into())
         }
+    }
+}
+
+/// Agents often pass Git revisions like `HEAD~1` or `main...HEAD`, which are not CLI IDs.
+/// When a target fails to resolve but Git can parse it, point at `git diff` in addition
+/// to the generic missing-target hint.
+fn unresolved_target_error(target: &CliIdArg, repo: &gix::Repository) -> CliError {
+    let err = bad_input(format!("Could not find target: '{target}'"));
+    if repo.rev_parse(target.0.as_str()).is_ok() {
+        err.hint(format!(
+            "To diff it as a Git revision, run `git diff {target}`. {}",
+            CliIdArg::TARGET_MISSING_HINT
+        ))
+        .into()
+    } else {
+        err.hint(CliIdArg::TARGET_MISSING_HINT).into()
     }
 }
 
