@@ -24,6 +24,47 @@ Hint: Name it with `but reword g0` first! Note that the short ID is likely to ch
 }
 
 #[test]
+fn git_revision_target_hints_git_diff() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    // Git revisions and ranges are not CLI IDs, so point at the Git command that diffs them.
+    env.but("diff HEAD~1")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find target: 'HEAD~1'
+
+Hint: To diff it as a Git revision, run `git diff HEAD~1`. Run `but status` for applicable targets.
+
+"#]]);
+
+    env.but("diff main...HEAD")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find target: 'main...HEAD'
+
+Hint: To diff it as a Git revision, run `git diff main...HEAD`. Run `but status` for applicable targets.
+
+"#]]);
+
+    // Anything Git can't resolve either keeps the generic hint.
+    env.but("diff nonexistent")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find target: 'nonexistent'
+
+Hint: Run `but status` for applicable targets.
+
+"#]]);
+}
+
+#[test]
 fn uncommitted() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
