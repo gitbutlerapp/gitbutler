@@ -34,7 +34,7 @@ actions!(
         StopWatching,
         MoveUp,
         MoveDown,
-        ShowArchivedWorktree,
+        UnarchiveWorktree,
         Reveal,
         OpenProjectSettings,
         ArchiveWorktree,
@@ -105,8 +105,8 @@ fn beside<T>(listed: &[T], at: usize, up: bool) -> Option<Option<&T>> {
 
 impl AppView {
     /// Register what the selected row of the navigator offers beyond the edits: closing a
-    /// terminal, watching a project and moving its card or a worktree, the archived worktrees,
-    /// a checkout's folder, and archiving or deleting a worktree.
+    /// terminal, watching a project and moving its card or a worktree, a checkout's folder,
+    /// archiving or deleting a worktree, and from anywhere in a project, its archived worktrees.
     pub(crate) fn navigator_actions(&self, el: Stateful<Div>, cx: &Context<Self>) -> Stateful<Div> {
         let store = self.store.read(cx);
         let moves = |el: Stateful<Div>, up: bool| {
@@ -124,6 +124,16 @@ impl AppView {
             })
         };
         let el = moves(moves(el, true), false);
+        let unarchivable = (store.selection.as_ref())
+            .map(|selection| selection.project().clone())
+            .filter(|project| {
+                (store.workspace(project)).is_some_and(|ws| !ws.archived_worktrees.is_empty())
+            });
+        let el = el.when_some(unarchivable, |el, project| {
+            el.on_action(cx.listener(move |this, _: &UnarchiveWorktree, window, cx| {
+                this.unarchive_worktree(&project, window, cx)
+            }))
+        });
         match store.selection.clone() {
             Some(Selection::Terminal(_, id)) => {
                 el.on_action(cx.listener(move |this, _: &CloseTerminal, _, cx| {
@@ -132,11 +142,9 @@ impl AppView {
             }
             Some(Selection::Project(project)) => {
                 let expanded = store.project(&project).is_some_and(|p| p.expanded);
-                let archived =
-                    (store.workspace(&project)).is_some_and(|ws| !ws.archived_worktrees.is_empty());
                 let path = store.path(&project);
                 let (watched, unwatched) = (project.clone(), project.clone());
-                let (shown, settings) = (project.clone(), project.clone());
+                let settings = project.clone();
                 el.on_action(
                     cx.listener(move |this, _: &OpenProjectSettings, window, cx| {
                         this.open_project_settings(settings.clone(), window, cx)
@@ -153,13 +161,6 @@ impl AppView {
                         (this.store)
                             .update(cx, |store, cx| store.set_expanded(&unwatched, false, cx))
                     }))
-                })
-                .when(archived, |el| {
-                    el.on_action(
-                        cx.listener(move |this, _: &ShowArchivedWorktree, window, cx| {
-                            this.show_archived_worktree(&shown, window, cx)
-                        }),
-                    )
                 })
                 .when_some(path, |el, path| {
                     let main = (project.clone(), Checkout::Main);
@@ -189,8 +190,8 @@ impl AppView {
         }
     }
 
-    /// Offer the worktrees archived of `project`, to show one again.
-    fn show_archived_worktree(
+    /// Offer the worktrees archived of `project`, to unarchive one.
+    fn unarchive_worktree(
         &mut self,
         project: &ProjectId,
         window: &mut Window,
@@ -215,8 +216,8 @@ impl AppView {
         let place = store.place(&Selection::Project(project.clone()));
         self.open_picker(
             Some(place),
-            "Show a worktree again",
-            "Show",
+            "Unarchive a worktree",
+            "Unarchive",
             choices,
             window,
             cx,
@@ -414,7 +415,7 @@ impl Navigator {
                 let update = command(&UpdateFromTarget);
                 items.push(if expanded { update } else { update.separated() });
                 items.extend([
-                    command(&ShowArchivedWorktree),
+                    command(&UnarchiveWorktree),
                     command(&crate::open_in::OpenInEditor).separated(),
                     command(&crate::open_in::OpenInTerminal),
                     command(&Reveal),
