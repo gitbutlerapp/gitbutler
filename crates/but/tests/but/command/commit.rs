@@ -1,4 +1,7 @@
-use super::util::{add_dirty_worktree, find_branch, status_json, status_json_with_files};
+use super::util::{
+    add_dirty_detached_worktree, add_dirty_worktree, find_branch, status_json,
+    status_json_with_files,
+};
 use crate::utils::{CommandExt as _, Sandbox};
 
 mod unborn;
@@ -3957,17 +3960,7 @@ fn commit_from_a_detached_worktree_is_refused() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
     env.but("status").assert().success();
-    let wt = env.app_data_dir().join("worktrees");
-    but_testsupport::invoke_bash_at_dir(
-        &format!(
-            r#"
-        git worktree add -q --detach "{wt}/wt-detached" B
-        (cd "{wt}/wt-detached" && echo dirty >note.txt)
-        "#,
-            wt = wt.display()
-        ),
-        env.projects_root(),
-    );
+    add_dirty_detached_worktree(&env, "wt-detached", "B");
 
     env.but("commit wt-detached:@ -m 'nowhere to go'")
         .assert()
@@ -3975,6 +3968,104 @@ fn commit_from_a_detached_worktree_is_refused() {
         .stdout_eq(snapbox::str![])
         .stderr_eq(snapbox::str![[r#"
 Error: Worktree wt-detached has a detached HEAD, so there is no branch to commit to
+
+Hint: Run `but commit -b <new-branch>` inside that worktree to commit on a new branch at its HEAD
+
+"#]]);
+}
+
+/// Inside a detached worktree, `-b` names the branch it lacks: the branch starts at `HEAD`,
+/// is checked out there, and takes the commit, like `git switch -c` followed by a commit.
+#[test]
+fn commit_to_a_new_branch_in_a_detached_worktree_checks_it_out_there() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = add_dirty_detached_worktree(&env, "wt-detached", "B");
+
+    env.but("commit -b fresh -m 'from wt'")
+        .current_dir(&wt_dir)
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit ulz on new branch 'fresh'
+
+"#]]);
+
+    // The worktree now has `fresh` checked out, holding the commit, with nothing left uncommitted.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊┊
+┊┊╭┄ fr:@ [uncommitted] {wt-detached} (no changes)
+┊┊├┄ fr [fresh]
+┊┊●   ulz from wt
+┊┊│     ulz:u A note.txt
+┊├╯
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // Undo can't detach the worktree again, so it refuses rather than claim a restore.
+    env.but("undo")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot restore branch 'fresh' because it is checked out in worktrees: [..]
+
+"#]]);
+}
+
+/// A worktree detached at the workspace commit has every applied branch below its `HEAD`, so a
+/// branch started there would carry them all and is refused.
+#[test]
+fn commit_to_a_new_branch_in_a_worktree_detached_at_the_workspace_commit_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = add_dirty_detached_worktree(&env, "wt-detached", "gitbutler/workspace");
+
+    env.but("commit -b fresh -m 'from wt'")
+        .current_dir(&wt_dir)
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Worktree wt-detached is detached at a GitButler workspace commit, so a new branch there would contain every applied branch
+
+Hint: Run `but -C [..] commit wt-detached:@ -b <new-branch>` to commit its changes to a new branch in the workspace instead
+
+"#]]);
+    assert!(
+        env.invoke_git("branch --list fresh").is_empty(),
+        "no branch is created"
+    );
+
+    // The hinted command, run in the main worktree, puts the changes on a new workspace branch.
+    env.but("commit wt-detached:@ -b fresh -m 'from wt'")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit xol on new branch 'fresh'
 
 "#]]);
 }

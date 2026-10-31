@@ -240,6 +240,7 @@ fn resolve(
                     .hint("You can specify where to pick to with `--branch [<BRANCH>]`")
                     .into()
             }
+            RouteCommitOperationError::BranchlessWorktree(err) => err.into(),
             RouteCommitOperationError::Other(cli_error) => cli_error,
         })?
     };
