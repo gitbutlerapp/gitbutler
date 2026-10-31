@@ -382,6 +382,9 @@ pub struct Prefs {
     pub file_tree: bool,
     /// The order file lists show files in.
     pub file_sort: FileSort,
+    /// A file tree's folders always show the lines their files add and remove, rather than
+    /// only under the pointer.
+    pub folder_line_counts: bool,
     /// Long diff lines wrap instead of running off the edge.
     pub wrap: bool,
     /// Diffs show the old side beside the new rather than one above the other.
