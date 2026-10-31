@@ -137,6 +137,37 @@ Hint: Make a local branch track upstream/main with `git branch --set-upstream-to
     );
 }
 
+// regression test for https://linear.app/gitbutler/issue/GB-2244
+#[cfg(feature = "legacy")]
+#[test]
+fn target_remote_shorthand_without_namesake_creates_it_tracking_that_remote() {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
+    env.invoke_bash("git checkout -q -b feature && git branch -q -D main");
+    env.invoke_git("remote add upstream .");
+    env.invoke_git("update-ref refs/remotes/upstream/main refs/remotes/origin/main");
+
+    // a fresh clone working on a feature branch has no local main to infer the target from
+    env.but("status").assert().failure().stderr_eq(str![[r#"
+Error: No target branch is configured and none could be inferred
+
+Hint: Run `but config target <remote>/<branch>` to configure one
+
+"#]]);
+
+    // run the command the hint suggests
+    env.but("config target upstream/main").assert().success();
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref main@{upstream}"),
+        "upstream/main",
+        "main is created to track the remote branch named, not origin/main of the default remote"
+    );
+    assert_eq!(
+        env.invoke_git("config --local --get gitbutler.project.targetRef"),
+        "refs/heads/main",
+    );
+    env.but("status").assert().success();
+}
+
 #[cfg(feature = "legacy")]
 #[test]
 fn target_accepts_local_branch() {

@@ -264,11 +264,11 @@ fn infer_target(ctx: &mut Context) -> CliResult<()> {
                     .hint("Run `but commit` to create an initial commit")
                     .into());
             } else {
-                return Err(anyhow::anyhow!(
-                    "No target branch is configured and none could be inferred. \
-                                Run `but config target <remote>/<branch>` to configure one."
-                )
-                .into());
+                return Err(
+                    bad_input("No target branch is configured and none could be inferred")
+                        .hint("Run `but config target <remote>/<branch>` to configure one")
+                        .into(),
+                );
             }
         };
 
