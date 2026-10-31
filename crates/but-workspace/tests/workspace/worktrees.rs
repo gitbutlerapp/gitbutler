@@ -639,8 +639,7 @@ exit 1
     )
     .expect_err("hook failure is reported after checkout");
     assert!(
-        err.to_string()
-            .contains("Post-checkout hook failed (exit status: 1)"),
+        format!("{err:#}").contains("Post-checkout hook failed (exit status: 1)"),
         "the exit status explains failure even when the hook writes nothing to stderr: {err}"
     );
     assert!(

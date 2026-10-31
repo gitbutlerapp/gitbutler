@@ -43,13 +43,29 @@ impl NewOperation {
         if let Some(name) = name {
             let existing = name.resolve_local_branch_name()?;
             if ctx.repo.get()?.try_find_reference(&existing)?.is_some() {
-                if let Some(above) = above {
+                // A worktree whose post-checkout hook failed is kept, so a retry lands here.
+                let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
+                if let Some(worktree) = ws
+                    .worktrees
+                    .iter()
+                    .find(|worktree| worktree.ref_name.as_ref() == Some(&existing))
+                {
                     return Err(bad_input(format!(
-                        "Cannot place the existing branch '{name}' above a commit"
+                        "Branch '{name}' is already checked out in worktree '{}'",
+                        worktree.name
                     ))
-                    .arg_name("--above")
-                    .arg_value(&above.0)
+                    .arg_name("<NAME>")
+                    .arg_value(&name.0)
+                    .hint("Run `but worktree list` for its path, or pass a new name")
                     .into());
+                }
+                // A branch in the workspace is refused with or without --above.
+                if above.is_some() && !ws.refname_is_segment(existing.as_ref()) {
+                    return Err(bad_input(format!("Branch '{name}' already exists"))
+                        .arg_name("<NAME>")
+                        .arg_value(&name.0)
+                        .hint("Omit --above to check out the existing branch, or pass a new name")
+                        .into());
                 }
                 return Ok(NewOperation::ExistingBranch(existing));
             }
