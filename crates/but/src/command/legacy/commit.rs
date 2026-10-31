@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use anyhow::Context as _;
+use bstr::BString;
 use but_api::{
     WorkspaceState,
     json::{ChangeIdString, HexHash},
@@ -268,7 +269,7 @@ fn resolve(
         )
     };
 
-    let commit_op = {
+    let mut commit_op = {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
         let default_lane = || match &commit_selection {
             CommitSelection::AllChanges(_) | CommitSelection::Changes(_) => {
@@ -296,21 +297,56 @@ fn resolve(
                     .hint("You can specify where to commit with `--branch [<BRANCH>]`")
                     .into()
             }
+            RouteCommitOperationError::BranchlessWorktree(err) => err
+                .hint("Run `but commit -b <new-branch>` inside that worktree to commit on a new branch at its HEAD")
+                .into(),
             RouteCommitOperationError::Other(cli_error) => cli_error,
         })?
     };
     if let InvokedFrom::LinkedWorktree(worktree) = invoked_from
-        && commit_op.will_create_unstacked_reference()
+        && let CommitOperation::CommitToNewBranch(op) = &commit_op
     {
-        let checked_out = worktree_branch(&*ctx.repo.get()?, worktree.as_ref())
-            .map_or_else(|_| "<branch>".into(), |name| name.shorten().to_string());
-        return Err(bad_input(format!(
-            "Cannot commit to an unstacked branch from worktree {worktree}"
-        ))
-        .hint(format!(
-            "Omit `-b` to commit to {checked_out}, the branch this worktree has checked out"
-        ))
-        .into());
+        let repo = ctx.repo.get()?;
+        let worktree_repo = but_workspace::worktrees::open_worktree_repo(&repo, worktree.as_ref())?;
+        if worktree_repo.head_name()?.is_some() {
+            let checked_out = worktree_branch(&repo, worktree.as_ref())
+                .map_err(|err| bad_input(err.to_string()))?;
+            return Err(bad_input(format!(
+                "Cannot commit to an unstacked branch from worktree {worktree}"
+            ))
+            .hint(format!(
+                "Omit `-b` to commit to {}, the branch this worktree has checked out",
+                checked_out.shorten()
+            ))
+            .into());
+        }
+        // A detached worktree has no branch of its own yet, so the new one starts at its `HEAD`
+        // and is checked out there, like `git switch -c` would.
+        let head = worktree_repo.head_commit()?;
+        if but_graph::workspace::commit::is_managed_workspace_by_message(head.message_raw()?) {
+            let main_worktree = repo
+                .workdir()
+                .context("BUG: a workspace has a main worktree")?;
+            return Err(bad_input(format!(
+                "Worktree {worktree} is detached at a GitButler workspace commit, so a new branch there would contain every applied branch"
+            ))
+            .hint(format!(
+                "Run `but -C {} commit {worktree}:@ -b <new-branch>` to commit its changes to a new branch in the workspace instead",
+                rejection::shell_quote(&main_worktree.to_string_lossy())
+            ))
+            .into());
+        }
+        let new_branch_name = match &op.branch_name {
+            Some(name) => name.clone(),
+            None => but_core::branch::unique_canned_refname(&repo)?,
+        };
+        commit_op = CommitOperation::CommitAt(CommitAtOperation {
+            target: CommitRelativeToTarget::DetachedWorktree {
+                worktree: worktree.clone(),
+                head: head.id,
+                new_branch_name,
+            },
+        });
     }
 
     {
@@ -405,6 +441,17 @@ pub fn run(
     let changed_path_count = changes.len();
     let rejection_target = commit_op.rejection_target();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
+    // Undo can't detach a linked worktree again, but naming the branch it now has checked out
+    // makes undo refuse instead of reporting a restore that left the commit in place.
+    let worktree_branch = match &commit_op {
+        CommitOperation::CommitAt(CommitAtOperation {
+            target:
+                CommitRelativeToTarget::DetachedWorktree {
+                    new_branch_name, ..
+                },
+        }) => Some(new_branch_name.clone()),
+        _ => None,
+    };
 
     let ((new_commit, branch_name), ws) = if let Some(sbm) = sbm {
         sbm.transaction_with_workspace_setup(
@@ -430,7 +477,7 @@ pub fn run(
             meta,
             perm,
             snapshot_details,
-            &[],
+            worktree_branch.as_ref().map(AsRef::as_ref).as_slice(),
             DryRun::No,
             |tx| {
                 commit_with_transaction(
@@ -623,8 +670,9 @@ pub fn route_commit_operation(
             if let ChangeSourceId::Worktree(name) = default_lane()? {
                 // The user didn't pick this target, but a detached or otherwise
                 // branchless worktree is still their input to fix.
-                let name = worktree_branch(repo, name.as_ref())
-                    .map_err(|err| CliError::from(bad_input(err.to_string())))?;
+                let name = worktree_branch(repo, name.as_ref()).map_err(|err| {
+                    RouteCommitOperationError::BranchlessWorktree(bad_input(err.to_string()))
+                })?;
                 merged.ensure_branch_not_merged(name.as_ref())?;
                 return Ok(CommitOperation::CommitAt(CommitAtOperation {
                     target: CommitRelativeToTarget::BranchTip { name, switch },
@@ -722,6 +770,8 @@ pub fn route_commit_operation(
 pub enum RouteCommitOperationError {
     NoStackToCommitTo,
     UnclearTargetCantPrompt,
+    /// The default lane is a linked worktree without a branch checked out, as the error says.
+    BranchlessWorktree(BadInput),
     Other(CliError),
 }
 
@@ -920,6 +970,9 @@ impl CommitOperation {
                         .as_ref()
                         .map(|name| name.shorten().to_string()),
                 ),
+                CommitRelativeToTarget::DetachedWorktree {
+                    new_branch_name, ..
+                } => rejection::Target::NewBranch(Some(new_branch_name.shorten().to_string())),
             },
         }
     }
@@ -1043,6 +1096,9 @@ impl CommitAtOperation {
                 false
             }
             CommitRelativeToTarget::BranchBucket { .. } => true,
+            // Its reference is created for a linked worktree, so single-branch mode, which is
+            // about the main worktree, has nothing to set up for it.
+            CommitRelativeToTarget::DetachedWorktree { .. } => false,
         }
     }
 
@@ -1050,13 +1106,15 @@ impl CommitAtOperation {
         match &self.target {
             CommitRelativeToTarget::Commit { .. }
             | CommitRelativeToTarget::BranchTip { .. }
-            | CommitRelativeToTarget::BranchBucket { .. } => false,
+            | CommitRelativeToTarget::BranchBucket { .. }
+            | CommitRelativeToTarget::DetachedWorktree { .. } => false,
         }
     }
 
     pub fn switch(&self) -> bool {
         match &self.target {
-            CommitRelativeToTarget::Commit { .. } => false,
+            CommitRelativeToTarget::Commit { .. }
+            | CommitRelativeToTarget::DetachedWorktree { .. } => false,
             CommitRelativeToTarget::BranchTip { switch, .. }
             | CommitRelativeToTarget::BranchBucket { switch, .. } => *switch,
         }
@@ -1115,6 +1173,24 @@ impl CommitAtOperation {
                     Some(BranchNameTarget::Existing(name.clone())),
                 )
             }
+            CommitRelativeToTarget::DetachedWorktree {
+                worktree,
+                head,
+                new_branch_name,
+            } => {
+                tx.name_segment(
+                    &but_graph::WorktreeKind::LinkedId(worktree.clone()),
+                    *head,
+                    new_branch_name.as_ref(),
+                )?;
+
+                let where_to_create_commit = InsertSide::Below;
+                (
+                    RelativeTo::Reference(new_branch_name.clone()),
+                    where_to_create_commit,
+                    Some(BranchNameTarget::New(new_branch_name.clone())),
+                )
+            }
         })
     }
 }
@@ -1136,6 +1212,13 @@ pub enum CommitRelativeToTarget {
         new_branch_name: Option<FullName>,
         side: Side,
         switch: bool,
+    },
+    /// Place the commit on the new branch `new_branch_name` at `head`, the detached `HEAD` of the
+    /// linked worktree `worktree`, which then has the new branch checked out.
+    DetachedWorktree {
+        worktree: BString,
+        head: gix::ObjectId,
+        new_branch_name: FullName,
     },
 }
 
@@ -1179,6 +1262,7 @@ fn validate_branch_target_in_unborn_repo(
                 .hint("Run `but commit` without a branch target to commit on the current branch.")
                 .into());
             }
+            CommitRelativeToTarget::DetachedWorktree { .. } => {}
         },
     }
 
@@ -1227,6 +1311,12 @@ pub fn run_in_unborn_repo(
             CommitRelativeToTarget::BranchBucket { .. } => {
                 anyhow::bail!(
                     "BUG: CommitRelativeToTarget::BranchBucket isn't valid in unborn repos, \
+                    should have been caught during resolution"
+                )
+            }
+            CommitRelativeToTarget::DetachedWorktree { .. } => {
+                anyhow::bail!(
+                    "BUG: CommitRelativeToTarget::DetachedWorktree isn't valid in unborn repos, \
                     should have been caught during resolution"
                 )
             }

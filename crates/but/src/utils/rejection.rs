@@ -322,7 +322,7 @@ fn write_report<W: std::fmt::Write + ?Sized>(
 /// Quote `name` for the suggested shell command if it contains anything a shell
 /// would treat specially. Git permits characters like `;` and `&` in ref names,
 /// so an unquoted name could otherwise break the copy-pasteable command.
-fn shell_quote(name: &str) -> std::borrow::Cow<'_, str> {
+pub(crate) fn shell_quote(name: &str) -> std::borrow::Cow<'_, str> {
     let safe = !name.is_empty()
         && name.bytes().all(|b| {
             b.is_ascii_alphanumeric()
