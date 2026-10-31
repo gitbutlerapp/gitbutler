@@ -8,7 +8,7 @@ use gpui::{
 };
 
 use crate::backend::{
-    self, Checkout, CommitId, CommitTo, Destination, FullName, Selected, short_ref,
+    self, Checkout, CommitId, CommitTo, Destination, FullName, Selected, Workspace, short_ref,
 };
 use crate::state::{
     Cut, Label, NewAt, Overlay, ProjectId, Selection, Store, branch_moved, move_before,
@@ -268,32 +268,17 @@ impl Transfer {
                 Transfer::Uncommit(ids.clone())
             }
             (Cut::Commit(_, ids), Selection::Branch(_, Some(branch))) => {
-                // Already the top of that branch.
-                if let [id] = ids[..] {
-                    let (current, _) = workspace.find_commit(id)?;
-                    let top = current.commits.first().map(|c| c.id);
-                    if current.ref_name.as_ref() == Some(branch) && top == Some(id) {
-                        return None;
-                    }
+                let to = Destination::Branch(branch.clone());
+                if already_at(workspace, ids, &to) {
+                    return None;
                 }
                 Transfer::MoveCommit {
                     ids: ids.clone(),
-                    to: Destination::Branch(branch.clone()),
+                    to,
                 }
             }
             (Cut::Commit(_, ids), Selection::Commit(_, target_id)) if !ids.contains(target_id) => {
-                // Already right above it, or right below, as one commit can be; several move
-                // together wherever they are.
-                let next = |after: CommitId| {
-                    let (branch, _) = workspace.find_commit(after)?;
-                    let mut commits = branch.commits.iter().skip_while(|c| c.id != after);
-                    commits.nth(1).map(|c| c.id)
-                };
-                let one = match ids[..] {
-                    [id] => Some(id),
-                    _ => None,
-                };
-                let (already, to) = match place {
+                let to = match place {
                     // Not with a conflicted commit on either side, whose change the squash
                     // would drop, or the engine refuses.
                     Place::Into => {
@@ -303,16 +288,10 @@ impl Transfer {
                             into: *target_id,
                         });
                     }
-                    Place::Below => (
-                        one.is_some_and(|id| next(*target_id) == Some(id)),
-                        Destination::BelowCommit(*target_id),
-                    ),
-                    Place::Above => (
-                        one.is_some_and(|id| next(id) == Some(*target_id)),
-                        Destination::AboveCommit(*target_id),
-                    ),
+                    Place::Below => Destination::BelowCommit(*target_id),
+                    Place::Above => Destination::AboveCommit(*target_id),
                 };
-                if already {
+                if already_at(workspace, ids, &to) {
                     return None;
                 }
                 Transfer::MoveCommit {
@@ -856,6 +835,36 @@ pub fn drag_pill(
         .child(div().relative().children(cards).child(pill))
 }
 
+/// Whether commits `ids`, as listed, are already where moving them `to` puts them: that run
+/// of one branch, in that order, at its top, or right below or above the commit. Picked
+/// commits apart from each other move together wherever they are.
+fn already_at(workspace: &Workspace, ids: &[CommitId], to: &Destination) -> bool {
+    // The branch holding commit `id`, and its commits from `id` down.
+    let down_from = |id: CommitId| {
+        let (branch, _) = workspace.find_commit(id)?;
+        let down = (branch.commits.iter())
+            .map(|c| c.id)
+            .skip_while(move |c| *c != id);
+        Some((branch, down))
+    };
+    let first = ids.first().copied();
+    let Some((branch, mut down)) = first.and_then(down_from) else {
+        return false;
+    };
+    if down.by_ref().take(ids.len()).ne(ids.iter().copied()) {
+        return false;
+    }
+    match to {
+        Destination::Branch(name) => {
+            branch.ref_name.as_ref() == Some(name) && branch.commits.first().map(|c| c.id) == first
+        }
+        Destination::BelowCommit(target) => {
+            down_from(*target).and_then(|(_, mut down)| down.nth(1)) == first
+        }
+        Destination::AboveCommit(target) => down.next() == Some(*target),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -911,6 +920,40 @@ mod tests {
         assert!(
             cut(&[("b", true)]).movable().is_none(),
             "with only conflicted files there's nothing to carry"
+        );
+    }
+
+    #[test]
+    fn commits_are_already_where_they_go_only_as_that_run() {
+        use crate::backend::model::build::{branch, full, id, workspace};
+        // ui's commits newest first: 5, 4, 3, 2; then api's, 1.
+        let ws = workspace(
+            vec![vec![branch("ui", &[5, 4, 3, 2]), branch("api", &[1])]],
+            vec![],
+        );
+        let ui = || Destination::Branch(full("refs/heads/ui"));
+        let at = |ids: &[u8], to: &Destination| {
+            let ids: Vec<CommitId> = ids.iter().map(|n| id(*n)).collect();
+            already_at(&ws, &ids, to)
+        };
+        assert!(at(&[5, 4], &ui()), "the top two are at the top of ui");
+        assert!(!at(&[4, 5], &ui()), "in another order they'd move");
+        assert!(!at(&[5, 3], &ui()), "picked apart, they'd move together");
+        assert!(
+            at(&[4, 3], &Destination::BelowCommit(id(5))),
+            "right below 5"
+        );
+        assert!(
+            !at(&[3, 2], &Destination::BelowCommit(id(5))),
+            "4 is between them"
+        );
+        assert!(
+            at(&[4, 3], &Destination::AboveCommit(id(2))),
+            "right above 2"
+        );
+        assert!(
+            !at(&[2], &Destination::AboveCommit(id(1))),
+            "1 is the next branch's, so 2 isn't right above it in a branch"
         );
     }
 }
