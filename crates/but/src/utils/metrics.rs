@@ -154,6 +154,7 @@ impl Subcommands {
                 }
                 Some(forge::pr::Subcommands::SetDraft { .. }) => SetReviewDraft,
                 Some(forge::pr::Subcommands::SetReady { .. }) => SetReviewReady,
+                Some(forge::pr::Subcommands::Open { .. }) => PrOpen,
             },
             #[cfg(feature = "legacy")]
             Subcommands::Teardown { .. } => Teardown,
