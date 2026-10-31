@@ -104,6 +104,7 @@ impl Render for DiffPane {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx).clone();
         let drawn = self.detail.update(cx, |detail, cx| {
+            detail.follow_alone(cx);
             detail.follow_folds(window, cx);
             detail.follow_glide(window, cx);
             detail.follow_drag(window, cx);

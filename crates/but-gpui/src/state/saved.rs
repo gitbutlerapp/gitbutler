@@ -391,6 +391,9 @@ pub struct Prefs {
     pub split: bool,
     /// Changed lines go without their green and red ground, keeping the bar beside them.
     pub plain_lines: bool,
+    /// Diffs show only the cursor's file rather than every file one after another. Off unless
+    /// picked, as the desktop app's all-in-one diff is on.
+    pub one_file_diff: bool,
     pub code_size: crate::theme::CodeSize,
     /// The family code in diffs shows in, or `None` for the app's own.
     pub diff_font: Option<String>,

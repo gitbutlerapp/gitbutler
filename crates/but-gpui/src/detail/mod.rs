@@ -274,6 +274,10 @@ struct LoadedDiff {
     tree: bool,
     sort: FileSort,
     rows: Vec<DiffRow>,
+    /// The files the rows show with every file shown, as [`Detail::shown_files`] lists them.
+    shown: Vec<usize>,
+    /// The one file the rows show, with Settings' all-in-one diff off.
+    alone: Option<usize>,
     /// What was selected when it loaded.
     selection: Option<Selection>,
 }
@@ -1303,8 +1307,12 @@ impl Detail {
                 Arc::new(sorted)
             }
         };
-        let rows = self.build_rows(&key, &files, false, cx);
-        let top = same.then(|| self.keep_place(&rows, &files));
+        // Before the rows, which can show the cursor's file alone.
+        if same {
+            self.cursor = self.cursor_in(&files);
+        }
+        let (rows, shown, alone) = self.build_rows(&key, &files, false, cx);
+        let top = same.then(|| self.keep_place(&rows, &files, alone.is_some()));
         // The rows go, and with them the one the diff was gliding to: on a reload, as when the
         // rest of its files come in highlighted or an agent writes, it glides on to where that
         // row is now, a match Find went to as much as the cursor's hunk.
@@ -1316,7 +1324,6 @@ impl Detail {
         (self.list).reset_with_uniform_height(rows.len(), code_line(cx));
         if let Some(top) = top {
             self.list.scroll_to(top);
-            self.cursor = self.cursor_in(&files);
         }
         if self.checks_project.as_ref() == Some(&key.project)
             && key.checkout().as_ref() == Some(&self.checks_worktree)
@@ -1346,6 +1353,8 @@ impl Detail {
             tree,
             sort,
             rows,
+            shown,
+            alone,
             selection,
         });
         // Before rows change again, which carries it on in turn.
@@ -1507,14 +1516,15 @@ impl Detail {
     /// The rows `files` show: files folded by hand show only their header, and uncommitted
     /// files and hunks, or files of the commit shown, that a pending operation takes away are
     /// left out until it's done. `unfolded`, as they would with every file open and one line a
-    /// row, as Find searches them.
+    /// row, as Find searches them. With them, the files shown and, with Settings' all-in-one
+    /// diff off, the one file the rows are of.
     fn build_rows(
         &self,
         key: &DiffKey,
         files: &[FileDiff],
         unfolded: bool,
         cx: &App,
-    ) -> Vec<DiffRow> {
+    ) -> (Vec<DiffRow>, Vec<usize>, Option<usize>) {
         let store = self.store.read(cx);
         let terms = self.filter_terms(cx);
         let leaving = key.leaving(store);
@@ -1536,11 +1546,19 @@ impl Detail {
             let path = &file.file.path;
             !unfolded && self.folded.contains(path) && !self.file_folds.closing(path)
         };
+        let hidden =
+            |file: &FileDiff| leaving(&file.file.path) || !keeps_path(&terms, &file.file.path);
+        let shown: Vec<usize> = (files.iter().enumerate())
+            .filter(|(_, file)| !hidden(file))
+            .map(|(ix, _)| ix)
+            .collect();
+        let alone = self.alone(&shown, cx);
+        let alone_path = alone.and_then(|ix| Some(&files.get(ix)?.file.path));
         let rows = diff::rows(
             files,
             folded,
             |file| self.drawing_of(file).is_some(),
-            |file| leaving(&file.file.path) || !keeps_path(&terms, &file.file.path),
+            |file| hidden(file) || alone_path.is_some_and(|path| *path != file.file.path),
             |file, hunk| parts_of(file).is_some_and(|keys| keys.contains(&hunk.key)),
             |file, hunk, line| {
                 parts_of(file).is_some_and(|keys| keys.iter().any(|key| key.takes(hunk, line)))
@@ -1549,7 +1567,7 @@ impl Detail {
             store.prefs.split && !unfolded,
             |file, conflict| self.conflict_view(&file.file.path, conflict),
         );
-        match unfolded || !self.file_folds.any() {
+        let rows = match unfolded || !self.file_folds.any() {
             true => rows,
             false => {
                 let moving = |file: usize| {
@@ -1559,6 +1577,29 @@ impl Detail {
                 };
                 diff::moving_rows(rows, moving)
             }
+        };
+        (rows, shown, alone)
+    }
+
+    /// The one file of `shown` the diff shows with Settings' all-in-one diff off: the
+    /// cursor's, or when that's hidden, the next shown after it, else the last, as
+    /// `skip_taken` moves the cursor.
+    fn alone(&self, shown: &[usize], cx: &App) -> Option<usize> {
+        if !self.store.read(cx).prefs.one_file_diff {
+            return None;
+        }
+        (shown.get(shown.partition_point(|&file| file < self.cursor.file)))
+            .or(shown.last())
+            .copied()
+    }
+
+    /// Show the cursor's file alone once the cursor goes to another, or every file once
+    /// Settings turns the all-in-one diff back on.
+    pub(super) fn follow_alone(&mut self, cx: &mut Context<Self>) {
+        if let Some(diff) = &self.diff
+            && diff.alone != self.alone(&diff.shown, cx)
+        {
+            self.rebuild_rows(cx);
         }
     }
 
@@ -1648,6 +1689,15 @@ impl Detail {
         let at_end = -self.list.scroll_px_offset_for_scrollbar().y
             >= self.list.max_offset_for_scrollbar().y - crate::ui::fixed(1.);
         if by > 0. && at_end {
+            // A file at a time, it goes on to the next file first: in folders folded shut too,
+            // as the whole diff runs through them.
+            if self.diff.as_ref().is_some_and(|diff| diff.alone.is_some()) {
+                let order = self.files_in_list_order(&HashSet::new(), cx);
+                let at = order.iter().position(|&file| file == self.cursor.file);
+                if let Some(&file) = at.and_then(|at| order.get(at + 1)) {
+                    return self.scroll_to_file(file, false, cx);
+                }
+            }
             return self.app.update_later(window, cx, |app, window, cx| {
                 (app.navigator).update(cx, |navigator, cx| navigator.read_on(window, cx))
             });
@@ -1659,8 +1709,9 @@ impl Detail {
     }
 
     /// Where the view goes in `rows` of `files` to keep showing what's at its top now: the
-    /// same row, or its file's header when that row went away.
-    fn keep_place(&self, rows: &[DiffRow], files: &[FileDiff]) -> ListOffset {
+    /// same row, or its file's header when that row went away. Rows of one file `alone`
+    /// that's not the one at the top start at their own top.
+    fn keep_place(&self, rows: &[DiffRow], files: &[FileDiff], alone: bool) -> ListOffset {
         let top = self.list.logical_scroll_top();
         // At the very top, what's added above shows: a file a merge left conflicted lists
         // first.
@@ -1674,6 +1725,7 @@ impl Detail {
                 item_ix,
                 offset_in_item: Pixels::ZERO,
             },
+            None if alone => ListOffset::default(),
             None => ListOffset {
                 item_ix: top.item_ix,
                 offset_in_item: Pixels::ZERO,
@@ -1725,10 +1777,10 @@ impl Detail {
             cx.notify();
             return;
         };
-        let rows = self.build_rows(&diff.key, &diff.files, false, cx);
+        let (rows, shown, alone) = self.build_rows(&diff.key, &diff.files, false, cx);
         if rows != diff.rows {
             self.text_selection = None;
-            let scroll_to = self.keep_place(&rows, &diff.files);
+            let scroll_to = self.keep_place(&rows, &diff.files, alone.is_some());
             // A glide goes on to where its row is now, as when a file shown whole is read
             // while the keys or a click send the diff somewhere.
             let glide_to = (self.glide.take())
@@ -1743,6 +1795,9 @@ impl Detail {
             }
             // What Find counts follows what's shown.
             self.run_find(false, cx);
+        }
+        if let Some(diff) = &mut self.diff {
+            (diff.shown, diff.alone) = (shown, alone);
         }
         cx.notify();
     }
@@ -2204,14 +2259,12 @@ impl Detail {
     }
 
     /// The indexes of the files the diff shows, in ascending order for the binary searches
-    /// over them (Find's among them): not those a filter or a pending operation hides.
+    /// over them (Find's among them): not those a filter or a pending operation hides. Every
+    /// one, though the all-in-one diff off shows them one at a time.
     fn shown_files(&self) -> Vec<usize> {
-        (self.diff.iter())
-            .flat_map(|diff| &diff.rows)
-            .filter_map(|row| match row {
-                DiffRow::File(file) => Some(*file),
-                _ => None,
-            })
+        self.diff
+            .iter()
+            .flat_map(|diff| diff.shown.clone())
             .collect()
     }
 
@@ -2528,6 +2581,7 @@ impl Detail {
         // A file picked on a checkout's page shows its diff in place of the overview.
         self.now_open = false;
         self.cursor = Cursor::on_file(file_ix);
+        self.follow_alone(cx);
         if let Some(row) = self.row_of(|row| matches!(row, DiffRow::File(ix) if *ix == file_ix)) {
             self.scroll_to_row(row, glide);
             cx.notify();
