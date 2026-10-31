@@ -1741,6 +1741,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_json_lenient",
+ "shell-words",
  "snapbox",
  "syntect",
  "tempfile",

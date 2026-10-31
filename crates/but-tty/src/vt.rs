@@ -10,6 +10,7 @@ use std::time::{Duration, Instant};
 
 use libghostty_vt::error::Error;
 use libghostty_vt::fmt::{Format, Formatter, FormatterOptions};
+use libghostty_vt::focus;
 use libghostty_vt::key::{self, Key, Mods};
 use libghostty_vt::mouse;
 use libghostty_vt::render::{CellIterator, CursorVisualStyle, Dirty, RowId, RowIterator};
@@ -17,8 +18,8 @@ use libghostty_vt::screen::{CellWide, Screen};
 use libghostty_vt::selection::gesture::{self, Gesture};
 use libghostty_vt::style::{RgbColor, Underline};
 use libghostty_vt::terminal::{
-    Mode, Point as GridPoint, PointCoordinate, ProgramStatus, ProgramStatusState, ProgressReport,
-    ProgressState, ScrollViewport,
+    ClipboardWriteError, ColorScheme, Mode, Point as GridPoint, PointCoordinate, ProgramStatus,
+    ProgramStatusState, ProgressReport, ProgressState, ScrollViewport,
 };
 use libghostty_vt::{RenderState, paste};
 
@@ -162,6 +163,11 @@ pub(crate) struct Vt {
     /// What the work the program running reported progress on ends in once the progress is
     /// removed: idle if none is under way.
     progress_ending: Rc<Cell<Status>>,
+    /// The text the program running last copied (OSC 52), for the clipboard.
+    copied: Rc<Cell<Option<String>>>,
+    /// Whether the default background reads as light or dark, once the colours are set, for
+    /// programs that ask (996) or want to be told when it changes (2031).
+    scheme: Rc<Cell<Option<ColorScheme>>>,
     size: Size,
 }
 
@@ -179,7 +185,10 @@ impl Vt {
         let reported = Rc::new(Cell::new(None));
         let reports_status = Rc::new(Cell::new(false));
         let progress_ending = Rc::new(Cell::new(Status::Idle));
+        let copied = Rc::new(Cell::new(None));
+        let scheme = Rc::new(Cell::new(None));
         let (sent, titled) = (replies.clone(), retitled.clone());
+        let (copy, told) = (copied.clone(), scheme.clone());
         let (heard, spoke) = (reported.clone(), reports_status.clone());
         let (progressed, by_status, ends) = (
             reported.clone(),
@@ -215,6 +224,21 @@ impl Vt {
             sent.set(all);
         })?
         .on_title_changed(move |_| titled.set(true))?
+        // Its text, wherever the program says to copy to, as macOS has the one clipboard. Programs
+        // may only write it: one that asks to read it (OSC 52 ?) isn't answered.
+        .on_clipboard_write(move |_, write| {
+            let text = (write.contents())
+                .find(|content| content.mime.starts_with(b"text/plain"))
+                .map(|content| String::from_utf8_lossy(content.data).into_owned());
+            match text {
+                Some(text) => {
+                    copy.set(Some(text));
+                    write.reply(Ok(()), false);
+                }
+                None => write.reply(Err(ClipboardWriteError::Unsupported), false),
+            }
+        })?
+        .on_color_scheme(move |_| told.get())?
         // Set, it has the terminal tell programs that ask that it listens.
         .on_program_status(move |_, report| {
             if let Some(status) = Status::reported(report) {
@@ -269,6 +293,8 @@ impl Vt {
             reported,
             reports_status,
             progress_ending,
+            copied,
+            scheme,
             size,
         })
     }
@@ -329,6 +355,26 @@ impl Vt {
         self.progress_ending.set(Status::Idle);
     }
 
+    /// The text the program running copied, if it did since this was last asked.
+    pub(crate) fn copied(&mut self) -> Option<String> {
+        self.copied.take()
+    }
+
+    /// The terminal gaining or losing the keys, as told to a program that asked (1004), as
+    /// nvim does to reload files changed meanwhile.
+    pub(crate) fn focus(&self, focused: bool) -> Vec<u8> {
+        if !self.term.mode(Mode::FOCUS_EVENT).unwrap_or(false) {
+            return Vec::new();
+        }
+        let event = match focused {
+            true => focus::Event::Gained,
+            false => focus::Event::Lost,
+        };
+        let mut bytes = [0; 8];
+        let written = event.encode(&mut bytes).unwrap_or(0);
+        bytes[..written].to_vec()
+    }
+
     /// What the emulator answered the shell's queries with since this was last asked.
     pub(crate) fn take_replies(&mut self) -> Vec<u8> {
         self.replies.take()
@@ -345,15 +391,19 @@ impl Vt {
     }
 
     /// The defaults `colors` sets, with `background` and `foreground` where it sets none.
+    /// Returns, for a program that asked to be told (2031), that the background now reads as
+    /// light or dark, if it changed.
     pub(crate) fn set_colors(
         &mut self,
         colors: &Colors,
         background: RgbColor,
         foreground: RgbColor,
-    ) {
+    ) -> Vec<u8> {
+        let background = colors.background.unwrap_or(background);
+        let scheme = scheme_of(background);
+        let rescheme = self.scheme.replace(Some(scheme)) != Some(scheme);
         let term = &mut self.term;
-        term.set_default_bg_color(Some(colors.background.unwrap_or(background)))
-            .ok();
+        term.set_default_bg_color(Some(background)).ok();
         term.set_default_fg_color(Some(colors.foreground.unwrap_or(foreground)))
             .ok();
         term.set_default_cursor_color(colors.cursor).ok();
@@ -366,6 +416,12 @@ impl Vt {
             }
             term.set_default_color_palette(Some(palette)).ok();
         }
+        if !(rescheme && term.mode(Mode::COLOR_SCHEME_REPORT).unwrap_or(false)) {
+            return Vec::new();
+        }
+        let mut bytes = [0; 16];
+        let written = scheme.encode_report(&mut bytes).unwrap_or(0);
+        bytes[..written].to_vec()
     }
 
     /// Sizes the emulator and, so motion is told of once a cell, the mouse encoder only when
@@ -831,6 +887,16 @@ fn link_uri<'uri>(
     Ok(&uri[..len])
 }
 
+/// Whether `background` reads as light or dark, by its perceived brightness, as Ghostty tells.
+fn scheme_of(background: RgbColor) -> ColorScheme {
+    let RgbColor { r, g, b } = background;
+    let brightness = 0.299 * f32::from(r) + 0.587 * f32::from(g) + 0.114 * f32::from(b);
+    match brightness > 127.5 {
+        true => ColorScheme::Light,
+        false => ColorScheme::Dark,
+    }
+}
+
 /// The viewport cell under `at` on the surface, or the nearest one when it's outside.
 fn viewport(at: mouse::Position, size: Size) -> PointCoordinate {
     let index = |at: f32, cell: u16, count: u16| {
@@ -983,6 +1049,105 @@ mod tests {
             vt.reported(),
             Some(Status::Working),
             "the next program is heard by its progress"
+        );
+    }
+
+    #[test]
+    fn a_program_copying_puts_its_text_on_the_clipboard() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        // "copied!" in base64, as nvim and tmux send it.
+        vt.write(b"\x1b]52;c;Y29waWVkIQ==\x07");
+        assert_eq!(
+            vt.copied().as_deref(),
+            Some("copied!"),
+            "OSC 52 writes the clipboard"
+        );
+        assert_eq!(vt.copied(), None, "a copy is told once");
+        vt.write(b"\x1b]52;p;cHJpbWFyeQ==\x07");
+        assert_eq!(
+            vt.copied().as_deref(),
+            Some("primary"),
+            "the primary selection is the clipboard too"
+        );
+    }
+
+    #[test]
+    fn a_program_asking_to_read_the_clipboard_is_not_answered() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.write(b"\x1b]52;c;?\x07");
+        assert_eq!(
+            (vt.take_replies(), vt.copied()),
+            (Vec::new(), None),
+            "what the user copied stays theirs"
+        );
+    }
+
+    #[test]
+    fn focus_is_told_only_to_a_program_that_asks() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        assert_eq!(
+            vt.focus(false),
+            b"",
+            "unasked, a shell would read it as typed"
+        );
+        vt.write(b"\x1b[?1004h");
+        assert_eq!(
+            (vt.focus(false), vt.focus(true)),
+            (b"\x1b[O".to_vec(), b"\x1b[I".to_vec()),
+            "nvim asks (1004) and is told the terminal lost the keys, then has them again"
+        );
+    }
+
+    const DARK: RgbColor = RgbColor {
+        r: 0x29,
+        g: 0x29,
+        b: 0x29,
+    };
+    const LIGHT: RgbColor = RgbColor {
+        r: 0xff,
+        g: 0xff,
+        b: 0xff,
+    };
+
+    #[test]
+    fn a_program_asking_is_told_when_the_background_turns_light_or_dark() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        assert_eq!(
+            vt.set_colors(&Colors::default(), DARK, LIGHT),
+            b"",
+            "unasked, nothing is told"
+        );
+        vt.write(b"\x1b[?2031h");
+        assert_eq!(
+            vt.set_colors(&Colors::default(), LIGHT, DARK),
+            b"\x1b[?997;2n",
+            "asked (2031), a light background is told"
+        );
+        assert_eq!(
+            vt.set_colors(&Colors::default(), LIGHT, DARK),
+            b"",
+            "and nothing more while it stays light"
+        );
+        let colors = Colors {
+            background: Some(DARK),
+            ..Colors::default()
+        };
+        assert_eq!(
+            vt.set_colors(&colors, LIGHT, DARK),
+            b"\x1b[?997;1n",
+            "a theme's own dark background is told, over the app's light one"
+        );
+    }
+
+    #[test]
+    fn a_program_asking_whether_the_background_is_light_or_dark_is_told() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.set_colors(&Colors::default(), LIGHT, DARK);
+        vt.write(b"\x1b[?996n");
+        assert_eq!(
+            vt.take_replies(),
+            b"\x1b[?997;2n",
+            "asked (996), it says light"
         );
     }
 

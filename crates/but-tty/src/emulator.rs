@@ -49,6 +49,8 @@ pub(crate) struct Shown {
     pub(crate) title: String,
     pub(crate) status: Status,
     pub(crate) tracks_mouse: bool,
+    /// What the program running last copied, until the UI puts it on the clipboard.
+    pub(crate) copied: Option<String>,
     /// When the program's hold on the screen times out, if it holds it.
     pub(crate) hold_until: Option<Instant>,
 }
@@ -88,6 +90,7 @@ pub(crate) fn start(
         title: String::new(),
         status,
         tracks_mouse: false,
+        copied: None,
         hold_until: None,
     }));
     let (ready, started) = std::sync::mpsc::channel();
@@ -200,7 +203,8 @@ impl Emulator {
         background: RgbColor,
         foreground: RgbColor,
     ) {
-        self.vt.set_colors(&colors, background, foreground);
+        let report = self.vt.set_colors(&colors, background, foreground);
+        self.send(&report);
         self.chosen = colors;
     }
 
@@ -223,6 +227,7 @@ impl Emulator {
             self.vt.reporter_gone();
         }
         let tracks_mouse = self.vt.tracks_mouse();
+        let copied = self.vt.copied();
         let due = self.unshown || hold_ended;
         let (draw, mut changed) = {
             let mut shown = shown.lock();
@@ -239,6 +244,10 @@ impl Emulator {
             shown.status = status;
             changed |= shown.tracks_mouse != tracks_mouse;
             shown.tracks_mouse = tracks_mouse;
+            if copied.is_some() {
+                shown.copied = copied;
+                changed = true;
+            }
             let draw = due && shown.drawn;
             changed |= shown.stale != (due && !draw);
             shown.stale = due && !draw;

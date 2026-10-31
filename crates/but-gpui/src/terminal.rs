@@ -16,10 +16,10 @@ use but_tty::{
 use futures::StreamExt;
 use gpui::{
     App, Bounds, ClipboardItem, Context, CursorStyle, DispatchPhase, Entity, EventEmitter,
-    FocusHandle, Focusable, Font, FontWeight, HitboxBehavior, Hsla, KeyDownEvent, Modifiers,
-    ModifiersChangedEvent, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels,
-    Point, Rgba, ScrollWheelEvent, SharedString, StrikethroughStyle, Task, TextAlign, TextRun,
-    UnderlineStyle, WeakEntity, Window, actions, canvas, div, prelude::*,
+    ExternalPaths, FocusHandle, Focusable, Font, FontWeight, HitboxBehavior, Hsla, KeyDownEvent,
+    Modifiers, ModifiersChangedEvent, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
+    Pixels, Point, Rgba, ScrollWheelEvent, SharedString, StrikethroughStyle, Task, TextAlign,
+    TextRun, UnderlineStyle, WeakEntity, Window, actions, canvas, div, prelude::*,
 };
 
 use crate::state::Store;
@@ -190,9 +190,13 @@ impl Terminal {
         self.tty.seen()
     }
 
-    /// Whether this is on screen, for the emulator to draw only then.
+    /// Whether this is on screen, for the emulator to draw only then. Out of sight, it doesn't
+    /// have the keys.
     pub fn set_shown(&mut self, shown: bool) {
         self.tty.set_shown(shown);
+        if !shown {
+            self.tty.set_focused(false);
+        }
     }
 
     /// Stops reading the shell, for another to adopt it, with what it showed until then.
@@ -208,6 +212,9 @@ impl Terminal {
         }
         if let Some(status) = self.tty.restatused() {
             cx.emit(TerminalEvent::Restatused(status));
+        }
+        if let Some(text) = self.tty.copied() {
+            cx.write_to_clipboard(ClipboardItem::new_string(text));
         }
         // A moment past it, as a redraw before it changes nothing and so draws nothing to wake
         // this again.
@@ -490,6 +497,14 @@ impl Terminal {
         self.tty.mouse(action, button, at, mods(modifiers));
     }
 
+    /// Files dropped on the terminal are pasted as their paths, quoted for the shell, as in
+    /// Ghostty.
+    fn dropped(&mut self, paths: &ExternalPaths, window: &mut Window, cx: &mut Context<Self>) {
+        window.focus(&self.focus, cx);
+        self.tty.paste(&shell_paths(paths.paths()));
+        self.typed(cx);
+    }
+
     fn scroll(&mut self, event: &ScrollWheelEvent, _: &mut Window, cx: &mut Context<Self>) {
         let line = fixed(f32::from(self.tty.size().cell_height.max(1)));
         self.scrolled += event.delta.pixel_delta(line).y;
@@ -522,6 +537,8 @@ impl Render for Terminal {
         let scale = window.scale_factor();
         let cell_height = ((ascent + descent) * scale).round() / scale;
         let focused = self.focus.is_focused(window);
+        // GPUI draws the window again as focus moves and as it comes in front or goes behind.
+        self.tty.set_focused(focused && window.is_window_active());
         let pointer_style = match (&self.link, self.tty.tracks_mouse()) {
             (Some(_), _) => CursorStyle::PointingHand,
             (None, true) => CursorStyle::Arrow,
@@ -611,6 +628,7 @@ impl Render for Terminal {
             .on_key_down(cx.listener(Self::key_down))
             .on_any_mouse_down(cx.listener(Self::mouse_down))
             .on_modifiers_changed(cx.listener(Self::modifiers_changed))
+            .on_drop(cx.listener(Self::dropped))
             .on_scroll_wheel(cx.listener(Self::scroll))
             .cursor(pointer_style)
             .size_full()
@@ -675,6 +693,14 @@ fn link_at(rows: &[Arc<Row>], grid: Grid, position: Point<Pixels>) -> Option<Arc
     let row = rows.get((at.y / grid.cell.height).floor() as usize)?;
     let run = row.runs.iter().find(|run| run.columns.contains(&column))?;
     run.link.clone()
+}
+
+/// `paths` side by side, each quoted for the shell where it needs to be.
+fn shell_paths(paths: &[std::path::PathBuf]) -> String {
+    let quoted: Vec<_> = (paths.iter())
+        .map(|path| shell_words::quote(&path.to_string_lossy()).into_owned())
+        .collect();
+    quoted.join(" ")
 }
 
 /// Whether ⌘ alone is held, ⌃ alone off macOS, for a click to open the link under the
@@ -1084,6 +1110,21 @@ mod tests {
             link_at(&rows, grid, over(-0.5, 1.5)),
             None,
             "left of the grid is no cell, though the first one links"
+        );
+    }
+
+    #[test]
+    fn dropped_paths_are_quoted_for_the_shell() {
+        let paths = [
+            "/Users/me/notes.txt",
+            "/Users/me/My Files/it's here.md",
+            "/tmp/$HOME;rm",
+        ]
+        .map(std::path::PathBuf::from);
+        assert_eq!(
+            shell_paths(&paths),
+            r#"/Users/me/notes.txt '/Users/me/My Files/it'\''s here.md' '/tmp/$HOME;rm'"#,
+            "a plain path as it is, one with blanks, quotes or what the shell expands quoted"
         );
     }
 

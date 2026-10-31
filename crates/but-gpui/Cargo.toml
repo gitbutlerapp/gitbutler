@@ -103,6 +103,8 @@ deltoids = { git = "https://github.com/juanibiapina/deltoids", rev = "b797d011ec
 pulldown-cmark = { version = "0.13.4", default-features = false }
 # The embedded terminals: shells on pseudo-terminals, emulated by libghostty-vt.
 but-tty.workspace = true
+# Quotes the paths of files dropped on a terminal for the shell.
+shell-words.workspace = true
 
 [build-dependencies]
 # The Windows executable's icon; it adds nothing to builds for elsewhere.
