@@ -17,6 +17,7 @@ pub(crate) fn branch(name: &str, commits: &[u8]) -> Branch {
         commits: (commits.iter())
             .map(|&n| Commit {
                 key: format!("key{n}"),
+                authored: format!("authored{n}"),
                 ..Commit::bare(id(n).0)
             })
             .collect(),
