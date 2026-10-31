@@ -9,7 +9,7 @@ use gpui::{AnyElement, App, Context, Div, Window, div, prelude::*};
 use super::rows::{Fold, Row, RowKey, Rows, span_height};
 use super::{CARD_MARGIN, Navigator, RowStyle};
 use crate::app::{MoveHere, MoveSelection};
-use crate::backend::{Commit, CommitId, Destination, FullName, Workspace, short_ref};
+use crate::backend::{Checkout, Commit, CommitId, Destination, FullName, Workspace, short_ref};
 use crate::state::{ProjectId, Section, Selection, Store, snack};
 use crate::theme::Theme;
 use crate::transfer::{Move, Stop};
@@ -102,7 +102,7 @@ impl Rows {
 /// The places `commits` of `project` can land, in the order `rows` list them, and which of
 /// them is where they are: the one just above the first of them. A folded branch has only its
 /// top and the new branches either side of it, so what's folded is stepped over and stays
-/// folded. `main_open` says whether the main checkout's stacks show, which a new stack goes
+/// folded. A linked worktree's lane takes new branches as a stack does. `main_open` says whether the main checkout's stacks show, which a new stack goes
 /// before and after.
 pub(super) fn stops<'a>(
     rows: impl IntoIterator<Item = &'a Row>,
@@ -146,14 +146,16 @@ pub(super) fn stops<'a>(
                 if p == project && workspace.target_branch.as_ref() != Some(name) =>
             {
                 end_stack(&mut stops, &mut bottom);
-                // Only the workspace's stacks take new branches.
-                let stack = (workspace.stack_of(Some(name))).filter(|_| workspace.managed);
-                if let Some((stack, at)) = stack {
+                // A linked worktree's lane takes new branches, and so does a stack of the
+                // workspace, but not the one branch checked out without it.
+                let lane = (workspace.lane_of(Some(name)))
+                    .filter(|(lane, _)| workspace.managed || lane.checkout != Checkout::Main);
+                if let Some((lane, at)) = lane {
                     stops.push(Stop::NewBranch {
                         beside: name.clone(),
                         below: false,
                     });
-                    if at + 1 == stack.branches.len() {
+                    if at + 1 == lane.branches.len() {
                         bottom = Some(name);
                     }
                 }
@@ -487,7 +489,7 @@ pub(super) fn ghost_branch_row(at: &Stop, inset: f32, theme: &Theme) -> AnyEleme
 #[cfg(test)]
 mod tests {
     use super::{Row, RowKey, stops, taken_away};
-    use crate::backend::model::build::{branch, full, id, workspace};
+    use crate::backend::model::build::{branch, full, id, workspace, worktree};
     use crate::backend::{CommitId, Destination, Workspace, short_ref};
     use crate::state::{ProjectId, Selection};
     use crate::terminal::TerminalId;
@@ -516,8 +518,8 @@ mod tests {
             .collect()
     }
 
-    /// Two stacks, `ui` on `api` and `typo` alone, and the rows the navigator lists for them,
-    /// with a terminal open and `typo` folded.
+    /// Two stacks, `ui` on `api` and `typo` alone, and a linked worktree `wt` on `agent`, and
+    /// the rows the navigator lists for them, with a terminal open and `typo` folded.
     fn listed(project: &ProjectId) -> (Workspace, Vec<Row>) {
         let ws = Workspace {
             managed: true,
@@ -526,7 +528,7 @@ mod tests {
                     vec![branch("ui", &[3]), branch("api", &[2, 1])],
                     vec![branch("typo", &[4])],
                 ],
-                vec![],
+                vec![worktree("wt", None, vec![branch("agent", &[5])])],
             )
         };
         let p = || project.clone();
@@ -545,6 +547,10 @@ mod tests {
             Row::Between(p()),
             Row::Item(Selection::Branch(p(), named("typo"))),
             Row::WorktreeDivider,
+            Row::Item(Selection::Worktree(p(), "wt".into())),
+            Row::Item(Selection::Branch(p(), named("agent"))),
+            Row::Item(Selection::Commit(p(), id(5))),
+            Row::WorktreeDivider,
             Row::Item(Selection::Branches(p())),
         ];
         (ws, rows)
@@ -562,7 +568,8 @@ mod tests {
         // A new stack before the main checkout's stacks, a new branch above every branch of a
         // stack and below its last, each branch's top and the place below each of its commits
         // but the one moving, which starts below 3 at the top of api; then a new stack once the
-        // stacks end. Folded, typo has only its top.
+        // stacks end. Folded, typo has only its top. The linked worktree's lane takes new
+        // branches as a stack does.
         snapbox::assert_data_eq!(
             describe(&stops, start),
             snapbox::str![[r#"
@@ -578,6 +585,10 @@ new branch above typo
 top of typo
 new branch below typo
 new stack
+new branch above agent
+top of agent
+below 5
+new branch below agent
 
 "#]]
         );
@@ -601,7 +612,8 @@ new stack
             ..ws
         };
         let (stops, start) = stops(&rows, &project, &[id(1)], &unmanaged, true);
-        // Outside the workspace there's no stack to put a branch in.
+        // Outside the workspace there's no stack to put a branch in, but a linked worktree's
+        // lane still takes one.
         snapbox::assert_data_eq!(
             describe(&stops, start),
             snapbox::str![[r#"
@@ -610,6 +622,10 @@ below 3
 top of api
 below 2 <
 top of typo
+new branch above agent
+top of agent
+below 5
+new branch below agent
 
 "#]]
         );
