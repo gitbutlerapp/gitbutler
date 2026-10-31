@@ -141,7 +141,7 @@ pub enum Cut {
     /// Commits to put copies of somewhere else, the picked ones together, in the order
     /// they're listed.
     CherryPick(ProjectId, Arc<[CommitId]>),
-    /// A branch to stack on another, with the branches above it.
+    /// A branch to stack on another, without the branches above it.
     Branch(ProjectId, FullName),
     /// Files from the worktree (`from: None`), down to the hunks checked, or from a commit.
     Files {
@@ -773,6 +773,21 @@ impl Store {
         self.set_prefs(|prefs| prefs.watched_order = order, cx);
     }
 
+    /// Put the watched projects in `order` by hand, switching to the manual order from the one
+    /// picked if it's another and that changes where they are.
+    pub fn order_watched(&mut self, order: &[ProjectId], cx: &mut Context<Self>) {
+        let watched = self.expanded_ids();
+        self.order_projects(order);
+        if self.expanded_ids() == watched && self.prefs.watched_order == WatchedOrder::Manual {
+            return;
+        }
+        self.save_soon(cx);
+        match self.prefs.watched_order {
+            WatchedOrder::Manual => cx.notify(),
+            _ => self.set_prefs(|prefs| prefs.watched_order = WatchedOrder::Manual, cx),
+        }
+    }
+
     /// The projects open in the navigator.
     pub(crate) fn expanded_ids(&self) -> Vec<ProjectId> {
         (self.projects.iter())
@@ -861,8 +876,7 @@ impl Store {
         // A move is of what's selected, so it ends once the selection goes elsewhere, as a
         // click on another row takes it.
         if let Some(moving) = &self.moving
-            && !matches!(&selection, Some(Selection::Commit(project, id))
-                if *project == moving.project && moving.commits.contains(id))
+            && !selection.as_ref().is_some_and(|item| moving.holds(item))
         {
             self.set_moving(None, cx);
         }

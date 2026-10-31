@@ -62,6 +62,9 @@ pub struct Overlay {
     pub auto_merges: Option<(u64, bool)>,
     /// It opens a pull request for the branch it pushes.
     pub publishes: bool,
+    /// The move with the keys it lands, still shown as it was while being moved, its copy where
+    /// it lands, until the reload after it shows it there: a branch's has no stand-in of its own.
+    pub lands: Option<crate::transfer::Move>,
 }
 
 /// What an operation is called: `text` is what the user reads, which may name a branch or a
@@ -1011,14 +1014,15 @@ impl Store {
         );
     }
 
-    /// Move commits `ids` into a new branch of their own, in a stack of its own or `beside` a
-    /// branch in its stack, as [`backend::MoveToNewBranch`] says. The selected one stays
-    /// selected there, as a move to a branch already there keeps it.
+    /// Move commits `ids` into a new branch of their own, in a stack of its own, before the
+    /// others with `first`, or `beside` a branch in its stack, as [`backend::MoveToNewBranch`]
+    /// says. The selected one stays selected there, as a move to a branch already there keeps it.
     pub fn move_to_new_branch(
         &mut self,
         project: &ProjectId,
         ids: Arc<[CommitId]>,
         beside: Option<(FullName, bool)>,
+        first: bool,
         cx: &mut Context<Self>,
     ) {
         let keys = ids.iter().filter_map(|id| self.key_of(project, *id));
@@ -1029,6 +1033,7 @@ impl Store {
             backend::MoveToNewBranch {
                 commits: ids,
                 beside,
+                first,
             },
             move |store, (rewritten, _), cx| {
                 store.follow(&rewritten, cx);
@@ -1038,13 +1043,24 @@ impl Store {
         );
     }
 
-    /// Take `branch` out of the stack it shares into a stack of its own.
-    pub fn unstack(&mut self, project: &ProjectId, branch: FullName, cx: &mut Context<Self>) {
+    /// Take `branch` out of the stack it shares into a stack of its own, after the others, or
+    /// with `first` before them, landing the move with the keys `lands` if it's that.
+    pub fn unstack(
+        &mut self,
+        project: &ProjectId,
+        branch: FullName,
+        first: bool,
+        lands: Option<crate::transfer::Move>,
+        cx: &mut Context<Self>,
+    ) {
         self.apply(
             project,
             "Unstack",
-            Overlay::default(),
-            backend::TearOffBranch { branch },
+            Overlay {
+                lands,
+                ..Overlay::default()
+            },
+            backend::TearOffBranch { branch, first },
             |store, conflicted, cx| {
                 store.snack_undoable(branch_moved("Moved to its own stack", &conflicted), cx)
             },
@@ -1542,6 +1558,11 @@ impl Store {
 
     fn overlays<'a>(&'a self, project: &'a ProjectId) -> impl Iterator<Item = &'a Overlay> {
         self.running_in(project).map(|r| &r.overlay)
+    }
+
+    /// The move with the keys an operation running now lands, in any project.
+    pub fn landing(&self) -> Option<&crate::transfer::Move> {
+        self.running.iter().find_map(|r| r.overlay.lands.as_ref())
     }
 
     pub fn hides_commit(&self, project: &ProjectId, key: &str) -> bool {
