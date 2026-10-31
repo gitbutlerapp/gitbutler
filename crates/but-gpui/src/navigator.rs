@@ -33,7 +33,7 @@ use crate::state::{
 };
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
-use crate::transfer::{CardSlot, drag_preview};
+use crate::transfer::drag_preview;
 use crate::ui::emoji::{Colour, ProjectIcon};
 use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, on_top, reordered, shifted};
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
@@ -440,10 +440,8 @@ pub struct Navigator {
     held_order: Option<Vec<ProjectId>>,
     /// The project whose watch button the pointer is on, which shows what a click makes it.
     watch_hovered: Option<ProjectId>,
-    /// The card dragged by its heading and where letting go puts it, which the cards show it
-    /// at, while the pointer is over the navigator.
-    project_drag: Option<(ProjectId, CardSlot)>,
-    /// The rows of that card, or of one moved with the keys, as last drawn, which show it held.
+    /// The rows of the card being moved, dragged by its heading or with the keys, as last
+    /// drawn, which show it held.
     held_card: Option<Range<usize>>,
     /// The project whose card is held, kept once it's let go of until the cards stop sliding,
     /// so it stays over the cards it passes going back.
@@ -597,7 +595,6 @@ impl Navigator {
             detail_shown: Cell::new(1.),
             held_order: None,
             watch_hovered: None,
-            project_drag: None,
             held_card: None,
             held_project: None,
             slide_edges: None,
