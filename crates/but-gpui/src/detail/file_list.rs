@@ -42,7 +42,7 @@ fn change_kind(lines: bool, files: &[Selected]) -> &'static str {
     }
 }
 use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, Selected};
-use crate::overlays::MenuItem;
+use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Cut, FileSort, Overlay, ProjectId, Rereads, Selection, Store};
 use crate::theme::Theme;
 use crate::transfer::{Chip, DragPreview};
@@ -485,7 +485,7 @@ impl Detail {
                         };
                         // The current file is solid while the list holds the focus, as the
                         // navigator's selection is while it does.
-                        let solid = this.files_focus.is_focused(window);
+                        let solid = has_keys(&this.files_focus, window, cx);
                         this.render_source_file(&source, *index.get(*pos)?, row, solid, theme, cx)
                     }
                 }?;

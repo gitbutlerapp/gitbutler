@@ -17,7 +17,7 @@ use crate::app::CopySnapshotId;
 actions!(history, [RestoreOperation]);
 use crate::backend::history::{Change, Operation, Recorded};
 use crate::backend::{self, CommitId, DiffSource, SnapshotId};
-use crate::overlays::MenuItem;
+use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Overlay, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
@@ -933,7 +933,7 @@ impl Detail {
                         Row::Operation(op) => {
                             let operation = history.operations.get(*op)?;
                             let selected = history.selected == Some(operation.id);
-                            let on = selected && this.side_focus.is_focused(window);
+                            let on = selected && has_keys(&this.side_focus, window, cx);
                             let quiet = |color: gpui::Hsla| match on {
                                 true => theme.muted_on_solid(),
                                 false => color,

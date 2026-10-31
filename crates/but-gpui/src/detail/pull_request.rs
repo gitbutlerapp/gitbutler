@@ -17,7 +17,7 @@ use super::resolve::{banner_action, warn_banner};
 use super::{Detail, PageFold};
 use crate::backend::reviews::MergeMethod;
 use crate::backend::{CheckRun, Forge, FullName, Remark, Review, ReviewState};
-use crate::overlays::MenuItem;
+use crate::overlays::{MenuItem, has_keys};
 use crate::pr::{Mergeability, Offer};
 use crate::state::{ProjectId, Selection, snack};
 use crate::theme::Theme;
@@ -392,7 +392,7 @@ impl Detail {
     ) -> AnyElement {
         let files = (self.shown_diff().map(|diff| diff.files.len())).filter(|n| *n > 0);
         let checks = review.checks.filter(|c| c.failed > 0 || c.running > 0);
-        let solid = self.tabs_focus.is_focused(window);
+        let solid = has_keys(&self.tabs_focus, window, cx);
         h_flex()
             .track_focus(&self.tabs_focus)
             .key_context("Tabs")

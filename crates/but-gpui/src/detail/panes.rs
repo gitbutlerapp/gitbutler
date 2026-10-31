@@ -19,7 +19,7 @@ use crate::backend::upstream::{self, ACTIVITY_DAYS};
 use crate::backend::{self, Checkout, CommitId, CommitState, FullName, PushState, short_ref};
 use crate::clock;
 use crate::navigator::{SelectFirst, SelectLast};
-use crate::overlays::MenuItem;
+use crate::overlays::{MenuItem, has_keys};
 use crate::state::{ProjectId, Section, Selection};
 use crate::theme::Theme;
 use crate::ui::fold::{MOVING_ROWS, Moved, clipped};
@@ -1555,7 +1555,7 @@ impl Detail {
         cx: &Context<Self>,
     ) -> AnyElement {
         let theme = Theme::get(cx);
-        let solid = self.people_focus.is_focused(window);
+        let solid = has_keys(&self.people_focus, window, cx);
         let most = people.first().map_or(1, |(.., n)| (*n).max(1));
         let keys: Vec<String> = people.iter().map(|(key, ..)| key.clone()).collect();
         // Clear shows while someone's picked, listed or not.

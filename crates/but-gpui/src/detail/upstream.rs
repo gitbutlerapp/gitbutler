@@ -25,7 +25,7 @@ use crate::app::{CopyCommitId, OpenPullRequest};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, Person, TargetCommit};
 use crate::backend::{self, Checkout, CommitId, DiffSource, Forge};
 use crate::edits::CherryPick;
-use crate::overlays::MenuItem;
+use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Cut, Pane, ProjectId, Section, Selection};
 use crate::theme::Theme;
 use crate::ui::emoji::ProjectIcon;
@@ -1870,7 +1870,7 @@ impl Detail {
                     },
                     move |this, ix, theme, window, cx| {
                         let upstream = this.upstream_for(&shown)?;
-                        let solid = this.side_focus.is_focused(window);
+                        let solid = has_keys(&this.side_focus, window, cx);
                         // A commit, or one that merge `under` brought in. A click picks it and
                         // a right-click opens its menu.
                         let commit_row = |commit: &TargetCommit, under: Option<&TargetCommit>| {
