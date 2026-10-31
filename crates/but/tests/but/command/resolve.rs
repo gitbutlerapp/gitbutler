@@ -865,6 +865,24 @@ If this isn't right, run `but undo` to revert it.
 
 "#]]);
 
+    // The resolve loop ends by asking for the branch's conflicts again; none left is a success.
+    env.but("resolve conflicts A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Branch "A" has no conflicted commits.
+
+"#]]);
+
+    // With nothing left to resolve on the branch, `apply` still refuses.
+    env.but("resolve apply shared.txt --commit A --ours")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Branch "A" has no conflicted commits.
+
+"#]]);
+
     env.but("status")
         .assert()
         .success()

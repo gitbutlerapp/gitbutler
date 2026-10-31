@@ -705,12 +705,13 @@ struct ConflictTarget {
 
 /// Resolve `target` — a commit id, a CLI id, or a branch name (meaning that
 /// branch's oldest conflicted commit) — or default to the oldest conflicted
-/// commit of the first conflicted branch. `Ok(None)` means nothing is
-/// conflicted.
+/// commit of the first conflicted branch. `Ok(Err(message))` means nothing is
+/// conflicted in that scope (the named branch, or the whole workspace), and
+/// `message` says so.
 fn target_conflicted_commit(
     ctx: &mut Context,
     target: Option<&str>,
-) -> Result<Option<ConflictTarget>> {
+) -> Result<Result<ConflictTarget, String>> {
     let conflicts_by_branch = find_conflicted_commits(ctx)?;
     let commit_oid = match target {
         // An exact conflicted-branch name scopes to that branch.
@@ -726,12 +727,12 @@ fn target_conflicted_commit(
                         "Branch \"{name}\" is checked out in a worktree, where conflicts can't be looked up by branch name yet. {WORKTREE_CONFLICT_ROUTE}."
                     )
                 }
-                None => bail!("Branch \"{name}\" has no conflicted commits."),
+                None => return Ok(Err(format!("Branch \"{name}\" has no conflicted commits."))),
             },
         },
         None => match conflicts_by_branch.values().flatten().next() {
             Some(commit) => commit.commit_oid,
-            None => return Ok(None),
+            None => return Ok(Err("No conflicted commits found.".to_owned())),
         },
     };
 
@@ -746,7 +747,7 @@ fn target_conflicted_commit(
         .map(|commit| commit.commit_oid)
         .collect::<HashSet<_>>()
         .len();
-    Ok(Some(ConflictTarget {
+    Ok(Ok(ConflictTarget {
         commit_oid,
         branch,
         other_conflicted,
@@ -778,18 +779,17 @@ fn parse_commit_or_branch(ctx: &mut Context, target: &str) -> Result<CommitOrBra
 /// List the conflicts of a conflicted commit without entering resolution mode.
 fn list_conflicts(ctx: &mut Context, out: &mut OutputChannel, commit: Option<&str>) -> Result<()> {
     let t = theme::get();
-    let Some(target) = target_conflicted_commit(ctx, commit)? else {
-        if let Some(human_out) = out.for_human() {
-            writeln!(
-                human_out,
-                "{}",
-                t.success.paint("No conflicted commits found.")
-            )?;
+    let target = match target_conflicted_commit(ctx, commit)? {
+        Ok(target) => target,
+        Err(nothing_conflicted) => {
+            if let Some(human_out) = out.for_human() {
+                writeln!(human_out, "{}", t.success.paint(nothing_conflicted))?;
+            }
+            if let Some(json_out) = out.for_json() {
+                json_out.write_value(serde_json::json!({ "commit_id": null, "files": [] }))?;
+            }
+            return Ok(());
         }
-        if let Some(json_out) = out.for_json() {
-            json_out.write_value(serde_json::json!({ "commit_id": null, "files": [] }))?;
-        }
-        return Ok(());
     };
 
     let conflicts = but_api::resolve::commit_conflicts(ctx, target.commit_oid)?;
@@ -941,9 +941,7 @@ fn apply_resolutions(
             "You are in conflict resolution mode. Finish with `but resolve finish` or cancel with `but resolve cancel` first."
         );
     }
-    let Some(conflict_target) = target_conflicted_commit(ctx, commit)? else {
-        bail!("No conflicted commits found.");
-    };
+    let conflict_target = target_conflicted_commit(ctx, commit)?.map_err(anyhow::Error::msg)?;
     let commit_oid = conflict_target.commit_oid;
 
     // Split a trailing `:<number>` off the target; everything else is the path.
