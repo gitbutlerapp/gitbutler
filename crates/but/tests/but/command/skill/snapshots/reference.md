@@ -80,7 +80,7 @@ Create a worktree on a new branch at the workspace base or above a commit, or on
 - `-A, --above <COMMIT>` Start the new branch at COMMIT instead of the workspace base. Accepts a commit SHA or CLI ID, not a branch. Conflicted commits are refused.
 
 ### but worktree archive <WORKTREE>
-Hide a worktree from the workspace
+Hide a worktree from the workspace until but runs inside it again
 - `<WORKTREE>` The worktree, by CLI ID (see but wt list) or name
 
 ### but worktree unarchive <WORKTREE>

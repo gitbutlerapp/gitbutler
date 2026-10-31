@@ -1773,7 +1773,7 @@ Created branch 'wt-lower' above commit nsn
 fn an_unstacked_branch_is_refused_from_an_unmanaged_worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
-    let wt = util::add_worktree_with_commit(&env, "wt-feature", "A");
+    let wt = util::add_unmanaged_worktree(&env, "wt-feature");
 
     env.but("branch new unstacked")
         .current_dir(&wt)
