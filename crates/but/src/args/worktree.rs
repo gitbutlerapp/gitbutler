@@ -38,6 +38,7 @@ pub enum Subcommands {
     /// directories. Untracked files are copied if any prefix of their path is in the
     /// `.worktreeinclude` file and they are also gitignored.
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[clap(alias = "add")]
     New {
         /// Start the new branch at BRANCH_OR_COMMIT instead of the workspace base.
         ///
@@ -47,6 +48,16 @@ pub enum Subcommands {
         above: Option<CliIdArg>,
         /// The branch to check out, created if it doesn't exist, or a generated one.
         name: Option<BranchArg>,
+        /// Alternative spelling of NAME, for the `-b <branch>` habit from `git worktree add`
+        /// and `but commit`.
+        #[clap(
+            short = 'b',
+            long = "branch",
+            value_name = "NAME",
+            conflicts_with = "name",
+            hide = true
+        )]
+        branch: Option<BranchArg>,
     },
     /// Hide a worktree from the workspace until `but` runs inside it again.
     Archive {

@@ -1,14 +1,17 @@
-//! Temporary handling of syntax retired by the July 2026 command revamp.
+//! Temporary handling of syntax retired by the July 2026 command revamp, and
+//! of the `branch new --anchor` flag and `single-branch` feature flag that
+//! 0.23 removed.
 //!
 //! The revamp changed `commit`, `squash`, `move`, `amend`, `uncommit` and
 //! `discard`, and removed `rub`. The retired forms are widespread in LLM
-//! training data, so agents keep producing them. Two mitigations live here:
+//! training data and older skill docs, so agents keep producing them. Two
+//! mitigations live here:
 //!
 //! - `but commit <branch> -c -m "message" --changes <id>,<id>` is rewritten
 //!   into the modern `but commit -b <branch> -m "message" <change>...`
 //!   equivalent, the command runs normally, and a hint teaching the new
 //!   syntax is printed at the end.
-//! - For the other revamped commands, a rejected command line that looks like
+//! - For the other retired forms, a rejected command line that looks like
 //!   retired syntax gets a teaching hint before the parse error — with the
 //!   concrete modern equivalent whenever it can be derived mechanically.
 //!   Nothing is translated or executed for these.
@@ -239,7 +242,7 @@ pub(crate) fn translate_commit(args: &[OsString]) -> Translation {
 }
 
 /// A teaching hint for a command line the modern parser rejected, when the
-/// failure looks like retired syntax for one of the revamped subcommands.
+/// failure looks like one of the retired forms.
 /// Returns the command's metrics name alongside the hint so the caller can
 /// record that retired syntax is still being produced.
 ///
@@ -251,6 +254,8 @@ pub(crate) fn parse_failure_hint(args: &[OsString], agent: bool) -> Option<(Comm
     let tail = &args[ix + 1..];
     let (command, hint) = match subcommand.to_str()? {
         "amend" => (CommandName::Amend, amend_hint(tail, agent)),
+        "branch" => (CommandName::BranchNew, branch_new_hint(tail, agent)),
+        "config" => (CommandName::Config, config_feature_hint(tail, agent)),
         "move" => (CommandName::Move, move_hint(tail, agent)),
         "squash" => (CommandName::Squash, squash_hint(tail, agent)),
         "uncommit" => (CommandName::Uncommit, uncommit_hint(tail, agent)),
@@ -414,6 +419,35 @@ fn squash_hint(tail: &[OsString], agent: bool) -> Option<String> {
         ));
     }
     has_retired_flag(tail, &["--ai", "-i"]).then(|| note(&changed_body("squash"), agent))
+}
+
+/// `but branch new --anchor` (`-a`) was removed after its deprecation period.
+fn branch_new_hint(tail: &[OsString], agent: bool) -> Option<String> {
+    let (subcommand, rest) = tail.split_first()?;
+    (subcommand == "new" && has_retired_flag(rest, &["--anchor", "-a"])).then(|| {
+        note(
+            "the retired `--anchor` (`-a`) flag of `but branch new` is now `--above` (`-A`). \
+             See `but branch new --help` for details.",
+            agent,
+        )
+    })
+}
+
+/// The `single-branch` feature flag was removed when single-branch mode became
+/// the way every repository starts.
+fn config_feature_hint(tail: &[OsString], agent: bool) -> Option<String> {
+    let [subcommand, flag, ..] = tail else {
+        return None;
+    };
+    (subcommand == "feature" && flag == "single-branch").then(|| {
+        note(
+            "the `single-branch` feature flag was removed, so there is nothing to enable or \
+             disable. A repository starts in single-branch mode and switches to \
+             `gitbutler/workspace` when a second stack is applied. Commands work the same in \
+             both modes.",
+            agent,
+        )
+    })
 }
 
 /// The retired `but uncommit` grammar, for extracting the single source when
@@ -870,8 +904,39 @@ mod tests {
     }
 
     #[test]
+    fn retired_branch_new_anchor_gets_a_hint_and_other_failures_none() {
+        for args in [
+            &["branch", "new", "x", "-a", "feat"][..],
+            &["branch", "new", "x", "--anchor", "feat"],
+        ] {
+            let hint = failure_hint(args, false).expect("a hint");
+            assert!(hint.contains("`--above` (`-A`)"), "got {hint:?}");
+        }
+        // `-a` is `--all` on `branch list`, so only `branch new` is retired syntax.
+        assert_eq!(
+            failure_hint(&["branch", "list", "-a", "--bogus"], false),
+            None
+        );
+        assert_eq!(
+            failure_hint(&["branch", "new", "x", "--above"], false),
+            None
+        );
+    }
+
+    #[test]
+    fn removed_single_branch_feature_flag_gets_a_hint_and_other_failures_none() {
+        let hint = failure_hint(&["config", "feature", "single-branch", "disable"], false)
+            .expect("a hint");
+        assert!(
+            hint.contains("starts in single-branch mode"),
+            "got {hint:?}"
+        );
+        assert_eq!(failure_hint(&["config", "feature", "bogus"], false), None);
+    }
+
+    #[test]
     fn other_subcommands_get_no_failure_hint() {
-        assert_eq!(failure_hint(&["branch", "--bogus"], false), None);
+        assert_eq!(failure_hint(&["reword", "--bogus"], false), None);
         assert_eq!(failure_hint(&["discard"], false), None);
     }
 

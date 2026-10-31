@@ -104,9 +104,9 @@ fn parse_args_and_output_format(args: Vec<OsString>, agent_detected: bool) -> (A
                     if !err.use_stderr() {
                         err.exit()
                     }
-                    // The other revamped commands are never translated, but a
-                    // rejected line that looks like their retired syntax gets
-                    // a teaching hint before the error.
+                    // Other retired forms are never translated, but a rejected
+                    // line that looks like one gets a teaching hint before the
+                    // error.
                     let retired_hint = retired_syntax::parse_failure_hint(&args, agent_detected);
                     if let Some((command, hint)) = &retired_hint {
                         print_err_infallible(hint);
@@ -1015,7 +1015,12 @@ async fn dispatch_subcommand(
                     let outcome = command::worktree::remove::remove(&mut ctx, &worktree, force)?;
                     out.print_cli_output(outcome)?;
                 }
-                worktree::Subcommands::New { name, above } => {
+                worktree::Subcommands::New {
+                    name,
+                    branch,
+                    above,
+                } => {
+                    let name = name.or(branch);
                     let outcome =
                         command::worktree::new::new(&mut ctx, name.as_ref(), above.as_ref())?;
                     out.print_cli_output(outcome)?;
