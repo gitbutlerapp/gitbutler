@@ -144,6 +144,9 @@ struct RowStyle<'a> {
     inset: f32,
     /// The rows above and below are picked with it: see [`crate::ui::joined`].
     joined: (bool, bool),
+    /// The rows above and below are outlined as it is, cut or moving with it, so a run of
+    /// them is outlined as one, as a branch is with its commits.
+    outlined_with: (bool, bool),
     /// A commit that just showed up, not selected: see [`crate::ui::glow_once`].
     glow: bool,
     /// The selection just copied, by which blink it is: see [`crate::ui::blink_once`].
@@ -218,6 +221,7 @@ impl<'a> RowStyle<'a> {
             held: false,
             inset,
             joined: (false, false),
+            outlined_with: (false, false),
             glow: false,
             blink: None,
             goes_here: false,
@@ -242,16 +246,18 @@ impl<'a> RowStyle<'a> {
                 el.bg(theme.fill_gray).text_color(theme.text_inverted)
             })
             .when(self.cut, |el| {
-                el.opacity(0.5)
-                    .border_1()
-                    .border_dashed()
-                    .border_color(theme.pop)
+                (el.opacity(0.5).border_1().border_dashed()).border_color(theme.pop)
             })
             // As the copies of what's moving are drawn where it would land.
             .when(self.held, |el| {
                 el.bg(theme.pop.opacity(0.14))
                     .border_1()
                     .border_color(theme.pop)
+            })
+            .map(|el| {
+                let (above, below) = self.outlined_with;
+                el.when(above, |el| el.border_t_0().rounded_t_none())
+                    .when(below, |el| el.border_b_0().rounded_b_none())
             })
             .map(|el| crate::ui::joined(el, self.joined, self.solid, theme))
     }
@@ -1602,7 +1608,12 @@ impl Navigator {
                 })
                 .into_any_element(),
             Some(Row::NewBranch(project)) => self.new_branch_zone(ix, project, theme, cx),
-            Some(Row::Ghost(item)) => moving::ghost_row(item, inset, self.store.read(cx), theme),
+            Some(Row::Ghost(item)) => {
+                // Copies of commits moving together are outlined as one.
+                let ghost = |ix: usize| matches!(self.rows.get(ix), Some(Row::Ghost(_)));
+                let with = (ix > 0 && ghost(ix - 1), ghost(ix + 1));
+                moving::ghost_row(item, inset, with, self.store.read(cx), theme)
+            }
             // A line from under the branches' glyphs, clear of their commits' guides, drawn as
             // the guides are where a worktree's is dashed, so it reads as part of the worktree
             // rather than the end of it.
@@ -1817,16 +1828,28 @@ impl Navigator {
             true => (ix > 0 && lit_at(ix - 1), lit_at(ix + 1)),
             false => (false, false),
         };
-        let cut = match (&store.cut, item) {
-            (Some(Cut::Branch(p, r)), Selection::Branch(project, ref_name)) => {
-                p == project && ref_name.as_ref() == Some(r)
-            }
-            (
-                Some(Cut::Commit(p, ids) | Cut::CherryPick(p, ids)),
-                Selection::Commit(project, commit),
-            ) => p == project && ids.contains(commit),
+        let cut_of = |item: &Selection| {
+            let cut = match (&store.cut, item) {
+                (Some(Cut::Branch(p, r)), Selection::Branch(project, ref_name)) => {
+                    p == project && ref_name.as_ref() == Some(r)
+                }
+                (
+                    Some(Cut::Commit(p, ids) | Cut::CherryPick(p, ids)),
+                    Selection::Commit(project, commit),
+                ) => p == project && ids.contains(commit),
+                _ => false,
+            };
+            cut || moving::moving_away(store, item) == Some(true)
+        };
+        let cut = cut_of(item);
+        let held = moving == Some(false);
+        // Cut or moving together, next to each other, they're outlined as one.
+        let outlined_at = |ix: usize| match rows.get(ix) {
+            Some(Row::Item(other)) if cut => cut_of(other),
+            Some(Row::Item(other)) if held => moving::moving_away(store, other) == Some(false),
             _ => false,
-        } || moving == Some(true);
+        };
+        let outlined_with = (ix > 0 && outlined_at(ix - 1), outlined_at(ix + 1));
         let style = RowStyle {
             theme,
             selected,
@@ -1836,9 +1859,10 @@ impl Navigator {
                     self.focus.contains(&keys, window) && keys != self.filter.focus_handle(cx)
                 }),
             cut,
-            held: moving == Some(false),
+            held,
             inset,
             joined,
+            outlined_with,
             glow: !selected && matches!(item, Selection::Commit(_, commit) if store.glows(*commit)),
             // The selection alone, which is what's copied, not the commits picked with it.
             blink: (self.blinked.1.is_some_and(|at| at.elapsed() < BLINK)
