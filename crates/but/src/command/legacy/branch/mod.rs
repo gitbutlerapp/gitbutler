@@ -6,7 +6,7 @@ use nonempty::NonEmpty;
 
 use crate::{
     CliResult, IdMap,
-    args::atoms::CliIdArg,
+    args::atoms::{BranchArg, CliIdArg, Priority, Purpose, ResolvedCliIdArg},
     bad_input,
     command::legacy::discard::{self, DiscardOutcome},
     utils::{IntermediateChannel, OutputChannel},
@@ -30,6 +30,24 @@ pub fn delete(
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
         let mut branches = Vec::new();
         for arg in &branch_args {
+            // A linked worktree with a detached `HEAD` shows as an anonymous lane. It has no
+            // branch to delete, and removing the worktree is what clears the lane. A local
+            // branch of that name still comes first, as in `resolve_existing_local_branch()`.
+            if BranchArg(arg.0.clone())
+                .try_resolve_existing_local_branch(&repo)?
+                .is_none()
+                && let Some(ResolvedCliIdArg::AnonymousSegment(segment)) =
+                    arg.try_resolve(&repo, &id_map, Purpose::Branch, Some(Priority::Branch))?
+                && let Some(worktree) = segment.lane.worktree_name()
+            {
+                return Err(bad_input(format!(
+                    "Cannot delete '{arg}': it is the anonymous lane of worktree {worktree}, not a branch"
+                ))
+                .hint(format!(
+                    "Run `but worktree remove {worktree}` to remove the worktree and its lane"
+                ))
+                .into());
+            }
             let branch = arg.resolve_existing_local_branch(&repo, &id_map)?;
             if ws.is_target_or_upstream(branch.as_ref(), &repo)? {
                 return Err(bad_input(format!(

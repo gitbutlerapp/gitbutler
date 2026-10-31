@@ -395,3 +395,50 @@ Discarded branch 'wt'
 "#]]);
     snapbox::assert_data_eq!(env.invoke_git("branch --list wt"), str![""]);
 }
+
+/// A linked worktree with a detached `HEAD` is drawn as an anonymous lane. It has no branch to
+/// delete, so point at removing the worktree, which is what clears the lane.
+#[test]
+fn refuses_a_linked_worktrees_detached_lane() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("worktree list").assert().success();
+    let wt = crate::command::util::add_worktree_with_commit(&env, "wt", "main");
+    but_testsupport::invoke_bash_at_dir("git switch -q --detach", &wt);
+
+    env.but("worktree list --active")
+        .assert()
+        .success()
+        .stderr_eq(str![[]])
+        .stdout_eq(str![[r#"
+Active worktrees
+i0 wt (detached) - [..]/worktrees/wt
+
+"#]]);
+    env.but("branch delete i0")
+        .assert()
+        .failure()
+        .stdout_eq(str![[]])
+        .stderr_eq(str![[r#"
+Error: Cannot delete 'i0': it is the anonymous lane of worktree wt, not a branch
+
+Hint: Run `but worktree remove wt` to remove the worktree and its lane
+
+"#]]);
+
+    // Following the hint clears the lane and, like `git worktree remove`, keeps the branch.
+    env.but("worktree remove wt").assert().success();
+    env.but("worktree list --active")
+        .assert()
+        .success()
+        .stderr_eq(str![[]])
+        .stdout_eq(str![[r#"
+Active worktrees
+(none)
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.invoke_git("branch --list --format=%(refname:short) wt"),
+        str!["wt"]
+    );
+}
