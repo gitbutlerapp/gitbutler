@@ -365,6 +365,18 @@
       "shift-enter": "find::FindPrevious"
     }
   },
+  // After the text field's own keys, so these win in a commit message's fields.
+  {
+    "context": "MessageTitle > TextInput",
+    "bindings": {
+      "enter": "message_editor::ToBody",
+      "tab": "message_editor::ToBody"
+    }
+  },
+  {
+    "context": "MessageBody > TextInput",
+    "bindings": { "shift-tab": "message_editor::ToTitle" }
+  },
   // As vim steps through matches.
   {
     "context": "Diff && !TextInput",
