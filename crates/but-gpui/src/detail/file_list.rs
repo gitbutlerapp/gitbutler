@@ -1510,9 +1510,9 @@ impl Detail {
         items
     }
 
-    /// Opening, copying or revealing the path `at` of `project`'s `checkout`. What isn't on disk,
-    /// as a deleted file or one only a branch outside the workspace has, can only have its path
-    /// copied.
+    /// Opening, copying or revealing the path `at` of `project`'s `checkout`, and copying the
+    /// hunk or file's diff the cursor is on there. What isn't on disk, as a deleted file or one
+    /// only a branch outside the workspace has, can only have its path or diff copied.
     fn path_items(
         &self,
         project: &ProjectId,
@@ -1541,12 +1541,34 @@ impl Detail {
         if line.is_some() && on_disk {
             items.push(MenuItem::command(&crate::open_in::OpenInEditor, cx));
         }
+        // What ⌘C copies there: the hunk the cursor is on or the file's whole diff, else its
+        // path.
+        let copy = &crate::app::CopySelection;
+        let cursor_here = (self.shown_cursor_path(cx)).is_some_and(|path| path == relative);
+        let diff =
+            (cursor_here.then(|| self.cursor_hunk(cx)).flatten()).map(|(_, hunk)| match hunk {
+                Some(_) => "Copy hunk",
+                None => "Copy diff",
+            });
+        if let Some(label) = diff {
+            items.push(MenuItem::keyed(label, copy, cx, |this, _, cx| {
+                let patch = this.detail.update(cx, |detail, cx| detail.copy_patch(cx));
+                if let Some(patch) = patch {
+                    this.copy_text(patch, cx)
+                }
+            }));
+        }
         items.extend(match folder {
-            false => [
-                MenuItem::command(&crate::app::CopyRelativePath, cx)
-                    .keys(&crate::app::CopySelection, cx),
-                MenuItem::command(&crate::app::CopyAbsolutePath, cx),
-            ],
+            false => {
+                let copy_relative = MenuItem::command(&crate::app::CopyRelativePath, cx);
+                [
+                    match diff {
+                        Some(_) => copy_relative,
+                        None => copy_relative.keys(copy, cx),
+                    },
+                    MenuItem::command(&crate::app::CopyAbsolutePath, cx),
+                ]
+            }
             // The commands copy the file under the cursor, which is never on a folder.
             true => [
                 MenuItem::new("Copy relative path", move |this, _, cx| {

@@ -805,15 +805,20 @@ impl AppView {
 
     /// What can be copied from the selection, to pick from with the keys, as the TUI's ⇧Y
     /// offers: the file under the cursor while the file list or the diff has the keys, as
-    /// right-clicking takes it. The first is what y copies, unless text is selected in the diff.
+    /// right-clicking takes it, its hunk and diff and then its paths. The first is what y
+    /// copies, unless text is selected in the diff.
     pub fn copy_more(&mut self, _: &CopyMore, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         let Some(selection) = store.selection.clone() else {
             return;
         };
-        let file = self.detail.read(cx).focused_file_paths(window, cx);
-        let copies = match file {
-            Some((path, full)) => vec![("Relative path", path), ("Absolute path", full)],
+        let detail = self.detail.read(cx);
+        let copies = match detail.focused_file_paths(window, cx) {
+            Some((path, full)) => {
+                let mut copies = detail.patch_copies(cx);
+                copies.extend([("Relative path", path), ("Absolute path", full)]);
+                copies
+            }
             None => copies(store, &selection),
         };
         if copies.is_empty() {

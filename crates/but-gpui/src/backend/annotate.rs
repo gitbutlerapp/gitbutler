@@ -225,6 +225,7 @@ mod tests {
                 new_lines: count,
             }),
             header: String::new(),
+            patch: "".into(),
             lines,
             scope: Vec::new(),
             lead: Vec::new(),

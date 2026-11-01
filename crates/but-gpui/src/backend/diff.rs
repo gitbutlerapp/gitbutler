@@ -588,7 +588,10 @@ fn load_file(
             lines_removed,
             ..
         }) => {
-            let hunks: Vec<Hunk> = hunks.iter().map(parse_hunk).collect();
+            let mut hunks: Vec<Hunk> = hunks.iter().map(parse_hunk).collect();
+            if let Some(last) = hunks.last_mut() {
+                mark_missing_newlines(last, &filter);
+            }
             DiffBody::Hunks {
                 widest: widest(&hunks),
                 hunks,
@@ -930,6 +933,45 @@ fn scope_sides(filter: &gix::diff::blob::Platform) -> Option<(String, String)> {
     })
 }
 
+/// Git's "\ No newline at end of file" in `hunk`'s patch, after its last line of a side
+/// of the change it reaches the end of, when that side ends without one: `git apply` needs
+/// it, and the diff engine ends every line with a newline. Only a file's last hunk can reach
+/// an end.
+fn mark_missing_newlines(hunk: &mut Hunk, filter: &gix::diff::blob::Platform) {
+    let Some((old, new)) = filter.resources() else {
+        return;
+    };
+    let unterminated = |data, start: u32, lines: u32| {
+        side_bytes(data).is_some_and(|bytes| {
+            let ends_bare = !bytes.is_empty() && !bytes.ends_with(b"\n");
+            // Its lines, the last one bare, counted only then.
+            ends_bare
+                && (start + lines) as usize == bytes.iter().filter(|b| **b == b'\n').count() + 2
+        })
+    };
+    let header = hunk.key.0;
+    let ends = [
+        unterminated(old.data, header.old_start, header.old_lines),
+        unterminated(new.data, header.new_start, header.new_lines),
+    ];
+    if ends == [false, false] {
+        return;
+    }
+    let lines: Vec<&str> = hunk.patch.split_inclusive('\n').collect();
+    let last = |side: [char; 2]| lines.iter().rposition(|line| line.starts_with(side));
+    let marked = [(ends[0], last([' ', '-'])), (ends[1], last([' ', '+']))]
+        .map(|(end, at)| at.filter(|_| end));
+    let mut patch = String::with_capacity(hunk.patch.len() + 64);
+    for (ix, line) in lines.iter().enumerate() {
+        patch.push_str(line);
+        // Once for an unchanged last line both sides end without one.
+        if marked.contains(&Some(ix)) {
+            patch.push_str("\\ No newline at end of file\n");
+        }
+    }
+    hunk.patch = patch.into();
+}
+
 /// One side of a change: empty when it doesn't exist, `None` when binary.
 fn side_bytes(data: gix::diff::blob::platform::resource::Data<'_>) -> Option<&[u8]> {
     use gix::diff::blob::platform::resource::Data;
@@ -1089,6 +1131,7 @@ pub(super) fn parse_hunk(hunk: &but_core::unified_diff::DiffHunk) -> Hunk {
         key: HunkKey(hunk.into()),
         header,
         lines,
+        patch: hunk.diff.to_str_lossy().into(),
         scope: Vec::new(),
         lead: Vec::new(),
         tail: Vec::new(),
@@ -1136,6 +1179,9 @@ mod tests {
         );
     }
 
+    use snapbox::IntoData as _;
+
+    use crate::backend::DiffSource;
     use crate::backend::ops::tests::{git, head, repo_with};
 
     #[test]
@@ -1162,6 +1208,173 @@ mod tests {
                 HashMap::from([(first, "file".to_owned())]),
                 "the rename wrote no lines, so the others go back to the commit before it, \
                  where the file had its old name"
+            );
+        });
+    }
+
+    #[test]
+    fn a_copied_diff_is_one_git_apply_takes() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let ten = "one\n\ttwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten";
+            let dir = repo_with(ten);
+            let path = dir.path();
+            std::fs::write(path.join("tail"), "a\nb\nc\nd").unwrap();
+            git(path, &["add", "tail"]);
+            git(path, &["commit", "-q", "-m", "tail"]);
+            let changed = ten.replace("two", "TWO").replace("ten", "TEN");
+            std::fs::write(path.join("file"), changed).unwrap();
+            std::fs::write(path.join("tail"), "a\nb\nC\nd").unwrap();
+            std::fs::write(path.join("new"), "fresh\n").unwrap();
+            std::fs::write(path.join("binary"), b"\0\x01").unwrap();
+            let diff =
+                super::load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
+            let file = |name: &str| diff.iter().find(|f| f.file.path == name).unwrap();
+
+            let whole = file("file").patch(None).unwrap();
+            // Tabs and the missing newline at the end are the file's, though the diff shows the
+            // one as spaces and leaves the other out.
+            snapbox::assert_data_eq!(
+                &whole,
+                snapbox::str![[r#"
+diff --git a/file b/file
+--- a/file
++++ b/file
+@@ -1,5 +1,5 @@
+ one
+-	two
++	TWO
+ three
+ four
+ five
+@@ -7,4 +7,4 @@
+ seven
+ eight
+ nine
+-ten
+\ No newline at end of file
++TEN
+\ No newline at end of file
+
+"#]]
+                .raw()
+            );
+            let second = file("file").hunks()[1].key;
+            snapbox::assert_data_eq!(
+                file("file").patch(Some(second)).unwrap(),
+                snapbox::str![[r#"
+diff --git a/file b/file
+--- a/file
++++ b/file
+@@ -7,4 +7,4 @@
+ seven
+ eight
+ nine
+-ten
+\ No newline at end of file
++TEN
+\ No newline at end of file
+
+"#]]
+                .raw()
+            );
+            let tail = file("tail").patch(None).unwrap();
+            // The last line is the same either side, so it's marked once.
+            snapbox::assert_data_eq!(
+                &tail,
+                snapbox::str![[r#"
+diff --git a/tail b/tail
+--- a/tail
++++ b/tail
+@@ -1,4 +1,4 @@
+ a
+ b
+-c
++C
+ d
+\ No newline at end of file
+
+"#]]
+                .raw()
+            );
+            let added = file("new").patch(None).unwrap();
+            snapbox::assert_data_eq!(
+                &added,
+                snapbox::str![[r#"
+diff --git a/new b/new
+new file mode 100644
+--- /dev/null
++++ b/new
+@@ -1,0 +1,1 @@
++fresh
+
+"#]]
+                .raw()
+            );
+            assert_eq!(
+                file("binary").patch(None),
+                None,
+                "a binary file has no lines to copy"
+            );
+
+            // The index is still at HEAD, so each applies to it as it applies to the commit.
+            for patch in [whole, tail, added] {
+                std::fs::write(path.join(".git/copied.patch"), patch).unwrap();
+                git(path, &["apply", "--cached", "--check", ".git/copied.patch"]);
+            }
+        });
+    }
+
+    #[test]
+    fn a_copied_diff_says_what_else_changed_about_its_file() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\ntwo\nthree\nfour\nfive\n");
+            let path = dir.path();
+            std::fs::write(path.join("gone"), "bye\n").unwrap();
+            git(path, &["add", "gone"]);
+            git(path, &["commit", "-q", "-m", "gone"]);
+            git(path, &["mv", "file", "moved"]);
+            std::fs::write(path.join("moved"), "one\ntwo\nTHREE\nfour\nfive\n").unwrap();
+            git(path, &["add", "moved"]);
+            git(path, &["update-index", "--chmod=+x", "moved"]);
+            git(path, &["rm", "-q", "gone"]);
+            git(path, &["commit", "-q", "-m", "move"]);
+            let source = DiffSource::Commit(head(path));
+            let diff = super::load_diff(path, source, None, None, None, None).unwrap();
+
+            let patch: String = diff.iter().filter_map(|file| file.patch(None)).collect();
+            // Renamed and made executable, and deleted, as git prints them.
+            snapbox::assert_data_eq!(
+                &patch,
+                snapbox::str![[r#"
+diff --git a/gone b/gone
+deleted file mode 100644
+--- a/gone
++++ /dev/null
+@@ -1,1 +1,0 @@
+-bye
+diff --git a/file b/moved
+old mode 100644
+new mode 100755
+rename from file
+rename to moved
+--- a/file
++++ b/moved
+@@ -1,5 +1,5 @@
+ one
+ two
+-three
++THREE
+ four
+ five
+
+"#]]
+                .raw()
+            );
+            // The index is at the commit, so taking the commit back is what applies.
+            std::fs::write(path.join(".git/copied.patch"), patch).unwrap();
+            git(
+                path,
+                &["apply", "-R", "--cached", "--check", ".git/copied.patch"],
             );
         });
     }
