@@ -249,7 +249,6 @@ A wrong resolution is reverted with `but undo`.
 - `but undo` restores the whole snapshot, so uncommitted edits made after the undone operation are lost (`but redo` brings them back). Commit them first.
 - Read-only git inspection (`git log`, `git blame`, `git show --stat`) is allowed.
 - If `but` prints an `AGENT ACTION REQUIRED` skill warning, run the suggested command once, then reload/use the GitButler skill. If it repeats, report it instead of retrying.
-- When the user asks to remove GitButler from their coding agents, run `but agent uninstall` instead of deleting files by hand. It removes the GitButler skill folders and the GitButler section of agent instruction files, in the home directory and the current repository, and lists what it removed.
 - For command syntax and flags: `but skill reference`
 - For workspace model: `but skill concepts`
 - For workflow examples: `but skill examples`
