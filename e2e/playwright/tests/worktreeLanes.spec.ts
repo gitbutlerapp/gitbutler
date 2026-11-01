@@ -405,6 +405,47 @@ test("settings drop a worktree removed outside the app", async ({ page, gitbutle
 	await expect(settings.getByText("No active worktrees.")).toBeVisible();
 });
 
+test("drops the lane of a worktree removed outside the app without reading it", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript(FIXTURE);
+	let reads = 0;
+	page.on("request", (request) => {
+		if (!request.url().endsWith("/changes_in_worktree")) return;
+		const { changesSource } = request.postDataJSON() as { changesSource: { subject?: string } };
+		if (changesSource.subject === "worktree-W") reads++;
+	});
+	await openWorkspace(page);
+	const worktreeLane = lane(page, "W");
+	await expect(worktreeLane.getByText("No uncommitted changes")).toBeVisible();
+	const readsBeforeRemoval = reads;
+
+	const worktree = gitbutler.pathInWorkdir("worktree-W");
+	git(gitbutler.pathInWorkdir("local-clone"), ["worktree", "remove", worktree]);
+
+	await expect(worktreeLane).toHaveCount(0);
+	expect(reads, "the removed worktree's changes were read again").toBe(readsBeforeRemoval);
+});
+
+test("re-reads a worktree's changes when its branch moves outside the app", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript(FIXTURE);
+	const worktree = gitbutler.pathInWorkdir("worktree-W");
+	await openWorkspace(page);
+	const worktreeLane = lane(page, "W");
+	await expect(worktreeLane.getByText("No uncommitted changes")).toBeVisible();
+
+	// No file in the worktree changes, only what its branch points at.
+	git(worktree, ["reset", "--soft", "HEAD~1"]);
+
+	await expect(
+		worktreeLane.getByTestId("file-list-item").filter({ hasText: "W.txt" }),
+	).toBeVisible();
+});
+
 test("commits onto a detached worktree's HEAD", async ({ page, gitbutler }) => {
 	await gitbutler.runScript(FIXTURE);
 	const worktree = gitbutler.pathInWorkdir("worktree-W");

@@ -28,7 +28,10 @@ export function buildWorktreeEndpoints(build: BackendEndpointBuilder) {
 				changesSource: checkoutOf({ worktree }),
 				computeDepsAndAssignments: true,
 			}),
-			providesTags: [providesList(ReduxTag.WorktreeChanges)],
+			providesTags: (_result, _error, { worktree }) => [
+				providesList(ReduxTag.WorktreeChanges),
+				worktreeChangesTag(worktree),
+			],
 			async onCacheEntryAdded(arg, lifecycleApi) {
 				if (!hasBackendExtra(lifecycleApi.extra)) {
 					throw new Error("Redux dependency Backend not found!");
@@ -129,6 +132,12 @@ export function buildWorktreeEndpoints(build: BackendEndpointBuilder) {
 			keepUnusedDataFor: 604800,
 		}),
 	};
+}
+
+/** The tag of the uncommitted changes in the linked `worktree` only, or in the main checkout. */
+export function worktreeChangesTag(worktree?: string) {
+	const id = worktree === undefined ? "main" : `worktree:${worktree}`;
+	return { type: ReduxTag.WorktreeChanges, id };
 }
 
 const worktreeAdapter = createEntityAdapter<TreeChange, string>({
