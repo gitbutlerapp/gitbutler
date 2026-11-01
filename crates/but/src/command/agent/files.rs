@@ -5,18 +5,44 @@ use anyhow::{Context as _, Result};
 use super::{MANAGED_BLOCK_END, MANAGED_BLOCK_START};
 
 pub(super) fn upsert_managed_block_file(path: &Path, block: &str) -> Result<()> {
-    let original = match std::fs::read_to_string(path) {
-        Ok(content) => content,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => String::new(),
-        Err(err) => return Err(err).with_context(|| format!("Failed to read {}", path.display())),
-    };
-    let updated = upsert_managed_block(&original, block)?;
+    let updated = upsert_managed_block(&read_or_empty(path)?, block)?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)
             .with_context(|| format!("Failed to create {}", parent.display()))?;
     }
     std::fs::write(path, updated).with_context(|| format!("Failed to write {}", path.display()))?;
     Ok(())
+}
+
+/// Remove the managed blocks from the file at `path`, deleting a file left
+/// empty. Returns whether there was a block; a missing file has none.
+pub(super) fn remove_managed_block_file(path: &Path) -> Result<bool> {
+    let Some(updated) = remove_managed_blocks(&read_or_empty(path)?).with_context(|| {
+        format!(
+            "Could not remove the GitButler section from {}",
+            path.display()
+        )
+    })?
+    else {
+        return Ok(false);
+    };
+    // Deleting a symlink would leave the block in its target, so an emptied
+    // symlink gets an empty target instead.
+    if updated.is_empty() && !path.is_symlink() {
+        std::fs::remove_file(path)
+    } else {
+        std::fs::write(path, updated)
+    }
+    .with_context(|| format!("Failed to update {}", path.display()))?;
+    Ok(true)
+}
+
+fn read_or_empty(path: &Path) -> Result<String> {
+    match std::fs::read_to_string(path) {
+        Ok(content) => Ok(content),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        Err(err) => Err(err).with_context(|| format!("Failed to read {}", path.display())),
+    }
 }
 
 /// Find the byte offset of the next occurrence of `needle` in `haystack` at or

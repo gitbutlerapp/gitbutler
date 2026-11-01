@@ -702,13 +702,22 @@ fn find_format_installations(format: &SkillFormat, base_dir: &std::path::Path) -
     found
 }
 
-/// GitButler skill installations under `base_dir` for every format valid in
-/// that scope, so `but agent uninstall` removes what `but skill check` finds.
-pub(crate) fn find_installations(base_dir: &std::path::Path, global: bool) -> Vec<PathBuf> {
+/// GitButler skill installations under `base_dir`, with their format names.
+/// Only formats valid in that scope are scanned, so a scope-specific location
+/// (e.g. `.github/skills` locally, `.copilot/skills` globally) isn't
+/// discovered under the wrong scope.
+pub(crate) fn find_installations(
+    base_dir: &std::path::Path,
+    global: bool,
+) -> Vec<(PathBuf, &'static str)> {
     SKILL_FORMATS
         .iter()
         .filter(|format| format.is_available_for(global))
-        .flat_map(|format| find_format_installations(format, base_dir))
+        .flat_map(|format| {
+            find_format_installations(format, base_dir)
+                .into_iter()
+                .map(move |path| (path, format.name))
+        })
         .collect()
 }
 
@@ -760,18 +769,9 @@ fn find_all_installations(
         base_dirs.push((workdir, SCOPE_LOCAL));
     }
 
-    // Scan each base directory for the formats valid in its scope, so a
-    // scope-specific location (e.g. `.github/skills` locally, `.copilot/skills`
-    // globally) isn't discovered under the wrong scope.
     for (base_dir, scope) in base_dirs {
-        let is_global = scope == SCOPE_GLOBAL;
-        for format in SKILL_FORMATS {
-            if !format.is_available_for(is_global) {
-                continue;
-            }
-            for path in find_format_installations(format, &base_dir) {
-                installations.push((path, format.name, scope));
-            }
+        for (path, format_name) in find_installations(&base_dir, scope == SCOPE_GLOBAL) {
+            installations.push((path, format_name, scope));
         }
     }
 
