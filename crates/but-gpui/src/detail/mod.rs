@@ -207,7 +207,7 @@ enum PageFold {
     Merge(CommitId),
     People,
     Thread(String),
-    PassedChecks,
+    Checks,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -414,16 +414,19 @@ pub struct Detail {
     /// The page a click on a commit of a branch that left a checkout picked, and that commit,
     /// whose merge or branch it opens once it has read its list.
     opening: Option<(Selection, crate::state::SeenCommit)>,
-    /// Whether the pull request's checks that passed are listed, not just counted.
-    passed_checks_open: bool,
+    /// Whether each pull request's checks are listed, by project and number, as the reader left
+    /// them or as they opened by themselves on a failure. Others are folded. Rendering records
+    /// the opening, so it's a cell.
+    checks_open: std::cell::RefCell<HashMap<(ProjectId, u64), bool>>,
     /// The pull request threads shown open while resolved, or folded while not, by id.
     threads_flipped: HashSet<String>,
     /// The pull request tab's column: its title, description and conversation.
     review_list: ListState,
     /// The pull request's side panel, which scrolls apart from its description beside it.
     review_side_scroll: ScrollHandle,
-    /// How wide the pull request tab was drawn, for whether its side panel fits beside it.
-    review_width: Rc<Cell<f32>>,
+    /// How wide the pull request tab was drawn, for whether its side panel fits beside it: on
+    /// a branch's page, then beside a list page's list.
+    review_width: [Rc<Cell<f32>>; 2],
     /// How tall the selected target commit's message is drawn over its diff, and how wide
     /// the space beside the project page's list is, measured as they're drawn.
     target_message_height: Rc<Cell<f32>>,
@@ -772,11 +775,11 @@ impl Detail {
             now: worktree::Now::default(),
             pending_file: None,
             opening: None,
-            passed_checks_open: false,
+            checks_open: Default::default(),
             threads_flipped: HashSet::new(),
             review_list: ListState::new(0, ListAlignment::Top, fixed(200.)),
             review_side_scroll: ScrollHandle::new(),
-            review_width: Rc::new(Cell::new(pull_request::TWO_COLUMNS)),
+            review_width: [(); 2].map(|_| Rc::new(Cell::new(pull_request::TWO_COLUMNS))),
             target_message_height: Rc::new(Cell::new(0.)),
             beside_width: Rc::new(Cell::new(0.)),
             shipped_focus: cx.focus_handle(),

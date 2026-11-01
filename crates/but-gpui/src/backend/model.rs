@@ -333,7 +333,7 @@ pub struct Review {
     pub auto_merge: bool,
     /// The CI checks on the branch, once any have been seen.
     pub checks: Option<Checks>,
-    /// Each check, failed ones first, then those still running.
+    /// Each check, in the order of [`CheckState`].
     pub check_runs: Vec<CheckRun>,
     pub labels: Vec<ReviewLabel>,
     /// Who's been asked to review it, bots left out. GitHub lists only those who haven't
@@ -374,12 +374,26 @@ pub struct CheckRun {
     pub name: String,
     /// Where to read its log.
     pub url: String,
-    /// Whether it failed, once it finished.
-    pub failed: Option<bool>,
-    /// How it finished or how far it got, as the forge says: "Succeeded", "In progress".
-    pub status: String,
+    pub state: CheckState,
+    /// What became of it when its state doesn't say: "timed out", "queued".
+    pub note: Option<&'static str>,
     pub started_at: Option<i64>,
     pub completed_at: Option<i64>,
+}
+
+/// How a CI check stands, in the order GitHub lists them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CheckState {
+    /// It failed, timed out or wants someone to act.
+    Failed,
+    /// Someone stopped it.
+    Cancelled,
+    Running,
+    /// It waits for a runner.
+    Queued,
+    Passed,
+    /// It ran nothing: skipped, or neutral.
+    Skipped,
 }
 
 /// One part of what's been said on a pull request, as its conversation shows it.

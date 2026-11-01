@@ -14,8 +14,8 @@ use super::intent::Run;
 use super::ops::holds;
 use super::upstream::{push, sync_failure};
 use super::{
-    CheckRun, Checks, DiffLine, Forge, ForgeUser, Intent, Note, OpKind, PushState, Remark, Review,
-    ReviewLabel, ReviewState, Thread, open, runtime, short_ref,
+    CheckRun, CheckState, Checks, DiffLine, Forge, ForgeUser, Intent, Note, OpKind, PushState,
+    Remark, Review, ReviewLabel, ReviewState, Thread, open, runtime, short_ref,
 };
 
 /// Which forge hosts the project: the one its target's remote, or a forge account with a
@@ -156,23 +156,21 @@ fn check_runs(checks: &[but_forge::CiCheck]) -> Vec<CheckRun> {
                 "" => check.details_url.clone(),
                 url => url.to_owned(),
             },
-            failed: check_failed(check),
-            status: match &check.status {
+            state: check_state(check),
+            note: match &check.status {
                 S::Complete { conclusion, .. } => match conclusion {
-                    C::Success => "Succeeded",
-                    C::Neutral => "Neutral",
-                    C::Skipped => "Skipped",
-                    C::Failure => "Failed",
-                    C::TimedOut => "Timed out",
-                    C::Cancelled => "Cancelled",
-                    C::ActionRequired => "Action required",
-                    C::Unknown => "Finished",
+                    C::Success | C::Failure => None,
+                    C::Neutral => Some("neutral"),
+                    C::Skipped => Some("skipped"),
+                    C::TimedOut => Some("timed out"),
+                    C::Cancelled => Some("cancelled"),
+                    C::ActionRequired => Some("action required"),
+                    C::Unknown => Some("finished"),
                 },
-                S::InProgress => "In progress",
-                S::Queued => "Queued",
-                S::Unknown => "Waiting",
-            }
-            .to_owned(),
+                S::InProgress => None,
+                S::Queued => Some("queued"),
+                S::Unknown => Some("waiting"),
+            },
             started_at: check.started_at.map(|at| at.timestamp()),
             completed_at: match &check.status {
                 S::Complete { completed_at, .. } => completed_at.map(|at| at.timestamp()),
@@ -180,11 +178,8 @@ fn check_runs(checks: &[but_forge::CiCheck]) -> Vec<CheckRun> {
             },
         })
         .collect();
-    runs.sort_by_key(|run| match run.failed {
-        Some(true) => 0,
-        None => 1,
-        Some(false) => 2,
-    });
+    // A stable sort, so each state keeps the forge's order.
+    runs.sort_by_key(|run| run.state);
     runs
 }
 
@@ -199,24 +194,27 @@ pub(super) fn review_state(review: &but_forge::ForgeReview) -> ReviewState {
 
 fn summarize_checks(checks: &[but_forge::CiCheck]) -> Checks {
     checks.iter().fold(Checks::default(), |mut sum, check| {
-        match check_failed(check) {
-            Some(false) => sum.passed += 1,
-            Some(true) => sum.failed += 1,
-            None => sum.running += 1,
+        match check_state(check) {
+            CheckState::Passed | CheckState::Skipped => sum.passed += 1,
+            CheckState::Failed | CheckState::Cancelled => sum.failed += 1,
+            CheckState::Running | CheckState::Queued => sum.running += 1,
         }
         sum
     })
 }
 
-/// Whether a check that finished failed; `None` while it hasn't.
-fn check_failed(check: &but_forge::CiCheck) -> Option<bool> {
+/// How `check` stands.
+fn check_state(check: &but_forge::CiCheck) -> CheckState {
     use but_forge::{CiConclusion as C, CiStatus as S};
     match &check.status {
-        S::Complete { conclusion, .. } => Some(match conclusion {
-            C::Success | C::Neutral | C::Skipped => false,
-            C::Failure | C::TimedOut | C::Cancelled | C::ActionRequired | C::Unknown => true,
-        }),
-        S::InProgress | S::Queued | S::Unknown => None,
+        S::Complete { conclusion, .. } => match conclusion {
+            C::Success => CheckState::Passed,
+            C::Neutral | C::Skipped => CheckState::Skipped,
+            C::Cancelled => CheckState::Cancelled,
+            C::Failure | C::TimedOut | C::ActionRequired | C::Unknown => CheckState::Failed,
+        },
+        S::InProgress => CheckState::Running,
+        S::Queued | S::Unknown => CheckState::Queued,
     }
 }
 
