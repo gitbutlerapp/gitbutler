@@ -849,10 +849,16 @@ impl RefInfo {
             // The merged head is the review's PUSHED commit, so match the
             // tip's remote counterpart when it has one: a local rewrite
             // between push and merge must not break the window.
-            let tip = segment.commits.first().map(|commit| match commit.relation {
-                LocalCommitRelation::LocalAndRemote(remote_id) => remote_id.to_string(),
-                _ => commit.id.to_string(),
-            });
+            let tip = segment
+                .commits
+                .first()
+                .map(|commit| match commit.relation {
+                    LocalCommitRelation::LocalAndRemote(remote_id) => remote_id.to_string(),
+                    _ => commit.id.to_string(),
+                })
+                // A branch without commits points at its base, as one the target moved past does
+                // while a worktree keeps it checked out.
+                .or_else(|| segment.base.map(|id| id.to_string()));
             apply_review_to_metadata(
                 &mut segment.metadata,
                 cached,
