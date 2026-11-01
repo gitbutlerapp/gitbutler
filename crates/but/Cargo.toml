@@ -75,6 +75,7 @@ but-transaction.workspace = true
 but-comments.workspace = true
 but-db.workspace = true
 but-error.workspace = true
+but-utils.workspace = true
 
 but-oplog.workspace = true
 

@@ -9,7 +9,7 @@ use std::path::Path;
 
 use anyhow::{Result, bail};
 use but_api::legacy::oplog::{self, RestoreKind};
-use but_oplog::legacy::{OperationKind, SnapshotDetails};
+use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use gix::bstr::ByteSlice as _;
 use serde::Deserialize;
 
@@ -622,6 +622,25 @@ pub fn oplog_head(ctx: &but_ctx::Context) -> Option<SnapshotId> {
     newest
         .first()
         .map(|snapshot| SnapshotId(snapshot.commit_id))
+}
+
+/// How many of the newest operation log entries a workspace load reads: more than one load ever
+/// misses, as the watcher reloads within a second of a change.
+pub const NEWEST_ENTRIES: usize = 10;
+
+/// The [`NEWEST_ENTRIES`] newest entries in the project's operation log, newest first, each with
+/// whether a person recorded it: no agent was detected. One recorded before GitButler noted that
+/// counts as an agent's.
+pub fn newest_entries(ctx: &but_ctx::Context) -> Vec<(SnapshotId, bool)> {
+    let snapshots =
+        oplog::list_snapshots(ctx, NEWEST_ENTRIES, None, None, None).unwrap_or_default();
+    (snapshots.into_iter())
+        .map(|snapshot| {
+            let person = (snapshot.details.as_ref())
+                .is_some_and(|details| details.trailers.contains(&Trailer::Agent(None)));
+            (SnapshotId(snapshot.commit_id), person)
+        })
+        .collect()
 }
 
 /// What undoing an operation came to.

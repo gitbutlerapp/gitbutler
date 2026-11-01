@@ -1183,6 +1183,7 @@ dependencies = [
  "but-testsupport",
  "but-transaction",
  "but-update",
+ "but-utils",
  "but-workspace",
  "cfg-if",
  "chrono",

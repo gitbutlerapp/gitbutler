@@ -1171,6 +1171,9 @@ fn commit_snapshot(
         .as_ref()
         .map(|head| vec![head.id])
         .unwrap_or_default();
+    // Who made the change, so a client can tell a person's work from an agent's.
+    let agent = but_utils::detect_agent::detect().map(|agent| agent.as_str().to_owned());
+    let details = details.with_trailers([Trailer::Agent(agent)]);
     let snapshot_commit_id = commit_without_signature_gix(
         repo,
         None,

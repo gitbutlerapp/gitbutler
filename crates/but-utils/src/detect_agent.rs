@@ -65,7 +65,6 @@ environment_variables! {
 
 /// An AI coding agent that may be driving the CLI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum Agent {
     ClaudeCode,
     ClaudeCodeCowork,

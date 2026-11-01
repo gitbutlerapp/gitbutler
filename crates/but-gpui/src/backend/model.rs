@@ -109,6 +109,13 @@ pub struct Workspace {
     /// forge cache knows and of the branches linked worktrees shown have checked out, which
     /// the Branches page lists again when it changes.
     pub refs: u64,
+    /// The newest entries of the project's operation log, newest first, each with whether a
+    /// person recorded it rather than an agent.
+    pub oplog: Vec<(SnapshotId, bool)>,
+    /// The newest entry of the operation log when the load started. An operation records its
+    /// entry after its changes, so the workspace has all of this one's; one recorded during the
+    /// load may have landed partway.
+    pub oplog_at_start: Option<SnapshotId>,
 }
 
 /// A forge: where a project's pull requests live, and what a forge account signs in to.

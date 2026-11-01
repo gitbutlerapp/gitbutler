@@ -1887,19 +1887,22 @@ fn squash_source_with_partial_marks_is_selectable() {
 
 #[test]
 fn undo_from_details_mode() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    // The undo toast names the oplog entry, whose ID depends on the agent it records.
+    temp_env::with_vars_unset(crate::utils::detect_agent::ENVIRONMENT_VARIABLES, || {
+        let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+        env.setup_metadata(&["A"]);
 
-    let mut tui = test_status_tui(env);
+        let mut tui = test_status_tui(env);
 
-    tui.input('j');
-    tui.input('j');
-    tui.input('x');
-    tui.input('y');
-    tui.input('l')
-        .assert_rendered_term_svg_eq(file!["snapshots/undo_from_details_mode_001.svg"]);
-    tui.input('u')
-        .assert_rendered_term_svg_eq(file!["snapshots/undo_from_details_mode_002.svg"]);
+        tui.input('j');
+        tui.input('j');
+        tui.input('x');
+        tui.input('y');
+        tui.input('l')
+            .assert_rendered_term_svg_eq(file!["snapshots/undo_from_details_mode_001.svg"]);
+        tui.input('u')
+            .assert_rendered_term_svg_eq(file!["snapshots/undo_from_details_mode_002.svg"]);
+    });
 }
 
 #[test]

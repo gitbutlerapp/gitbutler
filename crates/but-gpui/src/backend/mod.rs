@@ -328,6 +328,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         (head.as_ref()).is_some_and(|name| name.as_bstr() == but_core::WORKSPACE_REF_NAME);
     let tree = head_tree(&repo);
     let git_operation = git_operation(&repo);
+    let oplog_at_start = history::oplog_head(&ctx);
     // The uncommitted files and the refs are read beside the workspace's graph, which takes
     // longest, rather than before it: on a large repository, cold from disk, they take
     // hundreds of milliseconds.
@@ -426,6 +427,8 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         }),
         worktrees,
         archived_worktrees,
+        oplog: history::newest_entries(&ctx),
+        oplog_at_start,
     })
 }
 
