@@ -280,6 +280,49 @@ fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
 }
 
 #[test]
+fn a_worktree_branch_the_target_moved_past_keeps_the_review_merged_at_its_tip() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
+    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(
+        repo.path().join("should-never-be-written.toml"),
+    )?;
+    add_workspace(&mut meta);
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    add_stack(&mut meta, 2, "B", StackState::InWorkspace);
+    // `wt-pushed` merged into the target, which the workspace was updated to, while its
+    // worktree still has the merged branch checked out.
+    but_testsupport::invoke_bash(
+        r#"git update-ref refs/heads/main "$(git commit-tree -p main -p wt-pushed -m Merge 'wt-pushed^{tree}')""#,
+        &repo,
+    );
+
+    let mut info = ref_info_with_worktree_tips(&repo, &meta)?;
+    let merged_head = repo.rev_parse_single("wt-pushed")?.to_string();
+    info.apply_forge_review_associations(&HashMap::from([(
+        "origin/wt-pushed".to_string(),
+        (42, false, Some(merged_head)),
+    )]));
+    let pushed = &info
+        .worktrees
+        .iter()
+        .find(|wt| wt.name == "wt-pushed")
+        .expect("the pushed worktree is projected")
+        .segments[0];
+    assert!(
+        pushed.commits.is_empty(),
+        "its commits are below the target now"
+    );
+    assert_eq!(
+        pushed
+            .metadata
+            .as_ref()
+            .and_then(|meta| meta.review.pull_request),
+        Some(42),
+        "the branch still points at the head its review merged at"
+    );
+    Ok(())
+}
+
+#[test]
 fn lane_chains_follow_what_worktrees_rest_on() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
     let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(
