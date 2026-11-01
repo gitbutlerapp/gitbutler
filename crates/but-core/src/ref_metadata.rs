@@ -615,12 +615,34 @@ impl ProjectMeta {
         Ok(())
     }
 
-    /// Port project metadata, loading the legacy fallback only if Git config has no metadata.
+    /// Port project metadata, loading the legacy fallback only if Git config has no metadata. Then
+    /// replace a legacy remote target that no local branch tracks with the local branch named as
+    /// it, like main for origin/main, unless that branch tracks something else.
     ///
     /// If the legacy fallback fails with [`UnresolvedLegacyTargetRefError`], its remote target is
-    /// ported as is, along with its cutoff and push remote, so reading project metadata keeps
-    /// failing with that error until a target is chosen.
+    /// ported as is, along with its cutoff and push remote. Reading project metadata keeps failing
+    /// with that error until the target resolves or one is chosen.
+    ///
+    /// Returns whether the legacy target was replaced, which can change branch configuration that
+    /// `repo` sees only once reloaded.
     pub fn port_if_needed(
+        repo: &gix::Repository,
+        legacy_fallback: impl FnOnce() -> anyhow::Result<Self>,
+    ) -> anyhow::Result<bool> {
+        if !Self::is_ported_repo(repo)? {
+            Self::port_to_git_config(repo, legacy_fallback)?;
+        }
+        // What this can't repair goes on failing to read, with an error that says what to do.
+        match Self::replace_untracked_legacy_target(repo) {
+            Ok(replaced) => Ok(replaced),
+            Err(err) => {
+                tracing::warn!("could not replace the legacy target with a local branch: {err:#}");
+                Ok(false)
+            }
+        }
+    }
+
+    fn port_to_git_config(
         repo: &gix::Repository,
         legacy_fallback: impl FnOnce() -> anyhow::Result<Self>,
     ) -> anyhow::Result<()> {
@@ -646,7 +668,7 @@ impl ProjectMeta {
                         return git_config::set_config_value(
                             config,
                             PROJECT_TARGET_REF,
-                            &unresolved.target_ref.to_string(),
+                            unresolved.target_ref.as_bstr(),
                         );
                     }
                 }
@@ -657,6 +679,87 @@ impl ProjectMeta {
         })?;
         notify_legacy_storage(repo, changed);
         Ok(())
+    }
+
+    /// Replace a legacy remote target that no local branch tracks with the local branch named as
+    /// it, like main for origin/main. An older GitButler stored such targets for a main pushed
+    /// without `-u`, for a repository without a local main, and as gb-local/main for one without a
+    /// remote.
+    ///
+    /// The local branch is made to track the legacy target, and is created there if missing, so
+    /// pulls go on bringing in what they did. A remote that fetches nothing into the target, like
+    /// gb-local, leaves nothing to track. A local branch that tracks something else is left alone,
+    /// so the target stays for the user to choose.
+    ///
+    /// Returns whether the repository configuration changed.
+    fn replace_untracked_legacy_target(repo: &gix::Repository) -> anyhow::Result<bool> {
+        let config = git_config::open_repo_local_config_for_reading(repo)?;
+        let Some(target_ref) = config
+            .string(PROJECT_TARGET_REF)
+            .and_then(|value| gix::refs::FullName::try_from(value.as_bstr()).ok())
+            .filter(|name| name.category() == Some(gix::refs::Category::RemoteBranch))
+        else {
+            return Ok(false);
+        };
+        if find_local_tracking_branch(target_ref.as_ref(), repo)? != LocalTrackingBranchMatch::None
+        {
+            return Ok(false);
+        }
+        let (local, remote) = match repo
+            .upstream_branch_and_remote_for_tracking_branch(target_ref.as_ref())?
+        {
+            // The branch on the remote names the local branch too, as `git checkout main` picks it.
+            Some((local, remote)) => {
+                let remote = remote
+                    .name()
+                    .context("an anonymous remote fetches nothing")?
+                    .as_bstr()
+                    .to_owned();
+                (local, Some(remote))
+            }
+            None => {
+                let Some((_, short_name)) = crate::extract_remote_name_and_short_name(
+                    target_ref.as_ref(),
+                    &repo.remote_names(),
+                ) else {
+                    return Ok(false);
+                };
+                let local = gix::refs::Category::LocalBranch.to_full_name(short_name.as_bstr())?;
+                (local, None)
+            }
+        };
+        if let Some(existing) = repo.try_find_reference(local.as_ref())? {
+            // A configured upstream counts even where no refspec maps it, like one on `.`.
+            let name = existing.name();
+            let fetch = gix::remote::Direction::Fetch;
+            if repo.branch_remote_ref_name(name, fetch).is_some()
+                || repo.branch_remote_name(name.shorten(), fetch).is_some()
+            {
+                return Ok(false);
+            }
+        } else if remote.is_some()
+            && let Some(mut tip) = repo.try_find_reference(target_ref.as_ref())?
+        {
+            repo.reference(
+                local.as_ref(),
+                tip.peel_to_commit()?.id,
+                gix::refs::transaction::PreviousValue::MustNotExist,
+                format!("GitButler creates local tracking for {target_ref}"),
+            )?;
+        } else {
+            return Ok(false);
+        }
+        let changed = git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
+            if let Some(remote) = &remote {
+                let mut branch =
+                    config.section_mut_or_create_new("branch", Some(local.shorten()))?;
+                branch.set(gix::config::tree::Branch::REMOTE.name, remote.as_bstr())?;
+                branch.set(gix::config::tree::Branch::MERGE.name, local.as_bstr())?;
+            }
+            git_config::set_config_value(config, PROJECT_TARGET_REF, local.as_bstr())
+        })?;
+        notify_legacy_storage(repo, changed);
+        Ok(changed)
     }
 
     fn write_to_config(&self, config: &mut gix::config::File) -> anyhow::Result<()> {
@@ -1229,8 +1332,9 @@ pub fn find_local_tracking_branch(
 ///
 /// As part of that transition we have to migrate users from origin/main to main. Doing that
 /// requires finding the local branch thats tracking origin/main and making that the target.
-/// `but_core::ref_metadata::find_local_tracking_branch` does that. However if no local branch
-/// or several local branches track origin/main then we need the user to pick.
+/// `but_core::ref_metadata::find_local_tracking_branch` does that. However if several local
+/// branches track origin/main, or none does and [`ProjectMeta::port_if_needed`] can't make
+/// one, then we need the user to pick.
 ///
 /// This error identifies that situation.
 #[derive(Debug)]
