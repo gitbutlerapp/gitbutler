@@ -83,6 +83,35 @@ pub(super) fn managed_block_spans(existing: &str) -> Result<Vec<std::ops::Range<
     Ok(spans)
 }
 
+/// `existing` with every managed block removed, together with the blank lines
+/// after each block. Trailing whitespace is trimmed to a single line ending, or
+/// to nothing when only the blocks were there. `None` when there is no block.
+pub(super) fn remove_managed_blocks(existing: &str) -> Result<Option<String>> {
+    let spans = managed_block_spans(existing)?;
+    if spans.is_empty() {
+        return Ok(None);
+    }
+    let mut updated = String::with_capacity(existing.len());
+    let mut copied = 0;
+    for span in spans {
+        updated.push_str(&existing[copied..span.start]);
+        let rest = &existing[span.end..];
+        copied = span.end + rest.len() - rest.trim_start_matches(['\r', '\n']).len();
+    }
+    updated.push_str(&existing[copied..]);
+
+    let trimmed = updated.trim_end();
+    if trimmed.is_empty() {
+        return Ok(Some(String::new()));
+    }
+    let eol = if existing.contains("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    };
+    Ok(Some(format!("{trimmed}{eol}")))
+}
+
 /// Rewrite `block` to use CRLF line endings when `existing` already does, so a
 /// replaced or appended block does not introduce mixed line endings.
 fn match_line_endings(existing: &str, block: &str) -> String {

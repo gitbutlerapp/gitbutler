@@ -803,7 +803,9 @@ async fn dispatch_subcommand(
         }
         Subcommands::Agent(agent::Platform { cmd }) => {
             return command::agent::handle(&args.current_dir, out, cmd)
-                .map(DispatchOutcome::ReturnWithOutcome)
+                .map(|outcome| {
+                    outcome.map_or(DispatchOutcome::Return, DispatchOutcome::ReturnWithOutcome)
+                })
                 .map_err(CliError::from);
         }
         Subcommands::Mcp(args::mcp::Platform { cmd }) => {

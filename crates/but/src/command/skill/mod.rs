@@ -702,6 +702,16 @@ fn find_format_installations(format: &SkillFormat, base_dir: &std::path::Path) -
     found
 }
 
+/// GitButler skill installations under `base_dir` for every format valid in
+/// that scope, so `but agent uninstall` removes what `but skill check` finds.
+pub(crate) fn find_installations(base_dir: &std::path::Path, global: bool) -> Vec<PathBuf> {
+    SKILL_FORMATS
+        .iter()
+        .filter(|format| format.is_available_for(global))
+        .flat_map(|format| find_format_installations(format, base_dir))
+        .collect()
+}
+
 fn is_complete_skill_installation(path: &std::path::Path) -> bool {
     let skill_md = path.join("SKILL.md");
     is_gitbutler_skill(&skill_md)

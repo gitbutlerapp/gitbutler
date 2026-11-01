@@ -106,3 +106,92 @@ Error: Interactive setup requires a terminal. Use `but agent setup --print` to p
 
 "#]]);
 }
+
+#[test]
+fn agent_uninstall_removes_skills_and_gitbutler_sections_only() {
+    let env = Sandbox::empty();
+    env.invoke_git("init");
+    let home = env.home_dir();
+    let repo = env.projects_root();
+    let block = "<!-- gitbutler-agent-setup:start -->\n## Version control\n\n- Use GitButler (`but`).\n<!-- gitbutler-agent-setup:end -->\n";
+    let write = |path: &std::path::Path, content: &str| {
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, content).unwrap();
+    };
+
+    env.but("skill install").as_agent().assert().success();
+    env.but("skill install --path .agents/skills/gitbutler")
+        .assert()
+        .success();
+    write(
+        &home.join(".claude/skills/other/SKILL.md"),
+        "---\nname: other\n---\n",
+    );
+    write(
+        &home.join(".codex/AGENTS.md"),
+        &format!("# Mine\n\nBe brief.\n\n{block}"),
+    );
+    write(&home.join(".claude/rules/gitbutler.md"), block);
+    write(
+        &home.join(".config/opencode/AGENTS.md"),
+        "No GitButler here.\n",
+    );
+    write(&repo.join("AGENTS.md"), &format!("{block}\n# Project\n"));
+
+    // Removal is listed per kind, with repository paths relative to the current directory.
+    env.but("agent uninstall")
+        .assert()
+        .success()
+        .stderr_eq(str![[]])
+        .stdout_eq(str![[r#"
+Removed GitButler from your coding agents:
+
+Skills
+  • ~/.codex/skills/gitbutler
+  • .agents/skills/gitbutler
+
+GitButler section in
+  • ~/.claude/rules/gitbutler.md
+  • ~/.codex/AGENTS.md
+  • AGENTS.md
+
+"#]]);
+
+    assert!(
+        !home.join(".codex/skills/gitbutler").exists()
+            && !repo.join(".agents/skills/gitbutler").exists(),
+        "GitButler skill folders are removed"
+    );
+    assert!(
+        home.join(".claude/skills/other/SKILL.md").exists(),
+        "a skill without `name: but` is not GitButler's"
+    );
+    assert!(
+        !home.join(".claude/rules/gitbutler.md").exists(),
+        "a file that only held the GitButler section is deleted"
+    );
+    assert_eq!(
+        std::fs::read_to_string(home.join(".codex/AGENTS.md")).unwrap(),
+        "# Mine\n\nBe brief.\n",
+        "text before the section is kept"
+    );
+    assert_eq!(
+        std::fs::read_to_string(repo.join("AGENTS.md")).unwrap(),
+        "# Project\n",
+        "text after the section is kept"
+    );
+    assert_eq!(
+        std::fs::read_to_string(home.join(".config/opencode/AGENTS.md")).unwrap(),
+        "No GitButler here.\n",
+        "a file without the section is not touched"
+    );
+
+    // Everything discovery can find was removed.
+    env.but("agent uninstall")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+No GitButler skills or agent instructions found.
+
+"#]]);
+}
