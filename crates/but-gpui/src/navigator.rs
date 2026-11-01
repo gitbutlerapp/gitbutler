@@ -11,9 +11,9 @@ use std::time::Instant;
 use but_tty::Status;
 use gpui::{
     AnyElement, App, Bounds, ClickEvent, Context, CursorStyle, Div, DragMoveEvent, ElementId,
-    EmptyView, Entity, FocusHandle, Focusable, Hsla, ListAlignment, ListOffset, ListState,
-    Modifiers, MouseButton, MouseDownEvent, Pixels, Point, Role, ScrollWheelEvent, SharedString,
-    Stateful, Subscription, Task, Window, actions, div, list, prelude::*, relative,
+    EmptyView, Entity, FocusHandle, Focusable, FontWeight, Hsla, ListAlignment, ListOffset,
+    ListState, Modifiers, MouseButton, MouseDownEvent, Pixels, Point, Role, ScrollWheelEvent,
+    SharedString, Stateful, Subscription, Task, Window, actions, div, list, prelude::*, relative,
 };
 
 use crate::app::{
@@ -301,8 +301,8 @@ impl<'a> RowStyle<'a> {
         }
     }
 
-    /// A commit's row, `indent` in: `glyph`, its title, and a dot while it's unread. The dot
-    /// alone says it's unread; only a missing title is quieter.
+    /// A commit's row, `indent` in: `glyph` and its title, semibold while it's unread. Only a
+    /// missing title is quieter.
     fn commit_line(
         &self,
         id: String,
@@ -325,9 +325,9 @@ impl<'a> RowStyle<'a> {
                     .min_w_0()
                     .truncate()
                     .when(title.is_empty(), |el| el.text_color(self.muted()))
+                    .when(unread, |el| el.font_weight(FontWeight::SEMIBOLD))
                     .child(commit_title(&title)),
             )
-            .when(unread, |el| el.child(dot(self.meta(self.theme.pop))))
     }
 
     /// `commit` of `project` as its row draws it, `id` the row's: its glyph by its state, and
@@ -2304,6 +2304,7 @@ impl Navigator {
                         .flex_grow(1.)
                         .min_w_0()
                         .truncate()
+                        .when(unread, |el| el.font_weight(FontWeight::SEMIBOLD))
                         .child(entry.project.name.clone()),
                 )
                 .child(
@@ -2314,7 +2315,6 @@ impl Navigator {
                         .flex_wrap()
                         .overflow_hidden()
                         .gap(dp(8.))
-                        .when(unread, |el| el.child(dot(style.meta(theme.pop))))
                         .when_some(summary, |el, (files, unpushed, target)| {
                             let warn = style.meta(theme.warn);
                             el.children(style.files(files))
@@ -2485,7 +2485,6 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let store = self.store.read(cx);
-        let theme = style.theme;
         let id = item.project();
         let (entry, workspace) = (store.project(id)?, store.workspace(id)?);
         let checkout = match item {
@@ -2545,13 +2544,11 @@ impl Navigator {
                     .min_w_0()
                     .truncate()
                     .tooltip(Tooltip::text(path.display().to_string()))
+                    .when(!open && unread, |el| el.font_weight(FontWeight::SEMIBOLD))
                     .child(label.clone()),
             )
             .children(change_counts(tally(&uncommitted), style))
-            .when(!open, |el| {
-                el.children(style.unpushed(unpushed_n))
-                    .when(unread, |el| el.child(dot(style.meta(theme.pop))))
-            })
+            .when(!open, |el| el.children(style.unpushed(unpushed_n)))
             .map(|el| self.selectable(el, item, cx))
             .when(folds, |el| el.on_click(double_click(toggle, cx)));
         // The worktree's checked files while it's shown, else all of them, but not conflicted
@@ -2692,7 +2689,7 @@ impl Navigator {
             cx,
             toggle.clone(),
         );
-        // An unread commit marks its branch with a dot too, folded or not.
+        // An unread commit makes its branch's name semibold too, folded or not.
         let unread = store.branch_unread(id, branch);
         let review = (branch.review.as_ref()).map(|r| (r, store.review_state(id, r)));
         let rename = self.rename_field(item, theme);
@@ -2708,6 +2705,7 @@ impl Navigator {
                 .child(match rename {
                     Some(field) => field,
                     None => branch_name(name, review, &style)
+                        .when(unread, |el| el.font_weight(FontWeight::SEMIBOLD))
                         .id(ElementId::Name(format!("name-{id}-{row_id}").into()))
                         .flex_1()
                         .tooltip(Tooltip::text(tip))
@@ -2769,7 +2767,6 @@ impl Navigator {
                     el.children(self.pull_count(id, ref_name, n, tip, style, cx))
                 })
                 .children(self.push_count(id, ref_name, unpushed_n, style, cx))
-                .when(unread, |el| el.child(dot(style.meta(theme.pop))))
                 .map(|el| self.selectable(el, item, cx))
                 // A click looks inside, opening its commits; the chevron, a double-click, ⇧←
                 // and ⇧→ fold them.
@@ -2895,8 +2892,8 @@ impl Navigator {
     }
 
     /// A commit only a remote has, among its branch's commits or under the project: a ↓
-    /// where a commit has its glyph, and a dot while it's unread, as only a branch's get.
-    /// It isn't dragged or edited here.
+    /// where a commit has its glyph, and its title semibold while it's unread, as only a
+    /// branch's get. It isn't dragged or edited here.
     fn upstream_row(
         &self,
         item: &Selection,
@@ -3108,7 +3105,7 @@ impl Navigator {
 
     /// Over the commits only branch `ref_name`'s remote has, or with `None` the target's new
     /// ones, a section heading as Network worktrees has: where they are, how many while
-    /// folded and whether any is unread, and for a branch, Pull.
+    /// folded, and for a branch, Pull. The branch's own row says when any is unread.
     fn upstream_heading(
         &self,
         ix: usize,
@@ -3118,7 +3115,6 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let store = self.store.read(cx);
-        let theme = style.theme;
         let workspace = store.workspace(project);
         let open = self.upstream_open(store, project, ref_name);
         let target = workspace.and_then(|ws| ws.target.as_ref());
@@ -3143,10 +3139,6 @@ impl Navigator {
             }
         };
         let update = ref_name.is_none() && target.is_some_and(|t| t.needs_update());
-        // Only a branch's are marked read.
-        let unread = (ref_name.zip(workspace)).is_some_and(|(ref_name, ws)| {
-            (ws.upstream(Some(ref_name)).iter()).any(|commit| store.is_unread(project, commit))
-        });
         let can_pull = (ref_name.zip(workspace)).is_some_and(|(r, ws)| ws.can_pull(r));
         let section = Section::Upstream(ref_name.cloned());
         let row = self.section_heading(ix, project, &section, label, style, cx);
@@ -3156,7 +3148,6 @@ impl Navigator {
             .when(!open || can_pull, |el| {
                 el.children(self.pull_count(project, ref_name, count, tip, style, cx))
             })
-            .when(!open && unread, |el| el.child(dot(style.meta(theme.pop))))
             .when(update, |el| {
                 el.child(self.target_update_button(project, style.solid, cx))
             });

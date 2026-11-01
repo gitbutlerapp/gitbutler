@@ -28,8 +28,8 @@ use crate::ui::file_icons::file_icon;
 use crate::ui::review::state_glyph;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
-    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dot, dp, faint, glow_once,
-    h_flex, keep_focus_on_press, list_row, relative_time, short_path, shortcut, small_icon, v_flex,
+    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dp, faint, glow_once, h_flex,
+    keep_focus_on_press, list_row, relative_time, short_path, shortcut, small_icon, v_flex,
 };
 
 mod activity;
@@ -773,7 +773,6 @@ impl Detail {
                                 .when(unread, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
                                 .child(commit_title(made.title())),
                         )
-                        .when(unread, |el| el.child(dot(theme.pop)))
                         .child(branch)
                         .child(overview_column(
                             relative_time(at),
