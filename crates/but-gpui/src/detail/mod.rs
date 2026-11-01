@@ -424,8 +424,9 @@ pub struct Detail {
     review_list: ListState,
     /// The pull request's side panel, which scrolls apart from its description beside it.
     review_side_scroll: ScrollHandle,
-    /// How wide the pull request tab was drawn, for whether its side panel fits beside it.
-    review_width: Rc<Cell<f32>>,
+    /// How wide the pull request tab was drawn, for whether its side panel fits beside it: on
+    /// a branch's page, then beside a list page's list.
+    review_width: [Rc<Cell<f32>>; 2],
     /// How tall the selected target commit's message is drawn over its diff, and how wide
     /// the space beside the project page's list is, measured as they're drawn.
     target_message_height: Rc<Cell<f32>>,
@@ -778,7 +779,7 @@ impl Detail {
             threads_flipped: HashSet::new(),
             review_list: ListState::new(0, ListAlignment::Top, fixed(200.)),
             review_side_scroll: ScrollHandle::new(),
-            review_width: Rc::new(Cell::new(pull_request::TWO_COLUMNS)),
+            review_width: [(); 2].map(|_| Rc::new(Cell::new(pull_request::TWO_COLUMNS))),
             target_message_height: Rc::new(Cell::new(0.)),
             beside_width: Rc::new(Cell::new(0.)),
             shipped_focus: cx.focus_handle(),

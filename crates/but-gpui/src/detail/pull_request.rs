@@ -4,16 +4,16 @@
 //! is. Only whether an open one can merge is asked as the tab shows it, as the cache doesn't
 //! keep that.
 
+use std::cell::Cell;
 use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, ClickEvent, ClipboardItem, Context, Div, Hsla, MouseButton, Role,
-    ScrollHandle, SharedString, Stateful, Toggled, Window, div, list, prelude::*,
+    ScrollHandle, SharedString, Stateful, Toggled, Window, div, list, prelude::*, relative,
 };
 
 use super::diff_view::pressed;
 use super::panes::{editable_title, measured, reword_editor};
-use super::resolve::{banner_action, warn_banner};
 use super::{Detail, PageFold};
 use crate::backend::reviews::MergeMethod;
 use crate::backend::{CheckRun, CheckState, Forge, FullName, Remark, Review, ReviewState};
@@ -434,6 +434,19 @@ impl Detail {
             .into_any_element()
     }
 
+    /// How wide the pull request tab was last drawn on a page like this one: beside a list
+    /// page's list, or on a branch's page. Kept apart, as the list makes them differ, so going
+    /// from one to the other lays the tab out for its width from the first frame. Not the
+    /// list page's own `beside_width`, which starts at nothing: the first tab drawn there would
+    /// take a frame to find room for its panel.
+    fn review_width(&self, cx: &App) -> &Rc<Cell<f32>> {
+        let [branch_page, list_page] = &self.review_width;
+        match self.list_page(cx) {
+            true => list_page,
+            false => branch_page,
+        }
+    }
+
     /// How tall the tabs beside a list are, which the diff starts below: nothing when the
     /// page has none.
     pub(super) fn list_tabs_height(&self, cx: &App) -> f32 {
@@ -456,11 +469,7 @@ impl Detail {
         let Some(review) = self.selected_review(cx) else {
             return div().into_any_element();
         };
-        let two_columns = self.review_width.get() >= TWO_COLUMNS;
-        // The panel beside the column narrows with the pane, so the column keeps its room and
-        // the panel stays beside it longer.
-        let panel =
-            (0.3 * self.review_width.get() - 2. * PANEL_INSET).clamp(PANEL_MIN_WIDTH, PANEL_WIDTH);
+        let two_columns = self.review_width(cx).get() >= TWO_COLUMNS;
         let (rows, drawn) = (
             LEAD + self.remarks_shown(project, review.number, cx),
             self.review_list.item_count(),
@@ -502,14 +511,18 @@ impl Detail {
                     theme,
                 )
                 .flex_none()
-                .w(dp(PANEL_INSET + panel + PANEL_INSET))
+                // Narrower in a narrower pane, so the column keeps its room and the panel stays
+                // beside it longer. Flex sizes it, so it's right on the frame the pane changes.
+                .w(relative(0.3))
+                .min_w(dp(PANEL_INSET + PANEL_MIN_WIDTH + PANEL_INSET))
+                .max_w(dp(PANEL_INSET + PANEL_WIDTH + PANEL_INSET))
                 .bg(theme.bg_2)
                 .border_l_1()
                 .border_color(theme.border_3),
             ),
             false => column,
         };
-        let width = measured(&self.review_width, &self.app, |bounds| {
+        let width = measured(self.review_width(cx), &self.app, |bounds| {
             bounds.size.width.into()
         });
         // A press on a note's text selects there before this sees it, and one anywhere else on
@@ -544,7 +557,7 @@ impl Detail {
             return div().into_any_element();
         };
         let theme = Theme::get(cx);
-        let two_columns = self.review_width.get() >= TWO_COLUMNS;
+        let two_columns = self.review_width(cx).get() >= TWO_COLUMNS;
         // Each row's content and the room above it. The list ignores a row's own margins, so
         // the room and the column's sides go on a row of its own around the content.
         let (above, content) = match ix {
@@ -582,11 +595,9 @@ impl Detail {
         .into_any_element()
     }
 
-    /// The tab's title, who opened it and when it last changed, under a banner when what it
-    /// shows has aged since the forge last answered. A click on the title edits it and the
-    /// description in its place, on the forges the app can edit them on.
+    /// The tab's title, who opened it and when it last changed. A click on the title edits it
+    /// and the description in its place, on the forges the app can edit them on.
     fn head(&self, project: &ProjectId, review: &Review, theme: &Theme, cx: &Context<Self>) -> Div {
-        let (_, stale) = self.freshness(project, review, theme, cx);
         let title = match review.title.as_str() {
             "" => format!("Pull request #{}", review.number),
             title => title.to_owned(),
@@ -614,30 +625,21 @@ impl Detail {
         };
         v_flex()
             .gap(dp(12.))
-            .children(stale)
             .child(title)
             .children(byline(review, theme))
     }
 
-    /// The panel of where the pull request stands: its card of facts.
-    fn side(&self, project: &ProjectId, review: &Review, theme: &Theme, cx: &Context<Self>) -> Div {
-        let store = self.store.read(cx);
-        let forge =
-            (store.workspace(project).and_then(|ws| ws.forge)).map_or("the forge", Forge::name);
-        let state = store.review_state(project, review);
-        self.side_sections(project, review, state, forge, theme, cx)
-    }
-
-    /// How fresh what the tab shows is: a button that asks the forge again, its tooltip saying
-    /// when it last answered, or once a failed ask has let what shows age, a banner saying so.
-    /// Neither for a merged or closed one, which is settled.
+    /// How fresh what the tab shows is: the button to ask the forge again, its tooltip saying
+    /// when it last answered, and once a failed ask has let what shows age, how old it is beside
+    /// it. Both sit on one line, so the warning coming and going moves nothing else. None for a
+    /// merged or closed one, which is settled.
     fn freshness(
         &self,
         project: &ProjectId,
         review: &Review,
         theme: &Theme,
         cx: &App,
-    ) -> (Option<crate::ui::Button>, Option<Stateful<Div>>) {
+    ) -> Option<Div> {
         let store = self.store.read(cx);
         let forge =
             (store.workspace(project).and_then(|ws| ws.forge)).map_or("the forge", Forge::name);
@@ -648,59 +650,45 @@ impl Detail {
             store.review_state(project, review),
             ReviewState::Merged | ReviewState::Closed
         ) {
-            return (None, None);
+            return None;
         }
         let ask = {
             let (store, project) = (self.store.clone(), project.clone());
             move |_: &ClickEvent, _: &mut Window, cx: &mut App| {
-                // The checks' button sits on what folds them.
-                cx.stop_propagation();
                 store.update(cx, |store, _| store.refresh_forge(&project))
             }
         };
         // A failed refresh is worth a warning only once what shows has aged; until then the
         // button to check again is enough.
-        if failed && synced.is_none_or(|at| now() - at > STALE_AFTER) {
-            let banner = warn_banner(
-                match synced {
-                    Some(at) => format!("Showing what {forge} said {}", ago(at)),
-                    None => format!("Showing what {forge} said last"),
-                },
-                format!("Couldn't update from {forge} just now."),
-                Some(
-                    banner_action("review-retry", "Try again", theme)
-                        .disabled_because(checking.then_some("Asking already"))
-                        .on_click(ask)
-                        .into_any_element(),
-                ),
-                theme,
-            );
-            return (None, Some(banner));
-        }
-        let fresh = icon_button("review-check", Icon::Refresh)
+        let stale = failed && synced.is_none_or(|at| now() - at > STALE_AFTER);
+        let tip = match synced {
+            _ if stale => format!("Couldn't update from {forge}. Try again"),
+            Some(at) => format!("Checked {}. Ask {forge} again", ago(at)),
+            None => format!("Ask {forge}"),
+        };
+        let button = icon_button("review-check", Icon::Refresh)
             .small()
-            .tooltip(match synced {
-                Some(at) => format!("Checked {}. Ask {forge} again", ago(at)),
-                None => format!("Ask {forge}"),
-            })
+            .tooltip(tip)
             .disabled_because(checking.then(|| format!("Asking {forge}…")))
             .on_click(ask);
-        (Some(fresh), None)
+        let age = stale.then(|| {
+            div().text_color(theme.warn).child(match synced {
+                Some(at) => format!("{} old", relative_time(at)),
+                None => "Out of date".to_owned(),
+            })
+        });
+        Some(h_flex().gap(dp(6.)).children(age).child(button))
     }
 
-    /// The panel's card of facts, as Lite's: merging, the state and a link to it, the checks,
-    /// who's asked to review, labels, branches and when it was opened.
-    fn side_sections(
-        &self,
-        project: &ProjectId,
-        review: &Review,
-        state: ReviewState,
-        forge: &str,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> Div {
+    /// The panel of where the pull request stands, a card of facts as Lite's: merging, the
+    /// state and a link to it, the checks, who's asked to review, labels, branches and when it
+    /// was opened.
+    fn side(&self, project: &ProjectId, review: &Review, theme: &Theme, cx: &Context<Self>) -> Div {
         let store = self.store.read(cx);
-        let github = store.workspace(project).and_then(|ws| ws.forge) == Some(Forge::GitHub);
+        let forge = store.workspace(project).and_then(|ws| ws.forge);
+        let state = store.review_state(project, review);
+        let github = forge == Some(Forge::GitHub);
+        let forge = forge.map_or("the forge", Forge::name);
         let sections = [
             self.merge_section(theme, cx),
             Some(status_section(review, state, forge, theme)),
@@ -737,9 +725,17 @@ impl Detail {
         cx: &Context<Self>,
     ) -> Option<Div> {
         let runs = &review.check_runs;
-        let (fresh, _) = self.freshness(project, review, theme, cx);
-        // Overhanging the heading's line, so the rows below stay put as it comes and goes.
-        let fresh = fresh.map(|fresh| div().ml_auto().mr(dp(-6.)).my(dp(-2.)).child(fresh));
+        // Overhanging the heading's line, so the rows below stay put as it comes and goes. It
+        // sits on what folds the checks, so a click on it, even while it's disabled, stops here.
+        let fresh = (self.freshness(project, review, theme, cx)).map(|fresh| {
+            div()
+                .id("checks-fresh")
+                .ml_auto()
+                .mr(dp(-6.))
+                .my(dp(-2.))
+                .on_click(|_, _, cx| cx.stop_propagation())
+                .child(fresh)
+        });
         let heading = || {
             h_flex()
                 .min_h(dp(20.))
