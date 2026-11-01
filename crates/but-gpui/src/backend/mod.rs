@@ -1349,6 +1349,7 @@ mod failure_tests {
                 UnresolvedLegacyTargetRefError {
                     target_ref: "refs/remotes/origin/main".try_into().unwrap(),
                     reason,
+                    track_command: None,
                     target_commit_id: None,
                     push_remote: None,
                 },

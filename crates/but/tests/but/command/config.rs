@@ -103,6 +103,7 @@ fn target_configures_distinct_push_remote_for_fork() {
     );
 }
 
+// regression test for https://linear.app/gitbutler/issue/GB-2242
 #[cfg(feature = "legacy")]
 #[test]
 fn target_remote_shorthand_without_tracking_branch_hints_to_track_it() {
@@ -110,14 +111,16 @@ fn target_remote_shorthand_without_tracking_branch_hints_to_track_it() {
     env.invoke_git("remote add upstream .");
     env.invoke_git("update-ref refs/remotes/upstream/main refs/remotes/origin/main");
 
-    // nothing is being migrated, so the error doesn't call upstream/main the current target
+    // nothing is being migrated, so the error doesn't call upstream/main the current target.
+    // The hint names main rather than leaving a branch open to fill in, as an agent fills it with
+    // the branch it works on, which then becomes the target and pushes to upstream/main.
     env.but("config target upstream/main")
         .assert()
         .failure()
         .stderr_eq(str![[r#"
 Error: No local branch tracks upstream/main
 
-Hint: Make a local branch track upstream/main with `git branch --set-upstream-to=upstream/main <branch>`, or choose a local target branch with `but config target <branch>`
+Hint: Make a local branch track upstream/main with `git branch --set-upstream-to=upstream/main main`, or choose a local target branch with `but config target <branch>`
 
 "#]]);
 
@@ -166,6 +169,24 @@ Hint: Run `but config target <remote>/<branch>` to configure one
         "refs/heads/main",
     );
     env.but("status").assert().success();
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn target_remote_head_without_tracking_branch_hints_to_choose_one() {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
+    env.invoke_bash("git checkout -q -b feature && git branch -q -D main");
+
+    // git doesn't accept HEAD as a branch name, so no command can make one track origin/HEAD
+    env.but("config target origin/HEAD")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: No local branch tracks origin/HEAD
+
+Hint: Choose a local target branch with `but config target <branch>`
+
+"#]]);
 }
 
 #[cfg(feature = "legacy")]
