@@ -1137,7 +1137,8 @@ impl Detail {
             move |position: Point<Pixels>, cx: &mut App| {
                 let at = At::File(path.clone(), line);
                 (entity.update(cx, |detail, cx| {
-                    detail.changes_menu(menu.clone(), at, hunk.map(Blamed::Hunk), position, cx)
+                    let blamed = hunk.map(Blamed::Hunk);
+                    detail.changes_menu(menu.clone(), at, blamed, false, position, cx)
                 }))
                 .ok();
             }
@@ -1912,7 +1913,7 @@ impl Detail {
                 true => self.cursor = cursor,
                 false => self.right_click_on(cursor, cx),
             }
-            self.changes_menu(menu, at, blamed, position, cx);
+            self.changes_menu(menu, at, blamed, false, position, cx);
             return;
         };
         let (project, worktree) = (diff.key.project.clone(), diff.key.files_checkout());

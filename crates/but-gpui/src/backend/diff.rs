@@ -588,13 +588,22 @@ fn load_file(
             lines_removed,
             ..
         }) => {
-            let mut hunks: Vec<Hunk> = hunks.iter().map(parse_hunk).collect();
-            if let Some(last) = hunks.last_mut() {
-                mark_missing_newlines(last, &filter);
+            let mut parsed: Vec<Hunk> = hunks.iter().map(parse_hunk).collect();
+            let mut sides = filter.resources().and_then(|(old, new)| {
+                let side = |data| Some(SideLines::new(side_bytes(data)?));
+                Some((side(old.data)?, side(new.data)?))
+            });
+            for (hunk, engine) in parsed.iter_mut().zip(&hunks) {
+                let raw = (sides.as_mut()).and_then(|(old, new)| raw_patch(hunk, old, new));
+                // The engine's text, in UTF-8 as the diff shows it, for lines that aren't.
+                hunk.patch = match raw {
+                    Some(patch) => patch.into(),
+                    None => engine.diff.to_str_lossy().into(),
+                };
             }
             DiffBody::Hunks {
-                widest: widest(&hunks),
-                hunks,
+                widest: widest(&parsed),
+                hunks: parsed,
                 added: lines_added,
                 removed: lines_removed,
                 conflicts: Vec::new(),
@@ -933,43 +942,74 @@ fn scope_sides(filter: &gix::diff::blob::Platform) -> Option<(String, String)> {
     })
 }
 
-/// Git's "\ No newline at end of file" in `hunk`'s patch, after its last line of a side
-/// of the change it reaches the end of, when that side ends without one: `git apply` needs
-/// it, and the diff engine ends every line with a newline. Only a file's last hunk can reach
-/// an end.
-fn mark_missing_newlines(hunk: &mut Hunk, filter: &gix::diff::blob::Platform) {
-    let Some((old, new)) = filter.resources() else {
-        return;
+/// `hunk`'s patch as git prints it, each line as its side has it, ending and all: the diff
+/// engine reads lines without their endings, so its own text ends every line with a bare
+/// newline. A line without one is marked "\ No newline at end of file", which `git apply`
+/// needs, and an unchanged line whose ending changed is said as a change, as git says it.
+/// `None` if a side lacks a line the hunk numbers, or has one that isn't UTF-8, which no
+/// patch on the clipboard can match.
+fn raw_patch(hunk: &Hunk, old: &mut SideLines, new: &mut SideLines) -> Option<String> {
+    let mut patch = format!("{}\n", hunk.header);
+    let push = |patch: &mut String, sign: char, line: &[u8]| {
+        patch.push(sign);
+        patch.push_str(std::str::from_utf8(line).ok()?);
+        if !line.ends_with(b"\n") {
+            patch.push_str("\n\\ No newline at end of file\n");
+        }
+        Some(())
     };
-    let unterminated = |data, start: u32, lines: u32| {
-        side_bytes(data).is_some_and(|bytes| {
-            let ends_bare = !bytes.is_empty() && !bytes.ends_with(b"\n");
-            // Its lines, the last one bare, counted only then.
-            ends_bare
-                && (start + lines) as usize == bytes.iter().filter(|b| **b == b'\n').count() + 2
-        })
-    };
-    let header = hunk.key.0;
-    let ends = [
-        unterminated(old.data, header.old_start, header.old_lines),
-        unterminated(new.data, header.new_start, header.new_lines),
-    ];
-    if ends == [false, false] {
-        return;
-    }
-    let lines: Vec<&str> = hunk.patch.split_inclusive('\n').collect();
-    let last = |side: [char; 2]| lines.iter().rposition(|line| line.starts_with(side));
-    let marked = [(ends[0], last([' ', '-'])), (ends[1], last([' ', '+']))]
-        .map(|(end, at)| at.filter(|_| end));
-    let mut patch = String::with_capacity(hunk.patch.len() + 64);
-    for (ix, line) in lines.iter().enumerate() {
-        patch.push_str(line);
-        // Once for an unchanged last line both sides end without one.
-        if marked.contains(&Some(ix)) {
-            patch.push_str("\\ No newline at end of file\n");
+    // The new side of an unchanged line said as a change, which goes after the lines taken out
+    // below it.
+    let mut added = None;
+    for (ix, line) in hunk.lines.iter().enumerate() {
+        match line.kind {
+            LineKind::Removed => push(&mut patch, '-', old.line(line.old?)?)?,
+            LineKind::Added => push(&mut patch, '+', new.line(line.new?)?)?,
+            LineKind::Context => {
+                let (before, after) = (old.line(line.old?)?, new.line(line.new?)?);
+                if before == after {
+                    push(&mut patch, ' ', before)?;
+                } else {
+                    push(&mut patch, '-', before)?;
+                    added = Some(after);
+                }
+            }
+        }
+        let removing = (hunk.lines.get(ix + 1)).is_some_and(|next| next.kind == LineKind::Removed);
+        if let Some(after) = added.take_if(|_| !removing) {
+            push(&mut patch, '+', after)?;
         }
     }
-    hunk.patch = patch.into();
+    Some(patch)
+}
+
+/// One side of a change, read a line at a time in order, each with its ending.
+struct SideLines<'a> {
+    rest: &'a [u8],
+    /// The number of the line `rest` starts with.
+    at: u32,
+}
+
+impl<'a> SideLines<'a> {
+    fn new(bytes: &'a [u8]) -> Self {
+        Self { rest: bytes, at: 1 }
+    }
+
+    /// Line `n`, past the lines asked for before it.
+    fn line(&mut self, n: u32) -> Option<&'a [u8]> {
+        while self.at <= n {
+            let end = (self.rest.find_byte(b'\n')).map_or(self.rest.len(), |at| at + 1);
+            let (line, rest) = self.rest.split_at_checked(end)?;
+            if line.is_empty() {
+                return None;
+            }
+            (self.rest, self.at) = (rest, self.at + 1);
+            if self.at > n {
+                return Some(line);
+            }
+        }
+        None
+    }
 }
 
 /// One side of a change: empty when it doesn't exist, `None` when binary.
@@ -1131,7 +1171,8 @@ pub(super) fn parse_hunk(hunk: &but_core::unified_diff::DiffHunk) -> Hunk {
         key: HunkKey(hunk.into()),
         header,
         lines,
-        patch: hunk.diff.to_str_lossy().into(),
+        // `load_file` writes it from both sides, which only it has.
+        patch: Arc::default(),
         scope: Vec::new(),
         lead: Vec::new(),
         tail: Vec::new(),
@@ -1219,13 +1260,17 @@ mod tests {
             let dir = repo_with(ten);
             let path = dir.path();
             std::fs::write(path.join("tail"), "a\nb\nc\nd").unwrap();
-            git(path, &["add", "tail"]);
+            let latin1 = b"Le caf\xe9 du matin\nUne cr\xe8me br\xfbl\xe9e\nLa for\xeat \xe9t\xe9\n";
+            std::fs::write(path.join("latin1"), latin1).unwrap();
+            git(path, &["add", "tail", "latin1"]);
             git(path, &["commit", "-q", "-m", "tail"]);
             let changed = ten.replace("two", "TWO").replace("ten", "TEN");
             std::fs::write(path.join("file"), changed).unwrap();
             std::fs::write(path.join("tail"), "a\nb\nC\nd").unwrap();
             std::fs::write(path.join("new"), "fresh\n").unwrap();
             std::fs::write(path.join("binary"), b"\0\x01").unwrap();
+            let edited = b"Le caf\xe9 du soir\nUne cr\xe8me br\xfbl\xe9e\nLa for\xeat \xe9t\xe9\n";
+            std::fs::write(path.join("latin1"), edited).unwrap();
             let diff =
                 super::load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
             let file = |name: &str| diff.iter().find(|f| f.file.path == name).unwrap();
@@ -1315,6 +1360,12 @@ new file mode 100644
                 None,
                 "a binary file has no lines to copy"
             );
+            let latin1 = file("latin1").patch(None).unwrap();
+            assert!(
+                latin1.contains("-Le café du matin") && !latin1.contains('\u{FFFD}'),
+                "a file that isn't UTF-8 copies as the diff shows it, if not as git applies it: \
+                 {latin1}"
+            );
 
             // The index is still at HEAD, so each applies to it as it applies to the commit.
             for patch in [whole, tail, added] {
@@ -1325,21 +1376,85 @@ new file mode 100644
     }
 
     #[test]
+    fn a_copied_diff_applied_writes_the_file_as_changed() {
+        but_testsupport::isolated_app_data_dir(|| {
+            // Each file as committed and as changed, around a last line without a newline,
+            // which the diff engine shows unchanged when only its newline changed.
+            let cases = [
+                ("lines_added_after", "a\nb", "a\nb\nc"),
+                ("lines_added_after_ended", "a\nb", "a\nb\nc\n"),
+                ("newline_added", "x\nd", "y\nd\n"),
+                ("newline_dropped", "x\nd\n", "y\nd"),
+                ("last_line_removed", "a\nb\nc", "a\nb"),
+                ("last_line_dropped", "a\nb", "a"),
+                ("bare_line_added", "a\n", "a\nb"),
+                ("last_line_changed", "a\nb", "a\nB"),
+                ("unchanged_end", "a\nb\nc\nd", "a\nb\nC\nd"),
+                ("crlf", "a\r\nb\r\nc\r\n", "a\r\nB\r\nc\r\n"),
+                ("crlf_bare_end", "a\r\nb", "a\r\nb\r\nc"),
+                ("ending_changed_beside", "a\nb\nc\n", "A\nb\r\nc\n"),
+            ];
+            let dir = repo_with("");
+            let path = dir.path();
+            for (name, before, _) in cases {
+                std::fs::write(path.join(name), before).unwrap();
+            }
+            git(path, &["add", "."]);
+            git(path, &["commit", "-q", "-m", "before"]);
+            for (name, _, after) in cases {
+                std::fs::write(path.join(name), after).unwrap();
+            }
+            let diff =
+                super::load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
+
+            for (name, _, after) in cases {
+                let file = diff.iter().find(|f| f.file.path == name).unwrap();
+                std::fs::write(path.join(".git/copied.patch"), file.patch(None).unwrap()).unwrap();
+                git(path, &["apply", "--cached", ".git/copied.patch"]);
+                let staged = git(path, &["show", &format!(":{name}")]);
+                assert_eq!(
+                    staged, after,
+                    "{name}: the index takes the change as the file has it"
+                );
+            }
+        });
+    }
+
+    #[test]
     fn a_copied_diff_says_what_else_changed_about_its_file() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\ntwo\nthree\nfour\nfive\n");
             let path = dir.path();
             std::fs::write(path.join("gone"), "bye\n").unwrap();
-            git(path, &["add", "gone"]);
+            std::fs::write(path.join("linked"), "elsewhere\n").unwrap();
+            git(path, &["add", "gone", "linked"]);
             git(path, &["commit", "-q", "-m", "gone"]);
             git(path, &["mv", "file", "moved"]);
             std::fs::write(path.join("moved"), "one\ntwo\nTHREE\nfour\nfive\n").unwrap();
             git(path, &["add", "moved"]);
             git(path, &["update-index", "--chmod=+x", "moved"]);
             git(path, &["rm", "-q", "gone"]);
+            // A link where a file was, its target written as the index takes it, on any platform.
+            std::fs::write(path.join(".git/target"), "other").unwrap();
+            let target = git(path, &["hash-object", "-w", ".git/target"]);
+            let link = format!("120000,{},linked", target.trim());
+            git(path, &["update-index", "--cacheinfo", &link]);
             git(path, &["commit", "-q", "-m", "move"]);
             let source = DiffSource::Commit(head(path));
             let diff = super::load_diff(path, source, None, None, None, None).unwrap();
+
+            let linked = diff.iter().find(|f| f.file.path == "linked").unwrap();
+            assert_eq!(linked.file.kind, crate::backend::ChangeKind::Modified);
+            assert!(
+                !linked.has_patch(),
+                "so its menu offers its path, not its diff"
+            );
+            assert_eq!(
+                linked.patch(None),
+                None,
+                "git says a file turned into a link as a deletion and an addition, which the \
+                 diff doesn't have the lines for"
+            );
 
             let patch: String = diff.iter().filter_map(|file| file.patch(None)).collect();
             // Renamed and made executable, and deleted, as git prints them.
