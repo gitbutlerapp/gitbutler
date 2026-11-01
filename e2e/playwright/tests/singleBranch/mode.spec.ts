@@ -82,7 +82,9 @@ test.describe("single-branch mode", () => {
 		await assertBranch("new-branch-on-target", localClone);
 		expect(branchTip("new-branch-on-target", localClone)).toBe(branchTip("master", localClone));
 		await expect(branchHeader(page, "new-branch-on-target")).toBeVisible();
-		await expectCurrentBranchChip(page, "new-branch-on-target");
+		await expect(getByTestId(page, "chrome-header-current-branch")).toHaveText(
+			"new-branch-on-target",
+		);
 	});
 
 	test("can open the app directly on a configured normal branch", async ({ page, gitbutler }) => {

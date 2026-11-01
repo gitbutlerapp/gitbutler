@@ -49,7 +49,7 @@
 		if (currentMode?.type === "OpenWorkspace") {
 			return "gitbutler/workspace";
 		} else if (currentMode?.type === "OutsideWorkspace") {
-			return currentMode.subject.branchName || "detached HEAD";
+			return currentMode.subject.branchName?.replace(/^refs\/heads\//, "") || "detached HEAD";
 		} else if (currentMode?.type === "Edit") {
 			return "gitbutler/edit";
 		}
@@ -292,7 +292,7 @@
 					<div class="chrome-current-branch__content">
 						<Icon name="branch" color="var(--text-2)" />
 						<span class="text-12 text-bold clr-text-2 truncate">{currentBranchName}</span>
-						{#if isNotInWorkspace}
+						{#if isDetached}
 							<span class="text-12 text-bold clr-text-2 op-60"> read-only </span>
 						{/if}
 					</div>
