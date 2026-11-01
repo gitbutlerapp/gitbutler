@@ -29,7 +29,8 @@ use gitbutler_reference::{Refname, normalize_branch_name as normalize_name};
 use gix::reference::Category;
 use tracing::instrument;
 
-use crate::branch::branch_canned_name;
+use crate::branch::{branch_canned_name, branch_create_with_perm, json::BranchCreatePlacement};
+use crate::commit::json::RelativeTo;
 // Parameter structs for all functions
 
 #[but_api]
@@ -53,8 +54,28 @@ pub fn create_virtual_branch(
             .to_full_name(branch_name.as_str())
             .map_err(anyhow::Error::from)?;
 
+        let mut guard = ctx.exclusive_worktree_access();
+        let perm = guard.write_permission();
+        if gitbutler_operating_modes::in_outside_workspace_mode(ctx, perm.read_permission())? {
+            let target = ctx.project_meta()?.target_ref;
+            let checked_out_target = ctx.repo.get()?.head_name()?.filter(|head| {
+                target.is_some_and(|target| target.as_local_full_name_ref() == head.as_ref())
+            });
+            // Alone on the target, the new branch goes on top of it and is checked out, as
+            // `git checkout -b` would. Beside any other branch, both go in the workspace.
+            if let Some(target) = checked_out_target {
+                let placement = BranchCreatePlacement::Dependent {
+                    relative_to: RelativeTo::Reference(target),
+                    side: InsertSide::Above,
+                };
+                branch_create_with_perm(ctx, Some(new_ref.clone()), placement, perm)?;
+            } else {
+                switch_back_to_workspace_with_perm(ctx, perm)?;
+            }
+        }
+
         let mut meta = ctx.meta()?;
-        let (guard, repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut()?;
+        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
         if ws
             .find_segment_owner_indexes_by_refname(new_ref.as_ref())
             .is_none()
@@ -92,7 +113,7 @@ pub fn create_virtual_branch(
             is_checked_out: false,
         };
 
-        drop((guard, repo, db));
+        drop((repo, db));
         ctx.update_workspace_cache(ws);
         out
     };
