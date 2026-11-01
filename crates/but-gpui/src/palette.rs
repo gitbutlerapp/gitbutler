@@ -54,7 +54,9 @@ pub struct Choice {
     /// give it, though its detail shows less. Never by letters scattered through it, which
     /// would find every commit.
     id: Option<SharedString>,
-    /// Where picking it goes, which the navigator outlines while it's selected.
+    /// Where picking it goes, which the navigator outlines while it's selected. Picked, it runs
+    /// at once rather than once the keys are drawn back where they were, so its `run` must
+    /// dispatch no action, which would miss the handlers registered only there.
     goes_to: Option<Selection>,
     run: Run,
 }
@@ -942,9 +944,16 @@ impl AppView {
         if let Some(focus) = palette.restore_focus {
             window.focus(&focus, cx);
         }
-        Self::once_drawn(window, cx, move |this, window, cx| {
-            (choice.run)(this, &typed, window, cx)
-        });
+        // Going somewhere selects it and gives the keys away itself, so at once: drawn with the
+        // keys back first, the navigator would flash its selection solid before a terminal
+        // entered took them.
+        if choice.goes_to.is_some() {
+            (choice.run)(self, &typed, window, cx);
+        } else {
+            Self::once_drawn(window, cx, move |this, window, cx| {
+                (choice.run)(this, &typed, window, cx)
+            });
+        }
         cx.notify();
     }
 
