@@ -12,7 +12,7 @@ use gpui::{
 };
 
 use super::diff_view::pressed;
-use super::panes::measured;
+use super::panes::{editable_title, measured, reword_editor};
 use super::resolve::{banner_action, warn_banner};
 use super::{Detail, PageFold};
 use crate::backend::reviews::MergeMethod;
@@ -547,13 +547,12 @@ impl Detail {
                 20.,
                 (!two_columns).then(|| self.side(&project, review, theme, cx)),
             ),
+            // While it's edited, the editor above holds it.
             2 => (
                 if two_columns { 12. } else { 20. },
-                Some(description(
-                    review,
-                    self.note_select(&description_id(review), cx),
-                    theme,
-                )),
+                (self.shown_review_edit(&project, review, cx).is_none()).then(|| {
+                    description(review, self.note_select(&description_id(review), cx), theme)
+                }),
             ),
             3 => (24., self.conversation(&project, review, theme, cx)),
             _ => (
@@ -577,23 +576,39 @@ impl Detail {
     }
 
     /// The tab's title, who opened it and when it last changed, under a banner when what it
-    /// shows has aged since the forge last answered.
-    fn head(&self, project: &ProjectId, review: &Review, theme: &Theme, cx: &App) -> Div {
+    /// shows has aged since the forge last answered. A click on the title edits it and the
+    /// description in its place, on the forges the app can edit them on.
+    fn head(&self, project: &ProjectId, review: &Review, theme: &Theme, cx: &Context<Self>) -> Div {
         let (_, stale) = self.freshness(project, review, theme, cx);
         let title = match review.title.as_str() {
             "" => format!("Pull request #{}", review.number),
             title => title.to_owned(),
         };
+        let forge = (self.store.read(cx).workspace(project)).and_then(|ws| ws.forge);
+        let title = match (self.shown_review_edit(project, review, cx), forge) {
+            (Some((edit, saving)), _) => reword_editor(&edit.input, saving, theme),
+            (None, Some(Forge::GitHub | Forge::GitLab | Forge::Bitbucket)) => editable_title(
+                "review-title",
+                title,
+                "Edit title and description",
+                None,
+                theme,
+            )
+            .text_size(dp(18.))
+            .line_height(dp(24.))
+            .on_click(cx.listener(|this, _, window, cx| this.start_review_edit(window, cx)))
+            .into_any_element(),
+            (None, Some(Forge::Azure) | None) => div()
+                .text_size(dp(18.))
+                .line_height(dp(24.))
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .child(title)
+                .into_any_element(),
+        };
         v_flex()
             .gap(dp(12.))
             .children(stale)
-            .child(
-                div()
-                    .text_size(dp(18.))
-                    .line_height(dp(24.))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                    .child(title),
-            )
+            .child(title)
             .children(byline(review, theme))
     }
 

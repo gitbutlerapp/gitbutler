@@ -60,6 +60,8 @@ pub struct Overlay {
     pub merges: Option<u64>,
     /// The pull request, by number, whose auto-merge it turns on or off, and which.
     pub auto_merges: Option<(u64, bool)>,
+    /// The pull request, by number, whose title and description it edits.
+    pub edits_review: Option<u64>,
     /// It opens a pull request for the branch it pushes.
     pub publishes: bool,
     /// The move with the keys it lands, still shown as it was while being moved, its copy where
@@ -1771,6 +1773,12 @@ impl Store {
     pub fn publishing(&self, project: &ProjectId, ref_name: &FullName) -> bool {
         (self.running_in(project))
             .any(|r| r.overlay.publishes && matches!(&r.kind, OpKind::Push(to) if to == ref_name))
+    }
+
+    /// Whether a pending operation edits the title and description of pull request `number`.
+    pub fn editing_review(&self, project: &ProjectId, number: u64) -> bool {
+        self.overlays(project)
+            .any(|o| o.edits_review == Some(number))
     }
 
     /// Keep the selection on commits an operation rewrote.

@@ -569,7 +569,7 @@ impl Detail {
         let rewording = (self.rewording.as_ref())
             .filter(|(reworded, ..)| super::composer::rewords(reworded, project, commit, store));
         let title = match rewording {
-            Some((_, input, _)) => reword_editor(input, theme),
+            Some((_, input, _)) => reword_editor(input, false, theme),
             // A click on its title starts editing the message, and so does a double-click on
             // its body.
             None => (self.message(title, body, theme))
@@ -1091,7 +1091,7 @@ pub(super) fn title_text(text: impl IntoElement) -> Div {
 }
 
 /// A page's title that a click starts editing in place, which `tip` and `key` say.
-fn editable_title(
+pub(super) fn editable_title(
     id: &'static str,
     text: impl IntoElement,
     tip: &'static str,
@@ -2009,8 +2009,13 @@ fn person_row(
         )
 }
 
-/// The box editing a commit's message, with how to save or leave it.
-fn reword_editor(input: &Entity<MessageEditor>, theme: &Theme) -> AnyElement {
+/// The box editing a commit's or a pull request's message, with how to save or leave it, and
+/// while `saving`, that the forge has yet to take it.
+pub(super) fn reword_editor(
+    input: &Entity<MessageEditor>,
+    saving: bool,
+    theme: &Theme,
+) -> AnyElement {
     v_flex()
         .gap(dp(8.))
         .child(input.clone())
@@ -2029,9 +2034,10 @@ fn reword_editor(input: &Entity<MessageEditor>, theme: &Theme) -> AnyElement {
                 })
                 .child({
                     let input = input.clone();
-                    button("save-reword", "Save")
+                    button("save-reword", if saving { "Saving…" } else { "Save" })
                         .small()
                         .style(ButtonStyle::Pop)
+                        .disabled_because(saving.then_some("Waiting for the forge"))
                         .on_click(move |_, _, cx| {
                             input.update(cx, |_, cx| cx.emit(InputEvent::Submit))
                         })
