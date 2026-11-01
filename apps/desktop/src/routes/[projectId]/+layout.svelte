@@ -30,6 +30,7 @@
 	import { invalidatesList, ReduxTag } from "$lib/state/tags";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { debounce } from "$lib/utils/debounce";
+	import { worktreeChangesTag } from "$lib/worktree/worktreeEndpoints";
 	import { inject } from "@gitbutler/core/context";
 	import { mergeUnlisten } from "@gitbutler/ui-svelte/utils/mergeUnlisten";
 	import { onDestroy, untrack, type Snippet } from "svelte";
@@ -197,16 +198,29 @@
 			// remote-ref updates (push, external fetch), on external
 			// writes to `virtual_branches.toml` (e.g. by the `but` CLI)
 			// and when linked worktrees are added or removed.
-			backend.listen(`project://${projectId}/workspace-activity`, () => {
+			backend.listen(`project://${projectId}/workspace-activity`, async () => {
+				const { backendApi } = clientState;
 				clientState.dispatch(
-					clientState.backendApi.util.invalidateTags([
+					backendApi.util.invalidateTags([
 						invalidatesList(ReduxTag.Stacks),
 						invalidatesList(ReduxTag.StackDetails),
-						invalidatesList(ReduxTag.WorktreeChanges),
+						worktreeChangesTag(),
 						invalidatesList(ReduxTag.Worktrees),
 						invalidatesList(ReduxTag.IntegrationSteps),
 						invalidatesList(ReduxTag.BranchListing),
 					]),
+				);
+				// A linked worktree's lane comes from the stacks re-read above, so one removed
+				// outside the app keeps its lane until they arrive. Re-read the changes of the
+				// worktrees still listed then, as reading a removed one's would fail.
+				const worktrees = await backendApi.endpoints.workspaceDetails
+					.fetch({ projectId }, { transform: (details) => details.worktrees })
+					// The workspace view reports a failed re-read; its lanes stay as they were.
+					.catch(() => undefined);
+				clientState.dispatch(
+					backendApi.util.invalidateTags(
+						(worktrees ?? []).map((worktree) => worktreeChangesTag(worktree.name)),
+					),
 				);
 			}),
 		),
