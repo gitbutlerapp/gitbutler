@@ -10,10 +10,16 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 use std::{ptr, sync, thread};
 
 use super::{Output, PAUSE_MS, Queue, Size, queue};
 use anyhow::Context as _;
+
+/// How long the output stays open once the shell exits, for the reader to take what it wrote
+/// last, which can still be on its way through the terminal when the exit is reported, as on
+/// Linux. Jobs the shell left can hold the terminal open for good, so it doesn't wait for them.
+const LAST_OUTPUT_WAIT: Duration = Duration::from_millis(100);
 
 /// A shell running on a pseudo-terminal, hung up when dropped unless it was kept.
 pub struct Pty {
@@ -105,9 +111,15 @@ impl Pty {
         let (stop_reading, stopped) = UnixStream::pair()?;
         let reader = master.try_clone()?;
         let ended = queue.clone();
+        // Dropped when the reader stops, at the hangup once everything holding the terminal
+        // has exited.
+        let (reading, done_reading) = sync::mpsc::channel::<()>();
         let reader = thread::Builder::new()
             .name("pty reader".into())
-            .spawn(move || read_until_hangup(reader, stopped, queue))?;
+            .spawn(move || {
+                let _reading = reading;
+                read_until_hangup(reader, stopped, queue)
+            })?;
 
         let exited = Arc::new(AtomicBool::new(false));
         let waited = exited.clone();
@@ -120,6 +132,7 @@ impl Pty {
                     code.set(exit_code).ok();
                 }
                 waited.store(true, Ordering::SeqCst);
+                done_reading.recv_timeout(LAST_OUTPUT_WAIT).ok();
                 ended.close();
             })?;
 
