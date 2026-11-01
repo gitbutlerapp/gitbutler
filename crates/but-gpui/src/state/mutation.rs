@@ -256,7 +256,12 @@ pub(super) struct Running {
     pub(super) phase: Phase,
     /// Reloads asked for while it ran, which the reload after it reads too.
     pub(super) deferred: Reload,
+    /// What it does once it worked, as selecting the commit it rewrote, waiting for the
+    /// reload after it: see [`Store::run_done`].
+    done: Option<DoneHandler>,
 }
+
+type DoneHandler = Box<dyn FnOnce(&mut Store, &mut Context<Store>)>;
 
 /// How far a running operation has got: the reload after it, not its own end, ends it.
 #[derive(Clone, Copy, PartialEq)]
@@ -1198,7 +1203,9 @@ impl Store {
     /// Apply `intent` to `project`, then reload it, busy until the reload lands. Until then,
     /// `overlay` hides what it takes away, and another operation on `project` is refused, so
     /// each one acts on what the one before it did, but for those that run beside it
-    /// ([`OpKind::beside`]), each refusing only one of its own kind. `done` gets its result.
+    /// ([`OpKind::beside`]), each refusing only one of its own kind. `done` gets its result
+    /// once the reload lands, before what it loaded shows; for those beside it, and for undo
+    /// and redo, once it's finished.
     pub fn apply<I: backend::Intent>(
         &mut self,
         project: &ProjectId,
@@ -1285,6 +1292,7 @@ impl Store {
             started: now,
             phase: Phase::Working,
             deferred: Reload::default(),
+            done: None,
         });
         cx.emit(StoreEvent::Pending(project.clone()));
         cx.notify();
@@ -1310,7 +1318,6 @@ impl Store {
                     store.workspace(&project),
                 );
                 let source = (project.clone(), label.clone());
-                let first_card = store.next_toast;
                 match result {
                     Ok((value, ran)) => {
                         // A push or fetch writes only what the remote has, which undo leaves,
@@ -1347,15 +1354,37 @@ impl Store {
                             store.push_undo_step(project, snapshot, now);
                             store.redo_steps.clear();
                         }
-                        // Gone on to another project meanwhile, the user stays there, picks and
-                        // all: what this finished selects, as the commit it made, doesn't take
-                        // them back, and what it says names its project.
-                        store.staying = (store.selection.as_ref())
-                            .is_some_and(|selection| *selection.project() != project);
-                        done(store, value, cx);
-                        store.staying = false;
+                        let (finished, own) = (project.clone(), source.clone());
+                        let snapshot = store.last_snapshot.clone();
+                        let done: DoneHandler = Box::new(move |store, cx| {
+                            // Gone on to another project meanwhile, the user stays there, picks
+                            // and all: what this finished selects, as the commit it made,
+                            // doesn't take them back, and what it says names its project.
+                            store.staying = (store.selection.as_ref())
+                                .is_some_and(|selection| *selection.project() != finished);
+                            // Its Undo is its own, though another finished since, as a fetch
+                            // beside it or one in another project, which stays the last after.
+                            let latest =
+                                std::mem::replace(&mut store.last_snapshot, snapshot.clone());
+                            let first_card = store.next_toast;
+                            done(store, value, cx);
+                            store.own_cards(first_card, &own);
+                            store.staying = false;
+                            if latest != snapshot {
+                                store.last_snapshot = latest;
+                            }
+                        });
+                        // One beside the others selects nothing new, and its reload can wait
+                        // for theirs, which shouldn't hold up what it says, as Pushed. Nor do
+                        // undo and redo, whose steps ⌘Z and ⌘⇧Z go by next, at once.
+                        let running = store.running.iter_mut().find(|r| r.id == id);
+                        match running.filter(|_| !beside && !undo) {
+                            Some(running) => running.done = Some(done),
+                            None => done(store, cx),
+                        }
                     }
                     Err(err) => {
+                        let first_card = store.next_toast;
                         // What it would have taken away stays, so the selection goes back.
                         if let Some((moved, instead)) = moved
                             && store.selection.as_ref() == Some(&instead)
@@ -1381,16 +1410,7 @@ impl Store {
                         } else {
                             store.error(title, detail, cx)
                         }
-                    }
-                }
-                // The cards it wrote are its own, for the next run of it that works to take back.
-                for toast in (store.toasts.iter_mut()).filter(|toast| toast.id >= first_card) {
-                    if let Notice::Error {
-                        source: card @ None,
-                        ..
-                    } = &mut toast.notice
-                    {
-                        *card = Some(source.clone());
+                        store.own_cards(first_card, &source);
                     }
                 }
                 store.load(&project, reload, cx);
@@ -1496,6 +1516,39 @@ impl Store {
     /// Whether one of `project`'s operations has finished and waits for a load to start.
     pub(super) fn awaits_reload(&self, project: &ProjectId) -> bool {
         self.running_in(project).any(|r| r.phase == Phase::Finished)
+    }
+
+    /// Run what `project`'s operations whose reload just landed do once they worked. What one
+    /// selects, as the commit it rewrote or the branch it renamed, is only in what that loaded:
+    /// selected a frame sooner, no row would be it, and the row it was on would blink. They
+    /// run before what it loaded shows, so they read the workspace as it was before them, and
+    /// the load follows the selection on from what they left. A project removed while it
+    /// reloaded keeps them from running, to select and offer Undo in a project not listed.
+    pub(super) fn run_done(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        if self.project(project).is_none() {
+            return;
+        }
+        let done: Vec<_> = (self.running.iter_mut())
+            .filter(|r| r.project == *project && r.phase == Phase::Reloading)
+            .filter_map(|r| r.done.take())
+            .collect();
+        for done in done {
+            done(self, cx);
+        }
+    }
+
+    /// Mark the error cards written since `first` as `source`'s, the operation and its
+    /// project, for the next run of it that works to take back.
+    fn own_cards(&mut self, first: usize, source: &(ProjectId, SharedString)) {
+        for toast in (self.toasts.iter_mut()).filter(|toast| toast.id >= first) {
+            if let Notice::Error {
+                source: card @ None,
+                ..
+            } = &mut toast.notice
+            {
+                *card = Some(source.clone());
+            }
+        }
     }
 
     /// End `project`'s operations whose reload has loaded what they did, or can't load at all.

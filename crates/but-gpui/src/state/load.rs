@@ -668,6 +668,9 @@ impl Store {
                 // One that started before the project's operation finished, landing in front
                 // of the reload after it, doesn't show what the operation did yet.
                 let fresh = settles || !store.awaits_reload(&id);
+                if settles {
+                    store.run_done(&id, cx);
+                }
                 let Some(entry) = store.project_mut(&id) else {
                     store.settled(&id, cx);
                     return;
