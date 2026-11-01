@@ -107,6 +107,7 @@ impl Render for DiffPane {
             detail.follow_alone(cx);
             detail.follow_folds(window, cx);
             detail.follow_glide(window, cx);
+            detail.follow_scroll(cx);
             detail.follow_drag(window, cx);
             let top = detail.list.logical_scroll_top();
             (

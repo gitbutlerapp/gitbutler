@@ -314,6 +314,9 @@ pub struct Detail {
     people_scroll: ScrollHandle,
     /// Where the diff is gliding to, a step each frame, after the keys moved its cursor.
     glide: Option<Glide>,
+    /// The file the diff was scrolled to past the cursor, which the file list marks as the
+    /// current one: see [`Detail::current_file`].
+    reading: Option<usize>,
     diff: Option<LoadedDiff>,
     diff_error: Option<SharedString>,
     loading: Option<DiffKey>,
@@ -727,6 +730,7 @@ impl Detail {
             people_open: false,
             people_scroll: ScrollHandle::new(),
             glide: None,
+            reading: None,
             diff: None,
             diff_error: None,
             loading: None,
@@ -988,6 +992,7 @@ impl Detail {
         self.file_picks.clear();
         self.line_picks = None;
         self.cursor = Cursor::default();
+        self.reading = None;
         self.folded.clear();
         self.file_folds.stop_all();
         self.fold_rows.clear();
@@ -1316,10 +1321,12 @@ impl Detail {
                 Arc::new(sorted)
             }
         };
-        // Before the rows, which can show the cursor's file alone.
+        // Before the rows, which can show the cursor's file alone. The file scrolled to is
+        // found again in the new files once they're drawn.
         if same {
             self.cursor = self.cursor_in(&files);
         }
+        self.reading = None;
         let (rows, shown, alone) = self.build_rows(&key, &files, false, cx);
         let top = same.then(|| self.keep_place(&rows, &files, alone.is_some()));
         // The rows go, and with them the one the diff was gliding to: on a reload, as when the
@@ -1490,6 +1497,58 @@ impl Detail {
             self.row_of(|row| *row == DiffRow::Hunk { file, hunk })
         };
         (changes.or_else(gap)).or_else(|| self.row_of(|row| *row == DiffRow::File(file)))
+    }
+
+    /// The file the file list marks, and what acts on a whole file acts on: the cursor's, or
+    /// once the diff is scrolled past it, the file at the diff's top, the one its sticky header
+    /// names, as in but.dev. What acts on a hunk still acts on the cursor's.
+    fn current_file(&self) -> usize {
+        self.reading.unwrap_or(self.cursor.file)
+    }
+
+    /// Mark the file the diff is scrolled to as the current one while the cursor is out of
+    /// sight. Scrolling leaves the cursor where it is, so its hunk is still selected when the
+    /// diff comes back to it. Not while the diff glides to the cursor, past other files.
+    pub(super) fn follow_scroll(&mut self, cx: &mut Context<Self>) {
+        let reading = match self.glide.is_none() && !self.cursor_in_sight(cx) {
+            true => self.top_file().filter(|file| *file != self.cursor.file),
+            false => None,
+        };
+        if self.reading != reading {
+            self.reading = reading;
+            cx.notify();
+        }
+    }
+
+    /// The file of the row at the diff's top.
+    fn top_file(&self) -> Option<usize> {
+        let top = self.list.logical_scroll_top().item_ix;
+        let rows = self.diff.as_ref()?.rows.get(top..)?;
+        rows.iter().find_map(|row| row.file())
+    }
+
+    /// Whether any of what the cursor's on shows in the diff: the rows [`Detail::extent`]
+    /// gives, or its row where they aren't drawn. Rows not drawn since they were rebuilt count
+    /// as tall as they're guessed to be.
+    fn cursor_in_sight(&self, cx: &App) -> bool {
+        let Some((first, last)) =
+            (self.extent(self.cursor)).or_else(|| self.cursor_row().map(|row| (row, row)))
+        else {
+            return false;
+        };
+        let top = self.list.logical_scroll_top();
+        if last < top.item_ix {
+            return false;
+        }
+        let height = self.list.viewport_bounds().size.height;
+        let mut down = -top.offset_in_item;
+        for row in top.item_ix..first {
+            down += self.row_height(row, cx);
+            if down >= height {
+                return false;
+            }
+        }
+        true
     }
 
     pub fn is_focused(&self, window: &Window, cx: &App) -> bool {
@@ -1907,7 +1966,7 @@ impl Detail {
         }
     }
 
-    /// The file `delta` files from the cursor, through the ones shown.
+    /// The file `delta` files from the current one, through the ones shown.
     fn file_step(&self, delta: isize, cx: &App) -> Option<usize> {
         let shown = self.listed_files(cx);
         if shown.is_empty() {
@@ -1915,10 +1974,11 @@ impl Detail {
         }
         // Found by place, as the filter's ranking can list the files out of the diff's order.
         // From a file that isn't shown, the next shown one counts as a step.
-        let at = match shown.iter().position(|file| *file == self.cursor.file) {
+        let current = self.current_file();
+        let at = match shown.iter().position(|file| *file == current) {
             Some(at) => at as isize,
             None => {
-                let at = shown.partition_point(|file| *file < self.cursor.file) as isize;
+                let at = shown.partition_point(|file| *file < current) as isize;
                 at - isize::from(delta >= 0)
             }
         };
@@ -2207,11 +2267,11 @@ impl Detail {
     }
 
     /// Where the diff's cursor is, as an editor's status bar says the line: the place of the
-    /// file under it among the ones shown, as the file list orders them, and its hunk. The
-    /// sticky header names the file.
+    /// current file among the ones shown, as the file list orders them, and the cursor's hunk
+    /// while it's in it. The sticky header names the file.
     pub fn cursor_place(&self, cx: &App) -> Option<String> {
         let diff = self.shown_diff()?;
-        let file = diff.files.get(self.cursor.file)?;
+        let file = diff.files.get(self.current_file())?;
         // The list's order is worked out only while the filter ranks the files, as this is drawn
         // with every frame: otherwise the list has them as the diff does, which loads them in
         // its order. Folders folded shut count too, as the diff shows their files.
@@ -2219,21 +2279,22 @@ impl Detail {
             true => self.shown_files(),
             false => self.files_in_list_order(&HashSet::new(), cx),
         };
-        let at = shown.iter().position(|file| *file == self.cursor.file)? + 1;
+        let at = shown.iter().position(|file| *file == self.current_file())? + 1;
         let mut place = format!("File {at} of {}", shown.len());
         let hunks = file.hunks().len();
-        if let Some(hunk) = self.cursor.at.hunk().filter(|hunk| *hunk < hunks) {
+        let hunk = (self.cursor.at.hunk()).filter(|hunk| *hunk < hunks && self.reading.is_none());
+        if let Some(hunk) = hunk {
             place.push_str(&format!(" · hunk {} of {hunks}", hunk + 1));
         }
         Some(place)
     }
 
-    /// The path of the file under the cursor, in any diff.
+    /// The path of the current file, in any diff: see [`Detail::current_file`].
     pub fn cursor_path(&self) -> Option<String> {
-        self.diff_path(self.cursor.file)
+        self.diff_path(self.current_file())
     }
 
-    /// The path of the file under the cursor, unless the diff it's in is hidden: under a
+    /// The path of the current file, unless the diff it's in is hidden: under a
     /// pull request's tab, which draws no files, or a checkout's overview, where the list
     /// marks only picked ones.
     pub fn shown_cursor_path(&self, cx: &App) -> Option<String> {
@@ -2343,10 +2404,10 @@ impl Detail {
         }
     }
 
-    /// ⇧← folds the cursor's file and ⇧→ unfolds it, as the navigator folds. Not in a diff that
+    /// ⇧← folds the current file and ⇧→ unfolds it, as the navigator folds. Not in a diff that
     /// isn't drawn.
     fn fold_cursor_file(&mut self, fold: bool, cx: &mut Context<Self>) {
-        let file = self.cursor.file;
+        let file = self.current_file();
         let folded = self.diff_path(file).map(|path| self.folded.contains(&path));
         if folded == Some(!fold) && !self.diff_hidden(cx) {
             self.toggle_fold(file, cx);
@@ -3065,17 +3126,19 @@ impl Render for Detail {
                 } else if !this.file_picks.is_empty() {
                     this.discard_picked(window, cx)
                 } else if !this.showing_now(cx) {
-                    this.discard(this.cursor.file, None, window, cx)
+                    this.discard(this.current_file(), None, window, cx)
                 }
             }))
             .on_action(cx.listener(|this, _: &FoldFile, _, cx| this.fold_cursor_file(true, cx)))
             .on_action(cx.listener(|this, _: &UnfoldFile, _, cx| this.fold_cursor_file(false, cx)))
-            // On its header, or its row in the file list, not from inside one of its hunks.
+            // On its header, or its row in the file list, or scrolled to past the cursor, not
+            // from inside one of its hunks.
             .on_action(cx.listener(|this, _: &ToggleFileFold, window, cx| {
-                if this.cursor.at != Stop::File && !this.files_focused(window) {
+                let in_hunk = this.cursor.at != Stop::File && this.reading.is_none();
+                if in_hunk && !this.files_focused(window) {
                     return;
                 }
-                let file = this.diff_path(this.cursor.file);
+                let file = this.diff_path(this.current_file());
                 let folded = file.is_some_and(|path| this.folded.contains(&path));
                 this.fold_cursor_file(!folded, cx)
             }))

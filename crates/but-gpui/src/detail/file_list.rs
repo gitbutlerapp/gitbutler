@@ -1081,7 +1081,7 @@ impl Detail {
         let diff_ix = extras.diff_ix;
         let stats = (diff_ix.and_then(|ix| self.diff.as_ref()?.files.get(ix))).map(FileDiff::stats);
         // None while a checkout's overview shows: no file is picked then.
-        let current = diff_ix == Some(self.cursor.file) && !self.showing_now(cx);
+        let current = diff_ix == Some(self.current_file()) && !self.showing_now(cx);
         let picked = extras.picked;
         let solid = (current || picked) && solid;
         // On the solid ground, as ui-react's FileList inverts a selected row's contents.
@@ -1296,7 +1296,7 @@ impl Detail {
         // A picked file's menu is all the picks', as on its row.
         let payload = match self.file_picks.contains(&path) {
             true => self.owned_cut(self.picked_changes(), cx),
-            false => self.diff_cut(self.cursor.file, None, cx),
+            false => self.diff_cut(self.current_file(), None, cx),
         };
         let at = At::File(path, None);
         Some(self.changes_items(payload, at, None, cx))

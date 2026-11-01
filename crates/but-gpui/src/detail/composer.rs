@@ -386,19 +386,19 @@ impl Detail {
         self.composing && self.checks_diff().is_some()
     }
 
-    /// Check or uncheck, as a click on its checkbox does, the file under the cursor in the
-    /// file list, or in the diff the hunk under it, else its file.
+    /// Check or uncheck, as a click on its checkbox does, the current file in the file list, or
+    /// in the diff the hunk under the cursor, else the current file.
     pub(super) fn toggle_cursor_check(&mut self, window: &Window, cx: &mut Context<Self>) {
-        let Some(file) = self
-            .checks_diff()
-            .and_then(|diff| diff.files.get(self.cursor.file))
-        else {
+        let hunk = (self.cursor.at.near()).filter(|_| !self.files_focus.is_focused(window));
+        let at = match hunk {
+            Some(_) => self.cursor.file,
+            None => self.current_file(),
+        };
+        let Some(file) = self.checks_diff().and_then(|diff| diff.files.get(at)) else {
             return;
         };
         let path = file.file.path.clone();
-        let hunk = (self.cursor.at.near())
-            .filter(|_| !self.files_focus.is_focused(window))
-            .and_then(|hunk| Some(file.hunks().get(hunk)?.key));
+        let hunk = hunk.and_then(|hunk| Some(file.hunks().get(hunk)?.key));
         match hunk {
             Some(key) => self.toggle_hunk(&path, key, cx),
             // The files selected with it go as it goes.
