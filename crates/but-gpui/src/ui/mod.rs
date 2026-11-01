@@ -858,9 +858,11 @@ pub fn dropdown(
 pub fn field(input: &Entity<text_input::TextInput>, focused: bool, theme: &Theme) -> Div {
     let clicked = input.clone();
     div()
-        // Its padding is part of the field to click.
+        // Its padding is part of the field to click, and keeps the keys from a focusable
+        // parent, which would take them as the press goes on to it.
         .on_mouse_down(gpui::MouseButton::Left, move |_, window, cx| {
-            window.focus(&gpui::Focusable::focus_handle(&clicked, cx), cx)
+            window.focus(&gpui::Focusable::focus_handle(&clicked, cx), cx);
+            window.prevent_default();
         })
         .px(dp(8.))
         .py(dp(5.))
