@@ -457,6 +457,10 @@ impl Detail {
             return div().into_any_element();
         };
         let two_columns = self.review_width.get() >= TWO_COLUMNS;
+        // The panel beside the column narrows with the pane, so the column keeps its room and
+        // the panel stays beside it longer.
+        let panel =
+            (0.3 * self.review_width.get() - 2. * PANEL_INSET).clamp(PANEL_MIN_WIDTH, PANEL_WIDTH);
         let (rows, drawn) = (
             LEAD + self.remarks_shown(project, review.number, cx),
             self.review_list.item_count(),
@@ -481,26 +485,27 @@ impl Detail {
         )
         .h_full();
         // Side by side, each scrolls on its own, so neither a long description nor a long
-        // list of checks takes the other out of sight. Narrow, the panel goes between the
-        // title and the description, so the page still opens on what the pull request is.
+        // list of checks takes the other out of sight. The panel is a pane of its own along
+        // the right edge, grey and edged as the navigator is, its cards under the header's
+        // actions, so the room the column leaves reads as margin. Narrow, the panel goes
+        // between the title and the description, so the page still opens on what the pull
+        // request is.
         let page = match two_columns {
-            true => h_flex()
-                .size_full()
-                .max_w(dp(1000. + 2. * 24.))
-                .child(column.min_w_0())
-                .child(
-                    scrolling(
-                        "review-side",
-                        "review-side-scrollbar",
-                        self.side(project, review, theme, cx)
-                            .pl(dp(12.))
-                            .pr(dp(24.)),
-                        &self.review_side_scroll,
-                        theme,
-                    )
-                    .flex_none()
-                    .w(dp(12. + PANEL_WIDTH + 24.)),
-                ),
+            true => h_flex().size_full().child(column.min_w_0()).child(
+                scrolling(
+                    "review-side",
+                    "review-side-scrollbar",
+                    (self.side(project, review, panel >= PANEL_WIDTH, theme, cx))
+                        .px(dp(PANEL_INSET)),
+                    &self.review_side_scroll,
+                    theme,
+                )
+                .flex_none()
+                .w(dp(PANEL_INSET + panel + PANEL_INSET))
+                .bg(theme.bg_2)
+                .border_l_1()
+                .border_color(theme.border_3),
+            ),
             false => column,
         };
         let width = measured(&self.review_width, &self.app, |bounds| {
@@ -545,7 +550,7 @@ impl Detail {
             0 => (16., Some(self.head(&project, review, theme, cx))),
             1 => (
                 20.,
-                (!two_columns).then(|| self.side(&project, review, theme, cx)),
+                (!two_columns).then(|| self.side(&project, review, true, theme, cx)),
             ),
             // While it's edited, the editor above holds it.
             2 => (
@@ -571,7 +576,8 @@ impl Detail {
         }
         .pt(dp(above))
         .when(last, |el| el.pb(dp(24.)))
-        .child(content)
+        // Capped by a wrapper, so the description's wash still reaches past its text.
+        .child(div().max_w(dp(COLUMN_MAX_WIDTH)).child(content))
         .into_any_element()
     }
 
@@ -612,8 +618,16 @@ impl Detail {
             .children(byline(review, theme))
     }
 
-    /// The panel of where the pull request stands: its checklist over its card of facts.
-    fn side(&self, project: &ProjectId, review: &Review, theme: &Theme, cx: &Context<Self>) -> Div {
+    /// The panel of where the pull request stands: its checklist over its card of facts, the
+    /// checklist's heading `counted` as [`Self::checklist`] says.
+    fn side(
+        &self,
+        project: &ProjectId,
+        review: &Review,
+        counted: bool,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Div {
         let store = self.store.read(cx);
         let forge =
             (store.workspace(project).and_then(|ws| ws.forge)).map_or("the forge", Forge::name);
@@ -621,7 +635,7 @@ impl Detail {
         let (fresh, _) = self.freshness(project, review, theme, cx);
         v_flex()
             .gap(dp(12.))
-            .children(self.checklist(project, review, state, fresh, theme, cx))
+            .children(self.checklist(project, review, fresh, counted, theme, cx))
             .child(self.side_sections(project, review, state, forge, theme, cx))
     }
 
@@ -691,13 +705,14 @@ impl Detail {
 
     /// What stands between the pull request and merging, as Lite's checklist: where an open
     /// one stands, over a row for each thing the forge has said about it. Its heading says
-    /// how fresh that is with `fresh`, the button to ask again.
+    /// how fresh that is with `fresh`, the button to ask again, and when `counted`, how many
+    /// of the rows are clear, which a narrow panel has no room for beside the button.
     fn checklist(
         &self,
         project: &ProjectId,
         review: &Review,
-        state: ReviewState,
         fresh: Option<impl IntoElement>,
+        counted: bool,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<Div> {
@@ -706,7 +721,10 @@ impl Detail {
             headline(&crate::pr::mergeability(store, project, review), theme)
         });
         // Waiting on reviewers or conflicts is news only while it's open.
-        let open = matches!(state, ReviewState::Open | ReviewState::Draft);
+        let open = matches!(
+            store.review_state(project, review),
+            ReviewState::Open | ReviewState::Draft
+        );
         let mut rows: Vec<(String, Option<Hsla>)> = Vec::new();
         if let Some(checks) = review.checks {
             rows.push(match checks {
@@ -758,7 +776,7 @@ impl Detail {
                         .h(dp(14.))
                         .gap(dp(8.))
                         .child(mono("CHECKLIST".into(), theme.text_2))
-                        .when(!rows.is_empty(), |el| {
+                        .when(counted && !rows.is_empty(), |el| {
                             el.child(mono(
                                 format!("{clear} of {} checks", rows.len()),
                                 theme.text_3,
@@ -997,11 +1015,22 @@ impl Detail {
 }
 
 /// How wide, in design pixels, the pull request tab must be for its panel to sit beside the
-/// description, as Lite's breakpoint.
-pub(super) const TWO_COLUMNS: f32 = 720.;
+/// description: where the column, beside the narrowest panel, would get under about 300.
+pub(super) const TWO_COLUMNS: f32 = 640.;
 
-/// How wide the panel beside the description is, as Lite's.
+/// How wide the panel beside the description gets, as Lite's.
 const PANEL_WIDTH: f32 = 315.;
+
+/// How narrow the panel beside the description gets in a narrow pane: as narrow as the merge
+/// row fits on one line.
+const PANEL_MIN_WIDTH: f32 = 272.;
+
+/// The room on each side of the panel's cards: the header's, so they line up under its actions.
+const PANEL_INSET: f32 = 16.;
+
+/// How wide the column's content gets, so a description's lines stay short enough to read and
+/// 120 columns of code still fit.
+const COLUMN_MAX_WIDTH: f32 = 840.;
 
 /// The rows of the tab's column before what's been said: the title, the panel, empty while it's
 /// beside the column so a change of layout adds or takes no row, the description and the
