@@ -456,3 +456,22 @@ Windows CI job lints and tests the one, the Linux lint and test jobs the other.
   palette's theme toggle.
 - Format a file on its own with `rustfmt --edition 2024 <file>`: given `lib.rs` or a `mod.rs`,
   rustfmt formats every module under it too, which matters when others edit the crate at once.
+
+## Motion
+
+How a mode with the keys (moving, squashing) shows itself as the user steps through it.
+Check a motion against these with `film` (Checking a motion in the `gpui-screenshots` skill).
+
+- What a mode takes (dimmed, in a dashed outline) holds still while the user steps. It never
+  changes colour, opacity or border as the outline moves, whether at its own rows or
+  elsewhere, at the first frame or as the outline arrives.
+- The outline showing where it would go is the only thing that moves, drawn on top of the
+  rows. It slides between rows, and to fit a group (a branch and its commits, picked commits)
+  it changes shape by moving its top and bottom edges apart. It is never swapped for another
+  highlight when it lands, and nothing under it changes so it can land.
+- Picked commits act as one group, as a branch does: where they started is one stop, and the
+  outline grows around all of them there.
+- Use the marks the modes already have: the outline, dimming, dashes and colour. Don't add
+  chips, badges or boxes beside a row to say what a mode does; the status bar says it.
+- What a mode takes keeps its mark wherever the outline is. A motion fix that takes a mark
+  away is a regression.
