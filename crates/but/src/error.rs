@@ -178,6 +178,17 @@ where
                 "Run `but switch --workspace` and start conflict resolution with `but resolve`",
             ));
         }
+        // A linked worktree refuses a checkout only when its uncommitted changes are in the way.
+        if error.is::<but_rebase::graph_rebase::materialize::LinkedWorktreeCheckout>()
+            && error
+                .downcast_ref::<but_error::Context>()
+                .is_some_and(|ctx| ctx.code == but_error::Code::PreconditionFailed)
+        {
+            return CliError::BadInput(
+                bad_input(format!("{error:#}"))
+                    .hint("Run `but commit` or `but discard` in that worktree, then retry"),
+            );
+        }
         if let Some(unresolved) =
             error.downcast_ref::<but_core::ref_metadata::UnresolvedLegacyTargetRefError>()
         {

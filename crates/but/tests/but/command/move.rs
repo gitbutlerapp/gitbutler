@@ -4853,6 +4853,47 @@ Moved zqt to the tip of branch 'feature'
     );
 }
 
+/// A commit moved onto the branch a linked worktree has checked out would overwrite that
+/// worktree's uncommitted change to the same file. The move is refused as bad input naming
+/// the worktree, and the worktree and the history stay as they were.
+#[test]
+fn move_onto_a_worktree_branch_refuses_to_overwrite_its_uncommitted_changes() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("status").assert().success();
+    let wt = env.app_data_dir().join("worktrees").join("wt-dirty");
+    but_testsupport::invoke_bash_at_dir(
+        &format!(
+            r#"
+        git checkout -q -b feature
+        echo feature >init && git commit -q -am "change init"
+        git worktree add -q -b wt-dirty "{wt}" main
+        echo dirty >"{wt}/init"
+        "#,
+            wt = wt.display()
+        ),
+        env.projects_root(),
+    );
+    let log_before = env.git_log();
+
+    env.but(format!("move {} -b wt-dirty", env.invoke_git("rev-parse feature")))
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not update worktree 'wt-dirty' at [..]wt-dirty: Uncommitted files would be overwritten by checkout: "init"
+
+Hint: Run `but commit` or `but discard` in that worktree, then retry
+
+"#]]);
+
+    assert_eq!(
+        std::fs::read_to_string(wt.join("init")).unwrap(),
+        "dirty\n",
+        "the worktree keeps its uncommitted change"
+    );
+    assert_eq!(env.git_log(), log_before, "a refused move rewrites nothing");
+}
+
 /// `--below` a worktree heading moves the commit to the tip of the branch that worktree has
 /// checked out, taking it out of the workspace.
 #[test]
