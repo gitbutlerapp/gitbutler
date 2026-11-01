@@ -2,7 +2,7 @@
 //! selection, what's been cut, and each project's operation in flight.
 
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
@@ -222,6 +222,32 @@ impl Cut {
                 files => format!("{} files", files.len()),
             },
             Cut::Worktree(_, name) => name.to_string(),
+        }
+    }
+
+    /// What a terminal pastes when it's dropped there, as ⌘C copies its row, from its
+    /// project's `workspace`, whose main checkout is `main`: each commit's
+    /// [`reference`](Commit::reference), a branch's name, or a worktree's folder. Nothing once
+    /// a commit or worktree it holds is gone.
+    pub fn pasted(&self, main: &Path, workspace: &Workspace) -> Option<Vec<String>> {
+        let folder = |checkout: &Checkout| {
+            let path = workspace.checkout_path(main, checkout)?;
+            Some(vec![path.display().to_string()])
+        };
+        match self {
+            Cut::Commit(_, ids) | Cut::CherryPick(_, ids) => (ids.iter())
+                .map(|id| Some(workspace.find_commit(*id)?.1.reference()))
+                .collect(),
+            Cut::Branch(_, ref_name) => Some(vec![short_ref(ref_name).into_owned()]),
+            Cut::Worktree(_, name) => folder(&Checkout::Linked(name.clone())),
+            // A worktree's row drags its files, which mean it here: a terminal covers the file
+            // list, the only other place they're dragged from.
+            Cut::Files {
+                from: None,
+                worktree,
+                ..
+            } => folder(worktree),
+            Cut::Files { from: Some(_), .. } => None,
         }
     }
 }
@@ -1265,5 +1291,90 @@ impl Store {
     pub fn set_moving(&mut self, moving: Option<crate::transfer::Move>, cx: &mut Context<Self>) {
         self.moving = moving;
         cx.notify();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::backend::model::build::full;
+    use crate::backend::{Lane, PushState, Worktree};
+
+    #[test]
+    fn a_row_dropped_on_a_terminal_pastes_its_name_or_folder() {
+        let project = ProjectId::from("p");
+        let [kept, gone] = [1, 2].map(|n| CommitId(gix::ObjectId::from([n; 20])));
+        let feat = full("refs/heads/feat");
+        let workspace = Workspace {
+            lanes: vec![Lane {
+                branches: vec![Branch {
+                    name: "feat".into(),
+                    ref_name: Some(feat.clone()),
+                    commits: vec![Commit {
+                        key: "vtlrvnlmsxrmrsnrkvqlwrzqokpsoxzk".into(),
+                        ..Commit::bare(kept.0)
+                    }],
+                    incoming: Vec::new(),
+                    remote: None,
+                    push: PushState::NeverPushed,
+                    review: None,
+                }],
+                checkout: Checkout::Main,
+                rests_on: None,
+            }],
+            worktrees: vec![Worktree {
+                name: "agent".into(),
+                path: "/work/agent".into(),
+                branch: None,
+                uncommitted: Vec::new(),
+                git_operation: None,
+                tree: None,
+                updated_at: None,
+            }],
+            ..Workspace::default()
+        };
+        let pasted = |cut: Cut| cut.pasted(Path::new("/work/repo"), &workspace);
+        let words = |words: &[&str]| Some(words.iter().map(|w| w.to_string()).collect::<Vec<_>>());
+        let files = |worktree| Cut::Files {
+            project: project.clone(),
+            from: None,
+            worktree,
+            files: Arc::from([]),
+        };
+        assert_eq!(
+            pasted(Cut::Commit(project.clone(), Arc::from([kept]))),
+            words(&["vtlrvnlmsxrmrsnrkvqlwrzqokpsoxzk"]),
+            "a commit by its change ID"
+        );
+        assert_eq!(
+            pasted(Cut::Commit(project.clone(), Arc::from([kept, gone]))),
+            None,
+            "nothing once a commit it holds is gone, rather than a stale id"
+        );
+        assert_eq!(
+            pasted(Cut::Branch(project.clone(), feat)),
+            words(&["feat"]),
+            "a branch by its short name"
+        );
+        assert_eq!(
+            pasted(Cut::Worktree(project.clone(), "agent".into())),
+            words(&["/work/agent"]),
+            "a linked worktree by its folder"
+        );
+        assert_eq!(
+            pasted(Cut::Worktree(project.clone(), "removed".into())),
+            None,
+            "nothing for a worktree that's gone"
+        );
+        assert_eq!(
+            pasted(files(Checkout::Main)),
+            words(&["/work/repo"]),
+            "the main worktree's row drags its files, which paste its folder"
+        );
+        assert_eq!(
+            pasted(files(Checkout::Linked("agent".into()))),
+            words(&["/work/agent"]),
+            "and a linked worktree's its own"
+        );
     }
 }

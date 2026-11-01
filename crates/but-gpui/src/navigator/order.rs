@@ -7,8 +7,8 @@ use std::cmp::Reverse;
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, DragMoveEvent, EmptyView, Pixels, Point, Stateful,
-    Window, actions, prelude::*,
+    AnyElement, App, ClickEvent, Context, Div, DragMoveEvent, Pixels, Point, SharedString,
+    Stateful, Window, actions, prelude::*,
 };
 
 use super::Navigator;
@@ -17,7 +17,7 @@ use crate::app::AppView;
 use crate::overlays::MenuItem;
 use crate::state::{Prefs, ProjectEntry, ProjectId, Selection, Store, WatchedOrder};
 use crate::theme::Theme;
-use crate::transfer::{CardSlot, Move, Moving, Stop};
+use crate::transfer::{CardSlot, Move, Moving, ProjectDrag, Stop, project_preview};
 use crate::ui::{Icon, icon_button};
 
 actions!(
@@ -150,26 +150,35 @@ impl Navigator {
         ]
     }
 
-    /// Let a watched project's heading drag its card among the others, which make room for it
-    /// where it'd go (see [`Self::follow_project_drag`]), as moving it with the keys does. The
-    /// card shows where it goes, so nothing follows the pointer.
-    pub(super) fn reorderable(
+    /// Let `el` drag project `id` under a pill with its folder's `label`, as other rows' drags
+    /// have: into a terminal, which pastes the folder, and while it `reorders`, its card among
+    /// the others, which make room for it where it'd go (see [`Self::follow_project_drag`]), as
+    /// moving it with the keys does.
+    pub(super) fn project_drag(
         &self,
         el: Stateful<Div>,
         id: &ProjectId,
+        label: SharedString,
+        reorders: bool,
         cx: &Context<Self>,
     ) -> Stateful<Div> {
         let navigator = cx.entity().downgrade();
-        let dragged = id.clone();
-        el.on_drag(ProjectDrag(id.clone()), move |_, _, _, cx| {
-            let nothing = cx.new(|_| EmptyView);
+        let preview = project_preview(label);
+        let drag = ProjectDrag {
+            id: id.clone(),
+            reorders,
+        };
+        el.on_drag(drag, move |drag, offset, window, cx| {
+            let pill = preview(drag, offset, window, cx);
             // A drop anywhere else, or none, puts the cards back as they were.
-            let (navigator, dragged) = (navigator.clone(), dragged.clone());
-            cx.observe_release(&nothing, move |_, cx| {
-                (navigator.update(cx, |this, cx| this.hold_card(&dragged, None, cx))).ok();
-            })
-            .detach();
-            nothing
+            if reorders {
+                let (navigator, dragged) = (navigator.clone(), drag.id.clone());
+                cx.observe_release(&pill, move |_, cx| {
+                    (navigator.update(cx, |this, cx| this.hold_card(&dragged, None, cx))).ok();
+                })
+                .detach();
+            }
+            pill
         })
     }
 
@@ -208,7 +217,11 @@ impl Navigator {
         cx: &mut Context<Self>,
     ) {
         let at = event.event.position;
-        let dragged = event.drag(cx).0.clone();
+        let drag = event.drag(cx);
+        if !drag.reorders {
+            return;
+        }
+        let dragged = drag.id.clone();
         let depth = (event.bounds.contains(&at))
             .then(|| self.depth_at(at, Theme::get(cx)))
             .flatten();
@@ -228,8 +241,12 @@ impl Navigator {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // Not a move the keys started, which a folder dragged meanwhile isn't part of.
+        if !drag.reorders {
+            return;
+        }
         let held = (self.store.read(cx).moving.as_ref())
-            .is_some_and(|moving| moving.project == drag.0 && moving.project_order().is_some());
+            .is_some_and(|moving| moving.project == drag.id && moving.project_order().is_some());
         if held {
             self.move_here(&crate::app::MoveHere, window, cx);
         }
@@ -269,9 +286,6 @@ impl Navigator {
         Some(above + f32::from(at.y - bounds.top()) / theme.scale)
     }
 }
-
-/// A watched project's card being dragged, by its heading.
-pub(super) struct ProjectDrag(ProjectId);
 
 /// The cards `rows` list, each by its project and the rows it takes, from its heading up to
 /// the gap before the next.

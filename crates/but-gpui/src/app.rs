@@ -4,9 +4,9 @@
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnyView, App, ClipboardItem, Context, DispatchPhase, Div, Entity, FocusHandle, Focusable,
-    FontFeatures, MouseMoveEvent, Pixels, Point, PromptLevel, Role, SharedString, StyleRefinement,
-    Subscription, Task, WeakEntity, Window, actions, div, prelude::*, relative,
+    AnyView, App, ClipboardItem, Context, DispatchPhase, Div, Entity, ExternalPaths, FocusHandle,
+    Focusable, FontFeatures, MouseMoveEvent, Pixels, Point, PromptLevel, Role, SharedString,
+    StyleRefinement, Subscription, Task, WeakEntity, Window, actions, div, prelude::*, relative,
 };
 
 use crate::backend::upstream::UpdateScope;
@@ -22,7 +22,7 @@ use crate::state::{
 };
 use crate::terminal::NewTerminal;
 use crate::theme::{ColorScheme, Theme, UiScale};
-use crate::transfer::{Place, Transfer};
+use crate::transfer::{Place, ProjectDrag, Transfer};
 use crate::ui::fold::{Slide, edge, inert};
 use crate::ui::{HEADER_HEIGHT, POPOVER_RADIUS, dp, fixed, resize_pane};
 
@@ -1347,8 +1347,8 @@ impl AppView {
     }
 
     /// Copy what's selected in the form other tools take: a file's path, a commit's id,
-    /// a branch's name or a project's directory. What it copied blinks, as the TUI highlights
-    /// it.
+    /// a branch's name or a project's or worktree's directory, as dropping its row on a
+    /// terminal pastes it. What it copied blinks, as the TUI highlights it.
     fn copy_selection(&mut self, _: &CopySelection, window: &mut Window, cx: &mut Context<Self>) {
         let file = (self.detail.read(cx).is_focused(window, cx))
             .then(|| self.detail.update(cx, |detail, cx| detail.copy(cx)))
@@ -1357,24 +1357,21 @@ impl AppView {
         let text = file.or_else(|| match self.selection(cx)? {
             Selection::Commit(project, id) => {
                 let (_, commit) = self.store.read(cx).find_commit(&project, id)?;
-                Some(if commit.has_change_id() {
-                    commit.key.clone()
-                } else {
-                    id.0.to_string()
-                })
+                Some(commit.reference())
             }
             Selection::Upstream(_, _, id) => Some(id.0.to_string()),
             Selection::Terminal(..) => None,
             Selection::Branch(_, ref_name) => {
                 ref_name.map(|ref_name| short_ref(&ref_name).into_owned())
             }
-            Selection::Project(project) => {
+            // The main worktree's folder is the project's.
+            Selection::Project(project) | Selection::Uncommitted(project) => {
                 Some(self.store.read(cx).path(&project)?.display().to_string())
             }
             Selection::Worktree(project, name) => {
-                let workspace = self.store.read(cx).workspace(&project)?;
-                let worktree = workspace.find_worktree(name.as_ref())?;
-                Some(worktree.path.display().to_string())
+                let path =
+                    (self.store.read(cx)).checkout_path(&project, &Checkout::Linked(name))?;
+                Some(path.display().to_string())
             }
             Selection::Mesh(project, id, MeshPick::Checkout) => Some(
                 self.store
@@ -1383,8 +1380,7 @@ impl AppView {
                     .path
                     .clone(),
             ),
-            Selection::Uncommitted(_)
-            | Selection::Mesh(..)
+            Selection::Mesh(..)
             | Selection::Branches(_)
             | Selection::History(_)
             | Selection::Graph(_)
@@ -1776,9 +1772,28 @@ impl AppView {
                     .left_0()
                     .right_0()
                     .child(terminal.cached(StyleRefinement::default().size_full()))
+                    .child(self.paste_outline(theme))
             }))
             .when(navigator_sliding, |el| {
                 el.child(edge(theme.border_3).left(fixed(-1.)))
+            })
+    }
+
+    /// Over the terminal shown, an outline while what's held over it would paste there, a row
+    /// or files from the Finder, as a row that takes a drop has. It's drawn here, where GPUI styles it again each frame of the
+    /// drag: the terminal's own view draws only when it changes, so one there would stay up
+    /// after a drag let go elsewhere or stopped with Escape.
+    fn paste_outline(&self, theme: &Theme) -> Div {
+        let (store, color) = (self.store.clone(), theme.pop);
+        div()
+            .absolute()
+            .inset_0()
+            .drag_over::<Cut>(move |style, _, _, _| style.border_1().border_color(color))
+            .drag_over::<ProjectDrag>(move |style, _, _, _| style.border_1().border_color(color))
+            .drag_over::<ExternalPaths>(move |style, _, _, _| style.border_1().border_color(color))
+            // Not once a commit or worktree the drag holds is gone, which pastes nothing.
+            .can_drop(move |dragged, _, cx| {
+                !dragged.is::<Cut>() || store.read(cx).pasted().is_some()
             })
     }
 

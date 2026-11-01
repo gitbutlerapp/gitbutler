@@ -77,14 +77,23 @@ impl Store {
         workspace.worktrees.iter().find(|wt| *wt.name == *name)
     }
 
+    /// The folder of `project`'s `checkout`.
+    pub fn checkout_path(&self, project: &ProjectId, checkout: &Checkout) -> Option<PathBuf> {
+        let main = self.path(project)?;
+        match self.workspace(project) {
+            Some(workspace) => workspace.checkout_path(&main, checkout),
+            // Nothing's loaded of a project not watched, so only its main checkout is known.
+            None => (*checkout == Checkout::Main).then_some(main),
+        }
+    }
+
     /// The folder of the checkout `selection` is in: a linked worktree's, or the main one's.
     /// `None` for another machine's checkout.
     pub fn checkout_dir(&self, selection: &Selection) -> Option<PathBuf> {
         let project = selection.project();
         match selection {
             Selection::Worktree(_, name) => {
-                let worktree = self.workspace(project)?.find_worktree(name.as_ref())?;
-                Some(worktree.path.clone())
+                self.checkout_path(project, &Checkout::Linked(name.clone()))
             }
             Selection::Mesh(..) => None,
             _ => match self.worktree_for(selection) {

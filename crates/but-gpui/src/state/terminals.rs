@@ -102,6 +102,14 @@ impl Terminals {
 }
 
 impl Store {
+    /// What a terminal pastes of the row being dragged ([`Cut::pasted`](super::Cut::pasted)), as
+    /// the store followed it, as an agent may have rewritten it.
+    pub fn pasted(&self) -> Option<Vec<String>> {
+        let cut = self.dragging.as_ref()?;
+        let project = cut.project();
+        cut.pasted(&self.path(project)?, self.workspace(project)?)
+    }
+
     /// Open a terminal on `project`'s `checkout` and select it, once its shell has started.
     pub fn open_terminal(
         &mut self,
@@ -109,13 +117,7 @@ impl Store {
         checkout: Checkout,
         cx: &mut Context<Self>,
     ) {
-        let cwd = match &checkout {
-            Checkout::Main => self.path(&project),
-            Checkout::Linked(name) => (self.workspace(&project))
-                .and_then(|ws| ws.find_worktree(name.as_ref()))
-                .map(|wt| wt.path.clone()),
-        };
-        let Some(cwd) = cwd else {
+        let Some(cwd) = self.checkout_path(&project, &checkout) else {
             return;
         };
         let run = self.prefs.terminal_run().map(str::to_owned);
