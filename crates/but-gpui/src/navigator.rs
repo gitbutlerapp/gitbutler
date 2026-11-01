@@ -12,8 +12,8 @@ use but_tty::Status;
 use gpui::{
     AnyElement, App, Bounds, ClickEvent, Context, CursorStyle, Div, DragMoveEvent, ElementId,
     EmptyView, Entity, FocusHandle, Focusable, Hsla, ListAlignment, ListOffset, ListState,
-    MouseButton, MouseDownEvent, Pixels, Point, Role, ScrollWheelEvent, SharedString, Stateful,
-    Subscription, Task, Window, actions, div, list, prelude::*, relative,
+    Modifiers, MouseButton, MouseDownEvent, Pixels, Point, Role, ScrollWheelEvent, SharedString,
+    Stateful, Subscription, Task, Window, actions, div, list, prelude::*, relative,
 };
 
 use crate::app::{
@@ -33,7 +33,7 @@ use crate::state::{
 };
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
-use crate::transfer::drag_preview;
+use crate::transfer::{ProjectDrag, drag_preview};
 use crate::ui::emoji::{Colour, ProjectIcon};
 use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, on_top, reordered, shifted};
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
@@ -63,7 +63,7 @@ mod rename;
 mod rows;
 
 use drop::insertion_line;
-use order::{ProjectDrag, cards};
+use order::cards;
 use rows::{
     CARD_PADDING, COMMIT_INDENT, Drawer, Fold, GUIDE_AT, HEADING_HEIGHT, Moving, ROW_LEFT, Row,
     RowKey, Rows, in_checkout, in_inactive, inactive_open, last_active, row_keys, span_height,
@@ -1917,31 +1917,52 @@ impl Navigator {
         }
     }
 
-    /// Select `item` on press, as native lists do: a click waits for the release. ⌘ (ctrl off
-    /// macOS) or ⇧ picks commits along with the selected one. A press on one of several
-    /// picked commits leaves them picked, so dragging it takes them all; letting go without
-    /// dragging selects just it (see [`Self::commit_row`]).
-    fn select_on_press(
-        &self,
-        item: &Selection,
-        cx: &Context<Self>,
-    ) -> impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static {
-        let item = item.clone();
-        cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-            let (toggle, shift) = (event.modifiers.secondary(), event.modifiers.shift);
-            match &item {
-                Selection::Commit(project, id) if toggle || shift => {
-                    let range = shift.then(|| this.commit_order(project, *id, cx));
-                    this.store
-                        .update(cx, |store, cx| store.pick(project, *id, range, cx));
-                    window.focus(&this.focus, cx);
+    /// Let a click on row `el` select `item` ([`Self::select_row`]): on press, as native lists
+    /// do, a click waiting for the release. While a terminal is the selection, the press leaves
+    /// it be, so a row can be dragged into it, and the click selects once it lets go.
+    fn selectable(&self, el: Stateful<Div>, item: &Selection, cx: &Context<Self>) -> Stateful<Div> {
+        let terminal = |store: &Store| matches!(store.selection, Some(Selection::Terminal(..)));
+        let (pressed, clicked) = (item.clone(), item.clone());
+        el.on_mouse_down(
+            MouseButton::Left,
+            cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                if !terminal(this.store.read(cx)) {
+                    this.select_row(&pressed, event.modifiers, window, cx)
                 }
-                Selection::Commit(project, id) if this.store.read(cx).among_picks(project, *id) => {
-                    window.focus(&this.focus, cx)
-                }
-                _ => this.select(item.clone(), window, cx),
+            }),
+        )
+        .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
+            let store = this.store.read(cx);
+            // Not again a terminal row its press selected.
+            if terminal(store) && store.selection.as_ref() != Some(&clicked) {
+                this.select_row(&clicked, event.modifiers(), window, cx)
             }
-        })
+        }))
+    }
+
+    /// A row `item` clicked with `held` down: ⌘ (ctrl off macOS) or ⇧ picks commits along with
+    /// the selected one. A press on one of several picked commits leaves them picked, so
+    /// dragging it takes them all; letting go without dragging selects just it (see
+    /// [`Self::commit_row`]).
+    fn select_row(
+        &mut self,
+        item: &Selection,
+        held: Modifiers,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match item {
+            Selection::Commit(project, id) if held.secondary() || held.shift => {
+                let range = held.shift.then(|| self.commit_order(project, *id, cx));
+                self.store
+                    .update(cx, |store, cx| store.pick(project, *id, range, cx));
+                window.focus(&self.focus, cx);
+            }
+            Selection::Commit(project, id) if self.store.read(cx).among_picks(project, *id) => {
+                window.focus(&self.focus, cx)
+            }
+            _ => self.select(item.clone(), window, cx),
+        }
     }
 
     /// The projects not watched, in a drawer under the cards that opens upwards to part of
@@ -2313,7 +2334,7 @@ impl Navigator {
                             })),
                     )
                 })
-                .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+                .map(|el| self.selectable(el, item, cx))
                 // Under the filter too, where `toggle_project` leaves a card open but still
                 // watches a project the filter found.
                 .on_click({
@@ -2324,8 +2345,11 @@ impl Navigator {
                         }
                     })
                 })
-                // Only the manual order moves by hand.
-                .when(expanded && manual, |el| self.reorderable(el, id, cx))
+                // Only the manual order moves cards by hand.
+                .map(|el| {
+                    let name = SharedString::from(entry.project.name.clone());
+                    self.project_drag(el, id, name, expanded && manual, cx)
+                })
                 .into_any_element(),
         )
     }
@@ -2346,7 +2370,7 @@ impl Navigator {
             .child(icon(glyph).text_color(style.muted()))
             .child(div().flex_1().child(label))
             .when_some(tip, |el, tip| el.tooltip(Tooltip::text(tip)))
-            .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+            .map(|el| self.selectable(el, item, cx))
             .into_any_element()
     }
 
@@ -2370,7 +2394,7 @@ impl Navigator {
                 None => (div().flex_1().min_w_0().truncate().child(title)).into_any_element(),
             })
             .children(status_mark(status, !store.hidden(), style))
-            .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx));
+            .map(|el| self.selectable(el, item, cx));
         Some(row.into_any_element())
     }
 
@@ -2397,7 +2421,7 @@ impl Navigator {
                     .child("Editing a commit"),
             )
             .children(change_counts(tally(files), style))
-            .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+            .map(|el| self.selectable(el, item, cx))
             .into_any_element()
     }
 
@@ -2498,14 +2522,14 @@ impl Navigator {
                     .min_w_0()
                     .truncate()
                     .tooltip(Tooltip::text(path.display().to_string()))
-                    .child(label),
+                    .child(label.clone()),
             )
             .children(change_counts(tally(&uncommitted), style))
             .when(!open, |el| {
                 el.children(style.unpushed(unpushed_n))
                     .when(unread, |el| el.child(dot(style.meta(theme.pop))))
             })
-            .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+            .map(|el| self.selectable(el, item, cx))
             .when(folds, |el| el.on_click(double_click(toggle, cx)));
         // The worktree's checked files while it's shown, else all of them, but not conflicted
         // ones: with only those, there's nothing to drag. A linked worktree with none drags
@@ -2534,12 +2558,12 @@ impl Navigator {
                 Some((payload, label))
             }
         };
-        Some(
-            row.when_some(dragged, |el, (payload, label)| {
-                el.on_drag(payload, drag_preview(self.store.clone(), label))
-            })
-            .into_any_element(),
-        )
+        let row = match dragged {
+            Some((payload, chip)) => row.on_drag(payload, drag_preview(self.store.clone(), chip)),
+            // The main worktree with no files to drag drags its folder, for a terminal to paste.
+            None => self.project_drag(row, id, label.into(), false, cx),
+        };
+        Some(row.into_any_element())
     }
 
     /// Fold `checkout`'s branches, or unfold them. Folding them over the selection takes it
@@ -2723,7 +2747,7 @@ impl Navigator {
                 })
                 .children(self.push_count(id, ref_name, unpushed_n, style, cx))
                 .when(unread, |el| el.child(dot(style.meta(theme.pop))))
-                .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+                .map(|el| self.selectable(el, item, cx))
                 // A click looks inside, opening its commits; the chevron, a double-click, ⇧←
                 // and ⇧→ fold them.
                 .when(folds, |el| el.on_click(click_opens(clicked, toggle, cx)))
@@ -2832,7 +2856,7 @@ impl Navigator {
                 .commit(format!("commit-{id}-{}", commit_id.0), id, commit, store)
                 // Selected but on its way out.
                 .when(store.hides_commit(id, &commit.key), |el| el.opacity(0.5))
-                .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+                .map(|el| self.selectable(el, item, cx))
                 .when(several, |el| {
                     let item = item.clone();
                     el.on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
@@ -2905,7 +2929,7 @@ impl Navigator {
                     title,
                     unread,
                 )
-                .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+                .map(|el| self.selectable(el, item, cx))
                 .when_some(toggle, |el, toggle| el.on_click(double_click(toggle, cx)))
                 .into_any_element(),
         )
@@ -3160,7 +3184,7 @@ impl Navigator {
                     .min_w_0()
                     .truncate(),
             )
-            .on_mouse_down(MouseButton::Left, self.select_on_press(&item, cx))
+            .map(|el| self.selectable(el, &item, cx))
             .on_click(double_click(toggle, cx))
     }
 }

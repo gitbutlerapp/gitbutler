@@ -22,8 +22,9 @@ use gpui::{
     TextRun, UnderlineStyle, WeakEntity, Window, actions, canvas, div, prelude::*,
 };
 
-use crate::state::Store;
+use crate::state::{Cut, Store};
 use crate::theme::Theme;
+use crate::transfer::ProjectDrag;
 use crate::ui::{dp, fixed};
 
 actions!(terminal, [NewTerminal]);
@@ -500,8 +501,38 @@ impl Terminal {
     /// Files dropped on the terminal are pasted as their paths, quoted for the shell, as in
     /// Ghostty.
     fn dropped(&mut self, paths: &ExternalPaths, window: &mut Window, cx: &mut Context<Self>) {
+        let paths = paths.paths().iter().map(|path| path.to_string_lossy());
+        self.paste_quoted(paths, window, cx);
+    }
+
+    /// A row dragged from the navigator is pasted as ⌘C copies it ([`Store::pasted`]).
+    fn dropped_row(&mut self, _: &Cut, window: &mut Window, cx: &mut Context<Self>) {
+        let words = (self.store.upgrade()).and_then(|store| store.read(cx).pasted());
+        if let Some(words) = words {
+            self.paste_quoted(words, window, cx);
+        }
+    }
+
+    /// A project dragged from the navigator is pasted as its folder.
+    fn dropped_project(&mut self, drag: &ProjectDrag, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(store) = self.store.upgrade() else {
+            return;
+        };
+        if let Some(path) = store.read(cx).path(&drag.id) {
+            self.paste_quoted([path.to_string_lossy()], window, cx);
+        }
+    }
+
+    /// Paste `words` side by side, each quoted for the shell where it needs to be, and take
+    /// the keys.
+    fn paste_quoted(
+        &mut self,
+        words: impl IntoIterator<Item = impl AsRef<str>>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         window.focus(&self.focus, cx);
-        self.tty.paste(&shell_paths(paths.paths()));
+        self.tty.paste(&shell_quoted(words));
         self.typed(cx);
     }
 
@@ -629,6 +660,8 @@ impl Render for Terminal {
             .on_any_mouse_down(cx.listener(Self::mouse_down))
             .on_modifiers_changed(cx.listener(Self::modifiers_changed))
             .on_drop(cx.listener(Self::dropped))
+            .on_drop(cx.listener(Self::dropped_row))
+            .on_drop(cx.listener(Self::dropped_project))
             .on_scroll_wheel(cx.listener(Self::scroll))
             .cursor(pointer_style)
             .size_full()
@@ -695,10 +728,10 @@ fn link_at(rows: &[Arc<Row>], grid: Grid, position: Point<Pixels>) -> Option<Arc
     run.link.clone()
 }
 
-/// `paths` side by side, each quoted for the shell where it needs to be.
-fn shell_paths(paths: &[std::path::PathBuf]) -> String {
-    let quoted: Vec<_> = (paths.iter())
-        .map(|path| shell_words::quote(&path.to_string_lossy()).into_owned())
+/// `words` side by side, each quoted for the shell where it needs to be.
+fn shell_quoted(words: impl IntoIterator<Item = impl AsRef<str>>) -> String {
+    let quoted: Vec<_> = (words.into_iter())
+        .map(|word| shell_words::quote(word.as_ref()).into_owned())
         .collect();
     quoted.join(" ")
 }
@@ -1119,10 +1152,9 @@ mod tests {
             "/Users/me/notes.txt",
             "/Users/me/My Files/it's here.md",
             "/tmp/$HOME;rm",
-        ]
-        .map(std::path::PathBuf::from);
+        ];
         assert_eq!(
-            shell_paths(&paths),
+            shell_quoted(paths),
             r#"/Users/me/notes.txt '/Users/me/My Files/it'\''s here.md' '/tmp/$HOME;rm'"#,
             "a plain path as it is, one with blanks, quotes or what the shell expands quoted"
         );

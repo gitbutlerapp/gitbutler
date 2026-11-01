@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use gpui::{AnyElement, App, Context, MouseButton, Window, div, prelude::*};
+use gpui::{AnyElement, App, Context, Window, div, prelude::*};
 
 use super::rows::{COMMIT_INDENT, Fold, Row, Rows, found, matches};
 use super::{ClickOpened, Navigator, RowStyle, STEP, change_counts, click_opens, double_click};
@@ -253,10 +253,7 @@ impl Navigator {
             }
             _ => return None,
         };
-        Some(
-            row.on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
-                .into_any_element(),
-        )
+        Some(self.selectable(row, item, cx).into_any_element())
     }
 
     /// Whether `project`'s work elsewhere shows under its heading: unfolded, with the

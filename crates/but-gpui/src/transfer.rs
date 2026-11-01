@@ -935,20 +935,16 @@ impl Render for DragPreview {
             (Some(Transfer::MoveWorktree { name, .. }), ..) => {
                 (glyph(Icon::FolderCopy), named(name.to_string().into()))
             }
-            (_, Chip::Folder(name), payload) => (
-                folder_icon().into_any_element(),
-                h_flex()
-                    .min_w_0()
-                    .gap(dp(6.))
-                    .child(pill_label(name.clone()))
-                    .children(match payload {
-                        Cut::Files { files, .. } if files.len() > 1 => {
-                            Some(count_badge(files.len(), theme))
-                        }
-                        _ => None,
-                    })
-                    .into_any_element(),
-            ),
+            (_, Chip::Folder(name), payload) => {
+                let files = match payload {
+                    Cut::Files { files, .. } => files.len(),
+                    _ => 0,
+                };
+                (
+                    folder_icon().into_any_element(),
+                    folder_label(name.clone(), files, theme).into_any_element(),
+                )
+            }
             (_, Chip::Row(label), Cut::Commit(..) | Cut::CherryPick(..)) => {
                 (glyph(Icon::Commit), named(label.clone()))
             }
@@ -979,6 +975,52 @@ impl Render for DragPreview {
 /// A pill's label, cut short where it won't fit.
 pub fn pill_label(label: SharedString) -> Div {
     div().truncate().child(label)
+}
+
+/// A folder's pill label: its `name`, and how many `files` it carries when that's more than
+/// one.
+fn folder_label(name: SharedString, files: usize, theme: &Theme) -> Div {
+    h_flex()
+        .min_w_0()
+        .gap(dp(6.))
+        .child(pill_label(name))
+        .when(files > 1, |el| el.child(count_badge(files, theme)))
+}
+
+/// A project dragged by its heading, or by its main worktree's row: a watched project's card
+/// among the others while it `reorders`, and any into a terminal, which pastes its folder.
+pub struct ProjectDrag {
+    pub id: ProjectId,
+    pub reorders: bool,
+}
+
+/// Start a drag of a project shown as a pill with its folder's `label`, as [`drag_preview`]
+/// starts a cut's.
+pub fn project_preview(
+    label: SharedString,
+) -> impl Fn(&ProjectDrag, Point<Pixels>, &mut Window, &mut App) -> Entity<ProjectPreview> + 'static
+{
+    move |_, offset, _, cx| {
+        let label = label.clone();
+        cx.new(|_| ProjectPreview { label, offset })
+    }
+}
+
+/// The pill that follows the pointer while a project is dragged, as a folder of the file list
+/// shows.
+pub struct ProjectPreview {
+    label: SharedString,
+    /// Where the pointer pressed the dragged row, which GPUI draws the pill from.
+    offset: Point<Pixels>,
+}
+
+impl Render for ProjectPreview {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = Theme::get(cx);
+        // A project carries no files to count.
+        let label = folder_label(self.label.clone(), 0, theme);
+        drag_pill(self.offset, folder_icon(), label, None, 1, theme)
+    }
 }
 
 /// What a dragged row shows under the pointer: a pill with its `mark`, `label` and what

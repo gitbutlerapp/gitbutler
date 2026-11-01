@@ -8,7 +8,7 @@ mod push;
 
 pub use lanes::{Checkout, Lane, in_place_of};
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 /// A commit's object id, opaque to the UI.
@@ -218,6 +218,14 @@ impl Workspace {
 
     pub fn find_worktree(&self, name: &bstr::BStr) -> Option<&Worktree> {
         self.worktrees.iter().find(|worktree| worktree.name == name)
+    }
+
+    /// The folder of `checkout`, the main one being `main`.
+    pub fn checkout_path(&self, main: &Path, checkout: &Checkout) -> Option<PathBuf> {
+        match checkout {
+            Checkout::Main => Some(main.to_owned()),
+            Checkout::Linked(name) => Some(self.find_worktree(name.as_ref())?.path.clone()),
+        }
     }
 
     pub fn checked_out_in(&self, ref_name: &FullName) -> Option<&Worktree> {
@@ -601,6 +609,14 @@ impl Commit {
     pub fn has_change_id(&self) -> bool {
         let made = but_core::commit::Headers::synthetic_change_id_from_commit_id(self.id.0);
         self.key != made.to_string()
+    }
+
+    /// What names it to other tools: its change ID, or its sha when it carries none.
+    pub fn reference(&self) -> String {
+        match self.has_change_id() {
+            true => self.key.clone(),
+            false => self.id.0.to_string(),
+        }
     }
 
     /// A local commit `id` with nothing else to it, its tree `id` too.
@@ -1387,6 +1403,16 @@ mod tests {
         assert!(
             commit("vtlrvnlmsxrmrsnrkvqlwrzqokpsoxzk".into()).has_change_id(),
             "it carries one"
+        );
+        assert_eq!(
+            commit(made.to_string()).reference(),
+            "99a9648a9b2cf5a631d8ef586f97005604afaabc",
+            "without a change ID of its own, other tools know it by its sha"
+        );
+        assert_eq!(
+            commit("vtlrvnlmsxrmrsnrkvqlwrzqokpsoxzk".into()).reference(),
+            "vtlrvnlmsxrmrsnrkvqlwrzqokpsoxzk",
+            "with one, by that"
         );
     }
 
