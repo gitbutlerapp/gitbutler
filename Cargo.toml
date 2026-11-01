@@ -404,6 +404,8 @@ zune-jpeg = { opt-level = 3 }
 syntect = { opt-level = 3 }
 fancy-regex = { opt-level = 3 }
 regex-automata = { opt-level = 3 }
+# Rebuilding the GPUI client whole after a small change takes 15s, incrementally under 5s.
+but-gpui = { incremental = true }
 # Its build script picks Zig's Debug mode from `debug`, whatever `opt-level` says, and that
 # verifies the whole page for every cell a terminal prints in a hyperlink.
 libghostty-vt-sys = { opt-level = 3, debug = false }
