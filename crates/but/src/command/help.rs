@@ -424,7 +424,7 @@ Other Commands:
   alias        Manage command aliases
   config       View and manage GitButler configuration
   skill        Manage AI agent skills for GitButler
-  agent        Set up GitButler for AI coding agents
+  agent        Set up or remove GitButler for AI coding agents
   completions  Generate but shell completions
 
 Help Topics (view with but help <topic>):
@@ -501,7 +501,7 @@ Other Commands:
   alias        Manage command aliases
   config       View and manage GitButler configuration
   skill        Manage AI agent skills for GitButler
-  agent        Set up GitButler for AI coding agents
+  agent        Set up or remove GitButler for AI coding agents
   completions  Generate but shell completions
 
 Help Topics (view with but help <topic>):

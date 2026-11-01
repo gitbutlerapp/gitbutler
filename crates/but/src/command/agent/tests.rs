@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
 use super::{
-    files::{find_line_anchored, upsert_managed_block, upsert_managed_block_file},
+    files::{
+        find_line_anchored, remove_managed_blocks, upsert_managed_block, upsert_managed_block_file,
+    },
     plan::{collect_instruction_writes, collect_skill_installs},
     *,
 };
@@ -209,6 +211,28 @@ fn upsert_managed_block_rejects_partial_block() {
     let err = upsert_managed_block(&existing, &block).expect_err("partial block fails");
 
     assert!(err.to_string().contains("partial managed block"));
+}
+
+#[test]
+fn remove_managed_blocks_keeps_surrounding_text_and_line_endings() {
+    let block = format!("{MANAGED_BLOCK_START}\nrules\n{MANAGED_BLOCK_END}\n");
+    let crlf_block = block.replace('\n', "\r\n");
+    for (existing, expected) in [
+        (
+            format!("before\n\n{block}\nafter\n"),
+            Some("before\n\nafter\n"),
+        ),
+        (format!("before\r\n\r\n{crlf_block}"), Some("before\r\n")),
+        ("no block\n".to_string(), None),
+    ] {
+        assert_eq!(
+            remove_managed_blocks(&existing)
+                .expect("well-formed input")
+                .as_deref(),
+            expected,
+            "removing the block from {existing:?} keeps the rest as it was"
+        );
+    }
 }
 
 #[test]

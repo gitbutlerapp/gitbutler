@@ -867,7 +867,7 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Skill(skill::Platform),
 
-    /// Set up GitButler for AI coding agents.
+    /// Set up or remove GitButler for AI coding agents.
     ///
     /// Runs a guided setup wizard for installing GitButler agent skills and
     /// writing workflow steering instructions into supported agent instruction

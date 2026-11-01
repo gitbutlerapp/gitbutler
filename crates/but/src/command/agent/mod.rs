@@ -22,6 +22,7 @@ mod plan;
 mod policy;
 #[cfg(test)]
 mod tests;
+mod uninstall;
 
 pub(crate) use cleanup::retired_policy_syntax_notice;
 
@@ -48,17 +49,20 @@ pub fn handle(
     current_dir: &Path,
     out: &mut OutputChannel,
     cmd: Option<agent::Subcommands>,
-) -> Result<CommandOutcome> {
+) -> Result<Option<CommandOutcome>> {
     match cmd {
         // Bare `but agent` runs the setup wizard, same as `but agent setup`.
-        None => setup(current_dir, out, false, SkillLayout::Full),
+        None => setup(current_dir, out, false, SkillLayout::Full).map(Some),
         Some(agent::Subcommands::Setup { print, stub }) => {
             let layout = if stub {
                 SkillLayout::Stub
             } else {
                 SkillLayout::Full
             };
-            setup(current_dir, out, print, layout)
+            setup(current_dir, out, print, layout).map(Some)
+        }
+        Some(agent::Subcommands::Uninstall) => {
+            uninstall::uninstall(current_dir, out).map(|()| None)
         }
     }
 }

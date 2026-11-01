@@ -202,6 +202,7 @@ impl Subcommands {
             // Bare `but agent` (None) runs the setup wizard, same as `agent setup`.
             Subcommands::Agent(agent::Platform { cmd }) => match cmd {
                 None | Some(agent::Subcommands::Setup { .. }) => AgentSetup,
+                Some(agent::Subcommands::Uninstall) => AgentUninstall,
             },
             Subcommands::Edit { .. } => Edit,
             #[cfg(feature = "legacy")]

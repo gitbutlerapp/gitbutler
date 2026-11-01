@@ -82,6 +82,7 @@ pub enum CommandName {
     SkillInstall,
     SkillCheck,
     AgentSetup,
+    AgentUninstall,
     Pick,
     Clean,
     External,
