@@ -200,6 +200,13 @@ where
             };
             return CliError::BadInput(bad_input(message).hint(hint));
         }
+        // A precondition says why the request can't be done right now. The context around it
+        // names refs and hashes the user didn't type, so only its own message is shown.
+        if let Some(refusal) = error.downcast_ref::<but_error::Context>()
+            && refusal.code == but_error::Code::PreconditionFailed
+        {
+            return CliError::BadInput(bad_input(refusal.to_string()).code("PreconditionFailed"));
+        }
         CliError::Internal(error)
     }
 }

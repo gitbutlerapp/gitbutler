@@ -80,10 +80,7 @@ fn failed_pick_switch_to_existing_branch_rolls_back_materialization() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: Could not safely check out 'refs/heads/other' from [..] to [..]
-
-Caused by:
-    Uncommitted files would be overwritten by checkout: "first"
+Error: Uncommitted files would be overwritten by checkout: "first"
 
 "#]]);
 
@@ -159,10 +156,7 @@ fn failed_pick_switch_restores_ad_hoc_stack_refs() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: Could not safely check out 'refs/heads/bottom' from [..] to [..]
-
-Caused by:
-    Uncommitted files would be overwritten by checkout: "first.txt"
+Error: Uncommitted files would be overwritten by checkout: "first.txt"
 
 "#]]);
 
