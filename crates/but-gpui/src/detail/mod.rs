@@ -2341,20 +2341,62 @@ impl Detail {
         (!self.showing_now(cx) || self.file_picks.contains(&path)).then_some(path)
     }
 
-    /// What copying takes from here: the selected text, or the path of the file under the
-    /// cursor, which blinks, as the TUI highlights what it copied. Under a pull request's
-    /// tab, the text selected in its description or comments.
+    /// What copying takes from here: the selected text, else the hunk the cursor is on or the
+    /// current file's whole diff, as git prints them, or the file's path when it has no lines,
+    /// as a binary file hasn't. What it copied blinks, as the TUI highlights it. Under a pull
+    /// request's tab, the text selected in its description or comments.
     pub fn copy(&mut self, cx: &mut Context<Self>) -> Option<String> {
         if self.showing_review(cx) {
             return self.selected_note_text(cx);
         }
         let (text, copied) = match self.selected_text() {
             Some(text) => (text, Copied::Text),
-            None => (self.shown_cursor_path(cx)?, Copied::Cursor),
+            None => {
+                let text = self.cursor_patch(cx).or_else(|| self.shown_cursor_path(cx));
+                (text?, Copied::Cursor)
+            }
         };
         self.blinked = (self.blinked.0 + 1, Some((copied, Instant::now())));
         cx.notify();
         Some(text)
+    }
+
+    /// The hunk the cursor is on or the current file's whole diff, as copying takes it with no
+    /// text selected, and blink it: a right-click's Copy hunk, which leaves the selection be.
+    pub fn copy_patch(&mut self, cx: &mut Context<Self>) -> Option<String> {
+        let patch = self.cursor_patch(cx)?;
+        self.blinked = (self.blinked.0 + 1, Some((Copied::Cursor, Instant::now())));
+        cx.notify();
+        Some(patch)
+    }
+
+    /// The current file while it's shown and has lines to copy, and the hunk the cursor is on
+    /// in it, or on the box above: none while the diff is scrolled to another file, as
+    /// [`Self::cursor_place`] says.
+    fn cursor_hunk(&self, cx: &App) -> Option<(&FileDiff, Option<HunkKey>)> {
+        self.shown_cursor_path(cx)?;
+        let file = self.diff.as_ref()?.files.get(self.current_file())?;
+        let hunk = (self.cursor.at.near()).filter(|_| self.reading.is_none());
+        let key = hunk.and_then(|hunk| Some(file.hunks().get(hunk)?.key));
+        (!file.hunks().is_empty()).then_some((file, key))
+    }
+
+    /// The hunk the cursor is on as git prints it, else the current file's whole diff.
+    fn cursor_patch(&self, cx: &App) -> Option<String> {
+        let (file, hunk) = self.cursor_hunk(cx)?;
+        file.patch(hunk)
+    }
+
+    /// The diffs ⇧Y offers of the current file, the first what copying takes: the hunk the
+    /// cursor is on, then the whole file's.
+    pub fn patch_copies(&self, cx: &App) -> Vec<(&'static str, String)> {
+        let Some((file, hunk)) = self.cursor_hunk(cx) else {
+            return Vec::new();
+        };
+        let hunk = hunk.and_then(|key| file.patch(Some(key)));
+        (hunk.map(|patch| ("Hunk", patch)).into_iter())
+            .chain(file.patch(None).map(|patch| ("Diff", patch)))
+            .collect()
     }
 
     /// Which blink `copied` is in while it blinks: see [`crate::ui::blink_once`].

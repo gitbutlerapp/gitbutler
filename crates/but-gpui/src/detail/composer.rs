@@ -1689,6 +1689,7 @@ mod tests {
         let hunk = |key, added: &str| Hunk {
             key,
             header: String::new(),
+            patch: "".into(),
             lines: vec![
                 line(LineKind::Context, "fn main() {"),
                 line(LineKind::Removed, "    old();"),

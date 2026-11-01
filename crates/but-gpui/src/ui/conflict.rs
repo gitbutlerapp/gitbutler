@@ -618,6 +618,7 @@ mod tests {
                 hunks: vec![Hunk {
                     key: HunkKey(header),
                     header: String::new(),
+                    patch: "".into(),
                     lines: vec![line(30)],
                     scope: Vec::new(),
                     lead: Vec::new(),

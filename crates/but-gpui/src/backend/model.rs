@@ -802,6 +802,52 @@ impl FileChange {
     pub fn base(&self) -> Option<gix::ObjectId> {
         (self.change.status.previous_state_and_path()).map(|(state, _)| state.id)
     }
+
+    /// The lines git starts its diff of the file with: its paths either side, and what else
+    /// changed, as that it's new or gone, renamed or has another mode, which `git apply` needs.
+    fn git_header(&self) -> String {
+        use but_core::TreeStatus as S;
+        let new = self.path.as_str();
+        let old = self.previous_path.as_deref().unwrap_or(new);
+        let mode = |state: &but_core::ChangeState| state.kind.as_octal_str();
+        let mut header = format!("diff --git a/{old} b/{new}\n");
+        let (before, after) = match &self.change.status {
+            S::Addition { state, .. } => {
+                header.push_str(&format!("new file mode {}\n", mode(state)));
+                (None, Some(new))
+            }
+            S::Deletion { previous_state } => {
+                header.push_str(&format!("deleted file mode {}\n", mode(previous_state)));
+                (Some(old), None)
+            }
+            S::Modification {
+                previous_state,
+                state,
+                ..
+            }
+            | S::Rename {
+                previous_state,
+                state,
+                ..
+            } => {
+                if previous_state.kind != state.kind {
+                    let (from, to) = (mode(previous_state), mode(state));
+                    header.push_str(&format!("old mode {from}\nnew mode {to}\n"));
+                }
+                if old != new {
+                    header.push_str(&format!("rename from {old}\nrename to {new}\n"));
+                }
+                (Some(old), Some(new))
+            }
+        };
+        let side = |prefix: &str, path: Option<&str>| match path {
+            Some(path) => format!("{prefix}{path}"),
+            None => "/dev/null".to_owned(),
+        };
+        let (before, after) = (side("a/", before), side("b/", after));
+        header.push_str(&format!("--- {before}\n+++ {after}\n"));
+        header
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -898,6 +944,22 @@ impl FileDiff {
         }
     }
 
+    /// Its diff as git prints it, to copy or apply: the file's header, then every hunk, or
+    /// only the one `hunk` names. `None` when that's gone, or the file has no lines to give,
+    /// as a binary one hasn't.
+    pub fn patch(&self, hunk: Option<HunkKey>) -> Option<String> {
+        let hunks = (self.hunks().iter()).filter(|h| hunk.is_none_or(|key| h.key == key));
+        let mut patch = self.file.git_header();
+        let header = patch.len();
+        for hunk in hunks {
+            patch.push_str(&hunk.patch);
+            if !patch.ends_with('\n') {
+                patch.push('\n');
+            }
+        }
+        (patch.len() > header).then_some(patch)
+    }
+
     /// Its hunks, or none when its body has no lines, like a binary file's.
     pub fn hunks(&self) -> &[Hunk] {
         match &self.body {
@@ -980,6 +1042,9 @@ pub struct Hunk {
     pub key: HunkKey,
     pub header: String,
     pub lines: Vec<DiffLine>,
+    /// The hunk as git prints it, its header first and each line as the file has it, unlike
+    /// `lines`, which swap tabs and cut long lines: what copying it takes.
+    pub patch: Arc<str>,
     /// The scopes the hunk changes, outermost first, each as [`scope_name`] gives its first
     /// source line.
     pub scope: Vec<String>,
@@ -1209,6 +1274,7 @@ mod tests {
         let hunk = Hunk {
             key: HunkKey(header(1, 3, 1, 3)),
             header: String::new(),
+            patch: "".into(),
             lines: vec![
                 line(LineKind::Context, Some(1), Some(1)),
                 line(LineKind::Removed, Some(2), None),
@@ -1249,6 +1315,7 @@ mod tests {
         let hunk = Hunk {
             key: HunkKey(header(1, 4, 1, 4)),
             header: String::new(),
+            patch: "".into(),
             lines: vec![
                 line(LineKind::Context, Some(1), Some(1)),
                 line(LineKind::Removed, Some(2), None),

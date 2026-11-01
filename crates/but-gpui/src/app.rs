@@ -1425,9 +1425,9 @@ impl AppView {
         }
     }
 
-    /// Copy what's selected in the form other tools take: a file's path, a commit's id,
-    /// a branch's name or a project's or worktree's directory, as dropping its row on a
-    /// terminal pastes it. What it copied blinks, as the TUI highlights it.
+    /// Copy what's selected in the form other tools take: a hunk or a file's diff as git prints
+    /// it, a commit's id, a branch's name or a project's or worktree's directory, as dropping its
+    /// row on a terminal pastes it. What it copied blinks, as the TUI highlights it.
     fn copy_selection(&mut self, _: &CopySelection, window: &mut Window, cx: &mut Context<Self>) {
         let file = (self.detail.read(cx).is_focused(window, cx))
             .then(|| self.detail.update(cx, |detail, cx| detail.copy(cx)))
