@@ -73,8 +73,11 @@ impl AppView {
             // What's moving, and where Return lands it, unless that's where it is.
             let lands = moving.lands(store);
             let what = moving.describe(store);
+            // A new commit has no name till its message is written.
             let what = match lands {
-                true => format!("{what} {}", moving.place(store)),
+                true => format!("{what} {}", moving.place(store))
+                    .trim_start()
+                    .to_owned(),
                 false => what,
             };
             // In the colour each marks rows in, as the TUI's modes have their own.
@@ -94,15 +97,24 @@ impl AppView {
                     };
                     shortcut(&UseTargetMessage, cx).map(|keys| (keys, said))
                 }
-                (Op::Squash(_) | Op::Move, _) => None,
+                (Op::Squash(_) | Op::Move | Op::Commit, _) => None,
             };
             // Commits or a branch squash instead of moving, or move instead of squashing.
             let instead = match moving.op {
                 Op::Squash(_) => shortcut(&MoveSelection, cx).map(|keys| (keys, "move instead")),
                 Op::Move => shortcut(&SquashSelection, cx).map(|keys| (keys, "squash instead")),
+                Op::Commit => None,
             };
-            let verb = moving.verb(store);
-            let keys = [("↑↓".into(), "choose where")]
+            // Without the composer, as where the navigator came out for it, Return commits as
+            // it is, without a message. Without the navigator, the arrows go on through the
+            // files.
+            let unseen = moving.op == Op::Commit && !self.navigator_shown();
+            let verb = match moving.op == Op::Commit && !self.detail.read(cx).composing() {
+                true => "commit",
+                false => moving.verb(store),
+            };
+            let keys = (!unseen)
+                .then(|| ("↑↓".into(), "choose where"))
                 .into_iter()
                 .chain((shortcut(&MoveHere, cx).filter(|_| lands)).map(|keys| (keys, verb)))
                 .chain(messages)

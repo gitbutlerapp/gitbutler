@@ -174,7 +174,7 @@ fn place(context: &str) -> Option<&'static str> {
         "Diff" => "Diff",
         "Files" => "File list",
         "List" => "Branches and Operations history",
-        "Composer" => "While committing",
+        "Composer" | "Committing" => "While committing",
         "Conflicts" | "Picked" => "Conflicts",
         "FindBar" => "Find bar",
         "Palette" => "Palette",

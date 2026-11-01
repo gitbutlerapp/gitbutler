@@ -1,5 +1,5 @@
 // A keymap like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming,
-// moving and squashing commits and adding an empty commit, Return to fold and unfold, f to show and hide the
+// committing, moving and squashing commits and adding an empty commit, Return to fold and unfold, f to show and hide the
 // files, / to filter or find, ⌘K for the command palette, ⌘P to go to anything and ⌘J to a
 // terminal, ⌘T to open a terminal, ⌘R to fetch and ⇧⌘R to pull, ⌘1, ⌘2 and ⌘3 to go to the
 // navigator, the files and the diff, ⌘B and ⌥⌘B to show and hide the navigator and the details,
@@ -163,6 +163,46 @@
       "k": "diff::PreviousFile"
     }
   },
+  // While committing, Space checks or unchecks the file under the cursor, as the TUI's Space
+  // marks one, and as a click on its checkbox does, and goes on to the next; in the diff, the
+  // hunk under its cursor. Return in the list goes on to the message, once what goes in is
+  // checked.
+  {
+    "context": "Diff && Composer && !TextInput",
+    "bindings": { "space": "diff::ToggleCheck" }
+  },
+  // A commit placed with the navigator hidden, and so no composer, Return commits as it is,
+  // without a message, rather than folding the file.
+  {
+    "context": "Diff && Committing && !TextInput",
+    "bindings": { "enter": "app::StartCommit" }
+  },
+  // c commits the uncommitted changes, as the TUI's c does: the keys above step through where
+  // the commit goes, and Return writes its message, or commits once it's written. ⌘↩ does too,
+  // as in GitButler's keymap, from the file filter and a terminal as well. After Return's,
+  // above, so c is the key shown.
+  {
+    "context": "Files && !Composer > TextInput",
+    "bindings": { "secondary-enter": "app::StartCommit" }
+  },
+  {
+    "context": "Terminal",
+    "bindings": { "secondary-enter": "app::StartCommit" }
+  },
+  {
+    "context": "Workspace && !TextInput",
+    "bindings": {
+      "secondary-enter": "app::StartCommit",
+      "c": "app::StartCommit"
+    }
+  },
+  {
+    "context": "Files && Composer && !TextInput",
+    "bindings": {
+      "space": "diff::ToggleCheck",
+      "enter": "diff::WriteMessage"
+    }
+  },
   // The History and Branches lists step and jump as the navigator does, and fold as GitButler's
   // keymap folds them, the arrows last so menus show them. Return folds or unfolds as in the
   // navigator, the People card under a list too; on Operations history, where nothing folds,
@@ -198,6 +238,12 @@
       "enter": "message_editor::ToBody",
       "tab": "message_editor::ToBody"
     }
+  },
+  // A commit's title commits on Return, written or not, as a body is seldom wanted: Tab goes
+  // to it. A pull request's title goes on to its body.
+  {
+    "context": "Composer > MessageTitle > TextInput",
+    "bindings": { "enter": "text_input::Submit" }
   },
   {
     "context": "MessageBody > TextInput",

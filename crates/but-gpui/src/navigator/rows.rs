@@ -61,6 +61,8 @@ pub(super) enum Row {
     Ghost(Selection),
     /// The new branch commits being moved would land in at that stop, over their copies.
     GhostBranch(ProjectId, Stop),
+    /// The commit uncommitted changes being committed would make where the commit's at.
+    NewCommit(ProjectId),
     /// The line between two stacks, which tells where one ends and the next starts, and between
     /// a new one commits being moved would land in and the stack beside it: so a new branch
     /// landing under one stack's last branch or on the next's first shows which it joins.
@@ -89,6 +91,8 @@ pub(super) enum RowKey {
     /// to place, and back over it.
     Left(Box<RowKey>),
     GhostBranch(ProjectId),
+    /// The commit being made, which slides from stop to stop as the commit steps.
+    NewCommit(ProjectId),
     /// No row's: the top edge of the outline of what a squash goes into, which slides from row
     /// to row as the squash steps.
     SquashTop,
@@ -130,10 +134,14 @@ pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
             }
             Row::NewBranch(project) => Some(RowKey::NewBranch(project.clone())),
             Row::GhostBranch(project, _) => Some(RowKey::GhostBranch(project.clone())),
+            Row::NewCommit(project) => Some(RowKey::NewCommit(project.clone())),
             Row::Pending(_, _, Some(moved)) => Some(moved.clone()),
             _ => (before.clone()).map(|before| RowKey::After(Box::new(before))),
         };
-        if !matches!(row, Row::Ghost(_) | Row::GhostBranch(..)) {
+        if !matches!(
+            row,
+            Row::Ghost(_) | Row::GhostBranch(..) | Row::NewCommit(_)
+        ) {
             before = key.clone();
         }
         keys.push(key);
@@ -166,7 +174,8 @@ impl Row {
             | Row::Pending(..)
             | Row::NewBranch(_)
             | Row::Ghost(..)
-            | Row::GhostBranch(..) => ROW_HEIGHT,
+            | Row::GhostBranch(..)
+            | Row::NewCommit(_) => ROW_HEIGHT,
         }
     }
 }

@@ -6,9 +6,9 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
 
-use gpui::{AnyElement, App, Context, Div, Window, div, prelude::*};
+use gpui::{AnyElement, App, Context, Div, Hsla, Window, div, prelude::*};
 
-use super::rows::{Fold, Row, RowKey, Rows, span_height};
+use super::rows::{COMMIT_INDENT, Fold, Row, RowKey, Rows, span_height};
 use super::{CARD_MARGIN, Navigator, RowStyle};
 use crate::app::{MoveHere, MoveSelection, SquashIntoSelection, SquashSelection, UseTargetMessage};
 use crate::backend::{
@@ -90,6 +90,11 @@ pub(super) fn mark(store: &Store, item: &Selection) -> Option<Mark> {
     })
 }
 
+/// The colour the move shown in `project` marks rows in, as [`Op::colour`] says.
+pub(super) fn mark_of(store: &Store, project: &ProjectId, theme: &Theme) -> Hsla {
+    shown(store, project).map_or(theme.pop, |moving| moving.op.colour(theme))
+}
+
 /// Whether `item` is a commit of the branch `moving` moves or squashes.
 fn of_branch(moving: &Move, store: &Store, item: &Selection) -> bool {
     match (&moving.what, item) {
@@ -103,9 +108,14 @@ fn of_branch(moving: &Move, store: &Store, item: &Selection) -> bool {
 }
 
 /// Whether `item`'s row is what's moving, left where it is while its copy shows where it'd
-/// land, or over it while that's where it is.
+/// land, or over it while that's where it is. A commit being made is no copy of the row its
+/// changes are under.
 pub(super) fn left_behind(store: &Store, item: &Selection) -> bool {
-    shown(store, item.project()).is_some_and(|moving| copied_at(&moving.at) && moving.holds(item))
+    shown(store, item.project()).is_some_and(|moving| {
+        matches!(moving.what, Moving::Commits(_) | Moving::Branch(_))
+            && copied_at(&moving.at)
+            && moving.holds(item)
+    })
 }
 
 /// Where the outline of the squash shown is: around what it goes into, or back where it
@@ -240,6 +250,7 @@ fn taken_away(
                 | RowKey::RestsOn(_)
                 | RowKey::Fold(..)
                 | RowKey::NewBranch(_)
+                | RowKey::NewCommit(_)
                 | RowKey::SquashTop
                 | RowKey::SquashBottom
                 | RowKey::After(_),
@@ -251,26 +262,32 @@ fn taken_away(
 }
 
 impl Rows {
-    /// Copies of what `moving` moves: its commits, under the new branch they'd land in with
-    /// `new_branch`, or its branch's row, which heads its commits wherever it goes.
+    /// Copies of what `moving` moves: its commits, or the commit uncommitted changes being
+    /// committed make, under the new branch they'd land in with `new_branch`, or its branch's
+    /// row, which heads its commits wherever it goes.
     pub(super) fn push_ghosts(&mut self, moving: &Move, new_branch: bool) {
         let project = &moving.project;
-        let ids = match &moving.what {
-            Moving::Commits(ids) => ids,
+        let copies: Vec<Row> = match &moving.what {
+            Moving::Commits(ids) => (ids.iter())
+                .map(|id| Row::Ghost(Selection::Commit(project.clone(), *id)))
+                .collect(),
             Moving::Branch(branch) => {
                 let item = Selection::Branch(project.clone(), Some(branch.clone()));
                 return self.push(Row::Ghost(item));
             }
-            // A card or a terminal goes where it'd land itself, and files are only squashed.
+            Moving::Files { .. } if moving.op == Op::Commit => {
+                Vec::from([Row::NewCommit(project.clone())])
+            }
+            // A card or a terminal goes where it'd land itself, and files squashed go into a
+            // row.
             Moving::Project(_) | Moving::Terminal { .. } | Moving::Files { .. } => return,
         };
-        let ghosts = (ids.iter()).map(|id| Row::Ghost(Selection::Commit(project.clone(), *id)));
         if !new_branch {
-            return self.extend(ghosts);
+            return self.extend(copies);
         }
         self.push(Row::GhostBranch(moving.project.clone(), moving.at.clone()));
         self.open();
-        self.extend(ghosts);
+        self.extend(copies);
         self.close();
     }
 }
@@ -363,6 +380,7 @@ pub(super) fn stops<'a>(
             | Row::Pending(..)
             | Row::Ghost(..)
             | Row::GhostBranch(..)
+            | Row::NewCommit(_)
             | Row::Between(_) => {}
             // A checkout's terminals, listed above its branches.
             Row::Item(Selection::Terminal(..)) => {}
@@ -436,6 +454,7 @@ pub(super) fn squash_stops<'a>(
             | Row::Pending(..)
             | Row::Ghost(..)
             | Row::GhostBranch(..)
+            | Row::NewCommit(_)
             | Row::Between(_) => None,
             _ => {
                 in_branch = false;
@@ -599,6 +618,24 @@ impl Navigator {
                 let home = (store.selection.as_ref()).and_then(Target::of)?;
                 squash_stops(self.shown_rows(), project, workspace, &home, open, lands)
             }
+            // Where commits moved can land, but the top of a folded branch too, which the new
+            // commit shows under, as the most likely place for it. It starts where it's
+            // started from ([`Self::start_committing`]), not where anything is.
+            Op::Commit => {
+                let open = |heading: &Selection| {
+                    matches!(heading, Selection::Branch(..)) || self.open_as_built(heading)
+                };
+                let (all, _) = stops(self.shown_rows(), project, &[], workspace, open);
+                let mut stops: Vec<Stop> = all.into_iter().filter(|stop| lands(stop)).collect();
+                // The main checkout's changes can always go in a new branch of their own, after
+                // the rest, as where to commit with no branches, or outside the workspace,
+                // where it has no stacks to go beside.
+                let new_stack = Stop::NewStack { first: false };
+                if !stops.contains(&new_stack) && lands(&new_stack) {
+                    stops.push(new_stack);
+                }
+                Some((stops, 0))
+            }
         }
     }
 
@@ -754,6 +791,92 @@ impl Navigator {
         window.focus(&self.focus, cx);
     }
 
+    /// Where a commit started from `from` in `project` is placed first: on top of the selected
+    /// branch, or right above the selected commit; `None` from the changes' own row, which
+    /// places it on top of the branch below it ([`Self::start_committing`]). The branch shown
+    /// open stays open as the selection leaves it for the changes', so the commit shows where
+    /// it's placed.
+    pub(crate) fn commit_start(
+        &mut self,
+        project: &ProjectId,
+        from: &Selection,
+        cx: &mut Context<Self>,
+    ) -> Option<Stop> {
+        let store = self.store.read(cx);
+        let workspace = store.workspace(project)?;
+        let (branch, start) = match from {
+            Selection::Branch(_, Some(name)) => {
+                (name.clone(), Stop::In(Destination::Branch(name.clone())))
+            }
+            Selection::Commit(_, id) => {
+                let (branch, _) = workspace.find_commit(*id)?;
+                let name = branch.ref_name.clone()?;
+                let at = branch.commits.iter().position(|commit| commit.id == *id)?;
+                let above = at
+                    .checked_sub(1)
+                    .and_then(|above| branch.commits.get(above));
+                let start = match above {
+                    Some(above) => Stop::In(Destination::BelowCommit(above.id)),
+                    None => Stop::In(Destination::Branch(name.clone())),
+                };
+                (name, start)
+            }
+            _ => return None,
+        };
+        let row = Selection::Branch(project.clone(), Some(branch.clone()));
+        if self.open_as_built(&row) {
+            self.set_open(
+                super::ClickOpened::Here((project.clone(), Some(branch))),
+                true,
+                cx,
+            );
+        }
+        Some(start)
+    }
+
+    /// Start placing a commit of `worktree`'s uncommitted changes in `project`, from `start`
+    /// if it can go there, else on top of the topmost branch it can go on, as the TUI's commit
+    /// mode does: the keys step through where it can go until Return commits it there, its
+    /// message written first, or Escape lets go. The composer shows what goes in, and the
+    /// message. So c and Return commit on top of the branch below the changes. The keys come
+    /// here to place it.
+    pub(crate) fn start_committing(
+        &mut self,
+        project: ProjectId,
+        worktree: Checkout,
+        start: Option<Stop>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let files = (self.detail.read(cx)).files_to_move(&project, worktree.clone(), cx);
+        let what = Moving::Files {
+            from: None,
+            worktree,
+            files: files.into(),
+        };
+        let stops = (self.stops_for(&project, &what, Op::Commit, cx))
+            .map(|(stops, _)| stops)
+            .unwrap_or_default();
+        let topmost = (stops.iter())
+            .position(|stop| matches!(stop, Stop::In(Destination::Branch(_))))
+            .unwrap_or_default();
+        let at = (start.filter(|start| stops.contains(start)))
+            .or_else(|| stops.into_iter().nth(topmost));
+        let Some(at) = at else {
+            return snack(&self.store, "Nowhere to commit to", cx);
+        };
+        let moving = Move {
+            project,
+            what,
+            at,
+            op: Op::Commit,
+        };
+        self.reveal_selection = true;
+        self.store
+            .update(cx, |store, cx| store.set_moving(Some(moving), cx));
+        window.focus(&self.focus, cx);
+    }
+
     /// `worktree`'s uncommitted changes, as what's squashed: those checked while they show, but
     /// not conflicted ones. `None` when there are none.
     fn uncommitted(&self, project: &ProjectId, worktree: Checkout, cx: &App) -> Option<Moving> {
@@ -781,6 +904,20 @@ impl Navigator {
         // Somewhere besides where it is, unless it goes somewhere there, as a branch squashing
         // into one commit does.
         let start = (self.stops_for(&project, &what, op, cx)).and_then(|(stops, start)| {
+            // Uncommitted changes go first into what's on top of the branch below their row, as
+            // a commit of them goes there first: s and Return amend it.
+            let start = match &what {
+                Moving::Files { from: None, .. } => (stops.iter().enumerate().skip(start + 1))
+                    .find(|(_, stop)| {
+                        matches!(stop, Stop::Into(Target::Commit(_) | Target::Branch(_)))
+                    })
+                    .map_or(start, |(at, _)| at),
+                Moving::Commits(_)
+                | Moving::Branch(_)
+                | Moving::Project(_)
+                | Moving::Terminal { .. }
+                | Moving::Files { .. } => start,
+            };
             let at = stops.get(start)?.clone();
             let home = Move {
                 project: project.clone(),
@@ -941,6 +1078,11 @@ impl Navigator {
         let Some(moving) = store.moving.clone() else {
             return;
         };
+        // A commit's made as ⌘↩ makes it: from the composer, its message written first, or
+        // as it is without one, where the navigator came out for it.
+        if moving.op == Op::Commit {
+            return window.dispatch_action(Box::new(crate::app::StartCommit), cx);
+        }
         let lands = moving.lands(store);
         let squashed = moving.squashed(store);
         self.store
@@ -1139,6 +1281,33 @@ pub(super) fn ghost_row(
     row.unwrap_or_else(|| div().h(dp(ROW_HEIGHT)).into_any_element())
 }
 
+/// The commit uncommitted changes being committed in `project` would make, where it'd go,
+/// set in by `inset` as a commit row is: titled as its message is written, outlined in the
+/// colour of committing, as copies of what's moving are in theirs.
+pub(super) fn new_commit_row(
+    project: &ProjectId,
+    inset: f32,
+    store: &Store,
+    theme: &Theme,
+) -> AnyElement {
+    let style = RowStyle {
+        held: true,
+        mark: Op::Commit.colour(theme),
+        ..RowStyle::plain(theme, inset)
+    };
+    let title = shown(store, project).and_then(|moving| moving.commit_title(store));
+    // Untitled till its message is written, quiet as an empty title is.
+    let title = match title {
+        Some(title) => div().child(title.to_owned()),
+        None => div().text_color(style.muted()).child("New commit"),
+    };
+    (style.row(format!("new-commit-{project}"), COMMIT_INDENT))
+        .gap(dp(10.))
+        .child(small_icon(Icon::Commit).text_color(style.meta(theme.blue)))
+        .child(title.flex_1().min_w_0().truncate())
+        .into_any_element()
+}
+
 /// What a squash goes into outlined over its row, as dropping on it outlines it but in a
 /// squash's colour, its top and bottom `edges` from the row's, as [`SquashOutline::edges`]
 /// says, over the rows it passes.
@@ -1194,7 +1363,7 @@ pub(super) fn stand_in(stand_in: &StandIn, store: &Store, theme: &Theme) -> Div 
             style.commit(id, project, commit, store).into_any_element()
         }
         Gone::Branch { id, name } => branch_copy(id.clone(), name.clone(), style),
-        Gone::NewBranch(at) => ghost_branch_row(at, *inset, theme),
+        Gone::NewBranch(at) => ghost_branch_row(at, *inset, op.colour(theme), theme),
     };
     let guides = guides.iter().map(|at| guide(*at, theme));
     div()
@@ -1210,10 +1379,11 @@ pub(super) fn stand_in(stand_in: &StandIn, store: &Store, theme: &Theme) -> Div 
         ))
 }
 
-/// The new branch commits being moved would land in at stop `at`, over their copies, set in by
-/// `inset` as an item row is. It names the branch it goes above or below in their stack, or
-/// says it's independent, in a stack of its own.
-pub(super) fn ghost_branch_row(at: &Stop, inset: f32, theme: &Theme) -> AnyElement {
+/// The new branch commits being moved or made would land in at stop `at`, over their copies,
+/// set in by `inset` as an item row is, marked in `mark`, the colour of what's doing it. It
+/// names the branch it goes above or below in their stack, or says it's independent, in a stack
+/// of its own.
+pub(super) fn ghost_branch_row(at: &Stop, inset: f32, mark: Hsla, theme: &Theme) -> AnyElement {
     let beside = match at {
         Stop::NewBranch { beside, below } => {
             let side = if *below { "below" } else { "above" };
@@ -1238,9 +1408,9 @@ pub(super) fn ghost_branch_row(at: &Stop, inset: f32, theme: &Theme) -> AnyEleme
         .rounded(dp(4.))
         .border_1()
         .border_dashed()
-        .border_color(theme.pop)
-        .text_color(theme.pop)
-        .child(small_icon(Icon::Branch).text_color(theme.pop))
+        .border_color(mark)
+        .text_color(mark)
+        .child(small_icon(Icon::Branch).text_color(mark))
         .child(
             // One phrase, a space apart, the branch's name as it's written in its row.
             h_flex()

@@ -22,7 +22,7 @@ use crate::state::{
 };
 use crate::terminal::NewTerminal;
 use crate::theme::{ColorScheme, Theme, UiScale};
-use crate::transfer::{Moving, Place, ProjectDrag, Transfer};
+use crate::transfer::{Moving, Op, Place, ProjectDrag, Transfer};
 use crate::ui::fold::{Slide, edge, inert};
 use crate::ui::{HEADER_HEIGHT, POPOVER_RADIUS, dp, fixed, resize_pane};
 
@@ -201,6 +201,9 @@ struct Peek {
     keyed: bool,
     /// Where ⌘1 was pressed: the selection, and what had the keys, which Esc goes back to.
     returns_to: Option<(Selection, Option<FocusHandle>)>,
+    /// Brought out to place a commit in, as ⌘↩ does while it's hidden, so it goes back once
+    /// that's committed or let go, as it went back from ⌘1.
+    committing: bool,
 }
 
 /// The window narrowing to the navigator as the detail slides in under it, or widening back as
@@ -947,11 +950,22 @@ impl AppView {
         if self.modal.is_some() {
             return self.close_modal(window, cx);
         }
-        // A move under way, before what's in the pane with the keys, as it's what they do.
-        if self.store.read(cx).moving.is_some() {
-            return self
-                .store
-                .update(cx, |store, cx| store.set_moving(None, cx));
+        // A move under way, before what's in the pane with the keys, as it's what they do. A
+        // commit being placed goes with the composer it's made from.
+        match self.store.read(cx).moving.as_ref().map(|moving| moving.op) {
+            Some(Op::Commit) => {
+                (self.detail).update(cx, |detail, cx| detail.cancel_commit(window, cx));
+                if self.peek.committing {
+                    self.send_peek_back(window, cx);
+                }
+                return;
+            }
+            Some(Op::Move | Op::Squash(_)) => {
+                return self
+                    .store
+                    .update(cx, |store, cx| store.set_moving(None, cx));
+            }
+            None => {}
         }
         if self.detail.read(cx).is_focused(window, cx) {
             // Undo the nearest thing first: a text selection, then the file filter.
@@ -982,17 +996,7 @@ impl AppView {
             && store.picked.is_empty()
             && self.navigator.focus_handle(cx).contains_focused(window, cx)
         {
-            self.peek.keyed = false;
-            if let Some((selection, focus)) = self.peek.returns_to.take()
-                && store.still_there(&selection)
-            {
-                self.store
-                    .update(cx, |store, cx| store.select(Some(selection), cx));
-                if let Some(focus) = focus {
-                    window.focus(&focus, cx);
-                }
-            }
-            return self.close_peek(window, cx);
+            return self.send_peek_back(window, cx);
         }
         // With nothing cut or picked, the branch opened on the Branches page goes back to its
         // table.
@@ -1273,41 +1277,77 @@ impl AppView {
             .update(cx, |detail, cx| detail.focus(window, cx));
     }
 
+    /// Whether the navigator shows, beside the detail or out over it.
+    pub(crate) fn navigator_shown(&self) -> bool {
+        self.navigator_open || self.peek.open
+    }
+
+    /// Place a commit of the uncommitted changes of the selection's checkout with the keys,
+    /// from the selection: the navigator steps through where it can go, and the composer shows
+    /// what goes in and the message. While one's being placed, as Return does there. With the
+    /// navigator out of sight, only the status bar says where it goes, the composer stays
+    /// closed and what's shown stays as it is: Return, or this again, commits it all there
+    /// without a message.
     fn start_commit(&mut self, _: &StartCommit, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(moving) = (self.store.read(cx).moving.clone()).filter(|m| m.op == Op::Commit) {
+            // From the composer, with its message, written first; without it, as where the
+            // navigator came out for the commit, as it is, the navigator going back once it's
+            // made.
+            if self.detail.read(cx).composing() {
+                return (self.detail).update(cx, |detail, cx| detail.commit_here(window, cx));
+            }
+            (self.detail).update(cx, |detail, cx| detail.commit_now(moving, cx));
+            if self.peek.committing && self.store.read(cx).moving.is_none() {
+                self.send_peek_back(window, cx);
+            }
+            return;
+        }
         let Some(selection) = self.selection(cx) else {
             return;
         };
-        // The message is written in the detail.
-        self.set_detail(true, window, cx);
+        let shown = self.navigator_shown();
+        if shown {
+            // The message is written in the detail.
+            self.set_detail(true, window, cx);
+        }
         // Only what's on screen gets committed: from another page, ⌘↩ shows the changes
         // first, a linked worktree's from its branches and commits.
         let project = selection.project().clone();
         let checkout = match (&selection, self.store.read(cx).worktree_for(&selection)) {
             (Selection::Uncommitted(_) | Selection::Worktree(..), _) => selection.clone(),
-            (_, Some(worktree)) => Selection::Worktree(project, worktree.name.clone()),
-            (_, None) => Selection::Uncommitted(project),
+            (_, Some(worktree)) => Selection::Worktree(project.clone(), worktree.name.clone()),
+            (_, None) => Selection::Uncommitted(project.clone()),
         };
-        if selection == checkout {
-            return self
-                .detail
-                .update(cx, |detail, cx| detail.commit_or_write(window, cx));
+        let Some(worktree) = self.store.read(cx).checkout_of(&checkout) else {
+            return;
+        };
+        // From where it's started, before the selection is the changes'.
+        let start = (self.navigator).update(cx, |navigator, cx| {
+            navigator.commit_start(&project, &selection, cx)
+        });
+        // The hidden navigator comes out over the detail to place it in, as ⌘1 brings it,
+        // what's shown staying as it is, without the composer.
+        if !shown {
+            self.focus_navigator(&FocusNavigator, window, cx);
+            self.peek.committing = self.peek.keyed;
+            return self.navigator.update(cx, |navigator, cx| {
+                navigator.start_committing(project, worktree, start, window, cx)
+            });
         }
-        // From a branch, or one of its commits, the commit goes on that branch.
-        let branch = (self.store.read(cx).branch_for(&selection))
-            .and_then(|branch| branch.ref_name.clone())
-            .filter(|_| matches!(checkout, Selection::Uncommitted(_)));
-        self.store
-            .update(cx, |store, cx| store.select(Some(checkout.clone()), cx));
+        if selection != checkout {
+            self.store
+                .update(cx, |store, cx| store.select(Some(checkout), cx));
+        }
         // Once the detail has taken the new selection's checks, which it does as this update
         // ends: opened before, the composer would be of the checkout left, and close.
-        let detail = self.detail.clone();
+        let (detail, navigator) = (self.detail.clone(), self.navigator.clone());
         window.defer(cx, move |window, cx| {
-            detail.update(cx, |detail, cx| {
-                if let Some(branch) = branch {
-                    detail.branch_created(checkout.project(), branch, cx);
-                }
-                detail.focus_message(window, cx)
-            })
+            // Not where the composer won't open, as while a commit is being edited.
+            if detail.update(cx, |detail, cx| detail.open_composer(window, cx)) {
+                navigator.update(cx, |navigator, cx| {
+                    navigator.start_committing(project, worktree, start, window, cx)
+                });
+            }
         });
     }
 
@@ -1723,6 +1763,22 @@ impl AppView {
         self.covered() || cx.has_active_drag() || typing || (self.peek.keyed && keys)
     }
 
+    /// Send the navigator ⌘1 brought out back, and with it the selection and the keys to where
+    /// ⌘1 was pressed, while that's still there.
+    fn send_peek_back(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.peek.keyed = false;
+        if let Some((selection, focus)) = self.peek.returns_to.take()
+            && self.store.read(cx).still_there(&selection)
+        {
+            self.store
+                .update(cx, |store, cx| store.select(Some(selection), cx));
+            if let Some(focus) = focus {
+                window.focus(&focus, cx);
+            }
+        }
+        self.close_peek(window, cx);
+    }
+
     /// Send the navigator out over the detail back, unless [`AppView::peek_held`], moving the
     /// keys off it, as it takes no more.
     fn close_peek(&mut self, window: &mut Window, cx: &mut Context<AppView>) {
@@ -1733,6 +1789,7 @@ impl AppView {
         self.peek.open = false;
         self.peek.keyed = false;
         self.peek.returns_to = None;
+        self.peek.committing = false;
         self.peek.slide.start(false, cx);
         if self.navigator.focus_handle(cx).contains_focused(window, cx) {
             self.focus_past_navigator(window, cx);

@@ -515,6 +515,17 @@ impl Navigator {
                     },
                 }
             }),
+            // The commit being placed is titled as its message is written, which notifies
+            // nothing else.
+            cx.subscribe(&detail.read(cx).message_editor(), |this, _, event, cx| {
+                let placing = matches!(
+                    this.store.read(cx).moving,
+                    Some(Move { op: Op::Commit, .. })
+                );
+                if matches!(event, InputEvent::Changed) && placing {
+                    cx.notify()
+                }
+            }),
             cx.observe(&store, |this, store, cx| {
                 let prefs = &store.read(cx).prefs;
                 if this.branches_start_open != prefs.branches_start_open {
@@ -1150,9 +1161,9 @@ impl Navigator {
                 let open = self.heading_open(&project, &section, cx);
                 self.toggle_heading(project, section, open, window, cx)
             }
+            // A commit, placed as c places it.
             Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => {
-                self.detail
-                    .update(cx, |detail, cx| detail.focus_message(window, cx));
+                window.dispatch_action(Box::new(crate::app::StartCommit), cx)
             }
             Some(Selection::Terminal(..)) => self.enter_terminal(window, cx),
             _ => {}
@@ -1410,7 +1421,7 @@ impl Navigator {
         // Commits being moved show where they'd land, if that's elsewhere, and what a squash
         // goes into is outlined.
         let ghost = |row: &Row| match row {
-            Row::Ghost(..) | Row::GhostBranch(..) => true,
+            Row::Ghost(..) | Row::GhostBranch(..) | Row::NewCommit(_) => true,
             Row::Item(item) => moving::squashed_into(store, item),
             _ => false,
         };
@@ -1712,7 +1723,13 @@ impl Navigator {
                 .pr(dp(12.))
                 .child(div().flex_1().h(fixed(1.)).bg(theme.text_2.opacity(0.2)))
                 .into_any_element(),
-            Some(Row::GhostBranch(_, at)) => moving::ghost_branch_row(at, inset, theme),
+            Some(Row::GhostBranch(project, at)) => {
+                let mark = moving::mark_of(self.store.read(cx), project, theme);
+                moving::ghost_branch_row(at, inset, mark, theme)
+            }
+            Some(Row::NewCommit(project)) => {
+                moving::new_commit_row(project, inset, self.store.read(cx), theme)
+            }
             Some(Row::UpstreamMore(project, more)) => {
                 let page = Selection::Project(project.clone());
                 under_commits("upstream-more", Icon::Kebab)
@@ -1762,7 +1779,7 @@ impl Navigator {
         // full width; the rest as a whole.
         let full_width = matches!(
             self.rows.get(ix),
-            Some(Row::Item(_) | Row::Ghost(..) | Row::GhostBranch(..))
+            Some(Row::Item(_) | Row::Ghost(..) | Row::GhostBranch(..) | Row::NewCommit(_))
         );
         let el = match inset > 0. && !full_width {
             true => div().pl(dp(inset)).child(el).into_any_element(),
@@ -1817,7 +1834,7 @@ impl Navigator {
         let selection = self.store.read(cx).selection.as_ref();
         let over_rank = match self.rows.get(ix) {
             _ if held => 3,
-            Some(Row::Ghost(..)) => 2,
+            Some(Row::Ghost(..) | Row::NewCommit(_)) => 2,
             Some(Row::Item(item)) if selection == Some(item) => 1,
             _ => 0,
         };

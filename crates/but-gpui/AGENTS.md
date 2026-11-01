@@ -333,7 +333,8 @@ anything else.
   Make the first move 1px, as a hand's is: a bigger one starts the drag before hover changes.
 - Prompts use GPUI's fallback renderer, which ignores Escape and Enter, so click its buttons. It
   clips long detail, which each prompt also prints as `PROMPT message | detail` (`grep -A2 PROMPT`).
-- Enter in a commit message's title goes to its body, where it adds a line, and ⌘↩ saves.
+- Enter in the composer's commit title commits, and Tab goes to its body, where Enter adds a
+  line. A pull request's title goes on to its body on Enter, and ⌘↩ saves.
 - To make an operation slow enough to race, turn on signing with a `gpg.program` script that
   sleeps, then prints a dummy signature. Keep the racing steps in one script run.
 - Rows move under the pointer: a drag inserts drop zones, and an optimistic stand-in adds a row.

@@ -128,6 +128,9 @@ pub enum Op {
     Move,
     /// Squashes it into what it's at, an [`Stop::Into`], keeping these messages.
     Squash(Messages),
+    /// Commits it, a checkout's uncommitted changes, as a new commit where it's at, as the
+    /// composer has them checked and its message says.
+    Commit,
 }
 
 impl Op {
@@ -136,6 +139,7 @@ impl Op {
         match self {
             Op::Move => "Moving",
             Op::Squash(_) => "Squashing",
+            Op::Commit => "Committing",
         }
     }
 
@@ -144,6 +148,7 @@ impl Op {
         match self {
             Op::Move => theme.pop,
             Op::Squash(_) => theme.blue,
+            Op::Commit => theme.purple,
         }
     }
 }
@@ -325,6 +330,10 @@ impl Move {
 
     /// What's moving, as the status bar names it.
     pub fn describe(&self, store: &Store) -> String {
+        // A new commit by the title it'll have, once one's written.
+        if self.op == Op::Commit {
+            return (self.commit_title(store)).map_or_else(String::new, |t| format!("\"{t}\""));
+        }
         match &self.what {
             Moving::Project(_) => project_name(store, &self.project),
             Moving::Terminal { id, .. } => terminal_title(store, *id),
@@ -427,6 +436,7 @@ impl Move {
     pub fn lands(&self, store: &Store) -> bool {
         match self.op {
             Op::Squash(_) => return self.squashed(store).is_some(),
+            Op::Commit => return self.commit_to(store).is_some(),
             Op::Move => {}
         }
         if let (Moving::Branch(branch), Stop::NewStack { .. }) = (&self.what, &self.at) {
@@ -547,6 +557,65 @@ impl Move {
         })
     }
 
+    /// The title written for the commit being made, if one is, as the composer's message is
+    /// kept while it's written.
+    pub fn commit_title<'a>(&self, store: &'a Store) -> Option<&'a str> {
+        let (Op::Commit, Moving::Files { worktree, .. }) = (self.op, &self.what) else {
+            return None;
+        };
+        let key = (self.project.clone(), worktree.clone());
+        let draft = store.drafts.get(&key)?;
+        Some(crate::ui::message_editor::split(draft).0).filter(|title| !title.is_empty())
+    }
+
+    /// Where committing puts a new commit where it's at, if it can go there: on top of a
+    /// branch of the checkout the changes are in, right below one of its commits, or in a new
+    /// branch beside one of them; from the main checkout, in a new branch of its own too, a
+    /// stack of its own in the workspace, and outside it where a new branch made there goes.
+    /// Not on the default branch, which work stays off.
+    pub fn commit_to(&self, store: &Store) -> Option<CommitTo> {
+        let (Op::Commit, Moving::Files { worktree, .. }) = (self.op, &self.what) else {
+            return None;
+        };
+        let workspace = store.workspace(&self.project)?;
+        let takes = |branch: &FullName| {
+            workspace.target_branch.as_ref() != Some(branch)
+                && (workspace.lane_of(Some(branch)))
+                    .is_some_and(|(lane, _)| lane.checkout == *worktree)
+        };
+        match &self.at {
+            Stop::In(Destination::Branch(branch)) => {
+                takes(branch).then(|| CommitTo::Branch(branch.clone()))
+            }
+            Stop::In(Destination::BelowCommit(commit)) => {
+                let (branch, _) = workspace.find_commit(*commit)?;
+                let branch = branch.ref_name.clone()?;
+                takes(&branch).then_some(CommitTo::BelowCommit {
+                    commit: *commit,
+                    branch,
+                })
+            }
+            Stop::NewBranch { beside, below } => takes(beside).then(|| CommitTo::NewBranchAt {
+                beside: Some((beside.clone(), *below)),
+                first: false,
+                name: None,
+            }),
+            Stop::NewStack { first } => match (worktree, workspace.managed) {
+                (Checkout::Main, true) => Some(CommitTo::NewBranchAt {
+                    beside: None,
+                    first: *first,
+                    name: None,
+                }),
+                (Checkout::Main, false) => Some(CommitTo::NewBranch),
+                (Checkout::Linked(_), _) => None,
+            },
+            Stop::In(Destination::AboveCommit(_))
+            | Stop::Into(_)
+            | Stop::Card(_)
+            | Stop::Terminal { .. } => None,
+        }
+    }
+
     /// Whether it's commits or a branch, which move or squash alike.
     pub fn of_commits(&self) -> bool {
         matches!(self.what, Moving::Commits(_) | Moving::Branch(_))
@@ -568,6 +637,11 @@ impl Move {
     pub fn verb(&self, store: &Store) -> &'static str {
         match (self.op, self.squashed(store)) {
             (Op::Move, _) => "move here",
+            // Once there's a message, Return commits; till then it goes to writing one.
+            (Op::Commit, _) => match self.describe(store).is_empty() {
+                true => "write the message",
+                false => "commit",
+            },
             (Op::Squash(_), Some(Transfer::Amend { .. })) => "amend",
             (Op::Squash(_), Some(Transfer::Uncommit { .. } | Transfer::UncommitFiles { .. })) => {
                 "uncommit"
@@ -584,7 +658,13 @@ impl Move {
             Stop::In(Destination::Branch(branch)) => {
                 format!("to the top of {}", short_ref(branch))
             }
-            Stop::In(to) => place(to),
+            // A commit by its title, as a squash says what it goes into.
+            Stop::In(Destination::BelowCommit(id)) => {
+                format!("below {}", commit_name(store, &self.project, *id))
+            }
+            Stop::In(Destination::AboveCommit(id)) => {
+                format!("above {}", commit_name(store, &self.project, *id))
+            }
             Stop::NewBranch { beside, below } => {
                 let side = if *below { "below" } else { "above" };
                 match moves_branch {
