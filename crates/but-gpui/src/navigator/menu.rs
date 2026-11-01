@@ -22,7 +22,7 @@ use crate::edits::{
     SquashIntoSelected, SquashPicked, TakeRemote, UnapplyStack, Uncommit, Unstack,
 };
 use crate::overlays::MenuItem;
-use crate::state::{ProjectId, Seeable, Selection, Store, WatchedOrder};
+use crate::state::{ProjectId, Seeable, Selection, Store};
 use crate::terminal::NewTerminal;
 use crate::ui::plural;
 
@@ -32,8 +32,6 @@ actions!(
         CloseTerminal,
         Watch,
         StopWatching,
-        MoveUp,
-        MoveDown,
         UnarchiveWorktree,
         Reveal,
         OpenProjectSettings,
@@ -42,88 +40,12 @@ actions!(
     ]
 );
 
-/// Where Move up or Move down takes the selected watched project or worktree: before the one
-/// named, or after the others with `None`.
-#[derive(Clone)]
-enum Moved {
-    Project(ProjectId, Option<ProjectId>),
-    Worktree(ProjectId, BString, Option<BString>),
-}
-
-impl Moved {
-    /// Moving the selection `up` or down, unless it's at that end, or doesn't move by hand.
-    fn of(store: &Store, up: bool) -> Option<Self> {
-        match store.selection.as_ref()? {
-            // Only a watched card, in the manual order.
-            Selection::Project(project) => {
-                let manual = store.prefs.watched_order == WatchedOrder::Manual;
-                if !manual || !store.project(project)?.expanded {
-                    return None;
-                }
-                let watched = store.expanded_ids();
-                let at = watched.iter().position(|id| id == project)?;
-                let before = beside(&watched, at, up)?.cloned();
-                Some(Moved::Project(project.clone(), before))
-            }
-            // Among those listed with it, the active or the inactive ones.
-            Selection::Worktree(project, name) => {
-                let ws = store.workspace(project)?;
-                let worktree = ws.find_worktree(name.as_ref())?;
-                let listed: Vec<&BString> = (store.worktrees_in_order(project, ws).into_iter())
-                    .filter(|wt| wt.is_inactive() == worktree.is_inactive())
-                    .filter(|wt| !store.hides_worktree(project, wt.name.as_ref()))
-                    .map(|wt| &wt.name)
-                    .collect();
-                let at = listed.iter().position(|other| *other == name)?;
-                let before = beside(&listed, at, up)?.map(|b| (*b).clone());
-                Some(Moved::Worktree(project.clone(), name.clone(), before))
-            }
-            _ => None,
-        }
-    }
-
-    fn apply(&self, store: &mut Store, cx: &mut Context<Store>) {
-        match self {
-            Moved::Project(id, before) => store.move_watched(id, before.as_ref(), cx),
-            Moved::Worktree(project, name, before) => {
-                let before = before.as_ref().map(|b| b.as_ref());
-                store.move_worktree(project, name.as_ref(), before, cx)
-            }
-        }
-    }
-}
-
-/// What the row at `at` of `listed` goes before to swap places with the one above or below
-/// it: the one above, or the one after the one below, `None` for after the last. `None` at
-/// the end it would move past.
-fn beside<T>(listed: &[T], at: usize, up: bool) -> Option<Option<&T>> {
-    match up {
-        true => at.checked_sub(1).map(|above| listed.get(above)),
-        false => (at + 1 < listed.len()).then(|| listed.get(at + 2)),
-    }
-}
-
 impl AppView {
     /// Register what the selected row of the navigator offers beyond the edits: closing a
-    /// terminal, watching a project and moving its card or a worktree, a checkout's folder,
-    /// archiving or deleting a worktree, and from anywhere in a project, its archived worktrees.
+    /// terminal, watching a project, a checkout's folder, archiving or deleting a worktree,
+    /// and from anywhere in a project, its archived worktrees.
     pub(crate) fn navigator_actions(&self, el: Stateful<Div>, cx: &Context<Self>) -> Stateful<Div> {
         let store = self.store.read(cx);
-        let moves = |el: Stateful<Div>, up: bool| {
-            el.when_some(Moved::of(store, up), |el, moved| {
-                let run = move |this: &mut Self, cx: &mut Context<Self>| {
-                    let moved = moved.clone();
-                    (this.store).update(cx, |store, cx| moved.apply(store, cx))
-                };
-                match up {
-                    true => el.on_action(cx.listener(move |this, _: &MoveUp, _, cx| run(this, cx))),
-                    false => {
-                        el.on_action(cx.listener(move |this, _: &MoveDown, _, cx| run(this, cx)))
-                    }
-                }
-            })
-        };
-        let el = moves(moves(el, true), false);
         let unarchivable = (store.selection.as_ref())
             .map(|selection| selection.project().clone())
             .filter(|project| {
@@ -405,7 +327,6 @@ impl Navigator {
                 if store.read_marks_of(target).is_some() {
                     items.push(MenuItem::action("Mark all as read", &MarkAllRead, cx));
                 }
-                items.extend([command(&MoveUp), command(&MoveDown)]);
                 if expanded {
                     items.push(command(&MoveSelection));
                     let mut branch = new_branch_items(cx);
@@ -550,8 +471,6 @@ impl Navigator {
                     items.extend(changes_items(cx));
                 }
                 items.extend([
-                    command(&MoveUp).separated(),
-                    command(&MoveDown),
                     command(&ArchiveWorktree).separated(),
                     command(&DeleteWorktree).danger(),
                 ]);

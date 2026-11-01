@@ -281,8 +281,6 @@ commands! {
     },
     crate::navigator::Watch => "Watch",
     crate::navigator::StopWatching => "Stop watching" { aliases: &["Unwatch"] },
-    crate::navigator::MoveUp => "Move up",
-    crate::navigator::MoveDown => "Move down",
     crate::navigator::UnarchiveWorktree => "Unarchive worktree",
     crate::navigator::Reveal => (crate::ui::REVEAL),
     crate::navigator::OpenProjectSettings => "Project settings",

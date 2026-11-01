@@ -50,8 +50,8 @@ mod account;
 mod drop;
 mod menu;
 pub(crate) use menu::{
-    ArchiveWorktree, CloseTerminal, DeleteWorktree, MoveDown, MoveUp, OpenProjectSettings, Reveal,
-    StopWatching, UnarchiveWorktree, Watch,
+    ArchiveWorktree, CloseTerminal, DeleteWorktree, OpenProjectSettings, Reveal, StopWatching,
+    UnarchiveWorktree, Watch,
 };
 pub(crate) use order::{
     ShowActiveProjects, ShowAllProjects, SortProjectsByActivity, SortProjectsByName,
