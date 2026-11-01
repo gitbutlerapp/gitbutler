@@ -108,9 +108,12 @@ size at its place in window coordinates, how many pixels of the frame it has, an
 the most changed of them changed in a channel, out of 255. The app draws a frame the same
 way every time, so a change is never noise. A change at frame 000 is a jump as the motion
 starts, `unchanged` partway a stall, a change after the motion should be done a snap at its
-end, and one place changing back and forth a flicker. Read the lines before the images, then
-the sheet, then single frames for a closer look. Film a region: a whole window's frames are
-too small in the sheet to read.
+end, and one place changing back and forth a flicker. The line marks a change at frame 000
+`JUMP`, and a change after the film had held still `SNAP`, and the last line repeats both. A
+`JUMP` also holds what the input changes at once, as a click's selection, and a `SNAP` a load
+that lands late, so they say where to look, not that something's wrong. Read the lines
+before the images, then the sheet, then single frames for a closer look. Film a region: a
+whole window's frames are too small in the sheet to read.
 
 To film after inputs of your own, `clock stop` first, before the input that starts the motion,
 then `film` without `--`; `clock run` runs the clock again from where it stopped. `tick 8`
@@ -123,12 +126,43 @@ real time, so they jump between frames: a tooltip's delay, and a drag's edge scr
 goes on scrolling near a list's top or bottom while the clock is stopped, so keep a filmed drag
 clear of the edges. Don't stretch a duration in the code to see a motion slowly.
 
+## Checking a motion
+
+Before filming, write down what each frame may change. Usually that's only the thing that
+moves, and as it slides only its edges, as thin strips. Frame 000 may also show what the
+input changes at once by design, as a click's selection. Everything else matches the frame
+before, and the last frame matches the settled state. Then:
+
+- Read every FILM line. Don't grep for chosen frames or the last line: the change you didn't
+  expect is in a frame you left out.
+- Account for every place in every line, the `JUMP` and `SNAP` lines first. A place that
+  isn't on your list is a bug. Don't report it as inherent, or as a trade-off because another
+  mode does it too. Fix it, or ask the user before calling the work done.
+- After each fix, check everything that mustn't change, not only what the user pointed at.
+  A fix that changes a colour, an opacity or a border under the moving thing breaks the rest.
+- Keep the steps for every state in one script and film them all after each change. For a
+  mode, that's each kind of thing it takes (a commit, picked commits, a branch, uncommitted
+  changes, files) leaving where it started, stepping between targets, and coming back. In
+  each still frame, check every mark is still there.
+- When the user sends frames, film the same steps and find those frames before changing code.
+- Say a motion is fixed only after filming the user's own steps. Put whatever changed outside
+  the moving thing first in the reply, not last.
+
+## Showing a choice
+
+When the user picks between looks, build each one and give them the shots' paths side by
+side, not a sketch in text. A sketch hides what they react to: how tall it is, how loud, and
+what it covers.
+
 ## Notes
 
 - `cargo` must be on the `PATH`. If it isn't, run inside the repository's dev shell:
   `nix develop --command crates/but-gpui/scripts/drive.sh …` (needed for `run` and `start`;
   `step` and `stop` don't build).
 - `GITBUTLER_GPUI_APPEARANCE=dark` (or `light`) before the command picks the theme.
+- Each run and session starts with app data of its own, so on the GitButler keymap. A
+  `keymap tui` step right after `add` picks the TUI's, as Settings › Keyboard would, without
+  clicking through Settings.
 - `run --release` builds with optimizations, for `perf` and `hold` timings; see Measuring
   performance in `crates/but-gpui/AGENTS.md`.
 - The window is never key, so `on_focus` and `on_blur` listeners never fire and carets don't

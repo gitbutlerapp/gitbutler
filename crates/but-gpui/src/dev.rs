@@ -26,6 +26,7 @@
 //! scroll 900 400 0 200    # and by 200 to the right
 //! pinch 900 400 0.5       # pinch a trackpad there, zooming in by half again, out below 0
 //! add /path/to/repo       # add a project, as Add a repository does with the folder picked
+//! keymap tui              # pick a keymap, gitbutler or tui, as Settings › Keyboard does
 //! sh but commit -m x      # run a shell command, as an agent or another app would
 //! size 900 500           # resize the window, in logical pixels
 //! shot /tmp/view.png      # render the current frame to a PNG, a pixel per logical pixel, so
@@ -40,7 +41,9 @@
 //!                         # printing what changed in each from the frame before, in clusters
 //!                         # of nearby pixels, largest first, as `FILM 003 t=24ms changed
 //!                         # 2.1% in 2 places: 340x80 at 0,96 (5400px Δ255), 2x2 at 330,60
-//!                         # (4px Δ30)`: size, place, pixels and the most one changed (0–255)
+//!                         # (4px Δ30)`: size, place, pixels and the most one changed (0–255);
+//!                         # a change in frame 000 is marked `JUMP`, and one after the film
+//!                         # had held still `SNAP`, on its line and on the last
 //! film /tmp/f 240 8 0 0 400 300  # only that region
 //! film /tmp/f 240 8 -- click 306 66  # save before.png, run the input, then film it, on a
 //!                         # clock stopped for the while
@@ -70,6 +73,7 @@ use parking_lot::Mutex;
 
 use crate::app::AppView;
 use crate::clock;
+use crate::keymap::Keymap;
 
 static LAUNCHED: OnceLock<Instant> = OnceLock::new();
 
@@ -370,6 +374,9 @@ async fn film(rest: &str, window: AnyWindowHandle, cx: &mut gpui::AsyncApp) -> R
     let filmed = async {
         let tiles = count + usize::from(input.is_some());
         let (mut sheet, mut last, mut last_change) = (None::<Sheet>, None::<RgbaImage>, None);
+        // Whether frame 000 changed, before the clock moved, when the changes after the film
+        // had held still came, and whether it holds still now after changing.
+        let (mut jumped, mut snaps, mut held) = (false, Vec::new(), false);
         if let Some(input) = input {
             clock::stop();
             let image = cx.update_window(window, |_, window, cx| {
@@ -399,10 +406,25 @@ async fn film(rest: &str, window: AnyWindowHandle, cx: &mut gpui::AsyncApp) -> R
             let at = n as f32 * every;
             let change = match last.as_ref().map(|last| changed(last, &image)) {
                 None => String::new(),
-                Some(None) => " unchanged".to_owned(),
+                Some(None) => {
+                    held = last_change.is_some();
+                    " unchanged".to_owned()
+                }
                 Some(Some(change)) => {
+                    let mark = match (n, held) {
+                        (0, _) => {
+                            jumped = true;
+                            " JUMP"
+                        }
+                        (_, true) => {
+                            snaps.push(at);
+                            " SNAP"
+                        }
+                        (_, false) => "",
+                    };
+                    held = false;
                     last_change = Some(at);
-                    format!(" {}", describe(&change, origin, scale))
+                    format!("{mark} {}", describe(&change, origin, scale))
                 }
             };
             println!("FILM {n:03} t={at:.0}ms{change}");
@@ -417,13 +439,13 @@ async fn film(rest: &str, window: AnyWindowHandle, cx: &mut gpui::AsyncApp) -> R
                 .timer(Duration::from_millis(1))
                 .await;
         }
-        anyhow::Ok((sheet, last_change))
+        anyhow::Ok((sheet, last_change, jumped, snaps))
     }
     .await;
     if running {
         clock::run();
     }
-    let (sheet, last_change) = filmed?;
+    let (sheet, last_change, jumped, snaps) = filmed?;
     let Some(sheet) = sheet else {
         return Ok(());
     };
@@ -436,8 +458,20 @@ async fn film(rest: &str, window: AnyWindowHandle, cx: &mut gpui::AsyncApp) -> R
         Some(_) => " and before.png",
         None => "",
     };
+    // On this line too, so a read that keeps only it still sees them.
+    let jump = match jumped {
+        true => "; JUMP at 0ms",
+        false => "",
+    };
+    let snap = match snaps.is_empty() {
+        true => String::new(),
+        false => {
+            let at: Vec<String> = snaps.iter().map(|at| format!("{at:.0}ms")).collect();
+            format!("; SNAP at {}", at.join(", "))
+        }
+    };
     println!(
-        "FILM {count} frames{before} in {}, {last_change}; sheet.png has them {} to a row",
+        "FILM {count} frames{before} in {}, {last_change}{jump}{snap}; sheet.png has them {} to a row",
         dir.display(),
         sheet.columns,
     );
@@ -956,6 +990,19 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             app.update(cx, |app, cx| {
                 app.store
                     .update(cx, |store, cx| store.add_project(PathBuf::from(rest), cx))
+            });
+        }
+        // The keymap Settings › Keyboard would pick, without opening it.
+        "keymap" => {
+            let keymap = (Keymap::ALL.into_iter())
+                .find(|keymap| keymap.name().eq_ignore_ascii_case(rest))
+                .with_context(|| {
+                    let names = Keymap::ALL.map(|keymap| keymap.name().to_lowercase());
+                    format!("keymap takes {}", names.join(" or "))
+                })?;
+            let app = window.root::<AppView>().flatten().context("no app view")?;
+            app.update(cx, |app, cx| {
+                (app.store).update(cx, |store, cx| store.set_prefs(|p| p.keymap = keymap, cx))
             });
         }
         // The window as if another app's covered it, or shown again.
