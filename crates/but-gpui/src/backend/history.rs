@@ -32,6 +32,8 @@ pub struct Operation {
     pub kind: Option<OperationKind>,
     /// What it did to the branches and their commits, when its snapshot says.
     pub changes: Vec<Change>,
+    /// The AI agent that did it, like `claude-code`, when the oplog says one did.
+    pub agent: Option<String>,
 }
 
 /// A commit as a snapshot, or the workspace now, has it.
@@ -190,6 +192,12 @@ pub fn list(
             K::SquashCommit if amended(&changes) => K::AmendCommit,
             kind => kind,
         });
+        let agent = (snapshot.details.iter())
+            .flat_map(|details| &details.trailers)
+            .find_map(|trailer| match trailer {
+                Trailer::Agent(agent) => agent.clone(),
+                _ => None,
+            });
         let (title, detail) = match snapshot.details {
             Some(details) => match details.operation {
                 K::RestoreFromSnapshotViaUndo => restored("Undo"),
@@ -221,6 +229,7 @@ pub fn list(
             time: snapshot.created_at.seconds,
             kind,
             changes,
+            agent,
         });
     }
     Ok((operations, more))
