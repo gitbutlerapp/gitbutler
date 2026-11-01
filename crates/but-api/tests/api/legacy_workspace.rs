@@ -89,3 +89,69 @@ fn create_virtual_branch_returns_the_stack_that_switching_back_created() -> anyh
     );
     Ok(())
 }
+
+#[test]
+fn create_virtual_branch_on_the_target_checks_out_the_new_branch() -> anyhow::Result<()> {
+    let (repo, _tmp) = crate::support::repo_with_feature_branch()?;
+    crate::support::persist_default_target(&repo)?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+
+    let stack = but_api::legacy::virtual_branches::create_virtual_branch(
+        &mut ctx,
+        gitbutler_branch::BranchCreateRequest {
+            name: Some("new-branch".into()),
+            order: None,
+        },
+    )?;
+
+    assert_eq!(stack.heads[0].name, "new-branch");
+    let repo = ctx.repo.get()?;
+    assert_eq!(
+        repo.head_name()?.map(|name| name.to_string()),
+        Some("refs/heads/new-branch".into()),
+        "alone on the target, the new branch is checked out as `git checkout -b` would"
+    );
+    assert!(
+        repo.try_find_reference("refs/heads/gitbutler/workspace")?
+            .is_none(),
+        "a single branch doesn't need the workspace"
+    );
+    Ok(())
+}
+
+#[test]
+fn create_virtual_branch_beside_another_branch_switches_to_the_workspace() -> anyhow::Result<()> {
+    let (repo, tmp) = crate::support::repo_with_feature_branch()?;
+    crate::support::persist_default_target(&repo)?;
+    git_at_dir(tmp.path())
+        .args(["checkout", "-b", "other"])
+        .run();
+    crate::support::write_file(tmp.path(), "other.txt", "other\n")?;
+    git_at_dir(tmp.path()).args(["add", "other.txt"]).run();
+    git_at_dir(tmp.path()).args(["commit", "-m", "other"]).run();
+    let mut ctx =
+        but_ctx::Context::from_repo_for_testing(open_repo(tmp.path())?)?.with_memory_app_cache();
+
+    but_api::legacy::virtual_branches::create_virtual_branch(
+        &mut ctx,
+        gitbutler_branch::BranchCreateRequest {
+            name: Some("new-branch".into()),
+            order: None,
+        },
+    )?;
+
+    // The checked-out branch and the new one are both applied in the workspace.
+    snapbox::assert_data_eq!(
+        crate::support::workspace_graph(&ctx)?,
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on b12810b
+├── ≡📙:other on b12810b {[..]}
+│   └── 📙:other
+│       └── ·8dfb293 (🏘️)
+└── ≡📙:new-branch on b12810b {[..]}
+    └── 📙:new-branch
+
+"#]]
+    );
+    Ok(())
+}

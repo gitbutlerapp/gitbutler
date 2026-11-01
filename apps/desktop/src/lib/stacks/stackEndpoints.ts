@@ -6,7 +6,6 @@ import {
 	workspaceStackDetailTags,
 	type WorkspaceDetails,
 } from "$lib/stacks/headInfoAdapters";
-import { tauriBaseQuery } from "$lib/state/backendQuery";
 import { createSelectByIds, createSelectNth } from "$lib/state/customSelectors";
 import {
 	invalidatesItem,
@@ -52,7 +51,6 @@ import type {
 	RelativeTo,
 	RefInfo,
 	StackEntryNoOpt,
-	HeadAndMode,
 	BottomUpdate,
 	WorkspaceIntegrateUpstreamOutcome,
 	BranchCreatePlacement,
@@ -298,24 +296,9 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				command: "create_virtual_branch",
 				actionName: "Create Stack",
 			},
-			async queryFn(args, api, extraOptions) {
-				const project = { projectId: args.projectId };
-				const mode = await tauriBaseQuery(project, api, { command: "operating_mode" });
-				if (mode.error !== undefined) return { error: mode.error };
-
-				// Independent stacks need a managed workspace, regardless of whether the
-				// caller is the branch modal, commit drawer, or a drag-and-drop action.
-				if ((mode.data as HeadAndMode).operatingMode.type === "OutsideWorkspace") {
-					const switched = await tauriBaseQuery(project, api, {
-						command: "switch_back_to_workspace",
-					});
-					if (switched.error !== undefined) return { error: switched.error };
-				}
-
-				const created = await tauriBaseQuery(args, api, extraOptions);
-				if (created.error !== undefined) return { error: created.error };
-				return { data: created.data as StackEntryNoOpt };
-			},
+			// Outside the workspace, the backend checks out a branch made on the target or
+			// switches to the workspace beside any other branch.
+			query: (args) => args,
 			invalidatesTags: (result, _error) => [
 				invalidatesItem(ReduxTag.StackDetails, result?.id || "undefined"),
 				invalidatesList(ReduxTag.StackDetails),
