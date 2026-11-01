@@ -18,8 +18,8 @@ use crate::commands::Command;
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CommitEdits, CopyChangeId, CopyMessage,
     DeleteBranch, DiscardChanges, DiscardCommit, MoveToNewBranch, NameBranch, NewBranchBelow,
-    NewBranchHere, PullRemote, RenameBranch, Reword, RewrapMessage, SquashAll, SquashIntoSelected,
-    SquashPicked, TakeRemote, UnapplyStack, Uncommit, Unstack,
+    NewBranchHere, PullRemote, RenameBranch, RenameTerminal, Reword, RewrapMessage, SquashAll,
+    SquashIntoSelected, SquashPicked, TakeRemote, UnapplyStack, Uncommit, Unstack,
 };
 use crate::overlays::MenuItem;
 use crate::state::{ProjectId, Seeable, Selection, Store, WatchedOrder};
@@ -380,7 +380,7 @@ impl Navigator {
         let command = |command: &'static dyn Command| MenuItem::command(command, cx);
         match target {
             Selection::Terminal(..) => vec![
-                command(&Reword),
+                command(&RenameTerminal),
                 command(&MoveSelection),
                 command(&CloseTerminal),
             ],

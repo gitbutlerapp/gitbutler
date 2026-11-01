@@ -83,7 +83,7 @@
     "context": "Navigator && Moving && !TextInput",
     "bindings": { "enter": "navigator::MoveHere" }
   },
-  // r rewords a commit or a terminal, renames a branch and names the unnamed one, where the
+  // r rewords a commit, renames a branch or a terminal and names the unnamed branch, where the
   // TUI's squashes: a section apiece, as the key runs the one the selection has.
   {
     "context": "Navigator && !TextInput",
@@ -96,6 +96,10 @@
   {
     "context": "Navigator && !TextInput",
     "bindings": { "r": "edits::NameBranch" }
+  },
+  {
+    "context": "Navigator && !TextInput",
+    "bindings": { "r": "edits::RenameTerminal" }
   },
   // The TUI's details: j and k between hunks, ⌃D and ⌃U half a page, g and ⇧G to the first and
   // last file. Return on a file's header folds or unfolds it, as on its row in the file list.

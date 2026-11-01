@@ -13,7 +13,7 @@ use crate::app::{
 use crate::backend::rebuild::Rebuild;
 use crate::backend::{Branch, Checkout, CommitId, FileChange, ReviewState, Workspace};
 use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
-use crate::edits::{NameBranch, RenameBranch, Reword, Uncommit};
+use crate::edits::{NameBranch, RenameBranch, RenameTerminal, Reword, Uncommit};
 use crate::pr::{CreatePullRequest, create_offer};
 use crate::state::{Cut, ProjectId, SLOW, Section, Selection};
 use crate::theme::Theme;
@@ -271,7 +271,7 @@ impl AppView {
                 Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => {
                     vec![(&StartCommit, "commit")]
                 }
-                Some(Selection::Terminal(..)) => vec![(&Reword, "reword")],
+                Some(Selection::Terminal(..)) => vec![(&RenameTerminal, "rename")],
                 _ => Vec::new(),
             };
             if store.can_undo() {
