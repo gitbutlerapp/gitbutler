@@ -391,6 +391,10 @@ The client runs on macOS, Windows and Linux. AppKit code sits behind
 `#[cfg(target_os = "macos")]`. A Mac never compiles the `cfg(windows)` or Linux code; the
 Windows CI job lints and tests the one, the Linux lint and test jobs the other.
 
+- On a Mac without Xcode, building the client stops at `error: tool 'metal' not found`. Pass
+  `--features gpui_platform/runtime_shaders` to `cargo check`, `build`, `test` and `clippy`, as
+  `drive.sh` and `make run-but-gpui-without-xcode` do. It says nothing about the change, so build
+  with the feature and go on to look at it with `drive.sh`.
 - Keys live in `assets/keymaps`, in Zed's keymap format, written with `secondary-`, which is ⌘ on
   macOS and Ctrl elsewhere. `base.json` holds only the keys macOS gives every app, which no keymap
   changes: Quit, Close window, Hide, Minimize, Settings, zoom and a dialog's Tab. Everything the
