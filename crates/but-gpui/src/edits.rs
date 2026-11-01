@@ -211,7 +211,7 @@ impl CommitEdits {
 }
 
 impl AppView {
-    /// Register the edits on the element around the navigator and the detail. New branch on top
+    /// Register the edits on the element around the navigator and the detail. New branch above
     /// is always there; the rest only where the selection lets them do something, which is also
     /// what the palette offers. Where one key does what fits the selection, as r rewords a commit
     /// and renames a branch, it's bound to each, and runs the one registered here.

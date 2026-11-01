@@ -143,7 +143,7 @@ commands! {
     UpdateWorkspace => "Update workspace",
     UpdateWorktrees => "Update worktrees",
     NewBranch => "New branch",
-    NewBranchOnTop => "New branch on top",
+    NewBranchOnTop => "New branch above",
     crate::app::NewWorktree => "New worktree" { listed: has_target },
     crate::app::NewWorktreeWithName => "New worktree with name" { listed: has_target },
     Reword => "Reword" {
