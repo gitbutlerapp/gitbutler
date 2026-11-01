@@ -649,6 +649,29 @@ impl Navigator {
         event.click_count() == 2 && !just_opened
     }
 
+    /// Hold the watched projects' order by activity as it is now (`held`), so rows don't move
+    /// under the pointer, or let it go on.
+    fn hold_order(&mut self, held: bool, cx: &Context<Self>) {
+        match held {
+            false => self.held_order = None,
+            true if self.held_order.is_none() => {
+                let watched = self.watched(self.store.read(cx));
+                self.held_order = Some(watched.into_iter().map(|e| e.id.clone()).collect());
+            }
+            true => {}
+        }
+    }
+
+    /// A drag moved, `over` the navigator or not. GPUI counts nothing as hovered while dragging,
+    /// so no leave comes for a drag let go elsewhere, as on a terminal, and the order by
+    /// activity would stay held: it's let go as the drag leaves, and held again as it comes back.
+    fn drag_moved(&mut self, over: bool, cx: &mut Context<Self>) {
+        if over != self.held_order.is_some() {
+            self.hold_order(over, cx);
+            cx.notify();
+        }
+    }
+
     /// Give the rows the keys, the selection drawn solid again.
     fn focus_list(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         window.focus(&self.focus, cx);
@@ -3643,17 +3666,21 @@ impl Render for Navigator {
             })
             .on_drag_move(cx.listener(Self::resize_drawer))
             .on_drag_move(cx.listener(Self::follow_project_drag))
+            .on_drag_move(cx.listener(|this, event: &DragMoveEvent<Cut>, _, cx| {
+                this.drag_moved(event.bounds.contains(&event.event.position), cx)
+            }))
+            .on_drag_move(
+                cx.listener(|this, event: &DragMoveEvent<ProjectDrag>, _, cx| {
+                    this.drag_moved(event.bounds.contains(&event.event.position), cx)
+                }),
+            )
             .on_drop(cx.listener(Self::drop_project))
             .track_focus(&self.focus)
             .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
                 this.pointer_over = *hovered;
-                // GPUI calls a drag's start a leave, and the drop has to land where it's aimed.
-                if !*hovered && !cx.has_active_drag() {
-                    this.held_order = None;
-                } else if this.held_order.is_none() {
-                    let watched = this.watched(this.store.read(cx));
-                    this.held_order = Some(watched.into_iter().map(|e| e.id.clone()).collect());
-                }
+                // GPUI calls a drag's start a leave, and the drop has to land where it's aimed:
+                // the drag's moves say where it is meanwhile (see `drag_moved`).
+                this.hold_order(*hovered || cx.has_active_drag(), cx);
                 cx.notify();
             }))
             .on_action(
