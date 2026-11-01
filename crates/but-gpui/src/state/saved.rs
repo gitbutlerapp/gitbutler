@@ -308,7 +308,7 @@ pub enum TerminalRuns {
 /// The order the navigator's watched projects go in.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WatchedOrder {
-    /// As the user put them, by dragging their cards or Move up and Move down.
+    /// As the user put them, by dragging their cards.
     #[default]
     Manual,
     Name,

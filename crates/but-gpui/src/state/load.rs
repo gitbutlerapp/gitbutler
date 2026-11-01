@@ -414,22 +414,6 @@ impl Store {
         cx.notify();
     }
 
-    /// Move watched project `id` before watched project `before`, or after the others.
-    pub fn move_watched(
-        &mut self,
-        id: &ProjectId,
-        before: Option<&ProjectId>,
-        cx: &mut Context<Self>,
-    ) {
-        let mut order = self.expanded_ids();
-        if !move_before(&mut order, id, before) {
-            return;
-        }
-        self.order_projects(&order);
-        self.save_soon(cx);
-        cx.notify();
-    }
-
     /// Move project `id`'s linked worktree `name` before `before`, or after the others.
     pub fn move_worktree(
         &mut self,
