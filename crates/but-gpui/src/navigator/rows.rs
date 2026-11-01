@@ -84,9 +84,9 @@ pub(super) enum RowKey {
     /// A branch's commits folded away or unfolded, whichever it shows.
     Fold(ProjectId, Option<FullName>),
     NewBranch(ProjectId),
-    /// The row of what's being moved, a commit or a branch, by the key it has otherwise, where
-    /// it's left while its copy, which takes that key, shows where it'd land: so the copy slides
-    /// out from there, from place to place, and back.
+    /// The row of what's being moved, a commit or a branch, by the key it has otherwise, while
+    /// it is: its copy, which takes that key, slides out from it to where it'd land, from place
+    /// to place, and back over it.
     Left(Box<RowKey>),
     GhostBranch(ProjectId),
     /// No row's: the top edge of the outline of what a squash goes into, which slides from row
@@ -115,6 +115,9 @@ pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
         _ => RowKey::Item(item.clone()),
     };
     let mut keys: Vec<Option<RowKey>> = Vec::with_capacity(rows.len());
+    // The key of the last row that isn't a copy of what's moving, which the rows of no other
+    // kind after it go by, as they make room for the copies rather than show up in place.
+    let mut before = None;
     for row in rows {
         let key = match row {
             Row::Item(item) if left_behind(store, item) => {
@@ -128,8 +131,11 @@ pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
             Row::NewBranch(project) => Some(RowKey::NewBranch(project.clone())),
             Row::GhostBranch(project, _) => Some(RowKey::GhostBranch(project.clone())),
             Row::Pending(_, _, Some(moved)) => Some(moved.clone()),
-            _ => (keys.last().cloned().flatten()).map(|before| RowKey::After(Box::new(before))),
+            _ => (before.clone()).map(|before| RowKey::After(Box::new(before))),
         };
+        if !matches!(row, Row::Ghost(_) | Row::GhostBranch(..)) {
+            before = key.clone();
+        }
         keys.push(key);
     }
     keys

@@ -17,14 +17,14 @@ use crate::backend::{
 use crate::state::{ProjectId, Section, Selection, Store, snack};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
-use crate::transfer::{Move, Moving, Stop, Target, Transfer, group_slots, slots};
+use crate::transfer::{Move, Moving, Op, Stop, Target, Transfer, group_slots, slots};
 use crate::ui::fold::{self, on_top};
 use crate::ui::{Icon, ROW_HEIGHT, dp, fixed, fold_glyph, guide, h_flex, icon, small_icon};
 
 /// The move of commits or a branch shown in `project`, or the squash of those or files, with
 /// copies where it'd land: the one under way, or one Return landed, until the reload after it
 /// shows where it went. A project's card and a terminal go where they'd land themselves (see
-/// [`Navigator::watched`] and the rows' terminals), held while they move ([`moved_itself`]).
+/// [`Navigator::watched`] and the rows' terminals), held while they move ([`Mark::Held`]).
 fn shown<'a>(store: &'a Store, project: &ProjectId) -> Option<&'a Move> {
     (store.moving.as_ref().or_else(|| store.landing())).filter(|moving| {
         moving.project == *project
@@ -33,13 +33,6 @@ fn shown<'a>(store: &'a Store, project: &ProjectId) -> Option<&'a Move> {
                 Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. }
             )
     })
-}
-
-/// Whether `item` is a terminal being moved, which goes where it'd land itself, so its row is
-/// held as it moves rather than selected.
-pub(super) fn moved_itself(store: &Store, item: &Selection) -> bool {
-    (store.moving.as_ref())
-        .is_some_and(|moving| matches!(moving.what, Moving::Terminal { .. }) && moving.holds(item))
 }
 
 /// The move shown in `project`, when it lands what it moves somewhere at a stop `at` picks
@@ -52,30 +45,49 @@ pub(super) fn landing_at<'a>(
     shown(store, project).filter(|moving| at(&moving.at) && moving.shows_landing(store))
 }
 
-/// Whether `item` moves with the move under way and would land elsewhere: `false` while the
-/// move is at where it is, and `None` for a row that doesn't move. A branch's commits move
-/// with it, dimmed once it'd land elsewhere; its own row shows where it is.
-pub(super) fn moving_away(store: &Store, item: &Selection) -> Option<bool> {
-    let moving = shown(store, item.project())?;
-    if moving.squash.is_some() {
-        return squashing_away(moving, store, item);
+/// Whether what lands at `at` shows there as copies of itself, between rows, as commits and
+/// a branch being moved do, rather than as an outline over the row it goes into, as a squash
+/// does ([`squash_outline`]). A card and a terminal go there themselves.
+fn copied_at(at: &Stop) -> bool {
+    match at {
+        Stop::In(_) | Stop::NewBranch { .. } | Stop::NewStack { .. } => true,
+        Stop::Into(_) | Stop::Card(_) | Stop::Terminal { .. } => false,
     }
-    if moving.holds(item) {
-        return Some(moving.lands(store));
-    }
-    let (Moving::Branch(branch), Selection::Commit(project, id)) = (&moving.what, item) else {
-        return None;
-    };
-    let (on, _) = store.find_commit(project, *id)?;
-    (on.ref_name.as_ref() == Some(branch) && moving.lands(store)).then_some(true)
 }
 
-/// As [`moving_away`] for a squash: what it's of, a branch with its commits, the commits
-/// picked or the row files are listed under, is dimmed, all of it, wherever it goes, where it
-/// started too: so nothing under the outline of what it goes into ([`squash_outline`]) changes
-/// as that slides from row to row, and around it where it started.
-fn squashing_away(moving: &Move, store: &Store, item: &Selection) -> Option<bool> {
-    (moving.holds(item) || of_branch(moving, store, item)).then_some(true)
+/// How the move shown marks a row, in the colour of its op.
+#[derive(Clone, Copy)]
+pub(super) enum Mark {
+    /// What it's of, dimmed and dashed, as what's cut is: the commits, a branch with its
+    /// commits, or the row files are listed under. It is, all of it, wherever the move is,
+    /// where it started too, so nothing under what shows where it goes changes as that slides
+    /// from row to row, and back over it: a copy of it, or the outline of what a squash goes
+    /// into ([`squash_outline`]).
+    Cut(Op),
+    /// As [`Mark::Cut`], while the move is at where it is: its copy is drawn over it there,
+    /// which slides out to where it'd land and back over it.
+    Copied(Op),
+    /// A terminal being moved, which goes where it'd land itself: held rather than selected.
+    Held(Op),
+}
+
+/// How the move shown in `item`'s project marks its row, if it does, as [`Mark`] says.
+pub(super) fn mark(store: &Store, item: &Selection) -> Option<Mark> {
+    if let Some(moving) = (store.moving.as_ref())
+        .filter(|moving| matches!(moving.what, Moving::Terminal { .. }) && moving.holds(item))
+    {
+        return Some(Mark::Held(moving.op));
+    }
+    let moving = shown(store, item.project())?;
+    let holds = moving.holds(item);
+    if !holds && !of_branch(moving, store, item) {
+        return None;
+    }
+    let home = copied_at(&moving.at) && !moving.lands(store);
+    Some(match holds && home {
+        true => Mark::Copied(moving.op),
+        false => Mark::Cut(moving.op),
+    })
 }
 
 /// Whether `item` is a commit of the branch `moving` moves or squashes.
@@ -91,10 +103,9 @@ fn of_branch(moving: &Move, store: &Store, item: &Selection) -> bool {
 }
 
 /// Whether `item`'s row is what's moving, left where it is while its copy shows where it'd
-/// land elsewhere. A squash has no copies.
+/// land, or over it while that's where it is.
 pub(super) fn left_behind(store: &Store, item: &Selection) -> bool {
-    shown(store, item.project())
-        .is_some_and(|moving| moving.squash.is_none() && moving.holds(item) && moving.lands(store))
+    shown(store, item.project()).is_some_and(|moving| copied_at(&moving.at) && moving.holds(item))
 }
 
 /// Where the outline of the squash shown is: around what it goes into, or back where it
@@ -116,7 +127,7 @@ impl SquashOutline {
     /// back where it started, around the selection's row and those squashed with it, as their
     /// dashed outline goes around them.
     pub(super) fn of(rows: &[Row], store: &Store, home: bool) -> Option<SquashOutline> {
-        let squashed = |ix: &usize| matches!(rows.get(*ix), Some(Row::Item(item)) if moving_away(store, item) == Some(true));
+        let squashed = |ix: &usize| matches!(rows.get(*ix), Some(Row::Item(item)) if matches!(mark(store, item), Some(Mark::Cut(_))));
         let (ix, first, last) = (rows.iter().enumerate()).find_map(|(ix, row)| match row {
             Row::Item(item) if squashed_into(store, item) => Some((ix, ix, ix)),
             Row::Item(item) if home && store.selection.as_ref() == Some(item) => {
@@ -178,8 +189,10 @@ pub(super) struct StandIn {
     since: Instant,
     /// How much of it shows in the frame being drawn.
     shown: f32,
-    /// It's what a squash took, marked in a squash's colour.
-    squashed: bool,
+    /// What took it away, which marks it in its colour.
+    op: Op,
+    /// The stand-ins above and below it, taken away with it, are outlined as it is.
+    outlined_with: (bool, bool),
 }
 
 impl StandIn {
@@ -202,16 +215,25 @@ enum Gone {
 }
 
 /// The rows keyed `old` that a move takes away as they go to `new`, the commits where it left
-/// them and the new branch they'd land in, each by its index and that of the nearest row above
-/// it that stays. As a squash `ended`, every commit that goes too, as it took them into
-/// another.
-fn taken_away(old: &[Option<RowKey>], new: &[Option<RowKey>], ended: bool) -> Vec<(usize, usize)> {
+/// them, once it's `landing` them elsewhere, and the new branch they'd land in, each by its
+/// index and that of the nearest row above it that stays. As a squash `ended`, every commit
+/// that goes too, as it took them into another.
+fn taken_away(
+    old: &[Option<RowKey>],
+    new: &[Option<RowKey>],
+    ended: bool,
+    landing: bool,
+) -> Vec<(usize, usize)> {
     let kept: HashSet<&RowKey> = new.iter().flatten().collect();
     let stays =
         |ix: &usize| (old.get(*ix).and_then(Option::as_ref)).is_some_and(|key| kept.contains(key));
     (old.iter().enumerate())
         .filter(|(_, key)| match key {
-            Some(key @ (RowKey::Left(..) | RowKey::GhostBranch(_))) => !kept.contains(key),
+            // Unless it lands elsewhere, what's moving takes its own row back where it's left.
+            Some(key @ RowKey::Left(own)) => {
+                !kept.contains(key) && (landing || !kept.contains(&**own))
+            }
+            Some(key @ RowKey::GhostBranch(_)) => !kept.contains(key),
             Some(key @ RowKey::Commit(..)) => ended && !kept.contains(key),
             Some(
                 RowKey::Item(_)
@@ -434,20 +456,44 @@ pub(super) fn squash_stops<'a>(
 }
 
 impl Navigator {
-    /// Stand-ins for the rows as last drawn that a move takes away at `now` as they go to those
-    /// keyed `keys`, as the squash that was shown `ended` if it did.
+    /// Stand-ins for the rows as last drawn, with the move `was` shown, that it takes away at
+    /// `now` as they go to those keyed `keys`, as the squash that was shown `ended` if it did,
+    /// or the move Return landed shows `landing` it.
     pub(super) fn stand_ins(
         &self,
         keys: &[Option<RowKey>],
-        ended: bool,
+        was: Option<Op>,
+        (ended, landing): (bool, bool),
         now: Instant,
         store: &Store,
     ) -> Vec<StandIn> {
-        (taken_away(&self.row_keys, keys, ended).into_iter())
+        let Some(op) = was else {
+            return Vec::new();
+        };
+        let taken = taken_away(&self.row_keys, keys, ended, landing);
+        // Those taken away together, next to each other, stay outlined as one.
+        let together: HashSet<usize> = (taken.iter())
+            .map(|(ix, _)| *ix)
+            .filter(|ix| matches!(self.rows.get(*ix), Some(Row::Item(_))))
+            .collect();
+        (taken.into_iter())
             .filter_map(|(ix, above)| {
                 let of = match self.rows.get(ix)? {
                     Row::Item(Selection::Commit(project, id)) => {
-                        let (_, commit) = store.find_commit(project, *id)?;
+                        // Landed, it's another commit where it went, found by its key.
+                        let key = match self.row_keys.get(ix).cloned().flatten() {
+                            Some(RowKey::Left(own)) => match *own {
+                                RowKey::Commit(_, key) => Some(key),
+                                _ => None,
+                            },
+                            _ => None,
+                        };
+                        let commit = (store.find_commit(project, *id).map(|(_, commit)| commit))
+                            .or_else(|| {
+                                let key = key?;
+                                (store.workspace(project)?.commits())
+                                    .find(|commit| commit.key == key)
+                            })?;
                         Gone::Commit(project.clone(), Box::new(commit.clone()))
                     }
                     Row::Item(Selection::Branch(project, ref_name @ Some(_))) => {
@@ -461,15 +507,20 @@ impl Navigator {
                     Row::GhostBranch(_, at) => Gone::NewBranch(at.clone()),
                     _ => return None,
                 };
+                let outlined_with = (
+                    ix.checked_sub(1).is_some_and(|ix| together.contains(&ix)),
+                    together.contains(&(ix + 1)),
+                );
                 Some(StandIn {
                     of,
+                    outlined_with,
                     under: self.row_keys.get(above)?.clone()?,
                     by: span_height(&self.rows, above..ix),
                     inset: self.insets.get(ix).copied().unwrap_or_default(),
                     guides: self.guides.get(ix).cloned().unwrap_or_default(),
                     since: now,
                     shown: 1.,
-                    squashed: ended,
+                    op,
                 })
             })
             .collect()
@@ -486,14 +537,14 @@ impl Navigator {
             .map(|(row, _)| row)
     }
 
-    /// Where `what` of `project` can land as the rows are now, as [`stops`] says, and which of
-    /// those places is where it is; or squashing it keeping `squash`'s messages, as
-    /// [`squash_stops`] says, from the selection's row, which holds it.
+    /// Where `what` of `project` can land as `op` as the rows are now, and which of those places
+    /// is where it is: moved, as [`stops`] says, or squashed, as [`squash_stops`] says, from the
+    /// selection's row, which holds it.
     fn stops_for(
         &self,
         project: &ProjectId,
         what: &Moving,
-        squash: Option<Messages>,
+        op: Op,
         cx: &App,
     ) -> Option<(Vec<Stop>, usize)> {
         let store = self.store.read(cx);
@@ -510,7 +561,7 @@ impl Navigator {
                 return Some((stops.collect(), start));
             }
             // Files are only squashed.
-            Moving::Files { .. } if squash.is_none() => return None,
+            Moving::Files { .. } if op == Op::Move => return None,
             Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. } => {}
         }
         let workspace = store.workspace(project)?;
@@ -525,26 +576,30 @@ impl Navigator {
                 project,
                 what,
                 at,
-                squash,
+                op,
             };
             !among && moving.lands(store)
         };
-        if squash.is_some() {
-            let home = (store.selection.as_ref()).and_then(Target::of)?;
-            return squash_stops(self.shown_rows(), project, workspace, &home, open, lands);
+        match op {
+            Op::Move => {
+                let commits = match what {
+                    Moving::Commits(ids) => &ids[..],
+                    Moving::Branch(_)
+                    | Moving::Project(_)
+                    | Moving::Terminal { .. }
+                    | Moving::Files { .. } => &[],
+                };
+                let all = stops(self.shown_rows(), project, commits, workspace, open);
+                let Moving::Branch(branch) = what else {
+                    return Some(all);
+                };
+                branch_stops(all.0, branch, lands)
+            }
+            Op::Squash(_) => {
+                let home = (store.selection.as_ref()).and_then(Target::of)?;
+                squash_stops(self.shown_rows(), project, workspace, &home, open, lands)
+            }
         }
-        let commits = match what {
-            Moving::Commits(ids) => &ids[..],
-            Moving::Branch(_)
-            | Moving::Project(_)
-            | Moving::Terminal { .. }
-            | Moving::Files { .. } => &[],
-        };
-        let all = stops(self.shown_rows(), project, commits, workspace, open);
-        let Moving::Branch(branch) = what else {
-            return Some(all);
-        };
-        branch_stops(all.0, branch, lands)
     }
 
     /// Whether `heading` showed what it holds as the rows were last built; the filter shows
@@ -558,7 +613,7 @@ impl Navigator {
     /// the one it was at is gone, as when it's folded away.
     fn move_stops(&self, cx: &App) -> Option<(Vec<Stop>, usize)> {
         let moving = self.store.read(cx).moving.as_ref()?;
-        let (stops, start) = self.stops_for(&moving.project, &moving.what, moving.squash, cx)?;
+        let (stops, start) = self.stops_for(&moving.project, &moving.what, moving.op, cx)?;
         let at = (stops.iter().position(|stop| *stop == moving.at)).unwrap_or(start);
         Some((stops, at))
     }
@@ -575,7 +630,7 @@ impl Navigator {
     ) {
         let store = self.store.read(cx);
         if let Some(moving) = store.moving.clone() {
-            return self.switch(moving, None, cx);
+            return self.switch(moving, Op::Move, cx);
         }
         let (project, what) = match store.selection.clone() {
             // Among the cards as they're listed now, whatever order lists them.
@@ -599,18 +654,18 @@ impl Navigator {
             },
         };
         // Somewhere besides where it is.
-        let start = (self.stops_for(&project, &what, None, cx))
+        let op = Op::Move;
+        let start = (self.stops_for(&project, &what, op, cx))
             .filter(|(stops, _)| stops.len() > 1)
             .and_then(|(stops, start)| stops.into_iter().nth(start));
         let Some(at) = start else {
             return snack(&self.store, "Nowhere to move it", cx);
         };
-        let squash = None;
         let moving = Move {
             project,
             what,
             at,
-            squash,
+            op,
         };
         self.store
             .update(cx, |store, cx| store.set_moving(Some(moving), cx));
@@ -629,7 +684,7 @@ impl Navigator {
     ) {
         let store = self.store.read(cx);
         if let Some(moving) = store.moving.clone() {
-            return self.switch(moving, Some(Messages::default()), cx);
+            return self.switch(moving, Op::Squash(Messages::default()), cx);
         }
         let (project, what) = match store.selection.clone() {
             Some(item @ (Selection::Uncommitted(_) | Selection::Worktree(..))) => {
@@ -686,7 +741,7 @@ impl Navigator {
             project,
             what,
             at: Stop::Into(at),
-            squash: Some(Messages::default()),
+            op: Op::Squash(Messages::default()),
         };
         if !moving.lands(self.store.read(cx)) {
             return snack(&self.store, "Those changes can't go in there", cx);
@@ -721,17 +776,17 @@ impl Navigator {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let squash = Some(Messages::default());
+        let op = Op::Squash(Messages::default());
         let store = self.store.read(cx);
         // Somewhere besides where it is, unless it goes somewhere there, as a branch squashing
         // into one commit does.
-        let start = (self.stops_for(&project, &what, squash, cx)).and_then(|(stops, start)| {
+        let start = (self.stops_for(&project, &what, op, cx)).and_then(|(stops, start)| {
             let at = stops.get(start)?.clone();
             let home = Move {
                 project: project.clone(),
                 what: what.clone(),
                 at: at.clone(),
-                squash,
+                op,
             };
             (stops.len() > 1 || home.lands(store)).then_some(at)
         });
@@ -742,31 +797,37 @@ impl Navigator {
             project,
             what,
             at,
-            squash,
+            op,
         };
         self.store
             .update(cx, |store, cx| store.set_moving(Some(moving), cx));
         window.focus(&self.focus, cx);
     }
 
-    /// Squash what `moving` moves, keeping `squash`'s messages, or with `None` move what it
-    /// squashes: from what matches where it's at, below a commit or into it, which show their
-    /// copies in the same place, else from where it is.
-    fn switch(&mut self, moving: Move, squash: Option<Messages>, cx: &mut Context<Self>) {
-        if moving.squash.is_some() == squash.is_some() || !moving.of_commits() {
+    /// Squash what `moving` moves, or move what it squashes, as `op` says: from what matches
+    /// where it's at, below a commit or into it, which show where it goes in the same place,
+    /// else from where it is.
+    fn switch(&mut self, moving: Move, op: Op, cx: &mut Context<Self>) {
+        let same_op = matches!(
+            (moving.op, op),
+            (Op::Move, Op::Move) | (Op::Squash(_), Op::Squash(_))
+        );
+        if same_op || !moving.of_commits() {
             return;
         }
         let Move {
             project, what, at, ..
         } = moving;
-        let Some((stops, start)) = self.stops_for(&project, &what, squash, cx) else {
+        let Some((stops, start)) = self.stops_for(&project, &what, op, cx) else {
             return;
         };
-        let same = match (&at, squash) {
-            (Stop::In(Destination::BelowCommit(id)), Some(_)) => {
+        let same = match (&at, op) {
+            (Stop::In(Destination::BelowCommit(id)), Op::Squash(_)) => {
                 Some(Stop::Into(Target::Commit(*id)))
             }
-            (Stop::Into(Target::Commit(id)), None) => Some(Stop::In(Destination::BelowCommit(*id))),
+            (Stop::Into(Target::Commit(id)), Op::Move) => {
+                Some(Stop::In(Destination::BelowCommit(*id)))
+            }
             _ => None,
         };
         let Some(at) =
@@ -779,7 +840,7 @@ impl Navigator {
             project,
             what,
             at,
-            squash,
+            op,
         };
         self.store
             .update(cx, |store, cx| store.set_moving(Some(moving), cx));
@@ -794,7 +855,8 @@ impl Navigator {
     ) {
         self.store.update(cx, |store, cx| {
             if let Some(Move {
-                squash: Some(keep), ..
+                op: Op::Squash(keep),
+                ..
             }) = &mut store.moving
             {
                 *keep = match keep {
@@ -935,10 +997,11 @@ impl Navigator {
         } = moving;
         self.store.update(cx, |store, cx| match (what, at) {
             (Moving::Commits(commits), Stop::NewBranch { beside, below }) => {
-                store.move_to_new_branch(&project, commits, Some((beside, below)), false, cx)
+                let beside = Some((beside, below));
+                store.move_to_new_branch(&project, commits, beside, false, lands, cx)
             }
             (Moving::Commits(commits), Stop::NewStack { first }) => {
-                store.move_to_new_branch(&project, commits, None, first, cx)
+                store.move_to_new_branch(&project, commits, None, first, lands, cx)
             }
             (Moving::Branch(branch), Stop::NewStack { first }) => {
                 store.unstack(&project, branch, first, lands, cx)
@@ -1115,31 +1178,22 @@ pub(super) fn stand_in(stand_in: &StandIn, store: &Store, theme: &Theme) -> Div 
         inset,
         guides,
         shown,
-        squashed,
+        op,
+        outlined_with,
         ..
     } = stand_in;
-    let mark = match squashed {
-        true => theme.blue,
-        false => theme.pop,
+    let style = RowStyle {
+        cut: true,
+        mark: op.colour(theme),
+        outlined_with: *outlined_with,
+        ..RowStyle::plain(theme, *inset)
     };
     let row = match of {
         Gone::Commit(project, commit) => {
-            let style = RowStyle {
-                cut: true,
-                mark,
-                ..RowStyle::plain(theme, *inset)
-            };
             let id = format!("stand-in-{project}-{}", commit.id.0);
             style.commit(id, project, commit, store).into_any_element()
         }
-        Gone::Branch { id, name } => {
-            let style = RowStyle {
-                cut: true,
-                mark,
-                ..RowStyle::plain(theme, *inset)
-            };
-            branch_copy(id.clone(), name.clone(), style)
-        }
+        Gone::Branch { id, name } => branch_copy(id.clone(), name.clone(), style),
         Gone::NewBranch(at) => ghost_branch_row(at, *inset, theme),
     };
     let guides = guides.iter().map(|at| guide(*at, theme));
@@ -1397,21 +1451,21 @@ new branch below agent
         ];
         let top_of_api = [branch("ui"), left(3), commit(2), branch("api"), commit(3)];
         assert_eq!(
-            taken_away(&above_api, &top_of_api, false),
+            taken_away(&above_api, &top_of_api, false, false),
             [(3, 2)],
             "stepping on, the new branch goes, under commit 2"
         );
         let landed = [branch("ui"), commit(2), branch("api"), commit(3)];
         assert_eq!(
-            taken_away(&top_of_api, &landed, false),
+            taken_away(&top_of_api, &landed, false, true),
             [(1, 0)],
             "landing, where it was left goes, under ui"
         );
         let back = [branch("ui"), commit(3), commit(2), branch("api")];
         assert_eq!(
-            taken_away(&above_api, &back, false),
-            [(1, 0), (3, 2)],
-            "letting go, both go, each under the row above it that stays"
+            taken_away(&above_api, &back, false, false),
+            [(3, 2)],
+            "letting go, the new branch goes, and the commit takes its own row back"
         );
         let both = [
             branch("ui"),
@@ -1421,11 +1475,11 @@ new branch below agent
             commit(3),
             commit(2),
         ];
-        let home = [branch("ui"), commit(3), commit(2), commit(1)];
+        let below_one = [branch("ui"), commit(1), commit(3), commit(2)];
         assert_eq!(
-            taken_away(&both, &home, false),
+            taken_away(&both, &below_one, false, true),
             [(1, 0), (2, 0)],
-            "commits moving together go under the row above the first"
+            "commits landing together go under the row above the first"
         );
     }
 
@@ -1441,18 +1495,18 @@ new branch below agent
         // Commit 3 squashed into 1, or 3 and 2 squashed where they're held into 1 below them.
         let before = [ui(), commit(3), commit(2), commit(1)];
         assert_eq!(
-            taken_away(&before, &[ui(), commit(2), commit(1)], true),
+            taken_away(&before, &[ui(), commit(2), commit(1)], true, false),
             [(1, 0)],
             "it goes under ui, as the rows close over it"
         );
         let into_one = [ui(), commit(1)];
         assert_eq!(
-            taken_away(&before, &into_one, true),
+            taken_away(&before, &into_one, true, false),
             [(1, 0), (2, 0)],
             "commits going together go under the row above the first"
         );
         assert_eq!(
-            taken_away(&before, &into_one, false),
+            taken_away(&before, &into_one, false, false),
             [],
             "while no squash ends, commits that go are another's to show going"
         );

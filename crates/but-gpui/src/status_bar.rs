@@ -18,7 +18,7 @@ use crate::edits::{NameBranch, RenameBranch, RenameTerminal, Reword, Uncommit};
 use crate::pr::{CreatePullRequest, create_offer};
 use crate::state::{Cut, ProjectId, SLOW, Section, Selection};
 use crate::theme::Theme;
-use crate::transfer::Transfer;
+use crate::transfer::{Op, Transfer};
 use crate::ui::{
     Icon, STATUS_BAR_HEIGHT, Tooltip, ago, dot, dp, duration, h_flex, plural, shortcut,
     shortcut_here, small_icon,
@@ -78,10 +78,7 @@ impl AppView {
                 false => what,
             };
             // In the colour each marks rows in, as the TUI's modes have their own.
-            let (doing, color) = match moving.squash {
-                Some(_) => ("Squashing", theme.blue),
-                None => ("Moving", theme.pop),
-            };
+            let (doing, color) = (moving.op.doing(), moving.op.colour(&theme));
             let state = h_flex()
                 .gap(dp(6.))
                 .min_w_0()
@@ -89,19 +86,20 @@ impl AppView {
                 .child(div().flex_none().text_color(color).child(doing))
                 .child(div().min_w_0().truncate().child(what));
             // Commits squashed into one keep both messages, or only the one they go into's.
-            let messages = (moving.squash)
-                .filter(|_| matches!(moving.squashed(store), Some(Transfer::Squash { .. })))
-                .and_then(|keep| {
+            let messages = match (moving.op, moving.squashed(store)) {
+                (Op::Squash(keep), Some(Transfer::Squash { .. })) => {
                     let said = match keep {
                         Messages::Both => "keep only its message",
                         Messages::Target => "keep both messages",
                     };
-                    Some((shortcut(&UseTargetMessage, cx)?, said))
-                });
+                    shortcut(&UseTargetMessage, cx).map(|keys| (keys, said))
+                }
+                (Op::Squash(_) | Op::Move, _) => None,
+            };
             // Commits or a branch squash instead of moving, or move instead of squashing.
-            let instead = match moving.squash {
-                Some(_) => shortcut(&MoveSelection, cx).map(|keys| (keys, "move instead")),
-                None => shortcut(&SquashSelection, cx).map(|keys| (keys, "squash instead")),
+            let instead = match moving.op {
+                Op::Squash(_) => shortcut(&MoveSelection, cx).map(|keys| (keys, "move instead")),
+                Op::Move => shortcut(&SquashSelection, cx).map(|keys| (keys, "squash instead")),
             };
             let verb = moving.verb(store);
             let keys = [("↑↓".into(), "choose where")]

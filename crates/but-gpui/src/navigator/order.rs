@@ -17,7 +17,7 @@ use crate::app::AppView;
 use crate::overlays::MenuItem;
 use crate::state::{Prefs, ProjectEntry, ProjectId, Selection, Store, WatchedOrder};
 use crate::theme::Theme;
-use crate::transfer::{CardSlot, Move, Moving, ProjectDrag, Stop, project_preview};
+use crate::transfer::{CardSlot, Move, Moving, Op, ProjectDrag, Stop, project_preview};
 use crate::ui::{Icon, icon_button};
 
 actions!(
@@ -194,12 +194,12 @@ impl Navigator {
                 Some(moving) => moving.what.clone(),
                 None => Moving::Project(self.watched(store).iter().map(|e| e.id.clone()).collect()),
             };
-            let (project, at, squash) = (id.clone(), Stop::Card(slot), None);
+            let (project, at, op) = (id.clone(), Stop::Card(slot), Op::Move);
             Move {
                 project,
                 what,
                 at,
-                squash,
+                op,
             }
         });
         let unchanged = match (held, &next) {

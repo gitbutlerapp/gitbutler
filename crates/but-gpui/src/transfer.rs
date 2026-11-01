@@ -4,7 +4,8 @@
 use std::sync::Arc;
 
 use gpui::{
-    App, Context, Div, Entity, Modifiers, Pixels, Point, SharedString, Window, div, prelude::*,
+    App, Context, Div, Entity, Hsla, Modifiers, Pixels, Point, SharedString, Window, div,
+    prelude::*,
 };
 
 use crate::backend::{
@@ -109,15 +110,42 @@ impl Place {
 }
 
 /// Something being moved with the keys, in `project`: the navigator steps through the places
-/// it can land, and Return lands it where it's at.
+/// it can land, and Return lands it where it's at, as `op` does.
 #[derive(Debug, Clone)]
 pub struct Move {
     pub project: ProjectId,
     pub what: Moving,
     pub at: Stop,
-    /// It's squashed into what it's at, an [`Stop::Into`], keeping these messages, rather than
-    /// moved there, as the TUI's squash mode does.
-    pub squash: Option<Messages>,
+    pub op: Op,
+}
+
+/// What landing a [`Move`] does with what it moves, as the TUI's modes do, each in a colour of
+/// its own. Each lands at stops of its own: between rows, where copies of what's moving show
+/// it, or on a row, which an outline goes over.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Op {
+    /// Moves it to where it's at.
+    Move,
+    /// Squashes it into what it's at, an [`Stop::Into`], keeping these messages.
+    Squash(Messages),
+}
+
+impl Op {
+    /// What the status bar says is going on.
+    pub fn doing(self) -> &'static str {
+        match self {
+            Op::Move => "Moving",
+            Op::Squash(_) => "Squashing",
+        }
+    }
+
+    /// The colour it marks rows in: what it's of, and where it goes.
+    pub fn colour(self, theme: &Theme) -> Hsla {
+        match self {
+            Op::Move => theme.pop,
+            Op::Squash(_) => theme.blue,
+        }
+    }
 }
 
 /// What a [`Move`] moves. Commits and branches show a copy where they'd land while they stay
@@ -397,8 +425,9 @@ impl Move {
     /// its stack is a stack of its own, and a card is where it was. A squash lands where it
     /// squashes anything into anything.
     pub fn lands(&self, store: &Store) -> bool {
-        if self.squash.is_some() {
-            return self.squashed(store).is_some();
+        match self.op {
+            Op::Squash(_) => return self.squashed(store).is_some(),
+            Op::Move => {}
         }
         if let (Moving::Branch(branch), Stop::NewStack { .. }) = (&self.what, &self.at) {
             let workspace = store.workspace(&self.project);
@@ -431,7 +460,7 @@ impl Move {
     /// commit, and it with them; into one of its own, the rest go into that one. Picked
     /// commits can go into one of themselves, as the TUI's can.
     pub fn squashed(&self, store: &Store) -> Option<Transfer> {
-        let (Some(keep), Stop::Into(target)) = (self.squash, &self.at) else {
+        let (Op::Squash(keep), Stop::Into(target)) = (self.op, &self.at) else {
             return None;
         };
         let project = &self.project;
@@ -537,13 +566,13 @@ impl Move {
 
     /// What Return does where it's at, as the TUI says it while squashing.
     pub fn verb(&self, store: &Store) -> &'static str {
-        if self.squash.is_none() {
-            return "move here";
-        }
-        match self.squashed(store) {
-            Some(Transfer::Amend { .. }) => "amend",
-            Some(Transfer::Uncommit { .. } | Transfer::UncommitFiles { .. }) => "uncommit",
-            _ => "squash",
+        match (self.op, self.squashed(store)) {
+            (Op::Move, _) => "move here",
+            (Op::Squash(_), Some(Transfer::Amend { .. })) => "amend",
+            (Op::Squash(_), Some(Transfer::Uncommit { .. } | Transfer::UncommitFiles { .. })) => {
+                "uncommit"
+            }
+            (Op::Squash(_), _) => "squash",
         }
     }
 
@@ -905,7 +934,8 @@ impl Transfer {
     }
 
     /// Carry it out. Staging only changes the composer, so it comes back to the caller.
-    /// Do it in `project`, landing the move with the keys `lands` if it's a branch's.
+    /// Do it in `project`, landing the move with the keys `lands` if it's one of commits or a
+    /// branch, as it showed them until the reload shows where they went.
     pub fn perform(
         self,
         project: &SharedString,
@@ -913,7 +943,7 @@ impl Transfer {
         store: &mut Store,
         cx: &mut Context<Store>,
     ) -> Option<(FullName, Arc<[Selected]>)> {
-        let lands = lands.filter(|moving| matches!(moving.what, Moving::Branch(_)));
+        let lands = lands.filter(Move::of_commits);
         // The pill's verb names it without a branch or commit.
         let label = Label::new(self.verb(), self.describe());
         // Picked commits that moved, or went into one, are no longer what's picked.
@@ -946,13 +976,20 @@ impl Transfer {
                     cx,
                 )
             }
-            // It leaves where it was and shows dimmed where it goes.
+            // It leaves where it was and shows dimmed where it goes, unless a move with the keys
+            // lands it, which shows it as it was.
             Transfer::MoveCommit { ids, to } => store.apply(
                 project,
                 label,
-                Overlay {
-                    new_commit: store.arriving(project, &ids, &to),
-                    ..Overlay::commits(ids.iter().filter_map(|id| store.key_of(project, *id)))
+                match lands {
+                    Some(lands) => Overlay {
+                        lands: Some(lands),
+                        ..Overlay::default()
+                    },
+                    None => Overlay {
+                        new_commit: store.arriving(project, &ids, &to),
+                        ..Overlay::commits(ids.iter().filter_map(|id| store.key_of(project, *id)))
+                    },
                 },
                 backend::MoveCommits { commits: ids, to },
                 move |store, rewritten, cx| {
@@ -1469,7 +1506,7 @@ mod tests {
             project: b.clone(),
             what: Moving::Project(order.clone()),
             at: Stop::Card(slot),
-            squash: None,
+            op: Op::Move,
         };
         assert_eq!(
             at(CardSlot::Before(a.clone())).project_order(),
