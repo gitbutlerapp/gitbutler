@@ -3402,8 +3402,6 @@ fn status_mark(status: &Status, seen: bool, style: RowStyle) -> Option<Stateful<
         ),
     };
     let drawn = small_icon(glyph).text_color(color);
-    // ponytail: turning redraws the navigator every display frame, 0.5ms each on a small repo;
-    // step it on a timer if that shows up on the battery.
     let drawn = match status {
         Status::Working if seen => spinning(drawn).into_any_element(),
         _ => drawn.into_any_element(),
