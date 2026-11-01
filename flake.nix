@@ -37,6 +37,17 @@
             exec ${pkgs.zig_0_17}/bin/zig "$@"
           ''
         else pkgs.zig_0_17;
+
+      # Nix's cc links with nixpkgs' ld64, which links the GPUI client 2.4x slower than the
+      # linker Xcode and the Command Line Tools ship, so Cargo links with that one when it's
+      # installed. Nix's ld wrapper is bypassed, so its library search paths are passed on.
+      cargoLinker = pkgs.writeShellScript "cargo-linker" ''
+        if ld=$(env -u DEVELOPER_DIR -u SDKROOT /usr/bin/xcode-select -p >/dev/null 2>&1 &&
+          env -u DEVELOPER_DIR -u SDKROOT /usr/bin/xcrun --find ld 2>/dev/null); then
+          exec ${pkgs.stdenv.cc}/bin/cc --ld-path="$ld" "$@" $NIX_LDFLAGS
+        fi
+        exec ${pkgs.stdenv.cc}/bin/cc "$@"
+      '';
     in {
       devShells.default = pkgs.mkShell {
         packages = [
@@ -58,9 +69,13 @@
           zig
         ];
 
-        env = {
-          RUST_SRC_PATH = "${rustToolchain}/lib/rustlib/src/rust/library";
-        };
+        env =
+          {
+            RUST_SRC_PATH = "${rustToolchain}/lib/rustlib/src/rust/library";
+          }
+          // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
+            "CARGO_TARGET_${pkgs.stdenv.hostPlatform.rust.cargoEnvVarTarget}_LINKER" = "${cargoLinker}";
+          };
 
         shellHook = ''
           # if we don't set TS_RS_EXPORT_DIR then `cargo test --all-features`
