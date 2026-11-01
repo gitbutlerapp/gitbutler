@@ -22,6 +22,7 @@ mod panes;
 mod pull_request;
 mod rename;
 mod resolve;
+mod review_edit;
 mod slots;
 mod upstream;
 mod worktree;
@@ -60,7 +61,7 @@ use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
 use crate::ui::fold::{FOLD, Folds, Slide, edge, inert};
 use crate::ui::illustration::{Illustration, illustration};
-use crate::ui::message_editor::{MessageEditor, MessageSize};
+use crate::ui::message_editor::{COMMIT_PLACEHOLDERS, MessageEditor, MessageSize};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, Icon, TextPoint, button, commit_title, dp, empty_state, fixed, h_flex,
@@ -383,6 +384,9 @@ pub struct Detail {
     rewording: Option<(composer::Reworded, Entity<MessageEditor>, Subscription)>,
     /// The branch whose name is being edited in its header.
     renaming: Option<rename::Renaming>,
+    /// The pull request whose title and description are being edited on its tab. Looking at
+    /// another keeps it, as `rewording` is kept.
+    review_edit: Option<review_edit::ReviewEdit>,
     /// The project the checks and commit target above belong to.
     checks_project: Option<ProjectId>,
     /// The checkout whose files the checks are of.
@@ -521,7 +525,8 @@ impl Detail {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let message = cx.new(|cx| MessageEditor::new(MessageSize::Compact, cx));
+        let message =
+            cx.new(|cx| MessageEditor::new(MessageSize::Compact, COMMIT_PLACEHOLDERS, cx));
         let branch_filter = cx.new(|cx| TextInput::new("Filter branches", false, cx));
         let target_filter = cx.new(|cx| TextInput::new("Filter commits", false, cx));
         let history_filter = cx.new(|cx| TextInput::new("Filter operations", false, cx));
@@ -753,6 +758,7 @@ impl Detail {
             sideways: HashMap::new(),
             rewording: None,
             renaming: None,
+            review_edit: None,
             checks_project: None,
             checks_worktree: Checkout::Main,
             composing: false,

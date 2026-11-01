@@ -487,6 +487,44 @@ fn set_auto_merge(ctx: &Context, number: u64, on: bool) -> Result<()> {
     Ok(())
 }
 
+/// Give pull request `number` a new title or description, leaving each that's `None` as the
+/// forge has it, so an edit made there meanwhile stays. Asking for the request again records
+/// it in the cache, so the reload after shows it.
+pub struct EditReview {
+    pub number: u64,
+    pub title: Option<String>,
+    pub body: Option<String>,
+}
+
+impl Intent for EditReview {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        let Self {
+            number,
+            title,
+            body,
+        } = self;
+        let ctx = run.ctx();
+        (runtime().handle()).block_on(forge::update_review(
+            ctx.to_sync(),
+            number as usize,
+            title,
+            body,
+            None,
+            None,
+        ))?;
+        if let Err(err) = forge::get_review(ctx, number as usize) {
+            tracing::warn!(?err, "edited, but couldn't read the pull request back");
+        }
+        Ok(())
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Forge
+    }
+}
+
 /// A review's verdict, as the forge gives it.
 pub use but_forge::ForgeReviewSubmissionState as Verdict;
 

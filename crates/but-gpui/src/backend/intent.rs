@@ -38,7 +38,8 @@ pub enum OpKind {
     Redo(SnapshotId),
     /// Operations history's restore, the way back when a project can't be read.
     Restore,
-    /// Merging a pull request or turning its auto-merge on or off.
+    /// Merging a pull request, turning its auto-merge on or off, or editing its title and
+    /// description.
     Forge,
 }
 

@@ -1,4 +1,5 @@
-//! A commit message as its title and body, each a field of its own in one box.
+//! A message as its title and body, each a field of its own in one box: a commit's, or a pull
+//! request's.
 
 use gpui::{
     App, Context, Entity, EventEmitter, FocusHandle, Focusable, FontWeight, ScrollHandle,
@@ -11,11 +12,15 @@ use crate::theme::Theme;
 
 actions!(message_editor, [ToBody, ToTitle, LeaveEmptyBody]);
 
+/// What a commit message's fields say while they're empty.
+pub const COMMIT_PLACEHOLDERS: [&str; 2] = ["Commit title", "Commit message"];
+
 #[derive(Clone, Copy, PartialEq)]
 pub enum MessageSize {
     /// Under the file list, with room left for the AI button in its corner.
     Compact,
-    /// In a commit's header, where a message written already is read and edited.
+    /// In a commit's header or a pull request's tab, where a message written already is read
+    /// and edited.
     Large,
 }
 
@@ -30,11 +35,12 @@ pub struct MessageEditor {
 impl EventEmitter<InputEvent> for MessageEditor {}
 
 impl MessageEditor {
-    pub fn new(size: MessageSize, cx: &mut Context<Self>) -> Self {
+    /// An editor saying `placeholders`, the title's and the body's, while they're empty.
+    pub fn new(size: MessageSize, placeholders: [&'static str; 2], cx: &mut Context<Self>) -> Self {
         let body_scroll = ScrollHandle::new();
-        let title = cx.new(|cx| TextInput::new("Commit title", false, cx));
-        let body = cx
-            .new(|cx| TextInput::new("Commit message", true, cx).scrolled_by(body_scroll.clone()));
+        let [title, body] = placeholders;
+        let title = cx.new(|cx| TextInput::new(title, false, cx));
+        let body = cx.new(|cx| TextInput::new(body, true, cx).scrolled_by(body_scroll.clone()));
         let forward = |_: &mut Self, _, event: &InputEvent, cx: &mut Context<Self>| cx.emit(*event);
         Self {
             _forwarded: [cx.subscribe(&title, forward), cx.subscribe(&body, forward)],
@@ -155,7 +161,7 @@ fn joined(title: &str, body: &str) -> String {
 
 /// The first line of `message`, and all the rest without the blank lines between them. A title
 /// left empty stays empty, so a draft that has only a body comes back as it was.
-fn split(message: &str) -> (&str, &str) {
+pub fn split(message: &str) -> (&str, &str) {
     let (title, body) = message.split_once('\n').unwrap_or((message, ""));
     (
         title.trim(),

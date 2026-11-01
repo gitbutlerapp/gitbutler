@@ -16,7 +16,7 @@ use crate::backend::{
 use crate::palette::Choice;
 use crate::state::{Cut, NewAt, Overlay, ProjectId, Selection, Store, snack};
 use crate::theme::Theme;
-use crate::ui::message_editor::{MessageEditor, MessageSize};
+use crate::ui::message_editor::{COMMIT_PLACEHOLDERS, MessageEditor, MessageSize};
 use crate::ui::text_input::InputEvent;
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, button, dp, faint, h_flex, icon_button, plural, shortcut,
@@ -701,7 +701,7 @@ impl Detail {
         let key = (project.clone(), commit.key.clone(), commit.authored.clone());
         let opened = message.clone();
         let input = cx.new(|cx| {
-            let mut input = MessageEditor::new(MessageSize::Large, cx);
+            let mut input = MessageEditor::new(MessageSize::Large, COMMIT_PLACEHOLDERS, cx);
             input.set_text(message, cx);
             input
         });
