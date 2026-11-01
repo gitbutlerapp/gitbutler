@@ -334,12 +334,12 @@ impl BuildOutput {
                     .await;
             }
             // The quit handlers save what the app remembers and write out the log, as
-            // quitting would, before the new binary takes this process's place.
+            // quitting would, before the new binary takes over.
             cx.update(|cx| {
                 cx.shutdown();
-                // The Dock keeps a binary's tile, by its path, until its process quits, which
-                // this one doesn't: built in another worktree, the new binary would get a
-                // tile of its own beside it, left there for good. Out of the Dock first.
+                // The Dock shows a tile for each binary running, by its path: built in another
+                // worktree, the new binary's would show beside this one's while this one waits
+                // for it to take the terminals over. Out of the Dock first.
                 cx.set_activation_policy(gpui::ActivationPolicy::Accessory);
                 #[cfg(unix)]
                 let err = built.restart(store.update(cx, |store, cx| store.hand_off_terminals(cx)));

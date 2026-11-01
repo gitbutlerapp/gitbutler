@@ -32,6 +32,9 @@ pub struct Pty {
     shell: libc::pid_t,
     /// The shell runs a command and exits rather than coming back to a prompt.
     runs_command: bool,
+    /// The shell is this process's child, which it waits for. One another process started and
+    /// handed over isn't, and is over once nothing holds the terminal.
+    child: bool,
     exited: Arc<AtomicBool>,
     /// How the shell exited, as `$?` would say, once it has.
     exit_code: Arc<sync::OnceLock<i32>>,
@@ -44,23 +47,28 @@ pub struct Kept {
     master: OwnedFd,
     shell: libc::pid_t,
     runs_command: bool,
+    child: bool,
 }
 
 impl Kept {
-    /// Its master stays open, for an exec to take along, with the shell and whether it runs a
-    /// command.
+    /// Its master stays open, for the build that takes over to take along, with the shell and
+    /// whether it runs a command.
     pub fn into_raw(self) -> (RawFd, libc::pid_t, bool) {
         (self.master.into_raw_fd(), self.shell, self.runs_command)
     }
 
+    /// The shell kept, `child` saying whether it's this process's child: kept by the process
+    /// this one was before exec, rather than by one that started this one and handed it over.
+    ///
     /// # Safety
     ///
     /// `master` is open and nothing else owns it, as when [`Kept::into_raw`] gave it to the
-    /// process this one was before exec.
+    /// process taking over.
     pub unsafe fn from_raw(
         master: RawFd,
         shell: libc::pid_t,
         runs_command: bool,
+        child: bool,
     ) -> io::Result<Self> {
         // SAFETY: as the caller promises.
         let master = unsafe { OwnedFd::from_raw_fd(master) };
@@ -69,6 +77,7 @@ impl Kept {
             master,
             shell,
             runs_command,
+            child,
         })
     }
 }
@@ -98,15 +107,32 @@ impl Pty {
         drop(slave);
 
         let shell = child.id() as libc::pid_t;
-        Ok(Self::start(File::from(master), shell, command.is_some())?)
+        Ok(Self::start(
+            File::from(master),
+            shell,
+            command.is_some(),
+            true,
+        )?)
     }
 
-    /// Takes over a shell kept by [`Pty::keep`], in this process or one it became by exec.
+    /// Takes over a shell kept by [`Pty::keep`], in this process, the one it became by exec,
+    /// or one it started and handed it to.
     pub fn adopt(kept: Kept) -> io::Result<(Pty, Output)> {
-        Self::start(File::from(kept.master), kept.shell, kept.runs_command)
+        let Kept {
+            master,
+            shell,
+            runs_command,
+            child,
+        } = kept;
+        Self::start(File::from(master), shell, runs_command, child)
     }
 
-    fn start(master: File, shell: libc::pid_t, runs_command: bool) -> io::Result<(Pty, Output)> {
+    fn start(
+        master: File,
+        shell: libc::pid_t,
+        runs_command: bool,
+        child: bool,
+    ) -> io::Result<(Pty, Output)> {
         let (queue, output) = queue();
         let (stop_reading, stopped) = UnixStream::pair()?;
         let reader = master.try_clone()?;
@@ -128,11 +154,21 @@ impl Pty {
         thread::Builder::new()
             .name("pty waiter".into())
             .spawn(move || {
-                if let Some(exit_code) = wait_for(shell) {
-                    code.set(exit_code).ok();
+                match child {
+                    true => {
+                        if let Some(exit_code) = wait_for(shell) {
+                            code.set(exit_code).ok();
+                        }
+                        waited.store(true, Ordering::SeqCst);
+                        done_reading.recv_timeout(LAST_OUTPUT_WAIT).ok();
+                    }
+                    // Another process's child can't be waited for, nor its exit code read: it's
+                    // over at the hangup, once jobs it left let go of the terminal too.
+                    false => {
+                        done_reading.recv().ok();
+                        waited.store(true, Ordering::SeqCst);
+                    }
                 }
-                waited.store(true, Ordering::SeqCst);
-                done_reading.recv_timeout(LAST_OUTPUT_WAIT).ok();
                 ended.close();
             })?;
 
@@ -153,6 +189,7 @@ impl Pty {
             input,
             shell,
             runs_command,
+            child,
             exited,
             exit_code,
             stop_reading,
@@ -174,6 +211,7 @@ impl Pty {
             master: master.into(),
             shell: self.shell,
             runs_command: self.runs_command,
+            child: self.child,
         })
     }
 
@@ -222,10 +260,12 @@ impl Drop for Pty {
             return;
         }
         // As a terminal hanging up does: the job in front, which the shell runs in a group of
-        // its own, then the shell.
+        // its own, then the shell. Not another process's child, which isn't reaped here, so its
+        // group's id may be another's by now: closing the master hangs it up.
         // SAFETY: `master` is open while it's borrowed.
         let front = unsafe { libc::tcgetpgrp(master.as_raw_fd()) };
-        for group in [front, self.shell] {
+        let shell = if self.child { self.shell } else { 0 };
+        for group in [front, shell] {
             if group > 0 {
                 // SAFETY: a plain signal to a group on this terminal, whose leader isn't reaped.
                 unsafe { libc::killpg(group, libc::SIGHUP) };
@@ -480,6 +520,50 @@ mod tests {
             run_to_end("case $- in *i*) echo interactive-shell;; esac")
                 .contains("interactive-shell"),
             "the shell reads the config it reads at a prompt, as zsh does .zshrc only when interactive"
+        );
+    }
+
+    #[test]
+    fn a_shell_another_process_started_is_over_at_the_hangup() {
+        use std::io::Read as _;
+        use std::os::fd::IntoRawFd as _;
+        use std::process::{Command, Stdio};
+
+        // A shell whose parent exits at once, as one handed over by a build that has quit, so
+        // this process can't wait for it. It writes to the terminal after a pause.
+        let (master, slave) = super::open(SIZE).unwrap();
+        let mut parent = Command::new("/bin/sh")
+            .arg("-c")
+            // On descriptor 3, as `sh` gives a job it backgrounds /dev/null for its input.
+            .arg("exec 3<&0; (sleep 0.5; echo late-$((40+2))) >&3 2>&3 & echo $!")
+            .stdin(Stdio::from(slave))
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let mut pid = String::new();
+        parent
+            .stdout
+            .take()
+            .unwrap()
+            .read_to_string(&mut pid)
+            .unwrap();
+        parent.wait().unwrap();
+        let shell = pid.trim().parse().unwrap();
+        // SAFETY: `master` was just opened, and only this test owns it.
+        let kept = unsafe { super::Kept::from_raw(master.into_raw_fd(), shell, true, false) };
+        let (_pty, output) = Pty::adopt(kept.unwrap()).unwrap();
+
+        let (ended, read) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let chunks = futures::executor::block_on(futures::StreamExt::collect::<Vec<_>>(output));
+            ended.send(chunks.concat()).ok();
+        });
+        let read = read
+            .recv_timeout(Duration::from_secs(20))
+            .expect("the output ends once nothing holds the terminal");
+        assert!(
+            String::from_utf8_lossy(&read).contains("late-42"),
+            "it's over at the hangup, not as soon as waiting for it fails, so what it wrote last arrives"
         );
     }
 

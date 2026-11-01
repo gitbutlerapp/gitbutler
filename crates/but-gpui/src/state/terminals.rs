@@ -264,8 +264,8 @@ impl Store {
         cx.notify();
     }
 
-    /// Hands each terminal's shell over, for the build exec runs next to adopt. One that can't
-    /// be is hung up, as the exec closes its master.
+    /// Hands each terminal's shell over, for the build started next to adopt. One that can't be
+    /// is hung up, as its master closes with this process.
     #[cfg(unix)]
     pub fn hand_off_terminals(&mut self, cx: &mut Context<Self>) -> Vec<(Handed, Detached)> {
         (self.terminals.open.iter())
@@ -285,7 +285,7 @@ impl Store {
             .collect()
     }
 
-    /// Opens the terminals the process this one was before exec handed over, where they were.
+    /// Opens the terminals the build this one took over from handed over, where they were.
     #[cfg(unix)]
     pub fn adopt_terminals(&mut self, handed: Vec<(Handed, Detached)>, cx: &mut Context<Self>) {
         for (handed, detached) in handed {

@@ -4,9 +4,10 @@
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnyView, App, ClipboardItem, Context, DispatchPhase, Div, Entity, ExternalPaths, FocusHandle,
-    Focusable, FontFeatures, MouseMoveEvent, Pixels, Point, PromptLevel, Role, SharedString,
-    StyleRefinement, Subscription, Task, WeakEntity, Window, actions, div, prelude::*, relative,
+    AnyView, App, ClipboardItem, Context, DispatchPhase, Div, DragMoveEvent, Entity, ExternalPaths,
+    FocusHandle, Focusable, FontFeatures, MouseMoveEvent, Pixels, PlatformInput, Point,
+    PromptLevel, Role, SharedString, StyleRefinement, Subscription, Task, WeakEntity, Window,
+    actions, div, prelude::*, relative,
 };
 
 use crate::backend::upstream::UpdateScope;
@@ -2083,6 +2084,18 @@ impl Render for AppView {
                     this.navigator.update(cx, |_, cx| cx.notify());
                 }
             }))
+            // GPUI counts nothing as under the pointer while the last input was a key, and a
+            // drag in from another app, as files from the Finder onto a terminal, comes as moves
+            // it doesn't count as the mouse's: after typing, it would land nowhere. Sent again
+            // as the mouse's move, the drag counts.
+            .on_drag_move(|event: &DragMoveEvent<ExternalPaths>, window, cx| {
+                if window.last_input_was_keyboard() {
+                    let event = event.event.clone();
+                    window.defer(cx, move |window, cx| {
+                        window.dispatch_event(PlatformInput::MouseMove(event), cx);
+                    });
+                }
+            })
             .on_action(cx.listener(Self::quit))
             .on_action(|_: &Minimize, window, _| window.minimize_window())
             .on_action(|_: &Zoom, window, _| window.zoom_window())
