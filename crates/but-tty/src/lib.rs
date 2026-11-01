@@ -43,9 +43,10 @@ pub struct Shell {
 }
 
 impl Shell {
-    /// Starts the user's shell in `cwd`, sized `size`.
-    pub fn spawn(cwd: &Path, size: Size) -> anyhow::Result<Self> {
-        let (pty, output) = Pty::spawn(cwd, size)?;
+    /// Starts the user's shell in `cwd`, sized `size`, running `command` in place of a prompt
+    /// when there is one.
+    pub fn spawn(cwd: &Path, size: Size, command: Option<&str>) -> anyhow::Result<Self> {
+        let (pty, output) = Pty::spawn(cwd, size, command)?;
         Ok(Self { pty, output, size })
     }
 }
@@ -355,7 +356,7 @@ impl Terminal {
 mod tests {
     use std::time::{Duration, Instant};
 
-    use super::{Colors, RgbColor, Shell, Size, Status, Terminal};
+    use super::{Colors, RgbColor, Shell, Size, Status, Terminal, Updates};
 
     const SIZE: Size = Size {
         cols: 80,
@@ -367,7 +368,7 @@ mod tests {
     const BLACK: RgbColor = RgbColor { r: 0, g: 0, b: 0 };
 
     fn started() -> Terminal {
-        let shell = Shell::spawn(&std::env::temp_dir(), SIZE).unwrap();
+        let shell = Shell::spawn(&std::env::temp_dir(), SIZE, None).unwrap();
         Terminal::new(shell, &Colors::default(), BLACK, BLACK)
             .unwrap()
             .0
@@ -439,8 +440,78 @@ mod tests {
     }
 
     #[test]
+    fn a_command_keeps_the_status_it_reports_while_it_runs() {
+        // `exec` puts it in the shell's place, in its process group, as a shell does a simple
+        // command like `claude` on its own.
+        let command = r"printf '\033]7501;state=working\033\\'; exec sleep 30";
+        let shell = Shell::spawn(&std::env::temp_dir(), SIZE, Some(command)).unwrap();
+        let mut terminal = Terminal::new(shell, &Colors::default(), BLACK, BLACK)
+            .unwrap()
+            .0;
+        until(
+            &mut terminal,
+            "a command's status should show while it runs, though it holds the shell's process group",
+            |terminal| terminal.status() == Status::Working,
+        );
+    }
+
+    /// Tells once `updates` end, as they do when the UI is to close the terminal.
+    fn on_end(updates: Updates) -> std::sync::mpsc::Receiver<()> {
+        let (ended, done) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            futures::executor::block_on(futures::StreamExt::for_each(updates, |()| async {}));
+            ended.send(()).ok();
+        });
+        done
+    }
+
+    fn shows(terminal: &mut Terminal, text: &str) -> bool {
+        let frame = terminal.frame();
+        (frame.rows.iter()).any(|row| row.text.contains(text))
+    }
+
+    #[test]
+    fn a_command_that_succeeds_closes_its_terminal() {
+        let shell = Shell::spawn(&std::env::temp_dir(), SIZE, Some("true")).unwrap();
+        let (_terminal, updates) = Terminal::new(shell, &Colors::default(), BLACK, BLACK).unwrap();
+        assert!(
+            on_end(updates)
+                .recv_timeout(Duration::from_secs(10))
+                .is_ok(),
+            "nothing went wrong to read, so it closes"
+        );
+    }
+
+    #[test]
+    fn a_failed_command_shows_how_it_exited_until_a_key_is_pressed() {
+        let command = "echo went-wrong; exit 3";
+        let shell = Shell::spawn(&std::env::temp_dir(), SIZE, Some(command)).unwrap();
+        let (mut terminal, updates) =
+            Terminal::new(shell, &Colors::default(), BLACK, BLACK).unwrap();
+        let ended = on_end(updates);
+        until(
+            &mut terminal,
+            "it should say how the command exited",
+            |terminal| shows(terminal, "exited with code 3"),
+        );
+        assert!(
+            shows(&mut terminal, "went-wrong"),
+            "what it printed stays to read"
+        );
+        assert!(
+            ended.recv_timeout(Duration::from_millis(300)).is_err(),
+            "it stays open to be read"
+        );
+        terminal.input(b"x");
+        assert!(
+            ended.recv_timeout(Duration::from_secs(10)).is_ok(),
+            "a key closes it"
+        );
+    }
+
+    #[test]
     fn letting_go_of_a_terminal_ends_its_thread() {
-        let shell = Shell::spawn(&std::env::temp_dir(), SIZE).unwrap();
+        let shell = Shell::spawn(&std::env::temp_dir(), SIZE, None).unwrap();
         let (terminal, updates) = Terminal::new(shell, &Colors::default(), BLACK, BLACK).unwrap();
         drop(terminal);
         let (ended, done) = std::sync::mpsc::channel();

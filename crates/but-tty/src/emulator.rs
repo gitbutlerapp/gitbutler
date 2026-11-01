@@ -32,7 +32,9 @@ pub(crate) enum Message {
     /// Stop reading the shell, for another to adopt it.
     #[cfg(unix)]
     Detach(std::sync::mpsc::Sender<anyhow::Result<Detached>>),
-    /// The shell exited, or the UI let go of the terminal.
+    /// The shell exited.
+    Exited,
+    /// The UI let go of the terminal.
     End,
 }
 
@@ -63,6 +65,10 @@ pub(crate) struct Emulator {
     chosen: Colors,
     /// Whether anything changed since the last frame was drawn.
     unshown: bool,
+    /// The command the shell ran failed, and what it showed stays until a key is pressed.
+    ended: bool,
+    /// A key was pressed after that.
+    closing: bool,
 }
 
 /// What the UI talks to an emulator's thread with.
@@ -110,6 +116,8 @@ pub(crate) fn start(
                 vt,
                 chosen: Colors::default(),
                 unshown: true,
+                ended: false,
+                closing: false,
             };
             setup(&mut emulator);
             emulator.publish(&showing);
@@ -126,7 +134,8 @@ pub(crate) fn start(
 }
 
 /// Works through what reaches the thread a batch at a time, showing each, until the shell
-/// exits, the UI lets go or it's detached.
+/// exits, the UI lets go or it's detached. A command that failed keeps it going until a key is
+/// pressed, to read what went wrong.
 fn run(
     mut emulator: Emulator,
     output: Output,
@@ -134,9 +143,10 @@ fn run(
     shown: &Mutex<Shown>,
     mut wake: mpsc::Sender<()>,
 ) {
-    let end = || stream::once(future::ready(Message::End));
-    let output = output.map(Message::Output).chain(end());
-    let mut messages = stream::select(output, received.chain(end()));
+    let exited = stream::once(future::ready(Message::Exited));
+    let output = output.map(Message::Output).chain(exited);
+    let ended = stream::once(future::ready(Message::End));
+    let mut messages = stream::select(output, received.chain(ended));
     futures::executor::block_on(async {
         while let Some(first) = messages.next().await {
             let started = Instant::now();
@@ -154,7 +164,14 @@ fn run(
                         reply.send(emulator.detach(&mut messages, shown)).ok();
                         return;
                     }
+                    Message::Exited => match emulator.pty.failed() {
+                        Some(code) => emulator.failed(code),
+                        None => return,
+                    },
                     Message::End => return,
+                }
+                if emulator.closing {
+                    return;
                 }
                 if started.elapsed() < BATCH {
                     next = messages.next().now_or_never().flatten();
@@ -186,9 +203,22 @@ impl Emulator {
         self.send(&report);
     }
 
-    /// Sends what was typed, showing the bottom and dropping the selection.
+    /// Shows that the command the shell ran exited with `code`, under what it printed.
+    fn failed(&mut self, code: i32) {
+        self.ended = true;
+        let notice = format!("\r\n[Process exited with code {code}. Press any key to close.]");
+        self.vt.write(notice.as_bytes());
+        self.unshown = true;
+    }
+
+    /// Sends what was typed, showing the bottom and dropping the selection. Once a failed command
+    /// ended, it closes the terminal instead.
     pub(crate) fn input(&mut self, bytes: &[u8]) {
         if bytes.is_empty() {
+            return;
+        }
+        if self.ended {
+            self.closing = true;
             return;
         }
         self.vt.typed();
@@ -216,14 +246,15 @@ impl Emulator {
 
     /// Updates what the UI reads, drawing a frame if something changed while the terminal is on
     /// screen, and returns whether anything it reads did. A program's status lasts only as long
-    /// as it does: once the shell has the terminal back, being at work or blocked is over.
+    /// as it does: once the shell has the terminal back, or a failed command ended, being at work
+    /// or blocked is over.
     fn publish(&mut self, shown: &Mutex<Shown>) -> bool {
         // Drawn or not, so a hold out of sight doesn't stay due forever.
         let hold_ended = self.vt.end_timed_out_hold();
         let title = self.vt.retitled();
         let reported = self.vt.reported();
-        let shell_in_front = self.pty.shell_in_front();
-        if shell_in_front {
+        let program_gone = self.ended || self.pty.shell_in_front();
+        if program_gone {
             self.vt.reporter_gone();
         }
         let tracks_mouse = self.vt.tracks_mouse();
@@ -237,7 +268,7 @@ impl Emulator {
                 shown.title = title;
             }
             let status = match reported.unwrap_or_else(|| shown.status.clone()) {
-                Status::Working | Status::Blocked(_) if shell_in_front => Status::Idle,
+                Status::Working | Status::Blocked(_) if program_gone => Status::Idle,
                 status => status,
             };
             changed |= shown.status != status;

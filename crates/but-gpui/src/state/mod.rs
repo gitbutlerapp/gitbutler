@@ -38,7 +38,7 @@ pub use mutation::{
     Label, NewAt, Overlay, Rereads, SLOW, branch_moved, conflicted_parts, up_to_date,
 };
 pub use picks::Picks;
-pub use saved::{BranchStatus, FileSort, Pane, Prefs, ScopeLines, WatchedOrder};
+pub use saved::{BranchStatus, FileSort, Pane, Prefs, ScopeLines, TerminalRuns, WatchedOrder};
 use saved::{Restored, Saved};
 use seen::Seen;
 pub use seen::{GLOW, Seeable};

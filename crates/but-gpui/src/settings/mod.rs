@@ -21,7 +21,7 @@ mod project;
 use crate::app::{AppHandle, AppView, SelectNext, SelectPrevious};
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
 use crate::overlays::MenuItem;
-use crate::state::{Prefs, ProjectEntry, ProjectId, ScopeLines, Store};
+use crate::state::{Prefs, ProjectEntry, ProjectId, ScopeLines, Store, TerminalRuns};
 use crate::theme::{Appearance, CodeSize, ColorScheme, Theme, UiScale};
 use crate::ui::fold::{self, Folds};
 use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
@@ -247,6 +247,8 @@ pub struct SettingsView {
     name: Entity<TextInput>,
     editors: Vec<Program>,
     terminals: Vec<Program>,
+    /// The command terminals opened here run, as typed until saved.
+    terminal_command: Entity<TextInput>,
     fetch_interval: Option<u64>,
     /// The desktop app opens this client at start: GitButler's `featureFlags.gpui`. `None`
     /// while first read, as the metrics are, and their switches aren't drawn until then: one
@@ -299,6 +301,12 @@ impl SettingsView {
     ) -> Self {
         let search = cx.new(|cx| TextInput::new("Search settings", false, cx));
         let name = cx.new(|cx| TextInput::new("Project name", false, cx));
+        let command = store.read(cx).prefs.terminal_command.clone();
+        let terminal_command = cx.new(|cx| {
+            let mut input = TextInput::new("Command", false, cx);
+            input.load(command, cx);
+            input
+        });
         let ai = ai::Ai::new(window, cx);
         let subscriptions = vec![
             cx.subscribe_in(&search, window, |this, search, event, _, cx| match event {
@@ -323,6 +331,26 @@ impl SettingsView {
                     this.back_to_search(window, cx);
                 }
             }),
+            cx.subscribe_in(
+                &terminal_command,
+                window,
+                |this, _, event, window, cx| match event {
+                    InputEvent::Submit => {
+                        this.save_terminal_command(cx);
+                        this.back_to_search(window, cx);
+                    }
+                    InputEvent::Changed => {}
+                    InputEvent::Cancel => {
+                        this.reset_terminal_command(cx);
+                        this.back_to_search(window, cx);
+                    }
+                },
+            ),
+            // The command saves as the field's left, and as Settings closes with it focused.
+            cx.on_blur(&terminal_command.focus_handle(cx), window, |this, _, cx| {
+                this.save_terminal_command(cx)
+            }),
+            cx.on_release(|this, cx| this.save_terminal_command(cx)),
         ];
         let unwatched = (page
             .project()
@@ -338,6 +366,7 @@ impl SettingsView {
             name,
             editors: Vec::new(),
             terminals: Vec::new(),
+            terminal_command,
             fetch_interval: None,
             open_at_start: None,
             usage_metrics: None,
@@ -509,6 +538,54 @@ impl SettingsView {
                 terminal,
             ),
         ]
+    }
+
+    /// What terminals opened here start, with the command they run under it while it's picked.
+    fn terminal_run_row(&self, window: &Window, cx: &Context<Self>) -> Row {
+        let prefs = &self.store.read(cx).prefs;
+        let store = self.store.clone();
+        let runs = segmented(
+            "terminal-runs",
+            [
+                (TerminalRuns::LoginShell, "Login shell"),
+                (TerminalRuns::Command, "Custom command"),
+            ],
+            prefs.terminal_runs,
+            move |runs, _, cx| {
+                store.update(cx, |store, cx| {
+                    store.set_prefs(|p| p.terminal_runs = runs, cx)
+                });
+            },
+            Theme::get(cx),
+        );
+        let row = Row::new(
+            "New terminals run",
+            "What terminals opened here start. A command runs through your shell, and its \
+             terminal closes when it exits.",
+            runs,
+        )
+        .with_keywords("shell command");
+        if prefs.terminal_runs != TerminalRuns::Command {
+            return row;
+        }
+        let focused = self.terminal_command.focus_handle(cx).is_focused(window);
+        row.with_below(field(&self.terminal_command, focused, Theme::get(cx)))
+    }
+
+    /// Save the command as typed, unless it's what's saved already.
+    fn save_terminal_command(&self, cx: &mut App) {
+        let command = self.terminal_command.read(cx).text().trim().to_owned();
+        if command == self.store.read(cx).prefs.terminal_command {
+            return;
+        }
+        (self.store).update(cx, |store, cx| {
+            store.set_prefs(|p| p.terminal_command = command, cx)
+        });
+    }
+
+    fn reset_terminal_command(&mut self, cx: &mut Context<Self>) {
+        let command = self.store.read(cx).prefs.terminal_command.clone();
+        (self.terminal_command).update(cx, |input, cx| input.set_text(command, cx));
     }
 
     /// The theme, then how diffs show.
@@ -869,6 +946,7 @@ impl SettingsView {
                     vec![self.gitbutler_row(window, cx), self.mesh_row(cx)],
                 ),
                 Card::new(None, self.program_rows(cx)),
+                Card::new(None, vec![self.terminal_run_row(window, cx)]),
                 // Only once it's been looked for, which only macOS does.
                 Card::new(None, self.cli_row(cx).into_iter().collect()),
                 // Last, out of the way, as the desktop app keeps it on a page of its own.

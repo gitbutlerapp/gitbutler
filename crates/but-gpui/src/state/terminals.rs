@@ -118,11 +118,14 @@ impl Store {
         let Some(cwd) = cwd else {
             return;
         };
+        let run = self.prefs.terminal_run().map(str::to_owned);
         let asked = Instant::now();
         cx.spawn(async move |this, cx| {
-            let started =
-                backend::run(move || Ok((Shell::spawn(&cwd, Terminal::OPENING)?, Ghostty::load())))
-                    .await;
+            let started = backend::run(move || {
+                let shell = Shell::spawn(&cwd, Terminal::OPENING, run.as_deref())?;
+                Ok((shell, Ghostty::load()))
+            })
+            .await;
             this.update(cx, |store, cx| {
                 let store_handle = cx.weak_entity();
                 let opened = started
