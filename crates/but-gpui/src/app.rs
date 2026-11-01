@@ -2356,7 +2356,10 @@ impl Render for AppView {
                 el.child(crate::ui::window_controls::window_controls(window, cx))
             })
             // Over everything, and it takes no clicks, as it has no hitbox.
-            .when(show_fps, |el| el.child(self.fps.clone()));
+            .when(show_fps, |el| el.child(self.fps.clone()))
+            .when(cfg!(target_os = "macos"), |el| {
+                el.child(crate::ui::holds_back_first_click())
+            });
         crate::ui::window_frame::window_frame(root, window, cx)
     }
 }

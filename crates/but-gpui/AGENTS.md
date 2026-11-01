@@ -421,6 +421,11 @@ Windows CI job lints and tests the one, the Linux lint and test jobs the other.
   Linux where the desktop leaves the frame to the app (GNOME on Wayland), where
   `ui::window_frame` also draws the shadow that resizes the window. Wrap anything clickable in
   a header in `ui::above_drag` so it keeps its clicks.
+- On macOS the click that brings the window in front only does that, as in native apps: GPUI
+  passes it on, and `ui::holds_back_first_click`, drawn after everything else, stops it, except
+  on a header, where it drags the window. Capture listeners drawn before it still see it, so one
+  that acts, as `on_mouse_down_out` often does, skips it with `ui::brings_window_in_front`,
+  unless it should act on it, as a menu closing does. Script it with `fclick`.
 - Tests that need Unix APIs, as file modes or `sh`, carry `#[cfg(unix)]`.
 
 ## Accessibility
