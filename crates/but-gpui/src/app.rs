@@ -1056,6 +1056,11 @@ impl AppView {
         }
         self.set_detail(true, window, cx);
         self.focus_terminal(window, cx);
+        // The navigator ⌘1 brought out goes back now the keys left it, which no frame shows
+        // when a picker's choice runs at once, so GPUI never says it lost them.
+        if self.peek.keyed {
+            self.close_peek(window, cx);
+        }
     }
 
     /// Focus the navigator, or the changes while the navigator isn't on screen, so keys
