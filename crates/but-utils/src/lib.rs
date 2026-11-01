@@ -9,6 +9,7 @@ use gix::tempfile::{AutoRemove, ContainingDirectory, create_dir::Retries};
 use serde::de::DeserializeOwned;
 use walkdir::WalkDir;
 
+pub mod detect_agent;
 mod on_demand;
 mod on_demand_cache;
 

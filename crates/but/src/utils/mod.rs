@@ -25,7 +25,7 @@ pub use metrics::OneshotMetricsContext;
 
 use crate::{CliError, CliResult, id::CommitId, print_and_exit_non_zero};
 
-pub mod detect_agent;
+pub use but_utils::detect_agent;
 pub mod time;
 
 pub(crate) mod binary_path;
@@ -168,4 +168,32 @@ pub fn head_name(repo: &gix::Repository) -> anyhow::Result<FullName> {
         .filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
         .context("HEAD must refer to a local branch")?
         .to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ffi::OsStr;
+
+    use super::detect_agent::ENVIRONMENT_VARIABLES;
+
+    #[test]
+    fn test_command_isolation_removes_all_agent_environment_variables() {
+        let mut cmd = std::process::Command::new("but");
+        for var in ENVIRONMENT_VARIABLES {
+            cmd.env(var, "ambient-value");
+        }
+
+        but_testsupport::isolate_env_std_cmd_with_additional_removals(
+            &mut cmd,
+            ENVIRONMENT_VARIABLES,
+        );
+
+        for var in ENVIRONMENT_VARIABLES {
+            let update = cmd.get_envs().find(|(name, _)| *name == OsStr::new(var));
+            assert!(
+                matches!(update, Some((_, None))),
+                "{var} should be explicitly removed",
+            );
+        }
+    }
 }

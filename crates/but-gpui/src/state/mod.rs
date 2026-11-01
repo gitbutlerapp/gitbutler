@@ -458,7 +458,8 @@ pub struct Store {
     pub merged: HashMap<CommitId, Option<(Vec<TargetCommit>, bool)>>,
     /// The commits each project had before the app's last operation on it, and the checkouts
     /// it made commits in: see [`Overlay::checkouts`]. Commits that appear there after it are
-    /// the app's own doing, so they load as already seen.
+    /// the app's own doing, so they load as already seen. A person's operations with the CLI
+    /// or the TUI set it too, for every checkout, when the load after them shows they ran.
     rebaseline: HashMap<ProjectId, (HashSet<String>, mutation::Checkouts)>,
     save_task: Task<()>,
     save_queued: bool,

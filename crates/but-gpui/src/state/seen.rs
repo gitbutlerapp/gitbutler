@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 use gpui::Context;
 
 use super::{ProjectId, Selection, Store};
-use crate::backend::{Branch, Commit, CommitId, RemoteCommit, Workspace};
+use crate::backend::history::NEWEST_ENTRIES;
+use crate::backend::{Branch, Commit, CommitId, RemoteCommit, SnapshotId, Workspace};
 
 /// What the user has looked at, so new work by agents stands out. Per project id.
 #[derive(Default, Clone, Serialize, Deserialize)]
@@ -67,6 +68,18 @@ pub(super) fn lone_commit(workspace: &Workspace, selection: &Selection) -> Optio
     let mut commits = branches.iter().flat_map(|branch| &branch.commits);
     let lone = commits.next()?;
     commits.next().is_none().then_some(lone.id)
+}
+
+/// Whether the operation log entries `new` has above `since`, the newest one the last load
+/// showed all the changes of, were all recorded by a person, and there was one, so what changed
+/// since was their doing. Without `since`, as before a project's first entry, `new` must be
+/// the whole log.
+fn by_a_person(since: Option<SnapshotId>, new: &[(SnapshotId, bool)]) -> bool {
+    let fresh = match since {
+        Some(since) => new.iter().position(|(id, _)| *id == since),
+        None => (new.len() < NEWEST_ENTRIES).then_some(new.len()),
+    };
+    fresh.is_some_and(|n| n > 0 && new.iter().take(n).all(|(_, person)| *person))
 }
 
 /// Whether a commit going by `ids` was seen, by either.
@@ -184,16 +197,30 @@ impl Store {
     }
 
     /// Bring what's been seen of `id` up to date with the `workspace` it just loaded: what's
-    /// new is news unless the app made it, and what's gone is forgotten once there's much of
-    /// it. `fresh` is false for a load that started before the app's operation finished,
-    /// which the reload after it still compares with what was there before. Says whether
-    /// what's seen changed, as it's saved then.
+    /// new is news unless the app or a person made it, and what's gone is forgotten once
+    /// there's much of it. `fresh` is false for a load that started before the app's operation
+    /// finished, which the reload after it still compares with what was there before. Says
+    /// whether what's seen changed, as it's saved then.
     pub(super) fn update_seen(
         &mut self,
         id: &ProjectId,
         workspace: &Workspace,
         fresh: bool,
     ) -> bool {
+        // What a person did since the last load with the CLI or the TUI is their own doing, as
+        // the app's operations are. The log doesn't say which checkouts it changed, so all of
+        // them rebaseline: an agent's plain Git commit in the same load counts as theirs. Not
+        // after edit mode, whose stand-in workspace has no commits to compare with.
+        if !self.rebaseline.contains_key(id)
+            && let Some(old) = self.workspace(id)
+            && old.editing.is_none()
+            && by_a_person(old.oplog_at_start, &workspace.oplog)
+        {
+            let keys = shown(old).map(|(_, [key, _])| key.to_owned()).collect();
+            let checkouts = (workspace.lanes.iter()).map(|lane| lane.checkout.clone());
+            self.rebaseline
+                .insert(id.clone(), (keys, checkouts.collect()));
+        }
         let amended = self.amended_since_last_load(id, workspace);
         let commits: HashSet<String> = (shown(workspace))
             .flat_map(|(_, keys)| keys.map(str::to_owned))
@@ -289,9 +316,9 @@ fn amended(old: &Commit, new: &Commit) -> bool {
 mod tests {
     use std::collections::HashSet;
 
-    use super::{Seeable, amended, amended_since, lone_commit, was_seen};
+    use super::{Seeable, amended, amended_since, by_a_person, lone_commit, was_seen};
     use crate::backend::model::build::{branch, full, workspace};
-    use crate::backend::{Commit, CommitId};
+    use crate::backend::{Commit, CommitId, SnapshotId};
     use crate::state::Selection;
 
     fn commit(id: u8, parent: u8, tree: u8) -> Commit {
@@ -376,6 +403,39 @@ mod tests {
             "two commits' diff isn't either's"
         );
         assert_eq!(lone(branch("empty")), None, "nothing to read");
+    }
+
+    #[test]
+    fn only_what_a_person_alone_recorded_since_is_theirs() {
+        let id = |n: u8| SnapshotId(gix::ObjectId::from_bytes_or_panic(&[n; 20]));
+        let entry = |n: u8, person: bool| (id(n), person);
+        let since = Some(id(1));
+        assert!(
+            by_a_person(since, &[entry(3, true), entry(2, true), entry(1, false)]),
+            "everything since was a person's"
+        );
+        assert!(
+            !by_a_person(since, &[entry(3, true), entry(2, false), entry(1, false)]),
+            "an agent did some of it"
+        );
+        assert!(
+            !by_a_person(since, &[entry(1, false)]),
+            "nothing was recorded since"
+        );
+        assert!(
+            !by_a_person(since, &[entry(3, true), entry(2, true)]),
+            "too much happened to know what came since"
+        );
+        assert!(
+            by_a_person(None, &[entry(1, true)]),
+            "a project's first entry was a person's"
+        );
+        let full: Vec<_> = (1..=10).map(|n| entry(n, true)).collect();
+        assert!(
+            !by_a_person(None, &full),
+            "a log this long may have more from before"
+        );
+        assert!(!by_a_person(None, &[]), "nothing was recorded yet");
     }
 
     #[test]

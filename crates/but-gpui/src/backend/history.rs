@@ -9,7 +9,7 @@ use std::path::Path;
 
 use anyhow::{Result, bail};
 use but_api::legacy::oplog::{self, RestoreKind};
-use but_oplog::legacy::{OperationKind, SnapshotDetails};
+use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use gix::bstr::ByteSlice as _;
 use serde::Deserialize;
 
@@ -32,6 +32,8 @@ pub struct Operation {
     pub kind: Option<OperationKind>,
     /// What it did to the branches and their commits, when its snapshot says.
     pub changes: Vec<Change>,
+    /// The AI agent that did it, like `claude-code`, when the oplog says one did.
+    pub agent: Option<String>,
 }
 
 /// A commit as a snapshot, or the workspace now, has it.
@@ -190,6 +192,12 @@ pub fn list(
             K::SquashCommit if amended(&changes) => K::AmendCommit,
             kind => kind,
         });
+        let agent = (snapshot.details.iter())
+            .flat_map(|details| &details.trailers)
+            .find_map(|trailer| match trailer {
+                Trailer::Agent(agent) => agent.clone(),
+                _ => None,
+            });
         let (title, detail) = match snapshot.details {
             Some(details) => match details.operation {
                 K::RestoreFromSnapshotViaUndo => restored("Undo"),
@@ -221,6 +229,7 @@ pub fn list(
             time: snapshot.created_at.seconds,
             kind,
             changes,
+            agent,
         });
     }
     Ok((operations, more))
@@ -622,6 +631,25 @@ pub fn oplog_head(ctx: &but_ctx::Context) -> Option<SnapshotId> {
     newest
         .first()
         .map(|snapshot| SnapshotId(snapshot.commit_id))
+}
+
+/// How many of the newest operation log entries a workspace load reads: more than one load ever
+/// misses, as the watcher reloads within a second of a change.
+pub const NEWEST_ENTRIES: usize = 10;
+
+/// The [`NEWEST_ENTRIES`] newest entries in the project's operation log, newest first, each with
+/// whether a person recorded it: no agent was detected. One recorded before GitButler noted that
+/// counts as an agent's.
+pub fn newest_entries(ctx: &but_ctx::Context) -> Vec<(SnapshotId, bool)> {
+    let snapshots =
+        oplog::list_snapshots(ctx, NEWEST_ENTRIES, None, None, None).unwrap_or_default();
+    (snapshots.into_iter())
+        .map(|snapshot| {
+            let person = (snapshot.details.as_ref())
+                .is_some_and(|details| details.trailers.contains(&Trailer::Agent(None)));
+            (SnapshotId(snapshot.commit_id), person)
+        })
+        .collect()
 }
 
 /// What undoing an operation came to.

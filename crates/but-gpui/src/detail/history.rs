@@ -674,6 +674,9 @@ impl Detail {
         );
         let meta = meta_row(theme)
             .child(meta_item(Icon::Clock, theme).child(when))
+            .when_some(operation.agent.clone(), |el, agent| {
+                el.child(meta_item(Icon::Ai, theme).child(agent))
+            })
             .when_some(operation.detail.clone().filter(|_| undone), |el, what| {
                 el.child(meta_item(Icon::Undo, theme).child(what))
             })
@@ -940,7 +943,8 @@ impl Detail {
                             };
                             let id = operation.id;
                             // What it did as a glyph, named on hover, then what it was done
-                            // to, or its name, faint, when nothing says; then when.
+                            // to, or its name, faint, when nothing says; then whether an
+                            // agent did it, named on hover, and when.
                             let (text, said) = match summary(operation) {
                                 Some(text) => (text, true),
                                 None => (operation.title.clone(), false),
@@ -962,6 +966,17 @@ impl Detail {
                                         .when(!said, |el| el.text_color(quiet(theme.text_3)))
                                         .child(text),
                                 )
+                                .when_some(operation.agent.clone(), |el, agent| {
+                                    el.child(
+                                        div()
+                                            .id(("operation-agent", ix))
+                                            .flex_none()
+                                            .tooltip(Tooltip::text(format!(
+                                                "Done by an AI agent: {agent}"
+                                            )))
+                                            .child(icon(Icon::Ai).text_color(quiet(theme.text_3))),
+                                    )
+                                })
                                 .child(
                                     faint(local_clock(operation.time), theme)
                                         .flex_none()
