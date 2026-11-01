@@ -35,6 +35,6 @@ pub struct Outcome {
     pub conflict_occurred: bool,
 }
 
-mod consumed;
 pub(crate) mod function;
 mod utils;
+mod write;
