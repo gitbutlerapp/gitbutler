@@ -1432,6 +1432,19 @@ pub fn dot(color: Hsla) -> Div {
     div().flex_none().size(dp(6.)).rounded_full().bg(color)
 }
 
+/// An unread row's mark: a hairline in `color` in the row's left padding, out of its flow so
+/// nothing moves when it's read. The row must be `relative`.
+pub fn unread_line(color: Hsla) -> Div {
+    div()
+        .absolute()
+        .left(dp(2.))
+        .top_0()
+        .bottom_0()
+        .flex()
+        .items_center()
+        .child(div().w(fixed(1.)).h(dp(14.)).bg(color))
+}
+
 /// How long ago `seconds` (since the epoch) was, faint, in a slot as wide as the longest
 /// ("11mo"), so what sits before it lines up from row to row; empty without a time. It starts
 /// at the slot's left, beside what comes before.

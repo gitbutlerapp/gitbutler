@@ -29,7 +29,8 @@ use crate::ui::review::state_glyph;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
     ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dp, faint, glow_once, h_flex,
-    keep_focus_on_press, list_row, relative_time, short_path, shortcut, small_icon, v_flex,
+    keep_focus_on_press, list_row, relative_time, short_path, shortcut, small_icon, unread_line,
+    v_flex,
 };
 
 mod activity;
@@ -714,7 +715,7 @@ impl Detail {
             match item {
                 Item::Commit(made) => {
                     // On one of the checkout's branches, it opens, read or not as the
-                    // navigator shows it: quieter once read, in semibold with a dot while not,
+                    // navigator shows it: quieter once read, with a hairline while not,
                     // and marked conflicted as there. Gone with its branch, it shows as last
                     // seen, and opens what took it: the commit that merged it on the project's
                     // page, else its branch on the Branches page.
@@ -763,6 +764,7 @@ impl Detail {
                         .child(faint(label, theme).min_w_0().truncate())
                         .tooltip(Tooltip::text(tip));
                     row.when_some(glow, |el, glow| el.relative().child(glow_once(glow, theme)))
+                        .when(unread, |el| el.relative().child(unread_line(theme.pop)))
                         .child(small_icon(glyph).text_color(color))
                         .child(
                             div()
@@ -770,7 +772,6 @@ impl Detail {
                                 .min_w_0()
                                 .truncate()
                                 .when(!unread, |el| el.text_color(theme.text_2))
-                                .when(unread, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
                                 .child(commit_title(made.title())),
                         )
                         .child(branch)
