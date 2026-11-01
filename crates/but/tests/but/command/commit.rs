@@ -980,11 +980,11 @@ fn failed_commit_switch_preserves_selected_changes_in_single_branch_mode() {
     env.file("new.txt", "new content\n");
 
     // sy selects only new.txt; the modification to foo's file blocks checkout.
-    env.but("commit --switch -b bar -m test sy").assert().failure().stderr_eq(snapbox::str![[r#"
-Error: Could not safely check out 'refs/heads/bar' from 4db633b4a785a1a47a416e428f82b57e1e4708dc to 87d6a1a51a0607ab42894ed0af2df2a2c1a0a6f6
-
-Caused by:
-    Uncommitted files would be overwritten by checkout: "first"
+    env.but("commit --switch -b bar -m test sy")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Uncommitted files would be overwritten by checkout: "first"
 
 "#]]);
 
@@ -1050,11 +1050,11 @@ fn failed_commit_switch_preserves_selected_changes_in_workspace_mode() {
     env.file("new.txt", "new content\n");
 
     // sy selects only new.txt; the modification to foo's file blocks checkout.
-    env.but("commit --switch -b bar -m test sy").assert().failure().stderr_eq(snapbox::str![[r#"
-Error: Could not safely check out 'refs/heads/bar' from 54743c4a9f97bd3ab109061a5a6c95fbe855ea9d to 87d6a1a51a0607ab42894ed0af2df2a2c1a0a6f6
-
-Caused by:
-    Uncommitted files would be overwritten by checkout: "first"
+    env.but("commit --switch -b bar -m test sy")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Uncommitted files would be overwritten by checkout: "first"
 
 "#]]);
 
@@ -1130,10 +1130,7 @@ fn failed_commit_switch_to_existing_branch_rolls_back_materialization() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not safely check out 'refs/heads/other' from [..] to [..]
-
-Caused by:
-    Uncommitted files would be overwritten by checkout: "first"
+Error: Uncommitted files would be overwritten by checkout: "first"
 
 "#]]);
 
@@ -1214,10 +1211,7 @@ fn failed_commit_switch_restores_ad_hoc_stack_refs() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not safely check out 'refs/heads/bottom' from [..] to [..]
-
-Caused by:
-    Uncommitted files would be overwritten by checkout: "first.txt"
+Error: Uncommitted files would be overwritten by checkout: "first.txt"
 
 "#]]);
 
