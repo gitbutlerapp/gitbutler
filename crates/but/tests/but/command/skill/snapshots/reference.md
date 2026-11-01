@@ -269,6 +269,10 @@ Mark existing reviews as ready for review
 Configure the template to use for review descriptions
 - `[TEMPLATE_PATH]` Path to the review template file within the repository. Without it, a terminal lists the templates found in the repository to pick from; a non-interactive run needs it
 
+### but pr open [SELECTOR]
+Open reviews in the default web browser
+- `[SELECTOR]` One or more comma-separated branch names, branch IDs, stack IDs (every review on the stack), or review numbers (the PR or MR number without the symbol). Without it, a terminal prompts for reviews from the workspace's branches; a non-interactive run needs it
+
 ## Other Commands
 
 ### but init

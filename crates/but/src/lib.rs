@@ -1622,6 +1622,12 @@ async fn dispatch_subcommand(
                         .context("Failed to set reviews as ready-for-review.")?;
                     None
                 }
+                Some(forge::pr::Subcommands::Open { selector }) => {
+                    command::legacy::forge::review::open_review(&mut ctx, selector, out)
+                        .await
+                        .context("Failed to open review in browser.")?;
+                    None
+                }
                 None => {
                     // Default to `pr new` when no subcommand is provided
                     command::legacy::forge::review::create_review(

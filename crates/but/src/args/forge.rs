@@ -84,6 +84,15 @@ pub mod pr {
             /// needs it.
             template_path: Option<String>,
         },
+        /// Open reviews in the default web browser.
+        Open {
+            /// One or more comma-separated branch names, branch IDs, stack IDs (every review on
+            /// the stack), or review numbers (the PR or MR number without the symbol). Without
+            /// it, a terminal prompts for reviews from the workspace's branches; a non-interactive
+            /// run needs it.
+            #[clap(value_name = "SELECTOR")]
+            selector: Option<String>,
+        },
     }
 }
 
