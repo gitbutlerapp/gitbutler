@@ -276,10 +276,10 @@ impl Detail {
             false => {
                 let project = self.selected_project(cx)?;
                 let store = self.store.read(cx);
-                let Some(Ok(remarks)) = store.conversation(&project, review.number) else {
+                let Some(Ok(said)) = store.conversation(&project, review.number) else {
                     return None;
                 };
-                let note = (remarks.iter())
+                let note = (said.remarks.iter())
                     .flat_map(|remark| match remark {
                         Remark::Comment(note) | Remark::Review { note, .. } => {
                             std::slice::from_ref(note)
@@ -570,7 +570,11 @@ impl Detail {
             2 => (
                 if two_columns { 12. } else { 20. },
                 (self.shown_review_edit(&project, review, cx).is_none()).then(|| {
-                    description(review, self.note_select(&description_id(review), cx), theme)
+                    let select = self.note_select(&description_id(review), cx);
+                    v_flex()
+                        .gap(dp(10.))
+                        .child(description(review, select, theme))
+                        .children(self.reactions(&project, review.number, theme, cx))
                 }),
             ),
             3 => (24., self.conversation(&project, review, theme, cx)),

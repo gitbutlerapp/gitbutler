@@ -1107,6 +1107,18 @@ pub async fn list_review_comments(
         .await
 }
 
+/// List the reactions on a review's description, oldest first.
+#[but_api]
+#[instrument(err(Debug))]
+pub async fn list_review_reactions(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+) -> Result<Vec<but_forge::ForgeReviewReaction>> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::list_review_reactions(&preferred_forge_user, &forge_repo_info, review_id, &storage)
+        .await
+}
+
 /// List the diff-anchored comment threads on a review, oldest first.
 #[but_api]
 #[instrument(err(Debug))]

@@ -28,9 +28,9 @@ pub use review::{
     ReviewUpdatePayload, available_review_templates, cache_review, check_forge_account_is_valid,
     compute_review_target_updates, create_forge_review, get_forge_review, get_review_base_repo_url,
     get_review_merge_status, get_review_template_functions, list_forge_reviews_with_cache,
-    list_review_comments, list_review_submissions, list_review_threads, merge_review,
-    prepare_review_target_updates, restore_native_stacks, set_review_auto_merge_state,
-    set_review_draftiness, sync_reviews, update_review,
+    list_review_comments, list_review_reactions, list_review_submissions, list_review_threads,
+    merge_review, prepare_review_target_updates, restore_native_stacks,
+    set_review_auto_merge_state, set_review_draftiness, sync_reviews, update_review,
 };
 
 fn determine_forge_from_host(host: &str) -> Option<ForgeName> {

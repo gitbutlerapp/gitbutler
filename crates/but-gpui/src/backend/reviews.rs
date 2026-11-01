@@ -14,8 +14,9 @@ use super::intent::Run;
 use super::ops::holds;
 use super::upstream::{push, sync_failure};
 use super::{
-    CheckRun, CheckState, Checks, DiffLine, Forge, ForgeUser, Intent, Note, OpKind, PushState,
-    Remark, Review, ReviewLabel, ReviewState, Thread, open, runtime, short_ref,
+    CheckRun, CheckState, Checks, Conversation, DiffLine, Forge, ForgeUser, Intent, Note, OpKind,
+    PushState, Reaction, Remark, Review, ReviewLabel, ReviewState, Thread, open, runtime,
+    short_ref,
 };
 
 /// Which forge hosts the project: the one its target's remote, or a forge account with a
@@ -529,20 +530,60 @@ pub use but_forge::ForgeReviewSubmissionState as Verdict;
 /// How many of the diff's lines a thread quotes at least, as GitHub does.
 const EXCERPT_LINES: usize = 4;
 
-/// What's been said on pull request `number`, newest first. Only GitHub's is read; other
-/// forges' reads as nothing.
-pub fn conversation(path: &Path, number: u64) -> Result<Vec<Remark>> {
+/// What's been said on pull request `number`. Only GitHub's is read; other forges' reads as
+/// nothing.
+pub fn conversation(path: &Path, number: u64) -> Result<Conversation> {
     let started = std::time::Instant::now();
     let ctx = open(path)?.into_sync();
-    let (comments, reviews, threads) = runtime().handle().block_on(async {
+    let (reactions, comments, reviews, threads) = runtime().handle().block_on(async {
         futures::try_join!(
+            forge::list_review_reactions(ctx.clone(), number as usize),
             forge::list_review_comments(ctx.clone(), number as usize),
             forge::list_review_submissions(ctx.clone(), number as usize),
             forge::list_review_threads(ctx, number as usize),
         )
     })?;
     tracing::debug!(elapsed = ?started.elapsed(), number, "read the conversation");
-    Ok(remarks(comments, reviews, threads))
+    Ok(Conversation {
+        reactions: grouped(reactions),
+        remarks: remarks(comments, reviews, threads),
+    })
+}
+
+/// `reactions` by kind, in the order each kind was first left.
+fn grouped(reactions: Vec<but_forge::ForgeReviewReaction>) -> Vec<Reaction> {
+    let mut grouped: Vec<Reaction> = Vec::new();
+    for reaction in reactions {
+        let emoji = emoji(&reaction.kind).map_or(reaction.kind, str::to_owned);
+        let person = reaction.user.as_ref().map(person);
+        match grouped.iter_mut().find(|group| group.emoji == emoji) {
+            Some(group) => {
+                group.count += 1;
+                group.people.extend(person);
+            }
+            None => grouped.push(Reaction {
+                emoji,
+                count: 1,
+                people: person.into_iter().collect(),
+            }),
+        }
+    }
+    grouped
+}
+
+/// The emoji GitHub draws for a reaction it names `kind`.
+fn emoji(kind: &str) -> Option<&'static str> {
+    Some(match kind {
+        "+1" => "👍",
+        "-1" => "👎",
+        "laugh" => "😄",
+        "confused" => "😕",
+        "heart" => "❤️",
+        "hooray" => "🎉",
+        "rocket" => "🚀",
+        "eyes" => "👀",
+        _ => return None,
+    })
 }
 
 /// `comments`, `reviews` and `threads` as the conversation shows them, newest first, as Lite's,
@@ -626,17 +667,22 @@ fn note(
     // GitHub's REST names a bot "name[bot]", its GraphQL "name"; the tag says it either way.
     let bot = author.is_some_and(|user| user.is_bot || user.login.ends_with("[bot]"));
     Note {
-        author: author.map(|user| ForgeUser {
-            login: (user.login.strip_suffix("[bot]"))
-                .unwrap_or(&user.login)
-                .to_owned(),
-            avatar_url: user.avatar_url.clone(),
-        }),
+        author: author.map(person),
         bot,
         body: crate::ui::markdown::parse(body),
         at,
         edited: (timestamp(edited_at).zip(at)).is_some_and(|(edited, at)| edited > at),
         url,
+    }
+}
+
+/// `user` by their login without the "[bot]" GitHub's REST gives a bot.
+fn person(user: &but_forge::ForgeReviewUser) -> ForgeUser {
+    ForgeUser {
+        login: (user.login.strip_suffix("[bot]"))
+            .unwrap_or(&user.login)
+            .to_owned(),
+        avatar_url: user.avatar_url.clone(),
     }
 }
 
@@ -699,11 +745,11 @@ fn hunk_starts(header: &str) -> Option<(u32, u32)> {
 #[cfg(test)]
 mod tests {
     use but_forge::{
-        ForgeReviewComment, ForgeReviewSubmission, ForgeReviewThread, ForgeReviewThreadComment,
-        ForgeReviewThreadSide, ForgeReviewUser,
+        ForgeReviewComment, ForgeReviewReaction, ForgeReviewSubmission, ForgeReviewThread,
+        ForgeReviewThreadComment, ForgeReviewThreadSide, ForgeReviewUser,
     };
 
-    use super::{Remark, Verdict, excerpt, remarks};
+    use super::{Remark, Verdict, excerpt, grouped, remarks};
     use crate::backend::{LineKind, Note};
 
     fn user(login: &str, is_bot: bool) -> Option<ForgeReviewUser> {
@@ -840,6 +886,42 @@ review Commented codex (bot): "Some suggestions"
 comment alice: "First!"
 comment bob: "Undated"
 "#]]
+        );
+    }
+
+    #[test]
+    fn reactions_group_by_kind_in_the_order_each_was_first_left() {
+        let reaction = |kind: &str, login: &str| ForgeReviewReaction {
+            id: 1,
+            kind: kind.into(),
+            user: user(login, login.ends_with("[bot]")),
+        };
+        let grouped = grouped(vec![
+            reaction("eyes", "chatgpt-codex-connector[bot]"),
+            reaction("+1", "alice"),
+            reaction("eyes", "bob"),
+            reaction("party", "carol"),
+            ForgeReviewReaction {
+                id: 2,
+                kind: "+1".into(),
+                user: None,
+            },
+        ]);
+        let shown: Vec<_> = (grouped.iter())
+            .map(|reaction| {
+                let who: Vec<_> = reaction.people.iter().map(|p| p.login.as_str()).collect();
+                format!("{} {} {}", reaction.emoji, reaction.count, who.join(","))
+            })
+            .collect();
+        assert_eq!(
+            shown,
+            [
+                "👀 2 chatgpt-codex-connector,bob",
+                "👍 2 alice",
+                "party 1 carol"
+            ],
+            "a bot's login loses its [bot], a kind GitHub hasn't named shows as it's named, \
+             and a reaction without a user still counts"
         );
     }
 
