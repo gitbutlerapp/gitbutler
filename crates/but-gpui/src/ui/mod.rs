@@ -1489,14 +1489,43 @@ pub fn pulsing<E: IntoElement + Styled + 'static>(el: E) -> impl IntoElement {
     )
 }
 
-/// `el` turning, as ui-react's spinning icons do, while what it stands for is under way.
+/// How long [`spinning`] takes to turn its glyph once, and in how many steps.
+const SPIN_TURN: std::time::Duration = std::time::Duration::from_millis(800);
+const SPIN_STEPS: u32 = 24;
+
+/// `el` turning, as ui-react's spinning icons do, while what it stands for is under way. It
+/// turns a step at a time, 30 a second, each step drawing the view it's in again, rather than
+/// every display frame as `with_animation` would: an agent's spinner turns for minutes, and
+/// redrawing the navigator at 120Hz all that while kept the window from ever going idle, which
+/// left every frame queued behind others and scrolling the diff sticky.
 pub fn spinning(el: Svg) -> impl IntoElement {
-    use gpui::{Animation, AnimationExt as _, Transformation, percentage};
-    el.with_animation(
-        "spinning",
-        Animation::new(std::time::Duration::from_millis(800)).repeat(),
-        |el, delta| el.with_transformation(Transformation::rotate(percentage(delta))),
-    )
+    use gpui::{Transformation, canvas, percentage};
+    static START: std::sync::LazyLock<std::time::Instant> =
+        std::sync::LazyLock::new(crate::clock::now);
+    let step = SPIN_TURN / SPIN_STEPS;
+    let since = crate::clock::now().saturating_duration_since(*START);
+    let steps = since.as_nanos() / step.as_nanos();
+    let turned = (steps % u128::from(SPIN_STEPS)) as f32 / SPIN_STEPS as f32;
+    let due = step - std::time::Duration::from_nanos((since.as_nanos() % step.as_nanos()) as u64);
+    div()
+        .flex_none()
+        .child(el.with_transformation(Transformation::rotate(percentage(turned))))
+        // The next step asked for as this one is drawn, so a spinner that's gone, or one in a
+        // view that isn't drawn, asks for no more.
+        .child(
+            canvas(
+                |_, _, _| {},
+                move |_, _, window, cx| {
+                    let view = window.current_view();
+                    (cx.spawn(async move |cx| {
+                        cx.background_executor().timer(due).await;
+                        cx.update(|cx| cx.notify(view));
+                    }))
+                    .detach();
+                },
+            )
+            .absolute(),
+        )
 }
 
 /// A faint pop wash over a `list_row`'s ground that fades out once, as for a commit that just
