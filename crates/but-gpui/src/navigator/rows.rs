@@ -89,6 +89,12 @@ pub(super) enum RowKey {
     /// out from there, from place to place, and back.
     Left(Box<RowKey>),
     GhostBranch(ProjectId),
+    /// No row's: the top edge of the outline of what a squash goes into, which slides from row
+    /// to row as the squash steps.
+    SquashTop,
+    /// No row's: that outline's bottom edge, which slides apart from its top as the outline
+    /// grows into the rows where the squash started, and back as it leaves.
+    SquashBottom,
     /// A row of no other kind, by the one before it, which it moves with.
     After(Box<RowKey>),
 }

@@ -1205,10 +1205,24 @@ impl Intent for MoveCommits {
     }
 }
 
-/// Squash `commits`, newest first as picked, into `into`, keeping every message.
+/// Which messages a squash keeps.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Messages {
+    /// The target's first, then the others' in the order they were written.
+    #[default]
+    Both,
+    /// Only the target's.
+    Target,
+}
+
+/// Squash `commits`, newest first as picked, into `into`, keeping the messages `keep` says.
+/// With `emptied`, they're all of that branch, which goes with them, as `but squash` takes a
+/// branch squashed into a commit elsewhere.
 pub struct Squash {
     pub commits: Arc<[CommitId]>,
     pub into: CommitId,
+    pub keep: Messages,
+    pub emptied: Option<FullName>,
 }
 
 impl Intent for Squash {
@@ -1216,7 +1230,16 @@ impl Intent for Squash {
 
     fn apply(self, run: &mut Run) -> Result<Rewritten> {
         use but_workspace::commit::squash_commits::MessageCombinationStrategy;
-        let Self { commits, into } = self;
+        let Self {
+            commits,
+            into,
+            keep,
+            emptied,
+        } = self;
+        let strategy = match keep {
+            Messages::Both => MessageCombinationStrategy::KeepBoth,
+            Messages::Target => MessageCombinationStrategy::KeepTarget,
+        };
         let (made, workspace) = run.locked(|ctx, perm| {
             let mut meta = ctx.meta()?;
             but_transaction::with_transaction_with_perm(
@@ -1224,15 +1247,15 @@ impl Intent for Squash {
                 &mut meta,
                 perm,
                 SnapshotDetails::new(OperationKind::SquashCommit),
-                &[],
+                // Named so undo brings the branch back.
+                emptied.as_ref().map(|name| name.as_ref()).as_slice(),
                 DryRun::No,
                 |mut tx| {
+                    if let Some(branch) = &emptied {
+                        tx.remove_reference(branch.as_ref())?;
+                    }
                     let oldest_first = commits.iter().rev().map(|id| id.0);
-                    let made = tx.squash_commits(
-                        oldest_first,
-                        into.0,
-                        MessageCombinationStrategy::KeepBoth,
-                    )?;
+                    let made = tx.squash_commits(oldest_first, into.0, strategy)?;
                     Ok(but_transaction::Commit(CommitId(made.id)))
                 },
             )
@@ -1244,16 +1267,18 @@ impl Intent for Squash {
     }
 }
 
-/// Turn `commits` back into uncommitted changes.
+/// Turn `commits` back into uncommitted changes. With `emptied`, they're all of that branch,
+/// which goes with them, as `but squash` uncommits a branch.
 pub struct Uncommit {
     pub commits: Arc<[CommitId]>,
+    pub emptied: Option<FullName>,
 }
 
 impl Intent for Uncommit {
     type Done = ();
 
     fn apply(self, run: &mut Run) -> Result<()> {
-        let Self { commits } = self;
+        let Self { commits, emptied } = self;
         run.locked(|ctx, perm| {
             refuse_buried_merges(&*ctx.repo.get()?, &commits)?;
             let mut meta = ctx.meta()?;
@@ -1264,9 +1289,16 @@ impl Intent for Uncommit {
                 SnapshotDetails::new(OperationKind::UndoCommit)
                     .with_count(commits.len())
                     .with_trailers(commits.iter().map(|id| Trailer::Sha(id.0))),
-                &[],
+                // Named so undo brings the branch back.
+                emptied.as_ref().map(|name| name.as_ref()).as_slice(),
                 DryRun::No,
-                |mut tx| tx.uncommit_commits(commits.iter().map(|id| id.0)),
+                |mut tx| {
+                    tx.uncommit_commits(commits.iter().map(|id| id.0))?;
+                    if let Some(branch) = &emptied {
+                        tx.remove_reference(branch.as_ref())?;
+                    }
+                    Ok(())
+                },
             )?;
             Ok(())
         })
@@ -4271,6 +4303,8 @@ managed true, below true: agent [one], <new> [two], agent checked out
             let squash = Squash {
                 commits: [third, second].into(),
                 into: edit,
+                keep: Messages::Both,
+                emptied: None,
             };
             let (rewritten, ran) = crate::backend::apply(path, squash).unwrap();
             let squashed = rewritten[&edit];
@@ -4298,6 +4332,117 @@ third
 
 
 "#]]
+            );
+        })
+    }
+
+    #[test]
+    fn a_branch_squashed_away_goes_with_its_commits_and_undoes() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let (dir, edit, ..) = workspace_with_an_edit();
+            let path = dir.path();
+            git(path, &["commit", "-q", "--allow-empty", "-m", "second"]);
+            let second = head(path);
+            crate::backend::apply(path, name_at(second, "feature")).unwrap();
+            // Edit to a branch of its own, leaving feature with second alone.
+            let moving = MoveToNewBranch {
+                commits: [edit].into(),
+                beside: None,
+                first: false,
+            };
+            let ((rewritten, _), _) = crate::backend::apply(path, moving).unwrap();
+            let edit = rewritten.get(&edit).copied().unwrap_or(edit);
+            // Rebased off edit.
+            let feature = git(path, &["rev-parse", "feature"]);
+            let second = CommitId(gix::ObjectId::from_hex(feature.trim().as_bytes()).unwrap());
+            let before = crate::backend::history::oplog_head(&open(path).unwrap());
+
+            let squash = Squash {
+                commits: [second].into(),
+                into: edit,
+                keep: Messages::Both,
+                emptied: Some(full("refs/heads/feature")),
+            };
+            let (rewritten, _) = crate::backend::apply(path, squash).unwrap();
+            assert!(
+                git(path, &["branch", "--list", "feature"]).is_empty(),
+                "the branch its commits went out of goes"
+            );
+            let message = git(
+                path,
+                &["log", "-1", "--format=%B", &rewritten[&edit].0.to_string()],
+            );
+            // One entry, and the commit it went into holding both messages.
+            snapbox::assert_data_eq!(
+                entries_since(path, before) + &message,
+                snapbox::str![[r#"
+SquashCommit
+edit
+
+second
+
+
+"#]]
+            );
+
+            undo(path, newest_entry(path), None).unwrap();
+            assert_eq!(
+                git(path, &["rev-parse", "feature"]).trim(),
+                second.0.to_string(),
+                "one undo brings the branch back with its commit"
+            );
+        })
+    }
+
+    #[test]
+    fn a_squash_keeping_the_targets_message_drops_the_others() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let (dir, edit, ..) = workspace_with_an_edit();
+            let path = dir.path();
+            git(path, &["commit", "-q", "--allow-empty", "-m", "second"]);
+            let second = head(path);
+
+            let squash = Squash {
+                commits: [second].into(),
+                into: edit,
+                keep: Messages::Target,
+                emptied: None,
+            };
+            let (rewritten, _) = crate::backend::apply(path, squash).unwrap();
+            let message = git(
+                path,
+                &["log", "-1", "--format=%B", &rewritten[&edit].0.to_string()],
+            );
+            assert_eq!(message.trim(), "edit", "only the target's message is left");
+        })
+    }
+
+    #[test]
+    fn a_branch_uncommitted_goes_and_leaves_its_changes_and_undoes() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let (dir, edit, ..) = workspace_with_an_edit();
+            let path = dir.path();
+            crate::backend::apply(path, name_at(edit, "feature")).unwrap();
+
+            let uncommit = Uncommit {
+                commits: [edit].into(),
+                emptied: Some(full("refs/heads/feature")),
+            };
+            crate::backend::apply(path, uncommit).unwrap();
+            assert!(
+                git(path, &["branch", "--list", "feature"]).is_empty(),
+                "the branch goes"
+            );
+            let left: Vec<String> = (uncommitted(path).into_iter())
+                .map(|file| file.path)
+                .collect();
+            assert_eq!(left, ["file"], "its commit's change is uncommitted");
+
+            undo(path, newest_entry(path), None).unwrap();
+            assert_eq!(
+                git(path, &["rev-parse", "feature"]).trim(),
+                edit.0.to_string(),
+                "one undo brings the branch back with its commit"
             );
         })
     }

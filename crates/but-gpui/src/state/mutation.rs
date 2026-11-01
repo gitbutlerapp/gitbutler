@@ -1121,18 +1121,19 @@ impl Store {
         );
     }
 
-    /// Squash commits `ids`, listed newest first, into commit `into`, its message first and
-    /// theirs after it in the order they were written.
-    pub fn squash(
-        &mut self,
-        project: &ProjectId,
-        ids: Arc<[CommitId]>,
-        into: CommitId,
-        cx: &mut Context<Self>,
-    ) {
-        let overlay = Overlay::commits(ids.iter().filter_map(|id| self.key_of(project, *id)));
-        let label = Label::new("Squash", format!("Squash {} commits", ids.len() + 1));
-        let squash = backend::Squash { commits: ids, into };
+    /// Squash as `squash` says, its commits listed newest first, the branch it empties going
+    /// at once, then select what they went into.
+    pub fn squash(&mut self, project: &ProjectId, squash: backend::Squash, cx: &mut Context<Self>) {
+        let keys = (squash.commits.iter()).filter_map(|id| self.key_of(project, *id));
+        let overlay = Overlay {
+            deleted_branches: squash.emptied.iter().cloned().collect(),
+            ..Overlay::commits(keys.collect::<Vec<_>>())
+        };
+        let label = Label::new(
+            "Squash",
+            format!("Squash {} commits", squash.commits.len() + 1),
+        );
+        let into = squash.into;
         let squashed = project.clone();
         self.apply(
             project,
@@ -1148,7 +1149,15 @@ impl Store {
         );
     }
 
-    pub fn uncommit(&mut self, project: &ProjectId, ids: Arc<[CommitId]>, cx: &mut Context<Self>) {
+    /// Uncommit commits `ids`, and with `emptied`, the branch they're all of, which goes with
+    /// them.
+    pub fn uncommit(
+        &mut self,
+        project: &ProjectId,
+        ids: Arc<[CommitId]>,
+        emptied: Option<FullName>,
+        cx: &mut Context<Self>,
+    ) {
         // A conflicted commit's files are one side's, so uncommitting it would bring back
         // nothing and lose the change it carries.
         let conflicted = (ids.iter())
@@ -1179,11 +1188,18 @@ impl Store {
             .and_then(|id| self.checkout_of(&Selection::Commit(project.clone(), *id)))
             .unwrap_or_default();
         let project = project.clone();
+        let overlay = Overlay {
+            deleted_branches: emptied.iter().cloned().collect(),
+            ..Overlay::commits(keys.clone())
+        };
         self.apply(
             &project.clone(),
             label,
-            Overlay::commits(keys.clone()),
-            backend::Uncommit { commits: ids },
+            overlay,
+            backend::Uncommit {
+                commits: ids,
+                emptied,
+            },
             move |store, (), cx| {
                 // The selected commit's changes are uncommitted now; show them there.
                 if let Some(Selection::Commit(selected, id)) = &store.selection

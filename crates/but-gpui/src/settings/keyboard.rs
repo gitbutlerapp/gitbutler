@@ -170,6 +170,7 @@ fn place(context: &str) -> Option<&'static str> {
         "Workspace" => "Main window",
         "Navigator" => "Navigator",
         "Moving" => "While moving",
+        "Squashing" => "While squashing",
         "Diff" => "Diff",
         "Files" => "File list",
         "List" => "Branches and Operations history",

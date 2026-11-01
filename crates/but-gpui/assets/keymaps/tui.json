@@ -1,5 +1,5 @@
 // A keymap like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming,
-// moving commits and adding an empty commit, Return to fold and unfold, f to show and hide the
+// moving and squashing commits and adding an empty commit, Return to fold and unfold, f to show and hide the
 // files, / to filter or find, ⌘K for the command palette, ⌘P to go to anything and ⌘J to a
 // terminal, ⌘T to open a terminal, ⌘R to fetch and ⇧⌘R to pull, ⌘1, ⌘2 and ⌘3 to go to the
 // navigator, the files and the diff, ⌘B and ⌥⌘B to show and hide the navigator and the details,
@@ -59,8 +59,9 @@
   },
   // The TUI's status list: up and down, ⇧J and ⇧K between sections, g and ⇧G to either end. n
   // adds an empty commit above the selected one, or on top of the selected branch. m moves the
-  // selected commit, as the TUI's m does. Return folds or unfolds what the selected row heads: a
-  // card, a section, a worktree, a stack, a branch or a merge.
+  // selected commit, as the TUI's m does, and ⇧S squashes the uncommitted changes into it, as
+  // the TUI's ⇧R does. Return folds or unfolds what the selected row heads: a card, a section,
+  // a worktree, a stack, a branch or a merge.
   {
     "context": "Navigator && !TextInput",
     "bindings": {
@@ -74,14 +75,27 @@
       "shift-g": "navigator::SelectLast",
       "n": "edits::AddEmptyCommitAbove",
       "m": "navigator::MoveSelection",
+      "shift-s": "navigator::SquashIntoSelection",
       "enter": "navigator::ToggleFold"
     }
   },
+  // s squashes the selected commit, branch or changes, or in the diff the files or lines ⌘X
+  // would cut, as the TUI's r does: r is reword's here, below.
+  {
+    "context": "(Navigator || Diff) && !TextInput",
+    "bindings": { "s": "navigator::SquashSelection" }
+  },
   // While commits move, the keys above step through where they can land, and Return lands
-  // them there. After the list's Return, so it wins.
+  // them there. After the list's Return, so it wins. m and s move instead of squashing, or the
+  // other way round, and while squashing u keeps only the target's message, as in the TUI,
+  // after undo's u, so it wins.
   {
     "context": "Navigator && Moving && !TextInput",
     "bindings": { "enter": "navigator::MoveHere" }
+  },
+  {
+    "context": "Navigator && Squashing && !TextInput",
+    "bindings": { "u": "navigator::UseTargetMessage" }
   },
   // r rewords a commit, renames a branch or a terminal and names the unnamed branch, where the
   // TUI's squashes: a section apiece, as the key runs the one the selection has.

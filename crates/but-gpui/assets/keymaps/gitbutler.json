@@ -142,10 +142,15 @@
     }
   },
   // While commits move, the keys above step through where they can land, and Return lands
-  // them there. After the navigator's Return, so it wins.
+  // them there. After the navigator's Return, so it wins. While squashing, u keeps only the
+  // target's message, as in the TUI, after the navigator's u, so it wins.
   {
     "context": "Navigator && Moving && !TextInput",
     "bindings": { "enter": "navigator::MoveHere" }
+  },
+  {
+    "context": "Navigator && Squashing && !TextInput",
+    "bindings": { "u": "navigator::UseTargetMessage" }
   },
   // Renaming, deleting and taking out do what fits the selection, so each key is bound once for
   // each of those, a section apiece, and runs the one the selection has. F2 is the rename key on

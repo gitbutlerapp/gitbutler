@@ -14,7 +14,7 @@ use crate::backend::{
     self, Checkout, CommitId, Destination, FileChange, FullName, Project, Selected, Workspace,
     Worktree,
 };
-use crate::transfer::{Move, Moving, Stop};
+use crate::transfer::{Move, Moving, Stop, Target};
 
 /// A watcher's event: the project, whether its git directory changed, the checkout whose
 /// files changed, and which of its files.
@@ -881,10 +881,29 @@ fn renamed(old: Option<&Workspace>, new: &Workspace) -> Vec<(Option<FullName>, F
         .collect()
 }
 
-/// Follow the commits or branch `moving` moves, and where it lands them, from `old` to `new`,
-/// saying whether they're all still there.
+/// Follow the commits, branch or files `moving` moves, and where it lands them, from `old` to
+/// `new`, saying whether they're all still there.
 fn follow_move(moving: &mut Move, old: Option<&Workspace>, new: &Workspace) -> bool {
     match &mut moving.what {
+        // As they would if they were cut.
+        Moving::Files {
+            from,
+            worktree,
+            files,
+        } => {
+            let mut cut = Cut::Files {
+                project: moving.project.clone(),
+                from: *from,
+                worktree: worktree.clone(),
+                files: files.clone(),
+            };
+            if !follow_cut(&mut cut, old, new) {
+                return false;
+            }
+            if let Cut::Files { from: followed, .. } = cut {
+                *from = followed;
+            }
+        }
         // A project's card and a terminal are where they are whatever the workspace has.
         Moving::Project(_) | Moving::Terminal { .. } => return true,
         Moving::Commits(commits) => {
@@ -909,6 +928,11 @@ fn follow_move(moving: &mut Move, old: Option<&Workspace>, new: &Workspace) -> b
         Stop::In(Destination::Branch(branch)) | Stop::NewBranch { beside: branch, .. } => {
             new.find_branch(Some(branch)).is_some()
         }
+        Stop::Into(Target::Commit(commit)) => {
+            (follow_by_key(old, new, *commit).map(|followed| *commit = followed)).is_some()
+        }
+        Stop::Into(Target::Branch(branch)) => new.find_branch(Some(branch)).is_some(),
+        Stop::Into(Target::Uncommitted(checkout)) => new.uncommitted_in(checkout).is_some(),
         Stop::NewStack { .. } | Stop::Card(_) | Stop::Terminal { .. } => true,
     }
 }

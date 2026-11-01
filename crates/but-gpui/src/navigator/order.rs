@@ -194,8 +194,13 @@ impl Navigator {
                 Some(moving) => moving.what.clone(),
                 None => Moving::Project(self.watched(store).iter().map(|e| e.id.clone()).collect()),
             };
-            let (project, at) = (id.clone(), Stop::Card(slot));
-            Move { project, what, at }
+            let (project, at, squash) = (id.clone(), Stop::Card(slot), None);
+            Move {
+                project,
+                what,
+                at,
+                squash,
+            }
         });
         let unchanged = match (held, &next) {
             (Some(held), Some(next)) => held.at == next.at,

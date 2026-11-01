@@ -7,16 +7,18 @@ use gpui::{
 };
 
 use crate::app::{
-    AppView, CommandPalette, CutSelection, Fetch, FocusDiff, MoveHere, OpenPullRequest, PasteHere,
-    Push, StartCommit, Undo, UpdateFromTarget,
+    AppView, CommandPalette, CutSelection, Fetch, FocusDiff, MoveHere, MoveSelection,
+    OpenPullRequest, PasteHere, Push, SquashSelection, StartCommit, Undo, UpdateFromTarget,
+    UseTargetMessage,
 };
 use crate::backend::rebuild::Rebuild;
-use crate::backend::{Branch, Checkout, CommitId, FileChange, ReviewState, Workspace};
+use crate::backend::{Branch, Checkout, CommitId, FileChange, Messages, ReviewState, Workspace};
 use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
 use crate::edits::{NameBranch, RenameBranch, RenameTerminal, Reword, Uncommit};
 use crate::pr::{CreatePullRequest, create_offer};
 use crate::state::{Cut, ProjectId, SLOW, Section, Selection};
 use crate::theme::Theme;
+use crate::transfer::Transfer;
 use crate::ui::{
     Icon, STATUS_BAR_HEIGHT, Tooltip, ago, dot, dp, duration, h_flex, plural, shortcut,
     shortcut_here, small_icon,
@@ -75,15 +77,38 @@ impl AppView {
                 true => format!("{what} {}", moving.place(store)),
                 false => what,
             };
+            // In the colour each marks rows in, as the TUI's modes have their own.
+            let (doing, color) = match moving.squash {
+                Some(_) => ("Squashing", theme.blue),
+                None => ("Moving", theme.pop),
+            };
             let state = h_flex()
                 .gap(dp(6.))
                 .min_w_0()
                 .overflow_hidden()
-                .child(div().flex_none().text_color(theme.pop).child("Moving"))
+                .child(div().flex_none().text_color(color).child(doing))
                 .child(div().min_w_0().truncate().child(what));
+            // Commits squashed into one keep both messages, or only the one they go into's.
+            let messages = (moving.squash)
+                .filter(|_| matches!(moving.squashed(store), Some(Transfer::Squash { .. })))
+                .and_then(|keep| {
+                    let said = match keep {
+                        Messages::Both => "keep only its message",
+                        Messages::Target => "keep both messages",
+                    };
+                    Some((shortcut(&UseTargetMessage, cx)?, said))
+                });
+            // Commits or a branch squash instead of moving, or move instead of squashing.
+            let instead = match moving.squash {
+                Some(_) => shortcut(&MoveSelection, cx).map(|keys| (keys, "move instead")),
+                None => shortcut(&SquashSelection, cx).map(|keys| (keys, "squash instead")),
+            };
+            let verb = moving.verb(store);
             let keys = [("↑↓".into(), "choose where")]
                 .into_iter()
-                .chain((shortcut(&MoveHere, cx).filter(|_| lands)).map(|keys| (keys, "move here")))
+                .chain((shortcut(&MoveHere, cx).filter(|_| lands)).map(|keys| (keys, verb)))
+                .chain(messages)
+                .chain(instead.filter(|_| moving.of_commits()))
                 .chain([("esc".into(), "cancel")])
                 .collect();
             (state.into_any_element(), keys)

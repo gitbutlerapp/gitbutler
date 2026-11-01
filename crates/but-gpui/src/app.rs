@@ -22,7 +22,7 @@ use crate::state::{
 };
 use crate::terminal::NewTerminal;
 use crate::theme::{ColorScheme, Theme, UiScale};
-use crate::transfer::{Place, ProjectDrag, Transfer};
+use crate::transfer::{Moving, Place, ProjectDrag, Transfer};
 use crate::ui::fold::{Slide, edge, inert};
 use crate::ui::{HEADER_HEIGHT, POPOVER_RADIUS, dp, fixed, resize_pane};
 
@@ -83,6 +83,9 @@ actions!(
         PasteHere,
         MoveSelection,
         MoveHere,
+        SquashSelection,
+        SquashIntoSelection,
+        UseTargetMessage,
     ]
 );
 actions!(
@@ -791,8 +794,47 @@ impl AppView {
     }
 
     fn cut_selection(&mut self, _: &CutSelection, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(cut) = self.selection_cut(window, cx) {
+            self.cut(cut, cx);
+        }
+    }
+
+    /// Squash what's picked in the diff or the file list, as ⌘X cuts it there, with the keys
+    /// in the navigator, from the selection's row, which holds it. The navigator squashes
+    /// what's selected there itself.
+    fn squash_from_detail(
+        &mut self,
+        _: &SquashSelection,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !self.detail.read(cx).is_focused(window, cx) {
+            return;
+        }
+        let cut = self.selection_cut(window, cx).and_then(Cut::movable);
+        let Some(Cut::Files {
+            project,
+            from,
+            worktree,
+            files,
+        }) = cut
+        else {
+            return;
+        };
+        let what = Moving::Files {
+            from,
+            worktree,
+            files,
+        };
+        (self.navigator).update(cx, |navigator, cx| {
+            navigator.squash(project, what, window, cx)
+        });
+    }
+
+    /// What ⌘X cuts where the keys are.
+    fn selection_cut(&self, window: &Window, cx: &App) -> Option<Cut> {
         let in_diff = self.detail.read(cx).is_focused(window, cx);
-        let cut = match self.selection(cx) {
+        match self.selection(cx) {
             // From a commit's diff, its lines, hunk or file under the cursor.
             Some(Selection::Commit(..)) if in_diff => self.detail.read(cx).cursor_cut(cx),
             // The picked commits with it, when it's one of them.
@@ -823,9 +865,6 @@ impl AppView {
                 })
             }
             _ => None,
-        };
-        if let Some(cut) = cut {
-            self.cut(cut, cx);
         }
     }
 
@@ -2034,6 +2073,16 @@ impl Render for AppView {
             .on_action(cx.listener(Self::new_worktree_with_name))
             .on_action(cx.listener(Self::push_selected))
             .on_action(cx.listener(Self::cut_selection))
+            // Where the diff shows what's selected, which can squash.
+            .when(
+                matches!(
+                    self.store.read(cx).selection,
+                    Some(
+                        Selection::Commit(..) | Selection::Uncommitted(_) | Selection::Worktree(..)
+                    )
+                ),
+                |el| el.on_action(cx.listener(Self::squash_from_detail)),
+            )
             // Only while something is cut, so ⌘K doesn't offer it with nothing to paste.
             .when(self.store.read(cx).cut.is_some(), |el| {
                 el.on_action(cx.listener(Self::paste_here))
