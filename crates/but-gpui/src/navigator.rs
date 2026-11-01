@@ -11,9 +11,9 @@ use std::time::Instant;
 use but_tty::Status;
 use gpui::{
     AnyElement, App, Bounds, ClickEvent, Context, CursorStyle, Div, DragMoveEvent, ElementId,
-    EmptyView, Entity, FocusHandle, Focusable, FontWeight, Hsla, ListAlignment, ListOffset,
-    ListState, Modifiers, MouseButton, MouseDownEvent, Pixels, Point, Role, ScrollWheelEvent,
-    SharedString, Stateful, Subscription, Task, Window, actions, div, list, prelude::*, relative,
+    EmptyView, Entity, FocusHandle, Focusable, Hsla, ListAlignment, ListOffset, ListState,
+    Modifiers, MouseButton, MouseDownEvent, Pixels, Point, Role, ScrollWheelEvent, SharedString,
+    Stateful, Subscription, Task, Window, actions, div, list, prelude::*, relative,
 };
 
 use crate::app::{
@@ -43,7 +43,7 @@ use crate::ui::{
     WINDOW_CONTROLS_WIDTH, above_drag, ago, blink_once, button, commit_title, dot, dp, faint,
     field, fixed, fold_button, fold_glyph, fold_row, glow_once, guide, h_flex, icon, icon_button,
     list_row, meta_count, plural, pulsing, relative_time, resize_handle, review, section_label,
-    small_icon, spinning, v_flex,
+    small_icon, spinning, unread_line, v_flex,
 };
 
 mod account;
@@ -305,8 +305,18 @@ impl<'a> RowStyle<'a> {
         }
     }
 
-    /// A commit's row, `indent` in: `glyph` and its title, semibold while it's unread. Only a
-    /// missing title is quieter.
+    /// An unread row's hairline: a commit's own in pop, and in faint ink, which still reads at
+    /// 3:1, on a row that only holds unread commits, so the commits stand out.
+    fn unread_line(&self, own: bool) -> Div {
+        unread_line(if own {
+            self.meta(self.theme.pop)
+        } else {
+            self.quiet()
+        })
+    }
+
+    /// A commit's row, `indent` in: `glyph` and its title, with a hairline while it's unread.
+    /// Only a missing title is quieter.
     fn commit_line(
         &self,
         id: String,
@@ -322,6 +332,7 @@ impl<'a> RowStyle<'a> {
             .when(self.glow, |el| {
                 el.relative().child(glow_once("glow", self.theme))
             })
+            .when(unread, |el| el.relative().child(self.unread_line(true)))
             .child(glyph)
             .child(
                 div()
@@ -329,7 +340,6 @@ impl<'a> RowStyle<'a> {
                     .min_w_0()
                     .truncate()
                     .when(title.is_empty(), |el| el.text_color(self.muted()))
-                    .when(unread, |el| el.font_weight(FontWeight::SEMIBOLD))
                     .child(commit_title(&title)),
             )
     }
@@ -2364,6 +2374,7 @@ impl Navigator {
                 .aria_expanded(expanded)
                 .h(dp(if expanded { HEADING_HEIGHT } else { ROW_HEIGHT }))
                 .pl(dp(11.))
+                .when(unread, |el| el.relative().child(style.unread_line(false)))
                 // The eye over the chevrons of the rows below and the emoji, 5 points on,
                 // over their icons, so the name sits over theirs.
                 .child(
@@ -2436,7 +2447,6 @@ impl Navigator {
                         .flex_grow(1.)
                         .min_w_0()
                         .truncate()
-                        .when(unread, |el| el.font_weight(FontWeight::SEMIBOLD))
                         .child(entry.project.name.clone()),
                 )
                 .child(
@@ -2663,6 +2673,9 @@ impl Navigator {
             )
             .aria_label(label.clone())
             .aria_expanded(open)
+            .when(!open && unread, |el| {
+                el.relative().child(style.unread_line(false))
+            })
             .child(step)
             .child(worktree_icon(
                 checkout.is_linked(),
@@ -2676,7 +2689,6 @@ impl Navigator {
                     .min_w_0()
                     .truncate()
                     .tooltip(Tooltip::text(path.display().to_string()))
-                    .when(!open && unread, |el| el.font_weight(FontWeight::SEMIBOLD))
                     .child(label.clone()),
             )
             .children(change_counts(tally(&uncommitted), style))
@@ -2821,7 +2833,7 @@ impl Navigator {
             cx,
             toggle.clone(),
         );
-        // An unread commit makes its branch's name semibold too, folded or not.
+        // An unread commit marks its branch too, folded or not.
         let unread = store.branch_unread(id, branch);
         let review = (branch.review.as_ref()).map(|r| (r, store.review_state(id, r)));
         let rename = self.rename_field(item, theme);
@@ -2829,6 +2841,7 @@ impl Navigator {
             style
                 .row(format!("branch-{id}-{row_id}"), 6.)
                 .aria_label(format!("Branch {name}"))
+                .when(unread, |el| el.relative().child(style.unread_line(false)))
                 .child(step)
                 .child(match icon(glyph).text_color(style.meta(glyph_color)) {
                     glyph if publishing => pulsing(glyph).into_any_element(),
@@ -2837,7 +2850,6 @@ impl Navigator {
                 .child(match rename {
                     Some(field) => field,
                     None => branch_name(name, review, &style)
-                        .when(unread, |el| el.font_weight(FontWeight::SEMIBOLD))
                         .id(ElementId::Name(format!("name-{id}-{row_id}").into()))
                         .flex_1()
                         .tooltip(Tooltip::text(tip))
@@ -3024,8 +3036,8 @@ impl Navigator {
     }
 
     /// A commit only a remote has, among its branch's commits or under the project: a ↓
-    /// where a commit has its glyph, and its title semibold while it's unread, as only a
-    /// branch's get. It isn't dragged or edited here.
+    /// where a commit has its glyph, and a hairline while it's unread, as only a branch's get.
+    /// It isn't dragged or edited here.
     fn upstream_row(
         &self,
         item: &Selection,
