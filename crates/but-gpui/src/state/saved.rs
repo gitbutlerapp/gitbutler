@@ -295,6 +295,16 @@ pub enum FileSort {
     Modified,
 }
 
+/// What the app's own terminals start.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TerminalRuns {
+    /// The user's login shell, at its prompt.
+    #[default]
+    LoginShell,
+    /// [`Prefs::terminal_command`], through the login shell.
+    Command,
+}
+
 /// The order the navigator's watched projects go in.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WatchedOrder {
@@ -401,6 +411,11 @@ pub struct Prefs {
     pub terminal_text: Option<u8>,
     /// The family the app's own terminals show in, or `None` for Ghostty's.
     pub terminal_font: Option<String>,
+    /// What the app's own terminals start.
+    pub terminal_runs: TerminalRuns,
+    /// The command they run with [`TerminalRuns::Command`], kept while the login shell is
+    /// picked.
+    pub terminal_command: String,
     /// How large the whole interface draws, as ⌘+ and ⌘− set it.
     pub ui_scale: crate::theme::UiScale,
     /// The keys the app binds, as Settings › Keyboard picks them.
@@ -462,6 +477,15 @@ pub struct Prefs {
 }
 
 impl Prefs {
+    /// What a new terminal runs in place of the login shell's prompt: the command, while it's
+    /// picked and there is one.
+    pub fn terminal_run(&self) -> Option<&str> {
+        match self.terminal_runs {
+            TerminalRuns::LoginShell => None,
+            TerminalRuns::Command => Some(self.terminal_command.trim()).filter(|c| !c.is_empty()),
+        }
+    }
+
     /// The most unchanged lines a hunk's scope adds around it, `None` with semantic context
     /// off.
     pub fn scope_lines(&self) -> Option<usize> {

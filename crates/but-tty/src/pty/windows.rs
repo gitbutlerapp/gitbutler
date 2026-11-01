@@ -49,10 +49,10 @@ impl Size {
 }
 
 impl Pty {
-    /// Starts the user's shell (%COMSPEC%, else cmd.exe) in `cwd`, sized `size`.
-    /// The receiver yields what the shell writes, in chunks, and ends once it exits, which
-    /// closes the pseudoconsole on the jobs it left.
-    pub fn spawn(cwd: &Path, size: Size) -> anyhow::Result<(Pty, Output)> {
+    /// Starts the user's shell (%COMSPEC%, else cmd.exe) in `cwd`, sized `size`, running
+    /// `command` with `/c` when there is one. The receiver yields what the shell writes, in
+    /// chunks, and ends once it exits, which closes the pseudoconsole on the jobs it left.
+    pub fn spawn(cwd: &Path, size: Size, command: Option<&str>) -> anyhow::Result<(Pty, Output)> {
         let (input_read, input_write) = pipe().context("Couldn't open the shell's input")?;
         let (output_read, output_write) = pipe().context("Couldn't open the shell's output")?;
         let console =
@@ -65,7 +65,7 @@ impl Pty {
             .spawn(move || drain(output_read, queue))?;
 
         let shell = shell();
-        let process = start(&shell, cwd, &console)
+        let process = start(&shell, command, cwd, &console)
             .with_context(|| format!("Couldn't start {}", shell.display()))?;
         let console = Arc::new(Mutex::new(Some(console)));
 
@@ -98,6 +98,12 @@ impl Pty {
     // blocked until the terminal closes; walk the console's processes if that's seen.
     pub fn shell_in_front(&self) -> bool {
         false
+    }
+
+    // ponytail: a failed command's terminal closes as one that succeeded does; read
+    // GetExitCodeProcess if that's missed.
+    pub fn failed(&self) -> Option<i32> {
+        None
     }
 
     /// Sends input to the shell, once it reads what was sent before.
@@ -154,8 +160,8 @@ fn shell() -> OsString {
         .unwrap_or_else(|| "cmd.exe".into())
 }
 
-fn start(shell: &OsStr, cwd: &Path, console: &HPCON) -> io::Result<OwnedHandle> {
-    let mut command_line = command_line(shell)?;
+fn start(shell: &OsStr, run: Option<&str>, cwd: &Path, console: &HPCON) -> io::Result<OwnedHandle> {
+    let mut command_line = command_line(shell, run)?;
     let cwd = wide(cwd.as_os_str())?;
     let environment = environment();
     let mut attributes = Attributes::pseudoconsole(*console)?;
@@ -198,8 +204,9 @@ fn start(shell: &OsStr, cwd: &Path, console: &HPCON) -> io::Result<OwnedHandle> 
 }
 
 /// The program, quoted as Windows reads a command line's first word: up to the next quote, with
-/// no escapes.
-fn command_line(program: &OsStr) -> io::Result<Vec<u16>> {
+/// no escapes. Then `run` as cmd.exe takes it after `/s /c`: its outer quotes stripped and the
+/// rest left as written.
+fn command_line(program: &OsStr, run: Option<&str>) -> io::Result<Vec<u16>> {
     if program.encode_wide().any(|unit| unit == u16::from(b'"')) {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -209,6 +216,9 @@ fn command_line(program: &OsStr) -> io::Result<Vec<u16>> {
     let mut quoted = OsString::from("\"");
     quoted.push(program);
     quoted.push("\"");
+    if let Some(run) = run {
+        quoted.push(format!(" /s /c \"{run}\""));
+    }
     wide(&quoted)
 }
 

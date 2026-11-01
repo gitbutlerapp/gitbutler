@@ -27,6 +27,9 @@ struct Written<T> {
     status: Status,
     master: RawFd,
     shell: libc::pid_t,
+    /// Absent from a build from before terminals could run a command.
+    #[serde(default)]
+    runs_command: bool,
 }
 
 /// Lists `terminals` for the build `new` runs by exec, returning the descriptors to keep open
@@ -38,7 +41,7 @@ pub fn hand_over<T: Serialize>(
     new.env_remove(HANDED);
     let terminals: Vec<Written<T>> = (terminals.into_iter())
         .map(|(label, detached)| {
-            let (master, shell) = detached.kept.into_raw();
+            let (master, shell, runs_command) = detached.kept.into_raw();
             Written {
                 label,
                 size: detached.size,
@@ -46,6 +49,7 @@ pub fn hand_over<T: Serialize>(
                 status: detached.status,
                 master,
                 shell,
+                runs_command,
             }
         })
         .collect();
@@ -90,7 +94,8 @@ pub fn handed<T: DeserializeOwned>() -> Vec<(T, Detached)> {
     (terminals.into_iter())
         .filter_map(|written| {
             // SAFETY: as the file's, and each is listed once.
-            let kept = unsafe { Kept::from_raw(written.master, written.shell) };
+            let kept =
+                unsafe { Kept::from_raw(written.master, written.shell, written.runs_command) };
             let kept = (kept
                 .inspect_err(|err| tracing::error!("couldn't adopt a terminal: {err}")))
             .ok()?;

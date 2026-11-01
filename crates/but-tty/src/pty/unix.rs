@@ -24,7 +24,11 @@ pub struct Pty {
     input: sync::mpsc::Sender<Vec<u8>>,
     /// The shell, which `setsid` made lead its own process group.
     shell: libc::pid_t,
+    /// The shell runs a command and exits rather than coming back to a prompt.
+    runs_command: bool,
     exited: Arc<AtomicBool>,
+    /// How the shell exited, as `$?` would say, once it has.
+    exit_code: Arc<sync::OnceLock<i32>>,
     stop_reading: UnixStream,
     reader: Option<thread::JoinHandle<()>>,
 }
@@ -33,23 +37,33 @@ pub struct Pty {
 pub struct Kept {
     master: OwnedFd,
     shell: libc::pid_t,
+    runs_command: bool,
 }
 
 impl Kept {
-    /// Its master stays open, for an exec to take along.
-    pub fn into_raw(self) -> (RawFd, libc::pid_t) {
-        (self.master.into_raw_fd(), self.shell)
+    /// Its master stays open, for an exec to take along, with the shell and whether it runs a
+    /// command.
+    pub fn into_raw(self) -> (RawFd, libc::pid_t, bool) {
+        (self.master.into_raw_fd(), self.shell, self.runs_command)
     }
 
     /// # Safety
     ///
     /// `master` is open and nothing else owns it, as when [`Kept::into_raw`] gave it to the
     /// process this one was before exec.
-    pub unsafe fn from_raw(master: RawFd, shell: libc::pid_t) -> io::Result<Self> {
+    pub unsafe fn from_raw(
+        master: RawFd,
+        shell: libc::pid_t,
+        runs_command: bool,
+    ) -> io::Result<Self> {
         // SAFETY: as the caller promises.
         let master = unsafe { OwnedFd::from_raw_fd(master) };
         set_cloexec(&master)?;
-        Ok(Self { master, shell })
+        Ok(Self {
+            master,
+            shell,
+            runs_command,
+        })
     }
 }
 
@@ -66,25 +80,27 @@ impl Size {
 
 impl Pty {
     /// Starts the user's shell ($SHELL, else /bin/zsh on macOS and /bin/sh elsewhere) as a login
-    /// shell in `cwd`, sized `size`. The receiver yields what the shell writes, in chunks, and
-    /// ends once it exits, though jobs it left still hold the terminal.
-    pub fn spawn(cwd: &Path, size: Size) -> anyhow::Result<(Pty, Output)> {
+    /// shell in `cwd`, sized `size`, running `command` with `-c` when there is one, still
+    /// interactive so it reads the same config as at a prompt. The receiver yields what the shell
+    /// writes, in chunks, and ends once it exits, though jobs it left still hold the terminal.
+    pub fn spawn(cwd: &Path, size: Size, command: Option<&str>) -> anyhow::Result<(Pty, Output)> {
         let (master, slave) = open(size).context("Couldn't open a pseudo-terminal")?;
         let shell = shell();
-        let child = shell_command(&shell, cwd, &slave)?
+        let child = shell_command(&shell, command, cwd, &slave)?
             .spawn()
             .with_context(|| format!("Couldn't start {}", shell.display()))?;
         drop(slave);
 
-        Ok(Self::start(File::from(master), child.id() as libc::pid_t)?)
+        let shell = child.id() as libc::pid_t;
+        Ok(Self::start(File::from(master), shell, command.is_some())?)
     }
 
     /// Takes over a shell kept by [`Pty::keep`], in this process or one it became by exec.
     pub fn adopt(kept: Kept) -> io::Result<(Pty, Output)> {
-        Self::start(File::from(kept.master), kept.shell)
+        Self::start(File::from(kept.master), kept.shell, kept.runs_command)
     }
 
-    fn start(master: File, shell: libc::pid_t) -> io::Result<(Pty, Output)> {
+    fn start(master: File, shell: libc::pid_t, runs_command: bool) -> io::Result<(Pty, Output)> {
         let (queue, output) = queue();
         let (stop_reading, stopped) = UnixStream::pair()?;
         let reader = master.try_clone()?;
@@ -95,10 +111,14 @@ impl Pty {
 
         let exited = Arc::new(AtomicBool::new(false));
         let waited = exited.clone();
+        let exit_code = Arc::new(sync::OnceLock::new());
+        let code = exit_code.clone();
         thread::Builder::new()
             .name("pty waiter".into())
             .spawn(move || {
-                wait_for(shell);
+                if let Some(exit_code) = wait_for(shell) {
+                    code.set(exit_code).ok();
+                }
                 waited.store(true, Ordering::SeqCst);
                 ended.close();
             })?;
@@ -119,7 +139,9 @@ impl Pty {
             master: Some(master),
             input,
             shell,
+            runs_command,
             exited,
+            exit_code,
             stop_reading,
             reader: Some(reader),
         };
@@ -138,14 +160,26 @@ impl Pty {
         Ok(Kept {
             master: master.into(),
             shell: self.shell,
+            runs_command: self.runs_command,
         })
     }
 
-    /// Whether the shell has the terminal, rather than a job it's running.
+    /// Whether the shell has the terminal back at its prompt, rather than a job it's running.
+    /// Never while it runs a command, which has no prompt to come back to: the shell runs a
+    /// simple command in its own place, keeping its process group, and fish runs every one in
+    /// that group.
     pub fn shell_in_front(&self) -> bool {
-        (self.master.as_ref())
-            // SAFETY: `master` is open while it's borrowed.
-            .is_some_and(|master| unsafe { libc::tcgetpgrp(master.as_raw_fd()) } == self.shell)
+        !self.runs_command
+            && (self.master.as_ref())
+                // SAFETY: `master` is open while it's borrowed.
+                .is_some_and(|master| unsafe { libc::tcgetpgrp(master.as_raw_fd()) } == self.shell)
+    }
+
+    /// The exit code of the command the shell ran, once it exited with one other than 0. Never
+    /// for a shell at a prompt, as the user typed what made it exit.
+    pub fn failed(&self) -> Option<i32> {
+        let code = *self.exit_code.get()?;
+        (self.runs_command && code != 0).then_some(code)
     }
 
     /// Sends input to the shell, once it reads what was sent before.
@@ -188,6 +222,10 @@ impl Drop for Pty {
 }
 
 fn open(size: Size) -> io::Result<(OwnedFd, OwnedFd)> {
+    // One at a time: on macOS, `openpty` fails now and then with os error -6 while another
+    // thread opens one too.
+    static OPENING: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
+    let _opening = OPENING.lock();
     let (mut master, mut slave) = (-1, -1);
     let mut winsize = size.winsize();
     // SAFETY: each pointer is to a live local or null, which `openpty` takes as unset.
@@ -220,10 +258,20 @@ fn shell() -> OsString {
         })
 }
 
-fn shell_command(shell: &OsString, cwd: &Path, slave: &OwnedFd) -> io::Result<Command> {
+fn shell_command(
+    shell: &OsString,
+    run: Option<&str>,
+    cwd: &Path,
+    slave: &OwnedFd,
+) -> io::Result<Command> {
     let mut command = Command::new(shell);
+    command.arg("-l");
+    if let Some(run) = run {
+        // `-c` alone makes it non-interactive, and zsh skips `.zshrc`, where aliases and
+        // functions a command may use are set up.
+        command.arg("-i").arg("-c").arg(run);
+    }
     command
-        .arg("-l")
         .current_dir(cwd)
         .env("TERM", "xterm-256color")
         .env("COLORTERM", "truecolor")
@@ -286,12 +334,23 @@ fn read_until_hangup(mut master: File, stopped: UnixStream, queue: Queue) {
     }
 }
 
-/// Reaps `shell`, or returns at once if another waiter already has.
-fn wait_for(shell: libc::pid_t) {
-    // SAFETY: a null status pointer asks for no status.
-    while unsafe { libc::waitpid(shell, ptr::null_mut(), 0) } == -1
-        && io::Error::last_os_error().kind() == io::ErrorKind::Interrupted
-    {}
+/// Reaps `shell`, returning its exit code as `$?` would say, or returns at once with none if
+/// another waiter already has.
+fn wait_for(shell: libc::pid_t) -> Option<i32> {
+    let mut status = 0;
+    // SAFETY: `status` is a live local.
+    while unsafe { libc::waitpid(shell, &mut status, 0) } == -1 {
+        if io::Error::last_os_error().kind() != io::ErrorKind::Interrupted {
+            return None;
+        }
+    }
+    if libc::WIFEXITED(status) {
+        Some(libc::WEXITSTATUS(status))
+    } else if libc::WIFSIGNALED(status) {
+        Some(128 + libc::WTERMSIG(status))
+    } else {
+        None
+    }
 }
 
 fn set_cloexec(fd: &OwnedFd) -> io::Result<()> {
@@ -344,7 +403,7 @@ mod tests {
 
     #[test]
     fn a_shell_outrunning_its_reader_waits_and_nothing_is_lost_when_its_kept() {
-        let (mut pty, mut output) = Pty::spawn(&std::env::temp_dir(), SIZE).unwrap();
+        let (mut pty, mut output) = Pty::spawn(&std::env::temp_dir(), SIZE, None).unwrap();
         const LAST: u32 = 400_000;
         pty.write(format!("echo; seq 1 {LAST}; echo done-$((1+1))\n").as_bytes())
             .unwrap();
@@ -377,9 +436,40 @@ mod tests {
         );
     }
 
+    /// All `command` writes, run in place of a prompt, once its output ends.
+    fn run_to_end(command: &str) -> String {
+        let (_pty, output) = Pty::spawn(&std::env::temp_dir(), SIZE, Some(command)).unwrap();
+        let (ended, read) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let chunks = futures::executor::block_on(futures::StreamExt::collect::<Vec<_>>(output));
+            ended.send(chunks.concat()).ok();
+        });
+        let read = read
+            .recv_timeout(Duration::from_secs(20))
+            .expect("the output ends once the command exits, with no prompt left waiting");
+        String::from_utf8_lossy(&read).into_owned()
+    }
+
+    #[test]
+    fn a_command_runs_in_the_shell_in_place_of_a_prompt() {
+        assert!(
+            run_to_end("echo ran-$((40+2))").contains("ran-42"),
+            "the shell expanded and ran the command"
+        );
+    }
+
+    #[test]
+    fn a_command_runs_in_an_interactive_shell() {
+        assert!(
+            run_to_end("case $- in *i*) echo interactive-shell;; esac")
+                .contains("interactive-shell"),
+            "the shell reads the config it reads at a prompt, as zsh does .zshrc only when interactive"
+        );
+    }
+
     #[test]
     fn a_kept_shell_answers_whoever_adopts_it() {
-        let (pty, mut output) = Pty::spawn(&std::env::temp_dir(), SIZE).unwrap();
+        let (pty, mut output) = Pty::spawn(&std::env::temp_dir(), SIZE, None).unwrap();
         pty.write(b"echo $$-$((40+2))\n").unwrap();
         let before = wait_for_text(&mut output, "-42");
 
