@@ -100,13 +100,11 @@ impl GitLabClient {
             .timeout(GITLAB_REQUEST_TIMEOUT)
             .build()?;
 
-        let base_url = if host.ends_with("/api/v4") {
-            host.to_string()
-        } else if host.ends_with('/') {
-            format!("{host}api/v4")
-        } else {
-            format!("{host}/api/v4")
-        };
+        let trimmed = host.trim_end_matches('/');
+        let base_url = format!(
+            "{}/api/v4",
+            trimmed.strip_suffix("/api/v4").unwrap_or(trimmed)
+        );
         // reqwest rejects a URL without a scheme and host at request time with a
         // generic builder error; check the same rule up front so the user is told
         // what is wrong with the host they entered.
