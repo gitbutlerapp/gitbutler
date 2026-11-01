@@ -1,25 +1,19 @@
 use but_forge::{CiCheck, CiConclusion, CiStatus};
 
-fn job(status: &str, web_url: Option<&str>) -> but_gitlab::GitLabPipelineJob {
-    but_gitlab::GitLabPipelineJob {
-        id: 42,
-        name: "job".into(),
+fn pipeline(status: &str, web_url: Option<&str>) -> but_gitlab::GitLabPipeline {
+    but_gitlab::GitLabPipeline {
+        id: 7,
+        sha: "deadbeef".into(),
         status: status.into(),
-        allow_failure: false,
-        started_at: Some("2026-05-01T12:00:00Z".into()),
-        finished_at: Some("2026-05-01T12:05:00Z".into()),
+        created_at: Some("2026-05-01T12:00:00Z".into()),
+        updated_at: Some("2026-05-01T12:05:00Z".into()),
         web_url: web_url.map(str::to_owned),
-        pipeline: but_gitlab::GitLabPipelineRef {
-            id: 7,
-            web_url: None,
-            status: None,
-        },
     }
 }
 
 #[test]
-fn maps_manual_jobs_to_action_required_complete_status() {
-    let check = CiCheck::from(job("manual", Some("https://example.com/job")));
+fn maps_manual_pipelines_to_action_required_complete_status() {
+    let check = CiCheck::from(&pipeline("manual", Some("https://example.com/job")));
 
     assert!(matches!(
         check.status,
@@ -31,47 +25,18 @@ fn maps_manual_jobs_to_action_required_complete_status() {
 }
 
 #[test]
-fn maps_allowed_failure_jobs_to_neutral_complete_status() {
-    let mut job = job("failed", Some("https://example.com/job"));
-    job.allow_failure = true;
-
-    let check = CiCheck::from(job);
-
-    assert!(matches!(
-        check.status,
-        CiStatus::Complete {
-            conclusion: CiConclusion::Neutral,
-            ..
-        }
-    ));
-}
-
-#[test]
-fn maps_optional_manual_jobs_to_neutral_complete_status() {
-    let mut job = job("manual", Some("https://example.com/job"));
-    job.allow_failure = true;
-
-    let check = CiCheck::from(job);
-
-    assert!(matches!(
-        check.status,
-        CiStatus::Complete {
-            conclusion: CiConclusion::Neutral,
-            ..
-        }
-    ));
-}
-
-#[test]
-fn maps_canceling_jobs_to_in_progress_status() {
-    let check = CiCheck::from(job("canceling", Some("https://example.com/job")));
+fn maps_canceling_pipelines_to_in_progress_status() {
+    let check = CiCheck::from(&pipeline("canceling", Some("https://example.com/job")));
 
     assert!(matches!(check.status, CiStatus::InProgress));
 }
 
 #[test]
-fn maps_waiting_for_callback_jobs_to_queued_status() {
-    let check = CiCheck::from(job("waiting_for_callback", Some("https://example.com/job")));
+fn maps_waiting_for_callback_pipelines_to_queued_status() {
+    let check = CiCheck::from(&pipeline(
+        "waiting_for_callback",
+        Some("https://example.com/job"),
+    ));
 
     assert!(matches!(check.status, CiStatus::Queued));
 }
