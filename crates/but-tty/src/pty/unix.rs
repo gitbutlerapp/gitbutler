@@ -279,6 +279,9 @@ fn shell_command(
         .env("TERM_PROGRAM", "ghostty")
         .env("TERM_PROGRAM_VERSION", "1.3.2")
         .env_remove("TERMINFO")
+        // Nix's cargo sets it for itself, and `cargo run` passes it on, so every program the
+        // shell starts would look there for its libraries first, taking ~20ms longer to start.
+        .env_remove("DYLD_LIBRARY_PATH")
         .env_remove(crate::handoff::HANDED)
         .stdin(Stdio::from(slave.try_clone()?))
         .stdout(Stdio::from(slave.try_clone()?))
