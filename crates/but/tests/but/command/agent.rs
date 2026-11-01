@@ -144,7 +144,7 @@ fn agent_uninstall_removes_skills_and_gitbutler_sections_only() {
         .success()
         .stderr_eq(str![[]])
         .stdout_eq(str![[r#"
-Removed GitButler from your coding agents:
+Found GitButler in your coding agents:
 
 Skills
   • ~/.codex/skills/gitbutler
@@ -154,6 +154,8 @@ GitButler section in
   • ~/.claude/rules/gitbutler.md
   • ~/.codex/AGENTS.md
   • AGENTS.md
+
+✓ Removed.
 
 "#]]);
 

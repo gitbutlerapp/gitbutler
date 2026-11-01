@@ -44,7 +44,10 @@ pub enum Subcommands {
     /// repository, and removes the GitButler section from agent instruction
     /// files such as `~/.codex/AGENTS.md`, `~/.claude/rules/gitbutler.md`, or a
     /// repository's `AGENTS.md`. Text outside the GitButler section is kept,
-    /// and a file left empty is deleted. It lists everything it removed.
+    /// and a file left empty is deleted.
+    ///
+    /// In a terminal, it lists what it found and asks before removing it.
+    /// Otherwise it removes what it found and lists it.
     ///
     /// ## Examples
     ///

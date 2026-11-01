@@ -14,9 +14,16 @@ pub(super) fn upsert_managed_block_file(path: &Path, block: &str) -> Result<()> 
     Ok(())
 }
 
+/// Whether the file at `path` has a managed block; a missing file has none.
+pub(super) fn has_managed_block(path: &Path) -> Result<bool> {
+    let spans = managed_block_spans(&read_or_empty(path)?)
+        .with_context(|| format!("Could not read the GitButler section in {}", path.display()))?;
+    Ok(!spans.is_empty())
+}
+
 /// Remove the managed blocks from the file at `path`, deleting a file left
-/// empty. Returns whether there was a block; a missing file has none.
-pub(super) fn remove_managed_block_file(path: &Path) -> Result<bool> {
+/// empty. A file without a block is left alone.
+pub(super) fn remove_managed_block_file(path: &Path) -> Result<()> {
     let Some(updated) = remove_managed_blocks(&read_or_empty(path)?).with_context(|| {
         format!(
             "Could not remove the GitButler section from {}",
@@ -24,7 +31,7 @@ pub(super) fn remove_managed_block_file(path: &Path) -> Result<bool> {
         )
     })?
     else {
-        return Ok(false);
+        return Ok(());
     };
     // Deleting a symlink would leave the block in its target, so an emptied
     // symlink gets an empty target instead.
@@ -34,7 +41,7 @@ pub(super) fn remove_managed_block_file(path: &Path) -> Result<bool> {
         std::fs::write(path, updated)
     }
     .with_context(|| format!("Failed to update {}", path.display()))?;
-    Ok(true)
+    Ok(())
 }
 
 fn read_or_empty(path: &Path) -> Result<String> {
