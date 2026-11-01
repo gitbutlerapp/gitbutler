@@ -119,7 +119,7 @@ enum Stop {
     #[default]
     File,
     /// The box above hunk `.0`, saying what's hidden before it: the file's, as the unchanged
-    /// lines it stands for are, not the hunk's.
+    /// lines it stands for are, not the hunk's, though checking and copying take the hunk.
     Gap(usize),
     /// Hunk `.0`'s lines, from its first change to its last: what the hunk keys act on.
     Hunk(usize),
@@ -148,8 +148,8 @@ impl Cursor {
 enum Copied {
     /// The text selected in the diff.
     Text,
-    /// The path of the file under the cursor: its row in the file list, or in the diff what
-    /// the cursor's on, whichever has the keys.
+    /// What the cursor's on: its file's row in the file list, or in the diff its hunk or file,
+    /// whichever has the keys.
     Cursor,
 }
 
@@ -2345,52 +2345,59 @@ impl Detail {
     /// current file's whole diff, as git prints them, or the file's path when it has no lines,
     /// as a binary file hasn't. What it copied blinks, as the TUI highlights it. Under a pull
     /// request's tab, the text selected in its description or comments.
-    pub fn copy(&mut self, cx: &mut Context<Self>) -> Option<String> {
+    pub fn copy(&mut self, window: &Window, cx: &mut Context<Self>) -> Option<String> {
         if self.showing_review(cx) {
             return self.selected_note_text(cx);
         }
+        let in_list = self.files_focus.is_focused(window);
         let (text, copied) = match self.selected_text() {
             Some(text) => (text, Copied::Text),
             None => {
-                let text = self.cursor_patch(cx).or_else(|| self.shown_cursor_path(cx));
+                let text = (self.cursor_patch(in_list, cx)).or_else(|| self.shown_cursor_path(cx));
                 (text?, Copied::Cursor)
             }
         };
-        self.blinked = (self.blinked.0 + 1, Some((copied, Instant::now())));
-        cx.notify();
+        self.blink_copied(copied, cx);
         Some(text)
     }
 
     /// The hunk the cursor is on or the current file's whole diff, as copying takes it with no
-    /// text selected, and blink it: a right-click's Copy hunk, which leaves the selection be.
-    pub fn copy_patch(&mut self, cx: &mut Context<Self>) -> Option<String> {
-        let patch = self.cursor_patch(cx)?;
-        self.blinked = (self.blinked.0 + 1, Some((Copied::Cursor, Instant::now())));
-        cx.notify();
+    /// text selected, and blink it: a menu's Copy hunk, which leaves the selection be. The
+    /// file's whole diff `in_list`, as the file list had the keys when the menu opened.
+    pub fn copy_patch(&mut self, in_list: bool, cx: &mut Context<Self>) -> Option<String> {
+        let patch = self.cursor_patch(in_list, cx)?;
+        self.blink_copied(Copied::Cursor, cx);
         Some(patch)
     }
 
+    fn blink_copied(&mut self, copied: Copied, cx: &mut Context<Self>) {
+        self.blinked = (self.blinked.0 + 1, Some((copied, Instant::now())));
+        cx.notify();
+    }
+
     /// The current file while it's shown and has lines to copy, and the hunk the cursor is on
-    /// in it, or on the box above: none while the diff is scrolled to another file, as
+    /// in it, or on the box above, as the composer's checks take it: none `in_list`, where the
+    /// file list's rows are whole files, nor while the diff is scrolled to another file, as
     /// [`Self::cursor_place`] says.
-    fn cursor_hunk(&self, cx: &App) -> Option<(&FileDiff, Option<HunkKey>)> {
+    fn cursor_hunk(&self, in_list: bool, cx: &App) -> Option<(&FileDiff, Option<HunkKey>)> {
         self.shown_cursor_path(cx)?;
         let file = self.diff.as_ref()?.files.get(self.current_file())?;
-        let hunk = (self.cursor.at.near()).filter(|_| self.reading.is_none());
+        let hunk = (self.cursor.at.near()).filter(|_| !in_list && self.reading.is_none());
         let key = hunk.and_then(|hunk| Some(file.hunks().get(hunk)?.key));
-        (!file.hunks().is_empty()).then_some((file, key))
+        file.has_patch().then_some((file, key))
     }
 
     /// The hunk the cursor is on as git prints it, else the current file's whole diff.
-    fn cursor_patch(&self, cx: &App) -> Option<String> {
-        let (file, hunk) = self.cursor_hunk(cx)?;
+    fn cursor_patch(&self, in_list: bool, cx: &App) -> Option<String> {
+        let (file, hunk) = self.cursor_hunk(in_list, cx)?;
         file.patch(hunk)
     }
 
     /// The diffs ⇧Y offers of the current file, the first what copying takes: the hunk the
     /// cursor is on, then the whole file's.
-    pub fn patch_copies(&self, cx: &App) -> Vec<(&'static str, String)> {
-        let Some((file, hunk)) = self.cursor_hunk(cx) else {
+    pub fn patch_copies(&self, window: &Window, cx: &App) -> Vec<(&'static str, String)> {
+        let in_list = self.files_focus.is_focused(window);
+        let Some((file, hunk)) = self.cursor_hunk(in_list, cx) else {
             return Vec::new();
         };
         let hunk = hunk.and_then(|key| file.patch(Some(key)));

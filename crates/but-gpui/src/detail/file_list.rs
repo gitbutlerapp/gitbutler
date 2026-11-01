@@ -960,7 +960,7 @@ impl Detail {
                     let payload = this.folder_payload(&source, &path, cx);
                     this.right_click_folder(payload.as_ref(), cx);
                     let at = At::Folder(path.clone());
-                    this.changes_menu(payload, at, None, event.position, cx)
+                    this.changes_menu(payload, at, None, true, event.position, cx)
                 }
             }),
         )
@@ -1257,7 +1257,7 @@ impl Detail {
                     }
                 }
                 let at = At::File(path.clone(), None);
-                this.changes_menu(menu.clone(), at, None, event.position, cx)
+                this.changes_menu(menu.clone(), at, None, true, event.position, cx)
             }),
         )
         .into_any_element()
@@ -1266,18 +1266,20 @@ impl Detail {
     /// What right-clicking files, a folder, lines or a hunk offers: what can be done to the
     /// changes in `payload`, when they're the workspace's to change, or going to the last
     /// commit of `blamed`, then opening, copying or revealing the path `at`. A branch outside the
-    /// workspace, or a commit of the target, has only the last.
+    /// workspace, or a commit of the target, has only the last. `in_list` for a row of the file
+    /// list, whose file it copies whole.
     pub(super) fn changes_menu(
         &mut self,
         payload: Option<Cut>,
         at: At,
         blamed: Option<Blamed>,
+        in_list: bool,
         position: Point<Pixels>,
         cx: &mut Context<Self>,
     ) {
         self.open_menu(
             position,
-            move |this, cx| this.changes_items(payload, at, blamed, cx),
+            move |this, cx| this.changes_items(payload, at, blamed, in_list, cx),
             cx,
         );
     }
@@ -1299,7 +1301,8 @@ impl Detail {
             false => self.diff_cut(self.current_file(), None, cx),
         };
         let at = At::File(path, None);
-        Some(self.changes_items(payload, at, None, cx))
+        let in_list = self.files_focus.is_focused(window);
+        Some(self.changes_items(payload, at, None, in_list, cx))
     }
 
     /// The path of the file under the cursor while the file list or the diff has the keys,
@@ -1341,6 +1344,7 @@ impl Detail {
         payload: Option<Cut>,
         at: At,
         blamed: Option<Blamed>,
+        in_list: bool,
         cx: &mut Context<Self>,
     ) -> Vec<MenuItem> {
         let (project, worktree) = match &payload {
@@ -1356,7 +1360,9 @@ impl Detail {
         if let (Some(blamed), At::File(path, _)) = (blamed, &at) {
             items.extend(self.last_commit_item(path, blamed, cx));
         }
-        let mut paths = self.path_items(&project, worktree, at, cx).into_iter();
+        let mut paths = self
+            .path_items(&project, worktree, at, in_list, cx)
+            .into_iter();
         // Apart from what changes them.
         if let Some(first) = (!items.is_empty()).then(|| paths.next()).flatten() {
             items.push(first.separated());
@@ -1511,13 +1517,15 @@ impl Detail {
     }
 
     /// Opening, copying or revealing the path `at` of `project`'s `checkout`, and copying the
-    /// hunk or file's diff the cursor is on there. What isn't on disk, as a deleted file or one
-    /// only a branch outside the workspace has, can only have its path or diff copied.
+    /// hunk or file's diff the cursor is on there: the file's whole diff `in_list`, as the file
+    /// list has the keys. What isn't on disk, as a deleted file or one only a branch outside
+    /// the workspace has, can only have its path or diff copied.
     fn path_items(
         &self,
         project: &ProjectId,
         checkout: Checkout,
         at: At,
+        in_list: bool,
         cx: &App,
     ) -> Vec<MenuItem> {
         let Some(root) = self.checkout_root(project, &checkout, cx) else {
@@ -1546,13 +1554,16 @@ impl Detail {
         let copy = &crate::app::CopySelection;
         let cursor_here = (self.shown_cursor_path(cx)).is_some_and(|path| path == relative);
         let diff =
-            (cursor_here.then(|| self.cursor_hunk(cx)).flatten()).map(|(_, hunk)| match hunk {
-                Some(_) => "Copy hunk",
-                None => "Copy diff",
+            (cursor_here.then(|| self.cursor_hunk(in_list, cx)).flatten()).map(|(_, hunk)| {
+                match hunk {
+                    Some(_) => "Copy hunk",
+                    None => "Copy diff",
+                }
             });
         if let Some(label) = diff {
-            items.push(MenuItem::keyed(label, copy, cx, |this, _, cx| {
-                let patch = this.detail.update(cx, |detail, cx| detail.copy_patch(cx));
+            // As the keys were when it opened: the menu has them now.
+            items.push(MenuItem::keyed(label, copy, cx, move |this, _, cx| {
+                let patch = (this.detail).update(cx, |detail, cx| detail.copy_patch(in_list, cx));
                 if let Some(patch) = patch {
                     this.copy_text(patch, cx)
                 }

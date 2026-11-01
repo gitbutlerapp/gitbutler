@@ -803,6 +803,15 @@ impl FileChange {
         (self.change.status.previous_state_and_path()).map(|(state, _)| state.id)
     }
 
+    /// Whether it became another kind of thing, as a file a link, which git says as a deletion
+    /// and an addition, not as the lines that changed.
+    fn retyped(&self) -> bool {
+        use but_core::TreeStatus as S;
+        matches!(&self.change.status,
+            S::Modification { flags, .. } | S::Rename { flags, .. }
+                if flags.is_some_and(|flags| flags.is_typechange()))
+    }
+
     /// The lines git starts its diff of the file with: its paths either side, and what else
     /// changed, as that it's new or gone, renamed or has another mode, which `git apply` needs.
     fn git_header(&self) -> String {
@@ -944,10 +953,19 @@ impl FileDiff {
         }
     }
 
+    /// Whether [`Self::patch`] has the file's diff to give.
+    pub fn has_patch(&self) -> bool {
+        !self.file.converted && !self.file.retyped() && !self.hunks().is_empty()
+    }
+
     /// Its diff as git prints it, to copy or apply: the file's header, then every hunk, or
-    /// only the one `hunk` names. `None` when that's gone, or the file has no lines to give,
-    /// as a binary one hasn't.
+    /// only the one `hunk` names. `None` when that's gone, or the file has no lines of its own
+    /// to give: a binary one, one whose diff a `textconv` filter made, or one that became a
+    /// link or the like.
     pub fn patch(&self, hunk: Option<HunkKey>) -> Option<String> {
+        if !self.has_patch() {
+            return None;
+        }
         let hunks = (self.hunks().iter()).filter(|h| hunk.is_none_or(|key| h.key == key));
         let mut patch = self.file.git_header();
         let header = patch.len();
@@ -1043,7 +1061,9 @@ pub struct Hunk {
     pub header: String,
     pub lines: Vec<DiffLine>,
     /// The hunk as git prints it, its header first and each line as the file has it, unlike
-    /// `lines`, which swap tabs and cut long lines: what copying it takes.
+    /// `lines`, which swap tabs and cut long lines: what copying it takes. A hunk with lines
+    /// that aren't UTF-8 has the diff's own text, converted as the diff shows it: readable,
+    /// though it won't apply, as no text on the clipboard could.
     pub patch: Arc<str>,
     /// The scopes the hunk changes, outermost first, each as [`scope_name`] gives its first
     /// source line.

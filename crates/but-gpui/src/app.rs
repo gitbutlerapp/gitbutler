@@ -1430,7 +1430,7 @@ impl AppView {
     /// row on a terminal pastes it. What it copied blinks, as the TUI highlights it.
     fn copy_selection(&mut self, _: &CopySelection, window: &mut Window, cx: &mut Context<Self>) {
         let file = (self.detail.read(cx).is_focused(window, cx))
-            .then(|| self.detail.update(cx, |detail, cx| detail.copy(cx)))
+            .then(|| self.detail.update(cx, |detail, cx| detail.copy(window, cx)))
             .flatten();
         let selected = file.is_none();
         let text = file.or_else(|| match self.selection(cx)? {

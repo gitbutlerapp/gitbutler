@@ -815,7 +815,7 @@ impl AppView {
         let detail = self.detail.read(cx);
         let copies = match detail.focused_file_paths(window, cx) {
             Some((path, full)) => {
-                let mut copies = detail.patch_copies(cx);
+                let mut copies = detail.patch_copies(window, cx);
                 copies.extend([("Relative path", path), ("Absolute path", full)]);
                 copies
             }
