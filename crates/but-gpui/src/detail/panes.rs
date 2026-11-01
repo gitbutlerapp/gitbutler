@@ -34,7 +34,7 @@ use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     Button, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, WINDOW_CONTROLS_WIDTH,
     above_drag, age_column, button, commit_title, dp, empty_state, faint, field, fixed, fold_row,
-    h_flex, icon, icon_button, list_row, plural, pulsing, quiet, section_label, shortcut, side_row,
+    h_flex, icon, icon_button, list_row, plural, quiet, section_label, shortcut, side_row,
     small_icon, v_flex,
 };
 
@@ -886,23 +886,7 @@ impl Detail {
                 .dispatch(&crate::pr::CreatePullRequest)
                 .disabled_because(offer.err())
         });
-        let force = ref_name.is_some_and(|r| ws.needs_force(r));
-        let push = button("header-push", ref_name.map_or("Push", |r| ws.push_label(r)))
-            .small()
-            .tooltip(match force {
-                true => "Replace the remote's version",
-                false => "Push to the remote",
-            });
-        // Pushing it pulses at full strength, rather than faded as a disabled button is.
-        let push = match ref_name.is_some_and(|r| store.pushing(project, r)) {
-            true => pulsing(div().child(push.tooltip("Pushing"))).into_any_element(),
-            false => (push.dispatch(&crate::app::Push))
-                .disabled_because(ws.push_blocked(ref_name))
-                .into_any_element(),
-        };
-        let meta = meta
-            .child(div().flex_1())
-            .child(h_flex().gap(dp(8.)).children(create).child(push));
+        let meta = meta.child(div().flex_1()).children(create);
         let name = match self.rename_field(project, ref_name, theme) {
             Some(field) => field,
             None => self.branch_title(project, ref_name, branch, name, theme, cx),
