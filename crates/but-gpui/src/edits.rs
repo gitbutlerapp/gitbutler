@@ -253,7 +253,7 @@ impl AppView {
                             this.store.update(cx, |store, cx| {
                                 // With the commits picked with it, as dropping them on New branch does.
                                 let ids = store.with_picks(&project, id);
-                                store.move_to_new_branch(&project, ids, None, false, cx)
+                                store.move_to_new_branch(&project, ids, None, false, None, cx)
                             });
                         }))
                     })
@@ -767,7 +767,7 @@ impl AppView {
         if let Some(Selection::Commit(project, id)) = self.selection(cx) {
             self.store.update(cx, |store, cx| {
                 let ids = store.with_picks(&project, id);
-                store.uncommit(&project, ids, cx)
+                store.uncommit(&project, ids, None, cx)
             })
         }
     }
@@ -1066,9 +1066,14 @@ impl AppView {
         if rest.is_empty() {
             return;
         }
-        let (rest, oldest) = (rest.iter().map(|c| c.id).collect(), oldest.id);
+        let squash = backend::Squash {
+            commits: rest.iter().map(|c| c.id).collect(),
+            into: oldest.id,
+            keep: backend::Messages::Both,
+            emptied: None,
+        };
         self.store
-            .update(cx, |store, cx| store.squash(&project, rest, oldest, cx));
+            .update(cx, |store, cx| store.squash(&project, squash, cx));
     }
 
     /// Squash the picked commits into the oldest of them.
@@ -1107,9 +1112,15 @@ impl AppView {
                 cx,
             );
         }
+        let squash = backend::Squash {
+            commits: rest,
+            into,
+            keep: backend::Messages::Both,
+            emptied: None,
+        };
         self.store.update(cx, |store, cx| {
             store.picked.clear();
-            store.squash(&project, rest, into, cx)
+            store.squash(&project, squash, cx)
         });
     }
 

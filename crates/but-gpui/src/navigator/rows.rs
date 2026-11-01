@@ -61,6 +61,8 @@ pub(super) enum Row {
     Ghost(Selection),
     /// The new branch commits being moved would land in at that stop, over their copies.
     GhostBranch(ProjectId, Stop),
+    /// The commit uncommitted changes being committed would make where the commit's at.
+    NewCommit(ProjectId),
     /// The line between two stacks, which tells where one ends and the next starts, and between
     /// a new one commits being moved would land in and the stack beside it: so a new branch
     /// landing under one stack's last branch or on the next's first shows which it joins.
@@ -84,11 +86,19 @@ pub(super) enum RowKey {
     /// A branch's commits folded away or unfolded, whichever it shows.
     Fold(ProjectId, Option<FullName>),
     NewBranch(ProjectId),
-    /// The row of what's being moved, a commit or a branch, by the key it has otherwise, where
-    /// it's left while its copy, which takes that key, shows where it'd land: so the copy slides
-    /// out from there, from place to place, and back.
+    /// The row of what's being moved, a commit or a branch, by the key it has otherwise, while
+    /// it is: its copy, which takes that key, slides out from it to where it'd land, from place
+    /// to place, and back over it.
     Left(Box<RowKey>),
     GhostBranch(ProjectId),
+    /// The commit being made, which slides from stop to stop as the commit steps.
+    NewCommit(ProjectId),
+    /// No row's: the top edge of the outline of what a squash goes into, which slides from row
+    /// to row as the squash steps.
+    SquashTop,
+    /// No row's: that outline's bottom edge, which slides apart from its top as the outline
+    /// grows into the rows where the squash started, and back as it leaves.
+    SquashBottom,
     /// A row of no other kind, by the one before it, which it moves with.
     After(Box<RowKey>),
 }
@@ -109,6 +119,9 @@ pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
         _ => RowKey::Item(item.clone()),
     };
     let mut keys: Vec<Option<RowKey>> = Vec::with_capacity(rows.len());
+    // The key of the last row that isn't a copy of what's moving, which the rows of no other
+    // kind after it go by, as they make room for the copies rather than show up in place.
+    let mut before = None;
     for row in rows {
         let key = match row {
             Row::Item(item) if left_behind(store, item) => {
@@ -121,9 +134,16 @@ pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
             }
             Row::NewBranch(project) => Some(RowKey::NewBranch(project.clone())),
             Row::GhostBranch(project, _) => Some(RowKey::GhostBranch(project.clone())),
+            Row::NewCommit(project) => Some(RowKey::NewCommit(project.clone())),
             Row::Pending(_, _, Some(moved)) => Some(moved.clone()),
-            _ => (keys.last().cloned().flatten()).map(|before| RowKey::After(Box::new(before))),
+            _ => (before.clone()).map(|before| RowKey::After(Box::new(before))),
         };
+        if !matches!(
+            row,
+            Row::Ghost(_) | Row::GhostBranch(..) | Row::NewCommit(_)
+        ) {
+            before = key.clone();
+        }
         keys.push(key);
     }
     keys
@@ -154,7 +174,8 @@ impl Row {
             | Row::Pending(..)
             | Row::NewBranch(_)
             | Row::Ghost(..)
-            | Row::GhostBranch(..) => ROW_HEIGHT,
+            | Row::GhostBranch(..)
+            | Row::NewCommit(_) => ROW_HEIGHT,
         }
     }
 }

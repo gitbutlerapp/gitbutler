@@ -9,8 +9,8 @@ use super::{ClickOpened, Navigator};
 use crate::app::{
     AppView, BuildAndRestartFromHere, Collapse, CopyBranchName, CopyCommitId, CopyErrorMessage,
     CopyPath, CopyPullRequestLink, CopySelection, CutSelection, Expand, Fetch, MarkAllRead,
-    MoveSelection, NewBranch, NewBranchOnTop, NewWorktree, OpenPullRequest, Push, StartCommit,
-    ToggleRead, UpdateFromTarget,
+    MoveSelection, NewBranch, NewBranchOnTop, NewWorktree, OpenPullRequest, Push, SquashSelection,
+    StartCommit, ToggleRead, UpdateFromTarget,
 };
 use crate::backend::rebuild::Rebuild;
 use crate::backend::{Checkout, CommitId};
@@ -391,6 +391,7 @@ impl Navigator {
                     command(&SquashAll),
                     command(&CutSelection).separated(),
                     command(&MoveSelection),
+                    command(&SquashSelection),
                     command(&Unstack),
                     command(&crate::edits::MergeBranch),
                     command(&UnapplyStack),
@@ -410,6 +411,7 @@ impl Navigator {
                 let mut items = vec![
                     command(&CutSelection),
                     command(&MoveSelection),
+                    command(&SquashSelection),
                     command(&CherryPick),
                     command(&SquashPicked).separated(),
                     command(&SquashIntoSelected),
@@ -431,6 +433,7 @@ impl Navigator {
                     command(&crate::detail::ResolveConflicts),
                     command(&CutSelection).separated(),
                     command(&MoveSelection),
+                    command(&SquashSelection),
                     command(&CherryPick),
                     command(&Reword).separated(),
                     command(&RewrapMessage),
@@ -488,10 +491,11 @@ impl Navigator {
     }
 }
 
-/// Commit and discarding the changes of the selected checkout, which has some.
-fn changes_items(cx: &App) -> [MenuItem; 2] {
+/// Commit, squash and discarding the changes of the selected checkout, which has some.
+fn changes_items(cx: &App) -> [MenuItem; 3] {
     [
         MenuItem::command(&StartCommit, cx).separated(),
+        MenuItem::command(&SquashSelection, cx),
         MenuItem::command(&DiscardChanges, cx).danger(),
     ]
 }

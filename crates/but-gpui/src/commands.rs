@@ -214,6 +214,8 @@ commands! {
     crate::app::MoveSelection => "Move" {
         phrase: |app, cx| picks(app, cx).map(|n| format!("Move {n} commits")),
     },
+    crate::app::SquashSelection => "Squash" { phrase: squash_phrase },
+    crate::app::SquashIntoSelection => "Squash uncommitted changes into this",
     ToggleNavigator => "Toggle navigator",
     ToggleDetail => "Toggle details",
     ZoomIn => "Zoom in",
@@ -399,6 +401,21 @@ fn pull_phrase(app: &AppView, cx: &App) -> Option<String> {
     let branch = store.branch_for(store.selection.as_ref()?)?;
     let commits = plural(branch.incoming.len(), "commit");
     Some(format!("Pull {commits} from the remote"))
+}
+
+/// What squashing with the keys starts with: the commits picked, a branch, or a worktree's
+/// changes.
+fn squash_phrase(app: &AppView, cx: &App) -> Option<String> {
+    if let Some(n) = picks(app, cx) {
+        return Some(format!("Squash {n} commits"));
+    }
+    match &app.store.read(cx).selection {
+        Some(Selection::Branch(..)) => Some("Squash branch".to_owned()),
+        Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => {
+            Some("Squash changes".to_owned())
+        }
+        _ => None,
+    }
 }
 
 /// Into the oldest picked, whose message the squash keeps: the commits list newest first.

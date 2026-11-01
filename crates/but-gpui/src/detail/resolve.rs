@@ -17,6 +17,7 @@ use crate::backend::conflicts::{self, Keep};
 use crate::backend::{self, Branch, Checkout, Commit, CommitId, Conflict, FullName, Workspace, ai};
 use crate::state::{Overlay, ProjectId, Rereads, Selection, snack};
 use crate::theme::Theme;
+use crate::transfer::{Move, Op};
 use crate::ui::conflict::{self, Actions, Kept, Name, Part, Pick};
 use crate::ui::diff::{DiffRow, Layout, OnToggle};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -114,9 +115,16 @@ impl Detail {
         self.conflicts().next().is_some()
     }
 
-    /// The key context of the detail: with conflicts to pick, and with picks to apply.
-    pub(super) fn key_context(&self) -> &'static str {
+    /// The key context of the detail: with conflicts to pick, and with picks to apply, while
+    /// the composer's open, or while a commit's placed without it, as with the navigator hidden.
+    pub(super) fn key_context(&self, cx: &App) -> &'static str {
+        let placing = matches!(
+            self.store.read(cx).moving,
+            Some(Move { op: Op::Commit, .. })
+        );
         match (self.conflicts().next(), self.resolving.keeping.is_empty()) {
+            (None, _) if self.composing => "Diff Composer",
+            (None, _) if placing => "Diff Committing",
             (None, _) => "Diff",
             (Some(_), true) => "Diff Conflicts",
             (Some(_), false) => "Diff Conflicts Picked",

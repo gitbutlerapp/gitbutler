@@ -52,9 +52,20 @@
   {
     "bindings": { "secondary-r": "remote::Fetch" }
   },
+  // A commit placed with the navigator hidden, and so no composer, Return commits as it is,
+  // without a message. Before ⌘↩, below, so that's the key shown.
+  {
+    "context": "Diff && Committing && !TextInput",
+    "bindings": { "enter": "app::StartCommit" }
+  },
   // From the file filter too, which the commit then takes the files of.
   {
     "context": "Files && !Composer > TextInput",
+    "bindings": { "secondary-enter": "app::StartCommit" }
+  },
+  // And from a terminal, whose shell has no use for it.
+  {
+    "context": "Terminal",
     "bindings": { "secondary-enter": "app::StartCommit" }
   },
   {
@@ -142,10 +153,15 @@
     }
   },
   // While commits move, the keys above step through where they can land, and Return lands
-  // them there. After the navigator's Return, so it wins.
+  // them there. After the navigator's Return, so it wins. While squashing, u keeps only the
+  // target's message, as in the TUI, after the navigator's u, so it wins.
   {
     "context": "Navigator && Moving && !TextInput",
     "bindings": { "enter": "navigator::MoveHere" }
+  },
+  {
+    "context": "Navigator && Squashing && !TextInput",
+    "bindings": { "u": "navigator::UseTargetMessage" }
   },
   // Renaming, deleting and taking out do what fits the selection, so each key is bound once for
   // each of those, a section apiece, and runs the one the selection has. F2 is the rename key on
@@ -303,10 +319,19 @@
     "bindings": { "delete": "diff::DiscardFile" }
   },
   // While committing, as a click on the checkbox does: space a file in the list, as in Lite,
-  // and x the hunk under the diff's cursor.
+  // and space or x the hunk under the diff's cursor, each going on to the next, rather than
+  // Space paging the diff. Return in the list goes on to the message, once what goes in is
+  // checked.
+  {
+    "context": "Diff && Composer && !TextInput",
+    "bindings": { "space": "diff::ToggleCheck" }
+  },
   {
     "context": "Files && Composer && !TextInput",
-    "bindings": { "space": "diff::ToggleCheck" }
+    "bindings": {
+      "space": "diff::ToggleCheck",
+      "enter": "diff::WriteMessage"
+    }
   },
   {
     "context": "Diff && !TextInput",
@@ -379,6 +404,12 @@
       "enter": "message_editor::ToBody",
       "tab": "message_editor::ToBody"
     }
+  },
+  // A commit's title commits on Return, written or not, as a body is seldom wanted: Tab goes
+  // to it. A pull request's title goes on to its body.
+  {
+    "context": "Composer > MessageTitle > TextInput",
+    "bindings": { "enter": "text_input::Submit" }
   },
   {
     "context": "MessageBody > TextInput",

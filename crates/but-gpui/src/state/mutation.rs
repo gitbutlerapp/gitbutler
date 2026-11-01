@@ -65,7 +65,7 @@ pub struct Overlay {
     /// It opens a pull request for the branch it pushes.
     pub publishes: bool,
     /// The move with the keys it lands, still shown as it was while being moved, its copy where
-    /// it lands, until the reload after it shows it there: a branch's has no stand-in of its own.
+    /// it lands, until the reload after it shows it there.
     pub lands: Option<crate::transfer::Move>,
 }
 
@@ -1023,20 +1023,30 @@ impl Store {
 
     /// Move commits `ids` into a new branch of their own, in a stack of its own, before the
     /// others with `first`, or `beside` a branch in its stack, as [`backend::MoveToNewBranch`]
-    /// says. The selected one stays selected there, as a move to a branch already there keeps it.
+    /// says, landing the move with the keys `lands` if it's that, as it showed them until the
+    /// reload shows where they went. The selected one stays selected there, as a move to a
+    /// branch already there keeps it.
     pub fn move_to_new_branch(
         &mut self,
         project: &ProjectId,
         ids: Arc<[CommitId]>,
         beside: Option<(FullName, bool)>,
         first: bool,
+        lands: Option<crate::transfer::Move>,
         cx: &mut Context<Self>,
     ) {
         let keys = ids.iter().filter_map(|id| self.key_of(project, *id));
+        let overlay = match lands {
+            Some(lands) => Overlay {
+                lands: Some(lands),
+                ..Overlay::default()
+            },
+            None => Overlay::commits(keys.collect::<Vec<_>>()),
+        };
         self.apply(
             project,
             "Move to a new branch",
-            Overlay::commits(keys.collect::<Vec<_>>()),
+            overlay,
             backend::MoveToNewBranch {
                 commits: ids,
                 beside,
@@ -1121,18 +1131,19 @@ impl Store {
         );
     }
 
-    /// Squash commits `ids`, listed newest first, into commit `into`, its message first and
-    /// theirs after it in the order they were written.
-    pub fn squash(
-        &mut self,
-        project: &ProjectId,
-        ids: Arc<[CommitId]>,
-        into: CommitId,
-        cx: &mut Context<Self>,
-    ) {
-        let overlay = Overlay::commits(ids.iter().filter_map(|id| self.key_of(project, *id)));
-        let label = Label::new("Squash", format!("Squash {} commits", ids.len() + 1));
-        let squash = backend::Squash { commits: ids, into };
+    /// Squash as `squash` says, its commits listed newest first, the branch it empties going
+    /// at once, then select what they went into.
+    pub fn squash(&mut self, project: &ProjectId, squash: backend::Squash, cx: &mut Context<Self>) {
+        let keys = (squash.commits.iter()).filter_map(|id| self.key_of(project, *id));
+        let overlay = Overlay {
+            deleted_branches: squash.emptied.iter().cloned().collect(),
+            ..Overlay::commits(keys.collect::<Vec<_>>())
+        };
+        let label = Label::new(
+            "Squash",
+            format!("Squash {} commits", squash.commits.len() + 1),
+        );
+        let into = squash.into;
         let squashed = project.clone();
         self.apply(
             project,
@@ -1148,7 +1159,15 @@ impl Store {
         );
     }
 
-    pub fn uncommit(&mut self, project: &ProjectId, ids: Arc<[CommitId]>, cx: &mut Context<Self>) {
+    /// Uncommit commits `ids`, and with `emptied`, the branch they're all of, which goes with
+    /// them.
+    pub fn uncommit(
+        &mut self,
+        project: &ProjectId,
+        ids: Arc<[CommitId]>,
+        emptied: Option<FullName>,
+        cx: &mut Context<Self>,
+    ) {
         // A conflicted commit's files are one side's, so uncommitting it would bring back
         // nothing and lose the change it carries.
         let conflicted = (ids.iter())
@@ -1179,11 +1198,18 @@ impl Store {
             .and_then(|id| self.checkout_of(&Selection::Commit(project.clone(), *id)))
             .unwrap_or_default();
         let project = project.clone();
+        let overlay = Overlay {
+            deleted_branches: emptied.iter().cloned().collect(),
+            ..Overlay::commits(keys.clone())
+        };
         self.apply(
             &project.clone(),
             label,
-            Overlay::commits(keys.clone()),
-            backend::Uncommit { commits: ids },
+            overlay,
+            backend::Uncommit {
+                commits: ids,
+                emptied,
+            },
             move |store, (), cx| {
                 // The selected commit's changes are uncommitted now; show them there.
                 if let Some(Selection::Commit(selected, id)) = &store.selection

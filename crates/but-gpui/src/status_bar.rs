@@ -7,16 +7,18 @@ use gpui::{
 };
 
 use crate::app::{
-    AppView, CommandPalette, CutSelection, Fetch, FocusDiff, MoveHere, OpenPullRequest, PasteHere,
-    Push, StartCommit, Undo, UpdateFromTarget,
+    AppView, CommandPalette, CutSelection, Fetch, FocusDiff, MoveHere, MoveSelection,
+    OpenPullRequest, PasteHere, Push, SquashSelection, StartCommit, Undo, UpdateFromTarget,
+    UseTargetMessage,
 };
 use crate::backend::rebuild::Rebuild;
-use crate::backend::{Branch, Checkout, CommitId, FileChange, ReviewState, Workspace};
+use crate::backend::{Branch, Checkout, CommitId, FileChange, Messages, ReviewState, Workspace};
 use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
 use crate::edits::{NameBranch, RenameBranch, RenameTerminal, Reword, Uncommit};
 use crate::pr::{CreatePullRequest, create_offer};
 use crate::state::{Cut, ProjectId, SLOW, Section, Selection};
 use crate::theme::Theme;
+use crate::transfer::{Op, Transfer};
 use crate::ui::{
     Icon, STATUS_BAR_HEIGHT, Tooltip, ago, dot, dp, duration, h_flex, plural, shortcut,
     shortcut_here, small_icon,
@@ -71,19 +73,52 @@ impl AppView {
             // What's moving, and where Return lands it, unless that's where it is.
             let lands = moving.lands(store);
             let what = moving.describe(store);
+            // A new commit has no name till its message is written.
             let what = match lands {
-                true => format!("{what} {}", moving.place(store)),
+                true => format!("{what} {}", moving.place(store))
+                    .trim_start()
+                    .to_owned(),
                 false => what,
             };
+            // In the colour each marks rows in, as the TUI's modes have their own.
+            let (doing, color) = (moving.op.doing(), moving.op.colour(&theme));
             let state = h_flex()
                 .gap(dp(6.))
                 .min_w_0()
                 .overflow_hidden()
-                .child(div().flex_none().text_color(theme.pop).child("Moving"))
+                .child(div().flex_none().text_color(color).child(doing))
                 .child(div().min_w_0().truncate().child(what));
-            let keys = [("↑↓".into(), "choose where")]
+            // Commits squashed into one keep both messages, or only the one they go into's.
+            let messages = match (moving.op, moving.squashed(store)) {
+                (Op::Squash(keep), Some(Transfer::Squash { .. })) => {
+                    let said = match keep {
+                        Messages::Both => "keep only its message",
+                        Messages::Target => "keep both messages",
+                    };
+                    shortcut(&UseTargetMessage, cx).map(|keys| (keys, said))
+                }
+                (Op::Squash(_) | Op::Move | Op::Commit, _) => None,
+            };
+            // Commits or a branch squash instead of moving, or move instead of squashing.
+            let instead = match moving.op {
+                Op::Squash(_) => shortcut(&MoveSelection, cx).map(|keys| (keys, "move instead")),
+                Op::Move => shortcut(&SquashSelection, cx).map(|keys| (keys, "squash instead")),
+                Op::Commit => None,
+            };
+            // Without the composer, as where the navigator came out for it, Return commits as
+            // it is, without a message. Without the navigator, the arrows go on through the
+            // files.
+            let unseen = moving.op == Op::Commit && !self.navigator_shown();
+            let verb = match moving.op == Op::Commit && !self.detail.read(cx).composing() {
+                true => "commit",
+                false => moving.verb(store),
+            };
+            let keys = (!unseen)
+                .then(|| ("↑↓".into(), "choose where"))
                 .into_iter()
-                .chain((shortcut(&MoveHere, cx).filter(|_| lands)).map(|keys| (keys, "move here")))
+                .chain((shortcut(&MoveHere, cx).filter(|_| lands)).map(|keys| (keys, verb)))
+                .chain(messages)
+                .chain(instead.filter(|_| moving.of_commits()))
                 .chain([("esc".into(), "cancel")])
                 .collect();
             (state.into_any_element(), keys)

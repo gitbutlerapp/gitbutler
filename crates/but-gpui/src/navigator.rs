@@ -33,7 +33,7 @@ use crate::state::{
 };
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
-use crate::transfer::{ProjectDrag, drag_preview};
+use crate::transfer::{Move, Op, ProjectDrag, Stop, drag_preview};
 use crate::ui::emoji::{Colour, ProjectIcon};
 use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, on_top, reordered, shifted};
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
@@ -63,6 +63,7 @@ mod rename;
 mod rows;
 
 use drop::insertion_line;
+use moving::Mark;
 use order::cards;
 use rows::{
     CARD_PADDING, COMMIT_INDENT, Drawer, Fold, GUIDE_AT, HEADING_HEIGHT, Moving, ROW_LEFT, Row,
@@ -134,8 +135,9 @@ enum ClickOpened {
 }
 
 /// How an item row draws: `solid` is the selection while the navigator has focus, `cut` is
-/// the row waiting for ⌘V or moving elsewhere, `held` a commit being moved while the move is
-/// at where it is, and `inset` is how far in its section sets it.
+/// the row waiting for ⌘V or being moved, `held` a copy of what's being moved, or a terminal
+/// going where it'd land itself, `mark` the colour cut or held rows are marked in, and `inset`
+/// is how far in its section sets it.
 #[derive(Clone, Copy)]
 struct RowStyle<'a> {
     theme: &'a Theme,
@@ -143,6 +145,7 @@ struct RowStyle<'a> {
     solid: bool,
     cut: bool,
     held: bool,
+    mark: Hsla,
     inset: f32,
     /// The rows above and below are picked with it: see [`crate::ui::joined`].
     joined: (bool, bool),
@@ -221,6 +224,7 @@ impl<'a> RowStyle<'a> {
             solid: false,
             cut: false,
             held: false,
+            mark: theme.pop,
             inset,
             joined: (false, false),
             outlined_with: (false, false),
@@ -248,13 +252,13 @@ impl<'a> RowStyle<'a> {
                 el.bg(theme.fill_gray).text_color(theme.text_inverted)
             })
             .when(self.cut, |el| {
-                (el.opacity(0.5).border_1().border_dashed()).border_color(theme.pop)
+                (el.opacity(0.5).border_1().border_dashed()).border_color(self.mark)
             })
             // As the copies of what's moving are drawn where it would land.
             .when(self.held, |el| {
-                el.bg(theme.pop.opacity(0.14))
+                el.bg(self.mark.opacity(0.14))
                     .border_1()
-                    .border_color(theme.pop)
+                    .border_color(self.mark)
             })
             .map(|el| {
                 let (above, below) = self.outlined_with;
@@ -374,8 +378,7 @@ pub struct Navigator {
     /// The rows sliding to where a reorder put them, and each row's key, to tell which.
     reorder: Reorder<RowKey>,
     row_keys: Vec<Option<RowKey>>,
-    /// Rows a move just took away, drawn where they were while the rows close over them: so
-    /// a commit going back to where the move left it meets its stand-in there.
+    /// Rows a move just took away, drawn where they were while the rows close over them.
     stand_ins: Vec<moving::StandIn>,
     /// Whether each fold the rows were last built through showed what it holds, to tell
     /// which opened or shut since.
@@ -387,8 +390,13 @@ pub struct Navigator {
     /// The selection changed, or where it'd be moved: scroll to it once the rows are up to
     /// date, to the copies of commits being moved where they'd land rather than to them.
     reveal_selection: bool,
-    /// Commits were being moved when the rows were last brought up to date.
-    moved: bool,
+    /// What the move shown, or landing, did when the rows were last brought up to date.
+    shown_op: Option<Op>,
+    /// The move shown then was one Return landed, until the reload shows where it went.
+    shown_landing: bool,
+    /// Where a squash's outline was when the rows were last brought up to date: it slides from
+    /// there to what it goes into next.
+    squash_outline: Option<moving::SquashOutline>,
     /// Branches showing all their commits, or the first few, against how Settings say open
     /// branches list them: the first few, unless they say all.
     flipped_folds: HashSet<BranchKey>,
@@ -507,6 +515,17 @@ impl Navigator {
                     },
                 }
             }),
+            // The commit being placed is titled as its message is written, which notifies
+            // nothing else.
+            cx.subscribe(&detail.read(cx).message_editor(), |this, _, event, cx| {
+                let placing = matches!(
+                    this.store.read(cx).moving,
+                    Some(Move { op: Op::Commit, .. })
+                );
+                if matches!(event, InputEvent::Changed) && placing {
+                    cx.notify()
+                }
+            }),
             cx.observe(&store, |this, store, cx| {
                 let prefs = &store.read(cx).prefs;
                 if this.branches_start_open != prefs.branches_start_open {
@@ -574,7 +593,9 @@ impl Navigator {
             drawer: Drawer::default(),
             drawer_list: ListState::new(0, ListAlignment::Top, fixed(56.)),
             reveal_selection: false,
-            moved: false,
+            shown_op: None,
+            shown_landing: false,
+            squash_outline: None,
             flipped_folds: HashSet::new(),
             all_branch_commits,
             flipped: HashSet::new(),
@@ -1140,9 +1161,9 @@ impl Navigator {
                 let open = self.heading_open(&project, &section, cx);
                 self.toggle_heading(project, section, open, window, cx)
             }
+            // A commit, placed as c places it.
             Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => {
-                self.detail
-                    .update(cx, |detail, cx| detail.focus_message(window, cx));
+                window.dispatch_action(Box::new(crate::app::StartCommit), cx)
             }
             Some(Selection::Terminal(..)) => self.enter_terminal(window, cx),
             _ => {}
@@ -1341,19 +1362,46 @@ impl Navigator {
         // While something's being moved or landing, and as that ends, every row slides from
         // where it was, so the room the copies take or leave opens and closes rather than jumps.
         let store = self.store.read(cx);
-        let moving = store.moving.is_some() || store.landing().is_some();
-        let every = moving || self.moved;
-        self.moved = moving;
-        if self.rows != rows {
-            let keys = row_keys(&rows, self.store.read(cx));
+        let op = (store.moving.as_ref().or_else(|| store.landing())).map(|moving| moving.op);
+        let was = std::mem::replace(&mut self.shown_op, op);
+        let every = op.is_some() || was.is_some();
+        // A squash just ended: landed, what it took goes.
+        let ended = matches!(was, Some(Op::Squash(_))) && store.moving.is_none();
+        // A move Return landed, until the reload after it, and as that shows where it went.
+        let landing = std::mem::replace(&mut self.shown_landing, store.landing().is_some())
+            || store.landing().is_some();
+        // The outline of what a squash goes into slides there from where it was before, first
+        // from around what it's of where it started, its edges coming together as it leaves
+        // that, and going apart as it grows back around it.
+        let home = (store.moving.as_ref()).is_some_and(|moving| {
+            matches!(moving.at, Stop::Into(_)) && !moving.shows_landing(store)
+        });
+        let outline = moving::SquashOutline::of(&rows, store, home);
+        if let (Some(was), Some(is)) = (&self.squash_outline, &outline)
+            && was.row != is.row
+        {
+            let (top, bottom) = is.slide(was);
+            let offsets = HashMap::from([(RowKey::SquashTop, top), (RowKey::SquashBottom, bottom)]);
+            self.reorder.start(offsets, cx);
+        }
+        self.squash_outline = outline;
+        // While a move's shown, the rows' keys change with it where the rows don't, as what's
+        // moving is keyed apart as the move starts and ends.
+        let reordered = self.rows != rows;
+        let keys = (reordered || every)
+            .then(|| row_keys(&rows, self.store.read(cx)))
+            .filter(|keys| reordered || *keys != self.row_keys);
+        if let Some(keys) = keys {
             let held = anchor.map(|(old_ix, new_ix, _)| (old_ix, new_ix));
             // Those still being closed over stay while the rows they're under do, as when the
             // reload after a move lands partway.
             let mut stand_ins = std::mem::take(&mut self.stand_ins);
             stand_ins.retain(|stand_in| keys.iter().flatten().any(|key| *key == stand_in.under));
-            stand_ins.extend(self.stand_ins(&keys, clock::now(), self.store.read(cx)));
+            let store = self.store.read(cx);
+            let taken = self.stand_ins(&keys, was, (ended, landing), clock::now(), store);
+            stand_ins.extend(taken);
             self.stand_ins = stand_ins;
-            let offsets = self.slides(&rows, &keys, held, every);
+            let offsets = self.slides(&rows, &keys, held, every, landing);
             self.reorder.start(offsets, cx);
             self.row_keys = keys;
         }
@@ -1370,8 +1418,13 @@ impl Navigator {
             }
         }
         let store = self.store.read(cx);
-        // Commits being moved show where they'd land, if that's elsewhere.
-        let ghost = |row: &Row| matches!(row, Row::Ghost(..) | Row::GhostBranch(..));
+        // Commits being moved show where they'd land, if that's elsewhere, and what a squash
+        // goes into is outlined.
+        let ghost = |row: &Row| match row {
+            Row::Ghost(..) | Row::GhostBranch(..) | Row::NewCommit(_) => true,
+            Row::Item(item) => moving::squashed_into(store, item),
+            _ => false,
+        };
         if std::mem::take(&mut self.reveal_selection)
             && let Some(selection) = &store.selection
             && !self.scroll_to_row(ghost, row)
@@ -1444,6 +1497,7 @@ impl Navigator {
         keys: &[Option<RowKey>],
         held: Option<(usize, usize)>,
         every: bool,
+        landing: bool,
     ) -> HashMap<RowKey, f32> {
         let sized = |keys: &[Option<RowKey>], rows: &[Row]| -> Vec<(Option<RowKey>, f32)> {
             keys.iter()
@@ -1457,22 +1511,47 @@ impl Navigator {
             false => reordered(&old, &new),
         };
         let top = |rows: &[Row], ix: usize| span_height(rows, 0..ix);
-        // The row of what's moving is keyed apart while a move leaves it, as its copy takes
-        // its key, but it's the same row: as the move leaves it, it comes out from under the
-        // copy, from where it was under its own key, rather than showing up in place. Going
-        // back, its stand-in stays where it was left (`Self::stand_ins`).
+        // The row of what's moving is keyed apart while it moves, as its copy takes its key,
+        // but they're the same thing: as a move starts, the row stays where it was under its
+        // own key; the copy comes out from it rather than showing up in place, and slides back
+        // over it, drawn over it by that key there, rather than leaving from where it was. As
+        // the move ends, or squashes instead, the row takes its own key back where it is,
+        // rather than coming from where its copy was, unless it's `landing` there.
         let at = |keys: &[Option<RowKey>], key: &RowKey| {
             (keys.iter()).position(|other| other.as_ref() == Some(key))
         };
         for (is, key) in keys.iter().enumerate() {
-            let Some(left @ RowKey::Left(own)) = key else {
-                continue;
+            let from = match key {
+                Some(left @ RowKey::Left(own)) if at(&self.row_keys, left).is_none() => {
+                    at(&self.row_keys, own).map(|was| (left.clone(), was))
+                }
+                Some(RowKey::Left(own)) if at(keys, own).is_none() => {
+                    at(&self.row_keys, own).map(|was| ((**own).clone(), was))
+                }
+                Some(RowKey::Left(_)) | None => None,
+                Some(own) => {
+                    let left = RowKey::Left(Box::new(own.clone()));
+                    let was = at(&self.row_keys, own);
+                    let from_left = match rows.get(is) {
+                        Some(Row::Item(_)) => !landing,
+                        // Moved instead of squashed, its copy shows where it'd land at once,
+                        // as the squash's outline went, rather than coming out from its row.
+                        Some(Row::Ghost(_))
+                            if was.is_some_and(|was| {
+                                matches!(self.rows.get(was), Some(Row::Item(_)))
+                            }) =>
+                        {
+                            offsets.remove(own);
+                            false
+                        }
+                        _ => was.is_none(),
+                    };
+                    (from_left.then(|| at(&self.row_keys, &left)).flatten())
+                        .map(|was| (own.clone(), was))
+                }
             };
-            if at(&self.row_keys, left).is_some() {
-                continue;
-            }
-            if let Some(was) = at(&self.row_keys, own) {
-                offsets.insert(left.clone(), top(&self.rows, was) - top(rows, is));
+            if let Some((key, was)) = from {
+                offsets.insert(key, top(&self.rows, was) - top(rows, is));
             }
         }
         if let Some((old_ix, new_ix)) = held.filter(|_| !offsets.is_empty()) {
@@ -1644,7 +1723,13 @@ impl Navigator {
                 .pr(dp(12.))
                 .child(div().flex_1().h(fixed(1.)).bg(theme.text_2.opacity(0.2)))
                 .into_any_element(),
-            Some(Row::GhostBranch(_, at)) => moving::ghost_branch_row(at, inset, theme),
+            Some(Row::GhostBranch(project, at)) => {
+                let mark = moving::mark_of(self.store.read(cx), project, theme);
+                moving::ghost_branch_row(at, inset, mark, theme)
+            }
+            Some(Row::NewCommit(project)) => {
+                moving::new_commit_row(project, inset, self.store.read(cx), theme)
+            }
             Some(Row::UpstreamMore(project, more)) => {
                 let page = Selection::Project(project.clone());
                 under_commits("upstream-more", Icon::Kebab)
@@ -1694,7 +1779,7 @@ impl Navigator {
         // full width; the rest as a whole.
         let full_width = matches!(
             self.rows.get(ix),
-            Some(Row::Item(_) | Row::Ghost(..) | Row::GhostBranch(..))
+            Some(Row::Item(_) | Row::Ghost(..) | Row::GhostBranch(..) | Row::NewCommit(_))
         );
         let el = match inset > 0. && !full_width {
             true => div().pl(dp(inset)).child(el).into_any_element(),
@@ -1749,7 +1834,7 @@ impl Navigator {
         let selection = self.store.read(cx).selection.as_ref();
         let over_rank = match self.rows.get(ix) {
             _ if held => 3,
-            Some(Row::Ghost(..)) => 2,
+            Some(Row::Ghost(..) | Row::NewCommit(_)) => 2,
             Some(Row::Item(item)) if selection == Some(item) => 1,
             _ => 0,
         };
@@ -1760,6 +1845,30 @@ impl Navigator {
         let stand_ins = (self.stand_ins.iter())
             .filter(|stand_in| self.reorder.any() && key == Some(&stand_in.under))
             .map(|stand_in| moving::stand_in(stand_in, self.store.read(cx), theme));
+        // What's being moved has its copy drawn over it while the move is at where it is, over
+        // everything, as the copies elsewhere are, sliding out to them and back by its key, as
+        // the copy keyed so would. Copies of commits moving together are outlined as one.
+        let copy = match (self.rows.get(ix), key) {
+            (Some(Row::Item(item)), Some(RowKey::Left(own))) => {
+                let store = self.store.read(cx);
+                let copied =
+                    |item: &Selection| matches!(moving::mark(store, item), Some(Mark::Copied(_)));
+                let copied_at = |ix: usize| matches!(self.rows.get(ix), Some(Row::Item(other)) if copied(other));
+                copied(item).then(|| {
+                    let with = (ix > 0 && copied_at(ix - 1), copied_at(ix + 1));
+                    let copy = div()
+                        .absolute()
+                        .top(dp(self.reorder.offset(own) - slid_at(ix)))
+                        .left_0()
+                        .right_0()
+                        .bg(theme.bg_1)
+                        .child(moving::ghost_row(item, inset, with, store, theme))
+                        .children(guides());
+                    on_top(copy).priority(2)
+                })
+            }
+            _ => None,
+        };
         let card = div()
             .relative()
             .bg(theme.bg_1)
@@ -1788,7 +1897,8 @@ impl Navigator {
                     card.children(guides()).child(over)
                 }
                 None => card.child(el).children(guides()),
-            });
+            })
+            .children(copy);
         let stretched = |height: f32| {
             div()
                 .absolute()
@@ -1840,11 +1950,9 @@ impl Navigator {
             store.selection.as_ref() == Some(item)
                 || matches!(item, Selection::Commit(project, id) if store.is_picked(project, *id))
         };
-        // A commit being moved shows where the move is, rather than that it's selected.
-        let moving = moving::moving_away(store, item);
-        // A terminal being moved goes where it'd land itself, held rather than selected.
-        let moved_itself = moving::moved_itself(store, item);
-        let selected = lit(item) && moving.is_none() && !moved_itself;
+        // What's being moved shows where the move is, rather than that it's selected.
+        let marked = moving::mark(store, item);
+        let selected = lit(item) && marked.is_none();
         // Picked commits next to each other join up.
         let lit_at = |ix: usize| matches!(rows.get(ix), Some(Row::Item(other)) if lit(other));
         let joined = match selected && !store.picked.is_empty() {
@@ -1862,14 +1970,26 @@ impl Navigator {
                 ) => p == project && ids.contains(commit),
                 _ => false,
             };
-            cut || moving::moving_away(store, item) == Some(true)
+            cut || matches!(
+                moving::mark(store, item),
+                Some(Mark::Cut(_) | Mark::Copied(_))
+            )
         };
         let cut = cut_of(item);
-        let held = moving == Some(false) || moved_itself;
+        // What a squash goes into is outlined over it, or where it started around the rows
+        // held there, the outline sliding in from where it was before, its edges apart.
+        let slid = (
+            self.reorder.offset(&RowKey::SquashTop),
+            self.reorder.offset(&RowKey::SquashBottom),
+        );
+        let outlined = (self.squash_outline.as_ref()).filter(|outline| outline.row == *item);
+        let held = matches!(marked, Some(Mark::Held(_)));
         // Cut or moving together, next to each other, they're outlined as one.
         let outlined_at = |ix: usize| match rows.get(ix) {
             Some(Row::Item(other)) if cut => cut_of(other),
-            Some(Row::Item(other)) if held => moving::moving_away(store, other) == Some(false),
+            Some(Row::Item(other)) if held => {
+                matches!(moving::mark(store, other), Some(Mark::Held(_)))
+            }
             _ => false,
         };
         let outlined_with = (ix > 0 && outlined_at(ix - 1), outlined_at(ix + 1));
@@ -1883,6 +2003,11 @@ impl Navigator {
                 }),
             cut,
             held,
+            // In the colour of what's being done with it, as the TUI's modes have their own.
+            mark: match marked {
+                Some(Mark::Cut(op) | Mark::Copied(op) | Mark::Held(op)) => op.colour(theme),
+                None => theme.pop,
+            },
             inset,
             joined,
             outlined_with,
@@ -1934,9 +2059,16 @@ impl Navigator {
             }
             Selection::Section(id, Section::Mesh) => Some(self.mesh_heading(ix, id, style, cx)),
         };
-        match el {
-            Some(el) => self.drop_target(el, item.clone(), window, theme, cx),
-            None => div().into_any_element(),
+        let Some(el) = el else {
+            return div().into_any_element();
+        };
+        let el = self.drop_target(el, item.clone(), window, theme, cx);
+        match outlined {
+            Some(outline) => {
+                let outline = moving::squash_outline(outline.edges(slid), theme);
+                div().relative().child(el).child(outline).into_any_element()
+            }
+            None => el,
         }
     }
 
@@ -3635,23 +3767,45 @@ impl Render for Navigator {
             .child(above_drag(div().child(toggle_detail)));
         let store = self.store.read(cx);
         let moving = store.moving.is_some();
+        let squashing =
+            (store.moving.as_ref()).is_some_and(|moving| matches!(moving.op, Op::Squash(_)));
         // A commit or a named branch of a workspace, not one only a remote or another machine
         // has.
-        let movable = match &store.selection {
+        let commits = match &store.selection {
             Some(Selection::Commit(project, id)) => store.find_commit(project, *id).is_some(),
-            Some(Selection::Project(project)) => store.project(project).is_some_and(|p| p.expanded),
-            Some(Selection::Terminal(..)) => true,
             Some(Selection::Branch(project, ref_name @ Some(_))) => (store.workspace(project))
                 .is_some_and(|ws| ws.find_branch(ref_name.as_ref()).is_some()),
             _ => false,
         };
+        let movable = commits
+            || match &store.selection {
+                Some(Selection::Project(project)) => {
+                    store.project(project).is_some_and(|p| p.expanded)
+                }
+                Some(Selection::Terminal(..)) => true,
+                _ => false,
+            };
+        // Those, or a worktree's uncommitted changes.
+        let squashable = commits
+            || match &store.selection {
+                Some(
+                    item @ (Selection::Uncommitted(project) | Selection::Worktree(project, _)),
+                ) => (store.checkout_of(item))
+                    .and_then(|checkout| store.workspace(project)?.uncommitted_in(&checkout))
+                    .is_some_and(|files| !files.is_empty()),
+                _ => false,
+            };
+        // Commits or a branch being moved squash instead, and being squashed, move instead;
+        // files only squash.
+        let moves_commits = (store.moving.as_ref()).is_some_and(Move::of_commits);
 
         v_flex()
             .id("navigator")
             // While commits move, Return lands them.
-            .key_context(match moving {
-                true => "Navigator Moving",
-                false => "Navigator",
+            .key_context(match (moving, squashing) {
+                (true, true) => "Navigator Moving Squashing",
+                (true, false) => "Navigator Moving",
+                (false, _) => "Navigator",
             })
             .on_drag_move(cx.listener(Self::resize_drawer))
             .on_drag_move(cx.listener(Self::follow_project_drag))
@@ -3706,10 +3860,20 @@ impl Render for Navigator {
             .on_action(cx.listener(Self::collapse))
             .on_action(cx.listener(Self::confirm))
             .on_action(cx.listener(Self::toggle_fold))
-            .when(movable && !moving, |el| {
+            .when((movable && !moving) || (squashing && moves_commits), |el| {
                 el.on_action(cx.listener(Self::start_move))
             })
+            .when(
+                (squashable && !moving) || (!squashing && moves_commits),
+                |el| el.on_action(cx.listener(Self::start_squash)),
+            )
+            .when(commits && !moving, |el| {
+                el.on_action(cx.listener(Self::start_squash_into))
+            })
             .when(moving, |el| el.on_action(cx.listener(Self::move_here)))
+            .when(squashing, |el| {
+                el.on_action(cx.listener(Self::use_target_message))
+            })
             .size_full()
             .relative()
             .bg(theme.bg_2)

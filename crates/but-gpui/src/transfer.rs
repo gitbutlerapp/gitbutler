@@ -4,11 +4,13 @@
 use std::sync::Arc;
 
 use gpui::{
-    App, Context, Div, Entity, Modifiers, Pixels, Point, SharedString, Window, div, prelude::*,
+    App, Context, Div, Entity, Hsla, Modifiers, Pixels, Point, SharedString, Window, div,
+    prelude::*,
 };
 
 use crate::backend::{
-    self, Checkout, CommitId, CommitTo, Destination, FullName, Selected, Workspace, short_ref,
+    self, Checkout, CommitId, CommitTo, Destination, FullName, Messages, Selected, Workspace,
+    short_ref,
 };
 use crate::state::{
     Cut, Label, NewAt, Overlay, ProjectId, Selection, Store, branch_moved, move_before,
@@ -21,7 +23,12 @@ use crate::ui::{Icon, count_badge, dp, h_flex, popover, small_icon};
 
 /// What a drop or paste does. Commits move, squash and uncommit as many as were picked.
 pub enum Transfer {
-    Uncommit(Arc<[CommitId]>),
+    /// With `emptied`, they're all of that branch, which goes with them, as a branch squashed
+    /// into uncommitted changes does.
+    Uncommit {
+        ids: Arc<[CommitId]>,
+        emptied: Option<FullName>,
+    },
     UncommitFiles {
         from: CommitId,
         files: Arc<[Selected]>,
@@ -30,9 +37,13 @@ pub enum Transfer {
         ids: Arc<[CommitId]>,
         to: Destination,
     },
+    /// Keeping the messages `keep` says. With `emptied`, they're all of that branch, which
+    /// goes with them, as a branch squashed into a commit elsewhere does.
     Squash {
         ids: Arc<[CommitId]>,
         into: CommitId,
+        keep: Messages,
+        emptied: Option<FullName>,
     },
     /// Uncommitted files of `worktree` into a commit.
     Amend {
@@ -51,15 +62,9 @@ pub enum Transfer {
         to: Destination,
     },
     /// Stack a branch on another, leaving those above it where they were.
-    StackBranch {
-        branch: FullName,
-        onto: FullName,
-    },
+    StackBranch { branch: FullName, onto: FullName },
     /// Put a branch under another, right below that one's last commit.
-    BranchBelow {
-        branch: FullName,
-        commit: CommitId,
-    },
+    BranchBelow { branch: FullName, commit: CommitId },
     /// Uncommitted files dropped on a branch: get them ready to commit there.
     StageOnBranch {
         branch: FullName,
@@ -105,19 +110,54 @@ impl Place {
 }
 
 /// Something being moved with the keys, in `project`: the navigator steps through the places
-/// it can land, and Return lands it where it's at.
+/// it can land, and Return lands it where it's at, as `op` does.
 #[derive(Debug, Clone)]
 pub struct Move {
     pub project: ProjectId,
     pub what: Moving,
     pub at: Stop,
+    pub op: Op,
+}
+
+/// What landing a [`Move`] does with what it moves, as the TUI's modes do, each in a colour of
+/// its own. Each lands at stops of its own: between rows, where copies of what's moving show
+/// it, or on a row, which an outline goes over.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Op {
+    /// Moves it to where it's at.
+    Move,
+    /// Squashes it into what it's at, an [`Stop::Into`], keeping these messages.
+    Squash(Messages),
+    /// Commits it, a checkout's uncommitted changes, as a new commit where it's at, as the
+    /// composer has them checked and its message says.
+    Commit,
+}
+
+impl Op {
+    /// What the status bar says is going on.
+    pub fn doing(self) -> &'static str {
+        match self {
+            Op::Move => "Moving",
+            Op::Squash(_) => "Squashing",
+            Op::Commit => "Committing",
+        }
+    }
+
+    /// The colour it marks rows in: what it's of, and where it goes.
+    pub fn colour(self, theme: &Theme) -> Hsla {
+        match self {
+            Op::Move => theme.pop,
+            Op::Squash(_) => theme.blue,
+            Op::Commit => theme.purple,
+        }
+    }
 }
 
 /// What a [`Move`] moves. Commits and branches show a copy where they'd land while they stay
 /// where they are, as landing them rewrites history. A project's card and a terminal go where
 /// they'd land themselves, the others making room, as a drag shows a card, as their places are
 /// only the app's to keep.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum Moving {
     /// Commits, as listed, newest first.
     Commits(Arc<[CommitId]>),
@@ -133,12 +173,67 @@ pub enum Moving {
         id: TerminalId,
         lists: Arc<[(Checkout, Vec<TerminalId>)]>,
     },
+    /// Files, or some of their hunks, of commit `from`, or with `None` uncommitted in
+    /// `worktree`, as they were when the squash started. They're only squashed: into a commit,
+    /// or out of theirs into uncommitted changes.
+    Files {
+        from: Option<CommitId>,
+        worktree: Checkout,
+        files: Arc<[Selected]>,
+    },
+}
+
+/// What a squash goes into, by its row.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Target {
+    Commit(CommitId),
+    /// The branch's newest commit, as the TUI takes it, or, for the branch being squashed,
+    /// its oldest: the branch squashed into one commit.
+    Branch(FullName),
+    /// A checkout's uncommitted changes, which commits squashed there are uncommitted into.
+    Uncommitted(Checkout),
+}
+
+impl Target {
+    /// The target `item`'s row is, if it's one.
+    pub fn of(item: &Selection) -> Option<Target> {
+        Some(match item {
+            Selection::Commit(_, id) => Target::Commit(*id),
+            Selection::Branch(_, Some(name)) => Target::Branch(name.clone()),
+            Selection::Uncommitted(_) => Target::Uncommitted(Checkout::Main),
+            Selection::Worktree(_, name) => Target::Uncommitted(Checkout::Linked(name.clone())),
+            Selection::Branch(_, None)
+            | Selection::Project(_)
+            | Selection::Stack(..)
+            | Selection::Upstream(..)
+            | Selection::Section(..)
+            | Selection::Branches(_)
+            | Selection::History(_)
+            | Selection::Graph(_)
+            | Selection::Terminal(..)
+            | Selection::Mesh(..) => return None,
+        })
+    }
+
+    /// Its row in `project`.
+    pub fn row(&self, project: &ProjectId) -> Selection {
+        match self {
+            Target::Commit(id) => Selection::Commit(project.clone(), *id),
+            Target::Branch(name) => Selection::Branch(project.clone(), Some(name.clone())),
+            Target::Uncommitted(checkout) => {
+                Selection::uncommitted_in(project.clone(), checkout.clone())
+            }
+        }
+    }
 }
 
 /// A place what's being moved can land. A branch lands between branches, where a new branch
-/// would, a project between cards, and a terminal between the terminals of a worktree.
+/// would, a project between cards, and a terminal between the terminals of a worktree. What's
+/// squashed goes into a row.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stop {
+    /// Squashed into it.
+    Into(Target),
     /// In a branch: at its top, or right below one of its commits.
     In(Destination),
     /// In a new branch right above `beside` in its stack, or right below it with `below`.
@@ -219,16 +314,30 @@ impl Move {
         Some(match &self.what {
             Moving::Commits(ids) => Cut::Commit(self.project.clone(), ids.clone()),
             Moving::Branch(branch) => Cut::Branch(self.project.clone(), branch.clone()),
+            Moving::Files {
+                from,
+                worktree,
+                files,
+            } => Cut::Files {
+                project: self.project.clone(),
+                from: *from,
+                worktree: worktree.clone(),
+                files: files.clone(),
+            },
             Moving::Project(_) | Moving::Terminal { .. } => return None,
         })
     }
 
     /// What's moving, as the status bar names it.
     pub fn describe(&self, store: &Store) -> String {
+        // A new commit by the title it'll have, once one's written.
+        if self.op == Op::Commit {
+            return (self.commit_title(store)).map_or_else(String::new, |t| format!("\"{t}\""));
+        }
         match &self.what {
             Moving::Project(_) => project_name(store, &self.project),
             Moving::Terminal { id, .. } => terminal_title(store, *id),
-            Moving::Commits(_) | Moving::Branch(_) => {
+            Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. } => {
                 (self.cut()).map_or_else(String::new, |cut| cut.describe(store))
             }
         }
@@ -247,6 +356,24 @@ impl Move {
             (Moving::Project(_), Selection::Project(project)) => *project == self.project,
             (Moving::Terminal { id, .. }, Selection::Terminal(project, terminal)) => {
                 *project == self.project && terminal == id
+            }
+            // The row the files are listed under: their commit's, or their worktree's.
+            (
+                Moving::Files {
+                    from: Some(from), ..
+                },
+                Selection::Commit(project, id),
+            ) => *project == self.project && id == from,
+            (
+                Moving::Files {
+                    from: None,
+                    worktree,
+                    ..
+                },
+                Selection::Uncommitted(_) | Selection::Worktree(..),
+            ) => {
+                *item.project() == self.project
+                    && Target::of(item) == Some(Target::Uncommitted(worktree.clone()))
             }
             _ => false,
         }
@@ -304,8 +431,14 @@ impl Move {
     }
 
     /// Whether landing moves anything, as it doesn't where it already is: a branch alone in
-    /// its stack is a stack of its own, and a card is where it was.
+    /// its stack is a stack of its own, and a card is where it was. A squash lands where it
+    /// squashes anything into anything.
     pub fn lands(&self, store: &Store) -> bool {
+        match self.op {
+            Op::Squash(_) => return self.squashed(store).is_some(),
+            Op::Commit => return self.commit_to(store).is_some(),
+            Op::Move => {}
+        }
         if let (Moving::Branch(branch), Stop::NewStack { .. }) = (&self.what, &self.at) {
             let workspace = store.workspace(&self.project);
             return workspace.is_some_and(|ws| crate::edits::BranchEdits::of(ws, branch).stacked);
@@ -317,21 +450,221 @@ impl Move {
             Moving::Terminal { lists, .. } => {
                 return (self.terminal_order()).is_some_and(|shown| shown[..] != lists[..]);
             }
-            Moving::Commits(_) | Moving::Branch(_) => {}
+            Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. } => {}
         }
         self.drop().is_none_or(|(payload, target, place)| {
             Transfer::resolve(&payload, &target, place, store).is_some()
         })
     }
 
+    /// Whether it shows where it'd land with copies there, dimmed where it is: it lands
+    /// elsewhere. A squash at the row it started from shows nothing more, as one squashing a
+    /// branch into one commit there does: that row is the selection's, which holds it.
+    pub fn shows_landing(&self, store: &Store) -> bool {
+        let home = (store.selection.as_ref()).and_then(Target::of);
+        let at_home = matches!(&self.at, Stop::Into(target) if home.as_ref() == Some(target));
+        self.lands(store) && !at_home
+    }
+
+    /// What squashing lands as where it's at, if anything. A branch's commits go into another
+    /// commit, and it with them; into one of its own, the rest go into that one. Picked
+    /// commits can go into one of themselves, as the TUI's can.
+    pub fn squashed(&self, store: &Store) -> Option<Transfer> {
+        let (Op::Squash(keep), Stop::Into(target)) = (self.op, &self.at) else {
+            return None;
+        };
+        let project = &self.project;
+        let workspace = store.workspace(project)?;
+        let commit = |id: CommitId| Selection::Commit(project.clone(), id);
+        let into = match target {
+            Target::Commit(id) => commit(*id),
+            Target::Branch(name) => {
+                let commits = &workspace.find_branch(Some(name))?.commits;
+                match self.squashes_whole(name) {
+                    true => commit(commits.last()?.id),
+                    false => commit(commits.first()?.id),
+                }
+            }
+            Target::Uncommitted(checkout) => {
+                Selection::uncommitted_in(project.clone(), checkout.clone())
+            }
+        };
+        let into_commit = match &into {
+            Selection::Commit(_, id) => Some(*id),
+            _ => None,
+        };
+        // Work stays off the default branch a linked worktree can have checked out.
+        let on_target = into_commit
+            .and_then(|id| workspace.find_commit(id))
+            .is_some_and(|(branch, _)| {
+                branch.ref_name.is_some() && branch.ref_name == workspace.target_branch
+            });
+        if on_target {
+            return None;
+        }
+        let (cut, emptied) = match &self.what {
+            Moving::Commits(ids) => {
+                let ids = match ids.len() {
+                    1 => ids.clone(),
+                    _ => (ids.iter())
+                        .filter(|id| Some(**id) != into_commit)
+                        .copied()
+                        .collect(),
+                };
+                (Cut::Commit(project.clone(), ids), None)
+            }
+            Moving::Branch(branch) => {
+                let commits = &workspace.find_branch(Some(branch))?.commits;
+                let ids: Arc<[CommitId]> = (commits.iter())
+                    .map(|c| c.id)
+                    .filter(|id| Some(*id) != into_commit)
+                    .collect();
+                let emptied = (ids.len() == commits.len()).then(|| branch.clone());
+                // Not a linked worktree's whole branch, which would leave the worktree on a
+                // branch that's gone; the TUI keeps squashes of branches out of worktrees too.
+                let row = Selection::Branch(project.clone(), Some(branch.clone()));
+                if emptied.is_some() && store.worktree_for(&row).is_some() {
+                    return None;
+                }
+                (Cut::Commit(project.clone(), ids), emptied)
+            }
+            Moving::Files { .. } => (self.cut()?, None),
+            Moving::Project(_) | Moving::Terminal { .. } => return None,
+        };
+        if matches!(&cut, Cut::Commit(_, ids) if ids.is_empty()) {
+            return None;
+        }
+        Some(match Transfer::resolve(&cut, &into, Place::Into, store)? {
+            Transfer::Squash { ids, into, .. } => Transfer::Squash {
+                ids,
+                into,
+                keep,
+                emptied,
+            },
+            Transfer::Uncommit { ids, .. } => Transfer::Uncommit { ids, emptied },
+            // Files amend a commit, move into one or out of theirs.
+            transfer @ (Transfer::Amend { .. }
+            | Transfer::MoveFiles { .. }
+            | Transfer::UncommitFiles { .. }) => transfer,
+            // Nothing else goes into a commit or uncommitted changes.
+            Transfer::MoveCommit { .. }
+            | Transfer::CherryPick { .. }
+            | Transfer::StackBranch { .. }
+            | Transfer::BranchBelow { .. }
+            | Transfer::StageOnBranch { .. }
+            | Transfer::CommitOnBranch { .. }
+            | Transfer::MoveWorktree { .. } => return None,
+        })
+    }
+
+    /// The title written for the commit being made, if one is, as the composer's message is
+    /// kept while it's written.
+    pub fn commit_title<'a>(&self, store: &'a Store) -> Option<&'a str> {
+        let (Op::Commit, Moving::Files { worktree, .. }) = (self.op, &self.what) else {
+            return None;
+        };
+        let key = (self.project.clone(), worktree.clone());
+        let draft = store.drafts.get(&key)?;
+        Some(crate::ui::message_editor::split(draft).0).filter(|title| !title.is_empty())
+    }
+
+    /// Where committing puts a new commit where it's at, if it can go there: on top of a
+    /// branch of the checkout the changes are in, right below one of its commits, or in a new
+    /// branch beside one of them; from the main checkout, in a new branch of its own too, a
+    /// stack of its own in the workspace, and outside it where a new branch made there goes.
+    /// Not on the default branch, which work stays off.
+    pub fn commit_to(&self, store: &Store) -> Option<CommitTo> {
+        let (Op::Commit, Moving::Files { worktree, .. }) = (self.op, &self.what) else {
+            return None;
+        };
+        let workspace = store.workspace(&self.project)?;
+        let takes = |branch: &FullName| {
+            workspace.target_branch.as_ref() != Some(branch)
+                && (workspace.lane_of(Some(branch)))
+                    .is_some_and(|(lane, _)| lane.checkout == *worktree)
+        };
+        match &self.at {
+            Stop::In(Destination::Branch(branch)) => {
+                takes(branch).then(|| CommitTo::Branch(branch.clone()))
+            }
+            Stop::In(Destination::BelowCommit(commit)) => {
+                let (branch, _) = workspace.find_commit(*commit)?;
+                let branch = branch.ref_name.clone()?;
+                takes(&branch).then_some(CommitTo::BelowCommit {
+                    commit: *commit,
+                    branch,
+                })
+            }
+            Stop::NewBranch { beside, below } => takes(beside).then(|| CommitTo::NewBranchAt {
+                beside: Some((beside.clone(), *below)),
+                first: false,
+                name: None,
+            }),
+            Stop::NewStack { first } => match (worktree, workspace.managed) {
+                (Checkout::Main, true) => Some(CommitTo::NewBranchAt {
+                    beside: None,
+                    first: *first,
+                    name: None,
+                }),
+                (Checkout::Main, false) => Some(CommitTo::NewBranch),
+                (Checkout::Linked(_), _) => None,
+            },
+            Stop::In(Destination::AboveCommit(_))
+            | Stop::Into(_)
+            | Stop::Card(_)
+            | Stop::Terminal { .. } => None,
+        }
+    }
+
+    /// Whether it's commits or a branch, which move or squash alike.
+    pub fn of_commits(&self) -> bool {
+        matches!(self.what, Moving::Commits(_) | Moving::Branch(_))
+    }
+
+    /// Whether it's branch `name` being squashed, which squashes into one commit at its own
+    /// row.
+    fn squashes_whole(&self, name: &FullName) -> bool {
+        matches!(&self.what, Moving::Branch(branch) if branch == name)
+    }
+
+    /// Whether `item` is the row a squash is at.
+    pub fn squashes_into(&self, item: &Selection) -> bool {
+        matches!(&self.at, Stop::Into(target)
+            if *item.project() == self.project && Target::of(item).as_ref() == Some(target))
+    }
+
+    /// What Return does where it's at, as the TUI says it while squashing.
+    pub fn verb(&self, store: &Store) -> &'static str {
+        match (self.op, self.squashed(store)) {
+            (Op::Move, _) => "move here",
+            // Once there's a message, Return commits; till then it goes to writing one.
+            (Op::Commit, _) => match self.describe(store).is_empty() {
+                true => "write the message",
+                false => "commit",
+            },
+            (Op::Squash(_), Some(Transfer::Amend { .. })) => "amend",
+            (Op::Squash(_), Some(Transfer::Uncommit { .. } | Transfer::UncommitFiles { .. })) => {
+                "uncommit"
+            }
+            (Op::Squash(_), _) => "squash",
+        }
+    }
+
     /// Where landing puts it, said after a verb: "to a new branch below feature-x".
     pub fn place(&self, store: &Store) -> String {
         let moves_branch = matches!(self.what, Moving::Branch(_));
         match &self.at {
+            Stop::Into(target) => self.squash_place(target, store),
             Stop::In(Destination::Branch(branch)) => {
                 format!("to the top of {}", short_ref(branch))
             }
-            Stop::In(to) => place(to),
+            // A commit by its title, as a squash says what it goes into.
+            Stop::In(Destination::BelowCommit(id)) => {
+                format!("below {}", commit_name(store, &self.project, *id))
+            }
+            Stop::In(Destination::AboveCommit(id)) => {
+                format!("above {}", commit_name(store, &self.project, *id))
+            }
             Stop::NewBranch { beside, below } => {
                 let side = if *below { "below" } else { "above" };
                 match moves_branch {
@@ -354,6 +687,33 @@ impl Move {
                 )
             }
             Stop::Terminal { checkout, slot } => self.terminal_place(checkout, slot, store),
+        }
+    }
+
+    /// Where squashing into `target` puts it, said after its name: "into \"Add parser\"",
+    /// and that only the target's message is kept, when that's so.
+    fn squash_place(&self, target: &Target, store: &Store) -> String {
+        let squashed = self.squashed(store);
+        let into = match (&squashed, target) {
+            (Some(Transfer::Squash { into, .. }), _) => commit_name(store, &self.project, *into),
+            (_, Target::Commit(id)) => commit_name(store, &self.project, *id),
+            (_, Target::Branch(name)) => short_ref(name).into_owned(),
+            (_, Target::Uncommitted(Checkout::Main)) => "uncommitted changes".into(),
+            (_, Target::Uncommitted(Checkout::Linked(name))) => {
+                format!("{name}'s uncommitted changes")
+            }
+        };
+        let whole = matches!(target, Target::Branch(name) if self.squashes_whole(name));
+        let into = match whole {
+            true => "into one commit".to_owned(),
+            false => format!("into {into}"),
+        };
+        match squashed {
+            Some(Transfer::Squash {
+                keep: Messages::Target,
+                ..
+            }) => format!("{into}, keeping only its message"),
+            _ => into,
         }
     }
 
@@ -387,6 +747,11 @@ impl Move {
             false => format!("{at} in {worktree}"),
         }
     }
+}
+
+/// Commit `id` of `project` by its title, or by its short id when it has none.
+fn commit_name(store: &Store, project: &ProjectId, id: CommitId) -> String {
+    Cut::Commit(project.clone(), Arc::from([id])).describe(store)
 }
 
 /// Project `id`'s name, or its id once it's gone.
@@ -453,7 +818,10 @@ impl Transfer {
                     .iter()
                     .all(|id| uncommits_into(store, project, *id, target) && !conflicted(*id)) =>
             {
-                Transfer::Uncommit(ids.clone())
+                Transfer::Uncommit {
+                    ids: ids.clone(),
+                    emptied: None,
+                }
             }
             (Cut::Commit(_, ids), Selection::Branch(_, Some(branch))) => {
                 let to = Destination::Branch(branch.clone());
@@ -474,6 +842,8 @@ impl Transfer {
                         return clean.then(|| Transfer::Squash {
                             ids: ids.clone(),
                             into: *target_id,
+                            keep: Messages::Both,
+                            emptied: None,
                         });
                     }
                     Place::Below => Destination::BelowCommit(*target_id),
@@ -600,7 +970,7 @@ impl Transfer {
     /// What a drop does, said in the drag's pill: the row under the pointer shows where.
     pub fn verb(&self) -> &'static str {
         match self {
-            Transfer::Uncommit(_) | Transfer::UncommitFiles { .. } => "Uncommit",
+            Transfer::Uncommit { .. } | Transfer::UncommitFiles { .. } => "Uncommit",
             Transfer::MoveCommit {
                 to: Destination::Branch(_),
                 ..
@@ -625,7 +995,7 @@ impl Transfer {
     /// A short verb phrase for hints, like "Squash into a1b2c3d".
     pub fn describe(&self) -> SharedString {
         match self {
-            Transfer::Uncommit(_) | Transfer::UncommitFiles { .. } => "Uncommit".into(),
+            Transfer::Uncommit { .. } | Transfer::UncommitFiles { .. } => "Uncommit".into(),
             Transfer::MoveCommit { to, .. } => format!("Move {}", place(to)).into(),
             Transfer::CherryPick { to, .. } => format!("Cherry-pick {}", place(to)).into(),
             Transfer::StackBranch { onto, .. } => format!("Stack on {}", short_ref(onto)).into(),
@@ -644,7 +1014,8 @@ impl Transfer {
     }
 
     /// Carry it out. Staging only changes the composer, so it comes back to the caller.
-    /// Do it in `project`, landing the move with the keys `lands` if it's a branch's.
+    /// Do it in `project`, landing the move with the keys `lands` if it's one of commits or a
+    /// branch, as it showed them until the reload shows where they went.
     pub fn perform(
         self,
         project: &SharedString,
@@ -652,7 +1023,7 @@ impl Transfer {
         store: &mut Store,
         cx: &mut Context<Store>,
     ) -> Option<(FullName, Arc<[Selected]>)> {
-        let lands = lands.filter(|moving| matches!(moving.what, Moving::Branch(_)));
+        let lands = lands.filter(Move::of_commits);
         // The pill's verb names it without a branch or commit.
         let label = Label::new(self.verb(), self.describe());
         // Picked commits that moved, or went into one, are no longer what's picked.
@@ -662,7 +1033,7 @@ impl Transfer {
             store.picked.clear();
         }
         match self {
-            Transfer::Uncommit(ids) => store.uncommit(project, ids, cx),
+            Transfer::Uncommit { ids, emptied } => store.uncommit(project, ids, emptied, cx),
             Transfer::UncommitFiles { from, files } => {
                 // Where they land is selected, as the TUI goes on to it.
                 let landed = (store.checkout_of(&Selection::Commit(project.clone(), from)))
@@ -685,13 +1056,20 @@ impl Transfer {
                     cx,
                 )
             }
-            // It leaves where it was and shows dimmed where it goes.
+            // It leaves where it was and shows dimmed where it goes, unless a move with the keys
+            // lands it, which shows it as it was.
             Transfer::MoveCommit { ids, to } => store.apply(
                 project,
                 label,
-                Overlay {
-                    new_commit: store.arriving(project, &ids, &to),
-                    ..Overlay::commits(ids.iter().filter_map(|id| store.key_of(project, *id)))
+                match lands {
+                    Some(lands) => Overlay {
+                        lands: Some(lands),
+                        ..Overlay::default()
+                    },
+                    None => Overlay {
+                        new_commit: store.arriving(project, &ids, &to),
+                        ..Overlay::commits(ids.iter().filter_map(|id| store.key_of(project, *id)))
+                    },
                 },
                 backend::MoveCommits { commits: ids, to },
                 move |store, rewritten, cx| {
@@ -740,7 +1118,20 @@ impl Transfer {
                 },
                 cx,
             ),
-            Transfer::Squash { ids, into } => store.squash(project, ids, into, cx),
+            Transfer::Squash {
+                ids,
+                into,
+                keep,
+                emptied,
+            } => {
+                let squash = backend::Squash {
+                    commits: ids,
+                    into,
+                    keep,
+                    emptied,
+                };
+                store.squash(project, squash, cx)
+            }
             Transfer::Amend {
                 into,
                 files,
@@ -1195,6 +1586,7 @@ mod tests {
             project: b.clone(),
             what: Moving::Project(order.clone()),
             at: Stop::Card(slot),
+            op: Op::Move,
         };
         assert_eq!(
             at(CardSlot::Before(a.clone())).project_order(),

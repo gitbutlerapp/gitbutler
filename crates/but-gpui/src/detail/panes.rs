@@ -458,17 +458,18 @@ impl Detail {
                 theme,
             )
         } else if !self.composing {
-            let target = self.effective_target(project, cx);
+            // Where c or this would place it first, as the navigator then shows it.
+            let target = self.start_target(project, checkout, cx);
             let target = match (target.as_ref(), checkout) {
                 (Some(target), _) => format!("Commit to {}", short_ref(target)),
-                (None, Checkout::Main) => "Commit to a new branch".to_owned(),
+                (None, Checkout::Main) => "Commit to a new independent branch".to_owned(),
                 (None, Checkout::Linked(_)) => "No branch of its own checked out".to_owned(),
             };
             let open = button("open-composer", "Commit…")
                 .small()
                 .min_width(dp(super::COMMIT_BUTTON_WIDTH))
-                .tooltip_for("Write a commit message", &StartCommit)
-                .on_click(cx.listener(|this, _, window, cx| this.focus_message(window, cx)));
+                .tooltip_for("Commit, choosing where in the navigator", &StartCommit)
+                .on_click(|_, window, cx| window.dispatch_action(Box::new(StartCommit), cx));
             footer(target, [open], theme)
         } else {
             self.render_composer(project, files, theme, window, cx)

@@ -98,6 +98,7 @@ actions!(
         ToggleFiles,
         FilterFiles,
         ToggleCheck,
+        WriteMessage,
     ]
 );
 
@@ -345,6 +346,9 @@ pub struct Detail {
     message: Entity<MessageEditor>,
     /// The branch (full ref) new commits go to; `None` creates a branch.
     commit_target: Option<FullName>,
+    /// What the new branch the commit being placed goes in is named, as typed when it was
+    /// picked, made only with the commit.
+    new_branch_name: Option<String>,
     checks: composer::Checks,
     /// The checks of the other checkouts looked at, by project and checkout, kept for coming
     /// back to them.
@@ -658,6 +662,10 @@ impl Detail {
             ),
             cx.subscribe_in(&message, window, |this, _, event, window, cx| match event {
                 InputEvent::Submit => this.commit(window, cx),
+                // While the navigator places the commit, back to that.
+                InputEvent::Cancel if this.committing(cx).is_some() => {
+                    this.back_to_placing(window, cx)
+                }
                 InputEvent::Cancel => this.leave_composer(window, cx),
                 // The input draws itself; nothing here shows the message, and notifying
                 // would redraw the diff on every keystroke.
@@ -747,6 +755,7 @@ impl Detail {
             listed_cursor_row: Default::default(),
             message,
             commit_target: None,
+            new_branch_name: None,
             checks: Default::default(),
             other_checks: HashMap::new(),
             other_targets: HashMap::new(),
@@ -2059,6 +2068,35 @@ impl Detail {
         }
     }
 
+    /// Move the cursor past what it's on, to the next of its kind: from a file's header to the
+    /// next file's, from a hunk to the next hunk, in its file or after, as checking one goes on.
+    pub(super) fn move_past(&mut self, cx: &mut Context<Self>) {
+        let Some(diff) = &self.diff else {
+            return;
+        };
+        let from = self.cursor;
+        let next_of_kind = |cursor: &Cursor| match from.at {
+            Stop::File => cursor.at == Stop::File && cursor.file != from.file,
+            Stop::Hunk(_) | Stop::Gap(_) => {
+                matches!(cursor.at, Stop::Hunk(_))
+                    && (cursor.file, cursor.at.near()) != (from.file, from.at.near())
+            }
+        };
+        let mut at = self.cursor_row().unwrap_or(0);
+        let next = std::iter::from_fn(|| {
+            let (cursor, row) =
+                next_stop(&diff.rows, at, true, |row, entry| self.stop_at(row, entry))?;
+            at = row;
+            Some(cursor)
+        })
+        .find(next_of_kind);
+        if let Some(cursor) = next {
+            self.cursor = cursor;
+            self.reveal_cursor(cx);
+            cx.notify();
+        }
+    }
+
     /// Where the cursor's file and hunk sit in freshly loaded `files`, so a reload never
     /// leaves it pointing at a different file or a hunk that's gone.
     fn cursor_in(&self, files: &[FileDiff]) -> Cursor {
@@ -2219,12 +2257,9 @@ impl Detail {
 
     /// Commit what the open composer has once its message is written; until then, go to
     /// the message box.
-    pub fn commit_or_write(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.composing {
-            self.commit(window, cx)
-        } else {
-            self.focus_message(window, cx)
-        }
+    /// The box the composer's message is written in.
+    pub(crate) fn message_editor(&self) -> Entity<MessageEditor> {
+        self.message.clone()
     }
 
     /// Commit to `branch` of `project` next: a branch just made is where its commits go, as
@@ -2236,6 +2271,7 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         if self.checks_project.as_ref() == Some(project) {
+            self.place_on(&branch, cx);
             self.commit_target = Some(branch);
             cx.notify();
         }
@@ -3060,7 +3096,7 @@ impl Render for Detail {
                     .into_any_element()
             }
         };
-        let context = self.key_context();
+        let context = self.key_context(cx);
         v_flex()
             .id("detail")
             .key_context(context)
@@ -3079,7 +3115,7 @@ impl Render for Detail {
                     ))
                 },
             )
-            .when(context != "Diff", |el| resolve::conflict_keys(el, cx))
+            .when(self.shows_conflicts(), |el| resolve::conflict_keys(el, cx))
             .track_focus(&self.focus)
             .on_action(cx.listener(|this, _: &NextFile, window, cx| {
                 if !this.down_from_tabs(window, cx) {
@@ -3170,6 +3206,11 @@ impl Render for Detail {
                 el.on_action(cx.listener(|this, _: &ToggleCheck, window, cx| {
                     this.toggle_cursor_check(window, cx)
                 }))
+                .on_action(
+                    cx.listener(|this, _: &WriteMessage, window, cx| {
+                        this.focus_message(window, cx)
+                    }),
+                )
             })
             .size_full()
             .bg(theme.bg_1)
