@@ -16,6 +16,7 @@
 //! click 120 300           # also dclick and tclick; append `cmd`, `alt` or `shift` to
 //!                         # hold them
 //! rclick 120 300
+//! fclick 120 300          # the click that brings the window in front, which only does that
 //! press 120 300           # press the left button there and keep it down, so `move`s
 //!                         # drag with frames between them, as a hand does
 //! drag 120 300 120 500    # append `cmd`, `alt` or `shift` to hold them on letting go, and
@@ -886,7 +887,7 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
         "press" => {
             let at = at()?;
             window.dispatch_event(
-                mouse_down(MouseButton::Left, at, Modifiers::default(), 1),
+                mouse_down(MouseButton::Left, at, Modifiers::default(), 1, false),
                 cx,
             );
             PRESSED.store(true, Ordering::Relaxed);
@@ -921,7 +922,7 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 cx,
             );
         }
-        "click" | "rclick" | "dclick" | "tclick" => {
+        "click" | "rclick" | "dclick" | "tclick" | "fclick" => {
             let at = at()?;
             let button = if command == "rclick" {
                 MouseButton::Right
@@ -940,7 +941,8 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                     frame(window, cx);
                 }
                 window.dispatch_event(mouse_move(at, None, modifiers), cx);
-                window.dispatch_event(mouse_down(button, at, modifiers, count), cx);
+                let first = command == "fclick";
+                window.dispatch_event(mouse_down(button, at, modifiers, count, first), cx);
                 window.dispatch_event(mouse_up(button, at, modifiers, count), cx);
             }
         }
@@ -953,7 +955,7 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 point(Pixels::from(x2), Pixels::from(y2)),
             );
             let left = MouseButton::Left;
-            window.dispatch_event(mouse_down(left, from, Modifiers::default(), 1), cx);
+            window.dispatch_event(mouse_down(left, from, Modifiers::default(), 1, false), cx);
             for step in 1..=8 {
                 let t = step as f32 / 8.;
                 let at = point(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t);
@@ -1076,13 +1078,14 @@ fn mouse_down(
     position: Point<Pixels>,
     modifiers: Modifiers,
     click_count: usize,
+    first_mouse: bool,
 ) -> PlatformInput {
     PlatformInput::MouseDown(MouseDownEvent {
         button,
         position,
         modifiers,
         click_count,
-        first_mouse: false,
+        first_mouse,
     })
 }
 

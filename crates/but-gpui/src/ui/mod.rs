@@ -23,10 +23,10 @@ use std::borrow::Cow;
 use std::ops::Range;
 
 use gpui::{
-    Action, AnyElement, App, AssetSource, ClickEvent, Context, CursorStyle, Div, DragMoveEvent,
-    ElementId, EmptyView, Entity, HighlightStyle, Hsla, MouseButton, MouseDownEvent, Pixels, Point,
-    Rems, Role, SharedString, Stateful, StyledText, Svg, TextLayout, Toggled, UnderlineStyle,
-    Window, div, prelude::*, rems, svg,
+    Action, AnyElement, App, AssetSource, ClickEvent, Context, CursorStyle, DispatchPhase, Div,
+    DragMoveEvent, ElementId, EmptyView, Entity, HighlightStyle, Hsla, MouseButton, MouseDownEvent,
+    Pixels, Point, Rems, Role, SharedString, Stateful, StyledText, Svg, TextLayout, Toggled,
+    UnderlineStyle, Window, div, prelude::*, rems, svg,
 };
 
 use crate::state::{Pane, Store};
@@ -59,6 +59,14 @@ pub const fn fixed(n: f32) -> Pixels {
 /// menu, as GNOME's title bars do.
 pub fn drags_window(el: Div) -> Div {
     let el = el.window_control_area(gpui::WindowControlArea::Drag);
+    // `holds_back_first_click` lets this one through, so the window drags from here straight
+    // away, as from a title bar.
+    #[cfg(target_os = "macos")]
+    let el = el.capture_any_mouse_down(|event, _, _| {
+        if event.first_mouse {
+            FIRST_CLICK_ON_HEADER.set(true);
+        }
+    });
     #[cfg(not(windows))]
     let el = {
         use std::cell::Cell;
@@ -86,6 +94,50 @@ pub fn drags_window(el: Div) -> Div {
         window.show_window_menu(event.position)
     });
     el
+}
+
+thread_local! {
+    /// The click that brought the window in front landed on a header (`drags_window`).
+    static FIRST_CLICK_ON_HEADER: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    /// The window wasn't active when last drawn (`holds_back_first_click`).
+    static DRAWN_INACTIVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Whether `event` is the press that brings the window in front, on macOS, which
+/// `holds_back_first_click` holds back unless it's on a header. GPUI marks it `first_mouse`, but
+/// leaves that on a later press too when a ctrl-click brought the window in front, so it counts
+/// only while the window was last drawn inactive: GPUI hears that the window is active only after
+/// handling the press that made it so.
+pub fn brings_window_in_front(event: &MouseDownEvent) -> bool {
+    cfg!(target_os = "macos") && event.first_mouse && DRAWN_INACTIVE.get()
+}
+
+/// Holds back the click that brings the window in front, as macOS apps do, so it doesn't also
+/// press what's under it: GPUI passes it on (`acceptsFirstMouse`). A header still takes it, to
+/// drag the window. Drawn after everything else, as listeners run in the order they're drawn
+/// while an event is captured, so the headers' run first, as does a menu's that closes it on a
+/// press outside. Other capture listeners see it too, so one that acts checks
+/// `brings_window_in_front`.
+pub fn holds_back_first_click() -> impl IntoElement {
+    gpui::deferred(
+        gpui::canvas(
+            |_, _, _| {},
+            |_, (), window, _| {
+                DRAWN_INACTIVE.set(!window.is_window_active());
+                window.on_mouse_event(|event: &MouseDownEvent, phase, _, cx| {
+                    if phase == DispatchPhase::Capture && event.first_mouse {
+                        let on_header = FIRST_CLICK_ON_HEADER.take();
+                        if brings_window_in_front(event) && !on_header {
+                            cx.stop_propagation();
+                        }
+                    }
+                });
+            },
+        )
+        .absolute()
+        .inset_0(),
+    )
+    .with_priority(usize::MAX)
 }
 
 /// `el`, in a header the window is dragged by, still taking its own clicks: the drag area under

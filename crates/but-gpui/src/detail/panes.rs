@@ -1483,14 +1483,15 @@ pub(super) fn step_from<T>(items: &[T], at: Option<usize>, delta: isize) -> Opti
 }
 
 /// For `on_mouse_down_out` of a card on a list page that takes the focus with `focus`, as the
-/// People card does: a click anywhere else gives the focus back to the page's list.
+/// People card does: a click anywhere else gives the focus back to the page's list, but for the
+/// one that only brings the window in front.
 pub(super) fn back_to_list(
     focus: &FocusHandle,
     cx: &Context<Detail>,
 ) -> impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static {
     let focus = focus.clone();
-    cx.listener(move |this, _, window, cx| {
-        if focus.is_focused(window) {
+    cx.listener(move |this, event, window, cx| {
+        if focus.is_focused(window) && !crate::ui::brings_window_in_front(event) {
             window.focus(&this.side_focus, cx);
         }
     })
