@@ -606,6 +606,31 @@ fn poolside_skill_paths_follow_scope() {
 }
 
 #[test]
+fn amp_installs_where_it_loads_skills_and_reads_agents_md() {
+    assert_eq!(
+        AgentTarget::from_detected(detect_agent::Agent::Amp),
+        Some(AgentTarget::Amp)
+    );
+    // These are the locations the skill freshness check looks in for Amp.
+    assert_eq!(
+        AgentTarget::Amp.skill_path_components(Scope::Global),
+        Some(&[".config", "agents", "skills", "gitbutler"][..])
+    );
+    assert_eq!(
+        AgentTarget::Amp.skill_path_components(Scope::Repository),
+        Some(&[".agents", "skills", "gitbutler"][..])
+    );
+    assert_eq!(
+        AgentTarget::Amp.global_instruction_components(),
+        Some(&[".config", "amp", "AGENTS.md"][..])
+    );
+    assert_eq!(
+        AgentTarget::Amp.shared_instruction_components(),
+        &["AGENTS.md"][..]
+    );
+}
+
+#[test]
 fn skill_installs_global_only_uses_home_paths() {
     let installs = collect_skill_installs(
         &[
