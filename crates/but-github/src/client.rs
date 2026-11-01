@@ -513,6 +513,26 @@ impl GitHubClient {
             .collect())
     }
 
+    /// List the reactions on a pull request's description, oldest first.
+    pub async fn list_pull_request_reactions(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+    ) -> Result<Vec<Reaction>> {
+        let url = format!(
+            "{}/repos/{}/{}/issues/{}/reactions",
+            self.base_url, owner, repo, pr_number
+        );
+
+        Ok(self
+            .get_all_pages::<GitHubReactionApi>(&url, 10)
+            .await?
+            .into_iter()
+            .map(Reaction::from)
+            .collect())
+    }
+
     /// List the submitted reviews on a pull request (approvals, change
     /// requests, review comments), oldest first, each with its reactions.
     ///

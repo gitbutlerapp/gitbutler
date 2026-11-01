@@ -9,7 +9,7 @@ use gpui::{Context, Task};
 
 use super::{ProjectId, Reload, Store};
 use crate::backend::reviews::{self, MergeStatus};
-use crate::backend::{self, Checks, Remark, Review};
+use crate::backend::{self, Checks, Conversation, Review};
 
 /// How long Later puts the update card off. It comes back after, as updates shouldn't wait
 /// for good.
@@ -30,7 +30,7 @@ pub(super) struct ConversationRead {
     asked_for: (Option<i64>, Option<i64>),
     /// `None` until it answers. A failure shows only until a read works: after that, what
     /// was read last stays while the forge can't be asked, which the tab's banner says.
-    said: Option<Result<Vec<Remark>, String>>,
+    said: Option<Result<Conversation, String>>,
 }
 
 impl Store {
@@ -351,7 +351,7 @@ impl Store {
         &self,
         project: &ProjectId,
         number: u64,
-    ) -> Option<&Result<Vec<Remark>, String>> {
+    ) -> Option<&Result<Conversation, String>> {
         (self.conversation_reads.get(&(project.clone(), number)))?
             .said
             .as_ref()

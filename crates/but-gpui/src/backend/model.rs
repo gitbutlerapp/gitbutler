@@ -396,6 +396,24 @@ pub enum CheckState {
     Skipped,
 }
 
+/// What's been said on a pull request: who reacted to its description, and its remarks,
+/// newest first.
+#[derive(Debug, Clone)]
+pub struct Conversation {
+    pub reactions: Vec<Reaction>,
+    pub remarks: Vec<Remark>,
+}
+
+/// One kind of reaction to a pull request's description and who left it, as an agent
+/// reviewer's 👀 while it reads and 👍 once it found nothing.
+#[derive(Debug, Clone)]
+pub struct Reaction {
+    pub emoji: String,
+    /// How many left it, counting those the forge no longer names.
+    pub count: usize,
+    pub people: Vec<ForgeUser>,
+}
+
 /// One part of what's been said on a pull request, as its conversation shows it.
 #[derive(Debug, Clone)]
 pub enum Remark {

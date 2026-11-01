@@ -1341,6 +1341,37 @@ pub struct ForgeReviewReaction {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(ForgeReviewReaction);
 
+/// List the reactions on a review's description, oldest first. Each call
+/// hits the forge fresh (no DB cache).
+pub async fn list_review_reactions(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    storage: &but_forge_storage::Controller,
+) -> Result<Vec<ForgeReviewReaction>> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let reactions = but_github::pr::list_reactions(
+                preferred_account,
+                owner,
+                repo,
+                review_number,
+                storage,
+            )
+            .await?;
+            Ok(github_reactions(reactions))
+        }
+        // Read as empty rather than erroring; see list_review_comments.
+        _ => Ok(Vec::new()),
+    }
+}
+
 fn github_reactions(reactions: Vec<but_github::Reaction>) -> Vec<ForgeReviewReaction> {
     reactions.into_iter().map(github_reaction).collect()
 }

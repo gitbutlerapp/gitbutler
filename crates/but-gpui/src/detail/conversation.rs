@@ -58,7 +58,7 @@ impl Detail {
                     .tooltip(Tooltip::text(error_summary(err)))
                     .into_any_element(),
             ),
-            Some(Ok(remarks)) if remarks.is_empty() => {
+            Some(Ok(said)) if said.remarks.is_empty() => {
                 Some(quiet("No comments").into_any_element())
             }
             Some(Ok(_)) => None,
@@ -86,7 +86,7 @@ impl Detail {
         let store = self.store.read(cx);
         let github = store.workspace(project).and_then(|ws| ws.forge) == Some(Forge::GitHub);
         match store.conversation(project, number) {
-            Some(Ok(remarks)) if github => remarks.len(),
+            Some(Ok(said)) if github => said.remarks.len(),
             _ => 0,
         }
     }
@@ -100,10 +100,51 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<Div> {
-        let Some(Ok(remarks)) = self.store.read(cx).conversation(project, number) else {
+        let Some(Ok(said)) = self.store.read(cx).conversation(project, number) else {
             return None;
         };
-        Some(self.remark(remarks.get(ix)?, theme, cx))
+        Some(self.remark(said.remarks.get(ix)?, theme, cx))
+    }
+
+    /// The reactions to the description of pull request `number` of `project`, as GitHub's:
+    /// a pill of each kind with how many left it, named in its tooltip.
+    pub(super) fn reactions(
+        &self,
+        project: &ProjectId,
+        number: u64,
+        theme: &Theme,
+        cx: &App,
+    ) -> Option<Div> {
+        let Some(Ok(said)) = self.store.read(cx).conversation(project, number) else {
+            return None;
+        };
+        if said.reactions.is_empty() {
+            return None;
+        }
+        let pills = said.reactions.iter().map(|reaction| {
+            let names: Vec<_> = (reaction.people.iter())
+                .map(|person| person.login.as_str())
+                .collect();
+            h_flex()
+                .id(ElementId::Name(
+                    format!("reaction-{}", reaction.emoji).into(),
+                ))
+                .h(dp(24.))
+                .px(dp(8.))
+                .gap(dp(5.))
+                .rounded_full()
+                .border_1()
+                .border_color(theme.border_2)
+                .text_size(dp(12.))
+                .child(reaction.emoji.clone())
+                .child(
+                    div()
+                        .text_color(theme.text_2)
+                        .child(reaction.count.to_string()),
+                )
+                .tooltip(Tooltip::text(names.join(", ")))
+        });
+        Some(h_flex().flex_wrap().gap(dp(6.)).children(pills))
     }
 
     /// A comment or review as Lite's card, or a thread, set in under the review that started it.
