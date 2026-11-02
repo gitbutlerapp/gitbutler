@@ -20,9 +20,11 @@ needs a fourth level needs fewer levels.
 a space. Prose links keep the kit's blue, so their hover is the underline going
 solid, not the text lifting.
 
-**A box gets an edge.** Code blocks and inline code sit on `--bg-2`, at
-`--radius-card` and `--radius-control` respectively, in mono 12. A blockquote is
+**A box gets an edge.** Code blocks and inline code sit on `--bg-2` in a 1px
+`--border-section` ring inset, at `--radius-card` and `--radius-control`
+respectively, in mono 12; the ring gives code the same edge as a card beside it,
+and keeps it from vanishing on a `--bg-2` panel. A blockquote is
 a 3px `--border-2` bar with `--text-2` text. An image takes a 1px
-`--card-border` ring inset inside `--radius-card` corners, so a white
+`--border-section` ring inset inside `--radius-card` corners, so a white
 screenshot has an edge on a white panel, and opens externally on click. A
 table's cells are bordered in `--border-3` under a `--bg-2` header row.

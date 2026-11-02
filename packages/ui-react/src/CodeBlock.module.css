@@ -1,5 +1,5 @@
-/* As Markdown draws a code block (design/patterns/markdown.md): mono 12 on --bg-2, at
-   --radius-card. */
+/* As Markdown draws a code block (design/patterns/markdown.md): mono 12 on --bg-2 in a
+   --border-section ring, at --radius-card. The ring is inset, so the block keeps its size. */
 .block {
 	--code-line-height: calc(12px * 1.6);
 	--code-padding-block: 8px;
@@ -9,6 +9,7 @@
 	overflow: hidden;
 	border-radius: var(--radius-card);
 	background-color: var(--bg-2);
+	box-shadow: inset 0 0 0 1px var(--border-section);
 }
 
 .scroll {

@@ -2,10 +2,18 @@ import preview from "#storybook/preview";
 import { Code } from "./Code.tsx";
 import { EmptyState } from "./EmptyState.tsx";
 
+const figma = (nodeId: string) => ({
+	design: {
+		type: "figma",
+		url: `https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=${nodeId}`,
+	},
+});
+
 const meta = preview.meta({
 	title: "Content & status/Code",
 	id: "components-code",
 	component: Code,
+	parameters: figma("4633-925"),
 });
 
 export const Default = meta.story({
@@ -16,6 +24,7 @@ export const Default = meta.story({
 
 /** A command in a sentence, where it reads as part of the text. */
 export const InText = meta.story({
+	parameters: figma("4633-1011"),
 	render: () => (
 		<p className="text-13" style={{ color: "var(--text-2)" }}>
 			Run <Code>but config forge auth</Code> there to connect GitHub.
