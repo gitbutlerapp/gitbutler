@@ -1400,3 +1400,121 @@ fn remove_references() {
 
     assert_num_snapshots(&ctx, 1);
 }
+
+#[test]
+fn split_commit_is_recorded_with_the_commits_the_transaction_left_behind() {
+    use but_evo::MarkerStore as _;
+
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+    let [two] = find_commits(&env, [":/add file-two"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+
+    let split = |dry_run, ctx: &mut Context, meta: &mut _| {
+        let outcome = with_transaction(
+            ctx,
+            meta,
+            SnapshotDetails::new(OperationKind::MoveCommit),
+            dry_run,
+            |mut tx| {
+                let new_commit = tx.split_commit(
+                    two,
+                    vec![diff_spec_for_file("file-two")],
+                    RelativeTo::Commit(two),
+                    InsertSide::Above,
+                )?;
+                let new_commit = tx.reword_commit(new_commit.id, b"the new half".into())?;
+                let source = tx.get_mapped_commit(two).unwrap();
+                Ok(DynamicOutcome::<_, ()>::Commit((source, new_commit.id)))
+            },
+        )
+        .unwrap();
+        let DynamicOutcome::Commit((result, _workspace)) = outcome else {
+            panic!("transaction should commit");
+        };
+        result
+    };
+
+    split(DryRun::Yes, &mut ctx, &mut meta);
+    assert_eq!(
+        ctx.db.get_cache().unwrap().find_by_prec(two).unwrap(),
+        [],
+        "a dry run never gets as far as recording"
+    );
+
+    let (source, new_commit) = split(DryRun::No, &mut ctx, &mut meta);
+    let markers = ctx.db.get_cache().unwrap().find_by_prec(two).unwrap();
+    assert_eq!(markers.len(), 1, "a split is one hyperedge");
+    assert_eq!(
+        markers[0].succs,
+        [source, new_commit],
+        "the reworded commit is the successor, not the blank or unworded one before it"
+    );
+}
+
+#[test]
+fn a_fold_between_two_splits_is_recorded_with_commits_no_ref_ever_pointed_to() {
+    use but_evo::MarkerStore as _;
+
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+    let [three, two] = find_commits(&env, [":/add file-three", ":/add file-two"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+
+    let _workspace: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::SquashCommit),
+        DryRun::No,
+        |mut tx| {
+            let new_two = tx.split_commit(
+                two,
+                vec![diff_spec_for_file("file-two")],
+                RelativeTo::Commit(two),
+                InsertSide::Above,
+            )?;
+            let new_three = tx.split_commit(
+                three,
+                vec![diff_spec_for_file("file-three")],
+                RelativeTo::Commit(three),
+                InsertSide::Above,
+            )?;
+            tx.squash_commits(
+                [new_three.id],
+                new_two.id,
+                MessageCombinationStrategy::KeepBoth,
+            )?;
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    let db = ctx.db.get_cache().unwrap();
+    let fold_id_of_new_half = |prec| {
+        let split = db.find_by_prec(prec).unwrap();
+        assert_eq!(split.len(), 1, "each commit was split once");
+        let folds: Vec<_> = split[0]
+            .succs
+            .iter()
+            .flat_map(|succ| db.find_by_prec(*succ).unwrap())
+            .collect();
+        assert_eq!(folds.len(), 1, "only the new half was folded");
+        let (_, id) = folds[0].meta.iter().find(|(key, _)| *key == "fold-id")?;
+        Some(id.clone())
+    };
+    assert_eq!(
+        fold_id_of_new_half(two).expect("the new half is part of a fold"),
+        fold_id_of_new_half(three).expect("the new half is part of a fold"),
+        "the two halves were folded together, though only the fold's output has a ref"
+    );
+}

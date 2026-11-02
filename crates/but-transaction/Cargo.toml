@@ -37,6 +37,7 @@ tracing.workspace = true
 
 [dev-dependencies]
 but-api = { workspace = true, features = ["legacy"] }
+but-evo.workspace = true
 but-testsupport = { workspace = true, features = ["sandbox-but-api"] }
 
 snapbox = { workspace = true }
