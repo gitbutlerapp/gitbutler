@@ -40,6 +40,9 @@ const KNOWN_RUNTIME = new Map([
 	// Base UI's scroll area writes the thumb's length on its scrollbar element.
 	["--scroll-area-thumb-height", "@base-ui/react scroll area scrollbar"],
 	["--scroll-area-thumb-width", "@base-ui/react scroll area scrollbar"],
+	// …and on its viewport, how far the content runs past each edge.
+	["--scroll-area-overflow-x-start", "@base-ui/react scroll area viewport"],
+	["--scroll-area-overflow-x-end", "@base-ui/react scroll area viewport"],
 	// Base UI's tabs indicator carries the selected tab's box.
 	["--active-tab-top", "@base-ui/react tabs indicator"],
 	["--active-tab-height", "@base-ui/react tabs indicator"],
