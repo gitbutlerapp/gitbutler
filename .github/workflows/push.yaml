@@ -209,7 +209,39 @@ jobs:
       - name: Install Zig
         uses: $/.github/actions/setup-zig
       - run: cargo fmt --check --all
-      - run: cargo check --workspace --all-targets
+      - name: cargo clippy
+        run: |
+          rustup component add clippy
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo clippy --workspace --all-targets --no-default-features -- -D warnings
+          cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  # Separate from rust-lint so the two run side by side.
+  rust-check-features:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image@sha256:3eaeae1b07072796a53dc1e7585cdc1f462d0b11d10ecd3685c6fa8082d647dd
+    env:
+      CARGO_TERM_COLOR: always
+      # Set for the whole job so the cached dependencies were built with the same flags.
+      RUSTFLAGS: "--deny warnings"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: check-features
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Install Zig
+        uses: $/.github/actions/setup-zig
       - run: |
           # should work without the "legacy" feature
           cargo check -p but-testsupport --all-targets
@@ -227,14 +259,6 @@ jobs:
           cargo check -p but --all-targets --features graph-workspace
           make check-modern-but
         name: Special `cargo check` runs
-        env:
-          RUSTFLAGS: "--deny warnings"
-      - name: cargo clippy
-        run: |
-          rustup component add clippy
-          cargo clippy --workspace --all-targets -- -D warnings
-          cargo clippy --workspace --all-targets --no-default-features -- -D warnings
-          cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   # Find unused cargo dependencies
   cargo-machete:
@@ -401,17 +425,6 @@ jobs:
             -F "tags[language]=rust" \
             -F "tags[type]=unit" \
             https://tests.but.dev/v1/uploads
-      - name: Run workspace tests without nightly
-        if: github.ref == 'refs/heads/master'
-        run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci -E "$NEXTEST_FILTER"
-      # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
-      - run: make test-modern-but
-        if: needs.changes.outputs.rust_core == 'true'
-      - name: test vendored
-        if: needs.changes.outputs.rust_core == 'true'
-        run: |
-          set -x
-          (cd crates/gitbutler-filemonitor/vendor/debouncer && cargo test)
       - name: Assert test hermeticity
         run: |
           if [ -e "$E2E_TEST_APP_DATA_DIR" ]; then
@@ -420,28 +433,27 @@ jobs:
             exit 1
           fi
 
-  rust-test-but-api-macros:
+  # The other feature sets the workspace tests must pass with. These don't vary by
+  # platform, so they run on Linux only and beside rust-test rather than after it.
+  rust-test-variants:
     needs: changes
     if: ${{ needs.changes.outputs.rust_core == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    permissions:
-      contents: read
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         include:
-          - features: ""
-            cache_suffix: default
-          - features: "--features legacy"
-            cache_suffix: legacy
-          - features: "--features tauri"
-            cache_suffix: tauri
-    container:
-      image: ghcr.io/gitbutlerapp/ci-base-image@sha256:3eaeae1b07072796a53dc1e7585cdc1f462d0b11d10ecd3685c6fa8082d647dd
+          - name: without nightly
+            run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci
+          # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
+          - name: make test-modern-but
+            run: make test-modern-but && (cd crates/gitbutler-filemonitor/vendor/debouncer && cargo test)
+    name: rust-test-variants (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       CARGO_TERM_COLOR: always
+      GITBUTLER_TESTS_NO_CLEANUP: "1"
+      E2E_TEST_APP_DATA_DIR: /tmp/hermeticity-guard
     defaults:
       run:
         shell: bash
@@ -452,16 +464,41 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          shared-key: cargo-test-but-api-macros-${{ matrix.cache_suffix }}
-          save-if: ${{ github.ref == 'refs/heads/master' }}
-      - name: Test but-api-macros ${{ matrix.features || '(default)' }}
-        run: cargo test -p but-api-macros-tests ${{ matrix.features }}
+          shared-key: cargo-test-no-tauri-${{ runner.os }}
+          save-if: false
+      - name: Install Zig
+        uses: $/.github/actions/setup-zig
+      - name: Dependencies for 'keyring'
+        run: sudo ./scripts/install-minimal-debian-dependencies.sh
+      - name: Dependencies for the GPUI client
+        run: sudo timeout 300 apt-get install -y --no-install-recommends -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 libxcb1-dev libxkbcommon-x11-dev libfontconfig-dev
+      - name: Install cargo-nextest
+        run: |
+
+          # To update the version of cargo-nextest, replace the version specifier in the `curl` command and update the
+          # checksum.
+          #
+          # Checksums are available as artifacts on GitHub Release (https://github.com/nextest-rs/nextest/releases),
+          # should be called "cargo-nextest-<VERSION>-x86_64-unknown-linux-gnu.sha256"
+          curl -LsSf https://get.nexte.st/0.9.143/linux -o cargo-nextest.tar.gz
+          echo "66786b9abe23920d022a182d1416b1bbc8130dd4872a9553d76985a1708dcd1e  cargo-nextest.tar.gz" | sha256sum -c -
+          tar -xzf cargo-nextest.tar.gz -C ${CARGO_HOME:-~/.cargo}/bin
+          rm cargo-nextest.tar.gz
+      - name: ${{ matrix.name }}
+        run: ${{ matrix.run }}
+      - name: Assert test hermeticity
+        run: |
+          if [ -e "$E2E_TEST_APP_DATA_DIR" ]; then
+            echo "::error::Tests wrote to the user-level app-data dir. Use Context::from_repo_for_testing or but_testsupport::isolated_app_data_dir instead of settings-loading constructors:"
+            find "$E2E_TEST_APP_DATA_DIR"
+            exit 1
+          fi
 
   rust-test-tauri:
     needs: changes
     if: ${{ needs.changes.outputs.rust_core == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     permissions:
       contents: read
       packages: read
@@ -481,6 +518,12 @@ jobs:
         with:
           shared-key: cargo-test-tauri
           save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Test but-api-macros (default)
+        run: cargo test -p but-api-macros-tests
+      - name: Test but-api-macros --features legacy
+        run: cargo test -p but-api-macros-tests --features legacy
+      - name: Test but-api-macros --features tauri
+        run: cargo test -p but-api-macros-tests --features tauri
       - run: |
           set -e
           cargo check -p gitbutler-tauri --no-default-features
@@ -513,8 +556,8 @@ jobs:
       - name: "cargo clippy -p but-gpui -p but-tty"
         run: cargo clippy -p but-gpui -p but-tty --all-targets -- -D warnings
 
-  # Separate from check-rust-windows so the two run side by side: these steps build code,
-  # those only check it, so they share little of their work or their cache.
+  # Separate from check-rust-windows and build-tauri-windows so the three run side by side:
+  # each builds different code, so they share little of their work or their cache.
   test-rust-windows:
     needs: changes
     runs-on: windows-latest
@@ -535,6 +578,25 @@ jobs:
         uses: $/.github/actions/setup-zig
       - name: "cargo test -p but-gpui -p but-tty"
         run: cargo test -p but-gpui -p but-tty
+
+  build-tauri-windows:
+    needs: changes
+    runs-on: windows-latest
+    timeout-minutes: 25
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: cargo-build-tauri-windows
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Install Zig
+        uses: $/.github/actions/setup-zig
       # The desktop app with the native client, as Windows builds ship it: GPUI's and Tauri's
       # resources only clash when the executable links.
       - name: "cargo build -p gitbutler-tauri --features windows,builtin-gpui"
@@ -744,10 +806,12 @@ jobs:
       - changes
       - check-rust-windows
       - test-rust-windows
+      - build-tauri-windows
       - rust-test
-      - rust-test-but-api-macros
+      - rust-test-variants
       - rust-test-tauri
       - rust-lint
+      - rust-check-features
       - cargo-machete
       - cargo-doc
       - build-installer
