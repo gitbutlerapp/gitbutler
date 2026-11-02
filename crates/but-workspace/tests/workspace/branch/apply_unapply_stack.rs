@@ -273,7 +273,7 @@ fn apply_of_an_applied_branch_changes_nothing() -> anyhow::Result<()> {
 }
 
 #[test]
-fn apply_of_an_empty_branch_changes_nothing() -> anyhow::Result<()> {
+fn apply_of_the_target_changes_nothing() -> anyhow::Result<()> {
     let (_tmp, repo, mut meta, mut db) = two_stacks(Default::default())?;
     let before = visualize_commit_graph_all(&repo)?;
 
@@ -282,7 +282,7 @@ fn apply_of_an_empty_branch_changes_nothing() -> anyhow::Result<()> {
     assert_eq!(
         out.status,
         OutcomeStatus::AlreadyApplied,
-        "branch has no commits that aren't in the workspace already"
+        "the target is the base of the workspace, not a lane"
     );
     assert!(
         out.applied_branches.is_empty(),

@@ -319,17 +319,15 @@ pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
             }
         };
     let commits_in_branch = commits_in(editor.repo(), branch_commit_id, target)?;
-    let already_applied = 'already_applied: {
-        if commits_in_branch.is_empty() {
-            break 'already_applied true;
-        }
-        for (parent_selector, _order) in editor.direct_parents(workspace_commit)? {
-            if editor.find_commit_target(parent_selector)?.0 == branch_commit_selector {
-                break 'already_applied true;
+    let already_applied = Some(branch) == editor.target_ref()
+        || 'already_applied: {
+            for (parent_selector, _order) in editor.direct_parents(workspace_commit)? {
+                if Some(parent_selector) == branch_selector {
+                    break 'already_applied true;
+                }
             }
-        }
-        false
-    };
+            false
+        };
     if already_applied {
         // Branch is already applied, perhaps through ensure_workspace_commit() or
         // switch_to_workspace() (or even before this function was invoked)
@@ -348,11 +346,18 @@ pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
     // Check for empty branches and overlaps
     let mut empty_parents = Vec::new();
     for (parent_selector, _order) in editor.direct_parents(workspace_commit)? {
-        let parent_commit_id = editor.find_commit_target(parent_selector)?.1.id;
-        if Some(parent_commit_id) == target {
+        // The target commit, or the target branch pointing at it, only stands in for the target
+        // in a workspace without lanes.
+        let is_target = Some(parent_selector) == editor.target_selector()
+            || matches!(
+                editor.lookup_step(parent_selector)?,
+                Step::Reference { refname, .. } if Some(refname.as_ref()) == editor.target_ref()
+            );
+        if is_target {
             empty_parents.push(parent_selector);
             continue;
         }
+        let parent_commit_id = editor.find_commit_target(parent_selector)?.1.id;
         let overlap: Vec<gix::ObjectId> = commits_in_branch
             .intersection(&commits_in(editor.repo(), parent_commit_id, target)?)
             .copied()
