@@ -3988,6 +3988,82 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn unstack_branch_with_worktree_branch_at_common_base() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-dependent-branches");
+    env.setup_metadata(&["A", "B"]);
+    env.but("worktree new wt").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   wwm add B
+┊│
+┊├┄ h0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ wt:@ [uncommitted] {wt} (no changes)
+┊├┄ wt [wt] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move B --unstack")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Unstacked branch 'B'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   wwm add B
+├╯
+┊
+┊╭┄ wt:@ [uncommitted] {wt} (no changes)
+┊├┄ wt [wt] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   e2a1cc0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 05d3df1 (B) add B
+* | 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, wt, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+#[test]
 fn unstack_file() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
     env.setup_metadata(&["A"]);

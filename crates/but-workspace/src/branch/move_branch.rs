@@ -73,14 +73,12 @@ pub(super) mod function {
             None
         };
         let target_selector = if managed {
-            let lower_bound_ref = workspace
-                .lower_bound_segment_id
-                .map(|segment_id| &workspace.graph[segment_id])
-                .and_then(|segment| segment.ref_name())
+            // The commit, not a reference to it: when several refs point at the common base,
+            // like branches checked out in linked worktrees, none owns it.
+            let lower_bound = workspace
+                .lower_bound
                 .context("Tearing off a branch requires a workspace common base")?;
-            editor
-                .select_reference(lower_bound_ref)
-                .context("Failed to find target reference in graph.")?
+            editor.select_commit(lower_bound)?
         } else {
             let target = workspace
                 .target_commit
