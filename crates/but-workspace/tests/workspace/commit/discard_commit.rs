@@ -1,13 +1,82 @@
 use anyhow::Result;
 use but_rebase::graph_rebase::Editor;
 use but_testsupport::{graph_workspace, visualize_commit_graph_all};
-use but_workspace::commit::discard_commits;
-use snapbox::IntoData;
+use but_workspace::commit::{discard_commits, squash_commits};
+use snapbox::{IntoData, ToDebug as _};
 
 use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack_with_segments, named_writable_scenario_with_description,
     named_writable_scenario_with_description_and_graph,
 };
+
+#[test]
+fn discarding_records_a_prune_and_a_replace_of_what_was_above() -> Result<()> {
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
+        named_writable_scenario_with_description_and_graph("reword-three-commits", |_| {})?;
+    let two = repo.rev_parse_single("two")?.detach();
+
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let outcome = discard_commits(editor, [two])?;
+
+    // `three` only moved onto `one`, while `two` is gone with nothing to replace it.
+    snapbox::assert_data_eq!(
+        outcome.rewrites()?.to_debug(),
+        snapbox::str![[r#"
+[
+    Prune {
+        prec: Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d),
+    },
+    Replace {
+        prec: Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae),
+        succ: Sha1(0c38dd9dc46c474c74af218c7d1e557246aa584e),
+    },
+]
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn discarding_the_output_of_a_fold_prunes_only_that_commit() -> Result<()> {
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
+        named_writable_scenario_with_description_and_graph("reword-three-commits", |_| {})?;
+    let three = repo.rev_parse_single("three")?.detach();
+    let two = repo.rev_parse_single("two")?.detach();
+
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let squashed = squash_commits(
+        editor,
+        vec![three],
+        two,
+        squash_commits::MessageCombinationStrategy::KeepBoth,
+    )?;
+    let squashed_id = squashed.rebase.lookup_commit(squashed.commit_selector)?.id;
+    let outcome = discard_commits(squashed.rebase.into_editor(), [squashed_id])?;
+
+    // The originals were folded, and it's what they became that is gone.
+    snapbox::assert_data_eq!(
+        outcome.rewrites()?.to_debug(),
+        snapbox::str![[r#"
+[
+    Fold {
+        precs: [
+            Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d),
+            Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae),
+        ],
+        succ: Sha1(38b324344688fb48822cb0865a175193e8c96f15),
+    },
+    Prune {
+        prec: Sha1(38b324344688fb48822cb0865a175193e8c96f15),
+    },
+]
+
+"#]]
+    );
+    Ok(())
+}
 
 #[test]
 fn discard_middle_commit_in_non_managed_workspace() -> Result<()> {

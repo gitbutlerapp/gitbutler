@@ -31,7 +31,7 @@ pub fn discard_commits<'ws, 'meta, M: RefMetadata>(
         };
 
         editor.disconnect_segment_from(delimiter, SelectorSet::All, SelectorSet::All, false)?;
-        editor.replace_with_none(selector)?;
+        editor.prune(selector)?;
     }
 
     if count == 0 {

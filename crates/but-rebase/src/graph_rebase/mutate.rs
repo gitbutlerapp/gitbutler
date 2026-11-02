@@ -8,7 +8,8 @@ use petgraph::{Direction, algo::has_path_connecting, visit::EdgeRef};
 use serde::{Deserialize, Serialize};
 
 use crate::graph_rebase::{
-    Checkout, Edge, Editor, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector, ToSelector,
+    Checkout, Edge, Editor, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector,
+    ToSelector, rewrites::Succession,
 };
 
 /// Describes where relative to the selector a step should be inserted
@@ -371,6 +372,18 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             self.replace_with_none(subject)?;
         }
         self.emerge(target, precs)
+    }
+
+    /// Replaces `target` with [Step::None], recording that it's gone without a replacement.
+    pub fn prune(&mut self, target: impl ToCommitSelector) -> Result<()> {
+        let target = target.to_commit_selector(self)?;
+        if let Some(prec) = self.consume(target)? {
+            self.history
+                .successions
+                .push(Succession { prec, succ: None });
+        }
+        self.replace_with_none(target)?;
+        Ok(())
     }
 
     fn consume(&mut self, target: impl ToCommitSelector) -> Result<Option<gix::ObjectId>> {

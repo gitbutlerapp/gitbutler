@@ -37,11 +37,11 @@ impl Lineage {
     }
 }
 
-/// A commit and what it turned into.
+/// A commit and what it turned into, which is nothing if it was pruned.
 #[derive(Debug, Clone)]
 pub(crate) struct Succession {
     pub(crate) prec: gix::ObjectId,
-    pub(crate) succ: gix::ObjectId,
+    pub(crate) succ: Option<gix::ObjectId>,
 }
 
 impl RevisionHistory {
@@ -63,7 +63,7 @@ impl RevisionHistory {
         self.successions
             .extend(precs.into_iter().map(|prec| Succession {
                 prec,
-                succ: pick.id,
+                succ: Some(pick.id),
             }));
         Some(pick.id)
     }
@@ -98,6 +98,10 @@ impl Incidence {
         }
     }
 
+    fn prune(&mut self, prec: gix::ObjectId) {
+        self.succs.entry(prec).or_default();
+    }
+
     fn is_fold(&self, succ: &gix::ObjectId) -> bool {
         let precs = &self.precs[succ];
         precs.len() > 1 && precs.iter().all(|prec| self.succs[prec].len() == 1)
@@ -116,6 +120,7 @@ impl Incidence {
             .succs
             .iter()
             .filter_map(|(prec, succs)| match succs.as_slice() {
+                [] => Some(Rewrite::Prune { prec: *prec }),
                 [succ] if succ == prec || self.is_fold(succ) => None,
                 [succ] => Some(Rewrite::Replace {
                     prec: *prec,
@@ -153,7 +158,10 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
             }
         }
         for Succession { prec, succ } in &self.history.successions {
-            incidence.connect(*prec, *succ);
+            match succ {
+                Some(succ) => incidence.connect(*prec, *succ),
+                None => incidence.prune(*prec),
+            }
         }
         Ok(incidence.into_rewrites())
     }
