@@ -172,6 +172,9 @@ impl Navigator {
         reorders: bool,
         cx: &Context<Self>,
     ) -> Stateful<Div> {
+        if !self.drags(cx) {
+            return el;
+        }
         let navigator = cx.entity().downgrade();
         let preview = project_preview(label);
         let drag = ProjectDrag {
@@ -337,6 +340,9 @@ impl Navigator {
         chip: SharedString,
         cx: &Context<Self>,
     ) -> Stateful<Div> {
+        if !self.drags(cx) {
+            return el;
+        }
         let navigator = cx.entity().downgrade();
         let preview = drag_preview(self.store.clone(), chip);
         let dragged = (project.clone(), name.to_owned());
@@ -389,11 +395,12 @@ impl Navigator {
         self.hold_worktree(project, name.as_ref(), slot, cx);
     }
 
-    /// Whether a drop on row `item` lands there: always, but while a linked worktree is dragged
-    /// by its heading, only on its own rows, and only while it's where it was.
+    /// Whether a drop on row `item` lands there: as [`Self::drops`] says, but while a linked
+    /// worktree is dragged by its heading, only on its own rows, and only while it's where it
+    /// was.
     pub(super) fn takes_drop(&self, item: &Selection, store: &Store) -> bool {
         let Some((project, name)) = &self.dragged_worktree else {
-            return true;
+            return self.drops(store);
         };
         let own = match item {
             Selection::Checkout(_, Checkout::Linked(heading)) => heading == name,
@@ -401,6 +408,13 @@ impl Navigator {
                 .is_some_and(|ws| in_checkout(store, item, ws, &Checkout::Linked(name.clone()))),
         };
         item.project() == project && own && !worktree_held(self.dragged_worktree.as_ref(), store)
+    }
+
+    /// Whether what's dragged can land on the rows: not while something is being moved, which
+    /// a click puts where it goes instead, but a linked worktree dragged by its heading, which
+    /// moves it as it goes.
+    pub(super) fn drops(&self, store: &Store) -> bool {
+        store.moving.is_none() || self.dragged_worktree.is_some()
     }
 
     /// Let go of the linked worktree dragged by its heading where it's shown, as Return lands
@@ -421,6 +435,9 @@ impl Navigator {
         id: TerminalId,
         cx: &Context<Self>,
     ) -> Stateful<Div> {
+        if !self.drags(cx) {
+            return el;
+        }
         let navigator = cx.entity().downgrade();
         let preview = terminal_preview(self.store.clone());
         let drag = TerminalDrag {

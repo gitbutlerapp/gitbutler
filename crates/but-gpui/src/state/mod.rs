@@ -255,6 +255,10 @@ pub enum StoreEvent {
     AuthorMissing(ProjectId),
     /// A terminal was opened and selected, to type in.
     TerminalOpened,
+    /// This was asked to be selected by hand while a move was under way, which keeps the
+    /// selection on what it moves: the move goes toward it instead, as a click on its row puts
+    /// it, or where it'd land blinks where it can't, to say it's still on.
+    MoveToward(Selection),
 }
 
 /// An error card's button: its label, and what it runs.
@@ -1009,10 +1013,22 @@ impl Store {
     /// Select `selection`, or with it selected already, take its page back to how it opens.
     pub fn reopen(&mut self, selection: Selection, cx: &mut Context<Self>) {
         let again = self.selection.as_ref() == Some(&selection);
-        self.select(Some(selection), cx);
-        if again {
+        if self.select_by_hand(selection, cx) && again {
             cx.emit(StoreEvent::Reopened);
         }
+    }
+
+    /// Select `selection` as the user asked, from a row, a crumb or a link, and say whether it
+    /// was. While a move is under way the selection stays on what it moves, so nothing the user
+    /// goes to ends it, only Escape or Return: the move goes toward it instead
+    /// ([`StoreEvent::MoveToward`]).
+    pub fn select_by_hand(&mut self, selection: Selection, cx: &mut Context<Self>) -> bool {
+        if (self.moving.as_ref()).is_some_and(|moving| !moving.holds(&selection)) {
+            cx.emit(StoreEvent::MoveToward(selection));
+            return false;
+        }
+        self.select(Some(selection), cx);
+        true
     }
 
     /// ⌘-click picks `id` along with the selected commit, or drops it from the picks;

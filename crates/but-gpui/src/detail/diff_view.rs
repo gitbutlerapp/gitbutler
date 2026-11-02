@@ -1849,7 +1849,7 @@ fn row_blink(n: usize, last: bool, theme: &Theme) -> impl IntoElement {
         .left(dp(12.))
         .right(dp(12.))
         .when(last, |el| el.rounded_b(dp(6.)));
-    blink_once(("blink", n), shape, theme)
+    blink_once(("blink", n), shape, theme.pop)
 }
 
 /// Right-clicking the line at row `ix`: see [`Detail::line_menu`].

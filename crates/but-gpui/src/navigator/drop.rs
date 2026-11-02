@@ -32,9 +32,10 @@ impl Navigator {
     ) -> AnyElement {
         let store = self.store.read(cx);
         let dragging = cx.has_active_drag();
-        // What a drop or a paste would carry: the drag while there is one, else the cut.
+        // What a drop or a paste would carry: the drag while there is one, else the cut. Not a
+        // drag that can't land, which leaves the rows as they are.
         let pending = match dragging {
-            true => store.dragging.as_ref(),
+            true => (store.dragging.as_ref()).filter(|_| self.drops(store)),
             false => store.cut.as_ref(),
         };
         let takes = !dragging || self.takes_drop(&target, store);
@@ -147,6 +148,10 @@ impl Navigator {
             .on_mouse_down(
                 MouseButton::Right,
                 cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                    // No menu while something is being moved, which is all a click can do then.
+                    if this.store.read(cx).moving.is_some() {
+                        return this.nudge_move(cx);
+                    }
                     if this.menu_items(&menu_target, cx).is_empty() {
                         return;
                     }

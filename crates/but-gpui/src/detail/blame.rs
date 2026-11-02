@@ -106,10 +106,10 @@ impl Detail {
                         cx,
                     );
                 };
-                this.pending_file = Some(path);
-                this.store.update(cx, |store, cx| {
-                    store.select(Some(Selection::Commit(project, id)), cx)
-                });
+                let selection = Selection::Commit(project, id);
+                if (this.store).update(cx, |store, cx| store.select_by_hand(selection, cx)) {
+                    this.pending_file = Some(path);
+                }
             })
             .ok();
         })
