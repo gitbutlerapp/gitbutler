@@ -15,7 +15,7 @@ use crate::backend::{self, Checkout, short_ref};
 use crate::clock;
 use crate::detail::{Detail, DiffPane};
 use crate::navigator::Navigator;
-use crate::overlays::{ContextMenu, MenuItem, Prompt};
+use crate::overlays::{ContextMenu, MenuItem, Prompt, overlay};
 use crate::palette::{Choice, Palette};
 use crate::projects::pick_folder;
 use crate::state::{
@@ -890,10 +890,25 @@ impl AppView {
         self.transfer(&cut, &target, place, window, cx);
     }
 
+    /// Start cherry-picking `what` into `project` from a page of the detail: the navigator
+    /// takes the keys to place the copies, coming out over the detail while it's hidden, as ⌘1
+    /// brings it.
+    pub(crate) fn cherry_pick(
+        &mut self,
+        project: ProjectId,
+        what: Moving,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.focus_navigator(&FocusNavigator, window, cx);
+        (self.navigator).update(cx, |navigator, cx| {
+            navigator.cherry_pick(project, what, window, cx)
+        });
+    }
+
     pub fn cut(&mut self, cut: Cut, cx: &mut Context<Self>) {
         let message = format!(
-            "{} {}, ready to paste with {}",
-            cut.verb(),
+            "Cut {}, ready to paste with {}",
             cut.describe(self.store.read(cx)),
             crate::ui::keys_text("⌘V")
         );
@@ -968,7 +983,7 @@ impl AppView {
                 }
                 return;
             }
-            Some(Op::Move | Op::Squash(_)) => {
+            Some(Op::Move | Op::Squash(_) | Op::CherryPick) => {
                 return self
                     .store
                     .update(cx, |store, cx| store.set_moving(None, cx));
@@ -2369,17 +2384,19 @@ impl Render for AppView {
                     }),
             )
             .child(self.render_status_bar(window, cx))
-            .children(self.render_modal(cx))
+            .children(self.render_modal(cx).map(overlay))
             // Above a modal: Git can ask for credentials while one is open.
-            .children(self.render_prompt(window, cx))
-            .children(self.render_palette(cx))
+            .children(self.render_prompt(window, cx).map(overlay))
+            .children(self.render_palette(cx).map(overlay))
             // Above what dims the window, so their buttons take clicks rather than close it.
-            .child(self.render_toasts(cx))
+            .child(overlay(self.render_toasts(cx)))
             .children(self.render_menu(window, cx))
             .children(self.render_icon_picker(window, cx))
             // Last, so the window can be closed while a modal or menu is open.
             .when(crate::ui::draws_window_controls(window), |el| {
-                el.child(crate::ui::window_controls::window_controls(window, cx))
+                el.child(overlay(crate::ui::window_controls::window_controls(
+                    window, cx,
+                )))
             })
             // Over everything, and it takes no clicks, as it has no hitbox.
             .when(show_fps, |el| el.child(self.fps.clone()))

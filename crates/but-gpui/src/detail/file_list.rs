@@ -1147,7 +1147,8 @@ impl Detail {
         let mut row = file_row(("file", ix), current || picked, solid, theme)
             .when_some(blink, |el, n| {
                 let shape = div().absolute().inset_0().rounded(dp(4.));
-                el.relative().child(blink_once(("blink", n), shape, theme))
+                el.relative()
+                    .child(blink_once(("blink", n), shape, theme.pop))
             })
             .map(|el| crate::ui::joined(el, extras.joined, solid, theme))
             .aria_label(file.path.clone())

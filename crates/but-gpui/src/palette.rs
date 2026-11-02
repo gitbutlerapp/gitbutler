@@ -911,7 +911,9 @@ impl AppView {
         };
         let goes_to = (palette.found.get(palette.selected))
             .and_then(|found| palette.choices.get(found.ix)?.goes_to.clone());
+        // Not while something is being moved, which the selection stays on.
         if palette.previewed_from.is_some()
+            && self.store.read(cx).moving.is_none()
             && let Some(selection) = goes_to.clone()
         {
             self.select_behind(Some(selection), cx);
@@ -949,6 +951,14 @@ impl AppView {
         // Run it where it was offered.
         if let Some(focus) = palette.restore_focus {
             window.focus(&focus, cx);
+        }
+        // While something is being moved, a choice that goes somewhere moves it there instead,
+        // as a click on its row does, and does nothing else: the selection stays on what moves.
+        if let Some(goes_to) =
+            (choice.goes_to.clone()).filter(|_| self.store.read(cx).moving.is_some())
+        {
+            (self.store).update(cx, |store, cx| store.select_by_hand(goes_to, cx));
+            return cx.notify();
         }
         // Going somewhere selects it and gives the keys away itself, so at once: drawn with the
         // keys back first, the navigator would flash its selection solid before a terminal

@@ -88,11 +88,11 @@ pub enum Place {
 }
 
 impl Place {
-    /// Where a paste of `payload` with `held` lands on `target`: a commit, or a copy of one,
-    /// goes above a commit, below it with ⇧, or into it with ⌥, and files go into it; into
-    /// anything else, or below a branch with ⇧.
+    /// Where a paste of `payload` with `held` lands on `target`: a commit goes above a commit,
+    /// below it with ⇧, or into it with ⌥, and files go into it; into anything else, or below a
+    /// branch with ⇧.
     pub fn from_keys(held: Modifiers, payload: &Cut, target: &Selection) -> Self {
-        let commit = matches!(payload, Cut::Commit(..) | Cut::CherryPick(..));
+        let commit = matches!(payload, Cut::Commit(..));
         match target {
             Selection::Commit(..) if held.alt || !commit => Place::Into,
             Selection::Commit(..) if !held.shift => Place::Above,
@@ -124,6 +124,8 @@ pub enum Op {
     /// Commits it, a checkout's uncommitted changes, as a new commit where it's at, as the
     /// composer has them checked and its message says.
     Commit,
+    /// Puts copies of it, commits, where it's at, leaving them where they are.
+    CherryPick,
 }
 
 impl Op {
@@ -133,6 +135,7 @@ impl Op {
             Op::Move => "Moving",
             Op::Squash(_) => "Squashing",
             Op::Commit => "Committing",
+            Op::CherryPick => "Cherry-picking",
         }
     }
 
@@ -142,6 +145,7 @@ impl Op {
             Op::Move => theme.pop,
             Op::Squash(_) => theme.blue,
             Op::Commit => theme.purple,
+            Op::CherryPick => theme.safe,
         }
     }
 }
@@ -180,6 +184,10 @@ pub enum Moving {
         worktree: Checkout,
         files: Arc<[Selected]>,
     },
+    /// Commits from outside the workspace, newest first, by their titles as they were when the
+    /// cherry-pick started: a branch's remote's, the target's or another branch's. They're
+    /// only cherry-picked, and show where they'd land as the copies they'd be.
+    Copies(Arc<[(CommitId, SharedString)]>),
 }
 
 /// What a squash goes into, by its row.
@@ -310,8 +318,8 @@ pub fn group_slots<K: Clone + PartialEq, T: Clone + PartialEq>(
 }
 
 impl Move {
-    /// What's moving, as what's cut or dragged. A project's card, a linked worktree and a
-    /// terminal aren't cut.
+    /// What's moving, as what's cut or dragged. A project's card, a linked worktree, a
+    /// terminal and copies of commits from outside the workspace aren't cut.
     fn cut(&self) -> Option<Cut> {
         Some(match &self.what {
             Moving::Commits(ids) => Cut::Commit(self.project.clone(), ids.clone()),
@@ -326,10 +334,26 @@ impl Move {
                 worktree: worktree.clone(),
                 files: files.clone(),
             },
-            Moving::Project(_) | Moving::Worktree { .. } | Moving::Terminal { .. } => {
+            Moving::Project(_)
+            | Moving::Worktree { .. }
+            | Moving::Terminal { .. }
+            | Moving::Copies(_) => {
                 return None;
             }
         })
+    }
+
+    /// The commits cherry-picked, newest first, from the workspace or outside it.
+    pub fn picked(&self) -> Option<Arc<[CommitId]>> {
+        match &self.what {
+            Moving::Commits(ids) => Some(ids.clone()),
+            Moving::Copies(copies) => Some(copies.iter().map(|(id, _)| *id).collect()),
+            Moving::Branch(_)
+            | Moving::Project(_)
+            | Moving::Worktree { .. }
+            | Moving::Terminal { .. }
+            | Moving::Files { .. } => None,
+        }
     }
 
     /// What's moving, as the status bar names it.
@@ -342,6 +366,10 @@ impl Move {
             Moving::Project(_) => project_name(store, &self.project),
             Moving::Worktree { name, .. } => name.to_string(),
             Moving::Terminal { id, .. } => terminal_title(store, *id),
+            Moving::Copies(copies) => match &copies[..] {
+                [(_, title)] => format!("\"{title}\""),
+                copies => format!("{} commits", copies.len()),
+            },
             Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. } => {
                 (self.cut()).map_or_else(String::new, |cut| cut.describe(store))
             }
@@ -349,11 +377,15 @@ impl Move {
     }
 
     /// Whether `item` is what's moving: one of the commits, the branch, the project, the linked
-    /// worktree or the terminal.
+    /// worktree or the terminal. Of copies from outside the workspace, only the remote's
+    /// commits a branch lists are rows.
     pub fn holds(&self, item: &Selection) -> bool {
         match (&self.what, item) {
             (Moving::Commits(ids), Selection::Commit(project, id)) => {
                 *project == self.project && ids.contains(id)
+            }
+            (Moving::Copies(copies), Selection::Upstream(project, _, id)) => {
+                *project == self.project && copies.iter().any(|(copy, _)| copy == id)
             }
             (Moving::Branch(branch), Selection::Branch(project, Some(name))) => {
                 *project == self.project && name == branch
@@ -431,7 +463,7 @@ impl Move {
     pub fn drop(&self) -> Option<(Cut, Selection, Place)> {
         let project = self.project.clone();
         let (target, place) = match (&self.what, &self.at) {
-            (Moving::Commits(_), Stop::In(to)) => match to {
+            (Moving::Commits(_), Stop::In(to)) if self.op == Op::Move => match to {
                 Destination::Branch(branch) => (
                     Selection::Branch(project, Some(branch.clone())),
                     Place::Into,
@@ -456,6 +488,9 @@ impl Move {
         match self.op {
             Op::Squash(_) => return self.squashed(store).is_some(),
             Op::Commit => return self.commit_to(store).is_some(),
+            Op::CherryPick => {
+                return (store.workspace(&self.project)).is_some_and(|ws| self.copies(ws));
+            }
             Op::Move => {}
         }
         if let (Moving::Branch(branch), Stop::NewStack { .. }) = (&self.what, &self.at) {
@@ -472,11 +507,24 @@ impl Move {
             Moving::Terminal { lists, .. } => {
                 return (self.terminal_order()).is_some_and(|shown| shown[..] != lists[..]);
             }
-            Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. } => {}
+            Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. } | Moving::Copies(_) => {}
         }
         self.drop().is_none_or(|(payload, target, place)| {
             Transfer::resolve(&payload, &target, place, store).is_some()
         })
+    }
+
+    /// Whether cherry-picking puts copies where it's at in `workspace`: anywhere commits can be
+    /// moved to, but right where they already are.
+    fn copies(&self, workspace: &Workspace) -> bool {
+        let Some(ids) = self.picked() else {
+            return false;
+        };
+        match &self.at {
+            Stop::In(to) => !already_at(workspace, &ids, to),
+            Stop::NewBranch { .. } | Stop::NewStack { .. } => true,
+            Stop::Into(_) | Stop::Card(_) | Stop::Worktree(_) | Stop::Terminal { .. } => false,
+        }
     }
 
     /// Whether it shows where it'd land with copies there, dimmed where it is: it lands
@@ -551,7 +599,10 @@ impl Move {
                 (Cut::Commit(project.clone(), ids), emptied)
             }
             Moving::Files { .. } => (self.cut()?, None),
-            Moving::Project(_) | Moving::Worktree { .. } | Moving::Terminal { .. } => return None,
+            Moving::Project(_)
+            | Moving::Worktree { .. }
+            | Moving::Terminal { .. }
+            | Moving::Copies(_) => return None,
         };
         if matches!(&cut, Cut::Commit(_, ids) if ids.is_empty()) {
             return None;
@@ -590,19 +641,22 @@ impl Move {
     }
 
     /// Where committing puts a new commit where it's at, if it can go there: on top of a
-    /// branch of the checkout the changes are in, right below one of its commits, or in a new
-    /// branch beside one of them; from the main checkout, in a new branch of its own too, which
-    /// starts from the target and outside the workspace sets it up, as moving there does. Not
-    /// on the default branch, which work stays off.
+    /// branch of any checkout, right below one of its commits, or in a new branch beside one of
+    /// them, as a drop of the changes on a branch commits them there; from the main checkout,
+    /// in a new branch of its own too, which starts from the target and outside the workspace
+    /// sets it up, as moving there does. Not on the default branch, which work stays off.
     pub fn commit_to(&self, store: &Store) -> Option<CommitTo> {
+        self.commit_in(store.workspace(&self.project)?)
+    }
+
+    /// [`Self::commit_to`] in `workspace`.
+    fn commit_in(&self, workspace: &Workspace) -> Option<CommitTo> {
         let (Op::Commit, Moving::Files { worktree, .. }) = (self.op, &self.what) else {
             return None;
         };
-        let workspace = store.workspace(&self.project)?;
         let takes = |branch: &FullName| {
             workspace.target_branch.as_ref() != Some(branch)
-                && (workspace.lane_of(Some(branch)))
-                    .is_some_and(|(lane, _)| lane.checkout == *worktree)
+                && workspace.lane_of(Some(branch)).is_some()
         };
         match &self.at {
             Stop::In(Destination::Branch(branch)) => {
@@ -659,6 +713,7 @@ impl Move {
     pub fn verb(&self, store: &Store) -> &'static str {
         match (self.op, self.squashed(store)) {
             (Op::Move, _) => "move here",
+            (Op::CherryPick, _) => "cherry-pick here",
             // Once there's a message, Return commits; till then it goes to writing one.
             (Op::Commit, _) => match self.describe(store).is_empty() {
                 true => "write the message",
@@ -811,29 +866,28 @@ impl Transfer {
         if matches!(target, Selection::Branch(_, None)) {
             return None;
         }
-        // Only a commit, or a copy of one, goes above or below another; the rest go into it.
+        // Only a commit goes above or below another; the rest go into it.
         if matches!(target, Selection::Commit(..))
             && place != Place::Into
-            && !matches!(payload, Cut::Commit(..) | Cut::CherryPick(..))
+            && !matches!(payload, Cut::Commit(..))
         {
             return None;
         }
-        // A branch moves among its own: a linked worktree's within its lane, the workspace's
-        // among its stacks, and yours under a worktree's from its heading. Across, the
-        // worktree would be left detached and the commits the branch started from would
-        // come along.
+        let workspace = store.workspace(target.project())?;
+        // A branch moves into any lane, the workspace's or a linked worktree's, and under a
+        // worktree's other branches from its heading. Not out of a worktree's lane when it's
+        // the only branch there, which would leave the worktree detached, nor across lanes
+        // with one branch checked out on its own, which the engine refuses.
         if let Cut::Branch(project, branch) = payload {
             let side = |s: &Selection| store.worktree_for(s).map(|wt| wt.name.clone());
             let from = side(&Selection::Branch(project.clone(), Some(branch.clone())));
-            let stays = match target {
-                Selection::Checkout(_, Checkout::Linked(_)) => from.is_none(),
-                _ => from == side(target),
-            };
-            if !stays {
+            let across = from != side(target);
+            let own_heading =
+                matches!(target, Selection::Checkout(_, Checkout::Linked(_))) && !across;
+            if own_heading || (across && (!workspace.managed || detaches(workspace, branch))) {
                 return None;
             }
         }
-        let workspace = store.workspace(target.project())?;
         // Work goes on a branch of its own, not the default branch a linked worktree can have
         // checked out: commits there would leave it apart from its upstream.
         if let Selection::Branch(_, Some(branch)) = target
@@ -887,22 +941,6 @@ impl Transfer {
                 Transfer::MoveCommit {
                     ids: ids.clone(),
                     to,
-                }
-            }
-            (Cut::CherryPick(_, ids), Selection::Branch(_, Some(branch))) => Transfer::CherryPick {
-                ids: ids.clone(),
-                to: Destination::Branch(branch.clone()),
-            },
-            (Cut::CherryPick(_, ids), Selection::Commit(_, target_id))
-                if !ids.contains(target_id) =>
-            {
-                Transfer::CherryPick {
-                    ids: ids.clone(),
-                    to: match place {
-                        Place::Above => Destination::AboveCommit(*target_id),
-                        Place::Below => Destination::BelowCommit(*target_id),
-                        Place::Into => return None,
-                    },
                 }
             }
             (Cut::Branch(_, branch), Selection::Branch(_, Some(above)))
@@ -1040,7 +1078,7 @@ impl Transfer {
 
     /// Carry it out. Staging only changes the composer, so it comes back to the caller.
     /// Do it in `project`, landing the move with the keys `lands` if it's one of commits or a
-    /// branch, as it showed them until the reload shows where they went.
+    /// branch, or a cherry-pick, as it showed them until the reload shows where they went.
     pub fn perform(
         self,
         project: &SharedString,
@@ -1048,7 +1086,7 @@ impl Transfer {
         store: &mut Store,
         cx: &mut Context<Store>,
     ) -> Option<(FullName, Arc<[Selected]>)> {
-        let lands = lands.filter(Move::of_commits);
+        let lands = lands.filter(|lands| lands.of_commits() || lands.picked().is_some());
         // The pill's verb names it without a branch or commit.
         let label = Label::new(self.verb(), self.describe());
         // Picked commits that moved, or went into one, are no longer what's picked.
@@ -1103,20 +1141,29 @@ impl Transfer {
                 },
                 cx,
             ),
-            Transfer::CherryPick { ids, to } => store.apply(
-                project,
-                label,
-                Overlay {
-                    new_commit: store.arriving(project, &ids, &to),
-                    ..Overlay::default()
-                },
-                backend::CherryPick { commits: ids, to },
-                move |store, rewritten, cx| {
-                    store.follow(&rewritten, cx);
-                    store.snack_undoable("Cherry-picked", cx)
-                },
-                cx,
-            ),
+            // The newest copy is selected, as the TUI goes on to it.
+            Transfer::CherryPick { ids, to } => {
+                let selected = project.clone();
+                store.apply(
+                    project,
+                    label,
+                    Overlay {
+                        lands,
+                        ..Overlay::default()
+                    },
+                    backend::CherryPick { commits: ids, to },
+                    move |store, (rewritten, newest), cx| {
+                        match newest {
+                            Some(newest) => {
+                                store.select(Some(Selection::Commit(selected, newest)), cx)
+                            }
+                            None => store.follow(&rewritten, cx),
+                        }
+                        store.snack_undoable("Cherry-picked", cx)
+                    },
+                    cx,
+                )
+            }
             Transfer::StackBranch { branch, onto } => store.apply(
                 project,
                 label,
@@ -1213,6 +1260,16 @@ impl Transfer {
         }
         None
     }
+}
+
+/// Whether moving `branch` out of its lane leaves a linked worktree with no branch checked
+/// out, as `move_branch` detaches it: it's the only branch of the worktree's lane.
+fn detaches(workspace: &Workspace, branch: &FullName) -> bool {
+    workspace.lane_of(Some(branch)).is_some_and(|(lane, _)| {
+        lane.checkout.is_linked()
+            && (lane.branches.iter())
+                .all(|other| other.ref_name.as_ref().is_none_or(|name| name == branch))
+    })
 }
 
 /// Whether `target` is the checkout commit `id`'s changes uncommit into, by its heading or its
@@ -1346,9 +1403,7 @@ impl Render for DragPreview {
                     folder_label(name.clone(), files, theme).into_any_element(),
                 )
             }
-            (_, Chip::Row(label), Cut::Commit(..) | Cut::CherryPick(..)) => {
-                (glyph(Icon::Commit), named(label.clone()))
-            }
+            (_, Chip::Row(label), Cut::Commit(..)) => (glyph(Icon::Commit), named(label.clone())),
             (_, Chip::Row(label), Cut::Branch(..)) => (glyph(Icon::Branch), named(label.clone())),
             (_, Chip::Row(label), Cut::Files { files, .. }) => match &**files {
                 // All of a file goes by its name, as its folder says little while dragging.
@@ -1635,6 +1690,120 @@ mod tests {
             !at(&[2], &Destination::AboveCommit(id(1))),
             "1 is the next branch's, so 2 isn't right above it in a branch"
         );
+    }
+
+    #[test]
+    fn a_cherry_pick_copies_anywhere_but_where_the_commits_are() {
+        use crate::backend::model::build::{branch, full, id, workspace};
+        // ui's commits newest first: 3, 2; then api's, 1.
+        let ws = workspace(
+            vec![vec![branch("ui", &[3, 2]), branch("api", &[1])]],
+            vec![],
+        );
+        let picking = |what: Moving, at: Stop| Move {
+            project: ProjectId::from("p"),
+            what,
+            at,
+            op: Op::CherryPick,
+        };
+        let three = || Moving::Commits(Arc::from([id(3)]));
+        let ui = || Stop::In(Destination::Branch(full("refs/heads/ui")));
+        assert!(
+            !picking(three(), ui()).copies(&ws),
+            "at the top of ui, where 3 is, it starts and goes nowhere"
+        );
+        assert!(
+            picking(three(), Stop::In(Destination::BelowCommit(id(2)))).copies(&ws),
+            "below 2, a copy goes under it"
+        );
+        assert!(
+            picking(three(), Stop::NewStack { first: false }).copies(&ws),
+            "a new stack takes a copy"
+        );
+        let outside = || Moving::Copies(Arc::from([(id(9), SharedString::from("fix"))]));
+        assert!(
+            picking(outside(), ui()).copies(&ws),
+            "a commit from outside the workspace is nowhere here, so it goes anywhere"
+        );
+        assert!(
+            !picking(outside(), Stop::Into(Target::Commit(id(3)))).copies(&ws),
+            "nothing is cherry-picked into a commit"
+        );
+    }
+
+    #[test]
+    fn a_commit_of_one_checkouts_changes_goes_on_any_checkouts_branches() {
+        use crate::backend::model::build::{branch, full, id, workspace, worktree};
+        // ui's commits newest first: 2, 1; feat's, in linked worktree wt: 4, 3.
+        let ws = workspace(
+            vec![vec![branch("ui", &[2, 1])]],
+            vec![worktree("wt", None, vec![branch("feat", &[4, 3])])],
+        );
+        let committing = |from: Checkout, at: Stop| {
+            Move {
+                project: ProjectId::from("p"),
+                what: Moving::Files {
+                    from: None,
+                    worktree: from,
+                    files: Arc::from([]),
+                },
+                at,
+                op: Op::Commit,
+            }
+            .commit_in(&ws)
+        };
+        let wt = || Checkout::Linked("wt".into());
+        let top = |name: &str| Stop::In(Destination::Branch(full(&format!("refs/heads/{name}"))));
+        assert!(
+            matches!(
+                committing(Checkout::Main, top("feat")),
+                Some(CommitTo::Branch(_))
+            ),
+            "the main checkout's changes go on top of the worktree's branch"
+        );
+        assert!(
+            matches!(committing(wt(), top("ui")), Some(CommitTo::Branch(_))),
+            "the worktree's changes go on top of a branch of the main checkout"
+        );
+        assert!(
+            matches!(
+                committing(wt(), Stop::In(Destination::BelowCommit(id(2)))),
+                Some(CommitTo::BelowCommit { .. })
+            ),
+            "and right below one of its commits"
+        );
+        let beside_ui = Stop::NewBranch {
+            beside: full("refs/heads/ui"),
+            below: false,
+        };
+        assert!(
+            committing(wt(), beside_ui).is_some(),
+            "and in a new branch beside one of them"
+        );
+        assert!(
+            committing(wt(), Stop::NewStack { first: false }).is_none(),
+            "a worktree's changes make no stack of their own, which the backend refuses"
+        );
+    }
+
+    #[test]
+    fn only_a_worktrees_last_branch_moving_out_detaches_it() {
+        use crate::backend::model::build::{branch, full, workspace, worktree};
+        let ws = workspace(
+            vec![vec![branch("ui", &[1])]],
+            vec![
+                worktree("solo", None, vec![branch("only", &[2])]),
+                worktree("pair", None, vec![branch("top", &[4]), branch("low", &[3])]),
+            ],
+        );
+        let detaches = |name: &str| detaches(&ws, &full(&format!("refs/heads/{name}")));
+        assert!(
+            detaches("only"),
+            "solo would be left with no branch checked out"
+        );
+        assert!(!detaches("top"), "pair goes on to low, the branch below it");
+        assert!(!detaches("low"), "pair keeps top");
+        assert!(!detaches("ui"), "the main checkout has no lane to leave");
     }
 
     #[test]
