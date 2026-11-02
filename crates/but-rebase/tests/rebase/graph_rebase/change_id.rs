@@ -10,7 +10,7 @@ use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn temporary_change_id_persisted() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut db) = fixture_writable("four-commits")?;
 
     let target = repo.rev_parse_single("HEAD~")?;
     let target_parent = repo.rev_parse_single("HEAD~~")?;
@@ -29,7 +29,6 @@ fn temporary_change_id_persisted() -> Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -38,7 +37,7 @@ fn temporary_change_id_persisted() -> Result<()> {
 
     // An operation to cause the parent we care about to be rebased
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, &mut db)?;
     let target_selector = target.to_selector(&editor)?;
     editor.replace_with_none(target_parent)?;
 
@@ -74,11 +73,10 @@ fn temporary_change_id_persisted() -> Result<()> {
 
 #[test]
 fn empty_commit_uses_content_hash_placeholder_until_materialization() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut db) = fixture_writable("four-commits")?;
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -86,7 +84,7 @@ fn empty_commit_uses_content_hash_placeholder_until_materialization() -> Result<
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, &mut db)?;
 
     let ec = editor.empty_commit()?;
 

@@ -350,3 +350,133 @@ fn sample_snapshot() -> VirtualBranchesSnapshot {
         }],
     }
 }
+
+#[test]
+fn compatibility_mirror_only_tracks_committed_database_state() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let mut db = but_db::DbHandle::new_in_directory(dir.path())?;
+    let mirror = dir.path().join("virtual_branches.toml");
+    let mut snapshot = sample_snapshot();
+    let stack_id = "00000000-0000-0000-0000-000000000001";
+    snapshot.stacks[0].id = stack_id.into();
+    snapshot.heads[0].stack_id = stack_id.into();
+    db.virtual_branches_mut()?.replace_snapshot(&snapshot)?;
+    let initial = std::fs::read_to_string(&mirror)?;
+    assert_eq!(
+        toml::from_str::<but_db::legacy::VirtualBranches>(&initial)?,
+        but_db::legacy::snapshot_to_legacy(&snapshot)?,
+        "direct database writes emit the backwards-compatible metadata mirror"
+    );
+
+    snapshot.state.last_pushed_base_sha = None;
+    {
+        let mut tx = db.transaction()?;
+        tx.virtual_branches_mut()?.replace_snapshot(&snapshot)?;
+        assert_eq!(
+            std::fs::read_to_string(&mirror)?,
+            initial,
+            "in-memory transaction changes do not reach the compatibility mirror"
+        );
+    }
+    assert_eq!(
+        std::fs::read_to_string(&mirror)?,
+        initial,
+        "rolling back leaves the mirror unchanged"
+    );
+
+    let mut tx = db.transaction()?;
+    tx.virtual_branches_mut()?.replace_snapshot(&snapshot)?;
+    tx.commit()?;
+    assert_eq!(
+        toml::from_str::<but_db::legacy::VirtualBranches>(&std::fs::read_to_string(&mirror)?)?,
+        but_db::legacy::snapshot_to_legacy(&snapshot)?,
+        "committing an outer transaction updates the compatibility mirror"
+    );
+    std::fs::write(&mirror, "invalid TOML = [")?;
+    let tx = db.transaction()?;
+    tx.virtual_branches().get_snapshot()?;
+    tx.commit()?;
+    assert_eq!(
+        std::fs::read_to_string(&mirror)?,
+        "invalid TOML = [",
+        "read-only transactions do not rewrite the compatibility mirror"
+    );
+    let mut tx = db.transaction()?;
+    tx.worktree_meta_mut().mark_adopted()?;
+    tx.commit()?;
+    assert_eq!(
+        std::fs::read_to_string(&mirror)?,
+        "invalid TOML = [",
+        "unrelated worktree writes do not rewrite the compatibility mirror"
+    );
+    assert_eq!(
+        db.virtual_branches().get_snapshot()?,
+        Some(snapshot.clone()),
+        "live TOML contents never replace database state"
+    );
+    db.virtual_branches_mut()?.replace_snapshot(&snapshot)?;
+    assert!(
+        toml::from_str::<but_db::legacy::VirtualBranches>(&std::fs::read_to_string(&mirror)?)
+            .is_ok(),
+        "the next database write replaces a corrupt mirror"
+    );
+    Ok(())
+}
+
+#[test]
+fn compatibility_mirror_resolves_new_branch_heads_without_changing_database_metadata()
+-> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let mut repo = gix::init(dir.path())?;
+    let signature = gix::actor::Signature {
+        name: "author".into(),
+        email: "author@example.com".into(),
+        time: gix::date::Time::new(1, 0),
+    };
+    {
+        let mut config = repo.config_snapshot_mut();
+        config.set_raw_value("user.name", &signature.name)?;
+        config.set_raw_value("user.email", &signature.email)?;
+    }
+    let commit = repo
+        .write_object(&gix::objs::Commit {
+            tree: repo.empty_tree().id,
+            parents: Default::default(),
+            author: signature.clone(),
+            committer: signature,
+            encoding: None,
+            message: "initial".into(),
+            extra_headers: Default::default(),
+        })?
+        .detach();
+    repo.reference(
+        "refs/heads/topic",
+        commit,
+        gix::refs::transaction::PreviousValue::Any,
+        "test",
+    )?;
+    let mut db = but_db::DbHandle::new_in_directory(repo.git_dir().join("gitbutler"))?;
+    let branch = db.meta().branch("refs/heads/topic".try_into()?)?;
+    db.meta_mut()?.set_branch(&branch)?;
+    let mirror: but_db::legacy::VirtualBranches = toml::from_str(&std::fs::read_to_string(
+        repo.git_dir().join("gitbutler/virtual_branches.toml"),
+    )?)?;
+    let stack = mirror
+        .branches
+        .values()
+        .next()
+        .expect("branch metadata creates a stack");
+    assert_eq!(
+        stack.heads[0].head, commit,
+        "older clients receive the actual branch tip"
+    );
+    #[expect(deprecated)]
+    let name = &stack.name;
+    assert_eq!(name, "topic", "new legacy stacks have their branch name");
+    assert_eq!(
+        db.virtual_branches().get_snapshot()?.unwrap().heads[0].head_sha,
+        gix::hash::Kind::Sha1.null().to_string(),
+        "mirror compatibility fields do not alter runtime metadata"
+    );
+    Ok(())
+}

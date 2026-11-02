@@ -34,6 +34,7 @@ gix.workspace = true
 anyhow.workspace = true
 bstr.workspace = true
 tracing.workspace = true
+nonempty.workspace = true
 
 [dev-dependencies]
 but-api = { workspace = true, features = ["legacy"] }

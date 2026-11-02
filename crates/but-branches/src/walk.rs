@@ -10,7 +10,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use bstr::BString;
-use but_core::RefMetadata;
 use but_graph::{CommitFlags, Graph, SegmentIndex, Workspace, init::Tip};
 
 use gix::refs::{Category, FullName};
@@ -23,7 +22,6 @@ pub(crate) fn build_workspace(
     head: gix::Id<'_>,
     head_ref: Option<FullName>,
     extra_tips: impl IntoIterator<Item = (gix::ObjectId, FullName)>,
-    meta: &impl RefMetadata,
     project_meta: but_core::ref_metadata::ProjectMeta,
     db: &mut but_db::DbHandle,
     traversal: but_graph::init::Options,
@@ -34,7 +32,6 @@ pub(crate) fn build_workspace(
         extra_tips
             .into_iter()
             .map(|(tip, ref_name)| Tip::reachable(tip, Some(ref_name))),
-        meta,
         project_meta,
         db,
         traversal,

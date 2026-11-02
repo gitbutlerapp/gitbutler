@@ -1205,7 +1205,7 @@ impl std::fmt::Debug for Review {
     }
 }
 
-/// Additional information about the RefMetadata value itself.
+/// Additional information about a metadata value.
 pub trait ValueInfo {
     /// Return `true` if the value didn't exist for a given `ref_name` and thus was defaulted.
     fn is_default(&self) -> bool;

@@ -15,12 +15,11 @@ pub(crate) fn apply(
 ) -> Result<()> {
     let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) =
         ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
     let branch = ref_name(&repo, &mutation_args.ref_name)?;
 
-    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &repo, &mut db)?;
     let but_workspace::branch::apply::ApplyStackOutcome {
         rebase,
         status,
@@ -45,12 +44,11 @@ pub(crate) fn unapply(
 ) -> Result<()> {
     let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) =
         ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
     let branch = ref_name(&repo, &mutation_args.ref_name)?;
 
-    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &repo, &mut db)?;
     let rebase = but_workspace::branch::unapply_stack(
         editor,
         branch.as_ref(),

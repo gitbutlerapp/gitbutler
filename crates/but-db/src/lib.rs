@@ -60,6 +60,11 @@ use rusqlite::ErrorCode;
 use std::path::PathBuf;
 
 mod handle;
+/// Workspace and branch metadata stored in the project database.
+pub mod meta;
+pub use meta::{Meta, MetaHandle, MetaMut, RefInfoSnapshot};
+/// Legacy metadata serialization for compatibility mirrors and operation-log snapshots.
+pub mod legacy;
 mod table;
 mod transaction;
 
@@ -143,6 +148,7 @@ pub const MIGRATIONS: &[&[M<'static>]] = &[
     table::virtual_branches::M,
     table::worktree_meta::M,
     table::obs_markers::M,
+    meta::M,
 ];
 
 /// A migration and all the necessary data associated with it to perform it once.
@@ -225,4 +231,6 @@ pub struct Transaction<'conn> {
     /// If `true`, on drop we will reset the busy timeout to the default value, as previously the connection
     /// was changed to non-blocking.
     reset_to_blocking_on_drop: bool,
+    /// Set by successful metadata savepoints; unrelated database writes do not update the mirror.
+    metadata_changed: std::cell::Cell<bool>,
 }

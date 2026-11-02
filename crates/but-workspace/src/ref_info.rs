@@ -472,11 +472,10 @@ use crate::{AncestorWorkspaceCommit, RefInfo, WorkspaceCommit, branch, ui::PushS
 /// For details, see [`ref_info()`].
 pub fn head_info(
     repo: &gix::Repository,
-    meta: &impl but_core::RefMetadata,
     db: &mut but_db::DbHandle,
     opts: Options<'_>,
 ) -> anyhow::Result<RefInfo> {
-    head_info_and_workspace(repo, meta, db, opts).map(|a| a.0)
+    head_info_and_workspace(repo, db, opts).map(|a| a.0)
 }
 
 /// Gather information about the current `HEAD` and the workspace that might be associated with it,
@@ -485,17 +484,10 @@ pub fn head_info(
 /// For details, see [`ref_info()`] and [`head_info()`].
 pub fn head_info_and_workspace(
     repo: &gix::Repository,
-    meta: &impl but_core::RefMetadata,
     db: &mut but_db::DbHandle,
     opts: Options<'_>,
 ) -> anyhow::Result<(RefInfo, but_graph::Workspace)> {
-    let graph = Graph::from_head(
-        repo,
-        meta,
-        opts.project_meta.clone(),
-        db,
-        opts.traversal.clone(),
-    )?;
+    let graph = Graph::from_head(repo, opts.project_meta.clone(), db, opts.traversal.clone())?;
     let ws = graph.into_workspace()?;
     Ok((graph_to_ref_info(&ws, repo, opts)?, ws))
 }
@@ -508,10 +500,9 @@ pub fn head_info_and_workspace(
 /// ### Performance
 ///
 /// Make sure the `repo` is initialized with a decently sized Object cache so querying the same commit multiple times will be cheap(er).
-#[instrument(level = "debug", skip(meta), err(Debug))]
+#[instrument(level = "debug", skip(db), err(Debug))]
 pub fn ref_info(
     mut existing_ref: gix::Reference<'_>,
-    meta: &impl but_core::RefMetadata,
     db: &mut but_db::DbHandle,
     opts: Options<'_>,
 ) -> anyhow::Result<RefInfo> {
@@ -520,7 +511,6 @@ pub fn ref_info(
     let graph = Graph::from_commit_traversal(
         id,
         existing_ref.inner.name,
-        meta,
         opts.project_meta.clone(),
         db,
         opts.traversal.clone(),

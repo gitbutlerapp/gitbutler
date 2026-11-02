@@ -562,6 +562,19 @@ CREATE TABLE `obs_markers`(
     `parents_recorded` INTEGER NOT NULL
 );
 
+-- table ref_info
+CREATE TABLE ref_info (
+        ref_name BLOB NOT NULL,
+        is_workspace INTEGER NOT NULL,
+        created_at_seconds INTEGER,
+        created_at_offset INTEGER,
+        updated_at_seconds INTEGER,
+        updated_at_offset INTEGER,
+        PRIMARY KEY (ref_name, is_workspace),
+        CHECK ((created_at_seconds IS NULL) = (created_at_offset IS NULL)),
+        CHECK ((updated_at_seconds IS NULL) = (updated_at_offset IS NULL))
+    );
+
 -- table vb_branch_targets
 CREATE TABLE `vb_branch_targets`(
 	`stack_id` TEXT NOT NULL PRIMARY KEY,
@@ -658,6 +671,9 @@ CREATE INDEX `idx_obs_marker_succs_succ` ON `obs_marker_succs`(`succ`);
 -- index idx_obs_markers_prec
 CREATE INDEX `idx_obs_markers_prec` ON `obs_markers`(`prec`);
 
+-- index idx_vb_stack_heads_name
+CREATE INDEX idx_vb_stack_heads_name ON vb_stack_heads(name);
+
 -- index idx_vb_stack_heads_stack_id
 CREATE INDEX `idx_vb_stack_heads_stack_id` ON `vb_stack_heads`(`stack_id`);
 
@@ -722,6 +738,7 @@ Text("20260715161258")
 Text("20260716175500")
 Text("20260805120000")
 Text("20261102120000")
+Text("20261106120000")
 
 Table: hunk_assignments
 hunk_header | path | path_bytes | stack_id | id | branch_ref
@@ -788,6 +805,9 @@ marker_id | position | parent
 
 Table: obs_marker_meta
 marker_id | key | value
+
+Table: ref_info
+ref_name | is_workspace | created_at_seconds | created_at_offset | updated_at_seconds | updated_at_offset
 
 
 "#]]

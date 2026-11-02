@@ -206,13 +206,12 @@ pub fn commit_uncommit_only_with_perm(
         anyhow::bail!("no commit IDs provided for uncommit");
     }
     let context_lines = ctx.settings.context_lines;
-    let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
     let surfaced =
         SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?;
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, &mut db)?;
 
     let mut rebase =
         but_workspace::commit::discard_commits(editor, subject_commit_ids.iter().copied())
@@ -227,17 +226,16 @@ pub fn commit_uncommit_only_with_perm(
                 )
             })?;
 
-    let (workspace, replaced_commits, conflicted_commits, repo, meta, db) = if dry_run.into() {
+    let (workspace, replaced_commits, conflicted_commits, repo, db) = if dry_run.into() {
         let graph = rebase.overlayed_graph()?;
         let replaced_commits = rebase.history.commit_mappings();
         let conflicted_commits = rebase.history.conflicted_commits.clone();
-        let (repo, meta, db) = rebase.repo_meta_and_db_mut();
+        let (repo, db) = rebase.repo_and_db_mut();
         (
             &mut graph.into_workspace()?,
             replaced_commits,
             conflicted_commits,
             repo,
-            meta,
             db,
         )
     } else {
@@ -248,7 +246,6 @@ pub fn commit_uncommit_only_with_perm(
             materialized.history.commit_mappings(),
             materialized.history.conflicted_commits,
             &*repo,
-            materialized.meta,
             materialized.db,
         )
     };
@@ -261,7 +258,6 @@ pub fn commit_uncommit_only_with_perm(
         uncommitted_ids: subject_commit_ids,
         workspace: WorkspaceState::from_workspace_with_db(
             workspace,
-            meta,
             repo,
             replaced_commits,
             conflicted_commits,
@@ -318,27 +314,25 @@ pub fn commit_uncommit_changes_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveChangesResult> {
     let context_lines = ctx.settings.context_lines;
-    let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
     let surfaced =
         SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?;
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, &mut db)?;
     let mut outcome =
         but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
 
-    let (workspace, replaced_commits, conflicted_commits, repo, meta, db) = if dry_run.into() {
+    let (workspace, replaced_commits, conflicted_commits, repo, db) = if dry_run.into() {
         let graph = outcome.rebase.overlayed_graph()?;
         let replaced_commits = outcome.rebase.history.commit_mappings();
         let conflicted_commits = outcome.rebase.history.conflicted_commits.clone();
-        let (repo, meta, db) = outcome.rebase.repo_meta_and_db_mut();
+        let (repo, db) = outcome.rebase.repo_and_db_mut();
         (
             &mut graph.into_workspace()?,
             replaced_commits,
             conflicted_commits,
             repo,
-            meta,
             db,
         )
     } else {
@@ -349,7 +343,6 @@ pub fn commit_uncommit_changes_only_with_perm(
             materialized.history.commit_mappings(),
             materialized.history.conflicted_commits,
             &*repo,
-            materialized.meta,
             materialized.db,
         )
     };
@@ -361,7 +354,6 @@ pub fn commit_uncommit_changes_only_with_perm(
     Ok(MoveChangesResult {
         workspace: WorkspaceState::from_workspace_with_db(
             workspace,
-            meta,
             repo,
             replaced_commits,
             conflicted_commits,
@@ -472,13 +464,12 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<UncommitChangesFromCommitsResult> {
     let context_lines = ctx.settings.context_lines;
-    let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
     let surfaced =
         SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?;
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, &mut db)?;
     let workspace_sources = sources
         .into_iter()
         .map(|source| but_workspace::commit::UncommitChangesSource {
@@ -502,29 +493,21 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
         .collect::<Vec<_>>();
 
     let mut rebase = outcome.rebase;
-    let (workspace, replaced_commits, conflicted_commits, repo, meta, db) = if dry_run.into() {
+    let (workspace, replaced_commits, conflicted_commits, repo, db) = if dry_run.into() {
         if let Some(rebase) = rebase.as_mut() {
             let graph = rebase.overlayed_graph()?;
             let replaced_commits = rebase.history.commit_mappings();
             let conflicted_commits = rebase.history.conflicted_commits.clone();
-            let (repo, meta, db) = rebase.repo_meta_and_db_mut();
+            let (repo, db) = rebase.repo_and_db_mut();
             (
                 &mut graph.into_workspace()?,
                 replaced_commits,
                 conflicted_commits,
                 repo,
-                meta,
                 db,
             )
         } else {
-            (
-                &mut ws,
-                BTreeMap::new(),
-                Vec::new(),
-                &*repo,
-                &mut meta,
-                &mut *db,
-            )
+            (&mut ws, BTreeMap::new(), Vec::new(), &*repo, &mut *db)
         }
     } else if let Some(mut rebase) = rebase {
         rebase.keep_worktrees_unchanged()?;
@@ -534,18 +517,10 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
             materialized.history.commit_mappings(),
             materialized.history.conflicted_commits,
             &*repo,
-            materialized.meta,
             materialized.db,
         )
     } else {
-        (
-            &mut ws,
-            BTreeMap::new(),
-            Vec::new(),
-            &*repo,
-            &mut meta,
-            &mut *db,
-        )
+        (&mut ws, BTreeMap::new(), Vec::new(), &*repo, &mut *db)
     };
 
     if let Some(surfaced) = surfaced {
@@ -555,7 +530,6 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
     Ok(UncommitChangesFromCommitsResult {
         workspace: WorkspaceState::from_workspace_with_db(
             workspace,
-            meta,
             repo,
             replaced_commits,
             conflicted_commits,

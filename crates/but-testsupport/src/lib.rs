@@ -11,7 +11,7 @@ pub use gix_testtools;
 use gix_testtools::{Creation, FixtureState, PostResult, tempfile};
 
 mod in_memory_meta;
-pub use in_memory_meta::{InMemoryRefMetadata, InMemoryRefMetadataHandle, StackState};
+pub use in_memory_meta::{StackState, add_stack_with_segments};
 
 #[cfg(feature = "sandbox")]
 mod sandbox;
@@ -74,7 +74,7 @@ pub fn invoke_bash(script: &str, repo: &gix::Repository) {
 /// Run the given `script` in bash, with the `cwd` set to `dir`.
 /// Panic if the script fails.
 pub fn invoke_bash_at_dir(script: &str, dir: &Path) {
-    let mut cmd = std::process::Command::new("bash");
+    let mut cmd = std::process::Command::new(gix_testtools::bash_program());
     cmd.current_dir(dir);
     isolate_env_std_cmd(&mut cmd);
     cmd.stdin(std::process::Stdio::piped())

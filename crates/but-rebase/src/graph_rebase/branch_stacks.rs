@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use anyhow::Result;
 use but_core::{
-    RefMetadata, WORKSPACE_REF_NAME,
+    WORKSPACE_REF_NAME,
     ref_metadata::{
         StackId, StackKind, Workspace, WorkspaceCommitRelation, WorkspaceStack,
         WorkspaceStackBranch,
@@ -43,10 +43,10 @@ impl BranchStacks {
     ///
     /// A stack keeps the id and the position of the stack that held its lowest known branch
     /// before, and stacks that are new to the metadata follow in parent order.
-    pub(crate) fn workspace_metadata<M: RefMetadata>(
+    pub(crate) fn workspace_metadata(
         &self,
-        meta: &M,
-    ) -> Result<Option<M::Handle<Workspace>>> {
+        meta: &but_db::Meta<'_>,
+    ) -> Result<Option<but_db::MetaHandle<Workspace>>> {
         let Some(stacks) = &self.workspace else {
             return Ok(None);
         };
@@ -81,27 +81,27 @@ impl BranchStacks {
         Ok(Some(workspace))
     }
 
-    /// Make `meta` describe these stacks, returning whether that changed anything.
-    pub(crate) fn persist<M: RefMetadata>(&self, meta: &mut M) -> Result<bool> {
+    /// Atomically make the database describe these stacks, returning whether that changed anything.
+    pub(crate) fn persist(&self, db: &mut but_db::DbHandle) -> Result<bool> {
+        let mut tx = db.transaction()?;
         let mut changed = false;
-        if let Some(workspace) = self.workspace_metadata(meta)?
-            && *meta.workspace(workspace.as_ref())? != *workspace
+        if let Some(workspace) = self.workspace_metadata(&tx.meta())?
+            && *tx.meta().workspace(workspace.as_ref())? != *workspace
         {
-            meta.set_workspace(&workspace)?;
+            tx.meta_mut()?.set_workspace(&workspace)?;
             changed = true;
         }
-        if meta.can_persist_branch_stack_order() {
-            for stack in &self.ad_hoc {
-                let Some(tip) = stack.first() else { continue };
-                if meta.branch_stack_order(tip.as_ref())?.as_ref() != Some(stack) {
-                    meta.set_branch_stack_order(stack)?;
-                    changed = true;
-                }
+        for stack in &self.ad_hoc {
+            let Some(tip) = stack.first() else { continue };
+            if tx.meta().branch_stack_order(tip.as_ref())?.as_ref() != Some(stack) {
+                tx.meta_mut()?.set_branch_stack_order(stack)?;
+                changed = true;
             }
         }
         for branch in &self.removed_references {
-            meta.remove(branch.as_ref())?;
+            tx.meta_mut()?.remove(branch.as_ref())?;
         }
+        tx.commit()?;
         Ok(changed)
     }
 }
@@ -134,7 +134,7 @@ fn find_reference(graph: &StepGraph, name: &gix::refs::FullNameRef) -> Option<St
     )
 }
 
-impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
+impl SuccessfulRebase<'_, '_> {
     /// The stacks of local branches this rewrite results in.
     pub fn branch_stacks(&self) -> Result<BranchStacks> {
         let graph = &self.graph;
@@ -201,7 +201,7 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
 
         let checked_out_in_worktrees: HashSet<_> = worktrees.iter().copied().collect();
         let workspace_ref: FullName = WORKSPACE_REF_NAME.try_into()?;
-        let workspace_metadata = self.meta.workspace(workspace_ref.as_ref())?;
+        let workspace_metadata = self.db.meta().workspace(workspace_ref.as_ref())?;
         let upstream: HashSet<_> = project_meta
             .remote_target_ref(&self.repo)?
             .as_ref()
@@ -299,5 +299,38 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
             return false;
         };
         name == target_ref.as_local_full_name_ref()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn failed_stack_order_rolls_back_all_metadata() -> Result<()> {
+        let mut db = but_testsupport::in_memory_db();
+        let branch: FullName = "refs/heads/branch".try_into()?;
+        let invalid_utf8: FullName = b"refs/heads/\xff".as_bstr().try_into()?;
+        let stacks = BranchStacks {
+            workspace: Some(vec![vec![branch.clone()]]),
+            ad_hoc: vec![vec![branch.clone()], vec![invalid_utf8]],
+            removed_references: Vec::new(),
+        };
+
+        stacks
+            .persist(&mut db)
+            .expect_err("branch-order storage requires UTF-8 refnames");
+
+        assert!(
+            db.meta()
+                .workspace_opt(WORKSPACE_REF_NAME.try_into()?)?
+                .is_none(),
+            "a later failure must roll back workspace metadata"
+        );
+        assert!(
+            db.meta().branch_stack_order(branch.as_ref())?.is_none(),
+            "a later failure must roll back earlier branch orders"
+        );
+        Ok(())
     }
 }

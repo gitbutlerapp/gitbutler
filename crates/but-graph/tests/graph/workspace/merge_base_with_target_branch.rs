@@ -7,7 +7,7 @@ use crate::init::utils::{add_workspace, read_only_in_memory_scenario, standard_o
 
 #[test]
 fn with_selected_cutoff() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    let (repo, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -27,17 +27,11 @@ fn with_selected_cutoff() -> anyhow::Result<()> {
         .raw()
     );
 
-    add_workspace(&mut meta);
+    add_workspace(&mut db);
 
-    let ws = Graph::from_head(
-        &repo,
-        &*meta,
-        target_meta(&repo),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?
-    .into_workspace()?;
+    let ws = Graph::from_head(&repo, target_meta(&repo), &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
 
     assert!(
         ws.target_commit.is_some(),
@@ -61,12 +55,11 @@ fn with_selected_cutoff() -> anyhow::Result<()> {
 /// Alternatively, the app might have a setting for it.
 #[test]
 fn returns_none_when_no_target_is_set() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
+    let (repo, mut db) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
 
-    add_workspace(&mut meta);
+    add_workspace(&mut db);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -88,18 +81,12 @@ fn returns_none_when_no_target_is_set() -> anyhow::Result<()> {
 
 #[test]
 fn returns_none_when_commit_not_in_graph() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    let (repo, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
 
-    add_workspace(&mut meta);
-    let ws = Graph::from_head(
-        &repo,
-        &*meta,
-        target_meta(&repo),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?
-    .into_workspace()?;
+    add_workspace(&mut db);
+    let ws = Graph::from_head(&repo, target_meta(&repo), &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
 
     let res = ws.merge_base_with_target_commit(repo.object_hash().null());
     assert!(
