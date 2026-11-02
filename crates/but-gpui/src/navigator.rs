@@ -3633,7 +3633,7 @@ fn change_counts(
             Some(
                 div()
                     .id(ElementId::Name(tip.clone().into()))
-                    .child(crate::ui::diff::stats(added, removed, theme))
+                    .child(crate::ui::diff::stats(added, removed, style.solid, theme))
                     .tooltip(Tooltip::text(tip)),
             )
         }

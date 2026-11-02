@@ -37,6 +37,10 @@ pub struct Theme {
     pub warn: Hsla,
     pub danger: Hsla,
     pub purple: Hsla,
+    /// `safe` and `danger` on a solid selection: each stepped toward `text_inverted` until it
+    /// reads on `fill_gray`, so it keeps what hue it can.
+    pub safe_on_solid: Hsla,
+    pub danger_on_solid: Hsla,
     /// The dark ground of a snackbar, in both themes.
     pub snackbar_bg: Hsla,
     pub snackbar_text: Hsla,
@@ -307,6 +311,15 @@ impl Theme {
         // GitHub's light and dark, which but.dev's diffs take their colours from.
         let added = pick(0x28a745, 0x34d058);
         let removed = pick(0xd73a49, 0xea4a5a);
+        let [safe, danger] = [pick(0x1d744e, 0x2eb87f), pick(0xac3421, 0xe28576)];
+        let [fill_gray, text_inverted] = [pick(0x434343, 0xf2f2f2), pick(0xf8f8f8, 0x1e1e1e)];
+        let on_solid = |accent| {
+            color(readable_on(
+                rgb_hex(accent),
+                rgb_hex(text_inverted),
+                rgb_hex(fill_gray),
+            ))
+        };
         Theme {
             code_text,
             code_line,
@@ -321,8 +334,8 @@ impl Theme {
             border_1: pick(0xb2b2b2, 0x6d6d6d),
             border_2: pick(0xcccccc, 0x565656),
             border_3: pick(0xdddddc, 0x434343),
-            fill_gray: pick(0x434343, 0xf2f2f2),
-            text_inverted: pick(0xf8f8f8, 0x1e1e1e),
+            fill_gray,
+            text_inverted,
             pop: pick(0x177a7a, 0x25b1b1),
             // Design-core's pop 40 and pop 30, darker than its fill-pop. A white tick on pop 40
             // reads at 3:1, and a white label needs pop 30 for 4.5:1.
@@ -332,10 +345,12 @@ impl Theme {
             blue: pick(0x0b61eb, 0x84aff5),
             // In light, design-core's safe 30 and danger 40, a step darker than its text-safe
             // and text-danger, which read under 4.5:1 on `bg_2`.
-            safe: pick(0x1d744e, 0x2eb87f),
+            safe,
             warn: pick(0xa05f04, 0xf99406),
-            danger: pick(0xac3421, 0xe28576),
+            danger,
             purple: pick(0x6e2cb1, 0xb287de),
+            safe_on_solid: on_solid(safe),
+            danger_on_solid: on_solid(danger),
             snackbar_bg: pick(0x1e1e1e, 0x434343),
             snackbar_text: rgb(0xf8f8f8).into(),
             diff_added: added,
@@ -470,6 +485,8 @@ impl Theme {
             warn: color(text(ansi(3), 4.5)),
             danger: color(danger),
             purple: color(purple),
+            safe_on_solid: color(readable_on(safe, bg, fg)),
+            danger_on_solid: color(readable_on(danger, bg, fg)),
             snackbar_bg: color(fg),
             snackbar_text: color(bg),
             diff_added: color(added),
@@ -591,6 +608,11 @@ fn reaching(from: u32, toward: u32, grounds: &[u32], ratio: f32) -> Option<u32> 
         })
 }
 
+/// `accent` stepped toward `ink` until it reads as text on `ground`, or `ink` if it never does.
+fn readable_on(accent: u32, ink: u32, ground: u32) -> u32 {
+    reaching(accent, ink, &[ground], 4.5).unwrap_or(ink)
+}
+
 fn rgb_color(hex: u32) -> RgbColor {
     let [_, r, g, b] = hex.to_be_bytes();
     RgbColor { r, g, b }
@@ -692,6 +714,66 @@ mod tests {
                 label >= 4.5,
                 "{name}: a pop button's label reads at {label}"
             );
+        }
+    }
+
+    #[test]
+    fn line_counts_read_on_a_solid_selection() {
+        let catppuccin = palette(
+            0x1e1e2e,
+            0xcdd6f4,
+            [
+                0x45475a, 0xf38ba8, 0xa6e3a1, 0xf9e2af, 0x89b4fa, 0xf5c2e7, 0x94e2d5, 0xbac2de,
+            ],
+        );
+        let solarized = palette(
+            0xfdf6e3,
+            0x657b83,
+            [
+                0x073642, 0xdc322f, 0x859900, 0xb58900, 0x268bd2, 0xd33682, 0x2aa198, 0xeee8d5,
+            ],
+        );
+        // Solarized's own selected text reads under 4.5:1, so its counts can only match it.
+        let themes = [
+            (
+                "gitbutler light",
+                Theme::gitbutler(false, CodeSize::Medium),
+                true,
+            ),
+            (
+                "gitbutler dark",
+                Theme::gitbutler(true, CodeSize::Medium),
+                true,
+            ),
+            (
+                "catppuccin",
+                ghostty_theme(catppuccin, Appearance::Dark),
+                true,
+            ),
+            (
+                "solarized",
+                ghostty_theme(solarized, Appearance::Light),
+                false,
+            ),
+        ];
+        for (name, theme, keeps_hue) in themes {
+            let ground = rgb_hex(theme.fill_gray);
+            let label = contrast(rgb_hex(theme.text_inverted), ground);
+            for (what, ink) in [
+                ("added", theme.safe_on_solid),
+                ("removed", theme.danger_on_solid),
+            ] {
+                let reads = contrast(rgb_hex(ink), ground);
+                assert!(
+                    reads >= label.min(4.5),
+                    "{name}: {what} reads at {reads} on the selection"
+                );
+                assert_eq!(
+                    ink != theme.text_inverted,
+                    keeps_hue,
+                    "{name}: {what} keeps its hue only where it can read"
+                );
+            }
         }
     }
 

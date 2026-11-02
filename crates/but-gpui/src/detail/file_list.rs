@@ -195,7 +195,7 @@ fn files_heading(count: usize, (added, removed): (u32, u32), theme: &Theme) -> D
                 .child("Files"),
         )
         .child(count_badge(count, theme))
-        .child(diff::stats(added, removed, theme))
+        .child(diff::stats(added, removed, false, theme))
 }
 
 /// A file list's header row, as GitButler's other file lists lay it out.
@@ -943,9 +943,10 @@ impl Detail {
         // Only under the pointer unless picked in Settings: always there, they crowd the names.
         .when(added + removed > 0, |el| {
             el.child(
-                diff::column_stats(added, removed, columns, theme).when(!always_counts, |el| {
-                    el.opacity(0.).group_hover(ROW_GROUP, |s| s.opacity(1.))
-                }),
+                diff::column_stats(added, removed, columns, false, theme)
+                    .when(!always_counts, |el| {
+                        el.opacity(0.).group_hover(ROW_GROUP, |s| s.opacity(1.))
+                    }),
             )
         })
         .child(div().flex_none().w(dp(MARK_WIDTH)))
@@ -1190,7 +1191,13 @@ impl Detail {
                     }),
             )
             .when_some(stats, |el, (added, removed)| {
-                el.child(diff::column_stats(added, removed, extras.columns, theme))
+                el.child(diff::column_stats(
+                    added,
+                    removed,
+                    extras.columns,
+                    solid,
+                    theme,
+                ))
             })
             .child(end)
             .when_some(diff_ix, |el, diff_ix| {

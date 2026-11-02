@@ -2066,7 +2066,7 @@ pub(super) fn files_toggle(
         .child(icon(glyph).text_color(theme.text_2))
         .when_some(counts, |el, (n, added, removed)| {
             el.child(count_badge(n, theme))
-                .child(diff::stats(added, removed, theme))
+                .child(diff::stats(added, removed, false, theme))
         })
 }
 
