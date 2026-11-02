@@ -1660,9 +1660,12 @@ impl Detail {
 
     /// The one file of `shown` the single file diff shows: the
     /// cursor's, or when that's hidden, the next shown after it, else the last, as
-    /// `skip_taken` moves the cursor.
+    /// `skip_taken` moves the cursor. None on a list page with no files beside its list, as
+    /// Operations history: nothing there would list the other files.
     fn alone(&self, shown: &[usize], cx: &App) -> Option<usize> {
-        if !self.store.read(cx).single_file_diff {
+        if !self.store.read(cx).single_file_diff
+            || (self.list_page(cx) && !self.has_files_beside(cx))
+        {
             return None;
         }
         (shown.get(shown.partition_point(|&file| file < self.cursor.file)))
