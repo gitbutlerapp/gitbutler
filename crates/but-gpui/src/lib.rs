@@ -45,6 +45,8 @@ mod rebuild;
 mod settings;
 mod state;
 mod status_bar;
+#[cfg(feature = "stories")]
+mod stories;
 mod terminal;
 mod theme;
 mod transfer;
@@ -164,6 +166,9 @@ fn set_dock_icon() {
 /// Start the log, before anything that could write to it. The desktop app's binary calls it
 /// before its own setup for the client, which logs too.
 pub use backend::logs::init as init_logging;
+
+#[cfg(feature = "stories")]
+pub use stories::run as run_stories;
 
 /// Run the app until it quits: open its window on this thread, which must be the process's
 /// main thread, as macOS draws windows from there. `embedded` when the desktop app's binary

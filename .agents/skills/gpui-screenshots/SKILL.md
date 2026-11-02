@@ -192,6 +192,14 @@ before, and the last frame matches the settled state. Then:
 - Say a motion is fixed only after filming the user's own steps. Put whatever changed outside
   the moving thing first in the reply, not last.
 
+## One control on its own
+
+A change to a shared control in `ui` (a button, switch, checkbox, segmented control) shows
+in the stories' window, each in its states side by side, with no repository to make. Pass
+`--stories` to `run` or `start`, and `GITBUTLER_GPUI_STORY=<name>` to open on one story; its
+toolbar switches light and dark and the interface scale. Add the variant a change makes to
+its story in `crates/but-gpui/src/stories` and shoot that.
+
 ## Showing a choice
 
 When the user picks between looks, build each one and give them the shots' paths side by

@@ -3,11 +3,12 @@
 # shows, against app data of its own. `src/dev.rs` lists the commands a script takes, and
 # `.agents/skills/gpui-screenshots/SKILL.md` says how to use this.
 #
-#   drive.sh run [--release] [--timeout SECS] SCRIPT
+#   drive.sh run [--release] [--stories] [--timeout SECS] SCRIPT
 #       Build, run SCRIPT (- for stdin) to its end, then print what the app reported.
-#       Killed after --timeout seconds, 300 by default.
+#       Killed after --timeout seconds, 300 by default. --stories drives the stories' window
+#       (`src/stories`) instead of the app; GITBUTLER_GPUI_STORY picks the one it opens on.
 #
-#   drive.sh start [--release] [--timeout SECS]
+#   drive.sh start [--release] [--stories] [--timeout SECS]
 #       Build and start a session, which `step` drives a step at a time and which quits
 #       after --timeout seconds, 1800 by default. One per checkout.
 #   drive.sh step [COMMAND]...
@@ -32,14 +33,22 @@ report() {
     grep -v ' INFO ' || true
 }
 
+# Set by --stories: drive the stories' window rather than the app.
+stories=false
+
 build() {
     local profile=$1
-    local args=(build -q -p but-gpui --features dev-script,gpui_platform/runtime_shaders)
+    local features=dev-script,gpui_platform/runtime_shaders name=gitbutler-gpui
+    if [[ $stories == true ]]; then
+        features+=,stories
+        name=gitbutler-gpui-stories
+    fi
+    local args=(build -q -p but-gpui --bin "$name" --features "$features")
     if [[ $profile == release ]]; then
         args+=(--release)
     fi
     (cd "$root" && cargo "${args[@]}") || die "the build failed"
-    bin=$target/$profile/gitbutler-gpui
+    bin=$target/$profile/$name
 }
 
 # Kill `pid` once it has run `timeout` seconds. Checks every second, so it ends with it.
@@ -63,6 +72,7 @@ cmd_run() {
     while (($#)); do
         case $1 in
             --release) profile=release ;;
+            --stories) stories=true ;;
             --timeout) timeout=$2 && shift ;;
             *) script=$1 ;;
         esac
@@ -89,8 +99,9 @@ cmd_start() {
     while (($#)); do
         case $1 in
             --release) profile=release ;;
+            --stories) stories=true ;;
             --timeout) timeout=$2 && shift ;;
-            *) die "start takes --release and --timeout" ;;
+            *) die "start takes --release, --stories and --timeout" ;;
         esac
         shift
     done
