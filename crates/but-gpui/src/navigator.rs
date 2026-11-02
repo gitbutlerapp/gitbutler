@@ -152,10 +152,20 @@ struct RowStyle<'a> {
     outlined_with: (bool, bool),
     /// A commit that just showed up, not selected: see [`crate::ui::glow_once`].
     glow: bool,
-    /// The selection just copied, by which blink it is: see [`crate::ui::blink_once`].
+    /// The selection just copied, or where a move would land as a click it can't use reminds
+    /// the user of it, by which blink it is, in `mark`: see [`crate::ui::blink_once`].
     blink: Option<usize>,
     /// Where Go to anything goes: see [`Navigator::going_to`].
     goes_here: bool,
+}
+
+/// What a row's blink is of: see [`Navigator::blinked`].
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Blink {
+    /// The selection, just copied.
+    Copied,
+    /// Where the move under way would land, as a click it can't use reminds the user of it.
+    Move,
 }
 
 /// How far a remote's commits sit in: the target's as a branch's commits do, a branch's a
@@ -193,7 +203,8 @@ fn double_click(
 /// A branch row's click handler: a double-click runs `toggle`, as [`double_click`] does.
 /// With Open branches on click on in Settings, a plain click opens its commits, as
 /// [`Navigator::open_on_click`] does; one with ⌘ or ⇧, picking commits, doesn't, and nor
-/// does any while the filter lists what it finds.
+/// does any while the filter lists what it finds, or while something is being moved, which
+/// the click puts there.
 fn click_opens(
     branch: ClickOpened,
     toggle: impl Fn(&mut Navigator, &mut Window, &mut Context<Navigator>) + 'static,
@@ -204,7 +215,8 @@ fn click_opens(
             return toggle(this, window, cx);
         }
         let held = event.modifiers();
-        let on = this.store.read(cx).prefs.open_branch_on_click;
+        let store = this.store.read(cx);
+        let on = store.prefs.open_branch_on_click && store.moving.is_none();
         if on && event.click_count() == 1 && !held.secondary() && !held.shift && !this.filtering(cx)
         {
             this.click_just_opened = !this.is_open(&branch);
@@ -237,7 +249,8 @@ impl<'a> RowStyle<'a> {
         list_row(ElementId::Name(id.into()), self.selected, theme)
             .when_some(self.blink, |el, n| {
                 let shape = div().absolute().inset_0().rounded(dp(4.));
-                el.relative().child(blink_once(("blink", n), shape, theme))
+                el.relative()
+                    .child(blink_once(("blink", n), shape, self.mark))
             })
             // A pop wash, as a commit that just showed up glows: quieter than a drop's outline.
             .when(self.goes_here, |el| {
@@ -501,8 +514,8 @@ pub struct Navigator {
     edge_scrolling: Option<Task<()>>,
     /// The branch whose name is being edited in its row.
     renaming: Option<rename::Renaming>,
-    /// How many times the selection's row has blinked, and when it last did.
-    blinked: (usize, Option<Instant>),
+    /// How many times a row has blinked, and the last blink: what it was of, and when.
+    blinked: (usize, Option<(Blink, Instant)>),
     /// Where the choice Go to anything has selected goes, while it's open.
     going_to: Option<Selection>,
     /// The row outlined for [`Self::going_to`]: its own, or while that's folded away, the one
@@ -575,8 +588,9 @@ impl Navigator {
                 }
                 cx.notify()
             }),
-            cx.subscribe(&store, |this, _, event, cx| match event {
+            cx.subscribe_in(&store, window, |this, _, event, window, cx| match event {
                 StoreEvent::SelectionChanged => this.reveal(cx),
+                StoreEvent::MoveToward(item) => this.click_move(item, window, cx),
                 StoreEvent::Loaded(_) | StoreEvent::MeshRead(_) => this.hold_still = true,
                 // A renamed branch stays open or folded as it was.
                 StoreEvent::Renamed(project, from, to) => {
@@ -740,8 +754,26 @@ impl Navigator {
 
     /// Blink the selection's row once, as it was just copied.
     pub(crate) fn blink_selection(&mut self, cx: &mut Context<Self>) {
-        self.blinked = (self.blinked.0 + 1, Some(Instant::now()));
+        self.blink(Blink::Copied, cx)
+    }
+
+    /// Blink where the move under way would land, as a click it can't use reminds the user
+    /// it's still on.
+    pub(super) fn nudge_move(&mut self, cx: &mut Context<Self>) {
+        self.blink(Blink::Move, cx)
+    }
+
+    // GPUI draws the blink itself, at the real time, so it's timed by that.
+    fn blink(&mut self, of: Blink, cx: &mut Context<Self>) {
+        self.blinked = (self.blinked.0 + 1, Some((of, Instant::now())));
         cx.notify();
+    }
+
+    /// Which blink `of` is in, if one is blinking, as [`crate::ui::blink_once`] needs it.
+    fn blinking(&self, of: Blink) -> Option<usize> {
+        let (n, last) = self.blinked;
+        last.is_some_and(|(was, at)| was == of && at.elapsed() < BLINK)
+            .then_some(n)
     }
 
     /// Outline the row where the choice Go to anything has selected goes, `target`, scrolling
@@ -796,6 +828,12 @@ impl Navigator {
     }
 
     fn select(&mut self, selection: Selection, window: &mut Window, cx: &mut Context<Self>) {
+        // While something is being moved the selection stays on it, which goes toward what's
+        // asked for instead, before the folds below follow a selection that doesn't change.
+        if self.store.read(cx).moving.is_some() {
+            return self.click_move(&selection, window, cx);
+        }
+        window.focus(&self.focus, cx);
         // Up to a section's heading, what the selection held open stays open, as a tree's
         // folder does over the row it was opened to show.
         if let Selection::Section(project, section) = &selection
@@ -807,7 +845,6 @@ impl Navigator {
         }
         self.store
             .update(cx, |store, cx| store.reopen(selection, cx));
-        window.focus(&self.focus, cx);
     }
 
     /// Draw the navigator as a card out over the detail, or beside it again.
@@ -1735,7 +1772,8 @@ impl Navigator {
                 // Copies of commits moving together are outlined as one.
                 let ghost = |ix: usize| matches!(self.rows.get(ix), Some(Row::Ghost(_)));
                 let with = (ix > 0 && ghost(ix - 1), ghost(ix + 1));
-                moving::ghost_row(item, inset, with, self.store.read(cx), theme)
+                let blink = self.blinking(Blink::Move);
+                moving::ghost_row(item, inset, with, blink, self.store.read(cx), theme)
             }
             // A line from under the branches' glyphs, clear of their commits' guides, drawn as
             // the guides are where a worktree's is dashed, so it reads as part of the worktree
@@ -1748,10 +1786,11 @@ impl Navigator {
                 .into_any_element(),
             Some(Row::GhostBranch(project, at)) => {
                 let mark = moving::mark_of(self.store.read(cx), project, theme);
-                moving::ghost_branch_row(at, inset, mark, theme)
+                moving::ghost_branch_row(at, inset, mark, self.blinking(Blink::Move), theme)
             }
             Some(Row::NewCommit(project)) => {
-                moving::new_commit_row(project, inset, self.store.read(cx), theme)
+                let blink = self.blinking(Blink::Move);
+                moving::new_commit_row(project, inset, blink, self.store.read(cx), theme)
             }
             Some(Row::UpstreamMore(project, more)) => {
                 let page = Selection::Project(project.clone());
@@ -1887,7 +1926,14 @@ impl Navigator {
                         .left_0()
                         .right_0()
                         .bg(theme.bg_1)
-                        .child(moving::ghost_row(item, inset, with, store, theme))
+                        .child(moving::ghost_row(
+                            item,
+                            inset,
+                            with,
+                            self.blinking(Blink::Move),
+                            store,
+                            theme,
+                        ))
                         .children(guides());
                     on_top(copy).priority(2)
                 })
@@ -2040,10 +2086,15 @@ impl Navigator {
             joined,
             outlined_with,
             glow: !selected && matches!(item, Selection::Commit(_, commit) if store.glows(*commit)),
-            // The selection alone, which is what's copied, not the commits picked with it.
-            blink: (self.blinked.1.is_some_and(|at| at.elapsed() < BLINK)
-                && store.selection.as_ref() == Some(item))
-            .then_some(self.blinked.0),
+            // The selection alone, which is what's copied, not the commits picked with it. A
+            // project's card, a linked worktree and a terminal being moved go where they'd
+            // land themselves, so they blink as where they'd land does.
+            blink: match moving::goes_itself(store, item) {
+                true => self.blinking(Blink::Move),
+                false => self
+                    .blinking(Blink::Copied)
+                    .filter(|_| store.selection.as_ref() == Some(item)),
+            },
             goes_here: self.going_row.as_ref() == Some(item),
         };
         let el = match item {
@@ -2094,23 +2145,36 @@ impl Navigator {
         let el = self.drop_target(el, item.clone(), window, theme, cx);
         match outlined {
             Some(outline) => {
-                let outline = moving::squash_outline(outline.edges(slid), theme);
+                let blink = self.blinking(Blink::Move);
+                let outline = moving::squash_outline(outline.edges(slid), blink, theme);
                 div().relative().child(el).child(outline).into_any_element()
             }
             None => el,
         }
     }
 
+    /// Whether a press on a row can start dragging it: not while something is being moved,
+    /// which a press puts at the row instead ([`Self::click_move`]), but the drag of a card, a
+    /// linked worktree or a terminal moving it, which keeps on.
+    fn drags(&self, cx: &App) -> bool {
+        self.store.read(cx).moving.is_none() || cx.has_active_drag()
+    }
+
     /// Let a click on row `el` select `item` ([`Self::select_row`]): on press, as native lists
     /// do, a click waiting for the release. While a terminal is the selection, the press leaves
-    /// it be, so a row can be dragged into it, and the click selects once it lets go.
+    /// it be, so a row can be dragged into it, and the click selects once it lets go. While
+    /// something is being moved, the press puts it at the row instead ([`Self::click_move`]),
+    /// ⌘ and ⇧ with it too, which pick nothing then.
     fn selectable(&self, el: Stateful<Div>, item: &Selection, cx: &Context<Self>) -> Stateful<Div> {
         let terminal = |store: &Store| matches!(store.selection, Some(Selection::Terminal(..)));
         let (pressed, clicked) = (item.clone(), item.clone());
         el.on_mouse_down(
             MouseButton::Left,
             cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-                if !terminal(this.store.read(cx)) {
+                let store = this.store.read(cx);
+                if store.moving.is_some() {
+                    this.click_move(&pressed, window, cx)
+                } else if !terminal(store) {
                     this.select_row(&pressed, event.modifiers, window, cx)
                 }
             }),
@@ -2118,7 +2182,10 @@ impl Navigator {
         .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
             let store = this.store.read(cx);
             // Not again a terminal row its press selected.
-            if terminal(store) && store.selection.as_ref() != Some(&clicked) {
+            if store.moving.is_none()
+                && terminal(store)
+                && store.selection.as_ref() != Some(&clicked)
+            {
                 this.select_row(&clicked, event.modifiers(), window, cx)
             }
         }))
@@ -2368,24 +2435,30 @@ impl Navigator {
         };
         let needs_update =
             (workspace.and_then(|ws| ws.target.as_ref())).is_some_and(|t| t.needs_update());
-        // The eye and the card's chevron, whose clicks don't select the row.
-        let button = |name: &str, click: fn(&mut Self, &ProjectId, &mut Context<Self>)| {
-            let id = id.clone();
-            div()
-                .id(ElementId::Name(format!("{name}-{id}").into()))
-                .flex_none()
-                .size(dp(20.))
-                .flex()
-                .items_center()
-                .justify_center()
-                .rounded(dp(4.))
-                .hover(|el| el.bg(theme.hover()))
-                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                    cx.stop_propagation();
-                    click(this, &id, cx)
-                }))
-        };
+        // The eye and the card's chevron, whose clicks don't select the row. While something is
+        // being moved, the eye is only part of the row, which a press puts the move at; the
+        // chevron folds the card still.
+        let moving = self.store.read(cx).moving.is_some();
+        let button =
+            |name: &str, folds: bool, click: fn(&mut Self, &ProjectId, &mut Context<Self>)| {
+                let id = id.clone();
+                div()
+                    .id(ElementId::Name(format!("{name}-{id}").into()))
+                    .flex_none()
+                    .size(dp(20.))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(dp(4.))
+                    .when(folds || !moving, |el| {
+                        el.hover(|el| el.bg(theme.hover()))
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                cx.stop_propagation();
+                                click(this, &id, cx)
+                            }))
+                    })
+            };
         Some(
             style
                 .row(format!("project-{id}"), 0.)
@@ -2406,6 +2479,7 @@ impl Navigator {
                             // Named by what it does, so its tooltip goes with the click.
                             button(
                                 if expanded { "unwatch" } else { "watch" },
+                                false,
                                 |this, id, cx| {
                                     // The row moves to the other card, from under the pointer.
                                     this.watch_hovered = None;
@@ -2509,13 +2583,17 @@ impl Navigator {
                 // A watched project's card folds to this row, still watched.
                 .when(expanded, |el| {
                     el.child(
-                        button("fold-project", |this, id, cx| this.toggle_project(id, cx))
-                            .child(fold_glyph("fold", Some(!card_folded), style.quiet()))
-                            .tooltip(Tooltip::text(match (filtering, card_folded) {
+                        button("fold-project", true, |this, id, cx| {
+                            this.toggle_project(id, cx)
+                        })
+                        .child(fold_glyph("fold", Some(!card_folded), style.quiet()))
+                        .tooltip(Tooltip::text(
+                            match (filtering, card_folded) {
                                 (true, _) => "Clear the filter to fold the project",
                                 (false, true) => "Show the project",
                                 (false, false) => "Fold the project, still watching it",
-                            })),
+                            },
+                        )),
                     )
                 })
                 .map(|el| self.selectable(el, item, cx))
@@ -2771,9 +2849,10 @@ impl Navigator {
             (payload, label)
         });
         Some(
-            row.when_some(dragged, |el, (payload, label)| {
-                el.on_drag(payload, drag_preview(self.store.clone(), label))
-            })
+            row.when_some(
+                dragged.filter(|_| self.drags(cx)),
+                |el, (payload, label)| el.on_drag(payload, drag_preview(self.store.clone(), label)),
+            )
             .into_any_element(),
         )
     }
@@ -2820,6 +2899,7 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let store = self.store.read(cx);
+        let moving = store.moving.is_some();
         let row_id = ref_name.map(ToString::to_string).unwrap_or_default();
         let theme = style.theme;
         let branch = store.branch_for(item)?;
@@ -2928,6 +3008,7 @@ impl Navigator {
                         el.child(pressable(
                             mark,
                             color,
+                            moving,
                             cx.listener(move |this, _, window, cx| {
                                 this.select(shown.clone(), window, cx);
                                 (this.detail).update(cx, |detail, cx| {
@@ -2955,7 +3036,7 @@ impl Navigator {
                                     app.resolve_commit(project, commit, window, cx)
                                 })
                             });
-                            pressable(count, warn, resolve)
+                            pressable(count, warn, moving, resolve)
                         }),
                     }
                 })
@@ -2971,7 +3052,7 @@ impl Navigator {
                 // A click looks inside, opening its commits; the chevron, a double-click, ⇧←
                 // and ⇧→ fold them.
                 .when(folds, |el| el.on_click(click_opens(clicked, toggle, cx)))
-                .when_some(ref_name, |el, ref_name| {
+                .when_some(ref_name.filter(|_| self.drags(cx)), |el, ref_name| {
                     let payload = Cut::Branch(id.clone(), ref_name.clone());
                     let label = store.label_of(id, branch).to_owned();
                     el.on_drag(
@@ -3018,7 +3099,8 @@ impl Navigator {
                 app.push_branch(project, ref_name, window, cx)
             });
         });
-        Some(pressable(count, color, push).into_any_element())
+        let moving = self.store.read(cx).moving.is_some();
+        Some(pressable(count, color, moving, push).into_any_element())
     }
 
     /// How many of `n` commits only `ref_name`'s remote has, pressed to pull them when it can,
@@ -3050,7 +3132,8 @@ impl Navigator {
                 store.pull_remote(&project, ref_name, None, cx)
             })
         });
-        Some(pressable(count, warn, pull))
+        let moving = self.store.read(cx).moving.is_some();
+        Some(pressable(count, warn, moving, pull))
     }
 
     fn commit_row(
@@ -3087,12 +3170,15 @@ impl Navigator {
                     let item = item.clone();
                     el.on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
                         let held = event.modifiers();
-                        if !held.secondary() && !held.shift {
+                        let moving = this.store.read(cx).moving.is_some();
+                        if !moving && !held.secondary() && !held.shift {
                             this.select(item.clone(), window, cx)
                         }
                     }))
                 })
-                .on_drag(payload, drag_preview(self.store.clone(), dragged))
+                .when(self.drags(cx), |el| {
+                    el.on_drag(payload, drag_preview(self.store.clone(), dragged))
+                })
                 .into_any_element(),
         )
     }
@@ -3295,13 +3381,20 @@ impl Navigator {
             &UpdateFromTarget,
         )
         .on_click(cx.listener(move |this, _, window, cx| {
+            // Only part of its row while something is being moved, which the press put there.
+            if this.store.read(cx).moving.is_some() {
+                return;
+            }
             let project = project.clone();
             this.app.update_later(window, cx, move |app, _, cx| {
                 app.update_from_target(project, UpdateScope::All, cx)
             });
         }));
+        let moving = self.store.read(cx).moving.is_some();
         div()
-            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .when(!moving, |el| {
+                el.on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            })
             // Pulsing while it updates, rather than a longer label moving what's beside it.
             .child(match updating {
                 true => pulsing(div().child(update)).into_any_element(),
@@ -3628,15 +3721,19 @@ fn status_mark(status: &Status, seen: bool, style: RowStyle) -> Option<Stateful<
 
 /// `mark` as a button, its tooltip read as its name: padded with `MARK_PAD` and tinted `color`
 /// under the pointer. Pressing it does `press` and leaves its row as it was, unselected and
-/// unfolded.
+/// unfolded. While something is `moving` it's only part of its row, which a press puts the move
+/// at, so it does nothing of its own then.
 fn pressable(
     mark: Stateful<Div>,
     color: Hsla,
+    moving: bool,
     press: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> Stateful<Div> {
+    let mark = mark.px(dp(MARK_PAD)).rounded(dp(4.));
+    if moving {
+        return mark;
+    }
     mark.role(Role::Button)
-        .px(dp(MARK_PAD))
-        .rounded(dp(4.))
         .hover(move |el| el.bg(color.opacity(0.16)))
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .on_click(move |event, window, cx| {

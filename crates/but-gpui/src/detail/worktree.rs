@@ -739,10 +739,11 @@ impl Detail {
                         ))
                         .on_mouse_down(MouseButton::Left, keep_focus_on_press)
                         .on_click(cx.listener(move |this, _, _, cx| {
-                            this.opening = opening.clone();
                             let target = target.clone();
-                            this.store
-                                .update(cx, |store, cx| store.select(Some(target), cx))
+                            if (this.store).update(cx, |store, cx| store.select_by_hand(target, cx))
+                            {
+                                this.opening = opening.clone();
+                            }
                         }))
                         .into_any_element()
                 }

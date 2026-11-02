@@ -35,7 +35,7 @@ impl Render for ActivityStory {
                     .child(blink_once(
                         ("blink", n),
                         div().absolute().inset_0().rounded(dp(4.)),
-                        theme,
+                        theme.pop,
                     ))
                     .child("What y just copied"),
             );
