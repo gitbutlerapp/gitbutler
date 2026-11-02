@@ -26,7 +26,10 @@ use gix::{
     },
 };
 
-use crate::graph_rebase::util::{OrderedParentKind, collect_ordered_parents};
+use crate::graph_rebase::{
+    rewrites::Lineage,
+    util::{OrderedParentKind, collect_ordered_parents},
+};
 
 use crate::graph_rebase::cherry_pick::{PickMode, TreeMergeMode};
 mod branch_stacks;
@@ -37,6 +40,7 @@ pub mod materialize;
 pub mod merge_commit_changes;
 pub mod mutate;
 pub mod ordering;
+mod rewrites;
 pub(crate) mod util;
 pub mod workspace;
 pub use workspace::{GraphWorkspace, Subgraph};
@@ -758,12 +762,12 @@ fn lookup_step(graph: &StepGraph, history: &RevisionHistory, selector: Selector)
 #[derive(Debug, Clone, Default)]
 pub struct RevisionHistory {
     mappings: Vec<HashMap<StepGraphIndex, StepGraphIndex>>,
-    /// A mapping from any commits that were in the original mapping to a
-    /// rewritten version.
+    /// Where each commit that exists now came from, for every commit that was
+    /// rewritten.
     ///
-    /// Unintuatively, the values are the original values, and the keys are the
-    /// _new_ values that they have been mapped to.
-    commit_mappings: BTreeMap<gix::ObjectId, gix::ObjectId>,
+    /// Unintuatively, the keys are the _new_ commits, and the values hold what
+    /// they came from.
+    lineages: BTreeMap<gix::ObjectId, Lineage>,
     /// Conflicted commits that were created.
     pub conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
 }
@@ -792,18 +796,21 @@ impl RevisionHistory {
     /// If there is an entry whose old `to` that cooresponds with the new
     /// `from`, then we replace `old_to <- old_from` with `new_to <- old_from`
     pub(crate) fn update_mapping(&mut self, from: gix::ObjectId, to: gix::ObjectId) {
-        if let Some(value) = self.commit_mappings.remove(&from) {
-            self.commit_mappings.insert(to, value);
-        } else {
-            self.commit_mappings.insert(to, from);
-        };
+        let lineage = self
+            .lineages
+            .remove(&from)
+            .unwrap_or_else(|| Lineage::rewrite_of(from));
+        self.lineages.insert(to, lineage);
     }
 
     /// Provides a mapping between commits that were rewritten as part of the transformation.
     pub fn commit_mappings(&self) -> BTreeMap<gix::ObjectId, gix::ObjectId> {
-        self.commit_mappings
+        self.lineages
             .iter()
-            .filter_map(|(k, v)| if k == v { None } else { Some((*v, *k)) })
+            .filter_map(|(commit, lineage)| {
+                let original = lineage.original.filter(|original| original != commit)?;
+                Some((original, *commit))
+            })
             .collect()
     }
 
