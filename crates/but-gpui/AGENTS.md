@@ -170,6 +170,13 @@ unseen is what a laptop's battery pays for.
 - An element's own mouse listeners run only while its hitbox is hovered, which anything
   occluding above it takes. What follows the pointer over the whole window, as the peek's
   edge does, registers with `window.on_mouse_event` from a `canvas`, as the scrollbar does.
+- GPUI counts no hitbox as hovered while the last input was a key, and files dragged in from
+  another app come as moves it doesn't count as the mouse's, so after typing in a terminal a
+  drop would land nowhere. The app sends such a move again as the mouse's (`AppView::render`).
+- Build and restart starts the new build as a process of its own, which takes the terminals'
+  shells over (`but_tty::hand_over`), rather than by exec. After exec, macOS went on drawing the
+  window and sending it clicks but offered it no drags from other apps, though it stayed
+  registered for them, until the app was quit and started again.
 - `InteractiveText` maps a click on centered text (`text_center`) as if each line were
   left-aligned, so its links miss. Let the parent center a block that fits its text instead.
 

@@ -302,11 +302,19 @@ fn built_binary(stdout: impl Read) -> Option<PathBuf> {
     exe
 }
 
+/// How long a new build has to take the terminals over, which it does before it opens its
+/// window. One from before builds started this way never says it did.
+#[cfg(unix)]
+const TAKEN_WITHIN: std::time::Duration = std::time::Duration::from_secs(10);
+
 impl Built {
-    /// Run the new binary in this process's place, with this one's arguments and environment,
-    /// so `cargo run` and its terminal keep it, and `terminals` with it. The manifest's folder
-    /// is the one it was built from, as `cargo run` would have set it, so it offers Build and
-    /// restart too. Returns only when that fails.
+    /// Start the new binary in this process's place, with this one's arguments and environment,
+    /// handing it `terminals`, and exit once it has them. The manifest's folder is the one it was
+    /// built from, as `cargo run` would have set it, so it offers Build and restart too. A process
+    /// of its own, not this one by exec: macOS goes on drawing a window a process opens after
+    /// exec and sending it clicks, but offers it no drags from other apps. `cargo run` ends with
+    /// this process, so its terminal is back at its prompt while the new build writes on there.
+    /// Returns only when starting it fails.
     #[cfg(unix)]
     pub fn restart<T: serde::Serialize>(
         &self,
@@ -316,13 +324,20 @@ impl Built {
         new.args(std::env::args_os().skip(1))
             .env("CARGO_MANIFEST_DIR", &self.crate_dir)
             .env("CARGO_MANIFEST_PATH", self.crate_dir.join("Cargo.toml"));
-        let keep = but_tty::hand_over(terminals, &mut new).unwrap_or_else(|err| {
-            tracing::error!("couldn't hand the terminals over: {err:#}");
-            Vec::new()
-        });
-        close_on_exec(&keep);
-        let err: anyhow::Error = std::os::unix::process::CommandExt::exec(&mut new).into();
-        err.context(format!("couldn't start {}", self.exe.display()))
+        let handing = (but_tty::hand_over(terminals, &mut new))
+            .inspect_err(|err| tracing::error!("couldn't hand the terminals over: {err:#}"))
+            .ok();
+        close_on_exec(handing.as_ref().map_or(&[], |handing| &handing.keep));
+        if let Err(err) = new.spawn() {
+            let err = anyhow::Error::from(err);
+            return err.context(format!("couldn't start {}", self.exe.display()));
+        }
+        if let Some(handing) = handing
+            && !handing.wait_taken(TAKEN_WITHIN)
+        {
+            tracing::error!("the new build didn't take the terminals over");
+        }
+        std::process::exit(0)
     }
 
     #[cfg(not(unix))]
@@ -331,8 +346,8 @@ impl Built {
     }
 }
 
-/// Mark the files this process has open, past stdin, stdout and stderr, to close as it runs
-/// the new binary in its place, but for `keep`, which it takes along. Rust opens its own so, but not every framework does: Metal
+/// Mark the files this process has open, past stdin, stdout and stderr, to close in the new
+/// binary it starts, but for `keep`, which that takes along. Rust opens its own so, but not every framework does: Metal
 /// keeps its shader caches open without, so each restart carried four more into the next
 /// process, until a burst of reads hit the limit on open files and whatever opened one next
 /// failed.

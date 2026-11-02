@@ -122,7 +122,7 @@ impl Terminal {
         ))
     }
 
-    /// A terminal on a shell the process this one was before exec handed over, showing what it
+    /// A terminal on a shell the build this one took over from handed over, showing what it
     /// showed then. Adopted before the window opens, which brings the theme, it's coloured as
     /// it's first drawn.
     #[cfg(unix)]

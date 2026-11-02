@@ -23,6 +23,10 @@
 //!                         # `hold` to keep the button down
 //! drop 120 500            # let go of a held drag there
 //! release 120 500         # let go without moving there first, as a hand does
+//! files 120 500 /a /b     # drag those files in from another app, as the Finder does, and
+//!                         # hold them there
+//! files drop 120 500      # let go of them there; each its own line, as macOS sends each
+//!                         # as an event of its own
 //! scroll 900 400 300      # scroll by 300 logical pixels at a window position
 //! scroll 900 400 0 200    # and by 200 to the right
 //! pinch 900 400 0.5       # pinch a trackpad there, zooming in by half again, out below 0
@@ -65,9 +69,9 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result, bail};
 use gpui::{
-    AnyWindowHandle, App, AppContext as _, KeyUpEvent, Keystroke, Modifiers, ModifiersChangedEvent,
-    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PinchEvent, Pixels, PlatformInput,
-    Point, ScrollDelta, ScrollWheelEvent, TouchPhase, Window, point,
+    AnyWindowHandle, App, AppContext as _, FileDropEvent, KeyUpEvent, Keystroke, Modifiers,
+    ModifiersChangedEvent, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PinchEvent,
+    Pixels, PlatformInput, Point, ScrollDelta, ScrollWheelEvent, TouchPhase, Window, point,
 };
 use image::RgbaImage;
 use parking_lot::Mutex;
@@ -985,6 +989,31 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             window.dispatch_event(mouse_move(at, Some(left), Modifiers::default()), cx);
             window.dispatch_event(mouse_up(left, at, Modifiers::default(), 1), cx);
             PRESSED.store(false, Ordering::Relaxed);
+        }
+        // Files dragged in from another app, as macOS hands them over: in and over the window,
+        // then let go.
+        "files" => {
+            let mut parts = rest.split_whitespace().peekable();
+            let dropped = parts.next_if_eq(&"drop").is_some();
+            let mut number = || -> Result<Pixels> {
+                let n = parts.next().context("files takes x y")?;
+                Ok(Pixels::from(n.parse::<f32>().context("expected a number")?))
+            };
+            let position = point(number()?, number()?);
+            let events = match dropped {
+                true => vec![FileDropEvent::Submit { position }],
+                false => vec![
+                    FileDropEvent::Entered {
+                        position,
+                        paths: gpui::ExternalPaths(parts.map(PathBuf::from).collect()),
+                    },
+                    FileDropEvent::Pending { position },
+                ],
+            };
+            for event in events {
+                window.dispatch_event(PlatformInput::FileDrop(event), cx);
+                frame(window, cx);
+            }
         }
         // What the system's folder picker would hand Add a repository.
         "add" => {
