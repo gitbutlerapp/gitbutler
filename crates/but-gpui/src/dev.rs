@@ -29,6 +29,7 @@
 //!                         # as an event of its own
 //! scroll 900 400 300      # scroll by 300 logical pixels at a window position
 //! scroll 900 400 0 200    # and by 200 to the right
+//! wheel 900 400 1         # turn a mouse's notched wheel 1 notch there, down; -1 up
 //! pinch 900 400 0.5       # pinch a trackpad there, zooming in by half again, out below 0
 //! add /path/to/repo       # add a project, as Add a repository does with the folder picked
 //! keymap tui              # pick a keymap, gitbutler or tui, as Settings › Keyboard does
@@ -906,6 +907,20 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 PlatformInput::ScrollWheel(ScrollWheelEvent {
                     position: point(Pixels::from(x), Pixels::from(y)),
                     delta: ScrollDelta::Pixels(point(Pixels::from(-dx), Pixels::from(-dy))),
+                    modifiers: Modifiers::default(),
+                    touch_phase: TouchPhase::Moved,
+                }),
+                cx,
+            );
+        }
+        "wheel" => {
+            let [x, y, notches] = numbers()?[..] else {
+                bail!("wheel takes x y notches");
+            };
+            window.dispatch_event(
+                PlatformInput::ScrollWheel(ScrollWheelEvent {
+                    position: point(Pixels::from(x), Pixels::from(y)),
+                    delta: ScrollDelta::Lines(point(0., -notches)),
                     modifiers: Modifiers::default(),
                     touch_phase: TouchPhase::Moved,
                 }),
