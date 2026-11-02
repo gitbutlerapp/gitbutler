@@ -1,5 +1,5 @@
 use anyhow::Result;
-use but_core::{DiffSpec, RefMetadata};
+use but_core::DiffSpec;
 use but_rebase::graph_rebase::{
     Editor, LookupStep, Pick, Selector, Step, SuccessfulRebase, ToSelector, mutate::InsertSide,
 };
@@ -9,11 +9,11 @@ use crate::commit_engine::{Destination, create_commit};
 use super::{ChangeSource, cancel_consumed_changes, consumed_changes};
 
 #[derive(Debug)]
-pub struct CommitCreateOutcome<'ws, 'meta, M: RefMetadata> {
+pub struct CommitCreateOutcome<'ws, 'meta> {
     /// A successful rebase result for continuing operations. This will be
     /// always provided regardless of whether a commit was actually
     /// created.
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
+    pub rebase: SuccessfulRebase<'ws, 'meta>,
     /// Selector pointing to the newly created commit, if one was created.
     ///
     /// A commit may not be created if all the diff_specs are rejected. See
@@ -42,15 +42,15 @@ pub struct CommitCreateOutcome<'ws, 'meta, M: RefMetadata> {
 /// this particular function call. The provided `context_lines` MUST align
 /// with the `context_lines` value used to generate the `DiffSpec`s passed
 /// in the `changes` parameter.
-pub fn commit_create<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn commit_create<'ws, 'meta>(
+    mut editor: Editor<'ws, 'meta>,
     changes: Vec<DiffSpec>,
     relative_to: impl ToSelector,
     side: InsertSide,
     message: &str,
     context_lines: u32,
     source: ChangeSource<'_>,
-) -> Result<CommitCreateOutcome<'ws, 'meta, M>> {
+) -> Result<CommitCreateOutcome<'ws, 'meta>> {
     let relative_to_selector = relative_to.to_selector(&editor)?;
     let parent_commit_id =
         parent_commit_id_for_new_commit(&editor, editor.lookup_step(relative_to_selector)?, side)?;
@@ -98,8 +98,8 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     })
 }
 
-fn parent_commit_id_for_new_commit<'ws, 'meta, M: RefMetadata>(
-    editor: &Editor<'ws, 'meta, M>,
+fn parent_commit_id_for_new_commit<'ws, 'meta>(
+    editor: &Editor<'ws, 'meta>,
     target_step: Step,
     side: InsertSide,
 ) -> Result<Option<gix::ObjectId>> {

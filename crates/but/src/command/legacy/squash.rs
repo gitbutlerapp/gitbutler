@@ -6,7 +6,7 @@ use but_api::{
     WorkspaceState,
     json::{ChangeIdString, HexHash},
 };
-use but_core::{DiffSpec, DryRun, RefMetadata, sync::RepoExclusive};
+use but_core::{DiffSpec, DryRun, sync::RepoExclusive};
 use but_ctx::Context;
 use but_graph::Workspace;
 use but_transaction::{IntermediateCommitCreateResult, Transaction};
@@ -168,7 +168,7 @@ pub fn squash(
     current_dir: &Path,
 ) -> CliResult<(SquashOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
+
     let id_map = IdMap::new_from_context(ctx, guard.read_permission(), Some(invoked_from))?;
     let head_info = but_api::legacy::workspace::head_info(ctx)?;
     let merged = MergedUpstream::new(
@@ -195,7 +195,7 @@ pub fn squash(
     drop(repo);
     drop(ws);
 
-    run(ctx, &mut meta, guard.write_permission(), squash_op)
+    run(ctx, guard.write_permission(), squash_op)
 }
 
 fn resolve_args(
@@ -737,12 +737,11 @@ fn short_commit_ids(
 /// Refuse a squash that would conflict, and name the earlier commits to squash along.
 fn squash_conflicts_error(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     op: &SquashCommitsOperation,
 ) -> CliError {
     let err = bad_input("Cannot squash commits that would result in merge conflicts");
-    match squash_along_hint(ctx, meta, perm, op) {
+    match squash_along_hint(ctx, perm, op) {
         Ok(Some(hint)) => err.hint(hint),
         Ok(None) => err,
         Err(hint_err) => {
@@ -762,7 +761,6 @@ fn squash_conflicts_error(
 /// and leave out each one that the squash works without.
 fn squash_along_hint(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     op: &SquashCommitsOperation,
 ) -> anyhow::Result<Option<String>> {
@@ -781,12 +779,12 @@ fn squash_along_hint(
             along.push(id);
         }
     }
-    if !squash_works(ctx, meta, perm, &sources, &along, target)? {
+    if !squash_works(ctx, perm, &sources, &along, target)? {
         return Ok(None);
     }
     for id in along.clone() {
         let without: Vec<_> = along.iter().copied().filter(|other| *other != id).collect();
-        if squash_works(ctx, meta, perm, &sources, &without, target)? {
+        if squash_works(ctx, perm, &sources, &without, target)? {
             along = without;
         }
     }
@@ -802,14 +800,13 @@ fn squash_along_hint(
 /// Whether squashing `sources` and `along` into `target` works, tried in a dry run.
 fn squash_works(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     sources: &[ObjectId],
     along: &[ObjectId],
     target: ObjectId,
 ) -> anyhow::Result<bool> {
     let outcome =
-        but_transaction::with_transaction_with_perm_only(ctx, meta, perm, DryRun::Yes, |mut tx| {
+        but_transaction::with_transaction_with_perm_only(ctx, perm, DryRun::Yes, |mut tx| {
             tx.squash_commits(
                 sources.iter().chain(along).copied(),
                 target,
@@ -1310,11 +1307,7 @@ impl HowToRewordTarget {
         }
     }
 
-    fn execute(
-        self,
-        commit: CommitId,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
-    ) -> anyhow::Result<CommitId> {
+    fn execute(self, commit: CommitId, tx: &mut Transaction<'_, '_>) -> anyhow::Result<CommitId> {
         match self {
             Self::UseTargetMessage | Self::UseSourceMessage => Ok(commit),
             Self::Reword(message) => message.execute(commit, tx),
@@ -1361,11 +1354,7 @@ impl HowToRewordTargetNoSource {
         }
     }
 
-    fn execute(
-        self,
-        commit: CommitId,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
-    ) -> anyhow::Result<CommitId> {
+    fn execute(self, commit: CommitId, tx: &mut Transaction<'_, '_>) -> anyhow::Result<CommitId> {
         match self {
             Self::UseTargetMessage => Ok(commit),
             Self::Reword(message) => message.execute(commit, tx),
@@ -1485,7 +1474,6 @@ impl<'a> ClassifiedSquashables<'a> {
 
 pub fn run(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     squash_op: SquashOperation,
 ) -> CliResult<(SquashOutcome, Option<WorkspaceState>)> {
@@ -1670,7 +1658,6 @@ pub fn run(
             let snapshot_details = SnapshotDetails::new(OperationKind::SquashCommit);
             let (new_commit, ws) = but_transaction::with_transaction_with_perm(
                 ctx,
-                meta,
                 perm,
                 snapshot_details,
                 &[],
@@ -1699,7 +1686,7 @@ pub fn run(
                         rejection::explain_after_rollback(ctx, perm, "amend", target, err).into()
                     }
                     TransactionCompatibleOperation::Commits(op) if err.is::<SquashConflicts>() => {
-                        squash_conflicts_error(ctx, meta, perm, op)
+                        squash_conflicts_error(ctx, perm, op)
                     }
                     _ => err.into(),
                 }
@@ -1740,7 +1727,6 @@ pub fn run(
             let snapshot_details = SnapshotDetails::new(OperationKind::UndoCommit);
             let ws = but_transaction::with_transaction_with_perm(
                 ctx,
-                meta,
                 perm,
                 snapshot_details,
                 &[],
@@ -1924,7 +1910,7 @@ pub struct SquashCommitsOperation {
 }
 
 impl SquashCommitsOperation {
-    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<CommitId> {
+    fn execute(self, tx: &mut Transaction<'_, '_>) -> anyhow::Result<CommitId> {
         let Self {
             sources,
             target,
@@ -1949,7 +1935,7 @@ pub struct SquashBranchOperation {
 }
 
 impl SquashBranchOperation {
-    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<CommitId> {
+    fn execute(self, tx: &mut Transaction<'_, '_>) -> anyhow::Result<CommitId> {
         let Self {
             sources,
             target,
@@ -1981,7 +1967,7 @@ struct AmendUncommittedDiffSpecsOperation {
 impl AmendUncommittedDiffSpecsOperation {
     fn execute(
         self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_>,
         source: ChangeSource<'_>,
     ) -> anyhow::Result<CommitId> {
         let Self {
@@ -2015,7 +2001,7 @@ struct MoveCommittedFilesOperation {
 }
 
 impl MoveCommittedFilesOperation {
-    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<CommitId> {
+    fn execute(self, tx: &mut Transaction<'_, '_>) -> anyhow::Result<CommitId> {
         let Self {
             target,
             source,

@@ -1,7 +1,6 @@
 use std::{collections::HashMap, fmt::Write as _};
 
 use anyhow::{Context, Result, bail};
-use but_core::RefMetadata;
 use gix::refs::transaction::{PreviousValue, RefEdit};
 use petgraph::{algo::toposort, visit::EdgeRef};
 
@@ -12,8 +11,8 @@ use crate::graph_rebase::{
 };
 use crate::merge::ConflictErrorContext;
 
-impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
-    pub fn rebase(self) -> Result<SuccessfulRebase<'ws, 'graph, M>> {
+impl<'ws, 'graph> Editor<'ws, 'graph> {
+    pub fn rebase(self) -> Result<SuccessfulRebase<'ws, 'graph>> {
         let mut ref_edits = vec![];
         let steps_to_pick = order_steps_picking(&self.graph)?;
 
@@ -213,7 +212,6 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
             checkouts: self.checkouts.to_owned(),
             history,
             workspace: self.workspace,
-            meta: self.meta,
             db: self.db,
         })
     }

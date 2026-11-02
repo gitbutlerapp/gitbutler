@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use anyhow::Context as _;
 use bstr::{BStr, BString, ByteVec};
 use but_core::{
-    ChangeId, DiffSpec, DryRun, RefMetadata,
+    ChangeId, DiffSpec, DryRun,
     commit::CommitIdentifiers,
     ref_metadata,
     sync::RepoExclusive,
@@ -106,21 +106,19 @@ pub struct WorkspaceState {
 /// continue using the source commits.
 ///
 /// Commits can still manually be mapped using [`Transaction::get_mapped_commit`] if necessary.
-pub fn with_transaction<M, F, T>(
+pub fn with_transaction<F, T>(
     ctx: &mut Context,
-    meta: &mut M,
     snapshot_details: SnapshotDetails,
     dry_run: DryRun,
     f: F,
 ) -> anyhow::Result<T::Outcome>
 where
-    F: FnOnce(Transaction<'_, '_, M>) -> anyhow::Result<T>,
-    M: RefMetadata,
+    F: FnOnce(Transaction<'_, '_>) -> anyhow::Result<T>,
     T: TransactionOutcome,
 {
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
-    with_transaction_with_perm(ctx, meta, perm, snapshot_details, &[], dry_run, f)
+    with_transaction_with_perm(ctx, perm, snapshot_details, &[], dry_run, f)
 }
 
 /// Like [`with_transaction`] but allows the caller to provide the lock.
@@ -129,9 +127,8 @@ where
 /// yet, deletes it. See [`but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm`].
 /// Recording it is best-effort: a transaction that landed succeeds even when its oplog entry
 /// can't be written, so it can't be undone.
-pub fn with_transaction_with_perm<M, F, T>(
+pub fn with_transaction_with_perm<F, T>(
     ctx: &mut Context,
-    meta: &mut M,
     perm: &mut RepoExclusive,
     snapshot_details: SnapshotDetails,
     snapshot_refs: &[&FullNameRef],
@@ -139,8 +136,7 @@ pub fn with_transaction_with_perm<M, F, T>(
     f: F,
 ) -> anyhow::Result<T::Outcome>
 where
-    F: FnOnce(Transaction<'_, '_, M>) -> anyhow::Result<T>,
-    M: RefMetadata,
+    F: FnOnce(Transaction<'_, '_>) -> anyhow::Result<T>,
     T: TransactionOutcome,
 {
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
@@ -151,7 +147,7 @@ where
         dry_run,
     );
 
-    let (should_rollback, outcome) = with_transaction_with_perm_only(ctx, meta, perm, dry_run, f)?;
+    let (should_rollback, outcome) = with_transaction_with_perm_only(ctx, perm, dry_run, f)?;
 
     if !should_rollback
         && let Some(snapshot) = maybe_oplog_entry
@@ -163,23 +159,21 @@ where
     Ok(outcome)
 }
 
-pub fn with_transaction_with_perm_only<M, F, T>(
+pub fn with_transaction_with_perm_only<F, T>(
     ctx: &mut Context,
-    meta: &mut M,
     perm: &mut RepoExclusive,
     dry_run: DryRun,
     f: F,
 ) -> anyhow::Result<(bool, T::Outcome)>
 where
-    F: FnOnce(Transaction<'_, '_, M>) -> anyhow::Result<T>,
-    M: RefMetadata,
+    F: FnOnce(Transaction<'_, '_>) -> anyhow::Result<T>,
     T: TransactionOutcome,
 {
     let (should_rollback, outcome) = {
         let context_lines = ctx.settings.context_lines;
         let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
-        let editor = Editor::create(&mut ws, meta, &repo, &mut db)?;
+        let editor = Editor::create(&mut ws, &repo, &mut db)?;
         let rebase = editor.rebase()?;
 
         let mut inner = Inner {
@@ -266,23 +260,17 @@ where
 /// fail together.
 ///
 /// See [`with_transaction`] for more details.
-pub struct Transaction<'inner, 'rebase, M>
-where
-    M: RefMetadata,
-{
+pub struct Transaction<'inner, 'rebase> {
     // Store a mutable reference so the callback for `with_transaction` can get an owned
     // `Transaction`. It needs to be owned to verify statically that `Transaction::rollback` is
     // only called once.
-    inner: &'inner mut Inner<'rebase, M>,
+    inner: &'inner mut Inner<'rebase>,
 }
 
-struct Inner<'rebase, M>
-where
-    M: RefMetadata,
-{
+struct Inner<'rebase> {
     // an Option so we can "take" the rebase, convert it into an editor, perform another rebase,
     // and put the result back.
-    rebase: Option<SuccessfulRebase<'rebase, 'rebase, M>>,
+    rebase: Option<SuccessfulRebase<'rebase, 'rebase>>,
     pending_metadata_removals: Vec<FullName>,
     pending_branch_metadata: Vec<PendingBranchMetadata>,
     pending_ref_changes: PendingRefChanges,
@@ -306,10 +294,7 @@ where
     context_lines: u32,
 }
 
-impl<'rebase, M> Transaction<'_, 'rebase, M>
-where
-    M: RefMetadata,
-{
+impl<'rebase> Transaction<'_, 'rebase> {
     /// Rollback the transaction, without returning an error.
     ///
     /// If the transaction needs to be rolled back conditionally use [`DynamicOutcome::Rollback`].
@@ -1048,9 +1033,9 @@ where
     fn rebase<F, T>(&mut self, f: F) -> anyhow::Result<T>
     where
         F: FnOnce(
-            Editor<'rebase, 'rebase, M>,
+            Editor<'rebase, 'rebase>,
             &CommitMappings,
-        ) -> anyhow::Result<(T, SuccessfulRebase<'rebase, 'rebase, M>)>,
+        ) -> anyhow::Result<(T, SuccessfulRebase<'rebase, 'rebase>)>,
     {
         let editor = self
             .inner
@@ -1068,9 +1053,9 @@ where
     fn rebase_losing_tips<F, T>(&mut self, f: F) -> anyhow::Result<T>
     where
         F: FnOnce(
-            Editor<'rebase, 'rebase, M>,
+            Editor<'rebase, 'rebase>,
             &CommitMappings,
-        ) -> anyhow::Result<(T, SuccessfulRebase<'rebase, 'rebase, M>)>,
+        ) -> anyhow::Result<(T, SuccessfulRebase<'rebase, 'rebase>)>,
     {
         let checkout_is_pending = self.inner.pending_checkout.is_some();
         self.rebase(|editor, commit_mappings| {
@@ -1090,10 +1075,10 @@ where
 /// With the branch `HEAD` was on alone removed, `HEAD` follows it to what's below, detached unless
 /// a branch points there. Entering the workspace there and leaving it puts `HEAD` on the local
 /// target or a branch below instead, or keeps the workspace if neither has the same files.
-fn keep_head_on_a_branch<'rebase, M: RefMetadata>(
-    rebase: SuccessfulRebase<'rebase, 'rebase, M>,
+fn keep_head_on_a_branch<'rebase>(
+    rebase: SuccessfulRebase<'rebase, 'rebase>,
     head_branch_removed: bool,
-) -> anyhow::Result<SuccessfulRebase<'rebase, 'rebase, M>> {
+) -> anyhow::Result<SuccessfulRebase<'rebase, 'rebase>> {
     if !head_branch_removed {
         return Ok(rebase);
     }
@@ -1101,14 +1086,40 @@ fn keep_head_on_a_branch<'rebase, M: RefMetadata>(
     leave_unnecessary_workspace(rebase.into_editor())
 }
 
-fn apply_new_stacks<'rebase, M: RefMetadata>(
-    mut rebase: SuccessfulRebase<'rebase, 'rebase, M>,
+fn apply_new_stacks<'rebase>(
+    mut rebase: SuccessfulRebase<'rebase, 'rebase>,
     new_stacks: Vec<(FullName, Option<usize>)>,
     checking_out: bool,
-) -> anyhow::Result<SuccessfulRebase<'rebase, 'rebase, M>> {
+) -> anyhow::Result<SuccessfulRebase<'rebase, 'rebase>> {
     // The branch checked out then has `HEAD` on its own, without a workspace.
-    if checking_out {
+    if checking_out || new_stacks.is_empty() {
         return Ok(rebase);
+    }
+    if rebase
+        .repo()
+        .try_find_reference(but_core::WORKSPACE_REF_NAME)?
+        .is_some()
+    {
+        let stacks = workspace_state::previously_applied_stacks(rebase.repo(), rebase.db())?;
+        let editor = rebase.into_editor();
+        rebase = if editor.workspace_reference().is_none() {
+            workspace_state::switch_to_workspace_with_stacks(editor, &stacks)?.map_err(
+                |(_, err)| {
+                    if err
+                        .downcast_ref::<but_rebase::merge::ConflictErrorContext>()
+                        .is_some()
+                    {
+                        anyhow::anyhow!(
+                            "Cannot restore workspace because previously applied branches conflict"
+                        )
+                    } else {
+                        err
+                    }
+                },
+            )?
+        } else {
+            editor.rebase()?
+        };
     }
     for (ref_name, order) in new_stacks {
         // Local branches need no tracking configuration, which is only returned for remote ones.
@@ -1279,8 +1290,8 @@ impl<T, K> TransactionOutcome for DynamicOutcome<T, K> {
     }
 }
 
-fn workspace_state_from_rebase<M: RefMetadata>(
-    rebase: SuccessfulRebase<'_, '_, M>,
+fn workspace_state_from_rebase(
+    rebase: SuccessfulRebase<'_, '_>,
     repo: &gix::Repository,
     pending_metadata_removals: Vec<FullName>,
     pending_branch_metadata: Vec<PendingBranchMetadata>,
@@ -1303,10 +1314,9 @@ fn workspace_state_from_rebase<M: RefMetadata>(
             .overlayed_graph_with_workspace_overrides(Some((target, branch)), None)?
             .into_workspace()?;
         let mut rebase = rebase;
-        let (repo, meta, db) = rebase.repo_meta_and_db_mut();
+        let (repo, db) = rebase.repo_and_db_mut();
         return WorkspaceState::from_workspace_with_db(
             &workspace,
-            meta,
             repo,
             replaced_commits,
             conflicted_commits,
@@ -1316,22 +1326,19 @@ fn workspace_state_from_rebase<M: RefMetadata>(
 
     let materialized = rebase.materialize(Default::default())?;
     for branch in pending_branch_metadata {
-        let mut handle = materialized.meta.branch(branch.name.as_ref())?;
+        let mut handle = materialized.db.meta().branch(branch.name.as_ref())?;
         *handle = branch.value;
-        materialized.meta.set_branch(&handle)?;
+        materialized.db.meta_mut()?.set_branch(&handle)?;
     }
     for ref_name in pending_metadata_removals {
-        materialized.meta.remove(ref_name.as_ref())?;
+        materialized.db.meta_mut()?.remove(ref_name.as_ref())?;
     }
     if let Some(branch) = pending_checkout {
         checkout_reference(repo, branch.as_ref())?;
         let project_meta = materialized.workspace.graph.project_meta.clone();
-        materialized.workspace.refresh_from_head(
-            repo,
-            &*materialized.meta,
-            project_meta,
-            &mut *materialized.db,
-        )?;
+        materialized
+            .workspace
+            .refresh_from_head(repo, project_meta, &mut *materialized.db)?;
     }
 
     WorkspaceState::from_materialized(materialized, repo)

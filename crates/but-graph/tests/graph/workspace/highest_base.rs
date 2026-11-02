@@ -5,17 +5,11 @@ use crate::init::utils::{add_workspace, read_only_in_memory_scenario, standard_o
 
 #[test]
 fn child_most_stack_base_wins_over_the_target() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
-    add_workspace(&mut meta);
-    let ws = Graph::from_head(
-        &repo,
-        &*meta,
-        target_meta(&repo),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?
-    .into_workspace()?;
+    let (repo, mut db) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
+    add_workspace(&mut db);
+    let ws = Graph::from_head(&repo, target_meta(&repo), &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
 
     let m3 = repo.rev_parse_single(":/M3")?.detach();
     let m4 = repo.rev_parse_single(":/M4")?.detach();
@@ -34,17 +28,11 @@ fn child_most_stack_base_wins_over_the_target() -> anyhow::Result<()> {
 
 #[test]
 fn target_commit_without_stacks() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/worktree-behind-target")?;
-    add_workspace(&mut meta);
-    let ws = Graph::from_head(
-        &repo,
-        &*meta,
-        target_meta(&repo),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?
-    .into_workspace()?;
+    let (repo, mut db) = read_only_in_memory_scenario("ws/worktree-behind-target")?;
+    add_workspace(&mut db);
+    let ws = Graph::from_head(&repo, target_meta(&repo), &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
 
     assert!(ws.stacks.is_empty(), "nothing rests on anything yet");
     assert_eq!(
@@ -57,11 +45,10 @@ fn target_commit_without_stacks() -> anyhow::Result<()> {
 
 #[test]
 fn none_without_target() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
-    add_workspace(&mut meta);
+    let (repo, mut db) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
+    add_workspace(&mut db);
     let ws = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),

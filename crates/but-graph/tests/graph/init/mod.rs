@@ -14,11 +14,10 @@ use crate::support::graph_dag;
 
 #[test]
 fn unborn() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("unborn")?;
+    let (repo, mut db) = read_only_in_memory_scenario("unborn")?;
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -99,7 +98,7 @@ Graph {
 
 #[test]
 fn detached() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("detached")?;
+    let (repo, mut db) = read_only_in_memory_scenario("detached")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -113,7 +112,6 @@ fn detached() -> anyhow::Result<()> {
     // we only know by examining `HEAD`.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -268,7 +266,7 @@ Graph {
 
 #[test]
 fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = utils::named_read_only_in_memory_scenario(
+    let (repo, mut db) = utils::named_read_only_in_memory_scenario(
         "special-conditions",
         "shallow-clone-ahead-of-upstream",
     )?;
@@ -291,7 +289,6 @@ fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -365,7 +362,7 @@ fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
 
 #[test]
 fn merge_first_parent_older_non_workspace_maintains_graph_order() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = utils::named_read_only_in_memory_scenario(
+    let (repo, mut db) = utils::named_read_only_in_memory_scenario(
         "special-conditions",
         "merge-first-parent-older",
     )?;
@@ -389,7 +386,6 @@ fn merge_first_parent_older_non_workspace_maintains_graph_order() -> anyhow::Res
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -435,8 +431,7 @@ fn merge_first_parent_older_non_workspace_maintains_graph_order() -> anyhow::Res
 
 #[test]
 fn main_advanced_remote_advanced() -> anyhow::Result<()> {
-    let (repo, meta, mut db) =
-        read_only_in_memory_scenario("main-advanced-remote-advanced-two-shared")?;
+    let (repo, mut db) = read_only_in_memory_scenario("main-advanced-remote-advanced-two-shared")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -451,7 +446,6 @@ fn main_advanced_remote_advanced() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -486,7 +480,7 @@ fn main_advanced_remote_advanced() -> anyhow::Result<()> {
 
 #[test]
 fn only_remote_advanced() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("only-remote-advanced")?;
+    let (repo, mut db) = read_only_in_memory_scenario("only-remote-advanced")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -501,7 +495,6 @@ fn only_remote_advanced() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -539,7 +532,7 @@ fn only_remote_advanced() -> anyhow::Result<()> {
 
 #[test]
 fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
-    let (repo, meta, mut db) =
+    let (repo, mut db) =
         read_only_in_memory_scenario("only-remote-advanced-with-special-branch-name")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -555,7 +548,6 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -595,7 +587,7 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
 
 #[test]
 fn multi_root() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("multi-root")?;
+    let (repo, mut db) = read_only_in_memory_scenario("multi-root")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -616,7 +608,6 @@ fn multi_root() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -667,7 +658,7 @@ fn multi_root() -> anyhow::Result<()> {
 
 #[test]
 fn four_diamond() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
+    let (repo, mut db) = read_only_in_memory_scenario("four-diamond")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -692,7 +683,6 @@ fn four_diamond() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -755,7 +745,7 @@ fn four_diamond() -> anyhow::Result<()> {
 
 #[test]
 fn extra_tips_allow_overlapping_commit_ids() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("detached")?;
+    let (repo, mut db) = read_only_in_memory_scenario("detached")?;
     let main_id = id_by_rev(&repo, "main");
     let main_ref = ref_name("refs/heads/main");
     let release_tag = ref_name("refs/tags/release/v1");
@@ -764,7 +754,6 @@ fn extra_tips_allow_overlapping_commit_ids() -> anyhow::Result<()> {
         main_id,
         Some(main_ref),
         [Tip::reachable(main_id.detach(), Some(release_tag))],
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -788,7 +777,7 @@ fn extra_tips_allow_overlapping_commit_ids() -> anyhow::Result<()> {
 
 #[test]
 fn extra_tips_allow_named_and_anonymous_integrated_targets_on_same_commit() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
+    let (repo, mut db) = read_only_in_memory_scenario("four-diamond")?;
     let merged_id = id_by_rev(&repo, "merged");
     let main_id = id_by_rev(&repo, "main").detach();
 
@@ -821,7 +810,6 @@ fn extra_tips_allow_named_and_anonymous_integrated_targets_on_same_commit() -> a
             Tip::integrated(main_id, Some(ref_name("refs/heads/main"))),
             Tip::integrated(main_id, None),
         ],
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -861,7 +849,7 @@ fn extra_tips_allow_named_and_anonymous_integrated_targets_on_same_commit() -> a
 fn traversal_entrypoint_ref_override_must_point_to_entrypoint() -> anyhow::Result<()> {
     // Without a tip carrying the name, the entrypoint is named from the live ref map,
     // so a stale override cannot be honored.
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
+    let (repo, mut db) = read_only_in_memory_scenario("four-diamond")?;
     let merged_id = id_by_rev(&repo, "merged").detach();
     let a_id = id_by_rev(&repo, "A").detach();
     let a_ref = ref_name("refs/heads/A");
@@ -869,7 +857,6 @@ fn traversal_entrypoint_ref_override_must_point_to_entrypoint() -> anyhow::Resul
     let err = Graph::from_commit_traversal(
         id_by_rev(&repo, "merged"),
         Some(a_ref.clone()),
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -888,13 +875,12 @@ fn stale_workspace_entrypoint_id_is_used_as_captured() -> anyhow::Result<()> {
     // The caller peeled the workspace ref, then the ref moved before traversal
     // started. The workspace tip carries the name, so the graph is built from the
     // captured id instead of re-reading the ref.
-    let (repo, meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    let (repo, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
     let stale = id_by_rev(&repo, "A");
     let ws_ref = ref_name("refs/heads/gitbutler/workspace");
     let graph = Graph::from_commit_traversal(
         stale,
         Some(ws_ref.clone()),
-        &*meta,
         default_project_meta(&repo),
         &mut db,
         standard_options(),
@@ -913,14 +899,13 @@ fn stale_workspace_entrypoint_id_is_used_as_captured() -> anyhow::Result<()> {
 #[test]
 fn stale_extra_tip_id_is_used_as_captured() -> anyhow::Result<()> {
     // Same for tips a caller read just before traversal: they are not re-resolved.
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
+    let (repo, mut db) = read_only_in_memory_scenario("four-diamond")?;
     let stale = id_by_rev(&repo, "B").detach();
     let a_ref = ref_name("refs/heads/A");
     let graph = Graph::from_commit_traversal_with_extra_tips(
         id_by_rev(&repo, "merged"),
         None,
         [Tip::reachable(stale, Some(a_ref.clone()))],
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -951,9 +936,8 @@ fn from_head_tolerates_refs_moving_during_traversal() -> anyhow::Result<()> {
     let m1 = commit(&repo, "M1")?;
     let m2 = commit_with_parent(&repo, "M2", m1)?;
     create_branches(&repo, m1, ["refs/heads/main", "refs/remotes/origin/main"])?;
-    let mut meta = in_memory_meta(tmp.path())?;
-    let project_meta = add_workspace_with_target(&mut meta, m1);
-    let mut db = but_testsupport::project_db(&repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let project_meta = add_workspace_with_target(&mut db, m1);
 
     // The mover keeps flipping the target ref until every traversal below has run,
     // so each traversal races an update.
@@ -972,15 +956,9 @@ fn from_head_tolerates_refs_moving_during_traversal() -> anyhow::Result<()> {
         }
     });
     let traversals = (0..100).try_for_each(|_| {
-        Graph::from_head(
-            &repo,
-            &*meta,
-            project_meta.clone(),
-            &mut db,
-            standard_options(),
-        )?
-        .validated()
-        .map(drop)
+        Graph::from_head(&repo, project_meta.clone(), &mut db, standard_options())?
+            .validated()
+            .map(drop)
     });
     done.store(true, std::sync::atomic::Ordering::Relaxed);
     mover.join().expect("no panic")?;
@@ -989,7 +967,7 @@ fn from_head_tolerates_refs_moving_during_traversal() -> anyhow::Result<()> {
 
 #[test]
 fn stacked_rebased_remotes() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("remote-includes-another-remote")?;
+    let (repo, mut db) = read_only_in_memory_scenario("remote-includes-another-remote")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1006,7 +984,6 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     // A remote will always be able to find their non-remotes so they don't seem cut-off.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options().with_limit_hint(1),
@@ -1049,7 +1026,6 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     // so existing work can complete its graph connections.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options().with_hard_limit(5),
@@ -1094,7 +1070,6 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     // Everything we encounter is checked for remotes (no limit)
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -1122,7 +1097,6 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         name,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -1156,7 +1130,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
 
 #[test]
 fn with_limits() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("triple-merge")?;
+    let (repo, mut db) = read_only_in_memory_scenario("triple-merge")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1186,7 +1160,6 @@ fn with_limits() -> anyhow::Result<()> {
     // Without limits
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -1244,7 +1217,6 @@ fn with_limits() -> anyhow::Result<()> {
     // to get to remote processing there.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options().with_limit_hint(0),
@@ -1272,7 +1244,6 @@ fn with_limits() -> anyhow::Result<()> {
     // A single commit, the merge commit.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options().with_limit_hint(1),
@@ -1307,7 +1278,6 @@ fn with_limits() -> anyhow::Result<()> {
     // complete parent set. The hard limit only prevents traversal beyond them.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options().with_hard_limit(2),
@@ -1334,7 +1304,6 @@ fn with_limits() -> anyhow::Result<()> {
     // The merge commit, then we witness lane-duplication of the limit so we get more than requested.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options().with_limit_hint(2),
@@ -1373,7 +1342,6 @@ fn with_limits() -> anyhow::Result<()> {
     // and we see two more.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options()
@@ -1415,7 +1383,6 @@ fn with_limits() -> anyhow::Result<()> {
     let id = |rev| id_by_rev(&repo, rev).detach();
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options()
@@ -1518,7 +1485,7 @@ Statistics {
 
 #[test]
 fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("special-branches")?;
+    let (repo, mut db) = read_only_in_memory_scenario("special-branches")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1531,7 +1498,6 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -1569,7 +1535,7 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
 
 #[test]
 fn ambiguous_worktrees() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("ambiguous-worktrees")?;
+    let (repo, mut db) = read_only_in_memory_scenario("ambiguous-worktrees")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1580,7 +1546,6 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -1619,7 +1584,6 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     .with_object_memory();
     let graph = Graph::from_head(
         &linked_repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -1654,7 +1618,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
 
 #[test]
 fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("worktree-ahead")?;
+    let (repo, mut db) = read_only_in_memory_scenario("worktree-ahead")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1670,7 +1634,6 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
     // unreachable and invisible.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -1694,7 +1657,6 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
     db.worktree_meta_mut().mark_adopted()?;
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         options.clone(),
@@ -1732,7 +1694,6 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
     })?;
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         options,
@@ -1753,7 +1714,7 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
     let mut stale = graph.clone();
     stale.worktree_tips[0].id = repo.head_id()?.detach();
     let redone = stale
-        .redo_traversal_with_overlay(&repo, &*meta, Default::default())?
+        .redo_traversal_with_overlay(&repo, &db.meta(), Default::default())?
         .validated()?;
     snapbox::assert_data_eq!(graph_dag(&redone), feature_only);
 
@@ -1776,7 +1737,7 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
         let mut stale = graph.clone();
         stale.worktree_tips = vec![tip];
         let redone = stale
-            .redo_traversal_with_overlay(&repo, &*meta, Default::default())?
+            .redo_traversal_with_overlay(&repo, &db.meta(), Default::default())?
             .validated()?;
         snapbox::assert_data_eq!(
             graph_dag(&redone),
@@ -1796,7 +1757,6 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
     let mut ws = graph.into_workspace()?;
     ws.refresh_from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
     )?;
@@ -1817,9 +1777,8 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
 /// build would adopt afresh and archive every worktree created since.
 #[test]
 fn worktree_created_after_adoption_is_active() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let base = commit(&repo, "M")?;
-    let meta = in_memory_meta(tmp.as_ref())?;
     let options = but_graph::init::Options {
         worktrees: true,
         ..standard_options()
@@ -1828,7 +1787,6 @@ fn worktree_created_after_adoption_is_active() -> anyhow::Result<()> {
     // The first graph build runs adoption with no worktree on disk to adopt.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut but_testsupport::project_db(&repo)?,
         options.clone(),
@@ -1854,7 +1812,6 @@ fn worktree_created_after_adoption_is_active() -> anyhow::Result<()> {
     let mut db = but_testsupport::project_db(&repo)?;
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         options,
@@ -1879,7 +1836,7 @@ fn worktree_created_after_adoption_is_active() -> anyhow::Result<()> {
 
 #[test]
 fn commit_with_two_parents() -> anyhow::Result<()> {
-    let (tmp, repo) = rust_fixture_writable("empty", 2, Creation::Execute, |fixture| {
+    let (_tmp, repo) = rust_fixture_writable("empty", 2, Creation::Execute, |fixture| {
         let open_opts = but_testsupport::open_repo_config()?;
         Ok(match fixture {
             FixtureState::Uninitialized(path) => gix::ThreadSafeRepository::init_opts(
@@ -1919,10 +1876,8 @@ fn commit_with_two_parents() -> anyhow::Result<()> {
         .raw()
     );
 
-    let meta = in_memory_meta(tmp.as_ref())?;
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut but_testsupport::project_db(&repo)?,
         standard_options(),
@@ -1942,14 +1897,14 @@ fn commit_with_two_parents() -> anyhow::Result<()> {
 
 #[test]
 fn ad_hoc_same_tip_order_creates_empty_branch_segments() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let tip = commit(&repo, "same tip")?;
     create_branches(&repo, tip, ["refs/heads/top", "refs/heads/bottom"])?;
-    let meta = in_memory_meta(tmp.as_ref())?;
+    let db = but_testsupport::in_memory_db();
 
     let graph = graph_with_branch_order(
         &repo,
-        &*meta,
+        &db.meta(),
         "refs/heads/top",
         ["refs/heads/top", "refs/heads/bottom"],
     )?
@@ -1986,14 +1941,14 @@ fn ad_hoc_same_tip_order_creates_empty_branch_segments() -> anyhow::Result<()> {
 
 #[test]
 fn ad_hoc_order_projects_from_entrypoint_when_top_is_above_it() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let tip = commit(&repo, "same tip")?;
     create_branches(&repo, tip, ["refs/heads/top", "refs/heads/bottom"])?;
-    let meta = in_memory_meta(tmp.as_ref())?;
+    let db = but_testsupport::in_memory_db();
 
     let graph = graph_with_branch_order(
         &repo,
-        &*meta,
+        &db.meta(),
         "refs/heads/bottom",
         ["refs/heads/top", "refs/heads/bottom"],
     )?
@@ -2024,18 +1979,18 @@ fn ad_hoc_order_projects_from_entrypoint_when_top_is_above_it() -> anyhow::Resul
 
 #[test]
 fn ad_hoc_three_branch_order_preserves_middle_empty_segment() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let tip = commit(&repo, "same tip")?;
     create_branches(
         &repo,
         tip,
         ["refs/heads/top", "refs/heads/middle", "refs/heads/bottom"],
     )?;
-    let meta = in_memory_meta(tmp.as_ref())?;
+    let db = but_testsupport::in_memory_db();
 
     let graph = graph_with_branch_order(
         &repo,
-        &*meta,
+        &db.meta(),
         "refs/heads/top",
         ["refs/heads/top", "refs/heads/middle", "refs/heads/bottom"],
     )?
@@ -2069,14 +2024,14 @@ fn ad_hoc_three_branch_order_preserves_middle_empty_segment() -> anyhow::Result<
 
 #[test]
 fn ad_hoc_order_ignores_missing_metadata_refs_without_phantoms() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let tip = commit(&repo, "same tip")?;
     create_branches(&repo, tip, ["refs/heads/top", "refs/heads/bottom"])?;
-    let meta = in_memory_meta(tmp.as_ref())?;
+    let db = but_testsupport::in_memory_db();
 
     let graph = graph_with_branch_order(
         &repo,
-        &*meta,
+        &db.meta(),
         "refs/heads/top",
         ["refs/heads/top", "refs/heads/missing", "refs/heads/bottom"],
     )?
@@ -2108,16 +2063,16 @@ fn ad_hoc_order_ignores_missing_metadata_refs_without_phantoms() -> anyhow::Resu
 
 #[test]
 fn ad_hoc_order_does_not_force_diverged_refs_into_empty_stack() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let bottom_tip = commit(&repo, "bottom")?;
     let top_tip = commit_with_parent(&repo, "top", bottom_tip)?;
     create_branches(&repo, bottom_tip, ["refs/heads/bottom", "refs/heads/main"])?;
     create_branches(&repo, top_tip, ["refs/heads/top"])?;
-    let meta = in_memory_meta(tmp.as_ref())?;
+    let db = but_testsupport::in_memory_db();
 
     let graph = graph_with_branch_order(
         &repo,
-        &*meta,
+        &db.meta(),
         "refs/heads/top",
         ["refs/heads/top", "refs/heads/bottom"],
     )?
@@ -2151,7 +2106,7 @@ fn ad_hoc_order_does_not_force_diverged_refs_into_empty_stack() -> anyhow::Resul
 
 #[test]
 fn ad_hoc_order_preserves_empty_top_above_commit_owning_branch() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let target_tip = commit(&repo, "target")?;
     let bottom_tip = commit_with_parent(&repo, "bottom", target_tip)?;
     let commit_branch_tip = commit_with_parent(&repo, "top", bottom_tip)?;
@@ -2162,11 +2117,11 @@ fn ad_hoc_order_preserves_empty_top_above_commit_owning_branch() -> anyhow::Resu
     )?;
     create_branches(&repo, bottom_tip, ["refs/heads/bottom"])?;
     create_branches(&repo, target_tip, ["refs/heads/main"])?;
-    let meta = in_memory_meta(tmp.as_ref())?;
+    let db = but_testsupport::in_memory_db();
 
     let graph = graph_with_branch_order(
         &repo,
-        &*meta,
+        &db.meta(),
         "refs/heads/empty-top",
         [
             "refs/heads/empty-top",
@@ -2196,7 +2151,7 @@ fn ad_hoc_order_preserves_empty_top_above_commit_owning_branch() -> anyhow::Resu
 
 #[test]
 fn ad_hoc_order_keeps_lower_empty_branches_after_non_empty_move() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let target_tip = commit(&repo, "target")?;
     let base_tip = commit_with_parent(&repo, "base", target_tip)?;
     let commit_branch_tip = commit_with_parent(&repo, "commit branch", base_tip)?;
@@ -2211,11 +2166,11 @@ fn ad_hoc_order_keeps_lower_empty_branches_after_non_empty_move() -> anyhow::Res
         ],
     )?;
     create_branches(&repo, target_tip, ["refs/heads/main"])?;
-    let meta = in_memory_meta(tmp.as_ref())?;
+    let db = but_testsupport::in_memory_db();
 
     let graph = graph_with_branch_order(
         &repo,
-        &*meta,
+        &db.meta(),
         "refs/heads/commit-branch",
         [
             "refs/heads/commit-branch",
@@ -2247,7 +2202,7 @@ fn ad_hoc_order_keeps_lower_empty_branches_after_non_empty_move() -> anyhow::Res
 
 #[test]
 fn ad_hoc_order_scopes_empty_segments_to_active_chain() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let tip = commit(&repo, "same tip")?;
     create_branches(
         &repo,
@@ -2259,11 +2214,11 @@ fn ad_hoc_order_scopes_empty_segments_to_active_chain() -> anyhow::Result<()> {
             "refs/heads/other-bottom",
         ],
     )?;
-    let meta = in_memory_meta(tmp.as_ref())?;
+    let db = but_testsupport::in_memory_db();
 
     let graph = graph_with_branch_orders(
         &repo,
-        &*meta,
+        &db.meta(),
         "refs/heads/top",
         &[
             &["refs/heads/top", "refs/heads/bottom"],
@@ -2302,7 +2257,7 @@ fn ad_hoc_order_scopes_empty_segments_to_active_chain() -> anyhow::Result<()> {
 
 #[test]
 fn ad_hoc_order_keeps_bottom_branch_sitting_on_target() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let tip = commit(&repo, "same tip")?;
     create_branches(
         &repo,
@@ -2314,18 +2269,17 @@ fn ad_hoc_order_keeps_bottom_branch_sitting_on_target() -> anyhow::Result<()> {
             "refs/remotes/origin/main",
         ],
     )?;
-    let meta = in_memory_meta(tmp.as_ref())?;
+    let db = but_testsupport::in_memory_db();
     let order = ["refs/heads/top", "refs/heads/middle", "refs/heads/bottom"];
     let overlay = Overlay::default().with_branch_stack_order_override(order.map(ref_name));
     let graph = Graph::from_commit_traversal(
         tip.attach(&repo),
         Some(ref_name("refs/heads/top")),
-        &*meta,
         default_project_meta(&repo),
         &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
-    .redo_traversal_with_overlay(&repo, &*meta, overlay)?
+    .redo_traversal_with_overlay(&repo, &db.meta(), overlay)?
     .validated()?;
 
     // All ordered branches sit on the target commit: the walk is empty, and
@@ -2346,22 +2300,21 @@ fn ad_hoc_order_keeps_bottom_branch_sitting_on_target() -> anyhow::Result<()> {
 
 #[test]
 fn ad_hoc_order_hides_target_branch_at_base() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let tip = commit(&repo, "same tip")?;
     // A remote ref alone does not configure an upstream: main is a local-only target.
     create_branches(&repo, tip, ["refs/heads/top", "refs/remotes/origin/main"])?;
-    let meta = in_memory_meta(tmp.as_ref())?;
+    let db = but_testsupport::in_memory_db();
     let order = ["refs/heads/top", "refs/heads/main"];
     let overlay = Overlay::default().with_branch_stack_order_override(order.map(ref_name));
     let graph = Graph::from_commit_traversal(
         tip.attach(&repo),
         Some(ref_name("refs/heads/top")),
-        &*meta,
         default_project_meta(&repo),
         &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
-    .redo_traversal_with_overlay(&repo, &*meta, overlay)?
+    .redo_traversal_with_overlay(&repo, &db.meta(), overlay)?
     .validated()?;
 
     snapbox::assert_data_eq!(
@@ -2387,7 +2340,7 @@ fn ad_hoc_order_hides_target_branch_at_base() -> anyhow::Result<()> {
 
 #[test]
 fn ad_hoc_order_hides_target_branch_at_base_with_upstream() -> anyhow::Result<()> {
-    let (tmp, mut repo) = empty_repo()?;
+    let (_tmp, mut repo) = empty_repo()?;
     let tip = commit(&repo, "same tip")?;
     create_branches(&repo, tip, ["refs/heads/top", "refs/remotes/origin/main"])?;
     {
@@ -2397,18 +2350,17 @@ fn ad_hoc_order_hides_target_branch_at_base_with_upstream() -> anyhow::Result<()
         config.set_raw_value("branch.main.remote", "origin")?;
         config.set_raw_value("branch.main.merge", "refs/heads/main")?;
     }
-    let meta = in_memory_meta(tmp.as_ref())?;
+    let db = but_testsupport::in_memory_db();
     let order = ["refs/heads/top", "refs/heads/main"];
     let overlay = Overlay::default().with_branch_stack_order_override(order.map(ref_name));
     let graph = Graph::from_commit_traversal(
         tip.attach(&repo),
         Some(ref_name("refs/heads/top")),
-        &*meta,
         default_project_meta(&repo),
         &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
-    .redo_traversal_with_overlay(&repo, &*meta, overlay)?
+    .redo_traversal_with_overlay(&repo, &db.meta(), overlay)?
     .validated()?;
 
     // Each ordered branch appears once, with main retaining its configured upstream.
@@ -2463,22 +2415,16 @@ fn ad_hoc_branch_at_target_tip() -> anyhow::Result<()> {
         config.set_raw_value("branch.main.remote", "origin")?;
         config.set_raw_value("branch.main.merge", "refs/heads/main")?;
     }
-    let meta = in_memory_meta(tmp.path())?;
+    let mut db = but_testsupport::in_memory_db();
     let project_meta = but_core::ref_metadata::ProjectMeta {
         target_ref: Some(but_core::ref_metadata::LocalRefName::new(ref_name(
             "refs/heads/main",
         ))?),
         ..Default::default()
     };
-    let ws = Graph::from_head(
-        &repo,
-        &*meta,
-        project_meta,
-        &mut but_testsupport::project_db(&repo)?,
-        standard_options(),
-    )?
-    .validated()?
-    .into_workspace()?;
+    let ws = Graph::from_head(&repo, project_meta, &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
 
     assert_eq!(
         ws.target_ref_name().map(ToString::to_string),
@@ -2514,7 +2460,7 @@ pub use utils::{
     read_only_in_memory_scenario, standard_options,
 };
 
-use crate::init::utils::{add_workspace_with_target, default_project_meta, in_memory_meta};
+use crate::init::utils::{add_workspace_with_target, default_project_meta};
 
 fn ref_name(name: &str) -> gix::refs::FullName {
     name.try_into().expect("valid full ref name")
@@ -2581,7 +2527,7 @@ fn create_branches<const N: usize>(
 
 fn graph_with_branch_order<const N: usize>(
     repo: &gix::Repository,
-    meta: &impl but_core::RefMetadata,
+    meta: &but_db::Meta<'_>,
     entrypoint_ref: &str,
     order: [&str; N],
 ) -> anyhow::Result<Graph> {
@@ -2590,7 +2536,7 @@ fn graph_with_branch_order<const N: usize>(
 
 fn graph_with_branch_orders(
     repo: &gix::Repository,
-    meta: &impl but_core::RefMetadata,
+    meta: &but_db::Meta<'_>,
     entrypoint_ref: &str,
     orders: &[&[&str]],
 ) -> anyhow::Result<Graph> {
@@ -2607,7 +2553,6 @@ fn graph_with_branch_orders(
     Graph::from_commit_traversal(
         tip.attach(repo),
         Some(entrypoint_ref),
-        meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut but_testsupport::in_memory_db(),
         standard_options(),

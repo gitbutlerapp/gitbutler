@@ -536,7 +536,6 @@ where
     };
 
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
 
     let (reword_op, reword_msg) = match message_composer {
         CommitMessageComposer::Editor => (CommitMessageSource::Editor { initial: None }, None),
@@ -554,7 +553,6 @@ where
 
     let (commit::CommitOutcome { new_commit, .. }, _ws) = commit::run(
         ctx,
-        &mut meta,
         guard.write_permission(),
         commit_op,
         commit_selection,

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use but_core::{DiffSpec, RefMetadata};
+use but_core::DiffSpec;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{Editor, Pick, ToCommitSelector, ToSelector, mutate::InsertSide},
@@ -10,14 +10,14 @@ use crate::commit::{MoveChangesOutcome, move_changes_between_commits};
 /// Split `changes` off `source` into a new commit placed on `side` of `relative_to`.
 ///
 /// The outcome's destination is the new commit.
-pub fn split_commit<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn split_commit<'ws, 'meta>(
+    mut editor: Editor<'ws, 'meta>,
     source: impl ToCommitSelector,
     relative_to: impl ToSelector,
     side: InsertSide,
     changes: impl IntoIterator<Item = DiffSpec>,
     context_lines: u32,
-) -> Result<MoveChangesOutcome<'ws, 'meta, M>> {
+) -> Result<MoveChangesOutcome<'ws, 'meta>> {
     let (source, _) = editor.find_selectable_commit(source)?;
     let commit = editor.empty_commit()?;
     let new_id = editor.new_commit(commit, DateMode::CommitterUpdateAuthorUpdate)?;

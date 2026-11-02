@@ -10,7 +10,7 @@ use crate::utils::{fixture_writable_with_signing, standard_options};
 
 #[test]
 fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable_with_signing("four-commits-signed")?;
+    let (repo, _tmpdir, mut db) = fixture_writable_with_signing("four-commits-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
@@ -26,14 +26,13 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, &mut db)?;
 
     // Modify the "c" commit to no longer be signed
     let c = repo.rev_parse_single("c")?;
@@ -49,14 +48,15 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
-    └── ·dd72792 (⌂) ►c
-        └── ►:1[1]:b
-            └── ·e5aa7b5 (⌂)
-                └── ►:2[2]:a
-                    └── ·3bfeb52 (⌂)
-                        └── ►:3[3]:base
-                            └── 🏁·b6e2f57 (⌂)
+└── 👉►:4[0]:main[🌳]
+    └── ►:0[1]:c
+        └── ·dd72792 (⌂)
+            └── ►:1[2]:b
+                └── ·e5aa7b5 (⌂)
+                    └── ►:2[3]:a
+                        └── ·3bfeb52 (⌂)
+                            └── ►:3[4]:base
+                                └── 🏁·b6e2f57 (⌂)
 
 "#]]
     );
@@ -70,7 +70,7 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
 
 #[test]
 fn commits_are_signed_by_default() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable_with_signing("four-commits-signed")?;
+    let (repo, _tmpdir, mut db) = fixture_writable_with_signing("four-commits-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
@@ -86,14 +86,13 @@ fn commits_are_signed_by_default() -> Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, &mut db)?;
 
     // Remove the "b" commit so "c" gets cherry-picked
     let b = repo.rev_parse_single("b")?;
@@ -106,11 +105,14 @@ fn commits_are_signed_by_default() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
-    ├── ·06106c2 (⌂) ►c
-    └── ·3bfeb52 (⌂) ►a, ►b
-        └── ►:1[1]:base
-            └── 🏁·b6e2f57 (⌂)
+└── 👉►:2[0]:main[🌳]
+    └── ►:0[1]:c
+        └── ·06106c2 (⌂)
+            └── ►:4[2]:b
+                └── ►:3[3]:a
+                    └── ·3bfeb52 (⌂)
+                        └── ►:1[4]:base
+                            └── 🏁·b6e2f57 (⌂)
 
 "#]]
     );
@@ -161,7 +163,7 @@ c
 
 #[test]
 fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable_with_signing("four-commits-signed")?;
+    let (repo, _tmpdir, mut db) = fixture_writable_with_signing("four-commits-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
@@ -177,14 +179,13 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, &mut db)?;
 
     // Modify the "c" commit to no longer be signed
     let c = repo.rev_parse_single("c")?;
@@ -205,11 +206,14 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
-    ├── ·a773b84 (⌂) ►c
-    └── ·3bfeb52 (⌂) ►a, ►b
-        └── ►:1[1]:base
-            └── 🏁·b6e2f57 (⌂)
+└── 👉►:2[0]:main[🌳]
+    └── ►:0[1]:c
+        └── ·a773b84 (⌂)
+            └── ►:4[2]:b
+                └── ►:3[3]:a
+                    └── ·3bfeb52 (⌂)
+                        └── ►:1[4]:base
+                            └── 🏁·b6e2f57 (⌂)
 
 "#]]
     );
@@ -248,7 +252,7 @@ c
 /// cherry-picked and signed even in absence of other changes, regardless of signing config.
 #[test]
 fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable_with_signing(
+    let (repo, _tmpdir, mut db) = fixture_writable_with_signing(
         "unsigned-commits-with-signing-key-setup-but-signing-disabled",
     )?;
 
@@ -265,7 +269,6 @@ fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Res
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -274,7 +277,6 @@ fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Res
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create_with_opts(
         &mut ws,
-        &mut *meta,
         &repo,
         &mut db,
         &GraphEditorOptions {
@@ -336,7 +338,7 @@ fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Res
 /// on descendants that are picked with [`SignCommit::No`].
 #[test]
 fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable_with_signing(
+    let (repo, _tmpdir, mut db) = fixture_writable_with_signing(
         "unsigned-commits-with-signing-key-setup-but-signing-disabled",
     )?;
 
@@ -353,7 +355,6 @@ fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() 
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -362,7 +363,6 @@ fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() 
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create_with_opts(
         &mut ws,
-        &mut *meta,
         &repo,
         &mut db,
         &GraphEditorOptions {
@@ -443,7 +443,7 @@ fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() 
 #[test]
 fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_with_sign_commit_yes()
 -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable_with_signing(
+    let (repo, _tmpdir, mut db) = fixture_writable_with_signing(
         "unsigned-commits-with-signing-key-setup-but-signing-disabled",
     )?;
 
@@ -460,7 +460,6 @@ fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_wit
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -469,7 +468,6 @@ fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_wit
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create_with_opts(
         &mut ws,
-        &mut *meta,
         &repo,
         &mut db,
         &GraphEditorOptions {
@@ -547,7 +545,7 @@ fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_wit
 #[test]
 fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disabled() -> Result<()>
 {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable_with_signing(
+    let (repo, _tmpdir, mut db) = fixture_writable_with_signing(
         "unsigned-commits-with-signing-key-setup-but-signing-disabled",
     )?;
 
@@ -564,7 +562,6 @@ fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disab
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -573,7 +570,6 @@ fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disab
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create_with_opts(
         &mut ws,
-        &mut *meta,
         &repo,
         &mut db,
         &GraphEditorOptions {
@@ -633,7 +629,7 @@ fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disab
 /// picked with [`PickMode::Force`] and [`SignCommit::Yes`].
 #[test]
 fn parentless_commit_force_picked_with_sign_yes_is_signed() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable_with_signing(
+    let (repo, _tmpdir, mut db) = fixture_writable_with_signing(
         "unsigned-commits-with-signing-key-setup-but-signing-disabled",
     )?;
 
@@ -650,7 +646,6 @@ fn parentless_commit_force_picked_with_sign_yes_is_signed() -> Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -659,7 +654,6 @@ fn parentless_commit_force_picked_with_sign_yes_is_signed() -> Result<()> {
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create_with_opts(
         &mut ws,
-        &mut *meta,
         &repo,
         &mut db,
         &GraphEditorOptions {

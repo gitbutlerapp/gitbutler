@@ -51,11 +51,9 @@ pub fn commit_discard_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitDiscardResult> {
     let subject_commit_ids = unique_subject_commit_ids(subject_commit_ids)?;
-    let mut meta = ctx.meta()?;
-    let (_, workspace) =
-        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
-            tx.discard_commits(subject_commit_ids.iter().copied())
-        })?;
+    let (_, workspace) = with_transaction_with_perm_only(ctx, perm, dry_run, |mut tx| {
+        tx.discard_commits(subject_commit_ids.iter().copied())
+    })?;
 
     Ok(CommitDiscardResult {
         discarded_commits: subject_commit_ids,
@@ -153,12 +151,10 @@ pub fn commit_discard_changes_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveChangesResult> {
-    let mut meta = ctx.meta()?;
-    let (_, workspace) =
-        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
-            tx.discard_changes_from_commit(commit_id, changes)?;
-            Ok(())
-        })?;
+    let (_, workspace) = with_transaction_with_perm_only(ctx, perm, dry_run, |mut tx| {
+        tx.discard_changes_from_commit(commit_id, changes)?;
+        Ok(())
+    })?;
 
     Ok(MoveChangesResult { workspace })
 }

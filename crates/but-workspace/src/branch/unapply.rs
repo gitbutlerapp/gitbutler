@@ -122,7 +122,7 @@ pub(crate) mod function {
     use anyhow::{Context as _, bail, ensure};
     use std::borrow::Cow;
 
-    use but_core::{ObjectStorageExt as _, RefMetadata, RepositoryExt as _};
+    use but_core::{ObjectStorageExt as _, RepositoryExt as _};
     use but_error::{AnyhowContextExt as _, Code};
     use but_graph::init::Overlay;
     use gix::{
@@ -141,13 +141,13 @@ pub(crate) mod function {
     ///
     /// Nothing changes if `branch` isn't a lane, which [SuccessfulRebase::references_updated()]
     /// tells once nothing else was edited.
-    pub fn unapply_stack<'ws, 'meta, M: RefMetadata>(
-        mut editor: Editor<'ws, 'meta, M>,
+    pub fn unapply_stack<'ws, 'db>(
+        mut editor: Editor<'ws, 'db>,
         branch: &FullNameRef,
         Options {
             workspace_disposition,
         }: Options,
-    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'db>> {
         let Some(branch_selector) = editor.try_select_reference(branch) else {
             if editor.repo().try_find_reference(branch)?.is_none() {
                 bail!("Cannot unapply non-existing branch '{}'", branch.shorten());
@@ -243,7 +243,7 @@ pub(crate) mod function {
         editor.rebase()
     }
 
-    /// Remove `branch` from `workspace`, updating `repo` and `meta` so the resulting workspace is the inverse of applying that branch.
+    /// Remove `branch` from `workspace`, updating `repo` and `db` so the resulting workspace is the inverse of applying that branch.
     ///
     /// Think of it as "remove `branch` from the workspace", somehow, and metadata may be a way to do. This also means
     /// this function can be applied indiscriminately, and in the worst case, it will do nothing.
@@ -255,7 +255,7 @@ pub(crate) mod function {
     /// `workspace` is the current projected workspace and is used as the source of truth for which stacks are applied,
     /// which stack should be removed, and whether the workspace is in a state that can be modified. `repo` supplies the
     /// Git object database, references, and the *worktree* (which is assumed to belong to the workspace reference that governs `workspace`).
-    /// `meta` is updated to remove the branch from the workspace metadata, persist the resulting stack/workspace metadata,
+    /// `db` is updated to remove the branch from the workspace metadata, persist the resulting stack/workspace metadata,
     /// and optionally delete workspace metadata when `opts` requests deleting the workspace reference.
     ///
     /// `opts` is best looked up via [`Options`].
@@ -290,12 +290,12 @@ pub(crate) mod function {
     /// - If the branch to unapply is the managed workspace ref itself, and the disposition allows switching,
     ///   the workspace ref is replaced by its target's local branch, or by the named stack with the lowest
     ///   generation (i.e. the topologically 'newest') if there is no target.
-    #[tracing::instrument(skip(workspace, repo, meta), err(Debug))]
+    #[tracing::instrument(skip(workspace, repo, db), err(Debug))]
     pub fn unapply<'ws>(
         branch: &FullNameRef,
         workspace: &'ws but_graph::Workspace,
         repo: &gix::Repository,
-        meta: &mut impl RefMetadata,
+        db: &mut but_db::DbHandle,
         Options {
             workspace_disposition,
         }: Options,
@@ -351,7 +351,7 @@ pub(crate) mod function {
                 .with_entrypoint(destination.commit_id, Some(destination.ref_name.clone()));
             let workspace = ws
                 .graph
-                .redo_traversal_with_overlay(repo, meta, overlay)?
+                .redo_traversal_with_overlay(repo, &db.meta(), overlay)?
                 .into_workspace()?;
             return Ok(Outcome {
                 workspace: Cow::Owned(workspace),
@@ -365,7 +365,7 @@ pub(crate) mod function {
             return unapply_workspace_reference(
                 ws,
                 repo,
-                meta,
+                db,
                 workspace_ref_name.as_ref(),
                 workspace_disposition,
             );
@@ -386,7 +386,7 @@ pub(crate) mod function {
             // This is an ad-hoc workspace by merit of being unnamed.
             bail!("Cannot unapply a branch from an ad-hoc detached workspace");
         };
-        let mut ws_md = meta.workspace(workspace_ref_name.as_ref())?;
+        let mut ws_md = db.meta().workspace(workspace_ref_name.as_ref())?;
         if ws.kind.has_managed_ref() || ws.has_metadata() {
             ws.reconcile_metadata(&mut ws_md)?;
         }
@@ -396,10 +396,10 @@ pub(crate) mod function {
             // as it could be used to disambiguate the segment.
             // TODO: this will actually be observable even if it doens't work, unless it's run in a transaction, which right now it's not!
             //       Should be able to redo the traversal with an overlay that hides branch metadata, but I'd say it's not important enough.
-            meta.remove(branch)?;
-            let graph = ws
-                .graph
-                .redo_traversal_with_overlay(repo, meta, Overlay::default())?;
+            db.meta_mut()?.remove(branch)?;
+            let graph =
+                ws.graph
+                    .redo_traversal_with_overlay(repo, &db.meta(), Overlay::default())?;
             let workspace = graph.into_workspace()?;
             if workspace.refname_is_segment(branch) {
                 bail!(
@@ -417,7 +417,7 @@ pub(crate) mod function {
             .graph
             .redo_traversal_with_overlay(
                 repo,
-                meta,
+                &db.meta(),
                 Overlay::default()
                     .with_dropped_references([branch.to_owned()])
                     .with_workspace_metadata_override(Some((
@@ -438,14 +438,14 @@ pub(crate) mod function {
             workspace_disposition,
             branch_commit_id,
         )?;
-        meta.set_workspace(&ws_md)?;
+        db.meta_mut()?.set_workspace(&ws_md)?;
         // Update the workspace *only* after a successful workspace commit merge.
         let overlay = Overlay::default()
             .with_dropped_references([branch.to_owned()])
             .with_workspace_metadata_override(Some((workspace_ref_name, ws_md.clone())));
         let ws = ws
             .graph
-            .redo_traversal_with_overlay(repo, meta, overlay)?
+            .redo_traversal_with_overlay(repo, &db.meta(), overlay)?
             .into_workspace()?;
         if ws_md.stacks.iter().any(|stack| {
             stack.workspacecommit_relation.is_in_workspace()
@@ -463,7 +463,7 @@ pub(crate) mod function {
             && let Some((ws, checked_out)) = dissolve_unnecessary_workspace(
                 &ws,
                 repo,
-                meta,
+                db,
                 Overlay::default().with_dropped_references([branch.to_owned()]),
             )?
         {
@@ -563,7 +563,7 @@ pub(crate) mod function {
     fn unapply_workspace_reference(
         ws: &but_graph::Workspace,
         repo: &gix::Repository,
-        meta: &mut impl RefMetadata,
+        db: &mut but_db::DbHandle,
         workspace_ref_name: &FullNameRef,
         disposition: WorkspaceDisposition,
     ) -> anyhow::Result<Outcome<'static>> {
@@ -595,7 +595,7 @@ pub(crate) mod function {
             workspace_ref_expected,
         )?;
         // Fully remove the workspace metadata. Project metadata remains independent in Git config.
-        meta.remove(workspace_ref_name)?;
+        db.meta_mut()?.remove(workspace_ref_name)?;
 
         let overlay = Overlay::default().with_entrypoint(
             ref_to_checkout.commit_id,
@@ -603,7 +603,7 @@ pub(crate) mod function {
         );
         let ws = ws
             .graph
-            .redo_traversal_with_overlay(repo, meta, overlay)?
+            .redo_traversal_with_overlay(repo, &db.meta(), overlay)?
             .into_workspace()?;
         Ok(Outcome {
             workspace: Cow::Owned(ws),
@@ -826,7 +826,7 @@ pub(crate) mod function {
     pub fn dissolve_unnecessary_workspace(
         ws: &but_graph::Workspace,
         repo: &gix::Repository,
-        meta: &mut impl RefMetadata,
+        db: &mut but_db::DbHandle,
         overlay: Overlay,
     ) -> anyhow::Result<Option<(but_graph::Workspace, FullName)>> {
         let Some(workspace_ref_name) = ws.ref_name().filter(|_| ws.kind.has_managed_ref()) else {
@@ -858,7 +858,7 @@ pub(crate) mod function {
                 .context("BUG: unborn should be impossible here")?
                 .id,
         )?;
-        meta.remove(workspace_ref_name)?;
+        db.meta_mut()?.remove(workspace_ref_name)?;
 
         let overlay = overlay.with_entrypoint(
             ref_to_switch_to.commit_id,
@@ -866,7 +866,7 @@ pub(crate) mod function {
         );
         let ws = ws
             .graph
-            .redo_traversal_with_overlay(repo, meta, overlay)?
+            .redo_traversal_with_overlay(repo, &db.meta(), overlay)?
             .into_workspace()?;
         Ok(Some((ws, ref_to_switch_to.ref_name)))
     }

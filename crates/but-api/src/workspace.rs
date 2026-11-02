@@ -8,7 +8,7 @@ use anyhow::Context as _;
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
 use but_core::{
-    DryRun, RefMetadata,
+    DryRun,
     commit::SignCommit,
     extract_remote_name_and_short_name,
     sync::{RepoExclusive, RepoShared},
@@ -21,225 +21,11 @@ use but_serde::BStringForFrontend;
 use but_workspace::{
     BottomUpdate, BottomUpdateKind, IntegrateUpstreamOutcome, ReviewIntegrationHint,
 };
-use nonempty::NonEmpty;
 use tracing::{instrument, warn};
 
-/// Result of restoring the previously applied branches into the workspace.
-#[derive(Debug, Clone)]
-pub struct WorkspaceRecreateResult {
-    /// Workspace state after recreation, or the unchanged state for a no-op.
-    pub workspace: WorkspaceState,
-    /// Previously applied stack heads that could not be reapplied due to conflicts.
-    pub conflicting_stacks: Vec<gix::refs::FullName>,
-    /// Whether the repository was already on a managed workspace and nothing was changed.
-    pub already_on_workspace: bool,
-}
-
-/// Recreate an existing workspace by applying all previously applied branches, under
-/// caller-held exclusive access, recording one undo snapshot.
-///
-/// This incorporates changes made in single-branch mode. The current branch is included
-/// unless it is the target or its local tracking branch. Conflicting stacks remain unapplied
-/// and are returned as partial success. Already being on the workspace is a no-op, and then
-/// no snapshot is prepared.
-///
-/// The workspace reference must already exist. This does not initialize a new workspace.
-pub fn workspace_recreate_with_perm(
-    ctx: &mut but_ctx::Context,
-    perm: &mut RepoExclusive,
-) -> anyhow::Result<WorkspaceRecreateResult> {
-    let already_on_workspace = {
-        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
-        match &ws.kind {
-            but_graph::workspace::WorkspaceKind::Managed { .. }
-            | but_graph::workspace::WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => true,
-            but_graph::workspace::WorkspaceKind::AdHoc => {
-                anyhow::ensure!(
-                    repo.try_find_reference(but_core::WORKSPACE_REF_NAME)?
-                        .is_some(),
-                    "Cannot recreate a workspace without an existing workspace reference"
-                );
-                false
-            }
-        }
-    };
-
-    let maybe_oplog_entry = if already_on_workspace {
-        None
-    } else {
-        but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
-            ctx,
-            SnapshotDetails::new(OperationKind::SwitchToWorkspace),
-            perm.read_permission(),
-            DryRun::No,
-        )
-    };
-
-    let conflicting_stacks = if already_on_workspace {
-        Vec::new()
-    } else {
-        let mut meta = ctx.meta()?;
-        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-
-        // The branches of each saved stack that still exist, tip first.
-        let previously_applied_stacks: Vec<NonEmpty<gix::refs::FullName>> = {
-            let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
-            let workspace_meta = meta.workspace(workspace_ref.as_ref())?;
-            let mut existing_stacks = Vec::new();
-            for stack in workspace_meta.stacks(but_core::ref_metadata::StackKind::Applied) {
-                // A deleted tip must not hide surviving lower branches in the saved stack.
-                // Only absence is recoverable; propagate reference lookup errors.
-                let mut existing_branches = Vec::new();
-                for branch in stack.branches.iter().filter(|branch| !branch.archived) {
-                    if repo.try_find_reference(branch.ref_name.as_ref())?.is_some() {
-                        existing_branches.push(branch.ref_name.clone());
-                    }
-                }
-                existing_stacks.extend(NonEmpty::from_vec(existing_branches));
-            }
-            existing_stacks
-        };
-
-        // Reapply the saved stacks in metadata order. If it fails due to conflict or overlap,
-        // remove the offending stack and try again.
-        let mut stacks = previously_applied_stacks;
-        let mut conflicting_stacks = Vec::new();
-        loop {
-            let editor =
-                but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-            let (index, err) = match switch_to_workspace_with_stacks(editor, &stacks)? {
-                Ok(rebase) => {
-                    rebase.materialize(Default::default())?;
-                    break;
-                }
-                Err(failed_stack) => failed_stack,
-            };
-            let stack = stacks.remove(index);
-            if err
-                .downcast_ref::<but_rebase::merge::ConflictErrorContext>()
-                .is_some()
-            {
-                conflicting_stacks.push(stack.head);
-            } else if err
-                .downcast_ref::<but_workspace::branch::apply::OverlapErrorContext>()
-                .is_some()
-            {
-                // A stack that shares commits with another one is usually already in the
-                // workspace through it.
-                warn!("Not reapplying an overlapping stack: {err:#}");
-            } else {
-                return Err(err);
-            }
-        }
-        drop((repo, db));
-        ctx.update_workspace_cache(ws);
-
-        conflicting_stacks
-    };
-
-    if let Some(snapshot) = maybe_oplog_entry {
-        _ = snapshot.commit(ctx, perm);
-    }
-
-    if !already_on_workspace {
-        ctx.reload_repo_and_invalidate_workspace(perm)?;
-    }
-    let mut meta = ctx.meta()?;
-    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace = WorkspaceState::from_workspace_with_db(
-        &ws,
-        &mut meta,
-        &repo,
-        Default::default(),
-        Vec::new(),
-        &mut db,
-    )?;
-    Ok(WorkspaceRecreateResult {
-        workspace,
-        conflicting_stacks,
-        already_on_workspace,
-    })
-}
-
-/// Put a workspace commit on top of `HEAD` and check it out, then apply `stacks`, each given
-/// tip first, to it.
-///
-/// If a stack can't be applied, its index in `stacks` is returned with the error, which carries a
-/// [`but_rebase::merge::ConflictErrorContext`] if it conflicts with the stacks before it, and a
-/// [`but_workspace::branch::apply::OverlapErrorContext`] if it shares commits with them.
-fn switch_to_workspace_with_stacks<'ws, 'meta, M: RefMetadata>(
-    editor: but_rebase::graph_rebase::Editor<'ws, 'meta, M>,
-    stacks: &[NonEmpty<gix::refs::FullName>],
-) -> anyhow::Result<
-    Result<but_rebase::graph_rebase::SuccessfulRebase<'ws, 'meta, M>, (usize, anyhow::Error)>,
-> {
-    let (mut rebase, _) = but_workspace::editor_workspace::switch_to_workspace(editor)?;
-    for (order, stack) in stacks.iter().enumerate() {
-        rebase = match but_workspace::branch::apply_stack(
-            rebase.into_editor(),
-            stack.head.as_ref(),
-            order,
-        ) {
-            Ok(outcome) => outcome.rebase,
-            Err(err) => return Ok(Err((order, err))),
-        };
-    }
-    let mut editor = rebase.into_editor();
-    if let Some(target) = editor.target_selector() {
-        for NonEmpty {
-            head: tip,
-            tail: lower_branches,
-        } in stacks
-        {
-            for lower_branch in lower_branches {
-                stack_lower_branch(&mut editor, target, tip.as_ref(), lower_branch.as_ref())?;
-            }
-        }
-    }
-    Ok(Ok(editor.rebase()?))
-}
-
-/// If `lower_branch` points to a commit in the lane of `tip` and is not already in a lane, move it
-/// into the lane.
-fn stack_lower_branch<M: RefMetadata>(
-    editor: &mut but_rebase::graph_rebase::Editor<'_, '_, M>,
-    target: but_rebase::graph_rebase::Selector,
-    tip: &gix::refs::FullNameRef,
-    lower_branch: &gix::refs::FullNameRef,
-) -> anyhow::Result<()> {
-    let Some(lower) = editor.try_select_reference(lower_branch) else {
-        return Ok(());
-    };
-    // Must not already be in a lane.
-    if !editor.direct_children(lower)?.is_empty() {
-        return Ok(());
-    }
-    let [(commit, _)] = editor.direct_parents(lower)?[..] else {
-        return Ok(());
-    };
-    // Find the other end of the edge that we must break (the child's commit).
-    let mut step = editor.select_reference(tip)?;
-    let child_of_commit = loop {
-        if step == target {
-            return Ok(());
-        }
-        let Some((parent, _)) = editor
-            .direct_parents(step)?
-            .into_iter()
-            .min_by_key(|(_, order)| *order)
-        else {
-            return Ok(());
-        };
-        if parent == commit {
-            break step;
-        }
-        step = parent;
-    };
-    for order in editor.remove_edges(child_of_commit, commit)? {
-        editor.add_edge(child_of_commit, lower, order)?;
-    }
-    Ok(())
-}
+pub use but_transaction::workspace_state::{
+    WorkspaceRecreateResult, workspace_recreate_with_perm, workspace_recreate_with_perm_only,
+};
 
 /// The persisted status of fetches performed through [`workspace_fetch_from_remotes()`].
 #[derive(Debug, Clone, Default, serde::Serialize)]
@@ -473,7 +259,9 @@ pub(crate) fn prune_missing_branch_stack_order(ctx: &but_ctx::Context) -> anyhow
             .map(|reference| reference.name().to_owned())
             .collect::<Vec<_>>()
     };
-    ctx.meta()?
+    ctx.db
+        .get_cache_mut()?
+        .meta_mut()?
         .remove_missing_branch_stack_order_references(&local_branch_refs)?;
     Ok(())
 }
@@ -506,10 +294,9 @@ pub fn get_workspace(
     ctx: &but_ctx::Context,
     perm: &RepoShared,
 ) -> anyhow::Result<but_workspace::ui::workspace::DetailedGraphWorkspace> {
-    let mut meta = ctx.meta()?;
     let (repo, workspace, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
     let mut workspace = workspace.clone();
-    but_workspace::workspace::detailed_graph_workspace(&mut workspace, &mut meta, &repo, &mut db)
+    but_workspace::workspace::detailed_graph_workspace(&mut workspace, &repo, &mut db)
         .map(Into::into)
 }
 
@@ -1060,7 +847,6 @@ pub fn workspace_integrate_upstream_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
-    let mut meta = ctx.meta()?;
     let (workspace_state, worktree_conflicts) = {
         let project_meta = ctx.project_meta()?;
         let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
@@ -1086,7 +872,6 @@ pub fn workspace_integrate_upstream_only_with_perm(
             project_meta,
         } = but_workspace::integrate_upstream_with_hints(
             &mut ws,
-            &mut meta,
             project_meta,
             &repo,
             &mut db,
@@ -1146,7 +931,6 @@ pub fn workspace_integrate_upstream_only_with_perm(
 #[cfg(test)]
 mod tests {
     use super::{review_integration_hints_from_reviews, workspace_fetch_from_remotes};
-    use but_core::RefMetadata;
     use but_testsupport::{CommandExt, git_at_dir, open_repo};
     use std::collections::HashSet;
     use std::path::Path;
@@ -1328,7 +1112,9 @@ mod tests {
         let feature: gix::refs::FullName = "refs/heads/feature".try_into()?;
         let main = repo.head_name()?.expect("HEAD is symbolic");
         let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-        ctx.meta()?
+        ctx.db
+            .get_cache_mut()?
+            .meta_mut()?
             .set_branch_stack_order(&[feature, main.clone()])?;
 
         git_at_dir(tmp.path())
@@ -1339,7 +1125,11 @@ mod tests {
             .expect_err("the configured origin does not exist");
 
         assert!(
-            ctx.meta()?.branch_stack_order(main.as_ref())?.is_none(),
+            ctx.db
+                .get_cache()?
+                .meta()
+                .branch_stack_order(main.as_ref())?
+                .is_none(),
             "failed fetch should still prune missing branch-order references"
         );
         Ok(())

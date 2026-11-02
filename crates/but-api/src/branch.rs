@@ -5,7 +5,7 @@ use anyhow::{Context as _, bail};
 use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
-    DryRun, RefMetadata, WORKSPACE_REF_NAME,
+    DryRun, WORKSPACE_REF_NAME,
     branch::{refuse_colliding_refname, unique_canned_refname},
     ref_metadata::{ProjectMeta, UnresolvedLegacyTargetRefError},
     sync::{RepoExclusive, RepoShared},
@@ -836,13 +836,12 @@ pub fn apply_only_with_perm(
     existing_branch: &gix::refs::FullNameRef,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<but_workspace::branch::apply::Outcome> {
-    let mut meta = ctx.meta()?;
-    let (repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let out = but_workspace::branch::apply(
         existing_branch,
         ws.clone(),
         &repo,
-        &mut meta,
+        &mut db,
         // NOTE: Options can later be passed as parameter, or we have a separate function for that.
         //       Showing them off here while leaving defaults.
         but_workspace::branch::apply::Options {
@@ -854,6 +853,7 @@ pub fn apply_only_with_perm(
     if out.status.persisted_mutation() {
         drop(repo);
         drop(ws);
+        drop(db);
         ctx.update_workspace_cache(out.workspace.clone());
     }
     Ok(out)
@@ -975,10 +975,8 @@ pub fn branch_create_with_perm(
             perm.read_permission(),
             false,
         )?;
-        let mut meta = ctx.meta()?;
         let workspace = sbm.transaction_with_workspace_setup(
             ctx,
-            &mut meta,
             SnapshotDetails::new(OperationKind::CreateBranch)
                 .with_trailers([Trailer::Name(new_ref.to_string())]),
             &[new_ref.as_ref()],
@@ -1015,10 +1013,8 @@ pub fn branch_create_with_perm(
 
     // The snapshot lists `new_ref` so that undo deletes it again: left behind, it would join
     // a stack on the next change.
-    let mut meta = ctx.meta()?;
     let workspace = but_transaction::with_transaction_with_perm(
         ctx,
-        &mut meta,
         perm,
         SnapshotDetails::new(OperationKind::CreateBranch)
             .with_trailers([Trailer::Name(new_ref.to_string())]),
@@ -1069,10 +1065,8 @@ pub fn branch_name_segment_with_perm(
     // The snapshot lists `new_ref` so that undo deletes it again. Not when a linked worktree
     // gets it checked out: undo can't restore that worktree, and won't delete a ref it has.
     let undone_ref = matches!(checkout, but_graph::WorktreeKind::Main).then_some(new_ref.as_ref());
-    let mut meta = ctx.meta()?;
     let workspace = but_transaction::with_transaction_with_perm(
         ctx,
-        &mut meta,
         perm,
         SnapshotDetails::new(OperationKind::CreateBranch)
             .with_trailers([Trailer::Name(new_ref.to_string())]),
@@ -1131,16 +1125,9 @@ pub fn branch_remove_with_perm(
     if removed && let Some(snapshot) = maybe_oplog_entry {
         snapshot.commit(ctx, perm).ok();
     }
-    let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace = WorkspaceState::from_workspace_with_db(
-        &ws,
-        &mut meta,
-        &repo,
-        BTreeMap::new(),
-        Vec::new(),
-        &mut db,
-    )?;
+    let workspace =
+        WorkspaceState::from_workspace_with_db(&ws, &repo, BTreeMap::new(), Vec::new(), &mut db)?;
     Ok(BranchRemoveResult { workspace })
 }
 
@@ -1225,9 +1212,7 @@ pub fn branch_remove_only_with_perm(
         // the entrypoint and is no longer part of the downward projection.
         branch_checkout_with_perm_only(ctx, below, perm)?;
     }
-
-    let mut meta = ctx.meta()?;
-    let (mut repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let (mut repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let new_ws = if moved_head {
         None
     } else {
@@ -1235,7 +1220,7 @@ pub fn branch_remove_only_with_perm(
             ref_name.as_ref(),
             &mut repo,
             &ws,
-            &mut meta,
+            &mut db,
             but_workspace::branch::remove_reference::Options {
                 avoid_anonymous_stacks: true,
                 keep_metadata: false,
@@ -1247,12 +1232,13 @@ pub fn branch_remove_only_with_perm(
         let new_ws = but_workspace::branch::dissolve_unnecessary_workspace(
             &new_ws,
             &repo,
-            &mut meta,
+            &mut db,
             Default::default(),
         )?
         .map_or(new_ws, |(dissolved, _)| dissolved);
         drop(ws);
         drop(repo);
+        drop(db);
         ctx.update_workspace_cache(new_ws);
         true
     } else {
@@ -1262,14 +1248,15 @@ pub fn branch_remove_only_with_perm(
             &mut repo,
             ref_name.as_ref(),
         )?;
-        let deleted_meta = meta.remove(ref_name.as_ref())?;
+        let deleted_meta = db.meta_mut()?.remove(ref_name.as_ref())?;
         if deleted_ref || deleted_meta {
             let new_ws = ws
                 .graph
-                .redo_traversal_with_overlay(&repo, &meta, Default::default())?
+                .redo_traversal_with_overlay(&repo, &db.meta(), Default::default())?
                 .into_workspace()?;
             drop(ws);
             drop(repo);
+            drop(db);
             ctx.update_workspace_cache(new_ws);
             true
         } else {
@@ -1331,13 +1318,11 @@ pub fn branch_rename_with_perm(
 
     // Renaming onto the same name is a no-op that still returns the current view.
     if ref_name == new_ref {
-        let mut meta = ctx.meta()?;
         let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
         repo.find_reference(ref_name.as_ref())
             .with_context(|| format!("Branch '{}' does not exist", ref_name.shorten()))?;
         let workspace = WorkspaceState::from_workspace_with_db(
             &ws,
-            &mut meta,
             &repo,
             BTreeMap::new(),
             Vec::new(),
@@ -1383,14 +1368,13 @@ pub fn branch_rename_with_perm(
     );
 
     {
-        let mut meta = ctx.meta()?;
         let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
         repo.find_reference(ref_name.as_ref())
             .with_context(|| format!("Branch '{}' does not exist", ref_name.shorten()))?;
         if repo.try_find_reference(new_ref.as_ref())?.is_some()
-            || meta.branch_opt(new_ref.as_ref())?.is_some()
-            || meta.branch_stack_order(new_ref.as_ref())?.is_some()
+            || db.meta().branch_opt(new_ref.as_ref())?.is_some()
+            || db.meta().branch_stack_order(new_ref.as_ref())?.is_some()
         {
             bail_precondition!("A branch named '{}' already exists", new_ref.shorten());
         }
@@ -1400,11 +1384,11 @@ pub fn branch_rename_with_perm(
             extra_mutable_refs: vec![ref_name.clone()],
             ..Default::default()
         };
-        let mut editor = Editor::create_with_opts(&mut ws, &mut meta, &repo, &mut db, &options)?;
+        let mut editor = Editor::create_with_opts(&mut ws, &repo, &mut db, &options)?;
         editor.replace_reference(editor.select_reference(ref_name.as_ref())?, new_ref.clone())?;
         let mut rebase = editor.rebase()?;
-        let (_, meta) = rebase.repo_and_meta_mut();
-        meta.rename(ref_name.as_ref(), new_ref.as_ref())?;
+        let (_, db) = rebase.repo_and_db_mut();
+        db.meta_mut()?.rename(ref_name.as_ref(), new_ref.as_ref())?;
         rebase.materialize(Default::default())?;
     }
 
@@ -1414,16 +1398,9 @@ pub fn branch_rename_with_perm(
     if let Some(snapshot) = maybe_oplog_entry {
         snapshot.commit(ctx, perm).ok();
     }
-    let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace = WorkspaceState::from_workspace_with_db(
-        &ws,
-        &mut meta,
-        &repo,
-        BTreeMap::new(),
-        Vec::new(),
-        &mut db,
-    )?;
+    let workspace =
+        WorkspaceState::from_workspace_with_db(&ws, &repo, BTreeMap::new(), Vec::new(), &mut db)?;
     Ok(BranchRenameResult { workspace, new_ref })
 }
 
@@ -1541,16 +1518,9 @@ pub fn branch_checkout_with_perm_only(
     }
 
     ctx.reload_repo_and_invalidate_workspace(perm)?;
-    let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace = WorkspaceState::from_workspace_with_db(
-        &ws,
-        &mut meta,
-        &repo,
-        BTreeMap::new(),
-        Vec::new(),
-        &mut db,
-    )?;
+    let workspace =
+        WorkspaceState::from_workspace_with_db(&ws, &repo, BTreeMap::new(), Vec::new(), &mut db)?;
     Ok(BranchCheckoutResult { workspace })
 }
 
@@ -1588,7 +1558,6 @@ pub fn branch_list_with_perm(
     ctx: &Context,
     _perm: &RepoShared,
 ) -> anyhow::Result<Vec<ListedStack>> {
-    let meta = ctx.meta()?;
     let project_meta = match ctx.project_meta() {
         Ok(project_meta) => project_meta,
         // Listing needs no target, and the listed branches are what one is chosen from to
@@ -1599,12 +1568,7 @@ pub fn branch_list_with_perm(
     let listing = {
         let repo = ctx.repo.get()?;
         let mut db = ctx.db.get_cache_mut()?;
-        but_branches::list(
-            &repo,
-            &meta,
-            &mut db,
-            but_branches::Options { project_meta },
-        )?
+        but_branches::list(&repo, &mut db, but_branches::Options { project_meta })?
     };
 
     let db = ctx.db.get_cache()?;
@@ -1667,11 +1631,10 @@ pub fn get_initial_branch_integration_with_perm(
     strategy: BranchIntegrationStrategy,
     perm: &RepoShared,
 ) -> anyhow::Result<InitialBranchIntegration> {
-    let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
     let mut ws = ws.clone();
     but_workspace::branch::integrate_branch_upstream::get_initial_integration_steps_for_branch(
-        branch, strategy, &mut ws, &mut meta, &repo, &mut db,
+        branch, strategy, &mut ws, &repo, &mut db,
     )
 }
 
@@ -1714,13 +1677,11 @@ pub fn apply_branch_integration_with_perm(
         OperationKind::GenericBranchUpdate,
         dry_run,
         |ctx, perm| {
-            let mut meta = ctx.meta()?;
             let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
             let rebase = but_workspace::branch::integrate_branch_with_steps(
                 branch,
                 integration,
                 &mut ws,
-                &mut meta,
                 &repo,
                 &mut db,
             )?;
@@ -1781,10 +1742,8 @@ pub fn move_branch_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveBranchResult> {
-    let mut meta = ctx.meta()?;
     let workspace = but_transaction::with_transaction_with_perm(
         ctx,
-        &mut meta,
         perm,
         SnapshotDetails::new(OperationKind::MoveBranch),
         &[],
@@ -1828,10 +1787,9 @@ pub fn tear_off_branch_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveBranchResult> {
-    let mut meta = ctx.meta()?;
     let snapshot_details = SnapshotDetails::new(OperationKind::TearOffBranch);
     let tear_off =
-        |mut tx: but_transaction::Transaction<'_, '_, _>| tx.tear_off_branch(subject_branch, None);
+        |mut tx: but_transaction::Transaction<'_, '_>| tx.tear_off_branch(subject_branch, None);
     #[cfg(feature = "legacy")]
     if matches!(dry_run, DryRun::No) {
         let sbm = but_transaction::single_branch_mode::SingleBranchMode::new(
@@ -1839,20 +1797,12 @@ pub fn tear_off_branch_with_perm(
             perm.read_permission(),
             false,
         )?;
-        let workspace = sbm.transaction_with_workspace_setup(
-            ctx,
-            &mut meta,
-            snapshot_details,
-            &[],
-            perm,
-            true,
-            tear_off,
-        )?;
+        let workspace =
+            sbm.transaction_with_workspace_setup(ctx, snapshot_details, &[], perm, true, tear_off)?;
         return Ok(MoveBranchResult { workspace });
     }
     let workspace = but_transaction::with_transaction_with_perm(
         ctx,
-        &mut meta,
         perm,
         snapshot_details,
         &[],

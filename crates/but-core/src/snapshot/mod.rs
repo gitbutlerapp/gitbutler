@@ -17,8 +17,6 @@ mod commit {
     use anyhow::anyhow;
     use serde::Serialize;
 
-    use crate::RefMetadata;
-
     #[expect(dead_code)]
     pub struct Commit<'repo> {
         /// The id of the commit that was used for accessing its metadata.
@@ -98,7 +96,6 @@ mod commit {
     pub fn pop_stash_commit(
         _repo: &gix::Repository,
         _ref_name: &gix::refs::FullNameRef,
-        _meta: &mut impl RefMetadata,
     ) -> anyhow::Result<()> {
         todo!()
     }

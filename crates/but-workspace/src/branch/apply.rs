@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use anyhow::{Context as _, bail};
 use but_core::{
-    ObjectStorageExt, RefMetadata, RepositoryExt, ref_metadata,
+    ObjectStorageExt, RepositoryExt, ref_metadata,
     ref_metadata::{
         Workspace,
         WorkspaceCommitRelation::{Merged, Outside},
@@ -184,9 +184,9 @@ pub struct Options {
 }
 
 /// Returned by [apply_stack()].
-pub struct ApplyStackOutcome<'ws, 'meta, M: RefMetadata> {
+pub struct ApplyStackOutcome<'ws, 'db> {
     /// The rebase that applies the stack once materialized.
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
+    pub rebase: SuccessfulRebase<'ws, 'db>,
     /// Whether materializing `rebase` changes the workspace.
     pub status: OutcomeStatus,
     /// The branch(es) that become lanes once `rebase` is materialized.
@@ -223,12 +223,30 @@ impl LocalTracking {
 /// If `branch` is a remote-tracking branch, its local tracking branch is applied instead. If that
 /// doesn't exist, it's created at the remote-tracking commit, and its tracking configuration is
 /// returned to be written after materializing.
-#[instrument(skip(editor, order), err(Debug))]
-pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
-    editor: Editor<'ws, 'meta, M>,
+pub fn apply_stack<'ws, 'meta>(
+    editor: Editor<'ws, 'meta>,
     branch: &FullNameRef,
     order: impl Into<Option<usize>>,
-) -> anyhow::Result<ApplyStackOutcome<'ws, 'meta, M>> {
+) -> anyhow::Result<ApplyStackOutcome<'ws, 'meta>> {
+    apply_stack_inner(editor, branch, order.into(), false)
+}
+
+/// Reapply a saved stack, keeping an overlapping stack already represented by the workspace.
+pub fn apply_saved_stack<'ws, 'meta>(
+    editor: Editor<'ws, 'meta>,
+    branch: &FullNameRef,
+    order: impl Into<Option<usize>>,
+) -> anyhow::Result<ApplyStackOutcome<'ws, 'meta>> {
+    apply_stack_inner(editor, branch, order.into(), true)
+}
+
+#[instrument(skip(editor, order), err(Debug))]
+fn apply_stack_inner<'ws, 'meta>(
+    editor: Editor<'ws, 'meta>,
+    branch: &FullNameRef,
+    order: Option<usize>,
+    ignore_overlap: bool,
+) -> anyhow::Result<ApplyStackOutcome<'ws, 'meta>> {
     let (branch, remote_tracking_branch) = if branch.category() == Some(Category::RemoteBranch) {
         // Symbolic ones, `origin/HEAD` say, would make a local branch of the name they point through.
         if try_find_validated_ref(editor.repo(), branch, "apply")?.is_none() {
@@ -382,6 +400,18 @@ pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
             .copied()
             .collect();
         if !overlap.is_empty() {
+            if ignore_overlap {
+                return Ok(ApplyStackOutcome {
+                    rebase: editor.rebase()?,
+                    status: if workspace_commit_created {
+                        OutcomeStatus::Applied
+                    } else {
+                        OutcomeStatus::AlreadyApplied
+                    },
+                    applied_branches,
+                    tracking: None,
+                });
+            }
             let parent_label = match editor.lookup_step(parent_selector)? {
                 Step::Reference { refname, .. } => format!("'{}'", refname.shorten()),
                 Step::Pick(_) | Step::None => {
@@ -410,7 +440,7 @@ pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
             branch_selector
         }
     };
-    editor.insert_parent(workspace_commit, branch_selector, order.into())?;
+    editor.insert_parent(workspace_commit, branch_selector, order)?;
     for empty_parent in empty_parents {
         editor.remove_edges(workspace_commit, empty_parent)?;
     }
@@ -438,7 +468,7 @@ fn commits_in(
 }
 
 /// Apply `branch` to the given `workspace`, and possibly create the workspace reference in `repo`
-/// along with its `meta`-data if it doesn't exist yet.
+/// along with its metadata in `db` if it doesn't exist yet.
 /// The changed workspace will be checked out.
 /// If `branch` is a remote tracking branch, we will instead apply the local tracking branch if it exists or fail otherwise.
 /// Otherwise, add it to the existing `workspace`, and update its metadata accordingly.
@@ -450,7 +480,7 @@ fn commits_in(
 /// Also note that we will create a managed workspace reference as needed if necessary, and a workspace commit if there is more than
 /// one reference in the workspace afterward.
 ///
-/// On `error`, neither `repo` nor `meta` will have been changed, but `repo` may contain in-memory objects.
+/// On `error`, neither `repo` nor `db` will have been changed, but `repo` may contain in-memory objects.
 /// Otherwise, objects will have been persisted, and references and metadata will have been updated.
 ///
 /// Note that when we exit early as the branch is already present, we ignore the `integration_mode` which controls how the workspace
@@ -458,12 +488,12 @@ fn commits_in(
 ///
 /// Note that options have no effect if `branch` is already in the workspace, so `apply` is *not* a way
 /// to alter certain aspects of the workspace by applying the same branch again.
-#[instrument(skip(workspace, repo, meta), err(Debug))]
+#[instrument(skip(workspace, repo, db), err(Debug))]
 pub fn apply(
     branch: &FullNameRef,
     workspace: but_graph::Workspace,
     repo: &gix::Repository,
-    meta: &mut impl RefMetadata,
+    db: &mut but_db::DbHandle,
     Options {
         new_stack_id,
         allow_applying_already_applied_branch_when_outside_workspace,
@@ -504,7 +534,7 @@ pub fn apply(
         WorkspaceKind::AdHoc => false,
     };
     let branch_has_applied_metadata =
-        branch_has_applied_workspace_metadata(branch.as_ref(), &ws, meta)?;
+        branch_has_applied_workspace_metadata(branch.as_ref(), &ws, db)?;
     let branch_in_stack = ws
         .find_segment_and_stack_by_refname(branch.as_ref())
         .is_some();
@@ -543,15 +573,15 @@ pub fn apply(
             let ws_ref_name = ws_ref_name
                 .as_ref()
                 .context("Workspace metadata must be available to repair stale applied state")?;
-            let mut ws_md = meta.workspace(ws_ref_name.as_ref())?;
+            let mut ws_md = db.meta().workspace(ws_ref_name.as_ref())?;
             add_branch_as_stack_forcefully(&mut ws_md, branch.as_ref(), new_stack_id);
-            persist_metadata_and_gitconfig(meta, &applied_branches, &ws_md, None)?;
+            persist_metadata_and_gitconfig(db, &applied_branches, &ws_md, None)?;
         }
         let ws = ws
             .graph
             .redo_traversal_with_overlay(
                 repo,
-                meta,
+                &db.meta(),
                 Overlay::default().with_entrypoint(commit_to_checkout, ws_ref_name.clone()),
             )?
             .into_workspace()?;
@@ -584,7 +614,7 @@ pub fn apply(
         bail!("Refusing to work on workspace whose workspace commit isn't at the top");
     }
 
-    if meta.workspace_opt(branch.as_ref())?.is_some() {
+    if db.meta().workspace_opt(branch.as_ref())?.is_some() {
         bail!(
             "Refusing to apply a reference that already is a workspace: '{}'",
             branch.shorten()
@@ -660,7 +690,7 @@ pub fn apply(
         },
     };
 
-    let mut ws_md = meta.workspace(workspace_ref_name_to_update.as_ref())?;
+    let mut ws_md = db.meta().workspace(workspace_ref_name_to_update.as_ref())?;
     // When HEAD is on a branch that's already in the workspace, applying another branch re-roots
     // the workspace around just that branch plus the ones we apply.
     let head_branch_in_workspace = head_ref_name.as_ref().is_some_and(|head| {
@@ -713,7 +743,8 @@ pub fn apply(
     let branch_mds = branches_to_apply
         .iter()
         .map(|rn| {
-            meta.branch(rn.as_ref())
+            db.meta()
+                .branch(rn.as_ref())
                 .map(|md| (rn.to_owned(), (*md).clone()))
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -731,7 +762,7 @@ pub fn apply(
         .with_workspace_metadata_override(ws_md_override);
     let ws = ws
         .graph
-        .redo_traversal_with_overlay(repo, meta, overlay.clone())?
+        .redo_traversal_with_overlay(repo, &db.meta(), overlay.clone())?
         .into_workspace()?;
 
     let all_applied_branches_are_already_visible = branches_to_apply
@@ -760,7 +791,7 @@ pub fn apply(
     let head_id = repo.head_id().context("BUG: we assume HEAD is born here")?;
     if all_applied_branches_are_already_visible && head_id == ws_ref_id {
         persist_metadata_and_gitconfig(
-            meta,
+            db,
             &branches_to_apply,
             &ws_md,
             local_tracking_config_and_ref_info,
@@ -777,7 +808,7 @@ pub fn apply(
         {
             let graph = ws.graph.redo_traversal_with_overlay(
                 repo,
-                meta,
+                &db.meta(),
                 overlay.with_entrypoint(
                     ws_commit_with_new_message,
                     Some(workspace_ref_name_to_update.clone()),
@@ -852,9 +883,9 @@ pub fn apply(
     let overlay = overlay
         .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
         .with_workspace_metadata_override(ws_md_override);
-    let graph = ws
-        .graph
-        .redo_traversal_with_overlay(&in_memory_repo, meta, overlay.clone())?;
+    let graph =
+        ws.graph
+            .redo_traversal_with_overlay(&in_memory_repo, &db.meta(), overlay.clone())?;
 
     let mut ws = graph.into_workspace()?;
     let collect_unapplied_branches = |ws: &but_graph::Workspace| {
@@ -963,7 +994,7 @@ pub fn apply(
             .graph
             .redo_traversal_with_overlay(
                 &in_memory_repo,
-                meta,
+                &db.meta(),
                 overlay
                     .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
                     .with_workspace_metadata_override(ws_md_override),
@@ -1001,7 +1032,7 @@ pub fn apply(
     )?;
     ws.reconcile_metadata(&mut ws_md)?;
     persist_metadata_and_gitconfig(
-        meta,
+        db,
         &branches_to_apply,
         &ws_md,
         local_tracking_config_and_ref_info,
@@ -1076,12 +1107,12 @@ fn remove_conflicting_stacks_from_workspace(
 fn branch_has_applied_workspace_metadata(
     branch: &FullNameRef,
     ws: &but_graph::Workspace,
-    meta: &impl RefMetadata,
+    db: &but_db::DbHandle,
 ) -> anyhow::Result<bool> {
     let Some(ws_ref_name) = ws.ref_name() else {
         return Ok(true);
     };
-    let Some(ws_md) = meta.workspace_opt(ws_ref_name)? else {
+    let Some(ws_md) = db.meta().workspace_opt(ws_ref_name)? else {
         return Ok(true);
     };
     Ok(ws_md.find_branch(branch, StackKind::Applied).is_some() || ws_ref_name == branch)
@@ -1220,23 +1251,20 @@ fn add_branch_as_stack_forcefully(
     stack.workspacecommit_relation = Merged;
 }
 
-fn persist_metadata_and_gitconfig<T: RefMetadata>(
-    meta: &mut T,
+fn persist_metadata_and_gitconfig(
+    db: &mut but_db::DbHandle,
     branches_to_apply: &[gix::refs::FullName],
-    ws_md: &T::Handle<Workspace>,
+    ws_md: &but_db::MetaHandle<Workspace>,
     config_and_ref: Option<(
         gix::config::FileTransaction,
         (gix::refs::FullName, &gix::refs::FullNameRef, gix::Id),
     )>,
 ) -> anyhow::Result<()> {
-    meta.set_workspace(ws_md)?;
-    // Always re-obtain the branch information after it was set
-    // or stuff will go wrong right now.
-    // TODO: remove this note and keep using existing handles once vb.toml is gone.
+    db.meta_mut()?.set_workspace(ws_md)?;
     for rn in branches_to_apply {
-        let mut md = meta.branch(rn.as_ref())?;
+        let mut md = db.meta().branch(rn.as_ref())?;
         md.update_times(false /* is new ref */);
-        meta.set_branch(&md)?;
+        db.meta_mut()?.set_branch(&md)?;
     }
 
     if let Some((config, (ref_to_create, remote_tracking_ref, ref_target_id))) = config_and_ref {

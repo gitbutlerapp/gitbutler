@@ -43,9 +43,8 @@ pub(crate) fn commit_amend_only_impl(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCreateResult> {
     let worktree = crate::worktrees::open_changes_source(ctx, changes_source)?;
-    let mut meta = ctx.meta()?;
     let (_, (amended, workspace)) =
-        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
+        with_transaction_with_perm_only(ctx, perm, dry_run, |mut tx| {
             let source = worktree
                 .as_ref()
                 .map_or(ChangeSource::Head, |(name, repo)| ChangeSource::Worktree {

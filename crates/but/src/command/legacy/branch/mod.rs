@@ -91,10 +91,8 @@ pub fn delete(
     }
     // Discard last: its state carries the checkout and conflict outcome the CLI reports.
     if let Some(in_workspace) = NonEmpty::from_vec(in_workspace) {
-        let mut meta = ctx.meta()?;
         let (_, ws) = discard::run(
             ctx,
-            &mut meta,
             guard.write_permission(),
             discard::DiscardOperation::Branches(in_workspace),
             gitbutler_oplog::entry::OperationKind::Discard,

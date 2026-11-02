@@ -49,11 +49,9 @@ pub fn commit_move_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitMoveResult> {
-    let mut meta = ctx.meta()?;
-    let (_, workspace) =
-        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
-            tx.move_commits(subject_commit_ids, relative_to, side)
-        })?;
+    let (_, workspace) = with_transaction_with_perm_only(ctx, perm, dry_run, |mut tx| {
+        tx.move_commits(subject_commit_ids, relative_to, side)
+    })?;
 
     Ok(CommitMoveResult { workspace })
 }

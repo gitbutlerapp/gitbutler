@@ -8,7 +8,6 @@ use clap::Parser;
 
 pub mod args;
 pub(crate) mod command;
-mod metadata;
 mod setup;
 mod trace;
 

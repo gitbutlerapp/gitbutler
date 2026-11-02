@@ -36,9 +36,8 @@ pub(crate) fn commit_insert_blank_only_impl(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitInsertBlankResult> {
-    let mut meta = ctx.meta()?;
     let (_, (new_commit, workspace)) =
-        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
+        with_transaction_with_perm_only(ctx, perm, dry_run, |mut tx| {
             Ok(Commit(tx.insert_blank_commit(relative_to, side)?.id))
         })?;
 

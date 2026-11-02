@@ -198,21 +198,19 @@ pub fn commit_uncommit_only_with_perm(
     }
     let surfaced = SurfacedHunks::record_before(ctx, assign_to, dry_run, perm.read_permission())?;
 
-    let mut meta = ctx.meta()?;
-    let (_, workspace) =
-        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
-            tx.uncommit_commits(subject_commit_ids.iter().copied())
-                .with_context(|| {
-                    format!(
-                        "failed to uncommit commits: {}",
-                        subject_commit_ids
-                            .iter()
-                            .map(|id| id.to_hex().to_string())
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    )
-                })
-        })?;
+    let (_, workspace) = with_transaction_with_perm_only(ctx, perm, dry_run, |mut tx| {
+        tx.uncommit_commits(subject_commit_ids.iter().copied())
+            .with_context(|| {
+                format!(
+                    "failed to uncommit commits: {}",
+                    subject_commit_ids
+                        .iter()
+                        .map(|id| id.to_hex().to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            })
+    })?;
 
     if let Some(surfaced) = surfaced {
         surfaced.assign_after(ctx, perm.read_permission())?;
@@ -269,12 +267,10 @@ pub fn commit_uncommit_changes_only_with_perm(
 ) -> anyhow::Result<MoveChangesResult> {
     let surfaced = SurfacedHunks::record_before(ctx, assign_to, dry_run, perm.read_permission())?;
 
-    let mut meta = ctx.meta()?;
-    let (_, workspace) =
-        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
-            tx.uncommit_changes_from_commit(commit_id, changes)?;
-            Ok(())
-        })?;
+    let (_, workspace) = with_transaction_with_perm_only(ctx, perm, dry_run, |mut tx| {
+        tx.uncommit_changes_from_commit(commit_id, changes)?;
+        Ok(())
+    })?;
 
     if let Some(surfaced) = surfaced {
         surfaced.assign_after(ctx, perm.read_permission())?;
@@ -382,9 +378,8 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
 ) -> anyhow::Result<UncommitChangesFromCommitsResult> {
     let surfaced = SurfacedHunks::record_before(ctx, assign_to, dry_run, perm.read_permission())?;
 
-    let mut meta = ctx.meta()?;
     let (_, (failures, workspace)) =
-        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
+        with_transaction_with_perm_only(ctx, perm, dry_run, |mut tx| {
             let sources =
                 sources
                     .into_iter()

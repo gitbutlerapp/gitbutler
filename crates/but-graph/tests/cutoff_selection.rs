@@ -3,7 +3,6 @@ use but_core::ref_metadata::{LocalRefName, ProjectMeta};
 fn graph(repo: &gix::Repository) -> anyhow::Result<but_graph::Graph> {
     but_graph::Graph::from_head(
         repo,
-        &but_testsupport::InMemoryRefMetadata::default(),
         ProjectMeta {
             target_ref: Some(LocalRefName::new("refs/heads/main".try_into()?)?),
             ..Default::default()

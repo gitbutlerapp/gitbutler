@@ -60,14 +60,12 @@ pub fn list_branches(
     }
 
     let remote_names = repo.remote_names();
-    let meta = ctx.meta()?;
     // The worktree-discovering database borrow must end before the gerrit handle
     // borrows the database again below.
     let ws = {
         let mut db = ctx.db.get_cache_mut()?;
         but_graph::Graph::from_head(
             &repo,
-            &meta,
             ctx.project_meta()?,
             &mut db,
             but_graph::init::Options {
