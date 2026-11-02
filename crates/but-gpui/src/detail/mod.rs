@@ -2196,7 +2196,7 @@ impl Detail {
     pub fn shows_footer(&self, cx: &App) -> bool {
         let store = self.store.read(cx);
         // Drawn with nothing uncommitted too, as Commit… and the composer still are.
-        !self.files_hidden
+        !self.hides_files(cx)
             && self
                 .selected_checkout(cx)
                 .is_some_and(|(project, worktree)| {
@@ -2757,7 +2757,24 @@ impl Detail {
     /// narrow the window. A checkout's overview shows beside them, or alone with them hidden,
     /// as its diff does.
     pub fn files_shown(&self, cx: &App) -> bool {
-        !self.overview_only(cx) && (self.list_page(cx) || !self.files_hidden)
+        !self.overview_only(cx) && (self.list_page(cx) || !self.hides_files(cx))
+    }
+
+    /// Whether the files stay beside the diff with no toggle: with Settings' all-in-one diff
+    /// off the diff shows one file, and the file list is how to go to another.
+    pub(crate) fn files_pinned(&self, cx: &App) -> bool {
+        self.store.read(cx).prefs.one_file_diff
+    }
+
+    /// Whether `f` hid the file list beside the diff, and it isn't pinned there.
+    pub(super) fn hides_files(&self, cx: &App) -> bool {
+        self.files_hidden && !self.files_pinned(cx)
+    }
+
+    /// Whether the files beside a list page's list are hidden, as they are at first, and
+    /// aren't pinned there.
+    pub(super) fn hides_beside_files(&self, cx: &App) -> bool {
+        self.beside_files_hidden && !self.files_pinned(cx)
     }
 
     /// How much of the column beside the diff shows at `now`, from 0 to 1, as `f` slides the
@@ -2766,7 +2783,7 @@ impl Detail {
         match (self.overview_only(cx), self.list_page(cx)) {
             (true, _) => 0.,
             (false, true) => 1.,
-            (false, false) => self.files_slide.share(!self.files_hidden, now),
+            (false, false) => self.files_slide.share(!self.hides_files(cx), now),
         }
     }
 
@@ -2780,7 +2797,7 @@ impl Detail {
     pub fn diff_left(&self, now: Instant, window: &Window, cx: &App) -> f32 {
         let files = self.files_width(window, cx) * self.files_share(now, cx);
         let beside = (self.has_files_beside(cx)).then(|| {
-            let shown = self.beside_slide.share(!self.beside_files_hidden, now);
+            let shown = self.beside_slide.share(!self.hides_beside_files(cx), now);
             self.beside_files_width(cx) * shown
         });
         files + beside.unwrap_or(0.)
@@ -2827,7 +2844,10 @@ impl Detail {
     /// files beside its list, as `f` does.
     pub(crate) fn toggle_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let list_page = self.list_page(cx);
-        if self.overview_only(cx) || (list_page && !self.has_files_beside(cx)) {
+        if self.overview_only(cx)
+            || self.files_pinned(cx)
+            || (list_page && !self.has_files_beside(cx))
+        {
             return;
         }
         let hidden = match list_page {

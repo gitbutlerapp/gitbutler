@@ -992,6 +992,7 @@ impl Detail {
     /// their lines while the list isn't beside the diff and lists them on hover, then how
     /// long lines show and where the sides go. A page whose column is its own list toggles the
     /// files beside it, when it has any; else it has only the count and the list on hover.
+    /// Files pinned beside the diff go without the toggle.
     fn render_diff_tools(&self, theme: &Theme, cx: &Context<Self>) -> Option<AnyElement> {
         let diff = self.shown_diff()?;
         let prefs = &self.store.read(cx).prefs;
@@ -1049,7 +1050,9 @@ impl Detail {
                 .with_priority(1),
             )
         });
-        let files = div().relative().child(toggle).children(list);
+        // Pinned, the files show beside the diff and nothing toggles them.
+        let files = (hidden || !self.files_pinned(cx))
+            .then(|| div().relative().child(toggle).children(list));
         let flag = |id: &'static str, glyph, tip, on, action: &'static dyn Action| {
             icon_toggle(id, glyph, tip, shortcut(action, cx), on, theme).on_click(act(action))
         };
@@ -1072,7 +1075,7 @@ impl Detail {
                 .px(dp(12.))
                 .gap(dp(8.))
                 .bg(theme.bg_1)
-                .child(files)
+                .children(files)
                 .child(div().flex_1())
                 .child(toggle_group(
                     theme,
