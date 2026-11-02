@@ -932,6 +932,8 @@ fn follow_move(moving: &mut Move, old: Option<&Workspace>, new: &Workspace) -> b
                 return false;
             }
         }
+        // Commits from outside the workspace stay as they are, as no rewrite here moves them.
+        Moving::Copies(_) => {}
     }
     match &mut moving.at {
         Stop::In(Destination::AboveCommit(commit) | Destination::BelowCommit(commit)) => {
@@ -958,7 +960,7 @@ fn follow_cut(cut: &mut Cut, old: Option<&Workspace>, new: &Workspace) -> bool {
         false => Some(commit),
     };
     match cut {
-        Cut::Commit(_, commits) | Cut::CherryPick(_, commits) => {
+        Cut::Commit(_, commits) => {
             let followed: Option<Arc<[CommitId]>> =
                 commits.iter().map(|commit| follow(*commit)).collect();
             followed.map(|followed| *commits = followed).is_some()

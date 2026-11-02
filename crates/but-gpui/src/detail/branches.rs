@@ -38,9 +38,9 @@ use crate::backend::upstream::{self, ACTIVITY_DAYS, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, FullName, ReviewState};
 use crate::edits::{CherryPick, DeleteBranch};
 use crate::overlays::{MenuItem, has_keys};
-use crate::state::{BranchStatus, Cut, Label, Overlay, Picks, ProjectId, Selection, Store};
+use crate::state::{BranchStatus, Label, Overlay, Picks, ProjectId, Selection, Store};
 use crate::theme::Theme;
-use crate::transfer::drag_preview;
+use crate::transfer::Moving;
 use crate::ui::illustration::Illustration;
 use crate::ui::person::{byline, byline_avatar};
 use crate::ui::text_input::TextInput;
@@ -104,19 +104,24 @@ impl Branches {
         }
     }
 
-    /// What cherry-picking commit `id` takes: the picks, in the order they're listed, when
-    /// it's one of them, or else just it.
-    fn cherry_picks(&self, id: CommitId) -> Arc<[CommitId]> {
+    /// What cherry-picking commit `id` takes, each by its title: the picks, in the order
+    /// they're listed, when it's one of them, or else just it.
+    fn cherry_picks(&self, id: CommitId) -> Arc<[(CommitId, SharedString)]> {
         // Not merges, as `git cherry-pick` refuses them too: which side to take isn't said.
-        let merge = |id: &CommitId| {
-            (self.commits.values().flat_map(|(_, commits)| commits)).any(|c| c.id == *id && c.merge)
+        let copy = |commit: &TargetCommit| {
+            (!commit.merge).then(|| (commit.id, commit.title.clone().into()))
         };
         let Some(ref_name) = self.selected.as_ref().filter(|_| self.picked.contains(&id)) else {
-            return [id].into_iter().filter(|id| !merge(id)).collect();
+            let mut listed = self.commits.values().flat_map(|(_, commits)| commits);
+            return listed
+                .find(|commit| commit.id == id)
+                .and_then(copy)
+                .into_iter()
+                .collect();
         };
         (self.listed_commits(ref_name).iter())
-            .map(|commit| commit.id)
-            .filter(|id| self.picked.contains(id) && !merge(id))
+            .filter(|commit| self.picked.contains(&commit.id))
+            .filter_map(copy)
             .collect()
     }
 
@@ -1027,8 +1032,8 @@ impl Detail {
         self.open_menu(at, move |_, cx| branch_commit_items(cx), cx);
     }
 
-    /// Pick up the selected commit, with the others picked, to put copies of them where ⌘V
-    /// lands in the workspace.
+    /// Start cherry-picking the selected commit, with the others picked, into the workspace,
+    /// in the navigator, which steps through where copies of them can go.
     fn copy_branch_commit(
         &mut self,
         project: &ProjectId,
@@ -1040,13 +1045,14 @@ impl Detail {
         else {
             return;
         };
-        let ids = branches.cherry_picks(id);
-        if ids.is_empty() {
+        let copies = branches.cherry_picks(id);
+        if copies.is_empty() {
             return;
         }
-        let cut = Cut::CherryPick(project.clone(), ids);
-        self.app
-            .update_later(window, cx, move |app, _, cx| app.cut(cut, cx));
+        let project = project.clone();
+        self.app.update_later(window, cx, move |app, window, cx| {
+            app.cherry_pick(project, Moving::Copies(copies), window, cx)
+        });
     }
 
     /// Return on the list: apply the selected branch, as its menu's Apply does.
@@ -1366,15 +1372,6 @@ impl Detail {
                             let commit = commits.get(*commit_ix)?;
                             let id = commit.id;
                             let label = crate::ui::commit_title(&commit.title);
-                            let project = branches.project.clone();
-                            // A picked one takes the others picked along.
-                            let ids = branches.cherry_picks(id);
-                            let draggable = !ids.is_empty();
-                            let dragged: SharedString = match ids.len() {
-                                1 => label.clone(),
-                                n => format!("{n} commits").into(),
-                            };
-                            let payload = Cut::CherryPick(project, ids);
                             let selected = is_selected(branches, row) || is_picked(branches, row);
                             let joined = match selected && !branches.picked.is_empty() {
                                 true => {
@@ -1431,9 +1428,6 @@ impl Detail {
                                         this.branch_commit_menu(&menu_ref, id, at, cx)
                                     }),
                                 )
-                                .when(draggable, |el| {
-                                    el.on_drag(payload, drag_preview(this.store.clone(), dragged))
-                                })
                                 .into_any_element()
                         }
                         row @ Row::Branch(branch_ix, stacked) => {

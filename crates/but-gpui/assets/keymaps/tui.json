@@ -82,15 +82,16 @@
     }
   },
   // s squashes the selected commit, branch or changes, or in the diff the files or lines ⌘X
-  // would cut, as the TUI's r does: r is reword's here, below.
+  // would cut, as the TUI's r does: r is reword's here, below. p cherry-picks the selected
+  // commit, a remote's, or one picked on the Branches or target page, as the TUI's p does.
   {
     "context": "(Navigator || Diff) && !TextInput",
-    "bindings": { "s": "navigator::SquashSelection" }
+    "bindings": { "s": "navigator::SquashSelection", "p": "edits::CherryPick" }
   },
   // While commits move, the keys above step through where they can land, and Return lands
-  // them there. After the list's Return, so it wins. m and s move instead of squashing, or the
-  // other way round, and while squashing u keeps only the target's message, as in the TUI,
-  // after undo's u, so it wins.
+  // them there. After the list's Return, so it wins. m, s and p move, squash or cherry-pick
+  // them instead, and while squashing u keeps only the target's message, as in the TUI, after
+  // undo's u, so it wins.
   {
     "context": "Navigator && Moving && !TextInput",
     "bindings": { "enter": "navigator::MoveHere" }

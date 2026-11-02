@@ -14,7 +14,7 @@ use crate::backend::{
     Workspace, short_ref,
 };
 use crate::overlays::run_named;
-use crate::state::{Cut, Label, Overlay, ProjectId, Rereads, Selection, Store, snack};
+use crate::state::{Label, Overlay, ProjectId, Rereads, Selection, Store, snack};
 
 actions!(
     edits,
@@ -244,7 +244,7 @@ impl AppView {
                     .on_action(cx.listener(|this, _: &AddEmptyCommitBelow, _, cx| {
                         this.add_empty_commit(false, cx)
                     }))
-                    .on_action(cx.listener(Self::cherry_pick))
+                    .on_action(cx.listener(Self::start_cherry_pick))
                     .on_action(cx.listener(|this, _: &MoveToNewBranch, _, cx| {
                         let Some((project, commit)) = this.selected_commit(cx) else {
                             return;
@@ -281,12 +281,7 @@ impl AppView {
                     )
             }
             // A remote's commit, into a branch here.
-            Some(Selection::Upstream(project, _, id)) => {
-                let cut = Cut::CherryPick(project.clone(), [*id].into());
-                el.on_action(
-                    cx.listener(move |this, _: &CherryPick, _, cx| this.cut(cut.clone(), cx)),
-                )
-            }
+            Some(Selection::Upstream(..)) => el.on_action(cx.listener(Self::start_cherry_pick)),
             Some(Selection::Branch(project, ref_name)) => {
                 let Some(workspace) = store.workspace(project) else {
                     return el;
@@ -1041,13 +1036,10 @@ impl AppView {
         });
     }
 
-    /// Pick up the selected commit, and those picked with it, to put copies of them where ⌘V
-    /// lands.
-    fn cherry_pick(&mut self, _: &CherryPick, _: &mut Window, cx: &mut Context<Self>) {
-        if let Some((project, commit)) = self.selected_commit(cx) {
-            let ids = self.store.read(cx).with_picks(&project, commit.id);
-            self.cut(Cut::CherryPick(project, ids), cx);
-        }
+    /// Start cherry-picking the selected commit, and those picked with it, or a remote's, in
+    /// the navigator, which steps through where copies of them can go.
+    fn start_cherry_pick(&mut self, _: &CherryPick, window: &mut Window, cx: &mut Context<Self>) {
+        (self.navigator).update(cx, |navigator, cx| navigator.start_cherry_pick(window, cx));
     }
 
     /// Squash every commit of the selected branch into its oldest, keeping all messages.

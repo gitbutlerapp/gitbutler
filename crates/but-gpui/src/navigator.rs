@@ -377,6 +377,13 @@ impl<'a> RowStyle<'a> {
             rename,
         )
     }
+
+    /// The copy of a commit titled `title` from outside the workspace a cherry-pick would
+    /// make, `id` the row's: a local commit.
+    fn copy(&self, id: String, title: SharedString) -> Stateful<Div> {
+        let glyph = small_icon(Icon::Commit).text_color(self.meta(self.theme.blue));
+        self.commit_line(id, COMMIT_INDENT, glyph, title, false, None)
+    }
 }
 
 pub struct Navigator {
@@ -411,7 +418,8 @@ pub struct Navigator {
     reveal_selection: bool,
     /// What the move shown, or landing, did when the rows were last brought up to date.
     shown_op: Option<Op>,
-    /// The move shown then was one Return landed, until the reload shows where it went.
+    /// The move shown then was one Return landed, until the reload shows where it went, which
+    /// takes what it moved from where it was: not a cherry-pick.
     shown_landing: bool,
     /// Where a squash's outline was when the rows were last brought up to date: it slides from
     /// there to what it goes into next.
@@ -1388,9 +1396,11 @@ impl Navigator {
         let every = op.is_some() || was.is_some();
         // A squash just ended: landed, what it took goes.
         let ended = matches!(was, Some(Op::Squash(_))) && store.moving.is_none();
-        // A move Return landed, until the reload after it, and as that shows where it went.
-        let landing = std::mem::replace(&mut self.shown_landing, store.landing().is_some())
-            || store.landing().is_some();
+        // A move Return landed, until the reload after it, and as that shows where it went. Not
+        // a cherry-pick, whose commits stay where they are, as when a move ends without landing,
+        // while the copies shown give way to the new commits in their place.
+        let leaving = (store.landing()).is_some_and(|landing| landing.op != Op::CherryPick);
+        let landing = std::mem::replace(&mut self.shown_landing, leaving) || leaving;
         // The outline of what a squash goes into slides there from where it was before, first
         // from around what it's of where it started, its edges coming together as it leaves
         // that, and going apart as it grows back around it.
@@ -1983,10 +1993,9 @@ impl Navigator {
                 (Some(Cut::Branch(p, r)), Selection::Branch(project, ref_name)) => {
                     p == project && ref_name.as_ref() == Some(r)
                 }
-                (
-                    Some(Cut::Commit(p, ids) | Cut::CherryPick(p, ids)),
-                    Selection::Commit(project, commit),
-                ) => p == project && ids.contains(commit),
+                (Some(Cut::Commit(p, ids)), Selection::Commit(project, commit)) => {
+                    p == project && ids.contains(commit)
+                }
                 _ => false,
             };
             cut || matches!(
